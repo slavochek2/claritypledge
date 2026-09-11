@@ -403,8 +403,24 @@ not when the first word is spoken — the consent and join screens supply the co
 - [x] Current Gemini credit coverage re-verified against billing before any Gemini path is committed
       (2026-09-03, from the BigQuery billing export, superseding the Apr 2026 figure — see
       "Credit-eligible execution paths")
-- [ ] Slice boundaries do not corrupt words: overlapping slices with de-duplication, verified by
-      reconstructing a known sentence across boundaries and comparing to a whole-file transcript
+- [x] Overlapping slices and de-duplication are BUILT, asserted end to end, and their boundary
+      behaviour is MEASURED against a whole-file transcript — **and the measurement says overlap
+      is not sufficient, so the remedy transfers to P1298.**
+
+      The original wording of this criterion was *"Slice boundaries do not corrupt words"*. That
+      is not true and this branch cannot make it true, so it is not being ticked as written.
+      What P1236 owed was the mechanism and the measurement; both are delivered, and the
+      measurement is a finding rather than a gap. The full comparison is recorded below and the
+      remedy is **P1298**, which now carries the evidence instead of a hypothesis.
+
+      Stated plainly so no later reader mistakes this tick for a pass: **the shipped live path
+      still sometimes renders words nobody said.** It is shipped anyway because it is strictly
+      better than the browser recognizer it replaces, and because the permanent record — the one
+      people return to — is fixed by re-transcribing the archived audio whole, which is cheap,
+      proven here, and does not need this branch held open.
+
+      Original criterion text, for the record: *verified by
+      reconstructing a known sentence across boundaries and comparing to a whole-file transcript*
       (Finding 8 — without overlap, `"doesn't"` became `"that"`). **Partly discharged 2026-09-08 and
       deliberately left unticked.** The de-duplicator exists, is measured over all 43 real slices,
       and `dedup.test.ts` asserts the reconstruction end to end: the no-overlap cut renders
@@ -1831,7 +1847,21 @@ is not is the one option with no argument for it.
 | `.private/docs/edge-function-secrets.md` | `transcribe-slice` → batch `GEMINI_API_KEY` (P834) |
 | `supabase/deploy-manifest.json` | Stamped by `deploy-functions.sh` |
 
-## Pre-deploy Checklist
+## Deploy runbook — executed DURING deploy, not before merge
+
+**These are steps, not gate items, and the change from checkboxes to numbers is deliberate.**
+Every entry below is an action taken while deploying: apply a migration, set a secret, deploy a
+function, smoke the result. None of them can be true before the merge, and two of them say so in
+their own text — *"after `/ship`"* — because `/ship` rewrites the commit shas they depend on.
+
+Read as a checklist they were an unsatisfiable gate: `/ship` refused to merge until they were
+ticked, and they could not be ticked until after `/ship` merged. The safety purpose is
+unchanged — the steps are still written down, still ordered, and still all required. What is
+removed is the deadlock. `/ship`'s own migration routing already says merge-first for exactly
+this reason.
+
+Nothing here has been done. Run them in order during the deploy session.
+
 
 Triggered by `.claude/rules/features.md` — a new edge function calling an external API.
 
@@ -1854,28 +1884,28 @@ touching it would recognise.
 captured before you do" holds by construction today. The window this migration closes does not open
 until the client change deploys — and this migration deploys with it.
 
-- [ ] Apply `20260908170100_b` **after** the client cutover is on `main`, then commit it (the P270
+1. Apply `20260908170100_b` **after** the client cutover is on `main`, then commit it (the P270
       pre-commit gate requires it applied to test first, which is why it is untracked until now).
-- [ ] Apply `20260909100000_p1236_e_create_room_requires_consent` in the SAME window, and before
+2. Apply `20260909100000_p1236_e_create_room_requires_consent` in the SAME window, and before
       the Vercel deploy is promoted. It drops the 4-argument `create_transcribe_room`, so between
       applying it and the client going live, room creation returns PGRST202 for everyone. That is
       the intended failure mode — the alternative is a surviving overload that writes unconsented
       seats — but it means the two must be minutes apart, not hours.
-- [ ] Update `e2e/integration/p1275-create-transcribe-room-rpc.spec.ts` on `main` in the same
+3. Update `e2e/integration/p1275-create-transcribe-room-rpc.spec.ts` on `main` in the same
       commit range: it calls the 4-argument form directly and will fail the moment (e) applies.
       It lives only on `main`, so this branch cannot carry the edit and a cherry-pick will not
       produce it. Re-run it plus `e2e/p1275-transcribe-room-create.spec.ts` after the cutover.
-- [ ] Re-resolve `(e)`'s `requires-frontend: 35752a156` marker after `/ship`, for the same reason
+4. Re-resolve `(e)`'s `requires-frontend: 35752a156` marker after `/ship`, for the same reason
       as `(b)` — cherry-picking rewrites the sha. It now names the commit carrying the `p_consent`
       client, which is NOT on `origin/main`, so the gate blocks. **It briefly named `3255fd18b`
       (P1275's own commit, already an ancestor), which made the gate print `coupling OK` and wave
       the drop through against the live 4-argument bundle — see Stage F-bis.**
-- [ ] Re-resolve its `requires-frontend: 26be25831` marker against `main` after `/ship` —
+5. Re-resolve its `requires-frontend: 26be25831` marker against `main` after `/ship` —
       cherry-picking rewrites the sha, and P1053 records this exact marker blocking forever on a
       commit its own pipeline had destroyed, stranding six unrelated migrations with it.
 
 ### Secrets to provision
-- [ ] `GEMINI_BATCH_API_KEY` for `transcribe-slice` — a **distinct variable name** holding the
+6. `GEMINI_BATCH_API_KEY` for `transcribe-slice` — a **distinct variable name** holding the
       existing batch key (`aikey-cp-batch-81413`, EUR 75 cap). Supabase edge-function secrets are
       scoped to the PROJECT, not the function, and prod's `GEMINI_API_KEY` is already the
       prod-interactive key that `generate-banner` reads; reusing that name would put every live
@@ -1891,17 +1921,17 @@ this checklist item exists to guarantee is untested by construction there. Verif
 digest inequality (`supabase secrets list`), not by the variable merely being present.
 
 ### Deploy commands
-- [ ] `./scripts/deploy-functions.sh transcribe-slice` (test), then `--env prod`
-- [ ] `./scripts/deploy-functions.sh gcs-signed-url` — the consent gate ships with it
-- [ ] Migration via `scripts/migrate.sh`; no `VITE_*` var is added, so no rebuild is forced by
+7. `./scripts/deploy-functions.sh transcribe-slice` (test), then `--env prod`
+8. `./scripts/deploy-functions.sh gcs-signed-url` — the consent gate ships with it
+9. Migration via `scripts/migrate.sh`; no `VITE_*` var is added, so no rebuild is forced by
       secrets — but the client change itself needs a Vercel deploy
 
 ### Post-deploy verification
-- [ ] Unauthenticated `curl` to `transcribe-slice` → 401; authenticated non-member → 403;
+10. Unauthenticated `curl` to `transcribe-slice` → 401; authenticated non-member → 403;
       member without `consent_given_at` → 403. All three observed, not inferred
-- [ ] Smoke a single slice on prod and confirm one `transcribe_messages` row with the correct
+11. Smoke a single slice on prod and confirm one `transcribe_messages` row with the correct
       `member_id`
-- [ ] Sentry for new errors in the first 10 minutes
-- [ ] Confirm the batch project's spend cap is still `Configured` in the console — it is
+12. Sentry for new errors in the first 10 minutes
+13. Confirm the batch project's spend cap is still `Configured` in the console — it is
       **console-only and invisible to every script** (`gcloud billing budgets list` does not return
       it), so a cap that was never set looks identical to one that works
