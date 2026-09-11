@@ -36,7 +36,7 @@ driver: anomaly
 
 - **Closing stays an explicit act that names the spec** (`git-ops.sh ship p500`). Shipping the absorbing spec never closes the absorbed one as a side effect. The 2026-09-07 and 2026-08-31 rulings removed exactly that auto-close after it wrongly closed specs: 11 of 17 closed that way had not been delivered.
 - **Every completion box on the absorbed spec must still be ticked.** The new arm replaces only the "implementation recorded" and "review recorded" evidence, never the box count.
-- **The absorbing spec's evidence must be real and resolvable:** `dev`, `fix` or `inline` in its `pipeline_ran`, a review entry naming it, and its own text naming the absorbed spec. A dangling or one-sided `absorbed_by` fails.
+- **The absorbing spec's evidence must be real and resolvable:** `dev`, `fix` or `inline` in its `pipeline_ran`, a review entry naming it, and its own `absorbs:` field listing the absorbed spec, all read from the copy its real close moved into `features/done/`. A dangling or one-sided `absorbed_by` fails.
 - **The override (`--override`, TTY) is unchanged** for every other case.
 
 ## Solution
@@ -45,12 +45,13 @@ driver: anomaly
 2. **One verdict, decided once** in `ship-gates.sh` before any gate runs, and read by both gates 2.5 and 2.7. The absorbed spec qualifies only when every condition holds:
    - it records **no** implementation of its own;
    - the absorbing spec has **shipped**: exactly one copy under `features/done/`. Two copies are refused as ambiguous;
-   - the absorbing spec records `dev`, `fix` or `inline` (`pipeline_ran` or `flow: inline`);
-   - the absorbing spec lists the absorbed spec in its `absorbs:` field.
+   - that copy arrived by a real **close**: the newest commit that both added it and deleted the open `features/pM_*.md`. A bare re-add or a move between done folders does not count;
+   - that close was not an override (no `Gate-Override:` trailer);
+   - the absorbing spec, **as it was closed** (read from that commit, never the working tree), records `dev`, `fix` or `inline` (`pipeline_ran` or `flow: inline`) and lists the absorbed spec in an `absorbs:` list of P-numbers.
 
    Every refusal names the condition that failed. A refused `absorbed_by` value is echoed with redirect and pipe characters stripped.
 3. **Gate 2.5** PASSes on the absorbing spec's record only when that verdict holds. The PASS line says `implementation recorded on absorbing spec pM`. **Gate 2.7** (no-branch arm) borrows the absorbing spec's review under the same condition and says so. Gate 2.7b skips freshness for a borrowed review, since that review's freshness is judged on the absorbing spec's own ship.
-4. **`git-ops.sh ship`, no-branch route:** its code-presence check requires a "ready for QA" stamp commit. For an absorbed close it accepts the **absorbing** spec's stamp, taken from gate 2.5's PASS line and never from an override. A "pN ready for QA" stamp would record work that did not happen under pN.
+4. **`git-ops.sh ship`, no-branch route:** its code-presence check normally requires a "pN ready for QA" stamp commit. For an absorbed close, the absorbing spec's **close commit**, already verified by gate 2.5, is the evidence instead. git-ops learns about it only from gate 2.5's dedicated machine line, `[GATE 2.5] ABSORBER: pM`, and only on a clean gate pass, never after an override. A "pN ready for QA" stamp would record work that did not happen under pN. Every other close still needs its own stamp.
 5. **CI:** `closure-gate.yml` runs gate 2.5 from `origin/main`'s copy of `ship-gates.sh`. Because the absorbing spec must be under `features/done/`, the runner sees exactly what the local gate sees.
 
 **Adversarial review (2026-09-11), first version:** 2 HIGH and 4 MEDIUM findings, all fixed in the rules above and pinned as cases H10–H16:
