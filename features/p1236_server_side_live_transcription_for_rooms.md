@@ -424,6 +424,40 @@ not when the first word is spoken — the consent and join screens supply the co
       comparison this criterion names cannot be run against anything. Producing that archive is
       a measurement task, not a correctness fix — the de-duplicator's behaviour is already
       asserted end to end in `dedup.test.ts`
+
+      **(a) RAN 2026-09-11, AND THE CRITERION FAILS.** The missing whole-file transcript was
+      produced: the room's 15 archival chunks were reassembled (450 s of real speech) and sent
+      to `gemini-3.5-transcribe` in ONE request, then compared against the 49 rows the sliced
+      path stored for that same audio.
+
+      | | sliced (what participants saw) | whole file, one request |
+      |---|---|---|
+      | words | 390 | 315 |
+      | Devanagari characters | **24** | **0** |
+
+      The criterion's own test — does a sentence survive the boundary — is answered directly:
+
+      > whole: *"A reader of the current from the event has one job. **Form a view on the four
+      > statements.**"*
+      > sliced: *"A reader preparing for the event has one job." / "**from a view in the first
+      > statement.** I'm not sure I can support"*
+
+      *Form a view on the four statements* became *from a view in the first statement* — a
+      different claim, not a garbled one. This is Finding 8's `"doesn't"` → `"that"`, reproduced
+      on production-shaped audio with overlap and de-duplication both active.
+
+      **The Devanagari row is the founder's "it hallucinates words" report, explained.** The
+      sliced path emitted `बताओ कौन सा?`, `औरत इनका` and `और` as whole messages; the whole-file
+      pass of the identical audio contains no Devanagari at all. A four-second cut that starts
+      or ends mid-word gives the model too little to anchor on, and it guesses — sometimes in
+      another language entirely. Nothing is wrong with the model or the de-duplicator; the
+      fixed-clock cut is the defect.
+
+      This does not block the merge — the sliced path is still strictly better than the browser
+      recognizer it replaces (ratio 1.00 vs 1.80–2.14, and the words are at least the speaker's
+      own). It DOES mean the quality ceiling is set by segmentation, and that is **P1298**,
+      which now has its evidence instead of a hypothesis. The artifacts that produced this table
+      are named in P1298 so the comparison can be re-run rather than re-argued
 - [x] `/transcribe` produces a stored recording again (by-product of the server-side stream),
       restoring what the `RECORD_AUDIO_WHILE_LIVE=false` mitigation currently gives up
       **Verified 2026-09-11 against the bucket itself, not inferred from the upload code.**
