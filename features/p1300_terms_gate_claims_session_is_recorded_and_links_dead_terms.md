@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [legal, consent, copy, terms]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: 2026-09-11
 root_cause: "TermsUpdateDialog was a /live join notice reused unchanged as the global gate (P832): its session sentence rendered on every page, its Terms link targeted a never-deployed /terms, and the gate also covered the legal documents the popup links"
 resolution: "Deleted the session sentence (no new wording); Terms link now /terms-of-service; the gate exempts /terms-of-service and /privacy-policy by exact route; /tos-review now reviews the popup's copy, links and document readability on every terms bump"
