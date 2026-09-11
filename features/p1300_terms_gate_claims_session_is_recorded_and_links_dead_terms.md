@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [legal, consent, copy, terms]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1300-reproduce.test.tsx
   root_cause: "TermsUpdateDialog carries a /live-scoped sentence ('This session is recorded for AI Insights') and href=/terms; P832 reused it unchanged as the global TermsAcceptanceGate, and /terms falls through to NotFoundPage"

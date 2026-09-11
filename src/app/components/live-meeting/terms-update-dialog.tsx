@@ -54,15 +54,27 @@ export function TermsUpdateDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Describe the documents only: the global TermsAcceptanceGate renders this over
+              every authed route, so a sentence about the page or a session is false on most of them. */}
           <p className="text-sm text-muted-foreground">
-            This session is recorded for AI Insights. By continuing, you agree to the updated terms.
+            Please review them. By continuing, you agree to the updated Terms of Service and Privacy Policy.
           </p>
 
           <div className="flex gap-4 text-sm">
-            <a href="/terms" target="_blank" className="text-blue-600 hover:underline">
+            <a
+              href="/terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
               View Terms
             </a>
-            <a href="/privacy-policy" target="_blank" className="text-blue-600 hover:underline">
+            <a
+              href="/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
               View Privacy Policy
             </a>
           </div>

@@ -69,13 +69,18 @@ describe('TermsUpdateDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows consent notice about recording', async () => {
+  // P1300: this assertion previously required "This session is recorded for AI Insights".
+  // The dialog is also the global re-acceptance gate over every authed route, where that
+  // sentence is false; recording is disclosed in-session, not here (tos.md, privacy.md).
+  it('states the terms agreement without claiming a session or a recording', async () => {
     const { TermsUpdateDialog } = await import(
       '@/app/components/live-meeting/terms-update-dialog'
     );
     render(<TermsUpdateDialog {...defaultProps} />);
 
-    expect(screen.getByText(/this session is recorded for AI Insights/i)).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms of service/i);
+    expect(dialog.textContent ?? '').not.toMatch(/session|record/i);
   });
 
   it('has links to view Terms and Privacy Policy', async () => {
@@ -87,7 +92,8 @@ describe('TermsUpdateDialog', () => {
     const termsLink = screen.getByRole('link', { name: /view terms/i });
     const privacyLink = screen.getByRole('link', { name: /view privacy policy/i });
 
-    expect(termsLink).toHaveAttribute('href', '/terms');
+    // P1300: '/terms' never resolved (NotFoundPage); the legal page is /terms-of-service.
+    expect(termsLink).toHaveAttribute('href', '/terms-of-service');
     expect(privacyLink).toHaveAttribute('href', '/privacy-policy');
   });
 
