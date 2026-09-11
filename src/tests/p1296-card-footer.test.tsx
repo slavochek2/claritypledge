@@ -251,6 +251,55 @@ describe('P1296 — the point card footer', () => {
     expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
   });
 
+  /**
+   * Review of the fix delta (MEDIUM, pre-dating P1296). The page's counts contain only the
+   * position the point was FETCHED with. Withdrawing after a local change used to report the
+   * local position, so the page lowered the wrong bucket — or, with nothing fetched, lowered a
+   * position that was never counted and dropped a point someone else still holds.
+   */
+  function Page({ initial }: { initial: PointWithUserPosition }) {
+    const [point, setPoint] = useState(initial);
+    // The same local update /stake applies on onPointRemoved, including dropping a point
+    // whose last position is withdrawn.
+    const onPointRemoved = (_id: string, removed: PositionType | null) =>
+      setPoint((prev) => ({
+        ...prev,
+        positionCounts: { ...prev.positionCounts, ...(removed ? { [removed]: Math.max(0, prev.positionCounts[removed] - 1) } : {}) },
+        totalPositions: Math.max(0, prev.totalPositions - 1),
+      }));
+    if (point.totalPositions === 0) return <div data-testid="point-removed" />;
+    return <FeedPointCard point={point} linkedStories={[]} onPointRemoved={onPointRemoved} />;
+  }
+  const zero = { strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0 };
+  async function withdrawFrom(group: string) {
+    fireEvent.click(screen.getByTestId(`${group}-group`)); // selected group → its menu
+    fireEvent.click(await screen.findByRole('option', { name: /clear position/i }));
+  }
+
+  it('fetched "agree", changed to "disagree", then withdrew: the page lowers AGREE — the position it counted', async () => {
+    render(<MemoryRouter><Page initial={makePoint({
+      userPosition: { position: 'agree' }, positionCounts: { ...zero, agree: 2 }, totalPositions: 2,
+    } as Partial<PointWithUserPosition>)} /></MemoryRouter>);
+    fireEvent.click(screen.getByTestId('disagree-group')); // unselected group → picks disagree
+    await waitFor(() => expect(screen.getByTestId('agree-count-badge').textContent).toBe('1'));
+    await withdrawFrom('disagree');
+    await waitFor(() => expect(screen.queryByRole('option', { name: /clear position/i })).toBeNull());
+    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
+    expect(screen.queryByTestId('disagree-count-badge')).toBeNull();
+  });
+
+  it('nothing fetched, added "agree", then withdrew: nothing the page counted is lowered, and the point stays', async () => {
+    render(<MemoryRouter><Page initial={makePoint({
+      userPosition: null, positionCounts: { ...zero, agree: 1 }, totalPositions: 1,
+    } as unknown as Partial<PointWithUserPosition>)} /></MemoryRouter>);
+    fireEvent.click(screen.getByTestId('agree-group'));
+    await waitFor(() => expect(screen.getByTestId('agree-count-badge').textContent).toBe('2'));
+    await withdrawFrom('agree');
+    await waitFor(() => expect(screen.queryByRole('option', { name: /clear position/i })).toBeNull());
+    expect(screen.queryByTestId('point-removed'), 'another person still holds a position on this point').toBeNull();
+    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
+  });
+
   it('a viewer who HOLDS a position and has no story here sees the position-worded + Add your story', () => {
     renderPoint(makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>));
     fireEvent.click(screen.getByRole('button', { name: 'Add your story for this point' }));

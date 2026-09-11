@@ -166,8 +166,10 @@ export function StakePage() {
   const storyLinkKey = useMemo(() => linkKeyFor(stories.map(s => s.id)), [stories]);
   const pointLinkKey = useMemo(() => linkKeyFor(points.map(p => p.id)), [points]);
   // What each tab's links were last fetched FOR. Switching tabs back and forth changes neither
-  // the viewer nor the id set, so it must not repeat the query (review, 2026-09-11). The
-  // stories-side answer carries the viewer's own positions, so the viewer is part of its key.
+  // the viewer nor the id set, so it must not repeat the query (review, 2026-09-11). BOTH answers
+  // depend on the viewer, so the viewer is part of both keys: the stories side carries the
+  // viewer's own positions, and the points side is read through RLS, which shows an author their
+  // OWN private story — a sign-in in another tab must not keep the anonymous map.
   const fetchedStoryLinksRef = useRef<string | null>(null);
   const fetchedPointLinksRef = useRef<string | null>(null);
 
@@ -185,12 +187,13 @@ export function StakePage() {
         })
         .catch(() => { /* the count stays hidden; the list itself still renders */ });
     } else {
-      if (!pointLinkKey || fetchedPointLinksRef.current === pointLinkKey) return;
+      const fetchKey = `${viewerUserId ?? ''}|${pointLinkKey}`;
+      if (!pointLinkKey || fetchedPointLinksRef.current === fetchKey) return;
       storiesService
         .getStoriesForPoints(pointLinkKey.split(','))
         .then(map => {
           if (cancelled) return;
-          fetchedPointLinksRef.current = pointLinkKey;
+          fetchedPointLinksRef.current = fetchKey;
           setPointStoriesState({ key: pointLinkKey, map });
         })
         .catch(() => { /* the count stays hidden; the list itself still renders */ });

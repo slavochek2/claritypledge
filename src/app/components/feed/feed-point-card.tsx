@@ -36,7 +36,12 @@ import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 interface FeedPointCardProps {
   point: PointWithUserPosition;
   activeTag?: string;
-  /** P543: Notify parent that a position was removed — parent decides whether to filter or decrement */
+  /**
+   * P543: Notify parent that a position it COUNTED was removed — parent decrements that bucket and
+   * the total, and drops the point at zero. Called only when the withdrawn position is one the
+   * page's counts contain (the fetched one); a position added on this card since the fetch was
+   * never counted, so there is nothing for the page to lower (P1296 review).
+   */
   onPointRemoved?: (pointId: string, removedPosition: PositionType | null) => void;
   /**
    * P1212 §5 — the stories arguing this point, batch-fetched by the page
@@ -71,9 +76,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
      fetched with, not only its local override. Before this, clearing `localPosition` made the card
      fall back to `point.userPosition` from the original fetch: the button stayed lit and the
      "+ Add your story" pill kept offering a story for a stance the viewer had just dropped.
-     The page lowers the counts itself (P543), so treating the fetched position as gone is also
-     what keeps `adjustPositionCounts` from lowering them a second time. A fresh fetch (a new
-     `userPosition` object) is the only thing that brings it back. */
+     The page lowers the counts itself (P543) — and its counts contain ONLY the position this
+     card was fetched with, so that is the one the withdrawal reports (below), never a local
+     change made since. Treating the fetched position as gone afterwards is what keeps
+     `adjustPositionCounts` from lowering it a second time. A fresh fetch (a new `userPosition`
+     object) is the only thing that brings it back. */
   const [withdrawn, setWithdrawn] = useState(false);
   useEffect(() => { setWithdrawn(false); }, [point.userPosition]);
   const serverPosition = withdrawn ? null : (point.userPosition?.position ?? null);
@@ -82,11 +89,17 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: viewerId ?? '',
     onAfterRemove: () => {
-      const removedPosition = localPosition ?? serverPosition;
+      // The position the PAGE counted: the fetched one, or none if nothing was fetched or it was
+      // already withdrawn. Reporting a local change instead lowered the wrong bucket, and with
+      // nothing fetched it lowered a position that was never counted — dropping a point another
+      // person still holds (review of the P1296 fix delta; the bug predates P1296).
+      const removedPosition = serverPosition;
       setLocalPosition(null);
       setWithdrawn(true);
-      // P543: Always delegate to parent — it uses functional setState for current totalPositions
-      onPointRemoved?.(point.id, removedPosition);
+      // P543: delegate to the parent — it uses functional setState for current totalPositions.
+      // Only for a counted position: both parents lower the TOTAL unconditionally, so calling them
+      // for an uncounted one dropped a point another person still holds.
+      if (removedPosition) onPointRemoved?.(point.id, removedPosition);
     },
   });
 

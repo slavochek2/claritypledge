@@ -22,7 +22,9 @@ vi.mock('@/app/data/points-service', () => ({ pointsService: { getPublicPointsFe
 vi.mock('@/app/data/stories-service', () => ({
   storiesService: { getPublicStoriesFeed: getStories, getPointsForStories, getStoriesForPoints },
 }));
-vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'u1' } } }) }));
+// Mutable so a test can change who is signed in without remounting the page.
+const viewer = vi.hoisted(() => ({ id: 'u1' as string | undefined }));
+vi.mock('@/auth', () => ({ useAuth: () => ({ session: viewer.id ? { user: { id: viewer.id } } : null }) }));
 vi.mock('@/app/components/feed/feed-skeleton', () => ({ FeedSkeleton: () => <div data-testid="skeleton" /> }));
 vi.mock('@/app/components/seo', () => ({ SEO: () => null }));
 // The cards are stubbed to EXPOSE the props the page hands them — the footer's data, the
@@ -76,6 +78,7 @@ const HEADER_BACK = { name: 'Go back' };
 const BOTTOM_BACK = { name: 'Go back from the end of the list' };
 
 beforeEach(() => {
+  viewer.id = 'u1';
   getPoints.mockReset().mockResolvedValue([point('p1'), point('p2')]);
   getStories.mockReset().mockResolvedValue([story('s1')]);
   getPointsForStories.mockReset().mockResolvedValue(new Map([['s1', [{ id: 'p1' }]]]));
@@ -193,6 +196,25 @@ describe('P1296 items 2–3 — the footer on BOTH tabs, and the viewer handed d
     expect(screen.queryByTestId('skeleton')).toBeNull();
     expect(getPoints).toHaveBeenCalledTimes(1);
     expect(getStories).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Review of the fix delta (MEDIUM). The linked stories are read through RLS, which shows an
+   * author their OWN private story — so the answer depends on who is signed in. Keying the
+   * points side on the ids alone kept the anonymous map after a sign-in in another tab.
+   */
+  it('a change of viewer refetches the point cards\' linked stories — the answer is per viewer', async () => {
+    const { rerender } = renderAt(['/stake/aisafety1']);
+    await waitFor(() => expect(getStoriesForPoints).toHaveBeenCalledTimes(1));
+    viewer.id = 'u2';
+    rerender(
+      <MemoryRouter initialEntries={['/stake/aisafety1']}>
+        <Routes>
+          <Route path="/stake/:tag" element={<><StakePage /><Where /></>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getStoriesForPoints).toHaveBeenCalledTimes(2));
   });
 
   it('switching tabs back and forth fetches each tab\'s links ONCE — same viewer, same ids, same answer', async () => {
