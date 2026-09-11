@@ -65,6 +65,12 @@ before it is offered the fix"* ([goals.md](../goals.md):15), applied to the foun
   nobody had. Be prepared, stay quiet.
 - Do **not** argue *"should the Clarity Meeting Principle be in your feedback process."* That is our
   method, and arguing it selects for the wrong room.
+- **Clarity Night deviation, founder decision 2026-09-11:** the listing names the Clarity Meeting
+  Principle once, in the agenda, with its one-line plain meaning, because the agenda refers to it
+  three times (opt in, stage demo, pairs). **`/meet` stays unlinked**: a link invites studying the
+  method before the room has felt the failure. Founder's proposed wording, verbatim: *"you choose
+  whether to opt in or opt out from a clarity meeting prinicple"*. The note under *Description copy*
+  saying "no mention by name" still governs the online configuration.
 
 **Available as a spoken line mid-event, never as a headline:** *"Good teams give feedback. Great teams
 verify understanding of the feedback."* Rejected for the page — it grades them, which contradicts
@@ -347,7 +353,10 @@ That's normal. It's also invisible from the inside, which is the whole problem.
 ### Recording policy — DECIDED 2026-09-10
 
 **One line in the event description, no RSVP form, no checkbox.** Standard practice for every
-meetup and conference: photos and audio may be recorded and used publicly. Nobody signs anything.
+meetup and conference: photos and video may be taken and used publicly. Nobody signs anything.
+*(Wording amended 2026-09-11 from "photos and audio", because the stage is filmed. Published line:
+"We may take photos and video and use them publicly. Tell us if you would rather not be in them."
+Founder's wording, verbatim: "We may record videosa and photos and use them publicly.")*
 If someone objects, they say so in the room and it is honoured, person to person.
 
 Founder reasoning, verbatim: *"I never saw events writing RSVP and then don't quote me. This is
