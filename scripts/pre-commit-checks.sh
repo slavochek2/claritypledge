@@ -820,9 +820,17 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
         # original process.env-only filter; found 2026-09-07 while adding the secrets.
         # case, by running a mixed known-good+known-bad file through the pipeline.
         # Testing the filtered OUTPUT for emptiness is correct under every grep.
+        # A shell variable as the WHOLE value is the same class once more: `apikey: $SUPABASE_ANON_KEY` names
+        # a variable the step's env block defines, and the value, if any, sits on that other line, where this
+        # scan still reads it. Matched strictly and CASE-SENSITIVELY, as its own grep: the value must be
+        # exactly one UPPERCASE reference ($NAME or ${NAME}) followed only by a closing quote, whitespace, a
+        # line-continuation backslash or the end of the line. So `apikey="$ENV"literal` and a JSON literal
+        # such as "$ecretvalue" are still caught (codex, 2026-09-11). P1283: cron-health.yml sends the public
+        # publishable key as a header. Proved on eight cases, good, bad and mixed, before landing.
         for f in $GREP_SCAN_FILES; do
             if [ -n "$(grep -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' "$f" 2>/dev/null \
-                 | grep -ivE '(process\.env\.|import\.meta\.env\.|\$\{\{ *secrets\.)')" ]; then
+                 | grep -ivE '(process\.env\.|import\.meta\.env\.|\$\{\{ *secrets\.)' \
+                 | grep -vE '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Tt][Oo][Kk][Ee][Nn])"?[[:space:]]*[:=][[:space:]]*"?\$(\{[A-Z_][A-Z0-9_]*\}|[A-Z_][A-Z0-9_]*)"?([[:space:]]|\\|$)')" ]; then
                 SECRETS_FOUND="${SECRETS_FOUND}${f}"$'\n'
             fi
         done
