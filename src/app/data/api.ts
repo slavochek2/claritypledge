@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { holdRoomCode } from '@/lib/room-capability';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
@@ -903,11 +904,16 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
  * Pass '' explicitly, never by omission, where a caller genuinely has no code.
  */
 function mapSessionFromDb(dbSession: DbClaritySession, knownCode: string): ClaritySession {
+  // Rows from SECURITY DEFINER functions (claim_joiner_seat) still carry `code` because
+  // they run as owner; direct reads no longer do. Prefer the row, fall back to the splice.
+  const code = dbSession.code ?? knownCode;
+  // A session that reaches the client together with its code is a room this tab holds.
+  // Register it so REST requests carry the code (room-capability.ts). Every code-bearing
+  // path funnels through here.
+  holdRoomCode(code);
   return {
     id: dbSession.id,
-    // Rows from SECURITY DEFINER functions (claim_joiner_seat) still carry `code` because
-    // they run as owner; direct reads no longer do. Prefer the row, fall back to the splice.
-    code: dbSession.code ?? knownCode,
+    code,
     creatorName: dbSession.creator_name,
     creatorNote: dbSession.creator_note,
     joinerName: dbSession.joiner_name,

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   createClaritySession,
   joinClaritySession,
+  getClaritySession,
   subscribeToClaritySession,
   updateClarityDemoStatus,
   updateDemoFlowState,
@@ -33,6 +34,9 @@ import {
 import { CheckCircle2, PartyPopper } from "lucide-react";
 
 type ViewState = "start" | "invitation" | "waiting-creator" | "demo" | "complete";
+
+/** Interval of the code-keyed poll in the subscription effect. */
+const DEMO_POLL_INTERVAL_MS = 2000;
 
 export function ClarityDemoPage() {
   // P1097: creator id is required to learn the server-minted room code.
@@ -68,7 +72,7 @@ export function ClarityDemoPage() {
       }
     }, 10000);
 
-    const unsubscribe = subscribeToClaritySession(session.id, session.code, (updatedSession) => {
+    const applyUpdate = (updatedSession: ClaritySession) => {
       lastUpdate = Date.now();
       setConnectionError(null); // Clear error on successful update
       setSession(updatedSession);
@@ -87,15 +91,34 @@ export function ClarityDemoPage() {
       if (updatedSession.demoStatus === "completed" && view === "demo") {
         setView("complete");
       }
-    });
+    };
+
+    const unsubscribe = subscribeToClaritySession(session.id, session.code, applyUpdate);
+
+    // Non-parties also poll through the code-keyed RPC, as the live page does, so they still see
+    // the partner's moves. A party is not polled: a stale poll response could briefly roll back
+    // state a realtime event had already applied. Keyed on party-ness, not on being signed in —
+    // reachable by creating while signed out, then signing in.
+    const isParty = !!user && (user.id === session.creatorProfileId || user.id === session.joinerProfileId);
+    const pollCode = isParty ? null : session.code;
+    const pollInterval = pollCode
+      ? setInterval(async () => {
+          const fresh = await getClaritySession(pollCode);
+          if (fresh && fresh.id === session.id) applyUpdate(fresh);
+        }, DEMO_POLL_INTERVAL_MS)
+      : null;
 
     return () => {
       clearInterval(heartbeatInterval);
+      if (pollInterval) clearInterval(pollInterval);
       unsubscribe();
     };
     // P1057: session?.code joins the deps — the subscription now carries the code, so a
     // code change must re-subscribe rather than keep splicing the stale one.
-  }, [session?.id, session?.code, view]);
+    // `user` and the two party columns join them too — the poll is keyed on whether this
+    // caller is a party, and a joiner BECOMES one mid-session (claim_joiner_seat fills
+    // joiner_profile_id), which must re-evaluate the gate rather than leave a party polling.
+  }, [session?.id, session?.code, view, user, session?.creatorProfileId, session?.joinerProfileId]);
 
   // Initialize demo state when entering demo view
   // Note: Joiner already initializes state in the "Start Session" button click handler
