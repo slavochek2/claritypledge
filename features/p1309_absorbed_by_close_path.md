@@ -74,12 +74,17 @@ Revert the P1309 commit. Specs already closed through the new arm stay closed; r
 
 ## Done-When
 
-- [ ] `scripts/test-pipeline-gates.sh` has a new red/green section, green locally: a valid absorber passes; an absorber that is missing, has no implementation recorded, or does not name the absorbed spec fails; an absorbed spec with an unticked box fails; a spec with no `absorbed_by` behaves exactly as before
-- [ ] Mutation check: disabling the new arm turns its PASS case red
-- [ ] Gate 2.7 accepts a review naming the absorbing spec for an absorbed spec, and still refuses an absorbed spec whose absorber has no review
+- [x] `scripts/test-pipeline-gates.sh` has a new red/green section, green locally: a valid absorber passes; an absorber that is missing, has no implementation recorded, or does not name the absorbed spec fails; an absorbed spec with an unticked box fails; a spec with no `absorbed_by` behaves exactly as before — cases H1–H9 (plus self-absorption H8 and the CI path H9); suite 39 PASS, 0 FAIL
+- [x] Mutation check: disabling the new arm turns its PASS case red — forcing the arm never to qualify turns H1 and H9 red; `ship-gates.sh` restored byte-identical (shasum compared)
+- [x] Gate 2.7 accepts a review naming the absorbing spec for an absorbed spec, and still refuses an absorbed spec whose absorber has no review — H1 (PASS, "recorded under absorbing spec p2001") and H7 (FAIL with the review log empty)
 - [ ] An independent adversarial review of the change, with its findings resolved or recorded
-- [ ] A dry run of the new gates on P500 carrying `absorbed_by: p1296` passes gates 2.5 and 2.7 against P1296's real branch and review log. `[post-ship]` the real close is `./scripts/git-ops.sh ship p500`, once P1309 and then P1296 are on main (P500's ticked copy rides on P1296's branch, so it cannot close before P1296 ships)
-- [ ] The CI ordering (push P1309 before any close that uses the new arm) is written into the P1309 ship notes
+- [x] A dry run of the new gates on P500 carrying `absorbed_by: p1296` passes gates 2.5 and 2.7 against P1296's real branch and review log — 2.5 "implementation recorded on absorbing spec p1296 (branch feature/p1296-card-footer-consistency)", 2.7 "recorded under absorbing spec p1296", 2.7b SKIP naming the absorber. `[post-ship]` the real close is `./scripts/git-ops.sh ship p500`, once P1309 and then P1296 are on main (P500's ticked copy rides on P1296's branch, so it cannot close before P1296 ships)
+- [x] The CI ordering (push P1309 before any close that uses the new arm) is written into the P1309 ship notes — see Ship Notes below
+
+## Ship Notes
+
+- **Order on main:** ship P1309, then P1296 (it carries P500's ticks and `absorbed_by: p1296`), then `./scripts/git-ops.sh ship p500`. `/ship` runs the main checkout's `ship-gates.sh`, so the new arm does nothing for P500 until P1309 is on main.
+- **Order on push:** push P1309 in an earlier push than P500's close, or in the same push only if CI's trusted base already carries it. `closure-gate.yml` gates a pushed close with `origin/main`'s `ship-gates.sh`, so a P500 close pushed before P1309 reaches `origin/main` is refused by the old script. Pushing needs the founder in any case.
 
 ## Related
 
