@@ -82,6 +82,14 @@ describe('P1296 — what a group looks like', () => {
     expect(screen.queryByTestId('source-group-show-more')).toBeNull();
   });
 
+  it('pressing "Show N more" moves focus to the first story it revealed, not to the page body', () => {
+    renderGroup([story('a'), story('b'), story('c')]);
+    const more = screen.getByTestId('source-group-show-more');
+    more.focus();
+    fireEvent.click(more);
+    expect(document.activeElement).toBe(memberCards()[2]);
+  });
+
   it('"Show 1 more story" is singular', () => {
     renderGroup([story('a'), story('b'), story('c')]);
     expect(screen.getByTestId('source-group-show-more').textContent).toBe('Show 1 more story');

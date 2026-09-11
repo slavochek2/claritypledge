@@ -9,8 +9,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
-import { Pin, ChevronDown, ChevronRight } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
@@ -163,6 +164,14 @@ export function PointCardWithLinks({
     : fullText;
   const isTextTruncated = isEmbed && fullText.length > EMBED_TRUNCATE;
   const isOwnProfile = !!(currentUserId && profileOwner?.id && currentUserId === profileOwner.id);
+  /**
+   * P1296 — the shared list footer applies only where this card sits in a LIST, which is exactly
+   * where a caller names the surface (the profile passes `shareSurface="profile"`). `isDetailView`
+   * cannot be the switch: the point page renders this card WITHOUT it (`point-detail-page.tsx`), so
+   * gating on it moved the point page onto the list footer, which the spec rules out. The point page
+   * and the landing demos pass no surface and keep main's footer exactly.
+   */
+  const inListFooter = !isDetailView && !!shareSurface;
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isOwnerAgent = isAgentAccountId(profileOwner?.id);
   const [userPosition, setUserPosition] = useState<Position>(
@@ -447,23 +456,16 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  // P1296 — a point with no stories says so rather than leaving a blank row
-                  // (the feed and stake cards render `0 stories`; this is the same footer).
-                  return <span className="text-sm text-muted-foreground">0 stories</span>;
+                  // P1296 — in a list, a point with no stories says so rather than leaving a blank
+                  // row (the feed and stake cards render `0 stories`; this is the same footer).
+                  return inListFooter ? <span className="text-sm text-muted-foreground">0 stories</span> : <span />;
                 })()}
 
                 {/* Action icons - hidden in live session mode; embed: open button only (no share) */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
                     {!isEmbed && (
-                      isDetailView ? (
-                        <ShareButton
-                          type="point"
-                          id={point.id}
-                          description={point.text.slice(0, 100)}
-                          fromUserId={profileOwner?.id}
-                        />
-                      ) : (
+                      inListFooter ? (
                         <CardShareButton
                           type="point"
                           id={point.id}
@@ -471,10 +473,29 @@ export function PointCardWithLinks({
                           description={point.text.slice(0, 100)}
                           fromUserId={profileOwner?.id}
                         />
+                      ) : (
+                        <ShareButton
+                          type="point"
+                          id={point.id}
+                          description={point.text.slice(0, 100)}
+                          fromUserId={profileOwner?.id}
+                        />
                       )
                     )}
                     {(isEmbed || (!isDetailView && !disableNavigation)) && (
-                      <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
+                      inListFooter ? (
+                        <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
+                      ) : (
+                      <MobileTooltip content="Open point">
+                        <button
+                          onClick={() => embedNavigate(`/point/${point.id}`)}
+                          className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Open point"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </MobileTooltip>
+                      )
                     )}
                   </div>
                 )}
@@ -548,11 +569,12 @@ export function PointCardWithLinks({
           role="presentation"
           /* P1296 item 1 — in a LIST (the profile) this is the footer every story and point card
              shares: theme border, `py-2.5`. The point page's own detail card keeps its row. The
-             padding stays this card's avatar column (`sm:pl-[68px]`), as the spec requires. */
+             padding stays this card's avatar column (`sm:pl-[68px]`), as the spec requires.
+             `inListFooter`, not `isDetailView`: see its definition. */
           className={
-            isDetailView
-              ? 'flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100'
-              : 'flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border'
+            inListFooter
+              ? 'flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border'
+              : 'flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100'
           }
           onClick={(e) => e.stopPropagation()}
         >
@@ -620,8 +642,8 @@ export function PointCardWithLinks({
               );
             }
 
-            // P1296 — `0 stories`, not a blank row: the same count every card's footer carries.
-            return <span className="text-sm text-muted-foreground">0 stories</span>;
+            // P1296 — in a list, `0 stories`, not a blank row: the count every card's footer carries.
+            return inListFooter ? <span className="text-sm text-muted-foreground">0 stories</span> : <span />;
           })() : (
             <span /> /* Empty span for flexbox spacing */
           )}
@@ -630,9 +652,7 @@ export function PointCardWithLinks({
           {!hideActions && !liveSessionMode && (
             <div className="flex items-center gap-1">
               {!isEmbed && (
-                isDetailView ? (
-                  <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
-                ) : (
+                inListFooter ? (
                   <CardShareButton
                     type="point"
                     id={point.id}
@@ -640,11 +660,25 @@ export function PointCardWithLinks({
                     description={point.text.slice(0, 100)}
                     fromUserId={profileOwner?.id}
                   />
+                ) : (
+                  <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
                 )
               )}
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && !disableNavigation && (
-                <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
+                inListFooter ? (
+                  <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
+                ) : (
+                <MobileTooltip content="Open point">
+                  <button
+                    onClick={() => embedNavigate(`/point/${point.id}`)}
+                    className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Open point"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                </MobileTooltip>
+                )
               )}
             </div>
           )}

@@ -67,7 +67,16 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
   // P502: Separate anon position state — used only for button highlight, never for count adjustment
   const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
-  const serverPosition = point.userPosition?.position ?? null;
+  /* P1296 review (MEDIUM) — a CONFIRMED withdrawal must retire the position this card was
+     fetched with, not only its local override. Before this, clearing `localPosition` made the card
+     fall back to `point.userPosition` from the original fetch: the button stayed lit and the
+     "+ Add your story" pill kept offering a story for a stance the viewer had just dropped.
+     The page lowers the counts itself (P543), so treating the fetched position as gone is also
+     what keeps `adjustPositionCounts` from lowering them a second time. A fresh fetch (a new
+     `userPosition` object) is the only thing that brings it back. */
+  const [withdrawn, setWithdrawn] = useState(false);
+  useEffect(() => { setWithdrawn(false); }, [point.userPosition]);
+  const serverPosition = withdrawn ? null : (point.userPosition?.position ?? null);
 
   // P401: Guard position removal — only shows dialog when linked stories exist
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -75,6 +84,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     onAfterRemove: () => {
       const removedPosition = localPosition ?? serverPosition;
       setLocalPosition(null);
+      setWithdrawn(true);
       // P543: Always delegate to parent — it uses functional setState for current totalPositions
       onPointRemoved?.(point.id, removedPosition);
     },

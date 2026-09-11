@@ -15,7 +15,7 @@
  * inside it unchanged in shape. A group removes a PLAYER, never a card's controls: every member
  * keeps its full footer, its folded quotes and its points.
  */
-import { Fragment, useId, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
@@ -43,6 +43,18 @@ export function SourceGroup<T extends { id: string; videoUrl?: string | null; vi
   const player = useLazyStoryPlayer(!!lead?.videoUrl);
   const [showAll, setShowAll] = useState(false);
   const headingId = useId();
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusRevealedRef = useRef(false);
+
+  /* The "Show N more" control removes itself when pressed, so without this a keyboard user's
+     focus falls to <body> and they start again from the top of the page. It goes to the first
+     story it revealed instead. Cards announce themselves as "Story by …" (their root's
+     aria-label), which is how the revealed one is found. */
+  useEffect(() => {
+    if (!showAll || !focusRevealedRef.current) return;
+    focusRevealedRef.current = false;
+    listRef.current?.querySelectorAll<HTMLElement>('[aria-label^="Story by"]')[GROUP_PREVIEW]?.focus();
+  }, [showAll]);
 
   if (!lead) return null;
 
@@ -81,14 +93,17 @@ export function SourceGroup<T extends { id: string; videoUrl?: string | null; vi
       {/* Indented under a rule from 640px up; NOT below it. Measured at 320px on the artifact,
           the tray plus rule plus indent cost 36px, which wrapped agent bylines onto two lines on
           grouped cards only and pushed an opened point's stance badge to the card's border. */}
-      <div className="mt-3 space-y-3 sm:border-l-2 sm:border-border sm:pl-5">
+      <div ref={listRef} className="mt-3 space-y-3 sm:border-l-2 sm:border-border sm:pl-5">
         {visible.map((story) => (
           <Fragment key={story.id}>{renderStory(story, groupPlayer)}</Fragment>
         ))}
         {hidden > 0 && (
           <button
             type="button"
-            onClick={() => setShowAll(true)}
+            onClick={() => {
+              focusRevealedRef.current = true;
+              setShowAll(true);
+            }}
             data-testid="source-group-show-more"
             className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-card text-sm text-muted-foreground transition-colors hover:border-blue-300 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >

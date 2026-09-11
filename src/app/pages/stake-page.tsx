@@ -165,20 +165,34 @@ export function StakePage() {
   // fetched once and the skeleton never returns (P1179 AC-9).
   const storyLinkKey = useMemo(() => linkKeyFor(stories.map(s => s.id)), [stories]);
   const pointLinkKey = useMemo(() => linkKeyFor(points.map(p => p.id)), [points]);
+  // What each tab's links were last fetched FOR. Switching tabs back and forth changes neither
+  // the viewer nor the id set, so it must not repeat the query (review, 2026-09-11). The
+  // stories-side answer carries the viewer's own positions, so the viewer is part of its key.
+  const fetchedStoryLinksRef = useRef<string | null>(null);
+  const fetchedPointLinksRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     if (activeTab === 'stories') {
-      if (!storyLinkKey) return;
+      const fetchKey = `${viewerUserId ?? ''}|${storyLinkKey}`;
+      if (!storyLinkKey || fetchedStoryLinksRef.current === fetchKey) return;
       storiesService
         .getPointsForStories(storyLinkKey.split(','), viewerUserId)
-        .then(map => { if (!cancelled) setStoryPointsState({ key: storyLinkKey, map }); })
+        .then(map => {
+          if (cancelled) return;
+          fetchedStoryLinksRef.current = fetchKey;
+          setStoryPointsState({ key: storyLinkKey, map });
+        })
         .catch(() => { /* the count stays hidden; the list itself still renders */ });
     } else {
-      if (!pointLinkKey) return;
+      if (!pointLinkKey || fetchedPointLinksRef.current === pointLinkKey) return;
       storiesService
         .getStoriesForPoints(pointLinkKey.split(','))
-        .then(map => { if (!cancelled) setPointStoriesState({ key: pointLinkKey, map }); })
+        .then(map => {
+          if (cancelled) return;
+          fetchedPointLinksRef.current = pointLinkKey;
+          setPointStoriesState({ key: pointLinkKey, map });
+        })
         .catch(() => { /* the count stays hidden; the list itself still renders */ });
     }
     return () => { cancelled = true; };

@@ -114,6 +114,8 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
       const page = await context.newPage();
       await blockThePlayer(page);
       await page.goto(`/story/${storyId}`);
+      // P1296 item 8 — the quote text sits behind the fold; a dead player must not stop it opening.
+      await openQuotes(page);
 
       // The Risk mitigation, asserted directly: content never waits on the player.
       await expect(

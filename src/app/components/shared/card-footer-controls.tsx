@@ -11,8 +11,14 @@
  * feed never had. The cards own their layout; the controls inside it come from here, so the
  * same control reads, sizes and behaves the same wherever it appears.
  *
- * Every control stops propagation itself: each card's root is a link to the story or point,
- * and a footer control that let its click through would navigate a second time.
+ * PROPAGATION — TWO LAYERS, AND THE SECOND ONE IS THE CALLER'S. Each card's root is a link to the
+ * story or point, so any click that reaches it navigates. These controls stop their OWN click.
+ * They cannot stop clicks inside the share sheet: `ShareDialog` renders in a portal, but React
+ * still bubbles its events through the component tree to the card root, and the dialog stops
+ * nothing. What stops "Copy link" from also opening the story is the footer ROW each card wraps
+ * these controls in (`role="presentation"` + `onClick={e => e.stopPropagation()}`). Keyboard is
+ * covered separately by each root's `e.target !== e.currentTarget` guard. So: place these
+ * controls inside such a row, never directly inside a clickable card.
  */
 import { ExternalLink } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';

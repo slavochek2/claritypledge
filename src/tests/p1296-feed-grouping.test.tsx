@@ -38,9 +38,9 @@ const story = (id: string, content: string, videoUrl?: string) =>
 
 beforeEach(() => {
   getStories.mockReset().mockResolvedValue([
-    story('l1', 'Leahy on control', LEAHY),
+    story('l1', 'Leahy on control, which matters most', LEAHY),
     story('c1', 'LeCun on scale', LECUN),
-    story('l2', 'Leahy on timelines', `${LEAHY}&t=90s`),
+    story('l2', 'Leahy on timelines, which matter too', `${LEAHY}&t=90s`),
     story('l3', 'Leahy on open weights', LEAHY),
   ]);
   getPoints.mockReset().mockResolvedValue([{ id: 'p1', statement: 'a point', tags: [], positionCounts: {}, totalPositions: 1 }]);
@@ -56,8 +56,8 @@ describe('P1296 item 7 — /feed Stories groups by source', () => {
     expect(within(group).getByTestId('source-group-heading').textContent).toBe('3 stories from this video');
     // cap 2 — the third is behind "Show 1 more story"
     expect(within(group).getAllByTestId('story-card').map((c) => c.textContent)).toEqual([
-      'Leahy on control',
-      'Leahy on timelines',
+      'Leahy on control, which matters most',
+      'Leahy on timelines, which matter too',
     ]);
     const plain = screen.getAllByTestId('story-card').filter((c) => !group.contains(c));
     expect(plain.map((c) => c.textContent)).toEqual(['LeCun on scale']);
@@ -72,21 +72,31 @@ describe('P1296 item 7 — /feed Stories groups by source', () => {
     fireEvent.change(screen.getByPlaceholderText('Search stories and points...'), { target: { value: 'timelines' } });
     await waitFor(() => expect(screen.queryByTestId('source-group')).toBeNull());
     const cards = screen.getAllByTestId('story-card');
-    expect(cards.map((c) => c.textContent)).toEqual(['Leahy on timelines']);
+    expect(cards.map((c) => c.textContent)).toEqual(['Leahy on timelines, which matter too']);
     expect(cards[0]!.getAttribute('data-grouped')).toBe('no');
   });
 
-  it('a search that leaves two of a source keeps them grouped', async () => {
+  it('a search that leaves two of a source keeps them grouped — and keeps the SAME player mounted', async () => {
     renderFeed();
-    await screen.findByTestId('source-group');
-    fireEvent.change(screen.getByPlaceholderText('Search stories and points...'), { target: { value: 'Leahy on' } });
+    const before = await screen.findByTestId('source-group');
+    const playerBefore = before.querySelector('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]');
+    expect(playerBefore, 'the group renders its one player').toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('Search stories and points...'), { target: { value: 'matter' } });
     await waitFor(() =>
       expect(within(screen.getByTestId('source-group')).getByTestId('source-group-heading').textContent).toBe(
-        '3 stories from this video',
+        '2 stories from this video',
       ),
     );
-    fireEvent.change(screen.getByPlaceholderText('Search stories and points...'), { target: { value: 'o' } });
-    expect(screen.getByTestId('source-group')).toBeTruthy();
+    const after = screen.getByTestId('source-group');
+    expect(within(after).getAllByTestId('story-card').map((c) => c.textContent)).toEqual([
+      'Leahy on control, which matters most',
+      'Leahy on timelines, which matter too',
+    ]);
+    // Keyed by source, so the group survived the search rather than remounting — a reader
+    // mid-video does not lose the player because they typed in the search box.
+    expect(after).toBe(before);
+    expect(after.querySelector('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]')).toBe(playerBefore);
   });
 });
 

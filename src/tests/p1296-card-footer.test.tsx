@@ -7,12 +7,14 @@
  * the same controls from the same shared file (`card-footer-controls.tsx`); their owner flows
  * are covered by the profile suites.
  */
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
-import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
+import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
+import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 
 const track = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track } }));
@@ -27,6 +29,20 @@ vi.mock('@/app/contexts/agent-accounts-context', async (importOriginal) => {
     useAgentAccountIds: () => ({ isAgentAccountId: () => false, operatorNameFor: () => null, isLoading: false }),
   };
 });
+
+// The removal guard's dialog is P401's own concern; here a confirmed withdrawal is what matters.
+vi.mock('@/app/components/shared/remove-position-dialog', () => ({
+  RemovePositionDialog: () => null,
+  useRemovePositionGuard: ({ onAfterRemove }: { onAfterRemove: () => void }) => ({
+    dialogProps: {},
+    guardedRemovePosition: async () => { onAfterRemove(); },
+  }),
+}));
+vi.mock('@/app/data/points-service', () => ({ pointsService: { setPosition: vi.fn(async () => undefined) } }));
+vi.mock('@/lib/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/utils')>()),
+  copyToClipboard: vi.fn(async () => true),
+}));
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => {
@@ -107,6 +123,24 @@ describe('P1296 — the story card footer', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  /**
+   * The sheet renders in a PORTAL, but React bubbles its events through the component tree to
+   * the card root — which navigates. What stops it is the footer row's stopPropagation, not the
+   * controls (review, 2026-09-11). Asserted from INSIDE the open sheet, where that matters.
+   */
+  it('clicks inside the open sheet (copy link, the embed preset) never open the story', async () => {
+    renderStory();
+    fireEvent.click(screen.getByRole('button', { name: 'Share story' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Expanded' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy embed code' }));
+    // Both copy controls confirm — the link's and the embed's — and neither opened the story.
+    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: 'Copied' })).toHaveLength(2));
+    fireEvent.keyDown(within(dialog).getByRole('button', { name: 'Expanded' }), { key: 'Enter' });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('the surface defaults to feed', () => {
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Share story' }));
@@ -170,6 +204,53 @@ describe('P1296 — the point card footer', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('clicks inside the open sheet never open the point', async () => {
+    renderPoint();
+    fireEvent.click(screen.getByRole('button', { name: 'Share point' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Collapsed' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Copied' })).toBeTruthy());
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Review, 2026-09-11 (MEDIUM). A confirmed withdrawal cleared only the card's LOCAL position,
+   * so the card fell back to the position from the original fetch: the pill kept offering to
+   * add a story for a stance the viewer had just dropped. The page is what lowers the counts
+   * (P543), so the card must not lower them a second time either.
+   */
+  it('after the viewer WITHDRAWS their position, "+ Add your story" goes with it — and the count drops once', async () => {
+    function Page() {
+      const [point, setPoint] = useState(
+        makePoint({
+          userPosition: { position: 'agree' },
+          positionCounts: { strongly_agree: 0, agree: 2, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0 },
+          totalPositions: 2,
+        } as Partial<PointWithUserPosition>),
+      );
+      // The same local update /stake and /feed apply on onPointRemoved.
+      const onPointRemoved = (_id: string, removed: PositionType | null) =>
+        setPoint((prev) => ({
+          ...prev,
+          positionCounts: { ...prev.positionCounts, ...(removed ? { [removed]: prev.positionCounts[removed] - 1 } : {}) },
+          totalPositions: prev.totalPositions - 1,
+        }));
+      return <FeedPointCard point={point} linkedStories={[]} onPointRemoved={onPointRemoved} />;
+    }
+    render(<MemoryRouter><Page /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Add your story for this point' })).toBeTruthy();
+    expect(screen.getByTestId('agree-count-badge').textContent).toBe('2');
+
+    fireEvent.click(screen.getByTestId('agree-group')); // the selected group opens its menu
+    fireEvent.click(await screen.findByRole('option', { name: /clear position/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull(),
+    );
+    expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
+  });
+
   it('a viewer who HOLDS a position and has no story here sees the position-worded + Add your story', () => {
     renderPoint(makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>));
     fireEvent.click(screen.getByRole('button', { name: 'Add your story for this point' }));
@@ -209,5 +290,40 @@ describe('P1296 — the point card footer', () => {
     const statement = screen.getByText('A point statement.').closest('p')!;
     expect(statement.className).toContain('text-base');
     expect(statement.className).toContain('line-clamp-[40]');
+  });
+});
+
+describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST only', () => {
+  const protoPoint = () => ({
+    id: 'pt-1',
+    text: 'A point on the point page.',
+    createdAt: '2026-09-01T00:00:00Z',
+    positions: {},
+    linkedStoryIds: [],
+    visibility: 'public',
+  } as unknown as Parameters<typeof PointCardWithLinks>[0]['point']);
+
+  /**
+   * Review, 2026-09-11 (HIGH). The point page renders this card WITHOUT `isDetailView`, so a
+   * footer switched on `isDetailView` moved the point page onto the list footer — which the spec
+   * rules out ("Do NOT change PointCardWithLinks in its detail view"). The switch is now "the
+   * caller named a list surface".
+   */
+  it('with no list surface (the point page, the landing demos) the footer is main\'s: no "0 stories", the old share icon', () => {
+    render(<MemoryRouter><PointCardWithLinks point={protoPoint()} linkedStories={[]} /></MemoryRouter>);
+    expect(screen.queryByText('0 stories')).toBeNull();
+    const share = screen.getByRole('button', { name: 'Share point' });
+    expect(share.className).not.toContain('min-w-11');
+    fireEvent.click(share);
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('in the profile list: "0 stories", the 44px share, and the event carries surface profile', () => {
+    render(<MemoryRouter><PointCardWithLinks point={protoPoint()} linkedStories={[]} shareSurface="profile" /></MemoryRouter>);
+    expect(screen.getByText('0 stories')).toBeTruthy();
+    const share = screen.getByRole('button', { name: 'Share point' });
+    expect(share.className).toContain('min-w-11');
+    fireEvent.click(share);
+    expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'pt-1', surface: 'profile' });
   });
 });

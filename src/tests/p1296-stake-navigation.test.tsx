@@ -194,4 +194,17 @@ describe('P1296 items 2–3 — the footer on BOTH tabs, and the viewer handed d
     expect(getPoints).toHaveBeenCalledTimes(1);
     expect(getStories).toHaveBeenCalledTimes(1);
   });
+
+  it('switching tabs back and forth fetches each tab\'s links ONCE — same viewer, same ids, same answer', async () => {
+    renderAt(['/stake/aisafety1']);
+    await waitFor(() => expect(getStoriesForPoints).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByTestId('stake-tab-stories'));
+    await waitFor(() => expect(getPointsForStories).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByTestId('stake-tab-points'));
+    await userEvent.click(screen.getByTestId('stake-tab-stories'));
+    await userEvent.click(screen.getByTestId('stake-tab-points'));
+    await waitFor(() => expect(screen.getAllByTestId('point-card')[0]!.getAttribute('data-linked')).toBe('1'));
+    expect(getStoriesForPoints).toHaveBeenCalledTimes(1);
+    expect(getPointsForStories).toHaveBeenCalledTimes(1);
+  });
 });
