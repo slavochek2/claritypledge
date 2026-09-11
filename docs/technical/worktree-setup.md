@@ -53,6 +53,8 @@ Worktrees are the **default isolation mechanism** for all `/dev` and `/fix` work
 ./scripts/setup-worktree.sh .claude/worktrees/w1
 ```
 
+**The commit hook is main's, not the branch's.** Every worktree's pre-commit runs the **main checkout's** `scripts/pre-commit-checks.sh` (`.git/hooks/pre-commit` is a symlink into main). A fix to that script on a branch does not apply to the branch's own commits — land it on main first (decisions.md 2026-09-11 [process], P1283).
+
 ### Subagent prompts need explicit worktree path
 
 Code reviewers and other file-reading subagents default to the main repo root, not your feature-branch worktree. When spawning any file-reading subagent from inside a worktree, pass the full worktree path in the prompt:

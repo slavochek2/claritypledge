@@ -6,6 +6,37 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-11 [technical]: A monitor reads prod through one narrow public function over REST — never through a database login of its own (P1283)
+
+**Context:** The P1283 pg_cron health check needs four facts from prod for each scheduled job: its name, whether it is active, its last success, and its failures in the last 24 hours. The first design gave CI a dedicated Postgres login role, granted execute on one reader function and nothing else. Probing that login on test showed it reached far more than the one function it was granted: on Supabase a login role inherits platform-level grants the project owner cannot revoke, so "granted only X" does not make a login narrow. The specifics are in `.private/docs/security-log.md`. The role only ever existed on test.
+
+**Decision:** Remove the login (role, schema and function dropped on test by `20260911163100_p1283_d_*`). Serve the four fields from `public.cron_health_snapshot()` (`20260911163000_p1283_c_*`): SECURITY DEFINER, empty `search_path`, execute granted to `anon`, and none of the run-history table's free-text columns. The workflow calls it over REST with the public publishable key every page of the site already ships, so this check holds no credential in CI.
+
+**Alternatives rejected:** The Management API token (account-wide authority, which the credential process keeps out of CI). The dedicated login (above). Exposing the run-history table itself (its command and message columns can carry sensitive text).
+
+**Consequences:**
+- For any future monitor, least privilege on Supabase is a function reached over REST, not a login role.
+- Once the migration reaches prod, four job-health fields per job are publicly readable. Accepted: they say whether scheduled jobs run and nothing about any user. The migration's verification block refuses a second overload, a changed return shape, a body that reads the command or message columns, and a non-empty `search_path`.
+- The workflow must use the publishable key: prod rejects the legacy JWT anon key (401, measured 2026-09-11; see 2026-09-01 [technical] "The 2026-08-28 legacy-key migration's consumer enumeration missed a local-only script credential").
+- The pre-commit secret scan now reads a value that is exactly one uppercase variable reference (`-H "apikey: $SUPABASE_ANON_KEY"`) as a name, not a secret. The rule is case-sensitive and anchored to the whole value, because a looser first version passed a literal secret that begins with `$` (found by Codex review, reproduced before the fix).
+
+**References:** P1283 spec (`features/p1283_cron_health_check.md`, on its branch until shipped) · `.github/workflows/cron-health.yml` · `scripts/pre-commit-checks.sh`
+
+## 2026-09-11 [process]: Running several worktrees from one session — the commit hook is main's, the shell's directory carries over, and a serial red run hides its arms
+
+**Context:** One session carried four branches in four worktrees (P1269, P1278, P1283, P1292). Three traps, each hit once:
+1. **The commit hook is main's script.** Every worktree's pre-commit resolves to `.git/hooks/pre-commit`, a symlink to the **main checkout's** `scripts/pre-commit-checks.sh`. P1283 fixed a secret-scan false positive on its branch, and its own commit was still blocked, because the branch's copy never runs. The fix had to land on main first (`git-ops.sh commit-to-main`, with the founder's approval) before the branch could commit.
+2. **The shell's working directory carries over between tool calls, parallel ones included.** A command with no `cd` of its own runs wherever the previous one left the shell. A P1292 commit ran inside the P1283 worktree and was stopped only because that worktree's pre-commit failed.
+3. **Serial mode hides the arms of a red run.** A spec under `mode: 'serial'` skips every test after the first failure, so a gate-7 "watch it fail first" run shows one failure and the rest skipped: the other arms are never actually seen failing.
+
+**Decision:** In a multi-worktree session every command starts with its own `cd <worktree> &&`. A gate or hook fix lands on main before the branch that needs it tries to commit. The red run of a serial spec uses the default mode with `--workers=1`, and serial is restored afterwards.
+
+**Alternatives rejected:** Pointing each worktree's hook at its own branch's script — a branch could then relax the gate that checks its own commit.
+
+**Consequences:** Trap 3 is also recorded in `docs/technical/e2e-testing-guide.md` beside the serial-mode exception, and trap 1 in `docs/technical/worktree-setup.md`.
+
+**References:** `.claude/rules/epistemic.md` gate 7 · `.claude/rules/git.md`
+
 ## 2026-09-11 [process]: An embargoed spec reached main, and taking it off main did not take it off the branches cut from that tip (P1302)
 
 **Context:** P1302 is an embargoed spec: the defect it describes is live and unfixed on production, so neither the spec nor its filename may reach `main` or `origin` until the fix is confirmed deployed. It reached `main` anyway. `git-ops.sh ship` resolved the spec from main's neutral `pN_security-review-pending.md` stub, whose `disclosure: public` passed the embargo check, and cherry-picked the branch commits — which carry the real spec alongside the code — onto main. What stopped the close was the pre-commit duplicate-spec check, not any embargo logic. Nothing was pushed.

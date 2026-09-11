@@ -395,6 +395,8 @@ test('letter appears in inbox', async () => {
 
 **Exception:** `test.describe.configure({ mode: 'serial' })` explicitly allows ordered mutation between tests — use it when setup-verify-teardown must share state across steps.
 
+**Serial mode hides the arms of a red run (P1278, 2026-09-11).** Serial skips every test after the first failure, so a gate-7 "watch it fail first" run reports one failure and the rest skipped — the other arms are never observed failing. For the red run, switch the describe to the default mode and run with `--workers=1`; restore serial afterwards.
+
 ---
 
 ### Testing Conditional Rendering
