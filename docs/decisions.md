@@ -12,13 +12,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Each fix is pinned by a test that failed first for the reviewer's stated reason (`p1296-card-footer.test.tsx`). Both were found by reviews, not by the build: the second review of a FIX delta found a regression the fix introduced.
 **References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md)
 
-## 2026-09-11 [process]: A spec absorbed by another cannot be closed by an agent — it needs the founder's override
+## 2026-09-11 [process]: A spec delivered under another spec's number closes on that spec's record (`absorbed_by` / `absorbs:`), not by override (P1309)
 
-**Context:** P1296 delivered all six criteria of P500 (March, backlog), and P1296's Done-When says "P500 closed". Agents are blocked from moving a spec into `features/done/`, and the gated close (`./scripts/git-ops.sh ship p500`) refuses: gate 2.5 finds no `dev`/`fix` run recorded on P500 and gate 2.7 no review naming it — correctly, since the work ran under P1296's number.
-**Decision:** Tick the absorbed spec's criteria with pointers to the absorbing spec, then the founder runs `./scripts/git-ops.sh ship pN --override`. Never stamp a `pipeline_ran` or a review on the absorbed spec to get past the gate — that records work that did not happen.
-**Alternatives rejected:** an agent moving the file (hook-blocked, and bypasses the gate by design); dropping the line from the absorbing spec's Done-When (possible, but leaves a ticked spec in the backlog).
-**Consequences:** A Done-When that says "close P-other" is a founder step, not an agent step — write it that way at spec time. (Status: proposed) follow-up: an "absorbed by pN" close path in `git-ops.sh` would remove the override.
-**References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md), [P500](../features/p500_feed_card_harmonization.md)
+**Context:** P1296 delivered all six criteria of P500 (March, backlog), and P1296's Done-When needed P500 closed. The gated close (`./scripts/git-ops.sh ship p500`) refused, correctly: gate 2.5 finds no `dev`/`fix` run recorded on P500 and gate 2.7 no review naming it, because the work ran under P1296's number. The only way out was the founder-typed TTY override. The first version of this entry made that the rule. The founder rejected it: *"Why you cannot close? … This makes no sense in this specific scenario. You tell me to do things you can do."*
+**Decision:** P1309 adds a narrow, two-way path. The absorbed spec declares `absorbed_by: pM` and the absorbing spec declares `absorbs: [pN]`, both in frontmatter. The absorbed spec's gates 2.5 and 2.7 then accept the absorbing spec's implementation record and review, but only when all of these hold: the absorbed spec records no implementation of its own; the absorbing spec has shipped (exactly one copy under `features/done/`); it records dev, fix or inline; and it lists the absorbed spec. `git-ops.sh ship` then accepts the absorbing spec's "ready for QA" stamp. Nothing closes as a side effect. The absorbed spec is still closed by its own explicit `git-ops.sh ship pN`. Never stamp a `pipeline_ran`, a review or a "pN ready for QA" commit onto the absorbed spec to get past the gate, because that records work that did not happen under pN.
+**Alternatives rejected:**
+- An agent answering the override prompt through a pty wrapper. `gate-override.sh` names this as circumvention, and it would empty the one place a red-gate close is marked.
+- Restoring co-located auto-close. 11 of 17 specs closed that way had not been delivered (2026-09-07, 2026-08-31).
+- Dropping the line from the absorbing spec's Done-When. That leaves a ticked spec in the backlog.
+- The first P1309 draft, which resolved the absorber from branches and accepted a prose mention. An adversarial review broke it with 2 HIGH findings: a review could be borrowed without the absorber qualifying, and an unshipped absorber was accepted.
+**Consequences:**
+- An absorbed spec closes only after its absorber ships, in that order. P500's close follows P1296's ship.
+- CI gates a pushed close with `origin/main`'s `ship-gates.sh`, so P1309 must reach `origin/main` before a close that relies on it.
+- A Done-When that says "close P-other" is written as a `[post-ship]` clause naming that explicit close, never as a box ticked before the close happens.
+**References:** P1309 (spec on main, shipping ahead of this branch), [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md), [P500](../features/p500_feed_card_harmonization.md)
 
 ## 2026-09-11 [process]: Three verification methods from P1296 worth reusing
 
