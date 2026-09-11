@@ -86,6 +86,7 @@ const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => (
 const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/EventRoomGate").then(m => ({ default: m.EventRoomGate })));
 const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
 const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
+const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
@@ -978,6 +979,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a
