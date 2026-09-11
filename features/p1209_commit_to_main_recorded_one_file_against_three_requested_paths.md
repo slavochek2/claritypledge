@@ -186,6 +186,18 @@ was present and simply not made fatal.
 replacement), `daa1577e` (the reset target), `.claude/rules/epistemic.md` gate 7c (P1173 —
 `migrate.sh` stages the manifest and expects a later commit).
 
+
+## Fourth reproduction — 2026-09-11, after P1279 shipped: 0 files against 1 path, exit 0
+
+`git-ops.sh commit-to-main --files supabase/deploy-manifest.json` on the shared checkout printed
+`requested 1 path(s); the commit records 0 file(s)` plus the WARNING, and the call **exited 0**,
+producing an entirely empty commit (`6be3f5377`); a co-tenant changed the shared index inside the
+pre-commit window. This is after P1279 (2026-09-08), which decisions.md 2026-09-09 (P1282) credits
+with making the mismatch exit non-zero. In `cmd_commit_to_main` the count check that printed these
+lines only echoes. Whether P1279's own check did not run on this path, or did not fire on a
+zero-file record, is **UNVERIFIED** — either way `git.md`'s P1279 statement ("the exit code is the
+contract") did not hold for this call.
+
 ## Open Questions
 
 1. Is `main.lock` intended to bind raw-git users at all? If it cannot, is a git hook the

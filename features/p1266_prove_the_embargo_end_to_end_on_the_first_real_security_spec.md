@@ -82,6 +82,32 @@ reproduce exactly the fixture-shaped confidence this spec exists to replace:
       and PASSING after
 - [ ] The published spec reads `disclosure: public`
 
+
+## First real run — P1303 (2026-09-11): the embargo was not honoured
+
+P1303 (an embargoed revoke of an unintended function grant) was the first real security spec
+through the path, and the first two Done-When items could not be exercised as written:
+
+- **The spec did not stay off main.** `/create-bug` committed the neutral stub
+  `features/p1303_security-review-pending.md`. At ship, `resolve_ship_spec` found that stub as
+  the only `p1303_*.md` on main and used it as the spec; `branch_spec_file` is only set when main
+  has no match, so `ship_spec_disclosure` read the stub's `disclosure: public`. `ship-gates.sh`
+  gate 1.5, which reads the branch, printed EMBARGO in the same run while `git-ops.sh` treated
+  the spec as public. The branch commits carried the spec with the code, so the cherry-picks put
+  it on local main; the close then tried to move the stub into `done/` and was stopped only by
+  the pre-commit duplicate-spec check.
+- **`publish-spec` was never reached**, and reading `cmd_publish_spec` shows it would have failed
+  too: it writes the branch spec into `done/` but never deletes the stub, and the duplicate-spec
+  check blocks a commit while a `p1303_*` file sits in both `features/` and `done/`.
+- **Nothing reached GitHub.** Prod was patched and verified live before any push, the disclosure
+  was flipped to `public` on that evidence, the stub was deleted, and the spec closed through
+  `ship --resume` after the journal's `spec_file` was corrected by hand. See decisions.md
+  2026-09-11 [technical] (P1303).
+
+What this now needs beyond its Done-When: (1) when a branch exists, resolve the spec from the
+branch, or skip `disclosure-embargo` stubs; (2) `publish-spec` deletes the stub in its own commit.
+**P1302's stub is on main — P1302 must not ship until both land**, or it repeats P1303.
+
 ## Related
 
 - [features/p1255_security_specs_publish_before_the_defect_is_fixed.md](p1255_security_specs_publish_before_the_defect_is_fixed.md) — the mechanism

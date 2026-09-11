@@ -65,6 +65,17 @@ loop picks it up naturally — no special-casing needed downstream.
 - [ ] `docs/decisions.md` 2026-08-31 [process] entry ("journal is a snapshot at init") updated or
       superseded to point at the fix.
 
+
+## Second reproduction — P1303 (2026-09-11)
+
+During P1303's ship recovery a branch commit (`47af802de`: the spec's embargo lift and prod
+evidence) was made after the journal existed. `ship p1303 --resume` landed only the journal's
+three commits (`ship_pending_source_shas`), closed the spec from main's older copy, deleted the
+branch, and **exited 0**. `47af802de` never reached main, and the closed spec read
+`disclosure: embargo` with no prod evidence until a follow-up commit repaired it (`6ed6fc172`).
+Unlike P1179, nothing downstream failed to flag it — the run reported success. That is the
+stronger case for refusing on an unjournaled branch commit rather than silently completing.
+
 ## References
 
 - `scripts/git-ops.sh:1399` (`ship_init_journal`), `:1533` (`ship_pending_source_shas`)
