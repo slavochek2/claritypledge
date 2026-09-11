@@ -7,6 +7,9 @@
  */
 import { supabase } from '@/lib/supabase';
 import { createClaritySession, createTranscriptionJob } from './api';
+// Shared with slice-recorder.ts: the same defect appeared at three layers of this feature,
+// so the deadline lives in one place rather than three copies that drift.
+import { withDeadline, RequestTimeoutError } from '@/lib/with-deadline';
 
 export interface TranscribeRoom {
   id: string;
@@ -144,16 +147,6 @@ function generateTranscribeRoomCode(): string {
  */
 const ROOM_ENTRY_TIMEOUT_MS = 15_000;
 
-/** Thrown when a deadline fires, so callers can tell "the server said no" (which has a real
- *  message worth showing) apart from "the server said nothing" (which does not). Both used to
- *  arrive as a bare Error and were reported to the participant with the same sentence. */
-export class RequestTimeoutError extends Error {
-  constructor(label: string, ms: number) {
-    super(`${label} timed out after ${ms}ms`);
-    this.name = 'RequestTimeoutError';
-  }
-}
-
 /** What a participant sees when a request got no answer at all. Deliberately names the
  *  connection: the cause is upstream of this app every time it has been observed (a VPN
  *  tunnel that completed the TCP connect and then swallowed the request, 2026-09-11), and
@@ -180,21 +173,6 @@ function rethrowAsUnreachable(logLabel: string): (err: unknown) => never {
     }
     throw err;
   };
-}
-
-/** Rejects if `promise` has not settled within `ms`. Used for awaits that take no signal. */
-async function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new RequestTimeoutError(label, ms)), ms);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
 }
 
 /**

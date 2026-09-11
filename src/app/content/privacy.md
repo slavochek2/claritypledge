@@ -109,10 +109,16 @@ anonymous, and we treat it as personal data throughout.
 
 A transcribe room is a shared, live transcript that several signed-in people build from their
 own devices. Joining requires you to tap a control that reads "Recorded and visible to
-everyone in this room"; nothing is captured before you do. Your audio is uploaded to our
-Google Cloud Storage bucket, live text is attributed to you with a timestamp and shown to
-everyone in the room, and a corrected transcript is produced afterward and added to the
-session history of everyone who took part. Leaving the room stops your recording.
+everyone in this room"; nothing is captured before you do, and your agreement is recorded on
+our server at the moment you join, not just in your browser.
+
+While you speak, short segments of your audio are sent to **Google's Gemini API** to be turned
+into text. That text is attributed to you with a timestamp and shown to everyone in the room.
+Your audio is also uploaded to our Google Cloud Storage bucket and kept there. Leaving the
+room stops your recording.
+
+Everyone who is in the room can see everything said in it, including anything said before you
+arrived and after you leave.
 
 ### Letters and explain-backs
 
@@ -153,6 +159,9 @@ are stored and visible to other members of that group.
 - **Event and story banners.** When you ask for a generated banner, the event or story title
   and description are sent to Google's Gemini API to produce an image, and title keywords may
   be sent to Unsplash to find a stock photo.
+- **Live transcription in transcribe rooms.** Short segments of your recorded voice are sent to
+  Google's Gemini API to be transcribed. Only the audio is sent — no name, no room code and no
+  previously transcribed text goes with it.
 
 Google processes this content under its own terms. Do not enter health, religious or other
 special-category information into these features, and avoid putting people's names in
@@ -260,7 +269,7 @@ by the person's name, never the bare name on its own.
 | Brevo | Delivers sign-in emails | Email address, sign-in link | European Union |
 | Google (Sign-In) | Optional sign-in | Google account email, name, picture | Google's global infrastructure |
 | Google Cloud (Storage, Cloud Run, Cloud Functions) | Audio, images, transcription service we run | Recordings, transcripts, voice profiles, images | United States |
-| Google Gemini API | `/chat` replies; generated banners | Chat text; event/story titles and descriptions | Google's global infrastructure |
+| Google Gemini API | `/chat` replies; generated banners; live transcription in transcribe rooms | Chat text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |

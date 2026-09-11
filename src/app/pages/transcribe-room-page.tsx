@@ -31,6 +31,7 @@ import {
   type TranscribeRoom,
 } from '@/app/data/transcribe-service';
 import { uploadRoomAudioChunk } from '@/app/data/api';
+import { RequestTimeoutError } from '@/lib/with-deadline';
 
 type ViewState = 'loading' | 'consent' | 'joining' | 'room' | 'ended';
 
@@ -230,7 +231,18 @@ export function TranscribeRoomPage() {
       });
     } catch (err) {
       console.error('[transcribe] failed to start capture:', err);
-      setMicError('Could not access your microphone. You can still read the chat.');
+      // Two different failures used to share one sentence, and one of them was a lie.
+      // A RequestTimeoutError here comes from the audio-setup deadline (the worklet load
+      // or the context resume) — the microphone was already granted and the archival
+      // MediaRecorder is already running, so telling the participant we could not access
+      // their microphone would be wrong in both halves: access succeeded, and they ARE
+      // being recorded. Only live text is lost.
+      // [FOUNDER DECISION: copy] — placeholder wording for both branches.
+      setMicError(
+        err instanceof RequestTimeoutError
+          ? 'Live text could not start. You are still being recorded, and you can read the chat.'
+          : 'Could not access your microphone. You can still read the chat.',
+      );
     }
   }, []);
 

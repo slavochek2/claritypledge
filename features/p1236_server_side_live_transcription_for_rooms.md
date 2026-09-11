@@ -360,9 +360,26 @@ not when the first word is spoken — the consent and join screens supply the co
       budgets vs API 8, the 3 omitted being exactly the capped ones). Absence from the API is not
       evidence a cap is missing; that inversion was made again on 2026-09-09 and reported to the
       founder as an uncapped key
-- [ ] A person speaking on a physical Android phone sees their words in the room, verified over the
+- [x] A person speaking on a physical Android phone sees their words in the room, verified over the
       adb DevTools console with the log pasted into this spec — the same instrument that produced
-      the A/B above
+      the A/B above. **Satisfied 2026-09-10 on the physical S22, after the hung-upload fix
+      (`18446b91`).** Two runs, English/Russian/German mixed, driven over
+      `adb forward tcp:9222` with `adb reverse tcp:5500` making localhost a secure context:
+
+      | room | rows | distinct | ratio | members |
+      |---|---|---|---|---|
+      | `XFKN78` (09:27Z) | 23 | 23 | **1.00** | 1 |
+      | `49UEKF` (09:41Z) | 37 | 37 | **1.00** | 1 |
+
+      Compare the browser-recognizer path's 1.80–2.14 on the same measure. **Re-derived
+      2026-09-11 directly from `transcribe_messages` on the test database rather than
+      transcribed from the session that produced it** — epistemic gate 9: the run is the
+      claim, the stored rows are the evidence, and a remembered number is neither. Each
+      member row carries a server-written `session_id` and `consent_given_at`, so
+      attribution and consent are corroborated by the same query.
+
+      The `members: 1` column is the honest part: this discharges THIS criterion and
+      nothing about the two-participant one below, which remains open
 - [ ] Two participants on two physical devices each see the other's words attributed correctly
 - [ ] A room that has ended leaves no GPU instance allocated — verified from billing, not inferred
 - [x] Current Gemini credit coverage re-verified against billing before any Gemini path is committed

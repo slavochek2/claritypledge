@@ -18,6 +18,13 @@
  * (`scripts/p1236-stagea-probe/`), where the tap held exactly 48000 frames/second with a
  * `MediaRecorder` attached to the same stream.
  */
+import { withDeadline } from '@/lib/with-deadline';
+
+/** Bound on the one-time audio-setup awaits (`resume`, `addModule`). Generous next to the
+ *  ~15 s network deadlines because this is a same-origin asset on an already-warm
+ *  connection: if it has not loaded in 10 s it is not going to, and waiting longer only
+ *  delays telling the participant that live text will not start. */
+export const AUDIO_SETUP_TIMEOUT_MS = 10_000;
 
 /** The format `audio.py` already decodes to before Whisper, and what `validate.ts` on the
  *  ingest side accepts — exact match, not a minimum. */
@@ -256,10 +263,30 @@ export async function createSliceRecorder(
     context = new AudioContext();
   }
   // Autoplay policy can hand back a suspended context even after a user gesture.
-  if (context.state === 'suspended') await context.resume();
+  //
+  // Deadlined for the same reason the module load below is: `resume()` settles when the
+  // hardware is actually running, takes no signal, and on a device that never grants the
+  // context it is one more await with no bottom.
+  if (context.state === 'suspended') {
+    await withDeadline(context.resume(), AUDIO_SETUP_TIMEOUT_MS, 'resuming the audio context');
+  }
 
   try {
-    await context.audioWorklet.addModule('/audio/pcm-tap-worklet.js');
+    // DEADLINED, and this is the point of the wrapper. `addModule` is a same-origin fetch
+    // with no AbortSignal, awaited by `startCapture`, which the room page invokes as
+    // `void startCapture(...)` AFTER it has already switched the view to the room. So a
+    // module load that never settles leaves the participant looking at a room that says
+    // "Listening" while nothing is captured, nothing is sent and no error is raised.
+    //
+    // The stall counter cannot cover this: it increments from the serial sender's
+    // onError/onDrop, and no slice is ever attempted — so "no attempts" and "no failures"
+    // are indistinguishable to it. Third instance of one defect in this feature (see
+    // with-deadline.ts), and the only one upstream of every guard the other two added.
+    await withDeadline(
+      context.audioWorklet.addModule('/audio/pcm-tap-worklet.js'),
+      AUDIO_SETUP_TIMEOUT_MS,
+      'loading the audio worklet',
+    );
   } catch (err) {
     // The worklet is fetched, not bundled, so this fails on a bad deploy or an offline
     // first load. Close the context before rethrowing: the caller's catch only sets a UI
