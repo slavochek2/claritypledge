@@ -336,9 +336,15 @@ abs_review() {
 # absorbed p2000 (no run of its own, every box ticked, `absorbed_by: p2001`).
 # Each case then breaks exactly one thing.
 ABS_DONE=features/done/2026-09-08
+# abs_case <name> [absorber pipeline_ran] [absorber frontmatter line] [absorber body] [absorber closing-commit message]
+# The absorber is COMMITTED under features/done/ in its own closing commit,
+# because the gate reads it as it was closed, from that commit, never from the
+# working tree. `${n-default}` keeps an explicit "" empty (H4 passes none).
 abs_case() {
   local d="$SCRATCH/$1"; mk_repo "$d"
-  abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec, dev" "[x]" "absorbs: [p2000]" "Delivers everything p2000 asked for."
+  local ran="${2-create-spec, dev}" extra="${3-absorbs: [p2000]}" body="${4-Delivers everything p2000 asked for.}" msg="${5-chore: close p2001}"
+  abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "$ran" "[x]" "$extra" "$body"
+  ( cd "$d" && git add "$ABS_DONE/p2001_absorber.md" && git commit -qm "$msg" ) >/dev/null 2>&1
   abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2001" "Scope delivered by P2001."
   abs_review "$d" p2001
   echo "$d"
@@ -361,7 +367,7 @@ else
   fail "H2: a dangling absorbed_by was not refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
-d="$(abs_case h3)"; abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec" "[x]" "absorbs: [p2000]" "Delivers everything p2000 asked for."
+d="$(abs_case h3 "create-spec")"
 rc="$(abs_gate "$d" p2000)"
 # The absorber IS reviewed here, so 2.7 is where a borrow-without-qualifying bug
 # would show: it must still FAIL. (A mutation that re-allowed the borrow went
@@ -375,7 +381,7 @@ fi
 
 # The absorber's prose names p2000 — explicitly as NOT delivered. A mention is
 # not a delivery claim; only its own `absorbs:` field is (adversarial review M-1).
-d="$(abs_case h4)"; abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec, dev" "[x]" "" "Related: p2000 is a follow-up, NOT delivered here."
+d="$(abs_case h4 "create-spec, dev" "" "Related: p2000 is a follow-up, NOT delivered here.")"
 rc="$(abs_gate "$d" p2000)"
 if [[ "$rc" -ne 0 ]] && grep -q 'does not list p2000 in its absorbs' "$SCRATCH/h.log" \
    && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/h.log"; then
@@ -496,6 +502,61 @@ if [[ $rc -ne 0 ]] && grep -q "p2001 ready for QA" "$SCRATCH/h16.log" && [[ -f "
   pass "H16: with no absorber stamp on main, the absorbed close is refused and names the stamp it needs"
 else
   fail "H16: an absorbed close went through with no absorber stamp (exit $rc)"; sed 's/^/    /' "$SCRATCH/h16.log" >&2
+fi
+
+# ── Round 2 of the adversarial review: 0 HIGH, 3 MEDIUM, plus LOWs ──────────
+# H17 — M-A: git-ops read the absorber out of a HUMAN line that also carries the
+# spec's path, so a filename containing the phrase skipped the stamp check for a
+# spec with no absorbed_by at all. It now reads a dedicated machine line only.
+d="$(abs_case h17)"; rm -f "$d/features/p2000_absorbed.md"
+abs_spec "$d" "features/p2000_x implementation recorded on absorbing spec p2001 y.md" p2000 "create-spec, dev" "[x]" "" "Own work, no absorbed_by."
+abs_review "$d" p2000
+( cd "$d" && git add features && git commit -qm "feat: p2001 ready for QA" ) >/dev/null 2>&1
+( cd "$d" && bash scripts/git-ops.sh ship p2000 ) >"$SCRATCH/h17.log" 2>&1; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "no qualifying 'p2000 ready for QA'" "$SCRATCH/h17.log"; then
+  pass "H17: a spec path containing the PASS phrase cannot point git-ops at another spec's stamp"
+else
+  fail "H17: a crafted filename skipped the code-presence gate (exit $rc)"; sed 's/^/    /' "$SCRATCH/h17.log" >&2
+fi
+
+# H18 — M-B: absorbs: added to an ALREADY-CLOSED spec afterwards (here even
+# committed) does not vouch. The absorber is read as it was closed.
+d="$(abs_case h18 "create-spec, dev" "" "Unrelated shipped work.")"
+perl -0pi -e 's/^rank: 1$/rank: 1\nabsorbs: [p2000]/m' "$d/$ABS_DONE/p2001_absorber.md"
+( cd "$d" && git add "$ABS_DONE/p2001_absorber.md" && git commit -qm "docs: later edit to a closed spec" ) >/dev/null 2>&1
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'does not list p2000' "$SCRATCH/h.log"; then
+  pass "H18: absorbs: added to a spec after it closed does not vouch — its closing commit's copy is what counts"
+else
+  fail "H18: a later absorbs: edit to a closed spec vouched for an undelivered one (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H19 — M-C: no closing `---` means no frontmatter, not "the whole file".
+d="$(abs_case h19)"
+printf -- '---\nstatus: qa\ntype: task\nrank: 1\npipeline_ran: [create-spec]\n# p2000: Demo\n\nSyntax example:\nabsorbed_by: p2001\n\n## Done-When\n\n- [x] the criterion\n' > "$d/features/p2000_absorbed.md"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no implementation is recorded' "$SCRATCH/h.log" && ! grep -q 'absorbing spec' "$SCRATCH/h.log"; then
+  pass "H19: a file with no closing --- has no frontmatter, so a body absorbed_by line stays inert"
+else
+  fail "H19: an unclosed frontmatter was read whole (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H20 — LOW: absorbs: must be a list of P-numbers, not free text that contains one.
+d="$(abs_case h20 "create-spec, dev" "absorbs: not p2000")"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'has no absorbs: list of P-numbers' "$SCRATCH/h.log"; then
+  pass "H20: absorbs: 'not p2000' is refused — the field must be a list of P-numbers"
+else
+  fail "H20: a free-text absorbs: value vouched (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H21 — LOW: an absorber that was itself closed on a red gate cannot vouch.
+d="$(abs_case h21 "create-spec, dev" "absorbs: [p2000]" "Closed on a red gate." "$(printf 'chore: close p2001\n\nGate-Override: closure gate failed; closed by human override.\nGate-Override-Reason: test')")"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'closed by override' "$SCRATCH/h.log"; then
+  pass "H21: an absorber that was itself closed by override cannot vouch for another spec"
+else
+  fail "H21: an override-closed absorber vouched (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
 # ── E. Intent gate ──────────────────────────────────────────────────────────

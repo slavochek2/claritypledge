@@ -3073,12 +3073,14 @@ ship_run_gates() {
   printf '%s\n' "$gate_out" >&2
 
   if [[ "$gate_rc" -eq 0 ]]; then
-    # Read from ship-gates' own PASS line, only on a clean pass: an override
-    # never sets it, so an overridden close still needs pN's own stamp. A single
-    # sed (reads all input) rather than grep|head, which can SIGPIPE under
-    # pipefail (epistemic.md gate 7).
+    # Read ONLY ship-gates' dedicated machine line, whole and anchored, and only
+    # on a clean pass: an override never sets it, so an overridden close still
+    # needs pN's own stamp. Parsing the human PASS line instead let a spec whose
+    # FILENAME contained the phrase point this check at another spec's stamp
+    # (round-2 review, M-A). A single sed reads all input, unlike grep|head,
+    # which can SIGPIPE under pipefail (epistemic.md gate 7).
     SHIP_GATE_ABSORBER="$(printf '%s\n' "$gate_out" \
-      | sed -n 's/^\[GATE 2\.5\] PASS: .*implementation recorded on absorbing spec \(p[0-9][0-9]*\) .*/\1/p' \
+      | sed -n 's/^\[GATE 2\.5\] ABSORBER: \(p[0-9][0-9]*\)$/\1/p' \
       | sed -n '1p')"
     return 0
   fi

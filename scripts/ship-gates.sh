@@ -193,7 +193,12 @@ fi
 #   * the absorber LISTS this spec in its own `absorbs:` field. A mention in its
 #     prose ("follow-up, NOT delivered here") is not a delivery claim (M-1).
 absorber_pn=""; absorbed_ok=""; absorbed_reason=""; absorber_source=""
-_frontmatter() { awk 'NR==1 { if ($0 != "---") exit; next } $0 == "---" { exit } { print }'; }
+# Frontmatter = the lines between an opening `---` and a CLOSING `---`, and
+# nothing unless the closing line is actually seen. Printing as it went, a file
+# with no closing `---` was read whole, so a body line showing the syntax
+# activated the arm again (round-2 review, M-C). CR line endings and trailing
+# blanks on the fences are tolerated instead of silently disabling the arm.
+_frontmatter() { awk '{ sub(/\r$/, "") } NR==1 { if ($0 !~ /^---[ \t]*$/) exit; next } $0 ~ /^---[ \t]*$/ { printf "%s", buf; exit } { buf = buf $0 "\n" }'; }
 _fm_field() { printf '%s\n' "$1" | $GREP -m1 -E "^$2:" | sed -E "s/^$2:[[:space:]]*//; s/[[:space:]]+\$//"; }
 _impl_pat='(\[|,)[[:space:]]*(dev|fix|inline)(\.[0-9]+)?[[:space:]]*(,|\])'
 _fm_has_impl() {
@@ -206,11 +211,15 @@ if printf '%s\n' "$_spec_fm" | $GREP -qE '^absorbed_by:'; then
   # Echo-safe copy: status lines must never carry a redirect or pipe character
   # (shell-safety.md), and this value comes straight from a spec file.
   _abs_shown="$(printf '%s' "$_abs_raw" | tr -cd 'a-z0-9 ._#:-' | cut -c1-40)"
+  [[ "$_abs_shown" != "$_abs_raw" ]] && _abs_shown="${_abs_shown} (unsafe characters removed)"
   if [[ -z "$_abs_raw" ]]; then
     absorbed_reason="absorbed_by is empty"
   elif [[ ! "$_abs_raw" =~ ^p[0-9]+$ || "$_abs_raw" == "$pn" ]]; then
     absorbed_reason="absorbed_by value '${_abs_shown}' is not another spec's P-number"
-  elif _fm_has_impl "$_spec_fm"; then
+  # Own implementation, read BOTH ways: frontmatter, and the first
+  # `pipeline_ran:` line anywhere, which is what gate 2.5 itself greps. Otherwise
+  # 2.5 could pass on "own" work from a body line while 2.7 borrowed a review.
+  elif _fm_has_impl "$_spec_fm" || _fm_has_impl "$spec_content"; then
     absorbed_reason="${pn} records its own implementation, so it is not absorbed — remove absorbed_by"
   else
     absorber_pn="$_abs_raw"
@@ -222,13 +231,31 @@ if printf '%s\n' "$_spec_fm" | $GREP -qE '^absorbed_by:'; then
       absorbed_reason="absorbing spec ${absorber_pn} resolves to ${_abf_n} files under features/done/ — ambiguous, refusing to pick one"
     else
       absorber_source="$_abf_all"
-      _abs_fm="$(_frontmatter < "${REPO_ROOT}/${_abf_all}")"
-      if ! _fm_has_impl "$_abs_fm"; then
-        absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
-      elif ! _fm_field "$_abs_fm" absorbs | tr 'A-Z' 'a-z' | tr -c 'a-z0-9' '\n' | $GREP -qx "$pn"; then
-        absorbed_reason="absorbing spec ${absorber_pn} does not list ${pn} in its absorbs: field"
+      # Read the absorber AS IT WAS CLOSED: the blob in the commit that added it
+      # under features/done/, never the working tree or a later edit. Reading the
+      # file let one `absorbs:` line added to any closed spec, even uncommitted,
+      # vouch for an undelivered one (round-2 review, M-B). --no-renames because
+      # /ship `git mv`s the spec in, which rename detection reports as R, not A.
+      _abs_commit="$(cd "$REPO_ROOT" && git log --no-renames --diff-filter=A --format=%H -1 -- "$_abf_all" 2>/dev/null)"
+      _absorbs_re='^\[?p[0-9]+(,p[0-9]+)*\]?$'
+      if [[ -z "$_abs_commit" ]]; then
+        absorbed_reason="absorbing spec ${absorber_pn}'s closed copy is not committed"
+      elif (cd "$REPO_ROOT" && git log -1 --format=%B "$_abs_commit" 2>/dev/null) | $GREP -q '^Gate-Override:'; then
+        absorbed_reason="absorbing spec ${absorber_pn} was closed by override, so it cannot vouch for another spec"
       else
-        absorbed_ok=1
+        _abs_fm="$(cd "$REPO_ROOT" && git show "${_abs_commit}:${_abf_all}" 2>/dev/null | _frontmatter)"
+        _absorbs_raw="$(_fm_field "$_abs_fm" absorbs | tr 'A-Z' 'a-z' | tr -d ' ')"
+        if ! _fm_has_impl "$_abs_fm"; then
+          absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
+        elif [[ -z "$_absorbs_raw" ]]; then
+          absorbed_reason="absorbing spec ${absorber_pn} does not list ${pn} in its absorbs: field (it has none)"
+        elif [[ ! "$_absorbs_raw" =~ $_absorbs_re ]]; then
+          absorbed_reason="absorbing spec ${absorber_pn} has no absorbs: list of P-numbers"
+        elif ! printf '%s\n' "$_absorbs_raw" | tr -c 'a-z0-9' '\n' | $GREP -qx "$pn"; then
+          absorbed_reason="absorbing spec ${absorber_pn} does not list ${pn} in its absorbs: field"
+        else
+          absorbed_ok=1
+        fi
       fi
     fi
   fi
@@ -410,6 +437,11 @@ else
       fail=1
     elif [[ "$impl_ran" -eq 0 && -n "$absorbed_ok" ]]; then
       echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation recorded on absorbing spec ${absorber_pn} (${absorber_source}) (from ${spec_source})"
+      # Machine line for git-ops.sh, printed ONLY here, as a whole line that
+      # carries nothing from a file. git-ops used to parse the human line above,
+      # which interpolates the spec's path, so a crafted filename redirected its
+      # stamp check for a spec with no absorbed_by at all (round-2 review, M-A).
+      echo "[GATE 2.5] ABSORBER: ${absorber_pn}"
     elif [[ "$impl_ran" -eq 0 ]]; then
       echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev', 'fix' or 'inline' entry and flow: is not inline (from ${spec_source}) — the criteria are ticked but no implementation is recorded${absorbed_reason:+; absorbed_by does not qualify: ${absorbed_reason}}"
       fail=1
