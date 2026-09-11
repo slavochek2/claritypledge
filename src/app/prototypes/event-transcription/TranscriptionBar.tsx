@@ -56,7 +56,7 @@ export function TranscriptionBar({
             type="button"
             onClick={onEnd}
             data-testid="transcription-bar-end"
-            className="text-sm text-destructive hover:underline h-8 px-3 sm:ml-0 ml-auto"
+            className="whitespace-nowrap text-sm text-destructive hover:underline h-8 px-3 sm:ml-0 ml-auto"
           >
             End session
           </button>

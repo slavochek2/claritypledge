@@ -44,7 +44,7 @@ export function MeetScreen({
           </p>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-1">
           <Button
             onClick={onJoinPractice}
             size="lg"
@@ -52,8 +52,11 @@ export function MeetScreen({
             className="w-full min-h-11"
             data-testid="join-practice-session"
           >
-            Join practice session (stand-in for the page's practice rooms)
+            Join practice session
           </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Stand-in for the page&apos;s practice rooms
+          </p>
         </div>
       </div>
     </div>
