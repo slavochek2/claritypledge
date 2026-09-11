@@ -5,6 +5,7 @@ rank: 91
 workstream: E1
 created_date: '2026-09-10'
 tags: [feed, stake, profile, cards, consistency, grouping, event-prep]
+absorbs: [p500]
 disclosure: public
 delivery_stage: dev
 pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4, adversarial-review.3, create-spec.5, create-spec.6, dev]
@@ -364,7 +365,7 @@ Footer and `/stake`
 
 Text
 - [x] Story and point bodies are `text-base` and clamped at 40 lines on every surface listed in item 6 (`p1259-clamp-classes-compile` updated to `[40]`), "show more" only on measured overflow — all five surfaces pinned; at 375 "show more" appeared only on a 1,184-char test story that measured 41 lines
-- [x] `/feed` and `/stake` tab labels show counts; P500's criteria delivered and recorded — `p1296-feed-grouping.test.tsx` ("Stories (N) and Points (N), once loaded") and `p1296-stake-navigation.test.tsx` ("the tabs show their counts"); P500 carries `absorbed_by: p1296` and passes its own gates 2.5 and 2.7 in a dry run under P1309's gate change. `[post-ship]` P500 is closed by `./scripts/git-ops.sh ship p500` right after this ship (its ticked copy rides on this branch, so it cannot close first)
+- [x] `/feed` and `/stake` tab labels show counts; P500's criteria delivered and recorded — `p1296-feed-grouping.test.tsx` ("Stories (N) and Points (N), once loaded") and `p1296-stake-navigation.test.tsx` ("the tabs show their counts"); P500 carries `absorbed_by: p1296` and this spec carries `absorbs: [p500]`, the pairing P1309's gate change accepts; its end-to-end case H15 closes exactly this shape through `git-ops.sh ship`. `[post-ship]` P500 is closed by `./scripts/git-ops.sh ship p500` right after this ship — the gate requires the absorbing spec to have shipped first, and P500's ticked copy rides on this branch
 
 Grouping
 - [x] `groupBySource` unit tests: every YouTube URL form of one id groups; two ids do not; unparseable/imageless stories stay single; first-appearance order under both sorts — `p1296-group-by-source.test.ts` (8 URL forms, reversed order, filter shrink, stable keys)
