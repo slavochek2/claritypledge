@@ -147,6 +147,11 @@
       "permanent": false
     },
     {
+      "source": "/aisafety",
+      "destination": "/api/series-redirect?series=aisafety",
+      "permanent": false
+    },
+    {
       "source": "/ai-run",
       "destination": "/api/series-redirect?series=ai-run",
       "permanent": false

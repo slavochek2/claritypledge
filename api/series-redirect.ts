@@ -10,6 +10,9 @@ const SERIES: Record<string, string> = {
   // /events/hike fell through to the generic /events list with no error.
   // Match the word wherever it appears so a rename cannot orphan the link.
   'hike': '%Hike%',
+  // AI-safety Clarity Nights. Matches the topic, not the series prefix, because
+  // not every Clarity Night is about AI safety.
+  'aisafety': '%AI Safety%',
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
