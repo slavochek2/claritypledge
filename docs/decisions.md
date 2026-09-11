@@ -4,6 +4,30 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-11 [technical]: Reusing a card across pages — switch on what the caller says, and report only what the page counted
+
+**Context:** P1296 put one footer on every story and point list card. The profile's point card (`PointCardWithLinks`) was switched to the new footer with `isDetailView` as the "not a list" signal — but the point page renders that card WITHOUT `isDetailView`, so the point page silently moved onto the list footer the spec ruled out. Separately, a feed/stake point card that withdrew a position reported its LOCAL position to the page, while the page's counts only ever contain the FETCHED one.
+**Decision:** (1) The list footer turns on only when the caller names a list surface (`shareSurface`); a prop that happens to exist is not evidence of the page it is on — grep the call sites. (2) A withdrawal reports the fetched position, and notifies the page only when there is a counted position to lower; both pages lower the TOTAL unconditionally, so reporting an uncounted position dropped a point another person still holds (pre-dated P1296).
+**Alternatives rejected:** passing `isDetailView` from the point page (fixes one caller, leaves the landing demos and any future caller on the wrong footer); making the pages ignore null reports (two call sites to keep in sync instead of one).
+**Consequences:** Each fix is pinned by a test that failed first for the reviewer's stated reason (`p1296-card-footer.test.tsx`). Both were found by reviews, not by the build: the second review of a FIX delta found a regression the fix introduced.
+**References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md)
+
+## 2026-09-11 [process]: A spec absorbed by another cannot be closed by an agent — it needs the founder's override
+
+**Context:** P1296 delivered all six criteria of P500 (March, backlog), and P1296's Done-When says "P500 closed". Agents are blocked from moving a spec into `features/done/`, and the gated close (`./scripts/git-ops.sh ship p500`) refuses: gate 2.5 finds no `dev`/`fix` run recorded on P500 and gate 2.7 no review naming it — correctly, since the work ran under P1296's number.
+**Decision:** Tick the absorbed spec's criteria with pointers to the absorbing spec, then the founder runs `./scripts/git-ops.sh ship pN --override`. Never stamp a `pipeline_ran` or a review on the absorbed spec to get past the gate — that records work that did not happen.
+**Alternatives rejected:** an agent moving the file (hook-blocked, and bypasses the gate by design); dropping the line from the absorbing spec's Done-When (possible, but leaves a ticked spec in the backlog).
+**Consequences:** A Done-When that says "close P-other" is a founder step, not an agent step — write it that way at spec time. (Status: proposed) follow-up: an "absorbed by pN" close path in `git-ops.sh` would remove the override.
+**References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md), [P500](../features/p500_feed_card_harmonization.md)
+
+## 2026-09-11 [process]: Three verification methods from P1296 worth reusing
+
+**Context:** P1296 had to prove a video timestamp seeks the right player in a production build, separate real e2e regressions from old failures, and screenshot narrow viewports.
+**Decision:** (1) **Seek proof:** the YouTube iframe posts `infoDelivery` messages carrying `currentTime` to the parent; record them per iframe and assert the EXPECTED player (a card's own, or the group's) reaches the clicked second — against `vite build` + preview with analytics hosts blocked, since a local production bundle otherwise reports to prod Mixpanel/Sentry. (2) **Old or new failure:** run the suspect e2e suites on a clean detached worktree of `main` and on the branch, back to back, and compare test by test; the shared main checkout is not a baseline while another session is mid-ship on it. (3) **Screenshots:** capture only from the FOREGROUND page — a DevTools capture of a page loaded as a background tab under viewport emulation rendered layout measured at a transient width (every point showed a false "show more", position buttons in icon-only mode).
+**Alternatives rejected:** eyeballing a player screenshot for the timestamp; calling e2e failures "pre-existing" from their messages alone.
+**Consequences:** P1296's `p154`/`p268` e2e failures were proven identical on clean main (pre-existing). The combined seek script is not committed; the method is recorded here.
+**References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md)
+
 ---
 
 ## 2026-09-11 [product]: A story behaves the same wherever it is read — group by source, fold the quotes, share with the sheet, clamp at 40 lines (P1296). **UNTESTED.**
