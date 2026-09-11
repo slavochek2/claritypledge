@@ -70,7 +70,7 @@ the founder on 2026-09-11 (below); remaining founder input is final copy wording
 
 | # | Decision |
 |---|---|
-| D1 | Continue on the event ready screen starts transcription **if the switch is on**; the person lands on `/meet` as today, transcription runs in the background, and they can open the room transcript any time. Switch off → Continue goes to `/meet` and **nothing starts**. They can go back to the ready screen and switch it on. |
+| D1 | Continue on the event ready screen starts transcription **if the switch is on**; the person lands on `/events/:slug/meet` exactly as today (never on `/transcribe`), transcription runs in the background, and they can open the room transcript any time. Switch off → Continue goes to `/meet` and **nothing starts**. They can go back to the ready screen and switch it on. |
 | D2 | A visible switch on the ready screen, **on by default**, labelled **"Transcribe for AI insights"**, with the founder's sub-line **"Record audio and share transcript with others in the room"** (says what is kept and who sees it). Below Continue, one small line — the `/live` pattern: "By continuing, you agree to our Terms and Privacy Policy." Not a separate consent screen. |
 | D8 | Nothing new stops a forgotten, still-open page from recording: the room's existing 3-hour limit is the backstop and the always-visible bar is the reminder (founder chose this over a silence timeout, which would drop the question someone waited through a talk to ask). |
 | D9 | Wherever transcription is running, the person can see it — on every page (founder: *"people get visibility everywhere they are if they are recorded"*). |
@@ -126,7 +126,11 @@ Founder-approved copy, 2026-09-11 (the `/live` strings in the last two rows foll
 | Ready screen switch sub-line (on) | Record audio and share transcript with others in the room |
 | Ready screen switch sub-line (off) | Not transcribed |
 | Line under Continue (both states) | By continuing, you agree to our Terms and Privacy Policy. |
-| Bar | ● Transcribing for AI insights — actions **Open**, **End session** |
+| Bar | ● Transcribing for AI insights — actions **Open**, **End session** (never wraps at 320 px) |
+
+Layout: the switch sits **visibly apart from the slider** — extra space above it on top of the
+column's normal gap — because it answers a different question (founder review of the prototype).
+Order on the ready screen: question → slider → switch → Continue → consent line.
 | `/live` start switch | Transcribe for AI insights (was "Record for AI Insights") |
 | `/live` in-session banner | Session transcribed for AI insights (was "Session recorded for AI Insights") |
 
@@ -134,7 +138,9 @@ Clickable prototype: `/tree/event-transcription` on branch `feature/p1307-event-
 (dev-only). Styling reuses the event ready screen, `/live`'s switch and terms line, and the
 existing session bar's classes. The meet page, the `/live` session and the transcript view in the
 prototype are **labelled stand-ins** for the real, unchanged pages — founder review caught the
-first version inventing a meet-page layout. Button colours are left as each page has them today
+first version inventing a meet-page layout. The prototype keeps one URL and switches screens in
+memory; the real product navigates `/events/:slug/ready` → `/events/:slug/meet`. **Founder
+approved the prototype 2026-09-11.** Button colours are left as each page has them today
 (dark blue on the ready screen, `/live`'s blue in the bar); app-wide colour consistency is P1308. The prototype showed that `ActiveSessionBanner`'s markup has no
 session-context dependency — only its click handlers do — so D7 is a split into one presentational
 bar plus two thin wrappers (live session, room transcription), not a second bar.
