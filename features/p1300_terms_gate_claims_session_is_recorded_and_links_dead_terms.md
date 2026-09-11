@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 95
 severity: high
@@ -10,8 +10,15 @@ exec_model: sonnet
 exec_effort: medium
 tags: [legal, consent, copy, terms]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1300-reproduce.test.tsx
+  root_cause: "TermsUpdateDialog carries a /live-scoped sentence ('This session is recorded for AI Insights') and href=/terms; P832 reused it unchanged as the global TermsAcceptanceGate, and /terms falls through to NotFoundPage"
+  confidence: high
+  surfaces_in_scope: [global-terms-gate, live-join-terms-dialog]
+  surfaces_deferred: []
+  reproduced_at: 2026-09-11
 ---
 
 # P1300: Terms re-acceptance popup says "This session is recorded" on every page, and its "View Terms" link is dead
@@ -78,6 +85,14 @@ accept.
 4. Tap "View Terms" → `/terms` → no route matches.
 
 **Reproduction rate:** 100% for every stale-terms user.
+
+**Evidence.** Prod: a user's phone screenshot of the popup over a groups page. Canary
+`src/tests/p1300-reproduce.test.tsx` renders the global gate on `/groups/example-group` and fails
+both assertions before the fix: *"expected 'Updated TermsWe've updated our Terms…' not to match
+/session/i"*, and "View Terms" `href` is `/terms`, not `/terms-of-service`. Surface audit: the
+sentence and the dead href exist only in `terms-update-dialog.tsx` (no other `/terms` link or
+session-scoped sentence in any consent surface). `/terms` falls through to the `path="*"`
+`NotFoundPage` route (`App.tsx:1019`).
 
 ## Expected Behavior
 
