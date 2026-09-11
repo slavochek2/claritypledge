@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 95
 severity: high
@@ -12,6 +12,9 @@ tags: [legal, consent, copy, terms]
 disclosure: public
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: 2026-09-11
+root_cause: "TermsUpdateDialog was a /live join notice reused unchanged as the global gate (P832): its session sentence rendered on every page, its Terms link targeted a never-deployed /terms, and the gate also covered the legal documents the popup links"
+resolution: "Deleted the session sentence (no new wording); Terms link now /terms-of-service; the gate exempts /terms-of-service and /privacy-policy by exact route; /tos-review now reviews the popup's copy, links and document readability on every terms bump"
 reproduce_artifact:
   test_file: src/tests/p1300-reproduce.test.tsx
   root_cause: "TermsUpdateDialog carries a /live-scoped sentence ('This session is recorded for AI Insights') and href=/terms; P832 reused it unchanged as the global TermsAcceptanceGate, and /terms falls through to NotFoundPage"
@@ -159,14 +162,47 @@ sibling behaviour leak only.
 
 ## Acceptance Criteria
 
-- [ ] A stale-terms user on a non-session page (e.g. `/groups/<slug>`) sees a popup that mentions
+- [x] A stale-terms user on a non-session page (e.g. `/groups/<slug>`) sees a popup that mentions
       only the Terms and Privacy Policy — no "session", no "recorded"
-- [ ] "View Terms" opens the Terms of Service page; "View Privacy Policy" opens the Privacy Policy;
+- [x] "View Terms" opens the Terms of Service page; "View Privacy Policy" opens the Privacy Policy;
       a stale-terms user can read both, with no popup covering them
-- [ ] Title "Updated Terms" and Continue / Cancel are unchanged; Continue still records acceptance,
+- [x] Title "Updated Terms" and Continue / Cancel are unchanged; Continue still records acceptance,
       Cancel still signs out (global gate)
-- [ ] Regression test fails on the pre-fix commit and passes after: the popup contains no session or
+- [x] Regression test fails on the pre-fix commit and passes after: the popup contains no session or
       recording claim, and its terms link is `/terms-of-service`
-- [ ] `/tos-review` instructs a review of the re-acceptance popup's copy and links whenever the
+- [x] `/tos-review` instructs a review of the re-acceptance popup's copy and links whenever the
       terms version is bumped
-- [ ] No console errors when the popup renders
+- [x] No console errors when the popup renders
+
+## Resolution
+
+**Evidence per criterion** (branch `feature/p1300-terms-popup-copy`):
+
+1. Documents-only copy — `e2e/p1300-terms-popup.spec.ts` smoke test on `/groups` as a stale-terms
+   user: dialog contains "By continuing, you agree to the updated terms." and neither "session" nor
+   "record"; the groups heading is attached behind it, so the popup sits over the loaded page.
+   Screenshots at desktop, 375 and 320 with `window.innerWidth` verified per viewport.
+2. Readable documents — the e2e docs test opens both hrefs as the same stale user and asserts each
+   H1 is visible with `getByRole('dialog')` count 0 after network idle. It failed before the gate
+   change (dialog count 1 on `/terms-of-service`) and passes after.
+3. Title and buttons unchanged — no edit to either; ~20 e2e specs still dismiss by them. Continue
+   records acceptance: e2e poll reads `accepted_terms_version` back as the current version. Cancel
+   signs out: `p832-global-tos-gate.test.tsx` "handleCancel: calls signOut".
+4. Red then green — canary `src/tests/p1300-reproduce.test.tsx` failed 2/2 before the fix, passes
+   after. New gate cases failed on both legal routes before the exemption, pass after. Final run:
+   26/26 unit tests, `tsc --noEmit` exit 0, e2e 3/3.
+5. `/tos-review` — committed on `main` (Stage 2 reads the in-app terms copy; Stage 8 screenshots the
+   popup on a non-session page and requires both linked documents to be readable). The branch
+   predates those commits and does not touch the skill, so the ship cherry-pick cannot conflict.
+6. No console errors — the e2e smoke test collects `console` errors and `pageerror` and asserts none.
+
+**Review record.** Opus code review: 1 HIGH (the gate covered the linked documents), 2 MEDIUM (the
+e2e could not catch that; the spec claimed the new wording already existed). All three were fixed:
+gate exemption, rewritten docs test, deletion-only copy with the claim corrected. Visual QA, which saw
+screenshots only: the popup copy was clean. It flagged two full-width buttons, but Cancel is an
+outline secondary, so that passes the one-primary rule. It flagged small link tap targets, which
+predate this change and are raised with the founder. It flagged an unloaded desktop background,
+which is now asserted. Codex review: its MEDIUM (skill prevention "not delivered") was verified
+false by command, because it read the branch copy, which predates the skill commits on `main`. Its
+LOW (prefix matching exempted look-alike paths) was fixed with exact-route matching and a unit case
+proving a look-alike stays gated.
