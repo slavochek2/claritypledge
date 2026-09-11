@@ -82,6 +82,23 @@ describe('GroupChatBlock', () => {
     const { container } = render(<GroupChatBlock url={'javascript:alert(1)'} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  // Founder decision 2026-09-11: one line that fits every in-person event. The
+  // hike-only words ("rides to the mountain") went; the lift offer stayed, since
+  // it is true of any in-person event in Chiang Mai.
+  it('locked copy fits any in-person event, not only a hike', () => {
+    render(<GroupChatBlock url={null} showLockedState />);
+    const text = screen.getByTestId('group-chat-locked').textContent ?? '';
+    expect(text).not.toMatch(/mountain/i);
+    expect(text).toMatch(/questions/i);
+  });
+
+  it('unlocked caption fits any in-person event, not only a hike', () => {
+    render(<GroupChatBlock url="https://chat.whatsapp.com/abc" />);
+    const text = screen.getByTestId('group-chat-block').textContent ?? '';
+    expect(text).not.toMatch(/mountain/i);
+    expect(text).toMatch(/questions/i);
+  });
 });
 
 describe('P1194 RLS: event_private_info is not publicly readable', () => {

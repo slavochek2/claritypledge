@@ -145,8 +145,9 @@ Coffee or lunch after for anyone who feels like it.
 - **The description does NOT mention the group chat at all. The terms line ends it.** `EventDetail`
   renders the group-chat block immediately after the description and before the RSVP block, and
   that block ships its own copy in both states — the locked one reads *"Register and you'll get an
-  invitation to our private WhatsApp group, right here — last-minute changes, cancellations, and
-  coordinating rides to the mountain."* A pointer line in the description is that same sentence
+  invitation to our private WhatsApp group, right here. Last-minute changes, questions, and
+  getting there. If you need a lift, just ask."* (One line for every in-person event since
+  2026-09-11; the lift offer is what carries the hike's rides.) A pointer line in the description is that same sentence
   twice, back to back, which is how it read on 2026-09-07 before it was removed. Let the component
   speak; end the description with the terms.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.

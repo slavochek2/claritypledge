@@ -76,10 +76,9 @@ export function GroupChatBlock({ url, showLockedState = false }: GroupChatBlockP
       >
         <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <p className="text-sm">
-          {/* Founder-authored, 2026-08-31. */}
-          Register and you'll get an invitation to our private WhatsApp group, right here — last-minute changes,
-          cancellations, and coordinating rides to the mountain. Many come by motorbike, so if you
-          need a lift, just ask.
+          {/* Founder-authored 2026-08-31; one line for every in-person event since 2026-09-11. */}
+          Register and you'll get an invitation to our private WhatsApp group, right here. Last-minute
+          changes, questions, and getting there. If you need a lift, just ask.
         </p>
       </div>
     );
@@ -106,9 +105,8 @@ export function GroupChatBlock({ url, showLockedState = false }: GroupChatBlockP
         {label}
       </a>
       <p className="text-xs text-muted-foreground mt-2 max-w-md">
-        {/* Founder-authored, 2026-08-31. */}
-        Last-minute changes, cancellations, and getting there. Many come by motorbike — if you need a
-        lift, ask in the group.
+        {/* Founder-authored 2026-08-31; one line for every in-person event since 2026-09-11. */}
+        Last-minute changes, questions, and getting there. If you need a lift, ask in the group.
       </p>
     </div>
   );
