@@ -31,9 +31,9 @@ it works on discussions about protocols, and selects for consultants over operat
 the topic is the *material*.
 
 **Internal name for the job: the onboarding event.** Accurate, not for public use — "onboarding" tells
-a stranger they already joined. `[FOUNDER DECISION: public name]` — **Clarity Forum is the founder's
-own name and is available for either or both**; it currently sits on the offline file. Pick before the
-first listing publishes; a series key can't change afterwards.
+a stranger they already joined. **Public name, offline: Clarity Night** (founder decision 2026-09-11, first listing published
+that day; recorded in [clarity-forum.md](clarity-forum.md)). The online configuration's public name is
+still `[FOUNDER DECISION]`; a series key can't change after its first listing publishes.
 
 ---
 

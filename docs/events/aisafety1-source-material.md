@@ -163,8 +163,11 @@ reading surface does not tell.
 
 ## Title
 
-Working title, agreed 2026-09-10: **"Sanders, LeCun, Bengio, Leahy: Four Sentences on AI. Where Do
-You Stand?"**
+Published title, 2026-09-11: **"Clarity Night: Sanders, LeCun, Bengio and Leahy Disagree on AI
+Safety. Where Do You Stand?"** It supersedes the 2026-09-10 working title *"Sanders, LeCun, Bengio,
+Leahy: Four Sentences on AI. Where Do You Stand?"* The founder dropped "Four Sentences" (verbatim:
+*"I would not say four sentences. I don't know where this comes from."*); "Clarity Night" is the
+series prefix, see [clarity-forum.md](clarity-forum.md). The comma-list constraint below still holds.
 
 Article name and event name are the same by decision. Two constraints learned the hard way:
 

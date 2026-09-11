@@ -10,7 +10,15 @@
 > documentation of a real practice, **not a performance for an audience.** Success is measured by
 > **bracelets carried in the wild** — people practising the verify-before-you-disagree habit outside the room.
 
-**Series name: Clarity Forum** (decided 2026-06-26 — "Forum" signals participation, not spectacle;
+**Series name: Clarity Night** (founder decision 2026-09-11, supersedes *Clarity Forum* below; the
+first listing published the same day). Founder, verbatim: *"yes to overriding to clairty night"*. The
+June reasoning argued against "Show", not against "Night": "Night" reads as a social evening, which
+fits a room told that everybody is welcome, not only experts. **Title format while the founder picks
+topics:** `Clarity Night: <topic>`. Event #1: *"Clarity Night: Sanders, LeCun, Bengio and Leahy
+Disagree on AI Safety. Where Do You Stand?"* The fixed-tagline rule below applies once the room votes
+topics (v2). The file keeps its name so existing links hold.
+
+**Former series name: Clarity Forum** (decided 2026-06-26, superseded 2026-09-11 above — "Forum" signals participation, not spectacle;
 "Show" would invite performing for the camera, the authenticity risk the red-team flagged). Stable
 title-prefix / series key (same convention as `docs/events/series/`). The **title is a fixed tagline
 naming the format, not the week's topic** — the room proposes and votes on the night (see Topic Gate), so
