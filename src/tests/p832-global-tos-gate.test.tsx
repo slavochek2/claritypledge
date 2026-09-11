@@ -191,7 +191,7 @@ describe('TermsAcceptanceGate', () => {
 
   // P1300: the popup links these documents and asks the user to accept them. A stale-terms user
   // who opens one in a new tab must be able to read it, not meet the same blocking modal over it.
-  it.each(['/terms-of-service', '/privacy-policy'])(
+  it.each(['/terms-of-service', '/privacy-policy', '/terms-of-service/'])(
     'stays dormant on %s so the documents it asks the user to accept stay readable',
     async (path) => {
       mockUseAuth.mockReturnValue(authedUser);
@@ -215,6 +215,28 @@ describe('TermsAcceptanceGate', () => {
       expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
     }
   );
+
+  // The legal exemption is exact-route: a look-alike path is not a document the user was sent to.
+  it('still gates a look-alike of a legal route (exact match, not prefix)', async () => {
+    mockUseAuth.mockReturnValue(authedUser);
+    mockNeedsTermsAcceptance.mockResolvedValue(true);
+
+    const { TermsAcceptanceGate } = await import(
+      '@/app/components/auth/terms-acceptance-gate'
+    );
+
+    renderWithRouter(
+      <TermsAcceptanceGate>
+        <div>Look-alike page</div>
+      </TermsAcceptanceGate>,
+      '/privacy-policy-preview'
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+    });
+    expect(mockNeedsTermsAcceptance).toHaveBeenCalledTimes(1);
+  });
 
   it('handleAccept failure: surfaces error and keeps dialog open', async () => {
     mockUseAuth.mockReturnValue(authedUser);
