@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: task
 disclosure: public
 rank: 1000066
@@ -7,12 +7,12 @@ workstream: transcription
 created_date: '2026-09-03'
 tags: [transcribe, transcription, mobile, gpu, cost]
 feature_type: backend
-delivery_stage: dev
 pipeline_ran: [create-spec, architect, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-11
 ---
 
 # P1236: Server-side live transcription for `/transcribe` rooms
@@ -34,7 +34,7 @@ MODE A (speech only)         FINAL: "windows for you 1 2 3"     heard=true
 MODE B (speech + recorder)   chunk 60518B captured               heard=false, ended 5205ms
 ```
 
-This settles the verdict [decisions.md](../docs/decisions.md) 2026-09-01 left open — *"H1 (mic
+This settles the verdict [decisions.md](../../../docs/decisions.md) 2026-09-01 left open — *"H1 (mic
 contention with `MediaRecorder`) vs H2 (Android ignoring `continuous`) remains P1152's verdict"*.
 **H1 is confirmed; H2 is not implicated.**
 
@@ -58,10 +58,10 @@ calls (co-location premise; latency-vs-iteration), both marked below.
 ## Invariants
 
 - Interim (non-final) recognition text MUST NOT leave the participant's browser or reach another
-  participant. Inherited from [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) DW-4.
+  participant. Inherited from [P1149](p1149_live_room_transcription_chat.md) DW-4.
 - Each person consents for their own voice on their own screen; any path reaching audio capture
   MUST fail closed when consent is absent. Inherited from P1149.
-- Idle cost MUST remain ≈ €0. [P858](done/2026-04-22/p858_event_driven_transcription.md) eliminated
+- Idle cost MUST remain ≈ €0. [P858](../2026-04-22/p858_event_driven_transcription.md) eliminated
   a ~€659/mo warm-GPU leak; live transcription structurally re-introduces warm-GPU time, so the
   shutdown path is load-bearing, not incidental.
 - Vertex AI (`aiplatform.googleapis.com`) stays DISABLED on this project. Ruling recorded in
@@ -766,14 +766,14 @@ The spec does not yet specify what, if anything, is sent to Gemini besides raw a
 
 ## Related
 
-- [P1152](p1152_transcribe_physical_device_verification.md) — holds PV-1, whose outcome this
+- [P1152](../../p1152_transcribe_physical_device_verification.md) — holds PV-1, whose outcome this
   session's measurement supplies. PV-1's cause is now known; the check itself still needs re-running
   post-fix.
-- [P1149](done/2026-06-10/p1149_live_room_transcription_chat.md) — the room this changes.
-- [P1196](done/2026-06-10/p1196_transcribe_live_text_dies_on_mobile.md),
-  [P1213](p1213_transcribe_reconnect_loop_never_terminates.md) — two prior fixes to the restart
+- [P1149](p1149_live_room_transcription_chat.md) — the room this changes.
+- [P1196](p1196_transcribe_live_text_dies_on_mobile.md),
+  [P1213](../../p1213_transcribe_reconnect_loop_never_terminates.md) — two prior fixes to the restart
   loop. Both were correct and neither could work, because the recognizer was never receiving audio.
-- [P858](done/2026-04-22/p858_event_driven_transcription.md) — the batch pipeline and the warm-GPU
+- [P858](../2026-04-22/p858_event_driven_transcription.md) — the batch pipeline and the warm-GPU
   cost lesson this must not repeat.
 - P556 / P568 / P569 — speaker attribution via cross-phone energy. Retired only if the co-location
   question resolves to "acoustically separate".
