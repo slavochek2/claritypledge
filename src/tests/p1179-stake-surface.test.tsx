@@ -19,7 +19,15 @@ const getPoints = vi.hoisted(() => vi.fn());
 const getStories = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/data/points-service', () => ({ pointsService: { getPublicPointsFeed: getPoints } }));
-vi.mock('@/app/data/stories-service', () => ({ storiesService: { getPublicStoriesFeed: getStories } }));
+// P1296 item 2 — /stake now batch-fetches the footer counts, exactly as /feed does. These
+// suites assert on the LIST fetch; the linked fetchers only have to exist and resolve.
+vi.mock('@/app/data/stories-service', () => ({
+  storiesService: {
+    getPublicStoriesFeed: getStories,
+    getPointsForStories: vi.fn(async () => new Map()),
+    getStoriesForPoints: vi.fn(async () => new Map()),
+  },
+}));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'u1' } } }) }));
 vi.mock('@/app/components/feed/feed-point-card', () => ({
   FeedPointCard: ({ point }: { point: PointWithUserPosition }) =>
@@ -130,42 +138,60 @@ describe('P1179 AC-7 / AC-8 — a tab renders only if it has content', () => {
  * there walks the attendee out of the app mid-event. `location.key === 'default'`
  * is react-router's marker for that first-entry case.
  */
+/**
+ * P1296 item 5 — there are now TWO back controls: the header's, and a "Go back" CTA at the
+ * bottom of the page (founder: "otherwise people feel stuck and the only CTA is at the top").
+ * Each is found by its OWN accessible name and both are asserted, never `findAllByRole(...)[0]`,
+ * which would hide which button was tested.
+ */
+const HEADER_BACK = { name: 'Go back' };
+const BOTTOM_BACK = { name: 'Go back from the end of the list' };
+
 describe('P1179 — the stake surface has a Back button', () => {
   beforeEach(() => {
     getPoints.mockResolvedValue([point('p1', 'first')]);
     getStories.mockResolvedValue([]);
   });
 
-  it('renders one', async () => {
+  it('renders one at the top and one at the bottom, with distinct accessible names', async () => {
     renderStake();
-    expect(await screen.findByRole('button', { name: /go back/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', HEADER_BACK)).toBeInTheDocument();
+    expect(await screen.findByRole('button', BOTTOM_BACK)).toBeInTheDocument();
+    // Label-in-name: each name contains the visible words, so a voice user can say them.
+    expect(screen.getByRole('button', BOTTOM_BACK).textContent).toContain('Go back');
   });
 
-  it('pops history when there IS a previous entry', async () => {
-    render(
-      <MemoryRouter initialEntries={['/events/cm-1/room', '/stake/cmp7?event=cm-1']} initialIndex={1}>
-        <Routes>
-          <Route path="/events/:slug/room" element={<div data-testid="the-room" />} />
-          <Route path="/stake/:tag" element={<StakePage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-    await userEvent.click(await screen.findByRole('button', { name: /go back/i }));
-    expect(await screen.findByTestId('the-room')).toBeInTheDocument();
-  });
+  it.each([['the header button', HEADER_BACK], ['the bottom CTA', BOTTOM_BACK]])(
+    '%s pops history when there IS a previous entry',
+    async (_which, name) => {
+      render(
+        <MemoryRouter initialEntries={['/events/cm-1/room', '/stake/cmp7?event=cm-1']} initialIndex={1}>
+          <Routes>
+            <Route path="/events/:slug/room" element={<div data-testid="the-room" />} />
+            <Route path="/stake/:tag" element={<StakePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await userEvent.click(await screen.findByRole('button', name));
+      expect(await screen.findByTestId('the-room')).toBeInTheDocument();
+    },
+  );
 
-  it('goes to the feed instead when this is the FIRST history entry — never out of the app', async () => {
-    render(
-      <MemoryRouter initialEntries={['/stake/cmp7']}>
-        <Routes>
-          <Route path="/feed" element={<div data-testid="the-feed" />} />
-          <Route path="/stake/:tag" element={<StakePage />} />
-        </Routes>
-      </MemoryRouter>
-    );
-    await userEvent.click(await screen.findByRole('button', { name: /go back/i }));
-    expect(await screen.findByTestId('the-feed')).toBeInTheDocument();
-  });
+  it.each([['the header button', HEADER_BACK], ['the bottom CTA', BOTTOM_BACK]])(
+    '%s goes to the feed instead when this is the FIRST history entry — never out of the app',
+    async (_which, name) => {
+      render(
+        <MemoryRouter initialEntries={['/stake/cmp7']}>
+          <Routes>
+            <Route path="/feed" element={<div data-testid="the-feed" />} />
+            <Route path="/stake/:tag" element={<StakePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await userEvent.click(await screen.findByRole('button', name));
+      expect(await screen.findByTestId('the-feed')).toBeInTheDocument();
+    },
+  );
 });
 
 /**

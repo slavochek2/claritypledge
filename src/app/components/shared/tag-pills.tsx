@@ -27,6 +27,11 @@ interface TagPillsProps {
 }
 
 const MAX_VISIBLE_TAGS = 8;
+
+/* P1296 item 10 — pill text is `foreground/60`, not `muted-foreground`. Every pill sits on its
+   own `bg-muted`, and muted-foreground on muted measured 4.40:1 — under AA's 4.5:1 for this
+   14px text, on every surface a tag appears, not only the quoted point card where visual QA
+   first measured it. foreground/60 over muted computes to about 5.1:1. */
 const MAX_TAG_LENGTH = 20;
 
 /**
@@ -54,7 +59,7 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
           return (
             <span
               key={tag}
-              className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-muted-foreground"
+              className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-foreground/60"
               title={tag.length > MAX_TAG_LENGTH ? tag : undefined}
             >
               #{displayTag}
@@ -80,7 +85,7 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
           <Link
             key={tag}
             to={`/feed?tag=${encodeURIComponent(tag)}`}
-            className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-muted-foreground hover:bg-blue-50 hover:text-blue-600 transition-colors max-w-[200px] truncate"
+            className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-foreground/60 hover:bg-blue-50 hover:text-blue-600 transition-colors max-w-[200px] truncate"
             title={tag.length > MAX_TAG_LENGTH ? tag : undefined}
             aria-label={`Filter feed by tag: ${tag}`}
             onClick={(e) => e.stopPropagation()}
@@ -90,7 +95,7 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
         );
       })}
       {overflowCount > 0 && (
-        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-muted-foreground">
+        <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-sm text-foreground/60">
           +{overflowCount} more
         </span>
       )}

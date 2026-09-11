@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
@@ -83,16 +83,24 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
   it('renders the quote BODIES, not only the heading', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
     expect(screen.getByTestId('story-video-quotes')).toBeTruthy();
+    // P1296 item 8 — folded by default; the bodies are one tap away, never absent.
+    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     expect(document.body.textContent).toContain(QUOTE_A);
     expect(document.body.textContent).toContain(QUOTE_B);
   });
 
-  /** The label is the component's own <h3>. It must appear exactly once — the whole point of
-   *  §1 was that it appeared twice when the bodies also sat inline in `content`. */
-  it('renders the label exactly once', () => {
-    render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
-    const occurrences = (document.body.textContent ?? '').split(QUOTE_LABEL_PREFIX).length - 1;
-    expect(occurrences, 'the quote heading must render once — twice is the §1 defect returning').toBe(1);
+  /** The heading is the component's own <h3>. It must appear exactly once — the whole point of
+   *  §1 was that it appeared twice when the bodies also sat inline in `content`.
+   *
+   *  P1296 item 8 — that heading is now the fold toggle, and it states the count rather than
+   *  "Supporting quotes from {Name}". So "once" is asserted on the toggle, and the prose label
+   *  must still be stripped: zero copies of it, not one. */
+  it('renders the heading exactly once, and no prose copy of the old label', () => {
+    render(<MemoryRouter><FeedStoryCard story={agentStory({ content: `An argument.\n${QUOTE_LABEL_PREFIX} Yann LeCun:` })} /></MemoryRouter>);
+    const toggles = screen.getAllByTestId('story-video-quotes-toggle');
+    expect(toggles, 'the quote heading must render once — twice is the §1 defect returning').toHaveLength(1);
+    expect(toggles[0]!.textContent).toBe('2 supporting quotes');
+    expect(document.body.textContent).not.toContain(QUOTE_LABEL_PREFIX);
   });
 
   /**
@@ -113,6 +121,7 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
    */
   it('every timecode carries its second and seeks in place rather than leaving the page', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
+    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     const block = screen.getByTestId('story-video-quotes');
     const timecodes = [...block.querySelectorAll('[data-testid="story-video-quote-timecode"]')];
     expect(timecodes.length).toBeGreaterThanOrEqual(2);

@@ -17,6 +17,11 @@ import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/
 import { __resetYouTubeApiLoader } from '@/lib/video';
 import { createRef } from 'react';
 
+/** P1296 item 8 — the quotes are folded by default; open the fold before reading them. */
+function openQuotes() {
+  fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
+}
+
 const VIDEO = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 const QUOTES = [
   { text: 'the first thing said', seconds: 42 },
@@ -36,8 +41,9 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
   it('clicking a timecode calls seek with that quote\'s second — no navigation', () => {
     const onSeek = vi.fn();
     render(
-      <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} subjectName="Jane Doe" onSeek={onSeek} />
+      <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={onSeek} />
     );
+    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks).toHaveLength(2);
 
@@ -78,22 +84,29 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
   });
 
   it('the timecode label is the UI Contract format', () => {
-    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} subjectName="Jane Doe" onSeek={vi.fn()} />);
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
+    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks[0].textContent).toContain('0:42');
     expect(marks[1].textContent).toContain('3:05');
   });
 
-  it('the section names the person it quotes, and carries no meta line', () => {
+  /**
+   * P1296 item 8 CHANGED THIS ROW. The heading used to name the person it quotes ("Supporting
+   * quotes from Jane Doe"); it is now the fold's own toggle and states the COUNT only. Founder,
+   * on the artifact: "not sure we need the name of person again here? redundant?" — the byline
+   * above already names them. Asserting the name ABSENT keeps it from drifting back.
+   */
+  it('the heading states the count, not the person, and carries no meta line', () => {
     render(
       <StoryVideoQuotes
         videoUrl={VIDEO}
         quotes={QUOTES}
-        subjectName="Jane Doe"
         onSeek={vi.fn()}
       />
     );
-    expect(screen.getByText('Supporting quotes from Jane Doe')).toBeTruthy();
+    expect(screen.getByTestId('story-video-quotes-toggle').textContent).toBe('2 supporting quotes');
+    expect(screen.queryByText(/Supporting quotes from/)).toBeNull();
     // Amended 2026-08-24: the `{n} marks · {duration}` meta line was removed from the UI
     // Contract. The count is visible by looking and the video's total length answered a
     // question nobody asked at that position. Asserted ABSENT rather than deleted, so a
@@ -103,16 +116,50 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
 
   it('renders nothing when there are no quotes — the argument stands alone', () => {
     const { container } = render(
-      <StoryVideoQuotes videoUrl={VIDEO} quotes={[]} subjectName="Jane Doe" onSeek={vi.fn()} />
+      <StoryVideoQuotes videoUrl={VIDEO} quotes={[]} onSeek={vi.fn()} />
     );
     expect(container.textContent).toBe('');
   });
 
   it('every timecode is a real touch target, not a hairline', () => {
-    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} subjectName="Jane Doe" onSeek={vi.fn()} />);
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
+    openQuotes();
     for (const mark of screen.getAllByTestId('story-video-quote-timecode')) {
       expect(mark.className).toContain('h-10');
     }
+  });
+});
+
+describe('P1296 item 8 — the quotes are folded by default, behind a toggle that says how many', () => {
+  it('starts folded: the toggle shows, the quotes and timecodes do not', () => {
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
+    const toggle = screen.getByTestId('story-video-quotes-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('story-video-quote-timecode')).toBeNull();
+    expect(screen.queryByText('the first thing said')).toBeNull();
+  });
+
+  it('opening the fold reveals every quote and timecode — folded, never removed', () => {
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
+    openQuotes();
+    expect(screen.getByTestId('story-video-quotes-toggle').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getAllByTestId('story-video-quote-timecode')).toHaveLength(2);
+    expect(screen.getByText('the second thing said')).toBeTruthy();
+  });
+
+  it('the fold is reversible', () => {
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
+    openQuotes();
+    openQuotes();
+    expect(screen.queryByTestId('story-video-quote-timecode')).toBeNull();
+  });
+
+  it('the count is singular for one quote, and the toggle is a 40px target inside a heading', () => {
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES.slice(0, 1)} onSeek={vi.fn()} />);
+    const toggle = screen.getByTestId('story-video-quotes-toggle');
+    expect(toggle.textContent).toBe('1 supporting quote');
+    expect(toggle.className).toContain('min-h-[40px]');
+    expect(toggle.closest('h3')).toBeTruthy();
   });
 });
 
@@ -122,11 +169,11 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
       <StoryVideoQuotes
         videoUrl={VIDEO}
         quotes={QUOTES}
-        subjectName="Jane Doe"
         onSeek={vi.fn()}
         playerBlocked
       />
     );
+    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks[0].tagName).toBe('A');
     expect(marks[0].getAttribute('href')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s');
@@ -137,14 +184,16 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
 
   it('the quote text itself is still fully readable with no player', () => {
     render(
-      <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} subjectName="Jane Doe" playerBlocked />
+      <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} playerBlocked />
     );
+    openQuotes();
     expect(screen.getByText('the first thing said')).toBeTruthy();
     expect(screen.getByText('the second thing said')).toBeTruthy();
   });
 
   it('with no seek handler at all, timecodes still open the source rather than dying', () => {
-    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} subjectName="Jane Doe" />);
+    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} />);
+    openQuotes();
     expect(screen.getAllByTestId('story-video-quote-timecode')[0].tagName).toBe('A');
   });
 

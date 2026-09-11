@@ -11,6 +11,9 @@
  * - Navigation menu (History relocated to dropdown/hamburger)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { FeedPage } from '@/app/pages/feed-page';
 
 // ============================================================================
 // Mock Setup
@@ -37,6 +40,18 @@ vi.mock('@/lib/mixpanel', () => ({
     track: (...args: unknown[]) => mockTrack(...args),
   },
 }));
+
+// P1296 — the Feed Page Tab Bar tests below render the REAL FeedPage (they were TODO
+// placeholders asserting `true`). Its data is stubbed; nothing else in this file reads it.
+vi.mock('@/app/data/stories-service', () => ({
+  storiesService: {
+    getPublicStoriesFeed: vi.fn(async () => []),
+    getPointsForStories: vi.fn(async () => new Map()),
+    getStoriesForPoints: vi.fn(async () => new Map()),
+  },
+}));
+vi.mock('@/app/data/points-service', () => ({ pointsService: { getPublicPointsFeed: vi.fn(async () => []) } }));
+vi.mock('@/app/components/seo', () => ({ SEO: () => null }));
 
 // ============================================================================
 // Test Utilities
@@ -324,40 +339,28 @@ describe('P491: Navigation Menu — History in dropdown/hamburger', () => {
 // ============================================================================
 
 describe('P491: Feed Page — Tab Bar', () => {
-  it('renders Points tab as default active tab', () => {
-    // TODO: Import FeedPage
-    // render(
-    //   <MemoryRouter initialEntries={['/feed']}>
-    //     <FeedPage />
-    //   </MemoryRouter>
-    // );
-    // const pointsTab = screen.getByRole('tab', { name: /points/i });
-    // expect(pointsTab).toHaveAttribute('aria-selected', 'true');
-    expect(true).toBe(true);
+  // P1296 item 4 — these three were placeholders; `/feed?tab=stories` has been read since
+  // P491 but was never actually tested. `/stake` now depends on the same contract.
+  const renderFeedAt = (path: string) => {
+    mockUseAuth.mockReturnValue({ session: null });
+    return render(<MemoryRouter initialEntries={[path]}><FeedPage /></MemoryRouter>);
+  };
+
+  it('renders Points tab as default active tab', async () => {
+    renderFeedAt('/feed');
+    expect((await screen.findByRole('tab', { name: /points/i })).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /stories/i }).getAttribute('aria-selected')).toBe('false');
   });
 
-  it('Stories tab becomes active when ?tab=stories is in URL', () => {
-    // TODO: Import FeedPage
-    // render(
-    //   <MemoryRouter initialEntries={['/feed?tab=stories']}>
-    //     <FeedPage />
-    //   </MemoryRouter>
-    // );
-    // const storiesTab = screen.getByRole('tab', { name: /stories/i });
-    // expect(storiesTab).toHaveAttribute('aria-selected', 'true');
-    expect(true).toBe(true);
+  it('Stories tab becomes active when ?tab=stories is in URL', async () => {
+    renderFeedAt('/feed?tab=stories');
+    expect((await screen.findByRole('tab', { name: /stories/i })).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /points/i }).getAttribute('aria-selected')).toBe('false');
   });
 
-  it('unknown tab param falls back to Points (default)', () => {
-    // TODO: Import FeedPage
-    // render(
-    //   <MemoryRouter initialEntries={['/feed?tab=invalid']}>
-    //     <FeedPage />
-    //   </MemoryRouter>
-    // );
-    // const pointsTab = screen.getByRole('tab', { name: /points/i });
-    // expect(pointsTab).toHaveAttribute('aria-selected', 'true');
-    expect(true).toBe(true);
+  it('unknown tab param falls back to Points (default)', async () => {
+    renderFeedAt('/feed?tab=invalid');
+    expect((await screen.findByRole('tab', { name: /points/i })).getAttribute('aria-selected')).toBe('true');
   });
 
   it('tab bar has correct ARIA roles (tablist, tab, tabpanel)', () => {

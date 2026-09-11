@@ -730,12 +730,15 @@ User toggled the feed sort order.
 | `sort_order` | string | New sort order: `newest` or `oldest` |
 
 ### `feed_card_shared`
-User clicked the share button on a feed card.
+User opened the share sheet (link + embed code) from a story or point card. Since P1296 every
+list card opens the same sheet, so this fires from all three list surfaces; the share buttons on
+the story page, point page and profile header do not fire it.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `type` | string | Card type: `story` or `point` |
 | `id` | string | ID of the shared item |
+| `surface` | string | Where the card sits: `feed`, `stake` (`/stake/:tag`) or `profile`. Added in P1296; earlier events carry no `surface` and all came from `/feed` |
 
 ---
 

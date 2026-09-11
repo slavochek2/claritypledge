@@ -22,7 +22,7 @@ import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { normalizeVideoQuotes, quotesNotInStoryText } from '@/lib/video';
 import { stripQuoteLabel } from '@/lib/story-quotes';
-import { stripAgentPrefix, stripHashtags } from '@/lib/utils';
+import { stripHashtags } from '@/lib/utils';
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
@@ -297,7 +297,6 @@ export function LiveStoryCardExpanded({
             <StoryVideoQuotes
               videoUrl={story.videoUrl}
               quotes={quotesToRender}
-              subjectName={stripAgentPrefix(story.authorName)}
             />
           </div>
         )}

@@ -27,7 +27,6 @@ import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/ap
 import type { Story, Point } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import { stripAgentPrefix } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { normalizeVideoQuotes } from '@/lib/video';
@@ -413,7 +412,6 @@ export function StoryCardWithLinks({
                 <StoryVideoQuotes
                   videoUrl={story.videoUrl}
                   quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
-                  subjectName={stripAgentPrefix(author.name) ?? author.name}
                 />
               </div>
             )}

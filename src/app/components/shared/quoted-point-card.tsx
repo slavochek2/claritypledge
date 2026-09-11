@@ -129,8 +129,11 @@ export function QuotedPointCard({
   return (
     <div className="w-full text-left" data-testid="quoted-point-card">
       {/* Author's position badge - shown above quoted box when available */}
+      {/* P1296 item 10 — `flex-wrap` on both rows. The stance badge could not wrap, so in a
+          narrow column (a story's points expanded at 320px, or inside a source group) it was
+          pushed out to the card's border instead of dropping to its own line. */}
       {point.profileSubjectPosition && (
-        <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-2 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
             photoUrl={authorAvatarUrl}
@@ -141,7 +144,7 @@ export function QuotedPointCard({
             identityPending={quotedIdentityPending}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className={"inline-flex items-center gap-1.5"}>
+          <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
           {/* P1141 amendment: an agent account is named the same way on every surface;
               the raw stored `Agent · {Name}` used to leak through here. */}
           {quotedIsAgent ? (

@@ -22,6 +22,8 @@ import { analytics } from '@/lib/mixpanel';
 import { parseTags, serializeTags, filterByTags, collapseToLatest } from '@/lib/feed-utils';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
+import { groupBySource } from '@/lib/group-by-source';
+import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 
 type FeedTab = 'points' | 'stories';
 
@@ -228,6 +230,11 @@ export function FeedPage() {
     return result;
   }, [stories, activeTags, searchQuery]);
 
+  // P1296 item 7 — group exactly the stories the tab is SHOWING, after the tag and search
+  // filters. A pure function of that list, so typing in the search regroups on the next
+  // render: a group left with one story becomes a plain card, a group left with none is gone.
+  const storyEntries = useMemo(() => groupBySource(filteredStories), [filteredStories]);
+
   const filteredPoints = useMemo(() => {
     let result = filterByTags(points, activeTags);
     if (versionLatest) {
@@ -410,7 +417,10 @@ export function FeedPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Stories
+            {/* P1296 item 6 / P500 — counts on the tabs, as the profile has them. The count is
+                what the tab would show (after tag and search), and it waits for the load so a
+                tab never claims "(0)" about content still in flight. */}
+            Stories{!loading && ` (${filteredStories.length})`}
             {activeTab === 'stories' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
             )}
@@ -425,7 +435,7 @@ export function FeedPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Points
+            Points{!loading && ` (${filteredPoints.length})`}
             {activeTab === 'points' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
             )}
@@ -515,15 +525,23 @@ export function FeedPage() {
                       linkedStories={linksFor(pointStoriesState, pointLinkKey, point.id)}
                     />
                   ))
-                : (filteredStories as StoryWithAuthor[]).map((story) => (
-                    <FeedStoryCard
-                      key={story.id}
-                      story={story}
-                      activeTag={activeTags[0]}
-                      linkedPoints={linksFor(storyPointsState, storyLinkKey, story.id)}
-                      currentUserId={session?.user?.id}
-                    />
-                  ))
+                : storyEntries.map((entry) => {
+                    const renderStoryCard = (story: StoryWithAuthor, groupPlayer?: GroupPlayer) => (
+                      <FeedStoryCard
+                        key={story.id}
+                        story={story}
+                        activeTag={activeTags[0]}
+                        linkedPoints={linksFor(storyPointsState, storyLinkKey, story.id)}
+                        currentUserId={session?.user?.id}
+                        groupPlayer={groupPlayer}
+                      />
+                    );
+                    return entry.kind === 'group' ? (
+                      <SourceGroup key={entry.key} stories={entry.stories} renderStory={renderStoryCard} />
+                    ) : (
+                      renderStoryCard(entry.story)
+                    );
+                  })
               }
             </div>
           )}

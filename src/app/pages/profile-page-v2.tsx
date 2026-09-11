@@ -76,6 +76,9 @@ import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import { AddPointPill, CardOpenButton, CardShareButton } from '@/app/components/shared/card-footer-controls';
+import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
+import { groupBySource } from '@/lib/group-by-source';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { uploadStoryImage } from '@/app/data/story-image-service';
@@ -1171,25 +1174,36 @@ export function ProfilePageV2() {
                   <p className="text-muted-foreground">No stories shared yet</p>
                 </div>
               ) : (
-                userStories.map((story) => (
-                  <StoryCardFull
-                    key={story.id}
-                    story={story}
-                    author={{
-                      id: profile.id,
-                      name: profile.name,
-                      role: profile.role,
-                      hasPledged: profile.hasPledged,
-                      avatarUrl: profile.avatarUrl,
-                      avatarColor: profile.avatarColor,
-                    }}
-                    credibilityStats={credibilityStats}
-                    currentUserId={currentUser?.id}
-                    onPointPositionSelect={handleProfilePointPosition}
-                    onDelete={(storyId) => setRealStories(prev => prev.filter(s => s.id !== storyId))}
-                    onUpdate={(storyId, content) => setRealStories(prev => prev.map(s => s.id === storyId ? { ...s, content, tags: extractHashtags(content) } : s))}
-                  />
-                ))
+                groupBySource(userStories).map((entry) => {
+                  /* P1296 item 7 — the profile groups by source too (founder: "A yes to all
+                     three"). One author by definition, so a group here is the same video
+                     argued more than once. */
+                  const renderStoryCard = (story: (typeof userStories)[number], groupPlayer?: GroupPlayer) => (
+                    <StoryCardFull
+                      key={story.id}
+                      story={story}
+                      author={{
+                        id: profile.id,
+                        name: profile.name,
+                        role: profile.role,
+                        hasPledged: profile.hasPledged,
+                        avatarUrl: profile.avatarUrl,
+                        avatarColor: profile.avatarColor,
+                      }}
+                      credibilityStats={credibilityStats}
+                      currentUserId={currentUser?.id}
+                      onPointPositionSelect={handleProfilePointPosition}
+                      onDelete={(storyId) => setRealStories(prev => prev.filter(s => s.id !== storyId))}
+                      onUpdate={(storyId, content) => setRealStories(prev => prev.map(s => s.id === storyId ? { ...s, content, tags: extractHashtags(content) } : s))}
+                      groupPlayer={groupPlayer}
+                    />
+                  );
+                  return entry.kind === 'group' ? (
+                    <SourceGroup key={entry.key} stories={entry.stories} renderStory={renderStoryCard} />
+                  ) : (
+                    renderStoryCard(entry.story)
+                  );
+                })
               )
             ) : (
               userPoints.length === 0 ? (
@@ -1240,6 +1254,7 @@ export function ProfilePageV2() {
                       return undefined;
                     }}
                     tags={point.tags}
+                    shareSurface="profile"
                   />
                 ))
               )
@@ -1277,6 +1292,11 @@ interface StoryCardFullProps {
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
   onDelete?: (storyId: string) => void;
   onUpdate?: (storyId: string, content: string) => void;
+  /**
+   * P1296 item 7 — this card sits inside a `SourceGroup`: render no media box of its own and
+   * hand the timecodes to the group's single player. Absent for a story shown on its own.
+   */
+  groupPlayer?: GroupPlayer;
 }
 
 /* P1259 change 6 — `STORY_THRESHOLD = 400` LIVED HERE and is deliberately gone.
@@ -1304,6 +1324,7 @@ function StoryCardFull({
   onPointPositionSelect,
   onDelete,
   onUpdate,
+  groupPlayer,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -1334,8 +1355,8 @@ function StoryCardFull({
 
   /* P1259 change 1 — the profile mounts a real player, lazily. Founder: "when I click on a
      timestamp, we stay on the same page in the same way we do that when we are on a story
-     card." */
-  const player = useLazyStoryPlayer(!!story.videoUrl);
+     card." — and not inside a group, whose own player stands in for this one. */
+  const player = useLazyStoryPlayer(!!story.videoUrl && !groupPlayer);
 
   // Sync localImageUrl when story prop changes (e.g., parent refetch)
   useEffect(() => {
@@ -1605,7 +1626,7 @@ function StoryCardFull({
                     renders exactly the markup it rendered before. The EDIT branch above
                     keeps StoryImage deliberately: it owns upload/delete of `image_url`,
                     which is an image control, not a media renderer. */}
-                {(story.videoUrl || localImageUrl) && (
+                {!groupPlayer && (story.videoUrl || localImageUrl) && (
                   /* P1259 change 1 — `mode` comes from the lazy-mount hook. The wrapper is
                      the intersection target and the scroll anchor; stopPropagation because
                      the card root navigates to the story detail page and pressing play
@@ -1631,7 +1652,7 @@ function StoryCardFull({
                     the toggle below had nothing to reveal. The arbitrary-value form is
                     generated for any number and cannot silently vanish that way. ~3x the
                     intended 8, per the founder's "maybe 3x more". */}
-                <p ref={storyTextRef} id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-[24]' : ''}`}>{linkifyText(strippedContent)}</p>
+                <p ref={storyTextRef} id={`story-text-${story.id}`} className={`text-foreground text-base break-words ${!storyExpanded ? 'line-clamp-[40]' : ''}`}>{linkifyText(strippedContent)}</p>
                 {/* P1212 §4 — the quotes travel with the story here too. Founder, on this exact
                     surface: "If I send a profile of Yann LeCun to somebody, it should render the
                     full card that we have, like with the video and the timestamps". §1 removed
@@ -1643,9 +1664,8 @@ function StoryCardFull({
                     <StoryVideoQuotes
                       videoUrl={story.videoUrl}
                       quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
-                      subjectName={stripAgentPrefix(story.authorName ?? author.name) ?? author.name}
-                      onSeek={player.onSeek}
-                      playerBlocked={player.playerBlocked}
+                      onSeek={groupPlayer ? groupPlayer.onSeek : player.onSeek}
+                      playerBlocked={groupPlayer ? groupPlayer.playerBlocked : player.playerBlocked}
                     />
                   </div>
                 )}
@@ -1697,15 +1717,17 @@ function StoryCardFull({
       {/* Footer row with linked points and action icons */}
       <div
         role="presentation"
-        className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-border"
+        /* P1296 item 1 — the footer every story and point card shares; `py-2.5` like the
+           feed's. The padding stays this card's avatar column (`sm:pl-[68px]`). */
+        className="flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {linkedPoints.length > 0 ? (
             <button
               onClick={() => setPointsExpanded(!pointsExpanded)}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
               aria-expanded={pointsExpanded}
             >
               {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1717,17 +1739,12 @@ function StoryCardFull({
             <span className="text-sm text-muted-foreground">0 points</span>
           )}
           {currentUserId === story.authorId && (
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/story/${story.id}?addPoint=true`); }}
-              className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              + Add point
-            </button>
+            <AddPointPill onClick={() => navigate(`/story/${story.id}?addPoint=true`)} />
           )}
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-1">
+        <div className="flex flex-shrink-0 items-center gap-1">
           {/* Edit/Delete — owner only */}
           {currentUserId === story.authorId && (
             <>
@@ -1764,21 +1781,14 @@ function StoryCardFull({
               </MobileTooltip>
             </>
           )}
-          <ShareButton
+          <CardShareButton
             type="story"
             id={story.id}
+            surface="profile"
             title={`${author.name}'s story`}
             description={story.content.slice(0, 100)}
           />
-          <MobileTooltip content="Open story">
-            <button
-              onClick={() => navigate(detailRoutes.story(story.id))}
-              className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-              aria-label="Open story"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </button>
-          </MobileTooltip>
+          <CardOpenButton type="story" onOpen={() => navigate(detailRoutes.story(story.id))} />
         </div>
       </div>
 

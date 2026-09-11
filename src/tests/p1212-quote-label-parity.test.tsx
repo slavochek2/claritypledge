@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -248,14 +248,20 @@ describe('P1212 DW-6 — a letter sealed BEFORE §1 renders its quotes exactly o
   it('the post-§1 shape (label only, bodies in video_quotes) renders the block, once', () => {
     renderCard(`${QUOTE_LABEL_PREFIX} Yann LeCun`);
     expect(screen.getByTestId('story-video-quotes')).toBeTruthy();
+    // P1296 item 8 — folded by default; the quote is one tap away, and rendered once.
+    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     expect(quoteOccurrences()).toBe(1);
-    // Exactly one heading: the body's copy is stripped, the block supplies its own.
+    // Exactly one heading: the body's copy is stripped, the block supplies its own. Since
+    // P1296 that heading is the fold toggle and states the count, so the prose label must
+    // appear ZERO times and the toggle once.
     const headings = (document.body.textContent ?? '').split(QUOTE_LABEL_PREFIX).length - 1;
-    expect(headings).toBe(1);
+    expect(headings).toBe(0);
+    expect(screen.getAllByTestId('story-video-quotes-toggle')).toHaveLength(1);
   });
 
   it('a timecode is shown, and it is a control rather than a label', () => {
     renderCard(`${QUOTE_LABEL_PREFIX} Yann LeCun`);
+    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     expect(screen.getByTestId('story-video-quote-timecode')).toBeTruthy();
   });
 });

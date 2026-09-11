@@ -5,28 +5,33 @@
  * Slate left border. Clickable → navigates to /point/:id.
  */
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, Share2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Pin, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { copyToClipboard } from '@/lib/utils';
-import { analytics } from '@/lib/mixpanel';
 import { linkifyText } from '@/app/utils/linkify';
 import { stripHashtags } from '@/lib/utils';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import {
   PositionButtons,
 } from '@/app/components/shared';
-import { adjustPositionCounts } from '@/app/utils/position-helpers';
+import { adjustPositionCounts, getPositionCTACopy, getPositionGroup } from '@/app/utils/position-helpers';
 import { QuotedStory } from '@/app/components/social/point-card-with-links';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { InlineVisibilityIcon } from '@/app/components/shared';
+import {
+  AddStoryPill,
+  CardOpenButton,
+  CardShareButton,
+  EditYourStoryLink,
+} from '@/app/components/shared/card-footer-controls';
 import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
+import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -34,34 +39,29 @@ interface FeedPointCardProps {
   /** P543: Notify parent that a position was removed — parent decides whether to filter or decrement */
   onPointRemoved?: (pointId: string, removedPosition: PositionType | null) => void;
   /**
-   * P1212 §5 — the stories arguing this point, batch-fetched by the feed page
+   * P1212 §5 — the stories arguing this point, batch-fetched by the page
    * (`getStoriesForPoints`, one query per page — never per card).
    *
-   * Undefined means "not loaded" and renders no expander; an empty array means "loaded,
+   * Undefined means "not loaded" and renders no count; an empty array means "loaded,
    * none linked" and renders the `0 stories` label. Profile point cards and the point
    * detail page already carried this affordance; the feed was the surface that did not.
    */
   linkedStories?: StoryWithAuthor[];
+  /** Which list the card sits on — carried on `feed_card_shared`. */
+  surface?: 'feed' | 'stake';
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories }: FeedPointCardProps) {
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed' }: FeedPointCardProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const viewerId = session?.user?.id;
 
-  // P594: Expand/collapse for truncated text
+  // P594: Expand/collapse for truncated text. P1296 item 6: measured by the shared hook the
+  // story cards use (P1259 change 6), so a resize or a late webfont re-measures too.
   const statementRef = useRef<HTMLParagraphElement>(null);
   const [statementExpanded, setStatementExpanded] = useState(false);
   const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const [statementOverflows, setStatementOverflows] = useState(false);
-
-  const checkOverflows = useCallback(() => {
-    const stEl = statementRef.current;
-    if (stEl) setStatementOverflows(stEl.scrollHeight > stEl.clientHeight + 1);
-  }, []);
-
-  useEffect(() => {
-    checkOverflows();
-  }, [checkOverflows, point.statement]);
+  const statementOverflows = useTextOverflow(statementRef, [point.statement]);
 
   // Optimistic position state
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
@@ -71,7 +71,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
 
   // P401: Guard position removal — only shows dialog when linked stories exist
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
-    userId: session?.user?.id ?? '',
+    userId: viewerId ?? '',
     onAfterRemove: () => {
       const removedPosition = localPosition ?? serverPosition;
       setLocalPosition(null);
@@ -118,6 +118,22 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
     [baseCounts, serverPosition, authedEffective],
   );
 
+  /* P1296 item 1 — the viewer's contribution CTA, the profile point card's logic (P822 +
+     P470 Case E) on every card. The profile gates it on `isOwnProfile`; that condition is
+     dropped here because a feed or stake card always shows the VIEWER's own relation to the
+     point. A signed-in viewer only: an anonymous position is local-storage only (P502) and
+     has its own CTA below.
+
+     Waits for the links: until they load there is no telling whether the viewer already has
+     a story here, and offering "+ Add your story" to someone who has one is the wrong call.
+     The linked set is read through RLS, so it includes the viewer's own private story. */
+  const viewerStory = viewerId && linkedStories
+    ? linkedStories.find((linked) => linked.authorId === viewerId)
+    : undefined;
+  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory
+    ? getPositionCTACopy(getPositionGroup(authedEffective))
+    : null;
+
   const handlePositionClick = async (position: PositionType) => {
     // P502: Anonymous user → optimistic local position, no redirect
     if (!session?.user) {
@@ -162,9 +178,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
       onClick={handleClick}
       onKeyDown={(e) => {
         // P1212: only the CARD ITSELF activates. Without the target check this fires for a
-        // keydown on any nested control — the §5 story expander, a position button, a
-        // QuotedStory — and, because it calls preventDefault(), cancels that control's own
-        // activation before navigating.
+        // keydown on any nested control — the story expander, a position button, a
+        // QuotedStory, the share sheet — and, because it calls preventDefault(), cancels
+        // that control's own activation before navigating.
         if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -180,10 +196,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Statement with inline visibility icon */}
+            {/* Statement with inline visibility icon. P1296 item 6 — `text-base` and 40 lines,
+                the story cards' measure (arbitrary value: see feed-story-card.tsx). */}
             <p
               ref={statementRef}
-              className={`text-sm font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-6'}`}
+              className={`text-base font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-[40]'}`}
             >
               <InlineVisibilityIcon visibility={point.visibility} />{' '}
               {linkifyText(stripHashtags(point.statement, point.tags))}
@@ -208,139 +225,139 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories 
             {/* Tag pills */}
             <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
 
-            {/* Position buttons + share */}
-            <div role="presentation" className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <div className="flex-1">
-                <PositionButtons
-                  userPosition={effectivePosition}
-                  counts={counts}
-                  onPositionClick={handlePositionClick}
-                  onClear={async () => {
-                    if (!session?.user) {
-                      setAnonPositionState(null);
-                      setAnonPosition(point.id, null);
-                      return;
-                    }
-                    await guardedRemovePosition(point.id);
-                  }}
-                />
-              </div>
-              <button
-                onClick={async () => {
-                  analytics.track('feed_card_shared', { type: 'point', id: point.id });
-                  const url = `${window.location.origin}/point/${point.id}`;
-                  const ok = await copyToClipboard(url);
-                  if (ok) toast.success('Link copied!');
+            {/* Position buttons. P1296: share USED TO sit at the end of this row — the only card
+                whose share was not in a footer. It moved to the footer below; the row is the
+                position buttons alone, so tabbing through it no longer lands on an unrelated
+                control between the last position and the story list. */}
+            <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <PositionButtons
+                userPosition={effectivePosition}
+                counts={counts}
+                onPositionClick={handlePositionClick}
+                onClear={async () => {
+                  if (!session?.user) {
+                    setAnonPositionState(null);
+                    setAnonPosition(point.id, null);
+                    return;
+                  }
+                  await guardedRemovePosition(point.id);
                 }}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                aria-label="Share point"
-                title="Copy link"
-              >
-                <Share2 size={14} />
-              </button>
+              />
             </div>
             {/* P502: Anonymous position CTA */}
             {!session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />
             )}
-
-            {/* P1212 §5 — story-count expander. The profile point card and the point
-                detail page both offered this; the feed point card offered no route to the
-                stories arguing the point at all. Same chevron + count affordance, so the
-                two directions of the link read identically wherever they appear. */}
-            {linkedStories !== undefined && (
-              <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
-                {linkedStories.length > 0 ? (
-                  <button
-                    onClick={() => setStoriesExpanded(!storiesExpanded)}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
-                    aria-expanded={storiesExpanded}
-                    data-testid="feed-point-story-expander"
-                  >
-                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    <span>
-                      {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
-                    </span>
-                  </button>
-                ) : (
-                  <span className="text-sm text-muted-foreground">0 stories</span>
-                )}
-
-                {/* The SAME QuotedStory the profile point card and live sessions render,
-                    not a local text preview. A second excerpt renderer here would be a
-                    ninth surface with its own label handling, its own agent treatment and
-                    its own truncation rule — which is the drift this spec exists to close,
-                    reintroduced by the section meant to close it. */}
-                {storiesExpanded && linkedStories.length > 0 && (
-                  /* P1270 §2 — the thread line the other three surfaces already had.
-                     `ThreadLine` is the universal "belongs to" pattern (decisions.md
-                     2026-03-17), and `point-card-with-links.tsx:658` carries the rule this
-                     copies verbatim: "All stories get ThreadLine — even single items need
-                     the connecting line to visually anchor them to the parent card."
-                     This surface postdates that ruling and simply never adopted it, so an
-                     expanded story here floated with nothing tying it to its point. */
-                  <div className="mt-1.5">
-                    <ThreadLineGroup>
-                    {linkedStories.map((linked, index) => (
-                      <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
-                      <QuotedStory
-                        key={linked.id}
-                        // Production -> prototype shape, the same conversion
-                        // point-detail-page.tsx:424-432 performs. `linkedPointIds` is
-                        // unused by QuotedStory (it renders author, text and image only)
-                        // and the feed has not fetched the reverse direction here.
-                        story={{
-                          id: linked.id,
-                          authorId: linked.authorId,
-                          text: linked.content,
-                          createdAt: linked.createdAt,
-                          visibility: linked.visibility,
-                          linkedPointIds: [],
-                          understoodCount: linked.understoodCount,
-                          imageUrl: linked.imageUrl,
-                          // P1212 §4: the video and its quotes travel with the story. The
-                          // conversion dropped them silently, so on the points feed an
-                          // agent story whose only media is video rendered with no media
-                          // and — after §1 stripped the quote bodies from the prose — no
-                          // evidence either.
-                          videoUrl: linked.videoUrl,
-                          videoQuotes: linked.videoQuotes,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/story/${linked.id}`);
-                        }}
-                        onAuthorClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/p/${linked.authorSlug || linked.authorId}`);
-                        }}
-                        getStoryAuthor={() => ({
-                          id: linked.authorId,
-                          name: linked.authorName,
-                          slug: linked.authorSlug,
-                          avatarColor: linked.authorAvatarColor,
-                          avatarUrl: linked.authorAvatarUrl,
-                          earsCount: linked.authorEarsCount,
-                          hasPledged: linked.authorHasPledged,
-                        })}
-                        /* P1259 change 4 — THE FEED ONLY. This is the surface where a point
-                           carries several stories at once, so it is the only one where two
-                           authors can disagree in front of the reader with nothing saying
-                           so. The profile's stance-above-the-point layout is deliberately
-                           untouched (founder: "profile stay same").
-                           `authorPositionOnPoint` is attached per (point, author) by
-                           getStoriesForPoints, so `linked` is already scoped to THIS point. */
-                        authorPosition={linked.authorPositionOnPoint}
-                      />
-                      </ThreadLineItem>
-                    ))}
-                    </ThreadLineGroup>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
+      </div>
+
+      {/* P1296 item 1 — the footer every story and point card carries, on /feed, /stake and
+          the profile: count and contribution CTA left; share, then open-in-new, right. This card
+          had no footer row at all (its story count sat in the body and its share in the
+          position row), so this is a new row, shaped like the story card's. */}
+      <div
+        role="presentation"
+        className="flex flex-col gap-2 px-4 py-2.5 border-t border-border"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="point-card-footer"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {linkedStories !== undefined && (
+              linkedStories.length > 0 ? (
+                <button
+                  onClick={() => setStoriesExpanded(!storiesExpanded)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
+                  aria-expanded={storiesExpanded}
+                  data-testid="feed-point-story-expander"
+                >
+                  {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>
+                    {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
+                  </span>
+                </button>
+              ) : (
+                <span className="text-sm text-muted-foreground">0 stories</span>
+              )
+            )}
+            {viewerStory && (
+              <EditYourStoryLink onClick={() => navigate(`/story/${viewerStory.id}?edit=true`)} />
+            )}
+            {addStoryCopy && (
+              <AddStoryPill copy={addStoryCopy} onClick={() => navigate(`/create?pointId=${point.id}`)} />
+            )}
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <CardShareButton
+              type="point"
+              id={point.id}
+              surface={surface}
+              description={point.statement.slice(0, 100)}
+            />
+            <CardOpenButton type="point" onOpen={handleClick} />
+          </div>
+        </div>
+
+        {/* The SAME QuotedStory the profile point card and live sessions render, not a local
+            text preview. A second excerpt renderer here would be a ninth surface with its own
+            label handling, its own agent treatment and its own truncation rule. */}
+        {storiesExpanded && linkedStories && linkedStories.length > 0 && (
+          /* P1270 §2 — the thread line the other surfaces already had. `ThreadLine` is the
+             universal "belongs to" pattern (decisions.md 2026-03-17): "All stories get
+             ThreadLine — even single items need the connecting line to visually anchor them
+             to the parent card." */
+          <ThreadLineGroup>
+            {linkedStories.map((linked, index) => (
+              <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
+                <QuotedStory
+                  // Production -> prototype shape, the same conversion
+                  // point-detail-page.tsx performs. `linkedPointIds` is unused by QuotedStory
+                  // (it renders author, text and media only) and the feed has not fetched the
+                  // reverse direction here.
+                  story={{
+                    id: linked.id,
+                    authorId: linked.authorId,
+                    text: linked.content,
+                    createdAt: linked.createdAt,
+                    visibility: linked.visibility,
+                    linkedPointIds: [],
+                    understoodCount: linked.understoodCount,
+                    imageUrl: linked.imageUrl,
+                    // P1212 §4: the video and its quotes travel with the story.
+                    videoUrl: linked.videoUrl,
+                    videoQuotes: linked.videoQuotes,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/story/${linked.id}`);
+                  }}
+                  onAuthorClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/p/${linked.authorSlug || linked.authorId}`);
+                  }}
+                  getStoryAuthor={() => ({
+                    id: linked.authorId,
+                    name: linked.authorName,
+                    slug: linked.authorSlug,
+                    avatarColor: linked.authorAvatarColor,
+                    avatarUrl: linked.authorAvatarUrl,
+                    earsCount: linked.authorEarsCount,
+                    hasPledged: linked.authorHasPledged,
+                  })}
+                  /* P1259 change 4 — THE FEED ONLY. This is the surface where a point
+                     carries several stories at once, so it is the only one where two
+                     authors can disagree in front of the reader with nothing saying so.
+                     The profile's stance-above-the-point layout is deliberately untouched
+                     (founder: "profile stay same"). `authorPositionOnPoint` is attached per
+                     (point, author) by getStoriesForPoints, so `linked` is already scoped to
+                     THIS point. */
+                  authorPosition={linked.authorPositionOnPoint}
+                />
+              </ThreadLineItem>
+            ))}
+          </ThreadLineGroup>
+        )}
       </div>
     </div>
     </>

@@ -120,13 +120,20 @@ describe('P1259 — every line-clamp class in the tree actually compiles', () =>
   });
 
   /**
-   * The two surfaces the spec names by line number. Pinned individually so that reverting
-   * either one to a bare class fails with the surface's own name rather than as an anonymous
-   * entry in the sweep above.
+   * The surfaces the specs name. Pinned individually so that reverting any one to a bare class
+   * fails with the surface's own name rather than as an anonymous entry in the sweep above.
+   *
+   * P1296 item 6 raised every story and point body to 40 lines — FOUNDER DECISION 2026-09-11:
+   * "lets do 40 lines everywhere on all surfaces for story and point text" (was 24 on the
+   * profile, 18 on the feed, 15 in the compact detail card, 12 on its linked-story preview,
+   * and a bare `line-clamp-6` on the feed point statement).
    */
   it.each([
-    ['the profile story body', 'app/pages/profile-page-v2.tsx', 'line-clamp-[24]'],
-    ['the feed story body', 'app/components/feed/feed-story-card.tsx', 'line-clamp-[18]'],
+    ['the profile story body', 'app/pages/profile-page-v2.tsx', 'line-clamp-[40]'],
+    ['the feed story body', 'app/components/feed/feed-story-card.tsx', 'line-clamp-[40]'],
+    ['the feed point statement', 'app/components/feed/feed-point-card.tsx', 'line-clamp-[40]'],
+    ['the compact story detail card', 'app/components/social/StoryCardDetail.tsx', "'text-base line-clamp-[40]'"],
+    ['the linked-story preview', 'app/components/social/StoryCardDetail.tsx', 'text-base text-foreground line-clamp-[40]'],
   ])('%s uses the arbitrary-value clamp', (_name, file, expected) => {
     expect(readFileSync(join(SRC, file), 'utf8')).toContain(expected);
   });

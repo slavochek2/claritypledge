@@ -34,7 +34,6 @@ import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { normalizeVideoQuotes } from '@/lib/video';
-import { stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
@@ -271,7 +270,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-foreground break-words ${compact ? 'text-sm line-clamp-[15]' : 'text-base'}`}>
+          <p className={`text-foreground break-words ${compact ? 'text-base line-clamp-[40]' : 'text-base'}`}>
             {/* P1212 §1 — the quote label is StoryVideoQuotes' heading. This branch renders
                 no quote block, so it renders no heading. */}
             {linkifyText(storyTextForDisplay(story.content, story.tags))}
@@ -389,7 +388,7 @@ export function StoryCardDetail({
             )}
 
             {/* Story text - indented under author */}
-            <div className={`text-foreground break-words ${compact ? 'text-sm line-clamp-[15]' : 'text-base'}`}>
+            <div className={`text-foreground break-words ${compact ? 'text-base line-clamp-[40]' : 'text-base'}`}>
               {/* P1212 §1 — the heading below comes from StoryVideoQuotes, which cannot render
                   it without bodies. Rendering it out of `content` too is the same-page duplicate. */}
               {renderStoryText(storyTextForDisplay(story.content, story.tags))}
@@ -401,7 +400,6 @@ export function StoryCardDetail({
               <StoryVideoQuotes
                 videoUrl={story.videoUrl ?? ''}
                 quotes={videoQuotes.quotes}
-                subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
                 playerBlocked={playerBlocked}
                 onSeek={(seconds) => {
                   playerRef.current?.seekTo(seconds);
@@ -946,9 +944,11 @@ function LinkedStoryCard({
         )}
         {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />}
       </div>
-      {/* P1259 change 5 — ~3x. Arbitrary value: Tailwind 3.4 generates line-clamp 1-6 only,
-          so a bare `line-clamp-12` would compile to nothing and silently unclamp this preview. */}
-      <p className="text-sm text-foreground line-clamp-[12] break-words">{linkifyText(story.content)}</p>
+      {/* P1296 item 6 — 40 lines of `text-base`, the measure every story and point body uses
+          (founder: *"lets do 40 lines everywhere on all surfaces for story and point text"*).
+          Arbitrary value: Tailwind 3.4 generates line-clamp 1-6 only, so a bare class would
+          compile to nothing and silently unclamp this preview. */}
+      <p className="text-base text-foreground line-clamp-[40] break-words">{linkifyText(story.content)}</p>
     </div>
   );
 }

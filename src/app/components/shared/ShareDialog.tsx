@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { copyToClipboard } from '@/lib/utils';
+import { analytics } from '@/lib/mixpanel';
 import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
 import { MobileTooltip } from './mobile-tooltip';
 import {
@@ -218,6 +219,9 @@ export function ShareDialog({
   );
 }
 
+/** P1296 — the list surfaces a story or point card can be shared from. */
+export type ShareSurface = 'feed' | 'stake' | 'profile';
+
 interface ShareButtonProps {
   /**
    * Type of content being shared. Deliberately excludes 'org' — getShareUrl()
@@ -226,6 +230,15 @@ interface ShareButtonProps {
    * `<ShareButton type="org">` compile and silently emit a profile URL.
    */
   type: 'story' | 'point' | 'profile';
+  /**
+   * P1296 — set by the list CARDS (feed, stake, profile), and only by them. When present,
+   * opening the sheet fires `feed_card_shared` with this surface. The feed's cards used to
+   * fire that event from their own copy-link buttons; this sheet replaced those buttons on
+   * every card, and it fired nothing, so without this the event would silently stop.
+   * Absent on every other ShareButton (story page, point page, profile header), which keep
+   * firing nothing as before.
+   */
+  surface?: ShareSurface;
   /** ID used to build the URL (ignored when url is provided) */
   id: string;
   /** Override the computed URL (use when default routes don't apply, e.g. prototype pages) */
@@ -244,7 +257,7 @@ interface ShareButtonProps {
  * ShareButton - Button that opens ShareDialog
  * Drop-in replacement for ShareDropdown
  */
-export function ShareButton({ type, id, url, className, title, description, fromUserId }: ShareButtonProps) {
+export function ShareButton({ type, id, url, className, title, description, fromUserId, surface }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
 
   const getShareUrl = () => {
@@ -264,6 +277,10 @@ export function ShareButton({ type, id, url, className, title, description, from
         <button
           onClick={(e) => {
             e.stopPropagation();
+            // `profile` is never a card type, and the event documents story | point only.
+            if (surface && type !== 'profile') {
+              analytics.track('feed_card_shared', { type, id, surface });
+            }
             setOpen(true);
           }}
           className={className || "p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"}

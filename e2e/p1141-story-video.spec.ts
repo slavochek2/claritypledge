@@ -61,6 +61,16 @@ test.afterAll(async () => {
   }
 });
 
+/**
+ * P1296 item 8 — the supporting quotes are folded by default on every surface, behind a toggle
+ * stating their count. Open it the way a reader does before reading a timecode.
+ */
+async function openQuotes(page: import('@playwright/test').Page) {
+  const toggle = page.getByTestId('story-video-quotes-toggle').first();
+  await expect(toggle).toBeVisible({ timeout: 15_000 });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+}
+
 test.describe('P1141 — a story carrying a video, on the real route', () => {
   test('DW-1 the media slot holds the player where the picture used to be', async ({ browser }) => {
     const { context, user, cleanup } = await getTestAuthContext('host', browser);
@@ -131,6 +141,7 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
       const page = await context.newPage();
       await blockThePlayer(page);
       await page.goto(`/story/${storyId}`);
+      await openQuotes(page);
 
       const marks = page.locator('[data-testid="story-video-quote-timecode"]');
       await expect(marks).toHaveCount(2, { timeout: 15_000 });
@@ -169,6 +180,7 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
       const page = await context.newPage();
       await blockThePlayer(page);
       await page.goto(`/story/${storyId}`);
+      await openQuotes(page);
 
       const mark = page.locator('[data-testid="story-video-quote-timecode"]').first();
       await expect(mark).toBeVisible({ timeout: 15_000 });
@@ -210,6 +222,7 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
       // exists to prove is unreachable in that state. Blocking it here made the test fail
       // identically before AND after the fix — a test that cannot distinguish them.
       await page.goto(`/story/${storyId}`);
+      await openQuotes(page);
 
       const mark = page.locator('[data-testid="story-video-quote-timecode"]').first();
       await expect(mark).toBeVisible({ timeout: 15_000 });
@@ -418,6 +431,8 @@ test.describe('P1141 — a story carrying a video, on the real route', () => {
         await expect(page.locator('[data-testid="story-video-quotes"]')).toBeVisible({
           timeout: 15_000,
         });
+        // P1296 — measure the OPEN quote list; a closed fold would hide the rows this checks.
+        await openQuotes(page);
 
         // Verify the resize actually took effect before trusting the measurement
         // — resize can silently no-op below some minimum (.claude/rules/browser.md).

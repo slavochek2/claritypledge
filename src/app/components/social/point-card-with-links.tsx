@@ -9,9 +9,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
-import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
-import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
@@ -32,6 +31,13 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
+import {
+  AddStoryPill,
+  CardOpenButton,
+  CardShareButton,
+  EditYourStoryLink,
+} from '@/app/components/shared/card-footer-controls';
+import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
@@ -98,6 +104,11 @@ interface PointCardWithLinksProps {
   disablePositionButtons?: boolean;
   /** P847: Clear viewer's persisted position. Wire onClear once at page level. Do not instantiate a per-row guard. */
   onClear?: () => void;
+  /**
+   * P1296 — the list surface this card sits on (the profile), carried on `feed_card_shared`.
+   * Omitted by the point page's detail card and the landing demos, which fire nothing.
+   */
+  shareSurface?: ShareSurface;
 }
 
 // P822: Module-level helper — inline "+ Add your story" pill used across feed-view
@@ -110,15 +121,8 @@ function renderAddStoryPill(
   navigate: (path: string) => void,
 ) {
   if (!show || !ctaCopy) return null;
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); navigate(`/create?pointId=${pointId}`); }}
-      aria-label={ctaCopy.ariaLabel}
-      className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
-    >
-      {ctaCopy.ctaText}
-    </button>
-  );
+  // P1296: the pill itself is shared with the feed and stake point cards.
+  return <AddStoryPill copy={ctaCopy} onClick={() => navigate(`/create?pointId=${pointId}`)} />;
 }
 
 /**
@@ -147,6 +151,7 @@ export function PointCardWithLinks({
   tags,
   disablePositionButtons = false,
   onClear,
+  shareSurface,
 }: PointCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
   const rawText = stripHashtags(point.text, tags);
@@ -281,6 +286,12 @@ export function PointCardWithLinks({
       {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={!isDetailView && !disableNavigation ? (e) => {
+        // P1212's guard, which this root never carried (the feed cards and the story card
+        // have it). Without it a keydown on ANY nested control — a position button, the
+        // story expander, or since P1296 the share sheet opened from this footer, whose
+        // portal still bubbles through this tree — is preventDefault()ed and turned into a
+        // navigation to the point page.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleCardClick();
@@ -394,13 +405,7 @@ export function PointCardWithLinks({
                         </button>
                         {/* Case E: viewer has a story on another profile's point */}
                         {!isEmbed && !liveSessionMode && !isOwnProfile && viewerStoryId && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
-                            className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                            aria-label="Edit your story"
-                          >
-                            · ✏ your story
-                          </button>
+                          <EditYourStoryLink onClick={() => embedNavigate(`/story/${viewerStoryId}?edit=true`)} />
                         )}
                         {/* P822: inline pill (own profile, no viewer story) */}
                         {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
@@ -442,30 +447,34 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  return <span />;
+                  // P1296 — a point with no stories says so rather than leaving a blank row
+                  // (the feed and stake cards render `0 stories`; this is the same footer).
+                  return <span className="text-sm text-muted-foreground">0 stories</span>;
                 })()}
 
                 {/* Action icons - hidden in live session mode; embed: open button only (no share) */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
                     {!isEmbed && (
-                      <ShareButton
-                        type="point"
-                        id={point.id}
-                        description={point.text.slice(0, 100)}
-                        fromUserId={profileOwner?.id}
-                      />
+                      isDetailView ? (
+                        <ShareButton
+                          type="point"
+                          id={point.id}
+                          description={point.text.slice(0, 100)}
+                          fromUserId={profileOwner?.id}
+                        />
+                      ) : (
+                        <CardShareButton
+                          type="point"
+                          id={point.id}
+                          surface={shareSurface}
+                          description={point.text.slice(0, 100)}
+                          fromUserId={profileOwner?.id}
+                        />
+                      )
                     )}
                     {(isEmbed || (!isDetailView && !disableNavigation)) && (
-                      <MobileTooltip content="Open point">
-                        <button
-                          onClick={() => embedNavigate(`/point/${point.id}`)}
-                          className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                          aria-label="Open point"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
-                      </MobileTooltip>
+                      <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
                     )}
                   </div>
                 )}
@@ -537,7 +546,14 @@ export function PointCardWithLinks({
         <>
         <div
           role="presentation"
-          className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100"
+          /* P1296 item 1 — in a LIST (the profile) this is the footer every story and point card
+             shares: theme border, `py-2.5`. The point page's own detail card keeps its row. The
+             padding stays this card's avatar column (`sm:pl-[68px]`), as the spec requires. */
+          className={
+            isDetailView
+              ? 'flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100'
+              : 'flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border'
+          }
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
@@ -572,13 +588,7 @@ export function PointCardWithLinks({
                   </button>
                   {/* Case E: viewer has a story on another profile's point */}
                   {!isEmbed && !isOwnProfile && viewerStoryId && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); embedNavigate(`/story/${viewerStoryId}?edit=true`); }}
-                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                      aria-label="Edit your story"
-                    >
-                      · ✏ your story
-                    </button>
+                    <EditYourStoryLink onClick={() => embedNavigate(`/story/${viewerStoryId}?edit=true`)} />
                   )}
                   {/* P822: inline + Add your story pill for own profile with no story */}
                   {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
@@ -610,7 +620,8 @@ export function PointCardWithLinks({
               );
             }
 
-            return <span />; /* Empty span for flexbox spacing */
+            // P1296 — `0 stories`, not a blank row: the same count every card's footer carries.
+            return <span className="text-sm text-muted-foreground">0 stories</span>;
           })() : (
             <span /> /* Empty span for flexbox spacing */
           )}
@@ -619,19 +630,21 @@ export function PointCardWithLinks({
           {!hideActions && !liveSessionMode && (
             <div className="flex items-center gap-1">
               {!isEmbed && (
-                <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
+                isDetailView ? (
+                  <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
+                ) : (
+                  <CardShareButton
+                    type="point"
+                    id={point.id}
+                    surface={shareSurface}
+                    description={point.text.slice(0, 100)}
+                    fromUserId={profileOwner?.id}
+                  />
+                )
               )}
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && !disableNavigation && (
-                <MobileTooltip content="Open point">
-                  <button
-                    onClick={() => embedNavigate(`/point/${point.id}`)}
-                    className="min-w-11 min-h-11 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="Open point"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </button>
-                </MobileTooltip>
+                <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
               )}
             </div>
           )}
@@ -971,6 +984,11 @@ export function QuotedStory({
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => {
+          // P1212's root guard, on this box too. P1296 folded the supporting quotes behind a
+          // toggle BUTTON inside this box; without the target check, Enter on that toggle (or
+          // on a timecode) was preventDefault()ed here and turned into a navigation, which
+          // made the quotes unreachable by keyboard on every point card.
+          if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
@@ -1056,7 +1074,6 @@ export function QuotedStory({
           <StoryVideoQuotes
             videoUrl={story.videoUrl}
             quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
-            subjectName={stripAgentPrefix(author?.name) || 'Author'}
             onSeek={player.onSeek}
             playerBlocked={player.playerBlocked}
           />

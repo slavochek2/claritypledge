@@ -26,7 +26,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { quotesNotInStoryText } from '@/lib/video';
@@ -64,11 +64,16 @@ function makeStory(overrides: Partial<StoryWithPoints> = {}): StoryWithPoints {
  * reason, on a card that still duplicates the quote the moment a reader clicks "Show more".
  */
 function renderCard(story: StoryWithPoints) {
-  return render(
+  const result = render(
     <BrowserRouter>
       <LiveStoryCardExpanded story={story} defaultStoryExpanded />
     </BrowserRouter>
   );
+  // P1296 item 8 — the quote block is folded by default. Open it, so "renders once" counts
+  // what a reader sees after one tap rather than what the fold hides.
+  const toggle = result.container.querySelector('[data-testid="story-video-quotes-toggle"]');
+  if (toggle) fireEvent.click(toggle);
+  return result;
 }
 
 const occurrences = (haystack: string, needle: string) => haystack.split(needle).length - 1;

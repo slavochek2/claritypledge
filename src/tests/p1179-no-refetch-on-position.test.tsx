@@ -18,7 +18,15 @@ const getPoints = vi.hoisted(() => vi.fn());
 const getStories = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/data/points-service', () => ({ pointsService: { getPublicPointsFeed: getPoints } }));
-vi.mock('@/app/data/stories-service', () => ({ storiesService: { getPublicStoriesFeed: getStories } }));
+// P1296 item 2 — /stake now batch-fetches the footer counts, exactly as /feed does. These
+// suites assert on the LIST fetch; the linked fetchers only have to exist and resolve.
+vi.mock('@/app/data/stories-service', () => ({
+  storiesService: {
+    getPublicStoriesFeed: getStories,
+    getPointsForStories: vi.fn(async () => new Map()),
+    getStoriesForPoints: vi.fn(async () => new Map()),
+  },
+}));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'u1' } } }) }));
 vi.mock('@/app/components/feed/feed-skeleton', () => ({ FeedSkeleton: () => <div data-testid="skeleton" /> }));
 vi.mock('@/app/components/seo', () => ({ SEO: () => null }));
