@@ -1,15 +1,15 @@
 ---
-name: event-page
-description: "Turn a disagreement that is live on PROD under a tag into a published Clarity Night event page: write the description from the run's verified material (sourced, balanced across the points, one primary link per section), build it on TEST for the founder to review on localhost, then on his explicit go create it on PROD with the community, the gated group chat and a checked banner. Ends when the event is live; promotion is /slava:events:promote-all."
+name: clarity-night-publish
+description: "Turn a disagreement that is live on PROD under a tag into a published Clarity Night event page: write the description from the run's verified material (sourced, balanced across the points, one primary link per section), publish it on TEST for the founder to review on localhost, then, when he confirms, move it to PROD with the community, the gated group chat and a checked banner. Ends when the event is live; promotion is /slava:events:promote-all."
 when_to_use: "After /slava:disagreement:publish (or promote-to-prod) has put a tag's points and stories on PROD and the founder has a date, time and venue for the room. NOT for hikes or runs (/slava:events:publish-run), next occurrences cloned from a series (/slava:events:re-create-event), or generic events through the web form (/slava:events:publish-event)."
 version: 1.0.0
 ---
 
-# /slava:disagreement:event-page
+# /slava:disagreement:clarity-night-publish
 
 The last stage of the disagreement family: a tag on prod becomes an event people can register for.
 
-**Announce at start:** "Running /slava:disagreement:event-page. I build on TEST first; nothing reaches PROD until you say publish."
+**Announce at start:** "Running /slava:disagreement:clarity-night-publish. I publish on TEST first; nothing moves to PROD until you confirm."
 
 > Codified 2026-09-11 from the first run (tag `aisafety1`). Founder: *"this process that we went can
 > be now codified... so next time it is faster."* Each rule keeps its reason so it is not relitigated.
@@ -20,7 +20,7 @@ The last stage of the disagreement family: a tag on prod becomes an event people
 
 | Situation | Skill |
 |---|---|
-| A disagreement tag is live on prod and needs its event page | `/slava:disagreement:event-page` ← here |
+| A disagreement tag is live on prod and needs its event page | `/slava:disagreement:clarity-night-publish` ← here |
 | File the points and stories to the tag (before this) | `/slava:disagreement:publish` |
 | Trail run or hike from an AllTrails link | `/slava:events:publish-run` |
 | Next occurrence of a recurring series, same content | `/slava:events:re-create-event` |
@@ -128,7 +128,7 @@ The recording line closes Optional preparation, just above Sources.
 
 ## Workflow
 
-### Step 4 — Build on TEST; the founder reviews the real page
+### Step 4 — Publish on TEST; the founder reviews the real page
 
 **`scripts/create-event.ts` is PROD-only (its URL is hardcoded). Never run it in this step.**
 Insert on test in-process:
@@ -158,7 +158,7 @@ Links in the description are absolute prod URLs, so they work from the test page
 
 ### Step 5 — Self-check before asking for PROD
 
-Paste the evidence; do not ask for publish until all pass.
+Paste the evidence; do not ask to move to PROD until all pass.
 
 - [ ] Marker `n` equals Sources item `n` for every `n` — checked by a script, not by eye
 - [ ] Every quote found with `grep -F` in its raw source
@@ -171,14 +171,14 @@ Paste the evidence; do not ask for publish until all pass.
       `window.innerWidth` (`resize_window` silently clamps near 500). No horizontal overflow.
       Without a browser, say the mobile check was not run; never report it as passed.
 
-### Step 6 — PROD, only on the founder's explicit "publish" in this turn
+### Step 6 — Move to PROD, only when the founder confirms it in this turn
 
 1. **Create** with `npx tsx scripts/create-event.ts <file.json>`, input shaped like the Step 4 row
    but with `"host_id": "<prod host>"` and `"org_slug": "cm"` instead of `org_id` (it resolves the
    org, generates the slug, and prints `SLUG=`). It sets no banner and no group chat.
    **Known gap:** this script reads the prod service key from the `.env.local` plaintext copy,
    around the per-access gate (tracked in the private process-learnings inbox, 2026-09-11). Until
-   that is fixed, **say so in the publish request** and run it only on the founder's word. Every
+   that is fixed, **say so when you ask to move to PROD** and run it only on the founder's word. Every
    other prod service-role call in this skill goes through the helper.
 2. **Group chat: publish-run step 8c's *procedure*, not its code** (8c passes the key in `argv`).
    In-process, one dialog per process, and never print the invite URL:
@@ -248,7 +248,7 @@ Next: `/slava:events:promote-all`.
 
 ## Quality gates (prod only; Step 5 covers the copy)
 
-- [ ] The founder said "publish" in the same turn, after hearing the Step 6.1 known gap
+- [ ] The founder confirmed the move to PROD in the same turn, after hearing the Step 6.1 known gap
 - [ ] The group-chat read-back printed `True`
 - [ ] Prod rendered signed out with the venue and all six sections, and the banner passed the look-and-crop check
 

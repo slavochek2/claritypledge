@@ -182,7 +182,7 @@ where it is.
 
 **Returns:** the tag feed URL. Print it, and stop.
 
-**Next, after a PROD run:** `/slava:disagreement:event-page` builds and publishes the event page
+**Next, after a PROD run:** `/slava:disagreement:clarity-night-publish` builds and publishes the event page
 for the tag. Name it in the hand-off; never chain into it (it has its own PROD gate).
 
 ---

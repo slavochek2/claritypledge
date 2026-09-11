@@ -584,7 +584,7 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | disagreement:publish 
 
 ## Related
 
-- `/slava:disagreement:event-page` — **next, once the tag is on PROD:** builds and publishes the event page for it.
+- `/slava:disagreement:clarity-night-publish` — **next, once the tag is on PROD:** builds and publishes the event page for it.
 - `docs/points-process.md` — the pipeline contract: stage boundaries, run-file schema, seal rules.
 - `/slava:disagreement:select` — proves the topic is contested, selects the N opposed arguers; resolves `subject_key` and approvals at its gates.
 - `/slava:disagreement:prepare` — extracts the points and seals the prediction.
