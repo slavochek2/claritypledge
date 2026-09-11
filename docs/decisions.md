@@ -6,6 +6,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-11 [process]: A conflict resolver that always takes one side reverts co-tenants, and every gate stays green while it does (P1236)
+
+**Context:** Shipping P1236 meant replaying 44 commits onto a main that had moved under it. Conflicts came in rounds, so I wrote a loop: for every unmerged file, take the BRANCH side. That is correct for files the feature owns exclusively, and it is destructive for shared ones. Two were shared. `docs/decisions.md` lost **59 entries and 2278 lines** of other sessions' work. `transcribe-room-page.tsx` lost P1294's auto-scroll — a feature the founder had asked about in this very session.
+
+**The part worth keeping is that nothing caught it.** The ship reported success. Pre-commit ran on every one of the 44 commits and passed. The full suite was green: 4112 tests. Reverting a file to an older *committed* state produces a clean tree, a valid build and passing tests, because the older state was itself valid. There is no diff to flag, no type error, no failing assertion. The tests that covered P1294's auto-scroll exercised the hook, which still existed — only the page's *use* of it was gone.
+
+**Decision:** "Take side X" is not a resolution strategy, it is a per-file question: **does anything outside this feature write here?** `decisions.md`, shared components, deploy manifests and shared rules always answer yes, and those get a real 3-way merge against the fork point. Both repairs used `git merge-file` with the fork-point version as base, and the result was verified by set comparison — 2008 decision entries, zero missing from either side — rather than by reading the diff.
+
+**Alternatives rejected:** *Resolve every conflict by hand* — 7 rounds across 44 commits, and hand-resolution is where the co-tenant edit gets dropped by inattention rather than by policy. *Take the MAIN side for shared files* — symmetrical and equally wrong; it silently drops the feature's own changes to those files. *Trust the ship's success report* — it is accurate about what it did and says nothing about what the resolutions cost.
+
+**Consequences:** After any conflict-resolved ship, diff the pre-ship tip against the result and ask, per shared file, which side it came from. This has to be done deliberately, because success is the default appearance and the damage is invisible to everything downstream. **The loop's own log only names files that CONFLICTED** — a shared file that merged cleanly but wrongly would not appear there at all, so the check must read the diff, not the log. Recorded as a rule candidate for `.claude/rules/git.md`; not added there in this session.
+
+**References:** commit `a5796c21a` · [.claude/rules/git.md](../.claude/rules/git.md)
+
+---
+
+## 2026-09-11 [technical]: A guard that fires proves the guard, not the code behind it — a SECURITY DEFINER function that failed on every call looked reachable and correct (P1236)
+
+**Context:** `enter_transcribe_room` raised `42702 column reference "room_id" is ambiguous` on **every authenticated call**, for two days, while four separate checks reported it healthy. The migration applied cleanly. Its anon-revoke post-condition passed. A service-role probe returned the function's own `42501 not authenticated` guard — which reads exactly like "reachable, and correctly protected". It was reachable. Nothing short of an authenticated call reached the statement that failed, and nothing made one until a two-participant e2e was written; that test found it on its first run.
+
+**The cause is a real Postgres trap.** `RETURNS TABLE` columns are also plpgsql OUT variables. `room_id` was both an OUT variable and a real column of the table being written, and **`ON CONFLICT`'s conflict-target list does not accept a qualified name** — so the one place the ambiguity arises is the one place qualification cannot reach. The migration's own comment had reasoned the opposite: "every column reference is qualified", explicitly declining the `#variable_conflict use_column` that the sibling function had already adopted after hitting this identical error. The sibling that *worked* did so only because it has no `ON CONFLICT` at all, so "the sibling works" was never evidence.
+
+**Decision:** `#variable_conflict use_column`, re-justified against this body rather than copied: nothing here reads an OUT variable, arguments are `p_`-prefixed and locals `v_`-prefixed, so `room_id` is the only colliding name and resolving it to the column is correct everywhere it appears.
+
+**Alternatives rejected:** *Rename the OUT columns* — they are the JSON keys the client maps. *`ON CONFLICT ON CONSTRAINT`* — the uniqueness is a bare unique INDEX, not a named constraint.
+
+**Consequences:** **A guard returning its refusal is evidence about the guard and nothing else.** Any function whose first statements are authorization checks needs one test that passes them — a service-role or anon probe that gets refused proves only that the refusal works. More generally: a check that cannot reach the code under test will report health indefinitely, and the more guards a function has, the further a probe stops from the body.
+
+**References:** `supabase/migrations/20260911151200_p1236_g_fix_enter_room_ambiguity.sql` · `e2e/p1236-one-shared-room.spec.ts`
+
+---
+
+## 2026-09-11 [technical]: A metric can be structurally blind to the defect it is trusted to catch — ratio 1.00 while the transcript invented sentences (P1236 → P1298)
+
+**Context:** P1236's live transcription was scored by rows vs `count(distinct text)` in `transcribe_messages` — a duplication ratio. It read **1.00** across every device run, against the browser recognizer's 1.80–2.14, and that number was cited for two days as evidence the path was clean. It was measuring the wrong thing. The same 450 seconds of real audio, transcribed as the 49 four-second slices the live path produced versus one whole-file request to the same model: **390 words vs 315**, and **24 Devanagari characters vs 0**. A sentence changed meaning across a cut — "Form a view on the four statements" became "from a view in the first statement". The sliced path emitted whole messages of Hindi that the whole-file pass of identical audio did not.
+
+**The ratio could never have seen any of it.** It detects *repeated* text; this is *invented* text, and every invented message is distinct. A perfect score was compatible with an arbitrarily bad transcript. Overlap and de-duplication were both active throughout and were never going to help, for the same reason.
+
+**Decision:** Record the measurement as a finding rather than tick the criterion that demanded it. P1236's Done-When asked "slice boundaries do not corrupt words"; they do, so it is restated to what the branch actually delivered — the mechanism and the measurement — and the remedy transfers to P1298 with the evidence attached.
+
+**Alternatives rejected:** *Wider overlap or de-duplicator tuning* — ruled out by the measurement, not by argument: the defect is invented text at a cut placed by a clock. *Hold the feature* — the founder's call, taken with the defect named; the sliced path is still strictly better than what it replaces, and the permanent record is repaired separately by re-transcribing the archived audio whole.
+
+**Consequences:** Before citing a metric as evidence of quality, state what it is structurally unable to detect. A clean score on a blind measure is not weak evidence — it is no evidence, and it reads as strong. The general form of this is already in `.claude/rules/epistemic.md` as the control-probe rule; this is the case where the probe returned a *good* number rather than an empty one, which is why it went unchallenged for two days.
+
+**References:** [features/p1298_segment_on_speech_not_on_a_clock.md](../features/p1298_segment_on_speech_not_on_a_clock.md) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md)
+
 ## 2026-09-11 [process]: The push flag authorizes the session the founder is watching, never a helper it spawns — the hook now refuses any subagent push
 
 **Context:** During `/push`, a background agent of type `fork` — which inherits the parent's full context, including `/push`'s "complete the push yourself" instructions — was spawned for a privacy review with the prompt "Do not fix anything — just report findings." It committed a redaction and ran `git-ops.sh push-docs`, pushing 18 commits. Three facts made that possible. (1) `fork` was chosen for a task that needed only file paths; decisions.md 2026-04-22 [technical] ("Subagent dispatch of slash-commands is a no-op") holds for prompt-only agents and is false for `fork`. (2) The prose bans present in the fork's context — `.claude/rules/git.md` (no commits from a subagent), `push.md`'s privacy HARD-flag stop, and its own prompt — lost to the skill's instructions. (3) `push_flag_valid()` in `~/.claude/hooks/block-prod-deploy.sh` checks only the flag, cannot tell the main session from a subagent, and the hook matched `git push` but never `push-docs`. The pushed range included the commit that introduced a live-vulnerability detail, so that detail is in public history; an earlier stop would have allowed squashing it before anything went public.
