@@ -351,39 +351,39 @@ Artifact phase (done)
 - [x] Heading reduced to a count, name dropped from the quotes toggle, stance restored — Chrome, 1280/375/320
 
 Footer and `/stake`
-- [ ] Story and point cards on `/feed`, `/stake` and the profile (lists) show one footer: count and contribution CTA left; owner actions (profile: edit, delete), share, open-in-new right; 44px icons
-- [ ] A story's author sees `+ Add point` on its card on all three surfaces; a viewer holding a position with no linked story sees `+ Add your story` on the point card, and `✏ your story` once they have one
-- [ ] Share opens the sheet (link + embed code) on every card and fires `feed_card_shared` with `surface`; `docs/technical/analytics.md` documents `surface`
-- [ ] `/stake` shows the footer on both tabs and passes `currentUserId`; the list is still fetched once and the skeleton never returns (`p1179-no-refetch-on-position` green without weakening)
-- [ ] `/stake/aisafety1?tab=stories` opens on Stories — the event's exact link — and `?tab=stories` is still in the URL after the data loads; `/stake/cmp7?tab=stories` opens on Points
-- [ ] **A new test** opens `/feed?tab=stories` and asserts the Stories tab is selected (replacing the TODO at `p491-hashtag-feed.test.tsx:339`)
-- [ ] **A new test** asserts `?event=` survives a tab switch on `/stake` (`p1179` checks arrival only)
-- [ ] Tab switches add no history entries
-- [ ] **Cold arrival** (fresh tab on the event link) → switch tabs twice → "Go back" lands on `/feed`, not outside the app; **warm arrival** (came from another page) → "Go back" returns to it. Both for the header button and the bottom CTA
-- [ ] "Go back" is reachable at the bottom of `/stake/:tag`; the two back controls have distinct accessible names, and `p1179-stake-surface` asserts each by its own name
+- [x] Story and point cards on `/feed`, `/stake` and the profile (lists) show one footer: count and contribution CTA left; owner actions (profile: edit, delete), share, open-in-new right; 44px icons — `card-footer-controls.tsx`; `p1296-card-footer.test.tsx`; DOM-measured 44×44 at 375/320; screenshots `tmp/p1296-shots/after-*`
+- [x] A story's author sees `+ Add point` on its card on all three surfaces; a viewer holding a position with no linked story sees `+ Add your story` on the point card, and `✏ your story` once they have one — `p1296-card-footer.test.tsx` (author/non-author, holds/no position, has story, anonymous, links not loaded, withdrawal retires the pill)
+- [x] Share opens the sheet (link + embed code) on every card and fires `feed_card_shared` with `surface`; `docs/technical/analytics.md` documents `surface` — unit tests assert `{type,id,surface}` for stake/feed/profile; e2e opens the sheet on /stake; clicks inside the sheet never navigate
+- [x] `/stake` shows the footer on both tabs and passes `currentUserId`; the list is still fetched once and the skeleton never returns (`p1179-no-refetch-on-position` green without weakening) — only the two linked fetchers were added to its mock; `p1296-stake-navigation.test.tsx`; e2e `p1296-stake-navigation.spec.ts` (both tabs' footers)
+- [x] `/stake/aisafety1?tab=stories` opens on Stories — the event's exact link — and `?tab=stories` is still in the URL after the data loads; `/stake/cmp7?tab=stories` opens on Points — unit + e2e (real browser, test DB); prod before-shot opens on Points; a mutation reintroducing the old guard as a URL write turns 5 tests red
+- [x] **A new test** opens `/feed?tab=stories` and asserts the Stories tab is selected (replacing the TODO at `p491-hashtag-feed.test.tsx:339`) — the three Tab Bar placeholders in `p491-hashtag-feed.test.tsx` now render the real FeedPage
+- [x] **A new test** asserts `?event=` survives a tab switch on `/stake` (`p1179` checks arrival only) — `p1296-stake-navigation.test.tsx` + e2e; mutation dropping `?event=` turns it red
+- [x] Tab switches add no history entries — unit (Go back after three switches leaves in one step) + e2e (`history.length` unchanged); mutation pushing history turns 2 tests red
+- [x] **Cold arrival** (fresh tab on the event link) → switch tabs twice → "Go back" lands on `/feed`, not outside the app; **warm arrival** (came from another page) → "Go back" returns to it. Both for the header button and the bottom CTA — e2e in a real browser asserts `history.state.idx === 0` then both buttons → `/feed`; unit covers warm for both; the old `location.key` handler turns the cold tests red
+- [x] "Go back" is reachable at the bottom of `/stake/:tag`; the two back controls have distinct accessible names, and `p1179-stake-surface` asserts each by its own name — "Go back" / "Go back from the end of the list"; e2e asserts the CTA sits below the list
 
 Text
-- [ ] Story and point bodies are `text-base` and clamped at 40 lines on every surface listed in item 6 (`p1259-clamp-classes-compile` updated to `[40]`), "show more" only on measured overflow
+- [x] Story and point bodies are `text-base` and clamped at 40 lines on every surface listed in item 6 (`p1259-clamp-classes-compile` updated to `[40]`), "show more" only on measured overflow — all five surfaces pinned; at 375 "show more" appeared only on a 1,184-char test story that measured 41 lines
 - [ ] `/feed` and `/stake` tab labels show counts; P500 closed
 
 Grouping
-- [ ] `groupBySource` unit tests: every YouTube URL form of one id groups; two ids do not; unparseable/imageless stories stay single; first-appearance order under both sorts
-- [ ] Groups render on `/feed` Stories, `/stake/:tag` Stories and the profile Stories tab with one player each, heading "N stories from this video", cap 2 + "Show N more"
-- [ ] Feed search and tag filters regroup live; a group left with one story renders as a plain card
-- [ ] No indent below 640px; no horizontal overflow and one-line bylines at 320px
-- [ ] Every card inside a group keeps its full footer and points
+- [x] `groupBySource` unit tests: every YouTube URL form of one id groups; two ids do not; unparseable/imageless stories stay single; first-appearance order under both sorts — `p1296-group-by-source.test.ts` (8 URL forms, reversed order, filter shrink, stable keys)
+- [x] Groups render on `/feed` Stories, `/stake/:tag` Stories and the profile Stories tab with one player each, heading "N stories from this video", cap 2 + "Show N more" — feed: `p1296-feed-grouping.test.tsx`; stake: the prod snapshot through the shipping components (3/2/2 groups, one player each); profile: real test-DB data ("3 stories from this video", "Show 1 more story")
+- [x] Feed search and tag filters regroup live; a group left with one story renders as a plain card — `p1296-feed-grouping.test.tsx` (one left → plain card; two left → same group node and same player node)
+- [x] No indent below 640px; no horizontal overflow and one-line bylines at 320px — 320 screenshots of the profile group and the grouping reference; `documentElement.scrollWidth === 320`
+- [x] Every card inside a group keeps its full footer and points — `p1296-source-group.test.tsx`; the grouped profile card mounts 0 iframes of its own
 - [ ] `/tree/stake-grouping` and its fixture deleted after UAT sign-off
 
 Quotes and timestamps
-- [ ] Quotes folded by default on all six `StoryVideoQuotes` surfaces, toggle "N supporting quotes" (N = quotes rendered there), 40px
-- [ ] A timestamp plays in place on `FeedStoryCard`, `StoryCardFull`, `PointCardWithLinks`, `StoryCardDetail`, and drives the group player inside a group — checked in a production build, not the dev server
-- [ ] On `StoryCardWithLinks` and `LiveStoryCardExpanded` a timestamp opens the video at that second
-- [ ] `QuotedPointCard` stance row wraps at 320px; its tag passes AA
+- [x] Quotes folded by default on all six `StoryVideoQuotes` surfaces, toggle "N supporting quotes" (N = quotes rendered there), 40px — the fold lives in the component, so all six call sites inherit it; `p1141-video-seek.test.tsx` fold suite; nine quote suites updated to open the fold
+- [x] A timestamp plays in place on `FeedStoryCard`, `StoryCardFull`, `PointCardWithLinks`, `StoryCardDetail`, and drives the group player inside a group — checked in a production build, not the dev server — `vite build` + preview, analytics blocked, the YouTube iframe's own `infoDelivery` reported the clicked second on the expected player for all five (888, 849 group, 937, 888, 927)
+- [x] On `StoryCardWithLinks` and `LiveStoryCardExpanded` a timestamp opens the video at that second — neither passes `onSeek` (unchanged), so `StoryVideoQuotes` renders `…&t=Ns` new-tab links: `p1141-video-seek.test.tsx` "with no seek handler at all"
+- [x] `QuotedPointCard` stance row wraps at 320px; its tag passes AA — `flex-wrap` on both rows; rendered tag measured at 5.14:1
 
 Across all of it
-- [ ] Screenshots at desktop, 375px and 320px on feed, stake and profile, before and after
-- [ ] Footer focus order verified by keyboard on each surface
-- [ ] No console errors on feed, stake or profile
+- [x] Screenshots at desktop, 375px and 320px on feed, stake and profile, before and after — `tmp/p1296-shots/` (local, gitignored): before = production (stake, feed, profile × 1280/375/320), after = w1 (same grid, plus expanded quotes, expanded points, share sheet, grouping). Independent visual QA on the after set: PASS, 1 of 1 reviewer reported. `after-stake-points-1280.png` is a background-tab capture with stale measurements; `probe-fullpage-points.png` replaces it
+- [x] Footer focus order verified by keyboard on each surface — real Tab key in Chromium on /feed, /stake Stories, /stake Points and the profile: count → share → open-in-new → next card
+- [x] No console errors on feed, stake or profile — zero errors on all four pages (Playwright console capture + DevTools)
 
 ## Open Questions
 

@@ -40,13 +40,17 @@ Bring the feed cards and tabs visually closer to the profile page pattern:
 
 ## Acceptance Criteria
 
-- [ ] Feed story cards use `text-base` with expandable "Show more" for long text
-- [ ] Feed story cards have footer action bar with share button
-- [ ] Feed point cards use `text-base` for statement
-- [ ] Feed tabs show counts: "Points (N)" / "Stories (N)"
-- [ ] Visual style is noticeably closer to profile page cards
-- [ ] No regressions on mobile (bottom nav still works, cards still clickable)
+- [x] Feed story cards use `text-base` with expandable "Show more" for long text — P1296 item 6 (`text-base`, 40-line clamp, "show more" on measured overflow)
+- [x] Feed story cards have footer action bar with share button — P1296 item 1 (one footer on every card: count, contribution CTA, share sheet, open-in-new)
+- [x] Feed point cards use `text-base` for statement — P1296 item 6
+- [x] Feed tabs show counts: "Points (N)" / "Stories (N)" — P1296 item 6, on /feed and /stake
+- [x] Visual style is noticeably closer to profile page cards — P1296: the profile's footer, text size and clamp on the feed cards
+- [x] No regressions on mobile (bottom nav still works, cards still clickable) — P1296 screenshots at 375/320 and its e2e
 
 ## Testing
 
 Visual comparison: open `/feed` and `/p/[slug]` side by side — cards should feel like the same design system.
+
+## Closure
+
+Every criterion above is delivered by **P1296** (2026-09-11), which made story and point cards behave the same on /feed, /stake and the profile — following this spec's March recommendation to update the feed cards in place rather than extract a shared component. No `/dev` or `/fix` ran on P500 itself, so its gated close (`./scripts/git-ops.sh ship p500`) needs the founder's `--override`.
