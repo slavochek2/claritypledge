@@ -9,7 +9,8 @@
  *  3. The failure paths fire: missing job, inactive job, stale job, failed runs.
  */
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, copyFileSync, mkdirSync, realpathSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import {
@@ -20,6 +21,8 @@ import {
   parsePgTimestamp,
   fetchCronRows,
   cronRowShapeProblem,
+  assertCronRows,
+  readCronRowsFile,
 } from '../../scripts/check-cron-health.mjs';
 
 const MIGRATIONS_DIR = resolve(__dirname, '../../supabase/migrations');
@@ -450,7 +453,153 @@ describe('P1283 — a row must never be scored green on telemetry that never arr
     for (const row of prodRows) expect(cronRowShapeProblem(row)).toBeNull();
   });
 
+  it('refuses a failed_24h that is not a JSON number — Number() coerces false, true, "3" and [] to counts (codex, 2026-09-11)', () => {
+    for (const v of [false, true, '0', '3', [], [2], {}]) {
+      expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: v }), JSON.stringify(v))
+        .toMatch(/failed_24h/);
+    }
+  });
+
+  it('refuses a negative, fractional or non-finite count — no real count is any of those', () => {
+    for (const v of [-1, 1.5, Infinity, NaN]) {
+      expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: v }), String(v))
+        .toMatch(/failed_24h/);
+    }
+  });
+
   it('accepts a job that has never succeeded (last_ok null) — that is a real prod state', () => {
     expect(cronRowShapeProblem({ jobname: 'a', active: true, last_ok: null, failed_24h: 3 })).toBeNull();
+  });
+});
+
+describe('P1283 C — the CI input path (--rows-file)', () => {
+  // The rows P1283 B's psql query produced on test, 2026-09-11, verbatim: json_agg emits ISO
+  // timestamps with microseconds and a colon offset, not the Management API's `+00`. The CI path now
+  // reads the same rows from PostgREST; its real response is pinned separately below.
+  const realNarrowRows = [
+    { jobname: 'cleanup_stale_live_invites', active: true, last_ok: '2026-09-11T05:00:00.199359+00:00', failed_24h: 0 },
+    { jobname: 'dispatch_event_emails', active: true, last_ok: '2026-09-11T05:00:00.202169+00:00', failed_24h: 0 },
+  ];
+
+  function withTmp<T>(fn: (dir: string) => T): T {
+    const dir = mkdtempSync(join(tmpdir(), 'p1283b-'));
+    try { return fn(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+  function writeRows(dir: string, text: string): string {
+    const p = join(dir, 'rows.json');
+    writeFileSync(p, text);
+    return p;
+  }
+
+  it('accepts the real narrow-reader rows verbatim, ISO microsecond timestamps included', () => {
+    withTmp((d) => {
+      expect(readCronRowsFile(writeRows(d, JSON.stringify(realNarrowRows)))).toEqual(realNarrowRows);
+    });
+  });
+
+  it('accepts the real PostgREST response the CI request got from test, verbatim (2026-09-11)', () => {
+    // The body curl wrote for POST /rest/v1/rpc/cron_health_snapshot with the anon key — the exact
+    // input the workflow hands the checker. bigint `failed_24h` arrives as a JSON number.
+    const body = '[{"jobname":"cleanup_stale_live_invites","active":true,"last_ok":"2026-09-11T09:00:00.218167+00:00","failed_24h":0}, \n'
+      + ' {"jobname":"dispatch_event_emails","active":true,"last_ok":"2026-09-11T09:30:00.208089+00:00","failed_24h":0}]';
+    withTmp((d) => {
+      const rows = readCronRowsFile(writeRows(d, body));
+      expect(rows.map((r: { jobname: string }) => r.jobname)).toEqual(['cleanup_stale_live_invites', 'dispatch_event_emails']);
+      for (const row of rows) expect(cronRowShapeProblem(row)).toBeNull();
+    });
+  });
+
+  it('an EMPTY file is a broken reader, never an empty database', () => {
+    withTmp((d) => {
+      expect(() => readCronRowsFile(writeRows(d, ''))).toThrow(/empty/);
+      expect(() => readCronRowsFile(writeRows(d, '  \n'))).toThrow(/empty/);
+    });
+  });
+
+  it('refuses unparseable JSON, a non-array, and a mis-shaped row — the same boundary as the API path', () => {
+    withTmp((d) => {
+      expect(() => readCronRowsFile(writeRows(d, '[{"jobname":'))).toThrow(/unparseable/);
+      expect(() => readCronRowsFile(writeRows(d, 'null'))).toThrow(/expected an array/);
+      expect(() => readCronRowsFile(writeRows(d, '{"message":"nope"}'))).toThrow(/expected an array/);
+      expect(() => readCronRowsFile(writeRows(d, '[{"unexpected":"schema-change"}]'))).toThrow(/not a cron\.job row/);
+    });
+  });
+
+  it('a file that cannot be read is refused, and the error names the path', () => {
+    expect(() => readCronRowsFile('/nonexistent/p1283b/rows.json')).toThrow(/cannot read rows file/);
+  });
+
+  it('`[]` is a real database reporting no jobs — accepted, then scored as every job missing', () => {
+    withTmp((d) => {
+      const rows = readCronRowsFile(writeRows(d, '[]'));
+      expect(rows).toEqual([]);
+      expect(evaluateJobs({ some_job: '*/5 * * * *' }, rows, Date.now()).ok).toBe(false);
+    });
+  });
+
+  it('sharing the boundary did not change the Management API messages', () => {
+    expect(() => assertCronRows({ message: 'x' }, 'Management API')).toThrow('Management API returned object, expected an array of rows');
+    expect(() => assertCronRows([{ unexpected: 1 }], 'Management API')).toThrow(/^Management API row 0 is not a cron\.job row/);
+  });
+});
+
+describe('P1283 B — the CLI exit contract the workflow reads, hermetic (no token anywhere)', () => {
+  // The workflow branches on the exit code: 0 healthy, 1 a job is unhealthy, 2 the check could
+  // not run. Each case runs a COPY of the script inside its own one-migration tree with no
+  // .env.local and an empty SUPABASE_ACCESS_TOKEN, so the rows-file path is proven to need no
+  // Management API token — a regression that required one would exit 2 here instead of quietly
+  // borrowing a developer's local credential.
+  //
+  // realpathSync matters: macOS tmpdir is /var/..., a symlink to /private/var/.... Node resolves
+  // the MAIN module's import.meta.url through the symlink but leaves argv[1] alone, so the
+  // script's isMain guard would compare two different spellings and never run main() — every
+  // case would exit 0. The 1 and 2 cases below exist partly so that trap cannot pass silently.
+  const SCRIPT = resolve(process.cwd(), 'scripts/check-cron-health.mjs');
+
+  function runHermetic(rowsText: string | null): number {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'p1283b-cli-')));
+    try {
+      mkdirSync(join(root, 'scripts'));
+      mkdirSync(join(root, 'supabase', 'migrations'), { recursive: true });
+      copyFileSync(SCRIPT, join(root, 'scripts', 'check-cron-health.mjs'));
+      writeFileSync(
+        join(root, 'supabase', 'migrations', '20990101000000_j1.sql'),
+        "SELECT cron.schedule('j1', '*/5 * * * *', $$select 1$$);\n",
+      );
+      const rowsPath = join(root, rowsText === null ? 'does-not-exist.json' : 'rows.json');
+      if (rowsText !== null) writeFileSync(rowsPath, rowsText);
+      const r = spawnSync(
+        process.execPath,
+        [join(root, 'scripts', 'check-cron-health.mjs'), '--rows-file', rowsPath],
+        { env: { ...process.env, SUPABASE_ACCESS_TOKEN: '' }, encoding: 'utf8' },
+      );
+      return r.status ?? -1;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  const fresh = () => new Date().toISOString().replace('Z', '+00:00');
+
+  it('0 — the only expected job is healthy', () => {
+    expect(runHermetic(JSON.stringify([{ jobname: 'j1', active: true, last_ok: fresh(), failed_24h: 0 }]))).toBe(0);
+  });
+  it('1 — the database reports no jobs, so the expected one is not scheduled', () => {
+    expect(runHermetic('[]')).toBe(1);
+  });
+  it('1 — the expected job has failed runs in the last 24h', () => {
+    expect(runHermetic(JSON.stringify([{ jobname: 'j1', active: true, last_ok: fresh(), failed_24h: 3 }]))).toBe(1);
+  });
+  it('2 — an empty rows file: the reader produced nothing', () => {
+    expect(runHermetic('')).toBe(2);
+  });
+  it('2 — a mis-shaped row (`active` as the string "false")', () => {
+    expect(runHermetic('[{"jobname":"j1","active":"false","last_ok":null,"failed_24h":0}]')).toBe(2);
+  });
+  it('2 — `failed_24h: false`, which Number() would have scored as zero failures', () => {
+    expect(runHermetic(JSON.stringify([{ jobname: 'j1', active: true, last_ok: fresh(), failed_24h: false }]))).toBe(2);
+  });
+  it('2 — the rows file does not exist', () => {
+    expect(runHermetic(null)).toBe(2);
   });
 });

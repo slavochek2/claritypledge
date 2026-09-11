@@ -22,13 +22,22 @@
  * SQL-level execution (epistemic gate 7b).
  *
  * Usage:
- *   node scripts/check-cron-health.mjs                 # prod
+ *   node scripts/check-cron-health.mjs                         # prod, via the Management API (LOCAL only)
  *   node scripts/check-cron-health.mjs --project-ref <ref>
+ *   node scripts/check-cron-health.mjs --rows-file <path>      # rows CI read from the public snapshot
  *
- * Auth: SUPABASE_ACCESS_TOKEN (a Supabase personal access token), from the environment
- * or `.env.local`. `cron.job_run_details` lives in the `cron` schema, which PostgREST
- * does not expose, so the Management API query endpoint is the only read path — the
- * same one `/day` already uses.
+ * Two input paths — and which one runs where is a credential decision, not a convenience:
+ *
+ *   Management API — SUPABASE_ACCESS_TOKEN from the environment or `.env.local`. LOCAL USE
+ *     ONLY. That token is account-wide: it can set and unset every other secret and
+ *     administer both projects, so the repo's credential rule forbids handing it to CI.
+ *   --rows-file — the rows PostgREST returns from public.cron_health_snapshot()
+ *     (20260911163000_p1283_c_*) to the PUBLIC anon key. This is the CI path, and it holds no
+ *     secret: the function answers anyone with four fields of job health, and never with a
+ *     job's `command` or `return_message`, which carry job SQL and HTTP error bodies.
+ *
+ * Both paths pass through the same shape validation (assertCronRows), so a malformed read
+ * exits 2 identically whichever way the rows arrived.
  *
  * Exit codes: 0 all healthy · 1 a job is unhealthy · 2 the check itself is
  * misconfigured (no token, no migrations, unreadable response) — distinct so that
@@ -327,11 +336,64 @@ export function cronRowShapeProblem(row) {
   // the query did not return the column, which is a different thing from "no successes".
   if (!('last_ok' in row)) return 'last_ok is absent';
   if (row.last_ok !== null && typeof row.last_ok !== 'string') return 'last_ok is neither null nor a string';
-  // null and '' both coerce to 0, which would read as "no failures" — rejected explicitly.
-  if (row.failed_24h === null || row.failed_24h === '' || !Number.isFinite(Number(row.failed_24h))) {
-    return 'failed_24h is not a number';
-  }
+  // A real count is a JSON number. Coercion is not a type check: null, '', false, true, '3' and []
+  // all pass through Number() as counts, so `false` read as "no failures" (codex, 2026-09-11).
+  if (typeof row.failed_24h !== 'number') return 'failed_24h is not a number';
+  if (!Number.isInteger(row.failed_24h) || row.failed_24h < 0) return 'failed_24h is not a non-negative integer';
   return null;
+}
+
+/**
+ * The one shape boundary, shared by BOTH input paths. Anything that is not an array of fully
+ * typed cron.job rows throws, so it exits 2 — the watcher is broken, which is never the same
+ * claim as prod being broken. Messages for the Management API path are byte-identical to
+ * what fetchCronRows produced before this was shared.
+ */
+export function assertCronRows(parsed, source) {
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${source} returned ${typeof parsed}, expected an array of rows`);
+  }
+  for (const [i, row] of parsed.entries()) {
+    const problem = cronRowShapeProblem(row);
+    if (problem) {
+      throw new Error(
+        `${source} row ${i} is not a cron.job row (${problem}; got `
+        + `${JSON.stringify(row).slice(0, 120)}) — the query returned an unexpected shape, `
+        + 'which is a fault in this check, not in prod',
+      );
+    }
+  }
+  return parsed;
+}
+
+/**
+ * P1283 C: rows the CI workflow read over REST with the anon key —
+ *   curl -X POST "$SUPABASE_URL/rest/v1/rpc/cron_health_snapshot" -d '{}'
+ * — the same four fields the Management API path reads, as JSON text. Timestamps arrive in ISO
+ * form (`2026-09-11T05:00:00.199359+00:00`) rather than the API's `+00` form; parsePgTimestamp
+ * accepts both (measured against test's real rows, 2026-09-11).
+ *
+ * Every failure to READ throws; none is returned as an empty list. An EMPTY file means the reader
+ * produced nothing, which is a broken check. A file holding `[]` is a real database reporting no
+ * jobs. Only the second may be scored, because only the second is a statement about prod.
+ */
+export function readCronRowsFile(path) {
+  let text;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (err) {
+    throw new Error(`cannot read rows file ${path}: ${err.message}`);
+  }
+  if (!text.trim()) {
+    throw new Error(`rows file ${path} is empty — the reader produced no output, which is a fault in the check, not an empty database`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error(`rows file ${path} holds unparseable JSON: ${text.slice(0, 200)}`);
+  }
+  return assertCronRows(parsed, 'rows file');
 }
 
 export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
@@ -352,9 +414,6 @@ export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
     parsed = JSON.parse(text);
   } catch {
     throw new Error(`Management API returned unparseable JSON: ${text.slice(0, 300)}`);
-  }
-  if (!Array.isArray(parsed)) {
-    throw new Error(`Management API returned ${typeof parsed}, expected an array of rows`);
   }
   // Every row must carry the fields evaluateJobs reads. Without this, a response whose
   // SHAPE changed — an API revision, an error object inside a 2xx envelope — flows into
@@ -379,17 +438,7 @@ export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
   // failure that nobody reads is indistinguishable from silence. So every field
   // `evaluateJobs` reads is now typed at this boundary, and anything else exits 2 —
   // the watcher is broken, which is never the same claim as prod being broken.
-  for (const [i, row] of parsed.entries()) {
-    const problem = cronRowShapeProblem(row);
-    if (problem) {
-      throw new Error(
-        `Management API row ${i} is not a cron.job row (${problem}; got `
-        + `${JSON.stringify(row).slice(0, 120)}) — the query returned an unexpected shape, `
-        + 'which is a fault in this check, not in prod',
-      );
-    }
-  }
-  return parsed;
+  return assertCronRows(parsed, 'Management API');
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
@@ -400,6 +449,7 @@ if (isMain) {
   const migrationsDir = join(projectDir, 'supabase', 'migrations');
 
   let projectRef = PROD_PROJECT_REF;
+  let rowsFile = null;
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--project-ref') {
@@ -414,17 +464,32 @@ if (isMain) {
         console.error('check-cron-health: --project-ref needs a value');
         process.exit(2);
       }
+    } else if (argv[i] === '--rows-file') {
+      rowsFile = argv[++i];
+      if (!rowsFile) {
+        console.error('check-cron-health: --rows-file needs a path');
+        process.exit(2);
+      }
+    } else if (argv[i].startsWith('--rows-file=')) {
+      rowsFile = argv[i].slice('--rows-file='.length);
+      if (!rowsFile) {
+        console.error('check-cron-health: --rows-file needs a path');
+        process.exit(2);
+      }
     } else {
       console.error(`check-cron-health: unknown argument: ${argv[i]}`);
       process.exit(2);
     }
   }
 
-  const token = process.env.SUPABASE_ACCESS_TOKEN || loadTokenFromEnvFile(projectDir);
-  if (!token) {
+  // The token is read ONLY on the Management API path. The rows-file path must never touch it:
+  // CI does not hold it, and must not be able to fall back to a developer's local copy.
+  const token = rowsFile ? '' : (process.env.SUPABASE_ACCESS_TOKEN || loadTokenFromEnvFile(projectDir));
+  if (!rowsFile && !token) {
     console.error('check-cron-health: SUPABASE_ACCESS_TOKEN is not set (env or .env.local).');
-    console.error('  In CI this is the SUPABASE_ACCESS_TOKEN repository secret. This is a');
-    console.error('  configuration fault in the check, NOT evidence that prod is unhealthy.');
+    console.error('  That token is for LOCAL runs only — CI reads the public snapshot and');
+    console.error('  passes --rows-file. This is a configuration fault in the check, NOT');
+    console.error('  evidence that prod is unhealthy.');
     process.exit(2);
   }
 
@@ -442,17 +507,25 @@ if (isMain) {
 
   let rows;
   try {
-    rows = await fetchCronRows({ projectRef, token });
+    rows = rowsFile ? readCronRowsFile(rowsFile) : await fetchCronRows({ projectRef, token });
   } catch (err) {
     console.error(`check-cron-health: ${err.message}`);
     process.exit(2);
   }
 
   console.log('\n=== pg_cron health ===');
-  console.log(`Project: ${projectRef}`);
+  console.log(rowsFile ? `Source: ${rowsFile} (public.cron_health_snapshot)` : `Project: ${projectRef}`);
   console.log(`Expected jobs (from migrations): ${Object.keys(expected).length}\n`);
 
-  const result = evaluateJobs(expected, rows, Date.now());
+  let result;
+  try {
+    result = evaluateJobs(expected, rows, Date.now());
+  } catch (err) {
+    // A crash here is the watcher failing, never a statement about prod. Node's default exit for an
+    // uncaught error is 1, which the workflow reads as "a job is unhealthy" (codex, 2026-09-11).
+    console.error(`check-cron-health: evaluation failed — ${err && err.stack ? err.stack : err}`);
+    process.exit(2);
+  }
   for (const [name, schedule] of Object.entries(expected)) {
     const bad = result.failures.filter((f) => f.startsWith(`${name}:`));
     if (bad.length === 0) console.log(`  ✓ ${name}  (${schedule})`);

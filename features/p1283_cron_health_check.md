@@ -354,13 +354,149 @@ that cannot fail.
       `EXIT=0`, `test-producer-author-bind.sh` `EXIT=0`. `npm run lint` and
       `./scripts/typecheck-gate.sh` re-run after the parser rewrite, both `EXIT=0`.
 
+## Third pass — a credential CI is allowed to hold (2026-09-11)
+
+**Why the second pass could not ship.** Its only failing gate was the pre-deploy item *"Add
+`SUPABASE_ACCESS_TOKEN` as a repository secret."* Asked to supply it, the founder's question was
+*"don't we have a process?"* — and there is one. The private secrets registry's step 1 says a
+credential that can mint, administer or revoke other credentials is not eligible for CI and a scoped
+one must be minted instead; the account registry classifies this exact token as meta-authority. So
+the item was withdrawn, not satisfied.
+
+**What replaced it.** `20260911100000_p1283_b_narrow_cron_health_reader.sql` creates schema
+`monitoring` (not served by PostgREST), a NOLOGIN role `cron_health_reader`, and
+`monitoring.cron_health_snapshot()` — SECURITY DEFINER, empty `search_path`, returning exactly the
+four fields the checker reads (`jobname`, `active`, `last_ok`, `failed_24h`). The role may execute
+that function and nothing else. Its password is set out of band as a locally computed SCRAM
+verifier, so plaintext never reaches the server and nothing secret is committed. The checker gained
+`--rows-file`; the workflow reads through psql as the narrow role. `SUPABASE_ACCESS_TOKEN` is no
+longer wired into CI, and stays the local-only path.
+
+| Probe (test project, real pooler host) | Result |
+|---|---|
+| `postgres` login — known-good control | exit 0 |
+| narrow role, wrong password — known-bad control | exit 2, `password authentication failed` |
+| narrow role: `current_user` | `cron_health_reader` |
+| narrow role: `cron.job`, and `command` on `cron.job_run_details` | `permission denied for schema cron` |
+| narrow role: `public.profiles` | `permission denied for table profiles` |
+| anon REST call, profile `monitoring` / `public` | 406 `PGRST106` / 404 `PGRST202` — no REST surface |
+| the exact CI query as the narrow role, into `--rows-file` | 2 rows, exactly the 4 keys; checker exit 1 with a correct verdict (test lacks `cleanup_expired_ready_submissions`) |
+| the same hermetic "healthy" scenario, old script vs new | exit 2 `unknown argument: --rows-file` / exit 0 |
+| `src/tests/p1283-cron-health.test.ts` | 53/53, including a hermetic CLI exit-contract suite run with no token anywhere |
+| CI-secret registration gate on the rewritten workflow | exit 1 `WORKFLOW_UNREGISTERED` before the registry rows, exit 0 `WORKFLOW_OK` after |
+| alert escalator / producer-bind suites | exit 0 / 17 PASS |
+| `e2e/integration/p1283-narrow-cron-reader.spec.ts` (P270) | 4/4 — anon and service_role both get `PGRST106`; `public` has no such function (`PGRST202`); a harness control proves PostgREST is reachable. Its failure path — schema `monitoring` becoming exposed — needs a project API-settings change and was **not** exercised. |
+
+**Two probes that were blind, recorded because the controls are what caught them.** A `SET ROLE`
+probe returned the same error for all four queries: on PG17 the creating role gets ADMIN but not
+SET (`createrole_self_grant` is empty), so none of them ran as the reader. And a pooler-login probe
+returned the same exit for the known-good `postgres` URL as for a wrong password — see the next
+finding. Both were replaced by a real login, where the controls disagree as they must.
+
+**Finding, not fixed here: the stored pooler host is stale.** `SUPABASE_DB_URL` in both `.env.local`
+and `.env.prod` points at `aws-0-us-east-1.pooler.supabase.com`, which answers
+`(ENOTFOUND) tenant/user` for both projects. The Management API reports `aws-1-ap-northeast-1`
+(test) and `aws-1-ap-southeast-1` (prod). Every CLI/pooler path in the repo has therefore been
+failing and falling back to the Management API — which is why `migrate.sh` reports "via Management
+API". These are credential files, so they are left for the founder.
+
+**Prod baseline, read-only, 2026-09-11:** 2/3 expected jobs healthy;
+`cleanup_stale_live_invites` is *not scheduled on the database* — the April job has never existed
+on prod. `20260909120000` fixes that the moment it is applied.
+
+**Rebase onto main.** Main had added `edge-smoke` as an alert producer in the same three files;
+both were kept. The escalator's count assertion keeps this branch's floor-plus-completeness form,
+with the floor set to the real merged count (11) rather than the stale 8, so a vanished row still
+fails.
+
+**Codex review of this pass:** done — it is why this pass was withdrawn. See the fourth pass.
+
+## Fourth pass — no credential at all (2026-09-11)
+
+**Why the third pass could not ship.** Codex's second review said the reader was not "one function
+only". Each claim was checked by command before anything was changed (epistemic gate 9). The headline
+claim was right in substance and wrong in its example, and the measured reach was worse than claimed:
+
+| Probe (test project; a real login through the pooler unless noted) | Result |
+|---|---|
+| Controls: anon → snapshot / reader → `pg_sleep` / reader → snapshot | false / true / true — the probe is not blind |
+| Functions the reader can execute, against anon | 189 against 294; reachable by the reader and not by anon: the snapshot alone. Includes 32 SECURITY DEFINER functions in `public` |
+| Codex's named example, `get_transcribe_room_by_code` | executable by neither the reader nor anon, on test **and** prod — the example was wrong |
+| Identity forging: a definer function that authorizes on `auth.uid()`, called as the reader | no claims → false; forged "I am the creator" → **true**; forged stranger → false |
+| Platform grants PUBLIC holds outside `public` | present, and `postgres` cannot revoke them: the REVOKE runs and the privilege stays (rolled-back probe) |
+| Connection limit | none |
+
+So a database login on this project is never narrower than raw SQL over everything PUBLIC can reach,
+plus acting as any user inside definer functions — and part of that reach cannot be revoked by any
+migration. Specifics are in the private security log (2026-09-11). The other findings: **HIGH-2**
+(no connection limit) and **HIGH-3** (a pre-existing role is not normalized) are moot, since no login
+role remains. **MEDIUM** (a job owned by another username is invisible to the definer) — measured on
+prod, both jobs are owned by `postgres`; it can only ever produce a loud false alarm, and `_c`'s header
+records it. **LOW** (`failed_24h: false` passed the shape check) — reproduced (`EXIT=0`, PASS), fixed
+by typing the field as a non-negative integer JSON number; three regression tests watched failing
+first (3 failed / 53 passed → 56/56).
+
+**What replaced it: no credential.** `20260911163000_p1283_c_cron_health_snapshot_is_a_public_read.sql`
+creates `public.cron_health_snapshot()` — the same four fields, SECURITY DEFINER, empty `search_path`,
+plpgsql — executable by the client roles and not by PUBLIC. CI calls it over REST with the publishable
+key every page of the site already ships. The trade-off is disclosure: four fields of job telemetry
+become readable by anyone. Every job the migrations schedule is already named in this repository; a job
+scheduled by hand would be exposed too, so the rule is never to name one anything you would not
+publish. The function never returns a job's `command` or `return_message`.
+`20260911100000` is emptied to a documented no-op: besides being withdrawn, its `LANGUAGE sql` body
+named `cron.job`, which fails at CREATE on a database without pg_cron, so it broke a local reset.
+`20260911163100_p1283_d_remove_the_database_login_reader.sql` removes the role, schema and function
+from test, the only place they exist; it is a no-op everywhere else. It DROPs, so it waited for the
+founder's OK (given 2026-09-11) before it was applied on test; the rows below that mention D before that
+were local runs. On test, after it: the role and the schema are gone and the public snapshot remains.
+
+| Check | Result |
+|---|---|
+| Local Supabase Postgres (`17.6.1.134`) without pg_cron — the original B, then the emptied B, C, D | original B `EXIT=3` `relation "cron.job" does not exist`; emptied B, C, D all `EXIT=0` |
+| Local, pg_cron created and a job scheduled: anon calls the snapshot / anon reads `cron.job` | exactly the four fields / `permission denied for schema cron` |
+| Local, test's real state (the original B, with LOGIN), then C, then D | role, schema and function gone; the public snapshot present; C and D re-run clean |
+| D's RESTRICT control: a bystander table put in `monitoring` | D refuses (`EXIT=3`) and the bystander survives |
+| C's own guards (gate 7), three mutated copies | a body reading `command` / a PUBLIC grant / SECURITY INVOKER — each `EXIT=3`; the unmutated file `EXIT=0` |
+| C applied to test (`./scripts/migrate.sh`, D held aside so it could not ride along) | applied through the Management API; the worktree manifest stamped by hand |
+| `e2e/integration/p1283-cron-health-snapshot.spec.ts` (P270) | before C: 2 failed (404 `PGRST202`; the checker exits 2) / 2 passed; after C: 4/4. One test passed on a 404 body — it now requires a 200 |
+| The workflow's own check step, extracted and replayed locally | test → exit 1 with the correct verdict (test lacks `cleanup_expired_ready_submissions`); wrong key → 2 (401); unresolvable host → 2; prod before its migration → 2 (404 `PGRST202`) |
+| `src/tests/p1283-cron-health.test.ts` | 57/57, including the real PostgREST body pinned verbatim |
+| The test login | disabled; the same pooler login that answered `cron_health_reader` now fails authentication |
+
+**The key.** The legacy JWT anon key that 16 files of this repository still carry returns **401 on
+prod**: the project now serves an `sb_publishable_` key, read here from the live bundle. The workflow
+carries the live one. The dead key in the other files is filed as a note, not fixed here.
+
+**Codex review of the fourth pass (2026-09-11).** Four findings plus one note, each checked by command
+before anything changed:
+
+| Finding | Verdict | What changed |
+|---|---|---|
+| CRITICAL — the removal migration is missing, so the test login survives | True of the commit, and deliberate: D waits for the founder's OK. The login itself is already disabled on test | D is written, proven locally, and held; it lands in its own commit after approval |
+| HIGH — the anonymous endpoint is a DoS surface | Partly. On prod the snapshot cost 6.1 ms (median of 5) against 3.1 ms for an existing public page RPC, and anon calls are capped at 3 s | Rewritten as one pass: 3.6 ms, identical rows on prod and test (a known-different control compares false) |
+| MEDIUM — a job scheduled by hand would have its name published | True | `_c`'s header states the rule; every job on prod today is one the migrations declare |
+| MEDIUM — the spec claims D evidence the integration test cannot see | Partly: those rows were local runs. Now stated above, and the spec header already says B and D are invisible over REST | the paragraph above |
+| Note — a checker crash exits 1, which reads as "a job is unhealthy" | True | the checker maps an evaluation crash to 2, and the workflow maps any status but 0 or 1 to 2. Replayed with a fake `node`: crash 139 → 2, exit 3 → 2, exit 1 → 1, exit 0 → 0; the real checker → 1 |
+
+After the one-pass rewrite `_c` was re-applied on test by hand (the file is idempotent; its version was
+already recorded) and the checks above were re-run: its three guards still refuse their mutations, the
+clean file applies, `src/tests/p1283-cron-health.test.ts` 57/57, the integration spec 4/4.
+
 ## Pre-deploy Checklist
 
-- [ ] Add `SUPABASE_ACCESS_TOKEN` as a repository secret so `cron-health.yml` can read
-      prod. Until then the workflow exits 2 and opens the "check is not running" issue.
-      An agent cannot set a repository secret.
-- [ ] Apply `20260909120000_p1283_schedule_stale_live_invites_cleanup.sql` to prod
-      (`./scripts/migrate.sh --env prod`). Running migrations on prod is founder-only, so
-      this box stays unticked here by design. Until it is applied the check is legitimately
-      red; after it is applied, the next hourly run closes the 90-day-old open invite and
-      the check goes green with no further change.
+In order. Each step touches prod or GitHub, so each is a founder action.
+
+*Withdrawn, and deliberately not checkboxes:* ~~add `SUPABASE_ACCESS_TOKEN` as a repository secret~~
+(account-wide meta-authority, forbidden in CI — third pass); ~~give `cron_health_reader` a prod
+password~~ and ~~set `CRON_HEALTH_DB_URL`~~ (the database login they served was withdrawn — fourth
+pass). The check now needs no secret. (Shipping to main is not listed either: it is the thing this
+checklist gates, so it cannot also be an item on it.)
+
+- [ ] Apply to prod (`./scripts/migrate.sh --env prod`), before the workflow reaches main — otherwise its
+      first scheduled run reads a 404 and opens a "check is not running" issue:
+      `20260909120000_p1283_schedule_stale_live_invites_cleanup.sql`,
+      `20260911100000_p1283_b_narrow_cron_health_reader.sql` (a no-op),
+      `20260911163000_p1283_c_cron_health_snapshot_is_a_public_read.sql`,
+      `20260911163100_p1283_d_remove_the_database_login_reader.sql` (a no-op on prod).
+- [ ] Run the workflow once by `workflow_dispatch` and read the recorded exit status — expected 0,
+      or 1 naming a real job, never 2.

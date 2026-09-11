@@ -8,7 +8,7 @@ name: pg_cron health
 # and feedback mail. Its predecessor failed on all 328 of its runs across roughly three
 # months and wrote 328 identical errors into cron.job_run_details. Nothing read that
 # table, so a hard error was operationally indistinguishable from silence, and the
-# outage was found by hand. None of the other seven detectors can see this: they watch
+# outage was found by hand. None of the other eight detectors can see this: they watch
 # HTTP surfaces and deploy state, and a dead cron job breaks neither.
 #
 # The expected-job list is DERIVED from supabase/migrations/*.sql by the script. It is
@@ -45,24 +45,49 @@ jobs:
         id: check
         continue-on-error: true
         env:
-          # A Supabase personal access token. cron.job_run_details lives in the `cron`
-          # schema, which PostgREST does not expose — verified 2026-09-09, the prod
-          # service-role key is refused there with
-          # `PGRST106 Invalid schema: cron — Only the following schemas are exposed:
-          # public, graphql_public`. The Management API query endpoint is the only read
-          # path that needs no new migration, and it is the one /day already uses.
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # P1283 C — THIS STEP HOLDS NO SECRET, on purpose. public.cron_health_snapshot()
+          # (20260911163000_p1283_c_*) returns four fields of job health — name, active, last
+          # success, 24h failure count — to the anon role, so the key below is the PUBLIC publishable
+          # key that every page of the site already ships (read from the live bundle 2026-09-11;
+          # src/lib/supabase.ts reads the same value). A credential CI does not hold is one CI cannot
+          # leak. The legacy JWT anon key that other files in this repo still carry is DISABLED on prod
+          # — measured 401 — so it must not be copied here.
+          #
+          # Two designs were rejected because each held one. SUPABASE_ACCESS_TOKEN is account-wide
+          # meta-authority, which the credential process forbids in CI. A dedicated database login
+          # (P1283 B) reached far more than the one function it was granted — the _c migration's
+          # header says how.
+          SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_a9_H-BShRMAMoDeWJNjOKA_LcqNMBp8
         run: |
           set +e
-          node scripts/check-cron-health.mjs > /tmp/cron-health.txt 2>&1
-          status=$?
+          # Every failure to READ is exit 2 — DNS, TLS, a timeout, any 4xx/5xx from PostgREST,
+          # including the function not existing on prod yet. The watcher could not read, which is
+          # never evidence about prod. --fail-with-body keeps PostgREST's own error for the issue.
+          # An EMPTY body is refused by the script for the same reason; only a real `[]` is scored.
+          curl -sS --fail-with-body --max-time 30 -X POST "$SUPABASE_URL/rest/v1/rpc/cron_health_snapshot" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" -d '{}' \
+            > /tmp/cron-rows.json 2> /tmp/curl.err
+          curl_status=$?
+          if [ "$curl_status" -ne 0 ]; then
+            { echo "check-cron-health: could not read public.cron_health_snapshot() (curl exit ${curl_status}). The check could not run; this says nothing about prod."; cat /tmp/curl.err; cat /tmp/cron-rows.json; echo; } > /tmp/cron-health.txt
+            status=2
+          else
+            node scripts/check-cron-health.mjs --rows-file /tmp/cron-rows.json > /tmp/cron-health.txt 2>&1
+            status=$?
+            # Only 0 and 1 are verdicts about prod. Any other code — a crash signal, an unexpected exit —
+            # is the watcher failing, so it is reported as "could not run" (codex, 2026-09-11).
+            case "$status" in 0|1) ;; *) status=2 ;; esac
+          fi
           set -e
           cat /tmp/cron-health.txt
           echo "status=${status}" >> "$GITHUB_OUTPUT"
           exit $status
 
-      # Exit 2 means the check could NOT run (missing secret, API error, unreadable
-      # migrations). That is a different problem from "a cron job is dead" and must not
+      # Exit 2 means the check could NOT run (the snapshot could not be read over REST,
+      # unreadable rows or migrations). That is a different problem
+      # from "a cron job is dead" and must not
       # be reported as one, or a broken credential would masquerade as a healthy
       # database — the precise failure shape P1256 already cost three months to.
       - name: Report that the check itself could not run
@@ -72,7 +97,7 @@ jobs:
         run: |
           TITLE="pg_cron health check is not running"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          BODY="The pg_cron health check exited 2, so the scheduled jobs on prod are currently unmonitored. Usually the \`SUPABASE_ACCESS_TOKEN\` repository secret is missing or was rotated. Triage: run \`node scripts/check-cron-health.mjs\` locally — it names the missing variable on stderr. Run log: $RUN_URL
+          BODY="The pg_cron health check exited 2, so the scheduled jobs on prod are currently unmonitored. Usually \`public.cron_health_snapshot()\` does not exist on prod yet (the P1283 C migration was not applied), or the anon key in this workflow was rotated — the log below carries PostgREST's own error. Locally, \`node scripts/check-cron-health.mjs\` reads prod through the Management API instead. Run log: $RUN_URL
 
           \`\`\`
           $(cat /tmp/cron-health.txt)

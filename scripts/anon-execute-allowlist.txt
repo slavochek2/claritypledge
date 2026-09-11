@@ -92,3 +92,8 @@ get_public_agreements_for_profile(uuid)       # a public profile lists its activ
 # surface. Allowlisting it would have blessed it permanently. Revoke migration:
 # 20260911143000_p1303_revoke_anon_room_code_lookup.sql (P1303); regression test:
 # e2e/integration/p1303-room-lookup-grant.spec.ts.
+
+# --- 2026-09-11, P1283: a monitor that reads with the public key, so CI holds no secret ---
+# The caller is not the browser app but the scheduled pg_cron health check. It is anonymous by
+# design: the four fields are job telemetry, not user data, and a key CI does not hold cannot leak.
+cron_health_snapshot()                        # the pg_cron health check reads each job's name, active flag, last success and 24h failure count, and nothing else (P1283) — .github/workflows/cron-health.yml:67
