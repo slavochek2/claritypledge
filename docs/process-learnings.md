@@ -1482,3 +1482,11 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 Two independent visual-QA passes during P1278 D found issues older than it: the verdict ("Well calibrated") reads a signed average in which over- and under-estimates cancel, so rounds off by 2–4 read as calibrated; the name column is 70–100 px, so names wrap; tap targets are under 40 px (info icons ~17 px, "Start a Session" 36 px); the result bar looks draggable but is read-only; gap values wrap and render their signs inconsistently. Droppable if the page is taken out of scope.
 
 ---
+
+## Keep the override reason in the ship journal so a resumed override close keeps its trailer
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** month
+
+`git-ops.sh` sets `SHIP_GATE_OVERRIDE_REASON` only in the live run and does not store it in the ship journal, so an override ship that crashes after the spec is moved and is finished with `--resume` writes its close commit without the `Gate-Override:` trailer. Since P1309 that trailer matters: `ship-gates.sh` refuses an absorbing spec whose close carries it, and a resumed close would slip through. Read from the code by P1309's round-3 adversarial review, not reproduced (it needs a TTY override that crashes mid-ship). Done when the journal keeps the reason and `--resume` writes the same trailer; droppable if no override close is ever resumed.

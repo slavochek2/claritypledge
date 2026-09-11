@@ -67,6 +67,13 @@ driver: anomaly
 - **M-C**: a file with no closing `---` was read whole, so a line in the body could activate the arm. Frontmatter now counts only when its closing fence is present.
 - **LOW**: `absorbs:` must be a list of P-numbers, not free text, and the spec's own implementation is read the same way gate 2.5 reads it.
 
+**Adversarial review, round 3:** 0 HIGH and 2 MEDIUM findings, fixed and pinned as cases H15, H16, H22 and H23:
+- **M-1**: the newest commit that *added* the absorber's closed copy was read, so a bare re-add, or a move between done folders, could swap in a forged `absorbs:` and shed an override trailer. Only the absorber's real **close** now counts: the newest commit that both adds the closed copy and deletes the open `features/pM_*.md`, which is how `/ship` moves a spec in. Legitimate reopen and re-close history still works, because the latest real close wins.
+- **M-2**: `git-ops.sh` then demanded the absorber's "ready for QA" stamp, which 19 of the last 20 branch-route ships on main never wrote, and its error named the wrong spec. For an absorbed close, the absorber's close commit, already verified by gate 2.5, is now the code-presence evidence. Every other close still needs its own stamp.
+- **LOW**: a quoted list (`absorbs: ["p500"]`) is accepted.
+
+The round-3 fixes were verified by tests and mutations, not by a fourth review round.
+
 ## Alternatives Considered
 
 - **Let an agent pass `--override` when the founder said so in chat.** Rejected. `gate-override.sh` says in its own header that it is friction plus an audit trail, not a boundary, and that the pty workaround "reads as circumvention in a transcript". Normalising agents answering the prompt would empty the one place a red-gate close is marked.
@@ -78,10 +85,11 @@ driver: anomaly
 
 | Risk | Label | Note |
 |---|---|---|
-| An agent writes `absorbed_by` plus a matching mention in another spec to close an undelivered spec | MITIGATE | The absorbing spec must also have a recorded implementation **and** a review naming it, and every box on the absorbed spec must be ticked. This is the same strength as any ticked box; the absorbing spec's review is the real check. The adversarial review probes this. |
+| An agent writes `absorbed_by` onto an undelivered spec and `absorbs:` onto some other spec, to close the first | MITIGATE | The absorbing spec counts only as it was **closed**: its `absorbs:` must already be in the copy its real close moved into `features/done/`. The close also needs a recorded implementation and a review, and must not have been an override. So a forged `absorbs:` has to be written before the absorbing spec is reviewed and shipped, where that review sees it. Later edits, re-adds and moves are all refused (H16, H18, H22). |
 | `/ship` runs the **main checkout's** `ship-gates.sh`, so the new arm does nothing until P1309 is on main (2026-09-07: "a tool change cannot test itself through the tool") | MITIGATE | Ship P1309 first, then run `git-ops.sh ship p500` from main |
 | CI gates a pushed close with `origin/main`'s `ship-gates.sh`. If P500's close is pushed before or together with P1309, the old script fails it | MITIGATE | Push P1309 before the P500 close. Record this in the ship notes. |
-| The absorbing spec resolves from a stale main-disk copy that lacks `dev` | MITIGATE | Resolve the feature branch copy first, the way gate 2.5 already resolves the spec under test |
+| The absorbing spec is read from a stale or edited copy | MITIGATE | Only its closed copy counts, read from its closing commit. Branch copies, open copies and working-tree edits are never read. |
+| An override ship that crashes after moving the spec and is finished with `--resume` writes its close commit without the `Gate-Override:` trailer, because the journal does not keep the reason. Such a spec could then vouch as an absorber (round-3 review, LOW, read from the code, not reproduced) | DEFER | Existing `git-ops.sh` behaviour, older than P1309. Filed in `docs/process-learnings.md`: keep the override reason in the ship journal. It needs a TTY override that crashes between the move and the close, so it is rare. |
 
 **Non-Goals**
 - Do NOT change `--override`, `gate-override.sh`, or the TTY requirement.
@@ -95,17 +103,19 @@ Revert the P1309 commit. Specs already closed through the new arm stay closed; r
 
 ## Done-When
 
-- [x] `scripts/test-pipeline-gates.sh` has a new red/green section, green locally: a valid absorber passes; an absorber that is missing, has no implementation recorded, or does not name the absorbed spec fails; an absorbed spec with an unticked box fails; a spec with no `absorbed_by` behaves exactly as before — cases H1–H16. The legitimate closes are H1, H9 (CI path) and H15 (full `git-ops.sh ship`). The attacks refused are: missing, unshipped (H11), unbuilt (H3) or prose-only (H4) absorber; an unticked box (H5); self-absorption (H8); a borrowed review (H10); a body-only key (H12); an ambiguous absorber (H13); a hostile value (H14); no absorber stamp (H16). Round 2 added five more refusals: a filename carrying the PASS phrase (H17), an `absorbs:` line added to a closed spec after it closed (H18), a file with no closing `---` (H19), a free-text `absorbs:` value (H20), and an absorbing spec closed by override (H21). Suite 51 PASS, 0 FAIL, with H1–H21 all green
-- [x] Mutation check: disabling the new arm turns its PASS case red — seven mutations, each restored byte-identical by shasum, and each turns exactly its own case red:
+- [x] `scripts/test-pipeline-gates.sh` has a new red/green section, green locally: a valid absorber passes; an absorber that is missing, has no implementation recorded, or does not name the absorbed spec fails; an absorbed spec with an unticked box fails; a spec with no `absorbed_by` behaves exactly as before — cases H1–H16. The legitimate closes are H1, H9 (CI path) and H15 (full `git-ops.sh ship`). The attacks refused are: missing, unshipped (H11), unbuilt (H3) or prose-only (H4) absorber; an unticked box (H5); self-absorption (H8); a borrowed review (H10); a body-only key (H12); an ambiguous absorber (H13); a hostile value (H14); no absorber stamp (H16). Round 2 added five more refusals: a filename carrying the PASS phrase (H17), an `absorbs:` line added to a closed spec after it closed (H18), a file with no closing `---` (H19), a free-text `absorbs:` value (H20), and an absorbing spec closed by override (H21). Round 3 added two more refusals, a bare re-add (H16) and a move between done folders (H22), plus one legitimate case, a quoted list (H23). H15 now closes with no "ready for QA" stamp anywhere. Suite 53 PASS, 0 FAIL, with H1–H23 all green
+- [x] Mutation check: disabling the new arm turns its PASS case red — nine mutations, each restored byte-identical by shasum, and each caught by its case:
   - parsing the human line instead of the machine line: H17
-  - reading the working tree instead of the closing commit: H18
+  - reading the working tree instead of the closing commit: H16 and H18
   - accepting an unclosed frontmatter: H19
   - accepting a free-text `absorbs:`: H20
   - ignoring an override-closed absorber: H21
   - borrowing a review without the verdict: H3 and H4
-  - stamping under the absorbed number: H15 and H16
+  - requiring a stamp for an absorbed close: H15
+  - counting any add as a close: H16 and H22
+  - not stripping quotes: H23
 - [x] Gate 2.7 accepts a review naming the absorbing spec for an absorbed spec, and still refuses an absorbed spec whose absorber has no review — H1 passes, with the output line "recorded under absorbing spec p2001". H7 fails when there is no review at all. H3, H4 and H10 fail when the absorbing spec is reviewed but does not qualify
-- [ ] An independent adversarial review of the change, with its findings resolved or recorded
+- [x] An independent adversarial review of the change, with its findings resolved or recorded — three rounds by one Opus reviewer, each reported (1 of 1). Round 1: 2 HIGH, 4 MEDIUM. Round 2: 0 HIGH, 3 MEDIUM. Round 3: 0 HIGH, 2 MEDIUM. Every HIGH and MEDIUM finding is fixed and pinned by a test case (see Solution). One LOW finding is deferred and filed (the Risks table, `--resume` row). Rounds 1 and 2 were each re-attacked and verified by the next round; round 3's fixes were verified by tests and mutations only
 - [x] A dry run of the new gates on P500 carrying `absorbed_by: p1296` gives the right verdict against the real repo. Today it is refused with its reason named: "absorbing spec p1296 has not shipped (no copy under features/done/), ship it first". That is the intended order under the shipped-absorber rule. The same pairing (`absorbed_by` plus `absorbs:`) closes end-to-end through `git-ops.sh ship` in H15. `[post-ship]` The real close is `./scripts/git-ops.sh ship p500`, once P1309 and then P1296 are on main.
 - [x] The CI ordering (push P1309 before any close that uses the new arm) is written into the P1309 ship notes — see Ship Notes below
 
