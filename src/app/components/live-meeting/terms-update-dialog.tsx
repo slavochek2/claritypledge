@@ -57,7 +57,7 @@ export function TermsUpdateDialog({
           {/* Describe the documents only: the global TermsAcceptanceGate renders this over
               every authed route, so a sentence about the page or a session is false on most of them. */}
           <p className="text-sm text-muted-foreground">
-            Please review them. By continuing, you agree to the updated Terms of Service and Privacy Policy.
+            By continuing, you agree to the updated terms.
           </p>
 
           <div className="flex gap-4 text-sm">

@@ -4,7 +4,8 @@
  * The popup is the global TermsAcceptanceGate, so it renders over whatever authed route the user
  * opens first — here /groups, where the defect was reported. It may describe the documents only:
  * before the fix it said "This session is recorded for AI Insights" and its "View Terms" link
- * opened a route that has never existed.
+ * opened a route that has never existed. The documents it links must also be readable by the same
+ * stale-terms user: a consent they cannot open is not informed consent.
  *
  * Runs against the test DB with a throwaway user whose accepted terms version is behind.
  */
@@ -14,6 +15,8 @@ import { createTestUser, deleteTestUser, setTestSession, type TestUser } from '.
 
 // Any version outside ACCEPTED_TERMS_VERSIONS makes needsTermsAcceptance() return true.
 const STALE_TERMS_VERSION = 'v1.3';
+// Keep in sync with CURRENT_TERMS_VERSION, as test-user.ts does.
+const CURRENT_TERMS_VERSION = 'v1.4';
 
 const VIEWPORTS = [
   { label: 'desktop', width: 1280, height: 800 },
@@ -47,13 +50,16 @@ test('smoke: popup on a non-session page describes the documents only, with no c
 
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
+  // The modal marks the page behind it aria-hidden, so the role query must include hidden nodes.
+  // This proves the popup sits over the loaded groups page, not over a blank shell.
+  await expect(
+    page.getByRole('heading', { name: 'Clarity Groups', includeHidden: true })
+  ).toBeAttached();
 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Updated Terms');
-  await expect(dialog).toContainText(
-    'By continuing, you agree to the updated Terms of Service and Privacy Policy.'
-  );
+  await expect(dialog).toContainText('By continuing, you agree to the updated terms.');
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);
 
@@ -69,7 +75,10 @@ test('smoke: popup on a non-session page describes the documents only, with no c
   expect(consoleErrors, `console errors: ${consoleErrors.join(' | ')}`).toEqual([]);
 });
 
-test('"View Terms" and "View Privacy Policy" open the documents they name', async ({ page, context }) => {
+test('"View Terms" and "View Privacy Policy" open readable documents, not the popup again', async ({
+  page,
+  context,
+}, testInfo) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
   const dialog = page.getByRole('dialog');
@@ -82,13 +91,20 @@ test('"View Terms" and "View Privacy Policy" open the documents they name', asyn
   expect(termsHref).toBe('/terms-of-service');
   expect(privacyHref).toBe('/privacy-policy');
 
+  // Same browser context = same signed-in, still-stale user, exactly as a new tab opened from the
+  // popup would be. The gate must not cover the document the user is being asked to accept.
   const docs = await context.newPage();
-  await docs.goto(termsHref!);
-  await expect(docs.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
-  await expect(docs.getByText('Page not found')).toHaveCount(0);
-
-  await docs.goto(privacyHref!);
-  await expect(docs.getByText('Page not found')).toHaveCount(0);
+  for (const [href, heading] of [
+    [termsHref!, 'Terms of Service'],
+    [privacyHref!, 'Privacy Policy'],
+  ] as const) {
+    await docs.goto(href);
+    await expect(docs.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    // Let the gate's async acceptance check finish before asserting it did not fire.
+    await docs.waitForLoadState('networkidle');
+    await expect(docs.getByRole('dialog')).toHaveCount(0);
+    await docs.screenshot({ path: testInfo.outputPath(`p1300-doc-${heading.replace(/ /g, '-')}.png`) });
+  }
   await docs.close();
 });
 
@@ -103,12 +119,13 @@ test('Continue still records acceptance and closes the popup', async ({ page }) 
 
   await expect
     .poll(async () => {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('profiles')
         .select('accepted_terms_version')
         .eq('id', staleUser.user.id)
         .single();
-      return data?.accepted_terms_version;
+      if (error) throw error;
+      return data.accepted_terms_version;
     })
-    .not.toBe(STALE_TERMS_VERSION);
+    .toBe(CURRENT_TERMS_VERSION);
 });

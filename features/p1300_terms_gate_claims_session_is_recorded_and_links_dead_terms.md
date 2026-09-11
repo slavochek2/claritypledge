@@ -66,6 +66,15 @@ recording-consent dialog**. Recording is disclosed by the host's switch, the in-
 the "Private session" badge. So the sentence contradicts the documents the popup asks the user to
 accept.
 
+**The documents were unreadable even at the right address** (found in code review, then proven).
+The gate exempts only `/auth/` (`terms-acceptance-gate.tsx:18`) and wraps the whole router, including
+`/terms-of-service` and `/privacy-policy`. A stale-terms user who opens either page, in a new tab from
+the popup or directly, is the same signed-in stale user, so the non-dismissible modal re-opens over
+the document with a dark overlay and scroll lock. Fixing the href alone would have sent the user to a
+page they still could not read. Proven by command before the gate change: the e2e docs test failed
+with `getByRole('dialog')` count 1 on `/terms-of-service`, and the two new gate unit tests failed with
+`needsTermsAcceptance` called on both legal routes.
+
 ## Invariants
 
 - The terms re-acceptance popup makes claims about **the documents only**, never about the page,
@@ -73,6 +82,8 @@ accept.
   is false somewhere.
 - Every link in a consent surface resolves to the document it names. A consent the user cannot open
   is not informed consent.
+- The documents the popup asks the user to accept stay readable by that same stale-terms user: the
+  gate never covers `/terms-of-service` or `/privacy-policy`.
 - The dialog title "Updated Terms" and the Continue / Cancel button labels stay unchanged: ~20 e2e
   specs and `e2e/helpers/test-session.ts` dismiss the dialog by them.
 
@@ -97,7 +108,8 @@ session-scoped sentence in any consent surface). `/terms` falls through to the `
 ## Expected Behavior
 
 The popup says the Terms and Privacy Policy changed and that continuing means agreeing to them.
-Nothing more. "View Terms" opens `/terms-of-service`.
+Nothing more. "View Terms" opens `/terms-of-service`, and both documents can be read there without
+the popup covering them.
 
 ## Actual Behavior
 
@@ -108,6 +120,8 @@ The popup asserts a recording that is not happening. "View Terms" opens a non-ex
 - `src/app/components/live-meeting/terms-update-dialog.tsx:58` — session-scoped sentence
 - `src/app/components/live-meeting/terms-update-dialog.tsx:62` — `href="/terms"` (dead)
 - `src/app/components/auth/terms-acceptance-gate.tsx:92` — global consumer (every authed route)
+- `src/app/components/auth/terms-acceptance-gate.tsx:18` — exempts only `/auth/`, so the gate also
+  covers the two legal documents it links
 - `src/app/pages/clarity-live-page.tsx:4026, 4276` — `/live` consumers (private sessions included)
 - `src/tests/consent-dialogs.test.tsx:72-79, 90` — tests that lock in both defects
 - `.claude/commands/slava/maintain/tos-review/SKILL.md` — Stage 8 reviews only the terms page, never
@@ -120,13 +134,17 @@ them the terms they are accepting.
 
 ## Fix Approach
 
-1. Replace the sentence with a document-scoped one, mirroring the wording already shipped in
-   `letter-stale-terms-modal.tsx`: *"Please review them. By continuing, you agree to the updated
-   Terms of Service and Privacy Policy."* No new copy is being invented: the sibling modal already
-   carries this wording.
+1. Delete the session sentence and keep the dialog's own existing second sentence, *"By continuing,
+   you agree to the updated terms."* Strictly subtractive: no new consent wording, so no product
+   call is needed. (An earlier draft proposed new wording and wrongly claimed the letter modal
+   already carried it. Code review caught the false claim, and the fix was reduced to a deletion.)
 2. Point "View Terms" at `/terms-of-service`. Add `rel="noopener noreferrer"` while touching both
    `target="_blank"` anchors.
 3. Keep title and button labels (Invariants).
+3b. Exempt `/terms-of-service` and `/privacy-policy` from the gate (`GATE_EXEMPT_PREFIXES`). The gate
+   overlays the page rather than blocking its render or tracking, so the exemption changes what a
+   stale user can read, not what is processed. Unit tests pin both routes as dormant, and the e2e
+   docs test opens both as the stale user and asserts the heading is visible with no dialog.
 4. Replace the test that asserts the session sentence with one asserting its **absence**, and
    correct the href assertion. That test was the only guard, and it guarded the defect.
    `tests.md` treats tests as specs: this spec supersedes those two assertions, with the reason
@@ -143,7 +161,8 @@ sibling behaviour leak only.
 
 - [ ] A stale-terms user on a non-session page (e.g. `/groups/<slug>`) sees a popup that mentions
       only the Terms and Privacy Policy — no "session", no "recorded"
-- [ ] "View Terms" opens the Terms of Service page; "View Privacy Policy" opens the Privacy Policy
+- [ ] "View Terms" opens the Terms of Service page; "View Privacy Policy" opens the Privacy Policy;
+      a stale-terms user can read both, with no popup covering them
 - [ ] Title "Updated Terms" and Continue / Cancel are unchanged; Continue still records acceptance,
       Cancel still signs out (global gate)
 - [ ] Regression test fails on the pre-fix commit and passes after: the popup contains no session or

@@ -189,6 +189,33 @@ describe('TermsAcceptanceGate', () => {
     expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
   });
 
+  // P1300: the popup links these documents and asks the user to accept them. A stale-terms user
+  // who opens one in a new tab must be able to read it, not meet the same blocking modal over it.
+  it.each(['/terms-of-service', '/privacy-policy'])(
+    'stays dormant on %s so the documents it asks the user to accept stay readable',
+    async (path) => {
+      mockUseAuth.mockReturnValue(authedUser);
+      mockNeedsTermsAcceptance.mockResolvedValue(true);
+
+      const { TermsAcceptanceGate } = await import(
+        '@/app/components/auth/terms-acceptance-gate'
+      );
+
+      renderWithRouter(
+        <TermsAcceptanceGate>
+          <div>Legal document</div>
+        </TermsAcceptanceGate>,
+        path
+      );
+
+      expect(screen.getByText('Legal document')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByText('Updated Terms')).not.toBeInTheDocument();
+      });
+      expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
+    }
+  );
+
   it('handleAccept failure: surfaces error and keeps dialog open', async () => {
     mockUseAuth.mockReturnValue(authedUser);
     mockNeedsTermsAcceptance.mockResolvedValue(true);

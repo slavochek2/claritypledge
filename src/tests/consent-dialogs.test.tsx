@@ -79,7 +79,7 @@ describe('TermsUpdateDialog', () => {
     render(<TermsUpdateDialog {...defaultProps} />);
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms of service/i);
+    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session|record/i);
   });
 
@@ -131,23 +131,14 @@ describe('TermsUpdateDialog', () => {
   });
 
   /**
-   * E2E TEST GAP DOCUMENTATION
+   * E2E COVERAGE
    *
-   * The TermsUpdateDialog integration (showing for returning users with
-   * outdated accepted_terms_version) is NOT covered by E2E tests due to
-   * complexity of setup:
+   * The global-gate path (a returning user with an outdated accepted_terms_version
+   * on an ordinary page) is covered end to end by e2e/p1300-terms-popup.spec.ts:
+   * copy, working links, readable documents, and Continue recording acceptance.
    *
-   * To test E2E would require:
-   * 1. Creating a user with accepted_terms_version='v0.9' in database
-   * 2. Authenticating as that user
-   * 3. Navigating to /live and trying to join/create a meeting
-   * 4. Verifying dialog appears and "Continue" records consent
-   *
-   * Current coverage:
-   * - Unit tests here verify component behavior (render, callbacks, states)
-   * - Unit tests in consent-api.test.ts verify needsTermsAcceptance() logic
-   * - Integration in clarity-live-page.tsx verified via code review
-   *
-   * If regression occurs, add E2E test or seed test database with outdated user.
+   * Still NOT covered end to end: the /live join-path render of this dialog
+   * (clarity-live-page.tsx). The global gate normally catches a stale user first,
+   * so that path is reached only if the gate has not fired yet.
    */
 });

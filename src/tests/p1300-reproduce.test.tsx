@@ -51,6 +51,7 @@ describe('P1300 — terms re-acceptance popup on a non-session page', () => {
     const dialog = await renderGateOn('/groups/example-group');
     await waitFor(() => expect(dialog).toHaveTextContent('Updated Terms'));
 
+    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session/i);
     expect(dialog.textContent ?? '').not.toMatch(/record/i);
   });

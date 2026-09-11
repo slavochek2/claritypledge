@@ -15,7 +15,13 @@ interface TermsAcceptanceGateProps {
 // the profile row is being created/updated — firing the gate there races with
 // the upsert and can flash the modal on top of a callback page that's about
 // to navigate away.
-const GATE_EXEMPT_PREFIXES = ['/auth/'];
+//
+// The two legal documents are the pages the modal links and asks the user to
+// accept (P1300). The user opening one is the same stale-terms user, so without
+// this exemption the modal re-opens over the very text they are trying to read.
+// The gate overlays rather than blocks rendering, so exempting changes what the
+// user can read, not what is processed.
+const GATE_EXEMPT_PREFIXES = ['/auth/', '/terms-of-service', '/privacy-policy'];
 
 export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
   const { user, isLoading, signOut } = useAuth();
