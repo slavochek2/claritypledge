@@ -52,6 +52,30 @@ interface FeedStoryCardProps {
    * (adversarial review, 2026-09-04).
    */
   currentUserId?: string;
+  /**
+   * P1296 item 8 — repeat-source collapse. OPT-IN AND UNRESOLVED: the only caller today is
+   * the DEV-gated `/tree/stake-grouping` artifact the founder is choosing a design from.
+   * Undefined (every shipping call site) renders exactly what it rendered before.
+   *
+   * Present means this card's source is already on screen above it, so the card does not
+   * mount a second copy of the same video.
+   *   - `expandLabel` — the one-line control that replaces the media box. It says WHAT was
+   *     folded and gives it back; a fold with no way out is the failure the first artifact
+   *     had ("how do I uncollapse it?").
+   *   - `onSeek` — hand the timecodes to a player that already exists above (the group
+   *     heading's). Omit it and a timecode expands THIS card's player and seeks it, which
+   *     is what makes a collapsed card's evidence still clickable.
+   */
+  sourceCollapsed?: {
+    expandLabel?: string;
+    onSeek?: (seconds: number) => void;
+  };
+  /**
+   * P1296 — start the supporting quotes folded behind a one-line toggle carrying their
+   * count. Default false, i.e. today's behaviour. Whether this should become the default on
+   * every surface is an open founder question, which is why it is a prop and not a rewrite.
+   */
+  quotesCollapsed?: boolean;
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -66,11 +90,20 @@ function formatTimeAgo(dateStr: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }: FeedStoryCardProps) {
+export function FeedStoryCard({
+  story,
+  activeTag,
+  linkedPoints,
+  currentUserId,
+  sourceCollapsed,
+  quotesCollapsed = false,
+}: FeedStoryCardProps) {
   const navigate = useNavigate();
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
   const [pointsExpanded, setPointsExpanded] = useState(false);
+  const [mediaExpanded, setMediaExpanded] = useState(false);
+  const [quotesOpen, setQuotesOpen] = useState(!quotesCollapsed);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
 
@@ -82,8 +115,31 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
 
   /* P1259 change 1 — a real player on the feed, mounted lazily. Before this the timecodes
      below were open-in-a-new-tab links: the reader who followed the evidence left the page
-     to do it. Enabled only when there is a video to mount. */
-  const player = useLazyStoryPlayer(!!story.videoUrl);
+     to do it. Enabled only when there is a video to mount.
+
+     P1296: and only while the media box is actually on screen. A hidden box never
+     intersects, so leaving the hook enabled would mount an embed nobody can see. */
+  const mediaHidden = !!sourceCollapsed && !mediaExpanded;
+  const player = useLazyStoryPlayer(!!story.videoUrl && !mediaHidden);
+
+  /**
+   * P1296 — where a timecode goes when this card's own player is folded away.
+   *
+   * Founder, on the first artifact: *"if something has a collapsed video and I see the
+   * quote and I click on that quote it doesn't work"*. Two answers, one per situation:
+   * a shared player above owns the seek if there is one, otherwise the fold opens and the
+   * card's own player takes it. `useLazyStoryPlayer` holds a seek that arrives before the
+   * player exists and dispatches it on mount, so both updates batching in this one handler
+   * is what makes the click land rather than disappear.
+   */
+  const handleQuoteSeek = (seconds: number) => {
+    if (sourceCollapsed?.onSeek) {
+      sourceCollapsed.onSeek(seconds);
+      return;
+    }
+    if (mediaHidden) setMediaExpanded(true);
+    player.onSeek(seconds);
+  };
 
   const handleClick = () => {
     navigate(`/story/${story.id}`);
@@ -207,8 +263,24 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
               </div>
             </div>
 
+            {/* P1296 — the fold, and the way back out of it. Rendered in the media box's own
+                position so the card keeps its shape, and sized to a real touch target. */}
+            {mediaHidden && sourceCollapsed?.expandLabel && (
+              <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => setMediaExpanded(true)}
+                  className="mt-2 mb-1 flex min-h-[40px] w-full items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 text-left text-sm text-muted-foreground hover:border-blue-300 hover:text-blue-600 transition-colors"
+                  data-testid="feed-story-source-expander"
+                >
+                  <ChevronRight size={14} className="flex-shrink-0" />
+                  <span className="min-w-0">{sourceCollapsed.expandLabel}</span>
+                </button>
+              </div>
+            )}
+
             {/* Supporting image. P1141: video wins when present; the image path is untouched. */}
-            {(story.videoUrl || story.imageUrl) && (
+            {!mediaHidden && (story.videoUrl || story.imageUrl) && (
               /* P1259 change 1 — `mode` comes from the lazy-mount hook: a thumbnail until
                  the card approaches the viewport, a live embed after. The wrapper is the
                  intersection target and the scroll anchor, so it cannot be dropped.
@@ -275,13 +347,41 @@ export function FeedStoryCard({ story, activeTag, linkedPoints, currentUserId }:
                 clicking a timecode navigates to the story instead of opening the source. */}
             {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
-                <StoryVideoQuotes
-                  videoUrl={story.videoUrl}
-                  quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
-                  subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
-                  onSeek={player.onSeek}
-                  playerBlocked={player.playerBlocked}
-                />
+                {/* P1296 — the quotes' own fold, opt-in. Founder: *"who wants to read after
+                    the story the supporting quotes? Maybe, but maybe not"* — the count and
+                    the subject are the whole of what the fold has to promise, so the toggle
+                    carries both and StoryVideoQuotes drops its heading to avoid saying it
+                    twice. */}
+                {quotesCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setQuotesOpen(!quotesOpen)}
+                    aria-expanded={quotesOpen}
+                    data-testid="feed-story-quotes-toggle"
+                    className="mt-4 flex min-h-[40px] w-full items-center gap-1.5 text-left text-sm font-medium text-muted-foreground hover:text-blue-600 transition-colors"
+                  >
+                    {quotesOpen ? (
+                      <ChevronDown size={14} className="flex-shrink-0" />
+                    ) : (
+                      <ChevronRight size={14} className="flex-shrink-0" />
+                    )}
+                    <span className="min-w-0">
+                      {normalizeVideoQuotes(story.videoQuotes).quotes.length} supporting{' '}
+                      {normalizeVideoQuotes(story.videoQuotes).quotes.length === 1 ? 'quote' : 'quotes'}
+                      {' '}from {stripAgentPrefix(story.authorName) ?? story.authorName}
+                    </span>
+                  </button>
+                )}
+                {quotesOpen && (
+                  <StoryVideoQuotes
+                    videoUrl={story.videoUrl}
+                    quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+                    subjectName={stripAgentPrefix(story.authorName) ?? story.authorName}
+                    onSeek={handleQuoteSeek}
+                    playerBlocked={player.playerBlocked}
+                    showHeading={!quotesCollapsed}
+                  />
+                )}
               </div>
             )}
 

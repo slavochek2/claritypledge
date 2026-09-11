@@ -11,6 +11,12 @@ interface StoryVideoQuotesProps {
    */
   onSeek?: (seconds: number) => void;
   playerBlocked?: boolean;
+  /**
+   * P1296 — false when the CALLER already renders the heading as a fold toggle carrying the
+   * same words ("3 supporting quotes from X"). Default true: every existing call site is
+   * unchanged, and a section with no heading at all is never what this renders on its own.
+   */
+  showHeading?: boolean;
 }
 
 /**
@@ -30,21 +36,24 @@ export function StoryVideoQuotes({
   subjectName,
   onSeek,
   playerBlocked = false,
+  showHeading = true,
 }: StoryVideoQuotesProps) {
   if (!quotes || quotes.length === 0) return null;
 
   const canSeek = !!onSeek && !playerBlocked;
 
   return (
-    <section className="mt-6" data-testid="story-video-quotes">
+    <section className={showHeading ? 'mt-6' : 'mt-2'} data-testid="story-video-quotes">
       {/* P1141 amendment 2026-08-24: the `{n} marks · {duration}` meta line was removed.
           The count is visible by looking, and the video's total length answers a question
           nobody asked at this position. The `durationSeconds` prop went with it — it had no
           other reader in this component. The blocked-player fallback gets its own duration
           from StoryMedia, not from here. */}
-      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-        Supporting quotes from {subjectName}
-      </h3>
+      {showHeading && (
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Supporting quotes from {subjectName}
+        </h3>
+      )}
 
       {/*
         The timecode measures 40px tall — verified by boundingBox in
@@ -54,7 +63,7 @@ export function StoryVideoQuotes({
         target. A hit area the eye cannot see is not a hit area a reader will
         use. The measurement was never the disagreement; the affordance was.
       */}
-      <ul className="mt-3 space-y-3">
+      <ul className={showHeading ? 'mt-3 space-y-3' : 'space-y-3'}>
         {quotes.map((quote, index) => {
           const timecode = formatTimecode(quote.seconds);
           const timestampUrl = getTimestampUrl(videoUrl, quote.seconds);

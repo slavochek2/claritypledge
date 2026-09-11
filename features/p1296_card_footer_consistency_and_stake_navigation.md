@@ -99,10 +99,34 @@ The pile is real and it is **on the Stories tab today, behind no collapse**: 8 s
 - **(a) Collapse repeats.** Full player on a source's first appearance; later appearances render quotes and timestamps with the player behind a small expandable affordance. The rule `a69` already specified.
 - **(b) Group by source.** A source's stories under one heading, player shown once. For this tag each author has exactly one video, so group-by-source and group-by-author coincide; group-by-source is the general rule.
 
-**THE ARTIFACTS NOW EXIST.** `/tree/stake-grouping` (DEV-gated) renders Today, (a) and (b) side
-by side in tabs, using the SHIPPING `FeedStoryCard` against a frozen prod snapshot of all eight
-stories (`src/app/pages/tree/aisafety1-fixture.ts`). Verified in a real browser: 17 timecodes stay
-visible in every variant, no console errors, no horizontal overflow at 375px or 320px.
+**THE ARTIFACTS NOW EXIST, IN A SECOND PASS.** `/tree/stake-grouping` (DEV-gated) renders Today,
+(a) and (b) in tabs, using the SHIPPING `FeedStoryCard` against a frozen prod snapshot of all eight
+stories (`src/app/pages/tree/aisafety1-fixture.ts`). Verified in a real browser: no console errors
+or warnings, no horizontal overflow at 375px or 320px, every fold control at least 40px tall.
+
+The first pass faked the fold with a CSS rule and the founder rejected it on four counts, each of
+which is now built for real and each of which is a DECISION, not a variant:
+
+> *"if we collapse, that one has to see that there is something was collapsed... how do I
+> uncollapse it?"* · *"if we collapse, we collapse both"* (the supporting quotes too) · *"if
+> something has a collapsed video and I see the quote and I click on that quote it doesn't work — I
+> mean on the timestamp"* · *"if it's group, then it has to look like a group... maybe we switch
+> them a bit to the right"* · *"should we show, for example, only one story and say, show more
+> stories... otherwise people just scroll and scroll"*
+
+- **FOUNDER DECISION — a fold must name what it folded and give it back.** The collapsed source is
+  a labelled control in the media box's own position, not an absence.
+- **FOUNDER DECISION — collapsing the source collapses its supporting quotes too**, behind a toggle
+  carrying their count and subject.
+- **FOUNDER DECISION — a timecode on a collapsed card opens the fold and plays from that second**;
+  inside a group it drives the group's player. This answers the open question raised below.
+- **FOUNDER DECISION — a group is indented under a rule**, and a long group shows two stories with
+  the rest behind one control.
+
+Implemented as three opt-in props no shipping call site passes — `sourceCollapsed` and
+`quotesCollapsed` on `FeedStoryCard`, `showHeading` on `StoryVideoQuotes`. Defaults leave `/feed`,
+`/stake` and the profile byte-identical, which is what keeps this inside the Non-Goal below: the
+artifact exercises the real card, and no surface changes until the founder picks.
 
 `[FOUNDER DECISION: (a) or (b) — artifacts built 2026-09-10, awaiting the founder's look. Verbatim: "gorup by soruce is itneresitng but i guess we need to build artifact to see how it would look to decide if we do that or dedup as orignially thought of?"]`
 
@@ -122,14 +146,23 @@ Three observations from the built artifact, offered as input to the call, not as
   container double-indents every card inside it.
 - **(a) buys back roughly a video box (~330px) on each of the four repeats and moves nothing.**
 
-**NEW — an open question BOTH designs inherit, found while building the artifact and present in
-neither adversarial review.** `useLazyStoryPlayer` swallows a seek whenever `enabled` is false:
-`mode` stays `'thumbnail'`, `playerRef` never populates, and `onSeek` sets `mounted` without ever
-producing a player. So a timecode click on a card whose player has been collapsed (a) or hoisted to
-a group heading (b) is a DEAD CLICK unless the design says otherwise. Three candidate answers, and
-the design that wins must pick one: expand-then-seek; seek the group's player; or fall back to the
-open-on-YouTube link — the last walks back P1259 change 1, whose entire purpose was to stop a
-timecode throwing the reader off the page, and it would do so on five of these eight cards.
+**CORRECTION — the "dead timecode" finding recorded here on 2026-09-10 was wrong about its
+mechanism, and the mechanism is what mattered.** It claimed `useLazyStoryPlayer` swallows a seek
+because `playerRef` never populates. Measured in Chrome against the second artifact, with probes in
+the hook, the card and `StoryVideoPlayer`: the hook dispatches correctly (`{pending: 2692, hasRef:
+true}`) and the chain click → fold opens → player mounts → seeks → plays works end to end.
+
+What DOES eat the first cold-mount seek is **React StrictMode, in dev only**. Its double-invoke
+runs `StoryVideoPlayer`'s effect cleanup between the hook's dispatch and YouTube's `onReady`, and
+that cleanup sets `pendingSeekRef.current = null`. Proof: with `<React.StrictMode>` in
+`src/main.tsx` the ready log reads `{pending: null}`; with it temporarily removed, same click,
+`{pending: 2692}` and the video plays from 44:52. `main.tsx` was restored immediately; the probes
+were removed.
+
+Two consequences. **P1259's pre-mount seek is sound in production** — the behaviour the founder
+saw, and the thing I told them, were both artifacts of the prototype and the dev server. And
+**anyone testing a timecode on a not-yet-mounted player against `npm run dev` will see it fail and
+be wrong about why**; note it before filing that bug.
 
 **Invariant on either design:** timestamps stay visible on every repeat without exception. The embed is convenience; the timestamp is the falsifiability hook. Hiding a repeated *player* is dedup. Hiding repeated *quotes or timestamps* is not, and is out of bounds.
 
@@ -167,14 +200,17 @@ timecode throwing the reader off the page, and it would do so on five of these e
 - Do NOT delete `stake-page.tsx:119-121`.
 - Do NOT change the tab-visibility rule (`:111-121`), a prior founder ruling.
 - Do NOT change `?expanded=true` behaviour.
-- Do NOT implement repeat-source handling before the founder has seen both artifacts.
+- Do NOT implement repeat-source handling on any shipping surface before the founder has chosen. The
+  opt-in props added for the artifact (`sourceCollapsed`, `quotesCollapsed`, `showHeading`) are
+  passed by `/tree/stake-grouping` and nothing else; wiring them into `/feed` or `/stake` is the
+  implementation, and it waits.
 - Do NOT hide quotes or timestamps under any dedup design.
 
 ## Done-When
 
 - [x] Two artifacts exist showing repeat-source options (a) and (b) against real `aisafety1` content — `/tree/stake-grouping`, real `FeedStoryCard`, prod snapshot, browser-verified
+- [x] Second pass: the fold is real and reversible, quotes fold with it, a timecode opens the fold and plays, groups are indented and capped — all four verified in Chrome
 - [ ] The founder has chosen (a) or (b)
-- [ ] Whichever design wins says where a timecode seeks on a card with no visible player
 - [ ] Story and point cards on `/feed` and `/stake` render the same footer row: `border-t border-border px-4 py-2.5`, count and expand left, share then open-in-new right
 - [ ] Feed cards render an open-in-new icon
 - [ ] `feed_card_shared` still fires from the feed share control
@@ -200,12 +236,28 @@ timecode throwing the reader off the page, and it would do so on five of these e
 
 ## Open Questions
 
-1. **Repeat-source design (a) or (b).** The artifacts exist at `/tree/stake-grouping`; the founder
-   has not yet looked. This is the ONLY thing blocking `/dev`.
-2. **Where a timecode seeks on a collapsed or grouped card.** New, found while building the
-   artifact — see item 8. Answered as part of whichever design wins, not before.
+1. **Repeat-source design (a) or (b).** The second-pass artifact is at `/tree/stake-grouping`. This
+   is the ONLY thing blocking `/dev`.
+2. **Should supporting quotes be folded EVERYWHERE, not only on a collapsed repeat?** Founder:
+   *"generally supporting quotes, maybe we collapse everywhere, not just in stake... they take so
+   much space. Who reads? I read the story and then I say, okay, that's interesting — and then who
+   wants to read after the story the supporting quotes? Maybe, but maybe not."* The artifact's
+   `Supporting quotes folded` switch applies to the Today tab as well, so the `/feed` version of
+   this question can be looked at directly. Scope if yes: the six surfaces P1259 change 1 touched,
+   which is a bigger change than this spec — likely its own P-number.
+3. **Should an old story be collapsible on its own, independent of repeat sources?** Founder:
+   *"should one be able to collapse old stories? I don't know."* NOT built. The card already clamps
+   its body at 18 lines, so the unread cost of an old story is roughly one screen, not the pile
+   this spec is about — which is why it is recorded rather than prototyped.
+4. **In a group, the subject's name appears in the heading AND on every card inside it.** Visible
+   in (b) at any width: heading, byline and quote toggle each name the same person, five times in
+   Leahy's group. Reducing the member card's chrome inside a group is possible but is a change to
+   what a card IS, not to how the list is arranged — out of scope until (b) is chosen.
 
-~~2. Empty-footer treatment~~ — RESOLVED 2026-09-10, see Risks.
+~~Where a timecode seeks on a collapsed or grouped card~~ — RESOLVED 2026-09-11: the fold opens and
+plays from that second; inside a group the group's player takes it. See item 8.
+
+~~Empty-footer treatment~~ — RESOLVED 2026-09-10, see Risks.
 
 ## Review
 
