@@ -347,14 +347,15 @@ export function StakePage() {
             Its accessible name is distinct from the header's ("Go back") and contains the
             visible words, so a screen-reader user can tell the two apart and a voice user can
             still say what they see. Outline, not primary: it is a way out, not the page's
-            action. */}
+            action. Blue and sized to its label, not full width — founder, UAT: *"make button
+            blue and smaller? to be consistent"* (blue is the design system's action colour). */}
         {!loading && (
-          <div className="mt-8" data-testid="stake-bottom-back">
+          <div className="mt-8 flex justify-center" data-testid="stake-bottom-back">
             <button
               type="button"
               onClick={handleBack}
               aria-label="Go back from the end of the list"
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-blue-200 bg-card px-5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Go back

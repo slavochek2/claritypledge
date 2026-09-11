@@ -7,7 +7,7 @@
  * here is a way that exact link, opened by a real attendee, could have gone wrong.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { StakePage } from '@/app/pages/stake-page';
@@ -83,6 +83,28 @@ beforeEach(() => {
   getStories.mockReset().mockResolvedValue([story('s1')]);
   getPointsForStories.mockReset().mockResolvedValue(new Map([['s1', [{ id: 'p1' }]]]));
   getStoriesForPoints.mockReset().mockResolvedValue(new Map([['p1', [{ id: 's1' }]]]));
+});
+
+// UAT, founder: *"in stake on the story tab i'm not sure the grouping works"*. The test DB's
+// aisafety1 has four stories on four different videos, so nothing there can group; production's
+// has several per video. Until this test, /stake's grouping was evidenced only by the deleted
+// /tree demo — this pins it on the page itself.
+describe('P1296 item 7 — /stake Stories groups stories by source', () => {
+  it('two stories on one video are ONE group under one heading; a story on another video stays a plain card', async () => {
+    const VID = 'abcDEF12345';
+    getStories.mockResolvedValue([
+      { ...story('s1'), videoUrl: `https://youtu.be/${VID}` },
+      { ...story('s2'), videoUrl: 'https://youtu.be/zyxWVU98765' },
+      { ...story('s3'), videoUrl: `https://www.youtube.com/watch?v=${VID}` },
+    ]);
+    renderAt(['/stake/aisafety1?tab=stories']);
+    const group = await screen.findByTestId('source-group');
+    expect(screen.getAllByTestId('source-group')).toHaveLength(1);
+    expect(within(group).getByTestId('source-group-heading').textContent).toBe('2 stories from this video');
+    expect(within(group).getAllByTestId('story-card').map((c) => c.textContent)).toEqual(['story s1', 'story s3']);
+    // The other video's story is outside the tray, and nothing is dropped.
+    expect(screen.getAllByTestId('story-card')).toHaveLength(3);
+  });
 });
 
 describe('P1296 item 4 — ?tab= selects the tab, and the page never rewrites it', () => {

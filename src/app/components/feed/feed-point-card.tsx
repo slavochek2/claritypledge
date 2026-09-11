@@ -281,7 +281,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           position row), so this is a new row, shaped like the story card's. */}
       <div
         role="presentation"
-        className="flex flex-col gap-2 px-4 py-2.5 border-t border-border"
+        /* From `sm` the row starts at the statement's column (16 padding + 32 pin + 12 gap), as
+           the story card's footer starts at its body's. */
+        className="flex flex-col gap-2 pl-4 sm:pl-[60px] pr-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
         data-testid="point-card-footer"
       >
