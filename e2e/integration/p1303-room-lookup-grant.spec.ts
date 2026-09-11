@@ -2,11 +2,9 @@
  * @file p1303-room-lookup-grant.spec.ts
  * @description P1303: the room-code lookup is for signed-in callers only.
  *
- * Written before the migration — must FAIL while the unintended anon grant exists.
- *
- * Asserted by MESSAGE, not by "an error occurred": the function has no auth check of its own,
- * so with the grant present anon gets no error at all, and with it absent PostgREST reports
- * "permission denied for function". Both halves carry a control so neither probe is blind.
+ * Asserted by MESSAGE, not by "an error occurred": the intended refusal happens at the grant,
+ * which PostgREST reports as "permission denied for function". Both halves carry a control so
+ * neither probe is blind.
  */
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';

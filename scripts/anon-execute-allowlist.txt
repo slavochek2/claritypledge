@@ -87,8 +87,8 @@ get_public_agreements_for_profile(uuid)       # a public profile lists its activ
 # the way rule 1 exists to prevent: it was justified by an unguarded ROUTE rather than by a
 # reachable anon CALL SITE. No anon caller exists in this app's own code.
 #
-# Its defining migration granted EXECUTE to `authenticated` ONLY, but the live catalog carried
-# an accidental anon grant this repo has now hit six times (P1063, P1093, P1104, P1275,
-# P1236-D, here) — the exact thing the drift check is built to surface. Allowlisting it would
-# have blessed it permanently. Revoked by 20260911143000_p1303_revoke_anon_room_code_lookup.sql
-# (P1303), regression-tested in e2e/integration/p1303-room-lookup-grant.spec.ts.
+# Its intended grant is `authenticated` ONLY — the accidental-default-grant shape this repo
+# has hit repeatedly (P1063, P1093, P1104, P1275, P1236-D), which the drift check exists to
+# surface. Allowlisting it would have blessed it permanently. Revoke migration:
+# 20260911143000_p1303_revoke_anon_room_code_lookup.sql (P1303); regression test:
+# e2e/integration/p1303-room-lookup-grant.spec.ts.

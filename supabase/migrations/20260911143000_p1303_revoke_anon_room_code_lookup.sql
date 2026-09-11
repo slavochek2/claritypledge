@@ -6,11 +6,11 @@
 -- redirected a visitor with no user to /login and returns early without a user, so no working
 -- client flow calls this function anonymously, in either deploy order.
 --
--- 20260901160000_p1207 granted EXECUTE to authenticated only. Supabase's default privileges on
--- the public schema also grant EXECUTE on every new function to anon role-directly, so the
--- function has been anon-callable since it was created. Same P1065 trap as P1063, P1093, P1104,
--- P1275 and P1236-D. Both revoke forms are required (P1066); the grant to authenticated is
--- re-asserted so the intended end state is stated in one place.
+-- Intended end state: EXECUTE for authenticated only, as 20260901160000_p1207 meant. Supabase's
+-- default privileges on the public schema grant EXECUTE on every new function to anon
+-- role-directly, so a grant to authenticated alone does not produce that state (P1065). Both
+-- revoke forms are required (P1066); the grant to authenticated is re-asserted so the end state
+-- is stated in one place.
 --
 -- Verify post-apply by reading the live catalog — scripts/function-grant-drift-check.py or
 -- has_function_privilege('anon', 'public.get_transcribe_room_by_code(text)', 'execute') —
