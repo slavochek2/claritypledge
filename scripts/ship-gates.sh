@@ -236,15 +236,34 @@ if printf '%s\n' "$_spec_fm" | $GREP -qE '^absorbed_by:'; then
       # file let one `absorbs:` line added to any closed spec, even uncommitted,
       # vouch for an undelivered one (round-2 review, M-B). --no-renames because
       # /ship `git mv`s the spec in, which rename detection reports as R, not A.
-      _abs_commit="$(cd "$REPO_ROOT" && git log --no-renames --diff-filter=A --format=%H -1 -- "$_abf_all" 2>/dev/null)"
+      #
+      # And "the commit that added it" means its CLOSE: the newest commit that
+      # added this path AND, in the same commit, deleted the open copy
+      # features/pM_*.md — which is how /ship moves a spec in. Taking the newest
+      # add of any kind let a bare re-add, or a move between done folders, swap
+      # in a forged absorbs: and shed an override trailer (round-3 review, M-1).
+      # Legitimate reopen/re-close history (26 closed specs have several adds)
+      # still works: the latest real close wins. A merge-commit close shows no
+      # name-status here and is refused — fail closed.
+      _abs_commit=""; _abs_any_add=""
+      while IFS= read -r _c; do
+        [[ -z "$_c" ]] && continue
+        _abs_any_add=1
+        if (cd "$REPO_ROOT" && git show --no-renames --name-status --format= "$_c" 2>/dev/null) \
+             | $GREP -qE "^D[[:space:]]+features/${absorber_pn}_[^/]+\.md$"; then
+          _abs_commit="$_c"; break
+        fi
+      done < <(cd "$REPO_ROOT" && git log --no-renames --diff-filter=A --format=%H -- "$_abf_all" 2>/dev/null)
       _absorbs_re='^\[?p[0-9]+(,p[0-9]+)*\]?$'
-      if [[ -z "$_abs_commit" ]]; then
+      if [[ -z "$_abs_any_add" ]]; then
         absorbed_reason="absorbing spec ${absorber_pn}'s closed copy is not committed"
+      elif [[ -z "$_abs_commit" ]]; then
+        absorbed_reason="absorbing spec ${absorber_pn}'s closed copy did not arrive by a close (a move from features/ into features/done/)"
       elif (cd "$REPO_ROOT" && git log -1 --format=%B "$_abs_commit" 2>/dev/null) | $GREP -q '^Gate-Override:'; then
         absorbed_reason="absorbing spec ${absorber_pn} was closed by override, so it cannot vouch for another spec"
       else
         _abs_fm="$(cd "$REPO_ROOT" && git show "${_abs_commit}:${_abf_all}" 2>/dev/null | _frontmatter)"
-        _absorbs_raw="$(_fm_field "$_abs_fm" absorbs | tr 'A-Z' 'a-z' | tr -d ' ')"
+        _absorbs_raw="$(_fm_field "$_abs_fm" absorbs | tr 'A-Z' 'a-z' | tr -d " \"'")"
         if ! _fm_has_impl "$_abs_fm"; then
           absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
         elif [[ -z "$_absorbs_raw" ]]; then
@@ -436,7 +455,7 @@ else
       printf '%s\n' "$completion_lines" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
       fail=1
     elif [[ "$impl_ran" -eq 0 && -n "$absorbed_ok" ]]; then
-      echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation recorded on absorbing spec ${absorber_pn} (${absorber_source}) (from ${spec_source})"
+      echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation recorded on absorbing spec ${absorber_pn} (${absorber_source}, closed in ${_abs_commit:0:9}) (from ${spec_source})"
       # Machine line for git-ops.sh, printed ONLY here, as a whole line that
       # carries nothing from a file. git-ops used to parse the human line above,
       # which interpolates the spec's path, so a crafted filename redirected its

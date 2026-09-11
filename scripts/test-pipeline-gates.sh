@@ -343,8 +343,11 @@ ABS_DONE=features/done/2026-09-08
 abs_case() {
   local d="$SCRATCH/$1"; mk_repo "$d"
   local ran="${2-create-spec, dev}" extra="${3-absorbs: [p2000]}" body="${4-Delivers everything p2000 asked for.}" msg="${5-chore: close p2001}"
-  abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "$ran" "[x]" "$extra" "$body"
-  ( cd "$d" && git add "$ABS_DONE/p2001_absorber.md" && git commit -qm "$msg" ) >/dev/null 2>&1
+  # Closed the way /ship closes: committed open, then moved into features/done/
+  # in its own closing commit (the gate accepts only such a move as a close).
+  abs_spec "$d" features/p2001_absorber.md p2001 "$ran" "[x]" "$extra" "$body"
+  ( cd "$d" && git add features/p2001_absorber.md && git commit -qm "p2001: build" \
+    && git mv features/p2001_absorber.md "$ABS_DONE/p2001_absorber.md" && git commit -qm "$msg" ) >/dev/null 2>&1
   abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2001" "Scope delivered by P2001."
   abs_review "$d" p2001
   echo "$d"
@@ -482,26 +485,31 @@ else
   fail "H14: output contract broken or value accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
-# H15/H16 — adversarial review M-2: the legitimate close must go all the way
-# through git-ops.sh ship (no-branch route), whose code-presence check looks for
-# a "ready for QA" stamp. For an absorbed spec that stamp is the ABSORBER's; a
-# "p2000 ready for QA" commit would record work that did not happen under p2000.
+# H15 — the legitimate close goes all the way through git-ops.sh ship (no-branch
+# route) with NO "ready for QA" stamp anywhere. Round 1 found it demanded a stamp
+# under p2000 (work that did not happen under p2000); round 3 found the absorber's
+# stamp is just as unlikely to exist (19 of the last 20 branch-route ships wrote
+# none). The absorber's close commit, verified by gate 2.5, is the evidence.
 d="$(abs_case h15)"
-( cd "$d" && git add features && git commit -qm "chore: p2001 ready for QA — the absorber" ) >/dev/null 2>&1
+( cd "$d" && git add features && git commit -qm "chore: add p2000 spec" ) >/dev/null 2>&1
 ( cd "$d" && bash scripts/git-ops.sh ship p2000 ) >"$SCRATCH/h15.log" 2>&1; rc=$?
 if [[ $rc -eq 0 ]] && ls "$d"/features/done/*/p2000_absorbed.md >/dev/null 2>&1; then
-  pass "H15: git-ops.sh ship closes a legitimate absorbed spec on the absorber's stamp"
+  pass "H15: git-ops.sh ship closes a legitimate absorbed spec on the absorber's close — no stamp needed anywhere"
 else
   fail "H15: the legitimate absorbed close failed through git-ops.sh ship (exit $rc)"; sed 's/^/    /' "$SCRATCH/h15.log" >&2
 fi
 
-d="$(abs_case h16)"
-( cd "$d" && git add features && git commit -qm "chore: add specs" ) >/dev/null 2>&1
-( cd "$d" && bash scripts/git-ops.sh ship p2000 ) >"$SCRATCH/h16.log" 2>&1; rc=$?
-if [[ $rc -ne 0 ]] && grep -q "p2001 ready for QA" "$SCRATCH/h16.log" && [[ -f "$d/features/p2000_absorbed.md" ]]; then
-  pass "H16: with no absorber stamp on main, the absorbed close is refused and names the stamp it needs"
+# H16 — round-3 M-1: removing the closed absorber and re-adding it with a forged
+# absorbs: is not a close. The copy from its real close is what counts.
+d="$(abs_case h16 "create-spec, dev" "" "Unrelated shipped work.")"
+( cd "$d" && git rm -q "$ABS_DONE/p2001_absorber.md" && git commit -qm "chore: remove p2001" ) >/dev/null 2>&1
+abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec, dev" "[x]" "absorbs: [p2000]" "Re-added with a forged absorbs."
+( cd "$d" && git add "$ABS_DONE/p2001_absorber.md" && git commit -qm "chore: re-add p2001" ) >/dev/null 2>&1
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'does not list p2000' "$SCRATCH/h.log"; then
+  pass "H16: a bare re-add of a closed absorber with a forged absorbs: does not vouch — its real close's copy counts"
 else
-  fail "H16: an absorbed close went through with no absorber stamp (exit $rc)"; sed 's/^/    /' "$SCRATCH/h16.log" >&2
+  fail "H16: a re-added absorber vouched (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
 # ── Round 2 of the adversarial review: 0 HIGH, 3 MEDIUM, plus LOWs ──────────
@@ -557,6 +565,30 @@ if [[ "$rc" -ne 0 ]] && grep -q 'closed by override' "$SCRATCH/h.log"; then
   pass "H21: an absorber that was itself closed by override cannot vouch for another spec"
 else
   fail "H21: an override-closed absorber vouched (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# ── Round 3 of the adversarial review: 0 HIGH, 2 MEDIUM ────────────────────
+# H22 — M-1: moving a closed absorber to another done folder, forging absorbs:
+# in the same commit, is not a close either (it also shed an override trailer).
+d="$(abs_case h22 "create-spec, dev" "" "Unrelated shipped work.")"
+mkdir -p "$d/features/done/2026-09-09"
+( cd "$d" && git mv "$ABS_DONE/p2001_absorber.md" features/done/2026-09-09/p2001_absorber.md ) >/dev/null 2>&1
+perl -0pi -e 's/^rank: 1$/rank: 1\nabsorbs: [p2000]/m' "$d/features/done/2026-09-09/p2001_absorber.md"
+( cd "$d" && git add features/done/2026-09-09/p2001_absorber.md && git commit -qm "chore: tidy done folders" ) >/dev/null 2>&1
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'did not arrive by a close' "$SCRATCH/h.log"; then
+  pass "H22: a move between done folders is not a close — a forged absorbs: riding it does not vouch"
+else
+  fail "H22: a within-done move vouched (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H23 — LOW: a quoted YAML list is a legitimate absorbs: value (a false refusal before).
+d="$(abs_case h23 "create-spec, dev" 'absorbs: ["p2000"]')"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -eq 0 ]] && grep -q 'absorbing spec p2001' "$SCRATCH/h.log"; then
+  pass "H23: absorbs: [\"p2000\"] (quoted) is accepted"
+else
+  fail "H23: a quoted absorbs: list was refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
 # ── E. Intent gate ──────────────────────────────────────────────────────────

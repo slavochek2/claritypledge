@@ -3270,14 +3270,20 @@ cmd_ship() {
       # still leaves a qualifying subject in history. The status gate is the
       # second layer; a wrong close is bounded, reversible metadata (one spec).
       # P1309: an absorbed spec (gate 2.5 passed on its absorber's record) has no
-      # implementation of its own to stamp — its work landed under the absorber's
-      # number, so the absorber's stamp is the code-presence evidence. The refusal
-      # below would otherwise demand a "pN ready for QA" commit for work that did
-      # not happen under pN, which is exactly what the absorbed_by path exists to
-      # avoid recording. Found by the adversarial review (M-2).
-      local _stamp_pn="${SHIP_GATE_ABSORBER:-$pn}"
+      # implementation of its own to stamp. Its code-presence evidence is the
+      # absorber's CLOSE commit on main, which gate 2.5 has already selected and
+      # checked (a real move into features/done/, in HEAD's history, no override
+      # trailer). Demanding a stamp instead failed twice: first under pN — a
+      # "pN ready for QA" commit would record work that did not happen under pN
+      # (round-1 review, M-2) — then under the absorber's number, which 19 of the
+      # last 20 branch-route ships on main never wrote (round-3 review, M-2).
+      local _stamp_pn="$pn"
       local _stamp_ok="" _cand _subj
-      while IFS= read -r _cand; do
+      if [[ -n "$SHIP_GATE_ABSORBER" ]]; then
+        _stamp_ok="absorbed-by-${SHIP_GATE_ABSORBER}"
+        echo "ship: $pn is absorbed by $SHIP_GATE_ABSORBER — its code-presence evidence is that spec's close on main, verified by gate 2.5." >&2
+      fi
+      [[ -z "$_stamp_ok" ]] && while IFS= read -r _cand; do
         [[ -z "$_cand" ]] && continue
         _subj="$( cd "$REPO_ROOT" && git log -1 --format='%s' "$_cand" 2>/dev/null || true )"
         [[ "$_subj" == Revert\ * ]] && continue
