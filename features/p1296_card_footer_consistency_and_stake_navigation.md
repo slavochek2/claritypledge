@@ -149,6 +149,25 @@ re-sorted by author or date. A source with one story gets no group chrome.
   `story_points.author_id`: all eight links carry a stance. With the fixture carrying them the
   stance renders, and no component changed.
 
+**Visual QA of the third pass — 1 of 1 reviewer reported**, given screenshots and the checklist
+only. Its claims were re-measured in Chrome before any was acted on:
+
+- **Held, fixed.** At 320px the tray, rule and indent cost 36px, so grouped cards' bylines wrapped
+  to two lines (66px against 44px ungrouped) and the opened point's stance badge ran to the card's
+  border (right edge 291 = card edge 291). Now the indent applies from 640px up and the tray alone
+  groups on phones: every byline 44px, text column 181px (was 163; ungrouped 199), badge 17px
+  inside the border.
+- **Held, fixed.** The tray was `bg-muted/30` over white, about 1.03:1 — invisible — and the
+  heading used the metadata grey. Now `bg-muted` with white cards on it, heading semibold
+  `text-foreground`.
+- **Held, fixed.** "Show 1 more story from this source" contradicted "from this video" and
+  wrapped at 320px. Now "Show 1 more story".
+- **Rejected on measurement.** A "black video box" was a lazily-loaded thumbnail not yet fetched
+  in a full-page capture; scrolled into view it loads (480px).
+- **Pre-existing, left for `/dev`.** The grey tag inside `QuotedPointCard` measures 4.40:1, below
+  AA. And its stance row is `flex` without `flex-wrap`, so a longer name or stance label would
+  push the badge out again at 320px on any surface — read from the code, not measured.
+
 **Where the repeats actually occur — prod, read-only, 2026-09-11.** The whole `stories` table
 filtered to rows with a video (one request, `limit=1000`, 8 rows returned, all filed 2026-09-09):
 four videos, three of them backing more than one story (groups of 3, 2 and 2). **No video has been

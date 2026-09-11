@@ -183,14 +183,18 @@ function SourceGroup({
   const visible = hidden > 0 ? stories.slice(0, GROUP_PREVIEW) : stories;
 
   return (
-    <section className="rounded-lg border border-border bg-muted/30 p-3">
+    /* Visual QA, third pass: the old tray was `bg-muted/30` — rgba over white measured about
+       1.03:1, i.e. invisible, so the group's edge was a hairline border alone. A tray the eye
+       can actually see is what makes the white cards inside read as members. Side padding is
+       tighter on phones because every pixel here comes out of the cards' text column. */
+    <section className="rounded-lg border border-border bg-muted px-2 py-3 sm:p-3">
       {/* Founder, on the second artifact: *"too much text that is not needed?"* The heading
           used to be an avatar, "One source · {name}" and a subtitle — the name then repeated
           on every card inside. The group IS the video, and the player names it (title and
           channel) the moment it mounts, so the only thing left to say is the count. On prod
           no video has been read by two different authors (2026-09-11), so every byline
           inside already carries the name. */}
-      <p className="mb-2 text-sm font-medium text-muted-foreground">
+      <p className="mb-2 text-sm font-semibold text-foreground">
         {stories.length} stories from this video
       </p>
 
@@ -206,9 +210,12 @@ function SourceGroup({
       </div>
 
       {/* Founder: *"if it's group, then it has to look like a group... maybe we switch them
-          a bit to the right"*. The rule plus the indent is the whole grouping signal, and it
-          stays narrow at phone width so the cards inside do not lose a second gutter. */}
-      <div className="mt-3 space-y-3 border-l-2 border-border pl-2 sm:pl-5">
+          a bit to the right"*. The indent under a rule is the desktop answer. ON PHONES IT IS
+          DROPPED, and the tray carries the grouping alone: measured at 320px, the tray plus
+          rule plus indent cost 36px, which wrapped "AGENT on Connor Leahy" onto two lines on
+          grouped cards only and pushed the opened point's stance badge out to the card's
+          border. A layout that is only coherent at desktop width is not the group. */}
+      <div className="mt-3 space-y-3 sm:border-l-2 sm:border-border sm:pl-5">
         {visible.map((story) => (
           <Card
             key={story.id}
@@ -221,10 +228,10 @@ function SourceGroup({
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-sm text-muted-foreground hover:border-blue-300 hover:text-blue-600 transition-colors"
+            className="flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-card text-sm text-muted-foreground hover:border-blue-300 hover:text-blue-600 transition-colors"
           >
             <ChevronDown size={14} />
-            Show {hidden} more {hidden === 1 ? 'story' : 'stories'} from this source
+            Show {hidden} more {hidden === 1 ? 'story' : 'stories'}
           </button>
         )}
       </div>
