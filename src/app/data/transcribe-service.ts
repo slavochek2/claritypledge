@@ -123,6 +123,81 @@ function generateTranscribeRoomCode(): string {
 }
 
 /**
+ * Every network await on the room-entry path is deadlined. P1236, measured 2026-09-11 on a
+ * physical phone whose traffic was going through a VPN tunnel.
+ *
+ * `fetch` has no timeout in any browser, and neither PostgREST calls nor
+ * `supabase.auth.getSession()` take a signal. On a radio that accepts the connection and
+ * then never answers, the promise simply never settles — so `handleJoin` sat on "Joining…"
+ * FOREVER: no error, no timeout, no way back except reloading the page. The participant
+ * cannot tell that apart from a slow server, and neither could we: the first diagnosis of
+ * this looked at the room RPC, which was never reached and was never at fault.
+ *
+ * A hang is the failure mode worth engineering against here, not a 500. An error response
+ * already surfaces correctly; silence is what has no bottom. Compare the sibling constant
+ * SLICE_REQUEST_TIMEOUT_MS below, which exists for the same reason one layer up — an
+ * unbounded await there jammed a serial queue for a whole session.
+ *
+ * 15 s because entry is a foreground action a person is actively waiting on, and because
+ * it matches the slice deadline; there is no reason for the two to differ. Exceeding it
+ * produces an honest "the server did not respond" instead of an indefinite spinner.
+ */
+const ROOM_ENTRY_TIMEOUT_MS = 15_000;
+
+/** Thrown when a deadline fires, so callers can tell "the server said no" (which has a real
+ *  message worth showing) apart from "the server said nothing" (which does not). Both used to
+ *  arrive as a bare Error and were reported to the participant with the same sentence. */
+export class RequestTimeoutError extends Error {
+  constructor(label: string, ms: number) {
+    super(`${label} timed out after ${ms}ms`);
+    this.name = 'RequestTimeoutError';
+  }
+}
+
+/** What a participant sees when a request got no answer at all. Deliberately names the
+ *  connection: the cause is upstream of this app every time it has been observed (a VPN
+ *  tunnel that completed the TCP connect and then swallowed the request, 2026-09-11), and
+ *  "try again" alone sends people to retry a thing that cannot succeed.
+ *  [FOUNDER DECISION: copy] — placeholder wording, not yet chosen by the founder. */
+export const SERVER_UNREACHABLE_MESSAGE =
+  'The server did not respond. Check your connection and try again.';
+
+/**
+ * Turns a fired deadline into the one sentence a participant can act on, and leaves every
+ * other rejection exactly as it was. Returns `never`, so it type-checks as a `.catch()` on a
+ * promise of any shape.
+ *
+ * Only a RequestTimeoutError is rewritten. A real server error already carries a message
+ * worth reading, and flattening the two together is how "Could not start a room. Please try
+ * again." came to be shown for a stalled VPN tunnel — advice that could not work, for a cause
+ * it did not name.
+ */
+function rethrowAsUnreachable(logLabel: string): (err: unknown) => never {
+  return (err: unknown): never => {
+    if (err instanceof RequestTimeoutError) {
+      console.error(`${logLabel} got no response:`, err.message);
+      throw new Error(SERVER_UNREACHABLE_MESSAGE);
+    }
+    throw err;
+  };
+}
+
+/** Rejects if `promise` has not settled within `ms`. Used for awaits that take no signal. */
+async function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new RequestTimeoutError(label, ms)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+/**
  * Creates a new ad-hoc room (event_id null) and joins the caller as its first member.
  * The room field exists from day one, even for a single participant (spec §6).
  */
@@ -130,7 +205,14 @@ export async function createRoom(profileId: string, displayName: string, consent
   // The seat's recording is minted first because the RPC verifies it belongs to the caller
   // before it will write anything — the check exists precisely so a caller cannot attach
   // someone else's recording to their own seat, and it needs a row to check against.
-  const session = await createClaritySession(displayName, profileId, false);
+  // No discardSession() on this one: if the mint itself never answered we do not have a row
+  // id to discard. The row may or may not exist server-side; that is the orphan case the
+  // comment below is already about, and guessing an id does not improve it.
+  const session = await withDeadline(
+    createClaritySession(displayName, profileId, false),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'creating the session record',
+  ).catch(rethrowAsUnreachable('[transcribe] creating the session record'));
 
   // Every failure path below has already spent that row. Nothing else references it yet, and
   // clarity_sessions.creator_profile_id has no ON DELETE CASCADE, so an abandoned one outlives
@@ -148,11 +230,11 @@ export async function createRoom(profileId: string, displayName: string, consent
   // a warning that names the orphan. Whether creators may delete their own sessions at all is a
   // product decision, not a mechanical fix — tracked separately.
   const discardSession = async () => {
-    const { data, error } = await supabase
-      .from('clarity_sessions')
-      .delete()
-      .eq('id', session.id)
-      .select('id');
+    const { data, error } = await withDeadline(
+      supabase.from('clarity_sessions').delete().eq('id', session.id).select('id'),
+      ROOM_ENTRY_TIMEOUT_MS,
+      'discarding the unused session',
+    ).catch((err: unknown) => ({ data: null, error: err as { message: string } }));
     if (error) {
       console.error('[transcribe] could not discard the unused session:', error.message);
     } else if (!data || data.length === 0) {
@@ -174,12 +256,21 @@ export async function createRoom(profileId: string, displayName: string, consent
     // The retry loop around this call is still the code-collision retry: `p_new_code` is only
     // consumed on the create branch, and a 23505 there is what a retry fixes. On the join
     // branch the generated code is simply unused.
-    const { data, error } = await supabase.rpc('enter_transcribe_room', {
-      p_display_name: displayName,
-      p_session_id: session.id,
-      p_consent: consentGiven,
-      p_new_code: generateTranscribeRoomCode(),
-      p_event_id: eventId ?? null,
+    const { data, error } = await withDeadline(
+      supabase.rpc('enter_transcribe_room', {
+        p_display_name: displayName,
+        p_session_id: session.id,
+        p_consent: consentGiven,
+        p_new_code: generateTranscribeRoomCode(),
+        p_event_id: eventId ?? null,
+      }),
+      ROOM_ENTRY_TIMEOUT_MS,
+      'entering the room',
+    ).catch(async (err: unknown) => {
+      // A fired deadline skips the `error` branch below, so the orphan cleanup has to be
+      // re-stated here rather than fallen through to.
+      await discardSession();
+      return rethrowAsUnreachable('[transcribe] entering the room')(err);
     });
 
     if (!error) {
@@ -239,8 +330,11 @@ export async function createRoom(profileId: string, displayName: string, consent
  *  any transcription session. The table read is now member-scoped, and a code must be
  *  PRESENTED (exact match) instead of listed. */
 export async function getRoomByCode(code: string): Promise<TranscribeRoom | null> {
-  const { data, error } = await supabase
-    .rpc('get_transcribe_room_by_code', { p_code: code.toUpperCase() });
+  const { data, error } = await withDeadline(
+    supabase.rpc('get_transcribe_room_by_code', { p_code: code.toUpperCase() }),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'looking up the room',
+  ).catch(rethrowAsUnreachable('[transcribe] looking up the room'));
 
   if (error) throw new Error(error.message);
   const row = ((data ?? []) as unknown as DbRoom[])[0];
@@ -269,14 +363,22 @@ export async function getRoomByCode(code: string): Promise<TranscribeRoom | null
  * now lives with the code that acts on it, in the RPC's own migration comment.
  */
 export async function joinRoom(roomId: string, profileId: string, displayName: string, consentGiven: boolean): Promise<TranscribeRoomMember> {
-  const session = await createClaritySession(displayName, profileId, false);
+  const session = await withDeadline(
+    createClaritySession(displayName, profileId, false),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'creating the session record',
+  ).catch(rethrowAsUnreachable('[transcribe] creating the session record'));
 
-  const { data, error } = await supabase.rpc('join_transcribe_room', {
-    p_room_id: roomId,
-    p_display_name: displayName,
-    p_session_id: session.id,
-    p_consent: consentGiven,
-  });
+  const { data, error } = await withDeadline(
+    supabase.rpc('join_transcribe_room', {
+      p_room_id: roomId,
+      p_display_name: displayName,
+      p_session_id: session.id,
+      p_consent: consentGiven,
+    }),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'joining the room',
+  ).catch(rethrowAsUnreachable('[transcribe] joining the room'));
 
   if (error) throw new Error(error.message);
   // RETURNS TABLE, so a set — the RPC upserts exactly one row, but an empty result would
@@ -328,21 +430,6 @@ function bytesToBase64(bytes: Uint8Array): string {
  * Losing one slice costs a few seconds of live text; losing the chain costs the session.
  */
 export const SLICE_REQUEST_TIMEOUT_MS = 15_000;
-
-/** Rejects if `promise` has not settled within `ms`. Used for awaits that take no signal. */
-async function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
 
 async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
   const { data: { session } } = await withDeadline(
