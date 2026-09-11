@@ -167,47 +167,69 @@ if [[ -z "$spec_content" && -z "$spec_file_override" ]]; then
   fi
 fi
 
-# ── Absorbed-by resolution (P1309) — read by gates 2.5 and 2.7 ─────────────
+# ── Absorbed-by resolution (P1309) — ONE verdict, read by gates 2.5 and 2.7 ──
 # A spec whose whole scope was delivered under ANOTHER spec's number (P500, by
 # P1296) can never record its own dev run or review: the work and the reviews
-# exist, under the absorber's number. Such a spec declares `absorbed_by: pN`,
-# and the gates below may take that evidence from the absorber — only when the
-# absorber resolves, records an implementation, and names this spec itself.
+# exist, under the absorber's number. Such a spec declares `absorbed_by: pM` in
+# its frontmatter, and the gates below may take that evidence from pM.
 #
 # NOT a return of co-located auto-close (P1250; decisions.md 2026-09-07 and
 # 2026-08-31): nothing here closes anything. The absorbed spec is still closed
 # only by `git-ops.sh ship <its own pN>`, its boxes must all be ticked, and
 # every refusal says which condition failed.
 #
-# Resolution mirrors the spec's own: the absorber's feature branch first (its
-# pipeline_ran is on the branch until it ships), then disk, INCLUDING
-# features/done/** — once the absorber has shipped, that is where it lives, and
-# it is also the only place CI (--spec-file mode) can find it.
-absorber_pn=""; absorber_invalid=""; absorber_content=""; absorber_source=""
-_abs_raw="$(printf '%s\n' "$spec_content" | $GREP -m1 -E '^absorbed_by:' | sed -E 's/^absorbed_by:[[:space:]]*//; s/[[:space:]]+$//' | tr -d "\"'" | tr 'A-Z' 'a-z')"
-if [[ -n "$_abs_raw" ]]; then
-  if [[ "$_abs_raw" =~ ^p[0-9]+$ && "$_abs_raw" != "$pn" ]]; then
-    absorber_pn="$_abs_raw"
+# The absorber qualifies only when ALL of these hold — each was added after an
+# adversarial review proved the weaker rule could be gamed:
+#   * both fields are read from FRONTMATTER only (a body line showing the
+#     syntax must not activate the arm);
+#   * this spec records NO implementation of its own — `absorbed_by` next to
+#     its own dev run is a contradiction, and allowing it let one line lift an
+#     unrelated spec's review onto a spec that claimed its own work (H-1);
+#   * the absorber has SHIPPED: exactly one copy under features/done/. An
+#     absorber still on a branch may never land (H-2), and features/done/ is
+#     also the only place CI (--spec-file mode, no local branches) can see, so
+#     local and CI verdicts agree. Two copies are ambiguous and refused (M-4);
+#   * the absorber records dev, fix or inline (pipeline_ran or flow: inline);
+#   * the absorber LISTS this spec in its own `absorbs:` field. A mention in its
+#     prose ("follow-up, NOT delivered here") is not a delivery claim (M-1).
+absorber_pn=""; absorbed_ok=""; absorbed_reason=""; absorber_source=""
+_frontmatter() { awk 'NR==1 { if ($0 != "---") exit; next } $0 == "---" { exit } { print }'; }
+_fm_field() { printf '%s\n' "$1" | $GREP -m1 -E "^$2:" | sed -E "s/^$2:[[:space:]]*//; s/[[:space:]]+\$//"; }
+_impl_pat='(\[|,)[[:space:]]*(dev|fix|inline)(\.[0-9]+)?[[:space:]]*(,|\])'
+_fm_has_impl() {
+  printf '%s\n' "$1" | $GREP -m1 '^pipeline_ran:' | $GREP -qE "$_impl_pat" && return 0
+  printf '%s\n' "$1" | $GREP -qE '^flow:[[:space:]]*inline[[:space:]]*$'
+}
+_spec_fm="$(printf '%s\n' "$spec_content" | _frontmatter)"
+if printf '%s\n' "$_spec_fm" | $GREP -qE '^absorbed_by:'; then
+  _abs_raw="$(_fm_field "$_spec_fm" absorbed_by | tr -d "\"'" | tr 'A-Z' 'a-z')"
+  # Echo-safe copy: status lines must never carry a redirect or pipe character
+  # (shell-safety.md), and this value comes straight from a spec file.
+  _abs_shown="$(printf '%s' "$_abs_raw" | tr -cd 'a-z0-9 ._#:-' | cut -c1-40)"
+  if [[ -z "$_abs_raw" ]]; then
+    absorbed_reason="absorbed_by is empty"
+  elif [[ ! "$_abs_raw" =~ ^p[0-9]+$ || "$_abs_raw" == "$pn" ]]; then
+    absorbed_reason="absorbed_by value '${_abs_shown}' is not another spec's P-number"
+  elif _fm_has_impl "$_spec_fm"; then
+    absorbed_reason="${pn} records its own implementation, so it is not absorbed — remove absorbed_by"
   else
-    absorber_invalid="$_abs_raw"
-  fi
-fi
-if [[ -n "$absorber_pn" ]]; then
-  _abr="$(cd "$REPO_ROOT" && git branch --list "feature/${absorber_pn}-*" | head -1 | tr -d ' *+')"
-  if [[ -n "$_abr" ]]; then
-    _abp="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$_abr" 2>/dev/null \
-      | $GREP -E "^features/${absorber_pn}_[^/]+\.md$" | head -1)"
-    if [[ -n "$_abp" ]]; then
-      absorber_content="$(cd "$REPO_ROOT" && git show "${_abr}:${_abp}" 2>/dev/null)"
-      absorber_source="branch ${_abr}"
-    fi
-  fi
-  if [[ -z "$absorber_content" ]]; then
-    _abf="$(cd "$REPO_ROOT" && find features -type f -name "${absorber_pn}_*.md" \
-      ! -path "features/archive/*" ! -path "*/uat/*" 2>/dev/null | sort | head -1)"
-    if [[ -n "$_abf" ]]; then
-      absorber_content="$(cat "${REPO_ROOT}/${_abf}")"
-      absorber_source="disk ${_abf}"
+    absorber_pn="$_abs_raw"
+    _abf_all="$(cd "$REPO_ROOT" && find features/done -type f -name "${absorber_pn}_*.md" ! -path "*/uat/*" 2>/dev/null | sort)"
+    _abf_n="$(printf '%s\n' "$_abf_all" | $GREP -c . || true)"
+    if [[ "${_abf_n:-0}" -eq 0 ]]; then
+      absorbed_reason="absorbing spec ${absorber_pn} has not shipped (no copy under features/done/) — ship it first"
+    elif [[ "$_abf_n" -gt 1 ]]; then
+      absorbed_reason="absorbing spec ${absorber_pn} resolves to ${_abf_n} files under features/done/ — ambiguous, refusing to pick one"
+    else
+      absorber_source="$_abf_all"
+      _abs_fm="$(_frontmatter < "${REPO_ROOT}/${_abf_all}")"
+      if ! _fm_has_impl "$_abs_fm"; then
+        absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
+      elif ! _fm_field "$_abs_fm" absorbs | tr 'A-Z' 'a-z' | tr -c 'a-z0-9' '\n' | $GREP -qx "$pn"; then
+        absorbed_reason="absorbing spec ${absorber_pn} does not list ${pn} in its absorbs: field"
+      else
+        absorbed_ok=1
+      fi
     fi
   fi
 fi
@@ -374,26 +396,11 @@ else
       impl_ran=1
     fi
 
-    # P1309: no implementation of its own — may it rest on its absorber's? Each
-    # refusal names its reason, because an unexplained FAIL on a spec that
-    # declares absorbed_by gets "fixed" by stamping a fake dev run onto it.
-    absorbed_ok=""; absorbed_reason=""
-    if [[ "$impl_ran" -eq 0 ]]; then
-      if [[ -n "$absorber_invalid" ]]; then
-        absorbed_reason="absorbed_by value '${absorber_invalid}' is not another spec's P-number"
-      elif [[ -n "$absorber_pn" ]]; then
-        if [[ -z "$absorber_content" ]]; then
-          absorbed_reason="absorbing spec ${absorber_pn} not found on a branch or on disk"
-        elif ! printf '%s\n' "$absorber_content" | $GREP -m1 '^pipeline_ran:' \
-               | $GREP -qE '(\[|,)[[:space:]]*(dev|fix|inline)(\.[0-9]+)?[[:space:]]*(,|\])'; then
-          absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
-        elif ! printf '%s\n' "$absorber_content" | $GREP -qiE "(^|[^0-9A-Za-z_])${pn}([^0-9]|$)"; then
-          absorbed_reason="absorbing spec ${absorber_pn} does not name ${pn} anywhere in its text"
-        else
-          absorbed_ok=1
-        fi
-      fi
-    fi
+    # P1309: with no implementation of its own, the spec may rest on its
+    # absorber's — absorbed_ok and absorbed_reason were decided once, at
+    # resolution above, so gate 2.7 reads the same verdict. Each refusal names
+    # its reason, because an unexplained FAIL on a spec that declares
+    # absorbed_by gets "fixed" by stamping a fake dev run onto it.
 
     _hcount="$(printf '%s\n' "$completion_headings" | $GREP -c . || true)"
     if [[ "$open_total" -gt 0 ]]; then
@@ -462,10 +469,13 @@ if [[ -f "$finish_file" ]]; then
     # the entry to name THIS spec — see the P1203 note above.
     matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"pn\": ?\"${pn}\"" || true)"
     # P1309: an absorbed spec's work was reviewed under its absorber's number.
-    # Only the review is taken from the absorber here; whether the absorber
-    # qualifies at all (implementation recorded, names this spec) is gate 2.5's
-    # call, and a close needs both gates.
-    if [[ -z "$matching_entries" && -n "$absorber_pn" && -n "$absorber_content" ]]; then
+    # Borrowed ONLY when the absorber qualified at resolution (shipped, records
+    # an implementation, lists this spec in `absorbs:`, and this spec has no
+    # implementation of its own). The first version borrowed whenever an
+    # absorber merely resolved, so one absorbed_by line could lift any reviewed
+    # spec's review onto a spec that claimed its own dev run (adversarial
+    # review, H-1) — and that held under `--only 2.7`, where gate 2.5 never runs.
+    if [[ -z "$matching_entries" && -n "$absorbed_ok" ]]; then
       matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"pn\": ?\"${absorber_pn}\"" || true)"
       [[ -n "$matching_entries" ]] && review_via_absorber="$absorber_pn"
     fi

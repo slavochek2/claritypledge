@@ -41,10 +41,25 @@ driver: anomaly
 
 ## Solution
 
-1. **The absorbed spec declares where its work went:** `absorbed_by: pN` in frontmatter. The value is one P-number.
-2. **Gate 2.5:** when the spec's own `pipeline_ran` records no implementation and `absorbed_by: pN` is set, resolve the absorbing spec pN. Check its feature branch copy first, then `features/`, then `features/done/**`. PASS only if the absorbing spec exists, records `dev`, `fix` or `inline`, and names the absorbed spec's P-number in its own text. The PASS line says `implementation recorded on absorbing spec pN`, so the log shows which arm passed.
-3. **Gate 2.7** (no-branch arm, since an absorbed spec has no branch): also accept a code-review entry whose `pn` is the absorbing spec.
-4. **CI:** `closure-gate.yml` runs gate 2.5 from `origin/main`'s copy of `ship-gates.sh` on the pushed tree. The new arm resolves the absorbing spec from files in that tree, so it works on the runner as long as the absorbing spec is in the repo.
+1. **A two-way declaration, in frontmatter only.** The absorbed spec carries `absorbed_by: pM`; the absorbing spec carries `absorbs: [pN]`. Both are read between the first two `---` lines, never from the body.
+2. **One verdict, decided once** in `ship-gates.sh` before any gate runs, and read by both gates 2.5 and 2.7. The absorbed spec qualifies only when every condition holds:
+   - it records **no** implementation of its own;
+   - the absorbing spec has **shipped**: exactly one copy under `features/done/`. Two copies are refused as ambiguous;
+   - the absorbing spec records `dev`, `fix` or `inline` (`pipeline_ran` or `flow: inline`);
+   - the absorbing spec lists the absorbed spec in its `absorbs:` field.
+
+   Every refusal names the condition that failed. A refused `absorbed_by` value is echoed with redirect and pipe characters stripped.
+3. **Gate 2.5** PASSes on the absorbing spec's record only when that verdict holds. The PASS line says `implementation recorded on absorbing spec pM`. **Gate 2.7** (no-branch arm) borrows the absorbing spec's review under the same condition and says so. Gate 2.7b skips freshness for a borrowed review, since that review's freshness is judged on the absorbing spec's own ship.
+4. **`git-ops.sh ship`, no-branch route:** its code-presence check requires a "ready for QA" stamp commit. For an absorbed close it accepts the **absorbing** spec's stamp, taken from gate 2.5's PASS line and never from an override. A "pN ready for QA" stamp would record work that did not happen under pN.
+5. **CI:** `closure-gate.yml` runs gate 2.5 from `origin/main`'s copy of `ship-gates.sh`. Because the absorbing spec must be under `features/done/`, the runner sees exactly what the local gate sees.
+
+**Adversarial review (2026-09-11), first version:** 2 HIGH and 4 MEDIUM findings, all fixed in the rules above and pinned as cases H10–H16:
+- **H-1** (HIGH): the review could be borrowed without the absorbing spec qualifying.
+- **H-2** (HIGH): an absorbing spec that had not shipped was accepted.
+- **M-1**: a prose mention counted as a delivery claim.
+- **M-2**: `git-ops.sh ship` demanded a stamp under the wrong number.
+- **M-3**: the local and CI verdicts differed.
+- **M-4**: a stale copy of a spec was picked.
 
 ## Alternatives Considered
 

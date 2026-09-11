@@ -3055,6 +3055,9 @@ ship_close_message() {
 ship_run_gates() {
   local pn="$1" want_override="${2:-0}" fresh_journal="${3:-}"
   SHIP_GATE_OVERRIDE_REASON=""
+  # P1309: set when gate 2.5 passed on an ABSORBING spec's record — the
+  # no-branch route then looks for that spec's 'ready for QA' stamp, not pN's.
+  SHIP_GATE_ABSORBER=""
 
   local gates_script="$REPO_ROOT/scripts/ship-gates.sh"
   # Fails CLOSED (P1246 invariant: "Unreadable spec, missing script, unresolvable
@@ -3070,6 +3073,13 @@ ship_run_gates() {
   printf '%s\n' "$gate_out" >&2
 
   if [[ "$gate_rc" -eq 0 ]]; then
+    # Read from ship-gates' own PASS line, only on a clean pass: an override
+    # never sets it, so an overridden close still needs pN's own stamp. A single
+    # sed (reads all input) rather than grep|head, which can SIGPIPE under
+    # pipefail (epistemic.md gate 7).
+    SHIP_GATE_ABSORBER="$(printf '%s\n' "$gate_out" \
+      | sed -n 's/^\[GATE 2\.5\] PASS: .*implementation recorded on absorbing spec \(p[0-9][0-9]*\) .*/\1/p' \
+      | sed -n '1p')"
     return 0
   fi
 
@@ -3257,18 +3267,25 @@ cmd_ship() {
       # present AT HEAD — an impl committed directly to main and later reverted
       # still leaves a qualifying subject in history. The status gate is the
       # second layer; a wrong close is bounded, reversible metadata (one spec).
+      # P1309: an absorbed spec (gate 2.5 passed on its absorber's record) has no
+      # implementation of its own to stamp — its work landed under the absorber's
+      # number, so the absorber's stamp is the code-presence evidence. The refusal
+      # below would otherwise demand a "pN ready for QA" commit for work that did
+      # not happen under pN, which is exactly what the absorbed_by path exists to
+      # avoid recording. Found by the adversarial review (M-2).
+      local _stamp_pn="${SHIP_GATE_ABSORBER:-$pn}"
       local _stamp_ok="" _cand _subj
       while IFS= read -r _cand; do
         [[ -z "$_cand" ]] && continue
         _subj="$( cd "$REPO_ROOT" && git log -1 --format='%s' "$_cand" 2>/dev/null || true )"
         [[ "$_subj" == Revert\ * ]] && continue
         shopt -s nocasematch
-        if [[ "$_subj" =~ (^|[^a-z0-9])${pn}([^a-z0-9]|$) && "$_subj" == *"ready for qa"* ]]; then
+        if [[ "$_subj" =~ (^|[^a-z0-9])${_stamp_pn}([^a-z0-9]|$) && "$_subj" == *"ready for qa"* ]]; then
           _stamp_ok="$_cand"
         fi
         shopt -u nocasematch
         [[ -n "$_stamp_ok" ]] && break
-      done < <( cd "$REPO_ROOT" && git log main -i --grep="\\b${pn}\\b" --grep="ready for QA" --all-match --format='%H' 2>/dev/null || true )
+      done < <( cd "$REPO_ROOT" && git log main -i --grep="\\b${_stamp_pn}\\b" --grep="ready for QA" --all-match --format='%H' 2>/dev/null || true )
       if [[ -z "$_stamp_ok" ]]; then
         # The recovery is named here on purpose. This refusal has now fired on four
         # separate emitters (P920 design, P1185 inline-on-main, P1205), and each time
@@ -3279,7 +3296,7 @@ cmd_ship() {
         # a bare pN match was explicitly rejected when P920 was designed, because spec
         # edits and cross-references carry pN tokens too, so auto-stamping trades a
         # loud recoverable refusal for a SILENT false close of work that never landed.
-        die "ship: spec $pn is on main but no qualifying '$pn ready for QA' stamp commit found (a non-revert commit whose SUBJECT carries '$pn' and 'ready for QA') — its implementation may be on an unmerged or deleted branch, reverted, or incomplete.
+        die "ship: spec $pn is on main but no qualifying '$_stamp_pn ready for QA' stamp commit found (a non-revert commit whose SUBJECT carries '$pn' and 'ready for QA') — its implementation may be on an unmerged or deleted branch, reverted, or incomplete.
   If the implementation IS on main under a non-stamp subject, record it with a stamp commit — do not amend history on the shared checkout:
     ./scripts/git-ops.sh commit-to-main --message \"chore: $pn ready for QA — <title>\" --files <a file you actually changed>
   Then re-run: ./scripts/git-ops.sh ship $pn"

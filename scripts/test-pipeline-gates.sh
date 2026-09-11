@@ -318,6 +318,8 @@ ${extra}
 ---
 # ${pn}: Demo
 
+> Founder framing, verbatim: *"this is a long enough sentence to satisfy the intent gate."*
+
 ${body}
 
 ## Done-When
@@ -329,12 +331,14 @@ abs_review() {
   printf '{"type": "code", "pn": "%s", "branch": "main", "sha": "0", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' \
     "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$1/.git/.finish-reviewed"
 }
-# abs_case <name> — a fresh repo holding a VALID absorber p2001 (dev run, names
-# p2000, reviewed) and an absorbed p2000 (no run of its own, every box ticked).
+# abs_case <name> — a fresh repo holding a VALID pair: absorber p2001 SHIPPED
+# (a copy under features/done/, dev run, `absorbs: [p2000]`, reviewed) and the
+# absorbed p2000 (no run of its own, every box ticked, `absorbed_by: p2001`).
 # Each case then breaks exactly one thing.
+ABS_DONE=features/done/2026-09-08
 abs_case() {
   local d="$SCRATCH/$1"; mk_repo "$d"
-  abs_spec "$d" features/p2001_absorber.md p2001 "create-spec, dev" "[x]" "" "Delivers everything p2000 asked for."
+  abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec, dev" "[x]" "absorbs: [p2000]" "Delivers everything p2000 asked for."
   abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2001" "Scope delivered by P2001."
   abs_review "$d" p2001
   echo "$d"
@@ -351,26 +355,33 @@ fi
 
 d="$(abs_case h2)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2099" "Scope delivered elsewhere."
 rc="$(abs_gate "$d" p2000)"
-if [[ "$rc" -ne 0 ]] && grep -q 'absorbing spec p2099 not found' "$SCRATCH/h.log"; then
+if [[ "$rc" -ne 0 ]] && grep -q 'absorbing spec p2099 has not shipped' "$SCRATCH/h.log"; then
   pass "H2: an absorber that does not exist is refused, by name"
 else
   fail "H2: a dangling absorbed_by was not refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
-d="$(abs_case h3)"; abs_spec "$d" features/p2001_absorber.md p2001 "create-spec" "[x]" "" "Delivers everything p2000 asked for."
+d="$(abs_case h3)"; abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec" "[x]" "absorbs: [p2000]" "Delivers everything p2000 asked for."
 rc="$(abs_gate "$d" p2000)"
-if [[ "$rc" -ne 0 ]] && grep -q 'records no dev, fix or inline run' "$SCRATCH/h.log"; then
-  pass "H3: an absorber with no implementation recorded cannot vouch for anything"
+# The absorber IS reviewed here, so 2.7 is where a borrow-without-qualifying bug
+# would show: it must still FAIL. (A mutation that re-allowed the borrow went
+# undetected until this assertion existed — the H10 case never reaches it.)
+if [[ "$rc" -ne 0 ]] && grep -q 'records no dev, fix or inline run' "$SCRATCH/h.log" \
+   && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/h.log"; then
+  pass "H3: an absorber with no implementation recorded cannot vouch for anything — not even its review"
 else
   fail "H3: an unbuilt absorber was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
-d="$(abs_case h4)"; abs_spec "$d" features/p2001_absorber.md p2001 "create-spec, dev" "[x]" "" "Unrelated work."
+# The absorber's prose names p2000 — explicitly as NOT delivered. A mention is
+# not a delivery claim; only its own `absorbs:` field is (adversarial review M-1).
+d="$(abs_case h4)"; abs_spec "$d" "$ABS_DONE/p2001_absorber.md" p2001 "create-spec, dev" "[x]" "" "Related: p2000 is a follow-up, NOT delivered here."
 rc="$(abs_gate "$d" p2000)"
-if [[ "$rc" -ne 0 ]] && grep -q 'does not name p2000' "$SCRATCH/h.log"; then
-  pass "H4: a one-sided link is refused — the absorber must name the spec it absorbed"
+if [[ "$rc" -ne 0 ]] && grep -q 'does not list p2000 in its absorbs' "$SCRATCH/h.log" \
+   && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/h.log"; then
+  pass "H4: a one-sided link is refused — the absorber must LIST the spec in absorbs:, a prose mention does not count"
 else
-  fail "H4: an absorber that never mentions p2000 was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+  fail "H4: an absorber that only mentions p2000 in prose was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
 d="$(abs_case h5)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[ ]" "absorbed_by: p2001" "Scope delivered by P2001."
@@ -409,13 +420,82 @@ fi
 # spec's features/done/ copy and --only 2.5; by then the absorber has usually
 # shipped too, so it must be found under features/done/ as well.
 d="$(abs_case h9)"
-mv "$d/features/p2000_absorbed.md" "$d/features/done/2026-09-08/"
-mv "$d/features/p2001_absorber.md" "$d/features/done/2026-09-08/"
-rc="$(abs_gate "$d" p2000 --spec-file features/done/2026-09-08/p2000_absorbed.md --only 2.5)"
+mv "$d/features/p2000_absorbed.md" "$d/$ABS_DONE/"
+rc="$(abs_gate "$d" p2000 --spec-file "$ABS_DONE/p2000_absorbed.md" --only 2.5)"
 if [[ "$rc" -eq 0 ]] && grep -q 'absorbing spec p2001' "$SCRATCH/h.log"; then
   pass "H9: the CI path (--spec-file, both specs already in features/done) passes a legitimate absorbed close"
 else
   fail "H9: CI would refuse a legitimate absorbed close (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H10 — adversarial review H-1, the worst finding against the first version: the
+# spec claims its own dev run AND points absorbed_by at a spec whose only merit
+# is a review. The review must not be borrowed, under a full run or --only 2.7.
+d="$(abs_case h10)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec, dev" "[x]" "absorbed_by: p2001" "Claims its own work."
+rc="$(abs_gate "$d" p2000)"; rc27="$(abs_gate "$d" p2000 --only 2.7)"
+if [[ "$rc" -ne 0 && "$rc27" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/h.log" && ! grep -q 'absorbing spec' "$SCRATCH/h.log"; then
+  pass "H10: absorbed_by beside the spec's own dev run borrows nothing — 2.7 FAILS, full run and --only 2.7"
+else
+  fail "H10: a review was borrowed onto a spec claiming its own work (full rc $rc, --only 2.7 rc $rc27)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H11 — adversarial review H-2: an absorber that has not shipped may never land.
+d="$(abs_case h11)"; mv "$d/$ABS_DONE/p2001_absorber.md" "$d/features/"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'absorbing spec p2001 has not shipped' "$SCRATCH/h.log"; then
+  pass "H11: an absorber still open (not under features/done) cannot vouch — ship it first"
+else
+  fail "H11: an unshipped absorber was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H12 — L-2: the key in the BODY (a syntax example) must not activate the arm.
+d="$(abs_case h12)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "" "Example of the syntax: absorbed_by: p2001"
+printf '\nabsorbed_by: p2001\n' >> "$d/features/p2000_absorbed.md"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no implementation is recorded' "$SCRATCH/h.log" && ! grep -q 'absorbing spec' "$SCRATCH/h.log"; then
+  pass "H12: absorbed_by outside the frontmatter is ignored"
+else
+  fail "H12: a body-only absorbed_by line activated the arm (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H13 — M-4: two shipped copies of the absorber are ambiguous, never "pick the first".
+d="$(abs_case h13)"; abs_spec "$d" features/done/2026-01-01/p2001_old.md p2001 "create-spec, dev" "[x]" "absorbs: [p2000]" "An older copy."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'ambiguous' "$SCRATCH/h.log"; then
+  pass "H13: an absorber with two copies under features/done is refused as ambiguous"
+else
+  fail "H13: an ambiguous absorber was resolved to one copy (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H14 — L-1: the refused value is echoed; status lines must never carry < > or |.
+d="$(abs_case h14)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p1 | x > y <z>" "x"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q "is not another spec's P-number" "$SCRATCH/h.log" && ! grep -E '^\[GATE' "$SCRATCH/h.log" | grep -qE '[<>|]'; then
+  pass "H14: a hostile absorbed_by value is refused and echoed without redirect or pipe characters"
+else
+  fail "H14: output contract broken or value accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H15/H16 — adversarial review M-2: the legitimate close must go all the way
+# through git-ops.sh ship (no-branch route), whose code-presence check looks for
+# a "ready for QA" stamp. For an absorbed spec that stamp is the ABSORBER's; a
+# "p2000 ready for QA" commit would record work that did not happen under p2000.
+d="$(abs_case h15)"
+( cd "$d" && git add features && git commit -qm "chore: p2001 ready for QA — the absorber" ) >/dev/null 2>&1
+( cd "$d" && bash scripts/git-ops.sh ship p2000 ) >"$SCRATCH/h15.log" 2>&1; rc=$?
+if [[ $rc -eq 0 ]] && ls "$d"/features/done/*/p2000_absorbed.md >/dev/null 2>&1; then
+  pass "H15: git-ops.sh ship closes a legitimate absorbed spec on the absorber's stamp"
+else
+  fail "H15: the legitimate absorbed close failed through git-ops.sh ship (exit $rc)"; sed 's/^/    /' "$SCRATCH/h15.log" >&2
+fi
+
+d="$(abs_case h16)"
+( cd "$d" && git add features && git commit -qm "chore: add specs" ) >/dev/null 2>&1
+( cd "$d" && bash scripts/git-ops.sh ship p2000 ) >"$SCRATCH/h16.log" 2>&1; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "p2001 ready for QA" "$SCRATCH/h16.log" && [[ -f "$d/features/p2000_absorbed.md" ]]; then
+  pass "H16: with no absorber stamp on main, the absorbed close is refused and names the stamp it needs"
+else
+  fail "H16: an absorbed close went through with no absorber stamp (exit $rc)"; sed 's/^/    /' "$SCRATCH/h16.log" >&2
 fi
 
 # ── E. Intent gate ──────────────────────────────────────────────────────────
