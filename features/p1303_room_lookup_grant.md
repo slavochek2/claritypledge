@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, grants, p1065, transcribe]
 disclosure: embargo
-delivery_stage: inline
-pipeline_ran: [create-bug, inline]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1303: The room-code lookup RPC is executable by anonymous callers
