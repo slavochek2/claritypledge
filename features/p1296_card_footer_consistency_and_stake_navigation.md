@@ -7,7 +7,7 @@ created_date: '2026-09-10'
 tags: [feed, stake, profile, cards, consistency, grouping, event-prep]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4]
+pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4, adversarial-review.3, create-spec.5]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -16,9 +16,10 @@ driver: anomaly
 
 # P1296: One card behaviour on feed, stake and profile — and a /stake you can link to and leave
 
-> **Fourth draft, 2026-09-11.** Drafts 1–3 were a footer-alignment spec; three artifact passes
-> and the founder's decisions since then made it a card-consistency spec across three surfaces.
-> Rewritten as one build spec rather than accreted. What was tried, rejected and corrected on the
+> **Fifth draft, 2026-09-11** — the fourth draft with all 17 findings of its Fable review applied
+> after each was re-verified by command (see Review). Drafts 1–3 were a footer-alignment spec;
+> three artifact passes and the founder's decisions since then made it a card-consistency spec
+> across three surfaces, written as one build spec rather than accreted. What was tried, rejected and corrected on the
 > way is in **History** at the bottom — read it before re-opening any decision.
 
 ## Problem
@@ -30,10 +31,14 @@ the page an event links people to — cannot be linked to a tab or left from the
 
 - **The footer drifts by surface.** On feed story cards the share control floats above the
   divider. `feed-point-card` has no footer row at all — its share sits in the `PositionButtons`
-  row (`:212-240`). The profile's story footer carries owner edit/delete and a `ShareButton` that
-  opens a modal and fires no analytics, and has no open-in-new icon.
+  row (`:212-240`). The profile's story footer carries the owner's `+ Add point` CTA (P580,
+  `profile-page-v2.tsx:1724`), edit, delete, and a `ShareButton`, and has no open-in-new icon.
+  The profile's POINT cards are `PointCardWithLinks` (`profile-page-v2.tsx:1201`): stories count
+  left, then `ShareButton`, then open-in-new. `ShareButton` opens `ShareDialog` — copy link plus an
+  embed code, with the profile owner's position carried in the embed (`?from=`,
+  `ShareDialog.tsx:27`) — and fires no analytics.
 - **`/stake` renders no footer.** Both feed cards gate the footer on a prop `/stake` never
-  passes: `feed-story-card.tsx:338` on `linkedPoints`, `feed-point-card.tsx:251` on
+  passes: `feed-story-card.tsx:438` on `linkedPoints`, `feed-point-card.tsx:251` on
   `linkedStories`. `stake-page.tsx:219-227` passes neither.
 - **`/stake` passes no `currentUserId`**, so its cards render the read-only slab P1212 already
   fixed once on `/feed` (`feed-story-card.tsx:48-54`).
@@ -69,12 +74,15 @@ the grouping feature."*
 ## Appetite
 
 Blast radius: **high**. Components: `FeedStoryCard`, `FeedPointCard`, `StoryCardFull`
-(profile-private), `StoryVideoQuotes` (six call sites), `QuotedPointCard` (two small fixes), plus
-two new shared pieces (`groupBySource` and `SourceGroup`, item 7). Pages: `/feed`, `/stake/:tag`,
-`/p/:slug`. Tests: **1,614 lines bind to the feed cards**, two suites asserting on source text,
-and **nine suites pin the quotes section's current wording or shape** (`p1141-*`, `p1212-*`,
-`p1259-seek-before-ready`, `p1270-profile-story-media`, `e2e/p1141-story-video.spec.ts`) —
-budget for all of them. Reversibility: high, no migration. Decision density: all product calls
+(profile-private), `PointCardWithLinks` (its footer, in list context only — item 1),
+`StoryVideoQuotes` (six call sites), `QuotedPointCard` (two small fixes), plus two new shared
+pieces (`groupBySource` and `SourceGroup`, item 7). Pages: `/feed`, `/stake/:tag`, `/p/:slug`.
+Tests: **3,486 lines across 11 files bind to the feed cards** (counted 2026-09-11), including the
+three `p1179-*` stake suites and `p1259-clamp-classes-compile.test.ts`, which pins the clamp
+values literally; and **nine suites pin the quotes section's current wording or shape**
+(`p1141-*`, `p1212-*`, `p1259-seek-before-ready`, `p1270-profile-story-media`,
+`e2e/p1141-story-video.spec.ts`) — budget for all of them. The branch is 23 commits behind `main`
+(none touch these files): rebase before `/dev`. Reversibility: high, no migration. Decision density: all product calls
 made; one sequencing call open (Open Questions). Deadline: 2026-09-18.
 
 ## Solution
@@ -84,16 +92,21 @@ made; one sequencing call open (Open Questions). Deadline: 2026-09-18.
 Same controls, same order, same behaviour on all three surfaces; padding follows each card's own
 column (the profile keeps its avatar-column `sm:pl-[68px]`, the feed its `px-4`).
 
+Cards in scope: `FeedStoryCard` and `FeedPointCard` (feed, stake), `StoryCardFull` (profile
+stories), and `PointCardWithLinks` **in its profile list context only** — the same component is
+the point page's own detail card (`isDetailView`), which keeps its current footer.
+
 - **Left:** expand chevron + count (`N points` / `N stories`; `0 points` stays, founder
   2026-09-10).
-- **Right, in this order:** owner actions where they exist (profile only: edit, delete), then
-  share, then open-in-new.
-- **Share is one behaviour everywhere:** copy the link, toast, fire an analytics event naming the
-  surface. `feed_card_shared` must keep firing from the feed (`feed-point-card.tsx:230`,
-  `feed-story-card.tsx:318`) — lifting the control moves the tracking line with it. The profile
-  story card's `ShareButton` (modal, no event) is replaced by this behaviour.
+- **Right, in this order:** owner actions where they exist (profile only: `+ Add point` — P580,
+  kept —, edit, delete), then share, then open-in-new.
+- **Share looks and sits the same on every card**; what it DOES is Open Question 2. Whatever the
+  answer, it fires an analytics event on every surface: `feed_card_shared` keeps firing from the
+  feed (`feed-point-card.tsx:230`, `feed-story-card.tsx:418`) and gains a `surface` property
+  (`feed` | `stake` | `profile`), documented in `docs/technical/analytics.md` (today: `type`, `id`
+  only, `:732-738`). Lifting the control moves the tracking line with it.
 - **Open-in-new on every card.** Not redundant: the footer row stops propagation
-  (`feed-story-card.tsx:342`), so it is the one band where the card-click is dead.
+  (`feed-story-card.tsx:442`), so it is the one band where the card-click is dead.
 - **Base shape:** `feed-story-card`'s own row — `border-t border-border py-2.5`, theme tokens
   only. `feed-point-card` gains the row (a new row, not a moved one); lifting share out of
   `PositionButtons` is the focus-order risk below.
@@ -103,31 +116,59 @@ column (the profile keeps its avatar-column `sm:pl-[68px]`, the feed its `px-4`)
 
 **2. `/stake` renders the footer on BOTH tabs** (founder, 2026-09-10). Wire the existing batch
 fetchers `getPointsForStories` / `getStoriesForPoints` (`stories-service.interface.ts:83,123`)
-exactly as `feed-page.tsx:510-525` does. No new query.
+exactly as `feed-page.tsx:510-525` does. No new query. Two constraints:
+
+- **The list is still fetched once and the skeleton never returns.** `p1179-no-refetch-on-position`
+  asserts exactly one list fetch and no skeleton after the first load. Key the linked-items effect
+  on the loaded id lists, never on `loading`, and never set `loading` for it.
+- **The three `p1179-*` suites mock `storiesService` with `getPublicStoriesFeed` only**
+  (`p1179-stake-surface:22`, `p1179-no-refetch-on-position:21`, `p1179-links-menu:43`). Add the two
+  fetchers to those mocks; do not weaken an assertion to get past the missing function.
 
 **3. `/stake` passes `currentUserId`.**
 
 **4. `?tab=` selects the tab on `/stake`, as it already does on `/feed`.** `/feed` has read
-`?tab=stories` since P491 (`feed-page.tsx:60`, pinned by `p491-hashtag-feed.test.tsx:339`) —
-keep it. `/stake` derives its tab from the URL the same way, with three constraints:
+`?tab=stories` since P491 (`feed-page.tsx:60`) — keep it, and add the test it never had:
+`p491-hashtag-feed.test.tsx:339` is a commented-out TODO ending in `expect(true).toBe(true)`.
+`/stake` derives its tab from the URL, with four constraints:
 
-- **Keep the guard at `stake-page.tsx:119-121`** that forces Points when the tab bar is hidden;
-  `/stake/cmp7?tab=stories` (Points-only tag) must still open on Points.
-- **Preserve `?event=`** (`event-links.ts:89` builds `/stake/:tag?event=<slug>`); a bare
-  `setSearchParams({ tab })` drops it.
+- **The tab is a pure derivation, never a write:** `activeTab = showTabs ? urlTab : 'points'`.
+  Today's guard (`stake-page.tsx:119-121`) is an effect that SETS the tab to Points whenever
+  `showTabs` is false — and `showTabs` is false while loading, because both lists are still empty.
+  Ported as a URL write, it would strip `?tab=stories` from the event's link before the data
+  arrives and the page would open on Points anyway. Replace the effect with the derivation; the
+  behaviour it protects stays: `/stake/cmp7?tab=stories` (Points-only tag) opens on Points.
+- **Preserve `?event=`** (`event-links.ts:89` builds `/stake/:tag?event=<slug>`) and every other
+  param: update from the current params, never `setSearchParams({ tab })`.
 - **Tab switches use `replace: true`**, or the back CTA walks the reader through their own tab
   switches.
+- **`replace: true` breaks today's cold-arrival test** — see item 5.
 
-**5. `/stake` gains a bottom "Go back" CTA** (founder's label, 2026-09-10), mirroring
-`handleBack` (`stake-page.tsx:141-144`). Not "Back to the feed": `handleBack` returns to the
-previous page and only falls back to `/feed` on a cold arrival.
+**5. `/stake` gains a bottom "Go back" CTA** (founder's label, 2026-09-10), using `handleBack`
+(`stake-page.tsx:141-144`). Not "Back to the feed": `handleBack` returns to the previous page and
+only falls back to `/feed` on a cold arrival. Two constraints:
+
+- **Detect the cold arrival by history position, not by `location.key`.** `handleBack` tests
+  `location.key === 'default'`, but react-router (7.13) mints a new key on every navigation,
+  `replace` included, while keeping the history index in `history.state` (`idx`, preserved by
+  its `replaceState`). So with item 4, a reader who opens the event link cold, switches a tab, then
+  taps "Go back" gets `navigate(-1)` — out of the app. Use `window.history.state?.idx === 0`, or
+  capture the cold arrival once at mount. The header back button shares the handler and the fix.
+- **Two "Go back" controls, two distinct accessible names**, each containing the visible words
+  "Go back" (label-in-name). `p1179-stake-surface.test.tsx:141,153,166` find the header button by
+  `/go back/i` and would throw on two matches: target each by its own name and assert both. Never
+  repair it with `findAllByRole(...)[0]`, which would hide which button was tested.
 
 **6. Story text: `text-base` everywhere, and the "show more" clamp raised to 30 lines.**
 
-- Feed/stake story cards move to `text-base` (P500's live item; close P500 after this). Point
-  card statement follows (`feed-point-card.tsx:186`).
+- Feed/stake story cards move to `text-base`. Point card statement follows
+  (`feed-point-card.tsx:186`).
+- **Tab labels show counts** — "Points (N)" / "Stories (N)" on `/feed` (P500's other open
+  acceptance criterion, `p500_feed_card_harmonization.md:46`) and on `/stake`, matching the
+  profile's existing pattern. With both, close P500.
 - Clamp **30 lines** on the three list cards: `FeedStoryCard` 18 → 30, `StoryCardFull` 24 → 30.
-  30 = 18 × 1.67, the top of the founder's "50–70% more".
+  30 = 18 × 1.67, the top of the founder's "50–70% more". `p1259-clamp-classes-compile.test.ts:128-129`
+  pins `[24]` and `[18]` literally — update both to `[30]`.
 - Measured 2026-09-11 by rendering the eight real `aisafety1` bodies (499–807 chars) at
   16px/24px: 18–28 lines at a 239px column (conservative for 375px — the real column is wider),
   21–34 lines at 199px (320px, ungrouped). **All 8 show in full at 375px; 7 of 8 at 320px.**
@@ -155,12 +196,13 @@ recomputed whenever that list changes. It never fetches.
 
 | Surface | List it groups | Filters that change the list | Who can be in one group |
 |---|---|---|---|
-| `/feed` Stories | the 50 loaded (`FEED_LIMIT`, `feed-page.tsx:28`) | tags, text search, sort — all client-side over the loaded 50 (`:221-229`) | any authors |
+| `/feed` Stories | the 50 loaded (`FEED_LIMIT`, `feed-page.tsx:28`) | text search filters the loaded 50 client-side (`:221-229`); tags and sort REFETCH from the server behind the skeleton (`:119-145`, `:461`), and the new list is regrouped | any authors |
 | `/stake/:tag` Stories | the 50 loaded for that tag (`STAKE_LIMIT`, `stake-page.tsx:40`) | none | any authors |
 | Profile Stories | all of that person's stories | none | one author, by definition |
 
-- **Filtering and search regroup live.** Type in the feed's search and a group keeps only the
-  matching stories; if one remains it renders as a plain card; if none, the group disappears.
+- **Filtering and search regroup.** Type in the feed's search and a group keeps only the
+  matching stories; if one remains it renders as a plain card; if none, the group disappears. A
+  tag or sort change refetches and regroups the new list.
 - **Where a group sits:** at its first story's position in the page's current order (newest- or
   oldest-first); the source's other visible stories join it there. Nothing is re-sorted by
   author or date. This moves cards — accepted with the decision (History, §b).
@@ -197,7 +239,9 @@ last commit, after UAT sign-off** — root `/tree/*` explorations are throwaway
 **8. Supporting quotes are folded by default, on every surface.**
 
 The fold moves **into `StoryVideoQuotes`** — its heading becomes the toggle: chevron + **"N
-supporting quotes"**, 40px, `aria-expanded`. All six call sites inherit it with no per-card
+supporting quotes"**, 40px, `aria-expanded`. N is the number of quotes that surface renders —
+live sessions and letters render only the quotes not already in the story text
+(`live-story-card-expanded.tsx:143`), so their N can be smaller than the stored count. All six call sites inherit it with no per-card
 toggle: `FeedStoryCard` (feed, stake), `StoryCardFull` (profile), `PointCardWithLinks` (profile
 points, point page), `StoryCardWithLinks` (story and point pages), `StoryCardDetail` (story and
 doc pages), `LiveStoryCardExpanded` (live sessions, letters). The subject's name leaves the
@@ -253,18 +297,20 @@ new.
 
 | Risk | Label | Note |
 |---|---|---|
-| 1,614 test lines on the feed cards + 9 suites pinning the quotes section | MITIGATE | Rewrite assertions to the new behaviour deliberately; never to make a red suite green |
+| 3,486 test lines across 11 files on the feed cards + 9 suites pinning the quotes section | MITIGATE | Rewrite assertions to the new behaviour deliberately; never to make a red suite green |
 | Lifting share out of `PositionButtons` disturbs focus order | MITIGATE | Tab through every footer on every surface; `decisions.md` 2026-05-20 [technical] records a prior defect in this row |
-| Replacing the profile's `ShareButton` | MITIGATE | Owner edit/delete stay; check the profile's owner flows still work after the swap |
-| A regroup (search, tag, sort) remounts a group's player | ACCEPT | Key groups by source key so a group that survives a filter keeps its player |
+| Changing the profile's footer | MITIGATE | `+ Add point`, edit and delete stay; check the owner flows after the change. What share does there is Open Question 2 |
+| A regroup remounts a group's player | ACCEPT | Search is client-side: key groups by source key so a group that survives a search keeps its player. Tag and sort refetch behind the skeleton and remount everything anyway |
 | Heading counts loaded stories, not all stories of a source | ACCEPT | The list's own limit |
 | StrictMode drops a first pre-mount seek in dev | ACCEPT | Dev-only; see item 9 |
-| Dark mode | ACCEPT | Dormant; keep `dark:` usage at 0 in touched cards |
+| Dark mode | ACCEPT | Dormant. Add no new `dark:` classes (the feed cards have 0; `story-video-quotes.tsx` already has 4 and `quoted-point-card.tsx` 1 — leave those) |
 | Deadline 2026-09-18 against this scope | OPEN | See Open Questions |
 
 **Non-Goals**
 - Do NOT adopt `PointCardWithLinks` on feed/stake, and do NOT extract a shared card.
-- Do NOT delete `stake-page.tsx:119-121` or change the tab-visibility rule (`:111-121`).
+- Do NOT drop the Points-only fallback `stake-page.tsx:119-121` implements (it becomes a
+  derivation, item 4), and do NOT change the tab-visibility rule (`:111-117`).
+- Do NOT change `PointCardWithLinks` in its detail view (the point page) — list context only.
 - Do NOT change `?expanded=true`.
 - Do NOT remove quotes or timestamps anywhere.
 - Do NOT give the thumbnail-only surfaces (`StoryCardWithLinks`, `LiveStoryCardExpanded`) a player.
@@ -280,17 +326,19 @@ Artifact phase (done)
 - [x] Heading reduced to a count, name dropped from the quotes toggle, stance restored — Chrome, 1280/375/320
 
 Footer and `/stake`
-- [ ] Story and point cards on `/feed`, `/stake` and the profile show one footer: count left; owner actions (profile), share, open-in-new right; 44px icons
-- [ ] Share copies, toasts and fires an analytics event on every surface; `feed_card_shared` still fires from the feed
-- [ ] `/stake` shows the footer on both tabs and passes `currentUserId` (interactive position controls)
-- [ ] `/stake/aisafety1?tab=stories` opens on Stories — the event's exact link; `/stake/cmp7?tab=stories` opens on Points
-- [ ] `/feed?tab=stories` still opens on Stories
+- [ ] Story and point cards on `/feed`, `/stake` and the profile (lists) show one footer: count left; owner actions (profile: `+ Add point`, edit, delete), share, open-in-new right; 44px icons
+- [ ] Share behaves as decided in Open Question 2 on every card, and fires `feed_card_shared` with `surface` on every surface; `docs/technical/analytics.md` documents `surface`
+- [ ] `/stake` shows the footer on both tabs and passes `currentUserId`; the list is still fetched once and the skeleton never returns (`p1179-no-refetch-on-position` green without weakening)
+- [ ] `/stake/aisafety1?tab=stories` opens on Stories — the event's exact link — and `?tab=stories` is still in the URL after the data loads; `/stake/cmp7?tab=stories` opens on Points
+- [ ] **A new test** opens `/feed?tab=stories` and asserts the Stories tab is selected (replacing the TODO at `p491-hashtag-feed.test.tsx:339`)
 - [ ] **A new test** asserts `?event=` survives a tab switch on `/stake` (`p1179` checks arrival only)
-- [ ] Tab switches add no history entries; "Go back" after two switches leaves the page
-- [ ] "Go back" is reachable at the bottom of `/stake/:tag`
+- [ ] Tab switches add no history entries
+- [ ] **Cold arrival** (fresh tab on the event link) → switch tabs twice → "Go back" lands on `/feed`, not outside the app; **warm arrival** (came from another page) → "Go back" returns to it. Both for the header button and the bottom CTA
+- [ ] "Go back" is reachable at the bottom of `/stake/:tag`; the two back controls have distinct accessible names, and `p1179-stake-surface` asserts each by its own name
 
 Text
-- [ ] Feed/stake/profile story bodies are `text-base`, clamped at 30 lines, "show more" only on measured overflow; P500 closed
+- [ ] Feed/stake/profile story bodies are `text-base`, clamped at 30 lines (`p1259-clamp-classes-compile` updated to `[30]`), "show more" only on measured overflow
+- [ ] `/feed` and `/stake` tab labels show counts; P500 closed
 
 Grouping
 - [ ] `groupBySource` unit tests: every YouTube URL form of one id groups; two ids do not; unparseable/imageless stories stay single; first-appearance order under both sorts
@@ -301,7 +349,7 @@ Grouping
 - [ ] `/tree/stake-grouping` and its fixture deleted after UAT sign-off
 
 Quotes and timestamps
-- [ ] Quotes folded by default on all six `StoryVideoQuotes` surfaces, toggle "N supporting quotes", 40px
+- [ ] Quotes folded by default on all six `StoryVideoQuotes` surfaces, toggle "N supporting quotes" (N = quotes rendered there), 40px
 - [ ] A timestamp plays in place on `FeedStoryCard`, `StoryCardFull`, `PointCardWithLinks`, `StoryCardDetail`, and drives the group player inside a group — checked in a production build, not the dev server
 - [ ] On `StoryCardWithLinks` and `LiveStoryCardExpanded` a timestamp opens the video at that second
 - [ ] `QuotedPointCard` stance row wraps at 320px; its tag passes AA
@@ -314,9 +362,17 @@ Across all of it
 ## Open Questions
 
 1. **Sequencing against 2026-09-18.** The event needs `/stake/aisafety1?tab=stories` to open on
-   Stories on prod by then; it does not strictly need grouping, folded quotes or the footer.
-   `[FOUNDER DECISION: one build shipped together, or the /stake navigation items (3, 4, 5) first
-   as their own ship]`
+   Stories on prod by then, and "Go back" to work for someone arriving cold from it; it does not
+   strictly need grouping, folded quotes or the footer elsewhere. The Fable review found both HIGH
+   defects of the fourth draft inside exactly those items (4, 5) and leaned to shipping them first.
+   `[FOUNDER DECISION: one build shipped together, or the /stake items (2–5) first as their own
+   ship]`
+2. **What share does on a card.** Feed cards copy the link in one tap and toast. Profile cards
+   open a sheet with the link AND an embed code — for a point, the embed carries the profile
+   owner's position. One behaviour on every card means either losing the embed from profile cards
+   (it stays on a story's and a point's own page) or adding a sheet step to every feed share.
+   `[FOUNDER DECISION: one-tap copy on every card, embed from the item's own page — or the sheet
+   on every card]`
 
 ## Related
 
@@ -363,4 +419,15 @@ item 10: the stance row cannot wrap; the tag is 4.40:1.
 
 Reviews 1 and 2: 1 of 1 reviewer reporting each, both VERDICT: No, on premises this spec no longer
 holds. The second had no browser check, which is why every visual Done-When item requires
-screenshots. **This fourth draft: Fable review requested by the founder, 2026-09-11 — pending.**
+screenshots.
+
+**Review 3 — Fable, requested by the founder, 2026-09-11. 1 of 1 reviewer reported: 17 findings,
+VERDICT: Not ready.** Every finding was re-verified by command before it changed this spec; all 17
+held, two with corrections (the profile's point card DOES show a count when it has stories; the
+branch is 23 commits behind `main`, not 19). Applied: the tab guard as a pure derivation and the
+history-position cold-arrival test (the two HIGHs in items 4–5); distinct back-control names;
+the `p1179` mocks and no-refetch constraint; `PointCardWithLinks` in list context; `+ Add point`
+kept; the feed filter table corrected (tags and sort refetch); tab counts restored (dropped by the
+fourth draft in error); the clamp test named; N defined; `surface` on the share event; test count
+3,486/11; branch line citations; the `dark:` wording; the rebase. Two findings are product calls
+and are Open Questions 1 and 2.
