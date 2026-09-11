@@ -1442,3 +1442,13 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 `p1248` and `p1261` (status: rejected) and `p1274` (status: all-done) are in `features/` root rather than `features/archive/` or `features/done/`. Found by `/ship`'s fix-kanban step and deliberately not moved there, because a hand move bypasses the closure gate (P1246). Close each through its own gated path after checking its gate. Done when none of the three is in root; droppable per spec if its owning session is already closing it.
 
 ---
+
+## Make commit-to-main fail when it records fewer files than requested
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+`git-ops.sh commit-to-main` exited 0 after recording zero of seven requested files (empty commit `2ca583efd`): a concurrent session reset the shared index during the pre-commit window, and the tool printed "WARNING -- requested and recorded counts differ" yet returned success. The comment beside that warning says it "CANNOT FIRE TODAY", and `.claude/rules/git.md` says the recorded-set check "exits non-zero on any difference"; both were falsified by this run. Done when the mismatch exits non-zero and the comment and the git.md sentence match the behaviour; droppable if P1279 already changed this path.
+
+---
