@@ -17,6 +17,51 @@ pipeline_ran: [create-spec]
 
 # P1298: segment on speech, not on a clock
 
+## Evidence — measured 2026-09-11, no longer a hypothesis
+
+The same 450 seconds of real room audio, transcribed two ways: as the 49 four-second slices
+the live path actually produced, and as one whole file in a single request to the same model.
+
+| | sliced (what participants saw) | whole file, one request |
+|---|---|---|
+| words | 390 | 315 |
+| Devanagari characters | **24** | **0** |
+
+**A sentence that did not survive the boundary:**
+
+> whole: *"A reader of the current from the event has one job. **Form a view on the four
+> statements.**"*
+> sliced: *"A reader preparing for the event has one job." / "**from a view in the first
+> statement.** I'm not sure I can support"*
+
+*Form a view on the four statements* became *from a view in the first statement*. Not garbled —
+a different claim, stated confidently, in a product whose whole purpose is that people can see
+what was actually said.
+
+**The invented words are the same defect, not a second one.** The sliced path emitted
+`बताओ कौन सा?`, `औरत इनका` and `और` as whole messages. The whole-file pass of the identical
+audio contains no Devanagari at all. A four-second cut that begins or ends mid-word leaves the
+model too little to anchor on, so it guesses — sometimes in another language.
+
+Both of the founder's complaints therefore have one cause, which is why this spec covers both:
+
+> *"it is weird i didnt say 'spezifischniy novosity' - it ssems it halluncinates words!?"*
+> *"if I'm speaking continuously... it should be a continuous text because right now it's very
+> hard to read."*
+
+**Overlap and de-duplication were both active for this measurement.** They are not the fix and
+were never going to be: the de-duplicator removes repeated text, and this is invented text. The
+row-vs-distinct ratio was 1.00 the whole time — a clean score on a measure that cannot see this.
+
+**What this rules out before the work starts:** widening the overlap, tuning the de-duplicator,
+or changing models. None of them address a cut placed by a clock rather than by the speech.
+
+**Re-running it:** reassemble a room's archival chunks (they are byte-concatenable; ffmpeg reads
+the result), send the whole file in ONE request, and compare against that room's stored rows.
+Note the response shape — `gemini-3.5-transcribe` returns `parts[].audioTranscription.text`, NOT
+`parts[].text`; reading the wrong field returns an empty string and looks exactly like "the
+model heard nothing", which cost an hour on 2026-09-11.
+
 ## Problem
 
 The room cuts audio every 4 seconds by the clock and sends each piece to be transcribed
