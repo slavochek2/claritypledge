@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 96
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, grants, p1065, transcribe]
 disclosure: embargo
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-09-11
 ---
 
 # P1303: The room-code lookup RPC is executable by anonymous callers
