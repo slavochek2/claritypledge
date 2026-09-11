@@ -14,8 +14,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, Users, LogOut } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { createSerialSender, createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
 import {
   createRoom,
@@ -97,6 +98,30 @@ export function TranscribeRoomPage() {
   // Held so teardown can stop the tracks exactly once, after both consumers are done.
   const streamRef = useRef<MediaStream | null>(null);
   const sliceRecorderRef = useRef<SliceRecorder | null>(null);
+
+  // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
+  // Keyed on a SCALAR, never on `messages` itself — the subscription replaces that array
+  // wholesale on every realtime event and on a 15s reconciliation poll, so array identity
+  // would re-scroll on a timer and fight the reader. Interim text is in the key too: it grows
+  // under the last message while someone is mid-sentence, and not following it would leave
+  // the words being spoken just off-screen.
+  const {
+    containerRef: chatRef,
+    onScroll: onChatScroll,
+    isAtBottom,
+    scrollToBottom,
+  } = useStickToBottom<HTMLDivElement>(
+    // Length ALONE can collide: a removal and an arrival in the same update leave the count
+    // unchanged, and the list would silently stop following while new content is on screen.
+    // The newest id makes that unrepresentable.
+    //
+    // P1294 also keyed on the INTERIM transcript's length, so the words being spoken right
+    // now stayed visible. P1236 removed the browser recognizer from this page entirely —
+    // transcription is server-side and there is no interim text to follow — so that third
+    // component is gone rather than stubbed. If a live partial ever returns, it belongs back
+    // in this key; p1149-interim-never-persists asserts the page holds no interim state.
+    `${messages.length}:${messages[messages.length - 1]?.id ?? ''}`,
+  );
 
   // ── Auth gate (DW-1) ────────────────────────────────────────────────────
   useEffect(() => {
@@ -532,7 +557,15 @@ export function TranscribeRoomPage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4" data-testid="transcribe-chat">
+        {/* `relative` anchors the return button to this list, not the page — the button
+            belongs to the transcript and must not float over the controls below it. */}
+        <div className="relative flex-1 min-h-0 mb-4">
+        <div
+          ref={chatRef}
+          onScroll={onChatScroll}
+          className="h-full overflow-y-auto space-y-3"
+          data-testid="transcribe-chat"
+        >
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
               You're first here. Words will appear as people speak.
@@ -549,6 +582,22 @@ export function TranscribeRoomPage() {
               );
             })
           )}
+        </div>
+
+        {/* Only while detached. A control that is always present but does nothing half the
+            time teaches the reader to ignore it. Not a primary action and never full-width
+            (P955): the primary action on this screen is ending the session. */}
+        {!isAtBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom()}
+            aria-label="Jump to newest"
+            data-testid="transcribe-jump-to-newest"
+            className="absolute bottom-2 right-2 w-11 h-11 rounded-full border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <ArrowDown className="w-5 h-5" aria-hidden="true" />
+          </button>
+        )}
         </div>
       </div>
     </div>
