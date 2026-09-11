@@ -1422,3 +1422,23 @@ rate makes the gate unusable and no narrower shape separates the two.
 The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 block) tells you to regenerate the whole mirror and re-stage the bare `.agents/skills/` directory, a staging form `.claude/rules/git.md` bans that can also sweep in another session's mirror edits. It never says the mirror file must also be passed to `git-ops.sh commit-to-main --files`, whose exact-set check then refuses the commit (hit in the P1300 session). Change it to name the drifted `.agents/skills/<name>/SKILL.md` from the `--check` output and say to add that path to `--files`; drop this if `commit-to-main` or the gate starts handling the mirror path itself.
 
 ---
+
+## Re-run the P1275 integration spec after P1236 ships, and finish P1303's prod join check
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+`e2e/integration/p1275-create-transcribe-room-rpc.spec.ts` cannot run green on the shared test DB while unshipped P1236 has changed `create_transcribe_room`'s signature there (PGRST202 on every create), so P1303's re-pointed control in that spec was proven only through the P1303 test's own control assertion. Once P1236 ships, re-run it. Separately, confirm a signed-in user can join an existing room at `/transcribe/:code` on prod — P1303's one post-ship check not yet done. The re-run half is droppable if P1236 is abandoned and its migrations are reverted from test.
+
+---
+
+## Close three terminal-status specs still sitting in features/ root
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+`p1248` and `p1261` (status: rejected) and `p1274` (status: all-done) are in `features/` root rather than `features/archive/` or `features/done/`. Found by `/ship`'s fix-kanban step and deliberately not moved there, because a hand move bypasses the closure gate (P1246). Close each through its own gated path after checking its gate. Done when none of the three is in root; droppable per spec if its owning session is already closing it.
+
+---
