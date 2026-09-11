@@ -6,6 +6,48 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-11 [product]: A story behaves the same wherever it is read — group by source, fold the quotes, share with the sheet, clamp at 40 lines (P1296). **UNTESTED.**
+
+**Context:** On `/stake/aisafety1` one agent's video was mounted three times — three of his stories read the same video — supporting quotes doubled every card's length, story text was cut at 18 lines on the feed and 24 on the profile, and share behaved one way on the feed and another on the profile. Prod, read-only, 2026-09-11: 8 stories carry a video, over 4 videos, and no video has been read by two different authors. The founder set each rule below after three prototype passes on `/tree/stake-grouping`.
+
+**Decision:** On every surface that lists stories — `/feed`, `/stake/:tag`, the profile:
+- **Group by source.** A source is one video, keyed `provider:videoId` from `parseVideoUrl`, so every URL form of one video is one source and a new source type extends the parser, not the grouping. Group only what the page is showing after its own filters. A group sits at its first story's position, has one player, shows two stories with the rest behind "Show N more", and is headed "N stories from this video" with no name. A source with one visible story gets no group chrome.
+- **Supporting quotes are folded by default on every surface**, behind "N supporting quotes". Quotes and timestamps are never removed — only folded behind a control that states their count.
+- **Timestamps** play the on-page player in place, drive the group's player inside a group, and open the video at that second where a surface shows only a thumbnail.
+- **Share opens the share sheet — link and embed code — on every card.** Founder: *"sheet on every card is better because then people can embed it"*.
+- **Story and point bodies clamp at 40 lines** wherever they sit behind "show more" or a click-through. One- and two-line title rows are not bodies and keep their clamp.
+- **One footer on every list card**, carrying the profile's contribution CTAs: `+ Add point` for the story's author, `+ Add your story` (or edit your story) for a viewer who holds a position on the point.
+
+**Alternatives rejected:** *Collapse repeats in place* — keep list order and fold a repeat's player behind "Same video as above"; built and shown side by side, the founder chose grouping. *One-tap copy-link share* — removes embedding from every card. *Fold quotes only inside groups* — the same story would look different depending on whether its video happens to repeat.
+
+**Consequences:** Grouping reorders lists (on `/stake/aisafety1` it moves five cards to gather one source) — accepted with the choice. A future surface that lists stories inherits these rules, and a load-more added to any of these surfaces must regroup across everything loaded. **UNTESTED:** whether folding hides the evidence. Falsifier: readers stop opening supporting quotes or clicking timestamps once folded — neither is measured by an event today.
+
+**References:** [P1296](../features/p1296_card_footer_consistency_and_stake_navigation.md); `/tree/stake-grouping` until the build deletes it.
+
+## 2026-09-11 [technical]: `location.key === 'default'` stops meaning "first page of this visit" after any replace navigation
+
+**Context:** Two pages detect a cold arrival — a typed URL, a bookmark, an external link — with `location.key === 'default'`, and send those readers somewhere in the app instead of calling `navigate(-1)`, which would leave the site: `stake-page.tsx:142` and `transcribe-room-page.tsx:210`. P1296 moves `/stake`'s tab into the URL with `replace: true`; its Fable review found the check then fails.
+
+**Decision:** Detect the first history entry by position, not by key. react-router 7.13 mints a new `location.key` on every navigation, `replace` included, while its `replaceState` keeps the history index in `history.state.idx`. Use `window.history.state?.idx === 0`, or capture the cold arrival once at mount.
+
+**Alternatives rejected:** *Keep the key check and avoid `replace`* — tab switches must not pile up history entries, so `replace` stays.
+
+**Consequences:** Any page that uses the key check and performs a replace navigation before the reader taps back sends a cold visitor out of the site. `/stake` is fixed inside P1296. **The transcribe room is probably already affected for a logged-out cold arrival:** it redirects to `/login` with `replace: true` (`transcribe-room-page.tsx:121`), and login returns with `navigate(safeRedirect, { replace: true })` (`login-page.tsx:30`), so the room reopens with a non-default key on the visit's only entry. Read from the code; not reproduced in a browser.
+
+**References:** `src/app/pages/stake-page.tsx:141-144`, `src/app/pages/transcribe-room-page.tsx:204-211`, P1296 item 5.
+
+## 2026-09-11 [technical]: In dev, React StrictMode drops the first timestamp click on a video player that has not mounted yet
+
+**Context:** A timestamp clicked on a card whose YouTube player had not mounted did nothing on `npm run dev`. It was first diagnosed — wrongly, and told to the founder as fact — as `useLazyStoryPlayer` swallowing the seek.
+
+**Decision:** Treat it as a dev-only artifact, not a defect. Measured with probes in the hook, the card and `StoryVideoPlayer`: the hook dispatches the seek correctly; StrictMode's double-invoke runs `StoryVideoPlayer`'s effect cleanup, which sets `pendingSeekRef.current = null`, between that dispatch and YouTube's `onReady`. With `<React.StrictMode>` temporarily removed from `src/main.tsx`, the same click played from 44:52. Production has no double-invoke, so P1259's pre-mount seek is sound.
+
+**Alternatives rejected:** *Rework the hook's seek hand-off* — it was not at fault. *Remove StrictMode* — it catches real effect bugs; the price is one dev-only false alarm.
+
+**Consequences:** Verify "a timestamp plays on a not-yet-mounted player" against a production build (`vite build` + `vite preview`), never the dev server, and do not file the dev behaviour as a bug. The first probe was blind: patching `YT.Player.prototype.seekTo` recorded zero calls even on a player that visibly played, so YouTube's `infoDelivery` postMessages served as the independent oracle. The StrictMode note in `docs/technical/e2e-testing-guide.md` now points here.
+
+**References:** `src/app/components/shared/story-video-player.tsx`, `src/app/hooks/use-lazy-story-player.ts`, P1296 History §c.
+
 ## 2026-09-11 [technical]: A monitor reads prod through one narrow public function over REST — never through a database login of its own (P1283)
 
 **Context:** The P1283 pg_cron health check needs four facts from prod for each scheduled job: its name, whether it is active, its last success, and its failures in the last 24 hours. The first design gave CI a dedicated Postgres login role, granted execute on one reader function and nothing else. Probing that login on test showed it reached far more than the one function it was granted: on Supabase a login role inherits platform-level grants the project owner cannot revoke, so "granted only X" does not make a login narrow. The specifics are in `.private/docs/security-log.md`. The role only ever existed on test.
