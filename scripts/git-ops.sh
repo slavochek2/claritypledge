@@ -3489,7 +3489,23 @@ cmd_ship() {
   # Bash parses function bodies at script load; cherry-picks that land a new version
   # on disk are invisible to the running process. Ship git-ops.sh fixes via
   # commit-to-main first, then rebase the feature branch and re-ship.
-  if ( cd "$REPO_ROOT" && git log --oneline "$branch" "^main" -- scripts/git-ops.sh 2>/dev/null | grep -q . ); then
+  #
+  # --no-merges is load-bearing, not tidying. A `git merge main` into a feature branch
+  # RECORDS every path main changed, including this one, so the guard fired on branches
+  # that do not modify git-ops.sh at all — `git diff main...branch -- scripts/git-ops.sh`
+  # empty, and still refused. P1236 hit exactly that: one merge-from-main in a 40-commit
+  # branch, zero net change here, ship refused with an instruction ("commit that change
+  # to main") naming a change that did not exist.
+  #
+  # Excluding merges is correct rather than merely convenient: this guard protects the
+  # CHERRY-PICK path, and ship cannot cherry-pick a merge at all — merges must be
+  # --mark-landed, so their content never reaches main through this function. A real
+  # git-ops.sh edit always has a non-merge commit behind it, and that commit still trips
+  # the guard.
+  #
+  # The refusal also deletes the fresh journal (below), which made the suggested recovery
+  # unreachable: --mark-landed requires a journal, and there was none to mark.
+  if ( cd "$REPO_ROOT" && git log --oneline --no-merges "$branch" "^main" -- scripts/git-ops.sh 2>/dev/null | grep -q . ); then
     # On a fresh run the journal was just created — remove it so refusal leaves no stale state.
     # On --resume the journal pre-existed; leave it for the user to resolve.
     (( journal_exists == 0 )) && rm -f "$SHIP_JOURNAL_DIR/${pn}.json"
