@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-11 [process]: An embargoed spec reached main, and taking it off main did not take it off the branches cut from that tip (P1302)
+
+**Context:** P1302 is an embargoed spec: the defect it describes is live and unfixed on production, so neither the spec nor its filename may reach `main` or `origin` until the fix is confirmed deployed. It reached `main` anyway. `git-ops.sh ship` resolved the spec from main's neutral `pN_security-review-pending.md` stub, whose `disclosure: public` passed the embargo check, and cherry-picked the branch commits — which carry the real spec alongside the code — onto main. What stopped the close was the pre-commit duplicate-spec check, not any embargo logic. Nothing was pushed.
+
+**The miss was mine, and this log had already recorded it.** The P1303 entry below, written days earlier, ends with the sentence "P1302 must not ship before (a) and (b)". The standing rule is to grep this log for the *subject* before acting; I applied it to authoring the spec and never to shipping it. **Shipping an embargoed spec is a decisions-log lookup, exactly as authoring one is** — the ship is where the disclosure actually happens, so it is the step that least tolerates skipping the check.
+
+**The second finding cost more than the first: a reset cleans one ref, never the refs already cut from it.** Removing the four commits from `main` did not remove them from anywhere else. Two other sessions had created worktree branches while those commits were main's tip — one inherited exactly those four and nothing else, the other inherited them beneath thirteen commits of its own. Both branch trees still contain the embargoed spec. Because the commits are no longer on main, each branch now counts as *ahead* by them, so shipping either unrelated feature would cherry-pick the embargoed spec back onto main under an unrelated P-number, silently. **After removing anything from main, run `git branch --contains <sha>` and treat every hit as still carrying it** — the reset is the start of the cleanup, not the end of it.
+
+**Decision:** Take the copies off main (reset to the pre-ship tip, content verified identical to the branch by `git range-diff` first, so nothing was lost); leave every commit on its feature branch; keep the write-up of the defect's mechanics in the private security notes until the fix is live. Leave the interrupted-ship journal in place **deliberately**: with its recorded commits now absent from main, `--resume` refuses (it checks every recorded `landed_sha` against main's history) and any further plain `ship pN` hard-exits on the unconsumed journal — which is the behaviour wanted until production is fixed.
+
+**Alternatives rejected:** *Push and fix forward* — a public repo makes disclosure irreversible; `git revert` does not remove content from history. *Clear the stale ship journal* — it would restore the "READY TO SHIP p1302" line in every session's pipeline banner, inviting the precise action that must not happen yet; a blocker that fires by accident is still a blocker, and this one points the right way. *Rebase the two contaminated branches myself* — they belong to other sessions and hold uncommitted work; rewriting a co-tenant's branch out from under them trades one silent failure for another.
+
+**Consequences:** An embargo is not a property of a file, it is a property of every ref that can reach the commit. The disclosure check must run against the branch spec rather than main's stub, and the cleanup after any embargo breach has to enumerate refs, not just fix the one that was noticed. Mechanics, measurements and the remaining items stay in `.private/docs/security-log.md` until the fix is confirmed on production.
+
+**References:** `.private/docs/security-log.md` (mechanics — embargoed) · the P1303 entry below · [.claude/rules/features.md](../.claude/rules/features.md) — Disclosure
+
+---
+
 ## 2026-09-11 [process]: A conflict resolver that always takes one side reverts co-tenants, and every gate stays green while it does (P1236)
 
 **Context:** Shipping P1236 meant replaying 44 commits onto a main that had moved under it. Conflicts came in rounds, so I wrote a loop: for every unmerged file, take the BRANCH side. That is correct for files the feature owns exclusively, and it is destructive for shared ones. Two were shared. `docs/decisions.md` lost **59 entries and 2278 lines** of other sessions' work. `transcribe-room-page.tsx` lost P1294's auto-scroll — a feature the founder had asked about in this very session.
