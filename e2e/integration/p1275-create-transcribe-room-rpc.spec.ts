@@ -213,9 +213,11 @@ test.describe('P1275: create_transcribe_room', () => {
     ).toMatch(/permission denied for function/i);
 
     // CONTROL: the same anon client against a function anon IS deliberately granted
-    // (P1207's code lookup). Without this, a probe that cannot reach ANY function would
-    // produce the identical verdict above and the assertion would prove nothing.
-    const granted = await anon.rpc('get_transcribe_room_by_code', { p_code: 'ZZZZZZ' });
+    // (get_session_by_code: granted TO anon in 20260817140000_p1057 and allowlisted).
+    // Without this, a probe that cannot reach ANY function would produce the identical
+    // verdict above and the assertion would prove nothing. P1303: this control previously
+    // used P1207's room-code lookup, whose anon grant was never intended and is revoked.
+    const granted = await anon.rpc('get_session_by_code', { p_code: 'ZZZZZZ' });
     expect(granted.error,
       'control: anon must still reach a function it is granted, or this probe is blind',
     ).toBeNull();
