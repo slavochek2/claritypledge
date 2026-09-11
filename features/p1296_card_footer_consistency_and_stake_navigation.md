@@ -7,7 +7,7 @@ created_date: '2026-09-10'
 tags: [feed, stake, profile, cards, consistency, grouping, event-prep]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4, adversarial-review.3, create-spec.5]
+pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4, adversarial-review.3, create-spec.5, create-spec.6]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -17,7 +17,9 @@ driver: anomaly
 # P1296: One card behaviour on feed, stake and profile — and a /stake you can link to and leave
 
 > **Fifth draft, 2026-09-11** — the fourth draft with all 17 findings of its Fable review applied
-> after each was re-verified by command (see Review). Drafts 1–3 were a footer-alignment spec;
+> after each was re-verified by command (see Review), then amended the same day with the
+> founder's last four calls: one build, the share sheet on every card, a 40-line clamp on all
+> story and point text, and the profile's contribution CTAs on every footer. No call is open. Drafts 1–3 were a footer-alignment spec;
 > three artifact passes and the founder's decisions since then made it a card-consistency spec
 > across three surfaces, written as one build spec rather than accreted. What was tried, rejected and corrected on the
 > way is in **History** at the bottom — read it before re-opening any decision.
@@ -77,13 +79,15 @@ Blast radius: **high**. Components: `FeedStoryCard`, `FeedPointCard`, `StoryCard
 (profile-private), `PointCardWithLinks` (its footer, in list context only — item 1),
 `StoryVideoQuotes` (six call sites), `QuotedPointCard` (two small fixes), plus two new shared
 pieces (`groupBySource` and `SourceGroup`, item 7). Pages: `/feed`, `/stake/:tag`, `/p/:slug`.
+Also `ShareButton`/`ShareDialog` (share on every card, item 1) and the story-text clamps in
+`StoryCardDetail` and its `LinkedStoryCard` (item 6).
 Tests: **3,486 lines across 11 files bind to the feed cards** (counted 2026-09-11), including the
 three `p1179-*` stake suites and `p1259-clamp-classes-compile.test.ts`, which pins the clamp
 values literally; and **nine suites pin the quotes section's current wording or shape**
 (`p1141-*`, `p1212-*`, `p1259-seek-before-ready`, `p1270-profile-story-media`,
 `e2e/p1141-story-video.spec.ts`) — budget for all of them. The branch is 23 commits behind `main`
 (none touch these files): rebase before `/dev`. Reversibility: high, no migration. Decision density: all product calls
-made; one sequencing call open (Open Questions). Deadline: 2026-09-18.
+made; none open. Deadline: 2026-09-18, one build (founder, 2026-09-11).
 
 ## Solution
 
@@ -98,13 +102,28 @@ the point page's own detail card (`isDetailView`), which keeps its current foote
 
 - **Left:** expand chevron + count (`N points` / `N stories`; `0 points` stays, founder
   2026-09-10).
-- **Right, in this order:** owner actions where they exist (profile only: `+ Add point` — P580,
-  kept —, edit, delete), then share, then open-in-new.
-- **Share looks and sits the same on every card**; what it DOES is Open Question 2. Whatever the
-  answer, it fires an analytics event on every surface: `feed_card_shared` keeps firing from the
-  feed (`feed-point-card.tsx:230`, `feed-story-card.tsx:418`) and gains a `surface` property
-  (`feed` | `stake` | `profile`), documented in `docs/technical/analytics.md` (today: `type`, `id`
-  only, `:732-738`). Lifting the control moves the tracking line with it.
+- **Contribution CTAs, after the count — the profile's logic on every card** (founder,
+  2026-09-11: *"footer probably needs the 'add point' and 'add your story' when needed — same logic
+  as in profile"*):
+  - Story card: the story's **author** sees `+ Add point` → `/story/:id?addPoint=true`, exactly as
+    the profile does (`profile-page-v2.tsx:1719-1726`, P580).
+  - Point card: a viewer who **holds a position on the point and has no story linked to it** sees
+    the position-worded `+ Add your story` pill → `/create?pointId=…` (`renderAddStoryPill` +
+    `showInlineAddStoryPill`, `point-card-with-links.tsx:106,266`, P822); a viewer who already has
+    a linked story sees `✏ your story` → its editor (Case E, `:396-404`). The profile gates the pill
+    on `isOwnProfile`; on feed and stake that condition is dropped, because there the card always
+    shows the viewer's own relation to the point. Hidden in embed and live-session modes, as on
+    the profile.
+- **Right, in this order:** owner actions where they exist (profile only: edit, delete), then
+  share, then open-in-new.
+- **Share opens the share sheet on every card** — FOUNDER DECISION 2026-09-11: *"sheet on every
+  card is better because then people can embed it"*. `ShareButton` → `ShareDialog` (link + embed
+  code, `ShareDialog.tsx:34-36`) replaces the feed cards' one-tap copy. The profile keeps passing
+  its owner as `fromUserId` (the embed shows their position); feed and stake cards pass none.
+  `ShareButton` fires nothing today, so it gains the event: `feed_card_shared` fires on opening
+  the sheet from any card, with a new `surface` property (`feed` | `stake` | `profile`), documented
+  in `docs/technical/analytics.md` (today: `type`, `id` only, `:732-738`). The feed keeps its
+  event (`feed-point-card.tsx:230`, `feed-story-card.tsx:418` move into the new path).
 - **Open-in-new on every card.** Not redundant: the footer row stops propagation
   (`feed-story-card.tsx:442`), so it is the one band where the card-click is dead.
 - **Base shape:** `feed-story-card`'s own row — `border-t border-border py-2.5`, theme tokens
@@ -159,24 +178,29 @@ only falls back to `/feed` on a cold arrival. Two constraints:
   `/go back/i` and would throw on two matches: target each by its own name and assert both. Never
   repair it with `findAllByRole(...)[0]`, which would hide which button was tested.
 
-**6. Story text: `text-base` everywhere, and the "show more" clamp raised to 30 lines.**
+**6. Story text: `text-base` everywhere, and every story and point body clamped at 40 lines.**
 
 - Feed/stake story cards move to `text-base`. Point card statement follows
   (`feed-point-card.tsx:186`).
 - **Tab labels show counts** — "Points (N)" / "Stories (N)" on `/feed` (P500's other open
   acceptance criterion, `p500_feed_card_harmonization.md:46`) and on `/stake`, matching the
   profile's existing pattern. With both, close P500.
-- Clamp **30 lines** on the three list cards: `FeedStoryCard` 18 → 30, `StoryCardFull` 24 → 30.
-  30 = 18 × 1.67, the top of the founder's "50–70% more". `p1259-clamp-classes-compile.test.ts:128-129`
-  pins `[24]` and `[18]` literally — update both to `[30]`.
+- **40 lines on every story and point body that sits behind "show more" or a click-through** —
+  FOUNDER DECISION 2026-09-11: *"lets do 40 lines everywhere on all surfaces for story and point
+  text"*. `FeedStoryCard` 18 → 40 (`:317`), `StoryCardFull` 24 → 40 (`profile-page-v2.tsx:1634`),
+  `StoryCardDetail` compact 15 → 40 (`:274`, `:392`), `LinkedStoryCard` 12 → 40
+  (`StoryCardDetail.tsx:951`), `FeedPointCard` statement 6 → 40 (`:186`).
+  `p1259-clamp-classes-compile.test.ts:128-129` pins `[24]` and `[18]` literally — update to `[40]`.
+- **Not** the one- and two-line snippet rows — letters inbox/drafts/sent/review, live-session
+  content pickers, the round summary, pledger names. Those are titles in compact rows, not bodies;
+  forty lines there would break the rows. This is the reading of "everywhere" applied here.
 - Measured 2026-09-11 by rendering the eight real `aisafety1` bodies (499–807 chars) at
-  16px/24px: 18–28 lines at a 239px column (conservative for 375px — the real column is wider),
-  21–34 lines at 199px (320px, ungrouped). **All 8 show in full at 375px; 7 of 8 at 320px.**
-- Keep the arbitrary-value form `line-clamp-[30]` — Tailwind 3.4's scale stops at 6 and a bare
-  `line-clamp-30` compiles to nothing (the P1259 trap). "Show more" renders only on measured
+  16px/24px: 18–28 lines at a 239px column (conservative for 375px), 21–34 lines at 199px (320px).
+  **At 40 lines every real story shows in full at every width**; "show more" appears only for
+  longer text.
+- Keep the arbitrary-value form `line-clamp-[40]` — Tailwind 3.4's scale stops at 6 and a bare
+  `line-clamp-40` compiles to nothing (the P1259 trap). "Show more" renders only on measured
   overflow (P1259 change 6, `useTextOverflow`); never a character threshold.
-- Out of scope: `StoryCardDetail`'s `compact` clamp (story and doc pages) and the letters/live
-  previews — not list cards.
 
 **7. Group stories by source — on `/feed` Stories, `/stake/:tag` Stories, and the profile's
 Stories tab** (founder: *"I do like the grouping"*, *"A yes to all three"*).
@@ -299,12 +323,13 @@ new.
 |---|---|---|
 | 3,486 test lines across 11 files on the feed cards + 9 suites pinning the quotes section | MITIGATE | Rewrite assertions to the new behaviour deliberately; never to make a red suite green |
 | Lifting share out of `PositionButtons` disturbs focus order | MITIGATE | Tab through every footer on every surface; `decisions.md` 2026-05-20 [technical] records a prior defect in this row |
-| Changing the profile's footer | MITIGATE | `+ Add point`, edit and delete stay; check the owner flows after the change. What share does there is Open Question 2 |
+| Changing the profile's footer | MITIGATE | `+ Add point`, edit and delete stay; check the owner flows after the change. Share there becomes the same sheet as every other card (founder, 2026-09-11); the owner's `fromUserId` stays |
 | A regroup remounts a group's player | ACCEPT | Search is client-side: key groups by source key so a group that survives a search keeps its player. Tag and sort refetch behind the skeleton and remount everything anyway |
 | Heading counts loaded stories, not all stories of a source | ACCEPT | The list's own limit |
 | StrictMode drops a first pre-mount seek in dev | ACCEPT | Dev-only; see item 9 |
 | Dark mode | ACCEPT | Dormant. Add no new `dark:` classes (the feed cards have 0; `story-video-quotes.tsx` already has 4 and `quoted-point-card.tsx` 1 — leave those) |
-| Deadline 2026-09-18 against this scope | OPEN | See Open Questions |
+| Deadline 2026-09-18 against this scope | ACCEPT | FOUNDER DECISION 2026-09-11: one build — *"everything together please... execution is fast"*. Build the /stake items (2–5) first on the branch so they are the most-exercised part by UAT |
+| Share on the feed becomes a sheet (one extra tap) | ACCEPT | Founder chose the sheet for embedding |
 
 **Non-Goals**
 - Do NOT adopt `PointCardWithLinks` on feed/stake, and do NOT extract a shared card.
@@ -314,7 +339,7 @@ new.
 - Do NOT change `?expanded=true`.
 - Do NOT remove quotes or timestamps anywhere.
 - Do NOT give the thumbnail-only surfaces (`StoryCardWithLinks`, `LiveStoryCardExpanded`) a player.
-- Do NOT change `StoryCardDetail`'s `compact` clamp or the letters/live previews.
+- Do NOT stretch the one- and two-line snippet rows (letters, live pickers, round summary) to 40.
 - Do NOT move the profile's stance-above-point layout (P1270, founder: *"profile stay same"*).
 
 ## Done-When
@@ -326,8 +351,9 @@ Artifact phase (done)
 - [x] Heading reduced to a count, name dropped from the quotes toggle, stance restored — Chrome, 1280/375/320
 
 Footer and `/stake`
-- [ ] Story and point cards on `/feed`, `/stake` and the profile (lists) show one footer: count left; owner actions (profile: `+ Add point`, edit, delete), share, open-in-new right; 44px icons
-- [ ] Share behaves as decided in Open Question 2 on every card, and fires `feed_card_shared` with `surface` on every surface; `docs/technical/analytics.md` documents `surface`
+- [ ] Story and point cards on `/feed`, `/stake` and the profile (lists) show one footer: count and contribution CTA left; owner actions (profile: edit, delete), share, open-in-new right; 44px icons
+- [ ] A story's author sees `+ Add point` on its card on all three surfaces; a viewer holding a position with no linked story sees `+ Add your story` on the point card, and `✏ your story` once they have one
+- [ ] Share opens the sheet (link + embed code) on every card and fires `feed_card_shared` with `surface`; `docs/technical/analytics.md` documents `surface`
 - [ ] `/stake` shows the footer on both tabs and passes `currentUserId`; the list is still fetched once and the skeleton never returns (`p1179-no-refetch-on-position` green without weakening)
 - [ ] `/stake/aisafety1?tab=stories` opens on Stories — the event's exact link — and `?tab=stories` is still in the URL after the data loads; `/stake/cmp7?tab=stories` opens on Points
 - [ ] **A new test** opens `/feed?tab=stories` and asserts the Stories tab is selected (replacing the TODO at `p491-hashtag-feed.test.tsx:339`)
@@ -337,7 +363,7 @@ Footer and `/stake`
 - [ ] "Go back" is reachable at the bottom of `/stake/:tag`; the two back controls have distinct accessible names, and `p1179-stake-surface` asserts each by its own name
 
 Text
-- [ ] Feed/stake/profile story bodies are `text-base`, clamped at 30 lines (`p1259-clamp-classes-compile` updated to `[30]`), "show more" only on measured overflow
+- [ ] Story and point bodies are `text-base` and clamped at 40 lines on every surface listed in item 6 (`p1259-clamp-classes-compile` updated to `[40]`), "show more" only on measured overflow
 - [ ] `/feed` and `/stake` tab labels show counts; P500 closed
 
 Grouping
@@ -361,18 +387,13 @@ Across all of it
 
 ## Open Questions
 
-1. **Sequencing against 2026-09-18.** The event needs `/stake/aisafety1?tab=stories` to open on
-   Stories on prod by then, and "Go back" to work for someone arriving cold from it; it does not
-   strictly need grouping, folded quotes or the footer elsewhere. The Fable review found both HIGH
-   defects of the fourth draft inside exactly those items (4, 5) and leaned to shipping them first.
-   `[FOUNDER DECISION: one build shipped together, or the /stake items (2–5) first as their own
-   ship]`
-2. **What share does on a card.** Feed cards copy the link in one tap and toast. Profile cards
-   open a sheet with the link AND an embed code — for a point, the embed carries the profile
-   owner's position. One behaviour on every card means either losing the embed from profile cards
-   (it stays on a story's and a point's own page) or adding a sheet step to every feed share.
-   `[FOUNDER DECISION: one-tap copy on every card, embed from the item's own page — or the sheet
-   on every card]`
+None. Resolved 2026-09-11 by the founder:
+
+- ~~Sequencing against 2026-09-18~~ — **one build**: *"everything together please — i dont see why
+  not? execution is fast"*. The review's lean toward shipping items 2–5 first was presented and
+  declined.
+- ~~What share does on a card~~ — **the sheet on every card**: *"sheet on every card is better
+  because then people can embed it"*.
 
 ## Related
 
@@ -429,5 +450,5 @@ history-position cold-arrival test (the two HIGHs in items 4–5); distinct back
 the `p1179` mocks and no-refetch constraint; `PointCardWithLinks` in list context; `+ Add point`
 kept; the feed filter table corrected (tags and sort refetch); tab counts restored (dropped by the
 fourth draft in error); the clamp test named; N defined; `surface` on the share event; test count
-3,486/11; branch line citations; the `dark:` wording; the rebase. Two findings are product calls
-and are Open Questions 1 and 2.
+3,486/11; branch line citations; the `dark:` wording; the rebase. The two findings that were
+product calls were put to the founder and decided the same day (Open Questions).
