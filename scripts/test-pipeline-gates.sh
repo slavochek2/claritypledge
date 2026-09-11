@@ -15,6 +15,8 @@
 #      cold-start, fails closed on an unreadable file.
 #   F. Manual-close hook blocks hand-rolled closes and allows everything else.
 #   G. Stranding report: fires on an interrupted ship, silent when clean.
+#   H. Absorbed-by arm (P1309): a spec delivered under another spec's number
+#      passes on its absorber's evidence, and on nothing weaker.
 #
 # Hermetic: scratch repos under mktemp, no network, no remote, never touches the
 # real repo's state.
@@ -294,6 +296,126 @@ if grep -q 'GATE 2.5' "$SCRATCH/d3.log" && ! ( cd "$R5" && git cat-file -e main:
   pass "D3: a forged journal does NOT skip the gate, and no ungated code reaches main"
 else
   fail "D3: forged journal bypassed the closure gate (gate lines: $(grep -c 'GATE 2.5' "$SCRATCH/d3.log"), payload on main: $( cd "$R5" && git cat-file -e main:payload.txt 2>/dev/null && echo yes || echo no ))"
+fi
+
+# ── H. Absorbed-by arm (P1309) ──────────────────────────────────────────────
+# H1 and H9 are legitimate closes that MUST pass (epistemic.md gate 7c: a gate
+# with only reject cases has an unmeasured false-positive rate). Every other
+# case is one way to fake an absorbed close, and each must be refused with its
+# own reason.
+#
+# abs_spec <repo> <path> <pn> <pipeline_ran items> <box: [x] or [ ]> <frontmatter line> <body line>
+abs_spec() {
+  local d="$1" path="$2" pn="$3" ran="$4" box="$5" extra="$6" body="$7"
+  mkdir -p "$d/$(dirname "$path")"
+  cat > "$d/$path" <<EOF
+---
+status: qa
+type: task
+rank: 1
+pipeline_ran: [${ran}]
+${extra}
+---
+# ${pn}: Demo
+
+${body}
+
+## Done-When
+
+- ${box} the criterion
+EOF
+}
+abs_review() {
+  printf '{"type": "code", "pn": "%s", "branch": "main", "sha": "0", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' \
+    "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$1/.git/.finish-reviewed"
+}
+# abs_case <name> — a fresh repo holding a VALID absorber p2001 (dev run, names
+# p2000, reviewed) and an absorbed p2000 (no run of its own, every box ticked).
+# Each case then breaks exactly one thing.
+abs_case() {
+  local d="$SCRATCH/$1"; mk_repo "$d"
+  abs_spec "$d" features/p2001_absorber.md p2001 "create-spec, dev" "[x]" "" "Delivers everything p2000 asked for."
+  abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2001" "Scope delivered by P2001."
+  abs_review "$d" p2001
+  echo "$d"
+}
+abs_gate() { local d="$1"; shift; ( cd "$d" && bash scripts/ship-gates.sh "$@" ) >"$SCRATCH/h.log" 2>&1; echo $?; }
+
+d="$(abs_case h1)"; rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -eq 0 ]] && grep -q 'GATE 2.5\] PASS.*absorbing spec p2001' "$SCRATCH/h.log" \
+   && grep -q 'GATE 2.7\] PASS.*absorbing spec p2001' "$SCRATCH/h.log"; then
+  pass "H1: an absorbed spec passes 2.5 and 2.7 on its absorber's run and review, and says so"
+else
+  fail "H1: a legitimate absorbed close was refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h2)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2099" "Scope delivered elsewhere."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'absorbing spec p2099 not found' "$SCRATCH/h.log"; then
+  pass "H2: an absorber that does not exist is refused, by name"
+else
+  fail "H2: a dangling absorbed_by was not refused (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h3)"; abs_spec "$d" features/p2001_absorber.md p2001 "create-spec" "[x]" "" "Delivers everything p2000 asked for."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'records no dev, fix or inline run' "$SCRATCH/h.log"; then
+  pass "H3: an absorber with no implementation recorded cannot vouch for anything"
+else
+  fail "H3: an unbuilt absorber was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h4)"; abs_spec "$d" features/p2001_absorber.md p2001 "create-spec, dev" "[x]" "" "Unrelated work."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'does not name p2000' "$SCRATCH/h.log"; then
+  pass "H4: a one-sided link is refused — the absorber must name the spec it absorbed"
+else
+  fail "H4: an absorber that never mentions p2000 was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h5)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[ ]" "absorbed_by: p2001" "Scope delivered by P2001."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'unticked completion item' "$SCRATCH/h.log"; then
+  pass "H5: absorbed_by never excuses an unticked box"
+else
+  fail "H5: an absorbed spec with an unticked box passed (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h6)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "" "No link at all."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'no implementation is recorded' "$SCRATCH/h.log" && ! grep -q 'absorbed_by does not qualify' "$SCRATCH/h.log"; then
+  pass "H6: without absorbed_by the gate behaves exactly as before"
+else
+  fail "H6: a spec with no absorbed_by changed behaviour (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h7)"; : > "$d/.git/.finish-reviewed"
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q 'GATE 2.7\] FAIL' "$SCRATCH/h.log"; then
+  pass "H7: an unreviewed absorber leaves gate 2.7 failing"
+else
+  fail "H7: gate 2.7 passed with no review anywhere (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+d="$(abs_case h8)"; abs_spec "$d" features/p2000_absorbed.md p2000 "create-spec" "[x]" "absorbed_by: p2000" "Absorbs itself."
+rc="$(abs_gate "$d" p2000)"
+if [[ "$rc" -ne 0 ]] && grep -q "is not another spec's P-number" "$SCRATCH/h.log"; then
+  pass "H8: a spec cannot absorb itself"
+else
+  fail "H8: self-absorption was accepted (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
+fi
+
+# H9: the CI path. closure-gate.yml gates a pushed close with --spec-file on the
+# spec's features/done/ copy and --only 2.5; by then the absorber has usually
+# shipped too, so it must be found under features/done/ as well.
+d="$(abs_case h9)"
+mv "$d/features/p2000_absorbed.md" "$d/features/done/2026-09-08/"
+mv "$d/features/p2001_absorber.md" "$d/features/done/2026-09-08/"
+rc="$(abs_gate "$d" p2000 --spec-file features/done/2026-09-08/p2000_absorbed.md --only 2.5)"
+if [[ "$rc" -eq 0 ]] && grep -q 'absorbing spec p2001' "$SCRATCH/h.log"; then
+  pass "H9: the CI path (--spec-file, both specs already in features/done) passes a legitimate absorbed close"
+else
+  fail "H9: CI would refuse a legitimate absorbed close (exit $rc)"; sed 's/^/    /' "$SCRATCH/h.log" >&2
 fi
 
 # ── E. Intent gate ──────────────────────────────────────────────────────────

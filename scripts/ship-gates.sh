@@ -7,6 +7,7 @@
 # Gates (all mechanical — /ship relays this output, never re-attests them):
 #   1.5   disclosure: embargo -> spec publication deferred (report only, P1255)
 #   2.5   completion criteria all ticked + dev/fix in pipeline_ran (P1169)
+#         — or, for a spec declaring absorbed_by: pN, recorded on its absorber (P1309)
 #   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
 #   2.7b  artifact freshness (warn only)
 #   3.5   pre-deploy checklist has no unchecked "- [ ]" items
@@ -163,6 +164,51 @@ if [[ -z "$spec_content" && -z "$spec_file_override" ]]; then
   if [[ -n "$spec_file" ]]; then
     spec_content="$(cat "${REPO_ROOT}/${spec_file}")"
     spec_source="main disk (${spec_file})"
+  fi
+fi
+
+# ── Absorbed-by resolution (P1309) — read by gates 2.5 and 2.7 ─────────────
+# A spec whose whole scope was delivered under ANOTHER spec's number (P500, by
+# P1296) can never record its own dev run or review: the work and the reviews
+# exist, under the absorber's number. Such a spec declares `absorbed_by: pN`,
+# and the gates below may take that evidence from the absorber — only when the
+# absorber resolves, records an implementation, and names this spec itself.
+#
+# NOT a return of co-located auto-close (P1250; decisions.md 2026-09-07 and
+# 2026-08-31): nothing here closes anything. The absorbed spec is still closed
+# only by `git-ops.sh ship <its own pN>`, its boxes must all be ticked, and
+# every refusal says which condition failed.
+#
+# Resolution mirrors the spec's own: the absorber's feature branch first (its
+# pipeline_ran is on the branch until it ships), then disk, INCLUDING
+# features/done/** — once the absorber has shipped, that is where it lives, and
+# it is also the only place CI (--spec-file mode) can find it.
+absorber_pn=""; absorber_invalid=""; absorber_content=""; absorber_source=""
+_abs_raw="$(printf '%s\n' "$spec_content" | $GREP -m1 -E '^absorbed_by:' | sed -E 's/^absorbed_by:[[:space:]]*//; s/[[:space:]]+$//' | tr -d "\"'" | tr 'A-Z' 'a-z')"
+if [[ -n "$_abs_raw" ]]; then
+  if [[ "$_abs_raw" =~ ^p[0-9]+$ && "$_abs_raw" != "$pn" ]]; then
+    absorber_pn="$_abs_raw"
+  else
+    absorber_invalid="$_abs_raw"
+  fi
+fi
+if [[ -n "$absorber_pn" ]]; then
+  _abr="$(cd "$REPO_ROOT" && git branch --list "feature/${absorber_pn}-*" | head -1 | tr -d ' *+')"
+  if [[ -n "$_abr" ]]; then
+    _abp="$(cd "$REPO_ROOT" && git ls-tree -r --name-only "$_abr" 2>/dev/null \
+      | $GREP -E "^features/${absorber_pn}_[^/]+\.md$" | head -1)"
+    if [[ -n "$_abp" ]]; then
+      absorber_content="$(cd "$REPO_ROOT" && git show "${_abr}:${_abp}" 2>/dev/null)"
+      absorber_source="branch ${_abr}"
+    fi
+  fi
+  if [[ -z "$absorber_content" ]]; then
+    _abf="$(cd "$REPO_ROOT" && find features -type f -name "${absorber_pn}_*.md" \
+      ! -path "features/archive/*" ! -path "*/uat/*" 2>/dev/null | sort | head -1)"
+    if [[ -n "$_abf" ]]; then
+      absorber_content="$(cat "${REPO_ROOT}/${_abf}")"
+      absorber_source="disk ${_abf}"
+    fi
   fi
 fi
 
@@ -328,14 +374,37 @@ else
       impl_ran=1
     fi
 
+    # P1309: no implementation of its own — may it rest on its absorber's? Each
+    # refusal names its reason, because an unexplained FAIL on a spec that
+    # declares absorbed_by gets "fixed" by stamping a fake dev run onto it.
+    absorbed_ok=""; absorbed_reason=""
+    if [[ "$impl_ran" -eq 0 ]]; then
+      if [[ -n "$absorber_invalid" ]]; then
+        absorbed_reason="absorbed_by value '${absorber_invalid}' is not another spec's P-number"
+      elif [[ -n "$absorber_pn" ]]; then
+        if [[ -z "$absorber_content" ]]; then
+          absorbed_reason="absorbing spec ${absorber_pn} not found on a branch or on disk"
+        elif ! printf '%s\n' "$absorber_content" | $GREP -m1 '^pipeline_ran:' \
+               | $GREP -qE '(\[|,)[[:space:]]*(dev|fix|inline)(\.[0-9]+)?[[:space:]]*(,|\])'; then
+          absorbed_reason="absorbing spec ${absorber_pn} records no dev, fix or inline run"
+        elif ! printf '%s\n' "$absorber_content" | $GREP -qiE "(^|[^0-9A-Za-z_])${pn}([^0-9]|$)"; then
+          absorbed_reason="absorbing spec ${absorber_pn} does not name ${pn} anywhere in its text"
+        else
+          absorbed_ok=1
+        fi
+      fi
+    fi
+
     _hcount="$(printf '%s\n' "$completion_headings" | $GREP -c . || true)"
     if [[ "$open_total" -gt 0 ]]; then
       echo "[GATE 2.5] FAIL: ${open_total} unticked completion item(s) across ${_hcount:-0} completion section(s) (from ${spec_source})"
       printf '%s\n' "$completion_headings" | sed 's/^/           section: /'
       printf '%s\n' "$completion_lines" | $GREP -E "$_unticked_pat" | sed 's/^/           /'
       fail=1
+    elif [[ "$impl_ran" -eq 0 && -n "$absorbed_ok" ]]; then
+      echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation recorded on absorbing spec ${absorber_pn} (${absorber_source}) (from ${spec_source})"
     elif [[ "$impl_ran" -eq 0 ]]; then
-      echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev', 'fix' or 'inline' entry and flow: is not inline (from ${spec_source}) — the criteria are ticked but no implementation is recorded"
+      echo "[GATE 2.5] FAIL: pipeline_ran records no 'dev', 'fix' or 'inline' entry and flow: is not inline (from ${spec_source}) — the criteria are ticked but no implementation is recorded${absorbed_reason:+; absorbed_by does not qualify: ${absorbed_reason}}"
       fail=1
     else
       echo "[GATE 2.5] PASS: all completion items ticked across ${_hcount:-0} section(s), implementation run recorded (from ${spec_source})"
@@ -376,6 +445,7 @@ git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-
 finish_file="${git_common_dir}/.finish-reviewed"
 
 matching_entries=""
+review_via_absorber=""
 if [[ -f "$finish_file" ]]; then
   if [[ -n "$feature_branch" ]]; then
     # P1216: match the two fields INDEPENDENTLY rather than requiring "type" to be
@@ -391,6 +461,14 @@ if [[ -f "$finish_file" ]]; then
     # No feature branch context (direct-to-main / already-merged path). Require
     # the entry to name THIS spec — see the P1203 note above.
     matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"pn\": ?\"${pn}\"" || true)"
+    # P1309: an absorbed spec's work was reviewed under its absorber's number.
+    # Only the review is taken from the absorber here; whether the absorber
+    # qualifies at all (implementation recorded, names this spec) is gate 2.5's
+    # call, and a close needs both gates.
+    if [[ -z "$matching_entries" && -n "$absorber_pn" && -n "$absorber_content" ]]; then
+      matching_entries="$($GREP -E "\"type\": ?\"code\"" "$finish_file" 2>/dev/null | $GREP -E "\"pn\": ?\"${absorber_pn}\"" || true)"
+      [[ -n "$matching_entries" ]] && review_via_absorber="$absorber_pn"
+    fi
   fi
 fi
 
@@ -403,7 +481,7 @@ if [[ -z "$matching_entries" ]]; then
   fail=1
 else
   entry_count="$(printf '%s\n' "$matching_entries" | $GREP -c . || echo 0)"
-  echo "[GATE 2.7] PASS: code review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies"))"
+  echo "[GATE 2.7] PASS: code review artifact present (${entry_count} matching entr$([ "$entry_count" -eq 1 ] && echo "y" || echo "ies"))${review_via_absorber:+ — recorded under absorbing spec ${review_via_absorber}}"
 fi
 
 # ── Gate 2.7b: staleness check (warn only) ─────────────────────────────────
@@ -436,6 +514,12 @@ if [[ -n "$matching_entries" && -n "$feature_branch" ]]; then
   else
     echo "[GATE 2.7b] PASS: .finish-reviewed entry for ${feature_branch} is current"
   fi
+elif [[ -n "$matching_entries" && -n "$review_via_absorber" ]]; then
+  # P1309: the review is the absorber's, of commits on the absorber's branch, so
+  # comparing its sha with this checkout's HEAD would always read "not in this
+  # history" — a warning about nothing. Its freshness is gate 2.7b's job on the
+  # absorber's own ship, where the branch it reviewed is the one being shipped.
+  echo "[GATE 2.7b] SKIP: the review was recorded under absorbing spec ${review_via_absorber}; its freshness is checked on ${review_via_absorber}'s own ship"
 elif [[ -n "$matching_entries" ]]; then
   # P1203 follow-up: the no-branch arm had NO staleness signal at all — this
   # block ran only when feature_branch was set, so a stamp whose reviewed

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 99
 workstream: infrastructure
 created_date: '2026-09-11'
 tags: [ship-gates, closure, pipeline, process]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -78,7 +78,7 @@ Revert the P1309 commit. Specs already closed through the new arm stay closed; r
 - [ ] Mutation check: disabling the new arm turns its PASS case red
 - [ ] Gate 2.7 accepts a review naming the absorbing spec for an absorbed spec, and still refuses an absorbed spec whose absorber has no review
 - [ ] An independent adversarial review of the change, with its findings resolved or recorded
-- [ ] `features/p500_feed_card_harmonization.md` carries `absorbed_by: p1296`, and `./scripts/ship-gates.sh p500` passes gates 2.5 and 2.7 after P1309 is on main
+- [ ] A dry run of the new gates on P500 carrying `absorbed_by: p1296` passes gates 2.5 and 2.7 against P1296's real branch and review log. `[post-ship]` the real close is `./scripts/git-ops.sh ship p500`, once P1309 and then P1296 are on main (P500's ticked copy rides on P1296's branch, so it cannot close before P1296 ships)
 - [ ] The CI ordering (push P1309 before any close that uses the new arm) is written into the P1309 ship notes
 
 ## Related
