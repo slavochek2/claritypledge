@@ -1412,3 +1412,13 @@ to measure how many legitimate files it newly flags. **Drop it** if that run sho
 rate makes the gate unusable and no narrower shape separates the two.
 
 ---
+
+## Make the P1151 skills-mirror hint name the exact file and the --files path
+
+**Date:** 2026-09-11
+**Status:** proposed
+**due:** week
+
+The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 block) tells you to regenerate the whole mirror and re-stage the bare `.agents/skills/` directory, a staging form `.claude/rules/git.md` bans that can also sweep in another session's mirror edits. It never says the mirror file must also be passed to `git-ops.sh commit-to-main --files`, whose exact-set check then refuses the commit (hit in the P1300 session). Change it to name the drifted `.agents/skills/<name>/SKILL.md` from the `--check` output and say to add that path to `--files`; drop this if `commit-to-main` or the gate starts handling the mirror path itself.
+
+---
