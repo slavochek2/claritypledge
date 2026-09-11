@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 94
 severity: medium
@@ -16,6 +16,11 @@ pipeline_ran: [create-spec]
 ---
 
 # P1299: the room's transcript reaches session history
+
+> **Rejected 2026-09-11, superseded by P1307** (on branch `feature/p1307-event-transcription`
+> until it ships). Merged with P1298 and P1305 into one spec: the transcript in session history
+> is P1307 part 1, and the whole-recording pass that makes it accurate is part 2. Retained as the
+> rationale record.
 
 ## Problem
 

@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 93
 severity: medium
@@ -16,6 +16,11 @@ pipeline_ran: [create-spec]
 ---
 
 # P1298: segment on speech, not on a clock
+
+> **Rejected 2026-09-11, superseded by P1307** (on branch `feature/p1307-event-transcription`
+> until it ships). Merged with P1299 and P1305 into one spec. The 4 s-vs-whole-file evidence
+> below is carried into P1307, which also measured 13 s against 4 s on the same audio and chose
+> 13 s slices; cutting on pauses is deferred there. Retained as the evidence record.
 
 ## Evidence — measured 2026-09-11, no longer a hypothesis
 
