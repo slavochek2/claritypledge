@@ -209,13 +209,37 @@ const CRITICAL_PREDICATES: ReadonlyArray<CriticalPredicate> = [
       'the occupancy guard cannot silently widen the arm into "any code-holder may take a ' +
       'recorded guest room by name." Defense against a reorder, unreachable by any test.',
   },
+  // P1269 (20260911090000) REMOVED the pinned predicate that used to sit here:
+  //   'v_row.joiner_name IS NOT DISTINCT FROM btrim(p_joiner_name)'
+  // It was P1053's NULL-safe guest NAME match, pinned so the operator could not revert to a
+  // plain `=`. The removal is deliberate and is the entire point of P1269: joiner_name is
+  // inside the anon SELECT allowlist and the event-room RPC publishes the code, so the name
+  // was a credential anyone could read. Making that comparison NULL-safe hardened a check
+  // that should not have existed. It is NOT re-pinned in a weaker form — the name is no
+  // longer consulted anywhere in this function's authorization.
+  //
+  // The two predicates below are what replaced it, and they are pinned in its place so the
+  // function cannot silently fall back to authorizing on something readable.
   {
     fn: 'claim_joiner_seat',
-    needle: 'v_row.joiner_name IS NOT DISTINCT FROM btrim(p_joiner_name)',
-    note: 'P1053: NULL-safe guest name match. With a plain `=` this is the F5 shape one line ' +
-      'over — NULL joiner_name makes the condition NULL, plpgsql skips the IF, and the refusal ' +
-      'guard becomes an allow. Safe today only via the CHECK constraint in 20260812160000; ' +
-      'pinned here so the operator cannot quietly revert to depending on it.',
+    needle: 'p_seat_secret = v_row.joiner_seat_secret',
+    note: 'P1269: the seat capability comparison — the ONLY proof of guest seat ownership. ' +
+      'Pinned with its two IS NOT NULL companions in mind: writing this as ' +
+      '`IS NOT DISTINCT FROM` would make two NULLs EQUAL, so a caller sending no secret would ' +
+      'match a seat holding no secret (every legacy seat, and every seat whose guest signed ' +
+      'in) — a fail-open reachable by sending nothing at all. The surrounding ' +
+      '`p_seat_secret IS NOT NULL AND v_row.joiner_seat_secret IS NOT NULL` is what makes the ' +
+      'plain `=` correct here, which is the opposite of the F5 lesson one arm over and is why ' +
+      'both shapes are pinned rather than one rule applied everywhere.',
+  },
+  {
+    fn: 'claim_joiner_seat',
+    needle: "v_presence < now() - interval '15 minutes'",
+    note: 'P1269: the abandonment timer. Without it a guest who loses local storage could ' +
+      'never re-enter their own room and the seat would be stranded for the life of the ' +
+      'session — the cost the founder decision explicitly bounded. Removing it does not ' +
+      'open the forgery, it strands seats, so no RAISE-message canary would notice; it is ' +
+      'pinned for the same reason the guest-reclaim recording check above is.',
   },
   {
     fn: 'claim_joiner_seat',

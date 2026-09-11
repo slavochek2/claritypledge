@@ -106,6 +106,108 @@ silently substitute the weaker one — bring it back as a decision.
 **Still open, deliberately:** whether the grace window also applies when the session's creator has
 stopped heartbeating (i.e. the room is probably dead anyway). Not decided here.
 
+## Implementation — 2026-09-11
+
+Built in `20260911090000_p1269_guest_seat_secret_and_presence.sql`, plus client custody of the
+secret (`src/app/data/seat-secret.ts`) and a guest presence ping
+(`src/hooks/use-guest-seat-presence.ts`). Founder instruction for this pass: *"reproduce, fix,
+verify, run codex review"*, with the constraint *"what I just don't want is breaking this."*
+
+### Where this departs from the recorded shape — and why it had to
+
+The decision above writes the grace window as **name-only reclaim permitted INSIDE 15 minutes of
+the guest's last verified presence.** That shape does not close the exploit, and the reason is
+structural: a guest who is actually in the room has a *recent* last-presence by definition, so the
+window is open for exactly as long as the victim is sitting in it. The attacker reads the name,
+claims inside the window, and the forgery succeeds. The window as written protects the abandoned
+seat and leaves the occupied one open — the threat is the other way round.
+
+The founder delegated the window's mechanics (*"I'll let you decide"*), and the decision text says
+everything after its first sentence is open to revision. The first sentence — **close the forgeable
+path, with a bounded grace window** — is what was built:
+
+| Caller presents | Seat state | Result |
+|---|---|---|
+| the seat secret | any | reclaim; presence refreshed; secret kept |
+| anything else | presence within 15 min | **refused** |
+| anything | no presence for 15 min | seat is free; anyone claims fresh; new secret minted |
+
+**The name is consulted nowhere in authorization.** That satisfies this spec's own Invariant, which
+the recorded mechanics did not: *"Whatever a guest presents to prove seat ownership MUST NOT be
+derivable from any column the anon SELECT allowlist publishes."*
+
+**The cost, stated plainly** because it is the half this founder weighted heavily in P1053: a guest
+who loses local storage (cleared cache, dead phone, new device) can no longer retype their name and
+walk straight back in — they wait out the 15-minute timer. The common case (reload, tab reopen,
+network blip) is silent and unaffected, because the client keeps the secret in `localStorage` — the
+machinery P1058's reverted attempt lacked.
+
+**Legacy seats do not fail open.** Presence is read as
+`COALESCE(joiner_last_seen_at, joiner_seat_claimed_at)`, so a seat claimed before this migration
+falls back to its claim time — no backfill, no repair pass, and no row worse off than today.
+
+### Evidence
+
+| Probe | Result |
+|---|---|
+| THE DEFECT canary, old name-based arm restored on test | **FAIL** — forgery reproduced: *"a name-only anon claim took a live guest seat"* |
+| same canary against the fix | PASS |
+| p1269 suite — legacy both directions, timer both directions, secret hidden, no direct write, presence write, anon first join, signed-in rejoin, realtime surface | 14 tests |
+| P1053 + P1057 + P1058 + P1269 seat suites, **0 retries** | **64/64**, 0 flaky |
+| realtime canary, `--repeat-each=5`, 0 retries | **5/5** |
+| realtime canary with `GRANT SELECT (joiner_seat_secret) TO anon` applied | **FAIL** — *"P1269 VOID"*; grant revoked, re-verified absent |
+| `sd-guard-completeness` pins for both replacement predicates, fired by a LATER migration that drops them | **FAIL** as required; probe file removed |
+| full unit suite | 369 files green |
+
+**One flake class, investigated rather than retried away.** A first run showed 4 flaky. Three were
+P1053 tests failing at 0 ms with `AuthRetryableFetchError: fetch failed` inside the test-user
+fixture's admin `createUser` — a transient Auth-API network failure during setup, before any
+assertion ran, in tests this change does not touch. The fourth was the new realtime canary: Realtime
+can report `SUBSCRIBED` before its listener is bound server-side, so a single write fired at once
+could be published into the gap. The canary now re-sends the real presence ping until an event lands;
+the assertion is unchanged. The retry-free rerun above is the evidence that counts.
+
+**The P1053 control that was rewritten, not bypassed.** *"an anonymous guest CAN re-claim their own
+seat (browser refresh)"* re-claimed by NAME, on the stated premise *"no heartbeat, no presence
+timeout, and pagehide performs no DB write."* This migration adds a presence signal and a presence
+timeout, so the premise is false. The user-facing property is still asserted — a refresh must not
+cost a guest their room — through the secret, and the rewrite additionally asserts the name alone is
+now refused.
+
+**The pinned predicate removed on purpose.** `sd-guard-completeness` correctly flagged
+`v_row.joiner_name IS NOT DISTINCT FROM btrim(p_joiner_name)` as a dropped scope predicate. It is the
+forgery itself; it is replaced in the pin list by the secret comparison and the abandonment timer.
+
+### Codex review — one CRITICAL, disproved by measurement
+
+Codex reported that `clarity_sessions` is in `supabase_realtime` with no column list, so an anon
+WebSocket subscriber would read the secret off the wire on every presence ping. The publication fact
+is true. The conclusion is not, for this deployment — **Realtime filters each subscriber's payload
+by column grant**, measured on test in both directions:
+
+| Anon grant on `joiner_seat_secret` | Anon realtime payload |
+|---|---|
+| none (as shipped) | 21 granted columns, **no secret** |
+| `GRANT SELECT (joiner_seat_secret) TO anon` (control, revoked after) | **secret present — leaked** |
+
+A false positive, but it exposed a real coupling: **one column grant guards both REST and the
+WebSocket**, and the migration asserts it only at apply time. A future table-level
+`GRANT SELECT ... TO anon` would leak the secret through both surfaces at once, so the realtime
+canary now asserts the payload on every run — and asserts an event *arrived*, so silence cannot pass
+it. Every other Codex lens held: no NULL fail-open; `touch_joiner_seat` is only a boolean oracle
+(UUID guessing is impractical); the row lock serializes claimers; the deployed client's
+2-named-argument PostgREST call still resolves; F1/F2/F3/F5 intact.
+
+### Not done, named
+
+- **Browser round.** Every result above is at the RPC/RLS layer. A real anonymous guest reloading a
+  real `/live` tab and landing back in their seat has not been driven through a browser.
+- **Prod.** The migration carries a deliberately unsatisfiable `requires-frontend` marker, so it
+  cannot reach prod ahead of the client. At ship it must be re-pointed to the **landed** sha, then
+  migrated — the P1058 sequence.
+- **Host-mediated release** would let a host free a guest's seat at once instead of the guest
+  waiting 15 minutes. It does not exist (`release_joiner_seat` has no creator arm); not built here.
+
 ## Approach
 
 Not settled — the founder call above decides between shapes, and this spec should not pre-commit.
@@ -146,14 +248,21 @@ What the P1058 evidence already rules in or out:
 
 ## Done-When
 
-- [ ] An anonymous caller holding the published event-room code and the seated guest's name cannot
+- [x] An anonymous caller holding the published event-room code and the seated guest's name cannot
       take the seat — canary, reproduced failing first
-- [ ] The founder decision on cross-device guest rejoin is recorded in this spec, with the chosen
+- [x] The founder decision on cross-device guest rejoin is recorded in this spec, with the chosen
       behaviour asserted by a test either way
 - [ ] No seat that existed before the migration is left unreleasable — verified by a count query on
       test before and after
 - [ ] A guest can still join, leave and rejoin after a page reload, anonymously — canary
-- [ ] P1058's room-code canaries and the P1053 suite stay green
+- [x] P1058's room-code canaries and the P1053 suite stay green
+
+> **Two boxes deliberately left open (2026-09-11).** *Count query before and after:* the "before"
+> state no longer exists — the migration was applied to test before this criterion was reached — so
+> it cannot be satisfied honestly after the fact. The mechanism it guards is covered instead by the two
+> LEGACY canaries (a pre-P1269 seat two minutes old stays protected; one forty minutes old frees).
+> *Rejoin after a page reload:* the RPC contract is proven, but "after a page reload" means the
+> browser's `localStorage` round-trip, which has not been driven through a real browser.
 
 ## Related
 

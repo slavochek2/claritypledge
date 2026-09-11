@@ -40,6 +40,7 @@
 # --- Live session: a guest joins with a code and no account ---
 check_session_requires_auth(text)             # join-by-link must know whether a code needs an account before the visitor has one — src/app/pages/clarity-live-page.tsx:1123 (P703)
 patch_live_state(uuid,jsonb)                  # a guest joiner advances shared session state; deliberate, docs/decisions.md 2026-04-09 [technical] (P671) — src/app/pages/clarity-live-page.tsx:1588
+touch_joiner_seat(uuid,uuid)                  # P1269 — a seated anonymous guest refreshes their own seat presence so the 15-minute abandonment timer does not expire under a live guest; authorized by the seat secret alone, returns only a boolean — src/app/data/api.ts:1335
 
 # --- Sign-in / sign-up, before any session exists ---
 email_exists(text)                            # the login form routes a visitor to sign-in vs sign-up pre-session — src/app/components/pledge/login-form.tsx:53

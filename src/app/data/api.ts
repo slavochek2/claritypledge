@@ -13,6 +13,7 @@ import { earCountOf } from './ear-count';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
+import { getSeatSecret, setSeatSecret, clearSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 import type {
@@ -1115,9 +1116,18 @@ export async function joinClaritySession(
   // auth.uid() inside SECURITY DEFINER, so a caller can no longer nominate who occupies the
   // seat — that is the whole exploit. The parameter is retained for call-site compatibility
   // and telemetry only.
+  // P1269: the seat secret is the ONLY proof of guest seat ownership — joiner_name is
+  // published to any anon caller holding the code, so it authorizes nothing. We send the
+  // secret we were given when we first claimed this seat (if any); a guest with no stored
+  // secret is either claiming a free seat or has lost custody, and must wait out the
+  // 15-minute abandonment timer. Sending null is correct and expected, not an error.
+  //
+  // The session id is not known before the claim, so the stored secret is looked up by the
+  // id the caller already resolved from the code (join flows resolve the room first).
   const { data, error } = await supabase.rpc('claim_joiner_seat', {
     p_code: normalizedCode,
     p_joiner_name: joinerName,
+    p_seat_secret: getSeatSecret(existing.id),
   });
 
   // RETURNS SETOF clarity_sessions — PostgREST delivers an array.
@@ -1144,6 +1154,12 @@ export async function joinClaritySession(
     } catch { /* */ }
     return null;
   }
+
+  // P1269: custody of the capability. claim_joiner_seat runs as owner, so its returned row
+  // carries joiner_seat_secret even though no client role may SELECT that column. For a
+  // signed-in joiner the server returns NULL here (their seat is bound to auth.uid()), and
+  // setSeatSecret is a no-op on a null value.
+  setSeatSecret(claimed.id, claimed.joiner_seat_secret);
 
   return mapSessionFromDb(claimed, normalizedCode);
 }
@@ -1308,6 +1324,41 @@ export async function updateSessionLastActivity(sessionId: string): Promise<void
 }
 
 /**
+ * P1269: refreshes the seated GUEST's presence so the 15-minute abandonment timer measures
+ * "when we last saw them" rather than "when they claimed".
+ *
+ * This is NOT cosmetic and it is not the P511 heartbeat. Without it joiner_last_seen_at
+ * would never move off the claim time, the timer would expire under a guest who is sitting
+ * in the room, and their seat would become claimable by anyone mid-session — the weaker
+ * "claim-time window" shape the P1269 spec explicitly refused.
+ *
+ * Authorization is the seat secret and nothing else, so this is a no-op for a signed-in
+ * joiner (who holds none and does not need one) and for a guest whose storage is
+ * unavailable. Errors are swallowed: a failed presence write must never break a live round,
+ * and its only consequence is that the seat ages towards the timer.
+ *
+ * @returns true when the server confirmed the seat was refreshed
+ */
+export async function touchJoinerSeat(sessionId: string | null | undefined): Promise<boolean> {
+  const secret = getSeatSecret(sessionId);
+  if (!sessionId || !secret) return false;
+  try {
+    const { data, error } = await supabase.rpc('touch_joiner_seat', {
+      p_session_id: sessionId,
+      p_seat_secret: secret,
+    });
+    if (error) {
+      console.warn('[SeatPresence] Failed to refresh seat presence:', error.message);
+      return false;
+    }
+    return data === true;
+  } catch {
+    console.warn('[SeatPresence] Network error refreshing seat presence');
+    return false;
+  }
+}
+
+/**
  * Gets an active session by room code — only if within the grace period.
  * A session is "active" if:
  *   1. `sessionEnded` is not true in `live_state`, AND
@@ -1388,6 +1439,11 @@ export async function clearSessionJoiner(sessionId: string, code: string | null)
     console.error('Error clearing session joiner:', error.message);
     throw new Error(error.message);
   }
+
+  // P1269: the guest deliberately left, so forget the capability. Without this a shared or
+  // public browser hands the next person a working secret for a room they never joined —
+  // and the seat is now free, so that secret would let them take it silently.
+  clearSeatSecret(sessionId);
 }
 
 /**

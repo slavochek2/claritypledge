@@ -86,6 +86,7 @@ import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
+import { useGuestSeatPresence } from '@/hooks/use-guest-seat-presence';
 import { createChunkStore, type ChunkStore, type ChunkMetadata } from '@/lib/chunk-store';
 import { ChunkUploadQueue } from '@/lib/chunk-upload-queue';
 import { useUploadHealth } from '@/hooks/use-upload-health';
@@ -430,6 +431,12 @@ export function ClarityLivePage() {
 
   // P511: Heartbeat — creators only, only when in live view
   useSessionHeartbeat(session?.id ?? null, isCreator && view === 'live');
+
+  // P1269: Seat presence — the seated ANONYMOUS guest only. This is what makes the seat's
+  // 15-minute abandonment timer measure presence rather than claim time; without it a live
+  // guest's seat becomes claimable by anyone mid-session. A signed-in joiner is excluded:
+  // their seat is bound to auth.uid() and holds no secret.
+  useGuestSeatPresence(session?.id ?? null, !isCreator && !user?.id && view === 'live');
 
   // P37.2a: Consent flow state
   const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);

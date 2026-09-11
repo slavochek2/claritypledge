@@ -211,6 +211,15 @@ export interface DbClaritySession {
   is_private?: boolean;
   // P511: Last heartbeat timestamp
   last_activity_at?: string | null;
+  /**
+   * P1269: the per-seat capability for an anonymous guest seat. Present ONLY on rows
+   * returned by claim_joiner_seat (SECURITY DEFINER, runs as owner) — no client role may
+   * SELECT this column, so every ordinary read leaves it undefined.
+   *
+   * Deliberately absent from `ClaritySession`: it must never reach React state, analytics,
+   * Sentry, or the realtime payload. api.ts moves it straight into seat-secret.ts.
+   */
+  joiner_seat_secret?: string | null;
   // P703: Letter-sourced session fields
   source_letter_id?: string | null;
   source_story_id?: string | null;

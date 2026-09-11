@@ -1034,21 +1034,47 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
     expect(error, 'The claim should have been refused outright.').not.toBeNull();
   });
 
-  test('F5 control: an anonymous guest CAN re-claim their own seat (browser refresh)', async () => {
-    const row = await seedRoom('F5 guest refresh', { anonymousOccupant: 'Guest Bob' });
+  test('F5 control: an anonymous guest CAN re-claim their own seat (browser refresh) — P1269: by SECRET, not by name', async () => {
+    // REWRITTEN BY P1269 (2026-09-11), and the reason is a founder decision, not a failing test.
+    //
+    // This control used to re-claim by NAME, and its rationale was explicit: "nothing frees a
+    // seat on a plain disconnect — no heartbeat, no presence timeout, and pagehide performs no
+    // DB write". That premise is what P1053 restored the name-authorized arm on, and P1269
+    // falsified it in two places at once: 20260911090000 adds joiner_last_seen_at (a presence
+    // signal) and a 15-minute abandonment timer (a presence timeout). The arm the old premise
+    // justified is also the forgery — joiner_name is published to any anon caller holding the
+    // room code, so a stranger could read it and take a live seat.
+    //
+    // The USER-FACING property this control exists to protect is unchanged and still asserted:
+    // a refresh, tab close, mic retry or network blip must not cost a guest their room. What
+    // changed is what they present to prove it is theirs. The client keeps the secret in
+    // localStorage across reloads (src/app/data/seat-secret.ts), which is the machinery
+    // P1058's reverted attempt lacked.
+    const row = await seedRoom('F5 guest refresh');
     const anon = makeAnonClient();
 
-    const { error } = await anon.rpc('claim_joiner_seat', {
+    // The join itself — this is what mints the capability.
+    const first = await anon.rpc('claim_joiner_seat', {
       p_code: row.code,
       p_joiner_name: 'Guest Bob',
     });
+    expect(first.error, `the anonymous join path is broken: ${first.error?.message}`).toBeNull();
+    const claimed = Array.isArray(first.data) ? first.data[0] : first.data;
+    const secret = claimed?.joiner_seat_secret as string | undefined;
+    expect(secret, 'a guest claimed a seat but was handed no secret — they could never reclaim it').toBeTruthy();
+
+    // The refresh.
+    const { error } = await anon.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Guest Bob',
+      p_seat_secret: secret,
+    });
     expect(
       error,
-      `An anonymous guest could not re-enter their own room on session ${row.id}. Nothing frees ` +
-      `a seat on a plain disconnect — no heartbeat, no presence timeout, and pagehide performs ` +
-      `no DB write — so without this arm a refresh, tab close, mic-permission retry or network ` +
-      `blip costs the guest their room from the first second. Restored in 20260812190000 after ` +
-      `the /finish review measured the true scope.`
+      `An anonymous guest could not re-enter their own room on session ${row.id} while holding ` +
+      `the seat secret minted at claim. A refresh, tab close, mic-permission retry or network ` +
+      `blip must not cost the guest their room — that is what P1053's restoration protected and ` +
+      `what P1269 had to preserve while removing the name as the credential.`
     ).toBeNull();
 
     const after = await readRow(row.id);
@@ -1057,6 +1083,17 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
       after.joiner_profile_id,
       'A guest reclaim must never install a participant — that is what keeps transcripts sealed.'
     ).toBeNull();
+
+    // P1269 itself: the name alone must no longer be sufficient on that same live seat.
+    const impostor = makeAnonClient();
+    const forged = await impostor.rpc('claim_joiner_seat', {
+      p_code: row.code,
+      p_joiner_name: 'Guest Bob',
+    });
+    expect(
+      forged.error,
+      'the published guest name still authorizes a reclaim — P1269 is not actually closed'
+    ).not.toBeNull();
   });
 
   test('F5 control: the guest-reclaim arm is bounded — wrong name, and recorded rooms, are refused', async () => {
