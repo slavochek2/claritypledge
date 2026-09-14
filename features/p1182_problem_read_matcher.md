@@ -83,4 +83,9 @@ Full requirements depend on P1180's output and P1181's visibility model.
 
 - `docs/decisions.md` 2026-08-12 [product] — the hypothesis this tests, and its falsifier
 - `docs/decisions.md` 2026-08-28 [product] — spec (iii) of three
-- Blocked by P1180 and P1181
+- Blocked by P1180 (done). **The P1181 dependency is narrower than this line read until 2026-09-14**
+  — it holds only where the corpus lives **inside the product**, so two members must read each
+  other's submissions. The phase-1 cut hands the counterparty a **file**: nothing is shared, so no
+  shared-visibility model is required, and the assisted version is startable now. The in-product
+  multi-member version keeps the P1181 dependency. Build order and phases:
+  [docs/problem-board-process.md](../docs/problem-board-process.md).

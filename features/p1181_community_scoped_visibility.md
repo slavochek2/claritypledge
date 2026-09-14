@@ -71,4 +71,6 @@ Attractive because it avoids new interface language. **Measured against the code
 
 - `docs/decisions.md` 2026-08-28 [product] — spec (ii) of three
 - `docs/definitions.md` §Story Visibility Model, §Clarity Organization
-- Blocked by P1180
+- Blocked by P1180 (done). Sequenced **after the matcher**, not before it — phase 5 of the build
+  order in [docs/problem-board-process.md](../docs/problem-board-process.md). Round one hands over a
+  file rather than sharing in-product, so nothing earlier in that order waits on this spec.
