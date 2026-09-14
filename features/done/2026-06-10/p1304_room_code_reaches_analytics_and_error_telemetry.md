@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 96
 severity: medium
@@ -14,7 +14,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [security, telemetry, privacy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, verify, ship]
 reproduce_artifact:
   test_file: src/tests/p1304-reproduce.test.ts
@@ -25,6 +24,7 @@ reproduce_artifact:
   surface_audit_anchor: "analytics.track( | trackLiveEvent( | Sentry.setContext/addBreadcrumb/captureException/captureMessage("
   surface_audit_hits: 59
   reproduced_at: 2026-09-14
+completed_at: 2026-09-14
 ---
 
 # P1304: The /live room code reaches third-party analytics and error telemetry
