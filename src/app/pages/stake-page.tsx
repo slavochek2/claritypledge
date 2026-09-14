@@ -226,11 +226,21 @@ export function StakePage() {
    * tab and tapped "Go back" got `navigate(-1)` — out of the app. `idx === 0` survives a
    * replace. Where there is no browser history index (an in-memory router) the mount-time
    * capture answers the same question.
+   *
+   * P1311 — FIRST ENTRY IN THE APP IS NOT FIRST ENTRY IN THE TAB. Founder: *"if i come from
+   * event page /aisafety it doesnt go back to that page?"* The event write-up that links here
+   * lives outside the SPA, so a reader following that link arrives at app index 0 with the
+   * event page still one step back in the TAB's history — and was given the feed instead of
+   * the page they were reading (reproduced on prod: idx 0, history.length 3, "Go back" landed
+   * on /feed). `history.length > 1` is what separates that from a bookmark, a typed URL or a
+   * link opened in a fresh tab, all of which give length 1. Popping there leaves the app,
+   * which is correct: it is where the reader was, and a "Go back" that does not go back is
+   * the worse surprise.
    */
   const handleBack = useCallback(() => {
     const idx = (window.history.state as { idx?: unknown } | null)?.idx;
     const atFirstEntry = typeof idx === 'number' ? idx === 0 : arrivedColdRef.current;
-    if (atFirstEntry) navigate('/feed', { replace: true });
+    if (atFirstEntry && window.history.length <= 1) navigate('/feed', { replace: true });
     else navigate(-1);
   }, [navigate]);
 

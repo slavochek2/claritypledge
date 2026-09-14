@@ -193,6 +193,33 @@ describe('P1296 item 5 — a cold arrival still has a way out after switching ta
   );
 });
 
+describe('P1311 — arriving from a page OUTSIDE the app still goes back to that page', () => {
+  /**
+   * Founder, UAT: *"if i come from event page /aisafety it doesnt go back to that page?"* The
+   * event write-up lives outside the SPA, so following its link lands the reader at app index
+   * 0 — indistinguishable, to the old test, from a bookmark. Reproduced on prod before the
+   * fix: `history.state.idx` 0, `history.length` 3, "Go back" landed on /feed instead of
+   * popping to the page the reader came from.
+   *
+   * jsdom's own `history.length` is 1, which is exactly the bookmark case the suite above
+   * pins; `pushState` here raises it to 2 to stand for the entry the outside page occupies.
+   * The router is in-memory and has nothing to pop, so the observable difference is that the
+   * feed is NOT substituted — with the pre-fix code both of these land on the feed.
+   */
+  it.each([['the header button', HEADER_BACK], ['the bottom CTA', BOTTOM_BACK]])(
+    'cold, but with an outside page behind us → %s → never the feed',
+    async (_which, name) => {
+      window.history.pushState({}, '', '/stake/aisafety1?tab=stories');
+      expect(window.history.length).toBeGreaterThan(1);
+      renderAt(['/stake/aisafety1?tab=stories']);
+      await screen.findAllByTestId('story-card');
+      await userEvent.click(screen.getByRole('button', name));
+      await waitFor(() => expect(screen.queryByTestId('story-card')).not.toBeNull());
+      expect(screen.queryByTestId('the-feed')).toBeNull();
+    },
+  );
+});
+
 describe('P1296 items 2–3 — the footer on BOTH tabs, and the viewer handed down', () => {
   it('point cards receive their linked stories — the footer count renders on Points', async () => {
     renderAt(['/stake/aisafety1']);
