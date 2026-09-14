@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: all-done
 type: story
 disclosure: public
 rank: 16
@@ -7,6 +7,7 @@ workstream: E1
 created_date: 2026-03-13T00:00:00.000Z
 tags: []
 absorbed_by: p1296
+completed_at: 2026-09-14
 ---
 
 # P500: Harmonize feed cards with profile card style
