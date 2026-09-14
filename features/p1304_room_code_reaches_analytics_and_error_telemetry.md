@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 96
 severity: medium
@@ -11,8 +11,17 @@ exec_model: sonnet
 exec_effort: medium
 tags: [security, telemetry, privacy]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1304-reproduce.test.ts
+  root_cause: "the room code is logged as a display id — 59 telemetry calls send it as a property, and the /live and /transcribe URLs carry it into Mixpanel events, Mixpanel replays and Sentry events"
+  confidence: high
+  surfaces_in_scope: [live-payloads, api-sentry-extras, chunk-upload-queue, letter-start-button, sentry-urls, mixpanel-event-urls, mixpanel-replays, transcribe-room-urls]
+  surfaces_deferred: []
+  surface_audit_anchor: "analytics.track( | trackLiveEvent( | Sentry.setContext/addBreadcrumb/captureException/captureMessage("
+  surface_audit_hits: 59
+  reproduced_at: 2026-09-14
 ---
 
 # P1304: The /live room code reaches third-party analytics and error telemetry
@@ -42,6 +51,31 @@ each by its enclosing call:
    `autocapture: { pageview: true }` and `record_sessions_percent: 100` (`index.html:94-95`), so
    every /live pageview and session recording carries it. Sentry attaches the page URL to events
    and navigation breadcrumbs by default — UNVERIFIED against this project's events this session.
+
+### Reproduction findings (2026-09-14)
+
+The canary (`src/tests/p1304-reproduce.test.ts`) scans every telemetry call's arguments and
+finds **59** sites, not 38: the count above missed 16 `trackLiveEvent` calls in the live page, 4
+more `analytics.track` calls there, and four `Sentry.captureException` extras in `api.ts`
+(`:3200`, `:3333`, `:3401`, `:3506`). The canary's known-bad/known-good controls score as
+expected.
+
+The URL channel is wider than stated:
+
+- **`/transcribe/:code` is the same class.** `getRoomByCode(urlCode)` joins the room, and the
+  auth gate puts the code into `/login?redirect=%2Ftranscribe%2F<CODE>`, which is itself a
+  captured pageview.
+- **Mixpanel replays cannot be fixed by an event hook.** The SDK's recorder sends
+  `'$current_url': this.batchStartUrl` (`_.info.currentUrl()`) with every replay batch, outside
+  `hooks.before_send_events`. Only not recording code-bearing routes closes it.
+- **Mixpanel events** carry `$current_url` and `$referrer` (`document.referrer`), both
+  rewritable in `hooks.before_send_events` (verified in `mixpanel-core.js`: `_run_hook('before_send_' + type)`).
+- **Sentry 10.27.0** exposes `beforeBreadcrumb` and `beforeSendTransaction`. Page-load
+  transactions do not pass through `beforeSend`. Sentry replay URLs are UNVERIFIED.
+- `/s/:code` is a static short-link table, not a room code, so it is out of scope.
+
+`src/tests/p1304-sentry-url-redaction.test.ts` fails today: `sentryBeforeSend` passes
+`/live/<CODE>` and `/transcribe/<CODE>` through unchanged.
 
 ## Invariants
 
@@ -96,6 +130,23 @@ leaked code cannot be revoked (P1098).
    ruling does not apply, but it belongs in the same unit-tested module.
 3. **Guard:** a unit test that fails when a telemetry call gains a code-named property, so the
    count cannot creep back — it grew from 8 to 35 after P1057 named it.
+
+## Resolved Decisions
+
+Delegated to the agent by the founder on 2026-09-14 ("you check and decide").
+
+1. **Payloads send `session_id` instead of the code. Breaking reports keyed on the code is
+   accepted.** Checked: none of the 21 saved Mixpanel reports or dashboards has been edited since
+   2026-02-25, none is named after the code, and the Session Value dashboard has 0 views. The MCP
+   exposes no report definitions, so "no report groups by the code" is unverified. The cost is
+   bounded: a breakdown by code is one-to-one with a breakdown by `session_id`, so any such
+   report is rebuilt by swapping the property, and history before the fix keeps the old
+   property.
+2. **Mixpanel session recording stops on `/live/*` and `/transcribe/*`.** The recorder attaches
+   the raw URL to every batch, and no hook reaches it. The alternative, taking the code out of
+   the join URL, changes every shared invite link and is out of proportion to a medium
+   finding. Cost: no Mixpanel replays of live or transcribe sessions. Sentry's masked
+   error-only replays are unaffected.
 
 ## Acceptance Criteria
 
