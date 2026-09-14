@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 99
 workstream: infrastructure
 created_date: '2026-09-11'
 tags: [ship-gates, closure, pipeline, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-14
 ---
 
 # P1309: A spec delivered under another spec's number can pass its own closure gates
@@ -127,7 +127,7 @@ Revert the P1309 commit. Specs already closed through the new arm stay closed; r
 
 ## Related
 
-- [P1296](p1296_card_footer_consistency_and_stake_navigation.md): the absorbing spec; its Done-When needs P500 closed
-- [P500](p500_feed_card_harmonization.md): the absorbed spec
+- [P1296](../../p1296_card_footer_consistency_and_stake_navigation.md): the absorbing spec; its Done-When needs P500 closed
+- [P500](../../p500_feed_card_harmonization.md): the absorbed spec
 - P1246: the override and closure gate. P1250: the removal of co-located auto-close.
 - `docs/decisions.md`: 2026-09-07 [process], 2026-08-31 [process], and 2026-09-11 [process] "A spec absorbed by another cannot be closed by an agent" (on P1296's branch)
