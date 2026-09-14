@@ -14,8 +14,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [security, telemetry, privacy]
 disclosure: public
-delivery_stage: verify
-pipeline_ran: [create-bug, reproduce, fix, verify]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, verify, ship]
 reproduce_artifact:
   test_file: src/tests/p1304-reproduce.test.ts
   root_cause: "the room code is logged as a display id — 59 telemetry calls send it as a property, and the /live and /transcribe URLs carry it into Mixpanel events, Mixpanel replays and Sentry events"
