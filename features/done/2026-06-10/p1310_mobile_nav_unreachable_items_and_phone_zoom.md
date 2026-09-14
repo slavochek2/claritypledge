@@ -276,3 +276,66 @@ read as a claim that the `/dev` pipeline's own steps ran.
 - P1179 — built the Links menu and its entry-safety invariant
 - P1218 — `/presi` is the live deck, `/presi2` frozen
 - P956 / P1114 — the nav's safe-area and narrow-viewport handling this fix must not break
+
+## Post-ship corrections (same day)
+
+All three in-process reviewers reported **after** this shipped — the spec challenger, the
+visual-QA pass and the code reviewer, 25-60 minutes after being spawned and after the merge
+had run. The body above says those lenses went uncovered; that was true when written and is
+now wrong. Every correction below was re-verified by command before being recorded here.
+
+1. **Severity overstated in the Problem section.** "no Use cases, Pricing, Feed or Groups"
+   is half right: `bottom-nav.tsx` renders **Home (`/feed`) and Groups** for every signed-in
+   user, so those two were always one tap away. Only **Use cases and Pricing** were genuinely
+   absent from every surface. The fix is unchanged and still correct — one list, one order —
+   but the hole it closed was smaller than the wording implies.
+
+2. **`/presi` is a redirect, not a rewrite.** The hosting config carries it under
+   `redirects` (302 to `/presi/`), not `rewrites`. Nothing downstream changes: the deck is
+   served, the entry is an internal path, and the new-tab load follows the redirect.
+
+3. **The doubled divider was signed-out only.** Its condition was a strict subset of the
+   CTA block's own signed-out condition, so a signed-in person never saw two rules. The
+   removal is still right; "the mobile menu shows a doubled divider" over-generalised.
+
+4. **A real regression this spec introduced, now fixed.** Raising the banner controls to
+   16px made their placeholder overflow: "Describe your banner" measures 164px against a
+   144px content box (`w-40` + `px-2`) and a 156px one (`w-[180px]` + `px-3`), where it fit
+   at 12px. Both widened below `md`; desktop unchanged. The Risks table did not anticipate
+   that a font-size rise can break a FIXED-WIDTH control, only that density would change —
+   the room-code input was measured and does fit (146px in 160px), which is what made the
+   class look safe.
+
+5. **The font-size scanner had a second blind spot.** A fixed tag list cannot see
+   `import { Input as SearchInput }` + `<SearchInput className="text-sm" />`. Now resolved
+   per-file from the ui-module imports, with fixtures for the aliased and the
+   unrelated-same-name cases. Two blind spots in one scanner, both found by review rather
+   than by its own tests, is the argument for treating a scanner's parser as its coverage.
+
+6. **Prop contract change was undocumented.** The mobile variant now honours
+   `hideLoginItem`, which it previously ignored; the docstring still described the old
+   behaviour as a guarantee. Comment corrected. No caller passes it to the mobile variant,
+   so nothing changed for users.
+
+### Still open, deliberately
+
+- **The zoom root cause is a hypothesis, not a finding** — the strongest challenge of the
+  three. iOS focus auto-zoom fits the founder's description and the 16 sub-16px controls are
+  real and now fixed, but a rival explanation was never ruled out: `position: fixed` chrome
+  clipping under pinch-zoom (this app stacks a fixed top nav and a fixed bottom nav), and
+  `/live`'s `h-screen overflow-hidden` scaffold, which clips at the viewport edge under
+  zoom. Both predict "accidental zoom, part of the page cut off" on the same page, and
+  neither is addressed by a font-size change. The `[post-deploy]` acceptance criterion is
+  therefore a **real open test**: if the founder still sees it on an iPhone once this is
+  live, re-open the fixed-position / `overflow-hidden` hypothesis rather than re-tuning
+  font sizes.
+- **The menu's height cap is hand-rolled** where two sibling components in the same file get
+  it from their library (Radix's `DropdownMenuContent` carries
+  `max-h-[var(--radix-dropdown-menu-content-available-height)]`; the drawer bounds itself).
+  The hand-rolled cap is measured and works, but the reviewer's point stands: the 320×568
+  sheet clipping found mid-session is what reinventing that mechanism costs.
+- **"Slides" opens via `window.open`, not an `<a href>`** — consistent with every other entry
+  in the menu, but it is the only one that is a real document load, so it loses middle-click,
+  cmd-click and copy-link. Filed.
+- **The signed-out account group has no heading** while Use cases / Product / Learn and the
+  signed-in "Your account" group all have one. Needs a founder-chosen label; filed.

@@ -1580,3 +1580,23 @@ The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet bran
 `buildLinksMenu` drops an extra whose tag collides with a standard one, but does not deduplicate repeated custom tags — two configured `tonight` rows produce two identical buttons pointing at one destination, on a sheet that now has a height ceiling and a scroll. Data-dependent: it needs an operator to configure the same tag twice, which has not been observed. Found by adversarial review during P1310. Done when validated extras are deduplicated by tag with a test for the repeated-tag case; droppable if the links column gains a uniqueness constraint at write time instead.
 
 ---
+
+## Confirm on a real iPhone whether the phone zoom is actually fixed — the root cause was never proven
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** week
+
+P1310 raised 16 sub-16px text controls to 16px on the reading that iOS Safari's focus auto-zoom was what the founder hit ("sometimes accidentally there is a zoom in and there is a part of this of the page that is cut off"). That diagnosis was read from the code and never reproduced — Chrome's device emulation cannot perform a pinch. A rival explanation was raised in review and not ruled out: `position: fixed` chrome clipping under pinch-zoom (this app stacks a fixed top nav and a fixed bottom nav) and `/live`'s `h-screen overflow-hidden` scaffold clipping at the viewport edge. Neither is addressed by a font-size change. Done when the founder confirms on an iPhone that tapping the join fields no longer rescales the page — and if it still happens, the next step is the fixed-position hypothesis, not more font sizes; droppable if the founder stops seeing the symptom for other reasons.
+
+---
+
+## Give the room's "Slides" entry a real link, and the signed-out menu group a heading
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** month
+
+Two review findings from P1310, both cosmetic-but-real. (1) "Slides" is the one Links entry that is a true document load, and it runs through `window.open`, so middle-click, cmd-click and copy-link do nothing — an `<a href="/presi" target="_blank" rel="noopener noreferrer">` styled as the other entries would keep the new-tab behaviour and restore the affordances. (2) In the mobile menu the signed-out account actions (Take the Pledge / Log In / Create Account) sit under a bare divider while Use cases, Product, Learn and the signed-in "Your account" group all carry headings — an orphaned group; the label is a founder call. Done when the link is an anchor and the group has an approved heading; droppable if the menu is restructured for other reasons first.
+
+---

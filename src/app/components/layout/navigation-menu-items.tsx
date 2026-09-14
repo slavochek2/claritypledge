@@ -58,7 +58,12 @@ interface NavigationMenuItemsProps {
   onItemClick?: () => void;
   /** P856: hide the Log In item — used by the desktop header dropdown, where
       Log in is a visible link next to the main CTA. LiveSessionBanner and the
-      mobile menu keep the item (no visible login elsewhere on those surfaces). */
+      mobile menu are the surfaces with no visible login elsewhere, so no caller
+      passes this to them and the item shows there.
+      P1310: BOTH variants now honour the prop. It used to be read only by the
+      dropdown, so a caller passing it to the mobile menu would have been silently
+      ignored — which is a worse contract than hiding the item, and the sentence
+      above had documented the old behaviour as if it were a guarantee. */
   hideLoginItem?: boolean;
 }
 

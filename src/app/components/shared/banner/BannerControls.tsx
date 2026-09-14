@@ -146,7 +146,11 @@ function PillBannerControls({
               onChange={(e) => setKeywords(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
-              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-base md:text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-40"
+              /* P1310: `w-40` was sized for 12px text. At the 16px phones now get (iOS
+                 zooms a focused input below that), "Describe your banner" measures 164px
+                 against a 144px content box and clips. Widened below `md` only; desktop
+                 keeps both its 12px text and its 160px box. */
+              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-base md:text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-[184px] md:w-40"
             />
             <button
               onClick={() => onSearch(keywords)}
@@ -314,7 +318,9 @@ function MinimalBannerControls({
               onChange={(e) => setKeywords(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               disabled={isLoading}
-              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-3 py-1.5 text-base md:text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-[180px] md:w-[200px]"
+              /* P1310: same as above — 16px text needs 164px of room, and px-3 leaves
+                 only 156px inside a 180px box. Widened below `md`; desktop unchanged. */
+              className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-3 py-1.5 text-base md:text-xs outline-none focus-visible:ring-1 focus-visible:ring-white/50 disabled:opacity-50 w-[192px] md:w-[200px]"
             />
             <button
               onClick={() => {

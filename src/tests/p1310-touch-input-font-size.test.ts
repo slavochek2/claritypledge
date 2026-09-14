@@ -36,8 +36,34 @@ function sourceFiles(): string[] {
     .filter(f => f && !f.includes('.test.') && !f.includes('/tests/'));
 }
 
-const TAG_START = /<(input|textarea|select|Input|Textarea)\b/g;
+const BUILTIN_TAGS = ['input', 'textarea', 'select', 'Input', 'Textarea'];
 const NON_TEXT = /type=["'](?:checkbox|radio|range|file|hidden)/;
+
+/**
+ * Component names to scan in THIS file — the five literal spellings plus any local
+ * alias of the shared text controls.
+ *
+ * `import { Input as SearchInput } from '@/components/ui/input'` then
+ * `<SearchInput className="text-sm" />` is legitimate JSX that a fixed tag list
+ * cannot see, so the scan would report the file clean while a 14px control shipped.
+ * Same shape as the nested-brace blind spot this scan already had; found by
+ * adversarial review in the same pass (P1310).
+ *
+ * The alias must come from the ui module, not from any import — an unrelated
+ * `Input` from a chart library is not one of these controls.
+ */
+const ALIAS_IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*components\/ui\/(?:input|textarea|select)['"]/gs;
+
+function tagPattern(src: string): RegExp {
+  const names = new Set(BUILTIN_TAGS);
+  for (const imp of src.matchAll(ALIAS_IMPORT)) {
+    for (const clause of imp[1].split(',')) {
+      const [, alias] = clause.split(/\s+as\s+/).map(s => s.trim());
+      if (alias && /^[A-Za-z_$][\w$]*$/.test(alias)) names.add(alias);
+    }
+  }
+  return new RegExp(`<(${[...names].join('|')})\\b`, 'g');
+}
 /** A size class that is NOT behind a breakpoint prefix — `md:text-sm` is fine, `text-sm` is not. */
 const BARE_SMALL = /(?<![:\w-])text-(xs|sm|\[(?:[0-9]|1[0-5])px\])\b/;
 
@@ -74,8 +100,7 @@ function elementAttrs(src: string, from: number): { attrs: string; end: number }
 /** Every offending control as `file:line <tag> carries <class>`. */
 function scan(src: string, file = '<inline>'): string[] {
   const found: string[] = [];
-  TAG_START.lastIndex = 0;
-  for (const match of src.matchAll(TAG_START)) {
+  for (const match of src.matchAll(tagPattern(src))) {
     const tag = match[1];
     const start = (match.index ?? 0) + match[0].length;
     const el = elementAttrs(src, start);
@@ -120,6 +145,13 @@ describe('P1310 — phone text controls stay at 16px', () => {
     expect(scan(`<Input className={cn({ "text-base md:text-sm": true })} />`)).toEqual([]);
     // A `>` inside an attribute string must not end the tag early and hide what follows.
     expect(scan(`<input placeholder="a > b" className="text-sm" />`)).toHaveLength(1);
+    // An aliased import of the shared control is still the shared control (P1310,
+    // adversarial review): a fixed tag list could not see it and reported clean.
+    const aliased = `import { Input as SearchInput } from '@/components/ui/input';\n<SearchInput className="text-sm" />`;
+    expect(scan(aliased)).toHaveLength(1);
+    expect(scan(`import { Textarea as Bio } from '@/components/ui/textarea';\n<Bio className="text-xs" />`)).toHaveLength(1);
+    // …but an unrelated component that happens to share the name is not in scope.
+    expect(scan(`import { Input as ChartInput } from 'some-chart-lib';\n<ChartInput className="text-sm" />`)).toEqual([]);
     // An arrow function in a handler is braces too, and must not swallow the tag.
     expect(scan(`<input onChange={(e) => { setX(e.target.value); }} className="text-sm" />`)).toHaveLength(1);
   });
