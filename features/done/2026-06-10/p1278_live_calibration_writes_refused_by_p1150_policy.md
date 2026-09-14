@@ -10,9 +10,9 @@ exec_model: sonnet
 exec_effort: medium
 tags: [live, rls, calibration, p1150, regression]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
-status: qa
+status: all-done
+completed_at: 2026-09-14
 ---
 
 # P1278: The P1150 INSERT policy refuses every `/live` calibration write
