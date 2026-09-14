@@ -5,7 +5,12 @@
      table in schema public, and the schema's default ACL does not grant them either.
   2. F1: clarity_idea_votes has no UPDATE policy with an unconditional predicate.
 
-Read-only: issues SELECT only, via the Supabase Management API.
+Read-only by construction, not by convention: every query goes through the Management
+API's /database/query/read-only endpoint, which Postgres executes as
+supabase_read_only_user inside a read-only transaction. A DDL or DML statement sent to
+that endpoint is refused by the server (SQLSTATE 25006), so this canary cannot mutate
+either project even if a future edit tries to.
+
 Usage: scripts/check-p1207-privilege-floor.py [test|prod]   (default: test)
        scripts/check-p1207-privilege-floor.py --self-test   (offline, no token)
 Exit 0 = floor holds. Exit 1 = a violation is listed on stdout.
@@ -26,6 +31,104 @@ IDENTITY = re.compile(r"\bauth\.(uid|email|jwt|role)\s*\(", re.I)
 # Kept only to make the common case legible in the failure message, never as the test itself.
 OBVIOUSLY_TRUE = re.compile(r"^\s*\(*\s*(true|1\s*=\s*1|true::boolean)\s*\)*\s*$", re.I)
 
+# ---------------------------------------------------------------------------
+# Why these read pg_catalog and NOT information_schema
+# ---------------------------------------------------------------------------
+# information_schema.table_privileges and .column_privileges are ROLE-FILTERED: per the
+# SQL standard they expose only privileges granted TO or BY a *currently enabled role*.
+# As the `postgres` superuser that is everything, so the original queries were correct.
+# This file now runs as supabase_read_only_user, which is a member of neither anon nor
+# authenticated and granted nothing by them — so those views return ZERO ROWS for every
+# grantee this canary asks about, whatever the database actually holds.
+#
+# That failure is silent and inverted: the check is looking for an EMPTY result as its
+# pass condition, so a blinded view reports "ok, floor holds" on a database that has just
+# handed anon TRUNCATE on every table. Measured 2026-09-14 on both projects: a control
+# query for SELECT (which anon demonstrably holds) returned 100 rows as postgres and 0 as
+# supabase_read_only_user, while the four banned privileges returned 0 under both — i.e.
+# the real queries looked perfectly healthy exactly when the view had gone blind.
+#
+# pg_class.relacl / pg_attribute.attacl are ordinary catalog columns with no role filter,
+# so they answer identically under any role. Both forms below were verified to return the
+# byte-identical grant set as information_schema-as-postgres on test AND prod
+# (403/377 table grants, 2745/2632 column grants, zero missing, zero extra).
+#
+# DO NOT "simplify" these back to information_schema. It will pass its tests, pass review,
+# and silently stop detecting anything.
+#
+# aclexplode() spells the PUBLIC pseudo-role as a NULL grantee; coalesce turns it back into
+# the literal 'PUBLIC', which is how the old information_schema query named it. That folds
+# the former separate PUBLIC query into the table query below with identical output.
+TABLE_PRIVS_SQL = """
+    select c.relname as table_name, t.grantee as grantee, t.privilege_type
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    cross join lateral (
+      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
+             x.privilege_type
+      from pg_catalog.aclexplode(c.relacl) x
+    ) t
+    where n.nspname = 'public'
+      and c.relkind in ('r','v','m','p','f')
+      and t.grantee in ('anon','authenticated','PUBLIC')
+      and t.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
+    order by t.privilege_type, t.grantee, c.relname
+"""
+
+# A column's effective grants are the UNION of its own ACL and its table's ACL -- not a
+# coalesce. A column carrying an explicit attacl STILL inherits the table-level grants;
+# taking only attacl dropped 124 real grants in measurement, and taking only relacl misses
+# every explicit column grant. Restricted to the four column-grantable privileges because
+# aclexplode over a table ACL also yields DELETE/TRUNCATE/etc., which information_schema
+# never reports at column level (832 spurious rows before this filter).
+COLUMN_PRIVS_SQL = """
+    select distinct c.relname as table_name, a.attname as column_name,
+           t.grantee as grantee, t.privilege_type
+    from pg_catalog.pg_attribute a
+    join pg_catalog.pg_class c on c.oid = a.attrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    cross join lateral (
+      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
+             x.privilege_type
+      from pg_catalog.aclexplode(a.attacl) x
+      union
+      select coalesce(pg_catalog.pg_get_userbyid(y.grantee), 'PUBLIC') as grantee,
+             y.privilege_type
+      from pg_catalog.aclexplode(c.relacl) y
+    ) t
+    where n.nspname = 'public'
+      and c.relkind in ('r','v','m','p','f')
+      and a.attnum > 0 and not a.attisdropped
+      and t.grantee in ('anon','authenticated','PUBLIC')
+      and t.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
+    order by t.privilege_type, t.grantee, c.relname, a.attname
+"""
+
+# The two queries above PASS by returning nothing, which makes them indistinguishable from a
+# query that has gone blind -- the precise failure this file was rewritten to escape (a
+# role-filtered view returned 0 rows for every grantee while the database was unchanged).
+# So before believing an empty result, prove the detector can still see a grant that is known
+# to exist: anon and authenticated hold SELECT on many public tables in both projects. If this
+# returns nothing, the detector is broken and the run must report "could not run" (exit 2),
+# never "floor holds" (exit 0).
+# This is a control probe, not a test: it runs against the same live project, through the same
+# endpoint, in the same role, scored on the same query shape as the real checks.
+LIVENESS_SQL = """
+    select count(*) as n
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    cross join lateral (
+      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
+             x.privilege_type
+      from pg_catalog.aclexplode(c.relacl) x
+    ) t
+    where n.nspname = 'public'
+      and c.relkind in ('r','v','m','p','f')
+      and t.grantee in ('anon','authenticated')
+      and t.privilege_type = 'SELECT'
+"""
+
+
 def load_env(path):
     env = {}
     if not os.path.exists(path):
@@ -39,7 +142,7 @@ def load_env(path):
 
 def query(ref, token, sql):
     req = urllib.request.Request(
-        f"https://api.supabase.com/v1/projects/{ref}/database/query",
+        f"https://api.supabase.com/v1/projects/{ref}/database/query/read-only",
         data=json.dumps({"query": sql}).encode(),
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
                  # Cloudflare rejects urllib's default UA with a 403/1010 that reads as
@@ -115,23 +218,40 @@ def main():
         if env.get("SUPABASE_ACCESS_TOKEN") and env.get("VITE_SUPABASE_URL"):
             env_file = cand
             break
-    token = env.get("SUPABASE_ACCESS_TOKEN")
+
+    # Prefer a reduced-privilege token when one exists (P1214). SUPABASE_ACCESS_TOKEN is an
+    # account-wide platform management token: it can manage the production project outright,
+    # which is far more than a read-only policy comparison needs. A scoped token carrying only
+    # Database:Read for these two projects is the credential this job should hold.
+    # The fallback is deliberate but must never be silent -- an unannounced fallback is how a
+    # privilege reduction gets "completed" while every run keeps using the powerful token.
+    token = os.environ.get("SUPABASE_READONLY_TOKEN") or env.get("SUPABASE_READONLY_TOKEN")
+    token_kind = "scoped read-only token"
+    if not token:
+        token = env.get("SUPABASE_ACCESS_TOKEN")
+        token_kind = "account-wide management token (no SUPABASE_READONLY_TOKEN set)"
     url = env.get("VITE_SUPABASE_URL", "")
     ref = url.replace("https://", "").split(".")[0]
     if not token or not ref:
-        print(f"ERROR: need SUPABASE_ACCESS_TOKEN and VITE_SUPABASE_URL in {env_file}")
+        print(f"ERROR: need SUPABASE_ACCESS_TOKEN (or SUPABASE_READONLY_TOKEN) and "
+              f"VITE_SUPABASE_URL in {env_file}")
         return 2
+    print(f"credential: {token_kind}")
+
+    live = query(ref, token, LIVENESS_SQL)
+    live_n = int(live[0]["n"]) if live else 0
+    if live_n == 0:
+        print(f"ERROR ({which}/{ref}): detector liveness probe found ZERO SELECT grants to "
+              f"anon/authenticated in schema public. That is not credible -- the application "
+              f"could not work. The privilege queries have gone blind (role filtering, a "
+              f"catalog change, or a wrong project), so their empty result proves nothing. "
+              f"Refusing to report the floor as intact.")
+        return 2
+    print(f"detector liveness: {live_n} SELECT grants visible -- privilege queries can see grants")
 
     violations = []
 
-    rows = query(ref, token, """
-        select table_name, grantee, privilege_type
-        from information_schema.table_privileges
-        where table_schema = 'public'
-          and grantee in ('anon','authenticated')
-          and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
-        order by privilege_type, grantee, table_name
-    """)
+    rows = query(ref, token, TABLE_PRIVS_SQL)
     for r in rows:
         violations.append(
             f"F6 table privilege: {r['grantee']} holds {r['privilege_type']} on public.{r['table_name']}")
@@ -139,30 +259,15 @@ def main():
     # A table-level REVOKE does not remove a column-level grant of the same privilege; they are
     # tracked separately. Nothing holds one today (measured: zero rows), but the whole point of a
     # standing control is the day that changes.
-    colrows = query(ref, token, """
-        select table_name, column_name, grantee, privilege_type
-        from information_schema.column_privileges
-        where table_schema = 'public'
-          and grantee in ('anon','authenticated')
-          and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
-        order by privilege_type, grantee, table_name, column_name
-    """)
+    # Of the four banned privileges only REFERENCES is column-grantable at all — TRUNCATE,
+    # TRIGGER and MAINTAIN are table-level only, so this leg can only ever fire on REFERENCES.
+    # All four are kept in the filter so that a future Postgres that widens column grants is
+    # covered without anyone having to remember this file.
+    colrows = query(ref, token, COLUMN_PRIVS_SQL)
     for r in colrows:
         violations.append(
             f"F6 column privilege: {r['grantee']} holds {r['privilege_type']} on "
             f"public.{r['table_name']}.{r['column_name']}")
-
-    # PUBLIC is a distinct grantee that reaches anon and authenticated through role inheritance.
-    # Zero rows today; checked so a future GRANT ... TO PUBLIC cannot pass silently.
-    pubrows = query(ref, token, """
-        select table_name, privilege_type
-        from information_schema.table_privileges
-        where table_schema = 'public' and grantee = 'PUBLIC'
-          and privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
-    """)
-    for r in pubrows:
-        violations.append(
-            f"F6 table privilege: PUBLIC holds {r['privilege_type']} on public.{r['table_name']}")
 
     acl = query(ref, token, """
         select pg_get_userbyid(d.defaclrole) as owner, d.defaclacl::text as acl

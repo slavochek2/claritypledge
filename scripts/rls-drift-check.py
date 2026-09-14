@@ -156,14 +156,28 @@ def resolve_credentials(env_name):
 
     env_file = find_env_file(env_file_name)
 
-    token = os.environ.get(token_var) or read_env_value(env_file, "SUPABASE_ACCESS_TOKEN")
+    # Prefer a reduced-privilege token when one exists (P1214): this check only ever runs
+    # SELECTs against pg_policies, while SUPABASE_ACCESS_TOKEN is an account-wide platform
+    # management token that can manage production. Falls back, loudly (see `source` below),
+    # so the daily path keeps working until the scoped token is issued.
+    ro_var = "SUPABASE_READONLY_TOKEN_PROD" if env_name == "prod" else "SUPABASE_READONLY_TOKEN_TEST"
+    token = (os.environ.get(ro_var)
+             or read_env_value(env_file, "SUPABASE_READONLY_TOKEN")
+             or os.environ.get(token_var)
+             or read_env_value(env_file, "SUPABASE_ACCESS_TOKEN"))
     ref = os.environ.get(ref_var)
     if not ref:
         url = read_env_value(env_file, "VITE_SUPABASE_URL") or ""
         m = re.match(r"https://([a-z0-9]+)\.", url)
         ref = m.group(1) if m else None
 
-    source = f"${token_var}" if os.environ.get(token_var) else (env_file or f"<{env_file_name} not found>")
+    if os.environ.get(ro_var) or read_env_value(env_file, "SUPABASE_READONLY_TOKEN"):
+        source = f"${ro_var}" if os.environ.get(ro_var) else f"{env_file} (SUPABASE_READONLY_TOKEN)"
+    elif os.environ.get(token_var):
+        source = f"${token_var} (account-wide management token)"
+    else:
+        source = (f"{env_file} (SUPABASE_ACCESS_TOKEN — account-wide management token)"
+                  if env_file else f"<{env_file_name} not found>")
     return ref, token, source
 
 
@@ -175,8 +189,13 @@ def fetch_policies(env_name):
     if not token:
         raise RuntimeError(f"{env_name}: no access token (source: {source})")
 
+    # /database/query/read-only executes as supabase_read_only_user in a read-only
+    # transaction; the server refuses DDL/DML outright (SQLSTATE 25006). This check has
+    # never needed write access, and now cannot obtain it. pg_policies is an ordinary
+    # catalog view with no role filter, so it returns identical rows under either role --
+    # verified on test and prod (150/145 policies, byte-identical).
     req = urllib.request.Request(
-        f"{API_HOST}/v1/projects/{ref}/database/query",
+        f"{API_HOST}/v1/projects/{ref}/database/query/read-only",
         data=json.dumps({"query": POLICY_QUERY}).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {token}",
@@ -574,6 +593,12 @@ def render(findings, counts, allowlist_path, migration_file_count):
     out = []
     out.append("=" * 78)
     out.append("RLS DRIFT CHECK (P1048) — live prod vs live test vs migration files")
+    for _env in ("prod", "test"):
+        _src = resolve_credentials(_env)[2]
+        if "account-wide" in _src:
+            out.append(f"  credential ({_env}): {_src}")
+            out.append("    -> still over-permissioned for a read-only comparison; set "
+                       "SUPABASE_READONLY_TOKEN to a scoped Database:Read token (P1214)")
     out.append("=" * 78)
     out.append(f"prod policies: {counts['prod']}   test policies: {counts['test']}   "
                f"migrations scanned: {migration_file_count}")
