@@ -4,6 +4,107 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [process]: The reviewer's conclusion was wrong and its concern was right — and acting on either half alone would have been a mistake (P1313)
+
+**Context:** Second instance in six days of decisions.md 2026-09-08 [process] (P1155: self-review found none of
+the three fail-open holes an independent pass found). Here the session had verified its own work by
+measurement — live controls, byte-identical output on test and prod, both failure paths exercised —
+and then an independent Codex pass returned **DO NOT SHIP** with five findings. All five were real.
+**Two of the three HIGHs were defects the session's own fix had introduced**, not pre-existing ones.
+
+The re-review of the fixes then found a sixth, inside a fix — and got its *conclusion* wrong. It
+claimed a malformed `core.bare` exits 0 (falsely healthy). Measured: it exits 2. But the condition
+it pointed at genuinely was wrong; the correct behaviour was resting on an unrelated earlier command
+failing first. Accepting the claim as stated would have chased a bug that wasn't there; dismissing it
+because the stated outcome was wrong would have left a real fragility.
+
+**Decision:** Verify every review finding by command before accepting **or** rejecting it, and treat
+the finding's *reasoning* and its *predicted outcome* as separately falsifiable. A reviewer that is
+wrong about the symptom can still be right about the cause.
+
+**Alternatives rejected:** *Trust the reviewer* — one of six findings had a wrong conclusion.
+*Trust own verification* — it had already passed on code containing three real defects. Neither side
+is authoritative; the command is.
+
+**Consequences:** Self-verification and independent review fail in **different** directions, so they
+are not substitutes and the second is not optional on security-adjacent work. Measured hit rate this
+session: 6 findings across 2 rounds, 0 found by the author. Also worth carrying: **grepping for a
+file's name does not find the things that import its functions.** A credential resolver was changed
+for two scripts; a third loaded it dynamically and would have broken the moment the new credential
+was issued — found by review, not by the dependency grep that was actually run. The global
+"enumerate dependents" rule needs the import graph, not just the filename.
+
+**References:** decisions.md 2026-09-08 [process] (P1155, first instance) ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 9, 9b · `~/.agents/bin/codex-review`
+
+---
+
+## 2026-09-14 [technical]: A guard tested with one spelling of its trigger accepts the other five (P1313)
+
+**Context:** A new guard asserted `core.bare` is not true on the main checkout — the config flip that
+silently disabled the work tree for every concurrent session twice in two days. It compared the raw
+config string to the literal `"true"`, and was exercised against exactly that value. Git accepts
+`yes`, `on`, `1`, `TRUE` and `True` as boolean true. Measured against real fixtures: **all five make
+`git rev-parse --is-bare-repository` report true while the guard exited 0.** The gate written to
+catch a repo-wide breakage caught one spelling in six, and its test suite proved only that one.
+
+**Decision:** Let the tool parse its own types — `git config --type=bool` — and never hand-compare
+raw config text. The guard's test is now a full matrix (6 true spellings, 4 false spellings, absent,
+malformed), pasted into the commit rather than summarised.
+
+**Alternatives rejected:** *Widen the string comparison to a list of known spellings* — same class as
+the grep-widening rejected on 2026-08-18; the value space belongs to git, not to us.
+
+**Consequences:** Extends epistemic gate 7 (exercise the failure path) with the half it does not
+state: **exercising the failure path once proves the gate fires for that input, not for the trigger.**
+Where a trigger has a value space — a boolean spelling, an encoding, a header casing, a path
+separator — the failure test must enumerate it or say which values it did not cover. Related but
+distinct from 2026-08-18, which is about an assertion binding one spelling of the *bug*; this is a
+gate binding one spelling of the *input*.
+
+**References:** `scripts/check-core-bare.sh` · decisions.md 2026-09-07 [technical] and 2026-09-08
+[process] (the two `core.bare` incidents) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
+## 2026-09-14 [process]: Three measuring instruments reported success having done nothing, in one session (P1313)
+
+**Context:** Not the system under test — the tools used to inspect it. All three produced a
+confident, well-formed, wrong answer:
+
+1. **`timeout` does not exist on macOS.** `timeout 900 codex-review "..."` died instantly with
+   `command not found` and **exited 0**. Backgrounded, that is indistinguishable from a review that
+   ran and found nothing. Had it been trusted, the reported outcome would have been "the independent
+   review found no issues" on code that a real run then rejected with five findings.
+2. **`git config --unset` silently fails on an unparseable config.** A test matrix stepped through
+   `core.bare` values ending with "unset"; the unset never happened because git could not read the
+   file it was editing, so the guard was scored against the previous value and reported broken when
+   it was correct.
+3. **Appending a line to `.git/config` lands under whatever section is last.** `git init` adds a
+   `[user]` section, so an appended `bare = true` became `user.bare`. Every case in that matrix then
+   showed `git_is_bare=false` and the guard "passing" — a uniformly green result from a test that had
+   set nothing at all.
+
+**Decision:** Before a measurement is used as evidence, assert the instrument actually did the thing:
+check the tool exists on *this* platform, confirm a state-setting command changed the state it
+claimed, and prefer the tool's own setter (`git config core.bare X`) over hand-editing its file.
+
+**Alternatives rejected:** *Treat exit 0 as success* — case 1 exits 0 having run nothing.
+*Trust a uniform matrix result* — case 3 was uniformly green precisely because nothing was set. This
+is the all-same-verdict tell from the global control-probe rule, appearing in the measuring
+instrument rather than in the system.
+
+**Consequences:** The session's headline finding — a privilege check that reports "all clear" while
+blind — was reproduced three times over in its own tooling. **A green result whose setup step was
+never verified is not evidence.** Cheap standing habits: `command -v` before relying on a coreutils
+name in a script (`gtimeout` is the macOS spelling and is not installed here); read back the state a
+fixture claims to have set; and when every row of a matrix agrees, suspect the matrix.
+
+**References:** `~/.agents/bin/codex-review` (its own header documents three prior invocation
+failures in this family) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 5, 7
+
+---
+
 ## 2026-09-14 [process]: The deploy manifest's `test` section is permanently red because the stamper refuses worktrees, so nobody reads it (P1312)
 
 **Context:** Filing P1312 (branch tests call old edge functions on the test project), a hostile
