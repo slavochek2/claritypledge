@@ -126,13 +126,36 @@ exist at all.
 
 | Finding | Verdict | What changed |
 |---|---|---|
-| MEDIUM — a session's temp table could shadow `points` / `profiles` inside this SECURITY DEFINER function and silently skip the tombstone | True: `SET search_path = public` still searches `pg_temp` first for relations. Measured on the real function body: with empty temp tables named `points` and `profiles`, a position-only delete wrote 0 tombstones | The two parent checks are schema-qualified; the same run then wrote 1. Reaching it needs a raw SQL session, which no app path has. The unqualified INSERT into `point_position_history` is the same class, predates this change, and is shared by the repo's 177 `search_path = public` settings — filed as a note, not fixed here |
+| MEDIUM — a session's temp table could shadow `points` / `profiles` inside this SECURITY DEFINER function and silently skip the tombstone | True: `SET search_path = public` still searches `pg_temp` first for relations. Measured on the real function body: with empty temp tables named `points` and `profiles`, a position-only delete wrote 0 tombstones | The two parent checks are schema-qualified; the same run then wrote 1. Reaching it needs a raw SQL session, which no app path has. The unqualified INSERT into `point_position_history` is the same class, predates this change, and is shared by the repo's 177 `search_path = public` settings — filed as a note, not fixed here — **revisited and fixed 2026-09-14, see below** |
 | MEDIUM — sibling data-modifying CTEs deleting a position and its point in one statement defeat the visibility premise | False, measured locally: with the new body the statement succeeds and writes no tombstone; with the old body it fails with `23503`. The row trigger runs after the whole statement, when both deletes are visible | none |
 | MEDIUM — the `auth.users → profiles → point_positions` cascade was claimed but never exercised | True | Arm D added. Its failure path, by a rolled-back probe on test that created a fresh auth user, profile and position: old body → `23503` on `point_position_history_user_id_fkey`; new body → the user deleted, the profile gone, 0 positions left. Nothing persisted |
 | LOW — the verification block's `LIKE` pins read source text, not behaviour | True, accepted: they catch an edit that drops a guard; arms A–D test the behaviour | none |
 
 After the qualification the function was re-applied on test by hand — `CREATE OR REPLACE` is idempotent
 and the version was already recorded — and arms A–D with P520 ran 19/19.
+
+**Second Codex review (2026-09-14), run at ship time.** The closure gate found no review artifact on
+record for this branch — the 2026-09-11 round above was never written to `.finish-reviewed` — so a fresh
+review was run. Two findings, both real, both fixed in `dc16179e8`, each reproduced by command before being
+accepted.
+
+*HIGH — the unqualified `INSERT` target, which the round above had deliberately deferred.* That deferral's
+reasoning was that the exposure predates this change and is shared by the repo's 177 `search_path = public`
+settings. That is a good reason not to fix 177 functions; it is not a reason to leave THIS one contradicting
+the comment directly above it, which claims qualification was done on purpose. Measured on Postgres 17 in a
+throwaway container: with a shadowing `pg_temp.point_position_history` present, the unqualified target sent
+the tombstone to the temp table (`in_temp = 1`) and `public` received nothing; qualified, the identical test
+wrote to `public` (`in_public = 2, in_temp = 0`). All three arms are now qualified, and the verification block
+refuses any unqualified target and pins the count at exactly three. Gate 7: a mutated copy raises and exits 3,
+the real migration exits 0. Still not reachable through PostgREST, which cannot create temp tables.
+
+*MEDIUM — `afterAll` dereferenced `user.user.id` unconditionally*, so a failed `beforeAll` reported a
+`TypeError` in teardown that buried the real cause. Guarded.
+
+Controls re-run after the change: the whole-point delete and the profile delete that both failed `23503`
+before now succeed, and the position-only delete still writes its NULL tombstone with the point standing.
+**The corrected body has NOT been re-applied to test**, which still carries the pre-fix function under the
+same recorded version; no behavioural difference on any path the app or the suite exercises.
 
 **Side finding, not this spec's.** Deleting a user who has story verifications fails on a different foreign
 key (`story_verifications_speaker_id_fkey`, no cascade), with or without this fix — measured on test while
