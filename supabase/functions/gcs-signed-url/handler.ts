@@ -40,7 +40,21 @@ export interface RoomMembership {
    * where the promise has to be enforced rather than assumed.
    */
   consentGivenAt: string | null;
+  /** P1307: set once the room has ended. Uploads for an ended room are refused. */
+  roomEndedAt: string | null;
+  /** P1307: set once THIS member's capture has ended (their own End, or the sweep). */
+  captureEndedAt: string | null;
+  /** P1307 D11: this member's first Continue — the start of their per-person cap. */
+  joinedAt: string;
 }
+
+/**
+ * P1307 D11: the per-person capture cap, in minutes. MUST equal ROOM_MAX_DURATION_MINUTES in
+ * transcribe-slice/handler.ts and c_member_cap in transcribe_room_sweep_tick(). Not imported
+ * from there: edge functions deploy as separate bundles, and a cross-function import would
+ * make this one's deploy depend on the other's source tree.
+ */
+export const MEMBER_CAPTURE_MAX_MINUTES = 180;
 
 export interface HandlerDeps {
   corsHeaders: Record<string, string>;
@@ -67,6 +81,9 @@ export const ERR = {
   typeMismatch: 'contentType does not match fileName extension',
   notParticipant: 'Not a participant of this session',
   noConsent: 'Recording consent has not been given for this room',
+  roomEnded: 'This room has ended',
+  captureEnded: 'This capture has ended',
+  captureTooLong: 'This capture reached its maximum duration',
   notYourObject: 'fileName does not belong to the caller',
   upstream: 'Failed to get signed upload URL',
 } as const;
@@ -163,6 +180,17 @@ export async function handleGcsSignedUrl(req: Request, deps: HandlerDeps): Promi
     // not-a-participant collapse above exists to prevent. A caller who IS the member is
     // told plainly, because they are only learning about themselves.
     if (!m.consentGivenAt) return json(403, { error: ERR.noConsent });
+    // P1307 Security Review, Parent verification 3: a client-only stop is not a stop. Without
+    // these a member whose room — or whose own capture — had ended could keep minting upload
+    // URLs and archiving indefinitely. 410, mirroring transcribe-slice, so the client's hard
+    // stop reads both paths the same way. The cap is per person (D11), from joined_at: the
+    // same source transcribe-slice reads, so the slice path and the archive path cannot
+    // disagree about when a member's three hours are up.
+    if (m.roomEndedAt) return json(410, { error: ERR.roomEnded });
+    if (m.captureEndedAt) return json(410, { error: ERR.captureEnded });
+    if (Date.now() - new Date(m.joinedAt).getTime() > MEMBER_CAPTURE_MAX_MINUTES * 60_000) {
+      return json(410, { error: ERR.captureTooLong });
+    }
     // The member identity is already in the prefix; the only object the room client
     // writes there is chunk_NNN.webm.
     if (!ROOM_FILE_NAME_RE.test(fileName)) return json(400, { error: ERR.badFileName });

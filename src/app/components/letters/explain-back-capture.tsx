@@ -20,6 +20,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Mic } from 'lucide-react';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
+import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
 const MAX_DURATION_MS = 3 * 60 * 1000; // Confirmed 2026-06-10: 3-minute cap.
 
@@ -65,6 +66,13 @@ export function ExplainBackCapture({ storyTitle, authorName, onSubmit, onCancel 
     maxDurationMs: 0,
   });
   const { requestPermission, error: permissionError } = useMicrophonePermission();
+
+  // P1307 D3, "applied equally": one voice, one recording. While this panel is open, room
+  // transcription pauses; it resumes when the panel closes. Both call sites mount this
+  // component only while capture is open, so mount/unmount IS the signal — no change needed
+  // at either call site. Outside a RoomCaptureProvider this is a no-op.
+  const { holdPause } = useRoomCapture();
+  useEffect(() => holdPause('explain-back'), [holdPause]);
 
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopRef = useRef<() => void>(() => {});

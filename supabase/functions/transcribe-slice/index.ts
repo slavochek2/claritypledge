@@ -82,7 +82,7 @@ Deno.serve((req: Request) =>
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: member, error: memberError } = await serviceClient
         .from('transcribe_room_members')
-        .select('id, consent_given_at, slice_count')
+        .select('id, consent_given_at, slice_count, joined_at, capture_ended_at')
         .eq('room_id', roomId)
         .eq('profile_id', userId)
         .maybeSingle();
@@ -96,7 +96,9 @@ Deno.serve((req: Request) =>
       return {
         memberId: member.id,
         roomCreatedAt: room.created_at,
+        memberJoinedAt: member.joined_at,
         roomEndedAt: room.ended_at ?? null,
+        captureEndedAt: member.capture_ended_at ?? null,
         consentGivenAt: member.consent_given_at ?? null,
         sliceCount: member.slice_count ?? 0,
       };
@@ -104,44 +106,40 @@ Deno.serve((req: Request) =>
 
     countActiveRooms: async (userId) => {
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      // A room is ended EXACTLY ONE WAY on the server: a slice arrives for it after its
-      // duration cap, and the handler ends it. An ABANDONED room never receives another
-      // slice, so nothing ever ends it — `ended_at` stays NULL for as long as the table
-      // lives. Counting on `ended_at IS NULL` alone therefore counts rooms that ended in
-      // every sense except the column, and each one permanently consumes one of the
-      // user's MAX_CONCURRENT_ROOMS_PER_USER slots.
+      // Measured 2026-09-10 on test (P1236): one user held SEVEN abandoned, never-ended rooms
+      // against a cap of 3, so every slice came back 429 and live transcription was dead for
+      // that account. Counting on `ended_at IS NULL` alone counts rooms that ended in every
+      // sense except the column.
       //
-      // Measured 2026-09-10 on test: one user held SEVEN such rooms, the oldest 17 days
-      // old, against a cap of 3 — so every slice came back 429 and live transcription was
-      // dead for that account forever. The room's only symptom was that words stopped
-      // appearing. Opening /transcribe three times and walking away is enough to trigger
-      // it, which makes it reachable by ordinary use, not just by testing.
-      //
-      // So the count asks whether a room can still legitimately accept audio, which is the
-      // question the ceiling is actually about: not-ended AND inside the duration cap.
-      // `ROOM_MAX_DURATION_MINUTES` is the same constant the handler enforces per-slice,
-      // so the two agree by construction rather than by coincidence.
+      // P1307: the count asks whether THIS MEMBER can still legitimately stream into a room —
+      // the room not ended, their own capture not ended, and their own per-person cap not
+      // passed. Decision 3 item 3: the cutoff reads the member row's joined_at, the same
+      // source the handler's per-slice cap reads, so the two agree by construction. (The
+      // sweep now also ends abandoned rooms, so the join is defence in depth, not the fix.)
       const cutoff = new Date(Date.now() - ROOM_MAX_DURATION_MINUTES * 60_000).toISOString();
       // !inner so the filter on the joined room actually restricts the member rows;
       // a plain embed would return every membership with a null room and count them all.
       const { count, error } = await serviceClient
         .from('transcribe_room_members')
-        .select('id, transcribe_rooms!inner(ended_at, created_at)', { count: 'exact', head: true })
+        .select('id, transcribe_rooms!inner(ended_at)', { count: 'exact', head: true })
         .eq('profile_id', userId)
+        .is('capture_ended_at', null)
         .is('transcribe_rooms.ended_at', null)
-        .gt('transcribe_rooms.created_at', cutoff);
+        .gt('joined_at', cutoff);
       // Fail CLOSED on a counting error: an unreadable count is not evidence of zero.
       if (error) return Number.MAX_SAFE_INTEGER;
       return count ?? 0;
     },
 
-    endRoom: async (roomId) => {
+    touchLastSeen: async (memberId) => {
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await serviceClient
-        .from('transcribe_rooms')
-        .update({ ended_at: new Date().toISOString() })
-        .eq('id', roomId)
-        .is('ended_at', null);
+      // A separate write rather than a field on record_transcribe_slice: silent slices never
+      // call that RPC, and they are exactly the ones the sweep needs to see.
+      const { error } = await serviceClient
+        .from('transcribe_room_members')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', memberId);
+      if (error) throw new Error(error.message);
     },
 
     transcribe: async (audio) => {

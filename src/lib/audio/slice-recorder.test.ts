@@ -37,7 +37,14 @@ describe('the capture cadence and the server\'s de-dup window are one number, in
     // surviving duplicate is visible and harmless, a deleted word is invisible and — since
     // no per-slice audio is retained — unrecoverable.
     expect(MAX_WORDS_PER_OVERLAP_SECOND).toBe(3);
-    expect(SLICE_INTERVAL_MS).toBe(4000);
+  });
+
+  // P1307 Decision 5 / Part 4: cadence moves from 4s to 13s (D5's measured verdict —
+  // fewer invented non-Latin characters and lower word error against the whole-file
+  // reference on both runs, Evidence table). LEAD_IN_MS is UNCHANGED ("keep the 1s
+  // lead-in"), so it is asserted separately from the cadence above.
+  it('P1307: SLICE_INTERVAL_MS moves to 13,000ms', () => {
+    expect(SLICE_INTERVAL_MS).toBe(13_000);
   });
 });
 
@@ -156,12 +163,47 @@ describe('encodeWav', () => {
     expect((parsed as { kind: string }).kind).toBe('slice');
   });
 
-  it('a full 4s + 1s slice sits inside the server\'s duration bound', () => {
-    // If the cadence or the lead-in is ever widened, this is where it stops being
-    // acceptable to the ingest function — before it is where a user finds out.
-    const slice = new Float32Array(5 * TARGET_SAMPLE_RATE);
+  it('P1307: a full cadence + lead-in slice sits inside the server\'s duration bound', () => {
+    // Derived from the actual constants (13s + 1s = 14s under P1307) rather than a
+    // hardcoded 5s figure, so this catches drift if either constant moves again without
+    // the ingest bound moving with it — exactly the class of bug D5/Part 4 exists to
+    // prevent (see the constants-drift describe block above).
+    const steadyStateSeconds = (SLICE_INTERVAL_MS + LEAD_IN_MS) / 1000;
+    const slice = new Float32Array(steadyStateSeconds * TARGET_SAMPLE_RATE);
     const info = parseWavHeader(encodeWav(slice, TARGET_SAMPLE_RATE))!;
     expect(info.durationMs).toBeLessThanOrEqual(MAX_SLICE_DURATION_MS);
+  });
+});
+
+// ── P1307 Part 4: the final partial slice on stop() ──────────────────────────
+//
+// createSliceRecorder itself is NOT unit-testable (AudioContext/audioWorklet/microphone —
+// see the file header). What IS testable is the pure shape this behavior implies: a stop()
+// after less than one full interval must still be ABLE to produce a slice above the ~0.5s
+// floor, using the same RingBuffer.readLast the interval timer already uses. This exercises
+// that mechanism directly rather than the untestable integration.
+describe('P1307: the final-partial-slice mechanism (RingBuffer half of stop()\'s flush)', () => {
+  it('a partial buffer above the ~0.5s floor is readable via readLast at stop time', () => {
+    const ring = new RingBuffer(Math.ceil(((SLICE_INTERVAL_MS + LEAD_IN_MS) / 1000 + 1) * TARGET_SAMPLE_RATE));
+    // Simulate 3s of speech accumulated since the last cadence tick — above the 0.5s floor,
+    // below a full interval, which is exactly the "stopped mid-utterance" case Part 4 names.
+    ring.push(ramp(3 * TARGET_SAMPLE_RATE));
+    const flushed = ring.readLast(ring.length);
+    expect(flushed.length / TARGET_SAMPLE_RATE, 'a partial buffer above the floor must be non-trivial').toBeGreaterThan(0.5);
+  });
+
+  it('a buffer below the ~0.5s floor must not be emitted as a slice', () => {
+    // The floor exists specifically to avoid emitting a near-empty noise slice — this pins
+    // the boundary the (as-yet-unbuilt) stop()-time check must apply BEFORE calling onSlice.
+    const ring = new RingBuffer(Math.ceil(((SLICE_INTERVAL_MS + LEAD_IN_MS) / 1000 + 1) * TARGET_SAMPLE_RATE));
+    ring.push(ramp(Math.floor(0.2 * TARGET_SAMPLE_RATE)));
+    const flushed = ring.readLast(ring.length);
+    const flushedSeconds = flushed.length / TARGET_SAMPLE_RATE;
+    expect(flushedSeconds, 'test control: this buffer must genuinely be under the floor').toBeLessThan(0.5);
+    // NOTE: this test documents the boundary value only — createSliceRecorder's stop()
+    // closure (the code that would actually apply this floor and skip onSlice below it) is
+    // not reachable from jsdom. /dev's implementation must be verified by a browser check
+    // (an E2E "one continuous message" test or manual /verify), not by this file.
   });
 });
 

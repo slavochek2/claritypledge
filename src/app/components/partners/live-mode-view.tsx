@@ -88,7 +88,7 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
       {(!uploadHealth || uploadHealth === 'healthy') && (
         <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
           <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-          <span className="text-xs text-blue-700">Session recorded for AI Insights</span>
+          <span className="text-xs text-blue-700">Session transcribed for AI insights</span>
         </div>
       )}
     </div>

@@ -31,6 +31,9 @@ const R = (p: string) => readFileSync(join(process.cwd(), p), 'utf-8');
 const MIGRATION = R('supabase/migrations/20260823190000_p1149_transcribe_room_tables.sql');
 const SERVICE = R('src/app/data/transcribe-service.ts');
 const PAGE = R('src/app/pages/transcribe-room-page.tsx');
+// P1307 Decision 7: capture moved from the room page into the one app-level owner, so the slice
+// POST is now issued there. The page renders the room; it no longer holds a microphone.
+const CAPTURE_OWNER = R('src/app/contexts/room-capture-context.tsx');
 
 describe('P1149 DW-4: DB layer — is_final is a hard constraint, not a convention', () => {
   it('transcribe_messages.is_final is CHECKed to true at the database', () => {
@@ -70,8 +73,16 @@ describe('P1149 DW-4: page layer — there is no interim text to leak', () => {
   });
 
   it('the page does not write transcript text to the server at all', () => {
-    // Its only outbound audio call is the slice POST, which carries audio and no text.
+    // UPDATED for P1307 Decision 7: the capture owner's only outbound audio call is the slice
+    // POST, which carries audio and no text. The same two assertions, pointed at where capture
+    // now lives; the page is additionally held to neither.
     expect(PAGE).not.toMatch(/sendFinalMessage\(/);
-    expect(PAGE).toMatch(/sendAudioSlice\(/);
+    expect(CAPTURE_OWNER).not.toMatch(/sendFinalMessage\(/);
+    expect(CAPTURE_OWNER).toMatch(/sendAudioSlice\(/);
+  });
+
+  it('the capture owner holds no interim text either', () => {
+    expect(CAPTURE_OWNER).not.toMatch(/useSpeechToText\(/);
+    expect(CAPTURE_OWNER).not.toMatch(/interimTranscript/);
   });
 });

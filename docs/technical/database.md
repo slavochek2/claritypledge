@@ -369,6 +369,34 @@ attributed chat while their audio lands in the ML bucket.
 |---|---|
 | `consent_given_at TIMESTAMPTZ` | When this member agreed to be recorded. **Nullable and deliberately NOT backfilled** — rows predating P1236 were written by a client that never told the server anything, and inventing a timestamp would fabricate the consent the column exists to record. Every server path reaching audio treats NULL as REFUSE. |
 | `slice_count INTEGER NOT NULL DEFAULT 0` | Live slices transcribed for this member. Advanced only by `record_transcribe_slice()` under the service role; no UPDATE policy exposes it to a client. |
+| `capture_ended_at TIMESTAMPTZ` | P1307: when THIS member's capture stopped. Set first-wins by `end_transcribe_room_capture()` (the member) or `transcribe_room_sweep_tick()` (per-person cap, or 10 minutes without a signal). Cleared by `enter_transcribe_room()` when the member re-joins a still-open room. |
+| `last_seen_at TIMESTAMPTZ` | P1307: last presence signal — every accepted slice (service role) and the paused heartbeat `touch_transcribe_room_capture()`. The sweep measures staleness from this, never from `transcribe_messages.spoken_at` (silent slices write no message; paused members send no slices). |
+| `next_chunk_seq INTEGER NOT NULL DEFAULT 0` | P1307: the next archive chunk number, issued by `reserve_room_chunk_number()`. Never reset, so an archived chunk is never overwritten. |
+
+**`joined_at` is the per-person 3-hour cap's clock (P1307 D11).** `enter_transcribe_room`'s upsert never
+rewrites it, so switching transcription off and on never resets the three hours. The same 180 minutes,
+measured from this column, is enforced in three places that must move together: `transcribe-slice`
+(`ROOM_MAX_DURATION_MINUTES`), `gcs-signed-url` (`MEMBER_CAPTURE_MAX_MINUTES`) and the sweep
+(`c_member_cap`).
+
+**Rooms end on the server only (P1307).** No client UPDATE policy exists on `transcribe_rooms`; the
+"room members can end the room" policy was dropped. `transcribe_room_sweep_tick()` (pg_cron, every 2
+minutes) ends a room once every member has ended, and creates one `transcribe_room_transcription_jobs`
+row per member in the same statement. **`enter_transcribe_room` has no room-age filter any more** — its
+liveness depends on that sweep running; unscheduling the sweep without restoring an age bound reopens
+the abandoned-room bug.
+
+**`transcribe_room_transcription_jobs`** (P1307) — one row per `(room_id, member_id)` (UNIQUE). `status`
+uses `transcription_jobs`' values (`pending|processing|completed|failed`), `attempts`, `error`,
+`claimed_at`, `completed_at`. Service-role writes only (write privileges revoked from `authenticated`,
+plus `WITH CHECK (false)`); member-scoped SELECT (P1207 shape). An `AFTER INSERT` trigger posts the job
+id to `enqueue-room-transcription`; missing Vault config warns and leaves the job pending.
+
+**`transcribe_room_transcripts`** (P1307) — ONE row per room (`room_id` PK): `segments` (member id,
+start/end ms, text, `also_heard_by`), `speaker_map` (member id → display name, joined after
+transcription), `incomplete_member_ids`, `de_duplication_note`. Written by the `transcribe-room-batch`
+Cloud Run service; member-scoped SELECT. Sessions reference it through
+`transcribe_room_members.session_id` — never copied into `session_transcripts`.
 
 **`transcribe_messages`** — `room_id`, `member_id`, `text`, `spoken_at` (DEFAULT `now()`),
 `is_final BOOLEAN CHECK (is_final = true)`, `created_at`. Indexes: `(room_id, spoken_at)` (P1149)
@@ -384,8 +412,14 @@ accident. A client that can set it chooses the merge order.
 |---|---|---|
 | `is_transcribe_room_member(uuid, uuid)` | `authenticated` | Breaks the roster SELECT policy's self-recursion (42P17). |
 | `get_transcribe_room_by_code(text)` | `authenticated` (**and `anon` — see below**) | P1207: `code` is a bearer credential, so it must be PRESENTED, never listed. Exact equality only — no LIKE, prefix, ordering or paging. |
-| `join_transcribe_room(uuid, text, uuid, boolean)` | `authenticated` | P1236: the only way a member row is created. Takes consent as a required argument and writes it in the same statement as the row. Derives `profile_id` from `auth.uid()` — **never add a `profile_id` argument**. Also refuses a `clarity_sessions` row the caller does not own. |
+| `join_transcribe_room(uuid, text, uuid, boolean)` | `authenticated` | P1236: joins a room by id (the `/transcribe/:code` path). Takes consent as a required argument and writes it in the same statement as the row. Derives `profile_id` from `auth.uid()` — **never add a `profile_id` argument**. Also refuses a `clarity_sessions` row the caller does not own. P1307: stamps `last_seen_at`, and a re-join clears `capture_ended_at` (same correction as `enter_transcribe_room`); `joined_at` is never reset. |
 | `record_transcribe_slice(uuid, uuid, text)` | `service_role` ONLY | P1236: one transaction for the transcript row and the member's slice counter. A client holding this could write an attributed transcript row with RLS bypassed. |
+| `enter_transcribe_room(text, uuid, boolean, text, uuid)` / `create_transcribe_room(text, text, uuid, boolean, uuid)` | `authenticated` | P1307: with an event id, refuse unless the caller has an RSVP for the event or hosts it, and once the event's grace window has passed (`assert_transcribe_event_access`, not client-callable). |
+| `end_transcribe_room_capture(uuid)` | `authenticated` | P1307: ends the CALLER's own capture (first-wins). Never the room, never another member. |
+| `touch_transcribe_room_capture(uuid)` | `authenticated` | P1307: the paused heartbeat — stamps the caller's `last_seen_at`. No audio. |
+| `reserve_room_chunk_number(uuid)` | `authenticated` | P1307: reserves and returns the caller's next archive chunk number. |
+| `transcribe_room_sweep_tick()` | `service_role` ONLY (pg_cron) | P1307: ends stale/capped members, ends fully-ended rooms, creates their jobs. Idempotent. |
+| `claim_room_transcription_job(uuid)` | `service_role` ONLY | P1307: atomic `pending → processing` for the Cloud Run worker. |
 
 **Two live P1065 notes on these functions, both found by reading the catalog rather than the
 migration text.** `join_transcribe_room` was `anon`-executable after its own migration ran, because
@@ -407,7 +441,12 @@ atomically.
 `20260901160000_p1207_transcribe_rooms_code_enumeration.sql`,
 `20260908170000_p1236_transcribe_consent_and_limits.sql`,
 `20260908170200_p1236_c_record_slice_rpc.sql`,
-`20260908170300_p1236_d_revoke_anon_join_rpc.sql`.
+`20260908170300_p1236_d_revoke_anon_join_rpc.sql`,
+`20260914120000_p1307_transcribe_member_capture_end.sql`,
+`20260914120100_p1307_transcribe_chunk_sequence.sql`,
+`20260914120200_p1307_transcribe_member_cap_source.sql`,
+`20260914120300_p1307_transcribe_room_jobs_transcripts_sweep.sql`,
+`20260914120400_p1307_join_room_starts_new_capture.sql`.
 
 ---
 

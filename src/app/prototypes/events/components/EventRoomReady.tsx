@@ -21,12 +21,15 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
 import { PRIMARY_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { getRoomReadinessDistribution, setRoomReadiness } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
+import { useRoomCapture } from '@/app/contexts/room-capture-context';
+import { useAuth } from '@/auth';
 import { cn } from '@/lib/utils';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
@@ -44,6 +47,25 @@ export function EventRoomReady() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const capture = useRoomCapture();
+
+  // P1307 D12: the switch starts OFF — tapping it on is the consent (a pre-ticked switch
+  // followed by Continue is not valid consent: Planet49, C-673/17; GDPR Recital 32). If this
+  // person is already being transcribed for this event it shows ON, and switching it off ends
+  // their own capture (Part 5).
+  const beingTranscribed = event ? capture.isCapturingForEvent(event.id) : false;
+  const [transcribeOn, setTranscribeOn] = useState(false);
+  const [starting, setStarting] = useState(false);
+  useEffect(() => {
+    if (beingTranscribed) setTranscribeOn(true);
+  }, [beingTranscribed]);
+
+  const handleTranscribeToggle = useCallback(() => {
+    const next = !transcribeOn;
+    setTranscribeOn(next);
+    if (!next && beingTranscribed && capture.roomId) void capture.endMyCapture(capture.roomId);
+  }, [transcribeOn, beingTranscribed, capture]);
 
   const [value, setValue] = useState(MIDPOINT_VALUE);
   const [touched, setTouched] = useState(false);
@@ -80,6 +102,7 @@ export function EventRoomReady() {
   }, []);
 
   const handleContinue = useCallback(async () => {
+    if (starting) return;
     if (self) {
       try {
         await setRoomReadiness(self.id, value);
@@ -90,8 +113,23 @@ export function EventRoomReady() {
         // closed/open state on arrival rather than stalling here on an error.
       }
     }
-    navigate(`/events/${slug}/meet`, { state: { fromReady: true } });
-  }, [self, value, refresh, navigate, slug]);
+    // P1307 D1: switch on → join this event's room and start capture; the person lands on
+    // /meet exactly as before, never on /transcribe. Unlike the readiness write above, a
+    // failure here is NOT swallowed: they still land on /meet, with no bar and a message.
+    let transcriptionFailed = false;
+    if (transcribeOn && event && !beingTranscribed) {
+      setStarting(true);
+      const result = await capture.startCapture({
+        eventId: event.id,
+        displayName: user?.name || user?.email || 'Participant',
+      });
+      setStarting(false);
+      // A join that failed and a microphone that could not open both mean nothing is being
+      // transcribed — the person is told the same thing either way.
+      transcriptionFailed = !result.started;
+    }
+    navigate(`/events/${slug}/meet`, { state: { fromReady: true, transcriptionFailed } });
+  }, [starting, self, value, refresh, transcribeOn, event, beingTranscribed, capture, user, navigate, slug]);
 
   if (loading || (granted && selfLoading)) return null;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
@@ -153,9 +191,77 @@ export function EventRoomReady() {
             />
           </div>
 
-          <Button onClick={handleContinue} size="lg" className={cn(PRIMARY_BUTTON_CLASS, 'w-full')}>
-            Continue
-          </Button>
+          {/* P1307 D2: a separate question from the slider, so it sits visibly apart from it —
+              pt-4 on top of the column's own gap (founder review of the prototype). Styled as
+              /live's switch. Only a tap turns it on (D12). */}
+          <div className="w-full pt-4">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={transcribeOn}
+              aria-label={
+                transcribeOn
+                  ? 'Transcribe for AI insights — recording enabled'
+                  : 'Transcribe for AI insights — recording disabled'
+              }
+              onClick={handleTranscribeToggle}
+              data-testid="transcribe-toggle"
+              className={cn(
+                'flex items-center gap-3 w-full min-h-11 px-3 py-2 rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                transcribeOn ? 'bg-blue-50 border-blue-200' : 'bg-muted border-border',
+              )}
+            >
+              <div
+                className={cn(
+                  'relative flex-shrink-0 w-9 h-5 rounded-full transition-colors',
+                  transcribeOn ? 'bg-blue-400' : 'bg-muted-foreground/30',
+                )}
+              >
+                <div
+                  className={cn(
+                    'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform',
+                    transcribeOn ? 'left-[18px]' : 'left-0.5',
+                  )}
+                />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-muted-foreground">Transcribe for AI insights</span>
+                <span className="text-xs text-muted-foreground">
+                  {transcribeOn ? 'Record audio and share transcript with others in the room' : 'Not transcribed'}
+                </span>
+              </div>
+            </button>
+            <span className="sr-only" aria-live="polite">
+              {transcribeOn
+                ? 'Transcription enabled. Your audio is recorded and your transcript is shared with others in the room.'
+                : 'Transcription disabled.'}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <Button
+              onClick={handleContinue}
+              size="lg"
+              className={cn(PRIMARY_BUTTON_CLASS, 'w-full')}
+              aria-busy={starting}
+              data-testid="room-ready-continue"
+            >
+              {starting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+              Continue
+            </Button>
+
+            <p className="text-sm text-muted-foreground text-center">
+              By continuing, you agree to our{' '}
+              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                Terms
+              </a>{' '}
+              and{' '}
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                Privacy Policy
+              </a>
+              .
+            </p>
+          </div>
         </div>
       </div>
     </div>

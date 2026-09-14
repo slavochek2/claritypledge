@@ -1,15 +1,15 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 99
 workstream: transcription
 created_date: '2026-09-11'
 tags: [transcribe, events, live, consent]
 disclosure: public
-delivery_stage: generate-tests
+delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect, generate-tests]
+pipeline_ran: [create-spec, architect, generate-tests, dev]
 uat_file: features/uat/p1307.md
 test_files:
   - e2e/integration/p1307-schema-and-grants.spec.ts
@@ -438,6 +438,16 @@ Live text
 - [ ] The room-end sweep deployed and scheduled on prod, and any new whole-recording function deployed.
 - [ ] `GEMINI_BATCH_API_KEY` present in the prod project's function secrets (the live path already requires it — confirm, do not assume).
 
+### Added by /dev (2026-09-14) — new infrastructure this build needs
+- [ ] Migrations `20260914120000`–`20260914120300` applied to prod in one release (applied to the test DB during /dev). `20260914120200` removes the room-age filter from `enter_transcribe_room`; it is safe only with the sweep in `20260914120300` scheduled.
+- [ ] `cron.job` on prod lists `transcribe_room_sweep` (`*/2 * * * *`) — the migration warns and schedules nothing where pg_cron is absent.
+- [ ] Vault on prod: `enqueue_room_transcription_url`, `enqueue_room_transcription_secret` (the CRON_SECRET value), `enqueue_room_transcription_anon_key`. Without them job rows stay `pending`.
+- [ ] Edge functions deployed: `transcribe-slice` and `gcs-signed-url` (edge-first, before the client), and the new `enqueue-room-transcription` with secrets `CRON_SECRET`, `GCP_ENQUEUER_SA_KEY` and `TRANSCRIBE_ROOM_BATCH_URL`; register them per P834.
+- [ ] Cloud Tasks queue `transcribe-room-jobs` (us-east4) created.
+- [ ] Cloud Run `transcribe-room-batch` (`services/transcribe-room-batch/`) deployed with `--no-allow-unauthenticated`, invoker `tx-task-invoker`, env `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_BATCH_API_KEY`; GCS read on the ML bucket.
+- [ ] Cloud Scheduler job calling `POST /sweep` on `transcribe-room-batch` (the janitor for stale claims and missed dispatches).
+- [ ] Optional, out of repo: an `ifGenerationMatch: 0` precondition on the GCS signing Cloud Function (Decision 6).
+
 ### Post-deploy verification
 - [ ] A real two-device event room on prod: bar, navigation, `/live` pause/resume, room end without anyone pressing End, session transcript.
 - [ ] Sentry clean for 10 minutes after.
@@ -451,6 +461,10 @@ Live text
 - ~~F3. Three hours per room or per person?~~ **Answered 2026-09-14 — D11.**
 - **Copy:** the bar's stall state, and the message on `/meet` when the room could not be joined
   (UI Contract).
+- **F4. A cancelled RSVP mid-event.** (Raised by the /dev code review, 2026-09-14.) `event_rsvps`
+  has no cancelled state — cancelling deletes the row — so a person who cancels while the event is
+  running is refused by the new server check the next time they join (re-opening the ready
+  screen). Capture already running is not stopped. Is that the intended meaning of "may attend"?
 
 **Technical (for `/architect` and `/verify`):**
 
@@ -462,6 +476,10 @@ Live text
 - **T3. Hold or release the stream while paused.** Recommendation given by Architecture
   Decision 8 (hold); still needs the iPhone measurement in `/verify` to confirm or flip it.
 - **T4. Edge-function request body limit** for a ~600 KB base64 slice.
+- **T5. Join contention at event start.** (Raised by the /dev code review, 2026-09-14; not a
+  correctness defect.) `enter_transcribe_room` still serialises every caller, across all events,
+  on one advisory lock. With many attendees pressing Continue together, measure join latency
+  before a real event; a per-event lock key is the obvious change if it matters.
 
 ## Adversarial review (2026-09-11)
 

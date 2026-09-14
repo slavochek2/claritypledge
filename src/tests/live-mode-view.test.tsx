@@ -476,7 +476,9 @@ describe('LiveModeView', () => {
       );
 
       // The recording indicator should be visible
-      expect(screen.getByText(/Session recorded for AI Insights/i)).toBeInTheDocument();
+      // P1307 D6: "/live"'s in-session banner is relabelled — "AI insights" is accurate
+      // (the founder produces insights from transcripts with AI tooling after sessions).
+      expect(screen.getByText(/Session transcribed for AI insights/i)).toBeInTheDocument();
     });
 
     it('shows recording indicator in different session states', () => {
@@ -494,7 +496,9 @@ describe('LiveModeView', () => {
         />
       );
 
-      expect(screen.getByText(/Session recorded for AI Insights/i)).toBeInTheDocument();
+      // P1307 D6: "/live"'s in-session banner is relabelled — "AI insights" is accurate
+      // (the founder produces insights from transcripts with AI tooling after sessions).
+      expect(screen.getByText(/Session transcribed for AI insights/i)).toBeInTheDocument();
     });
   });
 

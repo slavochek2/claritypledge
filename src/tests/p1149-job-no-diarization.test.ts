@@ -1,21 +1,25 @@
 /**
  * @file p1149-job-no-diarization.test.ts
- * @description P1149 DW-7 — transcription jobs for the room are created with diarization
- * off. Non-Goals: "Do NOT enable diarization on these jobs — one device is one speaker."
+ * @description P1149 DW-7 — transcription for the room is done with diarization off.
+ * Non-Goals: "Do NOT enable diarization on these jobs — one device is one speaker."
  *
- * There is no diarization concept anywhere in this repo — not in create_transcription_job,
- * not in transcription_jobs' schema, not in the client call. "Off" holds by absence, not
- * by an extra flag someone has to remember to pass. This file proves that absence holds at
- * every layer endRoom touches, and proves endRoom actually reuses the existing,
- * diarization-free createTranscriptionJob path rather than inventing a new one.
+ * There is no diarization concept anywhere on the room's transcription path. "Off" holds by
+ * absence, not by an extra flag someone has to remember to pass.
+ *
+ * UPDATED for P1307 (Architecture Decisions 5 and 7). The client `endRoom()` this file used to
+ * exercise — which created a `/live` batch job per member through createTranscriptionJob — is
+ * retired: no client ends a room for anyone else, the server-side sweep ends it, and each
+ * member's whole recording is transcribed by the room engine (Gemini per segment, the device as
+ * the speaker), never the Whisper + diarization worker. The DW-7 property is therefore asserted
+ * where the room's jobs are now created and processed.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const R = (p: string) => readFileSync(join(process.cwd(), p), 'utf-8');
 
-describe('P1149 DW-7: no diarization concept exists anywhere touched by room end-of-session', () => {
+describe('P1149 DW-7: no diarization concept exists anywhere touched by room transcription', () => {
   it('api.ts has zero occurrences of "diarization"', () => {
     const api = R('src/app/data/api.ts');
     expect(api).not.toMatch(/diariz/i);
@@ -25,79 +29,26 @@ describe('P1149 DW-7: no diarization concept exists anywhere touched by room end
     const rpc = R('supabase/migrations/20260313140327_p495_create_transcription_job_rpc.sql');
     expect(rpc).not.toMatch(/diariz/i);
   });
-
-  it('endRoom calls the existing createTranscriptionJob — not a parallel job-creation path', () => {
-    const service = R('src/app/data/transcribe-service.ts');
-    const endRoomFn = service.slice(service.indexOf('export async function endRoom'));
-    expect(endRoomFn).toMatch(/createTranscriptionJob\('', m\.sessionId\)/);
-    expect(endRoomFn).not.toMatch(/\.from\('transcription_jobs'\)/);
-  });
 });
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(),
-    channel: vi.fn(),
-    removeChannel: vi.fn(),
-  },
-}));
-
-vi.mock('@/app/data/api', () => ({
-  createClaritySession: vi.fn(),
-  createTranscriptionJob: vi.fn().mockResolvedValue(undefined),
-}));
-
-describe('P1149 DW-7: endRoom creates exactly one job per member, with no extra args', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe('P1307: the room never reaches the diarizing /live batch worker', () => {
+  it('the client has no room-end path and creates no transcription job', () => {
+    const service = R('src/app/data/transcribe-service.ts');
+    expect(service).not.toMatch(/export async function endRoom/);
+    expect(service).not.toMatch(/createTranscriptionJob\(/);
+    expect(service).not.toMatch(/\.from\('transcription_jobs'\)/);
   });
 
-  it('calls createTranscriptionJob once per room member, args = ("", sessionId) only', async () => {
-    const { supabase } = await import('@/lib/supabase');
-    const { createTranscriptionJob } = await import('@/app/data/api');
-    const { endRoom } = await import('@/app/data/transcribe-service');
+  it('the room-end sweep creates room jobs, and never a /live transcription_jobs row', () => {
+    const sweep = R('supabase/migrations/20260914120300_p1307_transcribe_room_jobs_transcripts_sweep.sql');
+    expect(sweep).toMatch(/INSERT INTO public\.transcribe_room_transcription_jobs/);
+    expect(sweep).not.toMatch(/INSERT INTO public\.transcription_jobs/);
+  });
 
-    const members = [
-      { id: 'm1', room_id: 'r1', profile_id: 'p1', display_name: 'A', session_id: 's1', joined_at: 't' },
-      { id: 'm2', room_id: 'r1', profile_id: 'p2', display_name: 'B', session_id: 's2', joined_at: 't' },
-    ];
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === 'transcribe_room_members') {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => Promise.resolve({ data: members, error: null }),
-            }),
-          }),
-        } as unknown as ReturnType<typeof supabase.from>;
-      }
-      if (table === 'transcribe_rooms') {
-        return {
-          // P1236 (2026-09-11): endRoom became idempotent, so the chain gained
-          // `.is('ended_at', null).select('id')`. The row returned below is what says
-          // "THIS caller ended the room" — without it endRoom correctly creates no jobs
-          // and this test's own assertion could not hold. The assertions themselves are
-          // unchanged: the mock tracks a deliberate interface change, it does not soften
-          // anything. Idempotency has its own coverage in p1236-end-room-idempotent.
-          update: () => ({
-            eq: () => ({
-              is: () => ({ select: () => Promise.resolve({ data: [{ id: 'r1' }], error: null }) }),
-            }),
-          }),
-        } as unknown as ReturnType<typeof supabase.from>;
-      }
-      throw new Error(`unexpected table: ${table}`);
-    });
-
-    await endRoom('r1');
-
-    expect(createTranscriptionJob).toHaveBeenCalledTimes(2);
-    expect(createTranscriptionJob).toHaveBeenCalledWith('', 's1');
-    expect(createTranscriptionJob).toHaveBeenCalledWith('', 's2');
-    // Every call has exactly 2 arguments — no third (diarization) argument ever sneaks in.
-    for (const call of vi.mocked(createTranscriptionJob).mock.calls) {
-      expect(call.length).toBe(2);
-    }
+  it('the room engine carries no diarization dependency and sends no diarization setting', () => {
+    const requirements = R('services/transcribe-room-batch/requirements.txt');
+    expect(requirements).not.toMatch(/^\s*(pyannote|openai-whisper|torch)/im);
+    const gemini = R('services/transcribe-room-batch/gemini_client.py');
+    expect(gemini).not.toMatch(/diariz/i);
   });
 });

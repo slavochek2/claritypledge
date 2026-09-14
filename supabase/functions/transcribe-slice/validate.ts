@@ -26,10 +26,11 @@ export const EXPECTED_CHANNELS = 1;
 export const EXPECTED_BITS_PER_SAMPLE = 16;
 
 /**
- * A 5 s slice (4 s new + 1 s lead-in) at that format is ~160 KB.
+ * P1307 Part 4: a 14 s slice (13 s new + 1 s lead-in) at that format is 448,044 bytes.
  *
- * This bound MUST sit above MAX_SLICE_DURATION_MS worth of PCM (8 s = 256,044 bytes with
- * the header), and the ordering is load-bearing rather than cosmetic. At 256 KiB it did
+ * This bound MUST sit above MAX_SLICE_DURATION_MS worth of PCM (17 s = 544,044 bytes with
+ * the header; 640,000 keeps the same ~18% margin the 4 s cadence had), and the ordering is
+ * load-bearing rather than cosmetic. At 256 KiB it did
  * NOT: the byte cap capped duration at 8.19 s, so the duration check could only ever fire
  * in a 0.19 s band and was, for every well-formed 16 kHz mono slice, dead code that read
  * as a working guard. Caught by the RQ5 test, not by review.
@@ -40,14 +41,15 @@ export const EXPECTED_BITS_PER_SAMPLE = 16;
  * audio's own header. A test asserts this inequality directly so that changing either
  * constant alone fails loudly.
  */
-export const MAX_SLICE_BYTES = 320_000;
+export const MAX_SLICE_BYTES = 640_000;
 
-/** Decision 1's cadence is 4 s with 1 s of lead-in, so a well-formed slice is 5 s. The
- *  bound is 8 s: wide enough that a late timer or a long final flush is not refused,
- *  narrow enough that RQ5's five-minute truncation window is unreachable by a factor of
- *  ~37. It is deliberately NOT the harness's 30 s ceiling — that number bounded a
- *  measurement script, and a live ingest has no reason to accept six slices' worth. */
-export const MAX_SLICE_DURATION_MS = 8_000;
+/** P1307 Part 4 (D5): the cadence is 13 s with 1 s of lead-in, so a well-formed slice is
+ *  14 s. The bound is 17 s: wide enough that a late timer or a long final flush is not
+ *  refused, narrow enough that RQ5's five-minute truncation window stays unreachable by a
+ *  factor of ~17. A strict SUPERSET of the old 8 s / 320 KB bounds, which is what lets this
+ *  function deploy before the client: a still-deployed 4 s client's 5 s slices keep
+ *  validating, with no dual-range branch. */
+export const MAX_SLICE_DURATION_MS = 17_000;
 
 /** 180-minute room / 4 s cadence = 2700 slices, so a sequence beyond this cannot belong to
  *  a legitimate room. It bounds replay and nothing else — see the ordering note above. */

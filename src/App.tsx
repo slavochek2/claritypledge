@@ -7,6 +7,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthVerifyPage, AuthProvider, useAuth } from "@/auth";
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
+import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
+import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
@@ -306,6 +308,13 @@ export default function ClarityPledgeApp() {
       <ScrollToTop />
       <PwaInstallProvider>
       <AuthProvider>
+      {/* P1307 Decision 7: the single owner of room transcription capture, above the route
+          table so no route change tears it down; inside auth (it stops on any auth change)
+          and the router (it pauses on /live). The fallback draws the bar on routes with no
+          slot. (Do not write the literal route-table tag in this comment: the P1104 guard
+          test locates it by first occurrence.) */}
+      <RoomCaptureProvider>
+      <RoomCaptureBarFallback />
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>
@@ -1022,6 +1031,7 @@ export default function ClarityPledgeApp() {
       </Routes>
       </TermsAcceptanceGate>
       </AgentAccountsProvider>
+      </RoomCaptureProvider>
       </AuthProvider>
       </PwaInstallProvider>
     </Router>

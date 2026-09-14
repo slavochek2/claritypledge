@@ -59,13 +59,13 @@ Deno.serve((req: Request) =>
       const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: member, error: memberError } = await serviceClient
         .from('transcribe_room_members')
-        .select('profile_id, room_id, consent_given_at')
+        .select('profile_id, room_id, consent_given_at, capture_ended_at, joined_at')
         .eq('id', memberId)
         .maybeSingle();
       if (memberError || !member) return null;
       const { data: room, error: roomError } = await serviceClient
         .from('transcribe_rooms')
-        .select('code')
+        .select('code, ended_at')
         .eq('id', member.room_id)
         .maybeSingle();
       if (roomError || !room) return null;
@@ -75,6 +75,9 @@ Deno.serve((req: Request) =>
         // P1236: `?? null` rather than a bare read — an older row simply has no value
         // here, and the handler's gate reads null as REFUSE.
         consentGivenAt: member.consent_given_at ?? null,
+        roomEndedAt: room.ended_at ?? null,
+        captureEndedAt: member.capture_ended_at ?? null,
+        joinedAt: member.joined_at,
       };
     },
 

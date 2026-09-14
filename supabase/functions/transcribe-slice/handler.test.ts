@@ -98,7 +98,11 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}, membership?: Partial<Sli
   const base: SliceMembership = {
     memberId: MEMBER_ID,
     roomCreatedAt: ROOM_CREATED,
+    // P1307 Decision 3: the per-person cap reads this. Defaults to the room's own creation
+    // time, i.e. a member who joined when the room opened.
+    memberJoinedAt: ROOM_CREATED,
     roomEndedAt: null,
+    captureEndedAt: null,
     consentGivenAt: '2026-09-08T11:00:01.000Z',
     sliceCount: 0,
     ...membership,
@@ -114,7 +118,10 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}, membership?: Partial<Sli
     getMembership: (roomId, userId) =>
       Promise.resolve(roomId === ROOM_ID && userId === ALICE ? base : null),
     countActiveRooms: () => Promise.resolve(1),
-    endRoom: (roomId) => { endedRooms.push(roomId); return Promise.resolve(); },
+    // P1307: the handler no longer ends rooms (D11 — the cap is per person, and the
+    // server-side sweep is the only thing that ends a room). `endedRooms` stays on the
+    // recorder so tests can keep asserting that nothing ended one.
+    touchLastSeen: () => Promise.resolve(),
     transcribe: (audio) => { transcribed.push(audio); return Promise.resolve('hello there world'); },
     getPreviousText: () => Promise.resolve(null),
     insertMessage: (roomId, memberId, text) => { inserted.push({ roomId, memberId, text }); return Promise.resolve(); },
@@ -237,7 +244,10 @@ Deno.test('RQ5: audio longer than one slice is refused, and never reaches Gemini
   // ~the opening five minutes silently. There is no declared-duration field to disagree
   // with: the WAV header is the claim, and it is what gets checked.
   const deps = makeDeps();
-  const long = makeWav({ seconds: 8.5 });
+  // UPDATED for P1307 Part 4: derived from the bound rather than a literal. This test used
+  // 8.5 s against the old 8 s bound; P1307 widens the bound to 17 s, and its own test
+  // asserts 8.5 s is now ACCEPTED — the same audio cannot be both.
+  const long = makeWav({ seconds: MAX_SLICE_DURATION_MS / 1000 + 0.5 });
   assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(long) })).body.error, VERR.tooLong);
   assertEquals(deps.transcribed.length, 0);
 });
@@ -254,10 +264,14 @@ Deno.test('the byte cap and the duration bound are ordered so BOTH can fire', as
   );
 
   const deps = makeDeps();
+  // UPDATED for P1307 Part 4: both durations are derived from the bounds (they were the
+  // literals 8.2 s and 11 s, which encoded the old 8 s / 320 KB pair).
   // Just over the duration bound, comfortably under the byte cap → the DURATION check fires.
-  assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(makeWav({ seconds: 8.2 })) })).body.error, VERR.tooLong);
+  const justOverDuration = MAX_SLICE_DURATION_MS / 1000 + 0.2;
+  assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(makeWav({ seconds: justOverDuration })) })).body.error, VERR.tooLong);
   // Over the byte cap → the BYTE check fires first, before anything is decoded.
-  assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(makeWav({ seconds: 11 })) })).body.error, VERR.audioTooLarge);
+  const overByteCap = Math.ceil(MAX_SLICE_BYTES / (16_000 * 2)) + 1;
+  assertEquals((await call(deps, 'alice', { ...SLICE, audio: b64(makeWav({ seconds: overByteCap })) })).body.error, VERR.audioTooLarge);
   assertEquals(deps.transcribed.length, 0);
 });
 
@@ -379,24 +393,26 @@ Deno.test('410 on a room that has already ended', async () => {
   assertEquals(deps.transcribed.length, 0);
 });
 
-Deno.test('a room past its hard stop is ENDED by this function, not merely refused', async () => {
-  // The client cannot be the clock: endRoom() is caller-initiated only, so without this a
-  // joined member can stream indefinitely. Refusing this one caller would leave the room
-  // open for everyone else — the ceiling has to close the room, not the request.
+// UPDATED for P1307 Decision 3 / D11. These two tests originally pinned a PER-ROOM clock
+// (roomCreatedAt) whose hard stop ended the room for everyone. D11 moves the cap to the
+// person — a latecomer to a long event room keeps their own three hours — and the
+// server-side sweep is now the only thing that ends a room. The ceiling and its 7c
+// counterpart are kept; only the clock they read, and the "room ended" side effect, change.
+Deno.test('a member past their own hard stop is refused with 410, and the room is NOT ended for everyone', async () => {
   const old = new Date(NOW.getTime() - (ROOM_MAX_DURATION_MINUTES + 1) * 60_000).toISOString();
-  const deps = makeDeps({}, { roomCreatedAt: old });
+  const deps = makeDeps({}, { memberJoinedAt: old });
   const r = await call(deps, 'alice', SLICE);
   assertEquals(r.status, 410);
   assertEquals(r.body.error, ERR.roomTooLong);
-  assertEquals(deps.endedRooms, [ROOM_ID]);
+  assertEquals(deps.endedRooms, [], 'a member reaching their cap must not end the room for later joiners');
   assertEquals(deps.transcribed.length, 0);
 });
 
-Deno.test('a room one minute INSIDE the hard stop is not touched', async () => {
+Deno.test('a member one minute INSIDE their own hard stop is not touched', async () => {
   // gate 7c: the ceiling must not fire on legitimate use. 179 minutes is a long
-  // conversation, not an abandoned room.
+  // conversation, not a forgotten page.
   const inside = new Date(NOW.getTime() - (ROOM_MAX_DURATION_MINUTES - 1) * 60_000).toISOString();
-  const deps = makeDeps({}, { roomCreatedAt: inside });
+  const deps = makeDeps({}, { memberJoinedAt: inside });
   assertEquals((await call(deps, 'alice', SLICE)).status, 200);
   assertEquals(deps.endedRooms.length, 0);
   assertEquals(deps.inserted.length, 1);
@@ -517,4 +533,161 @@ Deno.test('OPTIONS is a CORS preflight and touches nothing', async () => {
 Deno.test('a missing env is a 500 before any auth work', async () => {
   const deps = makeDeps({ envReady: false });
   assertEquals((await call(deps, 'alice', SLICE)).status, 500);
+});
+
+// ── P1307 Part 4: every bound that touches a slice moves together ───────────
+//
+// Written before the migration: SLICE_INTERVAL_MS / MAX_SLICE_DURATION_MS / MAX_SLICE_BYTES
+// / MAX_SLICES_PER_MEMBER are expected to change together (spec's bounds table). These
+// tests import the SAME constants the tests above already import from validate.ts/handler.ts
+// — they are not hardcoded here, so once those constants move, these tests automatically
+// check the NEW relationship without needing a second edit. Until then they assert the OLD
+// values are gone, which is the correct failing state for a not-yet-built feature.
+
+Deno.test('P1307: a 13s + 1s lead-in slice (448,044 bytes) is accepted', async () => {
+  const deps = makeDeps();
+  const fourteenSeconds = makeWav({ seconds: 14 });
+  // 44-byte header + 14s * 16,000 Hz * 2 bytes/sample = 448,044 bytes — the spec's own
+  // worked number for the new cadence's steady-state slice.
+  assertEquals(fourteenSeconds.length, 448_044);
+  const r = await call(deps, 'alice', { ...SLICE, audio: b64(fourteenSeconds) });
+  assertEquals(r.status, 200, `expected 200, got ${r.status} (${JSON.stringify(r.body)})`);
+  assertEquals(deps.transcribed.length, 1);
+});
+
+Deno.test('P1307: the edge-first rollout is a SUPERSET — an old 5s slice still validates once the widened bounds are live', async () => {
+  const deps = makeDeps();
+  const fiveSeconds = makeWav({ seconds: 5 });
+  const r = await call(deps, 'alice', { ...SLICE, audio: b64(fiveSeconds) });
+  assertEquals(r.status, 200, 'a still-deployed 4s-cadence client must not be broken by deploying the new bounds first');
+});
+
+Deno.test('P1307: audio past the NEW duration bound is refused, and the old 8s bound no longer applies', async () => {
+  const deps = makeDeps();
+  // 8.5s exceeded the OLD 8s bound and is well inside the new ~17s one — this is the
+  // inverse of the RQ5 test above, pinned to the NEW relationship rather than the old.
+  const eightAndAHalf = makeWav({ seconds: 8.5 });
+  const r = await call(deps, 'alice', { ...SLICE, audio: b64(eightAndAHalf) });
+  assertEquals(r.status, 200, 'an 8.5s slice must be ACCEPTED under the new (~17s) duration bound');
+
+  const overNewBound = makeWav({ seconds: MAX_SLICE_DURATION_MS / 1000 + 1 });
+  const refused = await call(deps, 'alice', { ...SLICE, audio: b64(overNewBound) });
+  assertEquals(refused.body.error, VERR.tooLong, 'audio past the NEW duration bound must still be refused — RQ5 is not reopened');
+});
+
+Deno.test('P1307: the byte cap and duration bound stay ordered at the NEW values (regenerates the P1236 dead-guard proof)', () => {
+  // Re-run of the "both can fire" proof above, generalized to whatever MAX_SLICE_DURATION_MS
+  // / MAX_SLICE_BYTES currently are — so a future bound change is caught here too, not just
+  // once for the 13s migration.
+  const pcmBytesForMaxDuration = (MAX_SLICE_DURATION_MS / 1000) * 16_000 * 2 + 44;
+  assert(
+    MAX_SLICE_BYTES > pcmBytesForMaxDuration,
+    `MAX_SLICE_BYTES (${MAX_SLICE_BYTES}) must exceed ${pcmBytesForMaxDuration} or the duration bound is dead code`,
+  );
+  // The spec's own worked numbers: 17,000ms / 640,000 bytes are the CURRENT expectation —
+  // this assertion documents that specific pair failing until Decision 9 lands, distinct
+  // from the generic inequality above which would pass against ANY correctly-ordered pair.
+  assertEquals(MAX_SLICE_DURATION_MS, 17_000, 'MAX_SLICE_DURATION_MS must move to the P1307 value');
+  assertEquals(MAX_SLICE_BYTES, 640_000, 'MAX_SLICE_BYTES must move to the P1307 value');
+});
+
+Deno.test('P1307: MAX_SLICES_PER_MEMBER is re-derived (~1,000) for the 13s cadence, not left at 3,000', () => {
+  // 180 minutes / 13s cadence ≈ 830 slices; the spec asks for ~1,000 (headroom for
+  // rejoin/replay). Bounded, not pinned to one exact number, since /architect left it as an
+  // approximation ("re-derived to ~1,000").
+  assert(MAX_SLICES_PER_MEMBER < 3_000, `MAX_SLICES_PER_MEMBER (${MAX_SLICES_PER_MEMBER}) must be re-derived below the old 3,000`);
+  assert(MAX_SLICES_PER_MEMBER >= 830, `MAX_SLICES_PER_MEMBER (${MAX_SLICES_PER_MEMBER}) must cover a full 180-minute room at 13s cadence`);
+});
+
+// ── P1307 Decision 3: the per-member cap is measured from THIS MEMBER'S joined_at ───
+//
+// SliceMembership gains `memberJoinedAt` (Decision 3, item 1). This is a TYPE CHANGE to
+// handler.ts, so these two tests will not even compile until that field exists — that is
+// the correct failing state, not a bug in the test.
+
+Deno.test('P1307: the per-slice cap is measured from the MEMBER\'s own joined_at, not the room\'s created_at', async () => {
+  // A member who joined 10 minutes ago in a room that itself is 4 hours old (Decision 3,
+  // AC "a member who joined 10 min ago in a 4-hour-old room is accepted") — under the OLD
+  // roomCreatedAt-based check this would already be refused; under the new memberJoinedAt
+  // check it must be accepted.
+  const roomCreatedFourHoursAgo = new Date(NOW.getTime() - 4 * 60 * 60_000).toISOString();
+  const memberJoinedTenMinutesAgo = new Date(NOW.getTime() - 10 * 60_000).toISOString();
+  const deps = makeDeps({}, {
+    roomCreatedAt: roomCreatedFourHoursAgo,
+    memberJoinedAt: memberJoinedTenMinutesAgo,
+  } as Partial<SliceMembership>);
+
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 200, 'a member 10 minutes into their own capture must be accepted even in a 4h-old room');
+  assertEquals(deps.endedRooms.length, 0, 'the room itself must not be ended — only this member is past nothing');
+});
+
+Deno.test('P1307: a member 3h01 past THEIR OWN joined_at is refused, even in a freshly-created room', async () => {
+  const roomCreatedJustNow = NOW.toISOString();
+  const memberJoinedOverCap = new Date(NOW.getTime() - (3 * 60 + 1) * 60_000).toISOString();
+  const deps = makeDeps({}, {
+    roomCreatedAt: roomCreatedJustNow,
+    memberJoinedAt: memberJoinedOverCap,
+  } as Partial<SliceMembership>);
+
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 410, 'a member over their own 3h cap must be refused even though the room itself is new');
+  assertEquals(deps.transcribed.length, 0);
+});
+
+// ── P1307 Decision 2 correction: last_seen_at is stamped on every accepted REAL slice ──
+//
+// New HandlerDeps member `touchLastSeen`. Named provisionally — /dev may fold this into
+// insertMessage's own service-role write instead of a separate deps function, per the
+// spec's "costs no new round trip" note; if so, this test's shape (a spy call per accepted
+// slice) still holds, only the deps field name changes. Flagged in the test report.
+
+Deno.test('P1307: last_seen_at is touched on an accepted slice that produces text', async () => {
+  const touched: string[] = [];
+  const deps = makeDeps({
+    touchLastSeen: (memberId: string) => { touched.push(memberId); return Promise.resolve(); },
+  } as Partial<HandlerDeps>);
+  await call(deps, 'alice', SLICE);
+  assertEquals(touched, [MEMBER_ID], 'last_seen_at must be stamped for the member who sent the slice');
+});
+
+Deno.test('P1307: last_seen_at is touched even on a SILENT slice — it tracks "sent a slice", not "said something"', async () => {
+  const touched: string[] = [];
+  const deps = makeDeps({
+    transcribe: () => Promise.resolve('   '),
+    touchLastSeen: (memberId: string) => { touched.push(memberId); return Promise.resolve(); },
+  } as Partial<HandlerDeps>);
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.body.text, '');
+  assertEquals(touched, [MEMBER_ID], 'a silent slice is still a live signal — the sweep\'s staleness check depends on this');
+});
+
+Deno.test('P1307: a warmup ping does NOT touch last_seen_at — it returns before reaching Gemini', async () => {
+  const touched: string[] = [];
+  const deps = makeDeps({
+    touchLastSeen: (memberId: string) => { touched.push(memberId); return Promise.resolve(); },
+  } as Partial<HandlerDeps>);
+  await call(deps, 'alice', { roomId: ROOM_ID, warmup: true });
+  assertEquals(touched, [], 'the pre-warm POST must not count as presence — it is not a real slice');
+});
+
+// ── P1307: a member whose own capture has ended is refused (code review finding) ──
+//
+// gcs-signed-url already refuses archive uploads once capture_ended_at is set. The live slice
+// path must refuse the same member, or End would stop the archive while slices kept being
+// transcribed and stored until the whole room ended.
+
+Deno.test('P1307: 410 once THIS member\'s capture has ended, and nothing reaches Gemini', async () => {
+  const deps = makeDeps({}, { captureEndedAt: '2026-09-08T11:30:00.000Z' });
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 410);
+  assertEquals(r.body.error, ERR.captureEnded);
+  assertEquals(deps.transcribed.length, 0);
+  assertEquals(deps.inserted.length, 0);
+});
+
+Deno.test('P1307: control — a member whose capture is running is still transcribed', async () => {
+  const deps = makeDeps({}, { captureEndedAt: null });
+  assertEquals((await call(deps, 'alice', SLICE)).status, 200);
+  assertEquals(deps.transcribed.length, 1);
 });

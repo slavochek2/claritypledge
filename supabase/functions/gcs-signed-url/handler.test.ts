@@ -30,9 +30,15 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps & { forward
     // Profiles: Alice renamed herself after creating the session.
     getProfileName: (userId) =>
       Promise.resolve(userId === ALICE ? 'Alice Renamed' : userId === BOB ? "Bob O'Neil" : null),
-    // One room, ROOM77, with Alice as member MEMBER_ID, consented (P1236 Decision 5).
+    // One room, ROOM77, with Alice as member MEMBER_ID, consented (P1236 Decision 5), room
+    // open, capture running, joined a minute ago (P1307 — well inside every new bound).
     getRoomMembership: (memberId) =>
-      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT } : null),
+      Promise.resolve(memberId === MEMBER_ID
+        ? {
+          profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT,
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+        }
+        : null),
     forward: (body) => {
       forwarded.push(body);
       return Promise.resolve(new Response(JSON.stringify({ uploadUrl: 'https://storage.example/signed', filePath: 'x' }), { status: 200 }));
@@ -254,7 +260,13 @@ Deno.test('room prefix: a member who has not consented is refused, and nothing i
 
   const noConsent = makeDeps({
     getRoomMembership: (memberId) =>
-      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null } : null),
+      Promise.resolve(memberId === MEMBER_ID
+        ? {
+          profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null,
+          // P1307 fields, set to "live" so consent is the ONLY thing that differs.
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+        }
+        : null),
   });
   assertEquals(await status(noConsent, 'alice', body), { status: 403, error: ERR.noConsent });
   assertEquals(noConsent.forwarded.length, 0);
@@ -269,7 +281,13 @@ Deno.test('room prefix: consent is checked AFTER membership — a non-member lea
 
   const outsiderOnUnconsented = makeDeps({
     getRoomMembership: (memberId) =>
-      Promise.resolve(memberId === MEMBER_ID ? { profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null } : null),
+      Promise.resolve(memberId === MEMBER_ID
+        ? {
+          profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null,
+          // P1307 fields, set to "live" so consent is the ONLY thing that differs.
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+        }
+        : null),
   });
   assertEquals(await status(outsiderOnUnconsented, 'bob', body), { status: 403, error: ERR.notParticipant });
   assertEquals(outsiderOnUnconsented.forwarded.length, 0);
@@ -313,6 +331,77 @@ Deno.test('room prefix: only chunk_NNN.webm is a room object name', async () => 
 Deno.test('room prefix with an empty sanitised name (all-symbol display name) still parses', () => {
   const t = parseUploadTarget(`rooms/ROOM77/-${MEMBER_ID}`);
   assertEquals(t, { kind: 'room', code: 'ROOM77', memberId: MEMBER_ID });
+});
+
+// ── P1307 Security Review, Parent verification 3 ─────────────────────────────
+//
+// "gcs-signed-url refuses when the room's ended_at is set, when the member's
+// capture_ended_at is set, or when now() > joined_at + 3 hours" — the client hard stop
+// (Part 1) is backstopped server-side here, mirroring transcribe-slice/handler.ts's own
+// 410 shape. RoomMembership gains roomEndedAt / captureEndedAt / joinedAt — a TYPE CHANGE,
+// so these tests correctly fail to reflect the real gate until handler.ts is updated.
+
+interface RoomMembershipFixture {
+  profileId: string;
+  roomCode: string;
+  consentGivenAt: string | null;
+  roomEndedAt: string | null;
+  captureEndedAt: string | null;
+  joinedAt: string;
+}
+
+const LIVE_MEMBERSHIP: RoomMembershipFixture = {
+  profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT,
+  roomEndedAt: null, captureEndedAt: null, joinedAt: '2026-09-08T09:00:00.000Z',
+};
+
+function makeDepsWithRoomMembership(membership: Partial<RoomMembershipFixture>) {
+  return makeDeps({
+    getRoomMembership: (memberId) =>
+      Promise.resolve(memberId === MEMBER_ID ? { ...LIVE_MEMBERSHIP, ...membership } : null),
+  } as Partial<HandlerDeps>);
+}
+
+Deno.test('P1307: refused once the room has ended (ended_at set)', async () => {
+  const deps = makeDepsWithRoomMembership({ roomEndedAt: '2026-09-08T10:00:00.000Z' });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const r = await status(deps, 'alice', body);
+  assertEquals(r.status, 410, `expected 410 once the room has ended, got ${r.status}`);
+  assertEquals((deps as unknown as { forwarded: unknown[] }).forwarded.length, 0);
+});
+
+Deno.test('P1307: refused once THIS member\'s capture has ended (capture_ended_at set)', async () => {
+  const deps = makeDepsWithRoomMembership({ captureEndedAt: '2026-09-08T10:00:00.000Z' });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const r = await status(deps, 'alice', body);
+  assertEquals(r.status, 410, `expected 410 once this member's capture has ended, got ${r.status}`);
+});
+
+Deno.test('P1307: refused once now() > joined_at + 3 hours — the SAME per-person source as transcribe-slice', async () => {
+  const overCapJoinedAt = new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString();
+  const deps = makeDepsWithRoomMembership({ joinedAt: overCapJoinedAt });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const r = await status(deps, 'alice', body);
+  assertEquals(r.status, 410, `expected 410 past the per-person 3h cap, got ${r.status}`);
+});
+
+Deno.test('P1307: a live member well inside every bound is still forwarded — the new checks are not a regression', async () => {
+  const recentJoinedAt = new Date(Date.now() - 5 * 60_000).toISOString();
+  const deps = makeDepsWithRoomMembership({ joinedAt: recentJoinedAt });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const r = await status(deps, 'alice', body);
+  assertEquals(r.status, 200, `a live, in-bounds member must still be forwarded, got ${r.status}`);
+});
+
+Deno.test('P1307: no-consent still refuses (control — the new checks did not replace the old one)', async () => {
+  const deps = makeDepsWithRoomMembership({ consentGivenAt: null });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  assertEquals(await status(deps, 'alice', body), { status: 403, error: ERR.noConsent });
 });
 
 // ── upstream / validators ───────────────────────────────────────────────────

@@ -186,7 +186,7 @@ export function StartClaritySessionButton({
         ) : (
           <>
             <Sparkles className="w-4 h-4 text-blue-500" />
-            <span className="text-blue-600">Session recorded for AI Insights</span>
+            <span className="text-blue-600">Session transcribed for AI insights</span>
           </>
         )}
       </button>

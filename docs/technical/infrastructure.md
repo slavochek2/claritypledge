@@ -87,9 +87,11 @@ contrast is the point: that service allocates a GPU, and **this one allocates no
 - **The risk migrated rather than disappeared:** from denial-of-wallet by *allocation* (P858's
   €659/mo idle GPU) to denial-of-wallet by *call volume*. Ten members at one 4-second slice each is
   2.5 requests/second sustained. The controls are three server-side ceilings, none of them visible
-  or settable by a client: a 180-minute room hard stop (a constant in `transcribe-slice/handler.ts`,
-  deliberately not a column — see `database.md`), a per-member slice counter advanced inside the same
-  transaction as the message insert, and a per-user concurrent-room limit.
+  or settable by a client: a 180-minute hard stop **per person, from their own `joined_at`** (P1307 D11;
+  a constant in `transcribe-slice/handler.ts`, deliberately not a column — see `database.md`), a
+  per-member slice counter advanced inside the same transaction as the message insert, and a per-user
+  concurrent-room limit. P1307 moved the cadence to one 14-second slice (13 s + 1 s lead-in) every 13 s,
+  so ten members is ~0.8 requests/second.
 - **Engine:** Gemini 3.5 Transcribe on `generativelanguage.googleapis.com`. Vertex AI stays disabled.
   The key is the **batch** project's, never prod-interactive — P1162 split those precisely so a
   background workload cannot fuse the user-facing one, and a runaway room must not take `/chat` and
@@ -101,6 +103,32 @@ contrast is the point: that service allocates a GPU, and **this one allocates no
   from the WAV header the audio itself carries, and its transcriber dependency takes exactly one
   slice, so a "flush everything pending as one call" convenience cannot be added without changing
   that type.
-- **The GPU is not removed from the product.** `endRoom()` still creates a batch `transcription_jobs`
-  row per member, which still wakes `transcribe-session` through the unchanged P858 path above. That
-  path's scale-to-zero remains real and remains what the existing billing check covers.
+- **The GPU is not used by rooms any more (P1307).** The client `endRoom()` that created a batch
+  `transcription_jobs` row per member is gone. `/live` sessions still use `transcribe-session` through
+  the unchanged P858 path above, and its scale-to-zero billing check still applies.
+
+## Room whole-recording pass: `transcribe-room-batch` (P1307)
+
+The saved transcript for a transcribe room. Separate from `transcribe-session` on purpose: the device
+is the speaker, so there is no diarization, no voice profile and no Whisper — the P1237 engine ruling
+for `/live` is untouched.
+
+- **Chain:** `transcribe_room_sweep_tick()` (pg_cron, every 2 min) ends a room and inserts one
+  `transcribe_room_transcription_jobs` row per member → `AFTER INSERT` trigger → `pg_net` →
+  edge function `enqueue-room-transcription` (auth: `x-cron-secret`; mints a Google token from
+  `GCP_ENQUEUER_SA_KEY`) → Cloud Tasks queue `transcribe-room-jobs` (task name = job id, so a duplicate
+  fire is deduplicated) → OIDC (`tx-task-invoker`) → Cloud Run `transcribe-room-batch` `POST /process`,
+  which claims the job atomically, returns 202 and works in the background. `POST /sweep` (Cloud
+  Scheduler) resets stale claims and drains pending jobs a lost trigger left behind.
+- **Service:** CPU-only (`services/transcribe-room-batch/`), ffmpeg + Gemini 3.5 Transcribe with the
+  **batch** key (`GEMINI_BATCH_API_KEY`). Not publicly invokable.
+- **RQ5 applies here too.** Each member's archive is decoded per MediaRecorder run and cut into
+  segments of **at most five minutes**, one Gemini request each. Never a whole recording.
+- **Completeness is reported:** a gap in the chunk sequence, a run without its WebM header, or a
+  capture ended by the sweep's staleness rule puts the member in `incomplete_member_ids`.
+- **Cross-member duplicates** are kept and labelled `also_heard_by`, never deleted.
+- **Logs and task payloads carry ids and counts only** — no audio, no transcript text, no names.
+- **Vault prerequisites** (per project): `enqueue_room_transcription_url`,
+  `enqueue_room_transcription_secret`, `enqueue_room_transcription_anon_key`. Without them the trigger
+  warns and jobs stay pending.
+- **Cost:** ~€0.16 per audio-hour per person on top of the live path (P1237 measurement).

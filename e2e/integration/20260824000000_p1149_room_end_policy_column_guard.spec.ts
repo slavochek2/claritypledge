@@ -14,6 +14,19 @@
  * one client per role, every assertion re-reads via the ADMIN client so a USING-filtered
  * no-op (204, zero rows changed) and a WITH CHECK/trigger rejection (403 or a raised
  * exception) both get caught the same way.
+ *
+ * UPDATED for P1307 (Security Review, Parent verification 1): the "room members can end
+ * the room" UPDATE policy this file originally verified is DROPPED by P1307's migration —
+ * ending a room is now exclusively `end_transcribe_room_capture` (per-person, Decision 1)
+ * plus the server-side sweep (Decision 2), never a direct client UPDATE. The control test
+ * below ("a room member can end the room") is inverted to "a room member CANNOT end the
+ * room" — this is a deliberately-changed behavior, not a regression, and this file is kept
+ * (rather than deleted) because the column-guard trigger it also covers
+ * (`code`/`event_id`/`created_at` immutability) is unrelated to Decision 1 and must keep
+ * holding once the UPDATE policy that used to carry it is gone — see the "column guard
+ * still applies to a non-member's refused attempt" note on the code/event_id tests below.
+ * A parallel, RPC-level test lives in e2e/integration/p1307-end-capture-rpc.spec.ts
+ * ("room members can end the room UPDATE policy is gone").
  */
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
@@ -100,21 +113,42 @@ test.describe('P1149: transcribe_rooms UPDATE policy — column guard', () => {
     await deleteTestUser(member.user.id);
   });
 
-  test('control: a room member can end the room (set ended_at)', async () => {
+  test('P1307: a room member CANNOT set ended_at directly any more', async () => {
+    // Inverted from the pre-P1307 control test of the same shape. Ending a room is now
+    // exclusively end_transcribe_room_capture (per-person) + the server-side sweep
+    // (transcribe_room_sweep_tick) — see p1307-end-capture-rpc.spec.ts. No UPDATE policy on
+    // transcribe_rooms is left for `authenticated` at all (P1307 Build Sequence step 1).
     const room = await seedRoomWithMember('end control');
     const client = await memberClient();
 
-    const { error } = await client
+    await client
       .from('transcribe_rooms')
       .update({ ended_at: new Date().toISOString() })
       .eq('id', room.id);
 
-    expect(error, `A room member must be able to end the room: ${error?.message}`).toBeNull();
     const after = await readRoom(room.id);
-    expect(after.ended_at).not.toBeNull();
+    expect(after.ended_at, 'a client UPDATE must not be able to end a room under P1307').toBeNull();
   });
 
-  test('a room member cannot rewrite `code` while ending the room', async () => {
+  test('P1307: a room member CANNOT clear an already-set ended_at', async () => {
+    const room = await seedRoomWithMember('un-end control');
+    await supabaseAdmin.from('transcribe_rooms').update({ ended_at: new Date().toISOString() }).eq('id', room.id);
+    const client = await memberClient();
+
+    await client.from('transcribe_rooms').update({ ended_at: null }).eq('id', room.id);
+
+    const after = await readRoom(room.id);
+    expect(after.ended_at, 'a client must not be able to un-end a room either').not.toBeNull();
+  });
+
+  test('a room member cannot rewrite `code` — the whole UPDATE is refused, not just this column', async () => {
+    // Pre-P1307, this test isolated the column-guard TRIGGER: the old policy allowed
+    // ended_at through while the trigger blocked code/event_id. With no UPDATE policy left
+    // at all (P1307), RLS refuses the update before the trigger is ever reached — so this
+    // assertion now holds for a structurally different reason than its name once implied.
+    // Kept (not deleted) because the OUTCOME it protects — code can never be rewritten by a
+    // room member — must still hold, and because the trigger remains defense-in-depth
+    // against any future policy that reopens UPDATE on this table.
     const room = await seedRoomWithMember('code rewrite');
     const client = await memberClient();
     const hijackedCode = makeRoomCode();
@@ -133,7 +167,9 @@ test.describe('P1149: transcribe_rooms UPDATE policy — column guard', () => {
     ).toBe(room.code);
   });
 
-  test('a room member cannot re-point `event_id` while ending the room', async () => {
+  test('a room member cannot re-point `event_id` — the whole UPDATE is refused, not just this column', async () => {
+    // Same reasoning as the code-rewrite test above: RLS alone now accounts for the
+    // outcome, but the trigger's own guard is kept as a second, independent line.
     const room = await seedRoomWithMember('event_id rewrite');
     const client = await memberClient();
 

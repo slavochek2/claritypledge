@@ -3,10 +3,14 @@
  * @description P1149: data layer for /transcribe — the live room transcription chat.
  * Rooms, membership, and the room's live chat text (transcribe_messages). Does not
  * touch clarity_sessions, transcription_jobs, or event_room_members directly beyond
- * calling the existing createClaritySession / createTranscriptionJob (A2).
+ * calling the existing createClaritySession (A2).
+ *
+ * P1307: no client ends a room. A person ends only their OWN capture
+ * (`endMyCapture` → end_transcribe_room_capture); the server-side sweep ends a room once
+ * every member has stopped and creates the whole-recording work for each of them.
  */
 import { supabase } from '@/lib/supabase';
-import { createClaritySession, createTranscriptionJob } from './api';
+import { createClaritySession } from './api';
 // Shared with slice-recorder.ts: the same defect appeared at three layers of this feature,
 // so the deadline lives in one place rather than three copies that drift.
 import { withDeadline, RequestTimeoutError } from '@/lib/with-deadline';
@@ -26,6 +30,9 @@ export interface TranscribeRoomMember {
   displayName: string;
   sessionId: string;
   joinedAt: string;
+  /** P1307: when the server recorded this member's consent. Capture starts only when set.
+   *  Present on rows returned by the join RPCs; absent on roster reads, which never need it. */
+  consentGivenAt?: string | null;
 }
 
 export interface TranscribeMessage {
@@ -274,14 +281,17 @@ export async function createRoom(profileId: string, displayName: string, consent
         // profile_id comes back from the RPC, which derived it from auth.uid(). The caller's
         // own `profileId` argument is NOT used here: the server's answer to "whose seat is
         // this" is the only one that governs attribution downstream.
-        member: mapMember({
-          id: row.member_id,
-          room_id: row.room_id,
-          profile_id: row.member_profile_id,
-          display_name: row.member_display_name,
-          session_id: row.member_session_id,
-          joined_at: row.member_joined_at,
-        }),
+        member: {
+          ...mapMember({
+            id: row.member_id,
+            room_id: row.room_id,
+            profile_id: row.member_profile_id,
+            display_name: row.member_display_name,
+            session_id: row.member_session_id,
+            joined_at: row.member_joined_at,
+          }),
+          consentGivenAt: row.member_consent_given_at,
+        },
       };
     }
 
@@ -361,9 +371,11 @@ export async function joinRoom(roomId: string, profileId: string, displayName: s
   if (error) throw new Error(error.message);
   // RETURNS TABLE, so a set — the RPC upserts exactly one row, but an empty result would
   // otherwise surface as `undefined.id` three frames away from the cause.
-  const row = ((data ?? []) as unknown as DbMember[])[0];
+  const row = ((data ?? []) as unknown as Array<DbMember & { consent_given_at?: string | null }>)[0];
   if (!row) throw new Error('Join did not return a membership row');
-  return mapMember(row);
+  // P1307: the RPC returns consent_given_at; the capture owner starts the microphone only when
+  // it is set.
+  return { ...mapMember(row), consentGivenAt: row.consent_given_at ?? null };
 }
 
 /** P1236 Decision 2: the live transcription ingest. Not the GCS signed-URL route — see
@@ -573,54 +585,85 @@ export function subscribeToRoomMessages(roomId: string, onUpdate: (messages: Tra
 }
 
 /**
- * Ends the room and creates a transcription job for every participant's session
- * (A2/A6, DW-7). Reuses the existing createTranscriptionJob RPC path verbatim — it has
- * no diarization parameter at all, so "diarization off" holds by construction, not by an
- * extra flag this function has to remember to pass.
+ * P1307 Decision 1: ends THIS person's capture in a room — never the room, never anyone
+ * else's. The bar's End session, switching the ready-screen switch off and the room page's
+ * End all come here, and nothing else.
+ *
+ * P1236 found the retired client `endRoom()` creating a second transcription job per member
+ * on a repeated End. That cannot recur: the server stamp is first-wins
+ * (`COALESCE(capture_ended_at, now())`), and job creation is the sweep's, in the same
+ * transaction that ends the room. So a second call is a normal outcome and needs no
+ * client-side "already ended" branch that could drift from the server's.
  */
-export async function endRoom(roomId: string): Promise<void> {
-  const members = await withDeadline(
-    getRoomMembers(roomId), ROOM_ENTRY_TIMEOUT_MS, 'reading the roster',
-  ).catch(rethrowAsUnreachable('[transcribe] reading the roster'));
-
-  // `.is('ended_at', null)` is what makes this idempotent, and `.select('id')` is what lets
-  // us find out. Without both, ending a room twice creates a SECOND transcription job for
-  // every member — including members who are not present and whose job was created hours
-  // earlier.
-  //
-  // Two ordinary sequences reach it, neither of them a race a user could be blamed for:
-  //
-  //   - The server ends the room when a slice arrives past the duration cap. Nothing tells
-  //     the other members' browsers (they keep showing "Listening"), so when one of them
-  //     later taps "End Session" the client path runs against an already-ended room and
-  //     re-stamps `ended_at` to the later time — losing when the room actually ended.
-  //   - Two members tap "End Session" within a moment of each other.
-  //
-  // The server's own endRoom (transcribe-slice/index.ts) already guards exactly this way.
-  // This is the client half catching up, not a new idea.
-  const { data: ended, error } = await withDeadline(
-    supabase
-      .from('transcribe_rooms')
-      .update({ ended_at: new Date().toISOString() })
-      .eq('id', roomId)
-      .is('ended_at', null)
-      .select('id'),
+export async function endMyCapture(roomId: string): Promise<void> {
+  // Promise.resolve: the Postgrest builder is a thenable, and withDeadline takes a Promise.
+  const { error } = await withDeadline(
+    Promise.resolve(supabase.rpc('end_transcribe_room_capture', { p_room_id: roomId })),
     ROOM_ENTRY_TIMEOUT_MS,
-    'ending the room',
-  ).catch(rethrowAsUnreachable('[transcribe] ending the room'));
-
+    'ending your capture',
+  ).catch(rethrowAsUnreachable('[transcribe] ending your capture'));
   if (error) throw new Error(error.message);
+}
 
-  // Zero rows means someone else ended it first. That is a normal outcome, not a failure:
-  // their end already created the jobs, so creating them again is the bug this returns to
-  // avoid. Logged rather than silent, because "my End Session did nothing" should be
-  // findable when a transcript later turns up missing.
-  if (!ended || ended.length === 0) {
-    console.warn(`[transcribe] room ${roomId} was already ended — not creating duplicate jobs`);
-    return;
-  }
-
-  await Promise.all(
-    members.map((m) => createTranscriptionJob('', m.sessionId))
+/**
+ * P1307 Decision 6: the next archive chunk number for this member, issued by the server.
+ * A client-local counter restarted at 0 on every mount and overwrote chunk_000 on a return.
+ */
+export async function reserveRoomChunkNumber(roomId: string): Promise<number> {
+  const { data, error } = await withDeadline(
+    Promise.resolve(supabase.rpc('reserve_room_chunk_number', { p_room_id: roomId })),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'reserving a chunk number',
   );
+  if (error) throw new Error(error.message);
+  if (typeof data !== 'number') throw new Error('reserve_room_chunk_number returned no number');
+  return data;
+}
+
+/**
+ * P1307 Decision 2 correction: the paused heartbeat. Carries no audio. Tells the room-end
+ * sweep this person is deliberately not sending (a /live session, an explain-back recording)
+ * rather than gone.
+ */
+export async function touchRoomCapture(roomId: string): Promise<void> {
+  const { error } = await withDeadline(
+    Promise.resolve(supabase.rpc('touch_transcribe_room_capture', { p_room_id: roomId })),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'room heartbeat',
+  );
+  if (error) throw new Error(error.message);
+}
+
+export interface MyCaptureStatus {
+  joinedAt: string;
+  captureEndedAt: string | null;
+  roomEndedAt: string | null;
+}
+
+/**
+ * P1307: whether this person's capture in a room is still live on the server — read before a
+ * reload or a second visit re-attaches to a stored capture, so a capture the server has
+ * already ended (their own End in another tab, the cap, the sweep) is never restarted. Both
+ * reads are member-scoped by RLS (P1207); a non-member gets null.
+ */
+export async function getMyCaptureStatus(roomId: string, profileId: string): Promise<MyCaptureStatus | null> {
+  const [{ data: member, error: memberError }, { data: room, error: roomError }] = await withDeadline(
+    Promise.all([
+      supabase
+        .from('transcribe_room_members')
+        .select('joined_at, capture_ended_at')
+        .eq('room_id', roomId)
+        .eq('profile_id', profileId)
+        .maybeSingle(),
+      supabase.from('transcribe_rooms').select('ended_at').eq('id', roomId).maybeSingle(),
+    ]),
+    ROOM_ENTRY_TIMEOUT_MS,
+    'reading your capture status',
+  );
+  if (memberError || roomError || !member || !room) return null;
+  return {
+    joinedAt: member.joined_at as string,
+    captureEndedAt: (member.capture_ended_at as string | null) ?? null,
+    roomEndedAt: (room.ended_at as string | null) ?? null,
+  };
 }

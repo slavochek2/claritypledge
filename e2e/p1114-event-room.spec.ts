@@ -481,7 +481,11 @@ test.describe('P1114 event page: tab row', () => {
     ).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 
-  test('a returning attendee who already set readiness: "Join now" skips straight to the principle page', async ({ page }) => {
+  // UPDATED for P1307 D10 (founder, 2026-09-14): everyone passes the ready screen, so everyone is
+  // offered the transcription switch. A readiness value from an earlier visit no longer skips
+  // /ready — it is shown on the slider instead. Only a person already being transcribed for the
+  // event goes straight to /meet (covered in e2e/p1307-event-transcription.spec.ts).
+  test('a returning attendee who already set readiness: "Join now" returns to readiness, with their saved value (D10)', async ({ page }) => {
     const attendee = await freshRegistered('P1114 Tab E2E Returning');
     await setTestSession(page, attendee.email);
     // First pass through /ready sets readiness_value — reuses the real flow rather
@@ -492,8 +496,9 @@ test.describe('P1114 event page: tab row', () => {
 
     await page.goto(`/events/${event.slug}`);
     await page.getByRole('link', { name: 'Join now' }).click();
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet$`));
-    await expect(page.getByTestId('room-meet')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
+    await expect(page.getByTestId('room-ready')).toBeVisible();
+    await expect(page.getByRole('switch'), 'the transcription switch is offered on every return visit').toBeVisible();
   });
 
   test('a signed-out visitor clicking "Join now" reaches the gate, not the room content', async ({ page }) => {

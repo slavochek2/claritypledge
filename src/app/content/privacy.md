@@ -108,17 +108,33 @@ anonymous, and we treat it as personal data throughout.
 ### Transcribe rooms (`/transcribe`)
 
 A transcribe room is a shared, live transcript that several signed-in people build from their
-own devices. Joining requires you to tap a control that reads "Recorded and visible to
-everyone in this room"; nothing is captured before you do, and your agreement is recorded on
-our server at the moment you join, not just in your browser.
+own devices. Joining requires you to tap a control: at an event, the "Transcribe for AI
+insights" switch on the ready screen (it starts off) followed by Continue; on `/transcribe`, a
+control that reads "Recorded and visible to everyone in this room". Nothing is captured before
+you do, and your agreement is recorded on our server at the moment you join, not just in your
+browser.
 
 While you speak, short segments of your audio are sent to **Google's Gemini API** to be turned
 into text. That text is attributed to you with a timestamp and shown to everyone in the room.
-Your audio is also uploaded to our Google Cloud Storage bucket and kept there. Leaving the
-room stops your recording.
+Your audio is also uploaded to our Google Cloud Storage bucket and kept there.
 
-Everyone who is in the room can see everything said in it, including anything said before you
-arrived and after you leave.
+Transcription keeps running while you move to other pages of the app, and a bar at the top of
+the page shows that it is running. It pauses while you are in a live session, record an
+explain-back or read a letter, and resumes afterwards. It stops when you press End session (in
+the bar or on the room page) or switch it off on the ready screen, when you sign out, three
+hours after you first switched it on, and when the room ends. Moving to another page does not
+stop it. A page left open — for example on a phone whose screen has turned off — keeps
+recording until one of those happens.
+
+After the room ends, each participant's full recording is transcribed again by the same Gemini
+API, in segments of up to five minutes, and that transcript is added to the session history of
+everyone who took part. When several phones pick up the same sentence, it is kept under each
+device and marked as also heard by the others; if part of a recording is missing, that
+participant's section is marked incomplete.
+
+Only people who have switched transcription on in a room can read its transcript, live or
+saved — including anything said before they arrived and after they left. Registering for an
+event does not by itself give access.
 
 ### Letters and explain-backs
 
@@ -159,9 +175,11 @@ are stored and visible to other members of that group.
 - **Event and story banners.** When you ask for a generated banner, the event or story title
   and description are sent to Google's Gemini API to produce an image, and title keywords may
   be sent to Unsplash to find a stock photo.
-- **Live transcription in transcribe rooms.** Short segments of your recorded voice are sent to
-  Google's Gemini API to be transcribed. Only the audio is sent — no name, no room code and no
-  previously transcribed text goes with it.
+- **Transcription in transcribe rooms.** While you are transcribed, short segments of your
+  recorded voice are sent to Google's Gemini API to be transcribed live. After the room ends,
+  your full recording is sent again, in segments of up to five minutes, to produce the saved
+  transcript. Only the audio is sent — no name, no room code and no previously transcribed
+  text goes with it.
 
 Google processes this content under its own terms. Do not enter health, religious or other
 special-category information into these features, and avoid putting people's names in
@@ -227,7 +245,7 @@ security and operations. We do not build profiles from them.
 | Purpose | Basis |
 |---|---|
 | Account, profile, pledge, stories, letters, agreements, events, groups, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
-| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
+| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, switching "Transcribe for AI insights" on at an event's ready screen, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
 | Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) this is biometric data under Art. 9, which normally requires explicit consent; today it is covered by the recording consent above |
 | Using recordings, transcripts and session events to improve our AI/ML services (anonymized) | Consent — Art. 6(1)(a), given with the recording |
 | Storing a letter recipient's or agreement partner's email address, and sending it to our email provider | Legitimate interest — Art. 6(1)(f): delivering what a user asked us to send to you; you can have it removed at any time |
@@ -269,7 +287,7 @@ by the person's name, never the bare name on its own.
 | Brevo | Delivers sign-in emails | Email address, sign-in link | European Union |
 | Google (Sign-In) | Optional sign-in | Google account email, name, picture | Google's global infrastructure |
 | Google Cloud (Storage, Cloud Run, Cloud Functions) | Audio, images, transcription service we run | Recordings, transcripts, voice profiles, images | United States |
-| Google Gemini API | `/chat` replies; generated banners; live transcription in transcribe rooms | Chat text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
+| Google Gemini API | `/chat` replies; generated banners; live and saved transcription in transcribe rooms | Chat text; event/story titles and descriptions; recorded voice segments | Google's global infrastructure |
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |

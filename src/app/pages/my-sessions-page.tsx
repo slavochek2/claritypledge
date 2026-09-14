@@ -10,7 +10,7 @@ import { ChevronLeft, CheckCircle2, XCircle, ChevronRight, Copy, Check, External
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { getUserSessions, type SessionSummary } from '@/app/data/sessions-service';
-import { fetchSessionTranscript, retryTranscription } from '@/app/data/api';
+import { fetchRoomTranscript, fetchSessionTranscript, retryTranscription, type RoomTranscript } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import { SessionList } from '@/app/components/sessions/session-list';
 import { RoundSummaryScreen } from '@/app/components/partners/round-summary-screen';
@@ -202,7 +202,126 @@ function formatTranscriptForCopy(transcript: SessionTranscript): string {
     .join('\n');
 }
 
+function formatRoomTranscriptForCopy(transcript: RoomTranscript): string {
+  return transcript.segments
+    .map((seg) => `${seg.speakerLabel} [${formatTimestamp(seg.startMs)}]: ${seg.text}`)
+    .join('\n');
+}
+
+/**
+ * P1307 Decision 4: a transcribe room session shows the ROOM's one transcript — the saved
+ * whole-recording version once it exists, the live rows before — attributed by speaker, in
+ * spoken order. A room with no speech gets the same empty state as any other session.
+ */
+function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => void }) {
+  const [transcript, setTranscript] = useState<RoomTranscript | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchRoomTranscript(roomId).then((data) => {
+      if (!cancelled) {
+        setTranscript(data);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [roomId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onBack();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onBack]);
+
+  const handleCopy = async () => {
+    if (!transcript) return;
+    try {
+      await navigator.clipboard.writeText(formatRoomTranscriptForCopy(transcript));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.error('[P1307] Failed to copy room transcript');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!transcript || transcript.segments.length === 0) {
+    return (
+      <div className="text-center py-12" data-testid="room-transcript-empty">
+        <p className="text-sm text-muted-foreground">No speech detected in this recording.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="room-transcript" data-source={transcript.source}>
+      <div className="flex items-center justify-end mb-4">
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
+          aria-label="Copy transcript to clipboard"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+
+      <div aria-live="polite" className="sr-only" role="status">
+        {copied ? 'Transcript copied to clipboard' : ''}
+      </div>
+
+      <div className="space-y-4">
+        {transcript.segments.map((segment, i) => (
+          <article
+            key={i}
+            aria-label={`${segment.speakerLabel} at ${formatTimestamp(segment.startMs)}`}
+            className="text-sm"
+          >
+            <div className="flex items-baseline gap-2 mb-0.5">
+              <span className="font-semibold text-foreground">{segment.speakerLabel}</span>
+              <span className="text-xs text-muted-foreground">{formatTimestamp(segment.startMs)}</span>
+            </div>
+            <p className="text-foreground/90 leading-relaxed">{segment.text}</p>
+            {/* Decision 5's label: a sentence several phones heard is kept, never deleted. */}
+            {segment.alsoHeardBy.length > 0 && (
+              <p className="text-xs text-muted-foreground">also heard by {segment.alsoHeardBy.join(', ')}</p>
+            )}
+            {segment.fromIncompleteRecording && (
+              // [FOUNDER DECISION: copy — placeholder] Part 3: an incomplete archive is reported,
+              // never presented as whole.
+              <p className="text-xs text-muted-foreground">Recording incomplete</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TranscriptView({
+  session,
+  onBack,
+}: {
+  session: SessionSummary;
+  onBack: () => void;
+}) {
+  if (session.roomId) return <RoomTranscriptView roomId={session.roomId} onBack={onBack} />;
+  return <SessionTranscriptView session={session} onBack={onBack} />;
+}
+
+function SessionTranscriptView({
   session,
   onBack,
 }: {
@@ -356,10 +475,17 @@ export function MySessionsPage() {
     else if (view.type === 'session') setView({ type: 'list' });
   };
 
-  // Copy transcript from session detail (uses fetchSessionTranscript)
-  const handleCopyTranscript = async (sessionId: string) => {
+  // Copy transcript from session detail — the room's transcript for a room session (P1307)
+  const handleCopyTranscript = async (session: SessionSummary) => {
     try {
-      const transcript = await fetchSessionTranscript(sessionId);
+      if (session.roomId) {
+        const transcript = await fetchRoomTranscript(session.roomId);
+        if (transcript && transcript.segments.length > 0) {
+          await navigator.clipboard.writeText(formatRoomTranscriptForCopy(transcript));
+        }
+        return;
+      }
+      const transcript = await fetchSessionTranscript(session.id);
       if (transcript && transcript.segments.length > 0) {
         const text = formatTranscriptForCopy(transcript);
         await navigator.clipboard.writeText(text);
@@ -430,7 +556,7 @@ export function MySessionsPage() {
           {/* Transcript row — above rounds for prominence */}
           <TranscriptRow
             session={view.session}
-            onCopy={() => handleCopyTranscript(view.session.id)}
+            onCopy={() => handleCopyTranscript(view.session)}
             onOpen={() => setView({ type: 'transcript', session: view.session })}
             onRetry={() => handleRetryTranscription(view.session.id)}
           />

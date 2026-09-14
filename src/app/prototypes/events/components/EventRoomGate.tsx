@@ -13,6 +13,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 
 const GATE_HEADING = 'This is for people coming to the event';
@@ -65,14 +66,17 @@ export function EventRoomGateScreen({
 
 export function EventRoomGate() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
-  const { self, loading: selfLoading } = useEventRoomSelf(event, granted);
+  const { loading: selfLoading } = useEventRoomSelf(event, granted);
+  const { isCapturingForEvent } = useRoomCapture();
 
   if (loading || (granted && selfLoading)) return null;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
-  // Readiness already set on a return visit → skip straight to the principle
-  // (UAT: "return visit with readiness already set lands on …/meet, skipping
-  // readiness"). Otherwise readiness first, same as every first visit.
-  const destination = self?.readinessValue != null ? 'meet' : 'ready';
+  // P1307 D10: everyone passes the ready screen, so everyone is offered the transcription
+  // switch. Only a person ALREADY being transcribed for this event goes straight to /meet.
+  // A readiness value from an earlier visit no longer skips /ready — the slider shows it
+  // instead. (Replaces P1114's "return visit with readiness already set lands on /meet".)
+  const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
+  const destination = alreadyTranscribed ? 'meet' : 'ready';
   return <Navigate to={`/events/${slug}/${destination}`} replace />;
 }

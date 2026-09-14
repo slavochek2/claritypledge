@@ -1,49 +1,33 @@
 /**
- * P1236 — ending a room twice must not create a second transcription job per member.
+ * P1307 REPLACES this file's original subject. `endRoom()` (client-side, ends a room for
+ * every member) is retired by Decision 7 — Part 1's "no client ever ends a room for anyone
+ * else" invariant forbids it as a UI action now that Decision 1 provides the correct
+ * per-person alternative (`endMyCapture`). Per the P1236 finding this file used to guard
+ * (a second "End Session" tap re-stamping `ended_at` and re-creating a job for every
+ * member, including ones who had left), the SAME idempotency property is now asked of
+ * `endMyCapture` instead — first-wins on the server (`end_transcribe_room_capture`'s
+ * `COALESCE(capture_ended_at, now())`), and this file pins that no client-side path can
+ * still reach a room-wide end.
  *
- * Found by adversarial review of this branch, 2026-09-11, and verified against the source
- * before being acted on: the client `endRoom` stamped `ended_at` unconditionally and then
- * created a job for every member, while the SERVER's endRoom
- * (supabase/functions/transcribe-slice/index.ts) had guarded with `.is('ended_at', null)`
- * all along. The two halves disagreed.
- *
- * Two ordinary sequences reach it, neither of them an exotic race:
- *
- *   1. The server ends the room when a slice arrives past the 180-minute cap. Nothing
- *      tells the other members' browsers — they still show "Listening" — so when one of
- *      them taps "End Session" an hour later, the client path runs against an
- *      already-ended room, re-stamps `ended_at` to the later time (losing when the room
- *      actually ended) and re-creates a job for every member, including ones who left.
- *   2. Two members tap "End Session" within a moment of each other.
+ * The original P1236 finding is preserved as historical context above; it is not re-tested
+ * here because the code path it found (client-side `endRoom`) no longer exists to test.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const updateChain = { rows: [] as { id: string }[] };
-const roster = { rows: [] as Record<string, string>[] };
+const rpcCalls: Array<{ fn: string; args: unknown }> = [];
 
-// Two tables, two shapes. `transcribe_room_members` is read with
-// .select().eq().order(); `transcribe_rooms` is written with .update().eq().is().select().
-// Routing on the table name keeps the guard chain honest — a mock that answered every
-// chain identically would pass whether or not `.is()` were ever called.
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    rpc: vi.fn(),
-    from: (table: string) => {
-      if (table === 'transcribe_room_members') {
-        return {
-          select: () => ({
-            eq: () => ({ order: () => Promise.resolve({ data: roster.rows, error: null }) }),
-          }),
-        };
-      }
-      return {
-        update: () => ({
-          eq: () => ({
-            // `.is('ended_at', null)` is the guard; [] models "someone ended it first".
-            is: () => ({ select: () => Promise.resolve({ data: updateChain.rows, error: null }) }),
-          }),
-        }),
-      };
+    rpc: (fn: string, args: unknown) => {
+      rpcCalls.push({ fn, args });
+      return Promise.resolve({ data: null, error: null });
+    },
+    from: () => {
+      throw new Error(
+        '[test] supabase.from() was called — endMyCapture must go through the ' +
+        'end_transcribe_room_capture RPC, never a direct table UPDATE (no client UPDATE ' +
+        'is left on transcribe_rooms or transcribe_room_members for this field).',
+      );
     },
   },
 }));
@@ -54,36 +38,47 @@ vi.mock('@/app/data/api', () => ({
   createTranscriptionJob: (...a: unknown[]) => createTranscriptionJob(...a),
 }));
 
-import { endRoom } from '@/app/data/transcribe-service';
-
-const TWO_MEMBERS = [
-  { id: 'm1', room_id: 'r1', profile_id: 'p1', display_name: 'A', session_id: 's1', joined_at: 't' },
-  { id: 'm2', room_id: 'r1', profile_id: 'p2', display_name: 'B', session_id: 's2', joined_at: 't' },
-];
-
 beforeEach(() => {
-  roster.rows = TWO_MEMBERS;
-  createTranscriptionJob.mockReset().mockResolvedValue(undefined);
-  updateChain.rows = [];
+  rpcCalls.length = 0;
+  createTranscriptionJob.mockReset();
 });
 
-describe('P1236 — endRoom is idempotent', () => {
-  it('creates one job per member when this caller is the one that ends the room', async () => {
-    updateChain.rows = [{ id: 'r1' }];          // the UPDATE affected a row → we ended it
-    await endRoom('r1');
-    expect(createTranscriptionJob).toHaveBeenCalledTimes(2);
+describe('P1307 — endRoom is retired; endMyCapture is the only client-side end path', () => {
+  it('transcribe-service.ts exports no client-callable endRoom() any more', async () => {
+    const mod = await import('@/app/data/transcribe-service');
+    expect(
+      (mod as Record<string, unknown>).endRoom,
+      'endRoom() must be removed from transcribe-service.ts (Decision 7) — its only ' +
+      'callers today fan out createTranscriptionJob per member, which Part 1 forbids.',
+    ).toBeUndefined();
   });
 
-  it('creates NO jobs when the room was already ended by someone else', async () => {
-    updateChain.rows = [];                       // guard matched nothing → already ended
-    await endRoom('r1');
-    // This is the whole finding: without the guard, member A gets a SECOND job for the
-    // same session — hours after the first one, from a browser that was not even present.
+  it('endMyCapture calls end_transcribe_room_capture exactly once and creates no transcription job itself', async () => {
+    const mod = await import('@/app/data/transcribe-service');
+    const endMyCapture = (mod as Record<string, unknown>).endMyCapture as
+      ((roomId: string) => Promise<void>) | undefined;
+    expect(endMyCapture, 'transcribe-service.ts must export endMyCapture(roomId) (Decision 1)').toBeTypeOf('function');
+
+    await endMyCapture!('r1');
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0]!.fn).toBe('end_transcribe_room_capture');
+    expect(rpcCalls[0]!.args).toEqual({ p_room_id: 'r1' });
+    // Job creation is the sweep's job (Decision 2, service-role, in the same transaction as
+    // the room end) — never the ending client's. This is the exact defect the retired
+    // endRoom() had: it created N jobs from the caller's own browser.
     expect(createTranscriptionJob).not.toHaveBeenCalled();
   });
 
-  it('does not throw when it loses the race — a second End Session is a normal outcome', async () => {
-    updateChain.rows = [];
-    await expect(endRoom('r1')).resolves.toBeUndefined();
+  it('calling endMyCapture twice does not throw — a second End is a normal outcome', async () => {
+    const mod = await import('@/app/data/transcribe-service');
+    const endMyCapture = (mod as Record<string, unknown>).endMyCapture as (roomId: string) => Promise<void>;
+    await expect(endMyCapture('r1')).resolves.toBeUndefined();
+    await expect(endMyCapture('r1')).resolves.toBeUndefined();
+    // Idempotency itself (first-wins on capture_ended_at) is a server property, asserted
+    // against the real DB in e2e/integration/p1307-end-capture-rpc.spec.ts — this test only
+    // pins that the CLIENT does not need its own guard (no local "already ended" branching
+    // that could itself drift from the server's).
+    expect(rpcCalls).toHaveLength(2);
+    expect(rpcCalls.every((c) => c.fn === 'end_transcribe_room_capture')).toBe(true);
   });
 });

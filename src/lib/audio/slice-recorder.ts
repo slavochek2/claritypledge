@@ -30,11 +30,18 @@ export const AUDIO_SETUP_TIMEOUT_MS = 10_000;
  *  ingest side accepts — exact match, not a minimum. */
 export const TARGET_SAMPLE_RATE = 16_000;
 
-/** Decision 1: a slice every 4 s, each carrying 1 s of lead-in, so a steady-state slice is
- *  5 s. Kept in sync with `dedup.ts`'s OVERLAP_SECONDS, which converts the same second
- *  into the token window it is allowed to strip. */
-export const SLICE_INTERVAL_MS = 4_000;
+/** P1307 D5: a slice every 13 s, each carrying 1 s of lead-in, so a steady-state slice is
+ *  14 s. Measured 2026-09-11 against 4 s on the same real room audio: invented non-Latin
+ *  characters 37 → 2, word error against the whole-file transcript 55.2% → 30.0%.
+ *  transcribe-slice/validate.ts bounds a slice at 17 s and MUST move with this. The lead-in
+ *  is unchanged and stays in sync with `dedup.ts`'s OVERLAP_SECONDS. */
+export const SLICE_INTERVAL_MS = 13_000;
 export const LEAD_IN_MS = 1_000;
+
+/** P1307 Part 4: on stop, the audio gathered since the last tick is sent as one final slice —
+ *  otherwise up to 13 s of the last utterance never reaches live text. Below this length the
+ *  flush is skipped: a near-empty slice is noise, not speech. */
+export const FINAL_SLICE_MIN_MS = 500;
 
 /** Headroom over one slice, so a late timer tick does not read past the write pointer and
  *  silently lose the oldest part of the slice it is assembling. */
@@ -224,11 +231,22 @@ export function createSerialSender(
   };
 }
 
+/** RMS of one block of samples, 0..1. Cheap enough to run on every worklet message. */
+export function rootMeanSquare(samples: Float32Array): number {
+  if (samples.length === 0) return 0;
+  let sum = 0;
+  for (const sample of samples) sum += sample * sample;
+  return Math.sqrt(sum / samples.length);
+}
+
 export interface SliceRecorderOptions {
   /** Called with one encoded WAV per cadence tick. Sequence starts at 0 and only grows. */
   onSlice: (wav: Uint8Array, sequence: number) => void;
   /** Non-fatal problems (a failed worklet load, a dropped context). */
   onError?: (err: unknown) => void;
+  /** P1307 D4: the input level of each worklet block, for the transient "…" speaking cue.
+   *  Never persisted and never sent to the transcriber. */
+  onLevel?: (rms: number) => void;
   /** Overridable for tests and for a future cadence change. */
   intervalMs?: number;
   leadInMs?: number;
@@ -301,23 +319,33 @@ export async function createSliceRecorder(
 
   const source = context.createMediaStreamSource(stream);
   const tap = new AudioWorkletNode(context, 'pcm-tap');
-  tap.port.onmessage = (event: MessageEvent<Float32Array>) => ring.push(event.data);
+  // Samples received since the last emitted slice — what the final flush on stop() sends.
+  let samplesSinceTick = 0;
+  tap.port.onmessage = (event: MessageEvent<Float32Array>) => {
+    ring.push(event.data);
+    samplesSinceTick += event.data.length;
+    options.onLevel?.(rootMeanSquare(event.data));
+  };
   source.connect(tap);
   // Deliberately NOT connected to context.destination: routing the microphone to the
   // speakers is feedback, not monitoring. An AudioWorkletNode pulls input without a
   // downstream connection, so the tap runs regardless.
 
   let sequence = 0;
+  const emit = (sampleCount: number) => {
+    const raw = ring.readLast(sampleCount);
+    if (raw.length === 0) return;
+    const at16k = resampleTo(raw, captureRate, TARGET_SAMPLE_RATE);
+    options.onSlice(encodeWav(at16k, TARGET_SAMPLE_RATE), sequence++);
+  };
+
   const timer = setInterval(() => {
     try {
-      const wantSeconds = (intervalMs + leadInMs) / 1000;
-      const raw = ring.readLast(Math.ceil(wantSeconds * captureRate));
       // Slice 0 has no lead-in to take — nothing preceded it — so it is one interval long,
       // and every slice after it is interval + lead-in. The server does not care: it
       // de-duplicates against text, not against a declared overlap.
-      if (raw.length === 0) return;
-      const at16k = resampleTo(raw, captureRate, TARGET_SAMPLE_RATE);
-      options.onSlice(encodeWav(at16k, TARGET_SAMPLE_RATE), sequence++);
+      samplesSinceTick = 0;
+      emit(Math.ceil(((intervalMs + leadInMs) / 1000) * captureRate));
     } catch (err) {
       options.onError?.(err);
     }
@@ -327,6 +355,17 @@ export async function createSliceRecorder(
     stop: () => {
       clearInterval(timer);
       tap.port.onmessage = null;
+      // P1307 Part 4: the final partial slice. Synchronous and BEFORE the graph is torn down,
+      // so the caller's sender still receives it. Carries the usual lead-in so the server's
+      // de-duplicator sees the same overlap shape as every other slice.
+      try {
+        if (samplesSinceTick >= (FINAL_SLICE_MIN_MS / 1000) * captureRate) {
+          emit(samplesSinceTick + Math.ceil((leadInMs / 1000) * captureRate));
+        }
+      } catch (err) {
+        options.onError?.(err);
+      }
+      samplesSinceTick = 0;
       try {
         source.disconnect();
         tap.disconnect();

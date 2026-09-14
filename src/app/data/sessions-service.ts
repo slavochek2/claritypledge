@@ -17,6 +17,12 @@ export interface SessionSummary {
   sessionHistory: SessionHistoryItem[];
   isPrivate: boolean;
   transcriptStatus: TranscriptionJobStatus;
+  /**
+   * P1307 Decision 4: set when this session is a person's seat in a transcribe room. Its
+   * transcript is the ROOM's one transcript, read by reference (member-scoped, P1207) — never
+   * the per-session `session_transcripts` row, which a room session never has.
+   */
+  roomId: string | null;
 }
 
 interface SessionRow {
@@ -33,7 +39,11 @@ interface SessionRow {
   transcription_jobs: Array<{ status: string; created_at: string }> | null;
 }
 
-function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
+function mapSessionFromDb(
+  row: SessionRow,
+  profileId: string,
+  roomBySession: ReadonlyMap<string, string> = new Map(),
+): SessionSummary {
   const isCreator = row.creator_profile_id === profileId;
   const partnerName = isCreator
     ? (row.joiner_name ?? row.creator_name ?? 'Unknown')
@@ -49,6 +59,7 @@ function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
     (a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''),
   );
   const latestJobStatus = (jobs.length > 0 ? jobs[0].status : null) as TranscriptionJobStatus;
+  const roomId = roomBySession.get(row.id) ?? null;
 
   return {
     id: row.id,
@@ -57,16 +68,44 @@ function mapSessionFromDb(row: SessionRow, profileId: string): SessionSummary {
     date: row.created_at,
     sessionHistory: history as SessionHistoryItem[],
     isPrivate: row.is_private ?? false,
-    transcriptStatus: latestJobStatus,
+    // A room session always has something to read: the live rows until the whole-recording
+    // pass completes, the saved transcript after. It never carries a per-session batch job,
+    // so the /live retry path must not be offered for it.
+    transcriptStatus: roomId ? 'completed' : latestJobStatus,
+    roomId,
   };
 }
 
+/**
+ * P1307 Decision 4: this person's room seats, as session id → room id. Reads the caller's own
+ * member rows, which the roster policy already lets a member see; a failure degrades to "no
+ * room sessions" (the list still loads) rather than failing the whole history.
+ */
+async function getRoomSeatsBySession(profileId: string): Promise<Map<string, string>> {
+  try {
+    const { data, error } = await supabase
+      .from('transcribe_room_members')
+      .select('session_id, room_id')
+      .eq('profile_id', profileId);
+    if (error) throw error;
+    return new Map((data ?? []).map((m) => [m.session_id as string, m.room_id as string]));
+  } catch (err) {
+    // Degrade, never fail the history: without this read, room sessions simply show no
+    // transcript row, which is what they showed before P1307.
+    console.error('[sessions-service] Failed to read room seats:', err);
+    return new Map();
+  }
+}
+
 export async function getUserSessions(profileId: string): Promise<SessionSummary[]> {
-  const { data, error } = await supabase
-    .from('clarity_sessions')
-    .select('id, creator_profile_id, joiner_profile_id, creator_name, joiner_name, created_at, is_private, live_state, transcription_jobs(status, created_at)')
-    .or(`creator_profile_id.eq.${profileId},joiner_profile_id.eq.${profileId}`)
-    .order('created_at', { ascending: false });
+  const [{ data, error }, roomBySession] = await Promise.all([
+    supabase
+      .from('clarity_sessions')
+      .select('id, creator_profile_id, joiner_profile_id, creator_name, joiner_name, created_at, is_private, live_state, transcription_jobs(status, created_at)')
+      .or(`creator_profile_id.eq.${profileId},joiner_profile_id.eq.${profileId}`)
+      .order('created_at', { ascending: false }),
+    getRoomSeatsBySession(profileId),
+  ]);
 
   // P813: surface fetch failures instead of returning []. With the filter gone,
   // an empty array means "this user has no sessions" — masking an error as []
@@ -85,5 +124,5 @@ export async function getUserSessions(profileId: string): Promise<SessionSummary
   // rendered de-emphasized in the UI rather than hidden, so the history reads
   // as a journal of what happened, not a curated highlight reel.
   return (data as unknown as SessionRow[])
-    .map((row) => mapSessionFromDb(row, profileId));
+    .map((row) => mapSessionFromDb(row, profileId, roomBySession));
 }

@@ -4208,7 +4208,7 @@ export function ClarityLivePage() {
                       <button
                         role="switch"
                         aria-checked={!isPrivate}
-                        aria-label={isPrivate ? 'Private session — recording disabled' : 'Record session for AI Insights'}
+                        aria-label={isPrivate ? 'Private session — recording disabled' : 'Transcribe for AI insights'}
                         onClick={() => setIsPrivate((prev) => !prev)}
                         className={`flex items-center gap-3 w-full min-h-11 px-3 py-2 rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                           isPrivate
@@ -4227,7 +4227,7 @@ export function ClarityLivePage() {
                               <span className="text-xs text-muted-foreground">AI insights disabled</span>
                             </>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Record for AI Insights</span>
+                            <span className="text-xs text-muted-foreground">Transcribe for AI insights</span>
                           )}
                         </div>
                       </button>
@@ -4500,7 +4500,7 @@ export function ClarityLivePage() {
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                      <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
+                      <div className="text-sm text-blue-700">Session transcribed for AI insights</div>
                     </>
                   )}
                 </div>

@@ -67,7 +67,7 @@
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
@@ -210,6 +210,10 @@ export function EventRoomMeet() {
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const { user } = useAuth();
   const navigate = useNavigate();
+  // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
+  // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
+  const location = useLocation();
+  const transcriptionFailed = (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
   /** Which answer the person has chosen but not yet committed with a number. Local, never
    * server state — nothing is written until the rating card's Submit. */
@@ -372,6 +376,14 @@ export function EventRoomMeet() {
           label="Back"
           aria-label="Back to readiness"
         />
+        {transcriptionFailed && (
+          // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
+          // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build
+          // with it and confirm at /verify]
+          <p role="status" className="mt-2 text-sm text-muted-foreground" data-testid="room-transcription-failed">
+            Transcription couldn&rsquo;t start. You can switch it on again from the ready screen.
+          </p>
+        )}
       </div>
 
       <div className={cn(PAGE_CONTAINER, THREE_COLUMN, 'pt-4')}>

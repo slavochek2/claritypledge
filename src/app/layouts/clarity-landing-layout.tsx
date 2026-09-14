@@ -6,10 +6,13 @@ import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineBanner } from "@/app/components/offline-banner";
 import { ActiveSessionBanner } from "@/app/components/session/active-session-banner";
+import { RoomCaptureBarSlot } from "@/app/components/session/room-capture-bar";
 import { Toaster } from "@/components/ui/sonner";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useActiveSession } from "@/hooks/use-active-session";
 import { LiveSessionProvider } from "@/app/contexts/live-session-context";
+import { useRoomCapture } from "@/app/contexts/room-capture-context";
+import { isImmersiveLetterRoute as matchImmersiveLetterRoute } from "@/app/layouts/immersive-letter-route";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
@@ -62,6 +65,8 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
 
   // P511: Restore active session from localStorage on mount + track state
   const { hasActiveSession } = useActiveSession();
+  // P1307 D9: the room transcription bar takes the same in-flow slot as the /live bar.
+  const { barVisible: roomBarVisible } = useRoomCapture();
 
   const isLandingPage = location.pathname === "/";
   // P987: routes whose hero carries its OWN nav offset (pt-24 lg:pt-28) and sizes itself
@@ -97,8 +102,9 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // the public Sign-in nav on their closure would be a regression). Reading/compose
   // (no ?done) stay immersive for everyone.
   const letterDone = searchParams.get('done') === '1' && showUserMenu;
-  const isImmersiveLetterRoute =
-    /^\/letter\/[^/]+(\/compose)?$/.test(location.pathname) && !letterDone;
+  // The rule lives in immersive-letter-route.ts because room capture pauses on exactly these
+  // screens (P1307 D13) — two readers, one definition.
+  const isImmersiveLetterRoute = matchImmersiveLetterRoute(location.pathname, location.search, showUserMenu);
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
@@ -107,7 +113,7 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // P852: immersive letter routes are full-immersive — no brand nav, no top padding,
   // no ActiveSessionBanner (it would collide with the fixed letter progress bar
   // moved to top-0). Exit affordance lives inside the letter's own progress bar row.
-  const hasVisibleBanner = hasActiveSession && !isLivePage && !isImmersiveLetterRoute;
+  const hasVisibleBanner = (hasActiveSession || roomBarVisible) && !isLivePage && !isImmersiveLetterRoute;
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
@@ -138,6 +144,10 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
           on Android/desktop where the inset is 0. */}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
+        {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
+            (own sticky header) and immersive letter screens it is not mounted here — /transcribe
+            mounts its own slot, and capture pauses on the other two. */}
+        {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot />}
         {children}
       </main>
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a

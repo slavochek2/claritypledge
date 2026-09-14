@@ -166,7 +166,7 @@ function AppHeader({ onEnd }: { onEnd?: () => void }) {
         </div>
       </div>
       <div className="text-center py-2 text-xs text-blue-500 bg-blue-50/50 border-b border-blue-100/50">
-        ✦ Session recorded for AI Insights
+        ✦ Session transcribed for AI insights
       </div>
     </>
   );

@@ -57,11 +57,15 @@ By participating in live sessions, you also agree that:
 ## Transcribe Rooms
 
 A transcribe room is a shared live transcript built by several signed-in people from their
-own devices. You join by tapping "Recorded and visible to everyone in this room"; nothing is
-captured before you do. While you are in the room, your audio is recorded and uploaded, and
-live text attributed to you is shown to everyone present. A corrected transcript is produced
-afterward and added to the session history of everyone who took part. You may leave at any
-time, which stops your recording. The same responsibilities as for live sessions apply.
+own devices. You join by switching "Transcribe for AI insights" on at an event's ready screen
+and continuing, or by tapping "Recorded and visible to everyone in this room" on `/transcribe`;
+nothing is captured before you do. While you are transcribed, your audio is recorded and
+uploaded, and live text attributed to you is shown to the room. Transcription continues while
+you use other pages of the app and pauses during live sessions; it stops when you end it, sign
+out, reach three hours, or the room ends — moving to another page does not stop it. After the
+room ends, a transcript made from each participant's full recording is added to the session
+history of everyone who took part. Only people who have switched transcription on in a room can
+read its transcript. The same responsibilities as for live sessions apply.
 
 ## AI & Machine Learning
 

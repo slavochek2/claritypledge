@@ -29,21 +29,27 @@ import { validateSliceRequest, VERR } from './validate.ts';
 /**
  * Decision 6 ceiling 1. Founder-answered 2026-09-08: 180 minutes.
  *
+ * P1307 D11: measured PER PERSON, from this member's own joined_at (their first Continue),
+ * not from the room's creation. One room serves a whole event, so a latecomer gets their own
+ * three hours and the event's transcript is never split in two. The same number, measured the
+ * same way, is enforced by transcribe_room_sweep_tick() (SQL) and by gcs-signed-url — change
+ * all three together.
+ *
  * A constant, not a column, and the migration says why: a settable-looking column on a
  * cost ceiling invites an UPDATE policy, and the point of Decision 6 is that these bounds
  * are not client-reachable. Three hours is far beyond any session length this format has
  * ("maximum once per week or so, and then maximum 10 people"), so it should never fire on
- * legitimate use — it exists for the FORGOTTEN room, not the long one.
+ * legitimate use — it exists for the FORGOTTEN page, not the long one.
  */
 export const ROOM_MAX_DURATION_MINUTES = 180;
 
 /**
- * Decision 6 ceiling 2. 180 minutes at Decision 1's 4-second cadence is 2700 slices; the
- * bound is 3000 so a rejoin or a burst of retries does not cut off a legitimate speaker
- * before the room's own hard stop does. The room clock is the primary bound — this one
- * catches a client that has stopped honouring the cadence.
+ * Decision 6 ceiling 2, re-derived for P1307's 13-second cadence (Part 4): 180 minutes is
+ * ~830 slices. The bound is 1,000 so a rejoin or a burst of retries does not cut off a
+ * legitimate speaker before their own per-person cap does. It is NOT dropped: it also bounds
+ * rejoin/replay, since `sequence` is range-checked only.
  */
-export const MAX_SLICES_PER_MEMBER = 3_000;
+export const MAX_SLICES_PER_MEMBER = 1_000;
 
 /**
  * Decision 6 ceiling 3. Nothing currently stops one profile creating N rooms and streaming
@@ -54,9 +60,15 @@ export const MAX_CONCURRENT_ROOMS_PER_USER = 3;
 
 export interface SliceMembership {
   memberId: string;
-  /** Room clock for the hard stop. */
+  /** Kept for diagnostics; no longer a clock. The cap is per person — see memberJoinedAt. */
   roomCreatedAt: string;
+  /** P1307 Decision 3: this member's own first Continue. The per-person cap runs from here.
+   *  enter_transcribe_room never rewrites it on a re-join, so switching off and on never
+   *  resets the three hours. */
+  memberJoinedAt: string;
   roomEndedAt: string | null;
+  /** P1307: set once THIS member's capture has ended — their own End, or the sweep. */
+  captureEndedAt: string | null;
   /** NULL means REFUSE — see the migration's column comment. */
   consentGivenAt: string | null;
   sliceCount: number;
@@ -69,10 +81,15 @@ export interface HandlerDeps {
   getUserId: (token: string) => Promise<string | null>;
   /** Service-role read: this user's seat in this room, with the room's clock and consent. */
   getMembership: (roomId: string, userId: string) => Promise<SliceMembership | null>;
-  /** Service-role read: how many un-ended rooms this user is currently a member of. */
+  /** Service-role read: how many un-ended rooms this user is currently capturing in. */
   countActiveRooms: (userId: string) => Promise<number>;
-  /** Service-role write: stamp ended_at. Called when the room passes its hard stop. */
-  endRoom: (roomId: string) => Promise<void>;
+  /**
+   * P1307 Decision 2: service-role write of this member's last_seen_at. Called for every
+   * accepted REAL slice — silent ones included, warmups never — because the room-end sweep
+   * reads it as "this device is still sending". A silent slice writes no message, so
+   * transcribe_messages.spoken_at cannot answer that question.
+   */
+  touchLastSeen: (memberId: string) => Promise<void>;
   /**
    * ONE slice in, its transcript out. The signature is the RQ5 guarantee: there is no
    * shape of this call that accepts a session, a concatenation, or a list. A convenience
@@ -94,7 +111,8 @@ export const ERR = {
   notMember: 'Not a member of this room',
   noConsent: 'Recording consent has not been given for this room',
   roomEnded: 'This room has ended',
-  roomTooLong: 'This room reached its maximum duration and has been ended',
+  captureEnded: 'This capture has ended',
+  roomTooLong: 'This capture reached its maximum duration',
   sliceCeiling: 'Slice limit reached for this member',
   tooManyRooms: 'Too many active rooms for this account',
   transcriber: 'Transcription failed',
@@ -137,13 +155,16 @@ export async function handleTranscribeSlice(req: Request, deps: HandlerDeps): Pr
 
   // ── Ceilings (Decision 6) ────────────────────────────────────────────────
   if (m.roomEndedAt) return json(410, { error: ERR.roomEnded });
+  // P1307: the same refusal gcs-signed-url makes. Without it, a member who pressed End (or
+  // whom the sweep ended) could keep having slices transcribed until the whole room ended,
+  // while their archive uploads were already refused — the two paths must not disagree.
+  if (m.captureEndedAt) return json(410, { error: ERR.captureEnded });
 
-  const ageMs = deps.now().getTime() - new Date(m.roomCreatedAt).getTime();
+  // P1307 D11: per person, from this member's own joined_at. The room is NOT ended here —
+  // other members joined later and still have time. The 410 is the client's signal to hard
+  // stop (release the microphone, flush, clear the bar); the sweep stamps capture_ended_at.
+  const ageMs = deps.now().getTime() - new Date(m.memberJoinedAt).getTime();
   if (ageMs > ROOM_MAX_DURATION_MINUTES * 60_000) {
-    // The client cannot be the clock — endRoom() is caller-initiated only, so today a
-    // joined member can stay indefinitely. Ending it HERE is what makes the hard stop
-    // real: after this the room is closed for every member, not just this one.
-    await deps.endRoom(parsed.roomId);
     return json(410, { error: ERR.roomTooLong });
   }
 
@@ -157,6 +178,16 @@ export async function handleTranscribeSlice(req: Request, deps: HandlerDeps): Pr
   // It costs one edge invocation and takes the first real slice off the cold path. It is
   // an optimisation, not a mitigation — there is no ~30 s GPU cold start to hide any more.
   if (parsed.kind === 'warmup') return json(200, { warmed: true });
+
+  // ── Presence (P1307 Decision 2) ──────────────────────────────────────────
+  // After every gate, before Gemini: a slice that then fails to transcribe still proves the
+  // device is sending. A failed stamp must not cost the speaker their live text, so it is
+  // logged and the slice proceeds — the sweep's 10-minute window absorbs a missed stamp.
+  try {
+    await deps.touchLastSeen(m.memberId);
+  } catch (err) {
+    console.error('[transcribe-slice] last_seen_at stamp failed:', err);
+  }
 
   // ── Gemini: exactly one slice, no interpolated variables ─────────────────
   let candidate: string;

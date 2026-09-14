@@ -101,6 +101,15 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 405, expectCors: false },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1307: same shape as enqueue-transcription — no OPTIONS branch (the method guard answers
+  // 405), deployed WITH gateway JWT verification. Unlike that function, its caller (the
+  // transcribe_room_job_dispatch trigger) sends the anon key in Authorization plus
+  // x-cron-secret, so the gateway admits it and the handler checks the secret. A
+  // credential-free POST is refused by the gateway before the handler runs.
+  'enqueue-room-transcription': {
+    options: { status: 405, expectCors: false },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'explain-back-signed-url': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },

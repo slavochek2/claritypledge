@@ -14,6 +14,7 @@ import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
 import type { AuthError } from '@supabase/supabase-js';
+import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 import type {
   Profile,
   ProfileSummary,
@@ -4132,6 +4133,97 @@ export async function fetchSessionTranscript(sessionId: string): Promise<Session
   }
 
   return data as SessionTranscript | null;
+}
+
+export interface RoomTranscriptSegment {
+  speakerLabel: string;
+  /** Milliseconds from the start of the room transcript. */
+  startMs: number;
+  text: string;
+  /** Decision 5: other members whose phones heard the same sentence. Kept, never deleted. */
+  alsoHeardBy: string[];
+  /** This speaker's archive has a gap or ended early; their part is shown, not presented whole. */
+  fromIncompleteRecording: boolean;
+}
+
+export interface RoomTranscript {
+  /** 'final' once the whole-recording pass has written the room's transcript; 'live' before. */
+  source: 'final' | 'live';
+  segments: RoomTranscriptSegment[];
+}
+
+/**
+ * P1307 Decision 4: a transcribe room's ONE transcript, read by every member whose session
+ * references the room. Never `session_transcripts` (one row per session, and a room session has
+ * none). Both reads are member-scoped by RLS (P1207), so a non-member gets nothing, not even
+ * whether a transcript exists.
+ *
+ * Before the whole-recording pass completes, the live rows are returned, merged by speaker the
+ * same way the room view renders them.
+ */
+export async function fetchRoomTranscript(roomId: string): Promise<RoomTranscript | null> {
+  const { data: saved, error: savedError } = await supabase
+    .from('transcribe_room_transcripts')
+    .select('segments, speaker_map, incomplete_member_ids')
+    .eq('room_id', roomId)
+    .maybeSingle();
+  if (savedError) {
+    console.error('[Transcription API] Error fetching room transcript:', savedError);
+  }
+
+  if (saved) {
+    const speakerMap = (saved.speaker_map ?? {}) as Record<string, string>;
+    const incomplete = new Set((saved.incomplete_member_ids ?? []) as string[]);
+    const rows = (saved.segments ?? []) as Array<{ member_id: string; start_ms: number; text: string; also_heard_by?: string[] }>;
+    const origin = rows[0]?.start_ms ?? 0;
+    const label = (memberId: string) => speakerMap[memberId] ?? 'Someone';
+    return {
+      source: 'final',
+      segments: rows.map((row) => ({
+        speakerLabel: label(row.member_id),
+        startMs: Math.max(0, row.start_ms - origin),
+        text: row.text,
+        alsoHeardBy: (row.also_heard_by ?? []).map(label),
+        fromIncompleteRecording: incomplete.has(row.member_id),
+      })),
+    };
+  }
+
+  const [{ data: members, error: membersError }, { data: messages, error: messagesError }] = await Promise.all([
+    supabase.from('transcribe_room_members').select('id, display_name').eq('room_id', roomId),
+    supabase
+      .from('transcribe_messages')
+      .select('id, room_id, member_id, text, spoken_at, is_final')
+      .eq('room_id', roomId)
+      .order('spoken_at', { ascending: true }),
+  ]);
+  if (membersError || messagesError) {
+    console.error('[Transcription API] Error fetching live room rows:', membersError ?? messagesError);
+    return null;
+  }
+  const names = new Map((members ?? []).map((m) => [m.id as string, m.display_name as string]));
+  const merged = mergeConsecutiveSpeakerRows(
+    (messages ?? []).map((m) => ({
+      id: m.id as string,
+      roomId: m.room_id as string,
+      memberId: m.member_id as string,
+      text: m.text as string,
+      spokenAt: m.spoken_at as string,
+      isFinal: m.is_final as boolean,
+    })),
+  );
+  const first = merged[0];
+  const origin = first ? new Date(first.spokenAt).getTime() : 0;
+  return {
+    source: 'live',
+    segments: merged.map((row) => ({
+      speakerLabel: names.get(row.memberId) ?? 'Someone',
+      startMs: Math.max(0, new Date(row.spokenAt).getTime() - origin),
+      text: row.text,
+      alsoHeardBy: [],
+      fromIncompleteRecording: false,
+    })),
+  };
 }
 
 /**
