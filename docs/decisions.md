@@ -4,6 +4,39 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [product]: Round one files ONE letter after the pick, because programmatic filing does not exist — including for the founder
+
+**Context:** Designing the problem board's build order, the plan assumed the sender would auto-file a letter for every approved problem, on the stated ground that the founder holds production credentials. An independent review checked it against the record.
+
+**Decision:** **No letters are filed before the counterparty picks.** The inventory carries the problems; the counterparty's agent ranks it and they pick one; only then is a single letter drafted and filed **via the paste path**. Programmatic filing is not built and is not to be improvised here.
+
+**Alternatives rejected:** *Auto-file every approved problem* — P1180 records the founder direction of 2026-08-31 that the credential path is NOT built, and binds the founder's own run: *"For the founder's own run it must be designed before Stage 6 is attempted, or the run uses the paste fallback too."* Holding credentials is not holding your own authenticated session — the seal compares sender against `auth.uid()`, and P1180 documents that a superuser path silently no-ops that check rather than raising, so an improvised route would appear to work while bypassing the guard. *Build the credential path now* — that is P1215, gated on the security track, and phase 4.
+
+**Consequences:** Phase 1 needs no unbuilt capability and is startable. Filing at volume was the only justification for hiding system-created letters from the sender's lists, so that item is moot for round one. Any skill written against phase 1 must state in its own text that this route does not generalise — the counterparty pastes too.
+
+**References:** [problem-board-process.md](problem-board-process.md) · P1180 §Implementation notes · builds on 2026-08-28 [product] *"The problem board is a ClarityPledge surface"*
+
+---
+
+## 2026-09-14 [process]: The problem board's build order — five phases, and phase 1 measures less than the registered hypothesis claims
+
+**Context:** The board had three specs, no build order, and a workstream field reading `infrastructure` that hid them being one product line. An independent review of the first draft returned 3 HIGH findings.
+
+**Decision:** Five phases, recorded in [problem-board-process.md](problem-board-process.md), workstream `problem-board`. Phase 1 tests the letter with matching done **by hand** — the counterparty's agent ranks, a human picks. Two spec artifacts, split **sender-side vs reader-side** (different runtime owner), not blocked-vs-unblocked; that earlier split was argued from a premise that expired when programmatic filing was ruled out.
+
+**Three corrections the review forced, all now in the doc:**
+1. **The confound gate is carried verbatim** from `hypotheses.md` — decided *before sending*, and *uninterpretable, never a pass* where the reader already knows the project. The first draft dropped it entirely, recreating the leave-it-to-the-moment failure both review arms flagged on 2026-08-31.
+2. **Phase 1 is labelled as testing the absence leg but NOT the self-selection leg.** The registered hypothesis says the reader is *"self-selected rather than recruited"*; a recruited counterparty picking from a ranked list gives self-selection *among problems*, not *into reading*. A positive result does not corroborate the registered claim in full and must carry that scope.
+3. **Ranking is by slot, not problem**, and the `local`/`portable` labels must survive into the inventory — ranking by topic overlap is the generic-match failure P1182's own risk table names.
+
+**Alternatives rejected:** *Ship the whole pipeline before testing* — the founder's instinct, half right: the conclusion does not follow (a null result could not say which half failed), but the plan must say it measures a weaker construct, which it now does. *Three specs* — the boundary between the inventory and the submit change failed every separation criterion once nothing in phase 1 was blocked.
+
+**Consequences:** P1182's recorded `blocked by P1180 and P1181` was over-broad — the P1181 half holds only for an in-product corpus, not a handed file; both P1181 and P1182 now point at the process doc. Phase 4's matcher gets built to reproduce an observed behaviour rather than a guessed one. The reciprocal mine runs on a fallback scanner P1180 records as never exercised — named as a risk, to be exercised before the skill is handed over. **Status: proposed** — two specs still unwritten.
+
+**References:** [problem-board-process.md](problem-board-process.md) · P1181, P1182 · same-day corroboration of the review pattern in 2026-09-14 *"an independent review found 6 defects the author's own verification passed"*
+
+---
+
 ## 2026-09-14 [process]: The reviewer's conclusion was wrong and its concern was right — and acting on either half alone would have been a mistake (P1313)
 
 **Context:** Second instance in six days of decisions.md 2026-09-08 [process] (P1155: self-review found none of
