@@ -216,6 +216,10 @@ interface UploadJob {
   blob: Blob;
   isLast: boolean;
   attempts: number;
+  /** The capture this chunk belongs to, bound when it is queued. End clears storedRef before
+   *  the recorder's asynchronous onstop delivers the tail, so reading storedRef at upload time
+   *  dropped the last chunk — and a stale job could upload under the NEXT capture's record. */
+  record: StoredCapture;
 }
 
 interface MediaHandles {
@@ -259,11 +263,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
 
   const pumpUploads = useCallback(async () => {
     const h = media.current;
-    const record = storedRef.current;
-    if (h.uploading || !record) return;
+    if (h.uploading) return;
     h.uploading = true;
     try {
       for (let job = h.uploadQueue[0]; job; job = h.uploadQueue[0]) {
+        const { record } = job;
         try {
           // Decision 6: the number is issued by the server, so a reload, a pause/resume or a
           // second visit can never overwrite an earlier chunk.
@@ -291,9 +295,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const enqueueChunk = useCallback((isLast: boolean) => {
+  const enqueueChunk = useCallback((isLast: boolean, record: StoredCapture | null = storedRef.current) => {
     const h = media.current;
     if (h.chunkParts.length === 0) return;
+    if (!record) {
+      h.chunkParts = [];
+      return;
+    }
     const blob = new Blob(h.chunkParts, { type: 'audio/webm' });
     h.chunkParts = [];
     if (h.uploadQueue.length >= UPLOAD_QUEUE_LIMIT) {
@@ -301,7 +309,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       console.error('[room-capture] archive upload queue full — dropping the oldest pending chunk');
       h.uploadQueue.splice(1, 1);
     }
-    h.uploadQueue.push({ blob, isLast, attempts: 0 });
+    h.uploadQueue.push({ blob, isLast, attempts: 0, record });
     void pumpUploads();
   }, [pumpUploads]);
 
@@ -335,8 +343,16 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const stopMedia = useCallback(() => {
+  /**
+   * `flushTail`: upload the recording since the last archive chunk. Only a person's own End asks
+   * for it. Sign-out, a server refusal (410) and teardown drop the tail: after sign-out no chunk
+   * may reach the bucket (AC), and after a 410 the server refuses it anyway.
+   */
+  const stopMedia = useCallback(({ flushTail = false }: { flushTail?: boolean } = {}) => {
     const h = media.current;
+    // Bound now, synchronously: every caller clears storedRef right after this returns, and the
+    // recorder's onstop runs later.
+    const record = storedRef.current;
     if (h.chunkTimer) clearInterval(h.chunkTimer);
     h.chunkTimer = null;
     // Order matters: the slice recorder stops (and flushes its final partial slice) before the
@@ -349,7 +365,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     h.stream = null;
     if (recorder && recorder.state !== 'inactive') {
       recorder.onstop = () => {
-        enqueueChunk(true);
+        if (flushTail) enqueueChunk(true, record);
+        else h.chunkParts = [];
         stream?.getTracks().forEach((t) => t.stop());
       };
       recorder.stop();
@@ -441,7 +458,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // The microphone is released at once — End must never wait on the network to stop
     // recording. The bar stays until the server has recorded the End, so what the person sees
     // disappear is an end that exists, not one that is still in flight.
-    stopMedia();
+    stopMedia({ flushTail: true });
     clearStoredCapture();
     storedRef.current = null;
     try {
@@ -602,6 +619,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     if (previousId === undefined || previousId === currentId) return;
     if (stateRef.current.phase !== 'idle') {
       stopMedia();
+      // Chunks still waiting would upload under the signed-out person's record.
+      media.current.uploadQueue.length = 0;
       storedRef.current = null;
       dispatch({ type: 'AUTH_CHANGED' });
     }
