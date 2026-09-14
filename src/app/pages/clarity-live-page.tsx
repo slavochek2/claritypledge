@@ -4326,12 +4326,29 @@ export function ClarityLivePage() {
                   </div>
                 )}
 
-                {/* B50: Passive terms notice - only for logged-in users (guests have checkbox).
-                    Founder, 2026-09-14 (P1307): a reminder, not an agreement — signed-in people
-                    accepted the terms already. */}
-                {isLoggedIn && (
+                {/* B50 terms notice. Founder, 2026-09-14 (P1307):
+                    - Signed in: a reminder, not an agreement — they accepted the terms at sign-up.
+                      Hidden while "Transcribe for AI insights" is off (nothing is recorded).
+                    - Guest: the real agreement. A guest has no account, so this line at the point
+                      of joining is the only place they are told the terms apply. (The old comment
+                      said guests had a checkbox; none was rendered anywhere on this page.) */}
+                {!isLoggedIn && (
                   <div className="text-center pt-4">
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground" data-testid="live-guest-terms">
+                      By starting or joining, you agree to our{' '}
+                      <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Terms
+                      </a>{' '}
+                      and{' '}
+                      <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Privacy Policy
+                      </a>.
+                    </p>
+                  </div>
+                )}
+                {isLoggedIn && !isPrivate && (
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-muted-foreground" data-testid="live-terms-reminder">
                       Transcription follows our{' '}
                       <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         Terms
