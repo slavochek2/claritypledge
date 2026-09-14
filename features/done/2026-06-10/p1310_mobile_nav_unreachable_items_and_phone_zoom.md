@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 99
 workstream: product
 created_date: '2026-09-14'
 tags: [navigation, mobile, accessibility, event-room]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-14
 ---
 
 # P1310: Half the mobile menu is unreachable, the signed-in menu is a different menu, and phones zoom themselves
