@@ -52,10 +52,20 @@ describe('P1307 D2/D12: the ready-screen switch', () => {
       'Transcribe for AI insights',
       'Record audio and share transcript with others in the room',
       'Not transcribed',
-      'By continuing, you agree to our',
+      // Founder, 2026-09-14: was "By continuing, you agree to our" — reworded as a reminder.
+      'Transcription follows our',
     ]) {
       expect(s.includes(copy), `EventRoomReady.tsx is missing the approved string: "${copy}" (UI Contract).`).toBe(true);
     }
+    expect(s.includes('By continuing, you agree to our'), 'the old agreement wording must be gone').toBe(false);
+  });
+
+  it('the terms reminder shows only while the switch is on', () => {
+    const s = read(ROOM_READY);
+    expect(
+      /transcribeOn\s*&&\s*\([\s\S]{0,200}Transcription follows our/.test(s),
+      'the "Transcription follows our Terms and Privacy Policy." line must render only when transcribeOn is true (founder, 2026-09-14).',
+    ).toBe(true);
   });
 
   it('the sub-line is conditional on switch state — "Not transcribed" when off, the sharing sentence when on', () => {

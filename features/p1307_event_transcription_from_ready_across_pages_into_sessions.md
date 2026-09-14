@@ -306,7 +306,7 @@ Founder-approved copy, 2026-09-11 (the `/live` strings follow D6).
 | Ready screen switch label | **Transcribe for AI insights** |
 | Ready screen switch sub-line (on) | Record audio and share transcript with others in the room |
 | Ready screen switch sub-line (off, the default state per D12) | Not transcribed |
-| Line under Continue (both states) | By continuing, you agree to our Terms and Privacy Policy. |
+| Line under Continue (switch **on** only) | Transcription follows our Terms and Privacy Policy. *(Founder, 2026-09-14: was "By continuing, you agree to our Terms and Privacy Policy." in both states. Attendees are signed in and already accepted the terms, so this is a reminder, not an agreement; with the switch off nothing is recorded, so it is hidden.)* |
 | Bar | ● Transcribing for AI insights — actions **Open**, **End session** (never wraps at 320 px) |
 | Bar, stall state (3 failed slices) | [FOUNDER DECISION: copy — PROPOSED, reuses the room page's existing string (`transcribe-room-page.tsx:233`), build with it and confirm at `/verify`] ● Live text has stalled — your words are still being recorded. — actions **Open**, **End session** |
 | After Continue when the room could not be joined | [FOUNDER DECISION: copy — PROPOSED, build with it and confirm at `/verify`] Transcription couldn't start. You can switch it on again from the ready screen. — shown on `/meet`, no bar |
@@ -315,9 +315,10 @@ Founder-approved copy, 2026-09-11 (the `/live` strings follow D6).
 
 Layout: the switch sits **visibly apart from the slider** — extra space above it on top of the
 column's normal gap — because it answers a different question (founder review of the prototype).
-Order on the ready screen: question → slider → switch → Continue → consent line. `/live`'s own
-terms line reads "By starting or joining…" (`clarity-live-page.tsx:4262`) and is not changed; "By
-continuing" is the ready screen's own copy.
+Order on the ready screen: question → slider → switch → Continue → terms reminder (switch on only).
+`/live`'s signed-in terms line (`clarity-live-page.tsx`, B50) also becomes "Transcription follows
+our Terms and Privacy Policy." (founder, 2026-09-14), replacing "By starting or joining, you agree
+to our…". Guests on `/live` keep their own acceptance step, which is unchanged.
 
 Clickable prototype: `/tree/event-transcription` on branch `feature/p1307-event-transcription`
 (dev-only). Styling reuses the event ready screen, `/live`'s switch and terms line, and the

@@ -4326,11 +4326,13 @@ export function ClarityLivePage() {
                   </div>
                 )}
 
-                {/* B50: Passive terms notice - only for logged-in users (guests have checkbox) */}
+                {/* B50: Passive terms notice - only for logged-in users (guests have checkbox).
+                    Founder, 2026-09-14 (P1307): a reminder, not an agreement — signed-in people
+                    accepted the terms already. */}
                 {isLoggedIn && (
                   <div className="text-center pt-4">
                     <p className="text-sm text-muted-foreground">
-                      By starting or joining, you agree to our{' '}
+                      Transcription follows our{' '}
                       <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         Terms
                       </a>{' '}

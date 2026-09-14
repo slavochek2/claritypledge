@@ -40,7 +40,8 @@ it off starts a private session that is never recorded. When a session is record
 - Recordings, transcripts and session events are used to **improve our AI/ML services**,
   with names, emails and user IDs removed first (see AI & Machine Learning below)
 
-The join screen tells you that you are accepting these terms and shows a "Private session"
+If you are signed in, you accepted these terms when you created your account, and the join screen
+reminds you that transcription follows them. The join screen shows a "Private session"
 badge when the host has switched recording off; a "Session transcribed for AI insights" banner
 is shown throughout a recorded session. If you do not want to be recorded, do not join a
 recorded session — ask the host to start a private one instead. There is no separate

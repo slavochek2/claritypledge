@@ -250,17 +250,23 @@ export function EventRoomReady() {
               Continue
             </Button>
 
-            <p className="text-sm text-muted-foreground text-center">
-              By continuing, you agree to our{' '}
-              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                Terms
-              </a>{' '}
-              and{' '}
-              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                Privacy Policy
-              </a>
-              .
-            </p>
+            {/* Founder, 2026-09-14: a reminder, not an agreement — attendees are signed in and
+                accepted the terms already. Shown only while transcription is on; with it off
+                nothing is recorded and there is nothing to remind anyone of. The consent for
+                recording is the switch itself (D12). */}
+            {transcribeOn && (
+              <p className="text-sm text-muted-foreground text-center" data-testid="room-ready-terms">
+                Transcription follows our{' '}
+                <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Terms
+                </a>{' '}
+                and{' '}
+                <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Privacy Policy
+                </a>
+                .
+              </p>
+            )}
           </div>
         </div>
       </div>

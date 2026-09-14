@@ -179,7 +179,8 @@ test.describe('P1307: event transcription', () => {
     await page.getByRole('button', { name: /^open$/i }).click();
     await expect(page).toHaveURL(/\/transcribe\//, { timeout: 10_000 });
     // No consent screen: the switch/consent copy from the ready page must not reappear here.
-    await expect(page.getByText('By continuing, you agree to our')).not.toBeVisible();
+    // Founder, 2026-09-14: the ready-screen line now reads "Transcription follows our …".
+    await expect(page.getByText('Transcription follows our')).not.toBeVisible();
   });
 
   test('two tabs while transcribing: exactly one captures (Web Locks)', async ({ browser }) => {

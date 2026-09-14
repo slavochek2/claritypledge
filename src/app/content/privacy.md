@@ -72,8 +72,9 @@ and feedback.
 
 **Voice recording.** The person who creates a session chooses whether it is recorded, using
 the "Transcribe for AI insights" switch on the start screen; recording is on unless they switch
-it off or start a private session. Everyone who joins is told on the join screen that they
-are accepting these terms, must grant microphone access in their browser, and sees a
+it off or start a private session. Signed-in people accepted these terms when they created
+their account, and the start and join screens remind them that transcription follows them.
+Everyone who joins must grant microphone access in their browser, and sees a
 "Session transcribed for AI insights" banner for the whole session. If the session is recorded,
 your audio is captured in your browser and uploaded in chunks to our Google Cloud Storage
 bucket. After the session, our own transcription service — software we run on Google Cloud —
