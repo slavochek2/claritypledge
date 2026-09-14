@@ -29,7 +29,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown, ArrowLeft } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
@@ -310,23 +310,7 @@ export function TranscribeRoomPage() {
       <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)] shrink-0">
         <div className="container mx-auto px-4 lg:px-8 h-full">
           <div className="flex items-center justify-between h-full">
-            <div className="flex items-center gap-1">
-              {/* The room hides the site nav, so its header carries the top Back. Leaving does
-                  not end capture (P1307 D7); End Session does. */}
-              <button
-                type="button"
-                onClick={handleBack}
-                aria-label="Go back"
-                data-testid="transcribe-top-back"
-                className="-ml-3 flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-              </button>
-              {/* Mark only below sm: with the Back arrow, the wordmark pushed "End Session" onto
-                  two lines at 320 px (visual QA). */}
-              <span className="sm:hidden"><ClarityLogo size="sm" iconOnly /></span>
-              <span className="hidden sm:inline-flex"><ClarityLogo size="sm" /></span>
-            </div>
+            <ClarityLogo size="sm" />
             <button
               type="button"
               onClick={() => void handleEndSession()}
@@ -347,6 +331,12 @@ export function TranscribeRoomPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col flex-1 min-h-0 w-full">
+        {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the
+            same control as the join and ended screens and /stake — not an arrow in the header.
+            Leaving does not end capture (P1307 D7); End Session does. */}
+        <div className="shrink-0" data-testid="transcribe-top-back">
+          <FocusHeader onBack={handleBack} />
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1" data-testid="transcribe-roster">
           <Users className="w-3.5 h-3.5" />
           <span>
