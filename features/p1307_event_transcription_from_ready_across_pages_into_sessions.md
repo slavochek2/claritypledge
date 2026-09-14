@@ -6,10 +6,10 @@ workstream: transcription
 created_date: '2026-09-11'
 tags: [transcribe, events, live, consent]
 disclosure: public
-delivery_stage: create-spec
+delivery_stage: architect
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, architect]
 pipeline_skipped: ["challenge-prd -- adversarial review already folded in, 2 of 2 reports verified against code", "ux -- prototype founder-approved 2026-09-11; the one open placement question is settled by D13", "decompose -- the spec already splits the work into seven parts with a stated deploy order", "spec-review -- spec is 3 days old and not a change request"]
 drafted_by: opus
 exec_model: opus
@@ -432,10 +432,10 @@ Live text
 - **T1. Resume after the phone locks.** Can capture restart without a tap on iOS Safari and Android
   Chrome? If a tap is required, the bar's resume affordance needs founder-approved copy — D3's "no
   paused message" was decided for the `/live` case, not this one.
-- **T2. N for the room-end sweep** (minutes since the last slice from any member).
-- **T3. Hold or release the stream while paused.** Holding avoids a gesture on resume but keeps the
-  OS microphone indicator lit during a private `/live`; releasing needs a fresh `getUserMedia` on
-  resume. Measure on iPhone.
+- **T2. N for the room-end sweep** — answered by Architecture Decision 2 (N = 10 minutes,
+  recommendation; the sweep cadence and idempotency are specified there).
+- **T3. Hold or release the stream while paused.** Recommendation given by Architecture
+  Decision 8 (hold); still needs the iPhone measurement in `/verify` to confirm or flip it.
 - **T4. Edge-function request body limit** for a ~600 KB base64 slice.
 
 ## Adversarial review (2026-09-11)
@@ -510,3 +510,664 @@ inventing filler on silent slices (P1236 Finding 6).
 - P1207 — member-scoped room reads.
 - P904 — the explain-back page (chromeFree, second microphone user).
 - P1308 — button colour consistency across the app (split out of this spec on purpose).
+
+## Technical Architecture
+
+### Technical Analysis
+
+**Prior decisions found (grepped `docs/decisions.md` and `features/done/INDEX.md` for the
+listed subjects; every citation below was re-verified against the file this session).**
+
+- **pg_cron is the repo's only scheduling mechanism** and is used three times already
+  (`20260414100002_p703_live_invites_cron.sql`, `20260816120000_p1083_ready_submissions.sql`,
+  `20260907140000_p1256_dispatch_event_emails_cron.sql`). The P1256 migration is the freshest
+  and most complete precedent: a `SECURITY DEFINER` plpgsql tick function reads a target URL +
+  secret from Vault (never a literal project ref in the repo), `RAISE WARNING` (not exception)
+  on missing config, `pg_net.http_post` with a bearer secret, `REVOKE ALL FROM PUBLIC/anon/
+  authenticated`, wrapped in `IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron')`
+  with `cron.unschedule` before `cron.schedule` for idempotent re-application. Its header
+  explicitly rejects `CREATE EXTENSION pg_cron` in-migration ("must be in
+  shared_preload_libraries... where it is not preloaded, CREATE EXTENSION RAISES rather than
+  skipping"). This is the mechanism Decision 2 reuses.
+- **P858/P902 (Cloud Run `transcribe-session`, `docs/technical/infrastructure.md:54-70`)** is
+  the batch worker's dispatch pattern: a `pg_net` trigger on `transcription_jobs` INSERT
+  (`tx_jobs_enqueue`, prod-only ad-hoc SQL, never a migration) → edge function
+  `enqueue-transcription` (mints a Google OAuth token, task name = job id for dedup) → Cloud
+  Tasks queue (`maxConcurrentDispatches=5`) → OIDC → `POST /transcribe-async`, which atomically
+  claims the job (`claim_pending_job`, `FOR UPDATE SKIP LOCKED`) and returns 202 before
+  processing in the background. A separate Cloud Scheduler sweeper (`tx-job-janitor`, ~2h)
+  resets stale `processing` rows and drains missed `pending` ones. This pattern — trigger-driven
+  enqueue, Cloud Tasks fan-out, atomic claim, a separate stale-row sweeper — is reused by
+  Decision 5, with the GPU/Whisper compute swapped for a small CPU-only container and Gemini.
+  `docs/technical/infrastructure.md:72-107` (the `transcribe-slice` section, written for P1236)
+  is explicit that this GPU path is untouched: *"The GPU is not removed from the product...
+  still creates a batch `transcription_jobs` row per member"* — that sentence describes
+  **today's** `endRoom()`, which this spec's Part 1 replaces; P1237's engine ruling for that
+  GPU path is not reopened.
+- **P1236 2026-09-08 [technical]** ("two bounds constrain one quantity, assert the
+  inequality"): `handler.test.ts`'s inequality assertion between `MAX_SLICE_BYTES` and
+  `MAX_SLICE_DURATION_MS` is load-bearing precisely because the looser bound is otherwise dead
+  code that reads as a working guard — directly informs Decision 9's bound arithmetic below and
+  the instruction that the test moves with the constants.
+- **P1236 2026-09-11 [technical]** ("A guard that fires proves the guard, not the code behind
+  it") and the `(f)`/`(g)` migration pair: `enter_transcribe_room`'s `ON CONFLICT` target list
+  cannot accept a qualified column name, so `#variable_conflict use_column` is required whenever
+  an `ON CONFLICT` clause and a `RETURNS TABLE` OUT-variable share a name — binding on every new
+  RPC below that upserts against `transcribe_room_members`.
+- **P1063 (2026-08-13 ruling, `ActiveSessionBanner.handleEndSession` role split)**: the banner's
+  End must not let a joiner end a creator's `/live` session. Transcribe rooms have no
+  creator/owner column (`20260823190000_p1149_…sql:66-73`) — there is no analogous role to
+  split, which is exactly why Part 1 makes End **per-person** rather than adding a role check.
+  Cited by the spec's own Risks table; confirmed rather than re-derived.
+- **P743 (2026-04-17, `ActiveSessionBanner` has no Realtime path, only a 30 s poll outside
+  `/live`)**: the existing banner's session-liveness signal is a poll. Decision 7's pause/resume
+  is deliberately NOT built on that poll — it reads `useLocation()` and
+  `live-session-context.tsx`'s `cp_active_session` directly in the same tab, per the spec's own
+  Risk row.
+- **P1207 (member-scoped room reads)**: `transcribe_messages`' "room members can read messages"
+  policy (`20260823190000_p1149_…sql:149-157`) is the exact shape Decision 4 reuses for the new
+  final-transcript table — `EXISTS (SELECT 1 FROM transcribe_room_members m WHERE
+  m.room_id = … AND m.profile_id = auth.uid())`, no new access primitive.
+- **P1149 / P1223 / P1236 schema chain**, read directly rather than trusted from the spec's
+  citations: `transcribe_room_members` (`20260823190000_p1149_…sql:66-73`) has `id, room_id,
+  profile_id, display_name, session_id, joined_at` — no end marker. P1236 added
+  `consent_given_at` and `slice_count` (`20260908170000_p1236_…sql:38-56`) and the
+  `join_transcribe_room`/`enter_transcribe_room` RPCs, both `ON CONFLICT (room_id, profile_id)
+  DO UPDATE SET consent_given_at = COALESCE(…), display_name = EXCLUDED.display_name` —
+  **`joined_at` is never in that SET clause**, so on every re-join it silently keeps its
+  first-ever value. This is verified, not assumed, and is why Decision 3 needs no new column.
+  `create_transcription_job` (`20260901230000_p1223_…sql:29-58`, carrying forward
+  `20260313140327_p495`'s body) refuses any `session_id` whose `clarity_sessions` row is not
+  `creator_profile_id = auth.uid() OR joiner_profile_id = auth.uid()` — confirmed root cause of
+  the spec's "jobs are created only for the person who pressed End": each room member mints
+  their OWN `clarity_sessions` row on join (`createClaritySession(displayName, profileId,
+  false)`, `transcribe-service.ts:189-193` and `:344-348`), so the ending caller's own auth.uid()
+  never matches another member's session.
+
+**Reuse inventory** (file path → what exists → how each decision below extends it):
+
+| Area | Existing | Extended by |
+|---|---|---|
+| Room entry | `enter_transcribe_room` (`…g_…sql`) | Decision 3 (drop room-age filter), Decision 1 unaffected |
+| Per-person end | *(none — gap)* | Decision 1, new RPC |
+| Scheduling | pg_cron, `dispatch_event_emails_tick()` pattern | Decision 2 |
+| Async dispatch | P858 trigger → Cloud Tasks → OIDC | Decision 5 |
+| Slice ingest | `transcribe-slice/handler.ts`, `validate.ts`, `index.ts` | Decisions 3, 9 |
+| Archive upload | `gcs-signed-url/handler.ts`, `api.ts` `uploadRoomAudioChunk` | Decision 6 |
+| Session bar | `ActiveSessionBanner` (P511/P743/P1063) | Decision 7 |
+| Cross-page provider slot | `LiveSessionProvider` (route-scoped — the anti-pattern) | Decision 7 (mount point) |
+| Room page | `transcribe-room-page.tsx` | Decision 7 (`/transcribe/{code}` branch) |
+| Room data layer | `transcribe-service.ts` | Decisions 1, 3, 6 |
+| Session history | `my-sessions-page.tsx`, `sessions-service.ts`, `session_transcripts` | Decision 4 |
+| Event gate/ready | `EventRoomGate.tsx`, `EventRoomReady.tsx` | Decision 3 (routing), D10/D12 (UI) |
+| Explain-back | `explain-back-capture.tsx`, its two call sites | Decision 7 (pause/resume) |
+| Member-scoped RLS | P1207 pattern on `transcribe_messages` | Decision 4 |
+| Cap/room-age consistency | `handler.ts:141`, `…g_…sql:108`, `index.ts:124-135` | Decision 3 |
+
+### Architecture Decisions
+
+**Decision 1 — Per-member end marker**
+
+**Chosen:** `transcribe_room_members.capture_ended_at TIMESTAMPTZ` (nullable), set by a new
+`SECURITY DEFINER` RPC `end_transcribe_room_capture(p_room_id uuid)` that derives the caller's
+own member row from `(p_room_id, auth.uid())` — no member id argument, matching every other RPC
+in this chain's stated reason ("a function that accepts the identity it is about to act on is an
+impersonation primitive"). `UPDATE … SET capture_ended_at = COALESCE(capture_ended_at, now())
+WHERE room_id = p_room_id AND profile_id = auth.uid() RETURNING …` — idempotent, first-wins,
+same pattern as `consent_given_at`. The bar's End, the ready-screen switch-off, and the room
+page's End all call one new client function, `endMyCapture(roomId)` in `transcribe-service.ts`,
+which calls this RPC and nothing else.
+
+**Rationale:** No RLS UPDATE policy is added on `transcribe_room_members` for this column —
+the RPC is `SECURITY DEFINER` and the table's only writer for this field, matching how
+`consent_given_at`/`slice_count` are already "client-invisible and client-unsettable by
+construction" (migration comment, `20260908170000_p1236_…sql:52-56`). This keeps "no client
+ends a room for anyone else" true by construction: the RPC's `WHERE` clause makes it
+structurally impossible to target another member's row.
+
+**Trade-off:** A crashed tab never calls this RPC, so `capture_ended_at` alone cannot detect
+"this member is actually gone." That is why Decision 2's sweep also stamps it for
+stale/capped members — this column is the single source of truth for "ended," written by
+either the member themselves or the sweep enforcing a rule, never by another client.
+
+**Alternative rejected:** A boolean flag instead of a timestamp — rejected because Decision 5
+needs to know *when* a member stopped capturing to decide whether their last archive chunk is
+plausibly complete, and a boolean throws that information away for no storage saved.
+
+**Correction (parent review, 2026-09-14): a re-join must start a new capture.** First-wins
+`COALESCE` is right *within* one capture, but D1 lets a person go back to the ready screen and
+switch transcription on again. As written, nothing clears `capture_ended_at`, so that person would
+stay ended, and the sweep would treat them as gone. **Required:** `enter_transcribe_room`'s
+`ON CONFLICT DO UPDATE` sets `capture_ended_at = NULL` (and stamps `last_seen_at = now()`, below)
+when the room is still open. If the room has already ended, the RPC picks or creates a new room as
+it does today. The per-person cap stays measured from the first `joined_at` (Decision 3), so
+switching off and on never resets the 3 hours. That is what keeps D8's backstop a backstop.
+
+---
+
+**Decision 2 — Room-end rule and the scheduled sweep**
+
+**Chosen:** Reuse pg_cron directly (no new edge function for the sweep itself — everything it
+does is a DB read/write). One new `SECURITY DEFINER` SQL function,
+`transcribe_room_sweep_tick()`, scheduled every **2 minutes** via `cron.schedule`, mirroring
+`dispatch_event_emails_tick()`'s shape (idempotent `cron.unschedule` + `cron.schedule`,
+`REVOKE ALL FROM PUBLIC/anon/authenticated`). Each tick, in one transaction:
+
+1. For every `transcribe_room_members` row with `capture_ended_at IS NULL` whose room is not
+   yet ended, stamp `capture_ended_at = now()` if either the per-person cap has elapsed
+   (Decision 3's `joined_at + 3h < now()`) or no slice has been received from that member for
+   **N = 10 minutes** (see below).
+2. For every room where every member now has `capture_ended_at IS NOT NULL`, set
+   `ended_at = now() WHERE ended_at IS NULL` (idempotent — a zero-row update means another tick,
+   or the room, already closed it).
+3. For every room the tick just ended, `INSERT INTO transcribe_room_transcription_jobs
+   (room_id, member_id) SELECT … ON CONFLICT (room_id, member_id) DO NOTHING` — one row per
+   member, service-role, in the same transaction as step 2. An `AFTER INSERT` trigger on that
+   table (Decision 5) does the `pg_net` dispatch, exactly like `tx_jobs_enqueue` does for
+   `transcription_jobs` today — the tick function itself makes no HTTP call.
+
+**"No slice for N minutes" needs a signal `transcribe_messages.spoken_at` cannot give**, and
+this is a real gap the spec names: silent slices are normal and never call `insertMessage`
+(`transcribe-slice/handler.ts:169-174` — an empty candidate returns 200 without a DB write), so
+`spoken_at` only tracks the last time someone *said something*, not the last time a device *sent
+a slice*. New column: `transcribe_room_members.last_seen_at TIMESTAMPTZ` (renamed; see the correction below), stamped by
+`transcribe-slice`'s handler on every accepted real slice (after all gates pass, whether or not
+it produces text — never on a `warmup` ping, which returns before reaching Gemini) — one
+additional service-role write already inside a request that writes to this table's `slice_count`
+today, so it costs no new round trip.
+
+**N = 10 minutes**, a recommendation, not a measurement. Reasoning: cadence moves to 13 s
+(Part 4), so a capturing device sends a slice roughly every 13 s; 10 minutes is ~46 missed
+cadences, comfortably longer than a transient radio drop or a backgrounded-tab timer throttle,
+short enough that an abandoned room does not run up Gemini spend for hours. Flagged as a
+founder-adjustable constant, matching how `ROOM_MAX_DURATION_MINUTES` is already documented as
+one (`database.md`/`handler.ts:38`).
+
+**Correction (parent review, 2026-09-14): a paused member must not read as gone.** D3 and D13
+pause capture during `/live`, an explain-back recording and immersive letter screens, and "while
+paused, nothing from room capture is sent" (Part 6). A `/live` session routinely lasts longer than
+10 minutes, so staleness measured only from slices would end that person's capture mid-session,
+and end the room if everyone is paused, contradicting D3's automatic resume. **Required:** the
+column is `last_seen_at` (not `last_slice_at`), stamped by every accepted slice **and** by a
+lightweight `touch_transcribe_room_capture(p_room_id)` RPC that the provider calls every 2 minutes
+while `paused` (identity from `auth.uid()` only, no audio, no archive). Staleness is measured from
+`last_seen_at`. A tab that is closed while paused stops touching and ends after N as intended.
+The paused heartbeat is not audio, so Part 6's "nothing sent" rule, which is about capture, still
+holds.
+
+**Idempotency:** every write in the tick is a conditional `UPDATE`/`INSERT … ON CONFLICT DO
+NOTHING`, so a second tick racing the first (or a retried cron invocation) writes nothing extra.
+This is the same idempotency shape `transcribe-service.ts`'s client-side `endRoom()`
+(`:581-626`, `.is('ended_at', null).select('id')`, "zero rows means someone else ended it
+first") already established for the one client path that still legitimately ends a room start
+to finish — none does after Part 1, but the pattern is the one to copy.
+
+**Trade-off:** a 2-minute cron cadence against a 10-minute staleness window means detection lags
+by up to 2 minutes past N — accepted, since N itself is a backstop for *abandoned* rooms, not a
+cost-critical real-time bound (contrast the per-slice cap check, which is synchronous and exact).
+
+**Alternative rejected:** an edge-function-based sweep triggered by Cloud Scheduler (mirroring
+`tx-job-janitor`) — rejected because every step here is pure SQL with no external call; adding
+an HTTP hop and a second compute surface for logic that fits in one plpgsql function is the
+"Tool B on top of unverified Tool A" pattern CLAUDE.md's Risky Operations section warns against,
+for zero capability gained (pg_cron→pg_net already reaches out where a real HTTP call is
+actually needed, in step 3's trigger).
+
+---
+
+**Decision 3 — Per-person cap (D11): one column, three readers kept consistent**
+
+**Chosen:** No new column. `transcribe_room_members.joined_at` already IS "this member's own
+Continue" — verified above, `enter_transcribe_room`'s `ON CONFLICT DO UPDATE` never lists
+`joined_at`, so Postgres leaves it at its first-INSERT value on every re-join. Three readers
+move onto it together, so they agree by construction rather than by convention:
+
+1. **`transcribe-slice/handler.ts:141`**'s per-slice cap check: `SliceMembership` gains
+   `memberJoinedAt: string` (from `getMembership`'s existing query against
+   `transcribe_room_members`, which already reads that row — no extra query). `ageMs` is
+   computed from `memberJoinedAt`, not `roomCreatedAt`.
+2. **`enter_transcribe_room`'s room-selection query** (`…g_…sql:105-113`) drops the
+   `r.created_at > now() - c_max_age` filter entirely, keeping only `r.ended_at IS NULL AND
+   r.event_id IS NOT DISTINCT FROM p_event_id`. This is safe **only because Decision 2 ships in
+   the same release** — the filter existed to stop a newcomer joining a three-week-old
+   abandoned room (the migration's own comment), and once the sweep guarantees no room sits
+   unended for more than ~N + one tick interval, `ended_at IS NULL` alone is a reliable
+   liveness signal. This coupling is why Parts 1 and this change must land together, not because
+   the spec says so abstractly but because removing the age filter without the sweep would
+   reopen exactly the bug the filter was added to prevent.
+3. **`countActiveRooms`** (`index.ts:124-135`) changes its `.gt('transcribe_rooms.created_at',
+   cutoff)` filter to `.gt('joined_at', cutoff)` on the `transcribe_room_members` row it already
+   queries (filtered by `profile_id = userId`) — a one-line change to the same query, not a new
+   join.
+
+**Rationale:** reusing `joined_at` is the "argue why the current state might already be
+sufficient" case landing: the column already has exactly the semantics D11 asks for, discovered
+by reading the RPC rather than assumed from the spec's prose (epistemic gate 3).
+
+**Trade-off:** the room-selection query no longer has ANY room-age bound of its own — its
+liveness now depends entirely on Decision 2's sweep running. If the sweep is ever disabled
+without also restoring some room-age check, `enter_transcribe_room` regresses to the
+three-week-old-room bug. Worth a code comment at the point the filter is removed, not a runtime
+guard (a runtime cross-check between two independently-scheduled mechanisms is more moving parts
+for a case the deploy-order gate should catch first).
+
+**Alternative rejected:** a new `transcribe_room_members.capture_started_at` column duplicating
+`joined_at` — rejected: it would need the exact same `COALESCE`-on-conflict treatment
+`joined_at` already has, is Reference Over Duplication's canonical case (two columns, one
+meaning, doomed to drift), and adds a migration for a value that already exists.
+
+---
+
+**Decision 4 — Session → transcript read path (Part 2)**
+
+**Chosen:** Sessions **reference** the one room transcript; they do not carry a copy. Two read
+paths, both reached via `transcribe_room_members.session_id`:
+
+- **Live (before the whole-recording pass completes):** `transcribe_messages` filtered by
+  `room_id`, already RLS-scoped by the P1149 "room members can read messages" policy
+  (`…p1149_…sql:149-157`) — no schema or policy change.
+- **Final:** one new table, `transcribe_room_transcripts` (`room_id UUID PRIMARY KEY REFERENCES
+  transcribe_rooms(id)`, `segments JSONB`, `speaker_map JSONB`, `incomplete_member_ids UUID[]`,
+  `de_duplication_note JSONB`, `created_at`), keyed by **room**, not by session or member — one
+  row, read by every member whose session references that room. RLS SELECT policy is the exact
+  P1207 shape reused verbatim: `EXISTS (SELECT 1 FROM transcribe_room_members m WHERE
+  m.room_id = transcribe_room_transcripts.room_id AND m.profile_id = auth.uid())`.
+
+**Not** `session_transcripts`: that table is `session_id UUID NOT NULL` 1:1 with one
+`clarity_sessions` row (`20260313120000_p495_…sql:14-24`; `fetchSessionTranscript`,
+`api.ts:4116-4128`, confirmed `eq('session_id', sessionId)`). A room's final transcript is
+inherently shared by N members' N different `session_id`s; forcing it into that table means
+either writing N identical copies (the option the spec names and this decision does not take)
+or breaking the table's 1:1 assumption for every other caller of `fetchSessionTranscript`.
+
+**`my-sessions-page.tsx`'s `TranscriptRow`** (`if (session.isPrivate || session.transcriptStatus
+=== null) return null`, confirmed near line 100) currently renders nothing because
+`transcriptStatus` comes only from `transcription_jobs`, which is never populated for a room
+session. `sessions-service.ts`'s `getUserSessions` gains a room-aware branch: when a session's id
+appears in `transcribe_room_members`, its status is derived from the NEW
+`transcribe_room_transcription_jobs.status` (Decision 5) instead — deliberately reusing
+`transcription_jobs`' own `pending|processing|completed|failed` CHECK values so `TranscriptRow`'s
+existing state-rendering branches (`processing`/`failed`/etc.) need only a data-source swap, not
+new branches.
+
+**Trade-off:** a member reading their session before the room ends sees the *live* rows (still
+per-slice, possibly boundary-damaged, per the D4/D5 measurement); there is a visible seam at the
+moment the final version replaces it. Accepted — the spec's own Part 2 states this ordering
+explicitly ("Before the whole-recording pass completes it shows the live rows; after, the saved
+version").
+
+**Alternative rejected:** a per-member copy of the final transcript (e.g. duplicated into
+`session_transcripts` per session) — rejected because it re-introduces N-way duplication at the
+storage layer for an artifact Decision 5 already merges exactly once; N copies also means N
+places that could drift if the pass is ever re-run for one member.
+
+---
+
+**Decision 5 — Whole-recording pass engine**
+
+**Chosen:** A new, small **Cloud Run service** (no GPU), `transcribe-room-batch`, dispatched by
+the **exact P858 pattern** already proven for `transcribe-session`: an `AFTER INSERT` trigger on
+the new `transcribe_room_transcription_jobs` table calls `pg_net.http_post` to a new edge
+function `enqueue-room-transcription` (mirrors `enqueue-transcription`'s OAuth-mint-and-dispatch
+shape), which enqueues a Cloud Tasks job → OIDC → `POST /process` on the new service, which
+atomically claims the job (same `FOR UPDATE SKIP LOCKED` shape as `claim_pending_job`) and
+processes in the background, returning 202 immediately.
+
+**Why not a Supabase (Deno) edge function for the pass itself:** two independent reasons, the
+first decisive on its own. (1) Reassembling a member's audio requires concatenating the
+existing 30 s `chunk_NNN.webm` archive files into ≤5-minute segments before each Gemini call —
+this needs real audio-container tooling (the existing Python batch worker's `audio.py` already
+does GCS listing/download; concatenating WebM containers is not a pure-JS operation available in
+the Deno edge runtime with no bundled ffmpeg). (2) A room can run up to 3 hours per member across
+potentially 10 members, i.e. dozens of ≤5-minute segments per job; the Supabase edge function
+per-invocation wall-clock limit is **UNVERIFIED this session** (no number found in this repo's
+docs or config) — flagged per "Falsify Before You Rely" rather than assumed. Point (1) alone
+already rules out a bare edge function regardless of what that number turns out to be.
+
+**Segmenting, mechanically:** the new service lists `rooms/{code}/{who}-{memberId}/` in GCS
+(same prefix `buildRoomAudioPathSegments` already builds, `api.ts:3272-3284`), groups the 30 s
+chunks into ≤5-minute windows (10 chunks per segment), concatenates each window, and sends it to
+Gemini **one segment per request** — the same one-slice-in-one-transcript-out shape
+`transcribe-slice`'s `transcribe` dependency already enforces, so RQ5's silent-truncation defence
+holds by the same construction, not a new one.
+
+**Incomplete archives:** the service checks GCS chunk continuity (a contiguous `0..N` sequence
+with no gaps) for each member, independent of and more robust than trusting
+`ml_training_sessions` (written only on a clean `isLastChunk` stop, `api.ts:3311-3320` — exactly
+the row the spec says the pass must not depend on). A gap, or a member whose
+`capture_ended_at` was set by the sweep's staleness path rather than their own end RPC with no
+trailing gap, marks that member's contribution `incomplete` in `transcribe_room_transcripts.
+incomplete_member_ids`.
+
+**Cross-member duplicate speech — chosen: keep, and label as overheard; do not silently
+de-duplicate.** Each member's own segment transcript is device-attributed exactly as live text
+is today (no diarization). P1236 measured phone-to-phone separation at a 7.1 dB median with 75%
+of sessions below the workable bar — meaning the "nearest device" heuristic is frequently
+unreliable, so there is no trustworthy signal for "who actually said this" once two members'
+segments contain near-identical text in the same time window. Silently deleting one copy risks
+erasing the *correct* attribution while keeping a wrong one — an invisible, unrecoverable error
+of exactly the shape the existing de-duplicator invariant already warns against ("a surviving
+duplicate is visible and harmless, a deleted word is invisible and unrecoverable"). The merge
+step instead compares members' entries pairwise inside a generous (~±15 s) window using a
+near-duplicate text match; a match keeps both entries but annotates the later one (deterministic
+tie-break) as "also heard by \<member\>" in `de_duplication_note` — visible and auditable, not
+hidden. Rendering that annotation is a `/dev`/`/verify` concern, not an architecture one.
+
+**Alternative rejected (engine placement):** extending the existing GPU `transcribe-session`
+Cloud Run service with a non-diarizing Gemini branch — rejected: that service's whole shape
+(Whisper baked into the image, `--concurrency=1` per-GPU-instance, `NVIDIA_L4_GPUS = 5` quota)
+is sized and billed for the batch pipeline's engine, and P1237's ruling for that path is
+explicitly not reopened; bolting an unrelated engine onto it would couple two independently
+evolving pipelines onto one deploy/quota surface for no shared code beyond "it's also
+transcription."
+
+**Alternative rejected (dedup rule):** full de-duplication — rejected for the reason stated
+above (unrecoverable mis-attribution risk), not because it is harder to build.
+
+---
+
+**Decision 6 — Monotonic archive numbering and the overwrite guard**
+
+**Chosen: server-issued, monotonic per member.** New column
+`transcribe_room_members.next_chunk_seq INTEGER NOT NULL DEFAULT 0`, advanced by a new
+`SECURITY DEFINER` RPC `reserve_room_chunk_number(p_room_id uuid) RETURNS integer` — derives the
+caller's member row from `(p_room_id, auth.uid())`, `UPDATE … SET next_chunk_seq =
+next_chunk_seq + 1 WHERE … RETURNING next_chunk_seq - 1` (atomic reserve-and-return). The
+client calls this once per chunk immediately before upload, replacing today's local
+`chunkNumberRef.current` (reset to 0 on every remount, `transcribe-room-page.tsx:180` — the
+confirmed cause of a return overwriting `chunk_000.webm`).
+
+**Overwrite guard:** the in-repo lever stays what the spec's own citation says it is — a
+multi-segment `gcsPathPrefix` passed to an out-of-repo Cloud Function
+(`api.ts:3260-3272`, confirmed: "this repo cannot directly prove where an upload physically
+lands"). A GCS-side `ifGenerationMatch: 0` precondition on the signed URL (only succeeds if the
+object does not already exist) is the correct hardening on top of the server-issued counter, but
+it is a change to that external Cloud Function, outside this repo's tracked files — flagged
+here, not designed here. The server-issued monotonic counter is the primary, fully in-repo fix:
+once numbering cannot repeat for a member's whole room lifetime, the only remaining overwrite
+vector is a replayed signed URL, which the GCS precondition (owned elsewhere) closes.
+
+**Rationale:** a client-local counter cannot survive reload/reconnect by construction; a
+server-issued one does not need to.
+
+**Alternative rejected:** a per-capture (client-generated, e.g. timestamp-prefixed) segment id —
+rejected because it fragments one member's audio across multiple prefixes over a
+pause/resume/reconnect history, which Decision 5's reassembly step would then have to
+stitch across prefixes instead of reading one contiguous, orderable sequence per member.
+
+---
+
+**Decision 7 — The app-level capture provider**
+
+**Mount point:** `RoomCaptureProvider` (new: `src/app/contexts/room-capture-context.tsx`),
+mounted once in `src/App.tsx` inside `<Sentry.ErrorBoundary>` and inside `<AuthProvider>`, above
+`<Routes>` — concretely, between `<AuthProvider>` and `<AgentAccountsProvider>`
+(`App.tsx:301-311`). It needs `useLocation`/`useNavigate` for Decision 3-of-the-brief's
+pause/resume rule, so it must sit inside `<Router>`, not outside it — `LiveSessionProvider` is
+the anti-pattern being fixed here (instantiated per route element inside
+`ClarityLandingLayout.tsx:37,48`, torn down on every route change), not the pattern to copy.
+
+**State machine:** `idle | starting | capturing | paused | stalled | ending`, a `useReducer`
+matching the naming convention `transcribe-room-page.tsx`'s own `ViewState` union already uses
+for the same feature area.
+
+**One capture per browser:** **Web Locks API**, `navigator.locks.request('cp-room-capture-
+<roomId>', { mode: 'exclusive', ifAvailable: true }, …)`. A second tab's non-blocking request
+fails immediately and that tab renders Open/End without capturing. Rationale: purpose-built for
+exactly "one tab wins," releases automatically on tab close/crash (no stale-lease timeout to
+design or tune), and needs no message-passing protocol. **Alternative rejected:** BroadcastChannel
+election — needs a leader/follower state machine of its own plus a heartbeat + dead-leader
+timeout, strictly more failure modes for the same outcome (CLAUDE.md ranks runtime complexity —
+failure modes — over authoring effort). **Alternative rejected:** a `localStorage` lease — needs
+its own heartbeat and a guessed staleness window, and a crashed tab leaves a stale lease that
+blocks every other tab until that guess expires; Web Locks has no such window.
+
+**Auth-change stop:** the provider watches `useAuth().user?.id` and stops capture on any
+transition — to `null` (sign-out) or to a different non-null id (a second person signing in on
+the same phone). Verified this is currently uncovered: `AuthContext.signOut`
+(`AuthContext.tsx:244-273`) clears only `/live`'s `sessionStorage` keys and the banner's
+`localStorage` entry — nothing touches a `MediaStream`. No change to `AuthContext.tsx` itself is
+needed; the provider is a new consumer of its existing `user` value.
+
+**Pause/resume (D3):** reads `useLocation()` for the `/live` route match and
+`live-session-context.tsx`'s `cp_active_session` for "no `/live` session is still active,"
+implementing D3's exact rule in one place. **Correction (parent review, 2026-09-14): not via
+`useLiveSession()`.** `LiveSessionProvider` is mounted only inside `ClarityLandingLayout`
+(`clarity-landing-layout.tsx:37,48`), below `<Routes>`, so a provider mounted above `<Routes>`
+cannot read that context. `cp_active_session` lives in **`localStorage`** (`live-session-context.tsx:5,
+20,30`), not `sessionStorage` as Part 6 says. The provider reads it through that file's read helper
+(exported if it is not already), re-read on every location change and on the `storage` event. **Explain-back (D3's "applied equally"):** rather than instrumenting both call sites
+(`letter-flow-content.tsx:951`, `story-walk.tsx:315`), the pause/resume calls live inside
+`explain-back-capture.tsx`'s own mount/unmount effect — both call sites already gate that
+component's presence on local `captureOpen` state, so mounting/unmounting it **is** the signal;
+no change needed at either call site. **Alternative rejected:** a route/query-param check
+mirroring the `/live` rule — rejected because explain-back opens as in-place dialog/panel state
+on an unchanged route, not a route change, so there is no location signal to key on.
+
+**`/transcribe/{code}` without a second `startCapture`:** `TranscribeRoomPage` reads
+`useRoomCapture()`; when a capture is already running for the matching room (or no code names
+the currently-running room), it renders the room view sourced from the SAME subscriptions the
+provider already holds, and its End button calls the provider's per-person-end path — no new
+`join`/`startCapture`. When no capture is running, today's consent → join → `startCapture` flow
+is unchanged, so the existing tested path only fires in the case it already covers.
+
+**Bar lift (D7, D9):** `ActiveSessionBanner`'s markup becomes a presentational `<SessionBar>`
+(new: `src/app/components/session/session-bar.tsx`, props not context) plus two thin wrappers:
+`LiveSessionBar` (today's `ActiveSessionBanner` logic, unchanged behaviour, renders at its
+current site inside `ClarityLandingLayoutInner`, still gated by `isLivePage`/
+`isImmersiveLetterRoute`) and `RoomCaptureBar` (new, sources text/actions from
+`useRoomCapture()`). `RoomCaptureBar` is rendered by `RoomCaptureProvider` itself, as a
+fixed-position overlay — because the provider sits above `<Routes>`, this is present on every
+route without threading a new prop through `ClarityLandingLayoutInner`'s chromeFree/embed/
+`/transcribe` branches, which is exactly what D9 ("wherever transcription is running... every
+page") needs and what the layout's existing conditional structurally cannot give without a
+parallel prop on every variant. It renders only in `capturing`/`stalled` state — during `paused`
+nothing is running, so its absence satisfies "capture never runs with no indicator" rather than
+violating it, and matches D3/D13's "no paused message" by construction.
+
+**`transcribe-service.ts`'s existing client-facing `endRoom()` export** (`:581-626`, fans out
+`createTranscriptionJob` per member) is retired from every click-handler call site — Part 1's
+"no client ends a room for anyone else" invariant forbids it as a UI action now that Decision 1
+provides the correct per-person alternative (`endMyCapture`). The function itself may be deleted
+outright, since Decision 2's sweep is what ends a fully-ended room server-side now.
+
+---
+
+**Decision 8 — T3 recommendation (hold vs. release the stream while paused)**
+
+**Chosen (recommendation, not final): hold.** Keep the `getUserMedia` tracks alive across a
+pause; disconnect only the `AudioWorkletNode` tap and stop sending slices. Rationale: `/live`
+and explain-back pauses are ordinarily short relative to a 3-hour cap, and re-acquiring
+`getUserMedia` on every resume risks a fresh permission/gesture requirement on some browsers —
+notably iOS Safari, which Open Question T1 already flags as uncertain for the unrelated
+lock-screen-resume case. Holding sidesteps that uncertainty for the common case. **Trade-off,
+stated as the spec already frames it:** the OS microphone indicator stays lit during a private
+`/live` session — a real, named cost, not hidden by this recommendation. Both branches are
+implemented behind one pair of functions on the provider (`pauseCapture()`/`resumeCapture()`),
+so flipping the recommendation after the T3 iPhone measurement in `/verify` is a change inside
+those two functions, not a redesign of the pause/resume wiring above.
+
+---
+
+**Decision 9 — Part 4 bounds table: confirmed against code, and the edge-first rollout**
+
+**Confirmed by direct read** (not trusted from the spec's own citations): `SLICE_INTERVAL_MS`
+(`slice-recorder.ts:36`) = `4_000`; `MAX_SLICE_DURATION_MS` (`validate.ts:50`) = `8_000`;
+`MAX_SLICE_BYTES` (`validate.ts:43`) = `320_000`; `MAX_SLICES_PER_MEMBER` (`handler.ts:46`) =
+`3_000`. The ring buffer (`slice-recorder.ts:41`, `BUFFER_SECONDS = (SLICE_INTERVAL_MS +
+LEAD_IN_MS) / 1000 + 1`) is derived from the interval constant, not hardcoded — bumping
+`SLICE_INTERVAL_MS` alone resizes it; no separate edit needed there.
+
+**New values:** `SLICE_INTERVAL_MS = 13_000`. `MAX_SLICE_DURATION_MS = 17_000` (≥14 s cadence +
+lead-in, plus a late-timer margin, as the spec suggests). `MAX_SLICE_BYTES`: 17 s × 32,000
+bytes/s (16 kHz × 16-bit × mono) + 44-byte header = 544,044 bytes; `640,000` (the spec's
+suggested value) preserves roughly the same ~18-25% margin over that figure that today's
+320,000-over-256,044 already carries. The `handler.test.ts:246-253` inequality assertion moves
+with these constants — per the P1236 decisions.md finding above, that assertion is what makes
+the relationship, not just each bound individually, a live check.
+
+**`MAX_SLICES_PER_MEMBER`** re-derives from the same 180-minute/cadence relationship
+(`handler.ts:46`'s own comment: "180 minutes at Decision 1's 4-second cadence is 2700 slices");
+at 13 s cadence that is ~830 slices for 180 minutes — re-derived to **~1,000** (headroom for
+rejoin/replay, per the spec, not dropped).
+
+**Final partial slice on stop:** `createSliceRecorder`'s `stop()` closure (`slice-recorder.ts:
+326-338`) currently only clears the timer and tears down the audio graph. Add one final
+`ring.readLast(...)` flush of whatever accumulated since the last tick, emitted as one more
+slice (continuing the sequence counter) when its length exceeds a small floor (~0.5 s, to avoid
+emitting a near-empty noise slice) — this is what makes the last up-to-13-s utterance reach live
+text, per the spec's own line in the bounds table.
+
+**Edge-first rollout, resolved as a superset rather than dual-mode logic:** the new bounds
+(17,000 ms / 640,000 bytes) are a strict superset of the old (8,000 ms / 320,000 bytes), so a
+still-deployed old client's 4 s/5 s slices continue to validate unchanged once the widened
+bounds are live. Deploying `transcribe-slice` with the new constants **first**, before any
+client ships the 13 s recorder, achieves "accepts both 5 s and 14 s slices during rollout"
+without a dual-range branch in `validate.ts` — one set of constants, ordering (not branching)
+does the rest. RQ5's 5-minute-per-segment defence is untouched either way, since 17 s remains
+far below it.
+
+### Security Review
+
+*Written by the Security agent before the Architecture section existed (verbatim below). The
+three load-bearing ⚠️ findings were re-checked by command in the parent session, and corrections
+follow in "Parent verification", which overrides the review wherever they differ.*
+
+**RLS Policies:**
+- ⚠️ **`transcribe_rooms`'s existing "room members can end the room" UPDATE policy has no directional guard on `ended_at`.** `20260824000000_p1149_room_end_policy_column_guard.sql:42-57` adds a trigger guarding `code`/`event_id`/`created_at` but the `WITH CHECK` only re-tests membership — nothing stops a member `UPDATE`-ing `ended_at` back to `NULL` after the server (or another member) ends it, or setting it early for everyone. This is exactly the "one member ends the room for all" mechanism Part 1 sets out to remove ("No client ever ends a room for anyone else," Invariants). **Required:** when the per-person end marker + server-driven end ship, this policy must be revoked or tightened (e.g. reject any client `UPDATE` on `transcribe_rooms.ended_at` entirely, moving both end paths to `SECURITY DEFINER` RPCs) — leaving it as-is means the old direct-end path coexists with the new per-person-end RPC and defeats the invariant.
+- ✅ No client can rewrite `consent_given_at` or `slice_count` today: `transcribe_room_members` carries no `UPDATE` policy for `authenticated` (checked across `20260823190000`, `20260908170000`); both columns are writable only through `SECURITY DEFINER` functions (`join_transcribe_room`, `enter_transcribe_room`, `record_transcribe_slice`, the last `service_role`-only).
+- ⚠️ **The per-member end marker column doesn't exist yet.** **Required:** when added, it must follow the `consent_given_at` pattern exactly — writable only via a `SECURITY DEFINER` RPC that derives the member from `auth.uid()`, never accepts a target member id, and the table must gain no new `authenticated` `UPDATE` policy that could let one member set another's marker.
+- ⚠️ **Session→room transcript read path doesn't exist yet** (Part 2). **Required:** reuse `is_transcribe_room_member`/the P1207 member-scoped pattern directly — do not introduce a second, broader visibility rule keyed off `clarity_sessions` alone, since a session's *other* `/live` participant must not thereby gain room-transcript access.
+- ✅ Service-role-only paths are correctly unreachable from `anon`/`authenticated`: `record_transcribe_slice` (`20260908170200_…sql:71-74`) revokes `PUBLIC`, `anon` **and** `authenticated` explicitly and grants only `service_role`. `join_transcribe_room`/`create_transcribe_room`/`enter_transcribe_room` all pin `search_path`, revoke `PUBLIC` and `anon`, and two of the three carry a live post-condition (`has_function_privilege`) proving the anon grant is actually gone — **required for every new definer function this spec adds.**
+- ⚠️ **`enter_transcribe_room` performs no server-side check that the caller may attend `p_event_id`** (`20260911151200_p1236_g_…sql:96-101` only checks `clarity_sessions` ownership). The event gate (`EventRoomGate.tsx`, `useEventRoomAccess`) is client-only routing. *(The review's proposed remedy, an `event_room_members` row, is corrected under Parent verification.)*
+
+**Authentication:**
+- ✅ All three edge functions resolve the Bearer JWT via `supabase.auth.getUser(token)` against the anon client before any service-role read (`transcribe-slice/index.ts:75-79`, `gcs-signed-url/index.ts:25-29`), fail closed to 401 on any error/no-user.
+- ✅ `record_transcribe_slice`, `join_transcribe_room`, `enter_transcribe_room` and `create_transcribe_room` all derive identity from `auth.uid()` only — none accept a `profile_id`/`member_id` argument.
+
+**Authorization:**
+- ⚠️ **Confirmed: `gcs-signed-url` does not check room end today.** `handler.ts:157-169` checks membership + `consentGivenAt`, never `ended_at` or any cap. A member whose room has ended can still mint signed upload URLs and keep archiving indefinitely. **Required:** refuse (410-equivalent) server-side, mirroring `transcribe-slice/handler.ts:139-148` — a client-only stop is not a stop. *(Which cap it checks is corrected under Parent verification.)*
+- ✅ Attribution is server-derived everywhere reviewed: `transcribe-slice` resolves `member_id` from `(roomId, auth.uid())` server-side (`index.ts:81-103`) before any Gemini call or insert; `gcs-signed-url`'s object-name-ownership check uses server-known names only (`handler.ts:140-149`).
+
+**Consent integrity:**
+- ✅ Nothing is capturable before a member row with `consent_given_at` exists: both join RPCs require `p_consent IS TRUE` (so `NULL` also refuses) and write the row and timestamp atomically; both `transcribe-slice` and `gcs-signed-url` independently gate on `consent_given_at IS NOT NULL`.
+- ✅ A second user signing in on the same browser cannot inherit capture server-side: every `transcribe-slice`/`gcs-signed-url` call re-resolves the JWT and looks up *that* user's own membership row, so a different user's JWT 403s. The client-side gap (mic keeps running) is Part 1's job, not a data-attribution risk.
+- ✅ One-capture-per-browser needs no server-side guard: the join RPCs `ON CONFLICT (room_id, profile_id) DO UPDATE`, so a second tab's join is idempotent against the same membership row.
+
+**Input Validation:**
+- ⚠️ When the Part 4 bounds land, write the equivalent of `handler.test.ts:246-253`'s cross-constant inequality assertion for the new values, not just new constants; `MAX_SLICES_PER_MEMBER` re-derived from the new cadence, not left at 3,000.
+- ✅ Archive object naming has no path-traversal or cross-member-overwrite surface: `ROOM_PREFIX_RE`/`ROOM_FILE_NAME_RE` are closed regexes, and the member id in the prefix is checked against the JWT's own membership row.
+- ⚠️ Every new RPC (per-person end, chunk reservation, sweep) takes no identity argument: `auth.uid()`-only identity, and no parameter accepts an identifier without a matching server-side ownership/membership check.
+
+**Data Protection:**
+- ✅ No audio bytes or transcript text appear in logs in either edge function (`transcribe-slice/handler.ts:166,188` log status/error only).
+- ⚠️ **UNVERIFIED — Part 3 is unbuilt.** The whole-recording service must meet the same bar: no audio or transcript text in logs, Sentry breadcrumbs or Cloud Tasks payloads (job ids only); GCS reads for reassembly service-account-only.
+- ✅ Non-members learn nothing: room codes are unenumerable (`20260901160000_p1207_…sql`), roster read requires `is_transcribe_room_member`, and not-found/not-a-participant responses collapse identically in both edge functions.
+
+**AI Prompt Security:**
+
+| Variable | Origin | Classification | Required handling |
+|----------|--------|---------------|-------------------|
+| Slice / segment audio bytes | Member's microphone | Personal data (voice) | Sent only as `inlineData` binary, never interpolated into text (`transcribe-slice/index.ts:147-156`); no system prompt is sent |
+| Display name / room code / event title | User-controlled | Personal / identifying | **Not sent today.** The whole-recording pass (Decision 5) must preserve this: none of them may enter any Gemini request; attribution is joined server-side after transcription |
+
+- [x] No sensitive user data injected into prompts sent to the third-party API (audio only; no text part)
+- [x] System prompt cannot be extracted (none is sent)
+- [x] API key is a server-side secret (read via `Deno.env.get`, not a `VITE_*` variable); the new Cloud Run service reads its key from its own secret, never from the client
+- [x] Rate limiting: `MAX_SLICES_PER_MEMBER`, `MAX_CONCURRENT_ROOMS_PER_USER` and the per-person cap bound live spend; whole-recording spend is bounded by one job per member per room (`ON CONFLICT DO NOTHING`, Decision 2)
+
+#### Parent verification (2026-09-14, by command)
+
+Reports received: **2 of 2** (Architect, Security). The three load-bearing ⚠️ findings were re-run against the code, and all three reproduce. Corrections:
+
+1. **Room-end UPDATE policy: confirmed.** The P1207 migration states it leaves this policy untouched (`20260901160000_p1207_…sql:25`); P1275 changes only INSERT. **Required in the Decision 1 migration:** drop "room members can end the room" and grant no client UPDATE on `transcribe_rooms`. `ended_at` is written only by the sweep (Decision 2), which is `SECURITY DEFINER`. `transcribe-service.ts`'s `endRoom()` is removed with it (Decision 7 already retires it).
+2. **Registration check: confirmed, but the review's remedy is circular, and the gap is defence in depth, not a boundary.** `join_event_room` creates an `event_room_members` row for any signed-in caller, checking only event existence, the grace window and a 1,000-row cap (`20260907130000_p1256_…sql:70-95`). Its own comment says registration is the client's gate, not a server condition. Registration itself is self-service: `event_rsvps`' INSERT policy is `auth.uid() = profile_id` (`20260118_create_events.sql:73-74`), and `events` has no private or invite-only column. **Required:** `enter_transcribe_room`, whenever `p_event_id` is not null, refuses unless the caller has an `event_rsvps` row for that event or is its host. This is the exact rule `useEventRoomAccess` applies on the client (`EventRoomAccess.tsx:76`). It also refuses once the event's grace window has passed (`public.event_grace_interval()`), so the server and client agree. Apply the same check to `create_transcribe_room`, which also accepts `p_event_id uuid DEFAULT NULL` (`20260908210000_p1275_…sql:52-55`). **What it does not do:** anyone who self-registers for a public event can still join its room and read its transcript without attending. That is a product question for the founder, listed below, not a code gap.
+3. **Upload refusal: confirmed; the cap it checks follows D11, not room age.** `gcs-signed-url` refuses when the room's `ended_at` is set, when the member's `capture_ended_at` is set, or when `now() > joined_at + 3 hours`: the same per-person source as Decision 3, so the slice path and the upload path cannot disagree.
+4. **New tables' write rules** (not covered by the review, which predates them): `transcribe_room_transcription_jobs` and `transcribe_room_transcripts` get **no** client INSERT/UPDATE/DELETE policy (service role only, `WITH CHECK (false)` stated explicitly per the P1275 idiom) and a member-scoped SELECT using the P1207 shape. The session history's status read (Decision 4) goes through that SELECT, so a non-member learns nothing, not even whether a job exists.
+
+**For the founder (not blocking `/generate-tests`):** since registration is self-service, a person who registers for a public event and never attends can open its room and read everything said. The ready-screen sub-line promises sharing "with others in the room". Is "anyone registered" an acceptable meaning of "the room"?
+
+### Implementation Approach
+
+**Worktree recommended:** 30+ files span four Supabase migrations, three edge functions, a new
+Cloud Run service, and a dozen-plus client files — the existing worktree (`w5`) already isolates
+this from `main` and any co-tenant session, consistent with CLAUDE.md's worktree default for
+`/dev` on a P-number feature.
+
+#### Build Sequence
+
+1. **Migrations** (all four land together; order among them does not matter, they touch
+   disjoint columns/tables except the shared `transcribe_room_members` table, which Postgres
+   handles fine across separate `ALTER TABLE` statements): per-person end marker + RPC
+   (Decision 1) **and, in the same migration, drop the "room members can end the room" UPDATE
+   policy, with no client UPDATE left on `transcribe_rooms`** (Security Review, Parent
+   verification 1); chunk-sequence column + RPC (Decision 6); `last_seen_at` column + the
+   `touch_transcribe_room_capture` RPC (Decision 2 correction); the `enter_transcribe_room`
+   changes, all together: room-age-filter removal (Decision 3, coupled to the sweep landing in
+   the same release), `capture_ended_at = NULL` on re-join (Decision 1 correction), and the
+   RSVP-or-host + grace-window check on `p_event_id`, applied to `create_transcribe_room` too
+   (Parent verification 2); `transcribe_room_transcription_jobs` + `transcribe_room_transcripts`
+   tables with service-role-only writes and member-scoped SELECT (Parent verification 4), and the
+   sweep tick function + `cron.schedule` (Decisions 2, 4, 5). Every new `SECURITY DEFINER`
+   function pins `search_path`, revokes `PUBLIC`/`anon`, and carries a `has_function_privilege`
+   post-condition (Security Review). Apply to prod per the spec's own Pre-deploy Checklist,
+   before any function/client deploy.
+2. **Edge functions, deployed before any client change (edge-first, Part 4):**
+   `transcribe-slice`: widened bounds (Decision 9), per-member cap source switch (Decision 3),
+   `last_seen_at` stamping (Decision 2); `gcs-signed-url`: refuse when the room's `ended_at` is
+   set, the member's `capture_ended_at` is set, or `now() > joined_at + 3 hours` (Parent
+   verification 3), backstopping the client hard stop; new `enqueue-room-transcription` (job ids
+   only in the task payload, no audio or text).
+3. **New Cloud Run service** `transcribe-room-batch` and its Cloud Tasks queue, deployed
+   alongside step 2 — the sweep (already live after step 1) will start creating job rows the
+   moment a room ends, so the processing target must exist before that happens on prod.
+4. **Client, all together (Parts 1, 5, 6 per the spec's own ordering):** `slice-recorder.ts`
+   bounds + final-partial flush; `RoomCaptureProvider` + `SessionBar`/`LiveSessionBar`/
+   `RoomCaptureBar` split + `App.tsx` mount; `transcribe-room-page.tsx` and
+   `transcribe-service.ts` adjustments (Decisions 1, 6, 7); `EventRoomGate.tsx`/
+   `EventRoomReady.tsx` (D10 routing, D12 default-off switch + copy); `my-sessions-page.tsx` /
+   `sessions-service.ts` (Decision 4); `explain-back-capture.tsx` pause/resume wiring.
+5. **Copy/docs:** `privacy.md`, `tos.md`, the `/live` label sites (D6), `database.md`,
+   `infrastructure.md` — per the spec's own Done-When list.
+6. **`/verify`:** T1 (lock-screen resume), T3 (iPhone hold-vs-release measurement, may flip
+   Decision 8), T4 (edge-function body-size limit).
+
+#### Files to Create
+
+- `supabase/migrations/20260914120000_p1307_transcribe_member_capture_end.sql`
+- `supabase/migrations/20260914120100_p1307_transcribe_chunk_sequence.sql`
+- `supabase/migrations/20260914120200_p1307_transcribe_member_cap_source.sql`
+- `supabase/migrations/20260914120300_p1307_transcribe_room_jobs_transcripts_sweep.sql`
+- `supabase/functions/enqueue-room-transcription/index.ts`
+- `services/transcribe-room-batch/main.py`, `audio.py`, `gemini_client.py`,
+  `requirements.txt`, `Dockerfile` (mirrors `services/transcribe/`'s existing structure —
+  GCS listing/download and job-claim mechanics reused, Whisper/diarization calls replaced with
+  per-segment Gemini calls)
+- `src/app/contexts/room-capture-context.tsx`
+- `src/app/components/session/session-bar.tsx`
+- `src/app/components/session/live-session-bar.tsx`
+- `src/app/components/session/room-capture-bar.tsx`
+
+#### Files to Modify
+
+- `supabase/functions/transcribe-slice/handler.ts`, `validate.ts`, `index.ts`
+- `supabase/functions/gcs-signed-url/handler.ts`, `index.ts`
+- `src/lib/audio/slice-recorder.ts`
+- `src/App.tsx`
+- `src/app/layouts/clarity-landing-layout.tsx` (remove the now-lifted `ActiveSessionBanner`
+  render call; `isLivePage` padding logic otherwise unchanged)
+- `src/app/components/session/active-session-banner.tsx` (logic extracted into the three new
+  files above; this file is either deleted or reduced to re-exporting `LiveSessionBar`)
+- `src/app/pages/transcribe-room-page.tsx`
+- `src/app/data/transcribe-service.ts`
+- `src/app/prototypes/events/components/EventRoomGate.tsx`
+- `src/app/prototypes/events/components/EventRoomReady.tsx`
+- `src/app/pages/my-sessions-page.tsx`
+- `src/app/data/sessions-service.ts`
+- `src/app/data/api.ts` (new `fetchRoomTranscript`, alongside unchanged `fetchSessionTranscript`)
+- `src/app/components/letters/explain-back-capture.tsx`
+- `src/app/contexts/live-session-context.tsx` (export its `cp_active_session` read helper if not
+  already exported; Decision 7 correction)
+- `src/app/content/privacy.md`, `src/app/content/tos.md` (corrected path: no `docs/privacy.md` or
+  `docs/tos.md` exists)
+- `docs/technical/database.md`, `docs/technical/infrastructure.md`
