@@ -23,11 +23,13 @@
  *     anywhere here; live text arrives only as the server's rows.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown, ArrowLeft } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
@@ -53,7 +55,6 @@ function formatTime(iso: string): string {
 
 export function TranscribeRoomPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { code: urlCode } = useParams<{ code?: string }>();
   const { user, isLoading: authLoading, sessionChecked } = useAuth();
   const capture = useRoomCapture();
@@ -132,13 +133,12 @@ export function TranscribeRoomPage() {
 
   /**
    * The consent screen's escape hatch is a BACK button, not a "Leave" (founder, 2026-08-31).
-   * `location.key === 'default'` marks the first entry in this app's history — a typed URL, a
-   * bookmark — where history.back() would leave the site; those land on the home page instead.
+   * Founder, P1307 testing: every screen here gets "Go back" at the top and the bottom, like
+   * /stake, leading to wherever the person came from. Leaving the running room this way does
+   * not end capture — the app-level owner keeps it and the bar shows it (P1307 D7). Arrivals
+   * with nothing behind them land on the home page, as before.
    */
-  const handleBack = useCallback(() => {
-    if (location.key === 'default') navigate('/', { replace: true });
-    else navigate(-1);
-  }, [navigate, location.key]);
+  const handleBack = useGoBack('/');
 
   const handleJoin = useCallback(async () => {
     if (!user || !consentGiven) return;
@@ -215,6 +215,9 @@ export function TranscribeRoomPage() {
         className="max-w-md mx-auto px-4 py-8 text-center h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
         data-testid="transcribe-ended-screen"
       >
+        <div className="text-left">
+          <FocusHeader onBack={handleBack} />
+        </div>
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
         <p className="text-sm text-muted-foreground mb-6">
           {/* [FOUNDER DECISION: copy] */}
@@ -232,6 +235,7 @@ export function TranscribeRoomPage() {
         >
           Go to my sessions
         </Button>
+        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -291,6 +295,7 @@ export function TranscribeRoomPage() {
           and{' '}
           <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
         </p>
+        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -305,12 +310,28 @@ export function TranscribeRoomPage() {
       <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)] shrink-0">
         <div className="container mx-auto px-4 lg:px-8 h-full">
           <div className="flex items-center justify-between h-full">
-            <ClarityLogo size="sm" />
+            <div className="flex items-center gap-1">
+              {/* The room hides the site nav, so its header carries the top Back. Leaving does
+                  not end capture (P1307 D7); End Session does. */}
+              <button
+                type="button"
+                onClick={handleBack}
+                aria-label="Go back"
+                data-testid="transcribe-top-back"
+                className="-ml-3 flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+              {/* Mark only below sm: with the Back arrow, the wordmark pushed "End Session" onto
+                  two lines at 320 px (visual QA). */}
+              <span className="sm:hidden"><ClarityLogo size="sm" iconOnly /></span>
+              <span className="hidden sm:inline-flex"><ClarityLogo size="sm" /></span>
+            </div>
             <button
               type="button"
               onClick={() => void handleEndSession()}
               aria-label="End Session"
-              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
+              className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
               data-testid="transcribe-end-session-button"
             >
               <LogOut className="h-4 w-4" />
@@ -408,6 +429,7 @@ export function TranscribeRoomPage() {
             </button>
           )}
         </div>
+        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" className="mt-0 shrink-0" />
       </div>
     </div>
   );
