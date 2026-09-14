@@ -57,6 +57,22 @@ if [ -f "$ENV_SENTINEL_LIB" ]; then
     echo ""
 fi
 
+# 0b. core.bare sentinel — a main checkout configured bare breaks every git command
+# in every OTHER session while leaving all files on disk (decisions.md 2026-09-07 and
+# 2026-09-08; it recurred within a day of being documented). This fires from a
+# WORKTREE, where git still works and hooks still run; in the main checkout git dies
+# before any hook runs, which is why a SessionStart hook covers that side.
+# WARNs rather than blocks: the commit being made here is itself safe, and refusing
+# safe work would repair nothing.
+CORE_BARE_CHECK="$(git rev-parse --show-toplevel 2>/dev/null)/scripts/check-core-bare.sh"
+if [ -x "$CORE_BARE_CHECK" ]; then
+    if ! "$CORE_BARE_CHECK" >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ core.bare is true on the main checkout — every git command there is failing${NC}"
+        echo -e "${YELLOW}  Repair: ./scripts/check-core-bare.sh --fix${NC}"
+        echo ""
+    fi
+fi
+
 # Helper: run a command, suppress output on success, show last 30 lines on failure.
 # This keeps total script output under ~5KB for passing runs (vs 100KB+ before).
 # P1273: run_quiet and the index-integrity guard live in a lib so the guard itself
