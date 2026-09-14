@@ -57,10 +57,10 @@ SET search_path = public
 AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    INSERT INTO point_position_history (point_id, user_id, position, reasoning)
+    INSERT INTO public.point_position_history (point_id, user_id, position, reasoning)
     VALUES (NEW.point_id, NEW.user_id, NEW.position, NEW.reasoning);
   ELSIF TG_OP = 'UPDATE' AND (OLD.position IS DISTINCT FROM NEW.position OR OLD.reasoning IS DISTINCT FROM NEW.reasoning) THEN
-    INSERT INTO point_position_history (point_id, user_id, position, reasoning)
+    INSERT INTO public.point_position_history (point_id, user_id, position, reasoning)
     VALUES (NEW.point_id, NEW.user_id, NEW.position, NEW.reasoning);
   ELSIF TG_OP = 'DELETE' THEN
     -- P1292: only when BOTH parents survive. Deleting a point or a profile cascades its history
@@ -68,7 +68,11 @@ BEGIN
     -- Schema-qualified on purpose: SET search_path = public still searches pg_temp FIRST for
     -- relations, so an unqualified name here could be shadowed by a session's temp table and the
     -- tombstone silently skipped (codex, 2026-09-11; measured).
-    INSERT INTO point_position_history (point_id, user_id, position, reasoning)
+    -- The INSERT TARGET carries that same exposure and was missed by the first pass: only the
+    -- EXISTS subqueries were qualified, so the audit row itself could still land in a shadowing
+    -- pg_temp.point_position_history while the delete reported success (codex, 2026-09-14).
+    -- All three arms are qualified, and the assertion below refuses any unqualified target.
+    INSERT INTO public.point_position_history (point_id, user_id, position, reasoning)
     SELECT OLD.point_id, OLD.user_id, NULL, NULL
      WHERE EXISTS (SELECT 1 FROM public.points p WHERE p.id = OLD.point_id)
        AND EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = OLD.user_id);
@@ -102,6 +106,14 @@ BEGIN
   END IF;
   IF v_src NOT LIKE '%VALUES (NEW.point_id, NEW.user_id, NEW.position, NEW.reasoning)%' THEN
     RAISE EXCEPTION 'P1292: the INSERT/UPDATE arms changed — this migration must touch the DELETE arm only';
+  END IF;
+  -- Every write target must be schema-qualified, or a session temp table can shadow the audit
+  -- table inside this SECURITY DEFINER function and the history silently loses the row.
+  IF v_src ~ 'INSERT INTO[[:space:]]+point_position_history' THEN
+    RAISE EXCEPTION 'P1292: an INSERT target lost its public. qualification — pg_temp can shadow the audit table';
+  END IF;
+  IF (length(v_src) - length(replace(v_src, 'INSERT INTO public.point_position_history', ''))) / length('INSERT INTO public.point_position_history') <> 3 THEN
+    RAISE EXCEPTION 'P1292: expected exactly 3 qualified INSERT targets in log_position_change';
   END IF;
   IF NOT v_def THEN
     RAISE EXCEPTION 'P1292: log_position_change lost SECURITY DEFINER — the history INSERT policy would refuse the trigger (the 20260409 bug)';

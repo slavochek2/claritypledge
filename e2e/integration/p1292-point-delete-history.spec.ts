@@ -47,7 +47,9 @@ test.describe('P1292: the position-history trigger vs point deletion', () => {
 
   test.afterAll(async () => {
     for (const id of pointIds) await supabaseAdmin.from('points').delete().eq('id', id);
-    await deleteTestUser(user.user.id);
+    // Guarded: when beforeAll fails (DNS, auth, a fixture error) `user` is undefined, and an
+    // unguarded dereference here reports a TypeError in teardown that buries the real cause.
+    if (user?.user?.id) await deleteTestUser(user.user.id);
   });
 
   async function pointWithPosition(label: string): Promise<string> {
