@@ -201,20 +201,29 @@ describe('P1311 — arriving from a page OUTSIDE the app still goes back to that
    * fix: `history.state.idx` 0, `history.length` 3, "Go back" landed on /feed instead of
    * popping to the page the reader came from.
    *
-   * jsdom's own `history.length` is 1, which is exactly the bookmark case the suite above
-   * pins; `pushState` here raises it to 2 to stand for the entry the outside page occupies.
-   * The router is in-memory and has nothing to pop, so the observable difference is that the
-   * feed is NOT substituted — with the pre-fix code both of these land on the feed.
+   * Two separate histories are in play and BOTH have to be set up, or the test proves half of
+   * what it claims (review, HIGH). `window.history` is what the fix reads: jsdom starts it at
+   * length 1 — the bookmark case the suite above pins — so `pushState` raises it to 2 to stand
+   * for the entry the outside page occupies, and carries the `idx: 0` react-router stamps on a
+   * cold arrival — which is the signal PRODUCTION reads. Stamping it is not decoration: the
+   * `location.key` fallback underneath it answers "cold" only for a router sitting on its own
+   * first entry, so without the stamp the branch under test is never entered and the whole
+   * case passes vacuously (measured: with `idx` unset, breaking the fix kills nothing).
+   *
+   * The ROUTER's history is what `navigate(-1)` actually pops, and a MemoryRouter on its first
+   * entry clamps `go(-1)` to a silent no-op — so "we did not land on the feed" would pass
+   * whether back worked or did nothing at all. Giving the router a preceding entry makes the
+   * pop observable: the assertion is that we arrive AT it.
    */
   it.each([['the header button', HEADER_BACK], ['the bottom CTA', BOTTOM_BACK]])(
-    'cold, but with an outside page behind us → %s → never the feed',
+    'cold, but with an outside page behind us → %s → back to that page, not the feed',
     async (_which, name) => {
-      window.history.pushState({}, '', '/stake/aisafety1?tab=stories');
+      window.history.pushState({ idx: 0 }, '', '/stake/aisafety1?tab=stories');
       expect(window.history.length).toBeGreaterThan(1);
-      renderAt(['/stake/aisafety1?tab=stories']);
+      renderAt(['/prev', '/stake/aisafety1?tab=stories'], 1);
       await screen.findAllByTestId('story-card');
       await userEvent.click(screen.getByRole('button', name));
-      await waitFor(() => expect(screen.queryByTestId('story-card')).not.toBeNull());
+      expect(await screen.findByTestId('the-prev')).toBeInTheDocument();
       expect(screen.queryByTestId('the-feed')).toBeNull();
     },
   );
