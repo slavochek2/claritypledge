@@ -44,6 +44,8 @@ opened in a fresh tab, and false when an outside page sits behind us. Otherwise 
 |---|---|---|
 | Back can now leave claritypledge.com | ACCEPT | It is where the reader was; a "Go back" that does not go back is the worse surprise. |
 | `history.length` counts unrelated earlier pages in a reused tab | ACCEPT | Identical to what the browser's own Back button does from the same page. |
+| The same link opened in a NEW tab still gets the feed | ACCEPT | Raised in review as a reproduction of the defect; it is not. A fresh tab has nothing behind it — `navigate(-1)` there would do nothing at all and leave the reader stuck, while the event page is still open in the tab they came from. The feed is the right answer in that case, and length 1 identifies it correctly. |
+| `history.length` / `history.state.idx` under BFCache restore or prerender is asserted from the spec, not measured | ACCEPT | Untested this session — flagged rather than claimed. Worst case is the pre-fix behaviour (the feed), not a worse one. |
 
 Do NOT change the tab-switch `replace` behaviour, the cold-arrival fallback itself, or any
 other page's back handling.
@@ -51,8 +53,10 @@ other page's back handling.
 ## Acceptance Criteria
 
 - [x] Arriving from a page outside the app and pressing either "Go back" returns to that page
-      rather than the feed — pinned by two tests that fail against the previous behaviour and
-      pass with the fix.
+      rather than the feed — pinned by two tests that assert arrival at the preceding page (not
+      merely the absence of the feed) and that fail against the previous behaviour. The first
+      draft of those tests was blind on both counts; the review caught one half and running the
+      mutation caught the other.
 - [x] A bookmark / typed URL / fresh-tab arrival still falls back to the feed — the four
       existing P1296 cold-arrival tests stay green.
 - [x] Both the header button and the bottom CTA behave identically, on both tabs.
