@@ -498,5 +498,29 @@ checklist gates, so it cannot also be an item on it.)
       `20260911100000_p1283_b_narrow_cron_health_reader.sql` (a no-op),
       `20260911163000_p1283_c_cron_health_snapshot_is_a_public_read.sql`,
       `20260911163100_p1283_d_remove_the_database_login_reader.sql` (a no-op on prod).
+
+## Post-deploy verification
+
+**This section is not a completion gate, and the move into it is recorded rather than done
+quietly.** The item below was the second box of `## Pre-deploy Checklist`, and it could never have
+been ticked there. `ship-gates.sh` gate 3.5 refuses to merge while any pre-deploy box is unticked —
+but a `workflow_dispatch` run requires the workflow file to be on GitHub's default branch, which
+requires the push, which requires the merge this checklist gates. The item was a post-deploy
+verification wearing a pre-deploy box. Nothing about it changed except its section; the wording is
+intact.
+
+The first box is genuinely pre-deploy and stays where it is: applying the migrations to prod is
+possible, and necessary, before the workflow reaches main — that ordering is the whole reason the
+checklist exists.
+
+This is the repo's existing convention for the small number of items it can never mechanically
+verify before a deploy — `docs/decisions.md` 2026-09-01 (P1197, `## Next Steps`), the P1288 entry,
+and P1278, which moved its prod-count criterion the same way for the same reason on 2026-09-14.
+
+**The check is UNCONFIRMED ON PRODUCTION until this passes.** What is confirmed is strictly weaker
+and is recorded above: the script run against prod by hand, the gate-7 and gate-7c proofs, and the
+migration applied to the test project.
+
 - [ ] Run the workflow once by `workflow_dispatch` and read the recorded exit status — expected 0,
-      or 1 naming a real job, never 2.
+      or 1 naming a real job, never 2. Blocked on the push, which is the founder's decision.
+
