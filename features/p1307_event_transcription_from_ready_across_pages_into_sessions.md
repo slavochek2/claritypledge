@@ -7,7 +7,10 @@ created_date: '2026-09-11'
 tags: [transcribe, events, live, consent]
 disclosure: public
 delivery_stage: create-spec
+flow: dev
+pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_ran: [create-spec]
+pipeline_skipped: ["challenge-prd -- adversarial review already folded in, 2 of 2 reports verified against code", "ux -- prototype founder-approved 2026-09-11; the one open placement question is settled by D13", "decompose -- the spec already splits the work into seven parts with a stated deploy order", "spec-review -- spec is 3 days old and not a change request"]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -97,6 +100,7 @@ Two copy strings remain open.
 | D10 | **(2026-09-14, answering F2.)** Every attendee passes the ready screen, so everyone is offered the switch: the event gate routes to `/ready` whenever this person is not already being transcribed for this event, with their saved readiness value shown on the slider. It no longer skips to `/meet` just because readiness exists. The switch stays in one place — it is not added to `/meet`. |
 | D11 | **(2026-09-14, answering F3.)** The 3-hour cap runs **per person**, from their own Continue — not from the room's creation. One room serves the whole event, so a latecomer gets their own 3 hours and the event's transcript is never split in two. |
 | D12 | **(2026-09-14, answering F1; delegated by the founder.)** The switch **starts off**. Tapping it on is the consent: it is the "clear affirmative action" that the legal basis needs (Art. 6(1)(a), `privacy.md:230`). A switch that is already on, followed by Continue, has the shape the CJEU held is **not** valid consent (Planet49, C‑673/17: a pre-ticked box the user must untick to refuse; GDPR Recital 32: "silence, pre-ticked boxes or inactivity should not … constitute consent"). The line "By continuing, you agree to our Terms and Privacy Policy." is unchanged: accepting the terms rests on contract, as on `/live`, and the founder's "per default they accept the terms" survives in it. This keeps `privacy.md:111-113` ("requires you to tap a control… nothing is captured before you do") true. **Cost, accepted:** fewer attendees transcribed than with default-on. D10 limits it: everyone not yet being transcribed passes the switch on each visit. **Rejected:** (a) default-on with the same Continue: not valid consent, as above. (b) Default-on, with a Continue button whose label names the recording while the switch is on: plausibly valid, but it needs new button copy ([FOUNDER DECISION]), and one button would still carry both the readiness answer and the consent. (c) Moving room recordings off consent to legitimate interest: this is voice audio kept and used for AI/ML, which the policy puts on consent (`privacy.md:232`), and the server already records consent (`consent_given_at`). **What would reopen it:** a founder choice of (b) with copy, or legal advice that a different basis applies. `/live`'s default-on host switch has the same weakness, and `privacy.md:84-98` already discloses it. It is out of scope here (D6 renames only). |
+| D13 | **(2026-09-14, agent pick on the founder's go-ahead; founder may override.)** On immersive letter screens, where the session bar is hidden so it doesn't collide with the letter progress bar, room capture **pauses** and resumes on leaving, the same as during `/live` (D3). Nothing new is drawn on those screens, and the "never capture without an indicator" invariant holds. The alternative, drawing the bar there, needed a design pass (`/ux`) for no gain in what gets transcribed at an event. |
 
 ## Solution
 
@@ -226,9 +230,8 @@ rather than working around it.
   `/letter/:docId/preview`, `/letter/:letterId/confirm`, `/cm`, `/explain-back/:id`), any
   `?embed=true` URL (`:28-32`), routes outside the layout (`/donate`, `/s/:code`, redirects), and
   `/transcribe` itself (`:86-87`, `:140`). On immersive letter screens the session bar is hidden
-  deliberately (it collided with the letter progress bar) — `/ux` places the transcription
-  indicator there without the collision, or capture pauses there; either way no route shows capture
-  without an indicator. One presentational bar plus two thin wrappers (live session, room
+  deliberately (it collided with the letter progress bar) — **capture pauses there (D13)**, by the
+  same rule as `/live` in Part 6's pause/resume, so no route shows capture without an indicator. One presentational bar plus two thin wrappers (live session, room
   transcription); `ActiveSessionBanner` reads session context for its text today
   (`active-session-banner.tsx:12-23`), which lifts to props.
 - **Open → `/transcribe/{code}`.** While a capture for this room runs, the page renders the room
