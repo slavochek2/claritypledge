@@ -64,8 +64,41 @@ function tagPattern(src: string): RegExp {
   }
   return new RegExp(`<(${[...names].join('|')})\\b`, 'g');
 }
-/** A size class that is NOT behind a breakpoint prefix — `md:text-sm` is fine, `text-sm` is not. */
-const BARE_SMALL = /(?<![:\w-])text-(xs|sm|\[(?:[0-9]|1[0-5])px\])\b/;
+/**
+ * Every way this codebase can put a sub-16px font on a control, NOT behind a breakpoint
+ * prefix (`md:text-sm` is fine, `text-sm` is not).
+ *
+ * THREE forms, because the first version of this constant had two dead spots and a
+ * regex that could not fire at all:
+ *   1. the named utilities `text-xs` / `text-sm`;
+ *   2. an arbitrary value — `text-[14px]`, `text-[0.875rem]`. The original pattern ended
+ *      that branch with `\b`, and a `]` followed by a quote has NO word boundary, so the
+ *      arbitrary branch **never matched anything**. It read as covered for the whole of
+ *      its short life, and no fixture exercised it;
+ *   3. an inline `style={{ fontSize: … }}`, which bypasses class scanning entirely.
+ *
+ * Found by adversarial review (P1310), the third blind spot in this one scanner after
+ * nested braces and aliased imports. The lesson is in the decisions log: a scanner's
+ * parser IS its coverage, and a form it cannot express is a silent exemption.
+ */
+const NAMED_SMALL = /(?<![:\w-])text-(xs|sm)(?![\w-])/;
+const ARBITRARY_SIZE = /(?<![:\w-])text-\[(\d+(?:\.\d+)?)(px|rem|em)\]/;
+const INLINE_SIZE = /fontSize:\s*['"]?(\d+(?:\.\d+)?)(px|rem|em)?['"]?/;
+
+/** The offending token, or null when this element's attributes carry no sub-16px size. */
+function smallFontHit(attrs: string): string | null {
+  const named = attrs.match(NAMED_SMALL);
+  if (named) return named[0];
+  for (const re of [ARBITRARY_SIZE, INLINE_SIZE]) {
+    const m = attrs.match(re);
+    if (!m) continue;
+    const value = parseFloat(m[1]);
+    // A unitless inline fontSize is px in React. rem/em are relative to a 16px root here.
+    const px = m[2] === 'rem' || m[2] === 'em' ? value * 16 : value;
+    if (px < 16) return m[0];
+  }
+  return null;
+}
 
 /**
  * Attributes of one JSX element start tag, read with a BALANCED-BRACE walk rather
@@ -106,10 +139,10 @@ function scan(src: string, file = '<inline>'): string[] {
     const el = elementAttrs(src, start);
     if (!el) continue;
     if (NON_TEXT.test(el.attrs)) continue;
-    const small = el.attrs.match(BARE_SMALL);
+    const small = smallFontHit(el.attrs);
     if (!small) continue;
     const line = src.slice(0, match.index ?? 0).split('\n').length;
-    found.push(`${file}:${line} <${tag}> carries ${small[0]}`);
+    found.push(`${file}:${line} <${tag}> carries ${small}`);
   }
   return found;
 }
@@ -154,5 +187,22 @@ describe('P1310 — phone text controls stay at 16px', () => {
     expect(scan(`import { Input as ChartInput } from 'some-chart-lib';\n<ChartInput className="text-sm" />`)).toEqual([]);
     // An arrow function in a handler is braces too, and must not swallow the tag.
     expect(scan(`<input onChange={(e) => { setX(e.target.value); }} className="text-sm" />`)).toHaveLength(1);
+  });
+
+  it('sees arbitrary sizes and inline styles — the branch that could never fire, and the one that was absent', () => {
+    // `text-[14px]` was nominally covered by the original pattern and in fact UNREACHABLE:
+    // it ended in `\b`, and `]` before a quote is not a word boundary. Never caught anything.
+    expect(scan(`<input className="rounded text-[14px]" />`)).toHaveLength(1);
+    expect(scan(`<input className="text-[0.875rem]" />`)).toHaveLength(1);
+    expect(scan(`<textarea className="text-[0.9em]" />`)).toHaveLength(1);
+    // An inline style bypasses class scanning altogether — unitless is px in React.
+    expect(scan(`<input style={{ fontSize: 14 }} />`)).toHaveLength(1);
+    expect(scan(`<input style={{ fontSize: '14px' }} />`)).toHaveLength(1);
+    expect(scan(`<textarea style={{ fontSize: '0.875rem' }} />`)).toHaveLength(1);
+    // …and the same forms at or above 16px are not flagged.
+    expect(scan(`<input className="text-[16px]" />`)).toEqual([]);
+    expect(scan(`<input className="text-[1rem]" />`)).toEqual([]);
+    expect(scan(`<input style={{ fontSize: 18 }} />`)).toEqual([]);
+    expect(scan(`<input style={{ fontSize: '1.125rem' }} />`)).toEqual([]);
   });
 });

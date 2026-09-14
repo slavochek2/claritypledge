@@ -134,6 +134,29 @@ describe('P1310 — the signed-in menu is the same menu', () => {
     expect(screen.queryByText('Take the Pledge')).toBeNull();
   });
 
+  it('keeps Groups marked as the current page inside its subtree, not only on /groups', () => {
+    // Pre-existing before P1310 and found by adversarial review after it shipped: both
+    // menus compared paths with `===`, so the entry went dark the moment a visitor opened
+    // a group or an event — while the desktop top-nav row beside them used the helper.
+    for (const path of ['/groups', '/groups/cm', '/events/clarity-night']) {
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[path]}>
+          <NavigationMenuItems variant="mobile" onSignOut={vi.fn()} />
+        </MemoryRouter>
+      );
+      expect(screen.getByRole('link', { name: /Groups/i }), `Groups on ${path}`)
+        .toHaveAttribute('aria-current', 'page');
+      unmount();
+    }
+    // …and an unrelated page does not light it up.
+    render(
+      <MemoryRouter initialEntries={['/pricing']}>
+        <NavigationMenuItems variant="mobile" onSignOut={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link', { name: /Groups/i })).not.toHaveAttribute('aria-current');
+  });
+
   it('still gives a signed-out visitor the account actions, Log In included', () => {
     render(
       <MemoryRouter initialEntries={['/']}>

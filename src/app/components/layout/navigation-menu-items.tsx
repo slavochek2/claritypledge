@@ -37,12 +37,26 @@ import {
   HistoryIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
-import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS } from './nav-links';
+import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, isEventsNavActive } from './nav-links';
 
 /** The signed-in account block. Not part of PUBLIC_NAV_GROUPS: these three carry test
  *  ids, a sign-out handler and no icon-from-data, so they stay hand-written — the same
  *  reasoning that keeps Take the Pledge / Log In / Create Account out of that list. */
 const ACCOUNT_GROUP_LABEL = 'Your account';
+
+/**
+ * Is this menu entry the page you are on?
+ *
+ * Exact-match for everything except Groups, which owns a SUBTREE: a visitor who opens a
+ * group or an event is still under that entry, and `nav-links.ts` exports
+ * `isEventsNavActive` for exactly this (it covers `/groups/:slug` and `/events/:slug`).
+ * Both menus compared paths with `===` before P1310 and so went dark the moment anyone
+ * clicked through — the desktop top-nav row next to them has always used the helper.
+ * Found by adversarial review; pre-existing, not introduced by the P1310 rewrite.
+ */
+function isEntryActive(to: string, pathname: string): boolean {
+  return to === EVENTS_NAV_TO ? isEventsNavActive(pathname) : to === pathname;
+}
 
 /** Stable DOM id for a group heading, shared by the label and its `aria-labelledby`. */
 function groupHeadingId(label: string): string {
@@ -131,8 +145,8 @@ export function NavigationMenuItems({
                 <Link
                   key={item.to}
                   to={item.to}
-                  aria-current={item.to === pathname ? 'page' : undefined}
-                  className={`${mobileLinkClass}${item.to === pathname ? ' font-semibold text-foreground' : ''}`}
+                  aria-current={isEntryActive(item.to, pathname) ? 'page' : undefined}
+                  className={`${mobileLinkClass}${isEntryActive(item.to, pathname) ? ' font-semibold text-foreground' : ''}`}
                   onClick={() => {
                     if (item.to === EVENTS_NAV_TO) {
                       analytics.track('org_events_nav_clicked', { source: 'mobile_menu' });
@@ -250,8 +264,8 @@ export function NavigationMenuItems({
               ) : (
                 <Link
                   to={item.to}
-                  aria-current={item.to === pathname ? 'page' : undefined}
-                  className={`cursor-pointer${item.to === pathname ? ' font-semibold text-foreground' : ''}`}
+                  aria-current={isEntryActive(item.to, pathname) ? 'page' : undefined}
+                  className={`cursor-pointer${isEntryActive(item.to, pathname) ? ' font-semibold text-foreground' : ''}`}
                   onClick={() => {
                     if (item.to === EVENTS_NAV_TO) {
                       analytics.track('org_events_nav_clicked', { source: 'desktop_dropdown' });
