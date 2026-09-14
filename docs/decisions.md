@@ -547,6 +547,70 @@ stops printing.
 **Consequences:** Trap 3 is also recorded in `docs/technical/e2e-testing-guide.md` beside the serial-mode exception, and trap 1 in `docs/technical/worktree-setup.md`.
 
 **References:** `.claude/rules/epistemic.md` gate 7 · `.claude/rules/git.md`
+## 2026-09-14 [product]: Event transcription starts OFF, only people who turned it on can read the transcript, and terms text changes now while the re-acceptance popup waits for a quarterly batch (P1307)
+
+**Context:** The 2026-09-11 [product] entry below chose a **default-on** switch. Reviewing it against
+the privacy policy, which names consent as the legal basis for room recordings, showed that a
+switch already on followed by Continue has the shape regulators and the CJEU (Planet49) do not
+accept as consent. Two more open points came up during /dev: who can read a room's transcript,
+and whether updating `privacy.md`/`tos.md` for this release should force every user through the
+terms popup again.
+**Decision:** (1) **Supersedes the default in the 2026-09-11 entry:** the ready-screen switch starts
+**off**; tapping it on is the consent (spec D12). Everything else in that entry stands. (2) The
+room is the people who turned transcription on: only they can read its transcript (D14). (3) The
+text of the privacy policy and terms is updated in the same release as the capture it describes,
+but `CURRENT_TERMS_VERSION` is not bumped; re-acceptance bumps are batched into a quarterly terms
+review, next due about 2026-12-01 (D15). This is a judgement call, not legal advice.
+**Alternatives rejected:** Default-on with the same Continue (not valid consent); default-on with a
+Continue label that names the recording (plausible, but needs new founder copy and makes one button
+carry two answers); moving room recordings to legitimate interest (voice audio kept for AI/ML is
+on consent in the policy); a version bump for every small terms edit (one popup per edit).
+**Consequences:** Fewer attendees are transcribed than under default-on. D10 limits this: anyone not
+yet being transcribed passes the switch on every visit. `/live`'s host switch is still default-on
+and has the same weakness; it is disclosed in `privacy.md` and out of P1307's scope. The quarterly
+review is filed in the task inbox (commit 84779f756). **Falsifier:** legal advice that a
+different basis applies, or a founder choice of the labelled-Continue option.
+**References:** [P1307 D10, D12, D14, D15](../features/p1307_event_transcription_from_ready_across_pages_into_sessions.md)
+
+## 2026-09-14 [technical]: A recorder's final chunk arrives after stop() returns, so an upload must carry the capture it belongs to (P1307)
+
+**Context:** An external review (Codex) of the P1307 branch found that ending a room capture dropped
+the last archive chunk, up to 30 s of speech. `endMyCapture` called `stopMedia()` and cleared the
+capture record straight away. `MediaRecorder` delivers its last `dataavailable` and `onstop` on a
+later turn, and by then the upload pump read the record, found none, and returned. The same
+shape had a second defect: a chunk left in the queue could upload under the **next** capture's record.
+**Decision:** Each queued upload job carries the capture record it was queued under, read
+synchronously in `stopMedia` before any caller clears it. Only a person's own End flushes the tail.
+Sign-out, a server refusal (410) and teardown drop it, and sign-out also empties the queue, so after
+sign-out nothing reaches the bucket.
+**Alternatives rejected:** Clearing the record only after `onstop` (every stop path would then
+upload, including after sign-out); awaiting `onstop` inside End (End must release the microphone
+without waiting on anything asynchronous).
+**Consequences:** Any code that reads shared mutable state from a `MediaRecorder` callback has the
+same hazard: bind what the callback needs at the moment of `stop()`. The regression test fails both
+with End's flush removed and with every stop flushing.
+**References:** `src/app/contexts/room-capture-context.tsx` (`stopMedia`, `pumpUploads`),
+`src/tests/p1307-end-flushes-archive-tail.test.tsx`, commit b81a27bf2
+
+## 2026-09-14 [process]: A branch's local E2E runs the client from the branch against the edge functions deployed on the test project, so changed function bounds go untested (P1307)
+
+**Context:** P1307 raised `transcribe-slice`'s bounds (320 KB / 8 s to 640 KB / 17 s) and moved the
+client to 13 s slices. The branch's P1307 E2E suite was green. A visual-QA diagnostic run later read
+the browser console and found every live slice refused with `400 Slice exceeds the maximum size`.
+The test project still serves `main`'s function, and a 13 s slice is 416 KB. No test asserted that a
+slice was accepted, so nothing failed.
+**Decision:** Treat an edge-function change on a branch as untested end to end until that function
+is deployed to the **test** project. When a client change depends on new function behaviour, either
+deploy the function to test before running E2E, or add an assertion that the call succeeds (not just
+that the UI renders). Deno handler tests cover the function's logic; they do not cover the pairing.
+**Alternatives rejected:** Relying on the deploy-order line in the pre-deploy checklist alone. It
+orders the prod release, but says nothing about what the branch's green run actually proved.
+**Consequences:** P1307's live-text acceptance criteria stay unticked until `transcribe-slice` is
+deployed. Reading the console during any E2E or screenshot run is cheap evidence and caught this
+where the suite did not. (Status: proposed — no gate enforces it yet.)
+**References:** [P1307 Pre-deploy Checklist](../features/p1307_event_transcription_from_ready_across_pages_into_sessions.md),
+`supabase/functions/transcribe-slice/validate.ts`
+
 ## 2026-09-11 [technical]: Room live slices move from 4 s to 13 s — measured on real room audio (P1307)
 
 **Context:** The 2026-09-04 founder decision set 4-second live slices (P1236), reasoning that
