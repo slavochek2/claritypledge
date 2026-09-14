@@ -1,10 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 96
 severity: medium
 workstream: platform
 date_reported: 2026-09-11
+date_resolved: 2026-09-14
+root_cause: "the room code was logged as a display id after it became the join capability, so 59 telemetry calls sent it as a property and code-bearing URLs reached Mixpanel events, Mixpanel replays and Sentry"
+resolution: "payloads send session_id (or codeLength); Sentry events, breadcrumbs and transactions redact code URLs; Mixpanel before_send_events redacts them and recording is off on code routes"
 created_date: 2026-09-11
 drafted_by: opus
 exec_model: sonnet
@@ -148,14 +151,45 @@ Delegated to the agent by the founder on 2026-09-14 ("you check and decide").
    finding. Cost: no Mixpanel replays of live or transcribe sessions. Sentry's masked
    error-only replays are unaffected.
 
+## Resolution
+
+**Fixed on `feature/p1304-room-code-telemetry`** (`175539ba1`, `e8dae217f`).
+
+- **Payloads:** all 59 telemetry sites send `session_id` / `sessionId`. Where no session
+  exists yet (the mic-denied join block) the property is dropped. The four `api.ts` Sentry
+  extras send `codeLength`, following the P1053 join-path precedent. The `chunk-upload-queue`
+  events drop the code, since chunk metadata carries no session id.
+- **Sentry:** `sentryBeforeSend`, `sentryBeforeBreadcrumb` and `sentryBeforeSendTransaction`
+  (`src/lib/sentry-filters.ts`, wired in `src/main.tsx`) redact `/live/<code>`,
+  `/transcribe/<code>` and their `%2F`-encoded forms. The redaction walks only arrays and plain
+  objects, with a cycle guard, so it cannot throw inside a hook.
+- **Mixpanel events:** `hooks.before_send_events` in `index.html` applies the same pattern to
+  every property. A test asserts the two regex copies stay identical.
+- **Mixpanel replays:** `record_sessions_percent` is 0 when the page loads on a code route, and
+  `analytics.stopSessionRecording()` runs on mount of the live and transcribe pages.
+
+**Residual gap (accepted, from review):** on in-app navigation into a code route, recording
+stops in a mount effect rather than before the URL changes. A replay batch can carry the code
+only if a send completes inside that window. The recorder labels a batch with the URL at batch
+start, so the window is narrow, but it is not closed by construction and no test covers it.
+
+**Verification evidence:** each of the three canaries failed before its fix. The Mixpanel canary
+was run against the pre-fix `index.html` and failed 3/3. The full vitest suite passes (385 files,
+4196 tests); `tsc --noEmit` and eslint are clean. `/live/<code>` and `/transcribe/<code>` render
+with zero console errors on the dev server, and the latter redirects to
+`/login?redirect=%2Ftranscribe%2F<code>`. A two-party /live E2E was not added: the change alters
+telemetry values and adds a recording stop, and touches no state the partner sees.
+
 ## Acceptance Criteria
 
-- [ ] No `analytics.track` or Sentry payload in `src/` carries the room code (the grep above
-      returns zero telemetry hits)
-- [ ] A /live pageview and a session recording in Mixpanel show no room code in the URL
-- [ ] A Sentry event raised on /live shows no room code in its URL, context or breadcrumbs
-- [ ] Session-level funnels still join, keyed on the session id
-- [ ] A test fails when a new telemetry call adds a code-named property
+- [x] No `analytics.track` or Sentry payload in `src/` carries the room code (the grep above
+      returns zero telemetry hits). Evidence: `src/tests/p1304-reproduce.test.ts` scans every
+      telemetry call and passes, and its control case still catches a known-bad payload.
+- [ ] [post-deploy] A /live pageview and a session recording in Mixpanel show no room code in the URL
+- [ ] [post-deploy] A Sentry event raised on /live shows no room code in its URL, context or breadcrumbs
+- [ ] [post-deploy] Session-level funnels still join, keyed on the session id
+- [x] A test fails when a new telemetry call adds a code-named property. Evidence: the same
+      scanner failed with 59 hits before the fix.
 
 ## Related
 
