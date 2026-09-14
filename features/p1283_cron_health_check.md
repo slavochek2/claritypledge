@@ -492,12 +492,20 @@ password~~ and ~~set `CRON_HEALTH_DB_URL`~~ (the database login they served was 
 pass). The check now needs no secret. (Shipping to main is not listed either: it is the thing this
 checklist gates, so it cannot also be an item on it.)
 
-- [ ] Apply to prod (`./scripts/migrate.sh --env prod`), before the workflow reaches main — otherwise its
+- [x] Apply to prod (`./scripts/migrate.sh --env prod`), before the workflow reaches main — otherwise its
       first scheduled run reads a 404 and opens a "check is not running" issue:
       `20260909120000_p1283_schedule_stale_live_invites_cleanup.sql`,
       `20260911100000_p1283_b_narrow_cron_health_reader.sql` (a no-op),
       `20260911163000_p1283_c_cron_health_snapshot_is_a_public_read.sql`,
       `20260911163100_p1283_d_remove_the_database_login_reader.sql` (a no-op on prod).
+
+      **Applied 2026-09-14 by the founder**, in one batch with p1278's four and p1292's one —
+      nine pending, none carrying `requires-frontend`, so prod gate 2 stayed silent. The batch was
+      deliberately not split: `_d`'s assert refuses to drop the old reader unless `_c` is already
+      present, and sorted order satisfies that. Prod's recorded set went 327 -> 336 and
+      `supabase/deploy-manifest.json` was stamped `2026-09-14T13:48:00Z` and committed to main
+      separately (`a35f951d0`), because `migrate.sh` only stages it and a cherry-pick refuses
+      outright on a staged path rather than conflicting.
 
 ## Post-deploy verification
 
