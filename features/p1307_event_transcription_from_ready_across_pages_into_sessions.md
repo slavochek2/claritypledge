@@ -388,19 +388,19 @@ approved the prototype 2026-09-11.** Button colours are left as each page has th
 ## Acceptance Criteria
 
 Start and consent
-- [ ] The ready screen renders the switch **off** for anyone not being transcribed (D12); pressing Continue without touching it captures nothing (verified server-side: no member row with `consent_given_at`, no slice, no archive chunk).
+- [x] The ready screen renders the switch **off** for anyone not being transcribed (D12); pressing Continue without touching it captures nothing (verified server-side: no member row with `consent_given_at`, no slice, no archive chunk). *(/dev: E2E "the switch is OFF by default", "switch off + Continue … nothing captured" — no member row, and slices/chunks require membership.)*
 - [ ] At an event, after tapping the switch on, pressing Continue lands the person on `/meet` with the bar showing and their speech appearing in the room transcript.
-- [ ] With the switch off, Continue lands on `/meet`, no bar, nothing captured (verified server-side: no slice, no archive chunk); going back to the ready screen and switching on starts it.
+- [x] With the switch off, Continue lands on `/meet`, no bar, nothing captured (verified server-side: no slice, no archive chunk); going back to the ready screen and switching on starts it. *(/dev: E2E "switch off + Continue lands on /meet with NO bar" and "going back to the ready screen and switching on starts capture".)*
 - [ ] With the room RPC forced to fail, Continue lands on `/meet` with no bar and the failure message, and no microphone prompt is ever raised.
 - [ ] The attendee's room carries the event's id; a visitor opening `/transcribe` without a code does not land in it.
 - [ ] An attendee whose readiness was already set on an earlier visit still reaches the ready screen, with their saved value on the slider, and sees the switch (D10); someone already being transcribed goes straight to `/meet`.
-- [ ] A latecomer who presses Continue 2 h 55 into a running event room is transcribed for their own 3 hours, in that same room — no second room for the event, no split transcript (D11).
+- [x] A latecomer who presses Continue 2 h 55 into a running event room is transcribed for their own 3 hours, in that same room — no second room for the event, no split transcript (D11). *(/dev: integration p1307-enter-room-event-access "a latecomer 181 minutes after room creation joins the SAME still-open room"; cap measured from the member's own joined_at in transcribe-slice.)*
 
 Across pages
 - [ ] A person who moves to their profile, the feed and back keeps contributing throughout, and can end it from any page via the bar.
 - [ ] While transcribing, the bar is visible on `/letter/:docId/preview`, `/cm`, a `?embed=true` URL and the `/transcribe` lobby (screenshots).
-- [ ] Opening the room from the bar shows the room view with no consent screen and no second recording; its End ends only this person's capture.
-- [ ] Two tabs open while transcribing: exactly one captures.
+- [x] Opening the room from the bar shows the room view with no consent screen and no second recording; its End ends only this person's capture. *(/dev: E2E "opening the room from the bar … no second consent screen", "End session from the bar … ends this person's capture"; integration p1307-end-capture-rpc "the caller ends only their own capture".)*
+- [x] Two tabs open while transcribing: exactly one captures. *(/dev: E2E "two tabs while transcribing: exactly one captures" + p1307-web-locks-single-capture.test.ts.)*
 - [ ] Signing out while transcribing turns the microphone off within 1 s and no further chunk reaches the bucket.
 - [ ] Joining a `/live` session from the meet page stops room capture with no message; ending it brings the bar and capture back — and does not start anything if transcription was off before. Leaving `/live` by browser Back brings the bar back only after that session has ended.
 - [ ] Recording an explain-back while transcribing pauses room capture; it resumes afterwards.
@@ -419,7 +419,7 @@ Live text
 - [ ] A 13 s slice sent through the deployed `transcribe-slice` returns 200 with text.
 - [ ] One person speaking continuously for 30 s reads as one continuous message, not one per slice; two people alternating stay separate.
 - [ ] While someone is speaking, "…" shows against their name.
-- [ ] `/live` shows the new label on the start switch and the in-session banner.
+- [x] `/live` shows the new label on the start switch and the in-session banner. *(/dev: live-mode-view.test.tsx green; grep of src shows both new strings in clarity-live-page.tsx and live-mode-view.tsx.)*
 
 ## Done-When
 
@@ -427,7 +427,7 @@ Live text
 - [ ] De-duplication ratio (rows vs distinct text) stays at ~1.00 on a real room — the P1236 verdict measure does not regress.
 - [ ] `privacy.md` updated and checked line by line against the code: §Transcribe rooms ("Joining requires you to tap a control that reads…" names the old control and must name the ready-screen switch too; its rule, nothing captured before you tap, stays true per D12; "Leaving the room stops your recording" is false under this spec), event rooms and cross-page continuation; §AI features ("short segments" — add the whole-recording pass); the Gemini row in the providers table; the legal-basis row for room recordings stays consent (D12) and names the ready-screen switch as a control that gives it.
 - [ ] `tos.md` §Transcribe Rooms (lines 59-64) updated: joining, leaving, and the corrected-transcript sentence — which stays only if Part 3 ships in the same release, and is reworded otherwise. **No `CURRENT_TERMS_VERSION` bump (D15)**; the access sentence must match D14 (only people who turned transcription on can read the transcript).
-- [ ] Every site carrying the old `/live` label updated (not deleted): `clarity-live-page.tsx`, `live-mode-view.tsx`, `start-clarity-session-button.tsx`, `new-live-prototype.tsx`, `privacy.md`, `tos.md`, and the tests `live-mode-view.test.tsx`, `consent-dialogs.test.tsx`, `p1300-reproduce.test.tsx` (grep again at build time).
+- [x] Every site carrying the old `/live` label updated (not deleted): `clarity-live-page.tsx`, `live-mode-view.tsx`, `start-clarity-session-button.tsx`, `new-live-prototype.tsx`, `privacy.md`, `tos.md`, and the tests `live-mode-view.test.tsx`, `consent-dialogs.test.tsx`, `p1300-reproduce.test.tsx` (grep again at build time). *(/dev 2026-09-14: grep for "Record for AI Insights" / "Session recorded for AI Insights" — privacy.md and tos.md still carried them, fixed in 2930af9a5; remaining hits are historical comments and P1300 test notes, not rendered copy.)*
 
 ## Pre-deploy Checklist
 
