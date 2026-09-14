@@ -1538,3 +1538,23 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 **due:** week
 
 When `git-ops.sh ship pN` fails at the close commit (P1279 index race), it prints the recovery `git mv features/done/<sprint>/pN_x.md features/pN_x.md` — moving the spec back OUT of the done tree so the gated close can be re-run. `.claude/hooks/block-manual-spec-close.py` refuses that command: `is_close_shaped` fires whenever any spec path in the command is not already closed, and the destination (the open path) is exactly that. Hit on 2026-09-14 closing P500; worked around by doing the same move in Python, which the hook's MOVE_RE does not match — a bypass that should not be the documented path. Done when a move whose DESTINATION is outside `features/done/` is allowed (or git-ops prints a recovery the hook accepts), with a canary for both directions; droppable if the P1279 race stops stranding half-renames.
+
+## Deploy P1236's schema to prod — /transcribe rooms are live without their database functions
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** week
+
+A push on 2026-09-14 made P1236's /transcribe frontend live while its 6 migrations (`20260908170000` through `20260911151200`) and the `gcs-signed-url` and `transcribe-slice` edge functions remain undeployed (`./scripts/check-deploy-manifest.sh --env prod`). Prod PostgREST has no `enter_transcribe_room`, `record_transcribe_slice` or `join_transcribe_room`: an empty-args call to each returns a hint naming a different function, which it does only when the requested name is absent. Done when `migrate.sh --env prod` (after its list-only run is shown to the founder) and both function deploys pass their smoke test, and entering a transcribe room works on prod; droppable if P1236's frontend is reverted instead.
+
+---
+
+## Finish P1304's loose ends: prod Sentry check, stranded UAT file, misplaced and fieldless specs
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** week
+
+(1) Confirm the next real Sentry error from /live shows `/live/[code]` and no `session_code` — the Mixpanel half was verified on prod, the Sentry half has had no error event yet. (2) `features/uat/p1304.md` stayed behind because `block-manual-spec-close.py` refuses any move into `features/done/`, even a UAT companion of an already-closed spec. (3) `features/` root still holds rejected P1248 and P1261 and all-done P1274. (4) P1060, P1141 and P1155 lack `disclosure:` — grandfathered, but `fix-frontmatter.sh` exits 1 on them. Done when each is resolved or explicitly left; drop (1) after one clean Sentry event.
+
+---
