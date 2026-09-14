@@ -4,7 +4,7 @@
 // the serviceWorker context only appears in stack frames. ignoreErrors stays
 // for message-matchable noise; this beforeSend filter handles frame-matchable noise.
 import { addBreadcrumb } from "@sentry/react";
-import type { ErrorEvent, EventHint } from "@sentry/react";
+import type { Breadcrumb, ErrorEvent, EventHint, TransactionEvent } from "@sentry/react";
 import { NetworkBlipError } from "@/lib/network-blip";
 
 // Frame markers for the vite-plugin-pwa generated registration script and the
@@ -208,9 +208,45 @@ export function dropBrowserExtensionNoise(
 }
 
 /**
+ * P1304: the /live and /transcribe room code is a bearer capability — knowing it
+ * joins the room. It rides in page URLs (`/live/<code>`), navigation breadcrumbs,
+ * transaction names and encoded login redirects (`%2Ftranscribe%2F<code>`).
+ *
+ * This REDACTS a known token shape; it never drops an event, so the P883/P990
+ * ruling against message-based drop filters does not apply.
+ */
+export const ROOM_CODE_IN_URL =/((?:\/|%2F)(?:live|transcribe)(?:\/|%2F))[A-Za-z0-9_-]+/gi;
+
+export function redactRoomCodes(text: string): string {
+  return text.replace(ROOM_CODE_IN_URL, "$1[code]");
+}
+
+function redactDeep<T>(value: T): T {
+  if (typeof value === "string") return redactRoomCodes(value) as T;
+  if (Array.isArray(value)) return value.map(redactDeep) as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = redactDeep(inner);
+    return out as T;
+  }
+  return value;
+}
+
+/** P1304: Sentry.init `beforeBreadcrumb` — navigation/fetch breadcrumbs carry URLs. */
+export function sentryBeforeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
+  return redactDeep(breadcrumb);
+}
+
+/** P1304: Sentry.init `beforeSendTransaction` — page-load transactions bypass beforeSend. */
+export function sentryBeforeSendTransaction(event: TransactionEvent): TransactionEvent {
+  return redactDeep(event);
+}
+
+/**
  * The single `beforeSend` wired into Sentry.init — Sentry accepts exactly one,
  * so the filters are composed here rather than replacing one another.
- * Returns null as soon as any filter drops the event.
+ * Returns null as soon as any filter drops the event; a surviving event has
+ * room codes redacted (P1304).
  */
 export function sentryBeforeSend(
   event: ErrorEvent,
@@ -222,5 +258,6 @@ export function sentryBeforeSend(
   const afterExtensionFilter = dropBrowserExtensionNoise(afterSwFilter);
   if (!afterExtensionFilter) return null;
 
-  return dropNetworkBlipRethrow(afterExtensionFilter, hint);
+  const afterBlipFilter = dropNetworkBlipRethrow(afterExtensionFilter, hint);
+  return afterBlipFilter ? redactDeep(afterBlipFilter) : null;
 }

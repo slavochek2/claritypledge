@@ -16,6 +16,7 @@ declare global {
         set: (properties: Record<string, unknown>) => void;
       };
       reset: () => void;
+      stop_session_recording?: () => void;
     };
   }
 }
@@ -175,6 +176,19 @@ export const analytics = {
     if (!isProduction) return;
     if (typeof window !== 'undefined' && window.mixpanel) {
       window.mixpanel.reset();
+    }
+  },
+
+  /**
+   * P1304: Mixpanel's recorder attaches the raw page URL to every replay batch,
+   * outside any hook — on /live/:code and /transcribe/:code that URL carries the
+   * room code. index.html skips recording when the page LOADS on a code route;
+   * code-route pages call this on mount to cover in-app navigation into one.
+   */
+  stopSessionRecording: () => {
+    if (!isProduction) return;
+    if (typeof window !== 'undefined' && window.mixpanel?.stop_session_recording) {
+      window.mixpanel.stop_session_recording();
     }
   },
 };

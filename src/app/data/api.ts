@@ -3199,7 +3199,7 @@ export async function uploadAudioChunk(
     // Capture to Sentry for monitoring ML data loss
     Sentry.captureException(err, {
       tags: { feature: 'ml_training', operation: 'chunk_upload' },
-      extra: { sessionCode, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
+      extra: { codeLength: sessionCode.length, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
     });
     throw err;
   }
@@ -3332,7 +3332,7 @@ export async function uploadRoomAudioChunk(
     console.error(`[ML Upload] Room chunk ${chunkNumber} upload failed:`, err);
     Sentry.captureException(err, {
       tags: { feature: 'transcribe_room', operation: 'room_chunk_upload' },
-      extra: { roomCode, sanitizedParticipant, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
+      extra: { codeLength: roomCode.length, sanitizedParticipant, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
     });
     throw err;
   }
@@ -3400,7 +3400,7 @@ export async function uploadEventsSnapshot(
     // Capture to Sentry for monitoring ML data loss
     Sentry.captureException(err, {
       tags: { feature: 'ml_training', operation: 'events_snapshot_upload' },
-      extra: { sessionCode, chunkNumber, eventCount: events.length },
+      extra: { codeLength: sessionCode.length, chunkNumber, eventCount: events.length },
     });
     // Don't throw - recording failure shouldn't break the session
   }
@@ -3505,7 +3505,7 @@ export async function uploadSessionRecording(
     // Capture to Sentry for monitoring ML data loss
     Sentry.captureException(err, {
       tags: { feature: 'ml_training', operation: 'session_recording_upload' },
-      extra: { sessionCode, eventCount: events.length, durationMs: metadata.durationMs },
+      extra: { codeLength: sessionCode.length, eventCount: events.length, durationMs: metadata.durationMs },
     });
     // Don't throw - recording failure shouldn't break the session
   }

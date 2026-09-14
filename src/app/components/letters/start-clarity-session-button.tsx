@@ -73,7 +73,7 @@ export function StartClaritySessionButton({
       analytics.track('letter_live_session_started', {
         letter_id: letterId,
         story_id: storyId,
-        session_code: session.code,
+        session_id: session.id,
       });
       navigate(`/live/${session.code}?returnTo=${encodeURIComponent('/letters?tab=inbox')}`);
     } catch (err) {

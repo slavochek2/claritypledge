@@ -78,7 +78,7 @@ vi.mock('@/app/data/api', () => ({
 
 // ── Mixpanel ──────────────────────────────────────────────────────────────────
 vi.mock('@/lib/mixpanel', () => ({
-  analytics: { track: vi.fn(), identify: vi.fn() },
+  analytics: { track: vi.fn(), identify: vi.fn(), stopSessionRecording: vi.fn() },
 }));
 
 // ── Supabase ──────────────────────────────────────────────────────────────────

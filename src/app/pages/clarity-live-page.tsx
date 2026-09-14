@@ -654,6 +654,13 @@ export function ClarityLivePage() {
   // via registerMLCollector() when recording starts. Keeping alias for grep-ability.
   const trackLiveEvent = analytics.track;
 
+  // P1304: the room code in this URL is a join capability, and Mixpanel's
+  // recorder sends the raw URL with every replay batch. index.html covers a
+  // page load straight onto /live/:code; this covers in-app navigation here.
+  useEffect(() => {
+    analytics.stopSessionRecording();
+  }, []);
+
   // Ref to track if joiner has been detected (for polling comparison)
   const hasJoinerRef = useRef(false);
   // Ref to store the last known joiner name (for partner left screen)
@@ -697,7 +704,6 @@ export function ClarityLivePage() {
   useEffect(() => {
     if (session?.code && name) {
       Sentry.setContext('live_session', {
-        session_code: session.code,
         session_id: session.id,
         role: isCreator ? 'creator' : 'joiner',
         current_user: name,
@@ -716,12 +722,12 @@ export function ClarityLivePage() {
         category: 'live_session',
         message: `Phase: ${prevPhase} → ${currentPhase}`,
         level: 'info',
-        data: { round: liveState.currentRound, session_code: session?.code },
+        data: { round: liveState.currentRound, session_id: session?.id },
       });
       // Mixpanel event for funnel analysis
       try {
         analytics.track('live_phase_transition', {
-          session_code: session?.code,
+          session_id: session?.id,
           from_phase: prevPhase,
           to_phase: currentPhase,
           round: liveState.currentRound,
@@ -730,7 +736,7 @@ export function ClarityLivePage() {
       } catch { /* never let analytics break the app */ }
     }
     previousPhaseRef.current = currentPhase;
-  }, [liveState.ratingPhase, liveState.currentRound, session?.code]);
+  }, [liveState.ratingPhase, liveState.currentRound, session?.id]);
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -796,7 +802,7 @@ export function ClarityLivePage() {
 
       // P516: Track session exit via pagehide (tab close / navigation away)
       analytics.track('live_session_exited', {
-        session_code: sessionCodeRef.current,
+        session_id: currentSessionIdRef.current,
         exit_reason: 'pagehide',
         time_since_last_action_ms: Date.now() - lastActionTimestampRef.current,
         had_focus_when_exited: !document.hidden,
@@ -1167,7 +1173,7 @@ export function ClarityLivePage() {
         // P769 invariant: session-end clears storage on both sides.
         clearStoredSession();
         analytics.track('live_session_partner_left', {
-          session_code: updatedSession.code,
+          session_id: updatedSession.id,
           left_by: 'creator',
           exit_reason: 'partner_departure',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
@@ -1187,7 +1193,7 @@ export function ClarityLivePage() {
         setDepartedPartnerName(lastJoinerNameRef.current);
         setPartnerLeft(true);
         analytics.track('live_session_partner_left', {
-          session_code: updatedSession.code,
+          session_id: updatedSession.id,
           left_by: 'joiner',
           exit_reason: 'deliberate_end',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
@@ -1203,7 +1209,7 @@ export function ClarityLivePage() {
         setGracePeriodStart(null);
         markJoinerDetected(updatedSession.joinerName);
         analytics.track('live_session_partner_returned', {
-          session_code: updatedSession.code,
+          session_id: updatedSession.id,
         });
       }
 
@@ -1217,7 +1223,7 @@ export function ClarityLivePage() {
         setDepartedPartnerName(lastJoinerNameRef.current);
         hasJoinerRef.current = false;
         analytics.track('live_session_grace_period_started', {
-          session_code: updatedSession.code,
+          session_id: updatedSession.id,
           left_by: 'joiner',
           checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
         });
@@ -1292,7 +1298,7 @@ export function ClarityLivePage() {
     }, (channelStatus) => {
       try {
         analytics.track('live_realtime_channel_status', {
-          sessionCode,
+          sessionId,
           channelStatus,
         });
       } catch { /* never let analytics break the app */ }
@@ -1320,7 +1326,7 @@ export function ClarityLivePage() {
       if (pollTickCount === 1 || pollTickCount % 30 === 0) {
         try {
           analytics.track('live_poll_heartbeat', {
-            sessionCode: currentCode,
+            sessionId: currentSessionIdRef.current,
             tickCount: pollTickCount,
           });
         } catch { /* never let analytics break the app */ }
@@ -1372,7 +1378,7 @@ export function ClarityLivePage() {
           // (mirrors the Realtime branch). P769 invariant: end clears both sides.
           clearStoredSession();
           analytics.track('live_session_partner_left', {
-            session_code: freshSession.code,
+            session_id: freshSession.id,
             left_by: 'creator',
             exit_reason: 'partner_departure',
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
@@ -1391,7 +1397,7 @@ export function ClarityLivePage() {
           setDepartedPartnerName(lastJoinerNameRef.current);
           setPartnerLeft(true);
           analytics.track('live_session_partner_left', {
-            session_code: freshSession.code,
+            session_id: freshSession.id,
             left_by: 'joiner',
             exit_reason: 'deliberate_end',
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
@@ -1408,7 +1414,7 @@ export function ClarityLivePage() {
           markJoinerDetected(freshSession.joinerName);
           setSession(freshSession);
           analytics.track('live_session_partner_returned', {
-            session_code: freshSession.code,
+            session_id: freshSession.id,
           });
           return;
         }
@@ -1423,7 +1429,7 @@ export function ClarityLivePage() {
           setDepartedPartnerName(lastJoinerNameRef.current);
           hasJoinerRef.current = false;
           analytics.track('live_session_grace_period_started', {
-            session_code: freshSession.code,
+            session_id: freshSession.id,
             left_by: 'joiner',
             checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
           });
@@ -1492,7 +1498,7 @@ export function ClarityLivePage() {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
           try {
             analytics.track('live_state_drift_detected', {
-              sessionCode: currentCode,
+              sessionId: currentSessionIdRef.current,
               ratingPhase: serverState.ratingPhase,
               phaseDrift,
               checkerNameDrift,
@@ -1540,7 +1546,7 @@ export function ClarityLivePage() {
         // P934: emit so a throwing poll loop is distinguishable from a healthy/dead one
         try {
           analytics.track('live_poll_tick_error', {
-            sessionCode: currentCode,
+            sessionId: currentSessionIdRef.current,
             error: err instanceof Error ? err.message : String(err),
           });
         } catch { /* never let analytics break the app */ }
@@ -1596,14 +1602,14 @@ export function ClarityLivePage() {
             extra: {
               live_state: sanitizeLiveStateForSentry(stateBeforeUpdate as unknown as Record<string, unknown>),
               attempted_keys: Object.keys(updates),
-              session_code: session.code,
+              session_id: session.id,
             },
           });
         } catch { /* never let Sentry break the app */ }
         // P525: Track failure in Mixpanel
         try {
           analytics.track('live_state_update_failed', {
-            session_code: session.code,
+            session_id: session.id,
             error_message: err instanceof Error ? err.message : 'unknown',
             attempted_keys: Object.keys(updates),
             phase_at_failure: stateBeforeUpdate.ratingPhase,
@@ -1732,7 +1738,7 @@ export function ClarityLivePage() {
 
     // Track check initiation
     analytics.track('live_check_started', {
-      session_code: session?.code,
+      session_id: session?.id,
       flow_type: 'check',
     });
     lastActionTimestampRef.current = Date.now(); // P516
@@ -1743,7 +1749,7 @@ export function ClarityLivePage() {
 
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
+  }, [name, partnerName, session?.id, updateLiveState, isCreator]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -1760,7 +1766,7 @@ export function ClarityLivePage() {
 
     // Track prove initiation
     analytics.track('live_prove_started', {
-      session_code: session?.code,
+      session_id: session?.id,
       flow_type: 'prove',
     });
     lastActionTimestampRef.current = Date.now(); // P516
@@ -1771,7 +1777,7 @@ export function ClarityLivePage() {
 
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState, isCreator]);
+  }, [name, partnerName, session?.id, updateLiveState, isCreator]);
 
   // ============================================================================
   // P562: Free mode handlers
@@ -1936,7 +1942,7 @@ export function ClarityLivePage() {
     lastActionTimestampRef.current = Date.now(); // P516
     analytics.track('story_session_started', {
       story_id: storyId,
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     // P792: Preload both participants' saved positions for this story's points.
@@ -2029,7 +2035,7 @@ export function ClarityLivePage() {
       setLocalFlowType('check');
       setIsLocallyRating(true);
     }
-  }, [name, partnerName, session?.code, session?.creatorName, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
+  }, [name, partnerName, session?.id, session?.creatorName, session?.creatorProfileId, session?.joinerProfileId, updateLiveState, isCreator]);
 
   // P272: Clear selected story (both participants return to no-story idle state)
   // P827: Also reset all rating state fields so the next picker selection starts clean.
@@ -2062,7 +2068,7 @@ export function ClarityLivePage() {
     }
 
     analytics.track('live_point_selected', {
-      session_code: session?.code,
+      session_id: session?.id,
       point_id: pointId,
     });
     lastActionTimestampRef.current = Date.now(); // P516
@@ -2077,7 +2083,7 @@ export function ClarityLivePage() {
     // Picking a point = "does partner understand YOUR point" (check flow)
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code, updateLiveState]);
+  }, [name, partnerName, session?.id, updateLiveState]);
 
   // Guard for removing positions in /live — shows profile-removal warning and syncs to point_positions.
   const { dialogProps: liveRemoveDialogProps, guardedRemovePosition: liveGuardedRemovePosition } =
@@ -2201,7 +2207,7 @@ export function ClarityLivePage() {
       });
 
       analytics.track('live_story_verified', {
-        session_code: session.code,
+        session_id: session.id,
         story_id: storyId ?? null,
       });
     } catch (err) {
@@ -2246,7 +2252,7 @@ export function ClarityLivePage() {
 
       // Track rating submission (P28.1: also collect for ML training)
       trackLiveEvent('live_rating_submitted', {
-        session_code: session?.code,
+        session_id: session?.id,
         rating,
         role,
         flow_type: localFlowType,
@@ -2317,7 +2323,7 @@ export function ClarityLivePage() {
 
           // P28.1: Critical event for ML - ground truth for prediction
           trackLiveEvent('live_understanding_revealed', {
-            session_code: session?.code,
+            session_id: session?.id,
             checker_rating: checkerRatingValue,
             responder_rating: responderRatingValue,
             gap,
@@ -2330,7 +2336,7 @@ export function ClarityLivePage() {
           // Track perfect understanding on first round
           if (isPerfect) {
             trackLiveEvent('live_perfect_understanding', {
-              session_code: session?.code,
+              session_id: session?.id,
               rounds_to_achieve: 0,
               initial_checker_rating: checkerRatingValue,
               initial_responder_rating: responderRatingValue,
@@ -2343,7 +2349,7 @@ export function ClarityLivePage() {
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification, isCreator]
+    [name, partnerName, localFlowType, updateLiveState, session?.id, trackLiveEvent, writeVerification, isCreator]
   );
 
   // V7: Handle skip (resets to idle state for next check)
@@ -2353,7 +2359,7 @@ export function ClarityLivePage() {
     // Track round skip (P28.1: tolerance threshold signal)
     const currentState = confirmedLiveStateRef.current;
     trackLiveEvent('live_round_skipped', {
-      session_code: session?.code,
+      session_id: session?.id,
       phase: currentState.ratingPhase,
       round: currentState.explainBackRatings.length,
     });
@@ -2412,7 +2418,7 @@ export function ClarityLivePage() {
     });
     // P272: Clear verification guard so new rounds can fire verification
     verificationFiredRef.current.clear();
-  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
   // P525: Uses boolean keys per-role instead of array to prevent race condition
@@ -2615,7 +2621,7 @@ export function ClarityLivePage() {
     const currentState = confirmedLiveStateRef.current;
     // P28.1: Correction loop entry marker
     trackLiveEvent('live_explain_back_started', {
-      session_code: session?.code,
+      session_id: session?.id,
       round: currentState.explainBackRatings.length + 1,
       checker_rating: currentState.checkerRating,
       responder_rating: currentState.responderRating,
@@ -2630,13 +2636,13 @@ export function ClarityLivePage() {
       // Clear clarification state (listener is now acting)
       clarificationPhase: undefined,
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
   const handleExplainBackDone = useCallback(() => {
     // P28.1: Track when listener finishes explaining (critical for audio segmentation)
     trackLiveEvent('live_explain_back_done', {
-      session_code: session?.code,
+      session_id: session?.id,
       round: confirmedLiveStateRef.current.explainBackRound,
     });
 
@@ -2649,14 +2655,14 @@ export function ClarityLivePage() {
       // even if explainBackDone gets reset (e.g., after "Continue as listener")
       speakerSawExplainBackDone: true,
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle listener wanting to share their perspective instead of explaining back
   // This now starts the negotiation flow instead of immediate role swap
   const handleSharePerspective = useCallback(() => {
     // P28.1: Cognitive friction signal
     trackLiveEvent('live_share_perspective_requested', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     // Start negotiation flow - speaker will see Accept / Ask to explain back first
@@ -2668,12 +2674,12 @@ export function ClarityLivePage() {
         state: 'pending',
       },
     });
-  }, [name, isCreator, updateLiveState, session?.code, trackLiveEvent]);
+  }, [name, isCreator, updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
   const handleAskToExplainFirst = useCallback(() => {
     trackLiveEvent('live_role_switch_ask_explain', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     const currentState = confirmedLiveStateRef.current;
@@ -2684,12 +2690,12 @@ export function ClarityLivePage() {
         state: 'speaker-asked-to-explain',
       },
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle listener continuing as listener (accepting speaker's request to explain back)
   const handleContinueAsListener = useCallback(() => {
     trackLiveEvent('live_role_switch_continue_listening', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     // B32_3 Fix: Just clear the negotiation dialog, preserve listener's state
@@ -2700,23 +2706,23 @@ export function ClarityLivePage() {
       roleSwitchNegotiation: undefined,
       // DON'T reset ratingPhase or explainBackDone - listener already finished explaining
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // P515: Handle listener cancelling their "Speak freely" negotiation request
   const handleCancelNegotiation = useCallback(() => {
     trackLiveEvent('live_role_switch_cancel', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     updateLiveState({
       roleSwitchNegotiation: undefined,
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle listener insisting they need to speak (negotiation step 2 → 3)
   const handleInsistToSpeak = useCallback(() => {
     trackLiveEvent('live_role_switch_insist', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     const currentState = confirmedLiveStateRef.current;
@@ -2727,12 +2733,12 @@ export function ClarityLivePage() {
         state: 'listener-insists',
       },
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle speaker letting listener speak (final step - accept the role switch)
   const handleLetThemSpeak = useCallback(() => {
     trackLiveEvent('live_role_switch_accepted_after_insist', {
-      session_code: session?.code,
+      session_id: session?.id,
     });
 
     // Reset to idle state - the listener can now initiate "Did you get me?"
@@ -2754,32 +2760,32 @@ export function ClarityLivePage() {
       // Clear speaker clarification state
       clarificationPhase: undefined,
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle speaker starting clarification (after rating < 10)
   const handleClarifyStart = useCallback(() => {
     trackLiveEvent('live_clarify_started', {
-      session_code: session?.code,
+      session_id: session?.id,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
     });
 
     updateLiveState({
       clarificationPhase: 'speaker-clarifying',
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // Handle speaker finishing clarification
   // After clarifying, listener gets to act (explain back again), speaker waits
   const handleClarifyDone = useCallback(() => {
     trackLiveEvent('live_clarify_done', {
-      session_code: session?.code,
+      session_id: session?.id,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
     });
 
     updateLiveState({
       clarificationPhase: 'listener-responding',
     });
-  }, [updateLiveState, session?.code, trackLiveEvent]);
+  }, [updateLiveState, session?.id, trackLiveEvent]);
 
   // V6: Handle speaker rating after explain-back
   const handleExplainBackRate = useCallback(
@@ -2791,7 +2797,7 @@ export function ClarityLivePage() {
 
       // Track explain-back rating (P28.1: re-rating data)
       trackLiveEvent('live_explain_back_rated', {
-        session_code: session?.code,
+        session_id: session?.id,
         rating,
         round,
         is_perfect: isPerfect,
@@ -2801,7 +2807,7 @@ export function ClarityLivePage() {
       // Track perfect understanding if achieved
       if (isPerfect) {
         trackLiveEvent('live_perfect_understanding', {
-          session_code: session?.code,
+          session_id: session?.id,
           rounds_to_achieve: round,
           initial_checker_rating: currentState.checkerRating,
           initial_responder_rating: currentState.responderRating,
@@ -2859,7 +2865,7 @@ export function ClarityLivePage() {
         clarificationPhase: rating < 10 ? 'speaker-deciding' : undefined,
       });
     },
-    [updateLiveState, session?.code, trackLiveEvent]
+    [updateLiveState, session?.id, trackLiveEvent]
   );
 
   // Clear the skip notification after toast is shown
@@ -2904,7 +2910,6 @@ export function ClarityLivePage() {
         pendingJoinRef.current = { code, joinName };
         setShowMicDialog(true);
         analytics.track('live_session_join_blocked', {
-          session_code: code,
           reason: 'mic_permission_denied',
         });
         return;
@@ -2948,7 +2953,7 @@ export function ClarityLivePage() {
       setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? joinName : null);
 
       analytics.track('live_session_joined', {
-        session_code: joinedSession.code,
+        session_id: joinedSession.id,
         join_method: isJoinViaLink ? 'link' : 'code',
       });
 
@@ -3126,7 +3131,7 @@ export function ClarityLivePage() {
 
       // Track session creation
       analytics.track('live_session_created', {
-        session_code: newSession.code,
+        session_id: newSession.id,
       });
 
       // P703: Bootstrap letter-sourced session — await so ratingPhase is set
@@ -3214,7 +3219,7 @@ export function ClarityLivePage() {
 
       setRejoinSession(null);
       analytics.track('live_session_rejoined', {
-        session_code: rejoinSession.code,
+        session_id: rejoinSession.sessionId,
         role: rejoinSession.role,
       });
     } catch (err) {
@@ -3234,7 +3239,7 @@ export function ClarityLivePage() {
       clearActiveSession();
       setRejoinSession(null);
       analytics.track('live_session_ended_from_rejoin', {
-        session_code: rejoinSession.code,
+        session_id: rejoinSession.sessionId,
         role: rejoinSession.role,
       });
     } catch (err) {
@@ -3382,7 +3387,7 @@ export function ClarityLivePage() {
     // P106: Track session abandoned before partner joined
     if (session) {
       analytics.track('live_session_abandoned', {
-        session_code: session.code,
+        session_id: session.id,
         waited_seconds: Math.floor((Date.now() - new Date(session.created_at).getTime()) / 1000),
       });
       // P703: Close the letter-sourced invite so the author's Start button re-enables
@@ -3605,7 +3610,7 @@ export function ClarityLivePage() {
       const hadMeaningfulEngagement = checksCompleted > 0;
 
       analytics.track('live_session_exited', {
-        session_code: session.code,
+        session_id: session.id,
         checks_completed: checksCompleted,
         is_creator: isCreator,
         had_meaningful_engagement: hadMeaningfulEngagement,
@@ -3620,7 +3625,7 @@ export function ClarityLivePage() {
       // Track session completion separately for funnel analysis
       if (hadMeaningfulEngagement) {
         analytics.track('live_session_completed', {
-          session_code: session.code,
+          session_id: session.id,
           checks_completed: checksCompleted,
           is_creator: isCreator,
           session_duration_seconds: Math.round((Date.now() - sessionStartTimestampRef.current) / 1000),
@@ -3725,7 +3730,7 @@ export function ClarityLivePage() {
           setActiveSession(joinedSession.code, joinedSession.creatorName ?? null, 'joiner', !user ? pendingJoin.joinName : null);
 
           analytics.track('live_session_joined', {
-            session_code: joinedSession.code,
+            session_id: joinedSession.id,
             join_method: 'mic_retry',
           });
 
@@ -3802,7 +3807,7 @@ export function ClarityLivePage() {
       setGracePeriodStart(null);
       gracePeriodStartRef.current = null;
       analytics.track('live_session_partner_left', {
-        session_code: sessionCodeRef.current,
+        session_id: currentSessionIdRef.current,
         left_by: 'joiner',
         exit_reason: 'grace_period_expired',
         checks_completed_so_far: confirmedLiveStateRef.current.checksCount,
@@ -4319,7 +4324,7 @@ export function ClarityLivePage() {
         });
         // P106: Track successful native share
         analytics.track('live_invite_shared', {
-          session_code: session.code,
+          session_id: session.id,
           method: 'native_share',
         });
         return;
@@ -4336,7 +4341,7 @@ export function ClarityLivePage() {
       setTimeout(() => setCopied(false), 2000);
       // P106: Track link copied
       analytics.track('live_invite_shared', {
-        session_code: session.code,
+        session_id: session.id,
         method: 'clipboard_copy',
       });
     } catch (err) {

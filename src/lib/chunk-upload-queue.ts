@@ -134,7 +134,6 @@ export class ChunkUploadQueue {
             await uploadFn(key, chunk.blob, chunk.metadata);
             await store.deleteChunk(key);
             analytics.track('audio_chunk_recovered', {
-              session_code: chunk.metadata.sessionCode,
               chunk_number: chunk.metadata.chunkNumber,
               recovery_source: 'indexeddb',
             });
@@ -197,7 +196,6 @@ export class ChunkUploadQueue {
         // Track recovery if this succeeded after at least one retry
         if (attempts > 1) {
           analytics.track('audio_chunk_recovered', {
-            session_code: chunk.metadata.sessionCode,
             chunk_number: chunk.metadata.chunkNumber,
             recovery_source: 'retry',
           });
@@ -215,7 +213,6 @@ export class ChunkUploadQueue {
         console.error(`[UploadQueue] Upload attempt ${attempts}/${MAX_ATTEMPTS} for ${chunkKey}:`, err);
 
         analytics.track('audio_chunk_upload_failed', {
-          session_code: chunk?.metadata.sessionCode ?? 'unknown',
           chunk_number: chunk?.metadata.chunkNumber ?? -1,
           error_type: err instanceof Error ? err.message : 'unknown',
           retry_count: attempts - 1,

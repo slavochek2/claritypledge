@@ -71,6 +71,7 @@ vi.mock('@sentry/react', () => ({
 vi.mock('@/lib/mixpanel', () => ({
   analytics: {
     track: vi.fn(),
+    stopSessionRecording: vi.fn(),
     registerMLCollector: vi.fn(),
     unregisterMLCollector: vi.fn(),
   },

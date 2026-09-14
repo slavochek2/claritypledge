@@ -90,9 +90,33 @@
         for(h=0;h<l.length;h++)t(b,l[h]);var n="set set_once union unset remove delete".split(" ");b.get_group=function(){function d(p){a[p]=function(){b.push([g,[p].concat(Array.prototype.slice.call(arguments,0))])}}for(var a={},g=["get_group"].concat(Array.prototype.slice.call(arguments,0)),m=0;m<n.length;m++)d(n[m]);return a};c._i.push([q,r,f])};c.__SV=1.2;var k=e.createElement("script");k.type="text/javascript";k.async=!0;k.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?MIXPANEL_CUSTOM_LIB_URL:"file:"===
         e.location.protocol&&"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js";e=e.getElementsByTagName("script")[0];e.parentNode.insertBefore(k,e)}})(document,window.mixpanel||[])
 
+        /* P1304-BEGIN — the /live and /transcribe room code is a join capability.
+           Events: redact it from every property ($current_url, $referrer, pageview
+           url props) via before_send_events. Replays: the recorder attaches the raw
+           URL to every batch outside any hook, so recording is off on code routes
+           (in-app navigation into one stops it — see RoomCodeRecordingGuard).
+           Same pattern as ROOM_CODE_IN_URL in src/lib/sentry-filters.ts; a test
+           asserts the two stay identical. */
+        var p1304RoomCode = /((?:\/|%2F)(?:live|transcribe)(?:\/|%2F))[A-Za-z0-9_-]+/gi;
+        var p1304IsCodeRoute = /^\/(?:live|transcribe)\/[^/]+/i.test(window.location.pathname);
+        function p1304Redact(value) {
+          if (typeof value === 'string') return value.replace(p1304RoomCode, '$1[code]');
+          if (Array.isArray(value)) return value.map(p1304Redact);
+          if (value && typeof value === 'object') {
+            var out = {};
+            for (var key in value) {
+              if (Object.prototype.hasOwnProperty.call(value, key)) out[key] = p1304Redact(value[key]);
+            }
+            return out;
+          }
+          return value;
+        }
+        /* P1304-END */
+
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
           autocapture: { pageview: true, formContents: false },
-          record_sessions_percent: 100,
+          record_sessions_percent: p1304IsCodeRoute ? 0 : 100,
+          hooks: { before_send_events: p1304Redact },
           api_host: 'https://api-eu.mixpanel.com',
           // P881: default ~5s batch window strands events when the page dies
           // without pagehide (mobile app-switch/OS kill) and the user never

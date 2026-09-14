@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { analytics } from '@/lib/mixpanel';
 import { createSerialSender, createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
 import {
   createRoom,
@@ -74,6 +75,12 @@ export function TranscribeRoomPage() {
   const location = useLocation();
   const { code: urlCode } = useParams<{ code?: string }>();
   const { user, isLoading: authLoading, sessionChecked } = useAuth();
+
+  // P1304: the room code in this URL is a join capability, and Mixpanel's
+  // recorder sends the raw URL with every replay batch.
+  useEffect(() => {
+    if (urlCode) analytics.stopSessionRecording();
+  }, [urlCode]);
 
   const [view, setView] = useState<ViewState>('loading');
   const [consentGiven, setConsentGiven] = useState(false);

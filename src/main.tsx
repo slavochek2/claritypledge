@@ -3,7 +3,12 @@ import * as ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import "@/lib/mixpanel"; // Initialize Mixpanel + fire test event
-import { sentryBeforeSend, IGNORED_ERROR_PATTERNS } from "@/lib/sentry-filters";
+import {
+  sentryBeforeSend,
+  sentryBeforeBreadcrumb,
+  sentryBeforeSendTransaction,
+  IGNORED_ERROR_PATTERNS,
+} from "@/lib/sentry-filters";
 import { installNavTrace } from "@/lib/nav-trace";
 import App from "./App";
 import "./index.css";
@@ -29,6 +34,11 @@ if (sentryDsn && import.meta.env.PROD) {
     // ignoreErrors can't match) and P990 (network blips re-thrown by service
     // call sites, dropped by error TYPE rather than message shape).
     beforeSend: sentryBeforeSend,
+    // P1304: the room code in /live and /transcribe URLs is a join capability.
+    // beforeSend redacts it from error events; breadcrumbs and page-load
+    // transactions reach Sentry through these two hooks instead.
+    beforeBreadcrumb: sentryBeforeBreadcrumb,
+    beforeSendTransaction: sentryBeforeSendTransaction,
 
     // Performance monitoring
     integrations: [
