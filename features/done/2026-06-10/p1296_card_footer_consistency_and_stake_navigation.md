@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 91
 workstream: E1
@@ -7,12 +7,12 @@ created_date: '2026-09-10'
 tags: [feed, stake, profile, cards, consistency, grouping, event-prep]
 absorbs: [p500]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, adversarial-review, create-spec.2, adversarial-review.2, create-spec.3, create-spec.4, adversarial-review.3, create-spec.5, create-spec.6, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-14
 ---
 
 # P1296: One card behaviour on feed, stake and profile — and a /stake you can link to and leave
