@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 1
 tags: [navigation, stake]
 disclosure: public
 created_date: '2026-09-14'
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
+completed_at: 2026-09-14
 ---
 
 # P1311: "Go back" on /stake drops a reader arriving from an outside page onto the feed
