@@ -281,7 +281,7 @@ export function AgreementCertificate({
               maxLength={TERMS_MAX}
               onChange={e => onTermsChange(e.target.value)}
               rows={8}
-              className={`w-full resize-y bg-[#F5F1E8] focus:bg-transparent border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] font-sans transition-colors ${
+              className={`w-full resize-y bg-[#F5F1E8] focus:bg-transparent border-0 border-b text-base md:text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] font-sans transition-colors ${
                 termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
               }`}
             />

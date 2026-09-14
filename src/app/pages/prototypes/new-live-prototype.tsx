@@ -323,7 +323,7 @@ function RoleClaimStep({
           ) : (
             <div className="space-y-2">
               <input type="text" placeholder="Search stories..." value={storySearch} onChange={e => setStorySearch(e.target.value)}
-                className="w-full px-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" autoFocus />
+                className="w-full px-4 py-2.5 border border-border rounded-xl text-base md:text-sm focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" autoFocus />
               {filteredStories.map(story => (
                 <button key={story.id} onClick={() => { setSelectedStory(story); setShowStories(false); setStorySearch(''); }}
                   className="w-full text-left px-4 py-3 rounded-xl border border-border hover:border-gray-300 text-sm transition-all">

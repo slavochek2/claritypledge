@@ -292,6 +292,16 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
     go: (entry: LinksMenuEntry) => {
       analytics.track('event_links_entry_clicked', { label: entry.label, group: entry.group, event: eventSlug });
       setOpen(false);
+      // P1310: `newTab` entries point at a static page outside the SPA router
+      // (`/presi`), which `navigate()` would resolve to the 404 route. Opened in
+      // a new tab so the room this attendee is standing in keeps running behind
+      // it. `noopener` because the deck must not reach back into this window.
+      // The path is still internal and still built in event-links.ts — see the
+      // no-URL invariant there.
+      if (entry.newTab) {
+        window.open(entry.to, '_blank', 'noopener,noreferrer');
+        return;
+      }
       navigate(entry.to);
     },
   }), [open, eventSlug, entries, navigate]);
@@ -305,14 +315,27 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
     <EventLinksContext.Provider value={ctxValue}>
       {children}
       <Drawer open={open} onOpenChange={setOpen} forceSheet>
-        <DrawerContent data-testid="event-links-menu" data-shape="sheet" className="px-4 pb-6">
+        {/* P1310: the sheet is `fixed bottom-0 h-auto` (drawer.tsx), so it grows UPWARD
+            with no cap — past the top of a short phone once the list is long enough.
+            Measured at 320x568 with the 8th entry (Slides) added: the sheet ran to
+            -83px, taking the "Links" title and cmp7 off-screen. The same page on prod,
+            one entry shorter, clipped nothing — so this is a real ceiling that the
+            entry list had simply not reached yet, not a pre-existing defect. Capping
+            here rather than in drawer.tsx: this is the one sheet whose content is a
+            list that grows, and every other Drawer caller keeps its current behaviour.
+            The cap itself lives in index.css as `.event-links-sheet` — this file names
+            no height token of its own, which the P1179 design-system suite asserts by
+            scanning it, and a fix should meet that standard rather than relax it. */}
+        <DrawerContent data-testid="event-links-menu" data-shape="sheet" className="event-links-sheet px-4 pb-6">
           <DrawerTitle className="px-0 pt-4 pb-2 text-base font-semibold">Links</DrawerTitle>
           <DrawerDescription className="sr-only">
             {eventSlug
               ? 'Destinations for this event. The list does not change during the event.'
               : 'Destinations for this session.'}
           </DrawerDescription>
-          <nav className="flex flex-col gap-2" aria-label={eventSlug ? 'Event links' : 'Links'}>
+          {/* The entries scroll, the title does not — so the heading that names the
+              sheet stays on screen no matter how many destinations the list carries. */}
+          <nav className="flex flex-col gap-2 overflow-y-auto overscroll-contain" aria-label={eventSlug ? 'Event links' : 'Links'}>
             {entries.map((entry, i) => {
               const prev = entries[i - 1];
               // The approved reference's separator falls before Transcribe —

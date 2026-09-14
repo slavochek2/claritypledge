@@ -54,7 +54,9 @@ vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
  * softened, because the decision it recorded has been reversed by the same
  * person who made it. See event-links.ts for both sides.
  */
-const APPROVED = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding', 'Transcribe', 'Start a Clarity Session'];
+// P1310 added 'Slides' (-> /presi, the live deck) to the tools group at the founder's
+// request. Label is founder-approved copy, like every other entry here.
+const APPROVED = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding', 'Transcribe', 'Start a Clarity Session', 'Slides'];
 const UNAPPROVED = ['Seven dimensions', 'The triad', 'All ten'];
 
 function renderAt(path: string, variant?: 'sheet' | 'dropdown') {

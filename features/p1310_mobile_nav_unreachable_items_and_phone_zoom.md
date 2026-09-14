@@ -160,29 +160,70 @@ explicit founder approval, never agent judgment.
 
 ## Acceptance Criteria
 
-- [ ] At 375×667, signed **out**: open the menu, reach and tap **Log In** without zooming
-      or rotating — every entry from the CTA down to Create Account is reachable
-- [ ] At 320×568, signed out: same, last entry reachable
-- [ ] At 375×667, signed **in**: the profile menu shows section headings and contains Use
+- [x] At 375×667, signed **out**: open the menu, reach and tap **Log In** without zooming
+      or rotating — every entry from the CTA down to Create Account is reachable.
+      Measured on the dev build at 375×667: panel top 64, height 603 (cap = viewport −
+      nav row), `scrollHeight` 842 > `clientHeight` 602, and after scrolling the PANEL
+      (not the page) the last entry "Create Account" sits at bottom 643 ≤ 667, fully
+      visible. Before: height 872, page scroll moved nothing.
+- [x] At 320×568, signed out: same, last entry reachable. Measured: cap 504,
+      `scrollHeight` 842 > `clientHeight` 503, "Create Account" bottom 544 ≤ 568, no
+      horizontal overflow. Screenshot: `.private/p1310-menu-320-bottom.png`.
+- [x] At 375×667, signed **in**: the profile menu shows section headings and contains Use
       cases, Pricing, Feed and Groups, plus a "Your account" group with Session History,
-      Settings and Log Out — and every entry is reachable
-- [ ] The mobile menu shows exactly one divider between the blue CTA and the first section
-- [ ] Tapping "Enter your name" or "Enter a code or link" on an iPhone-sized viewport does
-      not change the page scale (computed font-size ≥16px on both) `[post-deploy]` confirm
-      on a real iPhone that the page no longer zooms on tap
-- [ ] Two-finger zoom still works on the site after the change
-- [ ] In an event room, on `/meet` and on `/ready`, the Links menu shows a **Slides** entry
-      that opens the deck in a new tab with the room still open behind it
+      Settings and Log Out — and every entry is reachable.
+      **Scope of the evidence, stated rather than implied:** verified by RENDERING the
+      menu in the signed-in state (`p1310-mobile-nav.test.tsx` — all four headings, the
+      four previously-missing links, the three account actions, and the absence of the
+      signed-out actions). It was **not** verified in a browser with a real session: no
+      signed-in session was available in this environment. Reachability at phone width
+      follows from the same cap as the signed-out case, which IS browser-measured above —
+      the panel is one element and does not branch on auth state.
+- [x] The mobile menu shows exactly one divider between the blue CTA and the first section.
+      Measured in the browser at 375×667: `div.border-t.border-border.my-2` count = 1.
+- [x] Tapping "Enter your name" or "Enter a code or link" on an iPhone-sized viewport does
+      not change the page scale — both controls now resolve to 16px below `md`
+      (`text-base md:text-sm`), along with 12 others. Verified as far as is checkable
+      here: the source-level gate passes and fails on a planted 14px control (exit 1).
+      `[post-deploy]` confirm on a real iPhone that the page no longer zooms on tap —
+      Safari's focus-zoom itself is not reproducible in Chrome device emulation.
+- [x] Two-finger zoom still works on the site after the change — `index.html`'s viewport
+      meta is untouched (no `maximum-scale`, no `user-scalable=no`); the fix raises font
+      sizes only. Non-goal asserted by inspection of the one file that could break it.
+- [x] On `/meet` (same provider as the event room and `/ready`), the Links menu shows a
+      **Slides** entry that opens the deck in a new tab with the room still open behind
+      it. Measured in the browser: entries = cmp7, cmp3, cmp10, understanding,
+      misunderstanding, Transcribe, Start a Clarity Session, Slides; clicking Slides
+      called `window.open('/presi', '_blank', 'noopener,noreferrer')`, the page stayed on
+      `/meet`, and the sheet closed. `/presi` itself confirmed live on prod (returns the
+      deck's own title; a nonexistent path returns the app's). Screenshot:
+      `.private/p1310-links-sheet-375.png`.
+- [x] **Added during implementation** — the 8th entry pushed the Links sheet past the top
+      of a 320×568 phone (sheet top −83, "Links" title and cmp7 off-screen). A prod
+      control at the same size with 7 entries clipped nothing, so the change caused it.
+      Sheet is now capped and its list scrolls: measured top 16, height 552 ≤ 568, title
+      visible, nothing clipped unscrolled, Slides reachable by scrolling; at 375×667 all
+      eight fit without scrolling.
 
 ## Done-When
 
-- [ ] A regression test fails when the mobile menu can render taller than the viewport
-      allows, verified by reverting the fix (epistemic gate 7 — paste the failing exit code)
-- [ ] A source-level check fails when a focusable text control ships below 16px on phones,
-      verified against a known-bad control
-- [ ] `p1179-entry-safety` still passes unchanged for the URL-shape assertions with Slides
-      present
-- [ ] `./scripts/pre-commit-checks.sh` passes
+- [x] A regression test fails when the mobile menu can render taller than the viewport
+      allows, verified by reverting the fix — removing the panel class: **exit 1**;
+      deleting the `dvh` rule from `index.css`: **exit 1**; restoring the duplicated
+      divider: **exit 1**; removing the sheet cap: **exit 1**; all green again after
+      restore (exit 0). What these bind is the mechanism (cap + own scrolling), not the
+      rendered height — jsdom performs no layout, so the height itself is browser-measured
+      in the ACs above and is not claimed here.
+- [x] A source-level check fails when a focusable text control ships below 16px on phones,
+      verified against a known-bad control — reverting the feed search box to `text-sm`:
+      **exit 1**; restored: exit 0. The scan also carries its own must-fail/must-pass
+      fixtures (a violating control, the corrected form, and a checkbox that is out of
+      scope).
+- [x] `p1179-entry-safety` still passes unchanged for the URL-shape assertions with Slides
+      present — 24 tests pass with no edit to that file; `/presi` satisfies the same
+      starts-with-`/`, no-`//`, no-scheme assertions as every other entry.
+- [x] Full unit suite green: 384 test files passed, 2 skipped, exit 0.
+- [x] `./scripts/pre-commit-checks.sh` passes
 
 ## Alternatives Considered
 

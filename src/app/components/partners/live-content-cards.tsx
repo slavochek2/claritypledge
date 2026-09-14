@@ -355,7 +355,7 @@ export function ContentPicker({
             placeholder="Search stories and points..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="pl-9 text-sm"
+            className="pl-9 text-base md:text-sm"
             data-testid="content-search"
           />
         </div>

@@ -229,7 +229,7 @@ export function DesignAuditPage() {
                   rows={3}
                   value="Scope: Professional partnership..."
                   readOnly
-                  className="w-full resize-y bg-[#F5F1E8] border-0 border-b text-sm leading-relaxed text-[#1A1A1A]/80 border-[#1A1A1A]/20 focus-visible:outline-none min-h-[80px] font-sans"
+                  className="w-full resize-y bg-[#F5F1E8] border-0 border-b text-base md:text-sm leading-relaxed text-[#1A1A1A]/80 border-[#1A1A1A]/20 focus-visible:outline-none min-h-[80px] font-sans"
                 />
               </div>
             </div>

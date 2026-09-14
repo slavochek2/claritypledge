@@ -25,6 +25,13 @@ export interface LinksMenuEntry {
   to: string;
   /** Which group it renders in — drives the separator and the "This event" heading. */
   group: 'stake' | 'tools' | 'event';
+  /**
+   * P1310: open with a document load in a new tab instead of a router navigation.
+   * Set ONLY for internal paths that live outside the SPA router (`/presi`), which
+   * React Router would otherwise resolve to the 404 route. Still an internal path —
+   * this flag does not relax the no-URL invariant in the file header.
+   */
+  newTab?: boolean;
 }
 
 /**
@@ -75,13 +82,33 @@ export function isSafeTag(tag: unknown): tag is string {
 export const STANDARD_STAKE_TAGS = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding'] as const;
 
 /**
- * The two standard tool destinations. Both labels are existing product copy,
- * not new words: "Transcribe" is the product name (P1149) and "Start a Clarity
- * Session" is verbatim the nav's own CTA wording (simple-navigation.tsx).
+ * The standard tool destinations. Labels are existing product copy, not new
+ * words: "Transcribe" is the product name (P1149), "Start a Clarity Session" is
+ * verbatim the nav's own CTA wording (simple-navigation.tsx), and "Slides" is
+ * the founder's own word for `/presi` (P1310; chosen over "Prezi" and
+ * "Presentation").
+ *
+ * `/presi` is the live deck — a STATIC page under `public/presi/`, rewritten by
+ * `vercel.json`, NOT a route in `App.tsx`. Two consequences, both load-bearing:
+ *
+ *   1. `newTab` is required, not a preference. A router `navigate('/presi')`
+ *      renders the SPA's 404 because no route matches; a same-document load
+ *      would reach the deck but tear down a live room to do it. The room stays
+ *      running behind the new tab.
+ *   2. It changes NOTHING about the open-redirect invariant this module exists
+ *      to hold (file header). `/presi` is a literal internal path written here,
+ *      not a URL and not sourced from event data — so
+ *      p1179-entry-safety.test.ts's shape assertions (starts with `/`, never
+ *      `//`, never `scheme:`) hold for it exactly as they do for `/transcribe`.
+ *      Do not "simplify" this to an absolute URL; that is the thing the
+ *      invariant forbids.
+ *
+ * `/presi2` is the frozen June draft (P1218) and is deliberately NOT linked.
  */
-export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string }> = [
+export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean }> = [
   { label: 'Transcribe', to: '/transcribe' },
   { label: 'Start a Clarity Session', to: '/live' },
+  { label: 'Slides', to: '/presi', newTab: true },
 ];
 
 /** Path for a stake destination, carrying the event alongside when there is one. */
@@ -132,7 +159,7 @@ export function buildLinksMenu(
   // The separator the approved reference puts before Transcribe falls between
   // these two groups; the sheet draws it from the group change, not from data.
   for (const tool of STANDARD_TOOL_ENTRIES) {
-    entries.push({ label: tool.label, to: tool.to, group: 'tools' });
+    entries.push({ label: tool.label, to: tool.to, group: 'tools', ...(tool.newTab ? { newTab: true } : {}) });
   }
 
   return entries;
@@ -151,7 +178,20 @@ export function eventSlugFromLocation(pathname: string, search: string): string 
   // there without a matching update here silently loses the Links button; no
   // test ties the two lists together, so if you add one, add it in both.
   const room = pathname.match(/^\/events\/([^/]+)\/(?:room|ready|meet)\/?$/);
-  if (room) return decodeURIComponent(room[1]);
+  if (room) {
+    // `decodeURIComponent` THROWS on a malformed percent-escape — `/events/%/room`
+    // raises `URIError: URI malformed`. This function runs during the nav provider's
+    // render on every route, so an unhandled throw here does not fail the menu, it
+    // fails the whole navigation and the page under it. A slug that cannot be decoded
+    // is not a slug: treat the location as carrying no event, which is the same
+    // outcome as any other non-room path. (Found by adversarial review, P1310;
+    // the defect predates this spec and lives in the function it extends.)
+    try {
+      return decodeURIComponent(room[1]);
+    } catch {
+      return null;
+    }
+  }
   if (/^\/stake\/[^/]+\/?$/.test(pathname)) {
     const slug = new URLSearchParams(search).get('event');
     return slug && slug.trim() ? slug : null;

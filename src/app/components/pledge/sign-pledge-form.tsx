@@ -271,7 +271,7 @@ export function SignPledgeForm({
               minLength={10}
               rows={2}
               maxLength={280}
-              className={`w-full px-0 py-2 border-0 border-b-2 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 resize-none text-sm md:h-auto ${
+              className={`w-full px-0 py-2 border-0 border-b-2 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 resize-none text-base md:text-sm md:h-auto ${
                 reasonError ? "border-red-400 focus-visible:border-red-500" : "border-[#1A1A1A] focus-visible:border-[#0044CC]"
               }`}
             />

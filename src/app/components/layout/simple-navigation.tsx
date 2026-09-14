@@ -710,7 +710,12 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         {isMobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
-            className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
+            /* P1310: `mobile-nav-panel` (index.css) caps the panel against the
+               viewport and scrolls it. Without it the panel is 872px tall on a
+               667px phone and the last six entries — Log In among them — cannot
+               be reached at all, because the nav above is `position: fixed` and
+               page scroll never moves the panel. */
+            className="mobile-nav-panel lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
               {/* Primary CTA — hidden in compact mode, and on the pricing page for the same
@@ -750,12 +755,14 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               {/* Mobile menu - Events and Create Story removed (available in bottom nav) */}
               {/* All content navigation (Pledgers, Manifesto, Blog, About) now in NavigationMenuItems */}
 
-              {/* Separates the CTA above from the links below — so it must not render when
-                  there is no CTA above it (P1087). On /pricing it was left stranded at the
-                  very top of the menu as a rule with nothing on either side of it. */}
-              {!showUserMenu && !compact && !hideMarketingCta && (
-                <div className="border-t border-border my-2"></div>
-              )}
+              {/* P1310: a second separator used to render here for the logged-out case.
+                  Its condition (`!showUserMenu && !compact && !hideMarketingCta`) is a
+                  strict subset of the CTA block's above, which already ends in a
+                  separator — so it could only ever draw a SECOND rule directly under the
+                  first one, never a lone rule where none existed. Visible as a doubled
+                  line under the blue button in the founder's 375px screenshot. The P1087
+                  concern it was written for (no stranded rule when the CTA is hidden) is
+                  satisfied by the CTA block owning its own separator. */}
 
               {/* KISS: Two states only - using shared NavigationMenuItems */}
               <NavigationMenuItems

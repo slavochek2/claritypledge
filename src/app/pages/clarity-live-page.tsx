@@ -4132,7 +4132,7 @@ export function ClarityLivePage() {
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           autoFocus
-                          className="w-[280px] rounded-full h-11 text-sm"
+                          className="w-[280px] rounded-full h-11 text-base md:text-sm"
                         />
                       </div>
                     )}
@@ -4223,7 +4223,7 @@ export function ClarityLivePage() {
                                   value={roomCode}
                                   onChange={(e) => setRoomCode(e.target.value)}
                                   maxLength={500}
-                                  className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
+                                  className="bg-transparent outline-none text-base md:text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
                                 />
                               </div>
                               <button

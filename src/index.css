@@ -113,6 +113,59 @@ html body[data-scroll-locked] {
   margin-right: 0 !important;
 }
 
+/* P1310: the open mobile nav panel scrolls INSIDE the viewport.
+ *
+ * The panel hangs off a `position: fixed` nav, so page scroll cannot reach it:
+ * measured on prod at 375x667 the panel ran 64px→936px and stayed there after
+ * `window.scrollTo(0, 2000)`, putting Manifesto, Blog, About, Take the Pledge,
+ * Log In and Create Account out of reach on every phone.
+ *
+ * Written here rather than as Tailwind arbitrary values because BOTH the `vh`
+ * fallback and the `dvh` rule are needed and their relative order must be
+ * guaranteed. Two `max-h-[...]` utilities in one className are emitted as two
+ * separate classes whose order is decided by Tailwind's output, not by the
+ * attribute — so the fallback could silently win on a modern browser.
+ *
+ * `100vh` on mobile Safari is the LARGE viewport (URL bar retracted), so on the
+ * fallback path the last entry can still sit under the bar; `dvh` is the
+ * correct unit and is what every current iOS/Android browser takes. The
+ * subtraction is the nav row (4rem below `lg`) plus the iOS status-bar inset
+ * the nav already pads for (P956). */
+.mobile-nav-panel {
+  max-height: calc(100vh - 4rem - env(safe-area-inset-top));
+  overflow-y: auto;
+  /* Stop the panel's scroll from chaining to the page behind it. */
+  overscroll-behavior: contain;
+  /* iOS momentum scrolling inside the panel. */
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .mobile-nav-panel {
+    max-height: calc(100dvh - 4rem - env(safe-area-inset-top));
+  }
+}
+
+/* P1310: the room's Links bottom sheet has a ceiling.
+ *
+ * The sheet is `fixed bottom-0 h-auto` (drawer.tsx) and grows upward with no cap.
+ * Measured at 320x568 once the list reached 8 entries: the sheet ran to -83px,
+ * taking its own "Links" title and the first entry off the top of the screen.
+ *
+ * Defined here rather than as a Tailwind `max-h-[...]` on the component, for the
+ * same ordering reason as the nav panel above, AND because the P1179 design-system
+ * suite asserts that event-links-menu.tsx names no height token of its own — a
+ * standard that fix should meet rather than relax. */
+.event-links-sheet {
+  max-height: calc(100vh - 1rem);
+}
+
+@supports (height: 100dvh) {
+  .event-links-sheet {
+    max-height: calc(100dvh - 1rem);
+  }
+}
+
 /* Live session inner scroll — hidden scrollbar, still scrollable */
 .live-scroll {
   scrollbar-width: none;

@@ -285,7 +285,7 @@ export function SettingsPage() {
             onChange={(e) => setBio(e.target.value)}
             maxLength={160}
             rows={3}
-            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none text-sm"
+            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none text-base md:text-sm"
             placeholder="A short description about you..."
             aria-describedby="bio-counter"
           />
