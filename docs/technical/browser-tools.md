@@ -183,7 +183,10 @@ async function main() {
   for (const vp of viewports) {
     const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
     await page.goto('http://localhost:5200/your-page', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    // Wait for CONTENT, never a fixed timeout: pages that fetch render nothing while loading, and
+    // networkidle can arrive first. Replace the text with something only the loaded page shows.
+    // A blank capture is a harness defect until a content wait proves otherwise (P1307).
+    await page.getByText('text only the loaded page shows').first().waitFor({ timeout: 15000 });
     await page.screenshot({ path: os.homedir() + '/Screenshots/qa-' + vp.name + '.png' });
     await page.close();
   }

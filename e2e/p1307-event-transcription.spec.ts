@@ -134,6 +134,26 @@ test.describe('P1307: event transcription', () => {
     await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 15_000 });
   }
 
+  // /dev (KDD 2026-09-14): the bar can show while every slice is refused. The test project
+  // serves the DEPLOYED transcribe-slice, and until this branch's version is deployed there a
+  // 13 s slice (416 KB) is over main's 320 KB bound and returns 400. Nothing else in this file
+  // looks at a slice response, so the whole suite stayed green. Expected red on the test
+  // project until transcribe-slice is deployed to it.
+  test('a live slice sent while transcribing is accepted by transcribe-slice', async ({ page }) => {
+    test.setTimeout(60_000);
+    const sliceResponse = page.waitForResponse(
+      // An AUDIO slice only: the pre-warm call posts {warmup: true} to the same function and
+      // is accepted even when real slices are refused — this test passed on it once.
+      (r) => r.url().includes('/functions/v1/transcribe-slice')
+        && r.request().method() === 'POST'
+        && (r.request().postData() ?? '').includes('"audio"'),
+      { timeout: 45_000 },
+    );
+    await reachCapturing(page);
+    const response = await sliceResponse;
+    expect(response.status(), `transcribe-slice refused the slice: ${await response.text()}`).toBeLessThan(300);
+  });
+
   test('the bar persists across profile and feed navigation', async ({ page }) => {
     await reachCapturing(page);
     await page.goto('/feed');
