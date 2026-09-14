@@ -38,6 +38,18 @@ function makeAnonClient() {
   });
 }
 
+/**
+ * P1302: an account-less guest — `anon`, presenting the room code it joined with. Since P1302 an
+ * open room is reachable by anon only with its code, so the guest controls below use this shape:
+ * it is what the deployed client sends (src/lib/room-capability.ts).
+ */
+function makeGuestClient(roomCode: string) {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { 'x-clarity-room-code': roomCode } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 /** A client carrying a real user JWT — PostgREST resolves this to `authenticated`. */
 function makeUserClient(accessToken: string) {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -282,7 +294,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
 
   test('control: anonymous guest can still write state (api.ts updateClaritySessionState)', async () => {
     const row = await seedVictimSession('control state');
-    const anon = makeAnonClient();
+    const anon = makeGuestClient(row.code);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -296,7 +308,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
 
   test('control: anonymous guest can still write live_state + mode (api.ts updateLiveState)', async () => {
     const row = await seedVictimSession('control live_state');
-    const anon = makeAnonClient();
+    const anon = makeGuestClient(row.code);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -311,7 +323,7 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
 
   test('control: anonymous guest can still write demo_status (api.ts updateDemoStatus)', async () => {
     const row = await seedVictimSession('control demo_status');
-    const anon = makeAnonClient();
+    const anon = makeGuestClient(row.code);
 
     const { error } = await anon
       .from('clarity_sessions')
@@ -469,10 +481,11 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
    * them is what produced the wrong migration.
    */
   test('control: legacy null-creator row stays locked to anonymous callers (P396)', async () => {
+    const nullCreatorCode = makeRoomCode();
     const { data: seed, error: seedError } = await supabaseAdmin
       .from('clarity_sessions')
       .insert({
-        code: makeRoomCode(),
+        code: nullCreatorCode,
         creator_name: 'P1047 null-creator room',
         creator_profile_id: null,
         target_listener_id: null,
@@ -483,7 +496,10 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
     expect(seedError, `seed failed: ${seedError?.message}`).toBeNull();
     createdSessionIds.push(seed!.id);
 
-    const anon = makeAnonClient();
+    // P1302: the strongest anonymous caller — one presenting the room's code — so the row is
+    // visible and the refusal below is WITH CHECK's doing, not the row simply being invisible
+    // (which would surface as no error at all).
+    const anon = makeGuestClient(nullCreatorCode);
     const { error } = await anon
       .from('clarity_sessions')
       .update({ state: { step: 'guest-wrote-this' } })
@@ -503,7 +519,8 @@ test.describe('P1047: clarity_sessions UPDATE — ownership forgery on null-targ
 
   test('control: anonymous guest can still call patch_live_state RPC', async () => {
     const row = await seedVictimSession('control rpc');
-    const anon = makeAnonClient();
+    // P1302: the guest arm of patch_live_state asks for the room code, like every other guest path.
+    const anon = makeGuestClient(row.code);
 
     const { error } = await anon.rpc('patch_live_state', {
       p_session_id: row.id,

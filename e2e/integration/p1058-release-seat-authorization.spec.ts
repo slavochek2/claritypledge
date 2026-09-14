@@ -10,6 +10,13 @@
  *   room to any unauthenticated caller. So an anon caller can enumerate ids and evict seated
  *   guests product-wide.
  *
+ * THAT PREMISE IS CLOSED (P1302). The policy quoted above is gone: a room is reachable by its
+ * parties, or by a caller presenting its code. The reachability canary below is therefore
+ * INVERTED — it now asserts that an anon caller holding no code reads nothing, and stands as the
+ * regression guard for it. The F4 tests that follow still hand the attacker the session id from
+ * the fixture, so they keep testing release_joiner_seat's own authorization rather than leaning
+ * on enumeration to supply the id.
+ *
  * WHAT THESE CANARIES ESTABLISH, in order:
  *   1. REACHABILITY — an anon client can list non-addressed session ids at all. If this fails,
  *      F4's premise is dead regardless of what the function does.
@@ -123,7 +130,11 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
 
   // ── 1. REACHABILITY ────────────────────────────────────────────────────────────────────
 
-  test('an anonymous caller can read the id of a non-addressed room it holds no code for', async () => {
+  test('an anonymous caller can NOT read the id of a non-addressed room it holds no code for (P1302)', async () => {
+    // This test used to assert the opposite: it pinned F4's premise that room ids were enumerable
+    // by anyone. P1302 closed that — an open room is reachable by anon only with its code — so
+    // the premise is now a regression guard. The F4 tests below still hand the attacker the id
+    // from the fixture, so they keep testing release_joiner_seat's own authorization.
     const room = await seedRoom('reachability', { guestName: 'Guest A' });
 
     // No code is used here — this is a blind listing, which is exactly what enumeration means.
@@ -134,10 +145,7 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
       .eq('id', room.id);
 
     expect(error, `anon select errored: ${error?.message}`).toBeNull();
-    expect(
-      data,
-      'anon could not read the session id — F4 premise (enumerable ids) does not hold',
-    ).toHaveLength(1);
+    expect(data ?? [], 'anon enumerated a room id it holds no code for — P1302 has regressed').toEqual([]);
   });
 
   // ── 2. THE EVICTION ────────────────────────────────────────────────────────────────────

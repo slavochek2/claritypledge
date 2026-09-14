@@ -72,6 +72,18 @@ function makeAnonClient() {
   });
 }
 
+/**
+ * P1302: an account-less guest — `anon`, presenting the room code it joined with. Since P1302 an
+ * open room is reachable by anon only with its code, so the guest-write controls below use this
+ * shape: it is what the deployed client sends (src/lib/room-capability.ts).
+ */
+function makeGuestClient(roomCode: string) {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { 'x-clarity-room-code': roomCode } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 /** A client carrying a real user JWT — PostgREST resolves this to `authenticated`. */
 function makeUserClient(accessToken: string) {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -634,9 +646,9 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
 
   test('control: anonymous guest can still write state (api.ts updateClaritySessionState)', async () => {
     const row = await seedRoom('control state');
-    const anon = makeAnonClient();
+    const guest = makeGuestClient(row.code);
 
-    const { error } = await anon.from('clarity_sessions').update({ state: { step: 'reflect' } }).eq('id', row.id);
+    const { error } = await guest.from('clarity_sessions').update({ state: { step: 'reflect' } }).eq('id', row.id);
     expect(error, `Guest state write must keep working: ${error?.message}`).toBeNull();
     const after = await readRow(row.id);
     expect(after.state).toEqual({ step: 'reflect' });
@@ -644,9 +656,9 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
 
   test('control: anonymous guest can still write live_state + mode (api.ts updateLiveState)', async () => {
     const row = await seedRoom('control live_state');
-    const anon = makeAnonClient();
+    const guest = makeGuestClient(row.code);
 
-    const { error } = await anon
+    const { error } = await guest
       .from('clarity_sessions')
       .update({ live_state: { ratingPhase: 'waiting' }, mode: 'live' })
       .eq('id', row.id);
@@ -658,9 +670,9 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
 
   test('control: anonymous guest can still write demo_status (api.ts updateDemoStatus)', async () => {
     const row = await seedRoom('control demo_status');
-    const anon = makeAnonClient();
+    const guest = makeGuestClient(row.code);
 
-    const { error } = await anon.from('clarity_sessions').update({ demo_status: 'in_progress' }).eq('id', row.id);
+    const { error } = await guest.from('clarity_sessions').update({ demo_status: 'in_progress' }).eq('id', row.id);
     expect(error, `Guest demo_status write must keep working: ${error?.message}`).toBeNull();
     const after = await readRow(row.id);
     expect(after.demo_status).toBe('in_progress');
@@ -675,7 +687,9 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
     // on the persisted value below fails. That is a fixture defect, not a product
     // regression: this control is about a guest who has already taken the seat.
     const row = await seedRoom('control rpc', { anonymousOccupant: 'Guest Practitioner' });
-    const anon = makeAnonClient();
+    // P1302: the guest arm of patch_live_state now asks for the room code, like every other
+    // guest path — a session id alone is not a credential (event rooms publish theirs).
+    const anon = makeGuestClient(row.code);
 
     const { error } = await anon.rpc('patch_live_state', {
       p_session_id: row.id,
@@ -706,15 +720,19 @@ test.describe('P1053: server-side join authorization — claim_joiner_seat + REV
    * what produces a wrong migration.
    */
   test('control: legacy null-creator row stays locked to anonymous callers (P396)', async () => {
+    const nullCreatorCode = makeRoomCode();
     const { data: seed, error: seedError } = await supabaseAdmin
       .from('clarity_sessions')
-      .insert({ code: makeRoomCode(), creator_name: 'P1053 null-creator room', creator_profile_id: null, target_listener_id: null, state: {} })
+      .insert({ code: nullCreatorCode, creator_name: 'P1053 null-creator room', creator_profile_id: null, target_listener_id: null, state: {} })
       .select('id')
       .single();
     expect(seedError, `seed failed: ${seedError?.message}`).toBeNull();
     createdSessionIds.push(seed!.id);
 
-    const anon = makeAnonClient();
+    // P1302: the strongest anonymous caller — one presenting the room's code — so the row is
+    // visible and the refusal below is WITH CHECK's (creator_profile_id IS NOT NULL) doing, not
+    // the row simply being invisible (which would surface as no error at all).
+    const anon = makeGuestClient(nullCreatorCode);
     const { error } = await anon.from('clarity_sessions').update({ state: { step: 'guest-wrote-this' } }).eq('id', seed!.id);
     expect(
       error,

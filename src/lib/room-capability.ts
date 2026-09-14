@@ -1,16 +1,28 @@
 /**
- * The room codes this tab holds, sent with our REST requests as the `x-clarity-room-code` header.
+ * P1302: the room codes this tab legitimately holds, presented to the database on every REST
+ * request as the `x-clarity-room-code` header.
+ *
+ * A guest joins /live by code with no account, so the database has no identity to authorize them
+ * by. Their capability is the room code — the same bearer token `claim_joiner_seat` and
+ * `get_session_by_code` already accept. The `clarity_sessions` row policy (and the child tables,
+ * through `can_read_clarity_session`) admits an OPEN room to a request presenting its code, so a
+ * guest's direct reads and writes keep working while a caller holding no code reads nothing.
  *
  * Codes are registered where a session enters the client (api.ts `mapSessionFromDb`), so no call
- * site has to remember to attach the header.
+ * site has to remember to attach the header — a site that forgot would fail silently, as a
+ * zero-row read or a zero-row UPDATE.
  *
  * The header goes to our own REST endpoint only: never to auth, storage, or edge functions.
+ * Realtime never sees it (it authorizes from the JWT alone), which is why guests sync through the
+ * live page's code-keyed poll rather than postgres_changes.
  */
 
 export const ROOM_CODE_HEADER = 'x-clarity-room-code';
 
 /**
- * A tab is in one room at a time; the second slot covers the handover when it moves to another.
+ * The database reads at most this many codes per request, so this is also a brute-force bound:
+ * one request tests at most two guesses, never a batch. A tab is in one room at a time; the second
+ * slot covers the handover when it moves to another.
  */
 export const MAX_HELD_ROOM_CODES = 2;
 
@@ -51,7 +63,8 @@ function urlOf(input: RequestInfo | URL): string {
 
 /**
  * Matched on origin + path rather than a string prefix, so a trailing slash in the configured URL
- * cannot silently stop the header being sent.
+ * cannot silently stop the header being sent — a guest would then read and write nothing, with no
+ * error anywhere.
  */
 function isRestRequest(url: string, origin: string): boolean {
   try {

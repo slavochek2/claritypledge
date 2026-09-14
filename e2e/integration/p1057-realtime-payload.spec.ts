@@ -30,6 +30,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
+import { createTestUser, generateTestEmail, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -44,26 +45,40 @@ function makeRoomCode() {
 
 test.describe('P1057 Decision 8: realtime payload column exposure', () => {
   const createdSessionIds: string[] = [];
+  let creator: TestUser | undefined;
 
   test.afterAll(async () => {
     if (createdSessionIds.length) {
       await supabaseAdmin.from('clarity_sessions').delete().in('id', createdSessionIds);
     }
+    if (creator) await deleteTestUser(creator.user.id);
   });
 
-  test('an anon postgres_changes subscriber does not receive `code` in payload.new', async () => {
+  test('a postgres_changes subscriber does not receive `code` in payload.new', async () => {
     test.setTimeout(60_000);
 
-    // A null-target room: the shape the anon row policy deliberately keeps visible, and
-    // therefore the shape an anonymous subscriber can actually receive events for. Using an
-    // addressed room instead would make this test pass vacuously — the subscriber would get
-    // no payload at all, and "no code in the payload" would prove nothing.
+    // The subscriber must be able to SEE the row, or this test passes vacuously — no payload at
+    // all, and "no code in the payload" would prove nothing. Until P1302 that was any anon
+    // caller on a null-target room. P1302 removed anon row visibility (Realtime authorizes from
+    // the JWT alone, so a guest's room-code header never reaches it), so the subscriber is now
+    // the room's creator: a party, and the only shape that still receives events. The question
+    // this file asks — does Realtime filter COLUMNS by the SELECT grant — is unchanged, because
+    // `authenticated` is denied `code` exactly as `anon` is.
+    creator = await createTestUser({ email: generateTestEmail(), name: 'P1057 Realtime Creator' });
+    const { data: signIn, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
+      email: creator.email, password: TEST_PASSWORD,
+    });
+    expect(signInErr, `sign-in failed: ${signInErr?.message}`).toBeNull();
+    const accessToken = signIn!.session!.access_token;
+    await supabaseAdmin.auth.signOut();
+
     const code = makeRoomCode();
     const { data: room, error: seedErr } = await supabaseAdmin
       .from('clarity_sessions')
       .insert({
         code,
         creator_name: 'P1057 realtime canary',
+        creator_profile_id: creator.user.id,
         target_listener_id: null,
         state: {},
         demo_status: 'waiting',
@@ -76,8 +91,11 @@ test.describe('P1057 Decision 8: realtime payload column exposure', () => {
     createdSessionIds.push(room!.id);
 
     const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    // A global Authorization header reaches REST only; Realtime takes its token separately.
+    anon.realtime.setAuth(accessToken);
 
     let channel: RealtimeChannel | null = null;
     try {

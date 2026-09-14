@@ -15,8 +15,8 @@ export const supabase = createClient(
     auth: {
       flowType: 'pkce',
     },
-    // The room codes this tab holds ride our REST requests — see room-capability.ts.
-    // The arrow resolves the global fetch at call time.
+    // P1302: the room codes this tab holds ride our REST requests as a guest's capability —
+    // see room-capability.ts. The arrow resolves the global fetch at call time.
     global: {
       fetch: withRoomCodeHeader(supabaseUrl, (input, init) => fetch(input, init)),
     },

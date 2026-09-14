@@ -35,7 +35,7 @@ import { CheckCircle2, PartyPopper } from "lucide-react";
 
 type ViewState = "start" | "invitation" | "waiting-creator" | "demo" | "complete";
 
-/** Interval of the code-keyed poll in the subscription effect. */
+/** P1302: a guest's only inbound sync on this page — see the subscription effect. */
 const DEMO_POLL_INTERVAL_MS = 2000;
 
 export function ClarityDemoPage() {
@@ -95,10 +95,14 @@ export function ClarityDemoPage() {
 
     const unsubscribe = subscribeToClaritySession(session.id, session.code, applyUpdate);
 
-    // Non-parties also poll through the code-keyed RPC, as the live page does, so they still see
-    // the partner's moves. A party is not polled: a stale poll response could briefly roll back
-    // state a realtime event had already applied. Keyed on party-ness, not on being signed in —
-    // reachable by creating while signed out, then signing in.
+    // P1302: Realtime authorizes from the JWT alone, so a guest — no account — receives no
+    // postgres_changes for the room. Poll through the code-keyed RPC, as the live page does, so
+    // the guest still sees the partner's moves. Guests ONLY: a signed-in participant matches the
+    // row by identity and keeps realtime, and polling them too would let a stale poll response
+    // briefly roll back state a realtime event had already applied.
+    // Keyed on party-ness, not on being signed in: only a PARTY receives realtime (Realtime
+    // authorizes from the JWT and never sees the room-code header), so a signed-in non-party needs
+    // the poll exactly as a guest does. Reachable by creating while signed out, then signing in.
     const isParty = !!user && (user.id === session.creatorProfileId || user.id === session.joinerProfileId);
     const pollCode = isParty ? null : session.code;
     const pollInterval = pollCode
@@ -115,7 +119,7 @@ export function ClarityDemoPage() {
     };
     // P1057: session?.code joins the deps — the subscription now carries the code, so a
     // code change must re-subscribe rather than keep splicing the stale one.
-    // `user` and the two party columns join them too — the poll is keyed on whether this
+    // P1302: `user` and the two party columns join them too — the poll is keyed on whether this
     // caller is a party, and a joiner BECOMES one mid-session (claim_joiner_seat fills
     // joiner_profile_id), which must re-evaluate the gate rather than leave a party polling.
   }, [session?.id, session?.code, view, user, session?.creatorProfileId, session?.joinerProfileId]);

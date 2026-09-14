@@ -17,25 +17,38 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 
 const anon = () => createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
-const code = () => `P7${Math.floor(Math.random() * 900000 + 100000)}`;
+/**
+ * P1302: an open room is no longer readable by every anon caller — only by one presenting its
+ * room code, which is what an account-less guest actually holds. The open-session controls below
+ * therefore read as that guest.
+ */
+const guest = (roomCode: string) => createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, {
+  global: { headers: { 'x-clarity-room-code': roomCode } },
+});
+/** Six characters from the P1097 room-code alphabet — the only shape the code header accepts. */
+const code = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
 test.describe('P1207 F10: session children inherit the parent session\'s visibility', () => {
   let directedId: string;
+  let directedCode: string;
   let openId: string;
+  let openCode: string;
 
   test.beforeAll(async () => {
     const { data: profs, error: pErr } = await supabaseAdmin.from('profiles').select('id').limit(2);
     if (pErr || !profs || profs.length < 2) throw new Error('p1207 F10 fixture: need two profiles');
 
+    directedCode = code();
     const directed = await supabaseAdmin.from('clarity_sessions').insert({
-      code: code(), creator_name: 'p1207 seed',
+      code: directedCode, creator_name: 'p1207 seed',
       creator_profile_id: profs[0]!.id, target_listener_id: profs[1]!.id,
     }).select('id').single();
     if (directed.error) throw new Error(`p1207 F10 fixture: directed session: ${directed.error.message}`);
     directedId = directed.data.id;
 
+    openCode = code();
     const open = await supabaseAdmin.from('clarity_sessions').insert({
-      code: code(), creator_name: 'p1207 seed',
+      code: openCode, creator_name: 'p1207 seed',
     }).select('id, target_listener_id').single();
     if (open.error) throw new Error(`p1207 F10 fixture: open session: ${open.error.message}`);
     if (open.data.target_listener_id !== null) throw new Error('p1207 F10 fixture: open session must have no target listener');
@@ -59,22 +72,30 @@ test.describe('P1207 F10: session children inherit the parent session\'s visibil
     }
   });
 
-  test('an OPEN session stays fully readable by anon — the anonymous /live flow is unchanged', async () => {
+  test('an OPEN session stays fully readable by a guest holding its code — the anonymous /live flow is unchanged', async () => {
     // This is the control, and it must come first. Without it, the private-case assertion below
     // would pass just as well against a database where all reads had been broken.
-    const turns = await anon().from('clarity_live_turns').select('transcript').eq('session_id', openId);
+    const turns = await guest(openCode).from('clarity_live_turns').select('transcript').eq('session_id', openId);
     expect(turns.error, `open-session turns must stay readable: ${turns.error?.message}`).toBeNull();
     expect(turns.data ?? [], 'the anonymous /live flow must keep working').toHaveLength(1);
     expect((turns.data as { transcript: string }[])[0]!.transcript).toContain('SENTINEL OPEN');
+
+    // P1302, the other half of the same control: holding the code is what admits the guest, so a
+    // caller presenting none must read nothing — otherwise the assertion above only proves that
+    // SOMETHING is readable, not that the code is doing the work.
+    const noCode = await anon().from('clarity_live_turns').select('transcript').eq('session_id', openId);
+    expect(noCode.data ?? [], 'a caller presenting no room code must read nothing').toEqual([]);
   });
 
-  test('a DIRECTED session hides its parent row from anon — unchanged, and the premise of F10', async () => {
-    const parent = await anon().from('clarity_sessions').select('id').eq('id', directedId);
-    expect(parent.data ?? [], 'the directed session row must not be visible to anon').toEqual([]);
+  test('a DIRECTED session hides its parent row — even from a caller presenting its code', async () => {
+    // P1302: read as the STRONGEST account-less caller — one holding the directed room's own code.
+    // With bare anon() this would pass vacuously, since anon now reads nothing at all.
+    const parent = await guest(directedCode).from('clarity_sessions').select('id').eq('id', directedId);
+    expect(parent.data ?? [], 'the directed session row must not be visible').toEqual([]);
   });
 
   test('and its transcript must be hidden too — this is the leak', async () => {
-    const turns = await anon()
+    const turns = await guest(directedCode)
       .from('clarity_live_turns').select('transcript, self_rating').eq('session_id', directedId);
     expect(turns.data ?? [],
       `a private session's transcript must not be readable by anon; got ${JSON.stringify(turns.data)}`).toEqual([]);
@@ -101,7 +122,8 @@ test.describe('P1207 F10: session children inherit the parent session\'s visibil
       expect(v.error, `fixture: ${tag} verification: ${v.error?.message}`).toBeNull();
     }
 
-    const sweep = await anon().from('clarity_verifications').select('paraphrase_text').limit(1000);
+    // Swept as a guest holding the OPEN room's code: the strongest account-less reader there is.
+    const sweep = await guest(openCode).from('clarity_verifications').select('paraphrase_text').limit(1000);
     const body = JSON.stringify(sweep.data ?? []);
     // CONTROL first: the OPEN session's paraphrase must still be readable, or this proves nothing.
     expect(body.includes('SENTINEL OPEN paraphrase'),
@@ -117,7 +139,7 @@ test.describe('P1207 F10: session children inherit the parent session\'s visibil
   });
 
   test('nor by an unfiltered sweep — no session_id needed to find it', async () => {
-    const sweep = await anon().from('clarity_live_turns').select('transcript').limit(1000);
+    const sweep = await guest(openCode).from('clarity_live_turns').select('transcript').limit(1000);
     const found = JSON.stringify(sweep.data ?? []).includes('SENTINEL PRIVATE');
     expect(found, 'a bulk read must not surface any private transcript').toBe(false);
     // Control on the same sweep: the OPEN session's transcript SHOULD be in there, which proves

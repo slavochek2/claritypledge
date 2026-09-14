@@ -116,19 +116,25 @@ test.describe('P1038: clarity_sessions INSERT — creator_profile_id impersonati
     const attackerClient = makeUserClient(signIn!.session!.access_token);
     await supabaseAdmin.auth.signOut();
 
-    const { data, error } = await attackerClient
+    // P1302: asserted WITHOUT RETURNING. A creator-less row names no party, and its inserter never
+    // learns the server-minted code (P1097), so the row is visible to no client — by design. What
+    // this control guards is P1038's INSERT policy still ACCEPTING a NULL creator, so the row is
+    // read back as service_role. (Every production caller now passes the signed-in creator's id.)
+    const marker = `P1038 canary — null creator ${Date.now()}`;
+    const { error } = await attackerClient
       .from('clarity_sessions')
-      .insert({
-        creator_name: 'P1038 canary — null creator',
-        state: {},
-      })
-      .select('id, creator_profile_id')
-      .single();
+      .insert({ creator_name: marker, state: {} });
 
+    const { data } = await supabaseAdmin
+      .from('clarity_sessions')
+      .select('id, creator_profile_id')
+      .eq('creator_name', marker)
+      .maybeSingle();
     if (data?.id) createdSessionIds.push(data.id);
 
-    expect(error, `NULL creator_profile_id INSERT should still succeed (matches live client ` +
-      `behavior in clarity-demo-page.tsx / clarity-chat-page.tsx): ${error?.message}`).toBeNull();
+    expect(error, `NULL creator_profile_id INSERT should still be accepted by the P1038 INSERT ` +
+      `policy: ${error?.message}`).toBeNull();
+    expect(data, 'the INSERT reported success but no row was written').not.toBeNull();
     expect(data?.creator_profile_id).toBeNull();
   });
 });

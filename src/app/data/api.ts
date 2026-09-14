@@ -907,9 +907,9 @@ function mapSessionFromDb(dbSession: DbClaritySession, knownCode: string): Clari
   // Rows from SECURITY DEFINER functions (claim_joiner_seat) still carry `code` because
   // they run as owner; direct reads no longer do. Prefer the row, fall back to the splice.
   const code = dbSession.code ?? knownCode;
-  // A session that reaches the client together with its code is a room this tab holds.
-  // Register it so REST requests carry the code (room-capability.ts). Every code-bearing
-  // path funnels through here.
+  // P1302: a session that reaches the client together with its code is a room this tab holds.
+  // Register it so REST requests present the code — the only credential an account-less guest
+  // has (room-capability.ts). Every code-bearing path funnels through here.
   holdRoomCode(code);
   return {
     id: dbSession.id,
