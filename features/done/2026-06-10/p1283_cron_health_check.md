@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 3
 tags: [monitoring, infra, cron, alerting]
@@ -7,11 +7,11 @@ disclosure: public
 intent: cold-start
 flow: dev
 driver: anomaly
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-09-14
 ---
 
 # P1283 — Nothing watches the pg_cron jobs the migrations schedule
