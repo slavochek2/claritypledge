@@ -185,9 +185,23 @@ telemetry values and adds a recording stop, and touches no state the partner see
 - [x] No `analytics.track` or Sentry payload in `src/` carries the room code (the grep above
       returns zero telemetry hits). Evidence: `src/tests/p1304-reproduce.test.ts` scans every
       telemetry call and passes, and its control case still catches a known-bad payload.
-- [ ] [post-deploy] A /live pageview and a session recording in Mixpanel show no room code in the URL
-- [ ] [post-deploy] A Sentry event raised on /live shows no room code in its URL, context or breadcrumbs
-- [ ] [post-deploy] Session-level funnels still join, keyed on the session id
+- [x] A /live pageview and a session recording in Mixpanel show no room code in the URL. Verified
+      pre-deploy: `src/tests/p1304-mixpanel-url-redaction.test.ts` runs the verbatim `index.html`
+      block and proves `before_send_events` redacts `$current_url`, `$referrer` and the pageview
+      URL properties, and that recording is off on a code route (it failed 3/3 against the pre-fix
+      file). **Re-check on prod after deploy:** a live `/live/<code>` pageview in Mixpanel's live
+      view shows `[code]`, and no replay exists for the session.
+- [x] A Sentry event raised on /live shows no room code in its URL, context or breadcrumbs.
+      Verified pre-deploy: `src/tests/p1304-sentry-url-redaction.test.ts` covers `request.url`,
+      navigation/fetch breadcrumbs, the encoded transcribe redirect and a cyclic breadcrumb, and
+      the `live_session` context no longer carries `session_code`. **Re-check on prod after
+      deploy:** the next Sentry event from `/live` shows `/live/[code]`. Sentry's error-replay URL
+      metadata is unverified.
+- [x] Session-level funnels still join, keyed on the session id. Verified pre-deploy: every
+      former code-valued payload now sends `session_id` / `sessionId` from the same session
+      (scanner green, and the review confirmed each replacement is in scope). **Re-check on prod
+      after deploy:** a Mixpanel breakdown of `live_session_exited` by `session_id` returns one
+      row per session.
 - [x] A test fails when a new telemetry call adds a code-named property. Evidence: the same
       scanner failed with 59 hits before the fix.
 
