@@ -51,7 +51,8 @@ FIX=0
 # Resolve the MAIN checkout's config regardless of which worktree we stand in:
 # worktrees share the main .git via --git-common-dir, and core.bare lives there.
 common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
-    echo "check-core-bare: cannot resolve --git-common-dir (not a git repo?)" >&2
+    echo "check-core-bare: cannot resolve --git-common-dir — not a git repo, or" \
+         ".git/config holds a value git cannot parse (try: git config --get core.bare)" >&2
     exit 2
 }
 [[ -n "$common" && -f "$common/config" ]] || {
@@ -71,10 +72,18 @@ common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ||
 bare="$(git config --file "$common/config" --type=bool --get core.bare 2>/dev/null)"
 rc=$?
 
-# rc 1 with empty output = key absent (the normal, healthy case). Any other non-zero
-# means git could not PARSE the value -- that is undeterminable, not healthy.
-if (( rc != 0 )) && [[ -n "$bare" ]]; then
-    echo "check-core-bare: cannot parse core.bare in $common/config" >&2
+# Exit-code contract of `git config --get`: 0 = found, 1 = key absent (the normal,
+# healthy case), anything else = it could not read or PARSE the value.
+#
+# Testing stdout here instead of rc was wrong: a malformed value (`core.bare = notabool`)
+# returns rc 128 with EMPTY stdout, so a `-n "$bare"` condition is false and the guard
+# would fall through and report healthy. Today that is masked -- git cannot parse the
+# config at all, so the --git-common-dir call above fails first and we exit 2 there -- but
+# relying on an unrelated command failing is not a contract, and it produced a misleading
+# "not a git repo?" message for a directory that plainly is one. Test rc, not output.
+if (( rc != 0 && rc != 1 )); then
+    echo "check-core-bare: cannot read or parse core.bare in $common/config" \
+         "(git exit $rc) — a malformed boolean there breaks every git command" >&2
     exit 2
 fi
 
