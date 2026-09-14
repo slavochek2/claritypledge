@@ -28,8 +28,16 @@ export function resolveVerificationParticipants(
   session: LiveVerificationSession,
   checkerName: string,
   writerId: string,
+  /**
+   * The room's own record of whether the checker is the creator (`live_state.checkerIsCreator`, written
+   * when the round starts). Preferred over the name comparison below: nothing stops a guest typing the
+   * creator's display name, and the database admits either orientation of a guest round, so a name-based
+   * decision silently records the wrong person as the speaker (codex, 2026-09-12 — reproduced in a real
+   * two-browser round before this was added). The name is the fallback for state that predates the flag.
+   */
+  checkerIsCreatorFlag?: boolean,
 ): LiveVerificationParticipants | null {
-  const checkerIsCreator = session.creatorName === checkerName;
+  const checkerIsCreator = checkerIsCreatorFlag ?? session.creatorName === checkerName;
   const speakerId = (checkerIsCreator ? session.creatorProfileId : session.joinerProfileId) ?? null;
   const listenerId = (checkerIsCreator ? session.joinerProfileId : session.creatorProfileId) ?? null;
 

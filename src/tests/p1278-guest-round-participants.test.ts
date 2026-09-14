@@ -42,3 +42,43 @@ describe('P1278 D — who a /live calibration row names', () => {
     }
   });
 });
+
+describe('P1278 D — the sides come from the room\'s record of who asked, not from display names', () => {
+  // codex, 2026-09-12: nothing stops a guest typing the creator's display name, and the database admits
+  // either orientation of a guest round — so a name comparison records the wrong person as the speaker.
+  // Reproduced in a real two-browser round before the flag was added
+  // (e2e/p1278-real-browser-round.spec.ts arm D: speaker/listener came back inverted).
+  const guestRoom = { creatorName: 'Ada', creatorProfileId: CREATOR, joinerProfileId: null };
+
+  it('a guest who typed the creator\'s name is still the speaker when the guest asked', () => {
+    expect(resolveVerificationParticipants(guestRoom, 'Ada', CREATOR, false)).toEqual({
+      speakerId: null,
+      listenerId: CREATOR,
+    });
+  });
+
+  it('the creator is the speaker when the creator asked, same names', () => {
+    expect(resolveVerificationParticipants(guestRoom, 'Ada', CREATOR, true)).toEqual({
+      speakerId: CREATOR,
+      listenerId: null,
+    });
+  });
+
+  it('falls back to the name when the room carries no record of who asked', () => {
+    expect(resolveVerificationParticipants(guestRoom, 'Ada', CREATOR, undefined)).toEqual({
+      speakerId: CREATOR,
+      listenerId: null,
+    });
+    expect(resolveVerificationParticipants(guestRoom, 'Gwen', CREATOR, undefined)).toEqual({
+      speakerId: null,
+      listenerId: CREATOR,
+    });
+  });
+
+  it('the flag does not admit a writer the room would refuse', () => {
+    expect(resolveVerificationParticipants(guestRoom, 'Ada', 'a-stranger', false)).toBeNull();
+    expect(
+      resolveVerificationParticipants({ ...guestRoom, endedAt: '2026-09-12T10:00:00Z' }, 'Ada', CREATOR, false),
+    ).toBeNull();
+  });
+});

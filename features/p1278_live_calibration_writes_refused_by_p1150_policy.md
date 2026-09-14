@@ -334,6 +334,64 @@ browser can play both sides and move their own session count — exactly what tw
 A guest round written while the seat is occupied but the guest has since gone quiet is still admitted;
 the seat stamp is the only occupancy signal the database has for a guest.
 
+## P1278 E — the guest's client cannot record, so the creator's does (2026-09-12)
+
+**Found by the real-browser round, not by any test at the database layer.** A round's calibration row is
+written by the client that submits the round's SECOND rating (`clarity-live-page.tsx`, the `bothSubmitted`
+branch of `handleRatingSubmit`). A guest's client has no signed-in user, so `writeVerification` returns
+early there. In the ordinary shape — the creator speaks, the guest rates last — the round completed and
+**nothing was recorded**: measured, `checksCount` reached 1 with both ratings in `live_state` and zero rows
+in `story_verifications`. Every D check before this ran at the RLS layer with a service-role or signed-in
+writer, so none of them could see it; D's own arms write as the creator by construction.
+
+**The fix.** `src/app/data/live-guest-round.ts` — `guestRoundToRecord()` decides, from what the creator's
+client has observed, whether a completed guest round is waiting to be recorded; the live page acts on it
+beside the existing write. It fires only when: this client is the creator, a guest holds the joiner seat,
+the room is open, the round count advanced **while this client was watching**, the state is the reveal of a
+rating round, and both ratings are present. Never twice: the write keeps the submit path's round key
+(`sessionId_checkerName_exchangeIndex`), so a round the creator itself submitted is a no-op here, and the
+baseline comes from the session row rather than the first render, so a reload onto an already-revealed
+round starts level with it and writes nothing. The explain-back step advances the same counter later with
+the same two ratings still in state — the reveal-phase test is what keeps that from counting one round twice.
+
+**Run on the branch rebased onto main.** The test project runs ahead of this branch: an unrelated in-flight
+change means a guest's room-state writes are admitted only when the client sends the room code, which main's
+client does and this branch (cut earlier) did not. Rebasing was needed to exercise the guest path at all —
+and it is the code that actually ships. The rebase also resolved this branch's two ship conflicts (the
+decisions log, the deploy record).
+
+| Check | Result |
+|---|---|
+| `e2e/p1278-real-browser-round.spec.ts`, before the fix | **B failed: round completed, 0 rows.** A passed; C blocked by an unrelated 5-minute auth hang |
+| The same spec, after the fix | **3/3**, then **4/4** with arm D — one row per round, the guest rows with the side NULL |
+| Arm D (a guest typing the creator's name), before the attribution fix | **failed: the sides came back inverted** — the row named the creator as speaker for a round the guest spoke |
+| `src/tests/p1278-guest-round-recorded-by-creator.test.ts` (new), `p1278-guest-round-participants.test.ts`, `p1278-live-calibration-write.test.ts`, `p967-calibration-breakdown-faithfulness.test.ts` | 48/48 |
+| `e2e/integration/p1278-guest-round.spec.ts` + `p1150-story-verification-counterparty.spec.ts`, rebased | 45/45 |
+| `./scripts/typecheck-gate.sh`, eslint on the changed files | `EXIT=0`, `EXIT=0` |
+
+**Codex adversarial review of this change (2026-09-12)** — four findings. It separately confirmed the
+dedup holds for realtime redelivery, drift-poll re-merge, StrictMode's replayed effect, and the case where
+the creator submits second.
+
+| Finding | Verdict | What changed |
+|---|---|---|
+| HIGH — a guest round is lost if the creator reloads before observing it | True, and deliberate: with no per-round identity on the row, a client that cannot tell whether it already wrote must not write. Losing one round beats double-counting it | Not changed here. The durable remedy is a per-round identity in the database — raised as a founder decision, see below |
+| HIGH — a guest typing the creator's display name inverts the row's sides | True, reproduced in a real round (arm D, watched failing) | Roles now come from the room's own record of who asked (`live_state.checkerIsCreator`), with the name only as a fallback for older state |
+| MEDIUM — a transient failure loses the round permanently, because the round is claimed before the write | True | The round is claimed only after the writer guard, and released when the write throws; a refusal (null, not a throw) still keeps it, because a retry would be refused identically |
+| MEDIUM — the database admits duplicate guest rows; the dedup is client-only | True | Not changed here — same founder decision as finding 1 |
+
+**Open, and yours to decide (findings 1 and 4).** Both have one remedy: give a round an identity in the
+row — an exchange index alongside `session_id`, with a partial unique index — so the creator's client can
+write a round it may already have written and let the database ignore the duplicate. That makes the reload
+case recoverable *and* stops a duplicate at the boundary rather than in one tab's memory. It is a schema
+change with its own migration and integration spec, and it is not needed for the guest path to work, so it
+is filed rather than built.
+
+**Residual, stated.** If the creator's client never observes the reveal — it reloads mid-round, or a merged
+snapshot skips the revealed phase — that one round goes unrecorded rather than being recorded twice. The
+round is lost, not duplicated: with no round id on the row, a client that cannot tell whether it already
+wrote must not write. This is Codex finding 1 above, and the decision that would close it is stated there.
+
 ## Acceptance Criteria
 
 - [x] A failing-first test proves a legitimate `/live` insert is refused by the current policy,
@@ -351,11 +409,12 @@ the seat stamp is the only occupancy signal the database has for a guest.
 > So this spec cannot close on test evidence alone — it is built, reviewed (two adversarial Codex
 > passes) and committed on its branch, awaiting a real-client round and a prod apply.
 
-- [ ] A `/live` round through the real client writes a `story_verifications` row with
+- [x] A `/live` round through the real client writes a `story_verifications` row with
       `source='live'` after the fix.
-      **NOT SATISFIED — requires the migration to be applied.** Run against LOCAL Postgres only
-      (task constraint); no migration was applied to test or prod. The DB half is proven at the
-      policy level (next item); the real-client round belongs to `/verify` after the apply.
+      **Evidence (2026-09-12):** `e2e/p1278-real-browser-round.spec.ts` arm A — two real browser
+      contexts, the real join flow, the real Speak button and rating drawer. One row lands per round,
+      `source='live'`, naming both participants, carrying the two ratings the room recorded. Green on
+      three separate runs; read back through service_role, never through the writer's own client.
 - [x] The guest question (decision 1) is answered in this spec before any migration is written.
       **Evidence:** § "Founder decisions — answered 2026-09-09". Answer: guests are NOT served by
       this fix, for two independently verified reasons (no bindable anon identity; participant
@@ -395,8 +454,12 @@ the seat stamp is the only occupancy signal the database has for a guest.
 - [x] **D:** the breakdown page renders a guest round — desktop and mobile-emulated 375 / 320, asserted
       in-browser (three "Guest" labels, no dead link, no "null (round N)", the width confirmed) and reviewed
       by two independent visual-QA passes; nothing either raised is caused by D.
-- [ ] **D:** a real-browser /live round with a guest writes a row (not run; same status as the signed-in
-      criterion above).
+- [x] **D:** a real-browser /live round with a guest writes a row.
+      **Evidence (2026-09-12):** `e2e/p1278-real-browser-round.spec.ts` arms B and C — a signed-out guest
+      in the joiner seat (the run asserts it reached the guest join form and that the seat carries no
+      profile). Both roles: the creator speaks and the guest rates last (B), the guest speaks and the
+      creator rates last (C). One row each, the guest's side NULL. **B failed first** — the round
+      completed and zero rows landed — which is the defect § P1278 E below fixes.
 
 ## Done-When
 

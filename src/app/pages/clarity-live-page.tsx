@@ -60,6 +60,7 @@ import { eventsService } from '@/app/data/events-service';
 import { storiesService } from '@/app/data/stories-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { resolveVerificationParticipants } from '@/app/data/live-verification-participants';
+import { guestRoundToRecord } from '@/app/data/live-guest-round';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
 import { isDevRecordingActive } from '@/lib/dev-recording';
@@ -2155,6 +2156,7 @@ export function ClarityLivePage() {
     storyId,
     sessionId,
     checkerName,
+    checkerIsCreator,
     checkerRating,
     responderRating,
     exchangeIndex,
@@ -2162,20 +2164,24 @@ export function ClarityLivePage() {
     storyId?: string;
     sessionId: string | undefined;
     checkerName: string;
+    checkerIsCreator?: boolean;
     checkerRating: number;
     responderRating: number;
     exchangeIndex: number;
   }) => {
     const roundKey = `${sessionId}_${checkerName}_${exchangeIndex}`;
     if (verificationFiredRef.current.has(roundKey)) return;
-    verificationFiredRef.current.add(roundKey);
 
+    // Claim the round only once there is a client that can actually write it. Claiming before this
+    // guard made a round unrecordable the moment it was observed while auth was still loading, and the
+    // guest's client — which returns here every time — would claim rounds it never writes.
     if (!user?.id || !session) return;
+    verificationFiredRef.current.add(roundKey);
 
     try {
       // P1278 D: a guest in the joiner seat has no profile. The creator's client records the round with
       // the guest's side null; nobody else's may (see live-verification-participants.ts).
-      const participants = resolveVerificationParticipants(session, checkerName, user.id);
+      const participants = resolveVerificationParticipants(session, checkerName, user.id, checkerIsCreator);
       if (!participants) {
         console.error('[P413] Cannot write verification: missing profile IDs');
         return;
@@ -2224,6 +2230,11 @@ export function ClarityLivePage() {
         story_id: storyId ?? null,
       });
     } catch (err) {
+      // A throw is a network or unexpected failure, not a refusal: release the round so a later
+      // observation of the same round can try again (codex, 2026-09-12). A REFUSAL returns null
+      // rather than throwing and keeps the key — it would be refused identically on every retry.
+      verificationFiredRef.current.delete(roundKey);
+
       // Non-blocking — round completes regardless. Reported unless it is a network
       // blip (P1177), which the offline path produces on every exchange.
       reportUnlessBlip(err, {
@@ -2232,6 +2243,43 @@ export function ClarityLivePage() {
       });
     }
   }, [user?.id, session]);
+
+  // P1278 D: a round's row is written by whoever submits its SECOND rating — and a guest's client has no
+  // signed-in user, so a round the guest finishes is recorded by nobody. Measured in a real two-browser
+  // round (e2e/p1278-real-browser-round.spec.ts, arm B): the round completed and zero rows landed.
+  // The creator's client records it when it sees the completed round arrive.
+  //
+  // Never twice: guestRoundToRecord fires only when the count advances past what this client had already
+  // seen, and writeVerification's own round key is shared with the submit path, so a round the creator
+  // submitted itself is a no-op here. The baseline comes from the session row rather than from the first
+  // render, so a reload onto an already-revealed round starts level with it and writes nothing.
+  const guestRoundBaselineRef = useRef<{ sessionId: string; count: number } | null>(null);
+  useEffect(() => {
+    if (!session?.id) {
+      guestRoundBaselineRef.current = null;
+      return;
+    }
+    if (guestRoundBaselineRef.current?.sessionId !== session.id) {
+      guestRoundBaselineRef.current = {
+        sessionId: session.id,
+        count: (session.liveState as LiveSessionState | null | undefined)?.checksCount ?? 0,
+      };
+      return;
+    }
+
+    const round = guestRoundToRecord({
+      isCreator,
+      joinerProfileId: session.joinerProfileId,
+      endedAt: session.endedAt,
+      previousChecksCount: guestRoundBaselineRef.current.count,
+      state: liveState,
+    });
+    guestRoundBaselineRef.current = { sessionId: session.id, count: liveState.checksCount };
+    if (!round) return;
+
+    void writeVerification({ ...round, sessionId: session.id });
+  }, [session, liveState, isCreator, writeVerification]);
+
 
   // V7: Handle rating submission
   // "Did you get it?" flow: First person to submit becomes the checker
@@ -2330,6 +2378,7 @@ export function ClarityLivePage() {
             storyId: currentState.selectedStoryId ?? undefined,
             sessionId: session?.id,
             checkerName: currentState.checkerName ?? name,
+            checkerIsCreator: currentState.checkerIsCreator,
             checkerRating: checkerRatingValue,
             responderRating: responderRatingValue ?? 0,
             exchangeIndex: currentState.checksCount,
