@@ -4,6 +4,79 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [process]: A decision that supersedes another does not retire the first one's citations
+
+**Context:** A capability was deliberately opened by one decision, and reversed three days later
+by a second that changed the product surface. The second decision was implemented in the layer the
+founder could see and not in the layer that actually enforced it. Nineteen days after that, a third
+decision accepted a known residue **by citing the first decision's rationale** — which had already
+stopped describing the product. Every step was recorded, in writing, by a careful author. Nothing
+was hidden; the premise simply expired between being written and being cited.
+
+**Decision:** When a decision's rationale rests on a prior recorded decision, re-read that prior
+entry at citation time rather than quoting it from the commit that introduced it. A superseded
+premise reads exactly like a live one — same file, same wording, same confidence — and the
+supersession leaves no mark on the entry it retires.
+
+**Alternatives rejected:** *Add `superseded_by:` to decisions.md entries* — the log is append-only
+prose, not frontmatter, and the reversal here happened in a UI commit that nobody would have
+thought to cross-reference to a database decision. *Grep for related entries before citing* — this
+was already done; the entry found was the correct one, it was just no longer true.
+
+**Consequences:** `.claude/rules/features.md` already tells spec authors to grep `decisions.md` for
+the **subject**, not the P-number. This adds the other half: having found the entry, check whether
+anything since changed the world it describes. Cheapest check is the git log for the area it
+governs, not the log for the decision itself.
+
+**References:** [features.md](../.claude/rules/features.md) — "Before Drafting"; [epistemic.md](../.claude/rules/epistemic.md) gate 9.
+
+## 2026-09-14 [process]: An empty probe result needs a control proving the data exists
+
+**Context:** A fix was verified by re-running the call that previously returned data and observing
+an empty result. Empty is the expected shape of success here — and it is also the expected shape of
+a broken request, a wrong identifier, a fixture that expired, and a filter that matched nothing. The
+two are indistinguishable from the empty result alone.
+
+**Decision:** Any verification whose success criterion is "nothing came back" carries **two**
+controls, not one: a negative control proving the probe still discriminates (a sibling call that
+must still refuse, or must still return data), and a **positive control proving the data the probe
+should have found actually exists at that moment**, read through a path the fix does not touch.
+
+**Alternatives rejected:** *One control is enough* — a discriminating probe still returns empty when
+there was nothing to find. *Trust the fixture* — the fixture that motivated this had silently
+expired; the probe returned empty for a reason unrelated to the code under test, and the first read
+of that result was "the filter works."
+
+**Consequences:** This is the "all-empty verdict" rule in CLAUDE.md applied to a single probe rather
+than a sweep. The existing rule fires when *every* candidate returns the same answer; this one fires
+on a single call whose success is an absence — which the existing wording does not reach.
+
+**References:** [CLAUDE.md](../CLAUDE.md) — Falsify Before You Rely; [epistemic.md](../.claude/rules/epistemic.md) gates 5 and 7b.
+
+## 2026-09-14 [process]: Filtering a tool's output is how its only warning goes unread
+
+**Context:** `git.md` has forbidden piping git-ops output through a keyword grep since the 2026-09-08
+incident, where a correct warning was printed and the caller's pattern did not include it. In this
+session that ban was violated twice within twenty minutes — once with `grep -E`, once with `tail -8`
+— and both times the filter removed the exact lines explaining a non-zero exit. The result each time
+was a bare failure code and no visible cause.
+
+**Decision:** No filter on the output of `git-ops.sh`, `migrate.sh`, or `pre-commit-checks.sh`,
+including `tail` and `head`. Redirect to a file and read it, or read it whole. `tail -N` is the
+easier mistake to make than `grep`, because it looks like truncation rather than selection — but a
+refusal is printed in the middle of a long run, not at its end.
+
+**Alternatives rejected:** *Grep for a safe superset (`FATAL|ERROR|✗|WARNING`)* — the 2026-09-08
+incident was a warning whose wording matched no such list, and the second failure here printed its
+reason above the summary line every pattern would have anchored on.
+
+**Consequences:** The rule already existed and was not followed, twice, by an agent that had read it
+in the same session. Recorded because the restatement is cheap and the failure is silent: a filtered
+non-zero exit looks identical to an unexplained one.
+
+**References:** [git.md](../.claude/rules/git.md) — "The lock does not cover the pre-commit hook window".
+
+
 ## 2026-09-14 [product]: Round one files ONE letter after the pick, because programmatic filing does not exist — including for the founder
 
 **Context:** Designing the problem board's build order, the plan assumed the sender would auto-file a letter for every approved problem, on the stated ground that the founder holds production credentials. An independent review checked it against the record.
