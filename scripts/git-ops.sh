@@ -2918,9 +2918,19 @@ cmd_publish_spec() {
     local missing=0
     while IFS= read -r m; do
       [[ -z "$m" ]] && continue
-      local base; base="$(basename "$m")"
+      local base ver
+      base="$(basename "$m")"
+      # The manifest records BARE VERSIONS — stamp-deploy-manifest.sh writes
+      # `20260911120000`, never `20260911120000_p1302_session_access_predicate.sql`.
+      # Comparing the basename therefore never matched, so this gate refused EVERY
+      # spec that carried migrations, no matter how thoroughly they were applied:
+      # the failure path was exercised (P1266 Done-When) and the pass path never was.
+      # Found 2026-09-14 on P1302, whose four migrations were live on prod and
+      # correctly recorded. Accept either form: the bare version is what is written
+      # today, the full basename keeps any older manifest readable.
+      ver="$(printf '%s' "$base" | sed -E 's/^([0-9]+)[_.].*/\1/')"
       if ! printf '%s' "$manifest" | python3 -c \
-        "import json,sys; d=json.load(sys.stdin); sys.exit(0 if '$base' in d.get('prod',{}).get('migrations',[]) else 1)"; then
+        "import json,sys; d=json.load(sys.stdin); m=d.get('prod',{}).get('migrations',[]); sys.exit(0 if ('$ver' in m or '$base' in m) else 1)"; then
         echo "publish-spec: NOT applied to prod: $base" >&2
         missing=$((missing + 1))
       fi
