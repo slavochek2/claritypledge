@@ -4,6 +4,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [process]: The deploy manifest's `test` section is permanently red because the stamper refuses worktrees, so nobody reads it (P1312)
+
+**Context:** Filing P1312 (branch tests call old edge functions on the test project), a hostile
+review ran `./scripts/check-deploy-manifest.sh --env test`. It exits 1 with 9 `FUNCTION_*`
+findings, including `transcribe-slice` never recorded as deployed to test. The cause is structural:
+`stamp-deploy-manifest.sh:22-24` refuses to run from a worktree, feature work deploys to test from
+worktrees, and `deploy-functions.sh` calls the stamper after deploying. The deploy succeeds and the
+record is never written.
+**Decision:** Treat the manifest's `test` function section as unmaintained, not as a signal. P1312
+reads what the test project actually serves (a deploy-injected build id) instead of fixing the
+stamper and trusting the file, because a current stamp would still prove only that the stamper ran
+(2026-09-07 [technical]).
+**Alternatives rejected:** Letting the stamper run from worktrees. It makes the record current but
+not true, and concurrent worktrees would race on one shared file.
+**Consequences:** A check that is always red trains everyone to ignore it. Until P1312 lands, the
+test section's findings are noise. Anyone reading `check-deploy-manifest.sh --env test` output as
+evidence about the test project is misled. (Status: proposed — resolved by P1312.)
+**References:** [P1312](../features/p1312_branch_tests_run_against_old_edge_functions_on_test.md),
+`scripts/stamp-deploy-manifest.sh`, `scripts/deploy-functions.sh`, `scripts/check-deploy-manifest.sh`
+
 ## 2026-09-14 [technical]: A text control under 16px is a zoom bug on iOS, and the scanner that finds them is only as good as its parser (P1310)
 
 **Context:** The founder reported that on a phone "sometimes accidentally there is a zoom in and there is a part of this of the page that is cut off". Mobile Safari zooms the layout viewport when a focused input's computed font-size is under 16px and does not zoom back out on blur, so the symptom is a *typing* bug wearing a *zoom* costume. Sixteen controls qualified, including both live-session join fields — the most-used screen on a phone in this product — where `text-sm` passed to the shared `<Input>` makes `twMerge` drop the component's own `text-base`.
