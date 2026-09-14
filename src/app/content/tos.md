@@ -30,7 +30,7 @@ keeping access to your email or Google account secure.
 Live sessions are real-time understanding exercises between participants.
 
 **Recording.** The person who starts a session decides whether it is recorded, using the
-"Record for AI Insights" switch on the start screen. Recording is on by default; switching
+"Transcribe for AI insights" switch on the start screen. Recording is on by default; switching
 it off starts a private session that is never recorded. When a session is recorded:
 
 - Your voice is **recorded** from the moment the session goes live
@@ -41,7 +41,7 @@ it off starts a private session that is never recorded. When a session is record
   with names, emails and user IDs removed first (see AI & Machine Learning below)
 
 The join screen tells you that you are accepting these terms and shows a "Private session"
-badge when the host has switched recording off; a "Session recorded for AI Insights" banner
+badge when the host has switched recording off; a "Session transcribed for AI insights" banner
 is shown throughout a recorded session. If you do not want to be recorded, do not join a
 recorded session — ask the host to start a private one instead. There is no separate
 recording-consent dialog and no per-participant recording control: the host's switch decides
