@@ -78,15 +78,15 @@ server-side room lifecycle (per-person end, server-driven room end, a scheduled 
 consent on two surfaces (event ready screen, `/live`), changes privacy/terms text, adds a
 whole-recording pass. **Reversibility: medium** — code and copy revert; audio captured under the
 new consent cannot be un-captured. **Decision density:** product calls D1–D9 settled by the founder
-on 2026-09-11; the adversarial review opened three more, of which F2 and F3 were answered on
-2026-09-14 (D10, D11). One founder question (F1) and two copy strings remain open.
+on 2026-09-11; the adversarial review opened three more, all answered on 2026-09-14 (D10, D11, D12).
+Two copy strings remain open.
 
 ## Decisions already made (founder, 2026-09-11) — do not re-ask
 
 | # | Decision |
 |---|---|
 | D1 | Continue on the event ready screen starts transcription **if the switch is on**; the person lands on `/events/:slug/meet` exactly as today (never on `/transcribe`), transcription runs in the background, and they can open the room transcript any time. Switch off → Continue goes to `/meet` and **nothing starts**. They can go back to the ready screen and switch it on. |
-| D2 | A visible switch on the ready screen, **on by default**, labelled **"Transcribe for AI insights"**, with the founder's sub-line **"Record audio and share transcript with others in the room"** (says what is kept and who sees it). Below Continue, one small line: "By continuing, you agree to our Terms and Privacy Policy." Not a separate consent screen. (Whether default-on is enough given that the privacy policy names consent as the legal basis for room recordings is Open Question F1.) |
+| D2 | *(Default changed by D12: the switch starts **off**. Everything else in this row stands.)* A visible switch on the ready screen, **on by default**, labelled **"Transcribe for AI insights"**, with the founder's sub-line **"Record audio and share transcript with others in the room"** (says what is kept and who sees it). Below Continue, one small line: "By continuing, you agree to our Terms and Privacy Policy." Not a separate consent screen. (Whether default-on was enough, given that the privacy policy names consent as the legal basis, was F1; answered by D12.) |
 | D3 | While the person is in a `/live` session, room transcription **pauses automatically** and **resumes automatically** when the `/live` session ends — only if it was running before. **No "paused" message**: in `/live` they get today's experience; after it, the transcription bar and capture simply come back. Applies to private `/live` sessions too. *Applied equally to explain-back recording in letters — the app's only other microphone user — by the one-voice invariant (review, 2026-09-11).* |
 | D4 | Live text stays a **preview**; the **saved** transcript is a whole-recording pass per person after the room ends. Consecutive same-speaker rows render merged; a "…" indicator shows who is speaking. Cutting on pauses (voice activity) is **deferred**. |
 | D5 | Slice length: **13 s** if it measurably reduces errors versus 4 s on real room audio (founder: *"lets do 13 sec then... i guess we can check if 13 has viwer erros - can you run it? and decide?"*). **Measured 2026-09-11: 13 s wins on both runs** — non-Latin invented letters 37 → 2, word error vs whole file 55.2% → 30.0%. See Evidence. |
@@ -96,6 +96,7 @@ on 2026-09-11; the adversarial review opened three more, of which F2 and F3 were
 | D9 | Wherever transcription is running, the person can see it — on every page (founder: *"people get visibility everywhere they are if they are recorded"*). |
 | D10 | **(2026-09-14, answering F2.)** Every attendee passes the ready screen, so everyone is offered the switch: the event gate routes to `/ready` whenever this person is not already being transcribed for this event, with their saved readiness value shown on the slider. It no longer skips to `/meet` just because readiness exists. The switch stays in one place — it is not added to `/meet`. |
 | D11 | **(2026-09-14, answering F3.)** The 3-hour cap runs **per person**, from their own Continue — not from the room's creation. One room serves the whole event, so a latecomer gets their own 3 hours and the event's transcript is never split in two. |
+| D12 | **(2026-09-14, answering F1; delegated by the founder.)** The switch **starts off**. Tapping it on is the consent: it is the "clear affirmative action" that the legal basis needs (Art. 6(1)(a), `privacy.md:230`). A switch that is already on, followed by Continue, has the shape the CJEU held is **not** valid consent (Planet49, C‑673/17: a pre-ticked box the user must untick to refuse; GDPR Recital 32: "silence, pre-ticked boxes or inactivity should not … constitute consent"). The line "By continuing, you agree to our Terms and Privacy Policy." is unchanged: accepting the terms rests on contract, as on `/live`, and the founder's "per default they accept the terms" survives in it. This keeps `privacy.md:111-113` ("requires you to tap a control… nothing is captured before you do") true. **Cost, accepted:** fewer attendees transcribed than with default-on. D10 limits it: everyone not yet being transcribed passes the switch on each visit. **Rejected:** (a) default-on with the same Continue: not valid consent, as above. (b) Default-on, with a Continue button whose label names the recording while the switch is on: plausibly valid, but it needs new button copy ([FOUNDER DECISION]), and one button would still carry both the readiness answer and the consent. (c) Moving room recordings off consent to legitimate interest: this is voice audio kept and used for AI/ML, which the policy puts on consent (`privacy.md:232`), and the server already records consent (`consent_given_at`). **What would reopen it:** a founder choice of (b) with copy, or legal advice that a different basis applies. `/live`'s default-on host switch has the same weakness, and `privacy.md:84-98` already discloses it. It is out of scope here (D6 renames only). |
 
 ## Solution
 
@@ -276,7 +277,7 @@ Founder-approved copy, 2026-09-11 (the `/live` strings follow D6).
 |---|---|
 | Ready screen switch label | **Transcribe for AI insights** |
 | Ready screen switch sub-line (on) | Record audio and share transcript with others in the room |
-| Ready screen switch sub-line (off) | Not transcribed |
+| Ready screen switch sub-line (off, the default state per D12) | Not transcribed |
 | Line under Continue (both states) | By continuing, you agree to our Terms and Privacy Policy. |
 | Bar | ● Transcribing for AI insights — actions **Open**, **End session** (never wraps at 320 px) |
 | Bar, stall state (3 failed slices) | [FOUNDER DECISION: copy] |
@@ -359,7 +360,8 @@ approved the prototype 2026-09-11.** Button colours are left as each page has th
 ## Acceptance Criteria
 
 Start and consent
-- [ ] At an event, with the switch left on, pressing Continue lands the person on `/meet` with the bar showing and their speech appearing in the room transcript.
+- [ ] The ready screen renders the switch **off** for anyone not being transcribed (D12); pressing Continue without touching it captures nothing (verified server-side: no member row with `consent_given_at`, no slice, no archive chunk).
+- [ ] At an event, after tapping the switch on, pressing Continue lands the person on `/meet` with the bar showing and their speech appearing in the room transcript.
 - [ ] With the switch off, Continue lands on `/meet`, no bar, nothing captured (verified server-side: no slice, no archive chunk); going back to the ready screen and switching on starts it.
 - [ ] With the room RPC forced to fail, Continue lands on `/meet` with no bar and the failure message, and no microphone prompt is ever raised.
 - [ ] The attendee's room carries the event's id; a visitor opening `/transcribe` without a code does not land in it.
@@ -395,7 +397,7 @@ Live text
 
 - [ ] D5 measurement recorded in Evidence with the slice length chosen by its pre-registered rule.
 - [ ] De-duplication ratio (rows vs distinct text) stays at ~1.00 on a real room — the P1236 verdict measure does not regress.
-- [ ] `privacy.md` updated and checked line by line against the code: §Transcribe rooms ("Joining requires you to tap a control…", "Leaving the room stops your recording" — both false under this spec), event rooms and cross-page continuation; §AI features ("short segments" — add the whole-recording pass); the Gemini row in the providers table; the legal-basis row for room recordings per F1.
+- [ ] `privacy.md` updated and checked line by line against the code: §Transcribe rooms ("Joining requires you to tap a control that reads…" names the old control and must name the ready-screen switch too; its rule, nothing captured before you tap, stays true per D12; "Leaving the room stops your recording" is false under this spec), event rooms and cross-page continuation; §AI features ("short segments" — add the whole-recording pass); the Gemini row in the providers table; the legal-basis row for room recordings stays consent (D12) and names the ready-screen switch as a control that gives it.
 - [ ] `tos.md` §Transcribe Rooms (lines 59-64) updated: joining, leaving, and the corrected-transcript sentence — which stays only if Part 3 ships in the same release, and is reworded otherwise.
 - [ ] Every site carrying the old `/live` label updated (not deleted): `clarity-live-page.tsx`, `live-mode-view.tsx`, `start-clarity-session-button.tsx`, `new-live-prototype.tsx`, `privacy.md`, `tos.md`, and the tests `live-mode-view.test.tsx`, `consent-dialogs.test.tsx`, `p1300-reproduce.test.tsx` (grep again at build time).
 
@@ -416,12 +418,7 @@ Live text
 
 **For the founder (raised by the 2026-09-11 adversarial review):**
 
-- **F1. Default-on vs. the legal basis for recording.** The privacy policy names consent as the legal
-  basis for room recordings, given by "the transcribe-room agreement control"
-  (`privacy.md:230`), and says joining "requires you to tap a control… nothing is captured before
-  you do" (`privacy.md:111-113`). A switch that is already on, plus "By continuing, you agree",
-  is a weaker act of agreement than a tap. `/live` already records by default and its policy
-  section says so plainly (`privacy.md:84-85`).
+- ~~F1. Default-on vs. the legal basis for recording.~~ **Answered 2026-09-14: D12. The switch starts off.**
 - ~~F2. Returning attendees never see the switch.~~ **Answered 2026-09-14 — D10.**
 - ~~F3. Three hours per room or per person?~~ **Answered 2026-09-14 — D11.**
 - **Copy:** the bar's stall state, and the message on `/meet` when the room could not be joined

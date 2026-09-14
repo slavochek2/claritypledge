@@ -20,7 +20,8 @@ import { PracticeScreen } from './PracticeScreen';
 
 type Screen = 'ready' | 'meet' | 'transcript' | 'practice';
 
-const INITIAL_TRANSCRIBE_ON = true;
+/** Off: tapping the switch on is the recording consent (P1307 D12). */
+const INITIAL_TRANSCRIBE_ON = false;
 
 export function EventTranscriptionPrototype() {
   const [screen, setScreen] = useState<Screen>('ready');

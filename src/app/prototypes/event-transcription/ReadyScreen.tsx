@@ -67,7 +67,7 @@ export function ReadyScreen({
           </div>
 
           {/* Transcribe toggle — styled like clarity-live-page.tsx's "Record for AI
-              Insights" switch (~L4130-4165). ON by default. */}
+              Insights" switch (~L4130-4165). OFF by default: the tap is the consent (D12). */}
           {/* pt-4 on top of the column's gap-6: the switch is a separate question from the
               slider (founder review) and must not read as part of it. */}
           <div className="w-full pt-4">
