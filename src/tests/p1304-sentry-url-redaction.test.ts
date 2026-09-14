@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { ErrorEvent } from '@sentry/react';
-import { sentryBeforeSend } from '@/lib/sentry-filters';
+import { sentryBeforeBreadcrumb, sentryBeforeSend } from '@/lib/sentry-filters';
 
 const CODE = 'QX7K2M';
 
@@ -37,6 +37,14 @@ describe('P1304: Sentry events carry no room code in URLs', () => {
       breadcrumbs: [{ category: 'navigation', data: { from: `/transcribe/${CODE}`, to: '/login' } }],
     } as ErrorEvent;
     expect(JSON.stringify(sentryBeforeSend(event))).not.toContain(CODE);
+  });
+
+  it('never throws on a cyclic breadcrumb and keeps non-plain values intact', () => {
+    const data: Record<string, unknown> = { to: `/live/${CODE}`, at: new Date(0) };
+    data.self = data;
+    const out = sentryBeforeBreadcrumb({ category: 'navigation', data });
+    expect(out.data?.to).toBe('/live/[code]');
+    expect(out.data?.at).toBeInstanceOf(Date);
   });
 
   it('leaves non-/live URLs untouched', () => {

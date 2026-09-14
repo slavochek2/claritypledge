@@ -221,15 +221,32 @@ export function redactRoomCodes(text: string): string {
   return text.replace(ROOM_CODE_IN_URL, "$1[code]");
 }
 
-function redactDeep<T>(value: T): T {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Redacts room codes in every string reachable through arrays and plain objects.
+ * A telemetry hook must never throw: `seen` makes cycles terminate, and Dates,
+ * Errors and class instances pass through untouched rather than being flattened
+ * to `{}` by Object.entries.
+ */
+function redactDeep<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
   if (typeof value === "string") return redactRoomCodes(value) as T;
-  if (Array.isArray(value)) return value.map(redactDeep) as T;
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, inner] of Object.entries(value)) out[key] = redactDeep(inner);
+  if (!Array.isArray(value) && !isPlainObject(value)) return value;
+  if (seen.has(value)) return seen.get(value) as T;
+  if (Array.isArray(value)) {
+    const out: unknown[] = [];
+    seen.set(value, out);
+    for (const inner of value) out.push(redactDeep(inner, seen));
     return out as T;
   }
-  return value;
+  const out: Record<string, unknown> = {};
+  seen.set(value, out);
+  for (const [key, inner] of Object.entries(value)) out[key] = redactDeep(inner, seen);
+  return out as T;
 }
 
 /** P1304: Sentry.init `beforeBreadcrumb` — navigation/fetch breadcrumbs carry URLs. */
