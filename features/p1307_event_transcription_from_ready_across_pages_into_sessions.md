@@ -6,10 +6,33 @@ workstream: transcription
 created_date: '2026-09-11'
 tags: [transcribe, events, live, consent]
 disclosure: public
-delivery_stage: architect
+delivery_stage: generate-tests
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
-pipeline_ran: [create-spec, architect]
+pipeline_ran: [create-spec, architect, generate-tests]
+uat_file: features/uat/p1307.md
+test_files:
+  - e2e/integration/p1307-schema-and-grants.spec.ts
+  - e2e/integration/p1307-end-capture-rpc.spec.ts
+  - e2e/integration/p1307-enter-room-event-access.spec.ts
+  - e2e/integration/p1307-chunk-and-heartbeat-rpc.spec.ts
+  - e2e/integration/p1307-sweep-tick.spec.ts
+  - e2e/integration/p1307-jobs-transcripts-rls.spec.ts
+  - e2e/integration/20260824000000_p1149_room_end_policy_column_guard.spec.ts
+  - supabase/functions/transcribe-slice/handler.test.ts
+  - supabase/functions/gcs-signed-url/handler.test.ts
+  - src/tests/p1307-capture-state-machine.test.ts
+  - src/tests/p1307-pause-resume.test.ts
+  - src/tests/p1307-ready-screen.test.tsx
+  - src/tests/p1307-room-capture-bar.test.tsx
+  - src/tests/p1307-transcript-merge.test.ts
+  - src/tests/p1307-web-locks-single-capture.test.ts
+  - src/tests/p1236-end-room-idempotent.test.ts
+  - src/tests/p1236-duration-bound-drift.test.ts
+  - src/tests/live-mode-view.test.tsx
+  - src/lib/audio/slice-recorder.test.ts
+  - e2e/p1307-event-transcription.spec.ts
+  - e2e/a11y/p1307-accessibility.spec.ts
 pipeline_skipped: ["challenge-prd -- adversarial review already folded in, 2 of 2 reports verified against code", "ux -- prototype founder-approved 2026-09-11; the one open placement question is settled by D13", "decompose -- the spec already splits the work into seven parts with a stated deploy order", "spec-review -- spec is 3 days old and not a change request"]
 drafted_by: opus
 exec_model: opus
@@ -1171,3 +1194,84 @@ this from `main` and any co-tenant session, consistent with CLAUDE.md's worktree
 - `src/app/content/privacy.md`, `src/app/content/tos.md` (corrected path: no `docs/privacy.md` or
   `docs/tos.md` exists)
 - `docs/technical/database.md`, `docs/technical/infrastructure.md`
+
+## Test Coverage Strategy
+
+Test-first: written before `/dev`, so most of it fails today by design. The file list is in
+frontmatter (`test_files`, `uat_file`).
+
+**The 21 test files are on disk in w5 but NOT committed.** `pre-commit-checks.sh` runs the full
+build and unit suite whenever any `.ts` file is staged (`BUILD_AFFECTING`, lines 93-95), so a
+deliberately red suite cannot land ahead of its code. `--no-verify` is banned. `/dev` commits them
+together with the implementation that turns them green, per the script's own note that a red test
+"rides the fix branch". Only this spec and `features/uat/p1307.md` are committed. Do not delete or
+`git restore` them: they exist nowhere else.
+
+**Verified in the parent session (2026-09-14, re-run by command, not taken from the agent's report):**
+- `transcribe-slice/handler.test.ts`: 37 pass (all pre-existing), 8 fail, all new P1307 tests.
+- `gcs-signed-url/handler.test.ts`: 26 pass (pre-existing plus 2 no-regression controls), 3 fail,
+  all new P1307 refusals.
+- Vitest (10 files): 15 failing tests, all P1307 or deliberately changed assertions, plus 5 files
+  failing only at import resolution (`room-capture-context`, `room-capture-bar`, `transcript-merge`
+  do not exist yet). No unrelated pre-existing test fails.
+- Integration, E2E and a11y suites were typechecked and linted, **not run**: they need the
+  migrations applied to the test database, which is `/dev`'s job.
+
+**What's tested, and why:**
+- **Integration (38 new, 6 files, plus 1 updated canary).** Every migration: schema existence
+  (P270 two-client pattern), anon EXECUTE denied on every new definer function, the dropped
+  room-end policy (member can neither set nor clear `ended_at`), `end_transcribe_room_capture`
+  (own row only, idempotent), `enter_transcribe_room`/`create_transcribe_room` (RSVP-or-host,
+  grace window, no room-age filter for the D11 latecomer, re-join clears `capture_ended_at` and
+  keeps `joined_at`), `reserve_room_chunk_number` (monotonic), `touch_transcribe_room_capture`,
+  the sweep tick called directly (cap, staleness, **a recently-touched paused member is not
+  ended**, room end, one job per member, idempotent), and the new tables (no client writes,
+  member-only reads). Why: this is where "no client ends a room for anyone else" and consent
+  enforcement actually live.
+- **Edge handlers (15 new Deno tests).** 13 s slices accepted, superset bounds for the rollout,
+  the inequality assertion re-derived, `MAX_SLICES_PER_MEMBER` re-derived, the cap measured from
+  the member's `joined_at` in both directions, `last_seen_at` stamped on real and silent slices
+  but not warmups; `gcs-signed-url` refuses when the room ended, the member ended, or past 3 h.
+- **Unit (50 new Vitest tests, 6 files; 4 existing files updated).** Capture state machine (the
+  consent gate before the microphone, join failure, 3-strike stall, 410 hard stop, auth-change
+  stop), pause/resume predicates (including the browser-Back-with-session-still-active trap), Web
+  Locks single capture, ready screen (switch off by default, UI Contract strings verbatim), bar
+  visibility by phase and End calling only the per-person path, transcript merge, the 13 s
+  cadence, `/live` labels (D6).
+- **E2E (9) and a11y (4).** Smoke, switch off by default, on → `/meet` with bar, off → nothing
+  captured (checked server-side), D10 return to ready, bar across pages, End clears it, Open
+  without a second consent screen, two tabs; switch role, keyboard and live region, bar actions
+  focusable and named.
+- **UAT (28 scenarios, `features/uat/p1307.md`)** covers every Acceptance Criterion.
+
+**Existing tests changed, each required by a decision:** the P1149 room-end canary is inverted
+(Parent verification 1); `p1236-end-room-idempotent` now tests `endMyCapture` (Decision 7);
+`p1236-duration-bound-drift` now tests the per-member cap source (Decision 3); two
+`live-mode-view` label assertions (D6); `slice-recorder` cadence and final partial slice (Part 4).
+
+**What's NOT tested, and why:**
+- **Part 3, the whole-recording pass** (segmenting, stitching, "also heard by" labelling,
+  incomplete archives) and its dispatch chain: no code or interface exists yet. Its ACs
+  are measurements written into this spec by hand, so they are UAT only.
+- **Real devices:** iPhone lock-screen resume (T1), hold vs release (T3), edge body-size limit
+  (T4), Android screen-off, two-device archive continuity. Playwright cannot lock a phone. UAT only.
+- **`createSliceRecorder` in the browser:** jsdom has no AudioContext. The final-partial-slice flush
+  is tested only at the ring-buffer level.
+- **Explain-back's mount signal** for pause/resume: the routing rule is unit-tested, the component
+  hook is not. UAT only.
+- **Privacy and terms prose:** a manual line-by-line check per Done-When.
+
+**For `/dev` — known weak spots, fix while implementing:**
+1. **Export names were guessed.** The provider's (`captureReducer`, `shouldPauseForLocation`,
+   `hasActiveLiveSession`, `acquireCaptureLock`, `useRoomCapture`) and the merge module's path
+   are invented, because no such code exists. Rename imports freely; keep the transition tables
+   and predicates, which are the spec content.
+2. **Two test checks are loose.** The D10 routing test only checks that "transcri" appears near
+   the gate's routing decision, because the spec names no "already being transcribed" signal.
+   `/dev` picks the signal and tightens that test to it. The "warmup does not touch `last_seen_at`"
+   test passes vacuously today and only binds once the dependency exists.
+3. **`e2e/p1114-event-room.spec.ts` and `features/uat/p1114.md` encode the pre-D10 routing**
+   (a return visit skips to `/meet`). Update them in this branch rather than leaving P1114 red.
+4. `playwright.config.ts` lacks `--use-fake-device-for-media-stream`; the two P1307 Playwright
+   files set it via `test.use()`.
+5. Neither `[FOUNDER DECISION]` copy slot is asserted; tests check state and test ids only.
