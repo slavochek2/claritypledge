@@ -1490,3 +1490,13 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 **due:** month
 
 `git-ops.sh` sets `SHIP_GATE_OVERRIDE_REASON` only in the live run and does not store it in the ship journal, so an override ship that crashes after the spec is moved and is finished with `--resume` writes its close commit without the `Gate-Override:` trailer. Since P1309 that trailer matters: `ship-gates.sh` refuses an absorbing spec whose close carries it, and a resumed close would slip through. Read from the code by P1309's round-3 adversarial review, not reproduced (it needs a TTY override that crashes mid-ship). Done when the journal keeps the reason and `--resume` writes the same trailer; droppable if no override close is ever resumed.
+
+---
+
+## The manual-spec-close hook blocks git-ops' own documented recovery command
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** week
+
+When `git-ops.sh ship pN` fails at the close commit (P1279 index race), it prints the recovery `git mv features/done/<sprint>/pN_x.md features/pN_x.md` — moving the spec back OUT of the done tree so the gated close can be re-run. `.claude/hooks/block-manual-spec-close.py` refuses that command: `is_close_shaped` fires whenever any spec path in the command is not already closed, and the destination (the open path) is exactly that. Hit on 2026-09-14 closing P500; worked around by doing the same move in Python, which the hook's MOVE_RE does not match — a bypass that should not be the documented path. Done when a move whose DESTINATION is outside `features/done/` is allowed (or git-ops prints a recovery the hook accepts), with a canary for both directions; droppable if the P1279 race stops stranding half-renames.
