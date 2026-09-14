@@ -8,6 +8,7 @@ workstream: platform
 date_reported: '2026-09-09'
 created_date: '2026-09-09'
 tags: [database, trigger, foreign-key, e2e-cleanup, point-positions]
+flow: inline
 ---
 
 # P1292: Deleting a point always fails — its own history trigger writes a row that violates the point foreign key
