@@ -4,6 +4,52 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [technical]: A text control under 16px is a zoom bug on iOS, and the scanner that finds them is only as good as its parser (P1310)
+
+**Context:** The founder reported that on a phone "sometimes accidentally there is a zoom in and there is a part of this of the page that is cut off". Mobile Safari zooms the layout viewport when a focused input's computed font-size is under 16px and does not zoom back out on blur, so the symptom is a *typing* bug wearing a *zoom* costume. Sixteen controls qualified, including both live-session join fields — the most-used screen on a phone in this product — where `text-sm` passed to the shared `<Input>` makes `twMerge` drop the component's own `text-base`.
+
+**Decision:** Every focusable text control carries `text-base md:text-sm` (16px on phones, unchanged on desktop), and a source-scanning test fails the build when a new one does not. Zoom is **not** disabled site-wide: `maximum-scale` / `user-scalable=no` also stops the auto-zoom but removes pinch-zoom for Android users who rely on it, which the founder rejected explicitly.
+
+**The reusable half is the scanner, and it is a warning.** Its first version matched element attributes with a regex allowing one level of `{...}`. A perfectly ordinary `className={cn({ "text-sm": isSmall })}` therefore produced **no match at all** — so the gate was green whether the codebase was clean or not, which is the failure mode `epistemic.md` gate 7b describes: the fixture could not emit the input that mattered. Rewritten as a balanced-brace walk, the same scan immediately found two more real offenders (the pledge form's motivation box and the agreement terms box) that had been invisible. **A scanner's parser is its coverage; a form it cannot parse is a silent exemption, not a miss you will notice.** Found by the external adversarial reviewer, not by the suite.
+
+**Alternatives rejected:** *A global CSS rule forcing 16px on every input below `md`* — it would be defeated by any explicit utility class (zero-specificity `:where()`) or would override deliberate sizing everywhere (`!important`), and it fixes nothing at the call sites where the next one appears. *Fixing the 16 sites without the scan* — resets the count to zero and waits.
+
+**Consequences:** New text controls must use the paired form. The scan runs in the unit suite and names the offending file, line and class. It parses JSX by brace-walking, not by AST — a form it still cannot read would be a silent exemption, so extend it with a fixture rather than trusting it.
+
+**References:** `features/done/2026-06-10/p1310_mobile_nav_unreachable_items_and_phone_zoom.md` · `src/tests/p1310-touch-input-font-size.test.ts` · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 7 / 7b
+
+---
+
+## 2026-09-14 [technical]: Chrome that hangs off a fixed element has no ceiling — and a prod control is what tells you whether you caused the overflow (P1310)
+
+**Context:** The mobile menu opens inside a `position: fixed` nav. On a 375×667 phone it measured 872px tall, and because the nav is fixed, page scroll did not move it: six entries — Manifesto, Blog, About, Take the Pledge, **Log In**, Create Account — could not be reached at all. A visitor who opened the menu to sign in could not sign in. The same class bit twice in one session: adding an eighth entry to the room's Links bottom sheet (`fixed bottom-0 h-auto`) pushed its own title and first entry off the *top* of a 320×568 screen.
+
+**Decision:** Any panel or sheet anchored to fixed chrome carries a viewport-relative cap and its own scrolling — `max-height: calc(100dvh - <chrome>)` with a `100vh` fallback under `@supports`, plus `overflow-y: auto` and `overscroll-behavior: contain`. Both caps live in `index.css` rather than as Tailwind arbitrary values, for two reasons: two `max-h-[...]` utilities in one `className` are emitted as separate classes whose precedence Tailwind decides, not the attribute order, so the `vh` fallback could silently beat the `dvh` rule; and the P1179 design-system suite asserts that `event-links-menu.tsx` names no height token of its own — a standard the fix should meet rather than relax.
+
+**The method, not the fix, is the reusable part.** The sheet overflow was ambiguous from inside the change: is an 8-entry sheet too tall, or was the sheet always too tall? Opening the **production** page at the identical viewport, one entry shorter, answered it — prod clipped nothing, so the change caused it. A same-viewport prod control distinguishes "I broke this" from "this was already broken" in one call, and it is available for every user-visible surface.
+
+**Alternatives rejected:** *Cap the drawer primitive itself* — every other Drawer caller would inherit a behaviour change for one caller's growing list. *Hide entries below a breakpoint* — forbidden by P1179's own invariant that the control is in the same place on every phone in the room.
+
+**Consequences:** `.mobile-nav-panel` and `.event-links-sheet` are the two capped surfaces; a third should reuse the pattern. The unit tests pin the mechanism (class present, CSS rule present) and cannot observe the height, because jsdom performs no layout — the heights in the spec's acceptance criteria are browser measurements and are the only evidence that the panels actually scroll.
+
+**References:** `features/done/2026-06-10/p1310_mobile_nav_unreachable_items_and_phone_zoom.md` · `src/index.css` · `src/tests/p1310-mobile-nav.test.tsx`
+
+---
+
+## 2026-09-14 [process]: The inline output contract did not fix silent subagents — 0 of 3 reported, while the external reviewer delivered everything (P1310)
+
+**Context:** [decisions.md](decisions.md) 2026-08-18 [process] diagnosed three-of-four silent adversarial reviewers and prescribed stating the output contract **inline in the prompt** ("your final message is the only thing that reaches me"). This session did exactly that, for all three in-process agents — a spec challenger, a visual-QA pass, and a code reviewer. **All three went idle having delivered nothing**, including after each was chased once with a direct message. Over the same window the *external* reviewer (`~/.agents/bin/codex-review`, a separate process, not a subagent) returned four findings, two of which were real defects that the suite, the browser checks and the author had all missed.
+
+**Decision:** Treat the in-process spawn as unreliable by default for review work. The prescribed inline contract stays — it costs nothing — but it is no longer evidence that a report will arrive. Concretely: state `<reports received> of <spawned>` in the output (gate 9b), chase at most once, then **do the review inline** rather than re-spawning, and name every lens that went uncovered rather than letting the spawn count imply coverage. Where an external executor is available for the same lens, prefer it — this session's only delivered review came from the one that runs as its own process.
+
+**Alternatives rejected:** *Spawn more reviewers to compensate* — explicitly refused; widening a fan-out whose reporting is unreliable multiplies silence, not coverage. *Read silence as "found nothing"* — the same refusal as 2026-08-14 and 2026-08-18, and this session proves it again: the lens that did report found two real defects, so silence and cleanliness are not close to the same thing.
+
+**Consequences:** The uncovered lenses here were the spec challenge and the visual QA; both are recorded as not covered in the shipped spec rather than implied to have passed. A session that spawns review agents should budget for doing the review itself.
+
+**References:** `features/done/2026-06-10/p1310_mobile_nav_unreachable_items_and_phone_zoom.md` · [decisions.md](decisions.md) 2026-08-18 [process] · 2026-08-14 · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9b
+
+---
+
 ## 2026-09-14 [technical]: A join credential is never telemetry — correlate on the session id, redact URLs at the SDK choke points, and stop recording where no hook reaches (P1304)
 
 **Context:** The /live and /transcribe room code became the join capability in P1053, but telemetry still logged it like a display id. P1053 fixed one sink; the rest were routed to a backlog with no telemetry item and grew from 8 to 59 explicit payloads. The code also rides in page URLs, which Mixpanel and Sentry attach automatically, so a payload-only fix would have left most of the exposure in place.
