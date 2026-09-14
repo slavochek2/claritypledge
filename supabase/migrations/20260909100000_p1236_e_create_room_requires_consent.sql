@@ -26,7 +26,12 @@
 -- calling without p_consent gets PGRST202 (no matching function) rather than a silent
 -- fallback to the permissive overload. That is the intended failure.
 --
--- requires-frontend: 35752a156
+-- requires-frontend: ad9bdda0c
+-- Re-pointed 2026-09-14. The marker named 35752a156, the PRE-cherry-pick sha, which is on no
+-- branch at all — so the P886 gate could never clear and blocked the prod apply. `ad9bdda0c` is
+-- the same change as it actually landed on origin/main: identical subject, and the patch to
+-- src/app/data/transcribe-service.ts hashes byte-identical between the two. Same defect and same
+-- remedy as 3d686e3e4 (p1058) earlier this week; NOT a bypass — the frontend really is shipped.
 -- The deployed bundle calls the 4-argument form. Dropping it 404s room creation until the
 -- client that passes p_consent is live, so this must not apply before that client ships.
 --
