@@ -4,6 +4,26 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-14 [technical]: A join credential is never telemetry — correlate on the session id, redact URLs at the SDK choke points, and stop recording where no hook reaches (P1304)
+
+**Context:** The /live and /transcribe room code became the join capability in P1053, but telemetry still logged it like a display id. P1053 fixed one sink; the rest were routed to a backlog with no telemetry item and grew from 8 to 59 explicit payloads. The code also rides in page URLs, which Mixpanel and Sentry attach automatically, so a payload-only fix would have left most of the exposure in place.
+**Decision:**
+1. **Payloads send the session id.** It is one-to-one with the code, so funnels and joins keep working. Sites with no session yet drop the property. Sentry extras send `codeLength`, following P1053.
+2. **URLs are redacted at the SDK choke points, not per call site.** Sentry gets `beforeSend`, `beforeBreadcrumb` and `beforeSendTransaction` in `src/lib/sentry-filters.ts`; page-load transactions and breadcrumbs never pass through `beforeSend`. Mixpanel gets `hooks.before_send_events` in `index.html`, which reaches every event property, including autocaptured `$current_url` and `$referrer`. The pattern matches `/live/`, `/transcribe/` and their `%2F`-encoded forms (a login redirect carries the path encoded).
+3. **Where no hook reaches, the capture stops.** Mixpanel's recorder attaches the raw page URL to every replay batch outside any hook, so recording is off when a page loads on a code route, and the code-route pages stop it on mount.
+4. **The redaction walks only arrays and plain objects, with a cycle guard.** A telemetry hook must never throw, and `Object.entries` flattens a `Date` or `Error` to `{}`. Review found both; a cyclic breadcrumb crashed the first version.
+**Alternatives rejected:**
+- Removing the code from the join URL. It changes every invite link already shared, which is out of proportion to a medium finding.
+- Per-call-site URL scrubbing. A new call site or an SDK autocapture would bypass it; the choke points cannot be bypassed by app code.
+- Dropping events that contain a code. P883/P990 rule against message-shaped drop filters, and redaction keeps the signal.
+**Consequences:**
+- The regex exists twice: TypeScript for Sentry, inline JS in `index.html` for Mixpanel, which cannot import it. A test asserts the two are identical.
+- `src/tests/p1304-reproduce.test.ts` scans every `analytics.track` / `trackLiveEvent` / Sentry call and fails on a code-named property, so the count cannot creep back.
+- Cost accepted: no Mixpanel replays of live or transcribe sessions.
+- **Residual gap:** on in-app navigation into a code route, recording stops in a mount effect, not before the URL changes. The window is narrow and untested.
+- **UNTESTED in prod:** Mixpanel's live view, a Sentry event and a `session_id` funnel have not been observed after deploy. Falsifier: any of them showing a code. Sentry's error-replay URL metadata is unverified.
+**References:** [P1304](../features/p1304_room_code_reaches_analytics_and_error_telemetry.md) · [src/lib/sentry-filters.ts](../src/lib/sentry-filters.ts) · [index.html](../index.html) · P1053 · P1098
+
 ## 2026-09-11 [technical]: Reusing a card across pages — switch on what the caller says, and report only what the page counted
 
 **Context:** P1296 put one footer on every story and point list card. The profile's point card (`PointCardWithLinks`) was switched to the new footer with `isDetailView` as the "not a list" signal — but the point page renders that card WITHOUT `isDetailView`, so the point page silently moved onto the list footer the spec ruled out. Separately, a feed/stake point card that withdrew a position reported its LOCAL position to the page, while the page's counts only ever contain the FETCHED one.
