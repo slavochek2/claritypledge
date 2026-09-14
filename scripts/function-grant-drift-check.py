@@ -89,24 +89,29 @@ _spec.loader.exec_module(_rls)
 repo_roots = _rls.repo_roots
 
 
-def resolve_credentials(env_name):
-    """Always the account-wide token — this check cannot run on the reduced one.
+def resolve_credentials(env_name, prefer_readonly=True):
+    """Route each leg to the weakest credential that can actually do its job.
 
-    P1214 moved rls-drift-check and check-p1207-privilege-floor onto a read-only
-    credential. This canary CANNOT follow them, and the reason is not laziness:
-      - it posts to /database/query (read-write), not /database/query/read-only; and
-      - its guard leg runs `SET LOCAL ROLE anon`, which supabase_read_only_user has
-        no membership to assume.
-    Worse, if it ran anyway the read-only REFUSAL would be indistinguishable from the
-    guard refusal it is trying to measure — turning a broken check into a permanent
-    "all clear". Fail-loud beats that, so it stays on the account-wide token until it
-    is migrated deliberately (P1214, tracked).
+    This canary has TWO legs with genuinely different needs, measured 2026-09-14
+    against the live scoped token rather than assumed:
 
-    Passing prefer_readonly=False is what keeps it there: this module imports the
-    resolver, so without it, setting SUPABASE_READONLY_TOKEN would silently re-point
-    THIS check at a credential it cannot use.
+      - GRANT leg — one SELECT over pg_proc per environment, against BOTH test and
+        prod. Runs fine on the scoped Database:Read token.
+      - GUARD leg — `SET LOCAL ROLE anon`, TEST ONLY (see compute_guard_findings).
+        The scoped token executes as supabase_read_only_user even on the read-write
+        endpoint, and that role is not a member of anon:
+            ERROR: 42501: permission denied to set role "anon"
+        So this leg still needs the account-wide token.
+
+    Splitting them is what removes PRODUCTION-management authority from this script
+    entirely: the account-wide token is now reached only for test-project probes, and
+    every prod call uses the reduced credential.
+
+    The default is the weaker credential on purpose. If a future leg needs more, it
+    must ask for it explicitly and say why — the failure this guards against is a
+    caller silently inheriting a stronger token than its job requires.
     """
-    return _rls.resolve_credentials(env_name, prefer_readonly=False)
+    return _rls.resolve_credentials(env_name, prefer_readonly=prefer_readonly)
 
 API_HOST = "https://api.supabase.com"
 USER_AGENT = "claritypledge-function-grant-drift-check/1.0"
@@ -198,20 +203,26 @@ HEADINGS = {
 # Live state
 # ---------------------------------------------------------------------------
 
-def run_sql(env_name, sql, timeout=90):
+def run_sql(env_name, sql, timeout=90, needs_role_switch=False):
     """POST one SQL string to the Management API. Returns parsed JSON.
+
+    needs_role_switch=True means the statement assumes another role (the guard leg's
+    `SET LOCAL ROLE anon`). Only that case gets the account-wide token and the
+    read-write endpoint; everything else takes the scoped read-only credential, which
+    the server executes inside a read-only transaction.
 
     Raises ApiError carrying the server's message on any non-200, so callers can
     distinguish "the function raised" from "the request failed".
     """
-    ref, token, source = resolve_credentials(env_name)
+    ref, token, source = resolve_credentials(env_name, prefer_readonly=not needs_role_switch)
     if not ref:
         raise RuntimeError(f"{env_name}: could not determine project ref (source: {source})")
     if not token:
         raise RuntimeError(f"{env_name}: no access token (source: {source})")
 
+    endpoint = "/database/query" if needs_role_switch else "/database/query/read-only"
     req = urllib.request.Request(
-        f"{API_HOST}/v1/projects/{ref}/database/query",
+        f"{API_HOST}/v1/projects/{ref}{endpoint}",
         data=json.dumps({"query": sql}).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {token}",
@@ -481,7 +492,7 @@ def run_probe(env_name, inner_sql):
     """
     sql = f"{PROBE_PREAMBLE} {inner_sql}; ROLLBACK;"
     try:
-        run_sql(env_name, sql, timeout=45)
+        run_sql(env_name, sql, timeout=45, needs_role_switch=True)
         return True, "returned without raising"
     except ApiError as exc:
         return False, summarise_error(exc.detail)

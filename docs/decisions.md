@@ -37,6 +37,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-14 [technical]: A scoped Database:Read token is read-only by CREDENTIAL, not just by endpoint — and that is what decides which legs can migrate (P1214)
+
+**Context:** With the scoped token issued, the question was whether
+`function-grant-drift-check.py` — the last daily consumer of the account-wide platform token —
+could move. Measured against the live token rather than reasoned about:
+
+| probe | scoped `Database: Read` | account-wide |
+|---|---|---|
+| read-only endpoint, plain SELECT | OK | OK |
+| **read-WRITE** endpoint, plain SELECT | **OK, runs as `supabase_read_only_user`** | OK, runs as `postgres` |
+| read-write endpoint, `SET LOCAL ROLE anon` | **`42501: permission denied to set role "anon"`** | OK |
+
+**The load-bearing surprise:** the scoped token executes as `supabase_read_only_user` **even on the
+read-write endpoint**. Read-only is a property of the *credential*, not only of the endpoint chosen.
+So "use the read-only endpoint" and "hold a read-only token" are different guarantees, and the
+second is the stronger one — an endpoint is a caller's choice, a token scope is not.
+
+**Decision:** Split the check by leg rather than migrating or deferring it wholesale. Its grant leg
+(one SELECT per environment, **both** test and prod) takes the scoped credential; its guard leg
+(`SET LOCAL ROLE anon`, **test only**) keeps the account-wide token. `run_sql` now selects endpoint
+and credential from an explicit `needs_role_switch` flag, defaulting to the weaker credential so a
+future leg must ask for more and say why.
+
+**Alternatives rejected:** *Move the whole script* — the guard leg cannot assume `anon`, and its
+read-only refusal would be indistinguishable from the guard refusal it measures, converting a broken
+check into a permanent "all clear". *Leave it entirely on the account-wide token* — that kept
+production-management authority in the daily path to serve a probe that only ever touches test.
+
+**Consequences:** **No production call in the daily path uses the account-wide token any more.** The
+remaining exposure is one test-project probe. Output verified byte-identical and the guard probe
+verified still invoking (15 functions), so the reduction cost no signal. Generalisable: before
+deferring a migration because "the script needs more privilege", check whether *every* leg does —
+the expensive requirement is often one leg, in one environment.
+
+**References:** `scripts/function-grant-drift-check.py` · P1214 · P1313 · P1065
+
+---
+
 ## 2026-09-14 [process]: The reviewer's conclusion was wrong and its concern was right — and acting on either half alone would have been a mistake (P1313)
 
 **Context:** Second instance in six days of decisions.md 2026-09-08 [process] (P1155: self-review found none of

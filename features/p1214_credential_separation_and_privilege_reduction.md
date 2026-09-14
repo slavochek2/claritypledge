@@ -285,10 +285,16 @@ for values; this applies it to the registry.
       set `SUPABASE_READONLY_TOKEN`. Until then the daily path still *holds* production-management
       authority even though it can no longer *use* it for writes. The account may not have the
       alpha yet — if the permission selector is absent when creating a token, that is the signal.
-- [ ] `function-grant-drift-check.py` — the third consumer of the same token — de-privileged. It
-      cannot use the read-only endpoint: its guard leg runs `SET LOCAL ROLE anon` probes that
-      `supabase_read_only_user` cannot perform, and a read-only refusal would be indistinguishable
-      from a guard refusal. Needs the scoped token instead.
+- [x] `function-grant-drift-check.py` — the third consumer — split by leg (2026-09-14). Its grant
+      leg (one SELECT per environment, **both test and prod**) now uses the scoped read-only
+      credential; its guard leg (`SET LOCAL ROLE anon`, **test only**) still needs the account-wide
+      token, because the scoped token executes as `supabase_read_only_user` even on the read-write
+      endpoint and that role is not a member of `anon` (measured: `42501: permission denied to set
+      role "anon"`). **Net effect: no production call in the daily path uses the account-wide token
+      any more.** Output verified byte-identical, guard probe verified still running.
+- [ ] Remaining account-wide use: the test-project guard probe. Closing it needs a second scoped
+      token with Database **Read-write** (still far narrower than account-wide), or a dedicated role
+      that may assume `anon`. Not done — deliberately deferred, it is test-only exposure.
 
 ### Original
 
