@@ -28,10 +28,10 @@
 --          guard then reads true for a row the caller cannot see, so any signed-in user could insert
 --          into any open room's children. Scope each INSERT to can_read_clarity_session(session_id).
 --
--- OUT OF SCOPE (stated, not silently skipped): clarity_verifications' INSERT policy has never
---   scoped to a session (it keys on message_id, gated only on a live profile). That predates P1302
---   and P1302 does not worsen it — the verification's parent chat message is default-denied to
---   non-parties. Tracked separately if taken; not a P1302 regression.
+-- OUT OF SCOPE (stated, not silently skipped): clarity_verifications' INSERT policy is scoped
+--   independently of this predicate. That predates P1302 and P1302 does not worsen it; the
+--   practical reach is already bounded by the parent row's own scope. Detail is recorded in the
+--   private security log rather than here, because the gap is not closed. Not a P1302 regression.
 
 -- ── H1: UPDATE — identity always; room code only for an anon guest, open + live room ──────────
 -- The header parse is inlined (not via clarity_request_room_codes(), which anon may not EXECUTE);
