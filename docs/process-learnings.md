@@ -1560,3 +1560,23 @@ A push on 2026-09-14 made P1236's /transcribe frontend live while its 6 migratio
 (1) Confirm the next real Sentry error from /live shows `/live/[code]` and no `session_code` — the Mixpanel half was verified on prod, the Sentry half has had no error event yet. (2) `features/uat/p1304.md` stayed behind because `block-manual-spec-close.py` refuses any move into `features/done/`, even a UAT companion of an already-closed spec. (3) `features/` root still holds rejected P1248 and P1261 and all-done P1274. (4) P1060, P1141 and P1155 lack `disclosure:` — grandfathered, but `fix-frontmatter.sh` exits 1 on them. Done when each is resolved or explicitly left; drop (1) after one clean Sentry event.
 
 ---
+
+## The room's Links bottom sheet is announced as a dialog but is not one
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** week
+
+The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet branch in `drawer.tsx` renders a plain fixed `<div>` — no dialog role, no focus trap, no focus transfer on open, no Escape handler, no close control. A keyboard or screen-reader user who opens Links stays focused behind the visual modal and can only dismiss it by tapping the overlay. Pre-existing since P1179 and shared by every consumer of that branch, so it is wider than any one menu. Found by adversarial review during P1310, filed rather than fixed there because a nav-reachability fix is the wrong blast radius for changing a shared primitive. Done when the forced sheet is a real dialog (role, focus trap, Escape, close control) or the trigger stops claiming to be one; droppable if the forced-sheet branch is replaced by the library's own dialog primitive for other reasons.
+
+---
+
+## Duplicate event link tags render duplicate entries in the room menu
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** month
+
+`buildLinksMenu` drops an extra whose tag collides with a standard one, but does not deduplicate repeated custom tags — two configured `tonight` rows produce two identical buttons pointing at one destination, on a sheet that now has a height ceiling and a scroll. Data-dependent: it needs an operator to configure the same tag twice, which has not been observed. Found by adversarial review during P1310. Done when validated extras are deduplicated by tag with a test for the repeated-tag case; droppable if the links column gains a uniqueness constraint at write time instead.
+
+---

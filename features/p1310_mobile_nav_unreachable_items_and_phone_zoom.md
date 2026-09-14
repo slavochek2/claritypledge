@@ -159,7 +159,7 @@ read as a claim that the `/dev` pipeline's own steps ran.
   after being chased. Recorded here rather than left as an implied third and fourth opinion:
   those lenses are **not covered**.
 
-## Follow-ups (filed, not fixed here)
+## Follow-ups — both filed in `docs/process-learnings.md`, not fixed here
 
 1. **The mobile Links sheet is not a real dialog.** Its trigger declares
    `aria-haspopup="dialog"`, but the forced-sheet branch in `drawer.tsx` renders a plain
