@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 99
 workstream: product
 created_date: '2026-09-14'
 tags: [navigation, mobile, accessibility, event-room]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -137,6 +137,40 @@ explicit founder approval, never agent judgment.
 4. **Signed-in menu shape** — sections + a "Your account" group.
 5. **New tab for Slides** — agent call, not founder's: the deck is outside the SPA, and a
    same-tab load would tear down a live room. Flagged here so it can be overridden.
+
+**Flow, recorded because the frontmatter alone would misdescribe it.** The founder named the
+sequence directly: spec → adversarial review → implement → second adversarial review (Codex)
+→ ship → KDD. **`/dev` was never invoked as a skill**; the implementation ran inline in `w2`
+under that instruction, with its own reproduction, gate-7 failure proofs and browser
+verification (all recorded in the ACs). `dev` appears in `pipeline_ran` because ship gate 2.5
+reads that field as *"was this spec actually implemented"* — it was. Nothing here should be
+read as a claim that the `/dev` pipeline's own steps ran.
+
+### What the two adversarial reviews changed
+
+- **Codex (code-level, reported):** four findings. Two were acted on — my own font-size gate
+  had a blind spot (a `className={cn({ "text-sm": x })}` produced no match at all, so the
+  gate was green either way; rewritten as a balanced-brace scan, which then found **two more
+  real offenders** the first version had missed: the pledge form's motivation box and the
+  agreement terms box), and a pre-existing crash in `eventSlugFromLocation` (a malformed
+  `/events/%/room` threw `URIError` out of the nav provider's render and took the whole
+  navigation down) is now guarded. Two were filed rather than fixed — see Follow-ups.
+- **Spec challenger and visual QA (spawned, silent):** neither returned a report, including
+  after being chased. Recorded here rather than left as an implied third and fourth opinion:
+  those lenses are **not covered**.
+
+## Follow-ups (filed, not fixed here)
+
+1. **The mobile Links sheet is not a real dialog.** Its trigger declares
+   `aria-haspopup="dialog"`, but the forced-sheet branch in `drawer.tsx` renders a plain
+   fixed `<div>` — no dialog role, no focus trap or transfer, no Escape handler, no close
+   control. A keyboard or screen-reader user is left focused behind the visual modal.
+   Pre-existing (P1179), affects every consumer of that branch, and out of scope for a
+   nav-reachability fix.
+2. **Duplicate event extras render duplicate entries.** `buildLinksMenu` drops extras that
+   collide with a standard tag but does not deduplicate repeated custom tags, so two
+   configured `tonight` rows produce two identical buttons to one destination — on the sheet
+   this spec has just given a ceiling. Data-dependent and pre-existing.
 
 ## Risks / Non-Goals
 
