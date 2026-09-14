@@ -23,6 +23,68 @@ test section's findings are noise. Anyone reading `check-deploy-manifest.sh --en
 evidence about the test project is misled. (Status: proposed — resolved by P1312.)
 **References:** [P1312](../features/p1312_branch_tests_run_against_old_edge_functions_on_test.md),
 `scripts/stamp-deploy-manifest.sh`, `scripts/deploy-functions.sh`, `scripts/check-deploy-manifest.sh`
+## 2026-09-14 [technical]: The provider does offer a read-only credential — and switching to it silently blinded the check that asked (P1214)
+
+**Context:** decisions.md 2026-09-08 [technical] routed the daily drift checks to P1214 with a check, not a
+build: *confirm the provider offers a read-only credential suitable for policy inspection*, and
+record the fallback rather than silently choose it. It does, at two independent layers, and no
+fallback was needed.
+
+**What was verified (live, both projects):**
+
+1. **Endpoint.** `POST /v1/projects/{ref}/database/query/read-only` executes as
+   `supabase_read_only_user` inside a read-only transaction. Confirmed it is a real floor, not a
+   convention: a `CREATE TABLE` sent there returns SQLSTATE **25006**. Both daily checks now use it,
+   so they cannot write even if a future edit tries to.
+2. **Credential.** Scoped personal access tokens (project-scoped, `Database: Read`) exist but are in
+   **public alpha**, rolled out per-account, and carry an open bug where a scoped token 403s on
+   endpoints its permissions cover. Issuing one is a dashboard step; both scripts now prefer
+   `SUPABASE_READONLY_TOKEN` and fall back to the account-wide token **visibly**, printing the
+   over-permission on every run so the fallback cannot quietly become permanent.
+
+**The finding worth keeping — a privilege reduction that blinds its own detector.**
+`information_schema.table_privileges` and `.column_privileges` are **role-filtered**: the SQL
+standard exposes only privileges granted to or by a *currently enabled role*. As `postgres` that is
+everything; as `supabase_read_only_user` it is **nothing** for the grantees these checks ask about.
+Both checks PASS by returning an empty result, so the switch would have made them report *"floor
+holds"* on a database that had just handed `anon` TRUNCATE on every table — no error, no diff in
+output, exit 0.
+
+It survived the obvious test. Every real query returned `0 rows` before and `0 rows` after, scoring
+IDENTICAL. **Only a known-bad control exposed it:** a query for `SELECT`, which `anon` demonstrably
+holds, returned **100 rows as `postgres` and 0 as the read-only role**. The detector was blind
+exactly where it looked healthiest.
+
+**Decision:** Read privileges from `pg_class.relacl` / `pg_attribute.attacl` via `aclexplode()` —
+ordinary catalog columns with no role filter. Verified byte-identical to
+information-schema-as-`postgres` on test and prod (403/377 table grants, 2745/2632 column grants,
+zero missing, zero extra). Column grants are the **union** of `attacl` and `relacl`, not a coalesce;
+taking only `attacl` dropped 124 real grants in measurement, and only `REFERENCES` of the four
+banned privileges is column-grantable at all.
+
+**And made permanent:** the check now runs a **detector-liveness probe** before believing any empty
+result — it confirms it can still see the SELECT grants `anon` is known to hold. Zero there exits
+**2** ("could not run"), never **0** ("floor holds"). This converts the whole class from silent to
+loud, for any future cause: a role change, a catalog change, a wrong project ref.
+
+**Not changed:** `function-grant-drift-check.py`, the third consumer of the same account-wide token.
+Its grant leg could move, but its guard leg runs `SET LOCAL ROLE anon` probes that
+`supabase_read_only_user` cannot perform — and a read-only *refusal* there would be
+indistinguishable from a *guard* refusal, corrupting the check's only signal. It needs the scoped
+token, not the read-only endpoint.
+
+**The generalisable half:** when you reduce a component's privilege, the thing most likely to break
+is its ability to *observe* — and an observer that passes on empty results fails silently and
+inverted. Before trusting a reduced-privilege check, make it prove it can still see something it
+should see. A control that returns the same verdict as the real query is not a control.
+
+**Open:** issue the scoped `Database: Read` token in the dashboard (founder step; the account may
+not have the alpha yet), then set `SUPABASE_READONLY_TOKEN` and confirm the over-permission line
+stops printing.
+
+**References:** decisions.md 2026-09-08 [technical] (the routing decision) ·
+[.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 2b, 7, 7b ·
+`scripts/check-p1207-privilege-floor.py` · `scripts/rls-drift-check.py` · P1239 · P1214
 
 ## 2026-09-14 [technical]: A text control under 16px is a zoom bug on iOS, and the scanner that finds them is only as good as its parser (P1310)
 

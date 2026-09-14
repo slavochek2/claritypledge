@@ -264,6 +264,35 @@ for values; this applies it to the registry.
 
 ## Done-When
 
+### Daily drift checks (routed here from P1239, 2026-09-08) — landed 2026-09-14
+
+- [x] Confirm the provider offers a read-only credential suitable for read-only policy inspection
+      — **yes, at two layers.** A `/database/query/read-only` endpoint that executes as
+      `supabase_read_only_user` (server-refused DDL, SQLSTATE 25006), and project-scoped
+      `Database: Read` personal access tokens (public alpha, per-account rollout). No fallback to
+      "accept the prompts" or "stay on plaintext" was needed, so none was recorded.
+- [x] `rls-drift-check.py` and `check-p1207-privilege-floor.py` use the read-only endpoint, with
+      verdict output byte-identical to the previous version on test and prod
+- [x] Their privilege queries no longer read role-filtered `information_schema` views, which return
+      zero rows under the reduced role and would have made both checks pass on a wide-open database
+      — replaced with `pg_class.relacl` / `pg_attribute.attacl`, verified byte-identical to the old
+      queries as `postgres` on both projects
+- [x] The privilege check proves it can still SEE a grant before reporting an empty result as a
+      pass (detector-liveness probe; zero exits 2, never 0)
+- [x] Both scripts prefer `SUPABASE_READONLY_TOKEN` and announce the account-wide fallback on every
+      run, so the reduction cannot be quietly left half-done
+- [ ] **FOUNDER STEP:** issue a project-scoped `Database: Read` token in the Supabase dashboard and
+      set `SUPABASE_READONLY_TOKEN`. Until then the daily path still *holds* production-management
+      authority even though it can no longer *use* it for writes. The account may not have the
+      alpha yet — if the permission selector is absent when creating a token, that is the signal.
+- [ ] `function-grant-drift-check.py` — the third consumer of the same token — de-privileged. It
+      cannot use the read-only endpoint: its guard leg runs `SET LOCAL ROLE anon` probes that
+      `supabase_read_only_user` cannot perform, and a read-only refusal would be indistinguishable
+      from a guard refusal. Needs the scoped token instead.
+
+### Original
+
+
 - [ ] Every consumer FILE that reads the key carries a written read/write verdict derived from
       reading it, naming the write form found (direct, shell-out, RPC, client library) or stating
       none — covering `.claude/commands/slava/` AND `scripts/` including `scripts/archive/`
