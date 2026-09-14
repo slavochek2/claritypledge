@@ -1626,3 +1626,12 @@ rotation first.
 
 ---
 
+## Quarterly terms review: one re-acceptance popup for everything since v1.4
+
+**Date:** 2026-09-14
+**Status:** proposed
+**due:** month
+
+Around 2026-12-01, batch every Terms of Service and Privacy Policy text change made since the v1.4 bump (2026-09-01), including P1307's event transcription wording (spec D15), into a single `CURRENT_TERMS_VERSION` bump, run through `/tos-review`, so users see one popup per quarter instead of one per small edit. In the same review, decide whether `/tos-review` Stage 7b ("version bump mandatory" on every terms edit) should change to quarterly batching; that is a skill change needing founder approval. Droppable if no terms text has changed since v1.4 when the date arrives.
+
+---
