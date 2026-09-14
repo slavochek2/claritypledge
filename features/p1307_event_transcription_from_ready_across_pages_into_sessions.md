@@ -78,8 +78,8 @@ server-side room lifecycle (per-person end, server-driven room end, a scheduled 
 consent on two surfaces (event ready screen, `/live`), changes privacy/terms text, adds a
 whole-recording pass. **Reversibility: medium** — code and copy revert; audio captured under the
 new consent cannot be un-captured. **Decision density:** product calls D1–D9 settled by the founder
-on 2026-09-11; the adversarial review opened three founder questions (F1–F3) and two copy strings
-(Open Questions).
+on 2026-09-11; the adversarial review opened three more, of which F2 and F3 were answered on
+2026-09-14 (D10, D11). One founder question (F1) and two copy strings remain open.
 
 ## Decisions already made (founder, 2026-09-11) — do not re-ask
 
@@ -92,8 +92,10 @@ on 2026-09-11; the adversarial review opened three founder questions (F1–F3) a
 | D5 | Slice length: **13 s** if it measurably reduces errors versus 4 s on real room audio (founder: *"lets do 13 sec then... i guess we can check if 13 has viwer erros - can you run it? and decide?"*). **Measured 2026-09-11: 13 s wins on both runs** — non-Latin invented letters 37 → 2, word error vs whole file 55.2% → 30.0%. See Evidence. |
 | D6 | `/live`'s switch is renamed to the same label for consistency. "AI insights" is accurate: the founder produces insights from transcripts with AI tooling after sessions. |
 | D7 | The persistent bar reuses the existing cross-page session bar (`ActiveSessionBanner`) rather than adding a second one. |
-| D8 | Nothing new stops a forgotten, still-open page from recording: the room's existing 3-hour limit is the backstop and the always-visible bar is the reminder (founder chose this over a silence timeout, which would drop the question someone waited through a talk to ask). *Review, 2026-09-11: today the limit rejects only live slices — the archive keeps recording past it. Part 1 adds the client hard stop so the backstop is real. Whether the 3 hours run per room or per person is Open Question F3.* |
+| D8 | Nothing new stops a forgotten, still-open page from recording: the room's existing 3-hour limit is the backstop and the always-visible bar is the reminder (founder chose this over a silence timeout, which would drop the question someone waited through a talk to ask). *Review, 2026-09-11: today the limit rejects only live slices — the archive keeps recording past it. Part 1 adds the client hard stop so the backstop is real. Per room or per person was answered on 2026-09-14 — see D11.* |
 | D9 | Wherever transcription is running, the person can see it — on every page (founder: *"people get visibility everywhere they are if they are recorded"*). |
+| D10 | **(2026-09-14, answering F2.)** Every attendee passes the ready screen, so everyone is offered the switch: the event gate routes to `/ready` whenever this person is not already being transcribed for this event, with their saved readiness value shown on the slider. It no longer skips to `/meet` just because readiness exists. The switch stays in one place — it is not added to `/meet`. |
+| D11 | **(2026-09-14, answering F3.)** The 3-hour cap runs **per person**, from their own Continue — not from the room's creation. One room serves the whole event, so a latecomer gets their own 3 hours and the event's transcript is never split in two. |
 
 ## Solution
 
@@ -130,6 +132,13 @@ nothing but live slices, abandoned rooms never end, and jobs are created only fo
   server-side sweep evaluates this — nothing ends an abandoned room today. N is Open Question T2.
 - **At room end, the server creates the whole-recording work for every member** (service role —
   never the ending client, whose RPC call is refused for other members' sessions).
+- **The cap is per person (D11).** Each member's capture stops 3 hours after their own Continue,
+  measured from their member row — today the cap is the room's age (`handler.ts:141`). The room
+  itself lives as long as its members do (plus the room-end rule above), so `enter_transcribe_room`
+  must stop refusing an event's room once it is 180 minutes old (`…g_…sql:77,108`), or a latecomer
+  starts a second room for the same event. `countActiveRooms` reads the same room-age window to
+  decide which rooms still count against the per-user ceiling (`index.ts:124-135`) and has to move
+  with it — `/architect` keeps those three readings consistent by construction, as the code does now.
 - **Client hard stop.** On the first `410` (room ended or too long) from the slice path, or when
   this device's capture time reaches the cap, the client releases the microphone, flushes the last
   archive chunk and clears the bar. Today neither the slice sender nor the archive stops: a failure
@@ -193,10 +202,15 @@ and 14 s slices during rollout; the client follows.
 ### 5. Event ready screen (D1/D2)
 
 Start per Part 1. If the person returns to the ready screen while their capture runs, the switch
-shows **on**; switching it off is a per-person end. Returning attendees whose readiness is already
-set skip the ready screen (`EventRoomGate.tsx:73-77`), and after the event freezes the ready screen
-redirects to `/meet` (`EventRoomReady.tsx:99-105`) — where they turn transcription on is Open
-Question F2.
+shows **on**; switching it off is a per-person end.
+
+Per D10, the gate routes to `/ready` whenever this person is not already being transcribed for this
+event — it no longer skips to `/meet` on the strength of a stored readiness value alone
+(`EventRoomGate.tsx:73-77`), and the slider shows the value they already set. Someone already being
+transcribed goes straight to `/meet` as before. The post-freeze redirect stays
+(`EventRoomReady.tsx:99-105`): the event is over by then. This changes the P1077 behaviour "return
+visit with readiness already set lands on /meet, skipping readiness" — update that UAT expectation
+rather than working around it.
 
 ### 6. Capture follows the person across pages
 
@@ -336,8 +350,9 @@ approved the prototype 2026-09-11.** Button colours are left as each page has th
 - Do NOT build voice-activity (pause-based) segmentation — deferred by D4.
 - Do NOT change `/live`'s batch pipeline or its diarization (P1237 ruling).
 - Do NOT add transcription for signed-out guests; the event gate already requires sign-in.
-- Do NOT change the event gate, the readiness slider's semantics, or the meet page roster (F2 may
-  revisit the gate's skip — only on a founder answer).
+- Do NOT change the readiness slider's semantics or the meet page roster. The event gate changes in
+  exactly one way, per D10 — where it routes a person who is not being transcribed.
+- Do NOT put the transcription switch on `/meet` (D10) — one control, one place.
 - Do NOT add a "paused" message for the `/live` or explain-back case (D3).
 - Do NOT let any client end a room for other members.
 
@@ -348,6 +363,8 @@ Start and consent
 - [ ] With the switch off, Continue lands on `/meet`, no bar, nothing captured (verified server-side: no slice, no archive chunk); going back to the ready screen and switching on starts it.
 - [ ] With the room RPC forced to fail, Continue lands on `/meet` with no bar and the failure message, and no microphone prompt is ever raised.
 - [ ] The attendee's room carries the event's id; a visitor opening `/transcribe` without a code does not land in it.
+- [ ] An attendee whose readiness was already set on an earlier visit still reaches the ready screen, with their saved value on the slider, and sees the switch (D10); someone already being transcribed goes straight to `/meet`.
+- [ ] A latecomer who presses Continue 2 h 55 into a running event room is transcribed for their own 3 hours, in that same room — no second room for the event, no split transcript (D11).
 
 Across pages
 - [ ] A person who moves to their profile, the feed and back keeps contributing throughout, and can end it from any page via the bar.
@@ -405,13 +422,8 @@ Live text
   you do" (`privacy.md:111-113`). A switch that is already on, plus "By continuing, you agree",
   is a weaker act of agreement than a tap. `/live` already records by default and its policy
   section says so plainly (`privacy.md:84-85`).
-- **F2. Returning attendees never see the switch.** Anyone whose readiness is already set goes
-  straight to `/meet` (`EventRoomGate.tsx:73-77`), and after the event freezes the ready screen
-  redirects to `/meet` (`EventRoomReady.tsx:99-105`). Where do they turn transcription on?
-- **F3. Three hours per room or per person?** The cap runs from the room's creation — the first
-  Continue at the event (`handler.ts:141`; `…g_…sql:77,108`). A latecomer at 2 h 55 gets five
-  minutes; the next arrival after 3 h creates a second room for the same event and the transcript
-  splits in two.
+- ~~F2. Returning attendees never see the switch.~~ **Answered 2026-09-14 — D10.**
+- ~~F3. Three hours per room or per person?~~ **Answered 2026-09-14 — D11.**
 - **Copy:** the bar's stall state, and the message on `/meet` when the room could not be joined
   (UI Contract).
 
