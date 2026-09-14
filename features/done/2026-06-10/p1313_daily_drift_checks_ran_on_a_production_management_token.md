@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 82
@@ -7,17 +7,17 @@ workstream: keyring
 created_date: '2026-09-14'
 tags: [security, credentials, least-privilege, supabase]
 related: [p1214, p1239, p1207, p1048]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev, fix]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-14
 ---
 
 # P1313: The daily drift checks did read-only work on a token that can manage production
 
-> Carved out of [P1214](p1214_credential_separation_and_privilege_reduction.md) on 2026-09-14.
+> Carved out of [P1214](../../p1214_credential_separation_and_privilege_reduction.md) on 2026-09-14.
 > P1214 owns credential reach as a whole and stays open; this is the one slice that landed,
 > so it gets its own closure rather than ticking a spec with twelve open items.
 
@@ -27,7 +27,7 @@ driver: anomaly
 *has any policy or privilege drifted open?* Both authenticated with the platform management
 token, which is **account-wide** and can manage the production project outright.
 
-**Complication:** [decisions.md 2026-09-08](../docs/decisions.md) settled how to fix that. Putting
+**Complication:** [decisions.md 2026-09-08](../../../docs/decisions.md) settled how to fix that. Putting
 the daily path behind P1239's per-access prompt would cost ~14 confirmations a week against the
 ~10/week ceiling P1239 itself sets — and, more to the point, would be **compensating for the
 over-permission instead of removing it**. The founder's decision: reduce what the checks can do.
@@ -107,8 +107,8 @@ raw ACLs are not *effective* privileges. Final form uses `has_table_privilege` /
 
 ## Related
 
-- **Parent:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — owns the scoped
+- **Parent:** [P1214](../../p1214_credential_separation_and_privilege_reduction.md) — owns the scoped
   token and the third consumer; stays open.
-- **Sibling:** [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) —
+- **Sibling:** [P1239](../../p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) —
   owns the per-access lock this deliberately does NOT apply to the daily path.
 - **Subjects:** P1207 (privilege floor), P1048 (RLS drift) — the two checks moved.
