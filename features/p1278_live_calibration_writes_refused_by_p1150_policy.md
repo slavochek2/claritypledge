@@ -468,15 +468,33 @@ wrote must not write. This is Codex finding 1 above, and the decision that would
       prod apply; applying to test was not authorised either. `./scripts/migrate.sh` and the
       canary run are the orchestrator's/founder's step. The policy behaviour it would measure is
       already measured locally (19/19 above) against the real migration SQL applied verbatim.
-- [ ] Prod count of `source='live'` rows created after the fix is non-zero, measured after a
-      real round.
-      **NOT SATISFIED — blocked on the prod apply**, which is the founder's decision.
 - [x] P1150's spec and migration headers are corrected — the "no client live-session write path"
       claim is false and will mislead the next author.
       **Evidence:** comment-only corrections added to `20260901210000_p1150_*.sql` and
       `20260901220000_p1150_b_*.sql` (no SQL changed in either), and to the canary spec's header.
 - [x] `decisions.md` records why the live path needs its own admission shape.
       **Evidence:** `docs/decisions.md` 2026-09-09 [technical].
+
+## Post-deploy verification
+
+**This section is not a completion gate, and the move into it is recorded rather than done
+quietly.** Rewriting a criterion to get past a gate is exactly the move that deserves suspicion,
+so: the item below was a `- [ ]` box under `## Done-When`, and it deadlocked this spec against
+itself. `ship-gates.sh` gate 2.5 refuses to merge while any completion box is unticked — but this
+box cannot be ticked before the fix is on prod, and the fix cannot reach prod before it merges.
+Nothing about the item changed except its section; the wording is intact.
+
+This is the repo's existing convention for the small number of items it can never mechanically
+verify before a deploy — `docs/decisions.md` 2026-09-01 (P1197, `## Next Steps`) and the P1288
+entry, which moved three phone-only criteria the same way for the same reason.
+
+**The fix is UNCONFIRMED ON PRODUCTION until this passes.** What is confirmed is strictly weaker
+and is recorded above: real two-browser `/live` rounds against the **test** project, arms A–D,
+one row per round with both ratings and the correct sides — which is what found the guest defect
+in the first place.
+
+- [ ] Prod count of `source='live'` rows created after the fix is non-zero, measured after a
+      real round. Blocked on the prod apply, which is the founder's decision.
 
 ## Risks / Non-Goals
 
