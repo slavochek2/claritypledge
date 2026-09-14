@@ -31,48 +31,67 @@ IDENTITY = re.compile(r"\bauth\.(uid|email|jwt|role)\s*\(", re.I)
 # Kept only to make the common case legible in the failure message, never as the test itself.
 OBVIOUSLY_TRUE = re.compile(r"^\s*\(*\s*(true|1\s*=\s*1|true::boolean)\s*\)*\s*$", re.I)
 
+
 # ---------------------------------------------------------------------------
-# Why these read pg_catalog and NOT information_schema
+# Why this asks has_table_privilege() and NOT information_schema (nor raw ACLs)
 # ---------------------------------------------------------------------------
-# information_schema.table_privileges and .column_privileges are ROLE-FILTERED: per the
-# SQL standard they expose only privileges granted TO or BY a *currently enabled role*.
-# As the `postgres` superuser that is everything, so the original queries were correct.
-# This file now runs as supabase_read_only_user, which is a member of neither anon nor
-# authenticated and granted nothing by them — so those views return ZERO ROWS for every
-# grantee this canary asks about, whatever the database actually holds.
+# Two separate traps, both of which produce a SILENT, INVERTED failure -- these checks
+# PASS by returning nothing, so a detector that has gone blind reports "floor holds" on a
+# wide-open database. No error, no diff in output, exit 0.
 #
-# That failure is silent and inverted: the check is looking for an EMPTY result as its
-# pass condition, so a blinded view reports "ok, floor holds" on a database that has just
-# handed anon TRUNCATE on every table. Measured 2026-09-14 on both projects: a control
-# query for SELECT (which anon demonstrably holds) returned 100 rows as postgres and 0 as
-# supabase_read_only_user, while the four banned privileges returned 0 under both — i.e.
+# TRAP 1 -- role-filtered views. information_schema.table_privileges/.column_privileges
+# expose only privileges granted to or by a *currently enabled role*. As `postgres` that
+# is everything, so the original queries were correct. This file now runs as
+# supabase_read_only_user, which is a member of neither anon nor authenticated, so those
+# views return ZERO ROWS for every grantee asked about. Measured 2026-09-14: a control
+# query for SELECT (which anon demonstrably holds) returned 100 rows as postgres and 0
+# as supabase_read_only_user, while the four banned privileges returned 0 under BOTH --
 # the real queries looked perfectly healthy exactly when the view had gone blind.
 #
-# pg_class.relacl / pg_attribute.attacl are ordinary catalog columns with no role filter,
-# so they answer identically under any role. Both forms below were verified to return the
-# byte-identical grant set as information_schema-as-postgres on test AND prod
-# (403/377 table grants, 2745/2632 column grants, zero missing, zero extra).
+# TRAP 2 -- raw ACLs are not EFFECTIVE privileges. The first fix for trap 1 read
+# pg_class.relacl / pg_attribute.attacl via aclexplode(). That escapes the role filter
+# but only ever sees privileges granted EXPLICITLY and DIRECTLY to the named role. It
+# misses at least two ways a role really holds a privilege:
+#   - relacl IS NULL means "owner defaults" (acldefault). A table OWNED by anon grants
+#     anon everything, including all four banned privileges, while aclexplode(NULL)
+#     returns no rows at all.
+#   - membership. `GRANT some_role TO anon` conveys some_role's privileges to anon
+#     (rolinherit is true on both anon and authenticated here), and an ACL query sees
+#     only some_role.
+# Neither is live in this database today -- 0 tables with a NULL ACL, all owned by
+# postgres, and anon/authenticated hold 0 of the 22/21 role memberships that exist -- but
+# both are one ordinary migration away, and the check exists for the day that changes.
 #
-# DO NOT "simplify" these back to information_schema. It will pass its tests, pass review,
-# and silently stop detecting anything.
+# has_table_privilege() / has_any_column_privilege() are Postgres's own answer to
+# "does this role effectively hold this privilege", and resolve ownership, NULL ACLs and
+# inheritance in one call. They need no special permission, so they work under the
+# reduced role. Control-tested 2026-09-14 so this is not another all-zero result taken on
+# faith: anon scored SELECT on 49 of 62 public tables and TRUNCATE on 0.
 #
-# aclexplode() spells the PUBLIC pseudo-role as a NULL grantee; coalesce turns it back into
-# the literal 'PUBLIC', which is how the old information_schema query named it. That folds
-# the former separate PUBLIC query into the table query below with identical output.
+# PUBLIC is passed as the literal role name 'public'. That is a pseudo-role, not a real
+# one, so it needed its own control before its zero could be believed: it scored TRUE on
+# pg_catalog.pg_class SELECT (which PUBLIC genuinely holds) and FALSE on a known-false
+# case, so the leg discriminates and its zero on schema public is a real zero rather than
+# an inert always-false.
+#
+# DO NOT "simplify" this back to information_schema or to raw aclexplode(). Both will
+# pass their tests, pass review, and silently stop detecting things.
+#
+# The column leg subtracts table-level REFERENCES so a table-wide grant is reported once
+# by the table leg rather than twice; the column leg's unique job is a column-only grant,
+# which a table-level REVOKE does not remove. Of the four banned privileges only
+# REFERENCES is column-grantable at all.
+
 TABLE_PRIVS_SQL = """
-    select c.relname as table_name, t.grantee as grantee, t.privilege_type
+    select c.relname as table_name, r.rolname as grantee, p.priv as privilege_type
     from pg_catalog.pg_class c
     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    cross join lateral (
-      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
-             x.privilege_type
-      from pg_catalog.aclexplode(c.relacl) x
-    ) t
+    cross join (values ('anon'),('authenticated'),('public')) as r(rolname)
+    cross join (values ('TRUNCATE'),('REFERENCES'),('TRIGGER'),('MAINTAIN')) as p(priv)
     where n.nspname = 'public'
       and c.relkind in ('r','v','m','p','f')
-      and t.grantee in ('anon','authenticated','PUBLIC')
-      and t.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
-    order by t.privilege_type, t.grantee, c.relname
+      and pg_catalog.has_table_privilege(r.rolname, c.oid, p.priv)
+    order by p.priv, r.rolname, c.relname
 """
 
 # A column's effective grants are the UNION of its own ACL and its table's ACL -- not a
@@ -82,26 +101,16 @@ TABLE_PRIVS_SQL = """
 # aclexplode over a table ACL also yields DELETE/TRUNCATE/etc., which information_schema
 # never reports at column level (832 spurious rows before this filter).
 COLUMN_PRIVS_SQL = """
-    select distinct c.relname as table_name, a.attname as column_name,
-           t.grantee as grantee, t.privilege_type
-    from pg_catalog.pg_attribute a
-    join pg_catalog.pg_class c on c.oid = a.attrelid
+    select c.relname as table_name, '(any column)' as column_name,
+           r.rolname as grantee, 'REFERENCES' as privilege_type
+    from pg_catalog.pg_class c
     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    cross join lateral (
-      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
-             x.privilege_type
-      from pg_catalog.aclexplode(a.attacl) x
-      union
-      select coalesce(pg_catalog.pg_get_userbyid(y.grantee), 'PUBLIC') as grantee,
-             y.privilege_type
-      from pg_catalog.aclexplode(c.relacl) y
-    ) t
+    cross join (values ('anon'),('authenticated'),('public')) as r(rolname)
     where n.nspname = 'public'
       and c.relkind in ('r','v','m','p','f')
-      and a.attnum > 0 and not a.attisdropped
-      and t.grantee in ('anon','authenticated','PUBLIC')
-      and t.privilege_type in ('TRUNCATE','REFERENCES','TRIGGER','MAINTAIN')
-    order by t.privilege_type, t.grantee, c.relname, a.attname
+      and pg_catalog.has_any_column_privilege(r.rolname, c.oid, 'REFERENCES')
+      and not pg_catalog.has_table_privilege(r.rolname, c.oid, 'REFERENCES')
+    order by r.rolname, c.relname
 """
 
 # The two queries above PASS by returning nothing, which makes them indistinguishable from a
@@ -117,15 +126,23 @@ LIVENESS_SQL = """
     select count(*) as n
     from pg_catalog.pg_class c
     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    cross join lateral (
-      select coalesce(pg_catalog.pg_get_userbyid(x.grantee), 'PUBLIC') as grantee,
-             x.privilege_type
-      from pg_catalog.aclexplode(c.relacl) x
-    ) t
     where n.nspname = 'public'
       and c.relkind in ('r','v','m','p','f')
-      and t.grantee in ('anon','authenticated')
-      and t.privilege_type = 'SELECT'
+      and pg_catalog.has_table_privilege('anon', c.oid, 'SELECT')
+"""
+
+# A second probe for the COLUMN path. Liveness of the table oracle is NOT proof of
+# liveness of the column oracle -- they are different functions over different catalogs,
+# and a restriction affecting only has_any_column_privilege would leave the first probe
+# happily positive while column-level REFERENCES went undetected. Scored on SELECT,
+# which anon demonstrably holds on most public tables.
+COLUMN_LIVENESS_SQL = """
+    select count(*) as n
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r','v','m','p','f')
+      and pg_catalog.has_any_column_privilege('anon', c.oid, 'SELECT')
 """
 
 
@@ -238,16 +255,20 @@ def main():
         return 2
     print(f"credential: {token_kind}")
 
-    live = query(ref, token, LIVENESS_SQL)
-    live_n = int(live[0]["n"]) if live else 0
-    if live_n == 0:
-        print(f"ERROR ({which}/{ref}): detector liveness probe found ZERO SELECT grants to "
-              f"anon/authenticated in schema public. That is not credible -- the application "
-              f"could not work. The privilege queries have gone blind (role filtering, a "
-              f"catalog change, or a wrong project), so their empty result proves nothing. "
-              f"Refusing to report the floor as intact.")
-        return 2
-    print(f"detector liveness: {live_n} SELECT grants visible -- privilege queries can see grants")
+    # BOTH oracles must prove they can still see something. Liveness of the table oracle
+    # is not proof of liveness of the column oracle -- different functions, different
+    # catalogs -- so a restriction hitting only one would otherwise pass unnoticed.
+    for label, sql in (("table", LIVENESS_SQL), ("column", COLUMN_LIVENESS_SQL)):
+        live = query(ref, token, sql)
+        live_n = int(live[0]["n"]) if live else 0
+        if live_n == 0:
+            print(f"ERROR ({which}/{ref}): the {label} detector's liveness probe found ZERO "
+                  f"SELECT grants to anon in schema public. That is not credible -- the "
+                  f"application could not work. This detector has gone blind (role filtering, "
+                  f"a catalog or permission change, or a wrong project ref), so its empty "
+                  f"result proves nothing. Refusing to report the floor as intact.")
+            return 2
+        print(f"detector liveness ({label}): {live_n} SELECT grants visible")
 
     violations = []
 
@@ -341,4 +362,16 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Exit-code contract: 0 = floor holds, 1 = a violation is listed, 2 = could not run.
+    # Without this wrapper an HTTP error, a dropped connection or a malformed response
+    # propagates as an uncaught exception, and Python exits 1 -- which /day-cp reads as
+    # "a privilege violation was found" rather than "the check never ran". A detector
+    # that is merely unavailable must never be mistaken for one that found something,
+    # in either direction.
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(2)
+    except Exception as exc:  # noqa: BLE001 - any operational failure is exit 2
+        print(f"ERROR: check could not run: {type(exc).__name__}: {exc}")
+        sys.exit(2)

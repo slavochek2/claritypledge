@@ -87,7 +87,26 @@ _rls = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_rls)
 
 repo_roots = _rls.repo_roots
-resolve_credentials = _rls.resolve_credentials
+
+
+def resolve_credentials(env_name):
+    """Always the account-wide token — this check cannot run on the reduced one.
+
+    P1214 moved rls-drift-check and check-p1207-privilege-floor onto a read-only
+    credential. This canary CANNOT follow them, and the reason is not laziness:
+      - it posts to /database/query (read-write), not /database/query/read-only; and
+      - its guard leg runs `SET LOCAL ROLE anon`, which supabase_read_only_user has
+        no membership to assume.
+    Worse, if it ran anyway the read-only REFUSAL would be indistinguishable from the
+    guard refusal it is trying to measure — turning a broken check into a permanent
+    "all clear". Fail-loud beats that, so it stays on the account-wide token until it
+    is migrated deliberately (P1214, tracked).
+
+    Passing prefer_readonly=False is what keeps it there: this module imports the
+    resolver, so without it, setting SUPABASE_READONLY_TOKEN would silently re-point
+    THIS check at a credential it cannot use.
+    """
+    return _rls.resolve_credentials(env_name, prefer_readonly=False)
 
 API_HOST = "https://api.supabase.com"
 USER_AGENT = "claritypledge-function-grant-drift-check/1.0"

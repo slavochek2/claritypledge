@@ -147,8 +147,16 @@ def read_env_value(env_file, key):
 # Live state
 # --------------------------------------------------------------------------
 
-def resolve_credentials(env_name):
-    """Return (project_ref, token, source_description) for 'prod' or 'test'."""
+def resolve_credentials(env_name, prefer_readonly=True):
+    """Return (project_ref, token, source_description) for 'prod' or 'test'.
+
+    prefer_readonly=False is for callers that genuinely CANNOT run on the reduced
+    credential and must keep the account-wide one until they are migrated. It exists
+    because this resolver is imported by other checks (function-grant-drift-check.py
+    loads this module), so changing which token it hands back silently changes THEIR
+    credential too -- which is how a "read-only switch" scoped to two scripts can break
+    a third that was never edited. Callers must say which they are, in writing.
+    """
     if env_name == "prod":
         env_file_name, token_var, ref_var = ".env.prod", "SUPABASE_ACCESS_TOKEN_PROD", "SUPABASE_PROJECT_REF_PROD"
     else:
@@ -161,8 +169,8 @@ def resolve_credentials(env_name):
     # management token that can manage production. Falls back, loudly (see `source` below),
     # so the daily path keeps working until the scoped token is issued.
     ro_var = "SUPABASE_READONLY_TOKEN_PROD" if env_name == "prod" else "SUPABASE_READONLY_TOKEN_TEST"
-    token = (os.environ.get(ro_var)
-             or read_env_value(env_file, "SUPABASE_READONLY_TOKEN")
+    ro_token = (os.environ.get(ro_var) or read_env_value(env_file, "SUPABASE_READONLY_TOKEN")) if prefer_readonly else None
+    token = (ro_token
              or os.environ.get(token_var)
              or read_env_value(env_file, "SUPABASE_ACCESS_TOKEN"))
     ref = os.environ.get(ref_var)
@@ -171,7 +179,7 @@ def resolve_credentials(env_name):
         m = re.match(r"https://([a-z0-9]+)\.", url)
         ref = m.group(1) if m else None
 
-    if os.environ.get(ro_var) or read_env_value(env_file, "SUPABASE_READONLY_TOKEN"):
+    if ro_token:
         source = f"${ro_var}" if os.environ.get(ro_var) else f"{env_file} (SUPABASE_READONLY_TOKEN)"
     elif os.environ.get(token_var):
         source = f"${token_var} (account-wide management token)"

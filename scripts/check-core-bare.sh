@@ -61,7 +61,22 @@ common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ||
 
 # Read the on-disk config file directly rather than `git config --get`, which
 # answers for the CURRENT context and can differ from what the main checkout holds.
-bare="$(git config --file "$common/config" --get core.bare 2>/dev/null || true)"
+#
+# --type=bool is LOAD-BEARING, not tidiness. git accepts `yes`, `on`, `1`, `TRUE` and
+# `True` as boolean true, and every one of them makes the checkout bare. A string
+# comparison against "true" therefore reports FIVE of the six spellings as healthy --
+# measured 2026-09-14 against real fixtures, all five made `git rev-parse
+# --is-bare-repository` say true while this guard exited 0. Let git parse its own
+# booleans; never hand-compare the raw text.
+bare="$(git config --file "$common/config" --type=bool --get core.bare 2>/dev/null)"
+rc=$?
+
+# rc 1 with empty output = key absent (the normal, healthy case). Any other non-zero
+# means git could not PARSE the value -- that is undeterminable, not healthy.
+if (( rc != 0 )) && [[ -n "$bare" ]]; then
+    echo "check-core-bare: cannot parse core.bare in $common/config" >&2
+    exit 2
+fi
 
 if [[ "$bare" != "true" ]]; then
     exit 0
