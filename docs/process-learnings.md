@@ -30,6 +30,44 @@ an empty file is the healthy state.
 
 ---
 
+## P272's live-verification suite drives buttons the /live page no longer renders
+
+**Status:** proposed
+**due:** week
+
+`e2e/p272-live-verification.spec.ts` clicks `Does {partner} understand you?` and expects both
+participants to see the rating question at once. Neither matches the page: the button reads
+**Speak** with `Did {partner} understand you?` beneath it (`live-mode-view.tsx`, three call
+sites), the scale's buttons are labelled `Rate N`, and the listener's drawer opens only after
+the speaker submits (`getViewState` branch 4a). Measured 2026-09-12 while building
+`e2e/p1278-real-browser-round.spec.ts`, which hit all three in turn: `grep -F "Does "` over
+`src/` returns only the prototype page. The same shape as P1232 — a selector that outlives the
+UI it names fails as a bare timeout, with no assertion error to read.
+
+Worth checking whether the other specs that share those selectors (`speak-freely-button`,
+`p400-story-card-rendering`, `live-rating-drawer`) are affected before fixing them one by one.
+
+---
+
+## A /live round has no identity in its row, so a client cannot tell whether it already recorded one
+
+**Status:** proposed
+**due:** month
+
+`story_verifications` carries no per-round key — only the session, the two participants and the
+ratings. Two consequences, both raised by the Codex review of P1278 E (2026-09-12) and both real:
+a guest round is lost if the creator's client reloads before it observes the round completing
+(the client must not write what it cannot prove it has not written), and the database would admit
+a duplicate row if any client ever wrote twice — today the only thing preventing that is one
+tab's memory.
+
+One remedy covers both: an exchange index on the row beside `session_id`, with a partial unique
+index, so the creator's client can write a round it may already have written and let the database
+ignore the duplicate. Schema change: its own migration and integration spec (P270). Not needed
+for the guest path to work, which is why P1278 shipped without it.
+
+---
+
 ## The agent-skills gate fails OPEN when its script is missing or a dangling symlink
 
 **Status:** proposed
