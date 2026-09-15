@@ -1685,3 +1685,13 @@ line truncates one short name even at 1280 px. Screenshots: `~/Screenshots/2026-
 Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 390 / 1280 px.
 
 ---
+
+## Fix or retire the p506 "existing tags are preserved" assertion — the hashtag trigger makes it impossible
+
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** week
+
+`e2e/integration/p506-backfill-hashtags.spec.ts` asserts a story inserted with a hand-set tag keeps it after the backfill, but `trg_stories_extract_hashtags` (BEFORE INSERT OR UPDATE OF content) rewrites `tags` from the content on every insert, so the tag is gone before the backfill runs. Surfaced 2026-09-15 once P1214 let the backfill actually run (it had been failing on a 401). Done when the test seeds that row without the trigger overwriting it, or the assertion is removed because the trigger now owns `tags`; droppable if P506's backfill test is retired.
+
+---
