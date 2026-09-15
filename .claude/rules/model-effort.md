@@ -18,6 +18,6 @@ in `/pick-flow` under "Model + effort".
 
 - **Never ask the user for their quota** — read `~/.claude/.quota-cache.json`. Missing file → fall back to default lanes and say so; never guess a percentage.
 - **Subagent execution is already pinned to `sonnet` across the build/maintain skills** — no per-task call needed there.
-- **Eligible external Gemini work goes through `~/.agents/bin/delegate-gemini`, never raw `dsh`** — eligibility must be established before the wrapper's defense-in-depth scan (exit 2 = do it inline, never edit the payload to get past it).
+- **Eligible external Gemini work goes through `~/.agents/bin/delegate-gemini`** (REST, served model verified; Codex reviews via `codex-review`, model from `~/.agents/model-defaults.env`) — eligibility must be established before the wrapper's defense-in-depth scan, which only catches credential shapes (exit 2 = do it inline, never edit the payload to get past it).
 
 **Skip the call** for: one-liner fixes, typo edits, or when the user already named the model/effort this turn. Offer once per task, not per message.

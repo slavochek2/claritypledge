@@ -35,6 +35,7 @@ DSH_ADAPTER="$HOME/.dsh/model-routing.md"
 CODEX_GLOBAL_AGENTS="$HOME/.codex/AGENTS.md"
 CODEX_GLOBAL_CONFIG="$HOME/.codex/config.toml"
 WRAPPER="$HOME/.agents/bin/delegate-gemini"
+WRAPPER_DEFAULTS="$HOME/.agents/model-defaults.env"
 DSH_PATCH="$HOME/.claude/dsh-gemini.patch.yml"
 DSH_SETTINGS="$HOME/.dsh/settings.yaml"
 
@@ -190,25 +191,28 @@ run_tier_b() {
 run_tier_c() {
   local missing=()
   [[ -f "$WRAPPER" ]] || missing+=("$WRAPPER")
-  [[ -f "$DSH_PATCH" ]] || missing+=("$DSH_PATCH")
+  [[ -f "$WRAPPER_DEFAULTS" ]] || missing+=("$WRAPPER_DEFAULTS")
   if (( ${#missing[@]} > 0 )); then
     echo "SKIP  Tier C: delegation wrapper not installed on this machine."
     printf '        missing: %s\n' "${missing[@]}"
     return
   fi
 
+  # Contract since the wrapper moved to a direct REST backend (2026-09-15): the content scan refuses
+  # credential shapes only; path/PII mentions are no longer refused (the universal policy's
+  # "external-safe" judgment is the caller's, and the scan stays defense-in-depth). The served
+  # model is verified, and vendor failure shapes are non-zero, never a clean run.
   echo "=== Tier C - delegation wrapper outcomes ==="
   run_exit "public bounded corpus passes scan" 0 bash -c "printf '%s' 'Summarize the public README into five bullets.' | '$WRAPPER' --check"
-  run_exit "unclassified content with synthetic email refuses" 2 bash -c "printf '%s' 'Contact fixture@example.com about this.' | '$WRAPPER' --check"
-  run_exit "private path refuses" 2 bash -c "printf '%s' 'Read Projects/private/notes.txt' | '$WRAPPER' --check"
-  run_exit "private path casing variant refuses" 2 bash -c "printf '%s' 'Read /USERS/example/Projects/private/notes.txt' | '$WRAPPER' --check"
-  run_exit "missing provider overlay is integrity exit 3" 3 env HOME="$TMP_ROOT/empty-home" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER' --check"
+  run_exit "credential-shaped content refuses" 2 bash -c "printf '%s' 'Rotate AKIA0123456789ABCDEF today.' | '$WRAPPER' --check"
+  run_exit "path/PII mentions are not refused by the scan" 0 bash -c "printf '%s' 'Contact fixture@example.com about Projects/private/notes.txt' | '$WRAPPER' --check"
+  run_exit "missing defaults file is exit 2, never a silent model fallback" 2 env HOME="$TMP_ROOT/empty-home" ASK_MODEL_DEFAULTS_FILE="$TMP_ROOT/absent.env" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER'"
 
-  mkdir -p "$TMP_ROOT/executor-home/.claude" "$TMP_ROOT/bin"
-  cp "$DSH_PATCH" "$TMP_ROOT/executor-home/.claude/dsh-gemini.patch.yml"
-  printf '#!/bin/sh\nexit 42\n' >"$TMP_ROOT/bin/dsh"
-  chmod +x "$TMP_ROOT/bin/dsh"
-  run_exit "executor failure is surfaced without wrapper retry" 42 env HOME="$TMP_ROOT/executor-home" PATH="$TMP_ROOT/bin:$PATH" GEMINI_API_KEY="fixture-key" bash -c "printf '%s' 'Summarize the public README.' | '$WRAPPER'"
+  mkdir -p "$TMP_ROOT/executor-home"
+  printf '%s' '{"modelVersion":"gemini-0-fixture","promptFeedback":{"blockReason":"SAFETY"}}' >"$TMP_ROOT/blocked.json"
+  printf '%s' '{"modelVersion":"gemini-0-fixture-lite","candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"x"}]}}]}' >"$TMP_ROOT/downgrade.json"
+  run_exit "vendor failure shape is surfaced as exit 5, not a clean run" 5 env HOME="$TMP_ROOT/executor-home" ASK_MODEL_DEFAULTS_FILE="$WRAPPER_DEFAULTS" ASK_MODEL_GEMINI_FAKE_RESPONSE="$TMP_ROOT/blocked.json" bash -c "printf '%s' 'Summarize the public README.' | '$WRAPPER' --model gemini-0-fixture"
+  run_exit "served-model downgrade is exit 4" 4 env HOME="$TMP_ROOT/executor-home" ASK_MODEL_DEFAULTS_FILE="$WRAPPER_DEFAULTS" ASK_MODEL_GEMINI_FAKE_RESPONSE="$TMP_ROOT/downgrade.json" bash -c "printf '%s' 'Summarize the public README.' | '$WRAPPER' --model gemini-0-fixture"
 }
 
 # --- Tier D: live `dsh` calls. Never the commit path. SKIPs if unavailable. -
