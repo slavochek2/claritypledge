@@ -262,13 +262,30 @@ regression — epistemic gate 7b, a fixture that cannot emit the state under tes
       the deploy order **database-first**: shipping publishes two live-vulnerability write-ups to
       a public repo permanently, so the fix goes to prod before anything is pushed. Do not re-add
       the markers: a single malformed one rejects the entire prod run, including half D.
-- [ ] **P1269's migration `20260911090000` is live on prod.** Half C's precondition block refuses
-      to install without `clarity_sessions.joiner_seat_secret`; measured absent on prod
-      2026-09-15. All three migrations therefore apply in ONE run, in version order.
-- [ ] **Half D applied to prod** and the anon probe re-run there: an unauthenticated caller
-      receives an empty list rather than a live room code.
-- [ ] **Half C applied to prod** and the three-argument `release_joiner_seat` confirmed as the
-      only surviving overload.
+- [x] **P1269's migration `20260911090000` is live on prod.** Applied by a concurrent session
+      shortly before this run — the prod ledger moved 341 → 345 between the pre-flight read and
+      the apply, so only two migrations were pending here rather than three. Half C's
+      precondition block therefore found `clarity_sessions.joiner_seat_secret` present and
+      installed; had it not, the migration would have aborted rather than installing a function
+      that raises 42703 on the first guest who tries to leave a room.
+- [x] **Half D applied to prod** (`20260914150000`), and the installed body re-read there:
+      carries `auth.uid() IS NULL` and the `public.event_rsvps` arm, and carries no
+      `SELECT *` / `RETURNING *` (P1057's standing rule). Anon probe against a real prod
+      `event_id`: **HTTP 200 `[]`** — empty, not a distinguishable error, which is the property
+      P1057 requires. Control on the same anon key against `get_room_code_for_invite`:
+      **HTTP 401 `42501`**, proving the probe path and the key are real.
+      **Limit of this probe, stated rather than glossed:** no practice room on prod is currently
+      unexpired, so the empty result does not by itself discriminate the guard — a pre-fix call
+      would also have returned empty. The discriminating before/after control was run on **test**
+      (anon received a live room code, HTTP 200, before the fix). On prod the evidence is the
+      installed body plus the migration's own assertion block, which ran there and would have
+      raised had any of the three properties been missing.
+- [x] **Half C applied to prod** (`20260915100000`). `release_joiner_seat` is now
+      `(p_session_id uuid, p_code text, p_seat_secret uuid)` and is the **only** surviving
+      overload — the two-argument P1058 signature is gone, so P1063's ambiguous-overload outage
+      cannot occur. `claim_joiner_seat` is `(p_code, p_joiner_name, p_seat_secret)`. The installed
+      body references `joiner_seat_secret` and carries no `SELECT *` / `RETURNING *`.
+      Prod ledger: 347. Prod smoke test after the apply: **8 passed, 0 failed**.
 
 **Accepted cost of database-first:** between the migration applying and the client being pushed,
 a guest holding a seat secret whose "End Session" fails waits out P1269's 15-minute timer. Bounded
