@@ -15,6 +15,7 @@ blocks:
   - p1182
 related:
   - p1185
+superseded_by: p1319
 pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus

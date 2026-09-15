@@ -6,6 +6,7 @@ rank: 1000064
 workstream: infrastructure
 created_date: '2026-09-01'
 tags: [agents, api, auth, distribution]
+blocked_by: [p1321]
 delivery_stage: create-spec
 pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
@@ -304,6 +305,10 @@ quietly restore them.
    with a falsifier (epistemic gate 8), or state explicitly that this is infrastructure built
    ahead of its hypothesis. **[REV]** Review also notes there is no evidence any target user
    wants to reach this product through an agent — that evidence, or its absence, belongs here.
+   **Candidate, 2026-09-15 — not yet decided:** the problem board's weekly flow
+   ([docs/problem-board-process.md](../docs/problem-board-process.md), Track B) — members let their agent
+   draft and read problem letters on their behalf. The founder must confirm it and file it in
+   `docs/hypotheses.md` with a falsifier; until then this question stays open. Gate work now sits in P1321.
 2. ~~Can the authorization MUSTs be delegated?~~ **Answered — yes, see Verified protocol facts.**
    Remaining sub-question for `/architect`: does Supabase Auth actually issue tokens with the
    audience and scope claims this needs, without a refresh token? Verify against Supabase, not

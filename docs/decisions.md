@@ -4,6 +4,59 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [product]: The problem board's unit is one current problem per member per week — author attention was the constraint, not reader attention (P1319, P1320, P1181, P1182)
+
+**Context:** The problem board allowed unlimited submissions (P1180 §Solution, "No submission limit") on
+the premise that an agent does the reading, so no attention needs rationing. A mining run gave the founder
+209 of his own problems to choose from; 15 days later none was ticked. Planning a community event on top of
+that design kept producing more machinery — agent logins, a review screen, a shared pool of titles — each one
+an attempt to make reviewing many problems bearable. Founder, verbatim: *"I can read maybe five and review
+only three … maybe one per week per person, then everything gets easier."*
+**Decision:** Each member keeps a short "what I'm working on" profile and posts **one problem they are still
+working on per week** (max 3), picked from a top-3 proposal, with unpicked problems kept on a private list
+on their own machine (maybe later / reject). Every member's agent reads the week's posted problems and names
+**which one to look into** — claim, position, basis — preferring problems with the fewest readers. Answering
+is the match; at the event the answered author leads a round. Filed as P1319 (change request on P1180) and
+P1320 (review page replacing the ~15-minute hand compose); P1181 narrowed to community-only visibility for
+problem letters and **moved before the first event**, because most members will not post a current problem
+publicly and a shared-by-link letter today requires a public story; P1182 amended to scan the week with
+coverage.
+**Alternatives rejected:** *Keep many problems and make review cheaper* — review, privacy and quality all
+fail with volume, and no screen fixes an author who will not read 209 items. *Agents match without review
+and just introduce people* — gives up the written artifact the hypothesis tests, and leaves readers facing
+unreviewed text. *Host assigns readers* — reading becomes a favour again; parked. *Agent feedback to unpicked
+authors* — draws on the reader's private context and reads as rejection; parked.
+**Consequences:** The 0/209 result is **uninterpretable as unwillingness to share** — it is fully explained by
+list size. It was misread as unwillingness twice in the session that produced it (by an independent reviewer
+and by the agent), and a 20-minute self-test over 209 items (about 6 seconds each) was proposed on that
+misreading before the founder caught it: *test the task at the size a real member meets it.* The first event
+measures problems posted, problems with zero readers, whether each disagreement was worth having and on which
+claim, and whether members post again the next week. Status: proposed — no round has run.
+**References:** [problem-board-process.md](problem-board-process.md) · P1319 · P1320 · P1181 · P1182
+
+## 2026-09-15 [process]: Agent access is an upgrade path for the problem board, not a blocker — and its gate gets an owner (P1321, P1215)
+
+**Context:** The founder wanted members' agents to draft and read problems (P1215) before the event, believing
+the security work was finished. The credential-separation work was finished; the gate P1215 actually waits on
+— P1207 Criterion 1, "is the permission surface safe to build agent access on?" — still read No. On
+2026-09-15 the four fixes never re-probed on production were confirmed closed there (private security log),
+but the remaining items (test/production grant divergence, RLS-scope gate gaps, unallowlisted
+anonymous-callable functions, the audit re-run, P1215's missing authorization architecture) had no owning spec.
+**Decision:** Two tracks. **Track A** (P1319, P1181, P1320, P1182, then the first event) runs with one human
+step each way — a paste into the review page, a download for the reader's agent. **Track B** (new **P1321**:
+answer the gate with evidence and design phase-1 agent access with blind review, no production writes; then
+P1215) removes those steps when it lands and never blocks Track A. Agents never send on any path. At the
+Claude Code Build Day, the reader's v1 is built and the demo opens by stating what already existed; nothing
+from that day counts toward `H-AbsentCounterparty`.
+**Alternatives rejected:** *Tie the event date to P1215* — its own spec requires a reviewed design and an
+audit re-run before any build, so the date would depend on security review outcomes. *"Strengthen security
+later"* — the data at risk is members' private problems; a leak is not reversible.
+**Consequences:** P1215 `blocked_by: [p1321]`; its Open Question 1 records the problem board as a candidate
+hypothesis, pending founder confirmation and a `hypotheses.md` entry via `/slava:maintain:docs-strategy-update`.
+`H-AbsentCounterparty`'s test protocol in `hypotheses.md` still describes the two-person round and needs the
+same handoff. Status: proposed.
+**References:** [problem-board-process.md](problem-board-process.md) · P1321 · P1215 · P1207
+
 ## 2026-09-15 [technical]: "No consumer" is not "dead" — an unused credential that still authenticates is a revocation, and a liveness probe is only evidence with a wrong-credential control (P1316 → P1318)
 
 **Context:** P1316 gave each credential the drift audit flagged as a retirement candidate a verdict by

@@ -6,7 +6,7 @@ rank: 91
 workstream: problem-board
 created_date: '2026-08-28'
 tags: [matching, letters, problem-board, agents]
-blocked_by: [p1180, p1181]
+blocked_by: [p1319]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -56,6 +56,25 @@ driver: heuristic
 
 Full requirements depend on P1180's output and P1181's visibility model.
 
+> **AMENDED 2026-09-15 — what the reader reads, and how it picks.** The corpus is no longer many problems per
+> member: each member posts **one current problem a week** under a short profile (P1319). The reader's agent
+> reads **this week's posted problems** plus its own member's context and returns, per problem worth it,
+> *which claim you can challenge, the position, and the basis* — so a member never reads every problem.
+> Founder, verbatim: *"I don't want to read all problems. I want to find out which one should I look into."*
+>
+> **Coverage, not only fit.** Pure interest leaves some problems unread, and an author left unread stops
+> posting. The agent shows the member's top fits and prefers, among them, problems with the fewest readers so
+> far. Founder framing: *"You can help them, nobody matches them … you can be of service to them."*
+> Host-assigned readers and agent feedback to unpicked authors are parked, not specified.
+>
+> **Open Question 1 below is answered:** the profile is captured at submission time (P1319) and is a matching
+> input.
+>
+> **How it reads, by stage:** v1 reads a list of shared letter links, or a downloaded file of the event's
+> problems handed to the member's own agent — no agent credential. Group-private problems need P1181.
+> Direct agent reads replace the download when P1215 phase 1 exists. The v1 is the Build Day build
+> (docs/problem-board-process.md).
+
 > **Unspecified: how the agent reads the board.** This spec says the agent reads the corpus and never says through what. A likely requirement is an **agent-readable read surface** — a per-submission machine-readable representation an agent fetches with the member's own credential, rather than each agent being handed raw corpus access. Noted 2026-08-29 after reading the Tikkun PRD (kubi-dev/tikkun, PRD-only, no implementation), which specs exactly this: read-only markdown endpoints per problem plus a per-user bearer token. It is a candidate answer to the DEFER'd scaling/privacy risk below, not a decision — cost it before adopting.
 
 ## Risks / Non-Goals
@@ -68,7 +87,7 @@ Full requirements depend on P1180's output and P1181's visibility model.
 
 **Non-Goals**
 - Do NOT add voting or ranking. Ranking is emergent — what got answered.
-- Do NOT build this before P1180 and P1181.
+- ~~Do NOT build this before P1180 and P1181.~~ *Superseded 2026-09-15:* v1 reads shared links or a downloaded file and needs neither; community-private problems need P1181.
 
 ## Done-When
 
@@ -83,9 +102,7 @@ Full requirements depend on P1180's output and P1181's visibility model.
 
 - `docs/decisions.md` 2026-08-12 [product] — the hypothesis this tests, and its falsifier
 - `docs/decisions.md` 2026-08-28 [product] — spec (iii) of three
-- Blocked by P1180 (done). **The P1181 dependency is narrower than this line read until 2026-09-14**
-  — it holds only where the corpus lives **inside the product**, so two members must read each
-  other's submissions. The phase-1 cut hands the counterparty a **file**: nothing is shared, so no
-  shared-visibility model is required, and the assisted version is startable now. The in-product
-  multi-member version keeps the P1181 dependency. Build order and phases:
-  [docs/problem-board-process.md](../docs/problem-board-process.md).
+- **Blocked by P1319** (the weekly problem format it reads). Community-private problems additionally need
+  P1181; direct agent reads need P1215 phase 1. v1 (shared links or a downloaded file) is the Build Day build.
+  Track A in [docs/problem-board-process.md](../docs/problem-board-process.md), rewritten 2026-09-15 —
+  the earlier "phase-1 hands over a file of many problems" cut is superseded.

@@ -6,7 +6,8 @@ rank: 90
 workstream: problem-board
 created_date: '2026-08-28'
 tags: [visibility, privacy, rls, problem-board]
-blocked_by: [p1180]
+blocked_by: []
+blocks: [p1320]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -35,6 +36,20 @@ driver: heuristic
 
 What is known: the **Clarity Organization** container already exists with a join gate and a `community` type, and community feeds were already contemplated for it. That is the likely anchor, not a new concept.
 
+> **AMENDED 2026-09-15 — scope narrowed and sequencing moved earlier.** The problem board's unit became one
+> current problem per member per week (P1319), read by other members at a live event. Most members will not
+> post a current problem publicly, and a shared-by-link letter today requires a **public** story
+> (`seal_and_send_letter` snapshots a story only for `one-to-one` letters or public stories). So this spec is
+> now **needed before the first event**, not after the matcher.
+>
+> **Scope for that event: problem letters only, inside one organisation container** — Open Question 1's
+> container-scoped option ("private but scoped to the whole organization"), not a story-level enum change.
+> Founder framing, verbatim: *"We want the scope towards community members … private means one-to-one, but
+> we know who is the group."* Generalising to all stories and points is out of scope for that cut.
+>
+> The "Do NOT design this before P1180 has run" non-goal below is superseded by this amendment: the
+> requirement is now known from the problem board's own journey rather than from a round.
+
 ## Open Questions — recorded 2026-08-28, none resolved
 
 **1. Can we reuse `private` and widen it to mean "the member and their community", instead of adding a third level?**
@@ -58,8 +73,9 @@ Attractive because it avoids new interface language. **Measured against the code
 | Touches RLS, the repo's most incident-prone area | MITIGATE | Architecture review and tests before implementation |
 
 **Non-Goals**
-- Do NOT design this before P1180 has run. The requirements are its output.
+- ~~Do NOT design this before P1180 has run. The requirements are its output.~~ *Superseded 2026-09-15 — see the amendment in Solution.*
 - Do NOT reuse the name `shared` without saying what it now means.
+- Do NOT generalise beyond problem letters in one organisation container for the first-event cut.
 
 ## Done-When
 
@@ -71,6 +87,6 @@ Attractive because it avoids new interface language. **Measured against the code
 
 - `docs/decisions.md` 2026-08-28 [product] — spec (ii) of three
 - `docs/definitions.md` §Story Visibility Model, §Clarity Organization
-- Blocked by P1180 (done). Sequenced **after the matcher**, not before it — phase 5 of the build
-  order in [docs/problem-board-process.md](../docs/problem-board-process.md). Round one hands over a
-  file rather than sharing in-product, so nothing earlier in that order waits on this spec.
+- Blocked by nothing (P1180 done). **Blocks P1320's community send option and the first event** — Track A
+  in [docs/problem-board-process.md](../docs/problem-board-process.md), rewritten 2026-09-15. *(Until then
+  this line read "sequenced after the matcher"; that ordering is replaced.)*
