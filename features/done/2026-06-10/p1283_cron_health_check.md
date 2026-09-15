@@ -12,6 +12,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 completed_at: 2026-09-14
+created_date: 2026-09-14
 ---
 
 # P1283 — Nothing watches the pg_cron jobs the migrations schedule
