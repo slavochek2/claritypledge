@@ -2,18 +2,15 @@
  * @file 20260908170100_p1236_b_drop_direct_member_insert.spec.ts
  * @description P270 canary for 20260908170100_p1236_b_drop_direct_member_insert.sql (P1315).
  *
- * The migration removes the last client write path onto transcribe_room_members, so a member row
- * can only be created by an RPC that records consent (P1236 Decision 5). This suite pins both
- * halves against the real test DB:
+ * P1236 Decision 5: a member row is written only by an RPC that records consent. This suite pins
+ * that against the real test DB:
  *   - REFUSAL: a signed-in user's direct INSERT of their own seat is rejected, and an admin
  *     readback confirms nothing was written (a refusal that had already written would look the same).
- *   - CONTROL: the consented RPC join still produces a member row with a consent timestamp —
- *     removing the policy must not have broken the room.
+ *   - CONTROL: the consented RPC join still produces a member row with a consent timestamp, and the
+ *     service role can still write — the change must not have broken the room.
  *
- * Limit, stated so it is not inferred: TEST lacked the policy before this file existed (it was
- * dropped there by hand), so this suite was green before the migration too. The red-before proof
- * is src/tests/p1315-reproduce.test.ts (migration history) plus the rolled-back live reproduction
- * recorded in the spec. This suite guards against regression, not against the original gap.
+ * Limit, stated so it is not inferred: this is a regression guard. The migration-history check is
+ * src/tests/p1315-reproduce.test.ts.
  *
  * Two-client pattern from e2e/integration/20260908170000_p1236_join_rpc_consent.spec.ts.
  */

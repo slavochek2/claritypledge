@@ -91,11 +91,9 @@ get_public_agreements_for_profile(uuid)       # a public profile lists its activ
 claim_joiner_seat(text,text)                  # a guest takes the joiner seat by code with no account — src/app/data/api.ts:1118, called from src/app/pages/clarity-live-page.tsx:2988 with user?.id optional
 release_joiner_seat(uuid,text)                # the same guest leaves the room with no account (P1058) — src/app/data/api.ts:1382 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3645 and src/app/components/session/live-session-bar.tsx:38
 #
-# can_read_clarity_session(uuid) and can_read_verification_message(uuid) ARE DELIBERATELY
-# NOT LISTED (2026-09-15). Their anon EXECUTE grant is what lets the child-table policies
-# `TO anon` evaluate at all, but grep finds no anonymous client read of those tables, so
-# rule 1 is not met. Backlog, not allowlist. event_grace_interval() likewise: every caller
-# is a SECURITY DEFINER body, and no client calls it.
+# can_read_clarity_session(uuid), can_read_verification_message(uuid) and
+# event_grace_interval() are NOT LISTED (2026-09-15): no anonymous client call site was
+# found by grep, so rule 1 is not met. Classification is in the private security log.
 #
 # get_transcribe_room_by_code(text) IS DELIBERATELY NOT LISTED. It was added here on
 # 2026-09-10 and removed the same day by adversarial review, because the entry was wrong in
