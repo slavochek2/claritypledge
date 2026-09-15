@@ -8,8 +8,12 @@
 # Idempotent: if the Supabase Storage object for <slug> already exists, downloads
 # it back to ~/Downloads/clarity-event-photo.jpg and exits early.
 #
+# Credential (P1316): the prod service key is read through the per-access lock
+# (scripts/keyring.sh), never from .env.local, and only once an upload is actually needed —
+# an existing banner costs no authorization dialog. A declined dialog stops the script.
+#
 # Failure modes:
-#   - Missing PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local → exit 1
+#   - Prod service key not readable from the keyring (declined / not enrolled) → exit 1
 #   - Missing UNSPLASH_ACCESS_KEY when --unsplash used → exit 1
 #   - Supabase upload non-2xx → exit 2 (likely 401: check service role key)
 #   - sips not on PATH → exit 3 (macOS-only assumption)
@@ -47,18 +51,11 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env.local"
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "ERROR: $ENV_FILE not found" >&2
-  exit 1
-fi
-
-# Source only the two vars we need, tolerantly.
-PROD_SUPABASE_SERVICE_ROLE_KEY="$(grep -E '^PROD_SUPABASE_SERVICE_ROLE_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"' || true)"
-UNSPLASH_ACCESS_KEY="$(grep -E '^UNSPLASH_ACCESS_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"' || true)"
-
-if [[ -z "$PROD_SUPABASE_SERVICE_ROLE_KEY" ]]; then
-  echo "ERROR: PROD_SUPABASE_SERVICE_ROLE_KEY not set in $ENV_FILE" >&2
-  exit 1
+# Only the routine-half Unsplash key comes from the env file, and only on the path that
+# needs it. The prod service key is deliberately NOT read here (see the header).
+UNSPLASH_ACCESS_KEY=""
+if [[ "$USE_UNSPLASH" == "true" && -f "$ENV_FILE" ]]; then
+  UNSPLASH_ACCESS_KEY="$(grep -E '^UNSPLASH_ACCESS_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"' || true)"
 fi
 
 if ! command -v sips >/dev/null 2>&1; then
@@ -118,10 +115,17 @@ fi
 # 3. Resize: max edge 1920px, JPEG quality 80.
 sips -Z 1920 -s format jpeg --setProperty formatOptions 80 "$LOCAL_PATH" >/dev/null
 
-# 4. Upload to Supabase Storage (upsert).
+# 4. Read the prod service key through the per-access lock — one dialog, now that an upload
+#    is certain. keyring_require fails closed: no plaintext fallback, no empty value.
+# shellcheck source=scripts/keyring.sh
+source "$REPO_ROOT/scripts/keyring.sh"
+KEYRING_REASON="event-photo-prep: upload the banner for $SLUG" \
+  keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
+
+# 5. Upload to Supabase Storage (upsert). Headers come from a process substitution, so the
+#    key never appears in curl's argv (visible to every process via ps).
 UPLOAD_STATUS="$(curl -s -o /tmp/event-photo-upload.log -w '%{http_code}' -X POST \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_SERVICE_ROLE_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY") \
   -H "x-upsert: true" \
   -H "Content-Type: image/jpeg" \
   --data-binary "@$LOCAL_PATH" \

@@ -41,11 +41,10 @@ jobs:
         continue-on-error: true
         env:
           PROD_SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
-          # P1214: the scoped Database:Read token is preferred; while this secret is unset the
-          # script falls back to the master key and says `credential=service-role-FALLBACK` in
-          # the summary. Once the secret exists, delete the master-key secret line below.
+          # P1214/P1316: the scoped Database:Read token is the only credential. The master-key
+          # secret was removed once a scheduled run reported `credential=scoped-read-only`
+          # (2026-09-15); the script no longer has a fallback, so an unset token is exit 2.
           SUPABASE_READONLY_TOKEN: ${{ secrets.SUPABASE_READONLY_TOKEN }}
-          PROD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           # Capture the count line for the issue body. The script prints the count
           # on stdout and everything identifying on stderr, so stdout is safe to
@@ -104,11 +103,11 @@ jobs:
 
           | code | what it means |
           |---|---|
-          | \`missing_service_role_key\` | the prod service-role secret is absent from this repo's Actions secrets, or empty |
-          | \`auth_api_call_failed\` | the secret exists but prod's auth admin API refused or was unreachable (rotated key, outage) |
+          | \`missing_credential\` | the scoped read-only token secret is absent from this repo's Actions secrets, or empty |
+          | \`readonly_query_failed\` | the token exists but the read-only query endpoint refused or was unreachable (revoked token, outage) |
+          | \`readonly_role_cannot_see_all_rows\` | the read-only role lost RLS bypass, so a count would silently under-report |
           | \`jq_not_installed\` | the runner image lost \`jq\` |
           | \`unparseable_api_response\` | the API answered with something that is not the expected shape |
-          | \`page_limit_reached_window_incomplete\` | more than 1000 auth users; this check does not paginate and would under-report |
 
           Triage: run \`./scripts/check-stranded-signups.sh\` locally — stderr carries the full detail, which is deliberately not published here because it can contain user email addresses. Run log: $RUN_URL"
           fi

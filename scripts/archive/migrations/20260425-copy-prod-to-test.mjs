@@ -52,7 +52,12 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const PROD_KEY = env.PROD_SUPABASE_SERVICE_ROLE_KEY;
+// Prod service key through the per-access lock (P1316), never the plaintext copy. Read eagerly,
+// so every step raises one dialog — acceptable for an archived one-off that is not re-run (its
+// env path above already predates the move into scripts/archive/). No scoped credential serves a
+// REST export that must bypass RLS, which is why a read sits behind the write lock here.
+const { keyringGet } = await import('../../lib/keyring.mjs');
+const PROD_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'copy-prod-to-test (archived migration): export founder rows from prod');
 const TEST_KEY = env.TEST_SUPABASE_SERVICE_ROLE_KEY;
 const MGMT_TOKEN = env.SUPABASE_ACCESS_TOKEN;
 const TEST_DB_URL = env.SUPABASE_DB_URL;

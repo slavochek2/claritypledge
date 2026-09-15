@@ -4,7 +4,8 @@
  *
  * Usage: npx tsx scripts/create-event.ts events/ai-run-2.json
  *
- * Reads PROD_SUPABASE_SERVICE_ROLE_KEY and PROD_SUPABASE_ANON_KEY from .env.local.
+ * Reads the prod service key through the per-access lock (scripts/lib/keyring.mjs, P1316):
+ * one authorization dialog per run, never a plaintext copy from .env.local.
  * No credentials needed on the command line.
  *
  * Prints on success:
@@ -13,28 +14,12 @@
  */
 
 import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { resolveOrg } from '../src/app/prototypes/events/org-defaults';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, '..');
-
-// Load .env.local
-const envFile = resolve(repoRoot, '.env.local');
-const env: Record<string, string> = {};
-for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-}
+import { keyringGet } from './lib/keyring.mjs';
 
 const SUPABASE_URL = 'https://besjtuodziykmjidubzw.supabase.co';
-const SERVICE_ROLE_KEY = env['PROD_SUPABASE_SERVICE_ROLE_KEY'];
-if (!SERVICE_ROLE_KEY) {
-  console.error('ERROR: PROD_SUPABASE_SERVICE_ROLE_KEY not found in .env.local');
-  process.exit(1);
-}
 
 const inputPath = process.argv[2];
 if (!inputPath) {
@@ -87,6 +72,9 @@ function generateSlug(title: string): string {
   return `${titleSlug}-${dateStr}-${randomSuffix}`;
 }
 
+// Read only after the input has validated, so a bad file never costs an authorization dialog.
+// keyringGet throws on a declined dialog — no plaintext fallback, no empty value.
+const SERVICE_ROLE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', `create-event: insert "${input.title}" on prod`);
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 /**

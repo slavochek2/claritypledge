@@ -7,30 +7,16 @@
  *   npx tsx scripts/update-webinar-descriptions.ts            # dry run — shows affected slugs
  *   npx tsx scripts/update-webinar-descriptions.ts --confirm  # updates prod
  *
- * Reads PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local.
+ * Reads the prod service key through the per-access lock (scripts/lib/keyring.mjs, P1316).
  */
 
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, '..');
-
-const envFile = resolve(repoRoot, '.env.local');
-const env: Record<string, string> = {};
-for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-}
-
-const SERVICE_ROLE_KEY = env['PROD_SUPABASE_SERVICE_ROLE_KEY'];
-if (!SERVICE_ROLE_KEY) {
-  console.error('ERROR: PROD_SUPABASE_SERVICE_ROLE_KEY not found in .env.local');
-  process.exit(1);
-}
+// Prod service key through the per-access lock (P1316) — throws on a declined dialog,
+// never falls back to a plaintext copy.
+const { keyringGet } = await import('./lib/keyring.mjs');
+const SERVICE_ROLE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'update-webinar-descriptions: read and patch webinar events on prod');
 
 const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
 

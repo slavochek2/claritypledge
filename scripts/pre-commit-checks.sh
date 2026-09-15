@@ -819,8 +819,8 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
         # substitutes at execution time, never a value in the file. .github/workflows/ is not
         # in the path-exclusion list above (deliberately — a workflow can leak a real value),
         # so without this a workflow could not reference a secret whose NAME happens to match
-        # a pattern above. P1257: stranded-signups.yml needs PROD_SUPABASE_SERVICE_ROLE_KEY,
-        # which matches `SUPABASE_SERVICE`.
+        # a pattern above. P1257 added this for a service-role secret reference in
+        # stranded-signups.yml (removed by P1316); any such NAME matches `SUPABASE_SERVICE`.
         #
         # LIMIT, stated precisely because an earlier version of this comment overstated it:
         # every exclusion here applies PER LINE, so a hardcoded value sharing a line with a

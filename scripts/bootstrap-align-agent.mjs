@@ -67,15 +67,23 @@ if (envLocal.VITE_SUPABASE_URL && envLocal.VITE_SUPABASE_URL.replace(/\/+$/, '')
 // that was duplication, not a second fact. PROD_ALIGN_AGENT_EMAIL still wins when
 // present, so the agent can be moved off the ops address without editing this file.
 const AGENT_EMAIL = envLocal.PROD_ALIGN_AGENT_EMAIL || envLocal.OPS_EMAIL;
-const SERVICE_KEY = envLocal.PROD_SUPABASE_SERVICE_ROLE_KEY;
 const ANON_KEY = envLocal.PROD_SUPABASE_ANON_KEY;
 
 const missing = Object.entries({
   'OPS_EMAIL (or PROD_ALIGN_AGENT_EMAIL)': AGENT_EMAIL,
-  PROD_SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
   PROD_SUPABASE_ANON_KEY: ANON_KEY,
 }).filter(([, v]) => !v).map(([k]) => k);
 if (missing.length) die(`Missing from .env.local: ${missing.join(', ')}`);
+
+// The prod service key comes through the per-access lock (P1239/P1316), never from
+// .env.local. keyringGet throws on a declined dialog — no plaintext fallback, no empty value.
+const { keyringGet } = await import('./lib/keyring.mjs');
+let SERVICE_KEY;
+try {
+  SERVICE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'bootstrap-align-agent: provision the agent identity on prod');
+} catch (err) {
+  die(err.message);
+}
 
 // ── The auth password: generated here, not supplied ─────────────────────────
 // This is the agent's SUPABASE AUTH password — a different secret from the mailbox

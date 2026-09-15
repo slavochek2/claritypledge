@@ -42,6 +42,11 @@ const env = Object.fromEntries(
 const FOUNDER_EMAIL = env.COPY_PROD_FOUNDER_EMAIL;
 const MEET_URL = 'https://claritypledge.com/meet';
 
+// The prod service key comes through the per-access lock (P1316), read lazily and once, so a
+// --env=test run never raises a dialog. keyringGet throws on a declined dialog.
+const { keyringGet } = await import('../../lib/keyring.mjs');
+let prodKey;
+
 const ENVS = {
   test: {
     ref: 'gfjctyxqlwexxwsmkakq',
@@ -52,7 +57,9 @@ const ENVS = {
   prod: {
     ref: 'besjtuodziykmjidubzw',
     apiBase: 'https://besjtuodziykmjidubzw.supabase.co/rest/v1',
-    key: env.PROD_SUPABASE_SERVICE_ROLE_KEY,
+    get key() {
+      return (prodKey ??= keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'p1055 cmp-points (archived migration): create Points on prod'));
+    },
     siteBase: 'https://claritypledge.com',
   },
 };

@@ -90,16 +90,14 @@ if ! command -v jq >/dev/null 2>&1; then
   cannot_run jq_not_installed
 fi
 
-# CREDENTIAL (P1214). This check only READS auth.users, so it prefers the scoped
-# `Database: Read` token over the prod master key. Measured 2026-09-15: that token runs as
-# supabase_read_only_user, which bypasses RLS and reads auth.users in full.
+# CREDENTIAL (P1214, P1316). This check only READS auth.users, so it holds only the scoped
+# `Database: Read` token. Measured 2026-09-15: that token runs as supabase_read_only_user,
+# which bypasses RLS and reads auth.users in full.
 #
-# The master-key path stays ONLY as a visible fallback while the CI secret is being
-# provisioned. Two rules keep the fallback from quietly becoming permanent:
-#   - it is taken only when NO scoped token is present — a scoped token that FAILS is
-#     exit 2, never a silent retry on the stronger credential;
-#   - the stdout summary names the credential used, so a CI run still on the fallback says
-#     so in the issue body rather than only on the stderr that CI drops.
+# There is no master-key fallback. It existed while the CI secret was being provisioned and
+# was removed once a scheduled run reported `credential=scoped-read-only` (2026-09-15). A
+# missing or failing scoped token is exit 2 — never a retry on a stronger credential. The
+# stdout summary still names the credential, so the issue body shows what the run held.
 RO_TOKEN="${SUPABASE_READONLY_TOKEN:-$(env_value SUPABASE_READONLY_TOKEN)}"
 CREDENTIAL=""
 
@@ -133,26 +131,11 @@ if [ -n "$RO_TOKEN" ]; then
   fi
   response="$(printf '%s' "$raw" | jq -c '.[0].r')" || cannot_run unparseable_api_response
 else
-  CREDENTIAL="service-role-FALLBACK"
-  SERVICE_KEY="${PROD_SUPABASE_SERVICE_ROLE_KEY:-$(env_value PROD_SUPABASE_SERVICE_ROLE_KEY)}"
-  if [ -z "$SERVICE_KEY" ]; then
-    echo "check-stranded-signups: neither SUPABASE_READONLY_TOKEN nor PROD_SUPABASE_SERVICE_ROLE_KEY is set — cannot query auth users." >&2
-    echo "This is NOT a clean result. Set SUPABASE_READONLY_TOKEN in .env.local (local) or as a secret (CI)." >&2
-    cannot_run missing_credential
-  fi
-  echo "check-stranded-signups: WARNING — no SUPABASE_READONLY_TOKEN; reading auth.users with the prod MASTER key (P1214 fallback)." >&2
-
-  # The admin users endpoint is the only read of auth.users available over REST.
-  # per_page is capped at 1000 by GoTrue; the window below keeps us far under that,
-  # and pagination is asserted rather than assumed (see the total check further down).
-  # Headers from a process substitution, so the master key never appears in argv (ps).
-  response="$(curl -sS -f -X GET \
-    "${PROD_URL}/auth/v1/admin/users?per_page=1000" \
-    -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SERVICE_KEY" "$SERVICE_KEY") 2>&1)" || {
-    echo "check-stranded-signups: prod auth API call failed:" >&2
-    echo "$response" >&2
-    cannot_run auth_api_call_failed
-  }
+  # No master-key fallback (P1316). CI proved the scoped token on 2026-09-15, so a missing
+  # token is a broken check to report, never a reason to reach for a stronger credential.
+  echo "check-stranded-signups: SUPABASE_READONLY_TOKEN is not set — cannot query auth users." >&2
+  echo "This is NOT a clean result. Set SUPABASE_READONLY_TOKEN in .env.local (local) or as a secret (CI)." >&2
+  cannot_run missing_credential
 fi
 
 # A signup is "stranded" when all of:
@@ -182,15 +165,10 @@ stranded="$(printf '%s' "$response" | jq --arg grace "$GRACE_HOURS" --arg window
 }
 count="$(printf '%s' "$stranded" | jq 'length')"
 
-# Guard against the silent-truncation failure mode: if GoTrue returned a full page,
-# the window may extend past what we actually looked at, and a "0 stranded" answer
-# would be a false negative rather than a result. Only the GoTrue path pages — the SQL
-# path reads every row, so applying the cap there would fail a healthy run at 1000 users.
+# The SQL path reads every row of auth.users in one query, so there is no page to
+# truncate. (The paged GoTrue path, and its full-page guard, left with the master-key
+# fallback in P1316.)
 returned="$(printf '%s' "$response" | jq '.users | length')"
-if [ "$CREDENTIAL" = "service-role-FALLBACK" ] && [ "$returned" -ge 1000 ]; then
-  echo "check-stranded-signups: the API returned a full page (${returned} users); this check does not paginate, so the window is not fully covered." >&2
-  cannot_run page_limit_reached_window_incomplete
-fi
 
 if [ "$WRITE_EMAILS" -eq 1 ]; then
   out_dir="$REPO_ROOT/.private/reports"
