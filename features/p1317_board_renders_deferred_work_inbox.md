@@ -59,8 +59,8 @@ Blast radius: medium. It touches the kanban server and UI, which also serve pp's
 `/slava:maintain:prioritize`, which is a **global** skill
 (`~/.claude/commands/slava/maintain/prioritize/SKILL.md`, outside this repo) also run against pp,
 so its inbox input must be gated to repos that have inbox stores. Reversibility: high, since no
-store format changes and the board change is a git revert. Decision density: two founder calls
-(below), plus a disposition for each of the 16 status-less sections.
+store format changes and the board change is a git revert. Decision density: founder calls made
+2026-09-15 (below); remaining is a disposition for each of the 16 status-less sections.
 
 ## Invariants
 
@@ -92,8 +92,8 @@ store format changes and the board change is a git revert. Decision density: two
 3. **Parse at request time.** Split each store at column-1 `## ` headings outside code fences and
    classify each section per the invariant (open / unparseable), with `due:` (bolded only) and the
    heading title.
-4. **Cards and a dedicated open endpoint.** Each card carries a source badge (public/private), a
-   local ID (not a P-number, outside `next-p-number.sh`'s sequence), `due`, and an open action. The
+4. **Cards and a dedicated open endpoint.** Each card carries a source badge (public/private), its
+   note number (below), `due`, and an open action. The
    action calls a **new inbox endpoint that accepts only an entry ID**. The server resolves the
    canonical store and the heading line and opens the editor at that line (the existing
    `code -r <path>` at `api.ts:955` cannot target a line). The generic path-based `/api/open` is
@@ -122,18 +122,33 @@ store format changes and the board change is a git revert. Decision density: two
 8. **Loopback bind.** `app.listen(PORT)` at `api.ts:1096` passes no host. Bind to loopback before any
    private data is served (this also closes the same exposure for the existing opportunities board).
 
-[FOUNDER DECISION 1: where do inbox cards live? (a) their own "Inbox" column, so WIP limits on
-today/week/in-progress keep meaning "committed specs" and leaving Inbox is a `/prioritize` verdict;
-(b) placed into week/month by `due:`. Under (b), `week` would receive about 56 cards (35 public + 14
-private due-week, plus 7 open public entries with no `due:`, which `/weekly` treats as week) against
-a limit of 10, before any of the 16 status-less sections are counted. Recommendation: (a).]
+9. **Stable note numbers, stored in the note.** Every entry carries a bold `ID` line: `N<n>` in the
+   public store, `NP<n>` in the private store (e.g. `N12`, `NP7`). The number is written into the
+   entry, never derived from its position, so deleting one note renumbers nothing. Each store keeps
+   its own counter in a bold `Next ID` header line, and numbers are never reused. Separate sequences
+   per store, so public numbering reveals nothing about how many private notes exist. `/note`
+   assigns the ID and advances the counter when it files an entry. The census (Solution 6) backfills
+   IDs on every existing entry. The `N` prefix was unused in the repo on 2026-09-15 (grep over
+   `features/`, `docs/`, the notes store, `/note` and `tools/kanban`). A missing or duplicate ID
+   renders the section as unparseable.
 
-[FOUNDER DECISION 2: may `/slava:maintain:prioritize` resolve and drop inbox entries (Solution 7),
-or does closing stay exclusive to `/weekly` step 2.5? Recommendation: allow it. Step 2.5 has been the
-only exit since 2026-08-14 and defaults to keep; a second exit that must reach a verdict per entry is
-the part that can shrink the queue.]
+**Founder decisions (2026-09-15):**
+1. **Inbox cards get their own "Inbox" column.** WIP limits on today/week/in-progress keep meaning
+   committed specs; leaving Inbox is a `/prioritize` verdict. (Rejected: placing by `due:`, which
+   would put about 56 cards into `week` against a limit of 10.)
+2. **`/slava:maintain:prioritize` may resolve and drop inbox entries** (Solution 7). `/weekly` step
+   2.5 remains a second exit.
+3. **`/architect` is skipped.** The design was settled by three reviews (see Reviews). Condition:
+   before any code, `/dev` records in this spec where the enable setting lives so that both launch
+   paths turn it on and pp resolves to off.
+4. **A note and a spec never both track the same item.** Promotion is a move, not a link: the spec
+   is filed and the note is deleted in the same step. No spec points to an open note for status, so
+   closing a spec never has to reach back into the notes file. (Rejected: a public spec per note
+   holding the status, which gives every item two records to keep in sync and reveals the existence,
+   timing and count of private notes.)
+5. **Notes are numbered `N<n>` / `NP<n>`** (Solution 9).
 
-Stable-ID scheme, config location, the parsing module and the UI treatment belong to `/architect`.
+The parsing module's location and the UI treatment are left to `/dev`.
 
 ## Risks / Non-Goals
 
@@ -146,12 +161,15 @@ Stable-ID scheme, config location, the parsing module and the UI treatment belon
 | Visibility without closure just relocates the pile | MITIGATE | Solution 7 + the 30-day Done-When target with a pre-committed consequence |
 | Census rewrites 16 hand-written sections under time pressure | MITIGATE | One recorded disposition per section before implementation, separate commit |
 | 82+ cards swamp the board | MITIGATE | Founder decision 1 + first `/prioritize` pass |
-| IDs change when a heading is edited | ACCEPT | IDs are local and nothing stores them; revisit only if a skill starts referencing them |
+| Hand-edited ID lines collide or go missing | MITIGATE | `/note` assigns IDs from the store's counter; a missing or duplicate ID renders as unparseable (Solution 9) |
+| `/note` and the counter race when two sessions file at once | ACCEPT | Duplicate surfaces as an unparseable card and is fixed by hand; concurrent `/note` on one store is rare |
 
 **Non-Goals**
 - Do NOT convert inbox entries into P-number specs, except through a separately run `/create-spec` after a promote recommendation.
 - Do NOT support editing, dragging or closing entries from the board UI.
-- Do NOT change the inbox file format, `/note`'s routing, or the `/weekly` and `/monthly` readers.
+- Do NOT change the inbox file format beyond the additive `ID` and `Next ID` lines, `/note`'s
+  public/private routing, or the `/weekly` and `/monthly` readers.
+- Do NOT create a spec that points to an open note; promotion moves the item (decision 4).
 - Do NOT change pp's board behaviour, or `/prioritize`'s behaviour against pp.
 - Do NOT widen the generic `/api/open` allowlist.
 
@@ -171,7 +189,10 @@ Stable-ID scheme, config location, the parsing module and the UI treatment belon
 - [ ] `lsof -iTCP -sTCP:LISTEN` shows the API bound to loopback only
 - [ ] pp's board, launched with its unchanged launcher, shows no inbox column or state (screenshot); `/prioritize` run on pp shows no inbox input
 - [ ] Every one of the 16 status-less sections has a recorded disposition and is conformed; `.claude/process-learnings.md` is folded and removed with no remaining reference
-- [ ] Both founder decisions recorded in this spec
+- [ ] Every open entry carries a unique `N<n>` / `NP<n>` ID and each store has a `Next ID` line; the card shows the ID
+- [ ] Filing two notes with `/note` gives consecutive IDs; deleting an earlier note leaves the later note's ID unchanged on the board
+- [ ] A fixture with a duplicate ID and one with no ID each render as unparseable
+- [ ] The promote path files the spec and deletes the note in one step; no spec in `features/` references an open note ID
 - [ ] First `/slava:maintain:prioritize` pass over inbox cards run; resolve / drop / keep / promote counts recorded
 - [ ] Open total (public + private) recorded on the day of that pass. `[post-ship]` Re-count 30 days
       later: if the total has not fallen below it, intake throttling (P1081's standing fallback) is
