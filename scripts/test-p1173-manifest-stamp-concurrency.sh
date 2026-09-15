@@ -104,6 +104,11 @@ build_repo() {
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
   cp "$REAL_STAMP"   "$PDIR/scripts/stamp-deploy-manifest.sh"
   cp -R "$REPO_ROOT/scripts/lib" "$PDIR/scripts/lib"
+  # P1214: prod runs read the token through the keyring — real keyring.sh, stubbed keychain.py,
+  # so no real keychain read and no real dialog.
+  cp "$REPO_ROOT/scripts/keyring.sh" "$PDIR/scripts/keyring.sh"
+  printf 'import sys\nif len(sys.argv) >= 3 and sys.argv[1] == "get":\n    sys.stdout.write("sbp-canary-not-a-token"); sys.exit(0)\nsys.exit(1)\n' \
+    > "$PDIR/scripts/lib/keychain.py"
   printf 'export const x = 1;\n' > "$PDIR/supabase/functions/demo-fn/index.ts"
   printf '#!/usr/bin/env node\nprocess.exit(0);\n' > "$PDIR/scripts/prod-smoke-test.mjs"
   chmod +x "$PDIR/scripts"/*.sh "$PDIR/scripts/prod-smoke-test.mjs"

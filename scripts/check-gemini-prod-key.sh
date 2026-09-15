@@ -154,6 +154,27 @@ LOCAL_DIGEST="$(printf '%s' "$LOCAL_KEY" | shasum -a 256 | awk '{print $1}')"
 # a false green — but a monitor that silently stops monitoring is still the thing this spec exists
 # to prevent. Parsing is structural (json.load), not grep/sed: a second secret whose name merely
 # CONTAINS GEMINI_API_KEY would otherwise yield two digests and a spurious mismatch.
+#
+# CREDENTIAL (P1214). Listing secret digests needs a management token, and this check runs
+# DAILY. It deliberately does NOT read the locked keyring: a daily dialog is the friction P1214
+# exists to remove (decisions.md 2026-09-08). It prefers a token scoped to reading secrets —
+# SUPABASE_SECRETS_READ_TOKEN, from the environment or .env.local — passed to the CLI through
+# the environment, never argv. Until one exists it falls back to the Supabase CLI's saved login
+# and says so on stderr every run; that fallback is the only thing still keeping that saved
+# login alive, so `supabase logout` waits on the scoped token. (Measured 2026-09-15: the
+# `Database: Read` token gets 403 on /secrets, so it cannot stand in here.)
+SECRETS_TOKEN="${SUPABASE_SECRETS_READ_TOKEN:-}"
+if [ -z "$SECRETS_TOKEN" ]; then
+  _gemini_env_file="$(git rev-parse --show-toplevel 2>/dev/null)/.env.local"
+  if [ -r "$_gemini_env_file" ]; then
+    SECRETS_TOKEN="$(sed -n 's/^SUPABASE_SECRETS_READ_TOKEN=//p' "$_gemini_env_file" | tail -n 1 | sed -e 's/^"//' -e 's/"$//')"
+  fi
+fi
+if [ -n "$SECRETS_TOKEN" ]; then
+  export SUPABASE_ACCESS_TOKEN="$SECRETS_TOKEN"
+else
+  echo "check-gemini-prod-key: WARNING — no SUPABASE_SECRETS_READ_TOKEN; listing prod secrets via the Supabase CLI's saved login (P1214 fallback)." >&2
+fi
 DEPLOYED_JSON="$(npx --yes supabase secrets list --project-ref "$PROD_REF" --output-format json 2>/dev/null)" \
   || die_cannot_run "could not list prod Supabase secrets (CLI missing, not logged in, or network)"
 DEPLOYED_DIGEST="$(printf '%s' "$DEPLOYED_JSON" | python3 -c '

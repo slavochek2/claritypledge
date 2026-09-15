@@ -9,7 +9,7 @@ it never falls back to the plaintext copy and never returns an empty value
 (P1239 Invariants).
 
     from keyring import require
-    token = require("SUPABASE_ACCESS_TOKEN")
+    token = require("EXAMPLE_TOKEN")
 
 Values travel over a pipe, never as a command argument, so they do not appear in
 `ps`. Nothing here logs or prints a value.

@@ -250,14 +250,27 @@ if [ -n "$ENV_NAME" ] && [ -z "$PROJECT_REF" ]; then
   fi
   SUPABASE_URL_VAL=$(grep "^VITE_SUPABASE_URL=" "$ENV_FILE" | cut -d= -f2-)
   PROJECT_REF=$(echo "$SUPABASE_URL_VAL" | sed 's|https://||' | cut -d. -f1)
-  PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
-  if [ -z "$PAT" ]; then
-    PAT_RAW=$(security find-generic-password -s "Supabase CLI" -w 2>/dev/null || true)
-    if [ -n "$PAT_RAW" ]; then
-      PAT=$(echo "$PAT_RAW" | sed 's/go-keyring-base64://' | base64 -d 2>/dev/null || true)
+  # Token resolution (P1214 / P1239):
+  #   1. deploy-functions.sh already unlocked a token FOR THIS REF — reuse it, so one deploy
+  #      raises one dialog. An ambient SUPABASE_ACCESS_TOKEN without the matching marker is
+  #      NOT reused: nobody resolved it for this project.
+  #   2. prod — the locked keyring item only.
+  #   3. test — .env.local's SUPABASE_ACCESS_TOKEN.
+  # The Supabase CLI's saved login is no longer consulted: it reads with no prompt.
+  if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] && [ "${CP_SUPABASE_TOKEN_REF:-}" = "$PROJECT_REF" ]; then
+    :
+  elif [ "$ENV_NAME" = "prod" ]; then
+    # shellcheck source=keyring.sh
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/keyring.sh"
+    if ! KEYRING_REASON="${KEYRING_REASON:-check-edge-function-secrets.sh --env prod}" \
+         keyring_require PROD_SUPABASE_ACCESS_TOKEN; then
+      _safe_echo "ERROR: the prod management token was not unlocked — secrets were NOT checked." >&2
+      exit 2
     fi
+    export SUPABASE_ACCESS_TOKEN="$PROD_SUPABASE_ACCESS_TOKEN"
+  else
+    export SUPABASE_ACCESS_TOKEN="$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)"
   fi
-  export SUPABASE_ACCESS_TOKEN="$PAT"
 fi
 
 if [ -z "$PROJECT_REF" ]; then

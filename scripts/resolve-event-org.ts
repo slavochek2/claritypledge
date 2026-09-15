@@ -63,9 +63,12 @@ for (const line of readFileSync(resolve(repoRoot, '.env.local'), 'utf8').split('
   const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
   if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, '');
 }
-const key = env['PROD_SUPABASE_SERVICE_ROLE_KEY'] ?? env['PROD_SUPABASE_ANON_KEY'];
+// The ANON key only (P1214). `organization` is publicly readable — measured 2026-09-15: the
+// anon key returns every row the scoped read-only credential counts (2 of 2). The master key
+// this used to prefer bought nothing here and put write authority in a read-only lookup.
+const key = env['PROD_SUPABASE_ANON_KEY'];
 if (!key) {
-  console.error('ERROR: no PROD_SUPABASE_SERVICE_ROLE_KEY or PROD_SUPABASE_ANON_KEY in .env.local');
+  console.error('ERROR: no PROD_SUPABASE_ANON_KEY in .env.local');
   process.exit(1);
 }
 

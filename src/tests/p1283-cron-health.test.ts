@@ -20,6 +20,7 @@ import {
   evaluateJobs,
   parsePgTimestamp,
   fetchCronRows,
+  resolveCronCredential,
   cronRowShapeProblem,
   assertCronRows,
   readCronRowsFile,
@@ -233,6 +234,50 @@ describe('P1283 — the two defects that made the first draft of this check usel
   it('throws when the endpoint answers 200 with something that is not an array of rows', async () => {
     const fetchImpl = async () => ({ ok: true, status: 200, text: async () => '{"message":"nope"}' });
     await expect(fetchCronRows({ projectRef: 'x', token: 'y', fetchImpl })).rejects.toThrow(/expected an array/);
+  });
+});
+
+describe('P1214 — cron-health reads on the weakest credential that can do the job', () => {
+  const rows = [{ jobname: 'dispatch_event_emails', active: true, last_ok: null, failed_24h: 0 }];
+  const recordingFetch = (seen: string[]) => async (url: string) => {
+    seen.push(url);
+    return { ok: true, status: 201, text: async () => JSON.stringify(rows) };
+  };
+
+  it('prefers the scoped read-only token over the account-wide one, and does not flag a fallback', () => {
+    const cred = resolveCronCredential({ env: { SUPABASE_READONLY_TOKEN: 'ro', SUPABASE_ACCESS_TOKEN: 'wide' } });
+    expect(cred).toEqual({ token: 'ro', readOnly: true, fallback: false });
+  });
+
+  it('finds the scoped token in the env file when the environment does not carry it', () => {
+    const file: Record<string, string> = { SUPABASE_READONLY_TOKEN: 'ro-file', SUPABASE_ACCESS_TOKEN: 'wide-file' };
+    const cred = resolveCronCredential({ env: {}, readEnvFile: (n: string) => file[n] ?? '' });
+    expect(cred).toEqual({ token: 'ro-file', readOnly: true, fallback: false });
+  });
+
+  it('falls back to the account-wide token ONLY when no scoped token exists, and says so', () => {
+    const cred = resolveCronCredential({ env: { SUPABASE_ACCESS_TOKEN: 'wide' } });
+    expect(cred).toEqual({ token: 'wide', readOnly: false, fallback: true });
+  });
+
+  it('reports no token at all as empty, so the CLI exits 2 rather than calling the API', () => {
+    expect(resolveCronCredential({ env: {} }).token).toBe('');
+  });
+
+  it('sends a read-only credential to the read-only endpoint, and defaults to it when unspecified', async () => {
+    const seen: string[] = [];
+    await fetchCronRows({ projectRef: 'x', token: 'ro', readOnly: true, fetchImpl: recordingFetch(seen) });
+    await fetchCronRows({ projectRef: 'x', token: 'ro', fetchImpl: recordingFetch(seen) });
+    expect(seen).toEqual([
+      'https://api.supabase.com/v1/projects/x/database/query/read-only',
+      'https://api.supabase.com/v1/projects/x/database/query/read-only',
+    ]);
+  });
+
+  it('uses the read-write endpoint only when the caller says the credential is not read-only', async () => {
+    const seen: string[] = [];
+    await fetchCronRows({ projectRef: 'x', token: 'wide', readOnly: false, fetchImpl: recordingFetch(seen) });
+    expect(seen).toEqual(['https://api.supabase.com/v1/projects/x/database/query']);
   });
 });
 

@@ -41,6 +41,10 @@ jobs:
         continue-on-error: true
         env:
           PROD_SUPABASE_URL: https://besjtuodziykmjidubzw.supabase.co
+          # P1214: the scoped Database:Read token is preferred; while this secret is unset the
+          # script falls back to the master key and says `credential=service-role-FALLBACK` in
+          # the summary. Once the secret exists, delete the master-key secret line below.
+          SUPABASE_READONLY_TOKEN: ${{ secrets.SUPABASE_READONLY_TOKEN }}
           PROD_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           # Capture the count line for the issue body. The script prints the count

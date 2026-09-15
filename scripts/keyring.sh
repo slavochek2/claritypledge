@@ -9,11 +9,13 @@
 #
 # Consumers (source this file, then require what you need):
 #     source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-#     keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY
-#     # ... $PROD_SUPABASE_SERVICE_ROLE_KEY is now exported, or we already exited
+#     keyring_require PROD_EXAMPLE_KEY
+#     # ... $PROD_EXAMPLE_KEY is now exported, or we already exited
 #
 # CLI:
 #     ./scripts/keyring.sh enroll [KEY...]   copy key(s) from .env.local into the keychain
+#     ./scripts/keyring.sh enroll-from FILE VAR NAME
+#                                            copy VAR from another env file, locked as NAME
 #     ./scripts/keyring.sh verify            report whether the gate still fires (no dialog)
 #     ./scripts/keyring.sh status            enrolled / not-enrolled per registered key
 #     ./scripts/keyring.sh list              registered critical key names
@@ -170,7 +172,7 @@ _keyring_cmd_enroll() {
       rc=1; continue
     fi
     if ! _keyring_env_value "$key" "$envfile" | grep -q .; then
-      echo "SKIP     ${key} — no value in .env.local" >&2
+      echo "SKIP     ${key} — no value in .env.local (if it lives in another file: enroll-from)" >&2
       rc=1; continue
     fi
     if _keyring_env_value "$key" "$envfile" \
@@ -185,6 +187,39 @@ _keyring_cmd_enroll() {
   echo "The plaintext copies in .env.local were NOT removed — both copies must"
   echo "coexist until the locked path has served every consumer (P1239 Invariants)."
   return $rc
+}
+
+# Enroll a credential from a DIFFERENT env file under an explicit locked name (P1214).
+#
+# Why the name is explicit rather than the source variable's: the prod-tier env file holds
+# its own, DIFFERENT copy of a credential under the same variable name .env.local uses.
+# Enrolling it under that shared name would silently replace the .env.local copy's item —
+# `add` is delete-then-create — and every consumer of the first copy would start reading
+# the second, with no error. A distinct registered name makes the two copies two items.
+_keyring_cmd_enroll_from() {
+  local src="${1:-}" var="${2:-}" name="${3:-}"
+  if [[ -z "$src" || -z "$var" || -z "$name" ]]; then
+    echo "usage: keyring.sh enroll-from ENV_FILE SOURCE_VAR LOCKED_NAME" >&2
+    return 2
+  fi
+  [[ -r "$src" ]] || { echo "keyring: cannot read $src" >&2; return 1; }
+  if ! keyring_is_registered "$name"; then
+    echo "SKIP     ${name} — not in $(basename "$KEYRING_REGISTRY")" >&2
+    return 1
+  fi
+  if ! _keyring_env_value "$var" "$src" | grep -q .; then
+    echo "SKIP     ${name} — no value for ${var} in $(basename "$src")" >&2
+    return 1
+  fi
+  if _keyring_env_value "$var" "$src" \
+       | python3 "$KEYRING_PY" add "$(keyring_service_name "$name")"; then
+    echo "ENROLLED ${name} (from $(basename "$src"), variable ${var})"
+  else
+    echo "FAILED   ${name}" >&2
+    return 1
+  fi
+  echo
+  echo "The plaintext copy in $(basename "$src") was NOT removed (P1239 Invariants)."
 }
 
 _keyring_cmd_verify() {
@@ -262,6 +297,7 @@ _keyring_cmd_withdraw() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   case "${1:-}" in
     enroll)   shift; _keyring_cmd_enroll "$@" ;;
+    enroll-from) shift; _keyring_cmd_enroll_from "$@" ;;
     verify)   _keyring_cmd_verify ;;
     status)   _keyring_cmd_status ;;
     list)     keyring_keys ;;

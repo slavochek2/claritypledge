@@ -90,6 +90,16 @@ function buildSandbox(): string {
     chmodSync(join(dir, 'scripts', 'lib', lib), 0o755);
   }
 
+  // P1214: a prod run now reads its management token through the keyring. Copy the real
+  // keyring.sh, then overwrite the copied keychain.py with a stub, so this harness never reaches
+  // the login keychain or raises a real authorization dialog. The token it hands back is the
+  // same fake value the env files carry.
+  copyFileSync(resolve(process.cwd(), 'scripts/keyring.sh'), join(dir, 'scripts', 'keyring.sh'));
+  writeFileSync(
+    join(dir, 'scripts', 'lib', 'keychain.py'),
+    'import sys\nif len(sys.argv) >= 3 and sys.argv[1] == "get":\n    sys.stdout.write("sbp_fake_pat_for_harness"); sys.exit(0)\nsys.exit(1)\n',
+  );
+
   // Fake env files — no real credentials anywhere in this harness
   const envBody = [
     'VITE_SUPABASE_URL=https://fakeproject.supabase.co',
@@ -134,7 +144,8 @@ fi
 `,
   );
 
-  // security stub: no keychain PAT → forces the env-file token fallback
+  // security stub: migrate.sh no longer reads the Supabase CLI's saved login (P1214), but the
+  // stub stays so a regression that reintroduces that read can never reach the real keychain
   writeFileSync(join(dir, 'bin', 'security'), '#!/bin/bash\nexit 1\n');
 
   // git stub: coupling-gate ancestry check — exit code injectable per scenario

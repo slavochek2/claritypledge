@@ -84,6 +84,17 @@ run_migrate() {
   mkdir -p "$PDIR/scripts" "$PDIR/supabase/migrations"
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
   cp -R "$REPO_ROOT/scripts/lib" "$PDIR/scripts/lib"
+  # P1214: a prod run reads its token through the keyring. Copy the real keyring.sh, but
+  # overwrite the copied keychain.py with a stub so this canary never reaches the login
+  # keychain or raises a real dialog. STUB_KEYCHAIN_DECLINE=1 emulates a declined dialog.
+  cp "$REPO_ROOT/scripts/keyring.sh" "$PDIR/scripts/keyring.sh"
+  cat > "$PDIR/scripts/lib/keychain.py" <<'STUB'
+import os, sys
+if len(sys.argv) >= 3 and sys.argv[1] == "get" and os.environ.get("STUB_KEYCHAIN_DECLINE") != "1":
+    sys.stdout.write("sbp-canary-not-a-token")
+    sys.exit(0)
+sys.exit(1)
+STUB
 
   # stamp-deploy-manifest.sh: unlike a plain `exit 0` stub, actually rewrite the
   # tracked manifest so `git status`/`git diff` in the scenario dir can prove
@@ -281,6 +292,30 @@ if [ "$RC" -ne 0 ] && grep -q 'FAILED' <<< "$OUT" \
 else
   echo "  FAIL mixed-outcome-no-stamp — expected non-zero exit, a FAILED line, and deploy-manifest.json untouched; got exit $RC, status:"
   printf '%s\n' "$STATUS" | sed 's/^/         /'
+  FAIL=$((FAIL+1))
+fi
+
+# --- P1214: a DECLINED keyring dialog stops a prod run before anything is applied ---
+# The fixture's .env.prod still carries a plaintext SUPABASE_ACCESS_TOKEN. A migrate.sh that
+# fell back to it — or to the Supabase CLI's saved login — would carry on and apply, so this
+# scenario is the control that the prod token comes from the lock and nowhere else.
+S=prod_keyring_declined
+mkdir -p "$TMPROOT/$S/supabase/migrations"
+cat > "$TMPROOT/$S/supabase/migrations/20260810140000_p1038_featureA.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.feature_a (id uuid PRIMARY KEY);
+SQL
+export STUB_KEYCHAIN_DECLINE=1
+run_migrate "$S" '[]' prod yes
+unset STUB_KEYCHAIN_DECLINE
+RC=$(cat "$TMPROOT/$S/exit.code")
+OUT=$(cat "$TMPROOT/$S/out.log")
+if [ "$RC" -ne 0 ] && grep -q 'was not unlocked — nothing was applied' <<< "$OUT" \
+   && ! grep -qE 'Applied [0-9]+ new migration' <<< "$OUT"; then
+  echo "  OK   keyring-declined-applies-nothing — a declined dialog exits non-zero before any apply, with no plaintext fallback"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL keyring-declined-applies-nothing — expected non-zero exit, the not-unlocked message, and no apply; got exit $RC"
+  printf '%s\n' "$OUT" | tail -5 | sed 's/^/         /'
   FAIL=$((FAIL+1))
 fi
 

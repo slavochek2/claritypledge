@@ -29,15 +29,22 @@ Bash:
 
 ```bash
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY
-# $PROD_SUPABASE_SERVICE_ROLE_KEY is exported — or we already exited non-zero
+keyring_require PROD_EXAMPLE_KEY
+# $PROD_EXAMPLE_KEY is exported — or we already exited non-zero
 ```
 
 Node:
 
 ```js
 import { keyringGet } from './lib/keyring.mjs';
-const pass = keyringGet('OPS_EMAIL_PASSWORD');   // throws if declined
+const pass = keyringGet('OPS_EXAMPLE_PASSWORD');   // throws if declined
+```
+
+A credential that lives in a **different** env file is enrolled under its own name, so two copies
+that share a variable name stay two items (`add` replaces an item of the same name):
+
+```bash
+./scripts/keyring.sh enroll-from .env.prod SOURCE_VAR LOCKED_NAME   # LOCKED_NAME must be registered
 ```
 
 Both fail closed: a declined dialog or an unenrolled key stops the caller with a

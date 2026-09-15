@@ -102,34 +102,40 @@ async function countWhere(table: string, col: string, value: string): Promise<nu
  * schema rather than from a hand-written one — a hand-written list cannot fail when a
  * new personal-data table is added, which is the property these tests exist to hold.
  */
-function managementToken(): string {
-  // .env.local is where this repo's own tooling keeps the Management API PAT
-  // (scripts/migrate.sh, scripts/check-edge-function-secrets.sh both read it there).
-  // playwright.config.ts loads .env.test.local instead, which may carry an older copy of
-  // the same variable — so read the canonical file first and fall back to the process environment only
-  // when it is absent.
+function readEnvLocal(name: string): string {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const envLocal = path.join(repoRoot, '.env.local');
-  if (fs.existsSync(envLocal)) {
-    const line = fs.readFileSync(envLocal, 'utf8')
-      .split('\n').find((l) => l.startsWith('SUPABASE_ACCESS_TOKEN='));
-    if (line) {
-      const value = line.slice('SUPABASE_ACCESS_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
-      if (value) return value;
-    }
+  if (!fs.existsSync(envLocal)) return '';
+  const line = fs.readFileSync(envLocal, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
+  return line ? line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '') : '';
+}
+
+/**
+ * The census only READS the catalogue, so it prefers the scoped `Database: Read` token on the
+ * read-only endpoint (P1214). The account-wide token stays a fallback, announced every run.
+ *
+ * .env.local before the environment for both: playwright.config.ts loads .env.test.local,
+ * which may carry an older copy of the same variable.
+ */
+function managementToken(): { token: string; readOnly: boolean } {
+  const scoped = readEnvLocal('SUPABASE_READONLY_TOKEN') || process.env.SUPABASE_READONLY_TOKEN || '';
+  if (scoped) return { token: scoped, readOnly: true };
+  const wide = readEnvLocal('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN || '';
+  if (wide) {
+    console.warn('[P520] no SUPABASE_READONLY_TOKEN — catalogue census is using the ACCOUNT-WIDE token (P1214 fallback)');
+    return { token: wide, readOnly: false };
   }
-  const fromEnv = process.env.SUPABASE_ACCESS_TOKEN;
-  if (fromEnv) return fromEnv;
   throw new Error(
-    'SUPABASE_ACCESS_TOKEN is not set in .env.local or the environment. The P520 census ' +
+    'Neither SUPABASE_READONLY_TOKEN nor SUPABASE_ACCESS_TOKEN is set in .env.local or the environment. The P520 census ' +
     'tests need catalogue access; without it the census is unproven, so this fails rather than skips.',
   );
 }
 
 async function catalogQuery<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  const token = managementToken();
+  const { token, readOnly } = managementToken();
   const ref = new URL(process.env.VITE_SUPABASE_URL!).hostname.split('.')[0];
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+  const endpoint = readOnly ? '/database/query/read-only' : '/database/query';
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}${endpoint}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: sql }),

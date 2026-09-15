@@ -101,16 +101,30 @@ def resolve_credentials(env_name, prefer_readonly=True):
         The scoped token executes as supabase_read_only_user even on the read-write
         endpoint, and that role is not a member of anon:
             ERROR: 42501: permission denied to set role "anon"
-        So this leg still needs the account-wide token.
+        So this leg needs a token that can write — but only on TEST.
 
     Splitting them is what removes PRODUCTION-management authority from this script
-    entirely: the account-wide token is now reached only for test-project probes, and
-    every prod call uses the reduced credential.
+    entirely: every prod call uses the reduced credential.
+
+    The guard leg prefers SUPABASE_TEST_WRITE_TOKEN — a token scoped to the TEST project with
+    Database read-write (P1214, 2026-09-15) — and only falls back to the account-wide token
+    when that is absent; the returned `source` then names the account-wide token, which the
+    caller prints. Whether that scoped token's role may assume `anon` is UNMEASURED until one
+    is issued. It does not need to be trusted in advance: probe_self_check runs a positive and
+    a negative control through the identical role switch, so a token that cannot SET ROLE anon
+    reports the guard leg BLIND rather than every function as refused.
 
     The default is the weaker credential on purpose. If a future leg needs more, it
     must ask for it explicitly and say why — the failure this guards against is a
     caller silently inheriting a stronger token than its job requires.
     """
+    if not prefer_readonly and env_name == "test":
+        env_file = _rls.find_env_file(".env.local")
+        write_token = (os.environ.get("SUPABASE_TEST_WRITE_TOKEN")
+                       or _rls.read_env_value(env_file, "SUPABASE_TEST_WRITE_TOKEN"))
+        if write_token:
+            ref, _, _ = _rls.resolve_credentials(env_name, prefer_readonly=True)
+            return ref, write_token, "SUPABASE_TEST_WRITE_TOKEN (test-project scoped, read-write)"
     return _rls.resolve_credentials(env_name, prefer_readonly=prefer_readonly)
 
 API_HOST = "https://api.supabase.com"

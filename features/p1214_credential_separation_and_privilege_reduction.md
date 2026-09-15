@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 disclosure: public
 rank: 1000063
@@ -7,8 +7,8 @@ workstream: keyring
 created_date: '2026-09-01'
 tags: [security, credentials, least-privilege, supabase]
 related: [p1148, p1186, p998, p1189, p1239]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -281,10 +281,13 @@ for values; this applies it to the registry.
       pass (detector-liveness probe; zero exits 2, never 0)
 - [x] Both scripts prefer `SUPABASE_READONLY_TOKEN` and announce the account-wide fallback on every
       run, so the reduction cannot be quietly left half-done
-- [ ] **FOUNDER STEP:** issue a project-scoped `Database: Read` token in the Supabase dashboard and
+- [x] **FOUNDER STEP:** issue a project-scoped `Database: Read` token in the Supabase dashboard and
       set `SUPABASE_READONLY_TOKEN`. Until then the daily path still *holds* production-management
       authority even though it can no longer *use* it for writes. The account may not have the
       alpha yet — if the permission selector is absent when creating a token, that is the signal.
+      **Done** (issued 2026-09-14, in both env files). Measured live 2026-09-15: it runs as
+      `supabase_read_only_user` with `rolbypassrls = true`, reads `auth.users`, `cron`, `net` and
+      `storage`, and gets 403 on `/secrets` and `/functions`.
 - [x] `function-grant-drift-check.py` — the third consumer — split by leg (2026-09-14). Its grant
       leg (one SELECT per environment, **both test and prod**) now uses the scoped read-only
       credential; its guard leg (`SET LOCAL ROLE anon`, **test only**) still needs the account-wide
@@ -294,7 +297,49 @@ for values; this applies it to the registry.
       any more.** Output verified byte-identical, guard probe verified still running.
 - [ ] Remaining account-wide use: the test-project guard probe. Closing it needs a second scoped
       token with Database **Read-write** (still far narrower than account-wide), or a dedicated role
-      that may assume `anon`. Not done — deliberately deferred, it is test-only exposure.
+      that may assume `anon`. **Code done 2026-09-15:** the guard leg (and e2e p1222 / p506, which
+      also write on test) prefer `SUPABASE_TEST_WRITE_TOKEN` and announce the account-wide fallback
+      while it is absent. **Open: FOUNDER issues the test-project read-write token.** Whether its role
+      may `SET ROLE anon` is unmeasured; `probe_self_check` reports the leg BLIND if it cannot.
+
+### Consumer migration — every consumer of a critical credential, one verdict each (2026-09-15)
+
+Decided in conversation 2026-09-15 over a per-file census (read, not grepped): **(b) a weaker
+credential** for every consumer that only reads, **(a) the per-access lock** for genuine writes.
+Credential identifiers stay out of this file (P1239 rule); the per-file table lives in the session
+record and the private security log.
+
+- [x] One read-only query helper (`scripts/supabase-readonly-sql.py`) holds only the scoped read token,
+      has **no** fallback to a write-capable credential, and refuses to return rows when its role does
+      not bypass RLS. Canary 9/9; two mutants (a plaintext fallback, a skipped bypass check) each fail it.
+- [x] Reads moved onto it: `/day-cp` (activity, funnel, transcription, email and cron blocks), `/weekly`,
+      `/promote-dm`, `/sync-ghost-members`, `/abandoned-points` (read + backup legs), `/mutate-stories`
+      (verify legs). `/day-cp` parity on prod: 12 of 13 sections byte-identical to the master-key version;
+      the 13th differed only because the old cron query was malformed shell and had not been running —
+      fixed in the same line, now returns all 4 jobs.
+- [x] `check-stranded-signups.sh` on the scoped token (count identical to the master-key version; a bad
+      scoped token exits 2 and does **not** fall back); `check-cron-health.mjs` local path on the
+      read-only endpoint (4/4 healthy; 6 new unit tests); `resolve-event-org.ts` on the anon key only
+      (anon reads every organization row).
+- [x] The prod-tier env file's management token and DB connection string are enrolled in the lock under
+      their own names (`keyring.sh enroll-from`), so the two copies stay two items. `verify`: PASS, 14 items.
+- [x] Prod writers read the lock at the moment of the write: `migrate.sh` and `deploy-functions.sh`
+      (`--env prod`), `check-edge-function-secrets.sh` (one dialog per deploy, not two), `/publish`,
+      `/promote-to-prod`, `/create-letter`, `/create-letter-from-transcript`, `/mutate-stories` COMMIT,
+      `/abandoned-points` DELETE. Canaries: a declined dialog applies nothing and deploys nothing, with a
+      plaintext token sitting in the fixture's env file.
+- [x] No script reads the Supabase CLI's saved login any more except `check-gemini-prod-key.sh`, which
+      prefers `SUPABASE_SECRETS_READ_TOKEN` and warns on every run while it falls back.
+- [ ] Independent hostile review of the diff (Codex), every finding verified by command before being
+      accepted or rejected.
+- [ ] **FOUNDER:** issue a token scoped to reading edge-function secrets and set
+      `SUPABASE_SECRETS_READ_TOKEN`, then run `supabase logout`. The daily Gemini-key check is the last
+      reader of the CLI's saved login, which any process can read with no prompt. Whether the scoped-token
+      alpha offers a secrets-read permission is **unverified**.
+- [ ] **FOUNDER:** add `SUPABASE_READONLY_TOKEN` as a GitHub Actions secret; then remove the prod master
+      key from the stranded-signups workflow. Until then its summary line says `credential=service-role-FALLBACK`.
+- [ ] The first real prod `migrate.sh` / deploy / publish runs on the locked path (one dialog each), and
+      P1239's prompt count starts only after that — not before.
 
 ### Original
 

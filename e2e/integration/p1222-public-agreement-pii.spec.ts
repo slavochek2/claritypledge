@@ -62,18 +62,25 @@ async function managementQuery(sql: string): Promise<Record<string, unknown>[] |
   // .env.local first: Playwright's dotenv loads .env.test.local, whose access
   // token is a different (stale) PAT on this machine — the P1173-era keychain
   // shadow. The repo's .env.local holds the live one.
-  let token: string | undefined;
-  {
-    try {
-      const fs = await import('node:fs');
-      const path = await import('node:path');
-      const envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
-      token = envFile.match(/^SUPABASE_ACCESS_TOKEN=(.+)$/m)?.[1]?.trim().replace(/^"|"$/g, '');
-    } catch {
-      token = undefined;
-    }
+  //
+  // These checks WRITE on the test project (UPDATE auth.users, CREATE POLICY), so they prefer
+  // SUPABASE_TEST_WRITE_TOKEN — scoped to the test project with Database read-write (P1214) —
+  // and fall back to the account-wide token only when it is absent, saying so.
+  let envFile = '';
+  try {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
+  } catch {
+    envFile = '';
   }
-  token = token || process.env.SUPABASE_ACCESS_TOKEN;
+  const fromFile = (name: string) =>
+    envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
+  let token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
+  if (!token) {
+    token = fromFile('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN;
+    if (token) console.warn('[P1222] no SUPABASE_TEST_WRITE_TOKEN — using the ACCOUNT-WIDE token on test (P1214 fallback)');
+  }
   if (!token || !ref) return null;
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',

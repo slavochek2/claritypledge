@@ -60,28 +60,46 @@ fi
 # --- Extract env vars ---
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: $ENV_FILE not found"
-  [ "$ENV_NAME" = "prod" ] && echo "  Create .env.prod with VITE_SUPABASE_URL, SUPABASE_DB_URL, SUPABASE_ACCESS_TOKEN"
+  [ "$ENV_NAME" = "prod" ] && echo "  Create .env.prod with VITE_SUPABASE_URL (the prod token itself comes from the keyring)"
   exit 1
 fi
 
-DB_URL=$(grep "^SUPABASE_DB_URL=" "$ENV_FILE" | cut -d= -f2-)
-if [ -z "$DB_URL" ]; then
-  echo "ERROR: SUPABASE_DB_URL not found in $ENV_FILE"
-  exit 1
+# The DB connection string is used ONLY by the non-prod primary path (`supabase db push -p`).
+# Prod applies through the Management API and never needs it, so prod does not read it at all:
+# a prod run that parses a credential it never uses is one more plaintext read of a locked-tier
+# value for nothing (P1214).
+if [ "$ENV_NAME" != "prod" ]; then
+  DB_URL=$(grep "^SUPABASE_DB_URL=" "$ENV_FILE" | cut -d= -f2-)
+  if [ -z "$DB_URL" ]; then
+    echo "ERROR: SUPABASE_DB_URL not found in $ENV_FILE"
+    exit 1
+  fi
+  DB_PASSWORD=$(echo "$DB_URL" | sed -E 's|postgresql://[^:]+:([^@]+)@.*|\1|')
 fi
-DB_PASSWORD=$(echo "$DB_URL" | sed -E 's|postgresql://[^:]+:([^@]+)@.*|\1|')
 
 SUPABASE_URL=$(grep "^VITE_SUPABASE_URL=" "$ENV_FILE" | cut -d= -f2-)
 PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
 
-# --- Get Supabase PAT (keychain first, then env file fallback) ---
-SUPABASE_PAT_RAW=$(security find-generic-password -s "Supabase CLI" -w 2>/dev/null || true)
+# --- Resolve the Supabase management token (P1214 / P1239) ---
+# prod — ONLY the locked keyring item PROD_SUPABASE_ACCESS_TOKEN: one authorization dialog per
+#   run, answered by a human. Never .env.prod's plaintext copy and never the Supabase CLI's saved
+#   login — both are readable by any process with no prompt, which is exactly what the lock stops.
+#   A declined or unenrolled read exits here, before anything is applied.
+# test/local — .env.local's SUPABASE_ACCESS_TOKEN.
+# The Supabase CLI's saved login ("Supabase CLI" keychain item) is no longer consulted on EITHER
+# path. It used to be read FIRST, so a stale saved login silently shadowed a fresh env token
+# (the P877 trap), and its access list trusts /usr/bin/security — any command can read it.
 SUPABASE_PAT=""
-if [ -n "$SUPABASE_PAT_RAW" ]; then
-  SUPABASE_PAT=$(echo "$SUPABASE_PAT_RAW" | sed 's/go-keyring-base64://' | base64 -d 2>/dev/null || true)
-fi
-# Fallback: SUPABASE_ACCESS_TOKEN in env file (enables agent sessions without keychain access)
-if [ -z "$SUPABASE_PAT" ]; then
+if [ "$ENV_NAME" = "prod" ]; then
+  # shellcheck source=keyring.sh
+  source "$SCRIPT_DIR/keyring.sh"
+  if ! KEYRING_REASON="${KEYRING_REASON:-migrate.sh --env prod: apply pending migrations}" \
+       keyring_require PROD_SUPABASE_ACCESS_TOKEN; then
+    echo "ERROR: the prod management token was not unlocked — nothing was applied."
+    exit 1
+  fi
+  SUPABASE_PAT="$PROD_SUPABASE_ACCESS_TOKEN"
+else
   SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
 fi
 
@@ -355,13 +373,11 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   [ "$ENV_NAME" = "prod" ] && echo ">>> Applying migrations via Management API..." || echo ">>> Primary push failed — falling back to Management API..."
 
   if [ -z "$SUPABASE_PAT" ]; then
-    echo "ERROR: Supabase PAT not found. Add SUPABASE_ACCESS_TOKEN to $ENV_FILE or run 'npx supabase login'."
+    echo "ERROR: Supabase PAT not found. Add SUPABASE_ACCESS_TOKEN to $ENV_FILE (test), or enroll PROD_SUPABASE_ACCESS_TOKEN in the keyring (prod)."
     exit 1
   fi
 
-  # Validate the resolved PAT AND get already-applied versions in one call.
-  # migrate.sh resolves the PAT keychain-first ("Supabase CLI"), so a stale keychain
-  # entry silently shadows a fresh SUPABASE_ACCESS_TOKEN in the env file. Capture the
+  # Validate the resolved PAT AND get already-applied versions in one call. Capture the
   # HTTP status here and abort with one clear line, instead of a wall of per-migration
   # 401s (which also leaves the remote-versions list empty, so EVERY migration retries).
   APPLIED_RESPONSE=$(curl -s -w $'\n%{http_code}' \
@@ -377,11 +393,12 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   # before the apply loop (which already handles 200 AND 201) ever runs. (P877)
   if [ "$APPLIED_HTTP" != "200" ] && [ "$APPLIED_HTTP" != "201" ]; then
     echo "ERROR: Management API rejected the request (HTTP $APPLIED_HTTP) — the resolved Supabase PAT is invalid or expired."
-    echo "  migrate.sh reads the PAT keychain-first ('Supabase CLI'), so a stale keychain entry"
-    echo "  shadows a fresh SUPABASE_ACCESS_TOKEN in $ENV_FILE. Fix (non-destructive):"
-    echo "    - refresh the keychain:  npx supabase login   (paste a current PAT), OR"
-    echo "    - force the env token:   re-run with 'security' shadowed on PATH to return empty"
-    echo "  Do NOT 'security delete' the keychain entry — it is shared with edge-function deploys."
+    if [ "$ENV_NAME" = "prod" ]; then
+      echo "  The prod token comes from the keyring (PROD_SUPABASE_ACCESS_TOKEN). If it was rotated,"
+      echo "  re-enroll it: ./scripts/keyring.sh enroll-from .env.prod SUPABASE_ACCESS_TOKEN PROD_SUPABASE_ACCESS_TOKEN"
+    else
+      echo "  The test token comes from SUPABASE_ACCESS_TOKEN in $ENV_FILE — refresh it there."
+    fi
     exit 1
   fi
   # P1042: version -> recorded filename, tab-separated. P1174: a parse failure here

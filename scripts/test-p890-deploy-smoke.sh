@@ -73,6 +73,17 @@ build_repo() {
   git -C "$root" init -q 2>/dev/null
   cp "$REAL_DEPLOY" "$root/scripts/deploy-functions.sh"
   chmod +x "$root/scripts/deploy-functions.sh"
+  # P1214: a prod deploy reads its token through the keyring. Real keyring.sh, stub keychain.py —
+  # never the login keychain, never a real dialog. STUB_KEYCHAIN_DECLINE=1 emulates a decline.
+  cp "$REPO_ROOT/scripts/keyring.sh" "$root/scripts/keyring.sh"
+  mkdir -p "$root/scripts/lib"
+  cat > "$root/scripts/lib/keychain.py" <<'STUB'
+import os, sys
+if len(sys.argv) >= 3 and sys.argv[1] == "get" and os.environ.get("STUB_KEYCHAIN_DECLINE") != "1":
+    sys.stdout.write("sbp_stub")
+    sys.exit(0)
+sys.exit(1)
+STUB
 
   # Two real functions plus the _shared library — the shape of the actual tree.
   mkdir -p "$root/supabase/functions/_shared" \
@@ -268,6 +279,19 @@ if [ "$RC" -eq 0 ]; then
   ok "ACCEPT: a local deploy with no smoke script still exits 0"
 else
   bad "ACCEPT: a local deploy with no smoke script still exits 0" "exit $RC — output: $OUT"
+fi
+
+# --- 12. P1214: a declined keyring dialog stops a PROD deploy before anything ships ---
+# The fixture's .env.prod carries a plaintext SUPABASE_ACCESS_TOKEN; a deploy that fell back to
+# it would carry on. Zero recorded deploys is the proof the token comes from the lock only.
+export STUB_KEYCHAIN_DECLINE=1
+FAIL_FN="" SMOKE_EXIT=0 EDGE_SMOKE_VAL="" run_deploy --env prod
+unset STUB_KEYCHAIN_DECLINE
+if [ "$RC" -ne 0 ] && echo "$OUT" | grep -q 'was not unlocked — nothing was deployed' && [ -z "$DEPLOYS" ]; then
+  ok "REJECT: a declined keyring dialog stops a prod deploy with nothing deployed (exit $RC)"
+else
+  bad "REJECT: a declined keyring dialog stops a prod deploy with nothing deployed" \
+      "exit $RC — deploys: [$DEPLOYS] — output: $OUT"
 fi
 
 echo

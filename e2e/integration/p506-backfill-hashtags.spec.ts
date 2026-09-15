@@ -102,7 +102,12 @@ test.describe('P506: Hashtag backfill migration', () => {
       ) WHERE (tags = '{}' OR tags IS NULL) AND first_validator_id = '${testUser.user.id}';
     `;
 
-    const token = process.env.SUPABASE_ACCESS_TOKEN;
+    // A write on the test project: prefer the test-scoped read-write token (P1214), and say so
+    // when falling back to the account-wide one.
+    const token = process.env.SUPABASE_TEST_WRITE_TOKEN || process.env.SUPABASE_ACCESS_TOKEN;
+    if (!process.env.SUPABASE_TEST_WRITE_TOKEN && token) {
+      console.warn('[P506] no SUPABASE_TEST_WRITE_TOKEN — backfill is using the ACCOUNT-WIDE token (P1214 fallback)');
+    }
     const projectRef = process.env.VITE_SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1];
     if (token && projectRef) {
       const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {

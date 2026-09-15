@@ -52,16 +52,28 @@ fi
 SUPABASE_URL=$(grep "^VITE_SUPABASE_URL=" "$ENV_FILE" | cut -d= -f2-)
 PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
 
-# Get PAT for deployment
-SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
-if [ -z "$SUPABASE_PAT" ]; then
-  SUPABASE_PAT_RAW=$(security find-generic-password -s "Supabase CLI" -w 2>/dev/null || true)
-  if [ -n "$SUPABASE_PAT_RAW" ]; then
-    SUPABASE_PAT=$(echo "$SUPABASE_PAT_RAW" | sed 's/go-keyring-base64://' | base64 -d 2>/dev/null || true)
+# Get PAT for deployment (P1214 / P1239).
+# prod — ONLY the locked keyring item: one authorization dialog per deploy. Not .env.prod's
+#   plaintext copy and not the Supabase CLI's saved login, both readable with no prompt.
+# test/local — .env.local's SUPABASE_ACCESS_TOKEN. The CLI's saved login is no longer a fallback.
+if [ "$ENV_NAME" = "prod" ]; then
+  # shellcheck source=keyring.sh
+  source "$SCRIPT_DIR/keyring.sh"
+  if ! KEYRING_REASON="${KEYRING_REASON:-deploy-functions.sh --env prod}" \
+       keyring_require PROD_SUPABASE_ACCESS_TOKEN; then
+    echo "ERROR: the prod management token was not unlocked — nothing was deployed."
+    exit 1
   fi
+  SUPABASE_PAT="$PROD_SUPABASE_ACCESS_TOKEN"
+else
+  SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
 fi
 
 export SUPABASE_ACCESS_TOKEN="$SUPABASE_PAT"
+# Tells check-edge-function-secrets.sh the exported token was resolved FOR this project, so it
+# reuses it instead of raising a second dialog — and ignores an ambient SUPABASE_ACCESS_TOKEN
+# that nobody resolved for this ref.
+export CP_SUPABASE_TOKEN_REF="$PROJECT_REF"
 
 # --- Build list of functions to deploy ---
 if [ -n "$FUNCTION_NAME" ]; then

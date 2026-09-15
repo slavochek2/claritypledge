@@ -83,29 +83,76 @@ cannot_run() {
 
 PROD_URL="${PROD_SUPABASE_URL:-$(env_value PROD_SUPABASE_URL)}"
 PROD_URL="${PROD_URL:-https://besjtuodziykmjidubzw.supabase.co}"
-SERVICE_KEY="${PROD_SUPABASE_SERVICE_ROLE_KEY:-$(env_value PROD_SUPABASE_SERVICE_ROLE_KEY)}"
-
-if [ -z "$SERVICE_KEY" ]; then
-  echo "check-stranded-signups: PROD_SUPABASE_SERVICE_ROLE_KEY is not set — cannot query auth users." >&2
-  echo "This is NOT a clean result. Set it in .env.local (local) or as a secret (CI)." >&2
-  cannot_run missing_service_role_key
-fi
-
-# The admin users endpoint is the only read of auth.users available over REST.
-# per_page is capped at 1000 by GoTrue; the window below keeps us far under that,
-# and pagination is asserted rather than assumed (see the total check further down).
-response="$(curl -sS -f -X GET \
-  "${PROD_URL}/auth/v1/admin/users?per_page=1000" \
-  -H "apikey: ${SERVICE_KEY}" \
-  -H "Authorization: Bearer ${SERVICE_KEY}" 2>&1)" || {
-  echo "check-stranded-signups: prod auth API call failed:" >&2
-  echo "$response" >&2
-  cannot_run auth_api_call_failed
-}
+PROD_REF="${PROD_SUPABASE_REF:-$(printf '%s' "$PROD_URL" | sed -E 's|https://([a-z0-9]+)\..*|\1|')}"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "check-stranded-signups: jq is required but not installed." >&2
   cannot_run jq_not_installed
+fi
+
+# CREDENTIAL (P1214). This check only READS auth.users, so it prefers the scoped
+# `Database: Read` token over the prod master key. Measured 2026-09-15: that token runs as
+# supabase_read_only_user, which bypasses RLS and reads auth.users in full.
+#
+# The master-key path stays ONLY as a visible fallback while the CI secret is being
+# provisioned. Two rules keep the fallback from quietly becoming permanent:
+#   - it is taken only when NO scoped token is present — a scoped token that FAILS is
+#     exit 2, never a silent retry on the stronger credential;
+#   - the stdout summary names the credential used, so a CI run still on the fallback says
+#     so in the issue body rather than only on the stderr that CI drops.
+RO_TOKEN="${SUPABASE_READONLY_TOKEN:-$(env_value SUPABASE_READONLY_TOKEN)}"
+CREDENTIAL=""
+
+if [ -n "$RO_TOKEN" ]; then
+  CREDENTIAL="scoped-read-only"
+  # Shaped like the GoTrue admin response ({"users":[...]}) so the filter below is shared.
+  # created_at is rendered with fractional seconds and a Z, the exact GoTrue shape the
+  # `ts` helper was written for; Postgres' native "+00:00" offset would fail to parse.
+  # rolbypassrls travels in the same request: without it every count over auth.users
+  # could shrink silently, and a shrunk count reads as "nobody is stranded".
+  sql="SELECT (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user) AS bypass,
+    json_build_object('users', coalesce(json_agg(json_build_object(
+      'id', id,
+      'email', email,
+      'created_at', to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),
+      'email_confirmed_at', email_confirmed_at)), '[]'::json)) AS r
+    FROM auth.users"
+  # The token goes in a header read from a process substitution, never in argv (ps).
+  raw="$(jq -cn --arg q "$sql" '{query: $q}' | curl -sS -f -X POST \
+    "https://api.supabase.com/v1/projects/${PROD_REF}/database/query/read-only" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$RO_TOKEN") \
+    -H 'Content-Type: application/json' \
+    --data-binary @- 2>&1)" || {
+    echo "check-stranded-signups: read-only query failed (NOT retried on the master key):" >&2
+    echo "$raw" >&2
+    cannot_run readonly_query_failed
+  }
+  if [ "$(printf '%s' "$raw" | jq -r '.[0].bypass // false' 2>/dev/null)" != "true" ]; then
+    echo "check-stranded-signups: the read-only role does not bypass RLS — the auth.users read would be incomplete." >&2
+    cannot_run readonly_role_cannot_see_all_rows
+  fi
+  response="$(printf '%s' "$raw" | jq -c '.[0].r')" || cannot_run unparseable_api_response
+else
+  CREDENTIAL="service-role-FALLBACK"
+  SERVICE_KEY="${PROD_SUPABASE_SERVICE_ROLE_KEY:-$(env_value PROD_SUPABASE_SERVICE_ROLE_KEY)}"
+  if [ -z "$SERVICE_KEY" ]; then
+    echo "check-stranded-signups: neither SUPABASE_READONLY_TOKEN nor PROD_SUPABASE_SERVICE_ROLE_KEY is set — cannot query auth users." >&2
+    echo "This is NOT a clean result. Set SUPABASE_READONLY_TOKEN in .env.local (local) or as a secret (CI)." >&2
+    cannot_run missing_credential
+  fi
+  echo "check-stranded-signups: WARNING — no SUPABASE_READONLY_TOKEN; reading auth.users with the prod MASTER key (P1214 fallback)." >&2
+
+  # The admin users endpoint is the only read of auth.users available over REST.
+  # per_page is capped at 1000 by GoTrue; the window below keeps us far under that,
+  # and pagination is asserted rather than assumed (see the total check further down).
+  response="$(curl -sS -f -X GET \
+    "${PROD_URL}/auth/v1/admin/users?per_page=1000" \
+    -H "apikey: ${SERVICE_KEY}" \
+    -H "Authorization: Bearer ${SERVICE_KEY}" 2>&1)" || {
+    echo "check-stranded-signups: prod auth API call failed:" >&2
+    echo "$response" >&2
+    cannot_run auth_api_call_failed
+  }
 fi
 
 # A signup is "stranded" when all of:
@@ -137,9 +184,10 @@ count="$(printf '%s' "$stranded" | jq 'length')"
 
 # Guard against the silent-truncation failure mode: if GoTrue returned a full page,
 # the window may extend past what we actually looked at, and a "0 stranded" answer
-# would be a false negative rather than a result.
+# would be a false negative rather than a result. Only the GoTrue path pages — the SQL
+# path reads every row, so applying the cap there would fail a healthy run at 1000 users.
 returned="$(printf '%s' "$response" | jq '.users | length')"
-if [ "$returned" -ge 1000 ]; then
+if [ "$CREDENTIAL" = "service-role-FALLBACK" ] && [ "$returned" -ge 1000 ]; then
   echo "check-stranded-signups: the API returned a full page (${returned} users); this check does not paginate, so the window is not fully covered." >&2
   cannot_run page_limit_reached_window_incomplete
 fi
@@ -153,7 +201,7 @@ if [ "$WRITE_EMAILS" -eq 1 ]; then
 fi
 
 # stdout is the publishable half: a count, never an address.
-echo "stranded_signups=${count} (grace=${GRACE_HOURS}h window=${WINDOW_DAYS}d of ${returned} users scanned)"
+echo "stranded_signups=${count} (grace=${GRACE_HOURS}h window=${WINDOW_DAYS}d of ${returned} users scanned, credential=${CREDENTIAL})"
 
 if [ "$count" -gt 0 ]; then
   echo "check-stranded-signups: ${count} person(s) started signup and never got in." >&2

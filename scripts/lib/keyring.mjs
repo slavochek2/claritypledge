@@ -1,9 +1,9 @@
 /**
  * keyring.mjs — Node access to the P1239 locked credential half.
  *
- * One key per keychain item, one authorization dialog per key. Asking for
- * OPS_EMAIL_PASSWORD prompts for OPS_EMAIL_PASSWORD alone and cannot read any
- * other critical key: the grant is per-key and per-access, never a bundle.
+ * One key per keychain item, one authorization dialog per key. Asking for one
+ * key prompts for that key alone and cannot read any other critical key: the
+ * grant is per-key and per-access, never a bundle.
  *
  * Fails closed. If the human declines, or the key was never enrolled, this
  * throws — it never falls back to the plaintext copy in .env.local and never

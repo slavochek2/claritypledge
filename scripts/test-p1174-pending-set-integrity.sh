@@ -91,6 +91,11 @@ build_scenario() {
   mkdir -p "$PDIR/scripts" "$PDIR/supabase/migrations" "$PDIR/incoming"
   cp "$REAL_MIGRATE" "$PDIR/scripts/migrate.sh"
   cp -R "$REPO_ROOT/scripts/lib" "$PDIR/scripts/lib"
+  # P1214: prod runs read the token through the keyring — real keyring.sh, stubbed keychain.py,
+  # so no real keychain read and no real dialog.
+  cp "$REPO_ROOT/scripts/keyring.sh" "$PDIR/scripts/keyring.sh"
+  printf 'import sys\nif len(sys.argv) >= 3 and sys.argv[1] == "get":\n    sys.stdout.write("sbp-canary-not-a-token"); sys.exit(0)\nsys.exit(1)\n' \
+    > "$PDIR/scripts/lib/keychain.py"
   # Rewrites the tracked manifest (rather than a bare `exit 0`) so the
   # stage-then-run-again sequence migrate.sh itself creates can be replayed.
   cat > "$PDIR/scripts/stamp-deploy-manifest.sh" <<'STUB'

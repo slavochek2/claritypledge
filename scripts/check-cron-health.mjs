@@ -28,9 +28,11 @@
  *
  * Two input paths — and which one runs where is a credential decision, not a convenience:
  *
- *   Management API — SUPABASE_ACCESS_TOKEN from the environment or `.env.local`. LOCAL USE
- *     ONLY. That token is account-wide: it can set and unset every other secret and
- *     administer both projects, so the repo's credential rule forbids handing it to CI.
+ *   Management API — LOCAL USE ONLY. Prefers SUPABASE_READONLY_TOKEN (a scoped `Database:
+ *     Read` token, sent to the read-only endpoint) from the environment or `.env.local`
+ *     (P1214). Falls back, with a warning on every run, to SUPABASE_ACCESS_TOKEN — which is
+ *     account-wide: it can set and unset every other secret and administer both projects,
+ *     so the repo's credential rule forbids handing it to CI.
  *   --rows-file — the rows PostgREST returns from public.cron_health_snapshot()
  *     (20260911163000_p1283_c_*) to the PUBLIC anon key. This is the CI path, and it holds no
  *     secret: the function answers anyone with four fields of job health, and never with a
@@ -299,16 +301,32 @@ export function evaluateJobs(expected, rows, nowMs) {
   return { ok: failures.length === 0, failures, unexpected };
 }
 
-function loadTokenFromEnvFile(projectDir) {
+function loadEnvFileValue(projectDir, name) {
   try {
     const raw = readFileSync(join(projectDir, '.env.local'), 'utf8');
     for (const line of raw.split('\n')) {
       const t = line.trim();
-      if (!t.startsWith('SUPABASE_ACCESS_TOKEN=')) continue;
-      return t.slice('SUPABASE_ACCESS_TOKEN='.length).trim();
+      if (!t.startsWith(`${name}=`)) continue;
+      return t.slice(name.length + 1).trim().replace(/^["']|["']$/g, '');
     }
   } catch { /* optional */ }
   return '';
+}
+
+/**
+ * Pick the weakest credential that can run the cron read (P1214).
+ *
+ * The query is a plain SELECT over cron.job / cron.job_run_details, which the scoped
+ * Database:Read token reads in full (measured 2026-09-15). The account-wide token is kept
+ * only as a fallback for a machine without the scoped token, and `fallback: true` makes the
+ * caller say so on every run — a silent fallback is how a reduction stays half-done.
+ */
+export function resolveCronCredential({ env = process.env, readEnvFile = () => '' } = {}) {
+  const scoped = env.SUPABASE_READONLY_TOKEN || readEnvFile('SUPABASE_READONLY_TOKEN');
+  if (scoped) return { token: scoped, readOnly: true, fallback: false };
+  const wide = env.SUPABASE_ACCESS_TOKEN || readEnvFile('SUPABASE_ACCESS_TOKEN');
+  if (wide) return { token: wide, readOnly: false, fallback: true };
+  return { token: '', readOnly: true, fallback: false };
 }
 
 const CRON_SQL = `
@@ -396,8 +414,12 @@ export function readCronRowsFile(path) {
   return assertCronRows(parsed, 'rows file');
 }
 
-export async function fetchCronRows({ projectRef, token, fetchImpl = fetch }) {
-  const res = await fetchImpl(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+export async function fetchCronRows({ projectRef, token, readOnly = true, fetchImpl = fetch }) {
+  // readOnly defaults to TRUE: a caller that forgets to say gets the endpoint that cannot
+  // write, and an account-wide token sent there still works. The reverse default would put
+  // every scoped-token run on the read-write endpoint for no reason.
+  const endpoint = readOnly ? '/database/query/read-only' : '/database/query';
+  const res = await fetchImpl(`https://api.supabase.com/v1/projects/${projectRef}${endpoint}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: CRON_SQL }),
@@ -484,9 +506,16 @@ if (isMain) {
 
   // The token is read ONLY on the Management API path. The rows-file path must never touch it:
   // CI does not hold it, and must not be able to fall back to a developer's local copy.
-  const token = rowsFile ? '' : (process.env.SUPABASE_ACCESS_TOKEN || loadTokenFromEnvFile(projectDir));
+  const cred = rowsFile
+    ? { token: '', readOnly: true, fallback: false }
+    : resolveCronCredential({ readEnvFile: (name) => loadEnvFileValue(projectDir, name) });
+  const token = cred.token;
+  if (!rowsFile && cred.fallback) {
+    console.error('check-cron-health: WARNING — no SUPABASE_READONLY_TOKEN; using the ACCOUNT-WIDE');
+    console.error('  SUPABASE_ACCESS_TOKEN for a read-only query (P1214 fallback). Set the scoped token.');
+  }
   if (!rowsFile && !token) {
-    console.error('check-cron-health: SUPABASE_ACCESS_TOKEN is not set (env or .env.local).');
+    console.error('check-cron-health: neither SUPABASE_READONLY_TOKEN nor SUPABASE_ACCESS_TOKEN is set (env or .env.local).');
     console.error('  That token is for LOCAL runs only — CI reads the public snapshot and');
     console.error('  passes --rows-file. This is a configuration fault in the check, NOT');
     console.error('  evidence that prod is unhealthy.');
@@ -507,7 +536,7 @@ if (isMain) {
 
   let rows;
   try {
-    rows = rowsFile ? readCronRowsFile(rowsFile) : await fetchCronRows({ projectRef, token });
+    rows = rowsFile ? readCronRowsFile(rowsFile) : await fetchCronRows({ projectRef, token, readOnly: cred.readOnly });
   } catch (err) {
     console.error(`check-cron-health: ${err.message}`);
     process.exit(2);
