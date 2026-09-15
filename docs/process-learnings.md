@@ -1635,3 +1635,53 @@ rotation first.
 Around 2026-12-01, batch every Terms of Service and Privacy Policy text change made since the v1.4 bump (2026-09-01), including P1307's event transcription wording (spec D15), into a single `CURRENT_TERMS_VERSION` bump, run through `/tos-review`, so users see one popup per quarter instead of one per small edit. In the same review, decide whether `/tos-review` Stage 7b ("version bump mandatory" on every terms edit) should change to quarterly batching; that is a skill change needing founder approval. Droppable if no terms text has changed since v1.4 when the date arrives.
 
 ---
+
+## P1307 post-deploy: push, two-phone room, and the [post-deploy] checks
+
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** week
+
+P1307 is merged on local `main` (HEAD `3bd30746c` at the time of writing) with its migrations,
+vault entries, three edge functions and the `transcribe-room-batch` Cloud Run service already live on
+prod; the app itself goes live only when `main` is pushed through the P919 staging hop. After the
+push: run a two-phone event room on prod (switch on, speak, navigate away and back, a `/live` round
+pauses and resumes it, close every tab and confirm the transcript reaches Session History within
+~10 minutes), check Sentry for 10 minutes, and write the results into the `[post-deploy]` clauses of
+`features/done/2026-06-10/p1307_event_transcription_from_ready_across_pages_into_sessions.md`
+(the 20-minute overlap measure, the whole-recording vs live comparison, and the de-duplication
+ratio are all owed there). Done when those clauses carry measured results. Anything that fails
+becomes a `/create-bug`, not an edit to the closed spec.
+
+---
+
+## The P160 /live E2E suite fails 13 tests for a reason unrelated to its subject
+
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** month
+
+`e2e/p160-private-session.spec.ts` visits `/live` as an anonymous user, but the P66.1 auth gate
+(`clarity-live-page.tsx`, "redirect guests without join code to signup") sends that visitor to
+`/signup`, so 13 of 17 tests fail on `<h1>Create Account</h1>` before reaching the switch they test.
+Several also assert a consent checkbox and "recorded for AI Insights" label that no longer exist
+anywhere in `src/`. Found while flipping `/live`'s default to off in P1307 (2026-09-15). Done when the
+suite signs in with `setTestSession()` where it means a host, drops or rewrites the assertions on the
+removed checkbox, and passes. Droppable if the suite is retired in favour of an equivalent one.
+
+---
+
+## Transcribe room polish the P1307 design reviews found (pre-existing)
+
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** month
+
+Two design reviews of `/transcribe` during P1307 flagged issues that predate it: the chat's top and
+bottom edges are hard cuts with no fade; the round "jump to newest" arrow sits over transcript words;
+the room header says "End Session" while the capture bar below says "End session"; the join screen
+renders a disabled full-width "Join room" before consent (P955 dead-control rule); and the roster
+line truncates one short name even at 1280 px. Screenshots: `~/Screenshots/2026-09-15/p1307-room-v3/`.
+Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 390 / 1280 px.
+
+---
