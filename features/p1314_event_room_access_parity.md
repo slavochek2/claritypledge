@@ -248,16 +248,31 @@ regression — epistemic gate 7b, a fixture that cannot emit the state under tes
 
 ## Pre-deploy Checklist
 
+- [x] **The app half of C is written and merged to `main`.** `clearSessionJoiner` in
+      `src/app/data/api.ts` reads the seat secret from `src/app/data/seat-secret.ts` and threads
+      it into `release_joiner_seat` (`d0bb65bd8`, corrected in `ecfa7e600`). It is **omitted**
+      rather than sent as null when no secret is held — PostgREST resolves an overload by the
+      named arguments supplied, so the omitted shape resolves against BOTH the two-argument
+      P1058 function and the three-argument one this migration installs. Measured on prod
+      2026-09-15, no row written: `{p_code,p_joiner_name}` → 401 `cannot join this room`
+      (resolves); `{p_code,p_joiner_name,p_seat_secret}` → 404 `PGRST202` (does not).
+- [x] **Neither half carries a `-- requires-frontend:` marker.** Both were replaced with
+      `-- client-safe:` rationale on 2026-09-15 (`9c3c2019b` for P1269, `d9da01032` for half C),
+      because the coupling they encoded no longer exists — see the item above. This is what makes
+      the deploy order **database-first**: shipping publishes two live-vulnerability write-ups to
+      a public repo permanently, so the fix goes to prod before anything is pushed. Do not re-add
+      the markers: a single malformed one rejects the entire prod run, including half D.
 - [ ] **P1269's migration `20260911090000` is live on prod.** Half C's precondition block refuses
-      to install without `clarity_sessions.joiner_seat_secret`. P1269's spec has four verified
-      defects outstanding (see its own record) and must not ship as-is.
-- [ ] **The app half of C is written and merged**, threading the seat secret into
-      `clearSessionJoiner` from `src/app/data/seat-secret.ts` at its three call sites
-      (`clarity-live-page.tsx`, `AuthContext.tsx`, `active-session-banner.tsx`), and half C's
-      `-- requires-frontend:` annotation is filled in with that commit's sha. Until then
-      `migrate.sh`'s prod gate is the only thing standing between the migration and a guest who
-      cannot press "End Session".
-- [ ] Half D applied to prod and the anon probe re-run there.
+      to install without `clarity_sessions.joiner_seat_secret`; measured absent on prod
+      2026-09-15. All three migrations therefore apply in ONE run, in version order.
+- [ ] **Half D applied to prod** and the anon probe re-run there: an unauthenticated caller
+      receives an empty list rather than a live room code.
+- [ ] **Half C applied to prod** and the three-argument `release_joiner_seat` confirmed as the
+      only surviving overload.
+
+**Accepted cost of database-first:** between the migration applying and the client being pushed,
+a guest holding a seat secret whose "End Session" fails waits out P1269's 15-minute timer. Bounded
+and self-healing; the alternative is irreversible.
 
 ## Invariants
 
