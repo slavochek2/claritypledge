@@ -4,6 +4,89 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [technical]: An assertion that greps a function's installed source is reading its comments too
+
+**Context:** Two migrations assert their own guards against `pg_proc.prosrc` rather than against the
+file, so a later `CREATE OR REPLACE` that drops a guard is caught at apply time. `prosrc` stores the
+function body verbatim — **comments included**. Both directions fired in one day: a comment
+explaining why star-projection is absent set the flag that rejects star-projection (a false
+positive, noticed immediately), and an adversarial review then pointed out the dangerous inverse.
+**Decision:** Strip comments before every assertion —
+`regexp_replace(prosrc, '--[^' || chr(10) || ']*', '', 'g')` — and assert against that.
+**Why the inverse is the one that matters:** a false positive is loud and gets fixed in minutes. A
+POSITIVE check satisfied by a comment is silent: the guard it claims to verify can be deleted
+entirely and the migration still passes, so the assertion is decorative exactly when it is needed.
+**Consequences:** Any prosrc-based check in this repo needs the same treatment. Verified both ways
+on test: removing the real guard still raises (exit 1); a body mentioning the banned constructs in
+comments only now passes (exit 0), where it previously raised.
+**References:** `supabase/migrations/20260914150000_*.sql`, `20260915100000_*.sql`
+
+## 2026-09-15 [technical]: A migration's precondition must accept the state that migration leaves behind
+
+**Context:** A migration replaced `release_joiner_seat(uuid, text)` with a three-argument version and
+guarded itself with "the two-argument signature must exist". After it applies, that signature no
+longer exists — so re-applying the migration to a database where it had already succeeded failed its
+own guard. Found by running it twice, not by any test.
+**Decision:** The precondition accepts EITHER signature and fails only when neither exists.
+**Pattern, not incident:** this is the P1173 shape again (2026-08-27) — a guard whose fixture
+contains only inputs it should reject, so its false-positive rate is unmeasured until a legitimate
+workflow produces one. `migrate.sh` re-running a migration and an environment resync are both
+documented workflows. Epistemic gate 7c asks for exactly this check and it was skipped.
+**Consequences:** Ask of any new guard: what does the tool's own documented workflow look like going
+through it a second time?
+**References:** `.claude/rules/epistemic.md` gate 7c; decisions.md 2026-08-27 (P1173)
+
+## 2026-09-15 [technical]: PostgREST resolves an RPC overload by the named arguments supplied, so a null key is not an absent key
+
+**Context:** A client sent `p_seat_secret: null` on every call to a function whose deployed version
+has no such parameter. That is not a call with a null — PostgREST matches the overload by the SET OF
+NAMED KEYS, so it is `PGRST202, function not found`. Measured against production, no row written:
+`{p_code, p_joiner_name}` → 401 (resolves); `{p_code, p_joiner_name, p_seat_secret}` → 404 PGRST202.
+Every guest join would have failed from the deploy until the migration landed.
+**Decision:** Omit the key when there is no value to send (`...(v ? { k: v } : {})`). The request then
+resolves against the old AND the new function.
+**Consequences:** This is what decouples a migration from its client deploy. With it, the migration
+is safe to apply before or after the app ships, which removed a `requires-frontend` marker whose
+enforced order turned out to be the more damaging of the two. A migration coupled to a client is
+often only coupled because the client sends a key it could have omitted.
+**References:** `src/app/data/api.ts` (claim and release call sites)
+
+## 2026-09-15 [process]: The disclosure-embargo mechanism has no working path for a branch-born spec
+
+**Context:** `git-ops.sh ship` states its intent in its own comments — *"The spec file lives ONLY on
+this branch until publication."* It does not hold. Ship cherry-picks every commit on the branch, and
+a branch-born spec's own commits are among them, so the spec lands on main regardless. Both of the
+mechanism's states are dead ends: with no placeholder on main, ship dies on a missing ship journal
+with a raw `FileNotFoundError` (journal init runs only on the path where the spec resolves on main,
+and the branch-born seed path that would create it is deliberately skipped for embargo); with a
+placeholder, the cherry-picked spec collides with it on the duplicate-P-number check.
+**Decision:** Recorded, not fixed — worked around by creating the placeholder to get past the first
+wall and deleting it during the cherry-pick to get past the second, keeping the real spec. Deleting
+the placeholder also flips the disclosure field ship reads on resume, so the journal's `spec_file`
+must then be pointed at the real spec or ship tries to close a file that no longer exists.
+**Consequences:** An embargoed spec reaches main as soon as it is shipped, so **the push, not the
+merge, is the disclosure boundary** — and a deleted file stays in git history, so removing it before
+pushing does not help. Any deploy order that pushes before the fix is live publishes the write-up of
+a live defect. Order the deploy accordingly.
+**References:** `scripts/ship-gates.sh` gate 1.5; `scripts/git-ops.sh` `cmd_publish_spec`
+
+## 2026-09-15 [technical]: core.bare set on the shared checkout a third time, this time inside a cherry-pick hook
+
+**Context:** Mid-ship, `core.bare = true` appeared in the main checkout's config, breaking every git
+command in every concurrent session while all files sat untouched. Third occurrence (2026-09-07,
+2026-09-08, today). The documented mechanism is `git init` re-initialising an inherited `GIT_DIR`.
+**New data point:** the first two happened running canaries directly; this one happened while a
+cherry-pick was in progress — a context where **git itself exports `GIT_DIR` to hooks**, so the
+precondition is present without anyone setting it. `scripts/test-p1131-banned-git-canary-env-isolation.sh`
+exists for exactly this and did not prevent it.
+**Attribution not determined, and stated as such:** several scripts can trigger it and other sessions
+were live on the same checkout; the first resume passed the same sequence cleanly. The guard's own
+note says the thing worth capturing is what wrote the config, so the honest entry is that it was not
+established.
+**Recognisable shape, worth keeping:** a git command complaining it is *"not in a work tree"* from a
+directory that obviously is one means the config, not the command. Repair: `./scripts/check-core-bare.sh --fix`.
+**References:** `scripts/check-core-bare.sh`; decisions.md 2026-09-07 [technical], 2026-09-08 [process]
+
 ## 2026-09-15 [process]: A prod secret that already lives in the database is copied inside the database, never through the agent (P1307)
 
 **Context:** Shipping P1307 needed three vault entries on prod, one of them the cron secret that
