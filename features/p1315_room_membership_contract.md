@@ -110,6 +110,26 @@ file, which `migrate.sh`'s history comparison would keep flagging.
 - [x] On test, a signed-in user's direct INSERT into `transcribe_room_members` is refused, while entering a room through the RPC still succeeds — `e2e/integration/20260908170100_p1236_b_drop_direct_member_insert.spec.ts` 3 passed (refusal + admin-seed control + consented-join control); `src/tests/p1315-reproduce.test.ts` 2 passed after the fix, 1 failed / 1 passed before
 - [ ] [post-deploy] On prod, `pg_policies` no longer lists the policy and `rls-drift-check.py` reports no PROD-ONLY finding for `transcribe_room_members`
 - [x] Anon allowlist carries the two guest seat entries with real call sites; `function-grant-drift-check.py` no longer gates on them — re-run 2026-09-15: gating set is only the three unlisted helpers; `claim_joiner_seat(text,text)` and `release_joiner_seat(uuid,text)` absent from it
+- [x] Client roles hold no table write privilege on `transcribe_room_members` (defense in depth, review finding A4) — `e2e/integration/20260915120000_p1315_member_table_write_revoke.spec.ts`: 2 failed / 2 passed before the migration (member UPDATE and DELETE returned no error), 4 passed after it was applied to test
+- [x] Joining an event's room by id applies P1307's access rule, as entering it already does (review finding A1) — `e2e/integration/20260915120100_p1315_join_room_event_access.spec.ts`: 1 failed / 3 passed before (non-registrant join succeeded), 4 passed after; regression run across P1236 join-consent, P1307 enter-room event access, P1307 re-join and both other P1315 suites: 27 passed
+- [x] The migration-history check cannot be passed by statement shape (review finding C1) — `src/tests/p1315-reproduce.test.ts` 15 passed, including shape controls for FOR ALL, no FOR clause, bare names, quoted schema, block/line comments, an apostrophe in a comment, a `'--'` string and ALTER POLICY RENAME
+- [ ] [post-deploy] On prod, all three migrations are applied and the prod-only policy finding is gone from `rls-drift-check.py`
+
+## Review (1 of 1 reviewer reported)
+
+One hostile reviewer covered write paths, prod apply ordering, the canary, the verification block, the
+allowlist and public disclosure. Its findings, each re-checked by command before acting:
+
+| Finding | Verified | Disposition |
+|---|---|---|
+| A1 join RPC skipped the event-access rule | yes — migration body read; red integration test | fixed: `20260915120100` |
+| A2 member rows created before the drop keep access | partly — the check block counts policies only | prod count re-read immediately before the prod apply; any consent-less row joined after the P1236 deploy is reported to the founder, not deleted by a migration |
+| A3 no other consent-free write path | yes | no change |
+| A4 RLS was the only barrier | yes — default table grants | fixed: `20260915120000` |
+| B1 prod applies the old version | yes — `migrate.sh` pending = local minus ledger | no change |
+| C1 canary evadable by statement shape | yes — two further defects found while fixing (quoted-table boundary, apostrophe in a comment) | fixed |
+| E2/F2 public text described the live gap | yes | reworded to problem class |
+| suspected: embargoed spec reaches main on ship | yes — `git-ops.sh` ship picks every `main..branch` commit whole; observed in main's history for another embargoed spec | ship ordering is a founder decision; see the private security log |
 
 ## Resolution
 
