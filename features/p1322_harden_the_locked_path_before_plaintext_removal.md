@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 103
 workstream: keyring
@@ -7,8 +7,8 @@ created_date: '2026-09-15'
 tags: [security, credentials, keyring, recovery]
 disclosure: public
 related: [p1318, p1316, p1239, p1148]
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -99,17 +99,54 @@ accept, and confirmation on each revocation.
 
 - [ ] A recovery escrow exists off the plaintext path, and a restore drill has passed on a keychain that
       did not already hold the item — evidence: the drill's own output, values redacted
-- [ ] `migrate.sh` and the `keyring.sh enroll` guidance name the escrow, not `.env.prod`, as the
+      — *2026-09-15, tooling built, real run pending the founder:* `scripts/keyring-escrow.sh`
+      (export / drill / restore) writes an AES-256 disk image whose passphrase macOS asks for in its
+      own dialog, and refuses paths inside a checkout or under `$HOME`. `drill` runs under a sandbox
+      that denies reads of the env files and confirms the denial from inside, restores into items
+      confirmed absent first, checks every gate, reads one back, and cleans up.
+      `scripts/test-keyring-escrow.sh` passes 37/37 with known-bad controls, including: the value is
+      absent from the encrypted image's bytes, and the same grep finds it in an unencrypted image; a
+      drill run outside the sandbox refuses (exit 2); an incomplete escrow fails (exit 2).
+      **Not yet met:** the real export and drill need removable media, one Allow per locked key and
+      the founder's passphrase.
+- [x] `migrate.sh` and the `keyring.sh enroll` guidance name the escrow, not `.env.prod`, as the
       post-removal recovery source
-- [ ] `/weekly` runs `keyring.sh verify` and reports its result; a simulated defeated gate is shown to surface
+      — *2026-09-15:* the `migrate.sh` prod-token error now points a lost item to
+      `keyring-escrow.sh restore` and a rotation to P1148; it no longer names `.env.prod`. The
+      `keyring.sh` header, enroll trailer and fail-closed message name the escrow, and
+      `credential-keyring.md` § Recovery orders the two sources.
+- [x] `/weekly` runs `keyring.sh verify` and reports its result; a simulated defeated gate is shown to surface
+      — *2026-09-15:* step 2.10.3, report-only. The exact block, run against controls:
+      known-good `defeated=0 exit=0` · simulated Always Allow (trusted-app item)
+      `defeated=1 exit=2` · unenrolled `missing=1 exit=1` · unreadable registry
+      `missing=0 exit=1`. That last one is indistinguishable by exit code alone, so the step reads
+      the count too. On the real registry: `intact=14 exit=0`.
 - [ ] Every plaintext copy outside the env files (transcripts, restic, cloud VM, CI, second store) is
       listed with a *purge* or *accept-with-reason* verdict; the transcript pass is run or explicitly declined
-- [ ] The four unused-but-live credentials and the CI master key each carry a prepared revocation step and
+      — *2026-09-15:* all listed with a proposed verdict in the private record
+      `p1322-locked-path-hardening.md` §1, all measured names-only with controls. Transcripts: 349
+      files hold a locked name next to a value-shaped string. Restic: included by construction.
+      Cloud VM: no locked name. CI: one accept, one purge. Second store: accepted here. Env files:
+      both mode 644. **Not yet met:** the transcript pass, and the two founder-call verdicts
+      (redaction, env file modes).
+- [x] The four unused-but-live credentials and the CI master key each carry a prepared revocation step and
       a dependents check, and sit in an active P1148 queue (P1148 promoted, or the compensating-control
       window given an end date)
-- [ ] The ~4/week prediction is re-derived for the current 14-name locked set
-- [ ] P1318's removal is recorded as blocked until this spec's escrow + drill Done-When holds
-- [ ] Nothing was revoked or removed by this spec directly
+      — *2026-09-15:* private record §2. The dependents check covered cp, the global tooling, pp,
+      the site repo and the shell rc files, with controls outside cp (known-present names found; an
+      invented name returned 0). P1148 records the queue on the compensating-control branch, window
+      ending 2026-09-29, and stays `backlog`.
+- [x] The ~4/week prediction is re-derived for the current 14-name locked set
+      — *2026-09-15:* 78 prod runs of locked-read consumers in 30 days (executed-only count over
+      transcripts; invented-command control 0). That is **~18/week mean, ~6/week floor with
+      same-day runs consolidated, ~28 in the peak week**, against ~4 predicted and P1318's ~10
+      stop-number. The driver is repeated prod `migrate` runs within a session. Private record §3.
+- [x] P1318's removal is recorded as blocked until this spec's escrow + drill Done-When holds
+      — *2026-09-15:* P1318 carries `blocked_by: p1322`, a Precondition naming the escrow and drill,
+      and a first Done-When that holds step 4 until they pass.
+- [x] Nothing was revoked or removed by this spec directly
+      — *2026-09-15:* no provider action taken, no env line removed, and the keychain items are
+      untouched (only throwaway test and drill items, created and deleted).
 
 ## Related
 

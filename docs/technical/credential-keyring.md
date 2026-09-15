@@ -183,11 +183,11 @@ observed — no macOS layout change has been available to test against.
 
 ## Recovery
 
-The plaintext copy in `.env.local` is the recovery source and **has not been
-removed**. The keyring invariant (from P1239, now carried by P1316) is that both copies
-coexist until the locked path has served every consumer at least once.
+There are two recovery sources, and they stop existing in order.
 
-If the keychain is lost, corrupted, or a gate is defeated:
+**While the plaintext copies exist** (until
+[P1318](../../features/p1318_remove_plaintext_copies_of_the_critical_credential_half.md)
+removes them), a lost, corrupted or defeated item is re-enrolled from them:
 
 ```bash
 ./scripts/keyring.sh enroll          # re-enrolls everything from .env.local
@@ -197,9 +197,36 @@ If the keychain is lost, corrupted, or a gate is defeated:
 Executed as a drill on 2026-09-07 (withdraw → confirm gone → enroll → confirm
 restored → confirm gate intact) before any plaintext removal was contemplated.
 
-**Do not remove anything from `.env.local` until** `/day-cp` and one deploy have
-both completed on the locked path, and the measured prompt count over a full
-`/weekly` + `/day-cp` cycle is at or below roughly 10/week (P1316 Done-When, carried over from P1239).
+**After removal, the only recovery source is the offline escrow**
+([P1322](../../features/p1322_harden_the_locked_path_before_plaintext_removal.md)): an AES-256
+encrypted disk image on removable media, whose passphrase is not stored on this Mac.
+
+```bash
+./scripts/keyring-escrow.sh export  /Volumes/ESCROW_MEDIA/cp-escrow-YYYY-MM-DD.dmg
+./scripts/keyring-escrow.sh drill   /Volumes/ESCROW_MEDIA/cp-escrow-YYYY-MM-DD.dmg
+./scripts/keyring-escrow.sh restore /Volumes/ESCROW_MEDIA/cp-escrow-YYYY-MM-DD.dmg [KEY...]
+./scripts/keyring.sh verify
+```
+
+- **`export`** reads every registered key through the lock (one Allow each), then macOS asks for
+  the image passphrase in its own dialog. Do not tick "Remember password": a saved passphrase ties
+  the escrow to the keychain it replaces, and `export` fails if macOS saved one.
+- **`drill`** is the proof P1318 is gated on. It runs in a sandbox that denies every read of the env
+  files and confirms the denial from inside, restores into throwaway `cp.keyring.escrowdrill.*`
+  items confirmed absent first, checks every gate, reads one item back, and deletes the drill items.
+  A registered key missing from the escrow fails it.
+- **`restore`** re-creates items under their real names and never replaces an existing one.
+- The image is refused inside a git checkout and under `$HOME`, which the nightly backup copies in
+  full. Removable media is the default; `KEYRING_ESCROW_ALLOW_ANY_PATH=1` is the conscious override.
+- **An escrow goes stale.** Re-export after any rotation of a locked key or change to the registered
+  set, or a restore brings back a revoked value.
+
+`./scripts/test-keyring-escrow.sh` checks all of this hermetically without a dialog. It cannot cover
+the passphrase dialog, the per-key Allow dialogs, or a read-back: those are the founder-run drill.
+
+**Do not remove anything from `.env.local` until** the escrow exists and its drill has passed
+(P1322), `/day-cp` and one deploy have both completed on the locked path, and the measured prompt
+count over a full `/weekly` + `/day-cp` cycle is at or below roughly 10/week (P1318).
 
 ## Why not `security add-generic-password -w <value>`
 

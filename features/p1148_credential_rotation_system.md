@@ -46,6 +46,19 @@ still live and no longer monitored by any consumer. That window stays open until
 so either it leaves backlog when the first retirement verdict lands, or P1214's liveness probes
 are the accepted compensating control for an unbounded window. It is not automatically both.
 
+**Resolved by P1322 (2026-09-15): the compensating-control branch, with an end date — this spec
+stays `backlog`.** P1322 hands over an **active queue of five**, all in the `manual-only` lane, so
+none waits for the driver:
+- four credentials that no consumer uses and that still authenticated under P1316's
+  wrong-credential-controlled probes
+- the CI copy of the prod master key, which no workflow on any branch references
+
+The founder executes each revocation from prepared steps, after a dependents check. Steps,
+dependents evidence and post-revocation probes are in the private record `p1322-locked-path-hardening.md`.
+The probes are the compensating control **only until 2026-09-29**. An item still live after that date
+gets re-probed and escalated, never carried silently. The CI item removes a stored copy and does not
+revoke the key.
+
 Two independent adversarial reviews established this work must not be sized on an estimate. That
 still holds: build rotators against the set that survives P1214's de-privileging, and treat any
 credential P1214 has marked retired as this spec's input queue.

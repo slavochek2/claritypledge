@@ -16,6 +16,8 @@
 #     ./scripts/keyring.sh enroll [KEY...]   copy key(s) from .env.local into the keychain
 #     ./scripts/keyring.sh enroll-from FILE VAR NAME
 #                                            copy VAR from another env file, locked as NAME
+#     (enroll reads plaintext copies P1318 removes. Recovering a lost item is
+#      ./scripts/keyring-escrow.sh restore ESCROW.dmg [KEY...] — see P1322.)
 #     ./scripts/keyring.sh verify            report whether the gate still fires (no dialog)
 #     ./scripts/keyring.sh status            enrolled / not-enrolled per registered key
 #     ./scripts/keyring.sh list              registered critical key names
@@ -132,6 +134,7 @@ FATAL: could not read the critical credential ${key}.
   To retry:  re-run this command and click "Allow" (never "Always Allow" —
              that permanently disables the gate; see ./scripts/keyring.sh verify)
   To enroll: ./scripts/keyring.sh enroll ${key}
+  If lost:   ./scripts/keyring-escrow.sh restore ESCROW.dmg ${key}   (the offline escrow)
   To check:  ./scripts/keyring.sh status
 MSG
       return 1
@@ -189,6 +192,9 @@ _keyring_cmd_enroll() {
   echo
   echo "The plaintext copies in .env.local were NOT removed — both copies must"
   echo "coexist until the locked path has served every consumer (P1239 Invariants)."
+  echo "Once P1318 removes them, this command has no source: recover a lost item"
+  echo "from the offline escrow instead: ./scripts/keyring-escrow.sh restore ESCROW.dmg KEY"
+  echo "Enrolled a new or changed value? Re-export the escrow so it does not go stale."
   return $rc
 }
 
