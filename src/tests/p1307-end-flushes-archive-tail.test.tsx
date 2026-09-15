@@ -1,19 +1,28 @@
 /**
  * @file p1307-end-flushes-archive-tail.test.tsx
- * @description P1307 regression (external review finding): End released the microphone and
- * cleared the capture record before the archive recorder's asynchronous onstop delivered the
- * recording since the last 30 s chunk, so the upload pump found no record and the tail — up to
- * 30 s of speech — never reached the bucket or the saved transcript.
+ * @description P1307 regressions from external review (Codex), on the archive upload path:
  *
- * Also pins the other half of the same rule: after sign-out no chunk may be uploaded (AC
- * "Signing out while transcribing … no further chunk reaches the bucket").
+ *  1. End released the microphone and cleared the capture record before the archive recorder's
+ *     asynchronous onstop delivered the recording since the last 30 s chunk, so the upload pump
+ *     found no record and the tail — up to 30 s of speech — never reached the bucket.
+ *  2. Even with the tail queued, End told the server the capture had ended BEFORE uploading it.
+ *     gcs-signed-url refuses an upload once capture_ended_at is set, so the tail was refused.
+ *     The upload must happen first; the end RPC after it.
+ *  3. A retried upload reserved a NEW chunk number on every attempt, leaving a permanent gap
+ *     in the sequence. One number per chunk, reused across retries.
+ *
+ * Also pins: after sign-out no chunk may be uploaded (AC "Signing out while transcribing …
+ * no further chunk reaches the bucket").
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const auth = vi.hoisted(() => ({ value: { user: { id: 'u1' } as { id: string } | null, sessionChecked: true } }));
-const upload = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const calls = vi.hoisted(() => ({ order: [] as string[] }));
+const upload = vi.hoisted(() => vi.fn());
+const endRpc = vi.hoisted(() => vi.fn());
+const reserve = vi.hoisted(() => vi.fn());
 
 vi.mock('@/auth', () => ({ useAuth: () => auth.value }));
 vi.mock('@/lib/supabase', () => {
@@ -26,10 +35,10 @@ vi.mock('@/app/data/transcribe-service', () => ({
     member: { id: 'm1', consentGivenAt: new Date().toISOString(), joinedAt: new Date().toISOString(), displayName: 'A' },
   }),
   joinRoom: vi.fn(),
-  endMyCapture: vi.fn().mockResolvedValue(undefined),
+  endMyCapture: endRpc,
   getMyCaptureStatus: vi.fn().mockResolvedValue(null),
   prewarmSlicePath: vi.fn().mockResolvedValue(undefined),
-  reserveRoomChunkNumber: vi.fn().mockResolvedValue(0),
+  reserveRoomChunkNumber: reserve,
   sendAudioSlice: vi.fn(),
   touchRoomCapture: vi.fn().mockResolvedValue(undefined),
 }));
@@ -68,16 +77,20 @@ function Harness() {
   return null;
 }
 
-function renderProvider() {
-  return render(
+function tree() {
+  return (
     <MemoryRouter initialEntries={['/events/x/meet']}>
       <RoomCaptureProvider><Harness /></RoomCaptureProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
 beforeEach(() => {
-  upload.mockClear();
+  calls.order = [];
+  upload.mockReset().mockImplementation(async () => { calls.order.push('upload'); });
+  endRpc.mockReset().mockImplementation(async () => { calls.order.push('end'); });
+  let n = 0;
+  reserve.mockReset().mockImplementation(async () => n++);
   localStorage.clear();
   auth.value = { user: { id: 'u1' }, sessionChecked: true };
   vi.stubGlobal('MediaRecorder', FakeRecorder);
@@ -88,8 +101,8 @@ beforeEach(() => {
 });
 
 describe('P1307: the archive tail on stop', () => {
-  it('End uploads the recording since the last chunk, marked as the last chunk', async () => {
-    renderProvider();
+  it('End uploads the recording since the last chunk, marked last, BEFORE telling the server capture ended', async () => {
+    render(tree());
     await act(async () => {
       const result = await ctx.startCapture({ eventId: 'e1', displayName: 'A' });
       expect(result.started).toBe(true);
@@ -97,22 +110,35 @@ describe('P1307: the archive tail on stop', () => {
 
     await act(async () => { await ctx.endMyCapture('r1'); });
 
-    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+    expect(upload).toHaveBeenCalledTimes(1);
     const [roomCode, , memberId, blob, , isLast] = upload.mock.calls[0] as unknown[];
     expect({ roomCode, memberId, isLast }).toEqual({ roomCode: 'ABC123', memberId: 'm1', isLast: true });
     expect((blob as Blob).size).toBeGreaterThan(0);
+    expect(calls.order, 'gcs-signed-url refuses uploads after capture_ended_at — upload must come first').toEqual(['upload', 'end']);
   });
 
+  it('a retried upload keeps the chunk number it was first given — no gap in the sequence', async () => {
+    upload.mockReset()
+      .mockImplementationOnce(async () => { throw new Error('network blip'); })
+      .mockImplementation(async () => { calls.order.push('upload'); });
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+
+    await act(async () => { await ctx.endMyCapture('r1'); });
+
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    expect(reserve).toHaveBeenCalledTimes(1);
+    const firstNumber = (upload.mock.calls[0] as unknown[])[4];
+    const retryNumber = (upload.mock.calls[1] as unknown[])[4];
+    expect(retryNumber).toBe(firstNumber);
+  }, 10_000);
+
   it('sign-out uploads nothing — not the tail, not a queued chunk', async () => {
-    const view = renderProvider();
+    const view = render(tree());
     await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
 
     auth.value = { user: null, sessionChecked: true };
-    view.rerender(
-      <MemoryRouter initialEntries={['/events/x/meet']}>
-        <RoomCaptureProvider><Harness /></RoomCaptureProvider>
-      </MemoryRouter>,
-    );
+    view.rerender(tree());
     await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
 
     expect(upload).not.toHaveBeenCalled();

@@ -220,7 +220,16 @@ interface UploadJob {
    *  the recorder's asynchronous onstop delivers the tail, so reading storedRef at upload time
    *  dropped the last chunk — and a stale job could upload under the NEXT capture's record. */
   record: StoredCapture;
+  /** Reserved once, on the first attempt, and reused by every retry. Reserving per attempt
+   *  (the first version) turned one transient upload failure into a permanent gap in the chunk
+   *  sequence, which the whole-recording pass reads as missing audio (external review). */
+  chunkNumber?: number;
 }
+
+/** How long End waits for the final archive chunk to upload before telling the server the
+ *  capture ended. gcs-signed-url refuses uploads once capture_ended_at is set, so an end RPC
+ *  sent first made the tail — and any queued chunks — undeliverable (external review). */
+const END_UPLOAD_GRACE_MS = 10_000;
 
 interface MediaHandles {
   stream: MediaStream | null;
@@ -271,8 +280,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
         try {
           // Decision 6: the number is issued by the server, so a reload, a pause/resume or a
           // second visit can never overwrite an earlier chunk.
-          const chunkNumber = await reserveRoomChunkNumber(record.roomId);
-          await uploadRoomAudioChunk(record.roomCode, record.displayName, record.memberId, job.blob, chunkNumber, job.isLast);
+          if (job.chunkNumber === undefined) job.chunkNumber = await reserveRoomChunkNumber(record.roomId);
+          await uploadRoomAudioChunk(record.roomCode, record.displayName, record.memberId, job.blob, job.chunkNumber, job.isLast);
           h.uploadQueue.shift();
         } catch (err) {
           if (isHardStopError(err)) {
@@ -348,7 +357,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    * for it. Sign-out, a server refusal (410) and teardown drop the tail: after sign-out no chunk
    * may reach the bucket (AC), and after a 410 the server refuses it anyway.
    */
-  const stopMedia = useCallback(({ flushTail = false }: { flushTail?: boolean } = {}) => {
+  /** Resolves once the recorder's final onstop has run (immediately if nothing was recording). */
+  const stopMedia = useCallback(({ flushTail = false }: { flushTail?: boolean } = {}): Promise<void> => {
     const h = media.current;
     // Bound now, synchronously: every caller clears storedRef right after this returns, and the
     // recorder's onstop runs later.
@@ -363,19 +373,32 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     const stream = h.stream;
     h.recorder = null;
     h.stream = null;
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.onstop = () => {
-        if (flushTail) enqueueChunk(true, record);
-        else h.chunkParts = [];
-        stream?.getTracks().forEach((t) => t.stop());
-      };
-      recorder.stop();
-    } else {
-      stream?.getTracks().forEach((t) => t.stop());
-    }
     h.lock?.release();
     h.lock = null;
+    if (recorder && recorder.state !== 'inactive') {
+      return new Promise<void>((resolve) => {
+        recorder.onstop = () => {
+          if (flushTail) enqueueChunk(true, record);
+          else h.chunkParts = [];
+          stream?.getTracks().forEach((t) => t.stop());
+          resolve();
+        };
+        recorder.stop();
+      });
+    }
+    stream?.getTracks().forEach((t) => t.stop());
+    return Promise.resolve();
   }, [enqueueChunk]);
+
+  /** Resolves when the archive upload queue is empty and nothing is in flight. */
+  const uploadsDrained = useCallback(() => new Promise<void>((resolve) => {
+    const check = () => {
+      const h = media.current;
+      if (h.uploadQueue.length === 0 && !h.uploading) resolve();
+      else setTimeout(check, 100);
+    };
+    check();
+  }), []);
 
   const startArchiveTimer = useCallback((recorder: MediaRecorder) => {
     media.current.chunkTimer = setInterval(() => {
@@ -458,10 +481,17 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // The microphone is released at once — End must never wait on the network to stop
     // recording. The bar stays until the server has recorded the End, so what the person sees
     // disappear is an end that exists, not one that is still in flight.
-    stopMedia({ flushTail: true });
+    const stopped = stopMedia({ flushTail: true });
     clearStoredCapture();
     storedRef.current = null;
     try {
+      // The microphone is already released. The server is told only after the final chunk (and
+      // any backlog) has uploaded, because once capture_ended_at is set gcs-signed-url refuses
+      // the upload. Bounded: a stuck upload never holds End open for more than the grace period.
+      await Promise.race([
+        stopped.then(uploadsDrained),
+        new Promise<void>((resolve) => setTimeout(resolve, END_UPLOAD_GRACE_MS)),
+      ]);
       await endMyCaptureRpc(roomId);
     } catch (err) {
       // If the server did not hear the End, the sweep ends this seat after 10 minutes without
@@ -472,7 +502,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'TEARDOWN_COMPLETE' });
       endingRef.current = false;
     }
-  }, [stopMedia]);
+  }, [stopMedia, uploadsDrained]);
 
   const startCapture = useCallback(async ({ eventId, displayName, room: targetRoom }: StartCaptureOptions): Promise<CaptureStartResult> => {
     if (!user) return { started: false, reason: 'join' };
@@ -629,7 +659,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   }, [sessionChecked, user?.id, stopMedia]);
 
   // Unmount (a crash into the error boundary, a full teardown): capture stops with it.
-  useEffect(() => () => stopMedia(), [stopMedia]);
+  useEffect(() => () => { void stopMedia(); }, [stopMedia]);
 
   // ── The per-person cap ───────────────────────────────────────────────────
 
