@@ -438,16 +438,16 @@ Live text
 - [ ] Migration for the per-person end marker (and any room-transcript table) applied to prod.
 - [ ] `transcribe-slice` deployed with the Part 4 bounds **before** any client sends 13 s slices.
 - [ ] The room-end sweep deployed and scheduled on prod, and any new whole-recording function deployed.
-- [ ] `GEMINI_BATCH_API_KEY` present in the prod project's function secrets (the live path already requires it — confirm, do not assume).
+- [x] `GEMINI_BATCH_API_KEY` present in the prod project's function secrets (the live path already requires it — confirm, do not assume). *(2026-09-15: confirmed by name via the Management API.)*
 
 ### Added by /dev (2026-09-14) — new infrastructure this build needs
 - [ ] Migrations `20260914120000`–`20260914120300` applied to prod in one release (applied to the test DB during /dev). `20260914120200` removes the room-age filter from `enter_transcribe_room`; it is safe only with the sweep in `20260914120300` scheduled.
 - [ ] `cron.job` on prod lists `transcribe_room_sweep` (`*/2 * * * *`) — the migration warns and schedules nothing where pg_cron is absent.
 - [ ] Vault on prod: `enqueue_room_transcription_url`, `enqueue_room_transcription_secret` (the CRON_SECRET value), `enqueue_room_transcription_anon_key`. Without them job rows stay `pending`.
 - [ ] Edge functions deployed: `transcribe-slice` and `gcs-signed-url` (edge-first, before the client), and the new `enqueue-room-transcription` with secrets `CRON_SECRET`, `GCP_ENQUEUER_SA_KEY` and `TRANSCRIBE_ROOM_BATCH_URL`; register them per P834.
-- [ ] Cloud Tasks queue `transcribe-room-jobs` (us-east4) created.
-- [ ] Cloud Run `transcribe-room-batch` (`services/transcribe-room-batch/`) deployed with `--no-allow-unauthenticated`, invoker `tx-task-invoker`, env `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_BATCH_API_KEY`; GCS read on the ML bucket.
-- [ ] Cloud Scheduler job calling `POST /sweep` on `transcribe-room-batch` (the janitor for stale claims and missed dispatches).
+- [x] Cloud Tasks queue `transcribe-room-jobs` (us-east4) created. *(2026-09-15: created, RUNNING, maxConcurrentDispatches 5.)*
+- [x] Cloud Run `transcribe-room-batch` (`services/transcribe-room-batch/`) deployed with `--no-allow-unauthenticated`, invoker `tx-task-invoker`, env `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_BATCH_API_KEY`; GCS read on the ML bucket. *(2026-09-15: image `transcribe-room-batch:p1307-1` via Cloud Build; revision 00001 serving; `--no-cpu-throttling` because /process works after its 202; runs as the existing `transcribe-session-sa` (already objectViewer on the bucket and accessor on the service-role secret; granted accessor on the new `gemini-batch-api-key` secret); invoker binding is `tx-task-invoker` only; an unauthenticated POST /sweep returns 403.)*
+- [x] Cloud Scheduler job calling `POST /sweep` on `transcribe-room-batch` (the janitor for stale claims and missed dispatches). *(2026-09-15: `transcribe-room-sweep`, every 10 min, OIDC `tx-task-invoker`, ENABLED. `[post-deploy]` its first run can succeed only once the P1307 migrations are on prod.)*
 - [ ] Optional, out of repo: an `ifGenerationMatch: 0` precondition on the GCS signing Cloud Function (Decision 6).
 
 ### Post-deploy verification
