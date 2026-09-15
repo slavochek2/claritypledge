@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 100
 severity: high
@@ -11,8 +11,15 @@ exec_model: opus
 exec_effort: high
 tags: [security, rls, transcribe, drift]
 disclosure: embargo
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1315-reproduce.test.ts
+  root_cause: "P1236's contract migration dropping the P1149 self-insert policy was never committed; replaying the repo's migrations leaves the policy, which is prod's state"
+  confidence: high
+  surfaces_in_scope: [transcribe_room_members-insert-policy]
+  surfaces_deferred: []
+  reproduced_at: 2026-09-15
 ---
 
 # P1315: Prod still carries the legacy direct room-membership INSERT policy
@@ -40,6 +47,12 @@ Process gap, verified by command, not inferred:
   `transcribe_room_members` in `src/`.
 
 Exploit-level detail and the prod measurements live in `.private/docs/security-log.md`, 2026-09-15.
+
+**Reproduced 2026-09-15 on TEST, inside a DO block that always raises (full rollback):** with the
+policy recreated, a signed-in user's direct INSERT was ACCEPTED and the row carried no consent;
+without it, the same INSERT was REFUSED ("new row violates row-level security policy"). Afterwards
+test still showed 0 INSERT policies and 0 probe rows. Canary: `src/tests/p1315-reproduce.test.ts`
+replays the migration history and fails while any INSERT policy on the table survives it.
 
 ## Invariants
 
