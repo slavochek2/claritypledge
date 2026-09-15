@@ -21,13 +21,26 @@ Detects and fixes drift where stories have updated st-tags but their linked poin
 
 ### 0. Load credentials
 
-Read the prod project ref and get keys. Never hardcode project refs in skill files (public repo).
+Read the prod project ref and the public anon key. Never hardcode project refs in skill files (public repo).
 
 ```bash
 PROD_URL=$(grep "^VITE_SUPABASE_URL=" .env.prod | cut -d= -f2-)
 PROD_REF=$(echo "$PROD_URL" | sed 's|https://||;s|\.supabase\.co||')
-ANON_KEY=$(supabase --project-ref "$PROD_REF" projects api-keys 2>/dev/null | grep 'anon' | awk '{print $NF}')
-SERVICE_KEY=$(supabase --project-ref "$PROD_REF" projects api-keys 2>/dev/null | grep 'service_role' | awk '{print $NF}')
+ANON_KEY=$(grep "^VITE_SUPABASE_ANON_KEY=" .env.prod | cut -d= -f2- | tr -d '"')
+```
+
+Detection (steps 1–2) needs only the anon key. **Writes (steps 2–3 fixes) need the prod service key,
+which lives behind the per-access lock (P1239/P1316).** The earlier `supabase projects api-keys` form
+depended on the account-wide CLI login that P1214 removed, so it now returns nothing. Read the key in
+the same shell as the write, one dialog per write block — tell the founder **Allow**, never "Always
+Allow" — and pass it in headers from a process substitution, never in argv:
+
+```bash
+source scripts/keyring.sh
+KEYRING_REASON="sync-hashtags: fix st-tag drift on prod" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
+curl -s -X PATCH "$PROD_URL/rest/v1/<table>?id=eq.<id>" \
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_SERVICE_ROLE_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY") \
+  -H "Content-Type: application/json" -H "Prefer: return=representation" -d '<json>'
 ```
 
 ### 1. Detect drift on prod
@@ -102,7 +115,7 @@ for r in data:
 "
 ```
 
-**If mismatches found**: update the story content to include the missing `#stN` hashtag. Use `$SERVICE_KEY` from step 0.
+**If mismatches found**: update the story content to include the missing `#stN` hashtag, with the locked-key write pattern from step 0.
 
 ### 3. Fix drifted points
 
@@ -138,7 +151,7 @@ UPDATE stories SET content = replace(content, '#st_temp', '#st5')
 COMMIT;
 ```
 
-**Guards:** Always use `AND content LIKE '%#stN%'` — never bare full-table UPDATEs. Target by id for surgical safety. Use `$SERVICE_KEY` for PATCH/UPDATE calls.
+**Guards:** Always use `AND content LIKE '%#stN%'` — never bare full-table UPDATEs. Target by id for surgical safety. PATCH/UPDATE calls use the locked-key write pattern from step 0 — never a plaintext copy (P1316).
 
 ### 4. Verify
 

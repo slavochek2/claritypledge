@@ -47,7 +47,7 @@ LOCAL="$HOME/Downloads/clarity-event-photo.jpg"
 curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 ```
 
-**If the banner is missing (404/400):** founder machine (`PROD_SUPABASE_SERVICE_ROLE_KEY` set) → `./scripts/event-photo-prep.sh <slug> "<query>"` (founder-only, macOS-only). Operator machine (no key) → stop: "Open the event on claritypledge.com (banner auto-generates), then re-run."
+**If the banner is missing (404/400):** founder machine (prod service key enrolled in the keyring — `./scripts/keyring.sh status`, never prompts) → `./scripts/event-photo-prep.sh <slug> "<query>"` (founder-only, macOS-only; one authorization dialog at upload — **Allow**, never "Always Allow"). Operator machine (not enrolled) → stop: "Open the event on claritypledge.com (banner auto-generates), then re-run."
 
 ### 3. Open Facebook create-event
 

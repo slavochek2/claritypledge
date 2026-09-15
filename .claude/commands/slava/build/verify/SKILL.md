@@ -220,7 +220,7 @@ BRANCH=$(git branch --show-current)
 ```
 
 If prod mode:
-- Read `PROD_SUPABASE_ANON_KEY` and `PROD_SERVICE_ROLE_KEY` from `.env.prod`
+- Read `PROD_SUPABASE_ANON_KEY` from `.env.local`. **Prod data reads** use `python3 scripts/supabase-readonly-sql.py --env prod "<SQL>"` (no master key). **Prod data setup** (a write) reads the service key through the per-access lock — `source scripts/keyring.sh; KEYRING_REASON="verify: seed <scenario> on prod" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY` — one dialog, **Allow** never "Always Allow", headers from `-H @<(printf ...)`, never argv, never a plaintext copy (P1316)
 - Base URL: `https://claritypledge.com`
 - Test account: `e2e-agent@claritypledge.com` (password in `.env.prod`)
 

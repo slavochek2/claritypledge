@@ -162,13 +162,18 @@ Then, still under the step-8 `go` (no separate approval), upload the banner and 
 
 Capture `PUBLIC=` URL from stdout.
 
-State env: *"Patching **prod** event row to set `banner_url`."*
+State env: *"Patching **prod** event row to set `banner_url`."* The prod service key is behind the
+per-access lock (P1239/P1316): this raises one authorization dialog — tell the founder to click
+**Allow**, never "Always Allow". A declined dialog stops here with nothing written. Never read the key
+from `.env.local`.
 
 ```bash
-PROD_SR=$(grep -E '^PROD_SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d'=' -f2- | tr -d '"')
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="re-create-event: set banner_url on $SLUG" \
+  keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
+# Headers from a process substitution, so the key never appears in curl's argv (ps).
 curl -s -X PATCH "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?slug=eq.$SLUG" \
-  -H "apikey: $PROD_SR" \
-  -H "Authorization: Bearer $PROD_SR" \
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_SERVICE_ROLE_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY") \
   -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
   -d "{\"banner_url\":\"$PUBLIC\"}"
@@ -196,21 +201,19 @@ Disambiguate intent per `.claude/rules/db-access.md`:
 
 *"You said `<abort|fix>`. This will permanently DELETE row `slug=<slug>` from `events` in **prod**. Confirm with `delete` or cancel with anything else."*
 
-On confirmed `delete`:
+On confirmed `delete`, remove the row and then the banner storage object (uploaded in step 9 before
+this gate) in ONE shell — the prod service key comes through the per-access lock, one dialog for both
+deletes; tell the founder **Allow**, never "Always Allow". A declined dialog deletes nothing.
 
 ```bash
-PROD_SR=$(grep -E '^PROD_SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d'=' -f2- | tr -d '"')
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="re-create-event: delete aborted event $SLUG and its banner" \
+  keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
+# Headers from a process substitution, so the key never appears in curl's argv (ps).
 curl -s -X DELETE "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?slug=eq.$SLUG" \
-  -H "apikey: $PROD_SR" \
-  -H "Authorization: Bearer $PROD_SR"
-```
-
-Then delete the banner storage object (uploaded in step 9 before this gate):
-
-```bash
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_SERVICE_ROLE_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY")
 curl -s -X DELETE "https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/event-banners/$SLUG.jpg" \
-  -H "apikey: $PROD_SR" \
-  -H "Authorization: Bearer $PROD_SR"
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_SERVICE_ROLE_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY")
 ```
 
 If the photo was skipped, no object exists — the DELETE is a harmless 404. Delete `/tmp/.re-create-event-banner-$$.jpg` if present. Exit.

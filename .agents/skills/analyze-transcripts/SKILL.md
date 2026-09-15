@@ -31,22 +31,21 @@ that agent having **failed** — never as an empty finding. If both arrive and d
 
 ### Step 1: Pull transcripts from prod
 
-```bash
-PROD_SERVICE=$(grep SUPABASE_SERVICE_ROLE_KEY .env.prod 2>/dev/null | cut -d= -f2)
-# Fallback: use the prod service role key from supabase CLI
-# supabase --project-ref besjtuodziykmjidubzw projects api-keys
+These steps only READ, so they go through the read-only helper, which holds no write authority —
+never the prod master key (P1316). The previous form grepped a service-key name that does not exist in
+`.env.prod`, so it silently sent an empty key. Output is a JSON array, the same shape a REST GET returns;
+exit 2 means the query could not run — never read it as zero rows.
 
-curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/session_transcripts?select=*&order=created_at.desc" \
-  -H "apikey: $PROD_SERVICE" \
-  -H "Authorization: Bearer $PROD_SERVICE"
+```bash
+python3 scripts/supabase-readonly-sql.py --env prod \
+  "SELECT * FROM public.session_transcripts ORDER BY created_at DESC"
 ```
 
 ### Step 2: Pull session metadata + ratings
 
 ```bash
-curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/clarity_sessions?select=id,code,creator_name,joiner_name,creator_profile_id,joiner_profile_id,live_state,created_at,mode,is_private&mode=eq.live&order=created_at.desc" \
-  -H "apikey: $PROD_SERVICE" \
-  -H "Authorization: Bearer $PROD_SERVICE"
+python3 scripts/supabase-readonly-sql.py --env prod \
+  "SELECT id, code, creator_name, joiner_name, creator_profile_id, joiner_profile_id, live_state, created_at, mode, is_private FROM public.clarity_sessions WHERE mode = 'live' ORDER BY created_at DESC"
 ```
 
 From `live_state`, extract `sessionHistory` — array of rounds with `checkerRating`, `responderRating`, `skipped`, `type`.

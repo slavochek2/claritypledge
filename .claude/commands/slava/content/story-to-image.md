@@ -91,7 +91,7 @@ Read all Supabase keys directly from `.env.local` — do **NOT** use `supabase p
 | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Test DB read (URL = `https://gfjctyxqlwexxwsmkakq.supabase.co`) |
 | `TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Test DB write |
 | `PROD_SUPABASE_ANON_KEY` | `.env.local` | Prod DB read (URL hardcoded: `https://besjtuodziykmjidubzw.supabase.co`) |
-| `PROD_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Prod DB write |
+| `PROD_SUPABASE_SERVICE_ROLE_KEY` | per-access lock (`scripts/keyring.sh`), never `.env.local` — P1316 | Prod DB write (Step 10 only; one dialog) |
 
 **Load pattern (all bash steps):**
 ```bash
@@ -311,7 +311,9 @@ If 403/404 → check gcloud auth (`gcloud auth login slava@inguro.com` may be ne
 
 ### Step 10 — Update both DBs
 
-Set `image_url` on both test and prod. Use service role key for writes.
+Set `image_url` on both test and prod. Use service role key for writes. The **prod** service key
+is behind the per-access lock (P1239/P1316): the block below raises one authorization dialog — tell the
+founder to click **Allow**, never "Always Allow". A declined dialog stops before the prod write.
 
 ```bash
 set -a && source .env.local && set +a
@@ -324,9 +326,13 @@ curl -s -X PATCH "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/stories?id=eq.${STORY_ID}" \
   -H "Content-Type: application/json" -H "Prefer: return=representation" \
   -d "{\"image_url\": \"$IMG_URL\"}"
 
-# Prod DB
+# Prod DB — key from the keyring (overwrites anything `source .env.local` loaded under that name),
+# headers from a process substitution so it never appears in curl's argv.
+source scripts/keyring.sh
+KEYRING_REASON="story-to-image: set image_url on prod story ${STORY_ID}" \
+  keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
 curl -s -X PATCH "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories?id=eq.${STORY_ID}" \
-  -H "apikey: $PROD_SUPABASE_ANON_KEY" -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY" \
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$PROD_SUPABASE_ANON_KEY" "$PROD_SUPABASE_SERVICE_ROLE_KEY") \
   -H "Content-Type: application/json" -H "Prefer: return=representation" \
   -d "{\"image_url\": \"$IMG_URL\"}"
 ```

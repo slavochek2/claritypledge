@@ -34,18 +34,24 @@ Anything outside the loaded namespaces (other aliases, `ops@` profiles) is **not
 
 Say "Running on **prod** DB" or "**test** DB." Source connection details:
 
-| Env | URL var | Service key (in `.env.local`) |
-|---|---|---|
-| prod | `VITE_SUPABASE_URL` (`.env.prod`) | `PROD_SUPABASE_SERVICE_ROLE_KEY` |
-| test | `NEXT_PUBLIC_SUPABASE_URL` (`.env.local`) | `TEST_SUPABASE_SERVICE_ROLE_KEY` |
+| Env | URL var | Reads (Phases 1, 2, 5) | Writes (Phase 4) |
+|---|---|---|---|
+| prod | `VITE_SUPABASE_URL` (`.env.prod`) | `python3 scripts/supabase-readonly-sql.py --env prod "<SQL>"` — scoped read-only token, holds no write authority | prod service key through the per-access lock, never `.env.local` (P1239/P1316) — see Phase 4 |
+| test | `NEXT_PUBLIC_SUPABASE_URL` (`.env.local`) | curl with `SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` (`.env.local`) | same |
 
-Source order for prod: `source .env.local && source .env.prod` (so the prod URL wins). Verify auth with a `select=id&limit=1` returning HTTP 200 before any mutation.
+Source order for prod: `source .env.local && source .env.prod` (so the prod URL wins). **Prod reads never touch the master key** — every Phase 1, 2 and 5 query on prod is SQL through the read-only helper. Before the first prod mutation, verify the locked key with a `select=id&limit=1` returning HTTP 200.
+
+Every curl below passes the key in headers from a process substitution, `-H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SK" "$SK")`, so it never appears in argv (ps).
 
 ## Phase 1 — List candidates
 
 ```bash
+# prod
+python3 scripts/supabase-readonly-sql.py --env prod \
+  "SELECT id, email, name, slug, created_at FROM public.profiles"
+# test
 curl -s "${URL}/rest/v1/profiles?select=id,email,name,slug,created_at" \
-  -H "apikey: ${SK}" -H "Authorization: Bearer ${SK}"
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SK" "$SK")
 ```
 
 Filter to the allowlist, minus exclusions. Typically 0–3 rows.
@@ -104,10 +110,20 @@ Phase 2 has proven no real user is affected. Clear the candidate's rows so the `
 
 Order: snapshot → **reassign points (A)** → **history+positions (B)** → letter positions → verifications → **DELETE the candidate's sessions** → NULL `source_letter_id` (remaining) → letters → docs → agreements → NULL deliveries/witnesses/log → user. Re-scan all profile FKs (by `profile_id`) immediately before the delete — same-day app activity can re-create rows. Then:
 
+On **prod**, every Phase 4 write block first reads the service key through the per-access lock — one
+authorization dialog per block, tell the founder **Allow**, never "Always Allow"; a declined dialog
+stops with nothing written. On **test**, `SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` as before.
+
 ```bash
+# prod only
+source scripts/keyring.sh
+KEYRING_REASON="clean-test-users: delete test user ${uid} on prod" \
+  keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY || exit 1
+SK="$PROD_SUPABASE_SERVICE_ROLE_KEY"
+
 curl -s -o /tmp/del -w "%{http_code}" -X DELETE \
   "${URL}/auth/v1/admin/users/${uid}" \
-  -H "apikey: ${SK}" -H "Authorization: Bearer ${SK}"
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SK" "$SK")
 ```
 
 **Fail-loud fallback:** if the DELETE returns 4xx/5xx naming a table NOT in the list above, a newer migration added a blocking FK. Grep `supabase/migrations/` for `REFERENCES (public\.)?profiles`, handle the new table (NULL if nullable, DELETE if not), re-run. Never force-continue past a failed delete.

@@ -53,7 +53,7 @@ The first draft named `.env.prod: VITE_SUPABASE_URL` and the `PROD_*` keys and n
 | Target | Ref from | Service key | Anon key |
 |---|---|---|---|
 | **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local: VITE_SUPABASE_ANON_KEY` |
-| **prod** | `.env.prod: VITE_SUPABASE_URL` | `.env.local: PROD_SUPABASE_SERVICE_ROLE_KEY` | `.env.local: PROD_SUPABASE_ANON_KEY` |
+| **prod** | `.env.prod: VITE_SUPABASE_URL` | not read by this skill — prod writes go through the Management API token on the per-access lock (P1239/P1316); never a plaintext copy | `.env.local: PROD_SUPABASE_ANON_KEY` |
 
 **Never mix a ref from one row with a key from the other** — that is the one combination that fails loudly, and it is the *good* outcome. **The ledger's `env:` field is DERIVED from the ref actually used, never typed.**
 

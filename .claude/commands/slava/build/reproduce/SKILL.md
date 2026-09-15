@@ -55,7 +55,7 @@ Different bugs need different tools. Pick the right combination:
 - **Playwright:** Use `browser.newContext()` for each party — separate cookies, separate auth
 - **Claude in Chrome:** Use main window for party A, incognito for party B
 - **Test accounts:** Check `e2e/` fixtures and `.env.local` for existing test credentials before creating new ones
-- **Service role:** For verifying DB state across both parties, use service role key from `.env.local`
+- **Service role:** For verifying DB state across both parties on **test**, use `TEST_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`. On **prod**, read state through `python3 scripts/supabase-readonly-sql.py --env prod "<SQL>"` — never the prod master key (P1316)
 
 **Auth-gated pages:** Chrome DevTools MCP is headless with no cookies — blank page on auth routes. Use Claude in Chrome (real browser) or Playwright with test accounts.
 

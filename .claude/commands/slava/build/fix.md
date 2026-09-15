@@ -101,7 +101,7 @@ Bug reported
 
 /fix stops at a QA gate on success: sets `status: qa` in frontmatter, stays on the feature branch. Run `/ship pN` to merge to prod and close the spec.
 
-**Prod verification:** After deploying a fix that touches DB/auth/edge functions, verify on prod with Playwright: `VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="<srk>" npx playwright test e2e/verify-prod-<feature>.spec.ts`. Uses persistent test account `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template.
+**Prod verification:** After deploying a fix that touches DB/auth/edge functions, verify on prod with Playwright: `source scripts/keyring.sh && KEYRING_REASON="verify-prod <feature>" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY && VERIFY_PROD=1 PROD_SERVICE_ROLE_KEY="$PROD_SUPABASE_SERVICE_ROLE_KEY" npx playwright test e2e/verify-prod-<feature>.spec.ts` — the key comes from the per-access lock (one dialog, **Allow** never "Always Allow"), never a pasted or plaintext copy (P1316). Uses persistent test account `e2e-agent@claritypledge.com`. See `e2e/verify-prod-agreements.spec.ts` as template.
 
 ---
 

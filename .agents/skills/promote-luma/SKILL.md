@@ -48,8 +48,8 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 ```
 
 Verify the curl returned `HTTP:200` with a non-zero byte count. If it didn't:
-- `PROD_SUPABASE_SERVICE_ROLE_KEY` set (founder machine): fall back to `./scripts/event-photo-prep.sh <slug> --unsplash "<query>"` (founder-only, macOS-only).
-- No service key (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com (banner auto-generates; Regenerate control on the event page), then re-run."
+- Prod service key enrolled in the keyring (founder machine — `./scripts/keyring.sh status`, never prompts): fall back to `./scripts/event-photo-prep.sh <slug> --unsplash "<query>"` (founder-only, macOS-only; one authorization dialog at upload — **Allow**, never "Always Allow").
+- Not enrolled (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com (banner auto-generates; Regenerate control on the event page), then re-run."
 
 ### 3. Open Luma create-event page
 

@@ -117,12 +117,12 @@ On this branch:
 | Target | URL from | Service key from |
 |---|---|---|
 | **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` |
-| **prod** | `.env.prod: VITE_SUPABASE_URL` | `.env.local: PROD_SUPABASE_SERVICE_ROLE_KEY` |
+| **prod** | `.env.prod: VITE_SUPABASE_URL` | the per-access lock — `source scripts/keyring.sh; KEYRING_REASON="provision-agent: avatar upload" keyring_require PROD_SUPABASE_SERVICE_ROLE_KEY`, then `SERVICE_ROLE_KEY="$PROD_SUPABASE_SERVICE_ROLE_KEY"`. One dialog; tell the founder **Allow**, never "Always Allow". **Never** from `.env.local` (P1239/P1316) |
 
 ```bash
+# Headers from a process substitution, so the key never appears in curl's argv (ps).
 UPLOAD_STATUS="$(curl -s -o /tmp/agent-avatar-upload.log -w '%{http_code}' -X POST \
-  -H "apikey: $SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+  -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SERVICE_ROLE_KEY" "$SERVICE_ROLE_KEY") \
   -H "Content-Type: image/png" \
   --data-binary @<scratch-path>.png \
   "$TARGET_URL/storage/v1/object/agent-avatars/<subject-slug>/<uuid>.png")"

@@ -124,8 +124,8 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 `HTTP:200` with non-zero bytes → write `LOCAL` and `PUBLIC` to the cache and continue.
 
 **If the banner is missing (404/400):**
-- `PROD_SUPABASE_SERVICE_ROLE_KEY` set (founder machine): run `./scripts/event-photo-prep.sh <slug> "<query>"` (generates via Unsplash + uploads to storage; founder-only, macOS-only) and parse its `LOCAL`/`PUBLIC` output.
-- No service key (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com — the banner auto-generates on creation (use the Regenerate control on the event page if needed) — then re-run." Never attempt the upload path without the service key.
+- Prod service key enrolled in the keyring (founder machine — `./scripts/keyring.sh status` shows it `enrolled`, and never prompts): run `./scripts/event-photo-prep.sh <slug> "<query>"` (generates via Unsplash + uploads to storage; founder-only, macOS-only) and parse its `LOCAL`/`PUBLIC` output. The upload raises one authorization dialog — tell the founder **Allow**, never "Always Allow".
+- Not enrolled (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com — the banner auto-generates on creation (use the Regenerate control on the event page if needed) — then re-run." Never attempt the upload path without the enrolled key.
 
 ### 3b. Resolve the promo blurb (single source of truth)
 

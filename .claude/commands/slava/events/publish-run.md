@@ -226,7 +226,10 @@ Step 8 writes directly to **prod**. Before that, show the user the assembled dra
 Read credentials from `.env.prod`:
 - `VITE_SUPABASE_URL` → Supabase URL
 - `VITE_SUPABASE_ANON_KEY` → for public reads only
-- Service key via: `supabase projects api-keys --project-ref besjtuodziykmjidubzw`
+- Service key: **only through the per-access lock** (P1239/P1316) — never `.env.local`, and not
+  `supabase projects api-keys` (that needed the account-wide CLI login P1214 removed). Every write
+  block below reads it in-process and raises one authorization dialog; tell the founder **Allow**,
+  never "Always Allow". `scripts/create-event.ts` reads it the same way.
 
 Host ID is always: `a99042ef-e740-446a-8734-389c8589cc17` (Slava)
 
@@ -313,18 +316,23 @@ If no photo was supplied, skip this step entirely.
 If the founder supplied a WhatsApp (or Telegram / Signal / Discord) invite link in step 5, write
 it to `public.event_private_info`, keyed by the new event's `id`:
 
+In-process, so the key never reaches a command's argv (the earlier `subprocess.run(["curl", ...])`
+form put it there, visible to every process via `ps`). One authorization dialog — **Allow**, never
+"Always Allow"; a declined dialog raises and nothing is written.
+
 ```python
-import json, subprocess
+import json, sys, urllib.request
+sys.path.insert(0, "scripts/lib"); from keyring import require
+K = require("PROD_SUPABASE_SERVICE_ROLE_KEY", reason=f"publish-run: group chat link for event {EVENT_ID}")
 payload = {"event_id": EVENT_ID, "group_chat_url": GROUP_CHAT_URL}
-subprocess.run([
-    "curl", "-s", "-X", "POST",
+req = urllib.request.Request(
     f"{URL}/rest/v1/event_private_info",
-    "-H", f"apikey: {SERVICE_KEY}",
-    "-H", f"Authorization: Bearer {SERVICE_KEY}",
-    "-H", "Content-Type: application/json",
-    "-H", "Prefer: resolution=merge-duplicates",
-    "-d", json.dumps(payload),
-], check=True)
+    data=json.dumps(payload).encode(),
+    headers={"apikey": K, "Authorization": f"Bearer {K}", "Content-Type": "application/json",
+             "Prefer": "resolution=merge-duplicates"},
+    method="POST",
+)
+urllib.request.urlopen(req).read()
 ```
 
 `event_id` is the table's primary key, so `merge-duplicates` makes a re-run an update rather than
@@ -351,9 +359,11 @@ cancellation channel — worse than no link at all, because it looks like it wor
 
 **Verify before promoting.** Read the row back and confirm `group_chat_url` is set:
 
+A read, so it holds no write credential — the read-only helper (P1316):
+
 ```bash
-curl -s "$URL/rest/v1/event_private_info?event_id=eq.$EVENT_ID&select=event_id,group_chat_url" \
-  -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY"
+python3 scripts/supabase-readonly-sql.py --env prod \
+  "SELECT event_id, (group_chat_url IS NOT NULL) AS has_link FROM public.event_private_info WHERE event_id = '$EVENT_ID'"
 ```
 
 An empty array means the write silently failed and the button will not render — a successful curl

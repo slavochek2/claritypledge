@@ -176,10 +176,9 @@ Paste the evidence; do not ask to move to PROD until all pass.
 1. **Create** with `npx tsx scripts/create-event.ts <file.json>`, input shaped like the Step 4 row
    but with `"host_id": "<prod host>"` and `"org_slug": "cm"` instead of `org_id` (it resolves the
    org, generates the slug, and prints `SLUG=`). It sets no banner and no group chat.
-   **Known gap:** this script reads the prod service key from the `.env.local` plaintext copy,
-   around the per-access gate (tracked in the private process-learnings inbox, 2026-09-11). Until
-   that is fixed, **say so when you ask to move to PROD** and run it only on the founder's word. Every
-   other prod service-role call in this skill goes through the helper.
+   It reads the prod service key through the per-access lock (P1316), so it raises one
+   authorization dialog — tell the founder **Allow**, never "Always Allow"; a declined dialog creates
+   nothing. Every prod service-role call in this skill now goes through the lock.
 2. **Group chat: publish-run step 8c's *procedure*, not its code** (8c passes the key in `argv`).
    In-process, one dialog per process, and never print the invite URL:
 
