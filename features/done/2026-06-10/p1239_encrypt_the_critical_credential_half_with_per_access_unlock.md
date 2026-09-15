@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: task
 disclosure: public
 rank: 1000068
@@ -7,12 +7,12 @@ workstream: keyring
 created_date: '2026-09-03'
 tags: [security, credentials, encryption]
 related: [p1214, p1148]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-15
 ---
 
 # P1239: Split `.env.local`, lock the critical half behind a per-access confirmation
@@ -161,7 +161,7 @@ The test is "would losing this be unrecoverable or expensive?", not a full inven
 saves ~4 seconds/week. Revisit only if the measured count triples.
 
 Whatever is implemented must not put a passphrase or a decrypted value through a tool call or the
-shell history — [P1148](p1148_credential_rotation_system.md) item 15 records that a value passing
+shell history — [P1148](../../p1148_credential_rotation_system.md) item 15 records that a value passing
 through a tool call lands in the session transcript. **The selected mechanism satisfies this by
 construction**: the founder answers an OS dialog; nothing is typed into the terminal.
 
@@ -316,7 +316,7 @@ plaintext removal.
    folding these into `.env.local` on 2026-09-04; that was **not** done, because it would move four
    secrets from a comparatively guarded store into the unguarded one. Open: do these join the critical half, get their own guard, or stay put?
 
-   **Routed 2026-09-07** to [P1148](p1148_credential_rotation_system.md) as an inventory item.
+   **Routed 2026-09-07** to [P1148](../../p1148_credential_rotation_system.md) as an inventory item.
    Guarding them is still open here; *rotating* them is unambiguously P1148's, and a credential
    that cannot be rotated because no inventory ever listed it is the failure that spec exists to
    prevent.
@@ -326,14 +326,14 @@ plaintext removal.
 
 ## Related
 
-- **Implementation:** [docs/technical/credential-keyring.md](../docs/technical/credential-keyring.md)
+- **Implementation:** [docs/technical/credential-keyring.md](../../../docs/technical/credential-keyring.md)
   — how the locked half works, the commands, the "Always Allow" failure mode and how to detect it,
   and the recovery path.
 
 - **Peer:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks what ends up
   inside the locked half, and owns the CI-side credential copy this spec cannot reach.
   Independent: this spec does not wait on its verdicts.
-- **Peer:** [P1148](p1148_credential_rotation_system.md) — owns rotation and revocation. Its own
+- **Peer:** [P1148](../../p1148_credential_rotation_system.md) — owns rotation and revocation. Its own
   "vault" is a short-lived ROLLBACK escrow during a swap, a different mechanism from this one;
   the names collide and should not be conflated.
 - **Precedent, contrasting:** `push-on` / `~/.push-enabled` in `~/.zshrc` and pp's `pre-push` hook
