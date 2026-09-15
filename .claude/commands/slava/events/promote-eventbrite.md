@@ -7,6 +7,11 @@ version: 1.1.0
 
 # Promote Event on Eventbrite
 
+> **SWITCHED OFF for all event types — founder, 2026-09-15:** *"I will not publish on Eventbrite
+> anymore."* `promote-all` no longer invokes this skill and the founder's operator config no longer
+> lists `eventbrite`. Do not offer it, open the tab, or report it as a gap. The file is kept only so
+> an operator who explicitly lists `eventbrite` in their own config still has a working path.
+
 Fills the Eventbrite "Build event page" wizard for a ClarityPledge event. Stops before the user adds tickets / publishes.
 
 ## Input

@@ -61,7 +61,7 @@ Gate 1 — which               /slava:        /slava:events:          /slava:eve
 creation path?                content:       promote-all             promote-groups       promote-whatsapp
  · publish-event          →   gen-poster  →  (todo.today, FB      →  (WhatsApp /       →  promote-email
  · publish-run (AllTrails)                    personal, Luma,         Telegram chats)      — NOT auto-chained;
- · re-create-event (clone)                    Eventbrite, Sola)                             separate opt-in
+ · re-create-event (clone)                    Sola)                                         separate opt-in
 ```
 
 **This skill never publishes.** *"Every Publish/Create click is the user's, never the skill's."* (`docs/decisions.md` 2026-05-12 [process]) Applies here exactly as it applies to `promote-all` — this orchestrator adds sequencing and a combined view, nothing that clicks Publish or Create.
@@ -128,6 +128,14 @@ step 6). One line: *"Photo for the banner? Path, or skip."* This is the founder'
 asking at kickoff is what keeps it from becoming a mid-promotion detour: on 2026-08-31 the crop,
 upload, prod PATCH and two-viewport verification all happened *after* platform promotion had begun.
 A `skip` is final for the run; do not re-raise it later.
+
+**Check the messaging bridge now, not at Stage 7.** If `promote_groups` is in scope, or DMs are
+expected (always for Clarity Night — see its series doc), confirm the Beeper MCP tools are loaded in
+this session; they exist only under the `cf` launch alias. If they are missing, say it in the kickoff
+message, before any trail or cafe is picked: *"Beeper isn't loaded in this session — restart with
+`cf` now if the group sends should happen in this run; otherwise I'll mark groups deferred."* On
+2026-09-14 this was found only after the platforms were done, and the whole groups leg had to move
+to another session (*"i will restart with cf later"*).
 
 Write the run record (schema above) **before invoking the chosen creation skill** — this is the "before any stage executes" requirement above.
 
@@ -214,7 +222,6 @@ Platforms (promote-all.json):
   todo.today:        <done | skipped | pending>
   Facebook personal: <done | skipped | pending>
   Luma:              <done | skipped | pending>
-  Eventbrite:        <done | skipped | pending>
   Social Layer:      <done | skipped | pending | n/a>
 
 Groups (promote-groups.json):

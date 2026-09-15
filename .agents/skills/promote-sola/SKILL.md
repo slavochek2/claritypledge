@@ -2,7 +2,7 @@
 name: promote-sola
 description: "Create a Social Layer (sola.day) event under a community group for a ClarityPledge event"
 when_to_use: "After event is published on claritypledge.com, as a platform in /promote-all. Pre-condition: the series has a `sola_group` (Social Layer group handle) — events cannot be hosted on a bare profile. UI-driven via claude-in-chrome; user clicks Create Event."
-version: 2.1.0
+version: 2.2.0
 ---
 
 # Promote Event on Social Layer (sola.day)
@@ -15,34 +15,28 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 
 ---
 
-## Prerequisite: browser access — the Chrome extension CANNOT reach this site
+## Prerequisite: browser access — the founder's own Chrome, through the extension
 
-**Do not tell the operator to "enable app.sola.day" in the Claude in Chrome extension. It does not
-work, and this has already cost hours twice.** The extension's per-site permission dialog fires for
-most domains but **silently rejects `app.sola.day` with no popup at all**, and the domain never
-appears in the extension's own allowlist afterwards. Measured across 2026-05-17, 05-18 and 05-22:
-refreshing the tab, toggling the extension, granting from the side panel, and a full extension
-reinstall were all tried and all failed. Enabling `sola.day` does not help either — that is the
-marketing domain, and `sola.day/event/<group>/create` renders a **blank page with no console
-error**, which reads exactly like a broken app rather than a wrong host (2026-09-07).
+**Use claude-in-chrome in the founder's normal Chrome. Never launch Playwright or any separate
+browser for Sola.** The founder is logged into Sola in his own Chrome; a separate browser has no
+session and sends him to a sign-in page he has to fight through. Founder, 2026-09-14: *"it has to be
+open in my Chrome browser and not test Chrome browser ... the login works in my browser, but not
+test Chrome browser."*
 
-**The working path is a dedicated Playwright profile**, already created at
-`.private/playwright-profiles/sola/` (gitignored). Launch a persistent context against it:
+**Corrected 2026-09-14 — this section used to say the extension CANNOT reach `app.sola.day` and
+prescribed a Playwright profile.** That was measured false: on 2026-09-14 the extension navigated
+to `app.sola.day/event/4seas/create` and filled the whole form (date, time, location, description,
+tags, cover) in the founder's Chrome, minutes after the Playwright path had opened an empty window.
+The May failures were most likely the extension's per-site permission for `app.sola.day` not yet
+being granted. The Playwright profile is abandoned; do not revive it.
 
-```js
-import pkg from '<repo>/node_modules/playwright/index.js'; const { chromium } = pkg;
-const ctx = await chromium.launchPersistentContext('<repo>/.private/playwright-profiles/sola',
-  { headless: false, viewport: { width: 1400, height: 900 } });
-```
+**The host is `app.sola.day`, not `sola.day`.** They are separate permission grants.
+`sola.day/event/<group>/create` renders a **blank page with no console error**, which reads exactly
+like a broken app rather than a wrong host (2026-09-07). When a Sola page is blank and the console
+is clean, check the hostname first.
 
-Note the import shape: `playwright` is CommonJS, so `import { chromium } from 'playwright'` fails
-with "Named export 'chromium' not found", and a script outside the repo cannot resolve the package
-at all (`NODE_PATH` does not fix ESM resolution) — import by absolute path.
-
-**The session in that profile expires.** On 2026-09-07 the May login was dead: `app.sola.day`
-redirected to `sola.day/` and the page showed "Sign In". That redirect is the tell — check for it
-before assuming the site is down. The operator must log in **once** in the launched window, after
-which the profile persists across runs. This is a founder action; never attempt to log in for them.
+**If the page shows "Sign In"** or `app.sola.day` redirects to `sola.day/`, the founder's session
+expired. Ask him to log in once in his own Chrome; never attempt to log in for him.
 
 ## Prerequisite: a group (hard requirement)
 

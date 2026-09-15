@@ -27,7 +27,7 @@ The rest of this guide is the reference behind that walkthrough.
    General project setup: [README.md](../../README.md) (you do NOT need the full dev environment — no `npm install`, no database, no env secrets — unless you want to run the app locally).
 2. **Open it in [VS Code](https://code.visualstudio.com/) with [Claude Code](https://claude.com/claude-code)** — you need your own Claude Code subscription. In VS Code: File → Open Folder → pick the `claritypledge` folder you just cloned, then open the Claude Code panel. **To check the project skills loaded:** type `/` in the Claude chat box — you should see entries starting with `slava:events:` in the list. ("Running a skill" just means typing its name, like `/slava:events:promote-all`, into the chat box and pressing Enter.)
 3. **ClarityPledge account** — sign up at [claritypledge.com](https://claritypledge.com) (your own account; events you create are hosted and editable by you).
-4. **Platform accounts — your own:** [Luma](https://luma.com), [Eventbrite](https://eventbrite.com), [todo.today](https://todo.today), [sola.day](https://app.sola.day), Facebook. Log into each in Chrome — the promotion skills drive your logged-in browser through the **Claude in Chrome** extension (Chrome Web Store, search "Claude in Chrome", sign in with your Claude account). To activate it in VS Code: type `@browser` in the Claude chat box when a skill needs the browser (in a terminal session instead: run `/chrome` once and pick "Enabled by default"). Requires a direct Anthropic subscription (Pro or higher) and an up-to-date Claude Code. For Facebook groups: join the groups you'll post to.
+4. **Platform accounts — your own:** [Luma](https://luma.com), [todo.today](https://todo.today), [sola.day](https://app.sola.day), Facebook. Log into each in Chrome — the promotion skills drive your logged-in browser through the **Claude in Chrome** extension (Chrome Web Store, search "Claude in Chrome", sign in with your Claude account). To activate it in VS Code: type `@browser` in the Claude chat box when a skill needs the browser (in a terminal session instead: run `/chrome` once and pick "Enabled by default"). Requires a direct Anthropic subscription (Pro or higher) and an up-to-date Claude Code. For Facebook groups: join the groups you'll post to.
 5. **Create your operator config** — easiest: ask Claude in the chat box:
    > "Create my operator config — my name is [name as it appears on my platform accounts] and I use [Luma, todo.today, ...]."
 
@@ -38,7 +38,7 @@ The rest of this guide is the reference behind that walkthrough.
      "platforms": ["luma", "todo-today", "facebook-personal"]
    }
    ```
-   Valid platform values: `todo-today`, `facebook-personal`, `facebook`, `luma`, `eventbrite`, `sola`. List only platforms you have accounts for.
+   Valid platform values: `todo-today`, `facebook-personal`, `facebook`, `luma`, `sola`. List only platforms you have accounts for. (Eventbrite was switched off for ClarityPledge events on 2026-09-15; `eventbrite` still works only if you list it yourself.)
 
 That's the whole setup. No API keys, no database credentials, no env files.
 
@@ -80,7 +80,7 @@ It picks up your operator config, finds the upcoming event, downloads its banner
 | Edit / delete your event | the event page on claritypledge.com (you're the host) |
 | Banner image | Auto-generated on create; Regenerate control on the event page |
 | Promote to all your platforms | `/slava:events:promote-all` in Claude Code |
-| Promote to one platform only | `/slava:events:promote-luma`, `promote-eventbrite`, `promote-todo-today`, `promote-sola`, `promote-facebook`, `promote-facebook-personal` |
+| Promote to one platform only | `/slava:events:promote-luma`, `promote-todo-today`, `promote-sola`, `promote-facebook`, `promote-facebook-personal` |
 | WhatsApp/chat blurb | `promote-all` outputs it at the end — copy-paste yourself |
 | Post into recurring group chats | `/slava:events:promote-groups` (see below) |
 

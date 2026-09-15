@@ -237,7 +237,10 @@ Then:
    used** next to the measured minutes.
 2. Search Google Maps for cafes **and restaurants** near those coordinates, biased to the **start**
    of the route unless the founder asked for one at the **end** (a one-way hike ending at a cafe was
-   an explicit ask on 2026-08-31 — honour which end he named).
+   an explicit ask on 2026-08-31 — honour which end he named). **Search radius is ~1.5 km
+   straight-line** — the most a 15-minute walk can cover. Never start wider: on 2026-09-14 the
+   search began at 2.5–3 km and the founder had to cut it to 1.5 km by hand. Widen only if nothing
+   passes, and say that you widened.
 3. Drop anything in `venues` in the exclusions file.
 4. Apply the two-part gate above. **Open only survivors as tabs** — one Google Maps tab each, never
    a chat list of cafe names.

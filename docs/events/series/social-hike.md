@@ -69,7 +69,7 @@ We walk at the pace of the slowest person, so nobody who wants to keep going get
 
 **Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash.
 
-Plan for [QUOTED] of hiking, likely more. I have blocked until [END TIME] so nobody has to watch the clock, and we will almost certainly finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
+The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total (I have blocked until [END TIME]), and we will most likely finish earlier. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
 Coffee or lunch after for anyone who feels like it.
 
@@ -112,7 +112,9 @@ Coffee or lunch after for anyone who feels like it.
   free. A hard end time equal to a figure the copy calls "likely more" contradicts itself, and the
   calendar invite is the version people actually plan around (founder, 2026-09-07: *"if its 6.5
   hours then end is probably 17:00?"*). Name both in one sentence and let finishing early be the
-  good outcome.
+  good outcome. **Say which number is which:** "the hike takes about X, plan for up to Y". The
+  old "Plan for X of hiking, likely more" was read as ambiguous (founder, 2026-09-14: *"maybe
+  better say the hike is supposed to take X, but plan up to 7.5"*).
 - **Recompute both numbers every run; never reuse last week's.** The multiplier is 1.35 (revised
   down from 1.4 on 2026-09-07) and the end time is `start + duration_minutes` for the trail in
   hand. The Sept 13 hike's "6.5 hours" and "17:00" belong to that trail alone. A shorter trail

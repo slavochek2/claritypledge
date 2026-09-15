@@ -1,13 +1,13 @@
 ---
 name: promote-all
-description: "Promote a ClarityPledge event to todo.today, Facebook (personal), Luma, Eventbrite, and Social Layer in one pass"
+description: "Promote a ClarityPledge event to todo.today, Facebook (personal + groups), Luma, and Social Layer in one pass"
 when_to_use: "After event is published on claritypledge.com. Fans out sequentially across platforms with user-controlled gates."
 version: 1.7.0
 ---
 
 # Promote Event to All Platforms
 
-Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-facebook` (groups), `promote-luma`, `promote-eventbrite`, and `promote-sola` into one sequential pass. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
+Wraps `promote-todo-today`, `promote-facebook-personal`, `promote-facebook` (groups), `promote-luma`, and `promote-sola` into one sequential pass. **Eventbrite is switched off for every event type** (founder, 2026-09-15: *"I will not publish on Eventbrite anymore"*) — `promote-eventbrite` runs only for an operator who lists `eventbrite` in their own config. Each platform stops for explicit user review before the user clicks Publish / Create event. The wrapper never publishes anything. Social Layer runs only when the series has a `sola_group`.
 
 After all platforms are done, shows the series WhatsApp blurb (or generates a fallback) for the user to paste into chat groups. If the user edits it, the series doc is updated.
 
@@ -26,13 +26,14 @@ Read `.private/event-operator.json` (repo-relative, gitignored — each operator
 ```json
 {
   "operator_name": "<name the platform browser sessions are logged in as>",
-  "platforms": ["todo-today", "facebook-personal", "facebook-groups", "luma", "eventbrite", "sola"],
+  "platforms": ["todo-today", "facebook-personal", "facebook-groups", "luma", "sola"],
   "facebook_groups": ["<optional — known groups for promote-facebook, grows run over run>"]
 }
 ```
 
-- **File absent → founder defaults:** operator = Vyacheslav Ladischenski, all platforms. Behavior identical to pre-P901.
+- **File absent → founder defaults:** operator = Vyacheslav Ladischenski, all platforms **except Eventbrite** (off since 2026-09-15).
 - `platforms` filters the step-4 fan-out: a platform not listed is marked `"skipped (not in operator config)"` without invoking its sub-skill.
+- **The series can narrow it further, never widen it.** After step 2 resolves `series_doc`: if its frontmatter has `platforms:`, use the intersection with the operator list. Then, for the matching type in `.private/event-channels.json`, mark every key of `skip_platforms` as `"skipped (<its reason>)"`. That key existed since 2026-09-07 with nothing reading it — a config nothing consumes looks exactly like a rule that works.
 - Pass `operator_name` to every platform sub-skill — each verifies its browser session is logged in as this operator before filling forms.
 
 ### 1. Resolve slug
@@ -73,7 +74,6 @@ Schema:
     "facebook_personal": "pending",
     "facebook_groups": "pending",
     "luma": "pending",
-    "eventbrite": "pending",
     "sola": "pending"
   },
   "updated_at": "2026-05-12T08:00:00Z"
@@ -86,6 +86,7 @@ Schema:
 |---|---|
 | `AI Running Club%` | `docs/events/series/ai-running-club.md` |
 | `Social Hike%` / `Clarity Hike%` | `docs/events/series/social-hike.md` |
+| `Clarity Night%` | `docs/events/series/clarity-night.md` — **read its `## Promotion recipe` before anything else**; it is promoted differently from hikes (community channels, organiser asks, DMs and email are part of the run, not optional) |
 
 If no match, leave `series_doc` null — fall back to generated blurb in step 5.
 
@@ -95,7 +96,7 @@ If the file exists, read it and resume from the first `pending` platform. Otherw
 
 Before any copy review or form-filling, check every platform in this run's scope (per the operator config's `platforms` list from step 0) is logged in as the operator — **together, in one pass**, not discovered one at a time mid-run.
 
-For each in-scope platform, open its base page (todo.today `/my-events/`, `facebook.com` (own profile), `luma.com`, `eventbrite.com`, `sola.day` — only if the series has a `sola_group`) via claude-in-chrome and read the logged-in identity from the page (avatar/name in nav, account menu, etc.). Do not fill any form yet — this is a read-only identity check.
+For each in-scope platform, open its base page (todo.today `/my-events/`, `facebook.com` (own profile), `luma.com`, `app.sola.day` — only if the series has a `sola_group`; **`app.sola.day`, not `sola.day`**, which is a separate host that renders blank) via claude-in-chrome **in the founder's own Chrome** — never Playwright or a separate test browser, where he is not logged in — and read the logged-in identity from the page (avatar/name in nav, account menu, etc.). Do not fill any form yet — this is a read-only identity check.
 
 Report one table before proceeding:
 
@@ -104,7 +105,6 @@ todo.today:        <logged in as <name> | NOT logged in>
 Facebook personal: <logged in as <name> | NOT logged in>
 Facebook groups:   <n eligible | NOT logged in>  (same session as Facebook personal)
 Luma:              <logged in as <name> | NOT logged in>
-Eventbrite:        <logged in as <name> | NOT logged in>
 Social Layer:      <logged in as <name> | NOT logged in | n/a — no sola_group>
 ```
 
@@ -239,11 +239,26 @@ post"* (2026-08-31). The old shape stopped after each platform and waited — fi
 returns to the keyboard for one hike. This shape produces one.
 
 **Phase A — fill, in this order, without stopping.** todo.today → Facebook (personal) →
-**Facebook groups** → Luma → Eventbrite → Social Layer. Rationale unchanged: todo.today has the
+**Facebook groups** → Luma → Social Layer. Rationale unchanged: todo.today has the
 highest UI friction (tag picker, character truncation), so fail-fast there; Facebook needs visual
-cover-photo review; Facebook groups follows it because the personal-post tab is already open and
-logged in; Luma is stable; Eventbrite is a multi-step wizard; Social Layer is last and skipped
-entirely when the series has no `sola_group`.
+cover-photo review; Facebook groups follows it because Facebook is already logged in; Luma is
+stable; Social Layer is last and skipped entirely when the series has no `sola_group`.
+(Eventbrite was removed from this order on 2026-09-15.)
+
+**A filled form is not a draft until you have read back that it is not live.** "Never publishes"
+has now failed on two platforms without anyone clicking Publish: todo.today went live after the
+cover upload (2026-09-07), and the Facebook **personal** post went live on 2026-09-14 while the agent
+filling it reported *"Not published"* — the mechanism was never pinned down. So, binding in Phase A:
+
+1. **Never navigate a tab that holds a filled form.** Open a new tab for the next platform or the
+   next group. On 2026-09-14 the tab holding the filled Facebook post was navigated to the group page,
+   and the post was live minutes later.
+2. **After filling each platform, check the account's own listing** (Facebook profile feed,
+   todo.today My Events, Luma calendar, Sola group events). If the event or post already exists,
+   Phase B says so plainly — *"already LIVE, not a draft"* — rather than asking for a click that no
+   longer gates anything.
+3. **If the fill is delegated to subagents, use one agent per platform.** A single agent filling
+   four platforms hit its 200-turn limit on 2026-09-14 and had to be resumed mid-form.
 
 **Facebook groups is a platform here, not a separate errand.** It was absent from this list until
 2026-09-07, when the founder asked for it mid-run and it had to be added by hand — *"and facebook
@@ -364,7 +379,6 @@ todo.today:        <done | skipped>
 Facebook personal: <done | skipped>
 Facebook groups:   <done | skipped>  (list each group and its eligible/blocked reason)
 Luma:              <done | skipped>
-Eventbrite:        <done | skipped>
 Social Layer:      <done | skipped>
 ```
 
