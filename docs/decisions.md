@@ -15173,6 +15173,8 @@ The generalisable rule: **a suppression key must include whatever can make the f
 
 **References:** [scripts/validate-doc-links.cjs](../scripts/validate-doc-links.cjs) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9 (agent claim is not evidence) · decisions.md 2026-08-14 [technical] (P1069, the absence claim that was wrong) · decisions.md 2026-08-13 [process] (the routing line measured 0/30) · [docs/process-learnings.md](process-learnings.md) (supersession-gate note, due: month)
 
+**Retired 2026-09-15 — the numbers, not the reasoning.** The 103-vs-19 ratio above does not survive re-running: changing *only* the findability word list inverts it to **90 vs 109**, and sampling shows both classes are largely vocabulary collision — `superseded` is the *points* product feature, `drift` is RLS drift detection, `scoped` is product scoping. The entry's own caveat ("mostly false matches on the word 'scoped'") was applied to one class and not to its sibling measured the same way, which is what produced the gap. **The conceptual half stands and is unaffected**: semantic retrieval improves finding and is indifferent to currency. The empirical claim — *"this repo's record is dominated by the second"* — should not be cited again. Full analysis in pp `docs/decisions.md` 2026-09-15 "The measurement that rejected GBrain does not survive re-running"; the measurement itself is pp `tasks/p61`.
+
 ---
 
 ## 2026-08-15 [process]: A pre-commit gate reported green for six months while validating a structure that no longer exists
