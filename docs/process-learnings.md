@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 77
+**Next ID:** 78
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1549,5 +1549,16 @@ Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 3
 **due:** month
 
 The first /prioritize pass over the inbox (2026-09-15, P1317) left 88 open entries: 68 public and 20 private. On or after 2026-10-15, add up both stores with `./scripts/inbox.sh count`. If the total is not below 88, file intake throttling (P1081's standing fallback) as a spec that week. Do not re-debate it; the pass pre-committed to this. Droppable once that spec exists or the count is below 88.
+
+---
+
+## P887 canary copies every scripts/lib entry as a file and fails on any subdirectory
+
+**ID:** INBOX-77
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** month
+
+src/tests/p887-reproduce.test.ts buildSandbox (around line 85) runs copyFileSync over readdirSync('scripts/lib'). Any directory there (a Python __pycache__ from importing a module in scripts/lib, which is gitignored and so invisible in git status) makes the pre-commit canary fail with ENOTSUP, blocking an unrelated commit that stages migrate.sh. Hit 2026-09-15 on P1322; worked around by PYTHONDONTWRITEBYTECODE=1 in test-keyring-escrow.sh. Fix: copy files only (skip directories), or copy only the lib files migrate.sh actually sources.
 
 ---
