@@ -295,12 +295,14 @@ for values; this applies it to the registry.
       endpoint and that role is not a member of `anon` (measured: `42501: permission denied to set
       role "anon"`). **Net effect: no production call in the daily path uses the account-wide token
       any more.** Output verified byte-identical, guard probe verified still running.
-- [ ] Remaining account-wide use: the test-project guard probe. Closing it needs a second scoped
-      token with Database **Read-write** (still far narrower than account-wide), or a dedicated role
-      that may assume `anon`. **Code done 2026-09-15:** the guard leg (and e2e p1222 / p506, which
-      also write on test) prefer `SUPABASE_TEST_WRITE_TOKEN` and announce the account-wide fallback
-      while it is absent. **Open: FOUNDER issues the test-project read-write token.** Whether its role
-      may `SET ROLE anon` is unmeasured; `probe_self_check` reports the leg BLIND if it cannot.
+- [x] Remaining account-wide use: the test-project guard probe — **closed 2026-09-15.** A second scoped
+      token, test project only with Database **Read-write** (far narrower than account-wide), was issued.
+      The guard leg (and e2e p1222 / p506, which also write on test) prefer `SUPABASE_TEST_WRITE_TOKEN`
+      and announce the account-wide fallback when it is absent. Measured: its role **can** `SET ROLE anon`
+      — the guard leg runs, is not BLIND, prints no fallback warning, and its output is identical to a
+      control run forced onto the account-wide token. p1222 + p506 run on it with no fallback warning and
+      no 401 (p506 needed to read `.env.local` as p1222 does; one p506 assertion still fails because the
+      hashtag trigger rewrites tags on insert — unrelated to credentials, filed as a task-inbox note).
 
 ### Consumer migration — every consumer of a critical credential, one verdict each (2026-09-15)
 
@@ -342,40 +344,38 @@ record and the private security log.
       outside the lock and the stranded-signups fallback are the recorded 2026-09-08 decision and a
       visible, announced transition. The wrapper exited 126 on a FIX-FIRST verdict — its own
       misclassification, not a pass.
-- [ ] **FOUNDER:** issue a token scoped to reading edge-function secrets and set
-      `SUPABASE_SECRETS_READ_TOKEN`, then run `supabase logout`. The daily Gemini-key check is the last
-      reader of the CLI's saved login, which any process can read with no prompt. Whether the scoped-token
-      alpha offers a secrets-read permission is **unverified**.
-- [ ] **FOUNDER:** add `SUPABASE_READONLY_TOKEN` as a GitHub Actions secret; then remove the prod master
-      key from the stranded-signups workflow. Until then its summary line says `credential=service-role-FALLBACK`.
-- [ ] The first real prod `migrate.sh` / deploy / publish runs on the locked path (one dialog each), and
-      P1239's prompt count starts only after that — not before.
+- [x] **FOUNDER:** issue a token scoped to reading edge-function secrets and set
+      `SUPABASE_SECRETS_READ_TOKEN`, then run `supabase logout`. **Done 2026-09-15.** The permission exists
+      in the scoped-token alpha (Edge Function Secrets: Read); the token is prod-only with that one
+      capability. The daily Gemini-key check passes on it with no fallback warning, and a control run with
+      the token hidden does print the warning. `supabase logout` was then run: the saved login is gone
+      from the keychain and the check still passes.
+- [x] **FOUNDER:** add `SUPABASE_READONLY_TOKEN` as a GitHub Actions secret — **done 2026-09-15**,
+      confirmed by name in the repository settings (the value is unreadable by design). `[post-deploy]`
+      the stranded-signups summary must say `credential=scoped-read-only` once this branch is on main;
+      removing the prod master key from that workflow waits on that proof and moves to
+      P1316.
+- Moved to P1316: the first real prod
+  `migrate.sh` / deploy / publish on the locked path (one dialog each). P1239's prompt count starts only
+  after that — not before.
 
 ### Original
 
+Closed on 2026-09-15 by splitting the spec (founder choice): what is proven here is ticked; everything
+else moved, unclaimed, to P1316.
 
-- [ ] Every consumer FILE that reads the key carries a written read/write verdict derived from
-      reading it, naming the write form found (direct, shell-out, RPC, client library) or stating
-      none — covering `.claude/commands/slava/` AND `scripts/` including `scripts/archive/`
-- [ ] `grep -rln "<prod master key var>" .claude/commands/slava/ scripts/` returns only
-      files whose verdict is write; `/day-cp` is not among them
-- [ ] `git diff --stat .agents/skills/` shows only changes produced by
-      `scripts/sync-agent-skills.sh`, never a hand edit
-- [ ] Every credential minted by Phase 2 has a registry row and a `manual-only` declaration dated
-      before its first use
-- [ ] `/day-cp` completes its user-activity block using the scoped read key, with the master key
-      unset in the environment
-- [ ] Each of the 28 retirement candidates carries a written verdict (retired | live-elsewhere)
-      naming the consumer AND which deployed surfaces were enumerated live — not only which
-      directories were grepped
-- [ ] No credential value was deleted and nothing was revoked at any provider by this spec
-- [ ] Every credential marked retired carries a liveness probe with its current expected status,
-      and the handoff queue to P1148 is a standing `/weekly` item until empty
-- [ ] The de-privileging mechanism chosen in Phase 2 is demonstrated on `/day-cp` with the master
-      key unset, and its principal's allowed/denied RPC set is recorded
-- [ ] `audit-credential-drift.sh --audit` reports no `MULTI_KEY_ROW_BUNDLED` for the
-      prod/test service-role pair, and `CONSUMER_LIST_STALE` for
-      the prod master key row shows `documented` matching `live`
+- [x] `git diff --stat .agents/skills/` shows only changes produced by `scripts/sync-agent-skills.sh`,
+      never a hand edit — `sync-agent-skills.sh --check` exits 0 on this branch (the flag is real: an
+      unknown flag exits 2).
+- [x] No credential was revoked at any provider by this spec. One local copy was removed: the
+      founder's `supabase logout` deleted the machine's saved CLI login; that token itself still exists
+      at the provider.
+- Moved to P1316 — **not done here**: per-file read/write verdicts for every consumer including
+  `scripts/archive/` (on 2026-09-15 the prod master key is still named in 20 skill files, `/day-cp`
+  among them, 7 scripts and 3 archived scripts); the grep returning only write-verdict files;
+  registry rows for minted credentials; `/day-cp` with the master key unset and its RPC set recorded;
+  the 28 retirement-candidate verdicts and liveness probes; the drift-audit criteria (the audit exited 2
+  on 2026-09-15 and could not be evaluated).
 
 ## Open Questions
 
