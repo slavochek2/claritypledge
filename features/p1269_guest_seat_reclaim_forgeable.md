@@ -311,14 +311,24 @@ is unusable until it is back, and its assertion is untested rather than passing.
 
 ### Deploy ordering — this is load-bearing
 
-P1314 C's migration (`20260915100000`, on `feature/p1314-event-room-access-parity`) must be applied
-**before** this branch's app code is deployed. PostgREST resolves an overload by the named arguments
-supplied, so a client naming `p_seat_secret` against the two-argument P1058 function gets PGRST202
-rather than a released seat.
+**Corrected 2026-09-15 after measuring it against prod.** Both call sites — the claim and the
+release — now omit `p_seat_secret` when no secret is held, so every request resolves against the
+two-argument and the three-argument function alike. That removes the deploy window in both
+directions, and it fixed a break this spec had not noticed:
 
-The call omits the key entirely when no secret is held, so signed-in callers and legacy seats stay
-on a shape both versions resolve. That narrows the window to guests who actually hold a secret — it
-does not remove the ordering requirement.
+| Order | Before the fix | Now |
+|---|---|---|
+| app first (what `requires-frontend` enforces) | **every guest join fails** — PGRST202, measured on prod | resolves; joining works |
+| database first | guests wait out the 15-minute reclaim timer | n/a — not the enforced order |
+
+A guest only ever holds a secret once this migration is live, so the three-argument form is only
+ever sent to a function that has three arguments.
+
+One window remains and it is seconds long, not a deploy apart: between this migration (secrets
+begin to exist) and P1314 C's (`20260915100000`, which teaches `release_joiner_seat` to accept
+one), a guest holding a secret cannot press "End Session". **Both migrations must therefore be
+applied in the SAME `migrate.sh --env prod` run**, where they go in timestamp order back to back.
+Nothing else about the ordering is load-bearing any more.
 
 ## Done-When
 

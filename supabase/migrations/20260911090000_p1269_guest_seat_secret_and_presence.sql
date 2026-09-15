@@ -41,6 +41,24 @@
 -- cherry-picks, so the sha changes; P1058 blocked its own prod apply for exactly this reason
 -- and needed a re-point commit AFTER the cherry-pick and BEFORE the migrate. Same sequence here.
 --
+-- FRONTEND-FIRST WAS NOT ACTUALLY SAFE UNTIL 2026-09-15, AND THIS NOTE DID NOT KNOW IT.
+-- The paragraph above correctly rules out database-first. It does not mention that the order it
+-- prescribes was, as written, a harder break: joinClaritySession sent p_seat_secret on EVERY
+-- claim, and PostgREST resolves an overload by the named arguments supplied — so a client
+-- deployed ahead of this migration was not calling the old function with a null, it was not
+-- finding a function at all. Measured against PROD, no row written:
+--     {p_code, p_joiner_name}                -> 401 'cannot join this room'  (resolves)
+--     {p_code, p_joiner_name, p_seat_secret} -> 404 PGRST202                 (does not)
+-- Every guest join would have failed from the deploy until this migration landed. Database-first
+-- costs a 15-minute reclaim gap; frontend-first cost the join path outright, and the marker
+-- enforces frontend-first.
+--
+-- Closed by omitting the key when no secret is held (src/app/data/api.ts, both the claim and the
+-- release call). The request then resolves against the two-argument and the three-argument
+-- function alike, and a guest only ever holds a secret once this migration is live — so the
+-- three-argument form is only ever sent to a function that has three arguments. With that in
+-- place the order this marker enforces is safe in fact and not only in intent.
+--
 -- ---------------------------------------------------------------------------------------
 -- THE DEFECT
 -- ---------------------------------------------------------------------------------------

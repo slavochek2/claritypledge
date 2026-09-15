@@ -1124,13 +1124,25 @@ export async function joinClaritySession(
   //
   // The session id is not known before the claim, so the stored secret is looked up by the
   // id the caller already resolved from the code (join flows resolve the room first).
+  //
+  // The key is OMITTED when we hold no secret, rather than sent as null. PostgREST resolves an
+  // overload by the NAMED ARGUMENTS SUPPLIED, so a three-argument request against the deployed
+  // two-argument function is not a call with a null — it is PGRST202, "function not found", and
+  // every guest join fails. Measured on PROD 2026-09-15, no row written:
+  //     {p_code, p_joiner_name}                 -> 401 'cannot join this room'  (resolves)
+  //     {p_code, p_joiner_name, p_seat_secret}  -> 404 PGRST202                 (does not)
+  // Omitting the key makes this call resolve against BOTH the old and the new function, which is
+  // what lets the app deploy before the migration without a window in either direction. A guest
+  // only ever holds a secret once the migration is live, so the three-argument form is only ever
+  // sent to a function that has three arguments.
+  const storedSecret = getSeatSecret(existing.id);
   const { data, error } = await supabase.rpc('claim_joiner_seat', {
     p_code: normalizedCode,
     p_joiner_name: joinerName,
-    p_seat_secret: getSeatSecret(existing.id),
+    ...(storedSecret ? { p_seat_secret: storedSecret } : {}),
   });
 
-  // RETURNS SETOF clarity_sessions — PostgREST delivers an array.
+  // RETURNS TABLE (P1057's explicit column list) — PostgREST delivers an array.
   const claimed = Array.isArray(data) ? data[0] : data;
 
   if (error || !claimed) {
