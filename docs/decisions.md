@@ -4,6 +4,21 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [process]: P1314's embargo exit condition was met but the disclosure flag was never flipped
+
+**Context:** `/push` preflight found `features/p1314_event_room_access_parity.md` still carrying
+`disclosure: embargo` while its Pre-deploy Checklist already recorded production evidence for every
+item (halves C and D applied to prod, smoke tests 8/0, anon probes matching the expected
+post-fix shape). The same session's own P1315 entry above describes this exact failure mode.
+**Decision:** Verified the checklist evidence directly (not re-derived), confirmed the fix is live,
+flipped `disclosure: public`, and proceeded with the push the founder had already approved doing so.
+**Consequences:** None beyond the flag flip — the spec was already correct in substance, only the
+field was stale. Reinforces P1315's follow-up: flip `disclosure` in the same session the embargo
+exit condition is met, not later.
+**References:** `features/p1314_event_room_access_parity.md`; decisions.md 2026-09-15 [process] (P1315, above)
+
+---
+
 ## 2026-09-15 [process]: A completed embargoed ship forgets what it landed, so closing the spec re-applies every commit (P1315) (Status: proposed)
 
 **Context:** P1315 shipped with `disclosure: embargo`: code landed on main, the spec close was deferred, and the branch and worktree were kept, as designed. Ship also reported "branch and journal cleaned up" — so the record mapping each branch commit to its landed commit was deleted. After the prod apply was verified, closing the spec needed a second `ship` run. With no journal and cherry-picked (not merged) commits, every branch commit still counted as ahead of main, so ship began re-applying all ten onto the shared main checkout and stopped on the first conflict — blocking every co-tenant while it was paused.

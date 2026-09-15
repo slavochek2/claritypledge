@@ -3,7 +3,7 @@ status: week
 type: bug
 rank: 100
 tags: [security, events, rls, anon-grant]
-disclosure: embargo
+disclosure: public
 created_date: 2026-09-14
 driver: anomaly
 flow: inline
