@@ -4,6 +4,62 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [technical]: Every consumer of a critical credential gets one verdict — a scoped credential if it reads, the per-access lock if it writes (P1214)
+
+**Context:** The per-access lock (P1239) was built and verified, but only three consumers used it
+while roughly twenty files still read the account-wide management token from the plaintext env
+file — so the lock protected almost nothing. The 2026-09-08 entry below moved the daily drift
+checks to a weaker credential; this extends the same question to every consumer, one file at a
+time, verdicts derived from reading each file rather than from its name.
+**Decision:** A consumer that only reads gets a scoped credential through one read-only query
+helper that holds nothing else, has **no** fallback to a write-capable credential, and refuses to
+return rows when its role cannot see all of them. A consumer that genuinely writes to prod reads the
+per-access lock at the moment of the write. Copies of the same variable name in two env files are
+enrolled as two locked items. Test-only writers got a token scoped to the test project with database
+read-write; the daily secret-digest check got a prod-only token with a single secrets-read
+permission, which let the machine's prompt-free saved CLI login be removed. Measured, not assumed:
+the test read-write token's role can assume the anonymous role (the guard probe's output is identical
+to a control run on the account-wide token), and the provider's scoped-token permissions do offer
+secrets read.
+**Alternatives rejected:** putting every consumer behind the lock — friction spent guarding a
+credential the job should not hold is the wrong layer (2026-09-08); keeping the saved CLI login —
+any process could read it without a prompt; giving the test suite its own second copy of the scoped
+token — the test now reads the canonical env file instead, as its sibling already did.
+**Consequences:** This reduced what the credentials are *used for*, not yet what can be *read*:
+every critical value is still in the plaintext env files, and the prod master key is still named in
+20 skill files and 7 scripts that were not part of this pass. Finishing that census is P1316; removing
+the plaintext copies stays with P1239, after a measured week. Two defects surfaced only because the
+work was checked against real output: a daily cron-health query had been malformed shell and silently
+not running (found by a parity run against the old version), and the shared lock helper killed any
+`set -e` caller outside a git checkout — introduced by this change and caught only by an independent
+review, then reproduced against the old copy.
+**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/p1316_finish_moving_remaining_master_key_consumers.md) · [P1239](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [credential-keyring.md](technical/credential-keyring.md)
+
+---
+
+## 2026-09-15 [process]: When a spec's remaining work is real, split it — tick only what a command proved today (P1214 → P1316)
+
+**Context:** At close, P1214 had fifteen unticked completion boxes where four were expected. Eleven
+came from its original list and were either never started or no longer provable: a grep still found
+the prod master key in `/day-cp` and 26 other files, and the credential drift audit could not run
+(exit 2).
+**Decision (founder, option A):** tick only items backed by a command run the same day — each with a
+control where one was possible (an unknown-flag run to prove a `--check` flag is real; a forced
+account-wide run to prove the scoped token changed nothing) — and move everything else, unclaimed, to
+a follow-up spec. A proof that only exists after the push is written as a `[post-deploy]` clause on a
+ticked box, never as its own box.
+**Alternatives rejected:** keeping P1214 open until the original list was done — finished, verified
+work would wait on a branch behind unrelated items; ticking the boxes with prose — the close gate
+reads checkboxes, not evidence, so an untrue tick passes it silently.
+**Consequences:** A completion summary for security work must say separately what stopped being
+*used* and what stopped being *readable*. The founder had to ask whether anything had actually left
+the plaintext env file, and the honest answer was no. Separately: a spec filed on `main` does not
+exist on an older feature branch, so a markdown link to it from that branch is a dead link and blocks
+the commit — write the P-number as plain text until the branch is merged.
+**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/p1316_finish_moving_remaining_master_key_consumers.md)
+
+---
+
 ## 2026-09-15 [process]: P1314's embargo exit condition was met but the disclosure flag was never flipped
 
 **Context:** `/push` preflight found `features/p1314_event_room_access_parity.md` still carrying
