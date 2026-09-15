@@ -1,0 +1,119 @@
+---
+status: week
+type: task
+rank: 103
+workstream: keyring
+created_date: '2026-09-15'
+tags: [security, credentials, keyring, recovery]
+disclosure: public
+related: [p1318, p1316, p1239, p1148]
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: opus
+exec_effort: high
+driver: anomaly
+---
+
+# P1322: Harden the locked path — recovery escrow, an Always-Allow check, and the plaintext copies outside the env files — before P1318 removes anything
+
+## Problem
+
+**Situation:** P1316 moved every consumer of the prod master key onto the per-access lock and gave the
+retirement candidates a verdict. P1318 carries the last step: remove the plaintext copies of the
+critical credentials after a measured week.
+
+**Complication:** An adversarial review of P1318 (2026-09-15, all findings re-verified by command) found
+that the removal, as planned, is not safe to do and does not deliver what it claims — and that the
+genuinely urgent work has no dependency on the week-long gate and is being held behind it:
+
+- **No recovery after removal.** The only recovery path re-reads the plaintext file P1318 deletes
+  (`scripts/keyring.sh:165`; `scripts/migrate.sh:397-398` still instructs re-enroll from `.env.prod`).
+  A keychain loss or a new laptop then means locked out of prod.
+- **The lock can be silently disabled.** "Always Allow" removes a key's dialog forever; neither
+  `/weekly` nor `/day-cp` runs `keyring.sh verify` (grep: 0 hits), so nobody would notice.
+- **Copies exist off the env files.** ~115 saved session transcripts hold a real-looking value next to
+  a locked key name (measured, names/counts only, control = 0); both env files are mode 644; restic
+  snapshots include them; the cloud VM symlinks a `.env.local`; CI holds a DB string and the now-unused
+  master key. Removing two files does not make "the critical half unreadable on disk".
+- **Four unused credentials still authenticate** (P1316 probes, wrong-credential controls refused), and
+  a CI master key nothing references is still live. None has a consumer, so no measurement can justify
+  waiting to revoke them.
+
+**Question:** What must be true — recovery, monitoring, and a reckoning with the off-file copies —
+before P1318 is allowed to delete anything, and what can be revoked now without waiting?
+
+> Founder framing, verbatim (2026-09-15): *"ok lets do it then ... but what you mean by later? why not all in one go?"* — this spec is the "now" half: everything that does not depend on the measured week, split out so it is not held behind it.
+
+## Appetite
+
+Blast radius: high (prod access recovery; live credentials). Reversibility: the escrow and monitoring
+are reversible; a wrong revocation is not, which is why the four unused ones are probed-and-controlled
+first and the founder executes each. Decision density: a few — which off-file copies to purge vs
+accept, and confirmation on each revocation.
+
+## Invariants
+
+- **No step here removes a plaintext copy from the env files** — that is P1318, and it stays gated on
+  this spec's escrow plus its own measured week.
+- **The recovery drill must be proven to restore AFTER a simulated plaintext loss**, on a keychain that
+  does not already hold the item — a drill that reads the plaintext proves nothing about life without it.
+- **Revocation is the founder's action at the provider** (a security-setting change the agent does not
+  perform); the agent probes, enumerates dependents, and prepares exact steps.
+- **Never print a credential value** — every check here is names, counts, status codes, fingerprints.
+
+## Solution
+
+1. **Recovery escrow.** Establish an offline, encrypted export of the locked set the founder controls
+   (not on the plaintext path), and a drill that restores it onto a clean keychain. Fix
+   `migrate.sh:397-398` and `keyring.sh enroll` guidance to name the escrow, not `.env.prod`, as the
+   post-removal source. Block P1318's removal until this exists and the drill has passed.
+2. **Always-Allow monitoring.** Wire `./scripts/keyring.sh verify` into `/weekly` (report-only), so a
+   defeated gate surfaces within the week rather than never.
+3. **Off-file copy reckoning.** Enumerate every plaintext copy outside the env files — transcripts,
+   restic snapshots, the cloud VM's linked file, CI secrets, the second local store (P1316 Open Q3) —
+   and for each record *purge* or *accept, with reason*. Transcript redaction is a founder call on his
+   own files; propose a names-only redaction pass.
+4. **Revocation queue, unblocked.** Hand the four unused-but-live credentials and the unreferenced CI
+   master key to P1148 as an active queue (promote P1148 off backlog for these five, or record the
+   probes as the accepted compensating control with an end date — not both). The founder executes each
+   revocation from prepared steps after a dependents check; nothing here revokes automatically.
+5. **Prediction refresh.** Re-derive the ~4/week prompt prediction for the *current* locked set (14
+   names, not the 5 categories measured 2026-09-03) so P1318's stop-threshold means something.
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| Revoking a credential breaks a rare consumer | MITIGATE | Grep dependents before each; founder confirms; probes showed no consumer |
+| The escrow itself becomes a new plaintext exposure | MITIGATE | Encrypted, offline, founder-controlled; never on the repo or backup path |
+| Transcript redaction corrupts session history | ACCEPT | Names-only redaction on copies; founder approves the pass |
+| FTP/hosting login still used for a deploy | MITIGATE | Confirm with founder before that one is rotated |
+
+**Non-Goals**
+- Do NOT remove any plaintext copy from `.env.local`/`.env.prod` — that is P1318.
+- Do NOT revoke, rotate or delete any credential at a provider automatically — prepare steps; the founder acts.
+- Do NOT change which credentials are in the locked half.
+
+## Done-When
+
+- [ ] A recovery escrow exists off the plaintext path, and a restore drill has passed on a keychain that
+      did not already hold the item — evidence: the drill's own output, values redacted
+- [ ] `migrate.sh` and the `keyring.sh enroll` guidance name the escrow, not `.env.prod`, as the
+      post-removal recovery source
+- [ ] `/weekly` runs `keyring.sh verify` and reports its result; a simulated defeated gate is shown to surface
+- [ ] Every plaintext copy outside the env files (transcripts, restic, cloud VM, CI, second store) is
+      listed with a *purge* or *accept-with-reason* verdict; the transcript pass is run or explicitly declined
+- [ ] The four unused-but-live credentials and the CI master key each carry a prepared revocation step and
+      a dependents check, and sit in an active P1148 queue (P1148 promoted, or the compensating-control
+      window given an end date)
+- [ ] The ~4/week prediction is re-derived for the current 14-name locked set
+- [ ] P1318's removal is recorded as blocked until this spec's escrow + drill Done-When holds
+- [ ] Nothing was revoked or removed by this spec directly
+
+## Related
+
+- [P1318](p1318_remove_plaintext_copies_of_the_critical_credential_half.md) — the removal this gates; its safety and scope holes are why this exists
+- [P1316](done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration and the liveness probes
+- [P1239](done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
+- [P1148](p1148_credential_rotation_system.md) — rotation and revocation execution

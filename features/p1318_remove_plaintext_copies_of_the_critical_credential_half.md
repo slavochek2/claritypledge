@@ -6,7 +6,8 @@ workstream: keyring
 created_date: '2026-09-15'
 tags: [security, credentials, keyring, least-privilege]
 disclosure: public
-related: [p1316, p1239, p1214, p1148]
+related: [p1322, p1316, p1239, p1214, p1148]
+blocked_by: p1322
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -34,8 +35,17 @@ The P1316 liveness probes also changed what "retired" means: four credentials no
 authenticate (each probe was controlled with a deliberately wrong credential, which was refused). So
 retiring them means revoking them, not deleting a dead string.
 
-**Question:** Does the locked path hold up in a real week of use — and, if the prompt count stays near
-the prediction, can the plaintext copies finally be removed without breaking any consumer?
+**Reshaped 2026-09-15** after an adversarial review (all findings command-verified): the urgent,
+un-gated work — revoking the unused-but-live credentials, wiring an Always-Allow check, building a
+recovery escrow, and reckoning with the plaintext copies that live *outside* the env files (≈115
+session transcripts, restic snapshots, the cloud VM, CI) — moved to **P1322**, which now **blocks**
+this spec. What remains here is only the removal itself, behind P1322's escrow and this spec's
+measured week. The review's specific corrections to the boxes below are folded in.
+
+**Question:** Does the locked path hold up in a real week of use — and, once P1322's recovery escrow
+exists and is drill-proven, can the plaintext copies in the env files be removed without breaking any
+consumer — knowing that removal alone does NOT make the keys unreadable while the off-file copies P1322
+handles still exist?
 
 > Founder framing, verbatim (2026-09-15, on P1316): "did we eliminate something from .env.local and put
 > it somewhere else? Or that is part of some future thing?" — this spec is the part that removes it.
@@ -63,47 +73,54 @@ prompt count exceeds the threshold.
 
 ## Solution
 
+**Precondition (P1322):** do not start step 4 until P1322's recovery escrow exists and its restore
+drill has passed on a clean keychain, and its Always-Allow check is wired into `/weekly`.
+
 1. Run the first real prod migrate, deploy and publish on the locked path, one dialog each, and start
    the prompt count from that date.
-2. Record the prompt count over one full `/weekly` + `/day-cp` cycle against the ~4/week prediction. Above
-   roughly 10/week, stop and revisit before removing anything.
-3. Resolve the one remaining master-key read: an archived prod-export script. Either move its reads to
-   the read-only helper, or remove the archived script.
-   [FOUNDER DECISION: rewrite the archived export script's reads, or delete the script — it is already
-   not runnable from its archived path.]
-4. Hand the unused-but-still-valid credentials to P1148 as a standing `/weekly` item until the queue is
-   empty, carrying each one's liveness result.
-5. Remove the plaintext copies of the critical half, keeping the recovery drill (`keyring.sh enroll` from
-   the plaintext source) re-runnable until removal is verified. Update the removal pointer in
-   `.claude/rules/credentials.md` to this spec, through `/slava:maintain:claude-md`.
+2. Record the prompt count over one full `/weekly` + `/day-cp` cycle against the prediction P1322
+   re-derives for the current locked set. Above the pre-registered stop-number, stop and revisit.
+3. Resolve the one remaining master-key read: an archived prod-export script whose census verdict is
+   *read* behind the lock (no scoped credential can bypass RLS for a full export). Delete the script —
+   it is not runnable from its archived path and a rewrite cannot reach the read-only helper.
+   [FOUNDER DECISION: confirm deletion of the archived export script, or name a reason to keep it.]
+4. Remove the plaintext copies of the critical half from the env files, recovering only via P1322's
+   escrow (never the deleted plaintext). Update the removal pointer in `.claude/rules/credentials.md`
+   to this spec, through `/slava:maintain:claude-md`.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A rarely-run consumer breaks only after removal | MITIGATE | The full-cycle invariant; the recovery drill stays runnable until verified |
-| Prompt fatigue leads to "Always Allow", silently disabling the gate | MITIGATE | `keyring.sh verify` in the measurement week; the ~10/week stop line |
-| The prompt count is inflated by one unusual week | ACCEPT | One cycle is the pre-registered bar; revisit only above the threshold |
-| Revocation lags the handoff | DEFER | P1148 owns execution; this spec only queues |
+| A rarely-run consumer breaks only after removal | MITIGATE | Every registered consumer must have run once (not one calendar cycle); the widened grep below |
+| Prompt fatigue leads to "Always Allow", silently disabling the gate | MITIGATE | P1322 wires `keyring.sh verify` into `/weekly`; the pre-registered stop-number |
+| Removal read as "keys now unreadable" while off-file copies remain | MITIGATE | P1322 owns the off-file reckoning; this spec's scope statement names what removal does and does not cover |
+| Lockout after removal (keychain loss / new laptop) | MITIGATE | Blocked on P1322's drill-proven escrow; `migrate.sh` recovery text fixed there |
+| The prompt count is inflated by one unusual week | ACCEPT | Revisit only above the stop-number |
 
 **Non-Goals**
-- Do NOT revoke, rotate or delete any credential at a provider.
+- Do NOT start removal before P1322's escrow Done-When holds.
+- Do NOT revoke, rotate or delete any credential at a provider — that is P1148, queued by P1322.
 - Do NOT change which credentials are in the locked half.
 - Do NOT re-migrate consumers P1316 already moved; a newly found consumer is a P1316-style census entry.
 
 ## Done-When
 
+- [ ] P1322's escrow Done-When holds (recovery drill passed on a clean keychain; `/weekly` runs
+      `keyring.sh verify`) — this spec does not start step 4 until then
 - [ ] The first real prod migrate, deploy and publish each complete on the locked path with one dialog,
       while the plaintext copy still exists; the prompt count starts from that date
-- [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded and compared to the ~4/week
-      prediction — above ~10/week, stop and revisit before removing anything
-- [ ] The archived prod-export script no longer reads the prod master key (rewritten or removed per the
-      founder decision), and a grep for the key across `.claude/commands/slava/` and `scripts/` returns
-      only files whose verdict is *write* or *warning text only*
-- [ ] Every credential P1316 found unused carries a liveness result (live, dead, or "no safe probe" with
-      the reason), and the unused-but-live ones sit in a standing `/weekly` handoff item to P1148
-- [ ] The critical half is unreadable on disk without a confirmation — the plaintext copies are removed,
-      verified by reading the env files, and every consumer still runs afterwards
+- [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded against P1322's re-derived
+      prediction, AND every registered consumer of the locked set has run at least once — above the
+      pre-registered stop-number, stop and revisit before removing anything
+- [ ] The archived prod-export script is deleted (or kept with a founder-named reason), and a grep for
+      the key across `.claude/commands/slava/`, `scripts/`, `e2e/`, `supabase/`, `tools/` and
+      `.github/` returns only files whose verdict is *write* or *warning text only*
+- [ ] The plaintext copies are removed from `.env.local`/`.env.prod`, verified by checking the key
+      **names** are gone (never by printing values), and every consumer still runs afterwards
+- [ ] A scope statement records that removal covers the env files only, and that the off-file copies
+      (transcripts, restic, cloud VM, CI, second store) were handled or accepted by P1322 — removal is
+      not claimed as "keys unreadable" while any accepted copy remains
 - [ ] `.claude/rules/credentials.md` names this spec as the removal gate
 - [ ] Nothing was revoked at any provider by this spec
 
