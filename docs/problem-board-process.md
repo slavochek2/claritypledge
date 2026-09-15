@@ -12,8 +12,9 @@
 **Workstream:** `problem-board`. The two security specs it depends on for the agent upgrade (P1321, P1215)
 live in `infrastructure` because other surfaces depend on them too.
 
-**Rewritten 2026-09-15.** The previous version planned a two-person round from a hand-carried file of many
-problems. It is replaced because the unit was wrong — see *What changed* below.
+**Rewritten 2026-09-15**, then corrected the same day after three independent reviews. The previous version
+planned a two-person round from a hand-carried file of many problems; it is replaced because the unit was
+wrong — see *What changed* below.
 
 ---
 
@@ -28,33 +29,34 @@ their disagreement is worth having.
 produced a mirror, and a mirror is what this replaces. The target is understanding **and** friction.
 
 The hypothesis is registered as `H-AbsentCounterparty` in [hypotheses.md](hypotheses.md) —
-**UNTESTED, zero rounds run.**
+**UNTESTED, zero rounds run.** *(Its test protocol there still describes the old two-person round; updating it
+is a handoff to `/slava:maintain:docs-strategy-update`, not done here.)*
 
 ---
 
 ## The user journey
 
 > Each member has a short **"what I'm working on" profile**, and posts **one problem they are still working
-> on** — from this week or from any time back. Everyone's agent reads all the posted problems and tells them
-> **which one to look into**. **Answering it is the match.** At the event, the person whose problem got
+> on** — from this week or from any time back. Everyone's agent reads the posted problems and tells them
+> **which one to look into**. **Answering it is the match.** At the event, each person whose problem got
 > answered leads a round with whoever is interested, and the others pair up and talk.
 
 Step by step:
 
-1. **Profile, once.** One or more projects, a line each. Updated when it changes.
+1. **Profile, once.** One or more projects, a line each. Kept on the member's machine. — P1319
 2. **Weekly problem.** The member's agent reads their own history for a window they choose, proposes the
    **top 3** current problems, and the member marks each *submit this week · maybe later · reject*. Unpicked
-   problems stay on a private list on the member's machine and can come back later. **At most one is drafted
-   per run by default.** — P1319
-3. **Review and send.** The member reads the drafted problem exactly as a reader will, rates the story (8 of
-   10 or higher to send), picks point or anti-point for each claim, fixes wording, and presses send —
-   visible to their community only. — P1320, P1181
-4. **Find the one to look into.** Each member's agent reads this week's problems with its member's context
-   and names the claim they can challenge, the position and the basis — preferring problems with the fewest
-   readers so far. — P1182
+   problems stay on a private list on the member's machine. Up to three a week; how many per run is a founder
+   decision. The agent drafts the marked problem and **emits a problem block**. — P1319
+3. **Review and send — the only place a member confirms.** On the review page the member reads the problem
+   exactly as a reader will, rates the story (8 of 10 or higher to send), picks point or anti-point for each
+   claim, fixes wording, and presses send **to their community**. Target: under one minute. — P1320, P1181
+4. **Find the one to look into.** Each member's agent reads the organisation's problems (a member-only export)
+   with its member's profile, and names the claim they can challenge, the position and the basis — preferring,
+   among their best fits, the problems with the fewest answers. — P1182, P1181
 5. **Answer.** The member answers that letter in the product. That is the match.
-6. **At the event.** The author whose problem was answered leads a round with whoever is interested; everyone
-   else pairs up and talks.
+6. **At the event.** Each author whose problem was answered leads a round with whoever is interested; everyone
+   else pairs up and talks. The host covers any problem still unanswered.
 
 Founder framing of the unit, verbatim (2026-09-15): *"I can read maybe five and review only three … maybe one
 per week per person, then everything gets easier."*
@@ -85,14 +87,14 @@ blocks Track A.**
 
 | Spec | What it delivers | Blocked by |
 |---|---|---|
-| **P1319** | Weekly problem: window, top 3, candidate list, profile, provider disclosure (change request on P1180) | nothing |
-| **P1181** | Community-only visibility for problem letters, scoped to one organisation container | nothing |
-| **P1320** | Review page: read as the reader will, rate, choose per claim, send | P1319 (the block it reads); its community send option needs P1181 |
-| **P1182** | Reader: which of this week's problems to look into, with coverage | P1319 (the format it reads); community-private problems need P1181 |
-| **First event** | The first real round | P1319, P1181, P1320, P1182 |
+| **P1319** | Weekly problem: window, top 3, candidate list, profile, provider disclosure, the problem block format (change request on P1180) | nothing |
+| **P1181** | Community-only problem letters in one organisation: seal eligibility, member-only reading, anonymous denial on every read path, leave semantics, member-only export with answer counts | nothing |
+| **P1320** | Review page: parse the block, create the draft atomically, read as the reader will, confirm per claim, send | P1319 |
+| **P1182** | Reader: which problem to look into — public-link mode (fit only) and member-only export mode (fit plus coverage) | P1319; export mode needs P1181 |
+| **First event** | The first real round | P1319, **P1181**, P1320, P1182 — *not yet filed as a task* |
 
-**P1181 is now before the event, not after the matcher.** Most members will not post a current problem
-publicly, and a shared-by-link letter today requires a public story.
+**P1181 is a hard prerequisite for the first event.** Most members will not post a current problem publicly, and
+today a shared-by-link letter requires a public story while the public reader has no membership check.
 
 ### Track B — agent access (upgrade path)
 
@@ -102,7 +104,7 @@ publicly, and a shared-by-link letter today requires a public story.
 | **P1215** | A member's agent acts as them: phase 1 reads, phase 2 creates drafts. Agents never send | P1321 |
 
 When P1215 phase 2 exists, P1320's paste step disappears (the agent creates the draft). When phase 1 exists,
-P1182's download step disappears (the agent reads directly). **Until then both run with one human step each.**
+P1182's export step disappears (the agent reads directly). **Until then both run with one human step each.**
 
 ### Dropped
 
@@ -114,8 +116,8 @@ P1182's download step disappears (the agent reads directly). **Until then both r
 
 ## The Claude Code Build Day
 
-A community build day where the founder and a collaborator build the **v1 of the reader (P1182)** in about
-four hours and demo it in two minutes.
+A community build day where the founder and a collaborator build the **v1 of the reader (P1182, public-link
+mode)** in about four hours and demo it in two minutes.
 
 **Disclosure is the reputation rule.** The demo opens by saying what already existed — Clarity Pledge, the
 problem-submit skill, letters — and what was built that day. Trying the reader on each other at the end is
@@ -127,9 +129,11 @@ testing what was built, not a result. Nothing on the day counts toward `H-Absent
 
 Recorded before it runs:
 
-- problems posted · problems with **zero readers** · problems answered
-- per answer: did the author judge the disagreement **worth having**, and **which claim** did it land on
-- **does the member post again the following week**
+- **Supply:** problems posted · problems with **zero answers** · does the member post again the following week
+- **Reading:** answers submitted per attendee · share of posters who answered at least one other problem
+- **Comprehension, per answer:** the reader's comprehension estimate, the author's counter-estimate, and the
+  min-gate applied
+- **Friction, per answer:** did the author judge the disagreement **worth having**, and **which claim** did it land on
 
 **A nod is a failure, not a pass.**
 
@@ -139,13 +143,17 @@ Recorded before it runs:
 > project, the score is recorded as uninterpretable — never as a pass.** Verbatim requirement from
 > [hypotheses.md](hypotheses.md) `H-AbsentCounterparty`; restated here because this is the document an
 > executor follows.
+>
+> **Operational rule for the event:** before reading, each reader records whether they already knew the
+> author's work **beyond the project line shown with the problem**. The project line is part of the written
+> problem being tested, so reading it does not make a reader "already know the project"; prior acquaintance does.
 
 > **What the event measures, and what it does not.** Readers choose among the week's problems, so the event
 > tests self-selection **among problems**. Attendees are still **invited** to the event, so it does not fully
 > test self-selection **into reading at all**. A positive result is recorded with that scope attached.
 
 **Coverage is part of the design, not a fix afterwards.** An author left unread stops posting, and fewer posts
-leave less to match on. Founder framing: *"you can be of service to them."* Host-assigned readers and agent
+leave less to match on. Founder framing: *"you can be of service to them."* A host-assignment system and agent
 feedback to unpicked authors are parked until the event shows they are needed.
 
 ---
@@ -158,7 +166,8 @@ feedback to unpicked authors are parked until the event shows they are needed.
   path silently no-ops that check (P1180 §Implementation notes).
 - **The drafting model reads the history through its provider,** and members are told so before anything is
   read (P1319).
-- **The candidate list never leaves the member's machine.**
+- **The candidate list and profile file never leave the member's machine.**
+- **A member confirms each claim once**, on the review page (P1319, P1320).
 
 ---
 

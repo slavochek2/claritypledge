@@ -21,10 +21,10 @@ related: [p1181, p1215, p1182]
 
 ## Problem
 
-**Situation:** `/slava:problem:submit` drafts one story plus three claims with anti-points. Today the
-member reviews it in a terminal, then composes it by hand in the letters UI: create a draft, paste the
-story, add six points one by one with positions, un-mark the lead point so the story renders first,
-open the preview, and send — about fifteen minutes per letter, with one step that fails silently.
+**Situation:** `/slava:problem:submit` drafts one story plus three claims with anti-points. Today the member
+confirms in a terminal, then composes by hand: create a draft, paste the story, add six points with positions,
+un-mark the lead point so the story renders first, open the preview, send — about fifteen minutes per letter,
+with one step that fails silently.
 
 **Complication:** The problem board now asks every member for one current problem a week (P1319). Founder,
 verbatim (2026-09-15):
@@ -34,89 +34,97 @@ verbatim (2026-09-15):
 
 > "Nobody will ever use terminal but me for testing or maybe one more person who I teach."
 
-**Question:** What is the smallest product page on which a member reads their drafted problem exactly as
-a reader will, corrects it, and sends it — without the manual compose steps?
+**Question:** What is the smallest product page on which a member reads their drafted problem exactly as a reader
+will, confirms it, corrects it, and sends it?
 
 ## Appetite
 
-**Blast radius: medium** — a new page plus a write path that creates a story, six points and positions
-under the member's own session; the existing compose and preview flows must keep working.
-**Reversibility: medium** — rows it writes are ordinary drafts and letters. **Decision density: a few** —
-copy, feedback input mode, and the send-time visibility options (below).
+**Blast radius: medium-high** — a new page and a new server-side write path creating a doc, a story, six points,
+their links and positions under the member's own session. **Reversibility: medium** — rows are ordinary drafts.
+**Decision density: a few** — copy, send-time defaults, typed vs voice feedback.
 
 ## Invariants
 
-- **The story leads.** The page must never produce a letter whose first rendered element is a point.
-  `point_config.lead_count` defaults to 1 when unset, which renders the first point before the story
-  (decisions.md 2026-08-31, the paste-path entry). The page sets story-first itself and the preview proves it.
-- **The reading question is the default one** — *"how well did you understand the sender?"* — never the
-  reverse-story question. Nothing on this page writes the reverse-story marker.
-- **A person presses send.** No automated path sends, including a future agent path (P1215 non-goal:
-  agents never send, publish or invite).
-- **Confirmation is against the anti-point, per claim** — carried from P1180 / P1319. A single
-  "looks good" does not approve three claims.
-- **Nothing is sent that the member did not see rendered** in the reading flow on this page.
+- **The story leads.** `point_config.lead_count` defaults to 1 when unset, which renders the first point before
+  the story for multi-point letters (decisions.md 2026-08-31, the paste-path entry;
+  `src/app/utils/letter-reading-utils.ts`). The create path sets story-first itself, and the rendered page proves it.
+- **The reading question is the default one** — *"how well did you understand the sender?"* Nothing here writes
+  the reverse-story marker.
+- **A person presses send.** No automated path sends, including a future agent path (P1215: agents never send,
+  publish or invite).
+- **Confirmation is against the anti-point, per claim, and happens here only** — P1319 moves it off the terminal;
+  a member never confirms the same claim twice.
+- **All or nothing.** Creating the draft never leaves a partial graph behind; a retry with the same draft id
+  creates nothing new.
+- **Identity comes from the session.** The write path derives author, sender and position owner from `auth.uid()`
+  and rejects any caller-supplied identity.
 
 ## Solution
 
-One page reached from a drafted problem:
+**Precondition:** the member is signed in with a **verified** account. Story, point and position inserts require
+it (`supabase/migrations/20260809150000_p1032_bind_insert_author_predicates.sql`; point positions bind `user_id`
+to `auth.uid()`). An unverified member sees how to verify, not a failing form.
 
-1. **Bring the draft in.** v1: the member pastes one block that `/slava:problem:submit` prints (story +
-   three claims + anti-points + labels). The page validates it and shows exactly what failed if the block is
-   malformed. When P1215 phase 2 exists, the member's agent creates the draft directly and this step disappears.
-2. **Read it as the reader will**, using the same reading components as `/letter/:docId/preview`.
-3. **Review, per part:** rate the story 0–10 for "this is what I mean" (below 8 cannot be sent); for each
-   claim pick the point or the anti-point as yours, or rewrite the wording in place.
-4. **Send**, choosing who can read it: one named person (private), or anyone with the link (public).
-   A **group** option appears only when P1181 lands. `[FOUNDER DECISION: send-time copy, and which option is the default]`
-
-Voice feedback through the existing transcription infrastructure is the founder's stated direction
-(*"he talks, talks, talks and then it's transcribed"*) and is a follow-up, not v1.
-`[FOUNDER DECISION: confirm typed-only for v1]`
-
-**UNVERIFIED — check at /architect:** whether one submit can create story, six points and positions in a
-single step through existing services, or needs a new server function. `createLetter`
-(`src/app/data/letters-service.ts:59`) exists; no single-call story+points+positions creator was found by grep.
+1. **Bring the draft in.** v1: paste the block `/slava:problem:submit` emits. The page validates it against
+   **P1319 §Problem Block Format** before anything else, and names the failing field if invalid. When P1215 phase 2
+   exists, the member's agent creates the draft directly and this step disappears.
+2. **Create the draft atomically** through **one new authenticated server-side function** that creates the doc,
+   story (with the want sentence), six points, links, the member's positions and `lead_count = 0` in one
+   transaction, keyed by `draft_id`. Existing client services create these in separate calls and cannot provide
+   this guarantee (`docs-service`, `stories-service-real`, `points-service-real`, `letters-service`).
+3. **Read it as the reader will**, using the same reading components as `/letter/:docId/preview`.
+4. **Review:** rate the story 0–10 for "this is what I mean" — below 8 cannot be sent (the floor recorded for the
+   review surface in the 2026-09-08/10 design sessions; carried in `docs/problem-board-process.md`); for each claim
+   pick the point or the anti-point as yours, or rewrite the wording.
+5. **Send** — sealing stays the existing, separate human action. Audience:
+   - **one named person** (private) — works today;
+   - **the member's community** — requires P1181; **this is the option the first event needs**;
+   - **anyone with the link** — requires the story to be public (the seal snapshots private stories only for
+     one-to-one letters), stated to the member at send time.
+   `[FOUNDER DECISION: send-time copy, and the default audience once P1181 exists]`
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A malformed pasted block creates half a draft | MITIGATE | Validate the whole block before any write; one atomic create |
-| Members skip reading and send | ACCEPT | The 8-of-10 floor and per-claim choice are the brake; measure send-time-on-page |
-| Link-shared letters need a public story (seal rule for one-to-many) | ACCEPT | Stated to the member at send time; group-only waits for P1181 |
-| Paste step still costs a context switch | DEFER | Removed by P1215 phase 2 agent drafts |
+| A network or policy failure leaves a half-built draft | MITIGATE | One transactional server function; idempotent on `draft_id` |
+| A caller forges another member's identity through the new function | MITIGATE | Identities derived from `auth.uid()` only; tests with a second account |
+| Members skip reading and send | ACCEPT | The 8-of-10 floor and per-claim choice are the brake; measure time on page |
+| Paste step is still a context switch | DEFER | Removed by P1215 phase 2 |
 
 **Non-Goals**
 - Do NOT let the page call an AI to redraft wording in v1 — the member edits text directly.
+- Do NOT implement voice input or transcription in v1 — the founder's stated direction, as a follow-up.
+  `[FOUNDER DECISION: confirm typed-only for v1]`
 - Do NOT change `/letter/:docId/preview` or the existing compose flow.
-- Do NOT add group visibility here — that is P1181.
-- Do NOT build agent drafting here — that is P1215.
+- Do NOT build community visibility here — P1181.
+- Do NOT build agent drafting here — P1215.
 
 ## UX Notes
 
-States: empty (no draft yet — show how to get one), invalid paste (name the failing part), reviewing,
-blocked send (story rated below 8, or a claim without a choice), sent (link to the letter as sent).
+States: not signed in / not verified; empty (how to get a draft); invalid block (failing field named, nothing
+written); reviewing; send blocked (story below 8, or a claim without a choice); sent (link to the letter as sent).
 
 ## Acceptance Criteria
 
-- [ ] A member pastes the block from problem-submit and sees their problem rendered story-first, as a reader will
-- [ ] A malformed block is rejected with the failing part named, and nothing is written
+- [ ] A verified member pastes a valid block and sees the problem rendered story-first, as a reader will
+- [ ] An invalid block is rejected with the failing field named, and no row is written
+- [ ] A failure injected after the first insert leaves no draft rows; re-submitting the same `draft_id` creates no duplicate
+- [ ] A second account cannot create rows attributed to the first through the new function
 - [ ] Sending is impossible until the story is rated 8 or higher and each claim has a choice
-- [ ] Editing a claim's wording on the page changes what the reader sees
 - [ ] A sent letter, opened by its recipient, shows the story first and asks "how well did you understand the sender?"
-- [ ] From paste to sent takes a member under 3 minutes on a prepared draft, measured on two real members
+- [ ] Review and send of a prepared draft takes a member under one minute, measured on two real members
 - [ ] Existing compose and preview flows behave as before (their tests pass)
 
 ## Open Questions
 
-1. Should rewriting a claim on the page re-trigger the anti-point choice, or keep it?
-2. Where does a member land from the event page — straight into this page, or via their letters list?
+1. Does rewriting a claim on the page re-trigger its anti-point choice?
+2. Where does a member land from the event — straight into this page, or via their letters list?
 
 ## Related
 
-- P1319 — produces the block this page reads (blocked by)
-- P1181 — adds the group send option
+- P1319 — owns the block format this page parses (blocked by)
+- P1181 — adds the community audience; required for the first event, not for this page's v1
 - P1215 — replaces the paste step with agent drafts
 - P1182 — reads what this page sends
 - [docs/problem-board-process.md](../docs/problem-board-process.md)

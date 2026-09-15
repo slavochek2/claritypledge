@@ -138,7 +138,7 @@ This corroborates the first invariant: the residual is real and is ours to bound
 
 ## Solution / Approach
 
-**Phase 1 — read-only, gated on P1207.**
+**Phase 1 — read-only, gated on P1207.** *(2026-09-15: re-answering P1207 Criterion 1 is now owned by P1321.)*
 
 Expose a deliberately opted-in subset of the existing read surface as agent-callable tools over
 the standard protocol, authenticated by a short-lived grant with no refresh token.
@@ -320,6 +320,7 @@ quietly restore them.
 
 - **P143** (archive, rejected 2026-02-12) — predecessor; two of four grounds still open
 - **P1207** — permission audit; hard dependency, amended 2026-09-01 to cover `authenticated`
+- **P1321** — owns re-answering P1207 Criterion 1 and the phase-1 authorization architecture (added 2026-09-15; this spec is blocked by it)
 - **P1214** — credential separation; the direction this must not widen
 - **P1104** (done, prod) / **P1124** (backlog) — agent identity and operator accountability
 - decisions.md 2026-08-24 — a link label asserting a destination must match it

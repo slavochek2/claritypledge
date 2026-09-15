@@ -7,7 +7,7 @@ workstream: problem-board
 created_date: '2026-08-28'
 tags: [visibility, privacy, rls, problem-board]
 blocked_by: []
-blocks: [p1320]
+blocks: []
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -28,27 +28,37 @@ driver: heuristic
 
 ## Appetite
 
-**Blast radius: high** — touches who can see what, across stories, points and letters. **Reversibility: low** — a visibility level, once used, has rows depending on it. **Decision density: several**, and none of them are answerable before P1180 runs.
+**Blast radius: high** — touches who can see what, across stories, points and letters, and the letter seal and reading paths. **Reversibility: low** — a visibility level, once used, has rows depending on it. **Decision density: several** — the default audience, leave semantics, multi-organisation membership, and naming. *(Until 2026-09-15 this line read "none of them are answerable before P1180 runs"; the problem board's journey now supplies the requirement.)*
 
 ## Solution
 
-**Not yet specified, deliberately.** The requirements are what round one produces. Writing them now would be deciding something only the test can answer — the founder's own parking-lot trigger 2.
+~~**Not yet specified, deliberately.** The requirements are what round one produces.~~ *Superseded 2026-09-15 by the amendment below — the requirement now comes from the problem board's own journey rather than from a round.*
 
 What is known: the **Clarity Organization** container already exists with a join gate and a `community` type, and community feeds were already contemplated for it. That is the likely anchor, not a new concept.
 
-> **AMENDED 2026-09-15 — scope narrowed and sequencing moved earlier.** The problem board's unit became one
-> current problem per member per week (P1319), read by other members at a live event. Most members will not
-> post a current problem publicly, and a shared-by-link letter today requires a **public** story
-> (`seal_and_send_letter` snapshots a story only for `one-to-one` letters or public stories). So this spec is
-> now **needed before the first event**, not after the matcher.
+> **AMENDED 2026-09-15 — scope narrowed, sequencing moved earlier, and what the cut must own.** The problem
+> board's unit became one current problem per member per week (P1319), read by other members at a live event.
+> Most members will not post a current problem publicly. So this spec is **a hard prerequisite for the first
+> event**, not a follow-on to the matcher.
 >
 > **Scope for that event: problem letters only, inside one organisation container** — Open Question 1's
 > container-scoped option ("private but scoped to the whole organization"), not a story-level enum change.
 > Founder framing, verbatim: *"We want the scope towards community members … private means one-to-one, but
 > we know who is the group."* Generalising to all stories and points is out of scope for that cut.
 >
-> The "Do NOT design this before P1180 has run" non-goal below is superseded by this amendment: the
-> requirement is now known from the problem board's own journey rather than from a round.
+> **A visibility label alone cannot deliver it** — verified 2026-09-15 against the migrations:
+> `seal_and_send_letter` snapshots a story only when the letter is `one-to-one` or the story is public
+> (`supabase/migrations/20260904120000_p1212_seal_rpc_story_author_name.sql`), and
+> `get_letter_for_public_reading` returns any sealed `one-to-many` letter to an anonymous caller with no
+> membership condition (`supabase/migrations/20260530161011_p852_public_reading_sender_avatar.sql`). The
+> first-event cut must therefore own:
+>
+> 1. a durable link from a problem letter to its organisation;
+> 2. seal eligibility for organisation-private stories in that letter;
+> 3. reading restricted to signed-in members of that organisation;
+> 4. anonymous and non-member denial for those letters on every read path, including the public reader;
+> 5. what happens when a member leaves, or belongs to two organisations;
+> 6. the member-only export P1182 reads, carrying each problem's answer count at export time.
 
 ## Open Questions — recorded 2026-08-28, none resolved
 
@@ -70,7 +80,8 @@ Attractive because it avoids new interface language. **Measured against the code
 |---|---|---|
 | Re-adds the imprecision that got `shared` cut in 2026-03-24 | MITIGATE | Read that decision first and state explicitly what is different this time |
 | Visibility is immutable after creation — a wrong default is unfixable per row | MITIGATE | Decide the default before any row is written |
-| Touches RLS, the repo's most incident-prone area | MITIGATE | Architecture review and tests before implementation |
+| Touches RLS and the seal/read RPCs, the repo's most incident-prone area | MITIGATE | Architecture review and tests before implementation |
+| A community letter becomes readable through the public reader | MITIGATE | Amendment item 4; failing-path test on the public read path |
 
 **Non-Goals**
 - ~~Do NOT design this before P1180 has run. The requirements are its output.~~ *Superseded 2026-09-15 — see the amendment in Solution.*
@@ -82,11 +93,13 @@ Attractive because it avoids new interface language. **Measured against the code
 - [ ] The 2026-03-24 cut is read, and this spec states what is different now
 - [ ] The default visibility for a submission is decided and recorded
 - [ ] Group members can read each other's submissions; non-members cannot, proven by a failing-path test
+- [ ] A community problem letter is refused to an anonymous caller on every read path, including the public reader, proven by test
+- [ ] A former member loses read access, proven by test; multi-organisation behaviour is decided and tested
+- [ ] A signed-in member can export the organisation's problem letters with answer counts; a non-member cannot
 
 ## Related
 
 - `docs/decisions.md` 2026-08-28 [product] — spec (ii) of three
 - `docs/definitions.md` §Story Visibility Model, §Clarity Organization
-- Blocked by nothing (P1180 done). **Blocks P1320's community send option and the first event** — Track A
-  in [docs/problem-board-process.md](../docs/problem-board-process.md), rewritten 2026-09-15. *(Until then
-  this line read "sequenced after the matcher"; that ordering is replaced.)*
+- **Blocks the first event** and P1182's member-only mode; gives P1320 its community audience. Track A in
+  [docs/problem-board-process.md](../docs/problem-board-process.md), rewritten 2026-09-15.
