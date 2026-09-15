@@ -4,6 +4,27 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [technical]: A contract migration held back in a worktree was lost while one environment's ledger kept it — and one membership rule held on two of three entry points (P1315)
+
+**Context:** The daily RLS drift check reported one policy present only on prod. It was the policy an expand/contract pair (P1236) was designed to remove once the client stopped writing that table directly. The contract half had been deliberately held back — correctly — and kept as an untracked file in a worktree. It was applied to the shared test database by hand, and the worktree was later removed. Result: test's migration ledger recorded the version, no file existed in any git ref, and prod never received it. Every deploy after that was "complete" by the manifest and by migrate.sh, because neither can see a migration that exists only as a ledger row. Only the drift check, which compares live catalogs rather than files, could see it. A hostile review of the fix then found a sibling gap: the membership access rule P1307 introduced was enforced on two of the three RPCs that create a member row, and not on the third.
+
+**Decision:**
+- Recreate the lost migration under its **original version and name**, so the orphaned ledger row matches a real file and prod receives the step it missed. That file must contain **only** the statement the ledger already recorded: an environment that holds the version will never run the file again, so anything added to it silently never reaches that environment. The first draft of the fix did exactly that, and it would have left test and prod permanently different.
+- Put every addition in a normally-numbered migration: a table-level revoke of client write privileges, so a future permissive policy cannot reopen a client write path on its own; and the third entry point now calls the same shared access check as the other two.
+- Classify the anon-grant findings from the same drift run by call site, per the existing allowlist rules; the two policy-predicate helpers stay unlisted, as the 2026-09-10 entry below already records.
+
+**Alternatives rejected:** *A new timestamp for the recreated drop* — leaves the ledger row orphaned, which `migrate.sh`'s name check keeps flagging. *Fold the revoke into the recreated file* — never runs on test (above). *File the third entry point separately* — it is the same authorization class on the same table, found while the table's write paths were already being closed; splitting it would have left the fix claiming "RPC-only, consent-recorded, access-checked" while one RPC skipped the access check.
+
+**Consequences:**
+- **A held-back migration is still a committed file.** Hold it by not applying it to prod, never by not committing it. An expand/contract pair's contract half needs a tracked home from the day it is written, even when its apply is deliberately deferred.
+- **When a rule is added to "the" entry point, enumerate every path that writes the protected row first.** Grep for the table's INSERTs across all SECURITY DEFINER bodies, not the RPC that prompted the change.
+- A policy-count check in a migration verifies policies only. Pair it with `has_table_privilege` for the grant layer, and read the installed `prosrc` when the change is a function body.
+- Exploit-level detail, measurements and the prod pre-apply checks: `.private/docs/security-log.md` 2026-09-15.
+
+**References:** `supabase/migrations/20260908170100_p1236_b_drop_direct_member_insert.sql` · `supabase/migrations/20260915120000_p1315_member_table_write_revoke.sql` · `supabase/migrations/20260915120100_p1315_join_room_event_access.sql` · `src/tests/p1315-reproduce.test.ts` · decisions.md 2026-09-10 [technical] (the anon-execute allowlist entry)
+
+---
+
 ## 2026-09-15 [technical]: An assertion that greps a function's installed source is reading its comments too
 
 **Context:** Two migrations assert their own guards against `pg_proc.prosrc` rather than against the
