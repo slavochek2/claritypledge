@@ -18,7 +18,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
-import { createTestUser, generateTestEmail } from '../helpers/test-user';
+import { createTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 
 const ANON_URL = process.env.VITE_SUPABASE_URL!;
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -28,30 +28,44 @@ test.describe('P1314 — practice room codes require an attendee', () => {
   let roomId: string;
   let sessionId: string;
   let hostId: string;
-  let attendee: { id: string; email: string; password: string };
-  let outsider: { id: string; email: string; password: string };
+  // TestUser carries the auth user under `.user`, not at the top level, and the password is
+  // the shared TEST_PASSWORD constant — there is no `.password` field. Getting this wrong is
+  // invisible to `npm run build`: tsconfig does not cover e2e/, so only a real run catches it.
+  let attendee: TestUser;
+  let outsider: TestUser;
 
   test.beforeAll(async () => {
     attendee = await createTestUser(generateTestEmail());
     outsider = await createTestUser(generateTestEmail());
-    hostId = attendee.id; // reused below as a distinct host via its own event
+    hostId = attendee.user.id; // reused below as a distinct host via its own event
 
     const { data: ev, error: evErr } = await supabaseAdmin
       .from('events')
-      .insert({ title: 'P1314 fixture', slug: `p1314-${Date.now()}`, host_id: hostId })
+      // events has four NOT NULL columns with no default — slug, title, description, datetime,
+      // location. Omitting any of them fails the insert with 23502 in beforeAll, which surfaces
+      // as every test in the file reporting 0ms rather than as a fixture error.
+      .insert({
+        title: 'P1314 fixture',
+        slug: `p1314-${Date.now()}`,
+        description: 'Fixture event for the P1314 practice-room access assertions.',
+        datetime: new Date(Date.now() + 86_400_000).toISOString(),
+        location: 'Test Location',
+        host_id: hostId,
+      })
       .select('id')
       .single();
     expect(evErr, 'event fixture must insert').toBeNull();
     eventId = ev!.id;
 
-    const { data: s } = await supabaseAdmin
+    const { data: sess, error: sessErr } = await supabaseAdmin
       .from('clarity_sessions')
       .insert({ code: `Z${Date.now().toString().slice(-5)}`, creator_name: 'P1314 fixture' })
       .select('id')
       .single();
-    sessionId = s!.id;
+    expect(sessErr, 'session fixture must insert').toBeNull();
+    sessionId = sess!.id;
 
-    const { data: room } = await supabaseAdmin
+    const { data: room, error: roomErr } = await supabaseAdmin
       .from('event_practice_rooms')
       .insert({
         creator_id: hostId,
@@ -62,6 +76,7 @@ test.describe('P1314 — practice room codes require an attendee', () => {
       })
       .select('id')
       .single();
+    expect(roomErr, 'practice room fixture must insert').toBeNull();
     roomId = room!.id;
   });
 
@@ -95,15 +110,15 @@ test.describe('P1314 — practice room codes require an attendee', () => {
 
   test('a signed-in NON-registered caller receives no code', async () => {
     const c = createClient(ANON_URL, ANON_KEY);
-    await c.auth.signInWithPassword({ email: outsider.email, password: outsider.password });
+    await c.auth.signInWithPassword({ email: outsider.email, password: TEST_PASSWORD });
     const { data } = await c.rpc('get_practice_room_codes', { p_event_id: eventId });
     expect(data, 'signing in is not registering').toHaveLength(0);
   });
 
   test('a REGISTERED attendee still receives the code (gate 7c — the false-positive half)', async () => {
-    await supabaseAdmin.from('event_rsvps').insert({ event_id: eventId, profile_id: outsider.id });
+    await supabaseAdmin.from('event_rsvps').insert({ event_id: eventId, profile_id: outsider.user.id });
     const c = createClient(ANON_URL, ANON_KEY);
-    await c.auth.signInWithPassword({ email: outsider.email, password: outsider.password });
+    await c.auth.signInWithPassword({ email: outsider.email, password: TEST_PASSWORD });
     const { data } = await c.rpc('get_practice_room_codes', { p_event_id: eventId });
     expect(data, 'the wall must not lock out the people it exists to admit').toHaveLength(1);
     expect(data![0].room_id).toBe(roomId);
@@ -111,7 +126,7 @@ test.describe('P1314 — practice room codes require an attendee', () => {
 
   test('the event HOST receives the code without an RSVP', async () => {
     const c = createClient(ANON_URL, ANON_KEY);
-    await c.auth.signInWithPassword({ email: attendee.email, password: attendee.password });
+    await c.auth.signInWithPassword({ email: attendee.email, password: TEST_PASSWORD });
     const { data } = await c.rpc('get_practice_room_codes', { p_event_id: eventId });
     expect(data, 'a host must reach their own event room').toHaveLength(1);
   });

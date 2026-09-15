@@ -338,17 +338,24 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
     ).not.toBeNull();
   });
 
-  // ── 8. ACCEPTED RESIDUE: event practice rooms publish their codes ───────────────────────
+  // ── 8. THE RESIDUE IS CLOSED (P1314) — this test was inverted on 2026-09-15 ─────────────
 
-  test('RESIDUE (accepted): an event practice room code is anon-readable, so F4 survives there', async () => {
-    // Recorded, not fixed. get_practice_room_codes is granted to anon and returns codes to
-    // every visitor of a public event page — a standing founder decision (P1057 D-A: "a
-    // stranger can still join one"). For that room class the code is not a secret, so keying
-    // release on it buys nothing and an attacker can still evict a seated guest.
+  test('RESIDUE CLOSED (P1314): an event practice room code is no longer anon-readable, and F4 does not survive there', async () => {
+    // This assertion used to run the other way. As written for P1058 it asserted the residue
+    // EXISTED — get_practice_room_codes was granted to anon and returned codes to every
+    // visitor of a public event page (P1057 D-A, "a stranger can still join one") — and it
+    // carried this instruction: "If it ever starts failing, event-room codes stopped being
+    // public and this note should be revisited — a green-turned-red here is good news, not a
+    // regression." That is what happened, so the canary is inverted rather than deleted.
     //
-    // This test asserts the residue EXISTS rather than asserting it is closed. If it ever
-    // starts failing, event-room codes stopped being public and this note should be revisited
-    // — a green-turned-red here is good news, not a regression.
+    // P1314 found that P1057 D-A had already been reversed as a product decision by P1114 rev2
+    // on 2026-08-20 ("gate + split pages, retire the anon room surface") and that the grant was
+    // never brought along — so this residue had been accepted on a premise that stopped
+    // describing the product nineteen days earlier. Two migrations close it:
+    //   D (20260914150000) — get_practice_room_codes requires a signed-in registrant or the host
+    //   C (20260915100000) — release_joiner_seat requires the seat secret, not the room code
+    // Either one alone breaks the chain below; both are asserted, in the order an attacker
+    // would hit them.
     const { data: event, error: eventError } = await supabaseAdmin
       .from('events')
       .insert({
@@ -373,23 +380,58 @@ test.describe('P1058 F4: release_joiner_seat authorization', () => {
     });
     expect(roomError, `practice room seed failed: ${roomError?.message}`).toBeNull();
 
-    // Step 1 — an anon visitor learns the code from the public event page RPC.
-    const anon = makeAnonClient();
-    const { data: codes } = await anon.rpc('get_practice_room_codes', { p_event_id: event!.id });
-    const learned = (codes as Array<{ code: string }> | null)?.find((c) => c.code === room.code);
+    // The seat must carry a SECRET for step 2 to mean anything. seedRoom stamps occupancy but
+    // not joiner_seat_secret, and P1314 C falls back to the room code for a seat that holds no
+    // secret (a legacy seat, claimed before P1269) — so without this the release below would be
+    // correctly ALLOWED and the assertion would read as a regression. Same shape as the
+    // occupancy note in seedRoom itself: epistemic gate 7b, a fixture that cannot emit the
+    // state under test.
+    const { error: secretError } = await supabaseAdmin
+      .from('clarity_sessions')
+      .update({ joiner_seat_secret: crypto.randomUUID() })
+      .eq('id', room.id);
     expect(
-      learned,
-      'get_practice_room_codes did not publish the code — the residue premise no longer holds',
-    ).toBeDefined();
+      secretError,
+      'could not stamp a seat secret — P1269 (20260911090000) must be applied for this test',
+    ).toBeNull();
 
-    // Step 2 — holding that published code, the eviction still works.
-    await anon.rpc('release_joiner_seat', { p_session_id: room.id, p_code: learned!.code });
+    // CONTROL — the seat is genuinely occupied right now. Without this the refusals below are
+    // indistinguishable from "there was nothing to release" (CLAUDE.md, the all-empty-probe trap).
+    const before = await readRow(room.id);
+    expect(before.joiner_seat_claimed_at, 'control: the fixture seat must be occupied').not.toBeNull();
+
+    // Step 1 (P1314 D) — an anonymous visitor can no longer learn the code.
+    const anon = makeAnonClient();
+    const { data: codes, error: codesError } = await anon.rpc('get_practice_room_codes', {
+      p_event_id: event!.id,
+    });
+    expect(
+      codesError,
+      'the refusal must stay an empty result, never a distinguishable error (P1057)',
+    ).toBeNull();
+    expect(
+      (codes as Array<{ code: string }> | null)?.find((c) => c.code === room.code),
+      'an anonymous visitor received an event practice room code — P1314 D has regressed',
+    ).toBeUndefined();
+
+    // Step 2 (P1314 C) — and even handed the code directly, the eviction is refused. This is
+    // the half that still holds when a code leaks some other way (P1098: a leaked code cannot
+    // be revoked), and the reason both migrations exist rather than just D.
+    const { error: releaseError } = await anon.rpc('release_joiner_seat', {
+      p_session_id: room.id,
+      p_code: room.code,
+      p_seat_secret: null,
+    });
+    expect(
+      releaseError,
+      'the room code alone released a secret-bearing seat — P1314 C has regressed',
+    ).not.toBeNull();
 
     const after = await readRow(room.id);
     expect(
       after.joiner_seat_claimed_at,
-      'event-room residue is CLOSED — update the P1058 spec and this comment',
-    ).toBeNull();
+      'the seated guest was evicted — the P1058 F4 residue is open again',
+    ).not.toBeNull();
   });
 
   test('a release never moves joiner_profile_id — the column every transcript policy keys on', async () => {

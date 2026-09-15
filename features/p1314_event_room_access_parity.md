@@ -214,6 +214,38 @@ row after:           {'joiner_name': None, 'claimed': False}
 
 Every fixture row created for these runs was deleted; `leftover: 0` confirmed after each.
 
+## Two test defects found while proving half C — 2026-09-15
+
+**Half D's integration suite had never been executed.** `e2e/integration/p1314-db-schema.spec.ts`
+was committed on 2026-09-14 with the claim that it pinned the fix. Run for the first time on
+2026-09-15 it failed in `beforeAll` with three separate defects, and every test in the file
+reported `0ms`:
+
+- the `events` fixture omitted three NOT NULL columns with no default (`description`, `datetime`,
+  `location`) — `23502`;
+- two further inserts discarded their `error` field, so the first failure surfaced as
+  `TypeError: Cannot read properties of null` at a line unrelated to the cause;
+- it used `createTestUser(...)`'s return value as `{ id, email, password }`. `TestUser` exposes
+  the auth user under `.user` and has no `password` field; the password is the exported
+  `TEST_PASSWORD` constant.
+
+None of this is caught by `npm run build`: `tsconfig.json` does not cover `e2e/`, so the file
+typechecks by never being typechecked. Fixed and now genuinely green, 6/6. The lesson is the one
+epistemic gate 7 already states and this spec failed to apply to itself — a suite you have not
+watched run is not evidence, and "tests written" is not "tests pass".
+
+**P1058's residue canary is inverted, not deleted.** `e2e/integration/p1058-release-seat-authorization.spec.ts`
+carried a test asserting the event-room residue EXISTED, with this instruction in it: *"If it ever
+starts failing, event-room codes stopped being public and this note should be revisited — a
+green-turned-red here is good news, not a regression."* That is exactly what D and C do, so the
+test now asserts the residue is CLOSED, in the order an attacker meets it — D refuses the code,
+then C refuses the release even when handed the code directly.
+
+Its fixture needed one addition to mean anything: `seedRoom` stamps occupancy but not
+`joiner_seat_secret`, and half C falls back to the room code for a seat holding no secret. Without
+stamping a secret the release would be correctly ALLOWED and the assertion would have read as a
+regression — epistemic gate 7b, a fixture that cannot emit the state under test.
+
 ## Pre-deploy Checklist
 
 - [ ] **P1269's migration `20260911090000` is live on prod.** Half C's precondition block refuses
