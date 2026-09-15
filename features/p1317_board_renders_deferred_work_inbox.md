@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 101
 workstream: infrastructure
@@ -317,10 +317,18 @@ The parsing module's location and the UI treatment are left to `/dev`.
 - [x] Before the P1250 audit note is deleted, all four citing artifacts point at its new home in P1250 and a fresh reference grep returns no other citation
       *(Six, not four: P1250:153, P558:23, P843:23, decisions.md, `ship.md:118`, `git-ops.sh:3620` —
       all repointed in `f3c7bb155` / `da0c6fabc`.)*
-- [ ] First `/slava:maintain:prioritize` pass over inbox cards run; resolve / drop / keep / promote counts recorded
-- [ ] Open total (public + private) recorded on the day of that pass. `[post-ship]` Re-count 30 days
+- [x] First `/slava:maintain:prioritize` pass over inbox cards run; resolve / drop / keep / promote counts recorded
+      *(2026-09-15. Two read-only reviewers proposed a verdict per entry; every close was re-verified by
+      command before deletion. **Public: resolve 7 · drop 0 · keep 64 (12 flagged founder call) ·
+      promote 4** (annotated on the entries). **Private: resolve 2 · drop 0 · keep 20** — one proposed
+      private close was overturned on evidence. Record: `docs/decisions.md` 2026-09-15 [process] "First
+      /prioritize pass"; private reasoning in `.private/docs/p1317-census.md`.)*
+- [x] Open total (public + private) recorded on the day of that pass. `[post-ship]` Re-count 30 days
       later: if the total has not fallen below it, intake throttling (P1081's standing fallback) is
       filed as a spec that week, not re-debated
+      *(**88** open at the end of the pass (public 68, private 20). The 30-day re-count is filed as an
+      inbox note (`due: month`, recount on or after 2026-10-15), so it does not depend on anyone
+      remembering it; that note is the 69th public entry.)*
 
 ## Alternatives Considered
 
