@@ -4,6 +4,28 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [process]: A prod secret that already lives in the database is copied inside the database, never through the agent (P1307)
+
+**Context:** Shipping P1307 needed three vault entries on prod, one of them the cron secret that
+authenticates `pg_net` calls to edge functions. The only copy on the agent's machine was the test
+value in `.env.local`, prod shows a function secret only as a digest, and generating a new secret
+would have silently broken the event-email cron that shares it.
+**Decision:** When the value already exists in prod's vault, create the new entry with
+`vault.create_secret((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = '<existing>'), …)`
+in one statement through the Management API, guarded by `IF NOT EXISTS`, and verify by reading back
+names and `length(decrypted_secret) > 0` only. The value never reaches the agent's shell, a file or
+a transcript.
+**Alternatives rejected:** Reusing the `.env.local` value (test, not prod); generating a new secret
+(breaks every other consumer of the same value); asking the founder to paste it (clipboard hand-off
+failed twice on this machine, see `.claude/rules/credentials.md`).
+**Consequences:** The same secret now lives in more places, so rotation must update every copy; the
+private secrets registry names them. Two ordering facts from the same ship: a Cloud Scheduler
+janitor created before its migrations returns 500 until they land (two such runs appear in the
+service's logs, both before the apply), and a feature that adds a `cron.schedule` breaks P1283's
+real-migrations snapshot test, which is expected and is fixed by extending the snapshot.
+**References:** `docs/technical/infrastructure.md` § Room whole-recording pass;
+`src/tests/p1283-cron-health.test.ts`; P1307 Pre-deploy Checklist
+
 ## 2026-09-14 [process]: A decision that supersedes another does not retire the first one's citations
 
 **Context:** A capability was deliberately opened by one decision, and reversed three days later
