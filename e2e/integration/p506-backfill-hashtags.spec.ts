@@ -104,9 +104,26 @@ test.describe('P506: Hashtag backfill migration', () => {
 
     // A write on the test project: prefer the test-scoped read-write token (P1214), and say so
     // when falling back to the account-wide one.
-    const token = process.env.SUPABASE_TEST_WRITE_TOKEN || process.env.SUPABASE_ACCESS_TOKEN;
-    if (!process.env.SUPABASE_TEST_WRITE_TOKEN && token) {
-      console.warn('[P506] no SUPABASE_TEST_WRITE_TOKEN — backfill is using the ACCOUNT-WIDE token (P1214 fallback)');
+    //
+    // Read the repo's .env.local first, as P1222 does: Playwright's dotenv loads only
+    // .env.test.local, which does not carry the scoped token and whose access token is stale —
+    // reading process.env alone took the fallback and got a 401 on every run.
+    let envFile = '';
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
+    } catch {
+      envFile = '';
+    }
+    const fromFile = (name: string) =>
+      envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
+    let token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
+    if (!token) {
+      token = fromFile('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN;
+      if (token) {
+        console.warn('[P506] no SUPABASE_TEST_WRITE_TOKEN — backfill is using the ACCOUNT-WIDE token (P1214 fallback)');
+      }
     }
     const projectRef = process.env.VITE_SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1];
     if (token && projectRef) {
