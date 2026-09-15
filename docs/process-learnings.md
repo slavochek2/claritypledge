@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 76
+**Next ID:** 77
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -216,41 +216,7 @@ ratios recorded — the benchmark was adopted in writing and never executed.
 
 ---
 
-## goal-gate CHECK 5 is unreachable for any feature that needs more than a few review rounds
-
-**ID:** INBOX-8
-**Date:** 2026-08-24
-**Status:** proposed
-**due:** week
-
-P1141 shipped its code to main and its migrations to prod, verified end to end, and still could not
-close its spec: `goal-gate` is red and pre-commit hard-blocks closing a goalified spec on a red gate.
-Neither cause is about the feature's quality.
-
-**1. The artifact-hash check punishes a correct workflow.** A round records fingerprints for the
-render set it judged. A later round finds a real defect, the fix changes the UI, the renders are
-regenerated — and the earlier round is now reported as a hash mismatch. On P1141, rounds 1–4 all
-report mismatches because round 5 legitimately replaced the images. Doing the right thing breaks the
-check.
-
-**2. The round arithmetic is unsatisfiable.** CHECK 5 wants the last two rounds to be PASS, with a
-hard ceiling of five. After four rounds that each found real defects, a fifth PASS gives a trailing
-`FAIL, PASS` — not two consecutive — and a sixth breaches the ceiling. Both branches fail. Observed
-output: `need 2 CONSECUTIVE trailing PASS rounds; got: FAIL FAIL FAIL FAIL FAIL`.
-
-The two ways to make it green are the two the gate exists to prevent (delete a failing round, or edit
-a FAIL to PASS), so the honest outcome is a card parked at `qa` — and that will now recur for every
-long-review feature, silently, since nothing surfaces "shipped but never closed" except someone
-noticing the slot later.
-
-**Fix to consider:** (a) hash each round against the renders *as of that round's commit* rather than
-the current working tree, so supersession is not corruption; (b) replace the fixed ceiling with a
-"last two rounds PASS, no cap" rule, or raise the cap and require the trailing pair only among rounds
-that actually ran. Both are changes to `scripts/goal-gate.sh` CHECK 5 and want a failure-path test
-(`scripts/test-goal-gate.sh`) proving the new rule goes red for the cases it should.
-
-**Falsifier:** construct a fixture with rounds FAIL FAIL PASS PASS and confirm the gate exits 0; then
-regenerate one render after the last round and confirm it does NOT go red for supersession alone.
+<!-- Resolved 2026-09-15: "goal-gate CHECK 5 is unreachable for any feature that needs more than a few review rounds" — see decisions.md 2026-09-15 [process] -->
 
 ## The deploy record can say a fix shipped when it did not — the manifest itself needs a trust check
 
@@ -277,6 +243,8 @@ what it should do when they disagree.
 Deferred deliberately 2026-08-21: important, not urgent. Filed here rather than left in the founder's
 memory. Needs its own spec — do NOT fold it into the spec that closes the security hole, or it gets
 closed when the hole closes and the systemic problem walks away untracked.
+
+Promote recommended by /prioritize 2026-09-15: the entry itself says it needs its own spec, and no open spec covers manifest-vs-live drift.
 
 ---
 
@@ -627,21 +595,7 @@ permanently disabled control is a plausible real defect, and the p617 suite's ot
      progress, lean-canvas, theory-of-change, research-programme, goals, the LessWrong blog draft,
      p1028, p948, p1084. See decisions.md 2026-08-27 [product]. -->
 
-## Reap zombie vite/playwright processes between e2e runs
-
-**ID:** INBOX-25
-**Date:** 2026-08-14
-**Status:** proposed
-**due:** week
-
-Identical p683 runs took 4.5m then 57.5m, and a test that had passed twice failed in the slow
-run — 8 vite servers (oldest 11 days) and 59 playwright processes (oldest 2 days) were alive at
-once. `pre-commit-checks.sh` has a "zombie Vite dev servers" check that reported clean during
-this, so it is not detecting the condition. Needs a reaper plus a fix to that check. Drop if the
-check turns out to be scoped deliberately to the current port only and a reaper already exists
-elsewhere.
-
----
+<!-- Resolved 2026-09-15: "Reap zombie vite/playwright processes between e2e runs" — see decisions.md 2026-09-15 [process] -->
 
 ## Extend the supersession gate to cover docs/decisions.md
 
@@ -811,6 +765,8 @@ if the room grows its own copy of a shared control again. Note the asymmetry: th
 Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08-19 (three entries).
 
 **due:** month
+Promote recommended by /prioritize 2026-09-15: its trigger is met — 7 goalify feedback.md files exist and no goalify-update spec does.
+
 
 ## Activate the goal-gate boundary — push, prove it red, then mark it required
 
@@ -984,89 +940,9 @@ Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 
 ---
 
-## False `>>` marker claim in disagreement:prepare Stage 2 attribution instruction
+<!-- Resolved 2026-09-15: "False >> marker claim in disagreement:prepare Stage 2 attribution instruction" — see decisions.md 2026-09-15 [process] -->
 
-**ID:** INBOX-40
-<!-- filed 2026-08-25, during P1156; deliberately NOT fixed there -->
-
-**Status:** proposed
-
-**due:** week — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
-kind.** A control pair — a one-speaker TEDx talk (`lJR-7_Dcess`) and a two-speaker interview clip
-(`sRv-ETHskXI`) — was probed identically: `>>` turn markers **0 and 0**, dash-dialogue markers
-**0 and 0**, bracketed speaker labels **0 and 0**. The two-speaker control is textually
-indistinguishable from the one-speaker control at the markup level.
-
-Shipped `/slava:disagreement:prepare` v0.6.1 (now v0.7.0) Stage 2 still instructs attribution
-"by content and by the `>>` turn markers" — **a method claim that measurement falsified.** Harmless
-for new runs under the P1156 selector's Gate 0 (every source single-speaker by construction), but
-any run on a pre-Gate-0 multi-speaker source inherits a wrong instruction.
-
-**Why it was not fixed during P1156:** the spec's rule was "stages 1–5 move/remain byte-identical —
-a 'move' that quietly rewrites a rule loses the run that bought it." Folding a one-line fix into
-Stage 2 would have widened P1156's blast radius past what its spec sanctioned. Raise it as its own
-one-line fix with its own evidence.
-
-Falsifier: fetch captions for any two-speaker YouTube video and count `>>` lines in the raw `.vtt`.
-
-**Correction — 2026-08-27 (P1164), kept in place rather than graduated so the over-generalized claim
-above stays on record.** "Auto-captions carry zero speaker labels of any kind" is over-generalized
-from n=2. Re-measured against this entry's own control pair plus a third source (`_V_ed5fuexA`,
-Harari two-speaker interview, 2886s, auto-captions only): literal `>>` **0**, HTML-escaped
-`&gt;&gt;` **106**. The original two-video result is confirmed correct on both spellings — not a
-probe artifact — but YouTube's auto-captioner does emit escaped turn markers on some videos and not
-others, so "no markers of any kind" is false as a general claim; a literal-only probe also misses
-them where they exist, since a `.vtt` stores them escaped.
-
-`/slava:disagreement:prepare` v0.7.1 (`features/p1164_points_prepare_false_turn_marker_instruction.md`)
-now instructs a probe for both spellings instead of asserting presence or absence; a marker found
-means the speaker *changed*, never *who* it changed to. Fixed.
-
----
-
-## Agent-skills sync gate (P1151) compares the whole tree in the working tree — no git lock protects against a co-tenant's unstaged edit
-
-**ID:** INBOX-41
-**Date:** 2026-08-27
-**Status:** proposed
-**due:** month
-
-`sync-agent-skills.sh --check` (run by `pre-commit-checks.sh` / the `.git/hooks/pre-commit` hook,
-which is byte-identical to it) diffs **every** source file under `.claude/commands/slava/**`
-against `.agents/skills/` with `cmp -s` against the **working tree** — not the git index, not HEAD.
-It is not scoped to the staged diff.
-
-On a shared main checkout with many concurrent sessions, any co-tenant's in-progress, unstaged edit
-anywhere in that tree fails **every** session's unrelated commit, including the p1164 commit this
-entry accompanies (blocked 3 times by concurrent drift in `select.md`, `kdd/SKILL.md`,
-`positions.md`, `publish.md`, `run-pipeline.md`, `story-draft.md`, `day.md`,
-`docs/points-process.md`, resolved only by polling `git status --short` until quiet). Critically,
-`git-ops.sh commit-to-main`'s `main.lock` does **not** protect against this: the lock serializes
-*committers*, not *editors* — a concurrent Claude session's Edit-tool write takes no git lock at
-all, so retrying under the lock does not help.
-
-**Real fix:** scope `sync-agent-skills.sh --check` to `git diff --cached --name-only` intersected
-with the source tree, instead of a whole-working-tree `cmp`. **Stopgap today:** if blocked, don't
-busy-retry — poll `git status --short` until it goes quiet (no bystander diff), then retry.
-
-Falsifier: with a second session holding an unstaged edit to any `.claude/commands/slava/**` file,
-attempt an unrelated commit via `git-ops.sh commit-to-main` — it fails on that file's drift
-regardless of the lock.
-
-**Third occurrence 2026-08-28 (P1185).** Blocked twice in one session on `select.md` drift, from a
-co-tenant actively editing it — once before the implementation commit, once at `/ship`'s
-pre-commit gate. Worth recording because the workaround used was **not** the stopgap above:
-instead of polling until quiet, the session ran `sync-agent-skills.sh` to regenerate the whole
-mirror, which makes the gate pass by rewriting a bystander's generated artifact **from their
-half-finished source**. It is non-destructive (the mirror is generated output, and it was left
-unstaged so it never entered a commit) and it does not wait on another session's typing — but it
-briefly puts a mirror on disk that reflects an edit nobody has finished, and it drifts again on
-their next keystroke. Prefer the documented poll when the co-tenant looks close to committing;
-reach for regeneration when you would otherwise block indefinitely. Either way this is the third
-instance of a mechanism with a written real fix and no spec — the argument for scoping the check
-to the staged diff is now three sessions old.
-
----
+<!-- Resolved 2026-09-15: "Agent-skills sync gate (P1151) compares the whole tree in the working tree" — see decisions.md 2026-09-15 [process] -->
 
 ## `git-ops.sh ship` has no tracked-and-dirty preflight before the cherry-pick — second instance of "the lock serializes committers, not editors"
 
@@ -1104,55 +980,7 @@ Falsifier: with a second session holding an unstaged edit to a file the branch a
 
 ---
 
-## `check-deploy-manifest.sh --env prod` prints the wrong fix command for the unpushed-stamp case — migrations AND functions (4th+ recurrence)
-
-**ID:** INBOX-43
-**Date:** 2026-08-28
-**Status:** proposed
-**due:** month
-
-`--env prod` reads the manifest from `origin/main` (P820). When local main is ahead of origin, an
-unpushed stamp reads as `MIGRATION_MISSING: … not deployed to prod`, and the script's `Fix commands:`
-block names `./scripts/migrate.sh --env prod` — the wrong action, at the moment the operator is
-deciding. This has now misled at least four times (2026-08-18; an earlier `migrate.sh`-disagreement
-incident; 2026-08-28; 2026-09-08), with multiple decisions.md entries prescribing a manual
-two-command check that nobody runs, because the tool sounds authoritative and the manual check is
-not where the decision happens.
-
-**The function case is worse, not equivalent — measured 2026-09-08.** `FUNCTION_STALE`/
-`FUNCTION_MISSING` get the same treatment: `check-deploy-manifest.sh` prints
-`./scripts/deploy-functions.sh <fn> --env prod` as the fix. But `deploy-functions.sh` stamps only
-the **local** manifest (`stamp-deploy-manifest.sh --env "$ENV_NAME" --functions-only` — no
-`git add`/`commit`/push anywhere in that script). Running the printed fix after redeploying a
-function therefore loops: redeploy → re-stamp locally → `--env prod` still diffs against
-`origin/main` → still `FUNCTION_STALE`, indefinitely, until someone separately commits and pushes
-the manifest. Reproduced 2026-09-08: two functions redeployed, local file hashes verified to match
-the manifest exactly, `--env prod` still reported both stale.
-
-**Real fix:** in the drift branch, compare the `origin/main` manifest against the working-tree
-manifest for **both** migrations and functions. If the missing/stale entry is present locally,
-emit `MIGRATION_UNPUSHED_STAMP` / `FUNCTION_UNPUSHED_STAMP: <name> (deployed and stamped locally;
-the stamp has not reached origin/main)` and name pushing (or committing, then pushing) main as the
-remedy. Emit `MIGRATION_MISSING`/`FUNCTION_MISSING` only when the entry is absent from both
-manifests.
-
-Falsifier (migration): commit a manifest stamp locally without pushing, then run
-`./scripts/check-deploy-manifest.sh --env prod` — it reports MIGRATION_MISSING and tells you to
-migrate prod.
-
-Falsifier (function): deploy a function to prod (which stamps the local manifest only), then run
-`./scripts/check-deploy-manifest.sh --env prod` without pushing — it reports FUNCTION_STALE and
-tells you to redeploy the function again, which will not clear it.
-
----
-
-<!-- Resolved 2026-08-27: "/slava:disagreement:select has no person-level fallback from Gate 1" — closed by P1171 (Gate 1 runners-up carried as per-position `alternates:`); see decisions.md 2026-08-27 [process] -->
-
-<!-- Resolved 2026-08-28: "Spec dependency fields are five undefined spellings" — promoted to a
-     tracked spec rather than left as month-debt; see features/p1186_spec_dependency_vocabulary.md (filed same day). -->
-
-
----
+<!-- Resolved 2026-09-15: "check-deploy-manifest.sh --env prod prints the wrong fix command for the unpushed-stamp case" — see decisions.md 2026-09-15 [process] -->
 
 ## Benchmark `/create-spec` against an unskilled baseline (due: month)
 
@@ -1173,24 +1001,13 @@ reproduced the skill's sections from memory — the null result would have been 
 
 Pairs with the existing Kanban item on `/change-request` creation; file them together or as one spec.
 
+Promote recommended by /prioritize 2026-09-15: the entry says it still needs a P-number, and no open benchmark spec exists.
+
 ---
 
 <!-- Resolved 2026-09-15: "The story quote block renders twice on the detail page" — delivered by P1212 §1 (all-done); see decisions.md 2026-09-15 [process] -->
 
-## `next-rank.sh` still ratchets — every agent-filed spec sorts below every hand-ordered one
-
-**ID:** INBOX-45
-**Date:** 2026-09-01
-**Status:** proposed
-**due:** week
-
-`./scripts/next-rank.sh week` returned `1000062` for P1212 while hand-ordered specs in the same
-column sit at 1–11, so the new card lands at the bottom regardless of priority. The script's own
-header describes exactly this failure and says it was fixed by scoping per-column — it still scans
-open specs sitting in the 1,000,000 band, so `max+1` reproduces the ratchet. Done when a fresh
-`/create-spec` in a populated column returns a rank in the same scale as the hand-ordered entries.
-
----
+<!-- Resolved 2026-09-15: "next-rank.sh still ratchets" — see decisions.md 2026-09-15 [process] -->
 
 ## Redesign the two points scanners that bite on one phrasing, and close three latent gaps
 
@@ -1427,6 +1244,8 @@ unrequested scope on a spec already covering six sections.
 **Suggested shape:** a `pN` bug spec. The census gains an `isLoading: true` fixture arm — that arm
 is the actual deliverable, since without it any fix is unverifiable by the same blindness that hid
 the defect.
+Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the loading-state fixture arm is still missing from src/tests.
+
 ## Teach the migration client-safety gate to see a changed RPC signature
 
 **ID:** INBOX-53
@@ -1546,18 +1365,7 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 
 When `git-ops.sh ship pN` fails at the close commit (P1279 index race), it prints the recovery `git mv features/done/<sprint>/pN_x.md features/pN_x.md` — moving the spec back OUT of the done tree so the gated close can be re-run. `.claude/hooks/block-manual-spec-close.py` refuses that command: `is_close_shaped` fires whenever any spec path in the command is not already closed, and the destination (the open path) is exactly that. Hit on 2026-09-14 closing P500; worked around by doing the same move in Python, which the hook's MOVE_RE does not match — a bypass that should not be the documented path. Done when a move whose DESTINATION is outside `features/done/` is allowed (or git-ops prints a recovery the hook accepts), with a canary for both directions; droppable if the P1279 race stops stranding half-renames.
 
-## Deploy P1236's schema to prod — /transcribe rooms are live without their database functions
-
-**ID:** INBOX-63
-**Date:** 2026-09-14
-**Status:** proposed
-**due:** week
-
-A push on 2026-09-14 made P1236's /transcribe frontend live while its 6 migrations (`20260908170000` through `20260911151200`) and the `gcs-signed-url` and `transcribe-slice` edge functions remain undeployed (`./scripts/check-deploy-manifest.sh --env prod`). Prod PostgREST has no `enter_transcribe_room`, `record_transcribe_slice` or `join_transcribe_room`: an empty-args call to each returns a hint naming a different function, which it does only when the requested name is absent. Done when `migrate.sh --env prod` (after its list-only run is shown to the founder) and both function deploys pass their smoke test, and entering a transcribe room works on prod; droppable if P1236's frontend is reverted instead.
-
-**Done 2026-09-14 (same day).** All 6 migrations applied to prod (`migrate.sh --env prod --yes`, prod smoke 8/8); the Gemini batch API key set on prod via the Management API rather than the documented `secrets set VAR=$(...)` one-liner, which would have put the value in argv; `transcribe-slice` deployed (own smoke 1/1). `enter_transcribe_room`, `record_transcribe_slice` and `create_transcribe_room` now all resolve on prod. `gcs-signed-url` turned out to be deployed already — only its stamp was unpushed. The P886 gate blocked the first apply correctly: the coupling marker named the pre-cherry-pick sha (`35752a156`, on no branch), re-pointed to `ad9bdda0c` after confirming the frontend patch hashes byte-identical — see the entry above, 'Nothing blocks a frontend that ships ahead of its own migration', of which this is now a confirmed second occurrence. Remaining: push `main` so the stamp reaches origin.
-
----
+<!-- Resolved 2026-09-15: "Deploy P1236 schema to prod — /transcribe rooms are live without their database functions" — see decisions.md 2026-09-15 [process] -->
 
 ## Finish P1304's loose ends: prod Sentry check, stranded UAT file, misplaced and fieldless specs
 
@@ -1730,5 +1538,16 @@ Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 3
 **Blocking:** No obvious mechanical fix yet — needs design.
 
 > Folded 2026-09-15 by P1317 from `.claude/process-learnings.md`, a third store no reader consumed. `/slava:maintain:cleanup` was checked first and has no registry-to-disk step, so the entry is still open.
+
+---
+
+## Re-count the task inbox against the 88 recorded at the first /prioritize pass
+
+**ID:** INBOX-76
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** month
+
+The first /prioritize pass over the inbox (2026-09-15, P1317) left 88 open entries: 68 public and 20 private. On or after 2026-10-15, add up both stores with `./scripts/inbox.sh count`. If the total is not below 88, file intake throttling (P1081's standing fallback) as a spec that week. Do not re-debate it; the pass pre-committed to this. Droppable once that spec exists or the count is below 88.
 
 ---

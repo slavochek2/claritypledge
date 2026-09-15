@@ -4,6 +4,37 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [process]: First /prioritize pass over the task inbox — seven public entries were already done, and a reviewer's close was overturned on evidence (P1317)
+
+**Context:** P1317 put every inbox entry on the kanban and gave `/slava:maintain:prioritize` a verdict
+path for them (step 2b). Its Done-When required one full pass. Two read-only reviewers proposed a
+verdict for every entry (75 public, 22 private); every resolve was then re-verified by command before
+anything was deleted, per epistemic gate 9.
+**Decision:** Public store — **resolve 7, drop 0, keep 64, promote 4** (recommendations, annotated on
+the entries; `/create-spec <ID>` executes them). The seven were finished work nobody had closed:
+- *goal-gate CHECK 5 unreachable* (filed 2026-08-24) — `scripts/goal-gate.sh` now judges each screenshot
+  path by its latest round and caps rounds at 20 (P1284).
+- *Reap zombie vite/playwright processes* (2026-08-14) — `scripts/reap-e2e-zombies.sh` exists with a test,
+  and pre-commit's zombie check calls it.
+- *False `>>` marker claim in prepare* (2026-08-25) — `prepare.md:165` probes both spellings and says to
+  attribute by content when none are found; P1164 is `all-done`.
+- *Agent-skills sync gate compares the whole tree* (2026-08-27) — `--staged-only` shipped (P1284) and
+  pre-commit passes it.
+- *check-deploy-manifest prints the wrong fix for unpushed stamps* (2026-08-28) — `MIGRATION_UNPUSHED_STAMP`
+  and `FUNCTION_UNPUSHED_STAMP` are emitted (P1284).
+- *next-rank.sh still ratchets* (2026-09-01) — `./scripts/next-rank.sh week` returns `106`.
+- *Deploy P1236's schema to prod* (2026-09-14) — done the same day; the manifest stamps are on `origin/main`.
+Private store — resolve 2, keep 20; its reasoning lives in `.private/docs/`. One reviewer-proposed
+private close was **overturned**: the fix it cited removed a symptom, but the entry asked for the test
+to fail loudly, and it still only warns.
+**Consequences:** Open total on the day of the pass: **88** (public 68, private 20), down from 97 after the
+census. P1317's pre-committed check: if the total has not fallen below 88 by 2026-10-15, intake
+throttling is filed as a spec that week. Six of the seven public resolves were fixes delivered by other
+specs (mostly P1284) that never reached back to close their note, which is the gap the inbox verdict
+path now covers.
+**References:** [P1317](../features/p1317_board_renders_deferred_work_inbox.md) Done-When · the seven
+entries' original dates above · P1284, P1164, P1236.
+
 ## 2026-09-15 [process]: Task-inbox census — every section is now an open, numbered entry, and four were graduated out (P1317)
 
 **Context:** P1317 puts every inbox entry on the kanban as a card, and its parser renders anything that
