@@ -116,7 +116,7 @@ prompt count exceeds the threshold.
 
 ## Related
 
-- [P1316](p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration this finishes; its time-gated items moved here
+- [P1316](done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration this finishes; its time-gated items moved here
 - [P1239](done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
 - [P1214](done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) — credential separation
 - [P1148](p1148_credential_rotation_system.md) — rotation and revocation execution

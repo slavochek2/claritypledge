@@ -165,7 +165,7 @@ work was checked against real output: a daily cron-health query had been malform
 not running (found by a parity run against the old version), and the shared lock helper killed any
 `set -e` caller outside a git checkout — introduced by this change and caught only by an independent
 review, then reproduced against the old copy.
-**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/p1316_finish_moving_remaining_master_key_consumers.md) · [P1239](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [credential-keyring.md](technical/credential-keyring.md)
+**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) · [P1239](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [credential-keyring.md](technical/credential-keyring.md)
 
 ---
 
@@ -188,7 +188,7 @@ reads checkboxes, not evidence, so an untrue tick passes it silently.
 the plaintext env file, and the honest answer was no. Separately: a spec filed on `main` does not
 exist on an older feature branch, so a markdown link to it from that branch is a dead link and blocks
 the commit — write the P-number as plain text until the branch is merged.
-**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/p1316_finish_moving_remaining_master_key_consumers.md)
+**References:** [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [P1316](../features/done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md)
 
 ---
 
