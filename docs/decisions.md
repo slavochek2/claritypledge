@@ -4,6 +4,138 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [technical]: The artifact you read is not always the artifact in effect — grep for an importer, and for a trigger that owns the column (P1078)
+
+**Context:** P1078's branch had been parked for six days with its own commit saying the Playwright
+run "is NOT yet executed" and one criterion deliberately unticked so ship would block. Running it
+produced six failures. Two of them had been *introduced* by the previous session reasoning about
+source files instead of executing them — and in both cases that session did read the right file and
+quote it correctly.
+**Decision:** "Verified against the source" is not a finished check. Two additional questions
+belong to it, and both are one command:
+1. **Is this component actually mounted?** `src/app/components/feed/active-tag-filter.tsx` exports
+   `ActiveTagFilter` with `aria-label="Remove tag filter for <tag>"`. No page imports it — on this
+   branch or on `main`. The feed renders its own inline chip with `Remove filter for #<tag>`. Three
+   assertions were written against a control that never appears in the DOM. `git grep -l
+   "<ComponentName>" -- src/app/pages src/app/components/layout` answers it.
+2. **Does something else own this column?** `createTestStory(..., { tags: [...] })` writes the array
+   and P592's `BEFORE INSERT` trigger immediately overwrites it with hashtags extracted from
+   `content`, so the fixture story carried `tags = {}`. `grep -rl "ON <table>" supabase/migrations`
+   answers it.
+**Alternatives rejected:** treating either as a product bug — both apps behave correctly; only the
+tests were wrong. Weakening the assertions to match whatever rendered — the second defect was found
+*because* an assertion was strict.
+**Consequences:** The second one is the more dangerous shape: the untagged story still appeared on
+the *unfiltered* Stories tab, so a fixture defect presented as a broken tag filter. Three
+independent observations were needed to place it — the filtered panel rendering "No content
+matching #fundraising yet", the tag cloud carrying the *point's* tags but not the story's, and the
+trigger source. The fixture now tags via content, which is how a real author tags a story. The dead
+component is left in place and reported rather than deleted; removing it is a separate call.
+**References:** [P1078](../features/done/2026-06-10/p1078_p491_hashtag_feed_tests_stale_since_p543.md) · epistemic gate 1
+
+---
+
+## 2026-09-15 [technical]: An e2e suite can be unrunnable for reasons that read as application failure — the port, and the suite colliding with itself (P1078)
+
+**Context:** Before any assertion could be judged, two infrastructure conditions had to be cleared,
+neither of which announces itself as infrastructure.
+**Decision:** Record both mechanisms, because each one produces a failure that looks like a bug in
+the code under test.
+- **The port.** `playwright.config.ts` derives the dev-server port as `5000 + slot*100`, so worktree
+  slot `w10` maps to **6000 — which Chromium refuses outright** as a restricted port (X11). Every
+  test in that slot dies with `net::ERR_UNSAFE_PORT` before the app loads, which reads as "the page
+  never rendered". Any slot that lands on a restricted port is silently without e2e coverage.
+- **The suite against itself.** `fullyParallel: true` with 3 workers, one shared test database, and
+  fixed fixture strings means three identical rows are live at once, so every `getByText` becomes a
+  strict-mode violation. This accounted for exactly one of six failures, which is the trap: running
+  `--workers=1` makes it disappear and the suite still fails for unrelated reasons, so the collision
+  is easy to misread as flake.
+**Alternatives rejected:** `--workers=1` as the fix — it hides the collision rather than removing
+it, and the acceptance criterion invokes the suite with its own config. Serializing the describe
+block — same objection, and it slows the suite for a defect that belongs to the fixture.
+**Consequences:** Fixture strings now carry a per-test suffix and the suite passes as invoked
+(12 passed, twice, 25.7s and 27.3s). The port is **not** fixed and needs its own spec — a local
+untracked config override on 6010 was used to get the run. Until then, worktree slot assignment
+silently decides whether a branch has e2e coverage at all.
+**References:** [P1078](../features/done/2026-06-10/p1078_p491_hashtag_feed_tests_stale_since_p543.md) · [worktree-setup.md](technical/worktree-setup.md)
+
+---
+
+## 2026-09-15 [process]: Two ship-path gates block a correct ship, and both derive their verdict from a name rather than from content (P1078, P1269, P1314)
+
+**Context:** Three ships in one session, each blocked by tooling after every quality gate had
+passed. In each case the work was correct and the tool's verdict was not.
+**Decision:** Record the mechanisms so the next session recognises them instead of re-deriving them.
+- **`ship` reads P-numbers out of FILENAMES.** A branch touching `e2e/p491-hashtag-feed.spec.ts` and
+  `features/p1078_p491_hashtag_feed_tests_stale_since_p543.md` is judged to have "edited specs p491
+  and p543". Neither is a spec file; one is a test, the other is this spec's own name. Both resolve
+  to an older dated `done/` layout the resolver cannot handle, and that failure **strands the branch
+  and the worktree** after the commits have already landed. `--override` does not help.
+- **`publish-spec` blocks its own commit.** It writes the `done/` copy and commits exactly that one
+  path, leaving the original in `features/` — which then trips the duplicate-spec gate. The
+  resolution is narrow: remove the original from the working tree **unstaged**, because
+  `commit_staged_exact` refuses any staged set wider than its requested paths, then commit the
+  deletion separately. Hit identically on both security specs.
+**Alternatives rejected:** patching either tool mid-ship — three ships were in flight and a shared
+script is the wrong thing to edit under that load. Leaving the branch stranded — the worktree and
+branch are the thing the founder sees as "not closed".
+**Consequences:** P1078's cleanup was completed by hand after confirming with `git cherry` that both
+commits were already applied upstream and the file contents were identical on `main`. That is the
+right order — verify equivalence by content, never by SHA, because ship cherry-picks and the branch
+SHAs are never ancestors. Both defects remain unfiled as specs.
+**References:** [P1078](../features/done/2026-06-10/p1078_p491_hashtag_feed_tests_stale_since_p543.md) · [P1269](../features/done/2026-06-10/p1269_guest_seat_reclaim_forgeable.md) · [P1314](../features/done/2026-06-10/p1314_event_room_access_parity.md) · [git.md](../.claude/rules/git.md)
+
+---
+
+## 2026-09-15 [process]: For an embargoed security spec the deploy order is database-first — publication is irreversible, guest downtime is not (P1269, P1314)
+
+**Context:** The standing order is push-then-migrate, because a `requires-frontend` marker blocks a
+prod apply until the client commit is on `origin/main`. Two things made that order wrong here.
+Shipping an embargoed spec **cherry-picks it onto `main` regardless** of gate 1.5's stated intent
+("the code merges, the spec does NOT") — measured, not inferred: the spec commit landed as a real
+commit on main. And git history is permanent, so pushing first would publish two live-vulnerability
+write-ups to a public repository forever; deleting the files afterwards does not remove them.
+**Decision:** Apply to production first, verify the fix by reading the installed functions back out
+of prod, then push. Both `requires-frontend` markers were replaced with `client-safe` rationale,
+which was only honest because the coupling had genuinely been removed: both client call sites now
+**omit** `p_seat_secret` rather than sending it as null, and PostgREST resolves an overload by the
+named arguments supplied — measured on prod with no row written, `{p_code,p_joiner_name}` resolves
+(401) while adding the third key does not (404 PGRST202).
+**Alternatives rejected:** deleting the spec from `main` before pushing — git keeps deleted content,
+so this achieves nothing; proposed and withdrawn in-session. Pushing first and accepting the
+disclosure — irreversible against a bounded cost.
+**Consequences:** The accepted cost is that a guest holding a seat secret between the migration and
+the client deploy waits out a 15-minute timer. Bounded and self-healing. A **single malformed**
+`requires-frontend` marker rejects the entire prod run including unrelated migrations, so the two
+markers had to be cleared before the apply, not during it.
+**References:** [P1269](../features/done/2026-06-10/p1269_guest_seat_reclaim_forgeable.md) · [P1314](../features/done/2026-06-10/p1314_event_room_access_parity.md) · [P1266](../features/p1266_prove_the_embargo_end_to_end_on_the_first_real_security_spec.md)
+
+---
+
+## 2026-09-15 [process]: A production pre-flight measurement expired inside a single session, and a staged prod stamp was absorbed by a co-tenant's commit
+
+**Context:** A read-only pre-flight established the exact pending set for a prod migration: ledger
+341, one migration pending, two more once copied in. Minutes later the apply reported **345** remote
+migrations and only two pending — a concurrent session had applied P1269's migration to production
+in the gap. The dependency was satisfied either way, but only because the migration **asserts** the
+column it needs rather than assuming it.
+**Decision:** Treat a prod ledger reading as valid for the command that follows it, not for the
+session. Where a migration depends on another migration's object, the dependency belongs in the
+migration as a precondition — that is what made a stale measurement harmless here instead of
+installing a function that raises 42703 on the first guest who tries to leave a room.
+**Alternatives rejected:** re-reading the ledger immediately before the apply — it narrows the
+window without closing it, and the precondition closes it completely.
+**Consequences:** The same run's manifest stamp was staged by `migrate.sh` and swept into the
+concurrent session's commit before it could be committed here — content correct, attribution wrong,
+the **third** occurrence of shared-checkout absorption this month. It also removed a step: no
+separate manifest commit or second push was needed. The general rule already in [git.md](../.claude/rules/git.md)
+holds and is worth restating with a production example: anything left staged on the shared checkout
+belongs to whoever commits next, and a tool that stages on your behalf creates that exposure without
+your noticing.
+**References:** [P1314](../features/done/2026-06-10/p1314_event_room_access_parity.md) · [P1279](../features/done/2026-06-10/p1279_commit_to_main_recorded_a_file_that_was_not_requested.md) · [git.md](../.claude/rules/git.md)
+
+---
+
 ## 2026-09-15 [technical]: Every consumer of a critical credential gets one verdict — a scoped credential if it reads, the per-access lock if it writes (P1214)
 
 **Context:** The per-access lock (P1239) was built and verified, but only three consumers used it
