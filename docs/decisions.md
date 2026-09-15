@@ -547,6 +547,48 @@ stops printing.
 **Consequences:** Trap 3 is also recorded in `docs/technical/e2e-testing-guide.md` beside the serial-mode exception, and trap 1 in `docs/technical/worktree-setup.md`.
 
 **References:** `.claude/rules/epistemic.md` gate 7 · `.claude/rules/git.md`
+## 2026-09-15 [product]: Recording starts OFF everywhere; the terms line is a reminder for signed-in people and an agreement for guests (P1307)
+
+**Context:** The 2026-09-14 entry below set the event ready screen's switch to off and noted that
+`/live`'s host switch was still default-on, with the same consent weakness. During P1307 testing
+the founder first asked for default-on at events, heard that a switch already on is not valid
+consent (CJEU Planet49) while the privacy policy names consent as the legal basis, and decided:
+*"keep it off - and also make the /live also off by default - then we are clean legally and fewer
+transcripts is fine"*. The same session questioned "By continuing, you agree to our Terms…":
+event attendees are signed in and accepted the terms already.
+**Decision:** (1) **Supersedes the `/live` exception in the 2026-09-14 entry:** `/live`'s
+"Transcribe for AI insights" switch starts off too; `?insights=on` opts in. (2) For signed-in
+people the line reads "Transcription follows our Terms and Privacy Policy." and shows only while
+the switch is on, on both the event ready screen and `/live`. (3) Guests on `/live` see "By
+starting or joining, you agree to our Terms and Privacy Policy." A code comment claimed guests had
+a terms checkbox; none was rendered anywhere, so before this change a guest saw no terms at all.
+(4) No `CURRENT_TERMS_VERSION` bump (D15); `privacy.md` and `tos.md` describe all of the above.
+**Alternatives rejected:** Default-on at events with a plain Continue (not valid consent);
+default-on with a Continue label that names the recording (plausible, not chosen: fewer
+transcripts is acceptable); keeping "you agree" for signed-in people (asks them to agree to terms
+they already accepted, and blurs the switch as the consent).
+**Consequences:** Fewer sessions and rooms are transcribed. The `/live` guest agreement is a
+passive notice at the point of joining, not a checkbox. **Falsifier:** legal advice that a
+different basis applies, or that the passive guest notice is insufficient.
+**References:** [P1307 UI Contract and D12](../features/p1307_event_transcription_from_ready_across_pages_into_sessions.md),
+`src/app/pages/clarity-live-page.tsx` (B50 terms notice, `isPrivate` default)
+
+## 2026-09-15 [technical]: The room transcript service shares `/live`'s cloud project and runtime account, keeps CPU on after replying, and has no test environment (P1307)
+
+**Context:** Deploying `transcribe-room-batch` for P1307. There is one Google Cloud project, used by
+prod, and no test equivalent. The service answers `POST /process` with 202 and transcribes in the
+background.
+**Decision:** Run it as the existing `transcribe-session-sa` (already bucket reader and service-role
+secret reader; granted the new `gemini-batch-api-key` secret), private with `tx-task-invoker` as its
+only invoker, with `--no-cpu-throttling` so the work after the 202 is not starved. The Gemini batch
+key lives in Secret Manager as `gemini-batch-api-key`, created from the same `cp-batch` key the
+Supabase functions use.
+**Alternatives rejected:** A new runtime account (one more identity to grant and audit, for the same
+three permissions); default CPU throttling (background work after the response is throttled).
+**Consequences:** Any P1307 cloud change is a prod change; there is nothing to rehearse it on. The
+`/sweep` scheduler can succeed only after the P1307 migrations are on prod.
+**References:** `docs/technical/infrastructure.md` § Room whole-recording pass
+
 ## 2026-09-14 [product]: Event transcription starts OFF, only people who turned it on can read the transcript, and terms text changes now while the re-acceptance popup waits for a quarterly batch (P1307)
 
 **Context:** The 2026-09-11 [product] entry below chose a **default-on** switch. Reviewing it against

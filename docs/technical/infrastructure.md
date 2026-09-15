@@ -109,6 +109,17 @@ contrast is the point: that service allocates a GPU, and **this one allocates no
 
 ## Room whole-recording pass: `transcribe-room-batch` (P1307)
 
+- **Deployed (2026-09-15):** Cloud Run `transcribe-room-batch` in `us-east4`, project
+  `gen-lang-client-0869694595`, image `gcr.io/…/transcribe-room-batch:p1307-1` (Cloud Build from
+  `services/transcribe-room-batch/`). Runtime account `transcribe-session-sa`; invoker
+  `tx-task-invoker` only (an unauthenticated call returns 403); `--no-cpu-throttling`, 2 CPU / 2 GiB,
+  0–5 instances, concurrency 5, timeout 3600 s. Env `GCS_BUCKET=claritypledge-ml-training`,
+  `SUPABASE_URL`; secrets `SUPABASE_SERVICE_ROLE_KEY` ← `supabase-service-role-key`,
+  `GEMINI_BATCH_API_KEY` ← `gemini-batch-api-key` (created from the `cp-batch` key). Queue
+  `transcribe-room-jobs` (max 5 concurrent). Scheduler `transcribe-room-sweep`, every 10 min,
+  OIDC `tx-task-invoker`. Prod function secret `TRANSCRIBE_ROOM_BATCH_URL` points at the service.
+  There is no test GCP project: every change here is a prod change.
+
 The saved transcript for a transcribe room. Separate from `transcribe-session` on purpose: the device
 is the speaker, so there is no diarization, no voice profile and no Whisper — the P1237 engine ruling
 for `/live` is untouched.
