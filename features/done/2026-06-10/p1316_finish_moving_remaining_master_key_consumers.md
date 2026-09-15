@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 100
 workstream: keyring
@@ -7,12 +7,12 @@ created_date: '2026-09-15'
 tags: [security, credentials, least-privilege, supabase]
 disclosure: public
 related: [p1214, p1239, p1148]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-15
 ---
 
 # P1316: Finish moving the remaining consumers of the prod master key, then remove the plaintext copies
@@ -178,4 +178,4 @@ removal of the plaintext copies.
 
 - [P1214](p1214_credential_separation_and_privilege_reduction.md) — the consumer migration this finishes
 - [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock: design, rationale and rejected alternatives; its remaining Done-When moved here
-- [P1148](p1148_credential_rotation_system.md) — rotation and retirement execution
+- [P1148](../../p1148_credential_rotation_system.md) — rotation and retirement execution
