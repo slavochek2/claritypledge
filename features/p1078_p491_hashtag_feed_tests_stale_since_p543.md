@@ -55,11 +55,11 @@ Add a `createTestPosition(taggedPoint.id, author.user.id, 'agree')` (or similar)
 
 ## Acceptance Criteria
 
-- [ ] `npx playwright test e2e/p491-hashtag-feed.spec.ts` passes with 0 failures — **NOT YET RUN, and
-  deliberately left unticked so `ship-gates.sh` blocks the merge.** The
-  Playwright run needs a live dev server + browser and could not be executed in this session. Static
-  gates stand in: `npx eslint e2e/p491-hashtag-feed.spec.ts` exit 0, and `tsc --noEmit` over the spec
-  reports no error in this file. **The e2e run is still owed and must be executed before this merges.**
+- [x] `npx playwright test e2e/p491-hashtag-feed.spec.ts` passes with 0 failures — **RUN 2026-09-15,
+  exit 0: `12 passed, 1 skipped` (the skip is the pre-existing `test.skip` for the /live fixture).**
+  Run twice under the config's own settings (`fullyParallel: true`, 3 workers), 25.7s and 27.3s,
+  same result both times — not a single lucky pass. Serial run also green (12 passed). The owed run
+  is no longer owed.
 - [x] Fixture change is limited to `beforeEach`/`afterEach` staking/cleanup — no assertions weakened —
   `beforeEach` gains one `createTestPosition(taggedPoint.id, author.user.id, 'agree')` call, mirroring
   `e2e/p503-profile-tag-pills.spec.ts:47`. No `afterEach` change needed: `point_positions.point_id` is
@@ -95,3 +95,65 @@ after it, exactly one.
 One review finding is **out of scope and unfixed**: the `/live` tag-pill requirement at
 `e2e/p491-hashtag-feed.spec.ts:250-256` is explicitly skipped, so a regression there stays green. That
 is a coverage gap, not a failing test, and P1078 is scoped to the failures.
+
+
+## What executing the run actually found (2026-09-15)
+
+The fixture fix in this spec was **correct and sufficient for its own defect** — the point is
+visible now. But the suite had five further deterministic failures underneath it, none of which
+could be seen without running it. Two were introduced by the previous session's static reasoning.
+
+**Nothing in this suite could run at all in this worktree.** Playwright derives the port as
+`5000 + slot*100`, so slot w10 is **port 6000 — which Chromium refuses outright** (X11, on its
+restricted-ports list). Every test died with `net::ERR_UNSAFE_PORT` before the app loaded. Verified
+via an untracked local override on port 6010. **This is not fixed here and needs its own spec:**
+it silently disables the entire e2e suite for whichever slot lands on 6000, and reads as an
+application failure rather than a port problem.
+
+**`ActiveTagFilter` is dead code, and it misled the previous session.**
+`src/app/components/feed/active-tag-filter.tsx` is exported from the feed barrel and imported by
+**no page** — confirmed on `main`, not just on this branch. The live page renders its own inline
+chip at `feed-page.tsx:391` with a *different* label:
+
+| | aria-label |
+|---|---|
+| live page (rendered) | `Remove filter for #fundraising` |
+| dead component (asserted) | `Remove tag filter for fundraising` |
+
+The previous session read the component file, found a plausible label, and wrote three assertions
+against a control that is never mounted. This is the hazard in "verified against the source before
+changing" — the source was real; it just was not the source being rendered. Grepping for an
+importer is the check that was missing.
+
+**P592's trigger owns `stories.tags`; the helper's `tags:` option is a no-op.**
+`20260327084215_auto_extract_story_hashtags.sql` runs `BEFORE INSERT` and unconditionally does
+`NEW.tags := ARRAY(regexp_matches(NEW.content, '#(\w+)', 'g'))`. So `createTestStory(..., { tags:
+['fundraising','startups'] })` wrote a story with `tags = {}`. The story still appeared on the
+UNFILTERED Stories tab, so this presented as a broken tag filter rather than a broken fixture.
+Confirmed three ways: the filtered panel rendered "No content matching #fundraising yet"; the tag
+cloud carried `#fundraising` and `#startup-advice` (the POINT's tags) but no `#startups`; and the
+trigger source says so. The fixture now tags via content, which is how a real author tags a story
+— the P1078 invariant. *(The same mechanism is recorded independently for p506 in `dd0af279c`.)*
+
+**The story card strips `#tag` tokens out of the prose**, re-rendering them as pill links, so
+`getByText(story.content)` can never match — `"A story about #x for #y."` renders as
+`"A story about  for ."`. Assertions now target the prose half, with hashtags appended at the end.
+
+**The bottom-nav entry for the feed is labelled `Home`, not `Feed`** (`bottom-nav.tsx:86-88`,
+`{ label: "Home", to: "/feed" }`). The same Feed→Home rename this file already corrects for the
+page's `<h1>`; the nav assertion was missed. UAT-9's subject is the destination, so the assertion
+now binds the link's `href` — what would actually regress if the entry were repointed.
+
+**`fullyParallel: true` + one shared database + fixed fixture strings = self-collision.** Three
+workers each created a point with the same statement, so `getByText` hit three matches and failed
+strict mode. This is why the first run showed 6 failures and the serial run 5. Fixture strings now
+carry a per-test suffix, so the suite passes as invoked rather than only under `--workers=1`.
+
+**Unrelated and untouched:** `src/tests/p491-hashtag-feed.test.tsx` reports
+`TS6133: '_createMockUser' is declared but its value is never read`. Pre-existing, a different file,
+not in scope here.
+
+- [x] All assertion targets re-verified against **`main`'s** copies of `bottom-nav.tsx`,
+  `feed-page.tsx` and the feed barrel — not only against this branch's six-day-old checkout — so the
+  cherry-pick lands on components that still match. `main` has not modified
+  `e2e/p491-hashtag-feed.spec.ts` since this branch was cut.

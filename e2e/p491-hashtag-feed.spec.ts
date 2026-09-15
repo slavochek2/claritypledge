@@ -13,30 +13,60 @@ import { createTestUser, deleteTestUser, setTestSession, type TestUser } from '.
 import { createTestStory, deleteTestStory, type TestStory } from './helpers/test-story';
 import { createTestPoint, createTestPosition, deleteTestPoint, type TestPoint } from './helpers/test-point';
 
+// Two properties this fixture has to satisfy, both learned by measurement:
+//
+// 1. The story card STRIPS `#tag` tokens out of the prose and re-renders them as
+//    separate tag-pill links, so the rendered paragraph never equals the stored
+//    `content` ("A story about #x for #y." renders as "A story about  for ."").
+//    Assertions target the prose half, and the hashtags are appended at the END,
+//    where removing them leaves the prose intact.
+// 2. `fullyParallel: true` runs this file across 3 workers against ONE shared
+//    database, so a fixed fixture string means three identical rows are live at
+//    once and every `getByText` becomes a strict-mode violation. Each test gets
+//    its own suffix so concurrent runs cannot see each other's rows.
+const TAGGED_STORY_PROSE_BASE = 'A story about fundraising for startups.';
+const POINT_STATEMENT_BASE = 'Fundraising is harder than building product.';
+const UNTAGGED_STORY_BASE = 'A story without any tags.';
+
 test.describe('P491: Hashtag Feed — User Flows', () => {
   let author: TestUser;
   let taggedStory: TestStory;
   let untaggedStory: TestStory;
   let taggedPoint: TestPoint;
+  let taggedStoryProse: string;
 
   test.beforeEach(async () => {
     author = await createTestUser({ name: 'Feed Author' });
 
+    // See note above property 2: unique per test, so parallel workers do not
+    // collide in the shared database.
+    const unique = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    taggedStoryProse = `${TAGGED_STORY_PROSE_BASE} ${unique}`;
+
+    // The hashtags live in the CONTENT, not in a `tags:` option, because the
+    // database owns this column: P592's BEFORE INSERT trigger
+    // (20260327084215_auto_extract_story_hashtags.sql) unconditionally does
+    //   NEW.tags := ARRAY(regexp_matches(NEW.content, '#(\w+)', 'g'))
+    // so any `tags:` passed to createTestStory is overwritten on write. With
+    // plain prose the story landed with tags = {}, and every ?tag= assertion
+    // below failed against a story that genuinely carried no tags — while the
+    // UNFILTERED Stories tab still showed it, which is why this looked like a
+    // filter bug rather than a fixture one. Tagging via content is also how a
+    // real author tags a story, which is the P1078 invariant.
     taggedStory = await createTestStory(author.user.id, {
       title: 'Tagged Story',
-      content: 'A story about fundraising for startups.',
-      tags: ['fundraising', 'startups'],
+      content: `${taggedStoryProse} #fundraising #startups`,
       visibility: 'public',
     });
 
     untaggedStory = await createTestStory(author.user.id, {
       title: 'Untagged Story',
-      content: 'A story without any tags.',
+      content: `${UNTAGGED_STORY_BASE} ${unique}`,
       visibility: 'public',
     });
 
     taggedPoint = await createTestPoint(author.user.id, {
-      statement: 'Fundraising is harder than building product.',
+      statement: `${POINT_STATEMENT_BASE} ${unique}`,
       tags: ['fundraising', 'startup-advice'],
     });
 
@@ -83,7 +113,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await expect(storiesTab).toHaveAttribute('aria-selected', 'true');
 
     // Should see the tagged story
-    await expect(page.getByText(taggedStory.content)).toBeVisible();
+    await expect(page.getByText(taggedStoryProse)).toBeVisible();
   });
 
   // ==========================================================================
@@ -95,14 +125,14 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.waitForLoadState('networkidle');
 
     // Find and click a tag pill
-    const tagPill = page.getByRole('link', { name: /filter feed by tag: fundraising/i });
+    const tagPill = page.getByRole('link', { name: /filter feed by tag: fundraising/i }).first();
     await tagPill.click();
 
     // URL should contain tag param
     await expect(page).toHaveURL(/tag=fundraising/);
 
     // Active tag filter should be visible
-    await expect(page.getByLabel('Remove tag filter for fundraising')).toBeVisible();
+    await expect(page.getByLabel('Remove filter for #fundraising')).toBeVisible();
   });
 
   test('dismissing tag filter returns to unfiltered /feed', async ({ page }) => {
@@ -110,7 +140,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.waitForLoadState('networkidle');
 
     // Click dismiss button
-    await page.getByLabel(/remove tag filter/i).click();
+    await page.getByLabel(/remove filter for #/i).click();
 
     // URL should no longer have tag param
     await expect(page).not.toHaveURL(/tag=/);
@@ -121,7 +151,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.waitForLoadState('networkidle');
 
     // Tagged story should be visible
-    await expect(page.getByText(taggedStory.content)).toBeVisible();
+    await expect(page.getByText(taggedStoryProse)).toBeVisible();
 
     // Untagged story should NOT be visible
     await expect(page.getByText(untaggedStory.content)).not.toBeVisible();
@@ -145,7 +175,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
 
     // Should see filtered content (not an auth wall)
     expect(page.url()).toContain('/feed');
-    await expect(page.getByLabel('Remove tag filter for fundraising')).toBeVisible();
+    await expect(page.getByLabel('Remove filter for #fundraising')).toBeVisible();
   });
 
   // ==========================================================================
@@ -174,7 +204,7 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.waitForLoadState('networkidle');
 
     // Apply tag filter
-    const tagPill = page.getByRole('link', { name: /filter feed by tag: fundraising/i });
+    const tagPill = page.getByRole('link', { name: /filter feed by tag: fundraising/i }).first();
     await tagPill.click();
     await expect(page).toHaveURL(/tag=fundraising/);
 
@@ -210,15 +240,20 @@ test.describe('P491: Authenticated User Flows', () => {
     await expect(page.getByRole('heading', { name: /home/i, level: 1 })).toBeVisible();
   });
 
-  test('bottom nav shows Feed instead of History on mobile (UAT-9)', async ({ page }) => {
+  test('bottom nav links to the feed, not History, on mobile (UAT-9)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await setTestSession(page, author.email);
     await page.goto('/feed');
     await page.waitForLoadState('networkidle');
 
-    // Feed should be in bottom nav (aria-label="Mobile navigation")
+    // The feed entry is labelled "Home", not "Feed" — bottom-nav.tsx:86-88 is
+    // `{ label: "Home", to: "/feed" }`. Same rename as the page's own <h1>Home</h1>
+    // (feed-page.tsx:323), which this file already corrects one test above; the
+    // nav assertion was missed. UAT-9's subject is the DESTINATION — that the
+    // feed replaced History in the bottom nav — so the link target is asserted
+    // too, and it is what would actually regress if the entry were repointed.
     const bottomNav = page.locator('nav[aria-label="Mobile navigation"]');
-    await expect(bottomNav.getByText('Feed')).toBeVisible();
+    await expect(bottomNav.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/feed');
 
     // History should NOT be in bottom nav
     await expect(bottomNav.getByText('History')).not.toBeVisible();
