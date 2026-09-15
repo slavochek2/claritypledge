@@ -1600,3 +1600,29 @@ P1310 raised 16 sub-16px text controls to 16px on the reading that iOS Safari's 
 Two review findings from P1310, both cosmetic-but-real. (1) "Slides" is the one Links entry that is a true document load, and it runs through `window.open`, so middle-click, cmd-click and copy-link do nothing — an `<a href="/presi" target="_blank" rel="noopener noreferrer">` styled as the other entries would keep the new-tab behaviour and restore the affordances. (2) In the mobile menu the signed-out account actions (Take the Pledge / Log In / Create Account) sit under a bare divider while Use cases, Product, Learn and the signed-in "Your account" group all carry headings — an orphaned group; the label is a founder call. Done when the link is an anchor and the group has an approved heading; droppable if the menu is restructured for other reasons first.
 
 ---
+## Re-issue the scoped read-only Supabase token before it expires (~2026-12-13)
+
+**Date:** 2026-09-15
+**Status:** proposed
+**due:** month
+
+P1313 moved the three daily drift checks onto a scoped `Database: Read` token (project-scoped to
+the two projects, everything else `None`). Supabase offers no non-expiring option for scoped
+tokens — 24h / 7d / 30d / 90d / Custom — and **90 days** was chosen deliberately: longer expiry is
+strictly worse security, and the consuming checks now fail **loudly** (exit 2, "could not run")
+rather than reporting all-clear, so a lapse is visible rather than silent. That makes this a
+renewal, not a risk.
+
+Two things make it worth a tracked item anyway. It is the first credential in this repo with a real
+expiry, so nothing in the rotation tooling watches dates yet (P1148 owns that and is unbuilt). And
+the hand-off itself is the failure-prone step: the 2026-09-15 issuance corrupted both env files
+because the agent paired "copy this value" with "now copy this command" — read
+`.claude/rules/credentials.md` on secret hand-off before doing it again.
+
+Done when a fresh scoped token is in `SUPABASE_READONLY_TOKEN` in **both** `.env.local` and
+`.env.prod` and all three checks report `credential: scoped read-only token` and pass. Droppable if
+P1214 retires the daily checks' need for a platform token entirely, or if P1148 lands date-aware
+rotation first.
+
+---
+
