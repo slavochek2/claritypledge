@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: task
 disclosure: public
 rank: 1000063
@@ -7,12 +7,12 @@ workstream: keyring
 created_date: '2026-09-01'
 tags: [security, credentials, least-privilege, supabase]
 related: [p1148, p1186, p998, p1189, p1239]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-15
 ---
 
 # P1214: Shrink the credential set and the standing privilege that agents can reach
@@ -58,7 +58,7 @@ rotation mechanism.
    <prod master key>/<test master key>` — the prod and test master keys
    share one registry row. That is shared *metadata* — the audit does not show the two values are
    conflated or that one operation would overwrite both. It is the shape
-   [P1148](p1148_credential_rotation_system.md) names as its first design constraint, not proof
+   [P1148](../../p1148_credential_rotation_system.md) names as its first design constraint, not proof
    the hazard has fired.
 3. **Some reach for the master key is over-privileged, but the exact split is not yet known.**
    18 skills read the prod master key — but "skill" is the wrong unit, and an
@@ -98,21 +98,21 @@ skill and updating the registry are all revertible. **Disabling legacy API keys 
 deleting a retired credential is not. Every irreversible step must follow a verification step,
 never precede it.
 
-**Decision density: low.** The architecture is decided ([decisions.md](../docs/decisions.md)
+**Decision density: low.** The architecture is decided ([decisions.md](../../../docs/decisions.md)
 2026-08-28 [infra]); the de-privileging pattern is proven in
-[P901](done/2026-04-22/p901_second_operator_event_promotion.md). No founder call is outstanding.
+[P901](../2026-04-22/p901_second_operator_event_promotion.md). No founder call is outstanding.
 
 ## Invariants
 
 - **This spec performs no irreversible step at all.** No deletion, no revocation, no provider-side
   disable. If a phase appears to require one, it belongs to
-  [P1148](p1148_credential_rotation_system.md) instead. Added after review found that marking a row
+  [P1148](../../p1148_credential_rotation_system.md) instead. Added after review found that marking a row
   retired and then removing its value puts the irreversible action after a *bookkeeping* mutation
   rather than after a successful run of the real consumer without the credential.
 - **A credential this spec CREATES is registered before it carries traffic.** The non-destructive
   boundary forbids deletion but not minting, which opens an orphan class neither spec owned: a
   newly-minted, in-use, unregistered, unrotatable credential.
-  [P1148](p1148_credential_rotation_system.md)'s non-goal is *"Do NOT rotate anything absent from
+  [P1148](../../p1148_credential_rotation_system.md)'s non-goal is *"Do NOT rotate anything absent from
   the registry"*, so an unregistered new principal is permanently outside the rotation system.
   Every credential minted here gets a row in `.private/docs/accounts.md` and an explicit
   `manual-only` declaration with a reason, at mint time — not later.
@@ -136,15 +136,15 @@ never precede it.
   only which directories were grepped.
 - **Credential identity is `(name, surface, value-fingerprint)`, never `name`.** One name holds
   different live values across env files; `MULTI_KEY_ROW_BUNDLED` proves the registry already
-  conflates two. Carried from [P1148](p1148_credential_rotation_system.md).
+  conflates two. Carried from [P1148](../../p1148_credential_rotation_system.md).
 - **Fix the class, not the instance.** Before closing a finding, state whether the fix closes the
-  class or one case of it — [decisions.md](../docs/decisions.md) 2026-07-17, recorded after a
+  class or one case of it — [decisions.md](../../../docs/decisions.md) 2026-07-17, recorded after a
   de-privileging pass that read as complete while a legacy-ACL route stayed open.
 
 ## Solution
 
 **This spec is now non-destructive by construction.** Adversarial review (Codex, 2026-09-01)
-established that it otherwise deadlocks with [P1148](p1148_credential_rotation_system.md): P1214
+established that it otherwise deadlocks with [P1148](../../p1148_credential_rotation_system.md): P1214
 would create, swap and delete credentials while the spec that builds the safety machinery for
 exactly those operations waits for P1214 to finish. The resolution is a boundary, not an order —
 **P1214 never deletes or revokes anything. P1148 owns every irreversible step.** Both can run in
@@ -220,7 +220,7 @@ provider** — that is P1148's escrow-and-rollback path, and it is the step with
 **Phase 4 — unbundle the registry.** Split the prod/test master-key row into one row per
 credential and repair the 48 stale consumer lists. Reversible, but **NOT independent** — an
 earlier draft called it independent and that was wrong. `.private/docs/accounts.md` is a shared
-mutable resource: [P1148](p1148_credential_rotation_system.md)'s driver resolves `coupled_with`
+mutable resource: [P1148](../../p1148_credential_rotation_system.md)'s driver resolves `coupled_with`
 and its consumer list from the very rows this phase rewrites. Splitting a row mid-rotation —
 after `mint`, before `verify` — leaves P1148's rollback pointing at a row identity that no longer
 exists, so it either no-ops with a half-written key, or re-creates the merged row and silently
@@ -248,7 +248,7 @@ for values; this applies it to the registry.
   sessions and is unrelated to API-key exposure.
 - Do NOT delete, revoke, or provider-side disable ANY credential in this spec. Retirement here
   means "marked retired and no longer used". The irreversible half is
-  [P1148](p1148_credential_rotation_system.md)'s, and it has the escrow and rollback machinery
+  [P1148](../../p1148_credential_rotation_system.md)'s, and it has the escrow and rollback machinery
   for it. This is the boundary that breaks the deadlock the review found.
 - Do NOT rotate the frontend or the legacy keys — that work completed in `pp/tasks/p46` on
   2026-08-28 and is verified dead (401 on 5/5, re-probed 2026-09-01).
@@ -259,7 +259,7 @@ for values; this applies it to the registry.
   precisely what P1239 removes for the locked set. Whether the narrow form falls inside this
   rejection is a founder call, not an implementer's. Do not relitigate the two mechanisms already
   ruled out by measurement; they are recorded in
-  [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) Open Question 4.
+  [P1239](../../p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) Open Question 4.
 - Do NOT change RLS policies. This is credential scope and lifetime only.
 
 ## Done-When
@@ -386,7 +386,7 @@ else moved, unclaimed, to P1316.
    never independently *privileged*. Candidates not yet assessed:
    (a) ~~a scoped Postgres user over the direct connection (the direct-DB credential)~~ — **assessed and
    rejected 2026-09-03.** The URL exists, but `psql` is not installed and
-   [decisions.md](../docs/decisions.md):14318 records it as a rejected alternative
+   [decisions.md](../../../docs/decisions.md):14318 records it as a rejected alternative
    ("do not install"), so the transport is Node or the Management API — and the latter
    authenticates with the platform meta-credential, a *higher*-privilege meta-credential than the one
    being de-privileged. The role would also need clearing against **162 migrations containing
@@ -422,7 +422,7 @@ else moved, unclaimed, to P1316.
    **Phases 1, 3 and 4 stand on their own. Phase 2 does not, and may be dropped entirely —
    see the scope note in Solution.**
 2. ~~Does the vault / timed-unlock idea belong here or in P1148?~~ **Answered 2026-09-03:
-   neither — filed as [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md),
+   neither — filed as [P1239](../../p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md),
    same `keyring` workstream, and scheduled BEFORE this spec.** The reasoning reversed on review:
    retirement here cannot reach the 44 keys that stay, including the master key eleven consumers
    still write with, so encryption-at-rest is the only measure covering them. P1148's "vault" is a
@@ -437,7 +437,7 @@ else moved, unclaimed, to P1316.
    **Open Question 1(d) treats that credential as an asset** — a principal already outside the
    local-shell threat model, which is precisely why extending the backup job costs no new
    credential. That reasoning is sound *for this spec's adversary*.
-   **[P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) cannot reach
+   **[P1239](../../p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) cannot reach
    it.** P1239 locks the local `.env.local` copy behind a per-access confirmation; the GitHub
    copy is untouched, so prod-DB access remains standing-readable to anything that compromises
    the GitHub account or a workflow. Locking the local file does **not** break the nightly backup
@@ -452,15 +452,15 @@ else moved, unclaimed, to P1316.
 
 - **Predecessor (complete):** `pp/tasks/p46` — legacy keys disabled, leaked key verified dead.
   Its unticked checklist is stale; its Outcome section is authoritative.
-- **Peer, not successor:** [P1148](p1148_credential_rotation_system.md) — owns every irreversible
+- **Peer, not successor:** [P1148](../../p1148_credential_rotation_system.md) — owns every irreversible
   credential operation, including the deletions this spec deliberately stops short of. Runs in
   parallel behind that boundary. Its own blocker P1147 shipped 2026-06-10.
 - **Review:** Codex hostile review 2026-09-01 rejected the first draft (stale production premise,
   unbuildable Phase 1 mechanism, false 12-of-18 sizing, irreversible steps ahead of their
   safeguards). This revision answers all four.
-- **Pattern precedent:** [P901](done/2026-04-22/p901_second_operator_event_promotion.md) —
+- **Pattern precedent:** [P901](../2026-04-22/p901_second_operator_event_promotion.md) —
   de-privileged the promote skills from service-role to anon.
-- **Same class, different surface:** [P998](p998_shared_sa_remaining_consumers.md) (GCP shared
-  service account), [P1189](done/2026-06-10/p1189_generate_banner_uses_db_master_key_as_shared_secret.md)
+- **Same class, different surface:** [P998](../../p998_shared_sa_remaining_consumers.md) (GCP shared
+  service account), [P1189](p1189_generate_banner_uses_db_master_key_as_shared_secret.md)
   (master key used as a service-to-service shared secret) — **shipped during this session**, so the
   same-class instance it fixed is closed; the class is not.
