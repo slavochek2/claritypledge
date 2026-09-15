@@ -8,6 +8,7 @@ import { execFile, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opportunity, OpportunityStage, OpportunityType } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 import { KANBAN_CONFIG } from '../config'
+import { inboxEnabled, registerInboxRoutes } from './inbox'
 
 const app = express()
 // CORS is an ORIGIN ALLOWLIST, not a wildcard. Restored here after being lost:
@@ -589,6 +590,7 @@ app.get('/api/config', (_req, res) => {
     title: KANBAN_TITLE,
     faviconEmoji: KANBAN_FAVICON_EMOJI,
     wipLimits: WIP_LIMITS,
+    inboxEnabled: inboxEnabled(),
   })
 })
 
@@ -942,9 +944,13 @@ app.post('/api/open', (req, res) => {
     return res.json({ success: true, dryRun: true })
   }
 
-  // VS Code only. The `code` CLI may not be symlinked onto PATH, so fall back
-  // to the binary bundled inside the VS Code app. Both invoke VS Code — never
-  // another editor. Report what was tried on failure so it's diagnosable.
+  openInVSCode(['-r', resolvedPath], res)
+})
+
+// VS Code only. The `code` CLI may not be symlinked onto PATH, so fall back
+// to the binary bundled inside the VS Code app. Both invoke VS Code — never
+// another editor. Report what was tried on failure so it's diagnosable.
+function openInVSCode(args: string[], res: express.Response) {
   const VSCODE_BUNDLED = '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code'
   const candidates = ['code', VSCODE_BUNDLED]
   const tryEditor = (i: number) => {
@@ -952,13 +958,17 @@ app.post('/api/open', (req, res) => {
       console.error(`Failed to open file — VS Code CLI not found (tried: ${candidates.join(', ')})`)
       return res.status(500).json({ error: 'VS Code CLI not found. Install it via VS Code: Cmd+Shift+P → "Shell Command: Install \'code\' command in PATH".' })
     }
-    execFile(candidates[i], ['-r', resolvedPath], (error) => {
+    execFile(candidates[i], args, (error) => {
       if (error) return tryEditor(i + 1)
       res.json({ success: true })
     })
   }
   tryEditor(0)
-})
+}
+
+// P1317: inbox cards. `-g path:line` is what lets the editor land on the entry's
+// heading — the generic /api/open above has no way to target a line.
+registerInboxRoutes(app, DEFAULT_PROJECT_ROOT, (target, res) => openInVSCode(['-r', '-g', target], res))
 
 // GET /api/goals - milestone-based goals removed; returns empty
 app.get('/api/goals', async (_req, res) => {
@@ -1093,8 +1103,12 @@ export { app }
 
 if (process.env.NODE_ENV !== 'test') {
   const PORT = KANBAN_CONFIG.ports.api
-  app.listen(PORT, () => {
-    console.log(`Kanban API running on http://localhost:${PORT}`)
+  // Loopback only (P1317). With no host, Node listens on every interface, which put
+  // this API — the opportunities board and now private inbox titles — on the LAN.
+  // The vite proxy targets 127.0.0.1 to match.
+  const HOST = '127.0.0.1'
+  app.listen(PORT, HOST, () => {
+    console.log(`Kanban API running on http://${HOST}:${PORT}`)
     const worktrees = getWorktrees()
     console.log(`Available worktrees:`)
     worktrees.forEach((wt) => {

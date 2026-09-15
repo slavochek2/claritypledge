@@ -8,7 +8,9 @@ export default defineConfig({
     port: KANBAN_CONFIG.ports.frontend,
     strictPort: true, // fail loud if 9050 is held by a zombie, never drift to 9052
     proxy: {
-      '/api': `http://localhost:${KANBAN_CONFIG.ports.api}`
+      // 127.0.0.1, not localhost: the API binds to IPv4 loopback only (P1317), and
+      // `localhost` can resolve to ::1 first, which would then refuse every request.
+      '/api': `http://127.0.0.1:${KANBAN_CONFIG.ports.api}`
     }
   },
   test: {

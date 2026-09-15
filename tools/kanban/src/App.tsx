@@ -11,6 +11,7 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
+import { InboxColumn, type InboxResponse } from './components/InboxColumn'
 import { Sidebar, PageId } from './components/Sidebar'
 import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
@@ -53,6 +54,8 @@ interface KanbanConfig {
   // Per-column WIP limits from KANBAN_WIP_LIMITS. Advisory only — rendered as
   // "N / limit" in the column header. Missing key = no limit shown.
   wipLimits?: Record<string, number>
+  // P1317: deferred-work inbox cards. Off for embedders (pp) — see server/inbox.ts.
+  inboxEnabled?: boolean
 }
 
 interface ColumnConfig {
@@ -184,6 +187,21 @@ export default function App() {
     }
   }, [buildUrl])
 
+  // P1317: inbox cards. Always read from the main checkout by the server, so no
+  // worktree param. Kept in React state only — never persisted (private titles).
+  const [inbox, setInbox] = useState<InboxResponse | null>(null)
+  const [inboxError, setInboxError] = useState<string | null>(null)
+  const fetchInbox = useCallback(async () => {
+    try {
+      const res = await fetch('/api/inbox')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setInbox(await res.json())
+      setInboxError(null)
+    } catch (e) {
+      setInboxError(e instanceof Error ? e.message : 'unknown error')
+    }
+  }, [])
+
   // `mode: 'mount'` always snaps to the current worktree (localStorage may hold a
   // stale path from a session started in a different dir). `mode: 'refresh'` keeps
   // the user's selection — unless that worktree is gone (e.g. /ship removed the
@@ -290,6 +308,12 @@ export default function App() {
     if (!config || !hydrated) return
     fetchFeatures()
   }, [config, hydrated, fetchFeatures])
+
+  // 5. Inbox cards (P1317) — only when the server says the inbox is enabled.
+  useEffect(() => {
+    if (!config?.inboxEnabled) return
+    fetchInbox()
+  }, [config, fetchInbox])
 
   const changeWorktree = (path: string) => {
     setSelectedWorktree(path)
@@ -692,6 +716,7 @@ export default function App() {
               onClick={() => {
                 setLoading(true)
                 fetchFeatures(true)
+                if (config.inboxEnabled) fetchInbox()
                 if (!config.disableWorktrees) fetchWorktrees('refresh')
               }}
               title="Refresh"
@@ -827,6 +852,10 @@ export default function App() {
                     alignItems: 'flex-start',
                   }}
                 >
+                  {/* P1317: Inbox first — the main board only, and only when enabled */}
+                  {viewMode === 'active' && config.inboxEnabled && (
+                    <InboxColumn inbox={inbox} error={inboxError} searchQuery={searchQuery} />
+                  )}
                   {visibleColumns.map((col) => (
                     <Column
                       key={`${col.id}-${col.filter ?? 'default'}`}

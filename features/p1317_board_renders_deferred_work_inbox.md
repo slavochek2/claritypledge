@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 101
 workstream: infrastructure
 created_date: '2026-09-15'
 tags: [kanban, process, task-inbox, privacy]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -134,6 +134,21 @@ store format changes and the board change is a git revert. Decision density: fou
    | 1314 | Skill-eval merge check inert | add Status | open, blocked on early access |
    | 1347 | Make closure backstop a required check | add Status | open, waits for a real green |
    | private ×1 | — | add Status | open work; title kept out of this public file |
+
+   **Applied 2026-09-15 by `/dev`** (census commit on `feature/p1317-inbox-cards`). Three things the
+   table above did not anticipate, each found by re-running a check at apply time:
+   - **The P1250 audit had six citing artifacts, not four.** `.claude/commands/slava/build/ship.md:118`
+     and a comment at `scripts/git-ops.sh:3620` also cited it, and both still quoted the superseded
+     "11 not delivered". All six repointed; `ship.md` lands on `main` with the skill commit.
+   - **The public store's own entry about the third store** ("A second, undocumented inbox exists")
+     was resolved by the fold, so it graduated too. Decisions entry: `docs/decisions.md` 2026-09-15
+     [process] "Task-inbox census".
+   - **The private store also held two sections closed in place** (`Status: CLOSED …`), which the
+     census counted as having a status. The parser renders them unparseable, so they were graduated.
+     Dispositions and verbatim text: `.private/docs/p1317-census.md`.
+   Result: public 75 open / 0 unparseable, private 22 open / 0 unparseable, each equal to its
+   `grep -c '^\*\*Status:\*\* proposed'`; IDs backfilled in file order, numbers 1–75 public and 1–22 private (no live ID token is written
+   into this spec, per Done-When).
 7. **A verdict path that executes, inside `/prioritize`'s own contract.** `/prioritize` "never
    auto-invokes another skill" (`prioritize/SKILL.md:28`), and that rule stays. For inbox entries
    (only in repos whose stores exist) it applies verdicts it can execute itself: **resolve** (write
@@ -152,7 +167,7 @@ store format changes and the board change is a git revert. Decision density: fou
    private data is served (this also closes the same exposure for the existing opportunities board).
 
 9. **Stable note numbers, stored in the note.** Every entry carries a bold `ID` line: `INBOX-<n>` in
-   the public store, `INBOX-P<n>` in the private store (e.g. `INBOX-12`, `INBOX-P7`). A bare `N<n>` was
+   the public store, `INBOX-P<n>` in the private store (e.g. `INBOX-<n>`, `INBOX-P<n>`). A bare `N<n>` was
    rejected: `N1`–`N5` are already finding labels in P1067, P1090, P1091 and P1092. `NOTE-<n>` was
    rejected too: `NOTE-1` and `NOTE-2` are review labels in P937 and P967. `INBOX-` returned 0 files
    on 2026-09-15 across `features/ docs/ .claude/ tools/kanban/ scripts/ src/ e2e/ supabase/` and the
@@ -168,10 +183,10 @@ store format changes and the board change is a git revert. Decision density: fou
      accepted as violated.
    - **Backfill (Solution 6):** assigns IDs to every existing entry in file order and sets `Next ID`
      to one above the highest assigned.
-   - **References** to a note are matched against the full `ID` token (`INBOX-12`), never a bare
+   - **References** to a note are matched against the full `ID` token (`INBOX-<n>`), never a bare
      number or substring.
    - **Readers:** `/weekly` step 2.5 and `/monthly` show each entry's ID and accept it in commands
-     (`resolve INBOX-12`); list ordinals remain for display only, so there is one number system.
+     (`resolve INBOX-<n>`); list ordinals remain for display only, so there is one number system.
    - A missing or duplicate ID renders the section as unparseable.
 
 **Founder decisions (2026-09-15):**
@@ -193,6 +208,21 @@ store format changes and the board change is a git revert. Decision density: fou
    `INBOX-<n>` / `INBOX-P<n>` after review found bare `N<n>` and then `NOTE-<n>` already in use.
 
 The parsing module's location and the UI treatment are left to `/dev`.
+
+**Recorded by `/dev` before code (decision 3's condition), 2026-09-15:**
+- **Enable setting lives in the server, keyed on `KANBAN_PROJECT_ROOT`** (`tools/kanban/server/inbox.ts`,
+  `inboxEnabled()`). Unset → inbox on. Neither cp entry point sets it: `scripts/kanban.sh` runs
+  `npm run kanban`, and `npm run kanban` runs `tools/kanban` directly. pp's unchanged launcher exports
+  `KANBAN_PROJECT_ROOT`, so pp resolves to off with no pp-side edit. `KANBAN_INBOX=on|off` overrides
+  both. Rejected: a new env var in `scripts/kanban.sh`, which `npm run kanban` would bypass.
+- **Canonical root** is the git common dir's parent (`git rev-parse --git-common-dir`), so a `kanban w1`
+  launch reads the main checkout. If that cannot be proven, both stores render as `error`, never as a
+  read of the launch directory.
+- **Parser** is `tools/kanban/lib/inbox.ts`, shared by the board and `scripts/inbox.sh` (the CLI that
+  `/note`, `/weekly`, `/monthly`, `/prioritize` and `/create-spec` call), so the board and the skills
+  cannot disagree about what an entry is.
+- **Unparseable cards** open by a `<store>:L<line>` key, since a section with no valid ID has no ID. The
+  open endpoint accepts that key or an entry ID, never a path.
 
 ## Risks / Non-Goals
 
