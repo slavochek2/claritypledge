@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 disclosure: public
 rank: 213
@@ -7,8 +7,8 @@ severity: medium
 date_reported: '2026-08-13'
 created_date: '2026-08-13'
 tags: [e2e, feed, points, test-debt]
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-09-15
 ---
 
 # P1078: `e2e/p491-hashtag-feed.spec.ts` fails since P543 shipped — fixture never stakes a position
@@ -19,7 +19,7 @@ pipeline_ran: [create-bug, fix]
 
 ## Root Cause
 
-`e2e/p491-hashtag-feed.spec.ts`'s `beforeEach` calls `createTestPoint(author.user.id, { statement: ..., tags: [...] })` and never calls the separately-available `createTestPosition()` helper (`e2e/helpers/test-point.ts:116`) to stake a position on it. `getPublicPointsFeed` (`points-service-real.ts:834`) ends with `.filter(point => point.totalPositions > 0)` per [P543 — decisions.md 2026-03-17 "Zero-position points hidden from listings"](../docs/decisions.md): "Filter zero-position points at query level — hidden from all listing surfaces (feed, profile, live picker)." This suite predates that decision (or was never updated after it shipped) and has apparently been red on `main` since.
+`e2e/p491-hashtag-feed.spec.ts`'s `beforeEach` calls `createTestPoint(author.user.id, { statement: ..., tags: [...] })` and never calls the separately-available `createTestPosition()` helper (`e2e/helpers/test-point.ts:116`) to stake a position on it. `getPublicPointsFeed` (`points-service-real.ts:834`) ends with `.filter(point => point.totalPositions > 0)` per [P543 — decisions.md 2026-03-17 "Zero-position points hidden from listings"](../../../docs/decisions.md): "Filter zero-position points at query level — hidden from all listing surfaces (feed, profile, live picker)." This suite predates that decision (or was never updated after it shipped) and has apparently been red on `main` since.
 
 ## Invariants
 
