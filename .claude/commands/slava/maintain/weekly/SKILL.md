@@ -329,7 +329,9 @@ Rules that make this safe to run unattended:
   1. Read the full entry (`./scripts/inbox.sh show --store <s> <ID>`). Ask the founder for one line
      on *what was decided* if the entry does not already say it — a resolved entry with no recorded
      outcome is the graveyard in a new costume.
-  2. Prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` — newest at top,
+  2. **Private entry (`INBOX-P<n>`): record the decision in `.private/docs/` and skip to step 3 —
+     its title, reason and ID never enter `docs/decisions.md`, a public file, or a commit message.**
+     Public entry: prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` — newest at top,
      immediately **above the current first `## ` heading** (do not anchor on a line number; a
      co-tenant session may have prepended an entry since you last read the file), carrying
      **Context / Decision / Consequences / References**.
@@ -344,7 +346,8 @@ Rules that make this safe to run unattended:
 - **Never write `Status: done`** into the store. Entries leave the file or stay open — there is no
   third state, and an in-place done-marker is what made this a graveyard the first time.
 - Resolving an entry in the **private** store writes its decision to `.private/docs/` — never to
-  the public `docs/decisions.md`.
+  the public `docs/decisions.md` — and its tombstone points there too:
+  `--tombstone 'Resolved YYYY-MM-DD: "<title>" — see .private/docs/<file> YYYY-MM-DD'`.
 
 Surface findings in the Evidence Picture (step 4) as:
 ```
