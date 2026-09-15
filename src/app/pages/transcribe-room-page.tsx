@@ -228,13 +228,21 @@ export function TranscribeRoomPage() {
             Was in the room: {members.map((m) => m.displayName).join(', ')}
           </p>
         )}
+        {/* Founder, 2026-09-15: the next step after ending is the transcript, so it is the one
+            primary action, named for what the person gets. The app names the destination
+            "Session History" (nav menu; /live's "View transcript in Session History"), and the
+            saved transcript appears there only after the recording is processed — the sub-line
+            says both so nobody lands on a spinner expecting text. Back stays the quiet way out. */}
         <Button
           onClick={() => navigate('/sessions')}
-          variant="outline"
-          className="min-h-11 border-blue-300 text-blue-700 hover:bg-blue-50"
+          className="w-full min-h-11 bg-blue-500 hover:bg-blue-600 text-white"
+          data-testid="transcribe-see-transcript"
         >
-          Go to my sessions
+          See your transcript
         </Button>
+        <p className="text-xs text-muted-foreground mt-2">
+          It appears in Session History once the recording has been processed.
+        </p>
         <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" />
       </div>
     );
@@ -334,7 +342,9 @@ export function TranscribeRoomPage() {
         {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the
             same control as the join and ended screens and /stake — not an arrow in the header.
             Leaving does not end capture (P1307 D7); End Session does. */}
-        <div className="shrink-0" data-testid="transcribe-top-back">
+        {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken
+            from the live transcript. The button itself stays 44 px tall. */}
+        <div className="shrink-0 -mt-2 [&>button]:mb-0" data-testid="transcribe-top-back">
           <FocusHeader onBack={handleBack} />
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1" data-testid="transcribe-roster">
@@ -419,7 +429,12 @@ export function TranscribeRoomPage() {
             </button>
           )}
         </div>
-        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" className="mt-0 shrink-0" />
+        {/* The room is a chat that grows downward, so the bottom Back is a footer strip, not a
+            floating pill: the chat scrolls above it and never runs underneath. Same sticky-footer
+            treatment /live's rating panel uses (live-content-cards.tsx: bg + safe-area inset). */}
+        <div className="shrink-0 -mb-2 border-t border-border bg-background pt-2 pb-[env(safe-area-inset-bottom)]">
+          <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" className="mt-0" />
+        </div>
       </div>
     </div>
   );
