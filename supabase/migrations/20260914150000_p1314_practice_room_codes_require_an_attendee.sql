@@ -98,7 +98,8 @@ GRANT EXECUTE ON FUNCTION public.get_practice_room_codes(uuid) TO anon, authenti
 
 DO $$
 DECLARE
-  v_src text;
+  v_src  text;
+  v_body text;
 BEGIN
   SELECT p.prosrc INTO v_src
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -108,22 +109,27 @@ BEGIN
     RAISE EXCEPTION 'P1314: get_practice_room_codes is missing after this migration';
   END IF;
 
+  -- Comments stripped before every assertion: prosrc stores them, so a regex over it reads
+  -- prose as if it were code. A positive check could then be satisfied by a comment while the
+  -- guard it asserts is gone. See the same note in 20260915100000.
+  v_body := regexp_replace(v_src, '--[^' || chr(10) || ']*', '', 'g');
+
   -- The three properties this migration exists to establish. Asserted against the INSTALLED
   -- source, not the file, so a later CREATE OR REPLACE that drops one is caught here rather
   -- than by someone re-running the reproduction by hand.
-  IF v_src !~ 'auth\.uid\(\) IS NULL' THEN
+  IF v_body !~ 'auth\.uid\(\) IS NULL' THEN
     RAISE EXCEPTION 'P1314: the signed-out guard is gone — an anonymous caller can read room codes again';
   END IF;
-  IF v_src !~ 'public\.event_rsvps' THEN
+  IF v_body !~ 'public\.event_rsvps' THEN
     RAISE EXCEPTION 'P1314: the registration arm is gone — the predicate no longer mirrors EventRoomGate';
   END IF;
-  IF v_src !~ 'public\.events' THEN
+  IF v_body !~ 'public\.events' THEN
     RAISE EXCEPTION 'P1314: the host arm is gone — an event host would be locked out of their own room';
   END IF;
 
   -- P1057's standing rule for this table's definer reads, restated as an assertion because
   -- P1269 relaxed it on a sibling function and nothing caught that either.
-  IF v_src ~ 'SELECT[[:space:]]+\*' OR v_src ~ 'RETURNING[[:space:]]+\*' THEN
+  IF v_body ~ 'SELECT[[:space:]]+\*' OR v_body ~ 'RETURNING[[:space:]]+\*' THEN
     RAISE EXCEPTION 'P1314: SELECT */RETURNING * reintroduced — a future ADD COLUMN would join the anon output unreviewed (P1057)';
   END IF;
 

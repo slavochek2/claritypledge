@@ -110,8 +110,18 @@ BEGIN
       'P1314 C: clarity_sessions.joiner_seat_secret is absent — apply P1269 (20260911090000) first. Installing this function without it would leave every guest unable to leave a room.';
   END IF;
 
-  IF to_regprocedure('public.release_joiner_seat(uuid, text)') IS NULL THEN
-    RAISE EXCEPTION 'P1314 C: release_joiner_seat(uuid, text) is absent — expected P1058 (20260908114500) to be live';
+  -- EITHER signature satisfies this: (uuid, text) means P1058 is live and this migration has
+  -- not run yet; (uuid, text, uuid) means it has. Only the absence of BOTH is a real problem.
+  --
+  -- Written this way after the first version demanded (uuid, text) alone and therefore FAILED
+  -- when re-applied to a database where it had already succeeded — a guard that refuses the
+  -- tool's own documented workflow (`migrate.sh` re-running a migration, an environment
+  -- resync). That is the P1173 shape: the guard's own test set contained only inputs it should
+  -- reject, so its false-positive rate was unmeasured until a re-run produced one.
+  IF to_regprocedure('public.release_joiner_seat(uuid, text)') IS NULL
+     AND to_regprocedure('public.release_joiner_seat(uuid, text, uuid)') IS NULL
+  THEN
+    RAISE EXCEPTION 'P1314 C: no release_joiner_seat overload exists — expected P1058 (20260908114500) to be live';
   END IF;
 END;
 $$;
@@ -188,6 +198,7 @@ DO $$
 DECLARE
   v_count int;
   v_src   text;
+  v_body  text;
 BEGIN
   -- 1. The two-argument signature must be GONE. If it survives, the code-only release is still
   --    reachable and this migration is decorative — and worse, two overloads make every
@@ -235,17 +246,27 @@ BEGIN
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public' AND p.proname = 'release_joiner_seat';
 
+  -- COMMENTS ARE STRIPPED BEFORE EVERY ASSERTION BELOW. pg_proc.prosrc stores the function
+  -- body verbatim, comments included, so a regex over it is not reading code — it is reading
+  -- code plus prose. That cuts both ways and both ways are live: a NEGATIVE check can be
+  -- tripped by a comment that merely mentions the banned construct (measured on this repo
+  -- 2026-09-15 — a note explaining why star-projection is absent set the flag that rejects
+  -- star-projection), and a POSITIVE check can be satisfied by a comment while the code it
+  -- claims to assert has been removed, which is the failure mode that matters. Raised
+  -- independently by an adversarial review of this migration.
+  v_body := regexp_replace(v_src, '--[^' || chr(10) || ']*', '', 'g');
+
   -- 5. The two properties this migration exists to establish, asserted against the installed
   --    source so a later CREATE OR REPLACE that drops one is caught here rather than by a guest.
-  IF v_src !~ 'joiner_seat_secret[[:space:]]*=[[:space:]]*p_seat_secret' THEN
+  IF v_body !~ 'joiner_seat_secret[[:space:]]*=[[:space:]]*p_seat_secret' THEN
     RAISE EXCEPTION 'P1314 C: the secret comparison is gone from the anonymous arm — release is code-authorized again';
   END IF;
-  IF v_src !~ 'joiner_seat_secret IS NULL' THEN
+  IF v_body !~ 'joiner_seat_secret IS NULL' THEN
     RAISE EXCEPTION 'P1314 C: the legacy fallback is no longer gated on the row — an attacker could select the code branch';
   END IF;
 
   -- 6. P1057's standing rule for this table's definer functions.
-  IF v_src ~ 'SELECT[[:space:]]+\*' OR v_src ~ 'RETURNING[[:space:]]+\*' THEN
+  IF v_body ~ 'SELECT[[:space:]]+\*' OR v_body ~ 'RETURNING[[:space:]]+\*' THEN
     RAISE EXCEPTION 'P1314 C: SELECT */RETURNING * reintroduced — a future ADD COLUMN would join the anon output unreviewed (P1057)';
   END IF;
 
