@@ -270,44 +270,51 @@ Surfacing without closing is what produced that. Reading is the cheap half; the 
 legitimately not exist:
 
 ```bash
-for STORE in docs/process-learnings.md .private/docs/process-learnings.md; do
-  if [ -f "$STORE" ]; then
-    printf 'STORE %-42s %s open\n' "$STORE" "$(grep -c '^\*\*Status:\*\* proposed' "$STORE")"
-  elif [ "$STORE" = ".private/docs/process-learnings.md" ]; then
-    printf 'STORE %-42s ABSENT — private store not created yet (expected until /note first routes a private entry)\n' "$STORE"
-  else
-    printf 'STORE %-42s ABSENT — UNEXPECTED: this file is committed to the repo. Do not proceed as if the queue were empty; report it.\n' "$STORE"
-  fi
-done
+./scripts/inbox.sh count --store public    # "public  open N  unparseable M ..."  or  "public  ABSENT  <path>"
+./scripts/inbox.sh count --store private
+./scripts/inbox.sh check --store public     # names every unparseable section; exit 1 if any
+./scripts/inbox.sh check --store private
 ```
+
+Both stores always resolve to the **main checkout**, even when `/weekly` runs from a worktree.
 
 **Absent must always print as its own line — never as silence and never as `0 open`.** A reader
 wired to a store that is not there looks exactly like a healthy empty queue, which is how this step
 could have been dead for months without anyone noticing. The two absent cases are not the same:
-a missing private store is normal, a missing public store is a defect.
+a missing private store is normal (not created until `/note` first routes a private entry); a
+missing **public** store is a defect — it is committed to the repo. Do not proceed as if the queue
+were empty; report it.
 
-**Count with the anchored literal form** shown above (`^\*\*Status:\*\* proposed`). The store's
-header documents this form. An unanchored `grep -c "Status: proposed"` matches prose and misses
-every real entry — it returned `1` against 8 live entries before P1081.
+**The count is the CLI's, and it matches the literal form.** Once every entry carries an ID, the
+open count equals `grep -c '^\*\*Status:\*\* proposed' <store>`. If the two differ, a section is
+**unparseable** (missing or duplicate ID, or a Status other than exactly `proposed`) — `check` names
+it by line. Report unparseable sections under CHRONIC and fix them at the source; they are the same
+defect class P1081 was filed against, and they render as red cards on the kanban's Inbox column.
 
 **Scope:** entries with `due: month` belong to `/monthly` — skip them here. Entries with
-`due: week`, or with no `due:` field at all, are in scope (absent means week).
+`due: week`, or with no `due:` field at all, are in scope (absent means week):
+
+```bash
+./scripts/inbox.sh list --store public --due week
+./scripts/inbox.sh list --store private --due week
+```
 
 For each in-scope entry:
-- Age it from its `**Date:**` field. 2+ weeks without action → flag: "sitting since [date]".
+- Age it from its `**Date:**` field (`./scripts/inbox.sh show --store <s> <ID>`). 2+ weeks without
+  action → flag: "sitting since [date]".
 - If 2+ entries share a root cause → that's a chronic pattern, not a one-off.
 
 #### The close offer
 
-After listing the in-scope entries, present **one** numbered list and **one** prompt — never one
-prompt per entry:
+After listing the in-scope entries, present **one** list and **one** prompt — never one prompt per
+entry. **Entries are named by their ID** (P1317) — there is one number system, not list ordinals:
 
 ```
 PROCESS DEBT — 8 open, oldest 2026-05-19. Close any?
-  1. An objection is a conjecture, not a refutation      2026-07-27  (2w+)
-  2. Spotting the illusion of recursive understanding    2026-05-19  (2w+)
+  INBOX-31   An objection is a conjecture, not a refutation      2026-07-27  (2w+)
+  INBOX-40   Spotting the illusion of recursive understanding    2026-05-19  (2w+)
   ...
-Reply with entry numbers: `resolve 3`, `drop 5`, `keep` / silence = all keep.
+Reply with IDs: `resolve INBOX-31`, `drop INBOX-40`, `keep` / silence = all keep.
 ```
 
 Rules that make this safe to run unattended:
@@ -316,20 +323,24 @@ Rules that make this safe to run unattended:
   nothing, and emit the count to ACTIONS. This step must never block a `/day`-triggered run.
 - **One entry at a time, named by the founder.** Never bulk-close, never infer that an entry "looks
   done", never propose a sweep. The entries hold live content — one is an unfilled pre-commitment.
-- **`resolve N`** — the graduation rule (`docs/decisions.md` 2026-02-26), in this order:
-  1. Read the full entry. Ask the founder for one line on *what was decided* if the entry does not
-     already say it — a resolved entry with no recorded outcome is the graveyard in a new costume.
+- **Match the full ID token.** `resolve INBOX-3` names `INBOX-3`, never `INBOX-31`; a bare number
+  (`resolve 3`) is ambiguous — ask which ID.
+- **`resolve INBOX-<n>`** — the graduation rule (`docs/decisions.md` 2026-02-26), in this order:
+  1. Read the full entry (`./scripts/inbox.sh show --store <s> <ID>`). Ask the founder for one line
+     on *what was decided* if the entry does not already say it — a resolved entry with no recorded
+     outcome is the graveyard in a new costume.
   2. Prepend a `## YYYY-MM-DD [process]: <title>` entry to `docs/decisions.md` — newest at top,
      immediately **above the current first `## ` heading** (do not anchor on a line number; a
      co-tenant session may have prepended an entry since you last read the file), carrying
      **Context / Decision / Consequences / References**.
-     The References line cites the store entry's original date.
-  3. Only then delete the entry from the store, leaving a tombstone in the file's existing comment
-     form: `<!-- Resolved YYYY-MM-DD: "<title>" — see decisions.md YYYY-MM-DD [process] -->`
-  4. Re-run the count. It must have dropped by exactly one.
-- **`drop N`** — the entry is no longer worth doing. Delete it and leave
-  `<!-- Dropped YYYY-MM-DD: "<title>" — <one-line reason> -->`. No `decisions.md` entry. A drop
-  still needs a stated reason; "stale" is not one.
+     The References line cites the store entry's original date — **not** its ID, which stops
+     existing when the entry is deleted.
+  3. Only then delete it through the CLI, which leaves the tombstone and refuses one that carries an
+     ID: `./scripts/inbox.sh delete --store <s> <ID> --tombstone 'Resolved YYYY-MM-DD: "<title>" — see decisions.md YYYY-MM-DD [process]'`
+  4. Re-run `count`. It must have dropped by exactly one.
+- **`drop INBOX-<n>`** — the entry is no longer worth doing. `./scripts/inbox.sh delete --store <s>
+  <ID> --tombstone 'Dropped YYYY-MM-DD: "<title>" — <one-line reason>'`. No `decisions.md` entry. A
+  drop still needs a stated reason; "stale" is not one.
 - **Never write `Status: done`** into the store. Entries leave the file or stay open — there is no
   third state, and an in-place done-marker is what made this a graveyard the first time.
 - Resolving an entry in the **private** store writes its decision to `.private/docs/` — never to

@@ -84,7 +84,31 @@ Full field semantics, including what this does **not** cover:
 /create-spec "Enforce TDD for all bug fixes by modifying /fix and /create-bug skills"
 /create-spec "Research: what auth provider should we use for SSO?"
 /create-spec features/p142_dark_mode.md   # Extend existing spec
+/create-spec INBOX-<n>                    # Promote a task-inbox note into a spec — MOVES it (below)
 ```
+
+## Promoting an inbox note — `/create-spec INBOX-<n>` (P1317)
+
+This skill is the **only** executor of a promotion. `/slava:maintain:prioritize` may *recommend* one
+(it annotates the note); it never runs this. A note and a spec never both track one item, so
+promotion is a **move**, in this order:
+
+1. **Read the note** — `./scripts/inbox.sh show --store public <ID>` (`--store private` for an
+   `INBOX-P` ID). Its text is the intent input for the normal workflow below; run the whole workflow,
+   duplicate gate included.
+2. **Write the spec first.** It must **not** contain any inbox ID token — not in the body, not in
+   Related. An ID stops existing the moment the note is deleted, and an `INBOX-P` token would
+   disclose that a private note existed. Say "Promoted from the task inbox, YYYY-MM-DD" if anything.
+   For a **private** note, write the spec in roles and do not mention its origin at all.
+3. **Then move the note** — `./scripts/inbox-promote.sh <ID> features/p{N}_{slug}.md`. It verifies the
+   spec exists and carries no ID, deletes exactly that note, and verifies the ID is gone.
+   - `PROMOTED: …` → done. For a public note, the store change sits in the main checkout's
+     `docs/process-learnings.md`: commit it **together with the spec** through `git-ops.sh
+     commit-to-main`, so neither lands without the other.
+   - `PROMOTION INCOMPLETE: <spec> created, <note> still open (…)` (exit 1) → **stop and report that
+     line verbatim.** The spec stands and the note is still open — the visible half-state, not a
+     silent one. Do not delete the note by hand; fix the cause and re-run the helper.
+4. **The commit message never carries the ID** of a promoted note, public or private.
 
 ## When to Use
 

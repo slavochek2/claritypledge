@@ -115,9 +115,9 @@ Cherry-picking...
 
    **Read that list and act on it** — each named spec is either genuinely delivered (run `/ship pM`,
    which puts it through its own gates) or it was merely touched in passing (leave it). Phase 2b
-   used to guess. Audited over its whole history (`docs/process-learnings.md` 2026-09-07): of the
-   17 specs it closed this way, **11 were not delivered** and 6 were — so the new rule costs 6
-   manual closes and prevents 11 silent wrong ones.
+   used to guess. Audited over its whole history (P1250's done spec, §Audit, 2026-09-07): of the
+   17 specs it closed this way, **10 were not delivered** and 7 were — so the new rule costs 7
+   manual closes and prevents 10 silent wrong ones.
 
 4. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 

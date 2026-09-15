@@ -243,18 +243,15 @@ missing **public** store is a defect and must be reported, and `0 open` is never
 absence. Then filter to `due: month`:
 
 ```bash
-for STORE in docs/process-learnings.md .private/docs/process-learnings.md; do
-  [ -f "$STORE" ] || continue
-  echo "=== $STORE ==="
-  awk '/^## /{t=$0} /^\*\*due:\*\* month/{print t}' "$STORE"
-done
+./scripts/inbox.sh list --store public --due month
+./scripts/inbox.sh list --store private --due month
 ```
 
-Surface them, age-flag anything sitting 2+ **months**, and offer the same close — one numbered
-list, one prompt, `resolve N` / `drop N` / default keep. The resolve and drop mechanics (graduation
-into `docs/decisions.md`, tombstone form, never writing `Status: done`, private entries never
-graduating into the public log) are defined once in `/weekly` step 2.5; follow them there rather
-than restating them here.
+Surface them **by ID**, age-flag anything sitting 2+ **months**, and offer the same close — one
+list, one prompt, `resolve INBOX-<n>` / `drop INBOX-<n>` / default keep. The resolve and drop
+mechanics (full-token ID matching, graduation into `docs/decisions.md`, deleting through
+`./scripts/inbox.sh delete`, never writing `Status: done`, private entries never graduating into the
+public log) are defined once in `/weekly` step 2.5; follow them there rather than restating them here.
 
 ---
 

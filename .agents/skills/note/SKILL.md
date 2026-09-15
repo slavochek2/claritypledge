@@ -50,66 +50,72 @@ Otherwise route to `docs/process-learnings.md`.
 **When unsure, route private and say so.** A wrongly-private note costs one move later; a wrongly-
 public one cannot be recalled from a public repo — `git revert` does not remove it from history.
 
-If the private store does not exist yet, create it with this header:
-
-```markdown
-# Process Learnings (private)
-
-Private half of the repo's deferred-work inbox — infra, credentials, absolute paths, and anything
-else that must not reach the public repo. Same format and same close rule as
-`docs/process-learnings.md`; `/weekly` step 2.5 reads both. This file is gitignored.
-```
+If the private store does not exist yet, the CLI in Step 2 creates it with the standard header —
+do not hand-create it.
 
 ---
 
-## Step 2 — Append the entry
+## Step 2 — File the entry through the CLI — never hand-append
 
-Append at the **end** of the target file, in exactly this form:
+Every entry carries a numbered ID (`INBOX-<n>` public, `INBOX-P<n>` private), and only the CLI can
+make that ID unique: it takes a lock, re-reads the store, raises the `Next ID` counter past any
+hand-written ID, appends, advances the counter, and verifies the new ID occurs exactly once (P1317).
+Two sessions filing at the same moment get two consecutive IDs. A hand-appended entry has no ID and
+shows on the kanban's Inbox column as **unparseable**.
+
+```bash
+./scripts/inbox.sh add --store public --title "<short title — the thing to do, not a category>" --due week <<'NOTE'
+<the note text — one to three sentences. What to do, and what makes it done or droppable.>
+NOTE
+```
+
+`--store private` for a private note. The CLI prints the new ID and writes:
 
 ```markdown
+## <title>
 
-## <short title — the thing to do, not a category>
-
+**ID:** INBOX-<n>
 **Date:** YYYY-MM-DD
 **Status:** proposed
 **due:** week
 
-<the note text — one to three sentences. What to do, and what makes it done or droppable.>
+<body>
 
 ---
 ```
 
 Rules on the shape:
 
-- `**Status:** proposed` must be **bold and at column 1**. The readers count it with
-  `grep -c '^\*\*Status:\*\* proposed'`. Unbolded or indented, a human still sees the entry and
-  every mechanical count silently misses it — that mismatch is what P1081 was filed to fix.
-- `**Date:**` is today, resolved with `date +%F`. Never type a date from memory.
-- `**due:**` is `week` or `month`. Write it even for `week`, so the field is visible rather than
-  inferred.
-- Three fields and a body. **No** category, priority, assignee, or recurrence — deliberately
+- `--due` is `week` or `month`. Pass it even for `week`, so the field is visible rather than inferred.
+- The title is one line. The body may not contain a `## ` heading, a bold `Status` / `ID` / `due`
+  field line, or a code fence — the CLI refuses them (exit 2), because a reader would parse them as
+  structure.
+- An ID, three fields and a body. **No** category, priority, assignee, or recurrence — deliberately
   rejected in the spec; the queue stops being cheap to write the moment it has a schema.
+- Never write or edit an `ID` or `Next ID` line by hand.
 - Write a **droppable** note: say what would make this no longer worth doing. An entry that can
   only ever be resolved and never dropped is how the queue became a graveyard.
 - Third-party names go in as roles, never names — in the private store too.
+
+Exit codes: `0` filed · `2` bad input · `4` post-write check failed · `5` lock held too long (another
+session is filing; retry once, then report) · `6` public store absent (it is committed — report it,
+do not recreate it).
 
 ---
 
 ## Step 3 — Verify, then report
 
-Confirm the write landed and the entry is machine-visible:
-
 ```bash
-date +%F
-grep -c '^\*\*Status:\*\* proposed' <target-store>
-tail -12 <target-store>
+./scripts/inbox.sh count --store <public|private>
+./scripts/inbox.sh check --store <public|private>   # must exit 0
 ```
 
-The count must have risen by exactly one. If it did not, the status line is malformed — fix the
-line, do not re-append.
+The open count must have risen by exactly one and `check` must exit 0. If `check` names a section,
+fix that section at the source; do not re-add the note.
 
-Report in one line: `Filed to <store> (due: <week|month>) — now N open.` If it went private, say
-so explicitly, and say which trigger routed it.
+Report in one line: `Filed INBOX-<n> to <store> (due: <week|month>) — now N open.` If it went
+private, say so explicitly and say which trigger routed it — and keep its `INBOX-P` ID out of any
+public file and any commit message.
 
 ---
 
