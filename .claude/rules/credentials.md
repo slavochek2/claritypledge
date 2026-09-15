@@ -81,6 +81,30 @@ If you must capture a raw value, suspend tracing in your own shell frame around 
 the top of `scripts/keyring-gate-proof.sh`, which suppresses tracing globally for exactly
 this reason.
 
+## The clipboard is not secure transit for a secret
+
+Same failure class as a command argument, but it **destroys** rather than exposes: a second copy —
+the founder's own, or an agent instruction that asks him to "now copy this command" — silently
+overwrites the value with no error, and `pbpaste` has no way to know it received the wrong thing.
+
+Hit twice on this machine, and the rule below was already on record after the first.
+[decisions.md](../../docs/decisions.md) 2026-09-08 (P1155): a co-tenant session's unrelated copy
+landed mid-transfer. 2026-09-15: an agent-issued "copy the token, then copy this command" sequence
+clobbered a freshly minted token with the command text, and `pbpaste` wrote that into `.env.local`
+and `.env.prod`. Neither failed visibly until a credential check ran.
+
+**Anchor on verification, not on sequencing.** "Don't pair two copy instructions" is the surface
+form of one incident and is trivially defeated — the founder copying anything else, for any
+unrelated reason, breaks the transfer just as completely, and "paste it into an editor" is itself a
+clipboard hop. So: verify the payload against its source immediately before it is written anywhere
+(length and prefix at minimum), and treat a `600` temp file, not the clipboard, as the source of
+truth. Never ask the founder to copy anything else between handing him a secret and its use.
+
+When a value must reach a file without entering the session transcript, prefer writing a
+**placeholder line into the destination and having the founder fill it in place** over instructing
+him to run a shell command against the clipboard — it removes the forced second copy, which is the
+only part of this the agent controls.
+
 ## Say why you are asking
 
 The dialog cannot name you. It says "Python wants to use ...", which is why the founder

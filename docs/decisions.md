@@ -110,6 +110,47 @@ non-zero exit looks identical to an unexplained one.
 
 ---
 
+## 2026-09-15 [process]: The clipboard rule was already correct and already written — it just was not where the agent would load it (P1313)
+
+**Context:** Handing a freshly minted scoped token to the founder, the agent told him to click the
+dashboard's copy button and then gave him a shell command to run — which he had to **copy**,
+overwriting the token. `pbpaste` wrote the agent's own command text into `.env.local` and
+`.env.prod`. This is the second confirmed instance: decisions.md 2026-09-08 [process] (P1155) recorded the
+first, when a co-tenant session's unrelated copy landed mid-transfer.
+
+**The part worth keeping is not the incident.** That 2026-09-08 entry already contained the correct
+rule, in the correct form: *"Any clipboard-mediated transfer of a secret verifies the payload
+against its source immediately before submitting — length and prefix at minimum — and the source of
+truth is a `600` temp file, never the clipboard itself."* Nothing about it needed revising. It
+simply lived in `decisions.md`, which nothing auto-loads, rather than in
+[credentials.md](../.claude/rules/credentials.md), which fires on `scripts/**` and
+`.claude/commands/**` — exactly where an agent is standing when it composes this kind of hand-off.
+
+**Decision:** The rule now has a short, verification-anchored section in `credentials.md` that
+points back here rather than restating the reasoning. `decisions.md` keeps the why; the rules file
+carries the operative line to the place it is needed.
+
+**Alternatives rejected:** *A new rule phrased as "never pair copy-the-value with copy-the-command."*
+That was the first draft and an adversarial review defeated it in two moves: the founder copying
+anything else for an unrelated reason breaks the transfer identically, and the rule's own suggested
+alternative — "paste it into an editor" — is itself a clipboard hop. It policed the agent's phrasing
+rather than the property that failed, which is that **nothing verified the payload before use**.
+*Adding it to CLAUDE.md.* It fails the >80% universality test outright and the review said so.
+
+**Consequences:** Generalises past clipboards: **a decision recorded only in `decisions.md` is a
+record, not a control.** If a lesson must change behaviour at a specific moment, it has to live in
+whatever the agent loads at that moment — a rules file, a script's failure message, a gate. Two
+supporting facts from the same session: the agent asserted "no doc in cp covers this" after grepping
+two files and never searching `decisions.md` (10 clipboard hits), and the global tools index already
+documented the `timeout(1)` absence that produced a separate silent failure the same day. Both were
+written down. Neither was read.
+
+**References:** decisions.md 2026-09-08 [process] (P1155, first instance) ·
+[.claude/rules/credentials.md](../.claude/rules/credentials.md) "The clipboard is not secure transit
+for a secret" · pp `docs/decisions.md` 2026-09-15 (the Hammerspoon/Bitwarden precedent)
+
+---
+
 ## 2026-09-14 [technical]: A scoped Database:Read token is read-only by CREDENTIAL, not just by endpoint — and that is what decides which legs can migrate (P1214)
 
 **Context:** With the scoped token issued, the question was whether
