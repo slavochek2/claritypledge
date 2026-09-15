@@ -52,11 +52,10 @@ sqlite3 ~/Projects/private/personal/data/crm.db \
   "SELECT name, email, city FROM contacts WHERE city LIKE '%Chiang Mai%' AND campaign_status != 'declined'"
 ```
 
-**Supabase prod users** (for ClarityPledge-registered contacts):
+**Supabase prod users** (for ClarityPledge-registered contacts) — a read, so it runs on the read-only helper, never the prod master key (P1214):
 ```bash
-PROD_KEY=$(grep PROD_SUPABASE_SERVICE_ROLE_KEY .env.local | cut -d= -f2)
-curl -s "https://besjtuodziykmjidubzw.supabase.co/auth/v1/admin/users?page=1&per_page=200" \
-  -H "apikey: $PROD_KEY" -H "Authorization: Bearer $PROD_KEY"
+python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.py" --env prod \
+  "SELECT id, email, raw_user_meta_data->>'full_name' AS full_name, created_at FROM auth.users ORDER BY created_at DESC LIMIT 200"
 ```
 
 **Past campaign chatIDs:** read all `.private/campaigns/*/audience.md` files and extract existing chatID entries for known contacts — avoids re-searching Beeper.
@@ -65,7 +64,7 @@ Merge sources. For each contact, populate:
 
 | Column | Source |
 |--------|--------|
-| Name | CRM / Supabase `user_metadata.full_name` / Beeper display name |
+| Name | CRM / Supabase `full_name` / Beeper display name |
 | Email | CRM / Supabase auth |
 | WA_chatID | Past campaigns (preferred) / Beeper MCP search |
 | Firstname | First word of Name, or user-provided |

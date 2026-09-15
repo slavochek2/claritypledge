@@ -115,7 +115,7 @@ Every one is a STOP. Most are inherited from `/slava:disagreement:publish`; **re
 | **Tag is `[a-z0-9]+`, not reserved** | the trigger lowercases, splits on `\w`, and DROPS `^st\d+$`, `^v\d+$`, `understanding`, `misunderstanding` |
 | **Predicted tag set equals `{<tag>}`** | run the trigger's own expression read-only before writing — set equality, never containment |
 | **`#` and `](` neutralised across the WHOLE body** | quotes, statements, summaries — a `#` anywhere publishes that story into a tag nobody chose; a markdown link renders an anchor whose label is independent of its href |
-| **`SUPABASE_ACCESS_TOKEN` in `.env.prod`** | present by name — no fallback path exists |
+| **`PROD_SUPABASE_ACCESS_TOKEN` enrolled in the keyring** | `./scripts/keyring.sh status` shows `enrolled` (never prompts) — read through the per-access lock at Stage 5, never from `.env.prod` plaintext (P1239/P1214); no fallback path exists |
 | **The target ref matches the target row** | prod ⟹ `.env.prod: VITE_SUPABASE_URL`; test ⟹ `.env.local`. Credentials from `.env.local` by variable name. Never merge the files |
 
 **Environment table** — identical to `/slava:disagreement:publish`'s, restated because a table held by reference is a table that drifts:
@@ -227,10 +227,15 @@ Confirm to write.
 
 **Write the ledger line BEFORE the write, carrying the envelope hash**, so a run that wrote without a recorded gate is visible afterwards.
 
-Re-hash the envelope immediately before the call and assert it equals the printed hash — a mismatch is a stop, not a warning. Then send it, taking **both** body and URL out of the envelope:
+Re-hash the envelope immediately before the call and assert it equals the printed hash — a mismatch is a stop, not a warning. Then send it, taking **both** body and URL out of the envelope. The token is read from the locked keyring at this moment — one dialog, answered **Allow**, never "Always Allow" — and the envelope's `env` must say `prod`:
 
 ```bash
+[ "$(jq -r .env "$RUN_DIR/request-envelope.json")" = "prod" ] || { echo "STOP: envelope env is not prod — nothing written"; exit 1; }
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="promote-to-prod: write the approved envelope" keyring_require PROD_SUPABASE_ACCESS_TOKEN || exit 1
+# Headers from a process substitution, so the token never appears in argv (ps).
 curl --data-binary @<(jq -c .body "$RUN_DIR/request-envelope.json") \
+     -H @<(printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$PROD_SUPABASE_ACCESS_TOKEN") \
      "$(jq -r .url "$RUN_DIR/request-envelope.json")"
 ```
 

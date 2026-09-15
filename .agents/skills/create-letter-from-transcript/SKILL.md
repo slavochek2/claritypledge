@@ -97,7 +97,7 @@ where lower(u.email) in ('<email>','<email-variant>');
 
 **All content `visibility: private`.** Points: omit `system_tags` (the default `{}` is what you want; do not set it). Story `current_version` is set by the initial-version trigger — just insert the story. If COMMIT fails with a version-invariant error, the trigger did not fire as expected; investigate, do not blind-retry.
 
-**Prod writes use curl + the Supabase Management API.** Cloudflare blocks python `urllib`/`requests` (error 1010); **curl's default User-Agent works** — do not use python for the HTTP call. Source `.env.prod` for `SUPABASE_ACCESS_TOKEN` and derive the prod ref **from `.env.prod` only** (`.env.local` overrides `VITE_SUPABASE_URL` with the test ref). Build the JSON body with python, POST it with curl.
+**Prod writes use curl + the Supabase Management API.** Cloudflare blocks python `urllib`/`requests` (error 1010); **curl's default User-Agent works** — do not use python for the HTTP call. Derive the prod ref **from `.env.prod`'s `VITE_SUPABASE_URL` only** (`.env.local` overrides it with the test ref). The token is **not** read from `.env.prod`: take it from the locked keyring at the moment of the write — `source scripts/keyring.sh; KEYRING_REASON="create-letter-from-transcript: file the doc on prod" keyring_require PROD_SUPABASE_ACCESS_TOKEN` — one dialog, answered **Allow**, never "Always Allow" (P1239/P1214). Build the JSON body with python, POST it with curl, sending the token as `-H @<(printf 'Authorization: Bearer %s\n' "$PROD_SUPABASE_ACCESS_TOKEN")` so it never appears in argv. The owner lookup and the read-back are reads: run them through `scripts/supabase-readonly-sql.py --env prod`.
 
 **Atomicity:** submit the entire `DO $$ ... $$` block as ONE Management-API call. The API wraps each call in its own transaction; splitting statements across calls breaks atomicity and half-writes. One call, one DO block, sequential inserts:
 
@@ -120,7 +120,7 @@ point_positions (point_id, user_id=owner, position): fact='strongly_agree', anti
 
 **Idempotency:** re-running creates a *duplicate* Doc silently. Before filing, ask the user if this is a re-run; if a partial write happened, note that `point_positions` has `UNIQUE(point_id, user_id)` so a naive retry collides — verify clean state or use fresh point ids.
 
-**Fallback** if Management API is blocked: curl PostgREST REST API with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local` (prod), one table at a time.
+**Fallback** if Management API is blocked: curl PostgREST REST API with `PROD_SUPABASE_SERVICE_ROLE_KEY` read from the keyring (`keyring_require`, never `.env.local`), one table at a time.
 
 **Verify before claiming done.** Read back the doc (private, owner), story (private, current_version=1), points (private, no system_tags, ordered), point_config.order, and the three positions. Show the read-back. Never declare done — present evidence.
 

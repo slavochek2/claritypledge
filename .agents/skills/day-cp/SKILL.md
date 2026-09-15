@@ -267,45 +267,49 @@ Run these two in parallel:
 **b) All Supabase queries** — single bash call with all curls:
 
 ```bash
-source "$(git rev-parse --show-toplevel)/.env.local"
-PROD_URL="https://besjtuodziykmjidubzw.supabase.co/rest/v1"
-H1="apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY"
-H2="Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+# P1214: every query here is a READ, so it runs on the scoped read-only credential through
+# scripts/supabase-readonly-sql.py — never the prod master key or the account-wide platform
+# token. The helper refuses to fall back to either, and refuses to return rows if its role
+# stops bypassing RLS (counts would silently shrink). Output is the same JSON array shape a
+# PostgREST GET returned, so the parsers below are unchanged except where a count moved into SQL.
+ro() { python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.py" --env prod "$1"; }
 CUTOFF=$(date -u -v-60M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "60 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 
 echo "=== SIGNUPS ==="
-curl -s "${PROD_URL}/profiles?select=id,name,email,created_at&created_at=gt.${SINCE}&email=neq.test-agent@claritypledge.com&order=created_at.desc" -H "$H1" -H "$H2"
+ro "SELECT id, name, email, created_at FROM public.profiles WHERE created_at > '${SINCE}' AND email <> 'test-agent@claritypledge.com' ORDER BY created_at DESC"
 
 echo -e "\n=== STORIES ==="
-curl -s "${PROD_URL}/stories?select=author_id,created_at&created_at=gt.${SINCE}&order=created_at.desc" -H "$H1" -H "$H2"
+ro "SELECT author_id, created_at FROM public.stories WHERE created_at > '${SINCE}' ORDER BY created_at DESC"
 
 echo -e "\n=== POSITIONS ==="
-curl -s "${PROD_URL}/point_positions?select=user_id,updated_at&updated_at=gt.${SINCE}&order=updated_at.desc" -H "$H1" -H "$H2"
+ro "SELECT user_id, updated_at FROM public.point_positions WHERE updated_at > '${SINCE}' ORDER BY updated_at DESC"
 
 echo -e "\n=== VERIFICATIONS ==="
-curl -s "${PROD_URL}/story_verifications?select=speaker_id,listener_id,created_at&created_at=gt.${SINCE}" -H "$H1" -H "$H2"
+ro "SELECT speaker_id, listener_id, created_at FROM public.story_verifications WHERE created_at > '${SINCE}'"
 
 echo -e "\n=== AGREEMENTS ==="
-curl -s "${PROD_URL}/clarity_agreements?select=creator_profile_id,partner_profile_id,status,created_at&or=(created_at.gt.${SINCE},partner_signed_at.gt.${SINCE})" -H "$H1" -H "$H2"
+ro "SELECT creator_profile_id, partner_profile_id, status, created_at FROM public.clarity_agreements WHERE created_at > '${SINCE}' OR partner_signed_at > '${SINCE}'"
 
+# The four funnel counts are computed IN SQL. The PostgREST version took len() of an
+# unpaginated response, which plateaus silently at the server's max-rows cap.
 echo -e "\n=== FUNNEL: PROFILES ==="
-FUNNEL_SIGNUPS=$(curl -s "${PROD_URL}/profiles?select=id&email=neq.test-agent@claritypledge.com" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+FUNNEL_SIGNUPS=$(ro "SELECT count(*) AS n FROM public.profiles WHERE email <> 'test-agent@claritypledge.com'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "$FUNNEL_SIGNUPS"
 
 echo -e "\n=== FUNNEL: STORY AUTHORS ==="
-FUNNEL_STORY_USERS=$(curl -s "${PROD_URL}/stories?select=author_id" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(set(x['author_id'] for x in r)) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+FUNNEL_STORY_USERS=$(ro "SELECT count(DISTINCT author_id) AS n FROM public.stories" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "$FUNNEL_STORY_USERS"
 
 echo -e "\n=== FUNNEL: POSITION USERS ==="
-FUNNEL_POSITION_USERS=$(curl -s "${PROD_URL}/point_positions?select=user_id" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(set(x['user_id'] for x in r)) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+FUNNEL_POSITION_USERS=$(ro "SELECT count(DISTINCT user_id) AS n FROM public.point_positions" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "$FUNNEL_POSITION_USERS"
 
 echo -e "\n=== FUNNEL: AGREEMENTS ==="
-FUNNEL_AGREEMENTS=$(curl -s "${PROD_URL}/clarity_agreements?select=id&status=eq.active" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+FUNNEL_AGREEMENTS=$(ro "SELECT count(*) AS n FROM public.clarity_agreements WHERE status = 'active'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "$FUNNEL_AGREEMENTS"
 
 echo -e "\n=== ORPHANED SESSIONS ==="
-curl -s "${PROD_URL}/clarity_sessions?select=id,code,created_at,expires_at&joiner_name=not.is.null&expires_at=lt.${CUTOFF}&demo_status=neq.completed&order=expires_at.desc&limit=5" -H "$H1" -H "$H2"
+ro "SELECT id, code, created_at, expires_at FROM public.clarity_sessions WHERE joiner_name IS NOT NULL AND expires_at < '${CUTOFF}' AND demo_status <> 'completed' ORDER BY expires_at DESC LIMIT 5"
 
 echo -e "\n=== TRANSCRIPTION HEALTH ==="
 # P874 tier-0 job health. Uses only columns on prod today (status/created_at/updated_at) —
@@ -314,9 +318,9 @@ echo -e "\n=== TRANSCRIPTION HEALTH ==="
 # (prod returns +00:00 offsets that don't sort lexicographically against a Z cutoff).
 TX_STALE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 TX_LOST=$(date -u -v-5M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "5 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-echo -n "counts: "; curl -s "${PROD_URL}/transcription_jobs?select=status" -H "$H1" -H "$H2" | python3 -c "import json,sys;from collections import Counter;r=json.load(sys.stdin);print('query failed:',r.get('message')) if isinstance(r,dict) else print(dict(Counter(x['status'] for x in r)) or {})" 2>/dev/null || echo "?"
-echo -n "stale_processing(>30m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.processing&updated_at=lt.${TX_STALE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
-echo -n "lost_pending(>5m): "; curl -s "${PROD_URL}/transcription_jobs?select=id&status=eq.pending&created_at=lt.${TX_LOST}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+echo -n "counts: "; ro "SELECT status FROM public.transcription_jobs" | python3 -c "import json,sys;from collections import Counter;r=json.load(sys.stdin);print('query failed:',r.get('message')) if isinstance(r,dict) else print(dict(Counter(x['status'] for x in r)) or {})" 2>/dev/null || echo "?"
+echo -n "stale_processing(>30m): "; ro "SELECT id FROM public.transcription_jobs WHERE status = 'processing' AND updated_at < '${TX_STALE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+echo -n "lost_pending(>5m): "; ro "SELECT id FROM public.transcription_jobs WHERE status = 'pending' AND created_at < '${TX_LOST}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
 
 echo -e "\n=== EVENT EMAIL HEALTH ==="
 # P1256 tier-0. This is the check that would have caught a THREE-MONTH outage on day one:
@@ -357,18 +361,18 @@ echo -e "\n=== EVENT EMAIL HEALTH ==="
 # covers BOTH failure shapes at once — no request queued (missing Vault config) and a
 # request that came back non-2xx.
 DISPATCH_SQL="SELECT max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%') AS last_ok_dispatch, round(extract(epoch FROM now()-max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%'))/60) AS mins_since_ok, count(*) FILTER (WHERE status_code<>200 AND created > now()-interval '6 hours') AS non_2xx_6h FROM net._http_response;"
-curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/database/query" \
-  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
-  --data-binary "$(python3 -c "import json,sys;print(json.dumps({'query':sys.argv[1]}))" "$DISPATCH_SQL")" 2>/dev/null || echo "dispatch-delivery check FAILED — needs SUPABASE_ACCESS_TOKEN"
+ro "$DISPATCH_SQL" || echo "dispatch-delivery check FAILED — read-only query did not run (see message above)"
 
-CRON_SQL="SELECT j.jobname, j.active, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS failed_24h, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'succeeded'"'"' AND d.start_time > now() - interval '"'"'24 hours'"'"') AS ok_24h, (SELECT d.return_message FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='"'"'failed'"'"' ORDER BY d.start_time DESC LIMIT 1) AS last_error FROM cron.job j ORDER BY j.jobname;"
-curl -s -X POST "https://api.supabase.com/v1/projects/besjtuodziykmjidubzw/database/query" \
-  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
-  --data-binary "$(python3 -c "import json,sys;print(json.dumps({'query':sys.argv[1]}))" "$CRON_SQL")" 2>/dev/null || echo "cron check FAILED — needs SUPABASE_ACCESS_TOKEN"
+# Plain single quotes. This line used to carry '"'"' escapes — the single-quoted-string idiom —
+# inside a DOUBLE-quoted string, where they break the assignment: CRON_SQL came out empty and
+# the API answered `query: Too small`, which printed as a JSON blob with no FAILED marker.
+# The daily cron check had not been running (found 2026-09-15, P1214 parity run).
+CRON_SQL="SELECT j.jobname, j.active, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='failed' AND d.start_time > now() - interval '24 hours') AS failed_24h, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='succeeded' AND d.start_time > now() - interval '24 hours') AS ok_24h, (SELECT d.return_message FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='failed' ORDER BY d.start_time DESC LIMIT 1) AS last_error FROM cron.job j ORDER BY j.jobname;"
+ro "$CRON_SQL" || echo "cron check FAILED — read-only query did not run (see message above)"
 
 EMAIL_FLOOR="2026-09-07T00:00:00Z"
 EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; curl -s "${PROD_URL}/event_rsvps?select=id&feedback_scheduled_at=lt.${EMAIL_OVERDUE}&feedback_scheduled_at=gt.${EMAIL_FLOOR}&mailgun_message_ids-%3E%3Efeedback=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; ro "SELECT id FROM public.event_rsvps WHERE feedback_scheduled_at < '${EMAIL_OVERDUE}' AND feedback_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'feedback') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 # LOWER BOUND, not decoration. Every row from the 2026-06→09 outage has a past
 # reminder_scheduled_at and an empty mailgun_message_ids, and those rows are
 # deliberately NOT recoverable — a "your event is tomorrow" email for an event that
@@ -377,10 +381,10 @@ echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; curl -s "${PROD_URL}/
 # future outage would add +1 to a number already being ignored. That is the alert-fatigue
 # failure, in a check written because the last outage hid for three months. The floor is
 # the P1256 deploy date: only rows scheduled AFTER the cron was fixed can indict it.
-echo -n "overdue_unsent_reminder(since ${EMAIL_FLOOR}): "; curl -s "${PROD_URL}/event_rsvps?select=id&reminder_scheduled_at=lt.${EMAIL_OVERDUE}&reminder_scheduled_at=gt.${EMAIL_FLOOR}&mailgun_message_ids-%3E%3Ereminder=is.null" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+echo -n "overdue_unsent_reminder(since ${EMAIL_FLOOR}): "; ro "SELECT id FROM public.event_rsvps WHERE reminder_scheduled_at < '${EMAIL_OVERDUE}' AND reminder_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'reminder') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 # Stuck PENDING = the dispatcher claimed a row and then died before writing the Mailgun id
 # back. Distinct from the above: the cron IS running, but a send is failing mid-flight.
-echo -n "stuck_pending_feedback: "; curl -s "${PROD_URL}/event_rsvps?select=id&mailgun_message_ids-%3E%3Efeedback=eq.PENDING&feedback_attempted_at=lt.${EMAIL_OVERDUE}" -H "$H1" -H "$H2" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+echo -n "stuck_pending_feedback: "; ro "SELECT id FROM public.event_rsvps WHERE (mailgun_message_ids->>'feedback') = 'PENDING' AND feedback_attempted_at < '${EMAIL_OVERDUE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
 
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
@@ -416,9 +420,9 @@ fi
 
 **This append is mandatory, not optional — it runs inline in the Wave 2b bash script above, using the funnel counts it already computed.** If `CSV_APPEND_SKIPPED` or `⚠ FUNNEL CSV STALE` appears in output, flag it (a query failed, or a prior run silently didn't append) rather than continuing past it. Filter out `test-agent@claritypledge.com` from all results.
 
-**Known remaining gap (not fixed here — flag if it becomes live):** all four funnel counts use client-side `len()` over an unpaginated query, so a table crossing PostgREST's `max-rows` cap (commonly 1000) would silently plateau. Not worth the `Prefer: count=exact` header rewrite at current volume (~90 profiles) — revisit if any count nears 3 digits.
+**Closed 2026-09-15 (P1214):** the four funnel counts used to take client-side `len()` of an unpaginated PostgREST response, which plateaus silently at the `max-rows` cap. They now `count(*)` in SQL through the read-only helper, which has no row cap.
 
-If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — check PROD_SUPABASE_SERVICE_ROLE_KEY in .env.local`
+If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — <message>`. The usual cause is a missing or expired `SUPABASE_READONLY_TOKEN` (the scoped `Database: Read` token, ~90-day lifetime). **Never "fix" this by switching the block back to the prod master key** — that restores write authority to a read-only report (P1214).
 
 **Transcription health (P874 tier-0) — read `=== TRANSCRIPTION HEALTH ===`. Flag if:**
 - `failed` climbing relative to `completed` → pipeline regression (cross-check Sentry + recent `transcription_jobs.error_message`).

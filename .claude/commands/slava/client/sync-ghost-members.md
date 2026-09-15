@@ -42,7 +42,7 @@ Sync verified Supabase users to Ghost as named newsletter subscribers.
 
 These must exist in `.env.local`:
 - `GHOST_ADMIN_API_KEY` — format `{id}:{secret}`
-- `PROD_SUPABASE_SERVICE_ROLE_KEY` — prod service role key (anon key can't read profiles due to RLS)
+- `SUPABASE_READONLY_TOKEN` — the scoped `Database: Read` token. Profiles are read through `scripts/supabase-readonly-sql.py`, which bypasses RLS (asserted on every call) and holds no write authority. The prod master key is **not** needed and must not be reintroduced for this read (P1214); the anon key cannot see profiles at all.
 
 Ghost blog URL: `https://blog.claritypledge.com`
 Prod Supabase ref: `besjtuodziykmjidubzw`
@@ -57,13 +57,13 @@ Prod Supabase ref: `besjtuodziykmjidubzw`
 source .env.local
 ```
 
-Read `GHOST_ADMIN_API_KEY` and `PROD_SUPABASE_ANON_KEY` from `.env.local`.
+Read `GHOST_ADMIN_API_KEY` from `.env.local`.
 
 ### Step 2: Run the sync
 
 Execute a Node.js script inline that:
 
-1. **Fetches prod profiles** — `GET /rest/v1/profiles?select=name,email&is_verified=eq.true` from prod Supabase
+1. **Fetches prod profiles** — `execFileSync("python3", [<repo root>/scripts/supabase-readonly-sql.py, "--env", "prod", "SELECT name, email FROM public.profiles WHERE is_verified"])`, parsed as JSON. A non-zero exit throws — **stop the run**; never continue with an empty profile list, which would make the diff below look like nothing to sync
 2. **Filters out test accounts** — skip any email ending in `@claritypledge.com`
 3. **Fetches existing Ghost members with full records** — `GET /ghost/api/admin/members/?limit=all` — include `subscribed`, `unsubscribed_at`, `newsletters` fields
 4. **Fetches Ghost newsletters** — `GET /ghost/api/admin/newsletters/` to get the newsletter ID

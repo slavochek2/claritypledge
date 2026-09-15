@@ -68,16 +68,13 @@ If the user can't state the target as concrete values, stop — ask them to stat
 
 Show the target table to the user. Wait for confirmation.
 
-### 3. Read actual prod state with the service role key (not anon)
+### 3. Read actual prod state with the read-only helper (not anon)
 
-Anon key returns `[]` for RLS-filtered rows — indistinguishable from "row does not exist." For verification reads, always use the service role key:
+Anon key returns `[]` for RLS-filtered rows — indistinguishable from "row does not exist." Verification reads use the read-only helper, which bypasses RLS (it asserts that on every call and returns nothing if it cannot) and holds no write authority — the prod master key is not needed to LOOK (P1214):
 
 ```bash
-source .env.prod
-# PROD_SUPABASE_SERVICE_ROLE_KEY is the prod service-role key; confirm it's loaded.
-curl -s "$VITE_SUPABASE_URL/rest/v1/<table>?select=id,<cols>&<filter>" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.py" --env prod \
+  "SELECT id, <cols> FROM public.<table> WHERE <filter>"
 ```
 
 Fill in a `current=` column alongside each `target=` from step 2. Classify every row:
@@ -270,27 +267,30 @@ Use the identical SQL from step 8 but replace `ROLLBACK;` with `COMMIT;`. The te
 
 Execute via Management API for prod:
 
+The prod management token is in the locked keyring (P1239/P1214): reading it raises one authorization dialog for this COMMIT. Tell the founder to click **Allow**, never "Always Allow"; a declined dialog stops with nothing written.
+
 ```bash
-source .env.local
-PROJECT_REF=$(grep "^VITE_SUPABASE_URL=" .env.prod | sed 's|.*://||; s|\.supabase\.co.*||')
-# SUPABASE_ACCESS_TOKEN is a PAT; Management API executes as postgres (superuser).
-curl -s -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+PROJECT_REF=$(grep "^VITE_SUPABASE_URL=" "$(git rev-parse --path-format=absolute --git-common-dir)/../.env.prod" | sed 's|.*://||; s|\.supabase\.co.*||')
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="mutate-stories: COMMIT the approved mutation on prod" \
+  keyring_require PROD_SUPABASE_ACCESS_TOKEN || exit 1
+# Management API executes as postgres (superuser). The token goes in a header read from a
+# process substitution, never in argv.
+jq -nc --arg q "$SQL" '{query:$q}' | curl -s -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+  -H @<(printf 'Authorization: Bearer %s\n' "$PROD_SUPABASE_ACCESS_TOKEN") \
   -H "Content-Type: application/json" \
-  -d "$(jq -nc --arg q "$SQL" '{query:$q}')"
+  --data-binary @-
 ```
 
 **Heredoc hygiene:** when building `$SQL` in Bash, use a **quoted** heredoc (`<<'EOF'`). An unquoted heredoc expands `$$` (dollar-quote) to the shell PID and breaks the SQL.
 
 ### 11. Post-commit verification — independent re-query with service role
 
-Run a separate read against prod using `PROD_SUPABASE_SERVICE_ROLE_KEY` (not anon). Compare each affected row to target:
+Run a separate read against prod through the read-only helper (not anon, and not the master key — P1214). Compare each affected row to target:
 
 ```bash
-source .env.prod
-curl -s "$VITE_SUPABASE_URL/rest/v1/stories?select=id,system_tags&id=in.(<ids>)" \
-  -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"
+python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.py" --env prod \
+  "SELECT id, system_tags FROM public.stories WHERE id IN (<quoted ids>)"
 ```
 
 Declare done only when:
@@ -387,13 +387,13 @@ Derive from the actual data whether each invariant condition is met. The trigger
 | Operation | Tool | Approval |
 |-----------|------|----------|
 | Schema discovery | `Read` local files (`docs/technical/database.md`, migrations) | No |
-| Live row read (prod) | `curl` GET REST API with service role key | No |
+| Live row read (prod) | `scripts/supabase-readonly-sql.py --env prod` (scoped read-only token) | No |
 | Live row read (test) | `curl` GET or Supabase MCP (`mcp__supabase__*` → test only) | No |
 | Live row write (test) | Supabase MCP or `curl` PATCH | Yes (per `db-access.md`) |
-| Live row write (prod) | Management API `curl` (runs as `postgres`) | Yes — always |
-| Ad-hoc SQL on prod | Management API `curl` | Yes — always |
+| Live row write (prod) | Management API `curl` (runs as `postgres`), token via `keyring_require PROD_SUPABASE_ACCESS_TOKEN` | Yes — always, plus the keyring dialog |
+| Ad-hoc SQL on prod | Read-only helper for SELECTs; Management API + keyring for anything else | Yes — always |
 
-**Supabase MCP points at test** (project `gfjctyxqlwexxwsmkakq`). Never use MCP for prod. For prod, use Management API with `SUPABASE_ACCESS_TOKEN` (PAT) from `.env.local`, or REST with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.prod`.
+**Supabase MCP points at test** (project `gfjctyxqlwexxwsmkakq`). Never use MCP for prod. For prod: reads go through `scripts/supabase-readonly-sql.py`; writes use the Management API with the prod management token from the locked keyring — never a plaintext copy from `.env.local` or `.env.prod`, and never the account-wide `.env.local` token against the prod ref (P1214).
 
 ## Explicit Non-Goals
 

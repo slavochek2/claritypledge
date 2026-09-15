@@ -98,12 +98,18 @@ else
 fi
 ```
 
-**Fallback** (CSV absent, stale, or no baseline row): curl prod (`besjtuodziykmjidubzw`) with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`:
-`profiles?select=id&created_at=gt.{SINCE_DATE}` → count = signups this period.
+**Every prod read below goes through the read-only helper** (P1214) — it holds the scoped `Database: Read` token only, never the prod master key, and refuses to return rows if its role stops bypassing RLS. Exit 2 means the query did not run; report it as not-checked, never as zero.
 
-**Always from prod** (not in the CSV — two small curls, run in parallel):
-- Total pledgers: `profiles?select=id&has_pledged=eq.true` → count
-- Live sessions this period: `clarity_sessions?select=code&created_at=gt.{SINCE_DATE}` → distinct codes
+```bash
+ro() { python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.py" --env prod "$1"; }
+```
+
+**Fallback** (CSV absent, stale, or no baseline row) — signups this period:
+`ro "SELECT count(*) AS n FROM public.profiles WHERE created_at > '{SINCE_DATE}'"`
+
+**Always from prod** (not in the CSV — two small queries, run in parallel):
+- Total pledgers: `ro "SELECT count(*) AS n FROM public.profiles WHERE has_pledged"`
+- Live sessions this period: `ro "SELECT count(DISTINCT code) AS n FROM public.clarity_sessions WHERE created_at > '{SINCE_DATE}'"`
 
 Surface in the output header as:
 ```
@@ -116,7 +122,7 @@ METRICS:  Signups: N this week (total pledgers: M) | Live sessions: N
 
 The blog newsletter runs on Ghost (`blog.claritypledge.com`), separate from Supabase. Report new **blog-origin** subscribers since `$SINCE`.
 
-`/sync-ghost-members` also creates Ghost members from verified app users — those carry a recent `created_at`, so a raw "new members" count is inflated. Exclude any Ghost member whose email exists in Supabase `profiles` to isolate true blog signups — applied to BOTH the delta and the total. JWT auth pattern: see `/sync-ghost-members`. Requires `GHOST_ADMIN_API_KEY` + `PROD_SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+`/sync-ghost-members` also creates Ghost members from verified app users — those carry a recent `created_at`, so a raw "new members" count is inflated. Exclude any Ghost member whose email exists in Supabase `profiles` to isolate true blog signups — applied to BOTH the delta and the total. JWT auth pattern: see `/sync-ghost-members`. Requires `GHOST_ADMIN_API_KEY` in `.env.local`; the app-user emails come from the read-only helper (`SUPABASE_READONLY_TOKEN`), not the prod master key (P1214).
 
 One Ghost fetch (`limit=all`) + one Supabase fetch; the delta and total are both derived in-memory. Ghost's API returns transient 502s / HTML error pages under load, so `getJSON` retries 5xx/429 with backoff and the whole step degrades to `skipped` rather than crashing the review.
 
@@ -142,9 +148,14 @@ const since=process.argv[1];
 (async()=>{
   const gj=await getJSON("https://blog.claritypledge.com/ghost/api/admin/members/?limit=all",{Authorization:"Ghost "+gtok()});
   const members=gj.members||[];
-  const key=process.env.PROD_SUPABASE_SERVICE_ROLE_KEY;
-  const pj=await getJSON("https://besjtuodziykmjidubzw.supabase.co/rest/v1/profiles?select=email",{apikey:key,Authorization:"Bearer "+key});
-  const appEmails=new Set((Array.isArray(pj)?pj:[]).map(p=>(p.email||"").toLowerCase()));
+  // Read-only helper, not the master key (P1214). It exits non-zero when the query did not run,
+  // which throws here and degrades the step to "skipped". The old code turned a failed read into
+  // an EMPTY email set, which silently counted every synced app user as a blog signup.
+  const {execFileSync}=require("child_process");
+  const top=execFileSync("git",["rev-parse","--show-toplevel"]).toString().trim();
+  const pj=JSON.parse(execFileSync("python3",[top+"/scripts/supabase-readonly-sql.py","--env","prod","SELECT email FROM public.profiles"]).toString());
+  if(!Array.isArray(pj)) throw new Error("profiles read did not return rows");
+  const appEmails=new Set(pj.map(p=>(p.email||"").toLowerCase()));
   const blog=members.filter(m=>!appEmails.has((m.email||"").toLowerCase()));
   const newBlog=blog.filter(m=>(m.created_at||"")>=since);
   console.log("BLOG SUBS: +"+newBlog.length+" blog-origin since "+since+" (total blog-origin audience: "+blog.length+"; "+(members.length-blog.length)+" synced app users excluded)");

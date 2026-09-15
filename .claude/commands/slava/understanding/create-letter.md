@@ -26,8 +26,9 @@ File an approved decomposition as a **private letter on prod**, from the agent t
 |---|---|
 | `## Decomposition` in `.private/align/runs/{slug}.md`, marked approved | This skill files; it does not author. No approved decomposition ⟹ run `/slava:understanding:reconstruct`. |
 | The agent identity provisioned on prod | `node scripts/bootstrap-align-agent.mjs` — one-time, idempotent, founder-run. |
-| `.env.local`: `OPS_EMAIL` (the agent address; `PROD_ALIGN_AGENT_EMAIL` overrides it **only if set** — it normally is not), `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. Resolve the address exactly as `scripts/bootstrap-align-agent.mjs:69` does: `PROD_ALIGN_AGENT_EMAIL || OPS_EMAIL`. |
-| `.env.prod`: `SUPABASE_ACCESS_TOKEN`, `VITE_SUPABASE_URL` | The prod ref, and only from here. |
+| `.env.local`: `OPS_EMAIL` (the agent address; `PROD_ALIGN_AGENT_EMAIL` overrides it **only if set** — it normally is not), `PROD_ALIGN_AGENT_PASSWORD`, `PROD_SUPABASE_ANON_KEY`, `COPY_PROD_FOUNDER_EMAIL` | Credentials by **variable name only**. Resolve the address exactly as `scripts/bootstrap-align-agent.mjs:69` does: `PROD_ALIGN_AGENT_EMAIL || OPS_EMAIL`. |
+| `.env.prod`: `VITE_SUPABASE_URL` | The prod ref, and only from here. |
+| Keyring (locked, P1239): `PROD_SUPABASE_ACCESS_TOKEN` for the Management-API write; `PROD_SUPABASE_SERVICE_ROLE_KEY` only if the REST fallback is taken | Read with `source scripts/keyring.sh; KEYRING_REASON=… keyring_require <KEY>` at the moment of the write — one dialog each, answered **Allow**, never "Always Allow". Never read either from a plaintext env file (P1214). Send the token in a header via `-H @<(printf 'Authorization: Bearer %s\n' "$PROD_SUPABASE_ACCESS_TOKEN")`, never in argv. Lookups that only READ (the recipient, the before-count, the read-back) use `scripts/supabase-readonly-sql.py --env prod`. |
 | **The reverse-story reading strings must be LIVE IN PROD** | See below. This is the precondition that decides whether the number means anything. |
 
 > **Do NOT go looking for a nearby variable if one of these is undefined — STOP and say which is missing.**
@@ -152,7 +153,7 @@ clarity_letters(sender_id = agent, source_doc_id = <doc>, mode = 'one-to-one')
 
 **Idempotency.** Re-running files a **duplicate** letter, silently. Before writing, establish whether this is a re-run; a partial previous write is worse, because `point_positions` is `UNIQUE(point_id, user_id)` and a naive retry collides. Verify a clean state or use fresh ids.
 
-**Fallback if the Management API is blocked:** curl the PostgREST REST API with `PROD_SUPABASE_SERVICE_ROLE_KEY`, one table at a time — and say out loud that atomicity is lost, because it is: a mid-sequence failure now leaves orphans that must be cleaned up by hand.
+**Fallback if the Management API is blocked:** curl the PostgREST REST API with `PROD_SUPABASE_SERVICE_ROLE_KEY` — read from the keyring with `keyring_require`, never from `.env.local` — one table at a time, and say out loud that atomicity is lost, because it is: a mid-sequence failure now leaves orphans that must be cleaned up by hand.
 
 ### 4 — Read back and show
 
