@@ -4444,7 +4444,7 @@ Sandboxing remains open and is a workflow decision, not a security one. Method n
 reviewers were launched in parallel and **2 of 3 reported** — the third lane was refused by the
 delegation gate before sending, so that lens is uncovered rather than clean.
 
-**References:** [features/p1261_credential_broker_so_agents_never_receive_secrets.md](../features/p1261_credential_broker_so_agents_never_receive_secrets.md) · [features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [features/p1214_credential_separation_and_privilege_reduction.md](../features/p1214_credential_separation_and_privilege_reduction.md)
+**References:** [features/p1261_credential_broker_so_agents_never_receive_secrets.md](../features/archive/p1261_credential_broker_so_agents_never_receive_secrets.md) · [features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md](../features/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) · [features/p1214_credential_separation_and_privilege_reduction.md](../features/p1214_credential_separation_and_privilege_reduction.md)
 
 ---
 

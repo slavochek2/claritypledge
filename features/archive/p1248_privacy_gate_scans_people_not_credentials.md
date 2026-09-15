@@ -64,7 +64,7 @@ finding that matters most, because it was produced *while writing a spec about v
 The "44" was load-bearing: it justified the out-of-scope carve-out and the whole "legacy corpus is
 small enough to be tractable" argument. It was generated with a tier list invented inline during the
 measurement and promoted into the spec's central section without re-derivation —
-[epistemic.md](../.claude/rules/epistemic.md) gate 9, violated by the author of a spec proposing a
+[epistemic.md](../../.claude/rules/epistemic.md) gate 9, violated by the author of a spec proposing a
 verification gate.
 
 **It also does not escape P994.** P994 died on four counts; this spec fixes one (the tier genuinely
@@ -111,7 +111,7 @@ here — it is a rule change, and it should be proposed through the CLAUDE.md ga
 ## Original spec follows, unedited, as the record
 
 
-> **Supersedes [P994](archive/p994_infra_vuln_leak_precommit_gate.md), rejected 2026-07-15.** Not a
+> **Supersedes [P994](p994_infra_vuln_leak_precommit_gate.md), rejected 2026-07-15.** Not a
 > re-file: P994's rejection was correct on its own design and is adopted here as the central
 > constraint. What has changed is that P994's chosen **residual control — "the CLAUDE.md checklist
 > line" — has now failed a second time**, and this spec carries the measurement P994 never had.
@@ -122,7 +122,7 @@ here — it is a rule change, and it should be proposed through the CLAUDE.md ga
 commit and server-side by the `main-privacy-gate` ruleset (P919). It scans for **personal
 identifiers** — names and email addresses. Verified 2026-09-04: the script contains **zero**
 references to credentials, secrets, API keys or `.env.local`. Independently recorded at
-[decisions.md](../docs/decisions.md) 2026-08-13 — *"`audit-privacy.sh` — which matches only founder
+[decisions.md](../../docs/decisions.md) 2026-08-13 — *"`audit-privacy.sh` — which matches only founder
 identifiers"*.
 
 **Complication:** On 2026-09-04 four commits assembled a complete credential map in public specs —
@@ -181,7 +181,7 @@ unrelated work and gets the check switched off. **Reversibility: high** — addi
 
 - **Never weaken or reroute the existing personal-identifier checks.** This is additive. The PII
   patterns, the allowlists and the server-side required check keep their current behaviour exactly.
-- **The gate must be exercised against the corpus it did NOT write** ([epistemic.md](../.claude/rules/epistemic.md)
+- **The gate must be exercised against the corpus it did NOT write** ([epistemic.md](../../.claude/rules/epistemic.md)
   gate 7c). A refusal whose fixture contains only inputs it should reject has an unmeasured
   false-positive rate — the failure mode that killed P994 and that gate 7c exists to name.
 - **A canary must prove it fires**, following the existing the repo's existing synthetic canary sentinel (the literal is deliberately not reproduced here — it is designed to block any commit containing it, and it blocked this spec's own first commit attempt)
@@ -242,7 +242,7 @@ legitimate work is the worst of both.
 
 - [ ] The check flags a newly-staged public spec that names a secret-bearing credential — observed,
       with the message naming the file, the name and what to do instead
-- [ ] **The failure path is exercised and its non-zero exit pasted** ([epistemic.md](../.claude/rules/epistemic.md)
+- [ ] **The failure path is exercised and its non-zero exit pasted** ([epistemic.md](../../.claude/rules/epistemic.md)
       gate 7) — not "it should fail because…"
 - [ ] A canary sentinel matching no real credential proves the gate fires, following the existing
       that same sentinel pattern; the canary file is allowlisted so defining the
@@ -285,11 +285,11 @@ legitimate work is the worst of both.
 
 ## Related
 
-- **Supersedes:** [P994](archive/p994_infra_vuln_leak_precommit_gate.md) — rejected 2026-07-15;
+- **Supersedes:** [P994](p994_infra_vuln_leak_precommit_gate.md) — rejected 2026-07-15;
   its rejection reasoning is this spec's central constraint.
-- **Motivating incident:** [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md)
-  and [P1214](p1214_credential_separation_and_privilege_reduction.md) — the specs that assembled the
+- **Motivating incident:** [P1239](../done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md)
+  and [P1214](../done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) — the specs that assembled the
   map, redacted in `9911ca8d4`. Full detail in `.private/docs/security-log.md`.
-- **Same gate, different gaps:** [P1049](p1049_pre_commit_staged_content_read_gaps.md) — staged-content
+- **Same gate, different gaps:** [P1049](../p1049_pre_commit_staged_content_read_gaps.md) — staged-content
   read gaps in the same pre-commit path.
 - **Boundary context:** P919 — the server-side required check and why the staging hop is public.

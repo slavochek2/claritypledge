@@ -73,7 +73,7 @@ protection in the present tense; P1239 is unshipped and its Open Question 4 is u
 
 ## Problem
 
-**Situation:** [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) locks
+**Situation:** [P1239](../done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) locks
 the critical credentials at rest and gates each read behind a confirmation the founder answers at
 the moment of the read. Once shipped **and once its own Open Question 4 is resolved**, that closes the *file*. It is not
 closed today: P1239 is unshipped, its only spelling-proof read guard is staged but inert, and the
@@ -242,9 +242,9 @@ by wire shape, not by importance:
 
 ## Related
 
-- **Dependency:** [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) —
+- **Dependency:** [P1239](../done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) —
   protects the broker's seed and permanently owns the two non-HTTP credentials.
-- **Should land first:** [P1214](p1214_credential_separation_and_privilege_reduction.md) — shrinks
+- **Should land first:** [P1214](../done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) — shrinks
   the credential set and is the real answer to the misuse risk this spec accepts.
-- **Peer:** [P1148](p1148_credential_rotation_system.md) — rotation becomes cheaper once a broker
+- **Peer:** [P1148](../p1148_credential_rotation_system.md) — rotation becomes cheaper once a broker
   is the single place a value lives.
