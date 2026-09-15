@@ -110,7 +110,30 @@ store format changes and the board change is a git revert. Decision density: fou
    and delete*. Also fold `.claude/process-learnings.md`'s one entry into the public store and delete
    the file (first check whether `/slava:maintain:cleanup` already covers registry-to-disk drift).
    Separate commit, so it survives a revert of the board change. Private dispositions are recorded in
-   `.private/docs/`, never here.
+   `.private/docs/`, never here. Apply it **in a worktree**: the public store is edited by concurrent
+   sessions, and `commit-to-main` stages a file whole.
+
+   **Census, 2026-09-15** (line numbers as of commit `1b39fb31b`; each section was read):
+
+   | Line | Section (short) | Disposition | Why |
+   |---|---|---|---|
+   | 148 | `/ship` direct-to-main stamp | add Status | open work, `due` present in heading |
+   | 170 | Codex-vs-Opus bake-off | add Status, bold its `due` | open; `due: month` is unbolded |
+   | 671 | P1067 spec not serial-safe | add Status | open test-hygiene fix |
+   | 688 | `/ship` strands worktree from ~15 sites | add Status | open follow-ups |
+   | 729 | `/goalify-update` improver | add Status | open, trigger-dated |
+   | 834 | Harvested comments may carry private identifiers | add Status | open, unverified risk |
+   | 910 | 320px overflow on story detail | add Status | open UI defect |
+   | 934 | False `>>` marker claim in prepare | add Status | open skill fix |
+   | 1097 | Benchmark `/create-spec` vs baseline | add Status | open, still needs a P-number |
+   | 1114 | Story quote block renders twice | **graduate and delete** | its own text says "close this entry when P1212 §1 ships"; P1212 is `all-done` in `features/done/2026-06-10/`. At apply time, confirm §1's artifact exists (one quote-block render path) before deleting, per the P1250 lesson that a closed spec is not proof of delivery |
+   | 1144 | Frontend ships ahead of its migration | **delete** (not status-less; `Status: filed as p1211`) | already promoted to open P1211; under decision 4 the note must not coexist with its spec. Confirm P1211 carries the note's content first |
+   | 1219 | P1250 audit of 17 auto-closed specs | **move into P1250's done spec, then delete** | a record, not work: its two open outcomes (P572, P828) are tracked as `backlog` specs. `p1250…md:153` cites this section, so update that citation in the same commit |
+   | 1262 | Does anyone read session transcripts? | add Status | open question gating P1252 |
+   | 1288 | `ship.md` still tells agent to run a self-running gate | add Status | open doc fix |
+   | 1314 | Skill-eval merge check inert | add Status | open, blocked on early access |
+   | 1347 | Make closure backstop a required check | add Status | open, waits for a real green |
+   | private ×1 | — | add Status | open work; title kept out of this public file |
 7. **A verdict path that executes, inside `/prioritize`'s own contract.** `/prioritize` "never
    auto-invokes another skill" (`prioritize/SKILL.md:28`), and that rule stays. For inbox entries
    (only in repos whose stores exist) it applies verdicts it can execute itself: **resolve** (write
