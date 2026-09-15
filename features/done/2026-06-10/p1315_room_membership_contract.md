@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 100
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [security, rls, transcribe, drift]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1315-reproduce.test.ts
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [transcribe_room_members-insert-policy]
   surfaces_deferred: []
   reproduced_at: 2026-09-15
+completed_at: 2026-09-15
 ---
 
 # P1315: Prod still carries the legacy direct room-membership INSERT policy
