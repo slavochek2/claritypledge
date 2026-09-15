@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, rls, transcribe, drift]
 disclosure: embargo
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1315-reproduce.test.ts
   root_cause: "P1236's contract migration dropping the P1149 self-insert policy was never committed; replaying the repo's migrations leaves the policy, which is prod's state"
@@ -106,7 +106,14 @@ file, which `migrate.sh`'s history comparison would keep flagging.
 
 ## Acceptance Criteria
 
-- [ ] The migration file exists, is committed, and its verification block asserts the policy is absent via `pg_policies`
-- [ ] On test, a signed-in user's direct INSERT into `transcribe_room_members` is refused, while entering a room through the RPC still succeeds
-- [ ] On prod, `pg_policies` no longer lists the policy and `rls-drift-check.py` reports no PROD-ONLY finding for `transcribe_room_members`
-- [ ] Anon allowlist carries the two guest seat entries with real call sites; `function-grant-drift-check.py` no longer gates on them
+- [x] The migration file exists, is committed, and its verification block asserts the policy is absent via `pg_policies` — dry-run on test inside BEGIN/ROLLBACK (rollback control-probed: a table created in the same wrapper was absent afterwards) completed without raising; `migrate.sh` (test) matched the ledger row by name: `20260908170100_p1236_b_drop_direct_member_insert.sql (already applied, skipping)`
+- [x] On test, a signed-in user's direct INSERT into `transcribe_room_members` is refused, while entering a room through the RPC still succeeds — `e2e/integration/20260908170100_p1236_b_drop_direct_member_insert.spec.ts` 3 passed (refusal + admin-seed control + consented-join control); `src/tests/p1315-reproduce.test.ts` 2 passed after the fix, 1 failed / 1 passed before
+- [ ] [post-deploy] On prod, `pg_policies` no longer lists the policy and `rls-drift-check.py` reports no PROD-ONLY finding for `transcribe_room_members`
+- [x] Anon allowlist carries the two guest seat entries with real call sites; `function-grant-drift-check.py` no longer gates on them — re-run 2026-09-15: gating set is only the three unlisted helpers; `claim_joiner_seat(text,text)` and `release_joiner_seat(uuid,text)` absent from it
+
+## Resolution
+
+**Root cause:** P1236's contract migration was never committed and never reached prod.
+**Fix:** recreated under its original version and name (matching test's ledger row), with a catalog
+verification block that fails the apply if any INSERT/ALL policy remains, if the roster SELECT policy
+is gone, or if RLS is off. Prod apply is a founder-approved step (DROP on prod).
