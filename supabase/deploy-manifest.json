@@ -6,9 +6,10 @@
       "create-and-open-letter": "92e955a34bec3fd82bbc8e968b3b9de0c48da6dc6eb3bb817d37087d451f1694",
       "create-and-sign": "ad6f5944839eb5fb48333fe67a45c02e7fa03e7411d4efac729ca6e68d74e7a4",
       "dispatch-event-emails": "c58e2607c7ba89e38794653b7149615701a0c7d9969e5564742c70a5b39602ea",
+      "enqueue-room-transcription": "fc930a09f3aa5779ecebe77008cc85cb6b6f6f11387edd1aa85ec285159dcd07",
       "enqueue-transcription": "0290afe00f87b306774b378baf199e457fadcba7445e41ba3ad733634d68bb99",
       "explain-back-signed-url": "84583bb6269af9d7d9b74c4aa5305e76a91fbfc9f4d54e4af158222f706a12ad",
-      "gcs-signed-url": "66144b8487c5924e1e7fef37a47025497b4a6b80172aaed5b2cfebeccbdd977c",
+      "gcs-signed-url": "e1725288e4a472ebc2a80af3dff133bbb0a9a1982fab8ddb4049acb1886f76d2",
       "generate-banner": "4a6f860d6a89a362c0007d79be461998987d2aa50f12a8080b551b428e034387",
       "generate-event-banner": "d05ff142159cdc43b4cf6658bcb615be341044e03ae6a8913c993372ab60757d",
       "generate-story-image-url": "6cc90db497ed645a6caa9363cd3ce82511229d8291a6f32bf89b7928d37aeba6",
@@ -16,9 +17,9 @@
       "send-agreement-emails": "e9d6b6b12b029b7741c66efef7cc64499a614d4061b1522bc3d6c737920da3ae",
       "send-event-emails": "98eefa92ea2980ef778565d9e8fc9ffe9f16179af9c399f65baf52749b4e4a13",
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
-      "transcribe-slice": "00588dd927280d8880ffaf0f0957aad5ab39ffeba980036a724adfca91538b1a"
+      "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-09-14T09:10:19Z",
+    "functions_deployed_at": "2026-09-15T06:38:37Z",
     "migrations": [
       "20250101",
       "20250117",
@@ -355,9 +356,14 @@
       "20260911151200",
       "20260911163000",
       "20260911163100",
-      "20260911173000"
+      "20260911173000",
+      "20260914120000",
+      "20260914120100",
+      "20260914120200",
+      "20260914120300",
+      "20260914120400"
     ],
-    "migrations_deployed_at": "2026-09-14T13:48:00Z"
+    "migrations_deployed_at": "2026-09-15T06:37:45Z"
   },
   "test": {
     "functions": {
