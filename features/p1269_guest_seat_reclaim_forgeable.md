@@ -13,6 +13,7 @@ exec_effort: high
 tags: [security, live, guest, rls, seat]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+flow: inline
 driver: anomaly
 ---
 
@@ -341,11 +342,25 @@ Nothing else about the ordering is load-bearing any more.
       The remaining path is closed by P1314 half C (`20260915100000`), not by this spec.
 - [x] The founder decision on cross-device guest rejoin is recorded in this spec, with the chosen
       behaviour asserted by a test either way
-- [ ] No seat that existed before the migration is left unreleasable — verified by a count query on
-      test before and after
-- [ ] A guest can still join, leave and rejoin after a page reload, anonymously — canary
+- [x] No seat that existed before the migration is left unreleasable — **closed 2026-09-15, by a
+      different method than written; the original one is not available and the note below explains
+      why.** Counted on test: **408 occupied seats, 406 of them legacy** (no secret) and 2 carrying
+      one. None is unreleasable: release for a no-secret seat still authorizes on the room code,
+      which P1269 does not touch and which P1314 C preserves through a fallback gated on the row's
+      own column. Asserted by regression test against a fixture in exactly that state
+      (`p1314c-release-requires-seat-secret.spec.ts`, "a LEGACY seat carrying no secret still
+      releases on the room code"). **The 406 real rows were NOT released to prove it** — that would
+      evict real occupants to satisfy a checkbox.
+- [x] A guest can still join, leave and rejoin after a page reload, anonymously — canary. Run end
+      to end on test 2026-09-15 through the anonymous public key, using the client's exact request
+      shapes: join 200 → reload re-claims the same seat 200 and keeps the same secret, with
+      `joiner_profile_id` still null so transcripts stay sealed → leave 204, seat vacant → rejoin
+      200 with a fresh secret, the old one dead. 9 checks, fixture deleted, leftover 0.
 - [x] P1058's room-code canaries and the P1053 suite stay green
 
+> **CLOSED 2026-09-15 — the note below is kept as the record of why they were open.** Both are
+> now ticked above, the first by a stated substitute method. Original note:
+>
 > **Two boxes deliberately left open (2026-09-11).** *Count query before and after:* the "before"
 > state no longer exists — the migration was applied to test before this criterion was reached — so
 > it cannot be satisfied honestly after the fact. The mechanism it guards is covered instead by the two
