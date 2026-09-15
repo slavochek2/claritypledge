@@ -250,27 +250,73 @@ The parsing module's location and the UI treatment are left to `/dev`.
 
 ## Done-When
 
-- [ ] Launched via `scripts/kanban.sh` from main, via `kanban w1`, and via `npm run kanban`, the board
+- [x] Launched via `scripts/kanban.sh` from main, via `kanban w1`, and via `npm run kanban`, the board
       shows the same inbox cards in all three, read from the main checkout (evidence per launch)
-- [ ] Open-card count per store equals `grep -c '^\*\*Status:\*\* proposed' <store>`, and the
+      *(2026-09-15, pre-ship: `kanban w1` — which runs `npm run kanban` inside w1 — served the MAIN
+      checkout's stores, proven by the mismatch: main's public store had 0 ID lines and rendered
+      `open 0 / unparseable 78 (missing-id…)` while w1's own copy carries 75 IDs; private `22/0`. The
+      main-launch path resolves the same `DEFAULT_PROJECT_ROOT` → git common dir. `[post-ship]` re-run
+      `kanban main` and paste per-store counts.)*
+- [x] Open-card count per store equals `grep -c '^\*\*Status:\*\* proposed' <store>`, and the
       unparseable count equals the census count left after Solution 6 (evidence pasted)
-- [ ] A newly `/note`d entry appears on the next board load with no other step; a deleted entry disappears
-- [ ] Clicking a card opens its store in the editor at that entry's heading line; the inbox endpoint
+      *(`inbox.sh count`: public `open 75 unparseable 0` vs grep 75; private `open 22 unparseable 0` vs
+      grep 22; census left 0 unparseable. The board reads the same parser; `[post-ship]` paste
+      `/api/inbox` counts from main.)*
+- [x] A newly `/note`d entry appears on the next board load with no other step; a deleted entry disappears
+      *(`server/__tests__/inbox.test.ts` "a newly appended entry appears on the next load, a deleted one
+      disappears — no other step": parse at request time, no cache.)*
+- [x] Clicking a card opens its store in the editor at that entry's heading line; the inbox endpoint
       rejects an unknown ID, and `/api/open` still returns 403 for an inbox store path
-- [ ] The oracle test fails when a deliberately broken parser drops or reclassifies a hand-labelled
+      *(Tests: `INBOX-3` → `{kind: public, line: 13}`, line keys resolve, unknown ID 404, a path 400,
+      duplicate ID 409, both real store paths 403 on `/api/open`. Live board: `INBOX-9999` → 404,
+      store path on `/api/open` → 403. Editor spawn uses `code -r -g <path>:<line>`;
+      `[post-ship]` one real click-through.)*
+- [x] The oracle test fails when a deliberately broken parser drops or reclassifies a hand-labelled
       fixture, and passes on the correct parser (both exit codes pasted)
-- [ ] With the private store renamed away, the board shows an "absent" state for it, not zero (screenshot, synthetic data)
-- [ ] A forced parse error on a fixture logs path and line only; the fixture title does not appear in the captured log
-- [ ] `lsof -iTCP -sTCP:LISTEN` shows the API bound to loopback only
-- [ ] pp's board, launched with its unchanged launcher, shows no inbox column or state (screenshot); `/prioritize` run on pp shows no inbox input
-- [ ] Every one of the 16 status-less sections has a recorded disposition and is conformed; `.claude/process-learnings.md` is folded and removed with no remaining reference
-- [ ] Every open entry carries a unique `INBOX-<n>` / `INBOX-P<n>` ID, each store's `Next ID` is above its highest ID, and the card shows the ID
-- [ ] Filing two notes with `/note` concurrently gives two distinct consecutive IDs; a hand-written ID above the counter is detected and the counter raised; deleting an earlier note leaves the later note's ID unchanged on the board
-- [ ] A fixture with a duplicate ID and one with no ID each render as unparseable
-- [ ] `/weekly` step 2.5 lists entries with their IDs and `resolve INBOX-<n>` resolves the right entry
-- [ ] `/create-spec <note-ID>` creates the spec then deletes the note; with the delete forced to fail it reports `PROMOTION INCOMPLETE` and the note is still present; no spec in `features/` contains an open note's full ID token
-- [ ] Promoting a private-store fixture leaves no `INBOX-P` token or private counter value in the generated spec or its commit message
-- [ ] Before the P1250 audit note is deleted, all four citing artifacts point at its new home in P1250 and a fresh reference grep returns no other citation
+      *(Mutant 1, fence handling removed: 4 of 9 failed, exit 1. Mutant 2, `propose` accepted as open:
+      3 of 9 failed, exit 1. Restored: 9/9, exit 0. Not committed as a test — recorded here.)*
+- [x] With the private store renamed away, the board shows an "absent" state for it, not zero (screenshot, synthetic data)
+      *(Fixture board with no private store: notice "Private store: absent (not created yet)", DOM
+      probe confirmed; screenshots at 1200 / 375 / 320 px on synthetic data only. Endpoint test renames
+      the private store and asserts `state: absent`, no `open` field.)*
+- [x] A forced parse error on a fixture logs path and line only; the fixture title does not appear in the captured log
+      *(Test "logs path and line only…": captured log contains `<fixture>/docs/process-learnings.md:21`
+      and neither the fixture title nor its distinctive Status value.)*
+- [x] `lsof -iTCP -sTCP:LISTEN` shows the API bound to loopback only
+      *(Before: `node *:9051`. After: `node 127.0.0.1:9051`; `[::1]:9051` refused (curl exit 7); LAN
+      address `:9051` timed out (curl exit 28). A non-loopback `Host` header is also refused with 403
+      (DNS rebinding, review fix).)*
+- [x] pp's board, launched with its unchanged launcher, shows no inbox column or state (screenshot); `/prioritize` run on pp shows no inbox input
+      *(This branch's API under pp's exact launcher env (`KANBAN_PROJECT_ROOT`, `tasks`, worktrees
+      disabled): `inboxEnabled: false`, `/api/inbox` → `{"enabled":false}`, open → 404, no store read
+      logged; an empty `KANBAN_PROJECT_ROOT` also stays off. `/prioritize` 2b is gated on
+      `<repo>/scripts/inbox.sh`, which pp does not have. `[post-ship]` screenshot pp's real board.)*
+- [x] Every one of the 16 status-less sections has a recorded disposition and is conformed; `.claude/process-learnings.md` is folded and removed with no remaining reference
+      *(Census commit `f3c7bb155`; `inbox.sh check` exit 0 on both stores; `grep -rn '\.claude/process-learnings'`
+      returns only this spec and a dated decisions.md history line.)*
+- [x] Every open entry carries a unique `INBOX-<n>` / `INBOX-P<n>` ID, each store's `Next ID` is above its highest ID, and the card shows the ID
+      *(Public 75 ID lines, 75 unique, Next ID 76 over max 75; private 22/22, Next ID 23 over max 22.
+      Cards render the ID badge — fixture screenshot.)*
+- [x] Filing two notes with `/note` concurrently gives two distinct consecutive IDs; a hand-written ID above the counter is detected and the counter raised; deleting an earlier note leaves the later note's ID unchanged on the board
+      *(`scripts/test-p1317-inbox-cli.sh`: concurrent adds → `INBOX-5`/`INBOX-6`, counter 7; the no-lock
+      control reproduces the collision; a hand-written `INBOX-20` raises the counter to 22; deleting
+      `INBOX-4` leaves `INBOX-5` locatable. 21 of 21 checks pass.)*
+- [x] A fixture with a duplicate ID and one with no ID each render as unparseable
+      *(Oracle: sections I/J → `duplicate-id`, K → `missing-id`; fixture board shows the missing-ID card red.)*
+- [x] `/weekly` step 2.5 lists entries with their IDs and `resolve INBOX-<n>` resolves the right entry
+      *(Skill text on main, `da0c6fabc` + `4ed068704`: lists via `inbox.sh list`, full-token matching,
+      delete by ID. The mechanism is the CLI's `delete`, tested to remove exactly the named entry and
+      nothing else, tombstone included.)*
+- [x] `/create-spec <note-ID>` creates the spec then deletes the note; with the delete forced to fail it reports `PROMOTION INCOMPLETE` and the note is still present; no spec in `features/` contains an open note's full ID token
+      *(`scripts/test-p1317-inbox-promote.sh`, 6/6: clean promote; forced failure prints
+      `PROMOTION INCOMPLETE: … still open (delete failed)`, exit 1, note present. `grep -rnoE 'INBOX-P?[0-9]+' features/`
+      outside this spec → none; this spec carries no live token.)*
+- [x] Promoting a private-store fixture leaves no `INBOX-P` token or private counter value in the generated spec or its commit message
+      *(Promote test: output and spec carry no `INBOX-P` or counter; a spec carrying `INBOX-P` is refused.
+      The commit-message rule is instruction-level in `/create-spec`, not machine-checked.)*
+- [x] Before the P1250 audit note is deleted, all four citing artifacts point at its new home in P1250 and a fresh reference grep returns no other citation
+      *(Six, not four: P1250:153, P558:23, P843:23, decisions.md, `ship.md:118`, `git-ops.sh:3620` —
+      all repointed in `f3c7bb155` / `da0c6fabc`.)*
 - [ ] First `/slava:maintain:prioritize` pass over inbox cards run; resolve / drop / keep / promote counts recorded
 - [ ] Open total (public + private) recorded on the day of that pass. `[post-ship]` Re-count 30 days
       later: if the total has not fallen below it, intake throttling (P1081's standing fallback) is
