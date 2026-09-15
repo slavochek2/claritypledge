@@ -88,8 +88,9 @@ get_public_agreements_for_profile(uuid)       # a public profile lists its activ
 # real unauthenticated call site: a guest joins and leaves a live room with no account.
 # An entry covers the grant only; seat-authorization body work is tracked in its own specs,
 # and a future signature change must be re-listed by the change that makes it.
-claim_joiner_seat(text,text)                  # a guest takes the joiner seat by code with no account — src/app/data/api.ts:1118, called from src/app/pages/clarity-live-page.tsx:2988 with user?.id optional
-release_joiner_seat(uuid,text)                # the same guest leaves the room with no account (P1058) — src/app/data/api.ts:1382 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3645 and src/app/components/session/live-session-bar.tsx:38
+claim_joiner_seat(text,text)                  # a guest takes the joiner seat by code with no account; the signature prod runs until P1269's migration is applied — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995 with user?.id optional
+claim_joiner_seat(text,text,uuid)             # the same guest join after P1269, the client sending its seat secret when it holds one — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995
+release_joiner_seat(uuid,text)                # the same guest leaves the room with no account (P1058) — src/app/data/api.ts:1468 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3652 and src/app/components/session/live-session-bar.tsx:38
 #
 # can_read_clarity_session(uuid), can_read_verification_message(uuid) and
 # event_grace_interval() are NOT LISTED (2026-09-15): no anonymous client call site was

@@ -39,6 +39,17 @@ export function stripSql(text: string): string {
       const end = text.indexOf('*/', i + 2);
       i = end === -1 ? text.length : end + 2;
       out += ' ';
+    } else if (text[i] === '"') {
+      // A quoted identifier is copied through verbatim, so a `$tag$` or `--` inside a policy
+      // name can neither open a dollar quote nor start a comment.
+      let j = i + 1;
+      while (j < text.length) {
+        if (text[j] === '"' && text[j + 1] === '"') j += 2;
+        else if (text[j] === '"') break;
+        else j += 1;
+      }
+      out += text.slice(i, j + 1);
+      i = j + 1;
     } else if (text[i] === "'") {
       let j = i + 1;
       while (j < text.length) {
@@ -141,6 +152,8 @@ describe('P1315: no client write policy on transcribe_room_members survives the 
       ['DROP inside a block comment does not', `CREATE POLICY "p" ON public.${TABLE} FOR INSERT WITH CHECK (true); /* DROP POLICY "p" ON public.${TABLE}; */`, ['p']],
       ['DROP inside a line comment does not', `CREATE POLICY "p" ON public.${TABLE} FOR INSERT WITH CHECK (true);\n-- DROP POLICY "p" ON public.${TABLE};`, ['p']],
       ["an apostrophe in a comment does not hide a later DROP", `CREATE POLICY "p" ON public.${TABLE} FOR INSERT WITH CHECK (true);\n-- one environment's ledger\nDROP POLICY IF EXISTS "p" ON public.${TABLE};`, []],
+      ['a $tag$ inside a quoted policy name does not open a dollar quote', `CREATE POLICY "x$tag$" ON public.${TABLE} FOR UPDATE TO authenticated USING (true);`, ['x$tag$']],
+      ['a -- inside a quoted policy name does not start a comment', `CREATE POLICY "a--b" ON public.${TABLE} FOR INSERT WITH CHECK (true);`, ['a--b']],
       ["'--' in a string does not truncate", `CREATE POLICY "p" ON public.${TABLE} FOR INSERT WITH CHECK (note <> '--');`, ['p']],
       ['RENAME then DROP of the old name keeps it', `CREATE POLICY "p" ON public.${TABLE} FOR INSERT WITH CHECK (true); ALTER POLICY "p" ON public.${TABLE} RENAME TO "q"; DROP POLICY IF EXISTS "p" ON public.${TABLE};`, ['q']],
       ['another table is ignored', `CREATE POLICY "p" ON public.transcribe_rooms FOR INSERT WITH CHECK (true);`, []],
