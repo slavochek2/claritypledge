@@ -10,7 +10,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [security, rls, transcribe, drift]
-disclosure: embargo
+disclosure: public
 delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
