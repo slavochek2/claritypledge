@@ -87,7 +87,9 @@ echo "P1316 master-key consumer canary"
 # ── event-photo-prep: upload path ────────────────────────────────────────────
 run_photo
 if [ "$RC" -eq 0 ]; then ok "photo-prep upload path exits 0"; else bad "photo-prep upload rc" "rc=$RC err=$(cat "$TMP/err")"; fi
-if grep -q "keychain-decoy-value" "$TMP/curl.log" && ! grep '^ARGV' "$TMP/curl.log" | grep -q "decoy"; then
+# `grep -c` drains its input: a negated `| grep -q` under pipefail can exit 141 on a MATCH,
+# and `!` would turn "the key IS in argv" into a pass (epistemic.md gate 7).
+if grep -q "keychain-decoy-value" "$TMP/curl.log" && [ "$(grep '^ARGV' "$TMP/curl.log" | grep -c "decoy")" -eq 0 ]; then
   ok "photo-prep: key travels in a header file, never in argv"
 else bad "photo-prep header/argv" "$(cat "$TMP/curl.log")"; fi
 if grep -q "plaintext-decoy" "$TMP/curl.log"; then bad "photo-prep read the plaintext env copy" "$(cat "$TMP/curl.log")"
