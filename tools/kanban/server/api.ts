@@ -19,6 +19,15 @@ const app = express()
 // at all, which is why the revert was invisible. Bound to KANBAN_CONFIG so the
 // port is never re-hardcoded — security.test.ts asserts all three arms.
 app.use(cors({ origin: `http://localhost:${KANBAN_CONFIG.ports.frontend}` }))
+// P1317: refuse any request whose Host is not loopback. CORS does not stop DNS rebinding:
+// a page on attacker.example re-resolved to 127.0.0.1 is same-origin to itself, so without
+// this a browser could read the API — and the private inbox titles it now serves (Opus
+// review of P1317, W5). The vite proxy forwards Host `localhost:<port>`, which passes.
+app.use((req, res, next) => {
+  const host = (req.headers.host ?? '').toLowerCase().replace(/:\d+$/, '')
+  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]') return next()
+  res.status(403).json({ error: 'Host not allowed' })
+})
 app.use(express.json())
 
 // Project root + features dir — overrideable via env for embedding in other

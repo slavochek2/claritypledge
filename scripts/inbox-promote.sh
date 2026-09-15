@@ -45,6 +45,13 @@ if [ ! -s "$SPEC" ]; then
   echo "inbox-promote: spec not found or empty: $SPEC — nothing deleted, $LABEL is still open" >&2
   exit 3
 fi
+# The destination must be the NEW spec /create-spec just wrote. An already-committed spec
+# would let a note be "moved" into unrelated work and deleted (Codex review of P1317).
+# Skipped only under the fixture seam, whose spec files live outside any repository.
+if [ -z "${INBOX_PROMOTE_FILE:-}" ] && git -C "$(dirname "$SPEC")" ls-files --error-unmatch "$(basename "$SPEC")" > /dev/null 2>&1; then
+  echo "inbox-promote: $SPEC is already committed — promotion moves a note into the spec /create-spec just wrote; nothing deleted" >&2
+  exit 3
+fi
 if grep -qE 'INBOX-P?[0-9]+' "$SPEC"; then
   echo "inbox-promote: the spec carries an inbox ID token — remove it first; nothing deleted" >&2
   exit 3

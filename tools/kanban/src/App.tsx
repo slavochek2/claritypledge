@@ -198,6 +198,9 @@ export default function App() {
       setInbox(await res.json())
       setInboxError(null)
     } catch (e) {
+      // Clear the cards: after a failed refresh, the previous list is not the current state,
+      // and a resolved entry must not keep showing beside the error (Codex review of P1317).
+      setInbox(null)
       setInboxError(e instanceof Error ? e.message : 'unknown error')
     }
   }, [])

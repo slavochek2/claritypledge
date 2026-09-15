@@ -32,7 +32,9 @@ export function storeRel(kind: InboxKind): string {
 export function inboxEnabled(): boolean {
   if (process.env.KANBAN_INBOX === 'off') return false
   if (process.env.KANBAN_INBOX === 'on') return true
-  return !process.env.KANBAN_PROJECT_ROOT
+  // `=== undefined`, not falsiness: an embedder that exports KANBAN_PROJECT_ROOT="" has
+  // still declared itself an embedder, and must not get cp's inbox (Gemini review of P1317).
+  return process.env.KANBAN_PROJECT_ROOT === undefined
 }
 
 /** The main checkout that owns `projectRoot`, or null when it cannot be proven. */

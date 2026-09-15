@@ -184,6 +184,26 @@ describe('POST /api/inbox/open', () => {
   })
 })
 
+describe('DNS rebinding guard', () => {
+  it('refuses a request whose Host is not loopback, and allows localhost and 127.0.0.1', async () => {
+    const { request } = await import('http')
+    const get = (host: string) =>
+      new Promise<number>((resolve, reject) => {
+        const port = new URL(API).port
+        const req = request({ host: '127.0.0.1', port, path: '/api/inbox', headers: { Host: host } }, (res) => {
+          res.resume()
+          resolve(res.statusCode ?? 0)
+        })
+        req.on('error', reject)
+        req.end()
+      })
+    expect(await get('attacker.example')).toBe(403)
+    expect(await get('attacker.example:9051')).toBe(403)
+    expect(await get('localhost:9050')).toBe(200)
+    expect(await get('127.0.0.1:9051')).toBe(200)
+  })
+})
+
 describe('the generic /api/open allowlist is not widened', () => {
   it('still refuses the real inbox store paths', async () => {
     const wt = (await (await fetch(`${API}/api/worktrees`)).json())[0].path as string

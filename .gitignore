@@ -150,3 +150,6 @@ supabase/deploy-manifest.json.*
 
 # CI-only: closure-gate writes a trusted copy of ship-gates.sh here (P1246)
 scripts/.trusted-ship-gates.sh
+
+# P1317: inbox CLI temp files (a crash between write and rename must not leave a committable copy)
+*.inbox.tmp

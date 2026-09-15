@@ -124,6 +124,83 @@ else
 fi
 if "$CLI" delete --file "$P" --kind private INBOX-1 2>/dev/null; then fail "a public-shaped ID was accepted for the private store"; else pass "a public-shaped ID is refused for the private store"; fi
 
+# ── 7. a lock left by a dead process is taken over at once ──────────────────
+S="$TMP/deadlock.md"; new_store "$S"
+mkdir "$S.lock"; (sleep 0 & echo "$! deadtoken" > "$S.lock/owner"; wait)   # a pid that has already exited
+START=$(date +%s)
+OUT="$("$CLI" add --file "$S" --kind public --title "after a crash" <<< "c" 2>/dev/null)"; RC=$?
+ELAPSED=$(( $(date +%s) - START ))
+if [ $RC -eq 0 ] && [ "$OUT" = "INBOX-5" ] && [ "$ELAPSED" -lt 10 ] && [ ! -d "$S.lock" ]; then
+  pass "a dead owner's lock is taken over immediately (${ELAPSED}s, got $OUT)"
+else
+  fail "dead-owner lock: rc=$RC out='$OUT' elapsed=${ELAPSED}s"
+fi
+# control: a lock held by a LIVE process is respected (times out, never stolen)
+S="$TMP/livelock.md"; new_store "$S"
+mkdir "$S.lock"; echo "$$ livetoken" > "$S.lock/owner"
+if "$CLI" add --file "$S" --kind public --title "must wait" <<< "w" > /dev/null 2>&1; then
+  fail "a live owner's lock was stolen"
+else
+  pass "a live owner's lock is respected (add refused after the timeout)"
+fi
+rm -rf "$S.lock"
+
+# ── 8. review findings: tombstones survive, mode survives, no private ID in public notes ──
+S="$TMP/tombs.md"; new_store "$S"
+"$CLI" add --file "$S" --kind public --title "second" <<< "s" > /dev/null
+"$CLI" add --file "$S" --kind public --title "third" <<< "t" > /dev/null
+"$CLI" delete --file "$S" --kind public INBOX-5 --tombstone 'Dropped 2026-09-15: "second" — test' > /dev/null
+"$CLI" delete --file "$S" --kind public INBOX-4 > /dev/null   # the entry ABOVE that tombstone
+if grep -q '^<!-- Dropped 2026-09-15: "second" — test -->$' "$S" && grep -q '^## third$' "$S" && ! grep -q '^## Existing entry$' "$S"; then
+  pass "deleting the entry above a tombstone leaves the tombstone in place"
+else
+  fail "a neighbouring tombstone was removed by delete"
+fi
+S="$TMP/mode.md"; new_store "$S"; chmod 600 "$S"
+"$CLI" add --file "$S" --kind public --title "mode" <<< "m" > /dev/null
+MODE="$(stat -f '%Lp' "$S")"
+if [ "$MODE" = "600" ]; then pass "a 600 store stays 600 after a write"; else fail "store mode changed to $MODE"; fi
+S="$TMP/leak.md"; new_store "$S"
+if "$CLI" add --file "$S" --kind public --title "names a private note" <<< "see INBOX-P3" 2>/dev/null; then
+  fail "a public note carrying an INBOX-P token was accepted"
+else
+  pass "a public note carrying an INBOX-P token is refused"
+fi
+S="$TMP/crlf.md"; new_store "$S"; sed -i '' 's/$/\r/' "$S"
+if [ "$("$CLI" count --file "$S" --kind public | cut -f2)" = "open 1" ]; then pass "a CRLF store is counted, not read as empty"; else fail "CRLF store count: $("$CLI" count --file "$S" --kind public)"; fi
+ls "$TMP"/.*.inbox.tmp > /dev/null 2>&1 && fail "a temp file was left behind" || pass "no temp files left behind"
+
+# ── 9. Codex review findings: unparseable entries are not mutated; backfill refuses bad IDs ──
+S="$TMP/unparseable.md"; new_store "$S"
+printf '\n## Closed in place\n\n**ID:** INBOX-9\n**Status:** CLOSED 2026-09-01\n\nOutcome text worth keeping.\n\n---\n' >> "$S"
+BEFORE="$(shasum "$S")"
+if "$CLI" delete --file "$S" --kind public INBOX-9 2>/dev/null || "$CLI" annotate --file "$S" --kind public INBOX-9 --text "x" 2>/dev/null; then
+  fail "delete or annotate acted on an unparseable entry"
+elif [ "$(shasum "$S")" = "$BEFORE" ]; then
+  pass "delete and annotate refuse an unparseable entry and leave the file byte-identical"
+else
+  fail "the store changed although the mutation was refused"
+fi
+S="$TMP/badid.md"; new_store "$S"
+printf '\n## Malformed ID\n\n**ID:** INBOX-X\n**Status:** proposed\n\n---\n' >> "$S"
+BEFORE="$(shasum "$S")"
+if "$CLI" backfill --file "$S" --kind public > /dev/null 2>&1; then
+  fail "backfill exited 0 with a malformed ID in the store"
+elif [ "$(shasum "$S")" = "$BEFORE" ]; then
+  pass "backfill refuses a malformed ID and writes nothing"
+else
+  fail "backfill wrote although it refused"
+fi
+# a lock held by a LIVE owner is never reclaimed on age alone
+S="$TMP/oldlive.md"; new_store "$S"
+mkdir "$S.lock"; echo "$$ faketoken" > "$S.lock/owner"; touch -t 202601010000 "$S.lock"
+if "$CLI" add --file "$S" --kind public --title "must not steal" <<< "w" > /dev/null 2>&1; then
+  fail "a months-old lock held by a live process was reclaimed"
+else
+  pass "an old lock held by a live process is not reclaimed"
+fi
+rm -rf "$S.lock"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; exit 0; fi
 echo "$FAILS CHECK(S) FAILED"; exit 1

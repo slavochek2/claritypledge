@@ -159,6 +159,59 @@ describe('P1317 inbox parser — hand-labelled oracle', () => {
   })
 })
 
+describe('P1317 inbox parser — fence and comment edge cases (review findings)', () => {
+  // Hand label: A, B, D, E are entries and all four are open. C sits inside a closed
+  // multi-line HTML comment and is not an entry. The `~~~` inside A's backtick block must
+  // not close it, and D's trailing unterminated fence must not hide E.
+  const EDGE = [
+    '# S',
+    '',
+    '## A backtick block containing a tilde line',
+    '**ID:** INBOX-1',
+    '**Status:** proposed',
+    '',
+    F,
+    '~~~ not a closer',
+    '## not a heading, still inside the backtick block',
+    F,
+    '',
+    '## B after the block',
+    '**ID:** INBOX-2',
+    '**Status:** proposed',
+    '',
+    '<!--',
+    '## C inside a comment',
+    '**ID:** INBOX-3',
+    '**Status:** proposed',
+    '-->',
+    '',
+    '## D followed by an unterminated fence',
+    '**ID:** INBOX-4',
+    '**Status:** proposed',
+    F,
+    '## E after the unterminated fence',
+    '**ID:** INBOX-5',
+    '**Status:** proposed',
+    '',
+  ]
+
+  it('drops nothing and admits no commented or fenced heading', () => {
+    const s = parseStore(EDGE.join('\n'), 'public')
+    expect(s.sections.map((x) => `${x.title[0]}:${x.state}`)).toEqual(['A:open', 'B:open', 'D:open', 'E:open'])
+  })
+
+  it('reads a CRLF store identically', () => {
+    const s = parseStore(EDGE.join('\r\n'), 'public')
+    expect(s.sections.map((x) => `${x.title[0]}:${x.state}`)).toEqual(['A:open', 'B:open', 'D:open', 'E:open'])
+    expect(s.sections.map((x) => x.id)).toEqual(['INBOX-1', 'INBOX-2', 'INBOX-4', 'INBOX-5'])
+  })
+
+  it('a 4-backtick fence is not closed by 3 backticks', () => {
+    const text = ['## X', '**ID:** INBOX-1', '**Status:** proposed', '````', F, '## hidden', '````', '## Y', '**ID:** INBOX-2', '**Status:** proposed'].join('\n')
+    expect(parseStore(text, 'public').sections.map((x) => x.title)).toEqual(['X', 'Y'])
+  })
+})
+
 describe('P1317 inbox parser — private store IDs', () => {
   const text = [
     '# Private',

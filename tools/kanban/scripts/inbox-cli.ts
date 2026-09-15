@@ -9,21 +9,23 @@
 //   inbox.sh show     --store ... <ID>
 //   inbox.sh locate   --store ... <ID>
 //   inbox.sh add      --store ... --title T [--due week|month]   (body on stdin; prints the new ID)
-//   inbox.sh delete   --store ... <ID> [--tombstone TEXT]
-//   inbox.sh annotate --store ... <ID> --text TEXT
+//   inbox.sh delete   --store ... <ID> [--tombstone TEXT]         open entries only
+//   inbox.sh annotate --store ... <ID> --text TEXT               open entries only
 //   inbox.sh backfill --store ...
 //
 // `--file <path> --kind public|private` replaces `--store` (tests, fixtures).
 //
-// Exit codes: 0 ok · 1 check found problems · 2 usage/input error · 3 not found or
-// ambiguous · 4 post-write verification failed · 5 lock timeout · 6 store absent.
+// Exit codes: 0 ok · 1 check found problems · 2 usage/input error · 3 not found, ambiguous,
+// or not open · 4 post-write verification failed (the file is restored) · 5 lock timeout or
+// lost · 6 store absent.
 //
 // PRIVACY: errors name a path, a line and an ID — never a title or body.
 
-import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs'
-import { dirname, join } from 'path'
+import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, chmodSync } from 'fs'
+import { dirname, join, basename } from 'path'
 import { execFileSync } from 'child_process'
-import { parseStore, findById, formatId, kindOfId, countStates, type InboxKind, type ParsedStore } from '../lib/inbox'
+import { randomBytes } from 'crypto'
+import { parseStore, findById, formatId, kindOfId, countStates, type InboxKind, type InboxSection, type ParsedStore } from '../lib/inbox'
 import { resolveInboxRoot, storeRel } from '../server/inbox'
 
 const PRIVATE_HEADER = `# Process Learnings (private)
@@ -84,7 +86,6 @@ function resolveTarget(flags: Record<string, string>): Target {
   const projectRoot = process.env.INBOX_PROJECT_ROOT ?? process.cwd()
   const root = resolveInboxRoot(projectRoot)
   if (!root) throw new CliError(`cannot resolve the main checkout from ${projectRoot}`, 2)
-  const rel = storeRel(kind)
   // The lock lives in the git common dir, outside every working tree, so it is
   // never staged and is shared by every worktree of the repository.
   let lockBase: string
@@ -97,44 +98,114 @@ function resolveTarget(flags: Record<string, string>): Target {
   } catch {
     lockBase = join(root, '.git')
   }
-  return { kind, path: join(root, rel), lockDir: join(lockBase, `inbox-${kind}.lock`) }
+  return { kind, path: join(root, storeRel(kind)), lockDir: join(lockBase, `inbox-${kind}.lock`) }
 }
 
 // ── lock ────────────────────────────────────────────────────────────────────
+//
+// mkdir is the atomic acquire; the lock dir holds `owner` = "<pid> <random token>".
+//   - A lock is reclaimed ONLY when its owner process is gone (or it was never stamped).
+//     A slow-but-live owner is never reclaimed on age alone: an earlier rule did that, and
+//     a paused writer that resumed would overwrite the new holder's write with its stale
+//     snapshot (Codex review of P1317).
+//   - Reclaiming runs under a second, short-lived mkdir mutex, so two waiters that both
+//     judged the same lock stale cannot both remove it (Opus review, W7).
+//   - Every write re-reads `owner` immediately before the rename and aborts if the token is
+//     not ours, so even a wrongly reclaimed lock cannot produce a lost update.
 
 const sleepBuf = new Int32Array(new SharedArrayBuffer(4))
 const sleep = (ms: number) => Atomics.wait(sleepBuf, 0, 0, ms)
 
-const LOCK_STALE_MS = 120_000
 const LOCK_TIMEOUT_MS = 20_000
+const LOCK_UNSTAMPED_MS = 5_000
+const TAKEOVER_STALE_MS = 5_000
+
+let heldLock: { dir: string; token: string } | null = null
+
+function lockIsStale(lockDir: string): boolean {
+  let ageMs: number
+  try {
+    ageMs = Date.now() - statSync(lockDir).mtimeMs
+  } catch {
+    return false // vanished — just retry the acquire
+  }
+  let pid: number
+  try {
+    pid = Number(readFileSync(join(lockDir, 'owner'), 'utf-8').trim().split(' ')[0])
+  } catch {
+    return ageMs > LOCK_UNSTAMPED_MS // created but not yet stamped
+  }
+  if (!Number.isInteger(pid) || pid <= 0) return ageMs > LOCK_UNSTAMPED_MS
+  try {
+    process.kill(pid, 0)
+    return false // owner is alive — never reclaimed, however old
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ESRCH'
+  }
+}
+
+function tryTakeover(lockDir: string): void {
+  const mutex = `${lockDir}.takeover`
+  try {
+    mkdirSync(mutex)
+  } catch {
+    try {
+      if (Date.now() - statSync(mutex).mtimeMs > TAKEOVER_STALE_MS) rmSync(mutex, { recursive: true, force: true })
+    } catch { /* gone already */ }
+    return // someone else is reclaiming; the caller retries the acquire
+  }
+  try {
+    // Re-judge under the mutex: the lock may already have been replaced by a live owner.
+    if (lockIsStale(lockDir)) rmSync(lockDir, { recursive: true, force: true })
+  } finally {
+    rmSync(mutex, { recursive: true, force: true })
+  }
+}
+
+function assertLockHeld() {
+  if (!heldLock) return // INBOX_TEST_NO_LOCK control only
+  let owner = ''
+  try {
+    owner = readFileSync(join(heldLock.dir, 'owner'), 'utf-8').trim()
+  } catch { /* lock dir gone */ }
+  if (owner !== `${process.pid} ${heldLock.token}`) {
+    throw new CliError(`lost the store lock before writing (${heldLock.dir}) — nothing was written`, 5)
+  }
+}
 
 function withLock<T>(t: Target, fn: () => T): T {
   // INBOX_TEST_NO_LOCK exists only so the concurrency test can prove the lock is
   // what keeps IDs unique (a control that must FAIL). Never set it anywhere else.
   if (process.env.INBOX_TEST_NO_LOCK === '1') return fn()
+  const token = randomBytes(8).toString('hex')
   const start = Date.now()
   for (;;) {
     try {
       mkdirSync(t.lockDir)
+      writeFileSync(join(t.lockDir, 'owner'), `${process.pid} ${token}`)
       break
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-      try {
-        if (Date.now() - statSync(t.lockDir).mtimeMs > LOCK_STALE_MS) {
-          rmSync(t.lockDir, { recursive: true, force: true })
-          continue
-        }
-      } catch { /* lock vanished between mkdir and stat — retry */ }
+      if (lockIsStale(t.lockDir)) {
+        tryTakeover(t.lockDir)
+        continue
+      }
       if (Date.now() - start > LOCK_TIMEOUT_MS) {
-        throw new CliError(`lock held for over ${LOCK_TIMEOUT_MS / 1000}s: ${t.lockDir}`, 5)
+        throw new CliError(`lock held for over ${LOCK_TIMEOUT_MS / 1000}s by a live process: ${t.lockDir}`, 5)
       }
       sleep(25 + Math.floor(Math.random() * 50))
     }
   }
+  heldLock = { dir: t.lockDir, token }
   try {
     return fn()
   } finally {
-    rmSync(t.lockDir, { recursive: true, force: true })
+    let mine = false
+    try {
+      mine = readFileSync(join(t.lockDir, 'owner'), 'utf-8').trim() === `${process.pid} ${token}`
+    } catch { /* already gone */ }
+    if (mine) rmSync(t.lockDir, { recursive: true, force: true })
+    heldLock = null
   }
 }
 
@@ -155,10 +226,31 @@ function requireText(t: Target): string {
   return text
 }
 
+// Temp file + rename keeps a reader from ever seeing a half-written store. The temp name
+// ends in `.inbox.tmp`, which .gitignore covers, so a crash between write and rename
+// cannot leave a committable copy of the store behind (Opus review, N6). The original
+// file mode is carried over, so a 600 private store stays 600 (W6).
 function writeAtomic(path: string, text: string) {
-  const tmp = join(dirname(path), `.${Date.now()}-${process.pid}.inbox.tmp`)
-  writeFileSync(tmp, text)
+  assertLockHeld()
+  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.inbox.tmp`)
+  let mode: number | undefined
+  try {
+    mode = statSync(path).mode & 0o7777
+  } catch { /* new file: default mode */ }
+  writeFileSync(tmp, text, mode === undefined ? undefined : { mode })
+  if (mode !== undefined) chmodSync(tmp, mode)
   renameSync(tmp, path)
+}
+
+/** Writes, then runs `verify` on a fresh parse; on failure restores the prior bytes (W2). */
+function writeVerified(t: Target, before: string | null, after: string, verify: (p: ParsedStore) => string | null) {
+  writeAtomic(t.path, after)
+  const problem = verify(parseStore(requireText(t), t.kind))
+  if (problem) {
+    if (before === null) rmSync(t.path, { force: true })
+    else writeAtomic(t.path, before)
+    throw new CliError(`${problem} — the store was restored to its previous content`, 4)
+  }
 }
 
 function testDelay() {
@@ -166,14 +258,28 @@ function testDelay() {
   if (ms > 0) sleep(ms)
 }
 
-function one(parsed: ParsedStore, id: string, path: string) {
+function one(parsed: ParsedStore, id: string, path: string): InboxSection {
   const hits = findById(parsed, id)
   if (hits.length === 0) throw new CliError(`no entry ${id} in ${path}`, 3)
   if (hits.length > 1) throw new CliError(`${id} occurs ${hits.length} times in ${path} — fix the store first`, 3)
   return hits[0]
 }
 
-function assertIdForStore(t: Target, id: string | undefined) {
+/**
+ * Mutations act on OPEN entries only. An unparseable section is a defect to fix at the
+ * source, and resolving or dropping it through the normal path would erase whatever made
+ * it malformed before anyone looked (Codex review of P1317). Fix the section by hand, re-run
+ * `check`, then act on it.
+ */
+function oneOpen(parsed: ParsedStore, id: string, path: string): InboxSection {
+  const s = one(parsed, id, path)
+  if (s.state !== 'open') {
+    throw new CliError(`${id} at ${path}:${s.line} is unparseable (${s.reasons.join(',')}) — fix it at the source first`, 3)
+  }
+  return s
+}
+
+function assertIdForStore(t: Target, id: string | undefined): asserts id is string {
   if (!id) throw new CliError('an entry ID is required', 2)
   if (kindOfId(id) !== t.kind) throw new CliError(`${id} is not a ${t.kind}-store ID`, 2)
 }
@@ -199,28 +305,45 @@ function nextNumber(parsed: ParsedStore): number {
 
 // Body and title must not be able to forge structure the parser reads.
 function assertInert(text: string, what: string) {
-  for (const l of text.split('\n')) {
-    if (/^## /.test(l) || /^\*\*(Status|ID|Next ID|due):\*\*/.test(l) || /^ {0,3}(```|~~~)/.test(l)) {
-      throw new CliError(`${what} contains a line the store format reserves (heading, field, or fence)`, 2)
+  for (const l of text.split(/\r?\n/)) {
+    if (/^## /.test(l) || /^\*\*(Status|ID|Next ID|due):\*\*/.test(l) || /^ {0,3}(```|~~~)/.test(l) || /^ {0,3}<!--/.test(l)) {
+      throw new CliError(`${what} contains a line the store format reserves (heading, field, fence, or comment)`, 2)
     }
   }
 }
+
+/**
+ * The line range a delete removes: the heading through the entry's own content. Trailing
+ * blank lines and single-line `<!-- … -->` tombstones sitting just above the next heading
+ * belong to the file, not to this entry — an earlier version deleted a neighbour's
+ * tombstone along with the entry above it (Opus review, W3).
+ */
+function deleteRange(lines: string[], s: InboxSection): { from: number; to: number } {
+  let to = s.endLine - 1 // 0-based last line of the section
+  while (to > s.line - 1 && (lines[to].trim() === '' || /^<!--.*-->\s*$/.test(lines[to]))) to--
+  return { from: s.line - 1, to }
+}
+
+const ID_REASONS = new Set(['missing-id', 'malformed-id', 'multiple-id-lines', 'duplicate-id'])
 
 // ── commands ────────────────────────────────────────────────────────────────
 
 function cmdAdd(t: Target, flags: Record<string, string>) {
   const title = (flags.title ?? '').trim()
-  if (!title || title.includes('\n') || title.startsWith('#')) throw new CliError('--title must be one non-empty line', 2)
+  if (!title || /[\r\n]/.test(title) || title.startsWith('#')) throw new CliError('--title must be one non-empty line', 2)
   const due = flags.due ?? 'week'
   if (due !== 'week' && due !== 'month') throw new CliError('--due must be week or month', 2)
   const body = readFileSync(0, 'utf-8').trim()
   if (!body) throw new CliError('the note body (stdin) is empty', 2)
   assertInert(body, 'body')
   if (/INBOX-/.test(title)) throw new CliError('title must not contain an inbox ID', 2)
+  // A public note that names a private ID would disclose that private note (Opus review, N1).
+  if (t.kind === 'public' && /INBOX-P\d/.test(body)) throw new CliError('a public note must not carry a private inbox ID', 2)
   const date = new Date().toISOString().slice(0, 10)
 
   return withLock(t, () => {
-    let text = readText(t)
+    const before = readText(t)
+    let text = before
     if (text === null) {
       if (t.kind === 'public') throw new CliError(`public store absent: ${t.path} — it is committed; do not recreate it`, 6)
       mkdirSync(dirname(t.path), { recursive: true })
@@ -234,15 +357,15 @@ function cmdAdd(t: Target, flags: Record<string, string>) {
     const id = formatId(t.kind, n)
     testDelay()
 
-    let lines = setNextId(text.replace(/\n*$/, '').split('\n'), parsed, n + 1)
+    let lines = setNextId(text.replace(/\s*$/, '').split(/\r?\n/), parsed, n + 1)
     lines = [...lines, '', `## ${title}`, '', `**ID:** ${id}`, `**Date:** ${date}`, '**Status:** proposed', `**due:** ${due}`, '', body, '', '---', '']
-    writeAtomic(t.path, lines.join('\n'))
-
-    const after = parseStore(requireText(t), t.kind)
-    const hits = findById(after, id)
-    if (hits.length !== 1 || hits[0].state !== 'open' || after.nextId !== n + 1) {
-      throw new CliError(`post-write check failed for ${id} in ${t.path} (occurrences: ${hits.length})`, 4)
-    }
+    writeVerified(t, before, lines.join('\n'), (after) => {
+      const hits = findById(after, id)
+      if (hits.length !== 1 || hits[0].state !== 'open' || after.nextId !== n + 1) {
+        return `post-write check failed for ${id} in ${t.path} (occurrences: ${hits.length})`
+      }
+      return null
+    })
     process.stdout.write(`${id}\n`)
   })
 }
@@ -254,21 +377,23 @@ function cmdDelete(t: Target, positional: string[], flags: Record<string, string
   if (tomb !== undefined) {
     // Tombstones must never carry an ID: a promoted private note's ID may not
     // survive anywhere, and a public ID in a tombstone reads as a live reference.
-    if (/INBOX-/.test(tomb) || tomb.includes('\n') || tomb.includes('-->')) {
+    if (/INBOX-/.test(tomb) || /[\r\n]/.test(tomb) || tomb.includes('-->')) {
       throw new CliError('--tombstone must be one line, with no inbox ID and no "-->"', 2)
     }
   }
   withLock(t, () => {
     const text = requireText(t)
     const parsed = parseStore(text, t.kind)
-    const s = one(parsed, id, t.path)
+    const s = oneOpen(parsed, id, t.path)
     testDelay()
-    const lines = text.split('\n')
-    const replacement = tomb ? [`<!-- ${tomb} -->`, ''] : []
-    lines.splice(s.line - 1, s.endLine - s.line + 1, ...replacement)
-    writeAtomic(t.path, lines.join('\n'))
-    const after = parseStore(requireText(t), t.kind)
-    if (findById(after, id).length !== 0) throw new CliError(`${id} still present after delete in ${t.path}`, 4)
+    const lines = text.split(/\r?\n/)
+    const { from, to } = deleteRange(lines, s)
+    lines.splice(from, to - from + 1, ...(tomb ? [`<!-- ${tomb} -->`] : []))
+    writeVerified(t, text, lines.join('\n'), (after) => {
+      if (findById(after, id).length !== 0) return `${id} still present after delete in ${t.path}`
+      if (after.sections.length !== parsed.sections.length - 1) return `delete of ${id} changed more than one section in ${t.path}`
+      return null
+    })
     process.stdout.write(`deleted ${id} (was line ${s.line})\n`)
   })
 }
@@ -277,22 +402,25 @@ function cmdAnnotate(t: Target, positional: string[], flags: Record<string, stri
   const id = positional[0]
   assertIdForStore(t, id)
   const note = (flags.text ?? '').trim()
-  if (!note || note.includes('\n')) throw new CliError('--text must be one non-empty line', 2)
+  if (!note || /[\r\n]/.test(note)) throw new CliError('--text must be one non-empty line', 2)
   assertInert(note, 'text')
   if (/INBOX-/.test(note)) throw new CliError('--text must not contain an inbox ID', 2)
   withLock(t, () => {
     const text = requireText(t)
-    const s = one(parseStore(text, t.kind), id, t.path)
-    const lines = text.split('\n')
-    // Insert above the entry's closing `---` when it has one, else at its end.
-    let at = s.endLine // 0-based index just past the section
-    let k = s.endLine - 1
-    while (k >= s.line && lines[k].trim() === '') k--
-    if (lines[k]?.trim() === '---') at = k
+    const parsed = parseStore(text, t.kind)
+    const s = oneOpen(parsed, id, t.path)
+    const lines = text.split(/\r?\n/)
+    // Insert above the entry's closing `---` when it has one, else after its last content line.
+    const { to } = deleteRange(lines, s)
+    const at = lines[to]?.trim() === '---' ? to : to + 1
     lines.splice(at, 0, note, '')
-    writeAtomic(t.path, lines.join('\n'))
-    const after = parseStore(requireText(t), t.kind)
-    if (findById(after, id).length !== 1) throw new CliError(`post-annotate check failed for ${id}`, 4)
+    writeVerified(t, text, lines.join('\n'), (after) => {
+      const hit = findById(after, id)
+      if (hit.length !== 1 || hit[0].state !== 'open' || after.sections.length !== parsed.sections.length) {
+        return `post-annotate check failed for ${id}`
+      }
+      return null
+    })
     process.stdout.write(`annotated ${id}\n`)
   })
 }
@@ -301,25 +429,33 @@ function cmdBackfill(t: Target) {
   withLock(t, () => {
     const text = requireText(t)
     const parsed = parseStore(text, t.kind)
+    // Only a MISSING ID is filled. A malformed, repeated or duplicate ID needs a human
+    // decision about which record is real, so it is refused up front (Codex review).
+    const needsHuman = parsed.sections.filter((s) => s.reasons.some((r) => r !== 'missing-id' && ID_REASONS.has(r)))
+    if (needsHuman.length) {
+      for (const s of needsHuman) process.stdout.write(`${t.path}:${s.line}\t${s.reasons.join(',')}\n`)
+      throw new CliError(`${needsHuman.length} section(s) carry a malformed or duplicate ID — fix them by hand, then re-run backfill`, 3)
+    }
     let n = nextNumber(parsed)
     // Assign in file order, insert bottom-up so earlier line numbers stay valid.
     const plan = parsed.sections
       .filter((s) => s.reasons.includes('missing-id'))
       .map((s) => ({ s, id: formatId(t.kind, n++) }))
-    let lines = text.split('\n')
+    let lines = text.split(/\r?\n/)
     for (const { s, id } of [...plan].reverse()) {
       const afterHeading = s.line // 0-based index of the line below the heading
       if (lines[afterHeading] === '') lines.splice(afterHeading + 1, 0, `**ID:** ${id}`)
       else lines.splice(afterHeading, 0, '', `**ID:** ${id}`)
     }
     lines = setNextId(lines, parseStore(lines.join('\n'), t.kind), n)
-    writeAtomic(t.path, lines.join('\n'))
-    const after = parseStore(requireText(t), t.kind)
-    const missing = after.sections.filter((s) => s.reasons.includes('missing-id') || s.reasons.includes('duplicate-id'))
-    if (missing.length || after.nextId === null || after.nextId <= after.maxId) {
-      throw new CliError(`backfill verification failed in ${t.path} (${missing.length} sections without a unique ID)`, 4)
-    }
-    process.stdout.write(`assigned ${plan.length} IDs; Next ID ${after.nextId}\n`)
+    writeVerified(t, text, lines.join('\n'), (after) => {
+      const bad = after.sections.filter((s) => s.reasons.some((r) => ID_REASONS.has(r)))
+      if (bad.length || after.nextId === null || after.nextId <= after.maxId || after.sections.length !== parsed.sections.length) {
+        return `backfill verification failed in ${t.path} (${bad.length} sections without a unique, well-formed ID)`
+      }
+      return null
+    })
+    process.stdout.write(`assigned ${plan.length} IDs; Next ID ${n}\n`)
   })
 }
 
@@ -370,7 +506,7 @@ function cmdShow(t: Target, positional: string[], locateOnly: boolean) {
     process.stdout.write(`${t.path}:${s.line}\n`)
     return
   }
-  process.stdout.write(text.split('\n').slice(s.line - 1, s.endLine).join('\n') + '\n')
+  process.stdout.write(text.split(/\r?\n/).slice(s.line - 1, s.endLine).join('\n') + '\n')
 }
 
 function main(): number {

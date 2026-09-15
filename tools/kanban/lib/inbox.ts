@@ -73,18 +73,50 @@ export function kindOfId(token: string): InboxKind | null {
   return null
 }
 
-/** Splits into lines and marks each line that is a fence delimiter or sits inside a fence. */
+const COMMENT_OPEN = /^ {0,3}<!--/
+
+/**
+ * Splits into lines and marks each line that is NOT store content: a fenced code block
+ * (delimiters included) or a multi-line HTML comment.
+ *
+ * Fences follow CommonMark closely enough for this file: a fence opened by N backticks
+ * (or N tildes) closes only on a line of the SAME character at least N long, so a `~~~`
+ * inside a ``` block, or ``` inside ````, does not flip state. An opener with no closer is
+ * NOT a fence — treating it as one would hide every later section, which is the silent
+ * drop the store's invariant forbids (found by the Gemini review of P1317). Same rule for
+ * an unterminated `<!--`.
+ */
 export function scanLines(text: string): { lines: string[]; fenced: boolean[] } {
-  const lines = text.split('\n')
-  const fenced: boolean[] = []
-  let inFence = false
-  for (const l of lines) {
-    if (FENCE.test(l)) {
-      fenced.push(true)
-      inFence = !inFence
-    } else {
-      fenced.push(inFence)
+  // \r?\n: in JS `.` does not match \r, so a CRLF store otherwise yields zero headings
+  // and parses as a healthy EMPTY store (Opus review of P1317). Line numbers are unchanged.
+  const lines = text.split(/\r?\n/)
+  const fenced: boolean[] = new Array(lines.length).fill(false)
+  const mark = (from: number, to: number) => {
+    for (let k = from; k <= to; k++) fenced[k] = true
+  }
+  let i = 0
+  while (i < lines.length) {
+    const f = lines[i].match(FENCE)
+    if (f) {
+      const run = lines[i].trimStart().match(/^(`+|~+)/)?.[1] ?? f[1]
+      const close = run[0] === '`' ? new RegExp(`^ {0,3}\`{${run.length},}\\s*$`) : new RegExp(`^ {0,3}~{${run.length},}\\s*$`)
+      let j = i + 1
+      while (j < lines.length && !close.test(lines[j])) j++
+      if (j < lines.length) {
+        mark(i, j)
+        i = j + 1
+        continue
+      }
+    } else if (COMMENT_OPEN.test(lines[i]) && !lines[i].includes('-->')) {
+      let j = i + 1
+      while (j < lines.length && !lines[j].includes('-->')) j++
+      if (j < lines.length) {
+        mark(i, j)
+        i = j + 1
+        continue
+      }
     }
+    i++
   }
   return { lines, fenced }
 }
