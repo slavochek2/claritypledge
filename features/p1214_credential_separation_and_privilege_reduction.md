@@ -330,8 +330,18 @@ record and the private security log.
       plaintext token sitting in the fixture's env file.
 - [x] No script reads the Supabase CLI's saved login any more except `check-gemini-prod-key.sh`, which
       prefers `SUPABASE_SECRETS_READ_TOKEN` and warns on every run while it falls back.
-- [ ] Independent hostile review of the diff (Codex), every finding verified by command before being
-      accepted or rejected.
+- [x] Independent hostile review of the diff (Codex), every finding verified by command before being
+      accepted or rejected. **9 findings; 5 accepted and fixed, 4 rejected with reasons:**
+      fixed — the prod token was still passed in `curl` argv in `migrate.sh` (5 sites, now a header
+      file); a failed abandoned-points backup left step 4 runnable (now a verified-backup marker
+      checked before the keyring dialog); `keyring.sh` killed any `set -e` caller outside a git
+      checkout with exit 128 — **introduced by this change, caught only by review, reproduced with an
+      old-copy control**; noisy `zsh -u` sourcing; the helper's docs overstated its SQL boundary.
+      Rejected — reusing a pre-resolved token or pointing the helper at a local listener requires
+      already holding a token that is on disk in plaintext (no escalation); the read-only token being
+      outside the lock and the stranded-signups fallback are the recorded 2026-09-08 decision and a
+      visible, announced transition. The wrapper exited 126 on a FIX-FIRST verdict — its own
+      misclassification, not a pass.
 - [ ] **FOUNDER:** issue a token scoped to reading edge-function secrets and set
       `SUPABASE_SECRETS_READ_TOKEN`, then run `supabase logout`. The daily Gemini-key check is the last
       reader of the CLI's saved login, which any process can read with no prompt. Whether the scoped-token

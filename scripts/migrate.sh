@@ -188,7 +188,7 @@ apply_via_api() {
   local RESPONSE HTTP_CODE BODY
   RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
-    -H "Authorization: Bearer ${SUPABASE_PAT}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_PAT") \
     -H "Content-Type: application/json" \
     -d "{\"query\": $(echo "$SQL" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" \
     2>&1)
@@ -219,7 +219,7 @@ apply_via_api() {
     # Record in migration history so future `db push` sees it as already applied
     curl -s -o /dev/null \
       -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
-      -H "Authorization: Bearer ${SUPABASE_PAT}" \
+      -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_PAT") \
       -H "Content-Type: application/json" \
       -d "{\"query\": $(echo "$INSERT_SQL" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
     return 0
@@ -228,7 +228,7 @@ apply_via_api() {
     echo "  ~ $BASENAME already applied (skipping)"
     curl -s -o /dev/null \
       -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
-      -H "Authorization: Bearer ${SUPABASE_PAT}" \
+      -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_PAT") \
       -H "Content-Type: application/json" \
       -d "{\"query\": $(echo "$INSERT_SQL" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
     return 0
@@ -267,7 +267,7 @@ preflight_ledger_name_check() {
   local RESP HTTP BODY NAMES FILE BASE VER REC
   RESP=$(curl -s -w $'\n%{http_code}' \
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
-    -H "Authorization: Bearer ${SUPABASE_PAT}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_PAT") \
     -H "Content-Type: application/json" \
     -d '{"query": "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}' \
     2>&1)
@@ -382,7 +382,7 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   # 401s (which also leaves the remote-versions list empty, so EVERY migration retries).
   APPLIED_RESPONSE=$(curl -s -w $'\n%{http_code}' \
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
-    -H "Authorization: Bearer ${SUPABASE_PAT}" \
+    -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_PAT") \
     -H "Content-Type: application/json" \
     -d '{"query": "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}' \
     2>&1)

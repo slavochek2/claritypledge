@@ -145,10 +145,10 @@ else
   # The admin users endpoint is the only read of auth.users available over REST.
   # per_page is capped at 1000 by GoTrue; the window below keeps us far under that,
   # and pagination is asserted rather than assumed (see the total check further down).
+  # Headers from a process substitution, so the master key never appears in argv (ps).
   response="$(curl -sS -f -X GET \
     "${PROD_URL}/auth/v1/admin/users?per_page=1000" \
-    -H "apikey: ${SERVICE_KEY}" \
-    -H "Authorization: Bearer ${SERVICE_KEY}" 2>&1)" || {
+    -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SERVICE_KEY" "$SERVICE_KEY") 2>&1)" || {
     echo "check-stranded-signups: prod auth API call failed:" >&2
     echo "$response" >&2
     cannot_run auth_api_call_failed

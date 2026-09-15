@@ -45,7 +45,10 @@
 _keyring_self="${BASH_SOURCE[0]:-$0}"
 KEYRING_ROOT="$(cd "$(dirname "$_keyring_self")" 2>/dev/null && pwd)"
 if [ ! -r "${KEYRING_ROOT}/keyring-critical.txt" ]; then
-  _keyring_git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  # `|| true` on both git lookups: this file is SOURCED, often by `set -e` scripts
+  # (migrate.sh, deploy-functions.sh). Outside a git checkout a bare failing command
+  # substitution killed the caller with exit 128 before it did anything (P1214 review).
+  _keyring_git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
   if [ -n "$_keyring_git_root" ] && [ -r "${_keyring_git_root}/scripts/keyring-critical.txt" ]; then
     KEYRING_ROOT="${_keyring_git_root}/scripts"
   fi
@@ -57,7 +60,7 @@ KEYRING_PY="${KEYRING_ROOT}/lib/keychain.py"
 # worktree (worktrees do not get .private/). Template: keyring-critical.txt.example
 KEYRING_REGISTRY="${KEYRING_REGISTRY:-}"
 if [ -z "$KEYRING_REGISTRY" ]; then
-  _keyring_common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  _keyring_common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
   if [ -n "$_keyring_common" ]; then
     KEYRING_REGISTRY="$(dirname "$_keyring_common")/.private/docs/keyring-critical.txt"
   fi
@@ -294,7 +297,9 @@ _keyring_cmd_withdraw() {
 }
 
 # Only run the CLI when executed, not when sourced by a consumer.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# `:-` because zsh leaves BASH_SOURCE unset: under `set -u` the bare form printed
+# "parameter not set" every time a skill sourced this file (independent review, P1214).
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
   case "${1:-}" in
     enroll)   shift; _keyring_cmd_enroll "$@" ;;
     enroll-from) shift; _keyring_cmd_enroll_from "$@" ;;
@@ -303,6 +308,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     list)     keyring_keys ;;
     requests) shift; _keyring_cmd_requests "$@" ;;
     withdraw) shift; _keyring_cmd_withdraw "$@" ;;
-    *) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    *) sed -n '2,30p' "${BASH_SOURCE[0]:-$0}" | sed 's/^# \{0,1\}//'; exit 1 ;;
   esac
 fi
