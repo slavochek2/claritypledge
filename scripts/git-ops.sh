@@ -3617,8 +3617,8 @@ The branch is authoritative for shipped migrations. Compare each file with
   #
   # P1250: these are REPORTED, never closed. Editing a spec is not delivering
   # it — the predicate cannot tell "I implemented this" from "I fixed a link in
-  # this on my way past". Audited 2026-09-07 (docs/process-learnings.md): of the
-  # 17 specs it ever closed this way, 11 were NOT delivered — 6 of those had
+  # this on my way past". Audited 2026-09-07 (P1250 spec, §Audit): of the
+  # 17 specs it ever closed this way, 10 were NOT delivered — 6 of those had
   # already been reopened by hand, one commit reading "reopen — ship closed a
   # live bug spec as a side effect". A spec wrongly left OPEN is visible and
   # gets closed;
