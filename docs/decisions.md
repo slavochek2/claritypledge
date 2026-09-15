@@ -4,6 +4,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [process]: A completed embargoed ship forgets what it landed, so closing the spec re-applies every commit (P1315) (Status: proposed)
+
+**Context:** P1315 shipped with `disclosure: embargo`: code landed on main, the spec close was deferred, and the branch and worktree were kept, as designed. Ship also reported "branch and journal cleaned up" — so the record mapping each branch commit to its landed commit was deleted. After the prod apply was verified, closing the spec needed a second `ship` run. With no journal and cherry-picked (not merged) commits, every branch commit still counted as ahead of main, so ship began re-applying all ten onto the shared main checkout and stopped on the first conflict — blocking every co-tenant while it was paused.
+
+**Decision:** Recovered with the tool's own paths: resolved the paused pick to main's newer versions (the pick carried an older copy of content main already held), recorded the other eight with `--mark-landed <source> <landed>` from the mapping the first run had printed, then `--resume` applied only the new commit and closed the spec normally.
+
+**The avoidable half was mine.** The worktree stayed open waiting for a push, because the publish step for embargoed specs runs after one. But the embargo's exit condition — the fix verified live on prod, then flip `disclosure: public` — was already recorded (2026-09-11, P1303) and had already been met. Grepping this log for the subject before telling the founder a push was needed would have found it.
+
+**Alternatives rejected:** *`git cherry-pick --skip` on each re-pick* — nine manual conflict rounds on the shared checkout with no record of why. *Delete the new journal and hand-close the spec* — `block-manual-spec-close.py` refuses, correctly.
+
+**Consequences (Status: proposed — follow-up needed):** An embargoed ship should keep its journal (or record landed commits somewhere the close can read), so the deferred close never re-picks. Tracked with the other embargo-path fixes under P1266, not a new spec. Operationally: once an embargoed fix is verified live on prod, flip the spec to `public` and close it in the same session — the push is not a precondition, and the founder should not be asked for one to finish the work.
+
+**References:** decisions.md 2026-09-11 [technical] (P1303 — embargo exit condition) · decisions.md 2026-09-15 [process] (branch-born spec dead ends) · `scripts/git-ops.sh` (`ship_init_journal`, `--mark-landed`, `--resume`)
+
+---
+
 ## 2026-09-15 [technical]: A contract migration held back in a worktree was lost while one environment's ledger kept it — and one membership rule held on two of three entry points (P1315)
 
 **Context:** The daily RLS drift check reported one policy present only on prod. It was the policy an expand/contract pair (P1236) was designed to remove once the client stopped writing that table directly. The contract half had been deliberately held back — correctly — and kept as an untracked file in a worktree. It was applied to the shared test database by hand, and the worktree was later removed. Result: test's migration ledger recorded the version, no file existed in any git ref, and prod never received it. Every deploy after that was "complete" by the manifest and by migrate.sh, because neither can see a migration that exists only as a ledger row. Only the drift check, which compares live catalogs rather than files, could see it. A hostile review of the fix then found a sibling gap: the membership access rule P1307 introduced was enforced on two of the three RPCs that create a member row, and not on the third.
