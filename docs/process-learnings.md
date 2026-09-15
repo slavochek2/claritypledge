@@ -1,5 +1,7 @@
 # Process Learnings
 
+**Next ID:** 76
+
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
 remember it. Surfaced *and closed* in `/weekly` step 2.5; `due: month` entries surface in
@@ -24,14 +26,25 @@ the count will not.
 `/monthly` selects with `awk '/^\*\*due:\*\* month/'`, so an unbolded or indented `due:` line is
 invisible to it and the entry silently stays weekly.
 
+**`ID:` field — bold, one per entry, never reused (P1317).** Written `ID:` in bold, then
+`INBOX-<n>` (`INBOX-P<n>` in the private store). The number is written into the entry, never
+derived from its position, so deleting one entry renumbers nothing. The `Next ID:` line in bold
+above holds the store's counter. **Never hand-write either** — `./scripts/inbox.sh add` (which
+`/note` calls) takes a lock, re-reads the file, raises the counter past any hand-written ID,
+appends, and verifies the ID occurs exactly once. Refer to an entry by its full token
+(`INBOX-12`), never a bare number. An entry with a missing, malformed or duplicate ID, or any
+`Status` other than exactly `proposed`, shows on the kanban's Inbox column as **unparseable**: fix
+it at the source; `./scripts/inbox.sh check --store public` lists every such section.
+
 **Closing an entry** — the graduation rule (`docs/decisions.md` 2026-02-26): delete it from this
 file and add a `[process]` entry to `docs/decisions.md`. Entries are never marked done in place;
-an empty file is the healthy state.
+an empty file is the healthy state. Delete with `./scripts/inbox.sh delete --store public <ID>`.
 
 ---
 
 ## P272's live-verification suite drives buttons the /live page no longer renders
 
+**ID:** INBOX-1
 **Status:** proposed
 **due:** week
 
@@ -51,6 +64,7 @@ Worth checking whether the other specs that share those selectors (`speak-freely
 
 ## A /live round has no identity in its row, so a client cannot tell whether it already recorded one
 
+**ID:** INBOX-2
 **Status:** proposed
 **due:** month
 
@@ -70,6 +84,7 @@ for the guest path to work, which is why P1278 shipped without it.
 
 ## The agent-skills gate fails OPEN when its script is missing or a dangling symlink
 
+**ID:** INBOX-3
 **Status:** proposed
 **due:** week
 
@@ -96,6 +111,7 @@ back. That is the proof, not the reasoning.
 
 ## `goal-gate.sh` CHECK 3 soft-resets HEAD in a worktree — a killed run strands the branch ref
 
+**ID:** INBOX-4
 **Status:** proposed
 **due:** week
 
@@ -127,6 +143,7 @@ certainly this, not lost work. Check `git reflog <branch>` before doing anything
 
 ## Confirm the P1260 branch-and-remote-refs step on the first post-merge `/weekly`
 
+**ID:** INBOX-5
 **Status:** proposed
 **due:** week
 
@@ -146,6 +163,10 @@ line and per-ref verdicts. If it does, delete this entry and add a one-line `[pr
 
 
 ## /ship's direct-to-main path needs a stamp that only /dev and /fix write (due: month)
+
+**ID:** INBOX-6
+**Status:** proposed
+**due:** month
 
 `/ship` says "Run `/ship pN` anyway" when there is no feature branch, and `git-ops.sh` requires
 **two** things for that path: `status` in {qa, in-progress} **and** a `pN ready for QA` stamp commit
@@ -169,7 +190,10 @@ Falsifier: on a spec at `status: qa` on main with no branch and no `ready for QA
 
 ## The Codex-vs-Opus review bake-off is unresolved — n=1, and the control lens never reported
 
-due: month
+**ID:** INBOX-7
+**Status:** proposed
+
+**due:** month
 
 2026-08-28 (P1187). A spec was handed blind to two hostile reviewers on an identical prompt. Codex
 GPT-5.6-Sol (max) returned 9 findings, **8 confirmed by command**, and found a root cause that the
@@ -194,6 +218,7 @@ ratios recorded — the benchmark was adopted in writing and never executed.
 
 ## goal-gate CHECK 5 is unreachable for any feature that needs more than a few review rounds
 
+**ID:** INBOX-8
 **Date:** 2026-08-24
 **Status:** proposed
 **due:** week
@@ -229,6 +254,7 @@ regenerate one render after the last round and confirm it does NOT go red for su
 
 ## The deploy record can say a fix shipped when it did not — the manifest itself needs a trust check
 
+**ID:** INBOX-9
 **Date:** 2026-08-21
 **Status:** proposed
 **due:** week
@@ -256,6 +282,7 @@ closed when the hole closes and the systemic problem walks away untracked.
 
 ## A probe that returns a loud wrong number is not covered by the run-a-control rule
 
+**ID:** INBOX-10
 **Date:** 2026-08-21
 **Status:** proposed
 **due:** week
@@ -282,6 +309,7 @@ edit to the global rules.
 
 ## An objection is a conjecture, not a refutation — pre-commit the falsifier before the conversation
 
+**ID:** INBOX-11
 **Date:** 2026-07-27
 **Status:** proposed
 
@@ -326,6 +354,7 @@ Narrative: `content/articles/a55_the-refutation-that-never-ran.md` (enriched 202
 
 ## Spotting the illusion of recursive understanding in the wild
 
+**ID:** INBOX-12
 **Date:** 2026-05-19
 **Status:** proposed
 
@@ -350,6 +379,7 @@ This is **not** a test of the pause-then-ask default — it is a control observa
 
 ## Default to e2e test for verification — never delegate manual testing to user
 
+**ID:** INBOX-13
 **Date:** 2026-03-23
 **Status:** proposed
 
@@ -363,6 +393,7 @@ Agent asked user to manually test /live session flow 4+ times instead of writing
 
 ## Dead code not caught by /finish or pre-commit
 
+**ID:** INBOX-14
 **Date:** 2026-03-02
 **Status:** proposed
 
@@ -374,6 +405,7 @@ Agent asked user to manually test /live session flow 4+ times instead of writing
 
 ## Raw ideas processing has no skill (`/process-raw-ideas`)
 
+**ID:** INBOX-15
 **Date:** 2026-03-01
 **Status:** proposed
 
@@ -392,6 +424,7 @@ Two separate sessions involved processing voice notes into structured product/ph
 
 ## Mobile UX bugs are session-killers
 
+**ID:** INBOX-16
 **Date:** 2026-03-14
 **Status:** proposed
 
@@ -406,6 +439,7 @@ Observed during Pair C session. Three bugs that break the session flow:
 
 ## Synchronous sales calls as acquisition bottleneck
 
+**ID:** INBOX-17
 **Date:** 2026-03-21
 **Status:** proposed
 
@@ -415,27 +449,11 @@ Intro calls that don't directly deliver session value get deprioritized under ba
 
 ---
 
-## A second, undocumented inbox exists at `.claude/process-learnings.md`
-
-**Date:** 2026-08-14
-**Status:** proposed
-**due:** week
-
-`.claude/process-learnings.md` holds 1 open entry (registry-to-disk drift for skill files,
-2026-02-28) in the same format as this file. Neither `/weekly` nor `/monthly` reads it — P1081
-wired both readers to `docs/` and `.private/docs/` only, so this store is written-but-never-read,
-the same class of defect P1081 was filed to fix.
-
-**Decide:** fold its entry into this file and delete it, or make it a third store the readers know
-about. Two stores was a deliberate split (public/private); three needs a reason.
-
-**Droppable if** the drift entry turns out to be already resolved — check whether a registry/disk
-validation step now exists in `/slava:maintain:cleanup` before doing anything else.
-
----
+<!-- Resolved 2026-09-15: "A second, undocumented inbox exists at .claude/process-learnings.md" — folded by P1317; see decisions.md 2026-09-15 [process] -->
 
 ## Did the close path actually shrink the queue, or does intake still outrun it?
 
+**ID:** INBOX-18
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** month
@@ -454,6 +472,7 @@ already names is throttling intake (stop automated runs filing proposals nobody 
 ---
 ## Instrument the `/live` clarify sub-loop so P1080's bug class is visible in prod
 
+**ID:** INBOX-19
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** week
@@ -480,6 +499,7 @@ sessions either.
 
 ## Recovery net for stuck `/live` sessions — the never-filed "P525b"
 
+**ID:** INBOX-20
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** month
@@ -502,6 +522,7 @@ P1080 — the net is insurance against the *next* bug, so absence of the last on
 
 ## Patch the programme-health verdict criteria — the pivots-vs-corroboration blind spot
 
+**ID:** INBOX-21
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** month
@@ -523,6 +544,7 @@ criteria were reading a one-off period rather than a structural gap.
 ---
 ## P976's stale-echo canary has never run its own assertions — and now that it does, it fails
 
+**ID:** INBOX-22
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** week
@@ -554,6 +576,7 @@ is true — that is how the P1080 assertion pinned a deadlock for five months.
 
 ## Retire or rewrite `e2e/p674-linear-flow.spec.ts` — 7 permanently-red tests for a REJECTED spec
 
+**ID:** INBOX-23
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** week
@@ -579,6 +602,7 @@ normal, which is how P1080 survived — nobody could tell signal from the standi
 
 ## `/live` mode switcher may stay disabled after a completed round (p617 UAT-6)
 
+**ID:** INBOX-24
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** month
@@ -605,6 +629,7 @@ permanently disabled control is a plausible real defect, and the p617 suite's ot
 
 ## Reap zombie vite/playwright processes between e2e runs
 
+**ID:** INBOX-25
 **Date:** 2026-08-14
 **Status:** proposed
 **due:** week
@@ -620,6 +645,7 @@ elsewhere.
 
 ## Extend the supersession gate to cover docs/decisions.md
 
+**ID:** INBOX-26
 **Date:** 2026-08-15
 **Status:** proposed
 **due:** month
@@ -637,6 +663,7 @@ read time than at write time.
 
 ## Rewrite referrers when git-ops.sh ship moves a spec
 
+**ID:** INBOX-27
 **Date:** 2026-08-15
 **Status:** proposed
 **due:** month
@@ -654,6 +681,7 @@ proves to keep the count flat on its own.
 
 ## Tell a not-signed-in reader their rating will not be saved
 
+**ID:** INBOX-28
 **Date:** 2026-08-17
 **Status:** proposed
 **due:** week
@@ -669,6 +697,10 @@ no schema. Related but distinct from P1092, which builds server-side reader stat
 ---
 
 ## 2026-08-18 — P1067's integration spec is not serial-safe (test hygiene, not a product bug)
+
+**ID:** INBOX-29
+**Status:** proposed
+**due:** week
 
 `e2e/integration/20260817120000_p1067_anon_rating_gates.spec.ts` passes at default parallelism (6/6)
 and fails at `--workers=1` (1 failed): its L6 catalog layer inserts a `(delivery, story)` rating row
@@ -686,6 +718,10 @@ own header already notes layers get one story each — L6 reuses L4's).
 ---
 
 ## /ship strands a worktree from ~15 more sites, and auto-closes specs it never implemented
+
+**ID:** INBOX-30
+**Status:** proposed
+**due:** week
 
 Two follow-ups from the P1057/w1 stranded-worktree fix (`a70f9e18`). Both were found by the
 adversarial review of that fix and deliberately left out of it.
@@ -727,6 +763,10 @@ stops covering everything added below it.
 ---
 
 ## `/goalify-update` — build the improver once the runs exist (2026-08-19)
+
+**ID:** INBOX-31
+**Status:** proposed
+**due:** week
 
 `/goalify` (planned, not built) leaves one `feedback.md` per feature carrying two numbers: corrections
 the founder gave, and turns consumed. **After 3–5 goalify runs, read those files and create the
@@ -774,6 +814,7 @@ Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08
 
 ## Activate the goal-gate boundary — push, prove it red, then mark it required
 
+**ID:** INBOX-32
 **Date:** 2026-08-20
 **Status:** proposed
 **due:** week
@@ -796,6 +837,7 @@ gate protects nothing until a spec is goalified, and no spec is today.
 
 ## Check whether the P1087 analytics tier rename broke live Mixpanel funnels
 
+**ID:** INBOX-33
 **Date:** 2026-08-21
 **Status:** proposed
 **due:** week
@@ -814,6 +856,7 @@ exist. Done when the answer is written down either way. Droppable if no such rep
 
 ## No test binds the hardcoded Stripe link IDs to the prices they claim
 
+**ID:** INBOX-34
 **Date:** 2026-08-21
 **Status:** proposed
 **due:** month
@@ -832,6 +875,9 @@ are accurate today. Droppable if the links move to a CMS or env config with its 
 ---
 
 ## Harvested YouTube comments may carry private individuals' identifiers onto a public page — unverified
+
+**ID:** INBOX-35
+**Status:** proposed
 
 **due:** month · surfaced by the P1141 security review, 2026-08-21
 
@@ -862,6 +908,7 @@ state whether harvested comment text can reach `stories.content` or a quote. If 
 
 ## Harness-readiness check + tested-combinations table
 
+**ID:** INBOX-36
 **Date:** 2026-08-23
 **Status:** proposed
 **due:** month
@@ -879,6 +926,7 @@ harnesses stay read-only scratchpads where guardrails do not matter.
 
 ## Audit the hooks — one safety hook is not wired
 
+**ID:** INBOX-37
 **Date:** 2026-08-23
 **Status:** proposed
 **due:** week
@@ -895,6 +943,7 @@ the block-banned-git question should be answered either way.
 
 ## Check architecture docs against the projected-skills tree (P1151)
 
+**ID:** INBOX-38
 **Date:** 2026-08-23
 **Status:** proposed
 **due:** week
@@ -908,7 +957,11 @@ longer matches. Scope: docs that name `.claude/commands/` as the only skill loca
 ---
 
 ## Pre-existing 320px horizontal overflow on the story detail page
+
+**ID:** INBOX-39
 <!-- filed 2026-08-23, during P1141 -->
+
+**Status:** proposed
 
 **due:** month — **Not caused by P1141.** A control probe during P1141's e2e work measured the
 overflow at 320px on a story with NO video and on a story WITH one, and got an *identical* set of
@@ -932,7 +985,11 @@ Falsifier: set a 320px viewport on any `/story/:id` route on `main` and check
 ---
 
 ## False `>>` marker claim in disagreement:prepare Stage 2 attribution instruction
+
+**ID:** INBOX-40
 <!-- filed 2026-08-25, during P1156; deliberately NOT fixed there -->
+
+**Status:** proposed
 
 **due:** week — **Measured 2026-08-24 (P1156 D2): auto-captions carry zero speaker labels of any
 kind.** A control pair — a one-speaker TEDx talk (`lJR-7_Dcess`) and a two-speaker interview clip
@@ -969,6 +1026,7 @@ means the speaker *changed*, never *who* it changed to. Fixed.
 
 ## Agent-skills sync gate (P1151) compares the whole tree in the working tree — no git lock protects against a co-tenant's unstaged edit
 
+**ID:** INBOX-41
 **Date:** 2026-08-27
 **Status:** proposed
 **due:** month
@@ -1012,6 +1070,7 @@ to the staged diff is now three sessions old.
 
 ## `git-ops.sh ship` has no tracked-and-dirty preflight before the cherry-pick — second instance of "the lock serializes committers, not editors"
 
+**ID:** INBOX-42
 **Date:** 2026-08-28
 **Status:** proposed
 **due:** month
@@ -1047,6 +1106,7 @@ Falsifier: with a second session holding an unstaged edit to a file the branch a
 
 ## `check-deploy-manifest.sh --env prod` prints the wrong fix command for the unpushed-stamp case — migrations AND functions (4th+ recurrence)
 
+**ID:** INBOX-43
 **Date:** 2026-08-28
 **Status:** proposed
 **due:** month
@@ -1096,6 +1156,10 @@ tells you to redeploy the function again, which will not clear it.
 
 ## Benchmark `/create-spec` against an unskilled baseline (due: month)
 
+**ID:** INBOX-44
+**Status:** proposed
+**due:** month
+
 **Deferred from P1202 Done-When, recorded rather than left in anyone's memory. Still needs a
 P-number** — verified 2026-08-31 that no such spec exists in `features/`.
 
@@ -1111,52 +1175,11 @@ Pairs with the existing Kanban item on `/change-request` creation; file them tog
 
 ---
 
-## The story quote block renders twice on the detail page (due: month)
-
-Found during P1202, **not fixed there** — the fix touches a shipped publish precondition, which that
-spec's Non-Goals forbid.
-
-`story.content` carries `Supporting quotes from {Full Name}` plus the quotes as prose, and
-`StoryVideoQuotes` then renders **the same heading and the same quotes again** from `video_quotes`,
-with jump links. P1141's own design table places the quote block *"Below the argument"* and its
-component comment records that *"quotes inline in the prose"* was built and **rejected** — so the
-in-text copy contradicts a decision already made. But `/slava:disagreement:publish` requires the label
-string verbatim *in the story text*, so the duplication cannot be removed from the drafting end alone.
-
-**Why it is worth a spec:** it costs 478–899 characters of a 1,500-character story — a third of the
-budget — spent on a same-page duplicate with worse affordances than the copy below it. Measured on
-`ai-power-remedies` run B. P1202 mitigated it (one quote per linked point in the text) rather than
-fixing it.
-
-**FILED as P1212 and DECIDED, 2026-09-01.** The founder chose **option A**: the label alone stays in
-the text, quotes live only in `video_quotes`. Two things adversarial review then added — (a) `<StoryVideoQuotes>`
-has exactly ONE call site (`StoryCardDetail.tsx:372`), so five of six surfaces would show the label with
-nothing beneath it, and the live/letter surface `live-story-card-expanded.tsx` renders no quotes at all;
-(b) the fix requires editing `story-draft.md:444-449`, held by a concurrent session, so it is blocked
-rather than ready. Superseded by `features/p1212_agent_story_card_contract_drift_across_surfaces.md` §1;
-close this entry when P1212 §1 ships.
-
----
-
-## Nothing blocks a frontend that ships ahead of its own migration
-
-**Date:** 2026-09-01
-**Status:** filed as [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md)
-**due:** week
-
-`migrate.sh` gate 2 holds a *migration* back until its coupled frontend is on `origin/main`
-(`-- requires-frontend`). Nothing holds a *frontend* back until its migration is on prod. P1060/P1193
-shipped that way on 2026-09-01: nine migrations pending, every org-scoped query answered
-`column events.org_id does not exist`, and the group pages showed zero events and zero participants
-to every visitor. Found by the founder looking at the live page.
-
-Full report, three candidate fixes and the false-positive trap any manifest-based gate must handle:
-**p1211**. Close this entry when that spec closes.
-
----
+<!-- Resolved 2026-09-15: "The story quote block renders twice on the detail page" — delivered by P1212 §1 (all-done); see decisions.md 2026-09-15 [process] -->
 
 ## `next-rank.sh` still ratchets — every agent-filed spec sorts below every hand-ordered one
 
+**ID:** INBOX-45
 **Date:** 2026-09-01
 **Status:** proposed
 **due:** week
@@ -1171,6 +1194,7 @@ open specs sitting in the 1,000,000 band, so `max+1` reproduces the ratchet. Don
 
 ## Redesign the two points scanners that bite on one phrasing, and close three latent gaps
 
+**ID:** INBOX-46
 **Date:** 2026-09-03
 **Status:** proposed
 **due:** week
@@ -1201,6 +1225,7 @@ Sources: `docs/decisions.md` 2026-09-03 [process] ×2 + [technical]; `features/u
 
 ## Produce hand-labelled audio for a well-separated session, then re-run P1237's three-way comparison
 
+**ID:** INBOX-47
 **Date:** 2026-09-04
 **Status:** proposed
 **due:** month
@@ -1216,52 +1241,14 @@ the conditional design in P1237 consequence 4 (measure the per-session margin an
 specced and adopted instead, since that removes the need for an unconditional winner.
 
 ---
-## 2026-09-07 — P1250 audit: the 17 specs `/ship` auto-closed as co-located
-
-One line per spec: closing commit, verdict, and the evidence behind it. Method: a spec is
-`delivered` only if every box in its own completion section is ticked; otherwise the artifact it
-claims is grepped for. `indeterminate` is an allowed verdict and leaves the spec closed — guessing
-is what produced this list.
-
-| Spec | Closing commit | Verdict | Evidence |
-|---|---|---|---|
-| p1043 | `8d4a24fd3` | wrongly closed — **already reopened** | `cd5d11340` "reopen — ship closed a live bug spec as a side effect"; now `backlog` |
-| p1044 | `626ac8307` | wrongly closed — **already reopened** | `d6a0b2fa8`; now `backlog`, 0/8 ticked |
-| p1045 | `b83686c45` | wrongly closed — **already reopened** | `d6a0b2fa8`; now `backlog`, 0/5 ticked |
-| p1047 | `2e52944c8` | delivered | reopened by `d6a0b2fa8`, then legitimately re-closed; 9/9 ticked, `all-done` |
-| p1048 | `bfcacf467` | delivered | same shape as p1047; 4/4 ticked, `all-done` |
-| p1057 | `a16ca1afa` | delivered | 10/10 ticked, `all-done` |
-| p1096 | `fef0df4ae` | **CORRECTED same day — delivered, re-closed** | First classified "wrongly closed" on `grep -rln "felt disagreement"` returning nothing. That is a title-phrase search, and this row's own caveat had already called it a weak oracle. The mechanism shipped as the disagreement pipeline (`select`/`prepare`/`positions`/`story-draft`/`publish`/`provision-agent`), satisfies the Done-When line for line, and has been run live several times. Closed co-located with **p1156**, which built the chain contract — a genuine co-implementation |
-| p1152 | `2c226cd5c`, `68b016450` | wrongly closed — **already reopened** | closed TWICE, a week apart, by two different ships — the mechanism cannot see it has already fired on a spec; now `in-progress` |
-| p1162 | `43c46d6f9` | wrongly closed — **reopened 2026-09-05, then built and closed properly 2026-09-07** | 0/7 at close time; 13/13 today. The cost was real: P1237 searched for the spend cap this spec claimed to have built and found nothing |
-| p1241 | `ae92afe66` | wrongly closed — **already reopened** | `c4e6ceb68` "wrongly auto-closed as co-located with p1234"; now `backlog` |
-| p558 | `08b425d86` | **wrongly closed, but SUPERSEDE rather than reopen** — correction block added to the spec | 0/5 ticked. P1237 measured Gemini tying the naive baseline (0 of 10 on the minority speaker) and its Related section already names P558 as "should be superseded by whatever this concludes". Reopening would restart work the measurement retired |
-| p572 | `e0982a026` | **wrongly closed — REOPEN** | no completion section at all; `grep -rln "extractPoints\|extract_points"` across `src/` and `supabase/functions/` returns nothing |
-| p828 | `93972fa91` | **wrongly closed — REOPEN** | 0/21 ticked; `grep -rln "agentic" src/` returns nothing |
-| p836 | `2a8a81783` | delivered | 12/12 ticked, `all-done` |
-| p843 | `bb58f31ef` | delivered, boxes never ticked | 0/14 ticked, BUT `src/app/components/letters/cohort-table.tsx` exists and carries avatar / full_name / suppress handling. The work landed; the spec was never updated. Leave closed — correction block added to the spec |
-| p919 | `7d7b78600` | delivered | 5/5 ticked in its completion section, `all-done` |
-| p929 | `c01031dfa` | wrongly closed — **already reverted** | `af43a6519` reverted the close; now `rejected` in `archive/` |
-
-**Totals, corrected 2026-09-07.** 17 specs. **7 delivered** (p1047, p1048, p1057, p836, p843, p919,
-p1096) — exactly the cases the new report-don't-close rule costs one manual `ship pN` each. **10 not
-delivered**, of which 6 had already been caught and reversed by hand, 1 (p1162) was caught by this
-work, 1 (p558) is superseded by measurement, and **2 are reopened: p572 and p828.**
-
-**The correction is the finding.** p1096 was reopened and re-closed within hours, because the first
-verdict rested on grepping the spec's own title phrase — the weak oracle this table's caveat had
-already named. An audit built to stop bad closures produced a bad *re-opening* by the same
-mechanism: matching a name instead of testing the claim. The verdict column's rule is therefore
-strengthened: **grep for the artifact the spec says it builds, and if the spec names no artifact,
-the verdict is `indeterminate`, never `wrongly closed`.**
-
-**p843 is the interesting one.** Its work shipped and its boxes were never ticked, so a
-box-counting rule reads it as undelivered. That is the false-positive shape, and it is why the
-verdict column required grepping for the artifact rather than trusting the checkboxes alone.
+<!-- Moved 2026-09-15: "P1250 audit of the 17 auto-closed specs" — now in features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md, §Audit -->
 
 ## 2026-09-07 — open question: does anyone read session transcripts? (P1252 ranking depends on it)
 
-`due: month`
+**ID:** INBOX-48
+**Status:** proposed
+
+**due:** month
 
 **The gap.** `my-sessions-page.tsx` shows each transcript segment under a speaker's name, and 52 of
 the 60 transcripts on prod carry more than one speaker — so 52 records can display a name above
@@ -1287,7 +1274,10 @@ sufficient — so a "yes, they read them" answer argues for attacking attributio
 
 ## 2026-09-08 — `ship.md` still tells the agent to run a gate that now runs itself (P1246)
 
-`due: week`
+**ID:** INBOX-49
+**Status:** proposed
+
+**due:** week
 
 **What changed.** [P1246](../features/p1246_pipeline_controls_are_advisory.md) wired
 `ship-gates.sh` into `git-ops.sh`'s closing code on both close routes. `ship.md:51`
@@ -1313,7 +1303,10 @@ which an agent session does not have). Land it on `main` as its own commit.
 
 ## 2026-09-08 — the skill-eval merge check is authored but inert (P1246 retired criterion)
 
-`due: month`
+**ID:** INBOX-50
+**Status:** proposed
+
+**due:** month
 
 **State.** `evals/` holds three real cases (closure gate respected, intent gate
 respected, override not reached for) and `.github/workflows/plugin-eval.yml` is
@@ -1346,7 +1339,10 @@ open and nothing else answers it.
 
 ## 2026-09-08 — turn the closure backstop into a required check (P1246), once it has a REAL green
 
-`due: week`
+**ID:** INBOX-51
+**Status:** proposed
+
+**due:** week
 
 **State.** `.github/workflows/closure-gate.yml` is on `origin/main` and runs. It is
 **not** a required status check — `gh api repos/slavochek2/claritypledge/rulesets/17729463`
@@ -1390,6 +1386,7 @@ it would be a worse regression than the one being fixed.
 
 ## Agent accounts render as HUMANS while the agent registry is loading
 
+**ID:** INBOX-52
 **Status:** proposed
 **due:** week
 **Found:** 2026-09-08, adversarial (Codex) review of the P1270 diff. Pre-existing, product-wide —
@@ -1432,6 +1429,7 @@ is the actual deliverable, since without it any fix is unverifiable by the same 
 the defect.
 ## Teach the migration client-safety gate to see a changed RPC signature
 
+**ID:** INBOX-53
 **Date:** 2026-09-08
 **Status:** proposed
 **due:** week
@@ -1453,6 +1451,7 @@ rate makes the gate unusable and no narrower shape separates the two.
 
 ## Make the P1151 skills-mirror hint name the exact file and the --files path
 
+**ID:** INBOX-54
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1463,6 +1462,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Re-run the P1275 integration spec after P1236 ships, and finish P1303's prod join check
 
+**ID:** INBOX-55
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1473,6 +1473,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Close three terminal-status specs still sitting in features/ root
 
+**ID:** INBOX-56
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1483,6 +1484,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Make commit-to-main fail when it records fewer files than requested
 
+**ID:** INBOX-57
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1493,6 +1495,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Make deleteTestUser fail loudly when the profile delete fails
 
+**ID:** INBOX-58
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1503,6 +1506,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Decide whether deleting a user who has story verifications should be refused
 
+**ID:** INBOX-59
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1513,6 +1517,7 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ## Fix the calibration breakdown page's older display issues
 
+**ID:** INBOX-60
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** week
@@ -1523,6 +1528,7 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 
 ## Keep the override reason in the ship journal so a resumed override close keeps its trailer
 
+**ID:** INBOX-61
 **Date:** 2026-09-11
 **Status:** proposed
 **due:** month
@@ -1533,6 +1539,7 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 
 ## The manual-spec-close hook blocks git-ops' own documented recovery command
 
+**ID:** INBOX-62
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** week
@@ -1541,6 +1548,7 @@ When `git-ops.sh ship pN` fails at the close commit (P1279 index race), it print
 
 ## Deploy P1236's schema to prod — /transcribe rooms are live without their database functions
 
+**ID:** INBOX-63
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** week
@@ -1553,6 +1561,7 @@ A push on 2026-09-14 made P1236's /transcribe frontend live while its 6 migratio
 
 ## Finish P1304's loose ends: prod Sentry check, stranded UAT file, misplaced and fieldless specs
 
+**ID:** INBOX-64
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** week
@@ -1563,6 +1572,7 @@ A push on 2026-09-14 made P1236's /transcribe frontend live while its 6 migratio
 
 ## The room's Links bottom sheet is announced as a dialog but is not one
 
+**ID:** INBOX-65
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** week
@@ -1573,6 +1583,7 @@ The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet bran
 
 ## Duplicate event link tags render duplicate entries in the room menu
 
+**ID:** INBOX-66
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** month
@@ -1583,6 +1594,7 @@ The sheet's trigger declares `aria-haspopup="dialog"`, but the forced-sheet bran
 
 ## Confirm on a real iPhone whether the phone zoom is actually fixed — the root cause was never proven
 
+**ID:** INBOX-67
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** week
@@ -1593,6 +1605,7 @@ P1310 raised 16 sub-16px text controls to 16px on the reading that iOS Safari's 
 
 ## Give the room's "Slides" entry a real link, and the signed-out menu group a heading
 
+**ID:** INBOX-68
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** month
@@ -1602,6 +1615,7 @@ Two review findings from P1310, both cosmetic-but-real. (1) "Slides" is the one 
 ---
 ## Re-issue the scoped read-only Supabase token before it expires (~2026-12-13)
 
+**ID:** INBOX-69
 **Date:** 2026-09-15
 **Status:** proposed
 **due:** month
@@ -1628,6 +1642,7 @@ rotation first.
 
 ## Quarterly terms review: one re-acceptance popup for everything since v1.4
 
+**ID:** INBOX-70
 **Date:** 2026-09-14
 **Status:** proposed
 **due:** month
@@ -1638,6 +1653,7 @@ Around 2026-12-01, batch every Terms of Service and Privacy Policy text change m
 
 ## P1307 post-deploy: push, two-phone room, and the [post-deploy] checks
 
+**ID:** INBOX-71
 **Date:** 2026-09-15
 **Status:** proposed
 **due:** week
@@ -1657,6 +1673,7 @@ becomes a `/create-bug`, not an edit to the closed spec.
 
 ## The P160 /live E2E suite fails 13 tests for a reason unrelated to its subject
 
+**ID:** INBOX-72
 **Date:** 2026-09-15
 **Status:** proposed
 **due:** month
@@ -1673,6 +1690,7 @@ removed checkbox, and passes. Droppable if the suite is retired in favour of an 
 
 ## Transcribe room polish the P1307 design reviews found (pre-existing)
 
+**ID:** INBOX-73
 **Date:** 2026-09-15
 **Status:** proposed
 **due:** month
@@ -1688,10 +1706,29 @@ Done when each is fixed or explicitly accepted, with a visual QA pass at 320 / 3
 
 ## Fix or retire the p506 "existing tags are preserved" assertion — the hashtag trigger makes it impossible
 
+**ID:** INBOX-74
 **Date:** 2026-09-15
 **Status:** proposed
 **due:** week
 
 `e2e/integration/p506-backfill-hashtags.spec.ts` asserts a story inserted with a hand-set tag keeps it after the backfill, but `trg_stories_extract_hashtags` (BEFORE INSERT OR UPDATE OF content) rewrites `tags` from the content on every insert, so the tag is gone before the backfill runs. Surfaced 2026-09-15 once P1214 let the backfill actually run (it had been failing on a 401). Done when the test seeds that row without the trigger overwriting it, or the assertion is removed because the trigger now owns `tags`; droppable if P506's backfill test is retired.
+
+---
+
+## Registry-to-disk drift for skill files
+
+**ID:** INBOX-75
+**Date:** 2026-02-28
+**Status:** proposed
+**due:** month
+**Observed:** 2026-02-28 — `/ss` skill was in the global skill registry but `.claude/commands/slava/ss.md` didn't exist on disk. Caused "Unknown skill" error. Required `git log --all` + `git show` to diagnose and restore.
+**Root cause:** File was deleted from git at some point (possibly during a branch clean-up or rebase) while the registry entry survived.
+**Problem:** No mechanism detects registry entries that have no corresponding file. Drift is invisible until the skill is invoked.
+**Potential fixes to explore:**
+- A `/maintain:cleanup` step that validates all registry skill entries have matching files
+- Pre-commit check: if a `.claude/commands/slava/*.md` file is staged for deletion, warn if it appears in skill registry
+**Blocking:** No obvious mechanical fix yet — needs design.
+
+> Folded 2026-09-15 by P1317 from `.claude/process-learnings.md`, a third store no reader consumed. `/slava:maintain:cleanup` was checked first and has no registry-to-disk step, so the entry is still open.
 
 ---

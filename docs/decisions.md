@@ -4,6 +4,35 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [process]: Task-inbox census — every section is now an open, numbered entry, and four were graduated out (P1317)
+
+**Context:** P1317 puts every inbox entry on the kanban as a card, and its parser renders anything that
+is not exactly `Status: proposed` as *unparseable* rather than dropping it. Before that could ship, the
+stores had to conform: the public store had 16 sections no mechanical reader could see, and a third
+store, `.claude/process-learnings.md`, was read by nothing (filed 2026-08-14 as its own entry).
+**Decision:** One recorded disposition per section, applied as its own commit so it survives a revert
+of the board. Public store: 13 status-less sections were open work and got `Status: proposed` (and a
+bold `due:` where their due lived only in a heading or in backticks). Four sections left the store:
+- *The story quote block renders twice* — **resolved**: its own text said close when P1212 §1 ships;
+  P1212 is `all-done` and `<StoryVideoQuotes>` now renders on all six surfaces, asserted by
+  `src/tests/p1212-agent-surface-contract.test.ts`.
+- *Nothing blocks a frontend that ships ahead of its migration* — **moved**: its status was
+  `filed as p1211`, and a note and a spec must never both track one item. P1211 carries the full report.
+- *P1250 audit of the 17 auto-closed specs* — **moved** verbatim into P1250's done spec (§Audit): a
+  record, not work. Six citing artifacts were repointed, not the four the spec named — `ship.md` and a
+  `git-ops.sh` comment also cited it, found by re-running the reference grep at apply time.
+- *A second, undocumented inbox exists* — **resolved** by folding its one entry into the public store
+  and deleting the file. `/slava:maintain:cleanup` was checked first: it has no registry-to-disk step,
+  so the folded entry stays open.
+Every open entry then got an `INBOX-<n>` ID by file order (75 public). The private store's
+dispositions are recorded in `.private/docs/`, never here.
+**Alternatives rejected:** loosening the parser to accept the old shapes — malformed entries are
+fixed at the source; a tolerant regex is how 16 sections became invisible in the first place.
+**Consequences:** `grep -c '^\*\*Status:\*\* proposed'` and the board's open count now agree (75 = 75),
+with 0 unparseable. A new section written without `/note` shows up as an unparseable card instead of
+silently vanishing from every count.
+**References:** [P1317](../features/p1317_board_renders_deferred_work_inbox.md) Solution 6 ·
+P1081 (built the close path) · P1212, P1211, P1250.
 ## 2026-09-15 [product]: The problem board's unit is one current problem per member per week — author attention was the constraint, not reader attention (P1319, P1320, P1181, P1182)
 
 **Context:** The problem board allowed unlimited submissions (P1180 §Solution, "No submission limit") on
@@ -5317,7 +5346,7 @@ the defect: the tool guessed "edited means delivered" about three specs whose wh
 is *not delivered*, in the same run that removed its ability to guess. (Status: proposed.)
 
 **References:** [p1250](../features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md) ·
-`scripts/git-ops.sh` (`detect_cospecs`, Phase 2b) · `docs/process-learnings.md` 2026-09-07 audit
+`scripts/git-ops.sh` (`detect_cospecs`, Phase 2b) · 2026-09-07 audit, now [p1250 §Audit](../features/done/2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md#audit-the-17-specs-ship-auto-closed-as-co-located) (moved out of `docs/process-learnings.md` by P1317)
 
 ## 2026-09-07 [process]: Third occurrence, and the first that was self-inflicted — a raw `git commit` on main after `commit-to-main` had already told me what was wrong
 

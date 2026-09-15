@@ -20,7 +20,8 @@ completed_at: 2026-05-17
 > and only the checkboxes were never ticked. Recorded because a box-counting rule would read this
 > spec as undelivered: it is the false-positive shape, and it is why the P1250 audit grepped for
 > each claimed artifact rather than trusting the counts. Audit row:
-> `docs/process-learnings.md` 2026-09-07.
+> [P1250 §Audit](../2026-06-10/p1250_colocated_autoclose_closes_specs_nobody_did.md#audit-the-17-specs-ship-auto-closed-as-co-located)
+> (2026-09-07; moved out of `docs/process-learnings.md` by P1317).
 
 
 ## Problem
