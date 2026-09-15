@@ -1430,9 +1430,33 @@ export async function clearSessionJoiner(sessionId: string, code: string | null)
   // claim_joiner_seat has always keyed on it. Passing it here makes release symmetric with
   // claim. A SIGNED-IN joiner is still authorized on auth.uid() alone and may pass null —
   // their arm never needed the code and is unchanged.
+  // P1314 C: the room code is not a credential wherever it is deliberately published. For
+  // event practice rooms P1057 D-A published it to every visitor, so a code-authorized release
+  // let a stranger evict the seated guest — and because release nulls joiner_seat_claimed_at,
+  // which is the column P1269's occupancy guard reads, they could then claim the seat the
+  // guard had just refused them. Measured end to end on test, 29 seconds claim to eviction.
+  //
+  // The secret is read here rather than threaded through the three call sites: none of them
+  // has any business handling a bearer credential, and seat-secret.ts exists precisely to keep
+  // it out of the session object, React state, analytics and Sentry. Null is correct and
+  // expected for a SIGNED-IN joiner (their arm authorizes on auth.uid() and never needed one)
+  // and for a legacy seat claimed before P1269 (the server falls back to the code for those,
+  // gated on its own column and not on what we send).
+  // The key is OMITTED when we hold no secret, rather than sent as null. PostgREST resolves
+  // an overload by the named arguments supplied, and P1314 C's migration
+  // (20260915100000) lives on a different branch — so between this code deploying and that
+  // migration applying, release_joiner_seat may still be the two-argument P1058 version, and
+  // any request naming p_seat_secret answers PGRST202 rather than releasing the seat.
+  // Omitting it keeps every signed-in caller and every legacy seat on a shape BOTH versions
+  // resolve. A guest who does hold a secret still degrades in that window — their "End
+  // Session" fails and the seat frees on P1269's 15-minute timer — which is the residue
+  // P1314's Risks table accepts. Ordering is still the real guard: apply the migration, then
+  // deploy. This narrows the blast radius if that order is ever broken; it does not license it.
+  const seatSecret = getSeatSecret(sessionId);
   const { error } = await supabase.rpc('release_joiner_seat', {
     p_session_id: sessionId,
     p_code: code,
+    ...(seatSecret ? { p_seat_secret: seatSecret } : {}),
   });
 
   if (error) {

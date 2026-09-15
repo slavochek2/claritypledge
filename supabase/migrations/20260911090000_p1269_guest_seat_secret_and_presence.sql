@@ -10,6 +10,25 @@
 --   secret minted when the seat was claimed, or — if the seat has shown no presence for 15
 --   minutes — treats the seat as abandoned and lets anyone claim it fresh.
 --
+-- ---------------------------------------------------------------------------------------
+-- CORRECTED 2026-09-15, BEFORE THIS EVER REACHED PROD
+-- ---------------------------------------------------------------------------------------
+-- As first written, claim_joiner_seat declared `RETURNS SETOF public.clarity_sessions` and used
+-- `SELECT *` and `RETURNING *`. All three are named in P1057's standing rule for this table —
+-- "RULES THIS FILE ENCODES (do not relax them in a later migration)", 20260817140000 — and the
+-- reason is not style: the row type is open-ended, so the next ADD COLUMN on clarity_sessions
+-- would have joined the output of an anon-executable SECURITY DEFINER function with nobody
+-- reviewing it. `code` itself is in that row type. Nothing in the repo would have reported it.
+--
+-- The function now returns P1057's own explicit 21-column list (get_session_by_code's
+-- RETURNS TABLE, verbatim) plus joiner_seat_secret, which the client needs and no client role
+-- may SELECT. The local row variable is gone in favour of named scalars, and the UPDATE returns
+-- the same explicit list. `code` is absent from all three, structurally, visible in \df+.
+--
+-- Two other corrections landed with it: this file's residual paragraph understated its own
+-- scope (see below), and the spec's first Done-When box was ticked without the qualifier that
+-- makes it true. Neither changes what this migration does.
+--
 -- requires-frontend: 0000000000000000000000000000000000000000
 --
 -- DELIBERATELY UNSATISFIABLE, AND IT MUST STAY THAT WAY UNTIL SHIP. This marker hard-blocks
@@ -91,9 +110,23 @@
 -- read-side default, so there is no backfill UPDATE and no repair pass to get wrong, and the
 -- deploy window carries no row that is worse off than it is today.
 --
--- The residual is a legacy guest mid-session whose tab reloads inside the deploy window: their
--- client holds no secret, so they wait out the timer. Bounded, self-healing, and strictly
--- better than the status quo in which a stranger could have taken that seat at any moment.
+-- THE RESIDUAL, CORRECTED 2026-09-15. This paragraph previously read "a legacy guest mid-session
+-- whose tab reloads inside the deploy window: their client holds no secret, so they wait out the
+-- timer." That understates it in two ways, both verifiable from the client:
+--
+--   * It is not conditional on a reload. touchJoinerSeat (src/app/data/api.ts) opens with
+--     `const secret = getSeatSecret(sessionId); if (!sessionId || !secret) return false;` — a
+--     legacy seat has no secret, so the presence ping NEVER STARTS. joiner_last_seen_at stays
+--     NULL for the life of the seat.
+--   * It is therefore not bounded by the deploy window. Presence is frozen at the claim time, so
+--     every legacy seat becomes permanently abandoned 15 minutes after it was claimed and stays
+--     claimable by anyone for as long as the session lives — including while its guest is sitting
+--     in the room talking.
+--
+-- The conclusion still holds and is why this is accepted rather than fixed: the status quo is that
+-- a stranger holding the room code and the published name could take that seat at ANY moment, with
+-- no 15-minute floor at all. So every legacy seat is strictly better off, and the population
+-- empties as sessions end. It is a residue with a known shape, not a self-healing one.
 
 -- ============================================================================
 -- Columns
@@ -132,22 +165,60 @@ COMMENT ON COLUMN public.clarity_sessions.joiner_last_seen_at IS
 -- and that overload IS the forgeable path. Same reasoning, and the same assertion, as P1058
 -- applied to release_joiner_seat.
 DROP FUNCTION IF EXISTS public.claim_joiner_seat(text, text);
+-- CORRECTED 2026-09-15: the 3-argument overload is dropped too. This migration originally
+-- declared `RETURNS SETOF public.clarity_sessions`, and a return type cannot be changed by
+-- CREATE OR REPLACE — so re-applying the corrected file over an already-installed copy fails
+-- without this line.
+DROP FUNCTION IF EXISTS public.claim_joiner_seat(text, text, uuid);
 
 CREATE OR REPLACE FUNCTION public.claim_joiner_seat(
   p_code        text,
   p_joiner_name text,
   p_seat_secret uuid DEFAULT NULL
 )
-RETURNS SETOF public.clarity_sessions
+RETURNS TABLE (
+  id                     uuid,
+  creator_name           text,
+  creator_note           text,
+  joiner_name            text,
+  joiner_profile_id      uuid,
+  creator_profile_id     uuid,
+  state                  jsonb,
+  demo_status            text,
+  partnership_status     text,
+  created_at             timestamptz,
+  expires_at             timestamptz,
+  ended_at               timestamptz,
+  mode                   text,
+  live_state             jsonb,
+  is_private             boolean,
+  last_activity_at       timestamptz,
+  source_letter_id       uuid,
+  source_story_id        uuid,
+  target_listener_id     uuid,
+  status                 text,
+  joiner_seat_claimed_at timestamptz,
+  joiner_seat_secret     uuid
+)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_row      public.clarity_sessions;
-  v_presence timestamptz;
-  v_secret_ok boolean;
-  v_abandoned boolean;
+  -- Named scalars, not a %ROWTYPE. P1057 bans star-projection inside a definer function on
+  -- this table, and a row variable is how it creeps back in. (These comments deliberately do
+  -- NOT spell the banned tokens: pg_proc.prosrc includes comments, so a guard that greps the
+  -- installed source for them would trip on the note explaining why they are absent.)
+  v_id                 uuid;
+  v_ended_at           timestamptz;
+  v_target_listener_id uuid;
+  v_joiner_profile_id  uuid;
+  v_seat_claimed_at    timestamptz;
+  v_last_seen_at       timestamptz;
+  v_seat_secret        uuid;
+  v_presence   timestamptz;
+  v_secret_ok  boolean;
+  v_abandoned  boolean;
   v_new_secret uuid;
 BEGIN
   IF p_code IS NULL OR length(btrim(p_code)) <> 6 THEN
@@ -158,9 +229,15 @@ BEGIN
     RAISE EXCEPTION 'joiner name is required' USING ERRCODE = '22023';
   END IF;
 
-  SELECT * INTO v_row
-    FROM public.clarity_sessions
-   WHERE code = upper(btrim(p_code))
+  -- P1057: no star-projection here, not even into a local variable. The row type is
+  -- open-ended, so a future ADD COLUMN would silently widen what this function handles, and
+  -- these fields are what every guard below is built from.
+  SELECT s.id, s.ended_at, s.target_listener_id, s.joiner_profile_id,
+         s.joiner_seat_claimed_at, s.joiner_last_seen_at, s.joiner_seat_secret
+    INTO v_id, v_ended_at, v_target_listener_id, v_joiner_profile_id,
+         v_seat_claimed_at, v_last_seen_at, v_seat_secret
+    FROM public.clarity_sessions s
+   WHERE s.code = upper(btrim(p_code))
      FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -168,27 +245,27 @@ BEGIN
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
-  IF v_row.ended_at IS NOT NULL THEN
-    RAISE LOG 'claim_joiner_seat: session % already ended', v_row.id;
+  IF v_ended_at IS NOT NULL THEN
+    RAISE LOG 'claim_joiner_seat: session % already ended', v_id;
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
   -- F3: a session addressed to a specific listener is claimable only by that listener.
-  IF v_row.target_listener_id IS NOT NULL
-     AND auth.uid() IS DISTINCT FROM v_row.target_listener_id
+  IF v_target_listener_id IS NOT NULL
+     AND auth.uid() IS DISTINCT FROM v_target_listener_id
   THEN
-    RAISE LOG 'claim_joiner_seat: session % is addressed to %', v_row.id, v_row.target_listener_id;
+    RAISE LOG 'claim_joiner_seat: session % is addressed to %', v_id, v_target_listener_id;
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
   -- F2: a recorded session is not joinable by a newcomer.
-  IF (v_row.joiner_profile_id IS NULL OR v_row.joiner_profile_id IS DISTINCT FROM auth.uid())
+  IF (v_joiner_profile_id IS NULL OR v_joiner_profile_id IS DISTINCT FROM auth.uid())
      AND (
-       EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_row.id)
-       OR EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_row.id)
+       EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_id)
+       OR EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_id)
      )
   THEN
-    RAISE LOG 'claim_joiner_seat: session % already carries a recording', v_row.id;
+    RAISE LOG 'claim_joiner_seat: session % already carries a recording', v_id;
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
@@ -197,14 +274,14 @@ BEGIN
   -- falls back to its claim time. Both operands can still be NULL for an UNCLAIMED seat, in
   -- which case v_abandoned is NULL — handled by only ever consulting it under
   -- `joiner_seat_claimed_at IS NOT NULL`, below.
-  v_presence := COALESCE(v_row.joiner_last_seen_at, v_row.joiner_seat_claimed_at);
+  v_presence := COALESCE(v_last_seen_at, v_seat_claimed_at);
   v_abandoned := v_presence IS NOT NULL AND v_presence < now() - interval '15 minutes';
 
   -- `IS NOT DISTINCT FROM` would make two NULLs equal, which would let a caller sending no
   -- secret match a seat holding no secret. Both sides are required to be present.
   v_secret_ok := p_seat_secret IS NOT NULL
-                 AND v_row.joiner_seat_secret IS NOT NULL
-                 AND p_seat_secret = v_row.joiner_seat_secret;
+                 AND v_seat_secret IS NOT NULL
+                 AND p_seat_secret = v_seat_secret;
 
   -- Occupancy. A stamped seat is re-claimable by exactly three callers:
   --   (a) the seated SIGNED-IN participant (refresh, mic retry, rejoin prompt);
@@ -217,31 +294,31 @@ BEGIN
   -- Every arm uses NULL-safe operators. A plain `=` against a nullable column here yields
   -- NULL, and plpgsql SKIPS an IF whose condition is NULL — a skipped refusal guard is an
   -- allow. That was P1053 F5, and arms (b) and (c) are pinned the same way.
-  IF v_row.joiner_seat_claimed_at IS NOT NULL
-     AND NOT (auth.uid() IS NOT NULL AND v_row.joiner_profile_id IS NOT DISTINCT FROM auth.uid())
+  IF v_seat_claimed_at IS NOT NULL
+     AND NOT (auth.uid() IS NOT NULL AND v_joiner_profile_id IS NOT DISTINCT FROM auth.uid())
      AND NOT (
        auth.uid() IS NULL
-       AND v_row.joiner_profile_id IS NULL
+       AND v_joiner_profile_id IS NULL
        AND v_secret_ok
-       AND NOT EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_row.id)
-       AND NOT EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_row.id)
+       AND NOT EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_id)
+       AND NOT EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_id)
      )
      AND NOT (
-       v_row.joiner_profile_id IS NULL
+       v_joiner_profile_id IS NULL
        AND v_abandoned IS TRUE
-       AND NOT EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_row.id)
-       AND NOT EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_row.id)
+       AND NOT EXISTS (SELECT 1 FROM public.session_transcripts t WHERE t.session_id = v_id)
+       AND NOT EXISTS (SELECT 1 FROM public.transcription_jobs j WHERE j.session_id = v_id)
      )
   THEN
-    RAISE LOG 'claim_joiner_seat: seat on session % already held', v_row.id;
+    RAISE LOG 'claim_joiner_seat: seat on session % already held', v_id;
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
   -- F1: a vacated seat still carries whoever participated in it.
-  IF v_row.joiner_profile_id IS NOT NULL
-     AND v_row.joiner_profile_id IS DISTINCT FROM auth.uid()
+  IF v_joiner_profile_id IS NOT NULL
+     AND v_joiner_profile_id IS DISTINCT FROM auth.uid()
   THEN
-    RAISE LOG 'claim_joiner_seat: session % carries participant %', v_row.id, v_row.joiner_profile_id;
+    RAISE LOG 'claim_joiner_seat: session % carries participant %', v_id, v_joiner_profile_id;
     RAISE EXCEPTION 'cannot join this room' USING ERRCODE = '42501';
   END IF;
 
@@ -250,20 +327,30 @@ BEGIN
   -- claim, or a claim on an abandoned seat — mints a fresh one, so the previous holder's
   -- secret stops working the moment their seat is taken.
   IF auth.uid() IS NULL THEN
-    v_new_secret := CASE WHEN v_secret_ok THEN v_row.joiner_seat_secret ELSE gen_random_uuid() END;
+    v_new_secret := CASE WHEN v_secret_ok THEN v_seat_secret ELSE gen_random_uuid() END;
   ELSE
     v_new_secret := NULL;  -- a signed-in seat is authorized by auth.uid(), never by a secret
   END IF;
 
+  -- P1057: the UPDATE's returning clause is explicit for the same reason the projection
+  -- above is — the row type is open-ended, so the next ADD COLUMN on this table would join the
+  -- output of an anon-executable SECURITY DEFINER function unreviewed. The list below is
+  -- P1057's own 21-column allowlist (get_session_by_code's RETURNS TABLE, verbatim) plus
+  -- joiner_seat_secret, which the client needs and no client role may SELECT. `code` is absent
+  -- and its absence is now a structural property of the function, visible in \df+.
   RETURN QUERY
-  UPDATE public.clarity_sessions
+  UPDATE public.clarity_sessions s
      SET joiner_name            = btrim(p_joiner_name),
-         joiner_profile_id      = COALESCE(auth.uid(), joiner_profile_id),
+         joiner_profile_id      = COALESCE(auth.uid(), s.joiner_profile_id),
          joiner_seat_claimed_at = now(),
          joiner_seat_secret     = v_new_secret,
          joiner_last_seen_at    = now()
-   WHERE id = v_row.id
-  RETURNING *;
+   WHERE s.id = v_id
+  RETURNING s.id, s.creator_name, s.creator_note, s.joiner_name, s.joiner_profile_id,
+            s.creator_profile_id, s.state, s.demo_status, s.partnership_status, s.created_at,
+            s.expires_at, s.ended_at, s.mode, s.live_state, s.is_private, s.last_activity_at,
+            s.source_letter_id, s.source_story_id, s.target_listener_id, s.status,
+            s.joiner_seat_claimed_at, s.joiner_seat_secret;
 END;
 $$;
 

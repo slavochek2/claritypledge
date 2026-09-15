@@ -61,7 +61,25 @@ better information.
 
 **What changed since that decision:** it was argued on the ground that "release-then-claim already
 bypasses any name check, so a name check on claim alone is not what is holding the attacker back."
-P1058 removed release-then-claim. That premise is now false, and the name check is load-bearing.
+
+> **CORRECTED 2026-09-15 — this paragraph previously read "P1058 removed release-then-claim. That
+> premise is now false, and the name check is load-bearing." That was wrong, and it is the sentence
+> this spec was reasoned from.**
+>
+> P1058 narrowed release-then-claim; it did not remove it. P1058's own migration header says so
+> under ACCEPTED RESIDUE: for event practice rooms the code is deliberately published, "for that
+> room class only, F4 survives this fix: a visitor can still evict and take a seat."
+>
+> P1314 measured it end to end on test, 2026-09-14, anonymous public key only, with this very
+> migration already applied: the attacker's direct claim was **refused** (401, `cannot join this
+> room` — P1269 working), then `release_joiner_seat(session_id, code)` returned **HTTP 204** and the
+> seat was taken. Claim to eviction, 29 seconds.
+>
+> So the original argument was closer to right than this rebuttal: a guard on claim alone did not
+> hold the attacker back for the room class where the code is public. What actually closes that path
+> is P1314 half D (the code stops being published) and half C (leaving a seat requires the secret).
+> The name check being retired remains correct and independently justified — a published name is not
+> a credential — but it is not what this spec claimed it was.
 
 ### DECISION TAKEN — 2026-09-09
 
@@ -246,10 +264,48 @@ What the P1058 evidence already rules in or out:
   an `IF` a NULL condition is skipped and a skipped refusal is an allow (P1053 F5, P1063).
 - The anonymous guest join and leave paths MUST keep working without an account.
 
+## Corrections and the P1314 app half — 2026-09-15
+
+Three corrections were applied to this spec and its migration, all before anything reached prod:
+
+1. **The false premise** in "What changed since that decision" — P1058 narrowed release-then-claim,
+   it did not remove it. Corrected in place above, with the measurement.
+2. **Done-When #1 was over-ticked** — true only of the `claim_joiner_seat` path. Qualified above.
+3. **The migration relaxed P1057's standing rule.** `claim_joiner_seat` declared
+   `RETURNS SETOF public.clarity_sessions` and used star-projection in both the read and the
+   `UPDATE ... RETURNING`. P1057's header names all three under *"do not relax them in a later
+   migration"*, because the row type contains `code` and is open-ended — the next `ADD COLUMN` on
+   `clarity_sessions` would have joined the output of an anon-executable SECURITY DEFINER function
+   with nobody reviewing it. The function now returns P1057's explicit 21-column list plus
+   `joiner_seat_secret`. Re-applied to test and re-verified, 24 checks: `code` absent from the
+   returned row, 22 columns exactly, name-only reclaim still refused, secret reclaim still keeps
+   the same secret, abandonment after 15 minutes still frees the seat, presence ping unchanged.
+
+**Also landed here: the client half of P1314 C.** `clearSessionJoiner` now sends the seat secret
+on release. It belongs on this branch because `src/app/data/seat-secret.ts` lives here and nowhere
+else; duplicating it onto P1314's branch would have made a write-never-read copy and a certain
+add/add conflict.
+
+### Deploy ordering — this is load-bearing
+
+P1314 C's migration (`20260915100000`, on `feature/p1314-event-room-access-parity`) must be applied
+**before** this branch's app code is deployed. PostgREST resolves an overload by the named arguments
+supplied, so a client naming `p_seat_secret` against the two-argument P1058 function gets PGRST202
+rather than a released seat.
+
+The call omits the key entirely when no secret is held, so signed-in callers and legacy seats stay
+on a shape both versions resolve. That narrows the window to guests who actually hold a secret — it
+does not remove the ordering requirement.
+
 ## Done-When
 
 - [x] An anonymous caller holding the published event-room code and the seated guest's name cannot
-      take the seat — canary, reproduced failing first
+      take the seat **by calling `claim_joiner_seat`** — canary, reproduced failing first.
+      **CORRECTED 2026-09-15: this box was ticked without that qualifier and read as a closed
+      forgery. It is true only of the single-call path.** With this migration live on test, the same
+      caller still took the seat via `release_joiner_seat(session_id, code)` then a fresh claim —
+      measured by P1314 on 2026-09-14, 29 seconds, 401 on the direct claim and 204 on the release.
+      The remaining path is closed by P1314 half C (`20260915100000`), not by this spec.
 - [x] The founder decision on cross-device guest rejoin is recorded in this spec, with the chosen
       behaviour asserted by a test either way
 - [ ] No seat that existed before the migration is left unreleasable — verified by a count query on
