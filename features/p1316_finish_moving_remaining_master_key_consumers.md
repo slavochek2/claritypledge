@@ -15,7 +15,7 @@ exec_effort: high
 driver: heuristic
 ---
 
-# P1316: Finish moving the remaining consumers of the prod master key, so the plaintext copies can go
+# P1316: Finish moving the remaining consumers of the prod master key, then remove the plaintext copies
 
 ## Problem
 
@@ -24,7 +24,7 @@ management token onto weaker credentials or the per-access lock (P1239), and iss
 tokens that made that possible. The account-wide Supabase CLI login is gone from the machine.
 
 **Complication:** Nothing has left the plaintext env files yet — every critical credential is still
-readable there by any process. Removing those copies is P1239's first open Done-When item, and it is
+readable there by any process. Removing those copies is this spec's last Done-When item (absorbed from P1239), and it is
 deliberately sequenced last: removing a copy while something still reads it breaks that consumer
 silently. On 2026-09-15 a grep of the P1214 branch still found the prod master key **named** in 20
 skill files (including `/day-cp`), 7 scripts and 3 archived scripts. Some of those are probably
@@ -33,17 +33,22 @@ file. P1214's original Done-When list for this work was never completed, and its
 criterion could not even be run (`audit-credential-drift.sh --audit` exited 2).
 
 **Question:** Which of the remaining files actually use the master key, what does each one really
-need, and what has to be true before P1239 may delete the plaintext copies?
+need, and — once every consumer is on its right credential and a real cycle has been measured — can
+the plaintext copies finally be removed?
+
+**Scope absorbed 2026-09-15:** P1239's three remaining Done-When items moved here when P1239 closed
+(founder: one open keyring spec, not a second spec that can only close after this one).
 
 > Founder framing, verbatim (2026-09-15): "did we eliminate something from .env.local and put it
-> somewhere else? Or that is part of some future thing?" — this spec is that future thing, up to the
-> point where P1239 can do the removal.
+> somewhere else? Or that is part of some future thing?" — this spec is that future thing, including
+> the removal.
 
 ## Appetite
 
 Blast radius: medium — event-promotion, publishing and content skills plus a handful of scripts;
 a wrong verdict either breaks a skill run or leaves a consumer on the plaintext copy. Reversibility:
-high — every change is a skill or script edit, and no credential is deleted or revoked here.
+high until the final step — every change before it is a skill or script edit; the plaintext removal
+is the one step that is hard to undo, which is why it is last and gated on a measured cycle.
 Decision density: low — the verdict rule was settled on 2026-09-08 and applied across P1214.
 
 ## Invariants
@@ -58,6 +63,11 @@ Decision density: low — the verdict rule was settled on 2026-09-08 and applied
 - **Credential identifiers stay out of this spec and its commit messages** — describe them
   generically; the per-file table lives in `.private/`.
 - **The drift audit is trusted only after it runs against real data** (decisions.md 2026-08-24).
+- **Carried from P1239 — never remove a plaintext copy until the locked path has served every
+  consumer at least once**, through a full cycle (a `/weekly` run, a `/day-cp` run, one deploy). The
+  order of the Done-When items below is the control, not a suggestion.
+- **Carried from P1239 — the lock gates an access, never a state.** No time window, and no grant an
+  agent could satisfy by creating a file.
 
 ## Solution
 
@@ -72,8 +82,10 @@ Decision density: low — the verdict rule was settled on 2026-09-08 and applied
    scoped token, and the first real prod migrate, deploy and publish on the locked path.
 4. **Retirement candidates.** Give each of the 28 candidates a verdict — retired or live elsewhere —
    naming the consumer and which deployed surfaces were enumerated live.
-5. **Hand over to P1239** only when the Done-When below holds; P1239 then measures a real week and
-   removes the plaintext copies.
+5. **Measure, then remove.** Record the prompt count over one full `/weekly` + `/day-cp` cycle on the
+   locked path. If it is above roughly 10 a week, stop and revisit. Otherwise remove the plaintext
+   copies of the critical half, keeping the recovery drill (`keyring.sh enroll` from the plaintext
+   source) re-runnable until the removal is verified.
 
 ## Risks / Non-Goals
 
@@ -85,7 +97,7 @@ Decision density: low — the verdict rule was settled on 2026-09-08 and applied
 | Unattended CI loses the stranded-signups check if the master key is removed before the scoped token is proven | MITIGATE | Remove only after a CI summary reports the scoped credential |
 
 **Non-Goals**
-- Do NOT remove any plaintext copy — that is P1239's Done-When and needs this spec plus a measured week.
+- Do NOT remove any plaintext copy before every Done-When item above the removal holds (see Invariants).
 - Do NOT revoke or delete any credential at a provider — rotation and retirement execution is P1148.
 - Do NOT change which credentials are in the locked half — the registry is P1239's.
 
@@ -110,11 +122,15 @@ Decision density: low — the verdict rule was settled on 2026-09-08 and applied
 - [ ] The stranded-signups CI summary reports the scoped read-only credential, and the master key is
       then removed from that workflow
 - [ ] The first real prod migrate, deploy and publish each complete on the locked path with one
-      dialog, and P1239's prompt count starts from that date
-- [ ] No credential value was deleted and nothing was revoked at any provider by this spec
+      dialog, while the plaintext copy still exists; the prompt count starts from that date
+- [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded and compared to the ~4/week
+      prediction (from P1239) — above ~10/week, stop and revisit before removing anything
+- [ ] The critical half is unreadable on disk without a confirmation — the plaintext copies are removed,
+      verified by reading the env files, and every consumer still runs afterwards
+- [ ] Nothing was revoked at any provider by this spec (rotation and retirement execution stay P1148)
 
 ## Related
 
 - [P1214](p1214_credential_separation_and_privilege_reduction.md) — the consumer migration this finishes
-- [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — removes the plaintext copies after this spec and a measured week
+- [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock: design, rationale and rejected alternatives; its remaining Done-When moved here
 - [P1148](p1148_credential_rotation_system.md) — rotation and retirement execution

@@ -7,8 +7,8 @@ workstream: keyring
 created_date: '2026-09-03'
 tags: [security, credentials, encryption]
 related: [p1214, p1148]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -218,7 +218,12 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
 
 ## Done-When
 
-- [ ] The critical half is unreadable on disk without a confirmation, verified by reading the file
+Closed on 2026-09-15 by splitting (founder choice): the lock itself is built and verified; the three
+items that depend on consumers being migrated first moved, unclaimed, to P1316, which now owns the
+plaintext removal.
+
+- Moved to P1316 — **not done here**: the critical half unreadable on disk without a confirmation
+  (the plaintext copies removed), verified by reading the file
 - [x] A consumer needing a critical key produces a confirmation prompt; **declining it** makes the
       consumer stop with a non-zero exit and a message naming what happened — observed, exit code
       pasted (epistemic gate 7)
@@ -226,11 +231,13 @@ otherwise exist. `push-status` has no counterpart to build because there is no s
       no "Always Allow" was recorded
 - [x] The "Always Allow" failure mode is either impossible or detectable: document what the founder
       must not click, and provide a one-command check that reports whether the gate still fires
-- [ ] `/day-cp` and one deploy complete on the locked path while the plaintext copy still exists
+- Moved to P1316 — **not done here**: one deploy (with migrate and publish) completes on the locked
+  path while the plaintext copy still exists. The `/day-cp` half is obsolete: since P1214, `/day-cp`
+  reads through a scoped read-only credential and never touches the lock
 - [x] The recovery path is documented and has been executed once, before any plaintext is removed
 - [x] No passphrase or decrypted value appears in shell history, the session transcript, or `ps`
-- [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded and compared to the ~4/week
-      prediction — if it exceeds ~10/week, stop and revisit before removing any plaintext
+- Moved to P1316 — **not done here**: prompt count over one full `/weekly` + `/day-cp` cycle recorded
+  against the ~4/week prediction, stopping to revisit above ~10/week, before any plaintext is removed
 
 ## Alternatives Considered
 

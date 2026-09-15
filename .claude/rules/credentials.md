@@ -20,7 +20,8 @@ operational, not cosmetic.
   remember, and no way for an agent to grant itself one.
 
 **Both halves currently hold the same values.** The plaintext copies have not been
-removed and must not be until P1239's remaining Done-When items pass. So a script that
+removed and must not be until P1316's Done-When items pass (it absorbed P1239's remaining items
+on 2026-09-15). So a script that
 reads `.env.local` today still works — which is exactly why this rule exists: nothing
 will fail to tell you that you took the unguarded path.
 

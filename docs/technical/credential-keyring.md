@@ -184,8 +184,8 @@ observed — no macOS layout change has been available to test against.
 ## Recovery
 
 The plaintext copy in `.env.local` is the recovery source and **has not been
-removed**. P1239's invariant is that both copies coexist until the locked path has
-served every consumer at least once.
+removed**. The keyring invariant (from P1239, now carried by P1316) is that both copies
+coexist until the locked path has served every consumer at least once.
 
 If the keychain is lost, corrupted, or a gate is defeated:
 
@@ -199,7 +199,7 @@ restored → confirm gate intact) before any plaintext removal was contemplated.
 
 **Do not remove anything from `.env.local` until** `/day-cp` and one deploy have
 both completed on the locked path, and the measured prompt count over a full
-`/weekly` + `/day-cp` cycle is at or below roughly 10/week (P1239 Done-When).
+`/weekly` + `/day-cp` cycle is at or below roughly 10/week (P1316 Done-When, carried over from P1239).
 
 ## Why not `security add-generic-password -w <value>`
 
