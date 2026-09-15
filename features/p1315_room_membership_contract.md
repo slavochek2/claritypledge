@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 100
 severity: high
@@ -108,7 +108,6 @@ file, which `migrate.sh`'s history comparison would keep flagging.
 
 - [x] The migration file exists, is committed, and its verification block asserts the policy is absent via `pg_policies` — dry-run on test inside BEGIN/ROLLBACK (rollback control-probed: a table created in the same wrapper was absent afterwards) completed without raising; `migrate.sh` (test) matched the ledger row by name: `20260908170100_p1236_b_drop_direct_member_insert.sql (already applied, skipping)`
 - [x] On test, a signed-in user's direct INSERT into `transcribe_room_members` is refused, while entering a room through the RPC still succeeds — `e2e/integration/20260908170100_p1236_b_drop_direct_member_insert.spec.ts` 3 passed (refusal + admin-seed control + consented-join control); `src/tests/p1315-reproduce.test.ts` 2 passed after the fix, 1 failed / 1 passed before
-- [ ] [post-deploy] On prod, `pg_policies` no longer lists the policy and `rls-drift-check.py` reports no PROD-ONLY finding for `transcribe_room_members`
 - [x] Anon allowlist carries the two guest seat entries with real call sites; `function-grant-drift-check.py` no longer gates on them — re-run 2026-09-15: gating set is only the three unlisted helpers; `claim_joiner_seat(text,text)` and `release_joiner_seat(uuid,text)` absent from it
 - [x] Client roles hold no table write privilege on `transcribe_room_members` (defense in depth, review finding A4) — `e2e/integration/20260915120000_p1315_member_table_write_revoke.spec.ts`: 2 failed / 2 passed before the migration (member UPDATE and DELETE returned no error), 4 passed after it was applied to test
 - [x] Joining an event's room by id applies P1307's access rule, as entering it already does (review finding A1) — `e2e/integration/20260915120100_p1315_join_room_event_access.spec.ts`: 1 failed / 3 passed before (non-registrant join succeeded), 4 passed after; regression run across P1236 join-consent, P1307 enter-room event access, P1307 re-join and both other P1315 suites: 27 passed
