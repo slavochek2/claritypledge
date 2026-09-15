@@ -4,6 +4,51 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-09-15 [technical]: "No consumer" is not "dead" — an unused credential that still authenticates is a revocation, and a liveness probe is only evidence with a wrong-credential control (P1316 → P1318)
+
+**Context:** P1316 gave each credential the drift audit flagged as a retirement candidate a verdict by
+searching every repo, the global tooling and the live CI, hosting and edge-function secret stores.
+Nineteen came out "retired": nothing reads them. The spec then asked for a liveness probe on each.
+**Decision:** Probe only where a read-only check exists (an identity call, a balance read, an FTP
+listing, a single mailbox connection), print status codes only, and run **every** probe a second time
+with a deliberately wrong credential. A probe whose wrong-credential run also "passes" is recorded as
+blind, not as live. Four credentials no consumer uses still authenticated, and each control was
+refused — so for those, "retired" means *revoke at the provider*, which is P1148's job. Logins where a
+scripted attempt could flag the account, secrets with no harmless test, and entries that are not
+secrets are recorded as "no safe probe", with the reason.
+**Alternatives rejected:** treating the census verdict as sufficient — an unused secret that still
+works is exactly the exposure the census exists to find; probing everything — two account logins are
+not worth an account-security flag; trusting an HTTP 200 on a public payment link — a fake link
+returned the identical page, so that probe says nothing.
+**Consequences:** Retirement lists must separate *unused* from *dead*. The unused-but-live queue is
+carried by P1318 into P1148 rather than left as a census footnote.
+**References:** [P1316](../features/done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) · [P1318](../features/p1318_remove_plaintext_copies_of_the_critical_credential_half.md) · [P1148](../features/p1148_credential_rotation_system.md)
+
+---
+
+## 2026-09-15 [technical]: A name grep undercounts a credential's consumers, and "weaker credential first" applies inside a script too — a dry run should never cost a lock prompt (P1316)
+
+**Context:** P1214's recorded census counted files that *name* the prod master key. P1316 read each
+file instead and found nine consumers the name search missed: one reached the key through a variable
+alias, one through a CLI login P1214 had already removed, one through an env-file name that does not
+exist. Three of those had been silently sending an empty key. Separately, an independent review found
+that three migrated scripts read the locked key *before* their dry-run check, so a preview raised an
+authorization dialog.
+**Decision:** A consumer census is done by reading, and a static scan guards the result: a canary
+fails on any plaintext read of the key under scripts, skills and workflows, and is proven against a
+fixture of known-bad and known-good lines and against the pre-migration code. Inside a script, reads
+that only preview use the weakest credential that sees the data (here the public anon key, verified
+against the read-only helper row for row), and the locked key is read only once the write is confirmed.
+**Alternatives rejected:** counting name hits — the same number can hide both over- and under-count;
+reading the locked key at the top of every script — correct, but it makes the lock cost a prompt for
+work that writes nothing, which is how the founder learns to click through prompts.
+**Consequences:** The drift audit's markdown tier still cannot see an in-process Python keyring read,
+so two real consumers are uncounted there (filed to the private inbox). A syntax parse passed a script
+whose key variable had been deleted with its loader; lint caught it — parse is not a type check.
+**References:** [P1316](../features/done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) · [P1214](../features/done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) · [credentials.md](../.claude/rules/credentials.md)
+
+---
+
 ## 2026-09-15 [technical]: The artifact you read is not always the artifact in effect — grep for an importer, and for a trigger that owns the column (P1078)
 
 **Context:** P1078's branch had been parked for six days with its own commit saying the Playwright
