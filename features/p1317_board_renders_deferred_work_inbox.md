@@ -128,7 +128,7 @@ store format changes and the board change is a git revert. Decision density: fou
    | 1097 | Benchmark `/create-spec` vs baseline | add Status | open, still needs a P-number |
    | 1114 | Story quote block renders twice | **graduate and delete** | its own text says "close this entry when P1212 §1 ships"; P1212 is `all-done` in `features/done/2026-06-10/`. At apply time, confirm §1's artifact exists (one quote-block render path) before deleting, per the P1250 lesson that a closed spec is not proof of delivery |
    | 1144 | Frontend ships ahead of its migration | **delete** (not status-less; `Status: filed as p1211`) | already promoted to open P1211; under decision 4 the note must not coexist with its spec. Confirm P1211 carries the note's content first |
-   | 1219 | P1250 audit of 17 auto-closed specs | **move into P1250's done spec, then delete** | a record, not work: its two open outcomes (P572, P828) are tracked as `backlog` specs. `p1250…md:153` cites this section, so update that citation in the same commit |
+   | 1219 | P1250 audit of 17 auto-closed specs | **move into P1250's done spec, then delete** | a record, not work: its two open outcomes (P572, P828) are tracked as `backlog` specs. Copy the table and the **corrected** totals (7 delivered / 10 not) verbatim into P1250; P1250:153 still states the superseded count. Four artifacts cite this section and must be repointed in the same commit: P1250:153, P843:23, P558:23, and decisions.md 2026-09-07 [process], "The ship that removed co-located auto-close was itself auto-closed against". Re-run the reference grep at apply time before deleting |
    | 1262 | Does anyone read session transcripts? | add Status | open question gating P1252 |
    | 1288 | `ship.md` still tells agent to run a self-running gate | add Status | open doc fix |
    | 1314 | Skill-eval merge check inert | add Status | open, blocked on early access |
@@ -139,21 +139,40 @@ store format changes and the board change is a git revert. Decision density: fou
    (only in repos whose stores exist) it applies verdicts it can execute itself: **resolve** (write
    the graduation entry to `docs/decisions.md`, or `.private/docs/` for private entries, then delete
    the inbox entry), **drop** (stated reason, then delete), **keep**. **Promote** is only a
-   recommendation: the entry stays open, annotated with the recommendation, until a separately run
-   `/create-spec` files the spec and the entry is then deleted. The verdict names must be reconciled
+   recommendation from `/prioritize`: the entry stays open, annotated with the recommendation. The
+   move itself is executed by `/create-spec <note-ID>`, the **sole** promotion executor: (1) create
+   the spec, (2) delete exactly that source entry, (3) verify both (spec file exists, ID gone from the
+   store), (4) if step 2 or 3 fails, report `PROMOTION INCOMPLETE: <spec> created, <note-ID> still
+   open` and stop. Spec first, so a failure never loses the only record; the incomplete state is
+   visible, not silent. This is an owned protocol, not a filesystem-atomic operation. A promoted
+   private note's `INBOX-P` ID and counter value never appear in the public spec, its commit message,
+   or any tombstone. The verdict names must be reconciled
    with the skill's existing taxonomy in one table, not bolted on as a second vocabulary.
 8. **Loopback bind.** `app.listen(PORT)` at `api.ts:1096` passes no host. Bind to loopback before any
    private data is served (this also closes the same exposure for the existing opportunities board).
 
-9. **Stable note numbers, stored in the note.** Every entry carries a bold `ID` line: `N<n>` in the
-   public store, `NP<n>` in the private store (e.g. `N12`, `NP7`). The number is written into the
-   entry, never derived from its position, so deleting one note renumbers nothing. Each store keeps
-   its own counter in a bold `Next ID` header line, and numbers are never reused. Separate sequences
-   per store, so public numbering reveals nothing about how many private notes exist. `/note`
-   assigns the ID and advances the counter when it files an entry. The census (Solution 6) backfills
-   IDs on every existing entry. The `N` prefix was unused in the repo on 2026-09-15 (grep over
-   `features/`, `docs/`, the notes store, `/note` and `tools/kanban`). A missing or duplicate ID
-   renders the section as unparseable.
+9. **Stable note numbers, stored in the note.** Every entry carries a bold `ID` line: `INBOX-<n>` in
+   the public store, `INBOX-P<n>` in the private store (e.g. `INBOX-12`, `INBOX-P7`). A bare `N<n>` was
+   rejected: `N1`–`N5` are already finding labels in P1067, P1090, P1091 and P1092. `NOTE-<n>` was
+   rejected too: `NOTE-1` and `NOTE-2` are review labels in P937 and P967. `INBOX-` returned 0 files
+   on 2026-09-15 across `features/ docs/ .claude/ tools/kanban/ scripts/ src/ e2e/ supabase/` and the
+   global skill directories, with `NOTE-` as the known-used control (3 files). The number is
+   written into the entry, never derived from its position, so deleting one note renumbers nothing.
+   Each store keeps its own counter in a bold `Next ID` header line. Separate sequences per store, so
+   public numbering reveals nothing about how many private notes exist.
+   - **Allocation (`/note`):** take a lock on the store, re-read it, validate
+     `Next ID > max(existing IDs)` (a hand-written ID may have overtaken the counter; if so, raise the
+     counter first), append the entry with that ID, advance the counter, verify the ID occurs exactly
+     once, release the lock. This is what makes "never reused" and "unique" true; if a lock cannot be
+     implemented, those two guarantees and their Done-When boxes are removed from this spec rather than
+     accepted as violated.
+   - **Backfill (Solution 6):** assigns IDs to every existing entry in file order and sets `Next ID`
+     to one above the highest assigned.
+   - **References** to a note are matched against the full `ID` token (`INBOX-12`), never a bare
+     number or substring.
+   - **Readers:** `/weekly` step 2.5 and `/monthly` show each entry's ID and accept it in commands
+     (`resolve INBOX-12`); list ordinals remain for display only, so there is one number system.
+   - A missing or duplicate ID renders the section as unparseable.
 
 **Founder decisions (2026-09-15):**
 1. **Inbox cards get their own "Inbox" column.** WIP limits on today/week/in-progress keep meaning
@@ -164,12 +183,14 @@ store format changes and the board change is a git revert. Decision density: fou
 3. **`/architect` is skipped.** The design was settled by three reviews (see Reviews). Condition:
    before any code, `/dev` records in this spec where the enable setting lives so that both launch
    paths turn it on and pp resolves to off.
-4. **A note and a spec never both track the same item.** Promotion is a move, not a link: the spec
-   is filed and the note is deleted in the same step. No spec points to an open note for status, so
+4. **A note and a spec never both track the same item.** Promotion is a move, not a link, executed
+   by `/create-spec <note-ID>` under the protocol in Solution 7 (spec first, then delete, with a
+   visible `PROMOTION INCOMPLETE` state on failure). No spec points to an open note for status, so
    closing a spec never has to reach back into the notes file. (Rejected: a public spec per note
    holding the status, which gives every item two records to keep in sync and reveals the existence,
    timing and count of private notes.)
-5. **Notes are numbered `N<n>` / `NP<n>`** (Solution 9).
+5. **Notes are numbered** (Solution 9). The founder asked for `n01`-style numbers; the prefix became
+   `INBOX-<n>` / `INBOX-P<n>` after review found bare `N<n>` and then `NOTE-<n>` already in use.
 
 The parsing module's location and the UI treatment are left to `/dev`.
 
@@ -185,13 +206,14 @@ The parsing module's location and the UI treatment are left to `/dev`.
 | Census rewrites 16 hand-written sections under time pressure | MITIGATE | One recorded disposition per section before implementation, separate commit |
 | 82+ cards swamp the board | MITIGATE | Founder decision 1 + first `/prioritize` pass |
 | Hand-edited ID lines collide or go missing | MITIGATE | `/note` assigns IDs from the store's counter; a missing or duplicate ID renders as unparseable (Solution 9) |
-| `/note` and the counter race when two sessions file at once | ACCEPT | Duplicate surfaces as an unparseable card and is fixed by hand; concurrent `/note` on one store is rare |
+| `/note` and the counter race when two sessions file at once | MITIGATE | Lock + re-read + validate + verify-once allocation (Solution 9); an ID that still duplicates renders as unparseable |
+| Promotion half-completes (spec created, note not deleted) | MITIGATE | Spec-first order and a reported `PROMOTION INCOMPLETE` state (Solution 7) |
 
 **Non-Goals**
 - Do NOT convert inbox entries into P-number specs, except through a separately run `/create-spec` after a promote recommendation.
 - Do NOT support editing, dragging or closing entries from the board UI.
-- Do NOT change the inbox file format beyond the additive `ID` and `Next ID` lines, `/note`'s
-  public/private routing, or the `/weekly` and `/monthly` readers.
+- Do NOT change the inbox file format beyond the additive `ID` and `Next ID` lines, or `/note`'s
+  public/private routing. `/weekly` and `/monthly` change only to show and accept note IDs.
 - Do NOT create a spec that points to an open note; promotion moves the item (decision 4).
 - Do NOT change pp's board behaviour, or `/prioritize`'s behaviour against pp.
 - Do NOT widen the generic `/api/open` allowlist.
@@ -212,10 +234,13 @@ The parsing module's location and the UI treatment are left to `/dev`.
 - [ ] `lsof -iTCP -sTCP:LISTEN` shows the API bound to loopback only
 - [ ] pp's board, launched with its unchanged launcher, shows no inbox column or state (screenshot); `/prioritize` run on pp shows no inbox input
 - [ ] Every one of the 16 status-less sections has a recorded disposition and is conformed; `.claude/process-learnings.md` is folded and removed with no remaining reference
-- [ ] Every open entry carries a unique `N<n>` / `NP<n>` ID and each store has a `Next ID` line; the card shows the ID
-- [ ] Filing two notes with `/note` gives consecutive IDs; deleting an earlier note leaves the later note's ID unchanged on the board
+- [ ] Every open entry carries a unique `INBOX-<n>` / `INBOX-P<n>` ID, each store's `Next ID` is above its highest ID, and the card shows the ID
+- [ ] Filing two notes with `/note` concurrently gives two distinct consecutive IDs; a hand-written ID above the counter is detected and the counter raised; deleting an earlier note leaves the later note's ID unchanged on the board
 - [ ] A fixture with a duplicate ID and one with no ID each render as unparseable
-- [ ] The promote path files the spec and deletes the note in one step; no spec in `features/` references an open note ID
+- [ ] `/weekly` step 2.5 lists entries with their IDs and `resolve INBOX-<n>` resolves the right entry
+- [ ] `/create-spec <note-ID>` creates the spec then deletes the note; with the delete forced to fail it reports `PROMOTION INCOMPLETE` and the note is still present; no spec in `features/` contains an open note's full ID token
+- [ ] Promoting a private-store fixture leaves no `INBOX-P` token or private counter value in the generated spec or its commit message
+- [ ] Before the P1250 audit note is deleted, all four citing artifacts point at its new home in P1250 and a fresh reference grep returns no other citation
 - [ ] First `/slava:maintain:prioritize` pass over inbox cards run; resolve / drop / keep / promote counts recorded
 - [ ] Open total (public + private) recorded on the day of that pass. `[post-ship]` Re-count 30 days
       later: if the total has not fallen below it, intake throttling (P1081's standing fallback) is
@@ -238,7 +263,7 @@ The parsing module's location and the UI treatment are left to `/dev`.
   Done-When pre-commits to it if closing does not shrink the queue.
 - **Move all deferred work into `features/` and retire the inbox.** Rejected: P1081 deliberately kept
   a low-ceremony store for items that do not warrant a spec (decisions.md 2026-08-14 [process]), and
-  decisions.md `:10843` files a follow-up "in process-learnings.md rather than as a kanban card" on
+  decisions.md 2026-08-28 [process], "`git-ops.sh ship` guards untracked files that would block the cherry-pick", files a follow-up "in process-learnings.md rather than as a kanban card" on
   purpose.
 
 ## Rollback Strategy
@@ -260,6 +285,13 @@ re-verified by command before being folded in; refuted ones are listed so they a
 - **Codex gpt-5.6-sol** (FAIL, 6 findings, all confirmed): no closed state exists, worktree launch
   reads the wrong root, `npm run kanban` bypasses the launcher, `/prioritize` cannot invoke
   `/create-spec`, conflicting open contracts, and 16 status-less sections rather than 2.
+- **Codex gpt-5.6-sol, second pass on the post-decision delta** (FAIL, 6 findings, all confirmed):
+  promotion could not be "same step"; the accepted counter race contradicted uniqueness; the P1250
+  audit note has four citing artifacts, not one; readers would carry two number systems; bare
+  `N<n>` was already in use (the author's earlier absence grep only matched 3-digit numbers); a
+  private ID could reach a public spec on promotion. Its proposed replacement prefix `NOTE-` also
+  collided (P937, P967), caught by the author's own wider grep; `INBOX-` was adopted. The census dispositions for the P1212 and P1211
+  notes were independently confirmed.
 
 ## Related
 
