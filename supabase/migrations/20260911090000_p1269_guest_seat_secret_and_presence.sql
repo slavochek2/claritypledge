@@ -29,17 +29,30 @@
 -- scope (see below), and the spec's first Done-When box was ticked without the qualifier that
 -- makes it true. Neither changes what this migration does.
 --
--- requires-frontend: 0000000000000000000000000000000000000000
+-- client-safe: every request shape the deployed client can emit resolves against BOTH the old
+--   and the new function. See "THE COUPLING WAS REMOVED" below — this replaced a
+--   `requires-frontend` marker on 2026-09-15, and the replacement is the point, not a relaxation.
 --
--- DELIBERATELY UNSATISFIABLE, AND IT MUST STAY THAT WAY UNTIL SHIP. This marker hard-blocks
+-- THE COUPLING WAS REMOVED, SO THE ORDER IS NOW DATABASE-FIRST.
+-- What this marker used to say, kept because the reasoning still explains the shape of the risk:
+-- it was DELIBERATELY UNSATISFIABLE UNTIL SHIP. This marker hard-blocks
 -- the PROD apply (migrate.sh gate 2), which is correct today: until the client that stores and
 -- resends the seat secret is live, a guest has no secret to present, so applying this to prod
 -- first would remove name-based rejoin while giving nothing back — every guest who reloads
 -- would wait out the 15-minute timer.
 --
--- AT SHIP TIME, re-point this to the LANDED commit sha, not the branch-local one. /ship
--- cherry-picks, so the sha changes; P1058 blocked its own prod apply for exactly this reason
--- and needed a re-point commit AFTER the cherry-pick and BEFORE the migrate. Same sequence here.
+-- That re-point never happened, because the coupling it guarded stopped existing. Both client
+-- call sites now OMIT p_seat_secret when no secret is held, so a request resolves against the
+-- two-argument and the three-argument function alike, and a guest only ever holds a secret once
+-- this migration is live. Database-first is therefore safe, and it is what we do.
+--
+-- WHY THE ORDER FLIPPED, which is a disclosure decision and not a technical one.
+-- Frontend-first would mean pushing before prod is fixed. `ship` cherry-picks every branch
+-- commit, and an embargoed spec's own commits are among them — so the exploit write-up reaches
+-- main and a push would publish it, permanently (deleting a file does not remove it from git
+-- history), while the hole it describes is still open on prod. Database-first costs a guest who
+-- reloads inside the deploy window a wait on the 15-minute presence timer. Transient beats
+-- irreversible.
 --
 -- FRONTEND-FIRST WAS NOT ACTUALLY SAFE UNTIL 2026-09-15, AND THIS NOTE DID NOT KNOW IT.
 -- The paragraph above correctly rules out database-first. It does not mention that the order it
