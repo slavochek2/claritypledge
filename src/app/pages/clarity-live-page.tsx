@@ -441,8 +441,11 @@ export function ClarityLivePage() {
   const autoJoinFiredRef = useRef(false);
 
   // P160: Private session mode (recording toggle — creator only, locked after session created)
-  // P406: Default to private (AI Insights off) when arriving from a practice room (?insights=off)
-  const [isPrivate, setIsPrivate] = useState(() => searchParams.get('insights') === 'off');
+  // Founder 2026-09-15 (P1307 D12): Default is OFF (private) — consent must be an explicit
+  // opt-in (CJEU Planet49), a pre-checked/pre-on switch is not valid consent. ?insights=on
+  // is the explicit opt-in; ?insights=off is kept as a harmless no-op (already the default) so
+  // any existing link that still passes it keeps working.
+  const [isPrivate, setIsPrivate] = useState(() => searchParams.get('insights') !== 'on');
   // P160: Recording state for join-via-link flow (fetched from session data)
   const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
   // P703: True when the join-via-link session is letter-sourced (requires authentication)
@@ -3470,8 +3473,9 @@ export function ClarityLivePage() {
     setSession(null);
     setView('start');
     setRoomCode('');
-    // P160: Reset toggle to default (ON) when cancelling from waiting room
-    setIsPrivate(false);
+    // P160: Reset toggle to default (OFF — private). Founder 2026-09-15 (P1307 D12): switch
+    // starts off; recording is now opt-in, not opt-out.
+    setIsPrivate(true);
     // Reset refs to ensure clean state for next session
     iAmLeavingRef.current = false;
     partnerLeftRef.current = false;

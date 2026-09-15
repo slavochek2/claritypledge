@@ -71,8 +71,8 @@ session code, participant display names, timestamps, the ideas shared, paraphras
 and feedback.
 
 **Voice recording.** The person who creates a session chooses whether it is recorded, using
-the "Transcribe for AI insights" switch on the start screen; recording is on unless they switch
-it off or start a private session. Signed-in people accepted these terms when they created
+the "Transcribe for AI insights" switch on the start screen; recording is off by default and
+only starts if they switch it on. Signed-in people accepted these terms when they created
 their account, and the start and join screens remind them that transcription follows them while
 recording is on. Guests are told on the start and join screen that by starting or joining they
 agree to these terms.

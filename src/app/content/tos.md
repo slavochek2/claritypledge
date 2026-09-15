@@ -30,8 +30,9 @@ keeping access to your email or Google account secure.
 Live sessions are real-time understanding exercises between participants.
 
 **Recording.** The person who starts a session decides whether it is recorded, using the
-"Transcribe for AI insights" switch on the start screen. Recording is on by default; switching
-it off starts a private session that is never recorded. When a session is recorded:
+"Transcribe for AI insights" switch on the start screen. Recording is off by default; switching
+it on starts recording — leaving it off keeps a private session that is never recorded. When a
+session is recorded:
 
 - Your voice is **recorded** from the moment the session goes live
 - Session content (ideas, paraphrases, ratings) is **stored**

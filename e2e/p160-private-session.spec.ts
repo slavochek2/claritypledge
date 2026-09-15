@@ -24,15 +24,26 @@ test.describe('P160: Recording Toggle — Start View', () => {
     await expect(toggle).toBeVisible();
   });
 
-  test('recording toggle defaults to ON (recording enabled)', async ({ page }) => {
+  // Founder 2026-09-15: /live transcription starts OFF (was ON, P160). A pre-on switch is
+  // not valid consent (CJEU Planet49) — recording is now opt-in via ?insights=on or a tap.
+  test('recording toggle defaults to OFF (private session)', async ({ page }) => {
     const toggle = page.getByRole('switch');
-    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
-  test('consent checkbox label contains "recorded for AI Insights" by default', async ({ page }) => {
-    // Default (recording ON): full consent label with recording sentence
+  // Founder 2026-09-15: /live transcription starts OFF (was ON, P160).
+  test('consent checkbox label does not contain "recorded for AI Insights" by default', async ({ page }) => {
+    // Default (recording OFF): the recording-consent label must not appear until opted in.
     const label = page.locator('label').filter({ hasText: /recorded for AI Insights/i });
-    await expect(label).toBeVisible();
+    await expect(label).not.toBeVisible();
+  });
+
+  // Founder 2026-09-15: new test — explicit opt-in must still turn recording ON.
+  test('tapping the switch turns recording ON', async ({ page }) => {
+    const toggle = page.getByRole('switch');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
   });
 
   test('turning toggle OFF changes label to T&C-only consent', async ({ page }) => {
@@ -189,12 +200,15 @@ test.describe('P160: Regression — Default Recording Unchanged', () => {
     await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
   });
 
-  test('default consent label contains recording sentence (unchanged)', async ({ page }) => {
+  // Founder 2026-09-15: /live transcription starts OFF (was ON, P160). Renamed from
+  // "default consent label contains recording sentence (unchanged)" — the founder decision
+  // makes that premise false; the terms link itself is still present regardless of state.
+  test('terms/privacy link is present by default (recording OFF)', async ({ page }) => {
     await page.goto('/live');
 
-    // Verify the full consent label is present by default (recording ON)
+    // Verify the terms notice is present regardless of recording state.
     const _body = await page.textContent('body');
-    expect(body).toContain('Terms & Privacy Policy');
+    expect(_body).toContain('Terms');
   });
 });
 
@@ -216,9 +230,11 @@ test.describe('P160: Mobile — Toggle Touch Target', () => {
       expect(box.height).toBeGreaterThanOrEqual(20); // visual size
     }
 
-    // Try clicking the toggle on mobile viewport — should work
+    // Try clicking the toggle on mobile viewport — should work.
+    // Founder 2026-09-15: /live transcription starts OFF (was ON, P160) — a click from the
+    // default state now turns recording ON, not OFF.
     await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
   });
 
   test('recording toggle is visible on mobile viewport', async ({ page }) => {
