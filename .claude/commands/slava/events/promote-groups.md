@@ -124,6 +124,8 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 **Missing-language hard stop:** if any eligible group's `lang` has no resolvable blurb, STOP before the probe. Report: "Group «{name}» is `lang: {lang}` but no `{lang}` blurb exists. Add `blurbs.{lang}` to the config or remove the group. Not posting." Never fall back to another language — posting English into a Spanish/Russian/German group is a defect, not a degrade.
 
+**Standing PS append (optional, config-driven):** After resolving `blurbs[lang]` from any source above, if the matched type entry defines `ps[lang]` in `.private/event-channels.json`, append it verbatim to the end of the resolved text before placeholder resolution and the guards below run. This lets a standing footer (e.g. a founder-approved cross-promotion) survive the per-event blurb rewrites described above, without re-approval each time. If `ps` exists for the type but has no entry for a given lang, append nothing for that lang — never fall back to another language's `ps` text. Approved 2026-09-15 for the hike type's calendar-scraper footer.
+
 **Resolve placeholders (in order), per blurb:**
 
 - `{date}` → event date in `Asia/Bangkok`, formatted **per the blurb's language** (an English "Jul 5" reading inside a Russian/German sentence is the wrong-language defect the per-lang split exists to avoid): `en` → "MMM D" ("Jul 5"); `es`/`ru`/`de` → language-neutral numeric day-dot-month ("5.7") to avoid an English month name. If a localized month name is preferred over numeric, provide it explicitly.
