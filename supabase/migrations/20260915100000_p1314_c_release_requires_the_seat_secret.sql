@@ -80,19 +80,29 @@
 -- and the next claim overwrites it. Nulling it would additionally break the reclaim path for a
 -- guest with a second tab open. Left alone on purpose, not by omission.
 --
--- requires-frontend: PENDING
---   The guest arm now REQUIRES the seat secret on any seat that carries one. Deployed clients
---   call clearSessionJoiner(sessionId, code) with no secret, so a guest pressing "End Session"
---   on a post-P1269 seat receives 42501 until the app half ships. All three call sites catch
---   the error, so nothing crashes; the seat stays occupied until P1269's 15-minute presence
---   window frees it, and in active-session-banner.tsx the guest's banner clears locally while
---   the server row does not change — the exact silent no-op that file's own P1058 comment warns
---   about. DATABASE FIRST is still correct: app-first sends an argument this function does not
---   accept, and PostgREST answers PGRST202 for EVERY release including signed-in ones, which is
---   a strictly wider break. This annotation is filled in with the app-half commit sha before
---   the prod apply; migrate.sh's prod gate blocks until that sha is an ancestor of origin/main.
+-- client-safe: every request shape the deployed client can emit resolves against BOTH the old
+--   and the new function. This REPLACED a `requires-frontend: PENDING` marker on 2026-09-15;
+--   the replacement is the point, not a relaxation, and the reasoning is below.
 --
--- client-safe: NOT CLAIMED. This migration is app-coupled by construction; see above.
+-- THE COUPLING THIS MIGRATION WAS WRITTEN WITH NO LONGER EXISTS.
+-- As first written, clearSessionJoiner sent p_seat_secret whenever a guest held one, so a client
+-- deployed ahead of this migration named an argument the two-argument function does not have —
+-- and PostgREST resolves an overload by the named arguments supplied, so that is PGRST202, not a
+-- call with a null. Both call sites now OMIT the key when no secret is held, which makes every
+-- request resolve against the two-argument and the three-argument function alike. Measured
+-- against PROD, no row written:
+--     {p_code, p_joiner_name}                -> 401 'cannot join this room'  (resolves)
+--     {p_code, p_joiner_name, p_seat_secret} -> 404 PGRST202                 (does not)
+--
+-- MUST BE APPLIED IN THE SAME PROD RUN AS 20260911090000 (P1269), which is the migration that
+-- makes secrets exist at all. Between the two, a guest holding a secret cannot leave a room —
+-- seconds if they go back to back in one `migrate.sh --env prod` run, a deploy apart otherwise.
+-- They sort adjacently by timestamp, so one run is the default and not something to arrange.
+--
+-- WHY DATABASE-FIRST, which is a disclosure decision and not a technical one: `ship` cherry-picks
+-- every branch commit, and an embargoed spec's own commits are among them, so a push before the
+-- prod apply publishes the exploit write-up while the hole is still open — permanently, since
+-- deleting a file does not remove it from git history. Transient beats irreversible.
 
 -- ============================================================================
 -- Precondition — P1269 must already be live. Runs BEFORE the replacement.
