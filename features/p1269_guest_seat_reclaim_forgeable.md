@@ -286,6 +286,29 @@ on release. It belongs on this branch because `src/app/data/seat-secret.ts` live
 else; duplicating it onto P1314's branch would have made a write-never-read copy and a certain
 add/add conflict.
 
+### Two things that block a clean ship, neither of them a code defect — measured 2026-09-15
+
+**This branch is 238 commits behind `main`.** Run from this worktree, the P1053 suite reports five
+failures that have nothing to do with P1269: they are anon-write controls asserting behaviour
+`main` has since changed (P1302, `20260911120200_p1302_c_writes_by_identity_or_anon_code.sql`), and
+this branch still carries the pre-P1302 copy of the test file. **So the Done-When box "P1058's
+room-code canaries and the P1053 suite stay green" cannot be honestly evaluated from here** — it is
+left ticked because P1269's own F5 control was correctly rewritten on this branch (`537f5933a`),
+but the suite as a whole must be re-run after a rebase, before ship.
+
+For the same reason, `p1058-release-seat-authorization` reports two failures from here: one is the
+pre-P1302 session-read control, and the other is the event-room RESIDUE canary, which P1314 half D
+closes and P1314's branch has already inverted. Both resolve on a rebase; neither is a defect.
+
+**The realtime canary cannot pass right now, for an infrastructure reason.** `REALTIME: an anon
+WebSocket subscriber never receives joiner_seat_secret` fails with *"no realtime UPDATE arrived"*
+after 20s, in isolation as well as in a suite. The stimulus is not at fault: `touch_joiner_seat`
+returns `true` and `joiner_last_seen_at` measurably moves, and `clarity_sessions` is in the
+`supabase_realtime` publication. Two unrelated suites assert realtime delivery and fail the same
+way — `p1114-realtime-payload` (a), and P1302's C13 *"a signed-in joiner still receives realtime
+updates for their room"*. Realtime delivery to subscribers is down on the test project; the canary
+is unusable until it is back, and its assertion is untested rather than passing.
+
 ### Deploy ordering — this is load-bearing
 
 P1314 C's migration (`20260915100000`, on `feature/p1314-event-room-access-parity`) must be applied
