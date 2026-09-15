@@ -111,12 +111,27 @@ file, which `migrate.sh`'s history comparison would keep flagging.
 - [x] Anon allowlist carries the two guest seat entries with real call sites; `function-grant-drift-check.py` no longer gates on them — re-run 2026-09-15: gating set is only the three unlisted helpers; `claim_joiner_seat(text,text)` and `release_joiner_seat(uuid,text)` absent from it
 - [x] Client roles hold no table write privilege on `transcribe_room_members` (defense in depth, review finding A4) — `e2e/integration/20260915120000_p1315_member_table_write_revoke.spec.ts`: 2 failed / 2 passed before the migration (member UPDATE and DELETE returned no error), 4 passed after it was applied to test
 - [x] Joining an event's room by id applies P1307's access rule, as entering it already does (review finding A1) — `e2e/integration/20260915120100_p1315_join_room_event_access.spec.ts`: 1 failed / 3 passed before (non-registrant join succeeded), 4 passed after; regression run across P1236 join-consent, P1307 enter-room event access, P1307 re-join and both other P1315 suites: 27 passed
-- [x] The migration-history check cannot be passed by statement shape (review finding C1) — `src/tests/p1315-reproduce.test.ts` 15 passed, including shape controls for FOR ALL, no FOR clause, bare names, quoted schema, block/line comments, an apostrophe in a comment, a `'--'` string and ALTER POLICY RENAME
-- [ ] [post-deploy] On prod, all three migrations are applied and the prod-only policy finding is gone from `rls-drift-check.py`
+- [x] The migration-history check cannot be passed by statement shape (review findings C1, Codex R4) — `src/tests/p1315-reproduce.test.ts` 17 passed, including shape controls for FOR ALL, no FOR clause, bare names, quoted schema, block/line comments, an apostrophe in a comment, a `'--'` string, ALTER POLICY RENAME, and `$tag$` or `--` inside a quoted policy name
 
-## Review (1 of 1 reviewer reported)
+**Post-deploy verification is not a checkbox here, deliberately.** "All three migrations are applied on
+prod and the prod-only policy finding is gone from `rls-drift-check.py`" cannot be true before `ship`,
+because this repo merges first and migrates second. It is enforced after the prod apply by
+`git-ops.sh publish-spec p1315`, which refuses unless the migrations are in `origin/main`'s prod
+manifest and the authenticated prod smoke test passes; the drift check is re-run by hand at the same
+time, and the spec stays embargoed until both hold.
 
-One hostile reviewer covered write paths, prod apply ordering, the canary, the verification block, the
+## Review (2 of 2 reviewers reported)
+
+**Codex (independent model), two passes.** Pass 1 raised one HIGH — "the prod deploy manifest records
+the P1315 migrations as deployed" — **refuted by command**: the three versions are in the manifest's
+`test` section; `prod` is unchanged from the merge-base (341 entries, none of them). Pass 2 answered the
+five claims: no client write path survives (confirmed; the definer updates it listed never create
+membership), the grant revoke breaks no legitimate writer (confirmed), the join change is exactly the
+access check (confirmed), no prod ordering hazard with the pending P1269 migration (confirmed), and **one
+real canary bypass** — a `$tag$` inside a quoted policy name was read as a dollar quote. Fixed; both
+quoted-name cases are now controls.
+
+**Claude reviewer.** Covered write paths, prod apply ordering, the canary, the verification block, the
 allowlist and public disclosure. Its findings, each re-checked by command before acting:
 
 | Finding | Verified | Disposition |
