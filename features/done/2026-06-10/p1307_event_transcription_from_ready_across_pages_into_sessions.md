@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 99
 workstream: transcription
 created_date: '2026-09-11'
 tags: [transcribe, events, live, consent]
 disclosure: public
-delivery_stage: dev
 flow: dev
 pipeline_plan: [create-spec, architect, generate-tests, dev, verify]
 pipeline_ran: [create-spec, architect, generate-tests, dev]
@@ -37,6 +36,7 @@ pipeline_skipped: ["challenge-prd -- adversarial review already folded in, 2 of 
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-09-15
 ---
 
 # P1307: Event transcription — starts at the ready screen, follows you across pages, lands in your sessions
