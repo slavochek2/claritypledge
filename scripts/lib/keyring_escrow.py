@@ -363,7 +363,8 @@ def cmd_drill_inner(image, readback, passphrase):
         say("SIMULATED plaintext loss: %d env path(s) present on disk, all unreadable here"
             % len(present))
     else:
-        say("SIMULATED plaintext loss: no env copy present on disk, so the loss is already real")
+        say("SIMULATED plaintext loss: the known env file paths are already absent. Copies elsewhere "
+            "(transcripts, backups) are outside what this drill can see")
 
     pairs = parse(read_image(image, passphrase))
     say("OPENED    escrow with %d keys" % len(pairs))
@@ -470,6 +471,8 @@ def main(argv):
         sys.stderr.write(__doc__)
         return 1
     verb, rest = args[0], args[1:]
+    if verb in ("drill", "_drill-inner") and len(rest) == 2 and not rest[1].isdigit():
+        raise EscrowError("the read-back count must be a whole number", 1)
     if verb == "export" and len(rest) == 1:
         return cmd_export(rest[0], passphrase)
     if verb == "drill" and len(rest) in (1, 2):
