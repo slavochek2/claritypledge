@@ -47,7 +47,7 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 
 **If the banner is missing (404/400):**
 - Prod service key enrolled in the keyring (founder machine — `./scripts/keyring.sh status`, never prompts): run `./scripts/event-photo-prep.sh <slug> "<query>"` (Unsplash generation + storage upload; founder-only, macOS-only; one authorization dialog at upload — **Allow**, never "Always Allow"). Query suggestions — trail run: `"trail running jungle waterfall"`; AI Run / talk: `"morning coffee laptop community"`.
-- No service key (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com (banner auto-generates; Regenerate control on the event page), then re-run."
+- Not enrolled (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com (banner auto-generates; Regenerate control on the event page), then re-run."
 
 ### 3. Open todo.today
 

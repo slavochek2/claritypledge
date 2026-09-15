@@ -110,9 +110,12 @@ Phase 2 has proven no real user is affected. Clear the candidate's rows so the `
 
 Order: snapshot → **reassign points (A)** → **history+positions (B)** → letter positions → verifications → **DELETE the candidate's sessions** → NULL `source_letter_id` (remaining) → letters → docs → agreements → NULL deliveries/witnesses/log → user. Re-scan all profile FKs (by `profile_id`) immediately before the delete — same-day app activity can re-create rows. Then:
 
-On **prod**, every Phase 4 write block first reads the service key through the per-access lock — one
-authorization dialog per block, tell the founder **Allow**, never "Always Allow"; a declined dialog
-stops with nothing written. On **test**, `SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` as before.
+On **prod**, run **every** Phase 4 write — steps A and B, each row of the table above, and the final
+user delete — in a shell that has first run the preamble below. It is shown once, on the final delete,
+but each agent Bash call is a fresh shell, so each write block needs it again: one authorization dialog
+per block, tell the founder **Allow**, never "Always Allow"; a declined dialog stops with nothing
+written. Batch A, B and the table writes into as few blocks as the order allows. On **test**,
+`SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` as before.
 
 ```bash
 # prod only
