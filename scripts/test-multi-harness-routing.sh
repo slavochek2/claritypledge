@@ -206,7 +206,7 @@ run_tier_c() {
   run_exit "public bounded corpus passes scan" 0 bash -c "printf '%s' 'Summarize the public README into five bullets.' | '$WRAPPER' --check"
   run_exit "credential-shaped content refuses" 2 bash -c "printf '%s' 'Rotate AKIA0123456789ABCDEF today.' | '$WRAPPER' --check"
   run_exit "path/PII mentions are not refused by the scan" 0 bash -c "printf '%s' 'Contact fixture@example.com about Projects/private/notes.txt' | '$WRAPPER' --check"
-  run_exit "missing defaults file is exit 2, never a silent model fallback" 2 env HOME="$TMP_ROOT/empty-home" ASK_MODEL_DEFAULTS_FILE="$TMP_ROOT/absent.env" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER'"
+  run_exit "missing defaults file is exit 3 (setup failure), never a silent model fallback" 3 env HOME="$TMP_ROOT/empty-home" ASK_MODEL_DEFAULTS_FILE="$TMP_ROOT/absent.env" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER'"
 
   mkdir -p "$TMP_ROOT/executor-home"
   printf '%s' '{"modelVersion":"gemini-0-fixture","promptFeedback":{"blockReason":"SAFETY"}}' >"$TMP_ROOT/blocked.json"
