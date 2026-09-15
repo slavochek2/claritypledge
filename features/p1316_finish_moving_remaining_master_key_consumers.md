@@ -129,6 +129,26 @@ Decision density: low — the verdict rule was settled on 2026-09-08 and applied
       verified by reading the env files, and every consumer still runs afterwards
 - [ ] Nothing was revoked at any provider by this spec (rotation and retirement execution stay P1148)
 
+## Open Questions (carried over 2026-09-15 — none of these was answered before P1214 or P1239 closed)
+
+1. **The CI-side copy of the prod database connection string.** A second copy lives in the CI
+   provider's secret store, read nightly by one scheduled backup job — the only critical-tier
+   credential in any workflow. The local lock cannot reach it, so standing prod-DB access remains
+   readable to anything that compromises the source-control account or a workflow. **Not assessed:**
+   whether that different adversary is acceptable, or whether the copy needs its own control.
+   (From P1214 Open Question 4, which P1239 had routed there.)
+2. **A syscall-level read block on a few named credential paths.** Narrower than the session
+   sandboxing P1214 rejected on 2026-09-01, and half of that rejection's reasoning no longer holds
+   for the locked set. Whether the narrow form falls inside the rejection is a **founder call**. The
+   two mechanisms already ruled out by measurement stay recorded in P1239 Open Question 4 — do not
+   re-measure them. (From P1239 Open Question 4 and P1214's sandbox Non-Goal.)
+3. **Guarding the second local credential store** — four live secrets outside the plaintext env
+   file (names in `.private/docs/security-log.md`), one of them duplicated. Do they join the locked
+   half, get their own guard, or stay put? Rotating them is P1148's inventory item; guarding them is
+   open here. (From P1239 Open Question 5.)
+4. **The test project's master key is still in the legacy format.** Migrate it in the same pass as
+   the consumer census, or after? Not assessed. (From P1214 Open Question 3.)
+
 ## Related
 
 - [P1214](p1214_credential_separation_and_privilege_reduction.md) — the consumer migration this finishes
