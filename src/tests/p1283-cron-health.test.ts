@@ -36,14 +36,18 @@ function fixtureDir(files: Record<string, string>) {
 describe('P1283 — expected jobs derived from migrations', () => {
   it('finds every cron.schedule in the real migrations directory', () => {
     const jobs = parseMigrationsForCronJobs(MIGRATIONS_DIR);
+    // P1307 (2026-09-15): 20260914120300 schedules transcribe_room_sweep — a fourth real job,
+    // which this check is meant to start watching. The snapshot of the real directory grows.
     expect(Object.keys(jobs).sort()).toEqual([
       'cleanup_expired_ready_submissions',
       'cleanup_stale_live_invites',
       'dispatch_event_emails',
+      'transcribe_room_sweep',
     ]);
     expect(jobs.dispatch_event_emails).toBe('*/30 * * * *');
     expect(jobs.cleanup_expired_ready_submissions).toBe('*/5 * * * *');
     expect(jobs.cleanup_stale_live_invites).toBe('0 * * * *');
+    expect(jobs.transcribe_room_sweep).toBe('*/2 * * * *');
   });
 
   // P1283's repair migration is the one file in the tree that both unschedules and
@@ -310,12 +314,14 @@ describe('P1283 — defects found by adversarial review (codex, 2026-09-09)', ()
     }
   });
 
-  it('the real migrations still resolve to the same three jobs after the ordering fix', () => {
+  it('the real migrations still resolve to the same jobs after the ordering fix', () => {
     const jobs = parseMigrationsForCronJobs(MIGRATIONS_DIR);
+    // P1307 (2026-09-15): was "the same three jobs"; transcribe_room_sweep is the fourth.
     expect(Object.keys(jobs).sort()).toEqual([
       'cleanup_expired_ready_submissions',
       'cleanup_stale_live_invites',
       'dispatch_event_emails',
+      'transcribe_room_sweep',
     ]);
   });
 
@@ -405,10 +411,12 @@ describe('P1283 — non-executable SQL must never create an expectation', () => 
   });
 
   it('the real migrations are unchanged by the comment stripper', () => {
+    // P1307 (2026-09-15): transcribe_room_sweep added by 20260914120300.
     expect(parseMigrationsForCronJobs(MIGRATIONS_DIR)).toEqual({
       cleanup_expired_ready_submissions: '*/5 * * * *',
       cleanup_stale_live_invites: '0 * * * *',
       dispatch_event_emails: '*/30 * * * *',
+      transcribe_room_sweep: '*/2 * * * *',
     });
   });
 });
