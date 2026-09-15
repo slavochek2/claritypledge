@@ -12,8 +12,8 @@
  *   node scripts/archive/migrations/20260813-p1055-cmp-points.mjs --env=test
  *   node scripts/archive/migrations/20260813-p1055-cmp-points.mjs --env=prod --confirm
  *
- * Reads TEST_SUPABASE_SERVICE_ROLE_KEY / PROD_SUPABASE_SERVICE_ROLE_KEY and
- * COPY_PROD_FOUNDER_EMAIL from .env.local. Safe to re-run: aborts if any
+ * Reads TEST_SUPABASE_SERVICE_ROLE_KEY and COPY_PROD_FOUNDER_EMAIL from .env.local;
+ * the prod service key comes through the per-access lock, only on a prod run (P1316). Safe to re-run: aborts if any
  * cmp10-tagged Point already exists in the target environment.
  */
 

@@ -93,12 +93,19 @@ const thursdays = nextThursdays(FIRST_THURSDAY_UTC, WINDOW_SIZE);
 
 const isConfirm = process.argv.includes('--confirm');
 
-// Prod service key through the per-access lock (P1316) — throws on a declined dialog,
-// never falls back to a plaintext copy.
-const { keyringGet } = await import('./lib/keyring.mjs');
-const SERVICE_ROLE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'seed-webinars: count and insert webinar events on prod');
+const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 
-const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
+// Reads (the count and the dry-run plan) use the public anon key: `events` is SELECT USING (true)
+// — measured 2026-09-15, anon and the read-only helper both see all 14 prod rows. The prod service
+// key is read through the per-access lock only after --confirm (P1316), so a dry run costs no dialog.
+const { readFileSync } = await import('fs');
+const PROD_ANON_KEY = readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
+  .match(/^PROD_SUPABASE_ANON_KEY=["']?([^"'\r\n]+)/m)?.[1];
+if (!PROD_ANON_KEY) {
+  console.error('ERROR: PROD_SUPABASE_ANON_KEY not found in .env.local');
+  process.exit(1);
+}
+let supabase = createClient(PROD_URL, PROD_ANON_KEY);
 
 // Count existing series events (past + upcoming) to continue numbering correctly.
 // Count existing series events (past + upcoming) to continue numbering correctly.
@@ -136,6 +143,11 @@ if (!isConfirm) {
   console.log('\n[DRY RUN] Pass --confirm to insert into prod.\n');
   process.exit(0);
 }
+
+// Confirmed: now, and only now, read the prod service key through the per-access lock.
+// keyringGet throws on a declined dialog — nothing is inserted, no plaintext fallback.
+const { keyringGet } = await import('./lib/keyring.mjs');
+supabase = createClient(PROD_URL, keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'seed-webinars: insert webinar events on prod'));
 
 console.log('\nInserting into PROD...\n');
 let success = 0;

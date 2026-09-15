@@ -14,12 +14,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 
-// Prod service key through the per-access lock (P1316) — throws on a declined dialog,
-// never falls back to a plaintext copy. Archived one-off: kept runnable, not re-run.
-const { keyringGet } = await import('../../lib/keyring.mjs');
-const SERVICE_ROLE_KEY = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'number-webinar-titles (archived migration): rename series events on prod');
+const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 
-const supabase = createClient('https://besjtuodziykmjidubzw.supabase.co', SERVICE_ROLE_KEY);
+// Archived one-off: kept runnable, not re-run. The dry-run read uses the public anon key
+// (`events` is SELECT USING (true)); the prod service key is read through the per-access lock only
+// after --confirm (P1316), so a dry run costs no dialog.
+const { readFileSync } = await import('fs');
+const PROD_ANON_KEY = readFileSync(new URL('../../../.env.local', import.meta.url), 'utf8')
+  .match(/^PROD_SUPABASE_ANON_KEY=["']?([^"'\r\n]+)/m)?.[1];
+if (!PROD_ANON_KEY) {
+  console.error('ERROR: PROD_SUPABASE_ANON_KEY not found in .env.local');
+  process.exit(1);
+}
+let supabase = createClient(PROD_URL, PROD_ANON_KEY);
 
 // Fetch all series events (past + upcoming) ordered chronologically
 const { data: events, error } = await supabase
@@ -45,6 +52,11 @@ if (!isConfirm) {
   console.log('\n[DRY RUN] Pass --confirm to update prod.\n');
   process.exit(0);
 }
+
+// Confirmed: now, and only now, read the prod service key through the per-access lock.
+// keyringGet throws on a declined dialog — nothing is updated, no plaintext fallback.
+const { keyringGet } = await import('../../lib/keyring.mjs');
+supabase = createClient(PROD_URL, keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'number-webinar-titles (archived migration): rename series events on prod'));
 
 console.log('\nUpdating PROD...\n');
 let success = 0;
