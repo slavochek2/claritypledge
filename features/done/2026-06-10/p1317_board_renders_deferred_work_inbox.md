@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 101
 workstream: infrastructure
 created_date: '2026-09-15'
 tags: [kanban, process, task-inbox, privacy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-15
 ---
 
 # P1317: Inbox entries have no card and no verdict path, so the queue only grows
