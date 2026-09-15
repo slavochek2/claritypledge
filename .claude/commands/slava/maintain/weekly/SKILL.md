@@ -548,6 +548,50 @@ If `COVERAGE` shows unclassified live keys (`CONSUMER_ONLY` findings), `RETIREME
 
 ---
 
+### 2.10.3 Locked-Credential Gate Check (P1322, runs in background — parallel with 2.10.x)
+
+Clicking **"Always Allow"** on a keyring dialog permanently removes that credential's lock, with no
+error and nothing visible. This is the only place that notices. **Report-only:** it reads ACLs, never
+decrypts, never raises a dialog, and never enrolls, withdraws or repairs anything.
+
+```bash
+# run from the cp repo root. The output names the locked credentials (a target list), so it is
+# written private (600), like the drift audit above.
+KEYRING_OUT=/tmp/p1322-weekly-keyring-verify.txt
+(umask 077; ./scripts/keyring.sh verify > "$KEYRING_OUT" 2>&1)
+VERIFY_EXIT=$?
+chmod 600 "$KEYRING_OUT"
+echo "defeated=$(grep -c ' DEFEATED ' "$KEYRING_OUT") missing=$(grep -c ' MISSING$' "$KEYRING_OUT") intact=$(grep -c ' OK gate-intact$' "$KEYRING_OUT") exit=$VERIFY_EXIT"
+```
+
+Read `$VERIFY_EXIT` directly, together with the counts: `0` every gate intact · `2` at least one
+gate is defeated · `1` **with `missing` ≥ 1** a registered key is not enrolled · **`1` with
+`missing=0`, `3`, or anything else: the check judged nothing** (an unreadable or empty registry, or
+no reference item) — never a pass; read the raw output. Measured on 2026-09-15: an unreadable
+registry exits `1`, exactly like an unenrolled key, and only the `missing` count tells them apart.
+
+Merge into Evidence Picture as:
+```
+KEYRING GATE: ✅ N/N intact / ⚠️ [N] DEFEATED / ⚠️ [N] not enrolled / ❌ check did not run
+```
+
+ACTIONS (step 5):
+- **exit 2** → "· A locked credential's gate is defeated — see `/tmp/p1322-weekly-keyring-verify.txt`." If
+  **exactly one** key is DEFEATED, someone clicked Always Allow on it: repair by re-creating the item
+  (`./scripts/keyring.sh enroll KEY` while the plaintext copy exists; after P1318, `keyring.sh withdraw KEY`
+  then `./scripts/keyring-escrow.sh restore ESCROW.dmg KEY`). If **every** key is DEFEATED at once, suspect
+  macOS layout drift before compromise — `docs/technical/credential-keyring.md` § "If every key reports DEFEATED".
+- **exit 1, `missing` ≥ 1** → "· A registered locked credential is not enrolled — a consumer of it will fail closed."
+- **judged nothing** → "· The keyring gate check did not run — read the raw output before trusting anything above."
+
+**A stopgap, accepted knowingly** — [decisions.md](../../../../../docs/decisions.md) 2026-08-09 puts
+recurring detection in scheduled workflows, not skills. This check needs this Mac's login keychain,
+which no CI runner can reach, so a workflow cannot run it. Cost: a defeated gate surfaces within a
+week instead of within a day. End state: a scheduled job on this Mac that writes the verdict where a
+skill only reads it.
+
+---
+
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.9.1)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
