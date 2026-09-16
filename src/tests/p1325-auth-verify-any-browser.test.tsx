@@ -83,16 +83,27 @@ describe('P1325 — carried redirect_to', () => {
     expect(t.href).not.toContain('h1');
   });
 
-  it('unpacks a RAW (unescaped) redirect_to, whose own & split into top-level params', async () => {
+  // The hosted template was verified live (test project) to render {{ .RedirectTo }} ESCAPED.
+  // A raw rendering is therefore not a legitimate input, and accepting it only widened what an
+  // email link can carry (code review, P1325) — so it is refused: sign-in proceeds, intent dropped.
+  it('refuses a RAW (unescaped) redirect_to: signs in, carries no intent', async () => {
     atUrl(`?token_hash=h1&type=email&redirect_to=${CALLBACK}`);
     renderPage();
-    await waitFor(() => expect(navigate).toHaveBeenCalled());
-    const t = target();
-    expect(t.pathname).toBe('/auth/callback');
-    expect(t.searchParams.get('source')).toBe('signup');
-    expect(t.searchParams.get('redirect')).toBe('/events/clarity-night');
-    expect(t.searchParams.get('action')).toBe('rsvp');
-    expect(t.searchParams.has('redirect_to')).toBe(false);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/auth/callback', { replace: true }));
+  });
+
+  it('refuses trailing params glued onto a callback path (code-review probe)', async () => {
+    atUrl(`?token_hash=h1&type=email&redirect_to=${ORIGIN}/auth/callback&action=join-org&redirect=/groups/x/join`);
+    renderPage();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/auth/callback', { replace: true }));
+  });
+
+  it('accepts the exact lowercase-hex escaping GoTrue produced live', async () => {
+    const live = 'http%3a%2f%2flocalhost%3a5300%2fauth%2fcallback%3fsource%3dsignup%26redirect%3d%252Fevents%252Fx%26action%3drsvp';
+    atUrl(`?token_hash=h1&type=email&redirect_to=${live}`);
+    // this test runs on jsdom's origin, so the live localhost:5300 origin must be REJECTED here
+    renderPage();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/auth/callback', { replace: true }));
   });
 
   it('accepts a bare callback with no params', async () => {
@@ -172,15 +183,36 @@ describe('P1325 — already signed in, or recovering', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('continues to the callback with the intent when this browser already has a session', async () => {
+  // Code review, P1325: continuing to the CALLBACK here would let any dead link run the callback's
+  // actions (rsvp, join-org, set-position) for whoever is signed in. The signed-in person goes to
+  // the safe destination page instead, and no action runs from this path.
+  it('sends an already-signed-in browser to the destination page, never through the callback', async () => {
     getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
     atUrl(`?token_hash=used&type=email&redirect_to=${encodeURIComponent(CALLBACK)}`);
     renderPage();
-    await waitFor(() => expect(navigate).toHaveBeenCalled());
-    const t = target();
-    expect(t.pathname).toBe('/auth/callback');
-    expect(t.searchParams.get('action')).toBe('rsvp');
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/events/clarity-night', { replace: true }));
+    expect(navigate.mock.calls.some((c) => String(c[0]).startsWith('/auth/callback'))).toBe(false);
     expect(screen.queryByText(/this link can't be used/i)).not.toBeInTheDocument();
+  });
+
+  it('sends an already-signed-in browser home when the destination is not allowlisted', async () => {
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    const bad = `${ORIGIN}/auth/callback?source=signup&redirect=%2F%2Fevil.example&action=join-org`;
+    atUrl(`?token_hash=used&type=email&redirect_to=${encodeURIComponent(bad)}`);
+    renderPage();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replace: true }));
+  });
+
+  it('carries the auth-gate params /signup reads (pointId, position, pointTitle) into recovery', async () => {
+    const gate = `${ORIGIN}/auth/callback?source=signup&redirect=%2Fpoint%2Fabc&action=set-position&pointId=abc&position=agree&pointTitle=T`;
+    atUrl(`?token_hash=used&type=email&redirect_to=${encodeURIComponent(gate)}`);
+    renderPage();
+    const out = await screen.findByRole('link', { name: /send me a new link/i });
+    const href = new URL(out.getAttribute('href')!, ORIGIN);
+    expect(href.pathname).toBe('/signup');
+    expect(href.searchParams.get('pointId')).toBe('abc');
+    expect(href.searchParams.get('position')).toBe('agree');
+    expect(href.searchParams.get('pointTitle')).toBe('T');
   });
 
   it('sends a failed SIGNUP back to /signup with the event intent', async () => {
@@ -201,6 +233,14 @@ describe('P1325 — already signed in, or recovering', () => {
     const href = new URL(out.getAttribute('href')!, ORIGIN);
     expect(href.pathname).toBe('/login');
     expect(href.searchParams.get('redirect')).toBe('/events/hike');
+  });
+
+  it('sends a failed PLEDGE signup back to /sign-pledge, not /login (which refuses people with no profile)', async () => {
+    const pledge = `${ORIGIN}/auth/callback?source=pledge`;
+    atUrl(`?token_hash=used&type=email&redirect_to=${encodeURIComponent(pledge)}`);
+    renderPage();
+    const out = await screen.findByRole('link', { name: /send me a new link/i });
+    expect(out.getAttribute('href')).toBe('/sign-pledge');
   });
 
   it('does not carry a redirect the allowlist rejects into the recovery link', async () => {

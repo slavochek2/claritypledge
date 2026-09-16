@@ -78,14 +78,14 @@ const CALLBACK_PATH = '/auth/callback';
 /**
  * P1325: the signup and magic-link email templates point here with
  * `redirect_to={{ .RedirectTo }}` — the full `/auth/callback?source=…&redirect=…&action=…` URL
- * the app passed as `emailRedirectTo`. The hosted template may render it escaped or raw, and
- * raw its own `&` split it into top-level params, so the value is recovered from the raw query
- * string rather than from URLSearchParams. `redirect_to` is expected to be the LAST param.
+ * the app passed as `emailRedirectTo`. Verified live on the test project: GoTrue renders it
+ * URL-ESCAPED (lowercase hex). Only that form is accepted; a raw rendering is not something the
+ * template produces, and accepting it would only widen what a link can carry.
  *
  * Returns the callback's query params when `redirect_to` names this origin's /auth/callback;
- * EMPTY params when it is present but names anything else (sign-in proceeds, intent is dropped,
- * and nothing smuggled beside it is forwarded); null when there is no `redirect_to` at all, so
- * P1257 operator links keep their flat-param forwarding.
+ * EMPTY params when it is present but anything else (sign-in proceeds, intent is dropped, and
+ * nothing beside it is forwarded); null when there is no `redirect_to` at all, so P1257 operator
+ * links keep their flat-param forwarding.
  *
  * This is not the redirect boundary — AuthCallbackPage re-validates `redirect` with
  * isSafeRedirectPath. It only refuses to let an email link choose where the hand-off goes.
@@ -94,22 +94,12 @@ function parseCarriedRedirect(rawSearch: string, origin: string): URLSearchParam
   const match = /(?:^\?|[?&])redirect_to=/.exec(rawSearch);
   if (!match) return null;
   const remainder = rawSearch.slice(match.index + match[0].length);
+  if (!/^https?%3A/i.test(remainder)) return new URLSearchParams();
 
-  let candidate: string;
-  if (/^https?%3A/i.test(remainder)) {
-    const end = remainder.indexOf('&');
-    try {
-      candidate = decodeURIComponent(end === -1 ? remainder : remainder.slice(0, end));
-    } catch {
-      return new URLSearchParams();
-    }
-  } else {
-    candidate = remainder;
-  }
-
+  const end = remainder.indexOf('&');
   let url: URL;
   try {
-    url = new URL(candidate);
+    url = new URL(decodeURIComponent(end === -1 ? remainder : remainder.slice(0, end)));
   } catch {
     return new URLSearchParams();
   }
@@ -135,16 +125,22 @@ function isRetryableError(error: { name?: string; status?: number }): boolean {
 
 /**
  * P1325: the way out of a dead link keeps the post-auth intent. A failed SIGNUP goes back to
- * /signup — /login refuses anyone without a profile ("No account found"), which is exactly the
- * person whose confirmation just failed. Only an allowlisted redirect is carried.
+ * /signup and a failed pledge back to /sign-pledge — /login refuses anyone without a profile
+ * ("No account found"), which is exactly the person whose confirmation just failed. Only an
+ * allowlisted redirect is carried; /sign-pledge reads none, so it gets none.
  */
 function recoveryHref(forwarded: URLSearchParams): string {
-  const base = forwarded.get('source') === 'signup' ? '/signup' : '/login';
+  const source = forwarded.get('source');
+  if (source === 'pledge') return '/sign-pledge';
+  const base = source === 'signup' ? '/signup' : '/login';
   const redirect = forwarded.get('redirect');
   if (!isSafeRedirectPath(redirect)) return base;
   const out = new URLSearchParams({ redirect });
-  const action = forwarded.get('action');
-  if (action) out.set('action', action);
+  // action + the auth-gate params the signup and login pages read back (P458).
+  for (const key of ['action', 'pointId', 'position', 'pointTitle', 'letterId']) {
+    const value = forwarded.get(key);
+    if (value) out.set(key, value);
+  }
   return `${base}?${out.toString()}`;
 }
 
@@ -218,11 +214,14 @@ export function AuthVerifyPage() {
         if (error) {
           console.error('[auth-verify] verifyOtp failed:', error.message);
           // P1325: a second click on the same link, in a browser that is already signed in,
-          // is not a failure worth a dead end — carry on with the intent.
+          // is not a failure worth a dead end. It goes to the destination PAGE, never through
+          // the callback: the callback executes actions (rsvp, join-org, set-position) for
+          // whoever holds a session, and a dead link must not be able to trigger them.
           try {
             const { data } = await supabase.auth.getSession();
             if (data?.session) {
-              navigate(callbackUrl, { replace: true });
+              const redirect = forwardedParams.get('redirect');
+              navigate(isSafeRedirectPath(redirect) ? redirect : '/', { replace: true });
               return;
             }
           } catch {
