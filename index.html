@@ -113,10 +113,33 @@
         }
         /* P1304-END */
 
+        /* P1325-BEGIN — sign-in tokens ride in page URLs: the token_hash param on /auth/verify,
+           the code param on /auth/callback and the access/refresh token fragment, plus encoded copies inside
+           login redirects. Every signup lands on /auth/verify, so redact them from every event
+           property (composed with P1304's room-code redaction, not replacing it) and keep
+           session recording off on the sign-in landing routes, where the recorder attaches the
+           raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
+           src/lib/sentry-filters.ts; a test asserts the two stay identical. */
+        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23)(?:token_hash|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+        var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname);
+        function p1325Redact(value) {
+          if (typeof value === 'string') return p1304Redact(value).replace(p1325SignInParam, '$1[redacted]');
+          if (Array.isArray(value)) return value.map(p1325Redact);
+          if (value && typeof value === 'object') {
+            var out = {};
+            for (var key in value) {
+              if (Object.prototype.hasOwnProperty.call(value, key)) out[key] = p1325Redact(value[key]);
+            }
+            return out;
+          }
+          return value;
+        }
+        /* P1325-END */
+
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
           autocapture: { pageview: true, formContents: false },
-          record_sessions_percent: p1304IsCodeRoute ? 0 : 100,
-          hooks: { before_send_events: p1304Redact },
+          record_sessions_percent: p1325NoRecord ? 0 : 100,
+          hooks: { before_send_events: p1325Redact },
           api_host: 'https://api-eu.mixpanel.com',
           // P881: default ~5s batch window strands events when the page dies
           // without pagehide (mobile app-switch/OS kill) and the user never

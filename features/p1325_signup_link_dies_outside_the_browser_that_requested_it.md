@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 106
 workstream: C1
 created_date: '2026-09-16'
 tags: [auth, magic-link, events, activation]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, challenge-prd]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 pipeline_plan: [create-spec, challenge-prd, dev, verify]
 pipeline_skipped: ["architect -- security design settled by two external adversarial reviews plus four live experiments on test; Technical Design section below", "generate-tests -- tests written test-first inside /dev against the Technical Design"]
 drafted_by: opus

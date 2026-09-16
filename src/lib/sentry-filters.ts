@@ -221,6 +221,18 @@ export function redactRoomCodes(text: string): string {
   return text.replace(ROOM_CODE_IN_URL, "$1[code]");
 }
 
+/**
+ * P1325: sign-in tokens are bearer credentials that ride in page URLs — every signup lands on
+ * /auth/verify?token_hash=, and /auth/callback carries ?code= or #access_token=. Redacted
+ * wherever a URL-bearing string reaches Sentry, alongside room codes. The index.html Mixpanel
+ * block carries an identical copy; a test asserts they stay identical.
+ */
+export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23)(?:token_hash|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+
+export function redactAuthTokens(text: string): string {
+  return text.replace(AUTH_TOKEN_IN_URL, "$1[redacted]");
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== "object") return false;
   const proto = Object.getPrototypeOf(value);
@@ -234,7 +246,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * to `{}` by Object.entries.
  */
 function redactDeep<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
-  if (typeof value === "string") return redactRoomCodes(value) as T;
+  if (typeof value === "string") return redactAuthTokens(redactRoomCodes(value)) as T;
   if (!Array.isArray(value) && !isPlainObject(value)) return value;
   if (seen.has(value)) return seen.get(value) as T;
   if (Array.isArray(value)) {

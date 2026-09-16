@@ -42,6 +42,7 @@ import { supabase } from "@/lib/supabase";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { isSafeRedirectPath } from "./redirect-allowlist";
 
 /**
  * OTP types this route will redeem. Narrowed on purpose: `token_hash` arrives from the
@@ -72,12 +73,88 @@ function parseOtpType(raw: string | null): EmailOtpType {
     : 'magiclink';
 }
 
+const CALLBACK_PATH = '/auth/callback';
+
+/**
+ * P1325: the signup and magic-link email templates point here with
+ * `redirect_to={{ .RedirectTo }}` — the full `/auth/callback?source=…&redirect=…&action=…` URL
+ * the app passed as `emailRedirectTo`. The hosted template may render it escaped or raw, and
+ * raw its own `&` split it into top-level params, so the value is recovered from the raw query
+ * string rather than from URLSearchParams. `redirect_to` is expected to be the LAST param.
+ *
+ * Returns the callback's query params when `redirect_to` names this origin's /auth/callback;
+ * EMPTY params when it is present but names anything else (sign-in proceeds, intent is dropped,
+ * and nothing smuggled beside it is forwarded); null when there is no `redirect_to` at all, so
+ * P1257 operator links keep their flat-param forwarding.
+ *
+ * This is not the redirect boundary — AuthCallbackPage re-validates `redirect` with
+ * isSafeRedirectPath. It only refuses to let an email link choose where the hand-off goes.
+ */
+function parseCarriedRedirect(rawSearch: string, origin: string): URLSearchParams | null {
+  const match = /(?:^\?|[?&])redirect_to=/.exec(rawSearch);
+  if (!match) return null;
+  const remainder = rawSearch.slice(match.index + match[0].length);
+
+  let candidate: string;
+  if (/^https?%3A/i.test(remainder)) {
+    const end = remainder.indexOf('&');
+    try {
+      candidate = decodeURIComponent(end === -1 ? remainder : remainder.slice(0, end));
+    } catch {
+      return new URLSearchParams();
+    }
+  } else {
+    candidate = remainder;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return new URLSearchParams();
+  }
+  if (url.origin !== origin || url.pathname !== CALLBACK_PATH) return new URLSearchParams();
+
+  const carried = new URLSearchParams(url.search);
+  carried.delete('token_hash');
+  carried.delete('type');
+  return carried;
+}
+
+/**
+ * P1325: supabase-js RETURNS network failures and 5xx as `AuthRetryableFetchError` (auth-js
+ * lib/fetch.js handleError) — it does not throw them, so a `.catch` never sees a dropped
+ * connection. 429 is a refusal to process, not a verdict on the token. All of these leave the
+ * token unspent as far as this page can know, so the link must survive them.
+ */
+function isRetryableError(error: { name?: string; status?: number }): boolean {
+  if (error.name === 'AuthRetryableFetchError') return true;
+  const status = error.status;
+  return status === 0 || status === 429 || (typeof status === 'number' && status >= 500);
+}
+
+/**
+ * P1325: the way out of a dead link keeps the post-auth intent. A failed SIGNUP goes back to
+ * /signup — /login refuses anyone without a profile ("No account found"), which is exactly the
+ * person whose confirmation just failed. Only an allowlisted redirect is carried.
+ */
+function recoveryHref(forwarded: URLSearchParams): string {
+  const base = forwarded.get('source') === 'signup' ? '/signup' : '/login';
+  const redirect = forwarded.get('redirect');
+  if (!isSafeRedirectPath(redirect)) return base;
+  const out = new URLSearchParams({ redirect });
+  const action = forwarded.get('action');
+  if (action) out.set('action', action);
+  return `${base}?${out.toString()}`;
+}
+
 export function AuthVerifyPage() {
   const navigate = useNavigate();
   const [failed, setFailed] = useState(false);
   // Distinguishes "GoTrue rejected this token" from "we never reached GoTrue". Only the
   // second is retryable, and only the second leaves the link still usable.
   const [networkError, setNetworkError] = useState(false);
+  const [recoverTo, setRecoverTo] = useState('/login');
 
   // Guard against React StrictMode's double-invoke and any re-render: a token_hash is
   // single-use, so a second verifyOtp with the same token fails and would flip a
@@ -96,11 +173,16 @@ export function AuthVerifyPage() {
     const otpType = parseOtpType(params.get('type'));
 
     // Forward everything except the token itself, so ?redirect= / ?action= post-auth
-    // intent survives the hand-off to the Writer.
+    // intent survives the hand-off to the Writer. P1325: a template-carried redirect_to
+    // replaces the flat params entirely when present.
     params.delete('token_hash');
     params.delete('type');
-    const forwarded = params.toString();
-    const callbackUrl = forwarded ? `/auth/callback?${forwarded}` : '/auth/callback';
+    const carried = parseCarriedRedirect(window.location.search, window.location.origin);
+    params.delete('redirect_to');
+    const forwardedParams = carried ?? params;
+    const forwarded = forwardedParams.toString();
+    const callbackUrl = forwarded ? `${CALLBACK_PATH}?${forwarded}` : CALLBACK_PATH;
+    setRecoverTo(recoveryHref(forwardedParams));
 
     if (!tokenHash) {
       setFailed(true);
@@ -112,14 +194,40 @@ export function AuthVerifyPage() {
     const stripToken = () =>
       window.history.replaceState(null, '', window.location.pathname);
 
+    const retryable = (err: unknown) => {
+      // NOT definitive — the token is still UNSPENT as far as we can know. Deliberately do not
+      // strip it: leaving it in the URL means a refresh retries, which is the one recovery a
+      // person can find on their own. Stripping here would destroy a working link from their
+      // side and then tell them it was already used — the exact dead end this page exists to
+      // remove.
+      console.error('[auth-verify] verifyOtp did not reach a verdict:', err);
+      setNetworkError(true);
+      setFailed(true);
+    };
+
     supabase.auth
       .verifyOtp({ token_hash: tokenHash, type: otpType })
-      .then(({ error }) => {
-        // Either outcome here is DEFINITIVE: GoTrue answered. On success the token is spent;
-        // on an auth error it is rejected. Nothing is lost by removing it from the URL now.
+      .then(async ({ error }) => {
+        if (error && isRetryableError(error)) {
+          retryable(error);
+          return;
+        }
+        // Anything else is DEFINITIVE: GoTrue answered. On success the token is spent; on an
+        // auth error it is rejected. Nothing is lost by removing it from the URL now.
         stripToken();
         if (error) {
           console.error('[auth-verify] verifyOtp failed:', error.message);
+          // P1325: a second click on the same link, in a browser that is already signed in,
+          // is not a failure worth a dead end — carry on with the intent.
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session) {
+              navigate(callbackUrl, { replace: true });
+              return;
+            }
+          } catch {
+            // fall through to the error screen
+          }
           setFailed(true);
           return;
         }
@@ -127,16 +235,7 @@ export function AuthVerifyPage() {
         // post-auth routing from here.
         navigate(callbackUrl, { replace: true });
       })
-      .catch((err: unknown) => {
-        // NOT definitive — the request never reached GoTrue (offline, DNS, TLS, CORS), so the
-        // token is still UNSPENT. Deliberately do not strip it: leaving it in the URL means a
-        // refresh retries, which is the one recovery a person can find on their own. Stripping
-        // here would destroy a working link from their side and then tell them it was already
-        // used — the exact dead end this page exists to remove.
-        console.error('[auth-verify] verifyOtp threw:', err);
-        setNetworkError(true);
-        setFailed(true);
-      });
+      .catch(retryable);
   }, [navigate]);
 
   if (failed) {
@@ -185,7 +284,7 @@ export function AuthVerifyPage() {
               </button>
             ) : (
               <Link
-                to="/login"
+                to={recoverTo}
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
               >
                 Send me a new link
