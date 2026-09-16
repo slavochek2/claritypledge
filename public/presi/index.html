@@ -935,7 +935,11 @@
     <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
   </section>
 
-  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire. -->
+  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
+       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
+       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
+       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
+       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
   <style>
     .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
     .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
@@ -953,6 +957,7 @@
       <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
       <div class="card refuse"><h3>Fear</h3><p>&ldquo;Then I can't blame you.&rdquo;</p></div>
       <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
+      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;If I don't check, I don't have to know.&rdquo;</p></div>
     </div>
     <div class="note">Deniability is the one we <em>both</em> want &mdash; which is why asking feels like an imposition.</div>
   </section>

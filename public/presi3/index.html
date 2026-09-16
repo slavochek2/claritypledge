@@ -818,20 +818,6 @@
     </div>
   </section>
 
-  <!-- 4 · THE STAKES — CB Insights: "no market need" is the #1 startup-failure reason, ~35% of post-mortems (landing ref 1; the landing renders it as "1 in 3"). -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Bridge line "Building got 10x cheaper. Checking you meant the same thing didn't." pays off the hero's 10x and turns the market stat toward internal misunderstanding.
-      - CB Insights post-mortems: "no market need" is the #1 stated reason (~35%).
-      - Bridge: some of that is a market nobody had the signal on. A lot of it is a team that never verified it agreed.
-      - Claim = calibration, not accuracy: we do not make you right about the customer; we remove false confidence.
-    -->
-    <div class="bignum" data-target="35">35%</div>
-    <h2 style="margin-top:1.4rem;font-size:clamp(1.3rem,3.2vw,2.2rem);max-width:18ch">of failed startups built something the market never wanted<sup><a href="https://www.cbinsights.com/research/startup-failure-reasons-top/" target="_blank" rel="noopener">1</a></sup></h2>
-    <p class="lead" style="margin-top:1.1rem;max-width:40ch">Building got 10x cheaper. Checking you meant the same thing didn't.</p>
-    <div class="refs">[1] CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)</div>
-  </section>
-
   <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
        Deliberately NOT pitched as a discovery: the mechanic is old and cited
        (read-back/teach-back in CRM, Gottman-Rapoport in therapy, Rogers &
@@ -861,79 +847,22 @@
     </div>
   </section>
 
-  <!-- 2 · THE SEAM — the landing's HardTruthChat (variant="they-withheld", build-right-thing-landing.tsx §2b): a teammate held a doubt about the DIRECTION, didn't send it, and built on the guess. Dialogue quoted verbatim from the landing (§2b), which is the deck's source of truth for how the product and its problem are described. GENERIC/ANONYMIZED — not a real person. Reuses the deck's deleted-message chat grammar (chat() in the motion layer types the truth, strikes it, collapses it). -->
-  <section class="slide wa-big">
+  <section class="slide dark cloud-slide">
     <!-- NOTES
-      - Let the typed message land, then the strike-through: the doubt existed and was deleted.
-      - Ask the room: who has been Maya? Who has been the sender?
-      - Point: the gap was there before work began. Everything after was rework waiting to happen.
+      - IN THE ARC at slide 12 (round 5, founder): placed immediately BEFORE the solution so the room hears the method is not new before it is introduced.
+      - Names the room already knows; we are not inventing a category.
+      - Difference: a number, decoupled from agreement, pre-committed.
     -->
-    <h2 style="margin-bottom:.2rem">What your team member <span class="accent">didn't say</span>.</h2>
-    <div class="wa">
-      <div class="wa-head">
-        <span class="wa-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></span>
-        <div><div class="wa-name">Maya</div><div class="wa-seen">your teammate</div></div>
-      </div>
-      <div class="wa-body">
-        <div class="bub in">Let's commit to this direction. Trust me, it's the right call 😄<span class="t">12:02</span></div>
-        <div class="bub out deleted">
-          <span class="d-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg> Maya deleted this message</span>
-          <span class="d-txt">"I don't actually understand why this is the right call. But asking again would make me look like I don't get it. So I'll run with it and hope I guessed right."</span>
-          <span class="t">12:03</span>
-        </div>
-        <div class="bub out">Sounds good, on it 👍<span class="t">12:04 <span class="tick">✓✓</span></span></div>
-        <div class="wa-sys">3 months later · half the roadmap built on a guess</div>
-      </div>
+    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
+    <div class="cloud">
+      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
+      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
+      <span class="cw xl"><span class="cw-i">Active listening</span></span>
+      <span class="cw m"><span class="cw-i">Mirroring</span></span>
+      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
+      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
+      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
     </div>
-    <div class="thought">
-      <div class="tail"><span></span><span></span></div>
-      <div class="cloud">
-        <div class="q">Why didn't Maya say it?</div>
-        <div class="a">"You sounded sure. Pushing back would've looked like I wasn't on board."</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 3 · WHAT MISCALIBRATION COSTS (montage — just boxes, short) -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Headline is "What assumed agreement cost me." (was "I have lost business partners."). Cards unchanged: three real cases, told as evidence of the cost, not as a cofounder pitch.
-      - Three real cases, months lost each. Each was an agreement both sides believed was shared.
-      - Say the stamps as they thud: nine months, seven months, a friend.
-    -->
-    <h2 style="max-width:22ch">What <span class="danger">assumed</span> agreement<br>cost me.</h2>
-    <div class="cards four">
-      <div class="card">
-        <div class="mont-who">Business co-founder</div>
-        <div class="mont-what">Silently believed we could change the agreed equity split later on.</div>
-        <div class="mont-stamp">9 months lost</div>
-      </div>
-      <div class="card">
-        <div class="mont-who">Technical co-founder</div>
-        <div class="mont-what">Disagreed that 5 customer rejections were enough.</div>
-        <div class="mont-stamp">7 months lost</div>
-      </div>
-      <div class="card">
-        <div class="mont-who">An advisor</div>
-        <div class="mont-what">Wanted to raise their compensation before the agreed time.</div>
-        <div class="mont-stamp">A friend lost</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 5 · EVERYBODY ASSUMES -->
-  <section class="slide">
-    <!-- NOTES
-      - Both halves of the first pair are true at once: leaders feel clear, half the team disagrees.
-      - 6/10 afraid to speak up: the doubt stays private by default.
-    -->
-    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
-    <div class="cards">
-      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
-      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
-      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="https://www.radicalcandor.com/trust-gap" target="_blank" rel="noopener">2</a></sup></div></div>
-    </div>
-    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
   </section>
 
   <!-- SCOPE MATRIX · WHICH SITUATIONS NEED THIS - slide 2, and the only concession
@@ -1045,7 +974,11 @@
     <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
   </section>
 
-  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire. -->
+  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
+       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
+       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
+       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
+       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
   <style>
     .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
     .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
@@ -1063,6 +996,7 @@
       <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
       <div class="card refuse"><h3>Fear</h3><p>&ldquo;Then I can't blame you.&rdquo;</p></div>
       <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
+      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;If I don't check, I don't have to know.&rdquo;</p></div>
     </div>
     <div class="note">Deniability is the one we <em>both</em> want &mdash; which is why asking feels like an imposition.</div>
   </section>
@@ -1070,37 +1004,243 @@
   <!-- 9c · SPIRAL — how the illusion of understanding leads to rework (numbered; staggered reveal via spiral() in JS) -->
   <section class="slide">
     <!-- NOTES
-      - Heading is "lead to rework?" (was "a partner split?"); last step is "Until the team rebuilds what it thought it had already agreed on." (was "Until walking away feels easier than working it out.").
+      - REFRAMED FOR /presi3, 2026-09-16 (founder: "it's not lead to rework, but leads to not wanting
+        to have public discussions at all. People, because of this, they just stop wanting to have
+        discussions"). /presi keeps the rework framing — that deck sells to teams; this room came to
+        a public discussion, so the cost that lands here is the discussion dying.
+      - [FOUNDER DECISION: exact wording] on three lines — heading "end the discussion?", step 3
+        "people go quiet: the real objection never gets said", step 5 "Until nobody wants to have
+        the discussion at all." The substance is yours; these words are drafted. Change freely.
       - Steps reveal one by one; read each arrow as "therefore".
-      - Step 3 is the rework step: wasted work, missed goals. Step 5 is the team version, not the split version.
-      - Chronic pain rarely opens a budget; ask for the dated event: the pivot two people describe differently.
+      - Land step 5 on THIS room: they came to a public discussion, so the failure is one they
+        already recognise. Do not reach for the team/rework example here.
     -->
-    <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> lead to rework?</h2>
+    <h2 style="font-size:clamp(1.15rem,2.7vw,2rem);max-width:26ch;margin-bottom:clamp(1.1rem,3vw,1.9rem)">How does the <span class="accent">illusion of understanding</span> end the discussion?</h2>
     <div class="spiral">
       <div class="spiral-step"><span class="spiral-n">1</span><p class="spiral-line">No <span class="accent">will</span> or <span class="accent">skill</span> to reveal a gap <span class="spiral-arr">→</span> it stays hidden.</p></div>
       <div class="spiral-step"><span class="spiral-n">2</span><p class="spiral-line">Misunderstandings grow <span class="spiral-arr">→</span> <span class="accent">staying honest</span> gets harder.</p></div>
-      <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">mistakes compound</span>: wasted work, bad vibes, missed goals.</p></div>
+      <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">people go quiet</span>: the real objection never gets said.</p></div>
       <div class="spiral-step"><span class="spiral-n">4</span><p class="spiral-line">The damage lands <span class="spiral-arr">→</span> <span class="accent">mistrust and despair</span> set in.</p></div>
-      <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until the team rebuilds what it thought it had already agreed on.</p></div>
+      <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until nobody wants to have the discussion at all.</p></div>
     </div>
   </section>
 
-  <section class="slide dark cloud-slide">
+  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
+  <section class="slide soft">
     <!-- NOTES
-      - IN THE ARC at slide 12 (round 5, founder): placed immediately BEFORE the solution so the room hears the method is not new before it is introduced.
-      - Names the room already knows; we are not inventing a category.
-      - Difference: a number, decoupled from agreement, pre-committed.
+      - Read both lines aloud. The number is the move; the lower-of-two is what makes it honest.
+      - Org-scope terms: one person can commit today without recruiting a counterparty.
+      - Full terms (your right / my promise / the exception) are in backing; same text as the join page.
     -->
-    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
-    <div class="cloud">
-      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
-      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
-      <span class="cw xl"><span class="cw-i">Active listening</span></span>
-      <span class="cw m"><span class="cw-i">Mirroring</span></span>
-      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
-      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
-      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
+    <h2>Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
+    <p class="lead" style="margin:.4rem 0 0">Reveal gaps easily. Bridge them safely.</p>
+    <div class="cert-wrap cert-wrap-big">
+      <div class="cert cert-big">
+        <div class="cert-head"><h3>Clarity Group Terms</h3></div>
+        <div class="cert-clause"><p class="cert-key">I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you).</p></div>
+        <div class="cert-clause"><p class="cert-key">If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed.</p></div>
+        <div class="cert-clause"><p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p></div>
+      </div>
     </div>
+  </section>
+
+  <!-- 9 · LIVE DEMO — QR → claritypledge.com/letter/st1 (the slug route verified in features/uat/p849.md; an earlier comment here said /story/st1, which is a different route) -->
+  <section class="slide dark">
+    <!-- NOTES
+      - Live demo: scan, read the letter, score the two points on the next slides.
+      - Do the anti-point first (many agree with it), then the point. The room disagreeing with itself is the demo.
+    -->
+    <div class="badge">Live demo</div>
+    <h2 style="color:#fafafa;margin-bottom:.4rem">Differentiate disagreement<br><span class="accent">from misunderstanding.</span></h2>
+    <div class="qr-wrap">
+      <img class="qr" alt="QR code to claritypledge.com/letter/st1" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAewAAAHsAQMAAAAq5AwjAAAABlBMVEUKCgv///+Z8yMbAAACgElEQVR42u2dQW5DIQxErV6A+9+SG9AoAXvsROqiUlWj95VF88XboMEZG0Nt/eaZBg4ODg7+/3HzZ6zHZ78Ze8jjz8ew/X6kwWt+2a8ecPC/x+2l5C3vp6R9ObzUnpbGSIPRPHhfzbuen0o+ap97wI7z84xx8aN58P6a31F9ip8xi4Ww0Dz4hZr3gO9LQL+iefAL/bxYmjA2In78PHh7zee6zQ8f6jbg/TWvj6exXqtJTn6UUiczD95V86VuE+XKE9hTATMSW2YevKu3KR7eTmXeKzZqfmRRMPPgvTWvjt3r8/H3qdsQ58HvqNtEbJeFoIXKVMAkzoP3r9tEZT7nrdpyo78FaB68e5yPZgNtOTDTJhx9j+bBe/v5lXZao+tStqWOhxd7j+bB+8b5o2QN7xHPSwFnLDQPfofmP+06WarSa3kHzYO31XyxMeFe3MxLj2WMxM+Dt9Z82XUVk1PEn80PMw/eNoedKT/9kLqWk1P0VYJ39/O566a0H6TU1TSTZebBu3obPRXofiZCuqmH1x8CZh68p+bfegxS/6SejZ2pDxPNgzfWfNljFXufmg3k8BRxHry3t3kz9qUVIbfZ+GJh5sG71m1K0cbyXR/RkLPoqwS3m3qJ9UiInpCKxHaU4yTMPHhbzecUNV7qKrC0V4vmwVtrfn/JfTXV0vszqNuAt89hy70HZmkfVu/uy83GzDx42xz2BHCt0pQDg3rFDd4G/IIc9t3DR25r9fo+cljwG/y83Dkcm63uf2b183gb8Hs0nxPbWr1JnZbMPPglmvdIrgpPLfR4G/CL/Hw1Njm86xJA8+A31G3EupfN2bRda9RtwBtrnn8/Bw4ODn4v/g31wjage7+8lAAAAABJRU5ErkJggg==">
+      <div class="url"><span class="accent">claritypledge.com/letter/st1</span></div>
+    </div>
+  </section>
+
+  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Title is "Make it a habit" (was the badge text); setup line "A bracelet is the reminder: on in the morning, counted in the evening."
+      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
+      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
+    -->
+    <h2 style="margin-bottom:.3rem">Make it a <span class="accent">habit</span></h2>
+    <div class="ritual">
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
+      </div>
+      <div class="ritual-nest">
+        <div class="ritual-step">
+          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
+        </div>
+        <div class="ritual-nest">
+          <div class="ritual-step">
+            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
+          </div>
+          <div class="ritual-step">
+            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
+          </div>
+        </div>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · THE ASK — one action: the landing's single primary CTA ("Book a free alignment audit." → /intro, microcopy "Starts with a 15-min call."), URL as a button ≥32px. The other two paths are a footer line. Round 2 (critic): the three-card "Let's collaborate!" is gone. -->
+  <section class="slide grid-bg">
+    <!-- NOTES
+      - SWAPPED FOR /presi3. /presi asks for the Clarity Champions Program, €295/month. This is the
+        OFFLINE configuration — the forum — and its one spoken CTA is the FREE community join.
+        docs/events/clarity-practice-event.md § The offer, founder decision 2026-08-27, verbatim:
+        "For the R and D, I think the ask is join the community. That's it. And I want the community
+        to grow locally." Do not mention €295 from this stage. The paid ladder converts online.
+      - ONE ask. Say it once, plainly, and stop. Do not stack it with the calendar on the next slide.
+      - The bracelet is NOT offered at event #1 — no bracelets have ever been sourced
+        (docs/events/clarity-forum.md:157-159). If someone asks about it, say it is coming.
+      - Anyone who wants more than the free community goes to a separate conversation afterwards,
+        not to a pitch from the stage ("the neighbouring session", same doc).
+      - [FOUNDER DECISION: exact wording] is still open on this one — the source doc names the
+        sayable link as /org/cm/join; the slide uses /groups/cm/join, which is the canonical live
+        route (/org/* is a permanent legacy redirect, P1193). Both work. Pick before Friday.
+    -->
+    <h2>Join the <span class="accent">Chiang Mai community</span></h2>
+    <p class="lead" style="margin-top:.8rem;max-width:46ch;text-wrap:balance">Local, free, open-ended. We practise this together.</p>
+    <div class="qr-wrap" style="--qr-size:min(42vh,340px);margin-top:1.4rem">
+      <img class="qr" alt="QR code to claritypledge.com/groups/cm/join" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYAQMAAACEqAqfAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACyUlEQVR4nO3cMXLsIAyAYTIptvQROEqOZh/NR/ERUrrYWd5YCJBYJ5PSz/xqdjHwOVU0EvaG9BYhx2e7shzjmF4hTHplDR8nG7GwsLCwrmx9BxPTudXD4bA2uzFiYWFhYY1lzXnZS61H22kXv+RT1q5q6aonFhYWFhZWju3YO+liST2ydtcBFhYWFtYdLNmeFy/ytbapsLCwsLCwgolirccgpj5k7aPVHS2wsLCwsEay+tDFn5poJE1JoslpaqnW20YsLCwsrOtaZ/E4Zp6aO1xZUqbX031YWFhYWGNYdnGObjopXM47NFweemJhYWFhjWWleqBhrrQapkzHdBq77oqlHsLCwsLCurJlXpRwPSsNmTZ1h8QWusDCwsLCGsrqrzhrLoVFHqTWs2p/yYaFhYWFNYzVzcsbGMVysWmbqt03Jv8MLhYWFhbWpa2p1h25sHB9qLY9Wrg9G2V7VlhYWFhYo1jBFhZT8tFdce9cNN3nNCwsLCys21uTjr7q4ocWNNFuj/68w+Ws2rPCwsLCwhrB6nKLwLvCW3Dx0a1tsH1GFwsLCwvrolY661k1a7JHHO04xPSspGqJ3XO1WFhYWFh3tiS3uJNxsXT+pGf10MGm9527nIaFhYWFNYI1H1OrL1Ky3uWhoNZ6fMZyPO56VlhYWFhYV7bkv//Zb3AcMdeLLndI7G0aCwsLC2sQ6yzKGUa08+58e9WvVsXCwsLCGsVKbyGLvjQPtZbWZtOU1DtbtZ4nMhYWFhbWxazWpgrSoXKHEBJzHbTz7bJ7r7fCwsLCwhrKmvOKV7NWne+Ov//U/8LCwsLCGtg65nPqyQ0siSW4MDAWFhYW1v9n1fkcJnfI2tU2sCS28GPdgYWFhYV1R6vFlMp5R+q2l1f09FYvyUwyWH7rf2FhYWFh3dHqQ2uYHHJl8XloP25l3vWefzt3x8LCwsK6nfUPwaj5cHVHSNcAAAAASUVORK5CYII=">
+      <div class="url"><span class="accent">claritypledge.com/groups/cm/join</span></div>
+    </div>
+  </section>
+
+  <!-- 13 · GIFT — free Chiang Mai event calendar -->
+  <section class="slide grid-bg">
+    <!-- NOTES
+      - IN THE ARC at slide 27 (round 5, founder: "this is a gift i can give"): the deck ends on the ask, then hands the room something free. Venue-specific; skip outside Chiang Mai.
+    -->
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+      A gift for Chiang Mai
+    </div>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.8rem);margin-bottom:.3rem">A shared Chiang Mai event calendar.<br><span class="accent">Here's a free one.</span></h2>
+    <div class="qr-wrap">
+      <img class="qr" alt="QR code to claritypledge.com/cm" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbwAAAG8AQMAAACffoKcAAAABlBMVEUKCgv///+Z8yMbAAACFElEQVR42u2cQXKEMAwEVfmA//9L/2ATgpFGguTART40lcNulr64poaxJGyfd9c0QEBAQMC/QPNrHJ/jPz9fx0d/8s+f+WUvL0DAl9ehzLGUuwQ5lozXDfPhNrQK2KVVd9FDmUP8diyJhscOtAq4hVbzg95cpTdJs6qAW2j1NFX3WLQKuGNePe10mgfX2HCRVwHbtap1gH/+qAMAdmv1uQL26673IsB1D6sK2KTVaxsV4rznhPOnia8C9ml1RsHKHTV+slQNQKuA7Xk1baMuocbTX2oCaBWws2aVVepFgFDytNTMRauA3b5an/saVqUpgFYBu7T6UAqY5l2AaASEdFlVwL691XmFc4qSZ6oGkAEA23sBqXUlSXVpWCMrWgVs8dVsnpoBtCYQZSu0CtiaV12TkVR9PvDSrdzGqgJ2aDXPpnpYzZsp06FWtArYtrey1P2PymqZCRz0rQCb86rW/6uLFhmjVcBerYp5ypCqpRCbzJZVBezZW5Wxan3rqpZbmQcAbM+r6q46AOA1AdMSAasK2FMHuE+wlIHVdTd9K8AN9lY6VWVlZMVSmsVXAXd43ypaA+Oh9yqxgVUFbMsA9wNYyuEA+CrgDlo9TbXs96PKmqew8FXATc6y8DGVklQ5ywJwL1+VTVZ9h+UaDkSrgBvlVTP32BIDyACA+9QBVKs6dx2nXKJVwE3OXeEgZUBAQMD34DeZ00wWs84aWQAAAABJRU5ErkJggg==">
+      <div class="url"><span class="accent">claritypledge.com/cm</span></div>
+    </div>
+  </section>
+
+  <!-- ══════ DEMOTED FOR THIS EVENT — BACKUP / Q&A ONLY ══════
+       Nine slides the founder pulled OUT of the arc for Clarity Night #1 (2026-09-16),
+       in their original relative order. They are unchanged; only their position moved.
+       They sit here, after the gift, for the same reason as the permanent block below:
+       the arc ends on the ask, then hands over the calendar (P1218).
+
+         was  7 · 35% of failed startups            was 17 · the skill, defined
+         was  9 · WhatsApp, what they didn't say    was 19 · st1 anti-point card
+         was 10 · what assumed agreement cost me    was 20 · a lie / memory / misunderstanding
+         was 11 · everybody assumes they understand was 21 · the three things "you don't understand me" means
+         was 16 · what's the solution?
+
+       NOTE — 19/20/21 are the PAYLOAD of the live-demo QR, which stayed in the arc. Reaching
+       them mid-demo means paging past the gift. If that bites on the night, either move the
+       demo QR down here too, or move these three back up under it.
+       These are still /presi's slides; edit them there and re-copy for the next event.
+       The permanent backing block follows below. -->
+
+
+  <!-- 4 · THE STAKES — CB Insights: "no market need" is the #1 startup-failure reason, ~35% of post-mortems (landing ref 1; the landing renders it as "1 in 3"). -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Bridge line "Building got 10x cheaper. Checking you meant the same thing didn't." pays off the hero's 10x and turns the market stat toward internal misunderstanding.
+      - CB Insights post-mortems: "no market need" is the #1 stated reason (~35%).
+      - Bridge: some of that is a market nobody had the signal on. A lot of it is a team that never verified it agreed.
+      - Claim = calibration, not accuracy: we do not make you right about the customer; we remove false confidence.
+    -->
+    <div class="bignum" data-target="35">35%</div>
+    <h2 style="margin-top:1.4rem;font-size:clamp(1.3rem,3.2vw,2.2rem);max-width:18ch">of failed startups built something the market never wanted<sup><a href="https://www.cbinsights.com/research/startup-failure-reasons-top/" target="_blank" rel="noopener">1</a></sup></h2>
+    <p class="lead" style="margin-top:1.1rem;max-width:40ch">Building got 10x cheaper. Checking you meant the same thing didn't.</p>
+    <div class="refs">[1] CB Insights — The Top Reasons Startups Fail (no market need: the #1 reason, cited in 35% of post-mortems)</div>
+  </section>
+
+  <!-- 2 · THE SEAM — the landing's HardTruthChat (variant="they-withheld", build-right-thing-landing.tsx §2b): a teammate held a doubt about the DIRECTION, didn't send it, and built on the guess. Dialogue quoted verbatim from the landing (§2b), which is the deck's source of truth for how the product and its problem are described. GENERIC/ANONYMIZED — not a real person. Reuses the deck's deleted-message chat grammar (chat() in the motion layer types the truth, strikes it, collapses it). -->
+  <section class="slide wa-big">
+    <!-- NOTES
+      - Let the typed message land, then the strike-through: the doubt existed and was deleted.
+      - Ask the room: who has been Maya? Who has been the sender?
+      - Point: the gap was there before work began. Everything after was rework waiting to happen.
+    -->
+    <h2 style="margin-bottom:.2rem">What your team member <span class="accent">didn't say</span>.</h2>
+    <div class="wa">
+      <div class="wa-head">
+        <span class="wa-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></span>
+        <div><div class="wa-name">Maya</div><div class="wa-seen">your teammate</div></div>
+      </div>
+      <div class="wa-body">
+        <div class="bub in">Let's commit to this direction. Trust me, it's the right call 😄<span class="t">12:02</span></div>
+        <div class="bub out deleted">
+          <span class="d-lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg> Maya deleted this message</span>
+          <span class="d-txt">"I don't actually understand why this is the right call. But asking again would make me look like I don't get it. So I'll run with it and hope I guessed right."</span>
+          <span class="t">12:03</span>
+        </div>
+        <div class="bub out">Sounds good, on it 👍<span class="t">12:04 <span class="tick">✓✓</span></span></div>
+        <div class="wa-sys">3 months later · half the roadmap built on a guess</div>
+      </div>
+    </div>
+    <div class="thought">
+      <div class="tail"><span></span><span></span></div>
+      <div class="cloud">
+        <div class="q">Why didn't Maya say it?</div>
+        <div class="a">"You sounded sure. Pushing back would've looked like I wasn't on board."</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · WHAT MISCALIBRATION COSTS (montage — just boxes, short) -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Headline is "What assumed agreement cost me." (was "I have lost business partners."). Cards unchanged: three real cases, told as evidence of the cost, not as a cofounder pitch.
+      - Three real cases, months lost each. Each was an agreement both sides believed was shared.
+      - Say the stamps as they thud: nine months, seven months, a friend.
+    -->
+    <h2 style="max-width:22ch">What <span class="danger">assumed</span> agreement<br>cost me.</h2>
+    <div class="cards four">
+      <div class="card">
+        <div class="mont-who">Business co-founder</div>
+        <div class="mont-what">Silently believed we could change the agreed equity split later on.</div>
+        <div class="mont-stamp">9 months lost</div>
+      </div>
+      <div class="card">
+        <div class="mont-who">Technical co-founder</div>
+        <div class="mont-what">Disagreed that 5 customer rejections were enough.</div>
+        <div class="mont-stamp">7 months lost</div>
+      </div>
+      <div class="card">
+        <div class="mont-who">An advisor</div>
+        <div class="mont-what">Wanted to raise their compensation before the agreed time.</div>
+        <div class="mont-stamp">A friend lost</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · EVERYBODY ASSUMES -->
+  <section class="slide">
+    <!-- NOTES
+      - Both halves of the first pair are true at once: leaders feel clear, half the team disagrees.
+      - 6/10 afraid to speak up: the doubt stays private by default.
+    -->
+    <h2>Everybody <span class="accent">assumes</span> they understand</h2>
+    <div class="cards">
+      <div class="card"><div class="num">8 / 10</div><div class="cap">leaders believe they're clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
+      <div class="card"><div class="num">5 / 10</div><div class="cap">employees don't agree their leaders are clear<sup><a href="https://www.axioshq.com/insights/internal-communications-statistics" target="_blank" rel="noopener">1</a></sup></div></div>
+      <div class="card"><div class="num">6 / 10</div><div class="cap">employees are afraid to speak up at work<sup><a href="https://www.radicalcandor.com/trust-gap" target="_blank" rel="noopener">2</a></sup></div></div>
+    </div>
+    <div class="refs">[1] Axios HQ — Internal Communications Statistics · [2] Radical Candor — The Trust Gap (2026)</div>
   </section>
 
   <!-- 8 · WHAT'S THE SOLUTION — five moves, synced to src/app/components/landing/how-platform-works.tsx MOVES (will → mutual commitment → surface decisions → friction → skill). Icons reassigned, none added. -->
@@ -1165,20 +1305,6 @@
         <div class="lc-label">How well <b>they believe</b> you understood, <b>after you explain back</b></div>
         <div class="lc-track"><div class="lc-fill them" style="--v:50%"><span class="lc-val">5 / 10</span></div></div>
       </div>
-    </div>
-  </section>
-
-  <!-- 9 · LIVE DEMO — QR → claritypledge.com/letter/st1 (the slug route verified in features/uat/p849.md; an earlier comment here said /story/st1, which is a different route) -->
-  <section class="slide dark">
-    <!-- NOTES
-      - Live demo: scan, read the letter, score the two points on the next slides.
-      - Do the anti-point first (many agree with it), then the point. The room disagreeing with itself is the demo.
-    -->
-    <div class="badge">Live demo</div>
-    <h2 style="color:#fafafa;margin-bottom:.4rem">Differentiate disagreement<br><span class="accent">from misunderstanding.</span></h2>
-    <div class="qr-wrap">
-      <img class="qr" alt="QR code to claritypledge.com/letter/st1" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAewAAAHsAQMAAAAq5AwjAAAABlBMVEUKCgv///+Z8yMbAAACgElEQVR42u2dQW5DIQxErV6A+9+SG9AoAXvsROqiUlWj95VF88XboMEZG0Nt/eaZBg4ODg7+/3HzZ6zHZ78Ze8jjz8ew/X6kwWt+2a8ecPC/x+2l5C3vp6R9ObzUnpbGSIPRPHhfzbuen0o+ap97wI7z84xx8aN58P6a31F9ip8xi4Ww0Dz4hZr3gO9LQL+iefAL/bxYmjA2In78PHh7zee6zQ8f6jbg/TWvj6exXqtJTn6UUiczD95V86VuE+XKE9hTATMSW2YevKu3KR7eTmXeKzZqfmRRMPPgvTWvjt3r8/H3qdsQ58HvqNtEbJeFoIXKVMAkzoP3r9tEZT7nrdpyo78FaB68e5yPZgNtOTDTJhx9j+bBe/v5lXZao+tStqWOhxd7j+bB+8b5o2QN7xHPSwFnLDQPfofmP+06WarSa3kHzYO31XyxMeFe3MxLj2WMxM+Dt9Z82XUVk1PEn80PMw/eNoedKT/9kLqWk1P0VYJ39/O566a0H6TU1TSTZebBu3obPRXofiZCuqmH1x8CZh68p+bfegxS/6SejZ2pDxPNgzfWfNljFXufmg3k8BRxHry3t3kz9qUVIbfZ+GJh5sG71m1K0cbyXR/RkLPoqwS3m3qJ9UiInpCKxHaU4yTMPHhbzecUNV7qKrC0V4vmwVtrfn/JfTXV0vszqNuAt89hy70HZmkfVu/uy83GzDx42xz2BHCt0pQDg3rFDd4G/IIc9t3DR25r9fo+cljwG/y83Dkcm63uf2b183gb8Hs0nxPbWr1JnZbMPPglmvdIrgpPLfR4G/CL/Hw1Njm86xJA8+A31G3EupfN2bRda9RtwBtrnn8/Bw4ODn4v/g31wjage7+8lAAAAABJRU5ErkJggg==">
-      <div class="url"><span class="accent">claritypledge.com/letter/st1</span></div>
     </div>
   </section>
 
@@ -1285,100 +1411,6 @@
       <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</div>
       <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Unsure</div>
       <div class="pb-seg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Agree</div>
-    </div>
-  </section>
-
-  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Title is "Make it a habit" (was the badge text); setup line "A bracelet is the reminder: on in the morning, counted in the evening."
-      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
-      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
-    -->
-    <h2 style="margin-bottom:.3rem">Make it a <span class="accent">habit</span></h2>
-    <div class="ritual">
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
-      </div>
-      <div class="ritual-nest">
-        <div class="ritual-step">
-          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
-        </div>
-        <div class="ritual-nest">
-          <div class="ritual-step">
-            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
-          </div>
-          <div class="ritual-step">
-            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
-            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
-          </div>
-        </div>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Read both lines aloud. The number is the move; the lower-of-two is what makes it honest.
-      - Org-scope terms: one person can commit today without recruiting a counterparty.
-      - Full terms (your right / my promise / the exception) are in backing; same text as the join page.
-    -->
-    <h2>Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
-    <p class="lead" style="margin:.4rem 0 0">Reveal gaps easily. Bridge them safely.</p>
-    <div class="cert-wrap cert-wrap-big">
-      <div class="cert cert-big">
-        <div class="cert-head"><h3>Clarity Group Terms</h3></div>
-        <div class="cert-clause"><p class="cert-key">I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you).</p></div>
-        <div class="cert-clause"><p class="cert-key">If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed.</p></div>
-        <div class="cert-clause"><p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 10 · THE ASK — one action: the landing's single primary CTA ("Book a free alignment audit." → /intro, microcopy "Starts with a 15-min call."), URL as a button ≥32px. The other two paths are a footer line. Round 2 (critic): the three-card "Let's collaborate!" is gone. -->
-  <section class="slide grid-bg">
-    <!-- NOTES
-      - SWAPPED FOR /presi3. /presi asks for the Clarity Champions Program, €295/month. This is the
-        OFFLINE configuration — the forum — and its one spoken CTA is the FREE community join.
-        docs/events/clarity-practice-event.md § The offer, founder decision 2026-08-27, verbatim:
-        "For the R and D, I think the ask is join the community. That's it. And I want the community
-        to grow locally." Do not mention €295 from this stage. The paid ladder converts online.
-      - ONE ask. Say it once, plainly, and stop. Do not stack it with the calendar on the next slide.
-      - The bracelet is NOT offered at event #1 — no bracelets have ever been sourced
-        (docs/events/clarity-forum.md:157-159). If someone asks about it, say it is coming.
-      - Anyone who wants more than the free community goes to a separate conversation afterwards,
-        not to a pitch from the stage ("the neighbouring session", same doc).
-      - [FOUNDER DECISION: exact wording] is still open on this one — the source doc names the
-        sayable link as /org/cm/join; the slide uses /groups/cm/join, which is the canonical live
-        route (/org/* is a permanent legacy redirect, P1193). Both work. Pick before Friday.
-    -->
-    <h2>Join the <span class="accent">Chiang Mai community</span></h2>
-    <p class="lead" style="margin-top:.8rem;max-width:46ch;text-wrap:balance">Local, free, open-ended. We practise this together.</p>
-    <a class="cta-btn" href="https://claritypledge.com/groups/cm/join" target="_blank" rel="noopener">Join the community &rarr;</a>
-    <div class="url" style="margin-top:1.1rem"><span class="accent">claritypledge.com/groups/cm/join</span></div>
-  </section>
-
-  <!-- 13 · GIFT — free Chiang Mai event calendar -->
-  <section class="slide grid-bg">
-    <!-- NOTES
-      - IN THE ARC at slide 27 (round 5, founder: "this is a gift i can give"): the deck ends on the ask, then hands the room something free. Venue-specific; skip outside Chiang Mai.
-    -->
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-      A gift for Chiang Mai
-    </div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.8rem);margin-bottom:.3rem">A shared Chiang Mai event calendar.<br><span class="accent">Here's a free one.</span></h2>
-    <div class="qr-wrap">
-      <img class="qr" alt="QR code to claritypledge.com/cm" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbwAAAG8AQMAAACffoKcAAAABlBMVEUKCgv///+Z8yMbAAACFElEQVR42u2cQXKEMAwEVfmA//9L/2ATgpFGguTART40lcNulr64poaxJGyfd9c0QEBAQMC/QPNrHJ/jPz9fx0d/8s+f+WUvL0DAl9ehzLGUuwQ5lozXDfPhNrQK2KVVd9FDmUP8diyJhscOtAq4hVbzg95cpTdJs6qAW2j1NFX3WLQKuGNePe10mgfX2HCRVwHbtap1gH/+qAMAdmv1uQL26673IsB1D6sK2KTVaxsV4rznhPOnia8C9ml1RsHKHTV+slQNQKuA7Xk1baMuocbTX2oCaBWws2aVVepFgFDytNTMRauA3b5an/saVqUpgFYBu7T6UAqY5l2AaASEdFlVwL691XmFc4qSZ6oGkAEA23sBqXUlSXVpWCMrWgVs8dVsnpoBtCYQZSu0CtiaV12TkVR9PvDSrdzGqgJ2aDXPpnpYzZsp06FWtArYtrey1P2PymqZCRz0rQCb86rW/6uLFhmjVcBerYp5ypCqpRCbzJZVBezZW5Wxan3rqpZbmQcAbM+r6q46AOA1AdMSAasK2FMHuE+wlIHVdTd9K8AN9lY6VWVlZMVSmsVXAXd43ypaA+Oh9yqxgVUFbMsA9wNYyuEA+CrgDlo9TbXs96PKmqew8FXATc6y8DGVklQ5ywJwL1+VTVZ9h+UaDkSrgBvlVTP32BIDyACA+9QBVKs6dx2nXKJVwE3OXeEgZUBAQMD34DeZ00wWs84aWQAAAABJRU5ErkJggg==">
-      <div class="url"><span class="accent">claritypledge.com/cm</span></div>
     </div>
   </section>
 
