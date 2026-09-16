@@ -14,8 +14,8 @@ tags:
   - events
   - navigation
 created_date: 2026-09-16
-delivery_stage: dev
-pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect, dev, verify]
+delivery_stage: ship
+pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect, dev, verify, ship]
 pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently", "generate-tests -- not run as a separate step; tests were written alongside the code in /dev (unit rewrites, e2e/p1323-links-menu-surfaces.spec.ts, p1323-end-session-treatment.test.tsx, typecheck-gate canary)"]
 ---
