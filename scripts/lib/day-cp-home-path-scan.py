@@ -11,6 +11,6 @@ for n, line in enumerate(lines, 1):
         continue
     if not inside or st.startswith("#") or not st:
         continue
-    if re.search(r"(\$HOME|~/\.claude|/Users/[a-z])", line):
+    if re.search(r"(\$HOME|~/\.claude|/Users/[A-Za-z0-9._-]+/)", line):
         bad.append(f"{n}: {st[:100]}")
 print("\n".join(bad))

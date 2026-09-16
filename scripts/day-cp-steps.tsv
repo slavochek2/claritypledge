@@ -32,5 +32,5 @@ cp.w3	cmd	hard	Wave 3 — repo health, RLS drift, function grants, privilege flo
 cp.health	attest	hard	HEALTH rows returned to the dispatcher
 cp.reflect	attest	hard	Reflection since last /day
 cp.goals	attest	hard	Goals and milestone
-cp.branch	cmd	hard	Branch status
+cp.branch	cmd	hard	Branch status — stash check (branch and stranded-spec rows come from cp.w1)
 cp.due	attest	hard	Due Board — act on the dispatcher's verdict

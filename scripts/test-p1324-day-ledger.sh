@@ -108,6 +108,10 @@ printf 'prose about ~/.claude is fine\n\n```bash\n$HOME/.claude/scripts/day-step
 want "the contract check catches an executable home path" "$(_scount "$TMP/bad-path.md")" "1"
 printf 'prose naming ~/.claude/commands/day.md\n\n```bash\n# a comment about ~/.claude/scripts/day-gates.sh\n"$DAY_STEP" run x\n```\n' > "$TMP/ok-path.md"
 want "and does NOT flag prose or a fenced comment (no false positive)" "$(_scount "$TMP/ok-path.md")" "0"
+# The first pattern was /Users/[a-z], which silently missed a capitalised username — a scanner
+# that returns empty for a real violation is indistinguishable from a clean file (/finish review).
+printf 'x\n\n```bash\n/Users/Slava/.claude/scripts/day-step.sh run x\n```\n' > "$TMP/cap-path.md"
+want "a CAPITALISED username is caught too" "$(_scount "$TMP/cap-path.md")" "1"
 
 echo
 echo "== codex review 2026-09-16: a PARTIAL filing failure is still a failure =="
