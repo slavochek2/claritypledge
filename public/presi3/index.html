@@ -139,12 +139,12 @@
   .note{position:absolute;bottom:2.6vh;left:0;right:0;text-align:center;font-size:.74rem;
     color:var(--muted-fg);font-style:italic;opacity:.7;padding:0 9vw;line-height:1.45}
 
-  /* live embed — slide 2 only; the frame is the event page itself */
-  .live-embed{width:min(92vw,1500px);height:min(70vh,760px);border-radius:14px;overflow:hidden;
-    border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 60px rgba(0,0,0,.45);
-    background:#fff;line-height:0}
-  .live-embed iframe{width:100%;height:100%;border:0;display:block}
-  @media (max-width:760px){ .live-embed{height:60vh} }
+  /* live embeds — the real page, edge to edge. The slide's own 7vh/8vw padding is
+     dropped so nothing frames it; the deck's progress bar and slide counter still
+     paint on top, and they are the only parent-document pixels left to click.
+     That is why embed-keys.js forwards Left/Right out of the frame. */
+  .slide.embed-full{padding:0;background:#fff}
+  .slide.embed-full iframe{width:100%;height:100%;border:0;display:block}
 
   /* QR */
   .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:1.4rem;margin-top:1rem}
@@ -723,48 +723,7 @@
     </div>
   </section>
 
-  <!-- 2 · THE EVENT, LIVE AND EMBEDDED — the real page, inside the deck.
-       Founder, 2026-09-16: "slide 3 should instead just show <event url> — embedded".
-       Replaces the switch-to-the-other-tab cue card.
 
-       THIS ONLY WORKS WHEN THE DECK IS SERVED FROM claritypledge.com.
-       The event page ships BOTH `content-security-policy: frame-ancestors 'self'` AND
-       `x-frame-options: DENY`. Those conflict; Chrome resolves it by ignoring XFO when
-       CSP frame-ancestors is present, so SAME-ORIGIN framing is allowed and cross-origin
-       is not. Verified 2026-09-16 against real prod in a real browser: framing the event
-       page from claritypledge.com loaded 4,980 chars of body text, while the same probe
-       framing example.com came back blocked — so the check could tell the two apart.
-
-       CONSEQUENCE FOR LOCAL TESTING: open this file from localhost or file:// and the
-       frame is EMPTY. That is the CSP doing its job, not a broken slide. Only a
-       claritypledge.com/presi3 load proves it.
-
-       The src is a ROOT-RELATIVE path on purpose — it resolves against whatever origin
-       serves the deck, and hardcoding https://claritypledge.com here would make the
-       same-origin guarantee depend on a string instead of on where the file is served. -->
-  <section class="slide dark">
-    <!-- NOTES
-      - You are NOT presenting this slide, you are driving it. The real event page is in the
-        frame: click "Join now" at the top of it and walk the room through what they just did.
-      - BE SIGNED IN BEFORE THE ROOM FILLS. The frame shares this browser's session, so if you
-        are signed out here you are signed out in there, and "Join now" lands on the gate wall.
-      - KEYBOARD GOTCHA: once you click inside the frame, arrow keys go to the EVENT PAGE, not
-        to the deck. To advance the deck again, click the dark area outside the frame first,
-        then press Right. This is the one way to get stuck on this slide.
-      - The roster updates live once you are through to the room — realtime with a 30s
-        reconciliation poll behind it (event-room-service.ts). Leave it up while people join
-        and let them watch their own name appear. Do not narrate it.
-      - If the frame is blank or frozen: say nothing, read the URL out loud, and carry on from
-        the room's own phones. The line under the frame is the fallback and is always visible.
-    -->
-    <div class="badge" style="border-color:rgba(255,255,255,.18);color:#fafafa">The room is open</div>
-    <div class="live-embed">
-      <iframe src="/events/clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj"
-              title="Clarity Night event page, live"
-              loading="eager" referrerpolicy="same-origin"></iframe>
-    </div>
-    <div class="url" style="margin-top:.85rem;opacity:.75">claritypledge.com/aisafety</div>
-  </section>
 
   <!-- 2 · CREDIBILITY — paid for the lesson (ladischenski.com About, two-column) -->
   <section class="slide soft">
@@ -885,6 +844,92 @@
         <div class="clc-d">every other room</div>
       </div>
     </div>
+  </section>
+
+  <!-- 7 · THE ASK: VOLUNTEER TO BE RECORDED. Three reasons, in the founder's terms
+       (2026-09-16). This slide exists to recruit volunteers for the transcription
+       switch on the next slide — people who let their OWN microphone record THEM.
+
+       EVERY CLAIM HERE IS CHECKED AGAINST SHIPPED BEHAVIOUR, not aspiration. Do not
+       soften or inflate it; this is consent copy on a projector.
+         · opt-in, off by default — the switch starts OFF and tapping it IS the consent
+           (P1307 D12, which cites Planet49 C-673/17 and GDPR Recital 32). Never say
+           "we're recording the room".
+         · own device, own voice — startCapture runs on the volunteer's own phone with
+           their own display name. Nobody is recorded by someone else's device.
+         · room-scoped — the shipped switch reads "Record audio and share transcript
+           with others in the room", and entry to the transcription room is refused
+           server-side to anyone who is not a registered attendee or the host
+           (p1307 UAT-5.1). So "only people in this room" is enforced, not a promise.
+       If any of those three stops being true, this slide is wrong and must change. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - THE ASK, said plainly: "Some of you can help me by letting your own phone record
+        YOU — not the room, not the person next to you. It's a switch on the next screen,
+        it's off unless you turn it on, and you can turn it off at any point."
+      - Do NOT pressure, do NOT count hands, do NOT look at anyone. A recording consent
+        obtained by social pressure in a room is not consent. Say it once and move on.
+      - Reason 2 is the honest one and the one people respond to: you cannot tell whether
+        this format works from the feeling in the room, only from what was actually said.
+      - If asked "who sees it": only people in this room. That is enforced server-side,
+        not a policy promise — a signed-in stranger is refused entry to the room.
+      - If asked "how long": your own capture runs for this event and you end it yourself
+        by switching it off. Do not quote a retention period from this stage; point at the
+        terms. [FOUNDER DECISION: whether to state a retention period out loud]
+    -->
+    <div class="kicker">A favour, if you're willing</div>
+    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">Let your phone record <span class="accent">you</span></h2>
+    <div class="cards four" style="margin-top:2rem">
+      <div class="card"><h3>You're in the research</h3><p>I can only tell whether this format works from what was actually said, not from how the room felt.</p></div>
+      <div class="card"><h3>It shapes the next one</h3><p>What I learn here is what makes the next evening sharper, and more built around the people in it.</p></div>
+      <div class="card"><h3>It stays in this room</h3><p>The transcript is shared with the people who were here, and nobody else can open it.</p></div>
+    </div>
+    <div class="note">It's one switch, it's off unless you turn it on, and you can switch it off whenever you like.</div>
+  </section>
+
+  <!-- 7 · THE EVENT, FULL SCREEN — ONE embed, driven live. Founder, 2026-09-16:
+       "slide two and this slide is the same slide... I show them where the event is,
+       then I click on the event room, and then I show them this page."
+
+       So this replaces BOTH earlier embeds. It loads the EVENT PAGE, and the host clicks
+       "Event Room" inside the frame to reach /ready — the navigation happens in the
+       iframe, same-origin, so one slide covers the whole walk-through. It sits here,
+       after the volunteer ask and before the Clarity Group Terms, because the terms
+       slide is where the host explains what the room is for.
+
+       The old position-2 copy of this is DELETED. Do not reinstate an embed near the
+       front: the QR on slide 1 is what gets people registered during arrival, and this
+       slide is the moment the host shows them where the room actually is.
+
+       REQUIRES A SIGNED-IN, REGISTERED VIEWER TO GET PAST THE EVENT PAGE. /ready is
+       behind the same gate as every room door; signed out, clicking through lands on the
+       register-or-sign-in wall (EventRoomGate.tsx). The event page itself renders for
+       anyone.
+
+       ABSOLUTE PROD URL on purpose — a correction of the root-relative path used earlier
+       today, which resolved against the local dev server and its local database, so the
+       frame read "Event not found". Absolute always means the real event. It only
+       RENDERS when the deck is served from claritypledge.com, because the page sends
+       `frame-ancestors 'self'` (plus an `x-frame-options: DENY` that Chrome ignores in
+       its presence — verified against prod in a real browser). Locally the frame is
+       EMPTY; that is the CSP, and the only real test is claritypledge.com/presi3. -->
+<section class="slide embed-full">
+    <!-- NOTES
+      - Drive it, in this order: the event page is on screen → click "Event Room" at the top
+        (it reads "Join now" from 60 min before start) → you land on the readiness page →
+        answer the slider yourself so the room sees it → then point at the "Transcribe for
+        AI insights" switch underneath, which is the ask from the last slide, in the place
+        they will actually meet it.
+      - The slider question is "How up for thinking are you right now?" — read it out.
+      - The faint marks on the track are everyone else in this room, anonymous by
+        construction (a SECURITY DEFINER RPC that returns no identifiers). Say that out
+        loud if anyone asks — it is the same guarantee the roster deliberately does not give.
+      - IF THIS SHOWS A SIGN-IN WALL you are signed out in this browser. Fix it before the
+        room fills, not from the stage.
+      - KEYBOARD: Left/Right still move the deck from inside the frame; Up/Down scroll it.
+    -->
+    <iframe src="https://claritypledge.com/events/clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj"
+            title="Clarity Night — the event page, driven through to the room" loading="eager"></iframe>
   </section>
 
   <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
@@ -1041,7 +1086,7 @@
         route (/org/* is a permanent legacy redirect, P1193). Both work. Pick before Friday.
     -->
     <h2 style="font-size:clamp(1.35rem,3.3vw,2.6rem)">Join the <span class="accent">communication&nbsp;activism</span> community</h2>
-    <p class="lead" style="margin-top:.85rem;max-width:44ch;text-wrap:balance">Practice clarity together. Build trust that holds.<br>Free, local, open-ended.</p>
+    <p class="lead" style="margin-top:.85rem;max-width:44ch;text-wrap:balance">Practice clarity together. Build trust that holds.</p>
     <div class="qr-wrap" style="--qr-size:min(42vh,340px);margin-top:1.4rem">
       <img class="qr" alt="QR code to claritypledge.com/groups/cm/join" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYAQMAAACEqAqfAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACyUlEQVR4nO3cMXLsIAyAYTIptvQROEqOZh/NR/ERUrrYWd5YCJBYJ5PSz/xqdjHwOVU0EvaG9BYhx2e7shzjmF4hTHplDR8nG7GwsLCwrmx9BxPTudXD4bA2uzFiYWFhYY1lzXnZS61H22kXv+RT1q5q6aonFhYWFhZWju3YO+liST2ydtcBFhYWFtYdLNmeFy/ytbapsLCwsLCwgolirccgpj5k7aPVHS2wsLCwsEay+tDFn5poJE1JoslpaqnW20YsLCwsrOtaZ/E4Zp6aO1xZUqbX031YWFhYWGNYdnGObjopXM47NFweemJhYWFhjWWleqBhrrQapkzHdBq77oqlHsLCwsLCurJlXpRwPSsNmTZ1h8QWusDCwsLCGsrqrzhrLoVFHqTWs2p/yYaFhYWFNYzVzcsbGMVysWmbqt03Jv8MLhYWFhbWpa2p1h25sHB9qLY9Wrg9G2V7VlhYWFhYo1jBFhZT8tFdce9cNN3nNCwsLCys21uTjr7q4ocWNNFuj/68w+Ws2rPCwsLCwhrB6nKLwLvCW3Dx0a1tsH1GFwsLCwvrolY661k1a7JHHO04xPSspGqJ3XO1WFhYWFh3tiS3uJNxsXT+pGf10MGm9527nIaFhYWFNYI1H1OrL1Ky3uWhoNZ6fMZyPO56VlhYWFhYV7bkv//Zb3AcMdeLLndI7G0aCwsLC2sQ6yzKGUa08+58e9WvVsXCwsLCGsVKbyGLvjQPtZbWZtOU1DtbtZ4nMhYWFhbWxazWpgrSoXKHEBJzHbTz7bJ7r7fCwsLCwhrKmvOKV7NWne+Ov//U/8LCwsLCGtg65nPqyQ0siSW4MDAWFhYW1v9n1fkcJnfI2tU2sCS28GPdgYWFhYV1R6vFlMp5R+q2l1f09FYvyUwyWH7rf2FhYWFh3dHqQ2uYHHJl8XloP25l3vWefzt3x8LCwsK6nfUPwaj5cHVHSNcAAAAASUVORK5CYII=">
       <div class="url"><span class="accent">claritypledge.com/groups/cm/join</span></div>
@@ -2149,6 +2194,39 @@
     show(i+1);
   }
   function prev(){show(i-1)}
+  /* ── EMBED KEY FORWARDING (presi3 only) ────────────────────────────────────
+     A full-bleed embed leaves no parent-document pixel to click, so once the host
+     clicks inside the frame the deck stops receiving arrow keys and there is no
+     obvious way back — a live-event trap, on a slide the host is meant to drive.
+
+     The embeds are SAME-ORIGIN when this deck is served from claritypledge.com, so we
+     can listen inside the frame and re-dispatch. Only Left/Right are forwarded: Up,
+     Down, PageUp and PageDown must keep scrolling the embedded page, which is the
+     whole point of embedding it.
+
+     Cross-origin (localhost, file://) throws on contentDocument — caught and ignored,
+     which is also the case where the frame is blank anyway. Re-attached on every load
+     because navigating inside the frame (clicking "Join now") replaces its document. */
+  (function wireEmbeds(){
+    function attach(f){
+      try{
+        const d=f.contentDocument;
+        if(!d||d.__deckKeys) return;
+        d.__deckKeys=true;
+        d.addEventListener('keydown',ev=>{
+          if(ev.key==='ArrowRight'||ev.key==='ArrowLeft'){
+            ev.preventDefault();
+            document.dispatchEvent(new KeyboardEvent('keydown',{key:ev.key,bubbles:true}));
+          }
+        });
+      }catch(_){ /* cross-origin: nothing to wire, and nothing renders either */ }
+    }
+    document.querySelectorAll('.slide iframe').forEach(f=>{
+      f.addEventListener('load',()=>attach(f));
+      attach(f);
+    });
+  })();
+
   document.addEventListener('keydown',e=>{
     if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();next()}
     else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();prev()}
