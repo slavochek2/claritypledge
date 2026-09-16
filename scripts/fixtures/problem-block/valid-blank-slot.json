@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "draft_id": "9d41e0a2-55c3-4f7e-8b19-6e2a7c30d4f1",
+  "whose_problem": "customer_seen_through_member",
+  "story": "The author consults for small clinics. One clinic manager they work with keeps asking for a new booking tool, and each tool they try is abandoned within a month. The manager wants to get to a week where no patient is double-booked. The author has watched three tools fail the same way and does not yet know why.",
+  "want_sentence": "The manager wants to get to a week where no patient is double-booked.",
+  "claims": [
+    {
+      "slot": "frame",
+      "label": "local",
+      "point": "What blocks this clinic from ending double-bookings is that two receptionists keep separate paper lists, not the booking tool.",
+      "anti_point": "What blocks this clinic from ending double-bookings is that every tool they tried was too slow to use while a patient waits at the desk."
+    },
+    {
+      "slot": "obstacle",
+      "label": "portable",
+      "point": "A shared schedule fails when the people who fill it keep a private copy they trust more.",
+      "anti_point": "A shared schedule fails when entering a booking takes longer than the conversation that produced it."
+    },
+    {
+      "slot": "hypothesis",
+      "label": "portable",
+      "blank_reason": "The author's history records no idea about what would get past the private-copy problem."
+    }
+  ]
+}

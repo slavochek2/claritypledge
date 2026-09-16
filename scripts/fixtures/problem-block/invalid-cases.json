@@ -1,0 +1,25 @@
+{
+  "_comment": "P1319 malformed-block cases. Each case patches valid.json (set: dotted path -> value; delete: dotted paths, list indices allowed) and names the field the validator must report. Shared so P1320's page-side parser can run the same cases.",
+  "base": "valid.json",
+  "cases": [
+    {"name": "missing draft_id", "delete": ["draft_id"], "expect": "draft_id: required field missing"},
+    {"name": "unknown format_version", "set": {"format_version": 2}, "expect": "format_version: unknown version"},
+    {"name": "format_version as a string", "set": {"format_version": "1"}, "expect": "format_version: unknown version"},
+    {"name": "only two claims", "delete": ["claims.2"], "expect": "claims: exactly 3 required"},
+    {"name": "claims not a list", "set": {"claims": {}}, "expect": "claims: must be a list"},
+    {"name": "slot order swapped", "set": {"claims.0.slot": "obstacle"}, "expect": "claims[0].slot"},
+    {"name": "frame labelled portable", "set": {"claims.0.label": "portable"}, "expect": "claims[0].label"},
+    {"name": "anti_point missing", "delete": ["claims.1.anti_point"], "expect": "claims[1].anti_point: required"},
+    {"name": "anti_point repeats the point", "set": {"claims.1.point": "Same words.", "claims.1.anti_point": "Same words."}, "expect": "claims[1].anti_point: must be a rival position"},
+    {"name": "blank slot that still carries text", "set": {"claims.2.blank_reason": "Nothing in the history."}, "expect": "claims[2].point: a blank slot carries no text"},
+    {"name": "want_sentence missing", "delete": ["want_sentence"], "expect": "want_sentence: required field missing"},
+    {"name": "want_sentence not in the story", "set": {"want_sentence": "They want a bigger venue."}, "expect": "want_sentence: must appear verbatim inside story"},
+    {"name": "empty story", "set": {"story": "   "}, "expect": "story: must be non-empty text"},
+    {"name": "unknown top-level field", "set": {"author_contact": "private"}, "expect": "author_contact: unknown field"},
+    {"name": "unknown claim field", "set": {"claims.0.confidence": 0.9}, "expect": "claims[0].confidence: unknown field"},
+    {"name": "whose_problem not allowed", "set": {"whose_problem": "a friend of theirs"}, "expect": "whose_problem: must be one of"},
+    {"name": "link into a local file", "set": {"links": ["file:///tmp/session.jsonl"]}, "expect": "links[0]: must be a public http(s) URL"},
+    {"name": "multi-line project", "set": {"project": "line one\nline two"}, "expect": "project: when present"},
+    {"name": "draft_id too short", "set": {"draft_id": "abc"}, "expect": "draft_id: must be 8-64 characters"}
+  ]
+}

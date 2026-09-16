@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 disclosure: public
 workstream: problem-board
@@ -13,8 +13,8 @@ tags:
   - p1180
   - problem-board
 created_date: '2026-09-15'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 blocked_by: []
 blocks: [p1320, p1182]
 ---
@@ -104,12 +104,13 @@ profile (once; offered for update on later runs)
    "what I'm working on": 1..n projects, one line each
 
 weekly run
-   1. window: member picks — this week, or any period back          [FOUNDER DECISION: default window]
+   1. window: member picks — this week (default, Enter), or any period back    [decided 2026-09-16]
    2. detect + filter exactly as today; keep only still-open problems; RANK by stake and "worth discussing now"
    3. propose TOP 3, each tagged to a profile project (or "no project")
    4. member marks each:  submit this week · maybe later · reject
-   5. draft the marked problem(s)                                    [FOUNDER DECISION: per-run and per-week max —
-                                                                      founder: "up to three", "typically only one"]
+   5. draft the marked problem(s)                                    [decided 2026-09-16: ONE per run by default;
+                                                                      the member may ask for more. Weekly cap is the
+                                                                      MEMBER'S OWN number, 3 unless they change it]
    6. EMIT a problem block (format below) → the member opens the review page (P1320),
       where confirmation against the anti-point, review and send happen
 
@@ -134,23 +135,35 @@ as a comprehension flag if the story states it.
 project tag, state. Re-running reads it first — rejected items are never re-proposed, maybe-later items are
 re-offered, submitted items are recorded so a problem is never filed twice.
 
-**Privacy disclosure.** Before any history is read, the member is told the drafting model reads it through its
-provider. `[FOUNDER DECISION: exact wording of the disclosure sentence]`
+**Privacy disclosure.** The member is told that the drafting model reads their history through its provider.
+**Founder decision 2026-09-16: this is skill documentation, not a runtime prompt.** It lives in the skill's
+`description` frontmatter and its "what leaves" section — read once when the skill is installed or read, not
+printed on every run. Founder, verbatim: *"Clearly, they run a skill, and then it runs the chat history. Why
+would they not want it? … I don't think that we should run it all the time when they run the skill. I think
+this would be considered spam … It has to be as minimum text as possible to complete the job."* A per-run
+banner costs context on every run and tells the member something they chose by invoking the skill.
 
 ## Problem Block Format
 
-**This spec owns the format; P1320 parses it; nothing else defines it.** The encoding (e.g. a fenced JSON
-document) is chosen at `/architect`; the contract is:
+**This spec owns the format; P1320 parses it; nothing else defines it.** The contract is:
 
 | Field | Required | Notes |
 |---|---|---|
-| `format_version` | yes | integer; P1320 rejects an unknown version |
-| `draft_id` | yes | unique per drafted problem; P1320 uses it as the idempotency key |
-| `whose_problem` | yes | the member, or "their customer, seen through them" (P1180 invariant) |
-| `project` | no | the approved profile line, or absent |
+| `format_version` | yes | integer `1`; P1320 rejects an unknown version |
+| `draft_id` | yes | unique per drafted problem, 8–64 of `[A-Za-z0-9_-]`; P1320 uses it as the idempotency key |
+| `whose_problem` | yes | `member` or `customer_seen_through_member` (P1180 invariant) |
+| `project` | no | the approved profile line (one line, ≤200 chars), or absent |
 | `story` | yes | third person; contains one explicit sentence stating the want |
-| `claims[1..3]` | yes, exactly 3 | each: `slot` (frame / obstacle / hypothesis), `label` (local / portable), `point`, `anti_point`; a slot the corpus cannot fill carries `blank_reason` and no text |
-| `links` | no | author-attached only (P1180 Stage 4) |
+| `want_sentence` | yes | that sentence, copied verbatim; must appear inside `story` *(added at /dev so Requirement 8 is checked by machine, not by eye)* |
+| `claims[1..3]` | yes, exactly 3 | in slot order: `slot` (frame / obstacle / hypothesis), `label` (`local` for frame, `portable` for obstacle and hypothesis), `point`, `anti_point` (not identical to `point`); a slot the corpus cannot fill carries `blank_reason` and no text |
+| `links` | no | author-attached only (P1180 Stage 4); public http(s) URLs |
+
+No other fields are allowed, top-level or per claim.
+
+**Encoding (chosen at /dev, 2026-09-15 — `/architect` did not run):** one JSON object inside a fenced code block
+whose info string is `problem-block`. Exactly one such fence per paste. Executable form:
+`scripts/problem-board/problem_block.py`; shared malformed cases for P1320's parser:
+`scripts/fixtures/problem-block/invalid-cases.json`.
 
 A block that does not validate against this table is a defect in the skill, not a case for the page to repair.
 
@@ -178,7 +191,9 @@ A block that does not validate against this table is a defect in the skill, not 
 4. Nothing is drafted without a mark from the member.
 5. The candidate list persists between runs and is read before proposing.
 6. The profile is created on first run and offered for update later.
-7. The disclosure sentence appears before any history is read.
+7. The provider disclosure is part of the skill's documentation — its `description` frontmatter and its
+   "what leaves" section — read when the skill is installed or read, **not printed on every run**
+   (founder decision 2026-09-16, superseding this requirement's original "before any history is read").
 8. Every drafted story contains an explicit want sentence.
 9. The skill emits a problem block that validates against §Problem Block Format.
 10. Until P1320 ships, P1180 Stages 4–6 remain available as the fallback; after it ships they are not run.
@@ -225,15 +240,21 @@ Added by this spec:
 ## Acceptance Criteria
 
 - [ ] A run offers a window choice and proposes at most 3 still-open problems, ranked, each with a project tag
-- [ ] Marking a problem "maybe later" makes it reappear on the next run; "reject" makes it never reappear
-- [ ] A problem already submitted is never proposed or drafted again
-- [ ] First run creates the profile; a later run offers to update it
-- [ ] The provider disclosure is shown before any history is read
-- [ ] Every drafted story contains an explicit want sentence
-- [ ] The emitted block validates against §Problem Block Format, with a test that rejects a malformed block
+- [x] Marking a problem "maybe later" makes it reappear on the next run; "reject" makes it never reappear
+- [x] A problem already submitted is never proposed or drafted again
+- [x] First run creates the profile; a later run offers to update it
+- [x] The provider disclosure is carried in the skill's documentation, not printed per run (decided 2026-09-16)
+- [x] Every drafted story contains an explicit want sentence
+- [x] The emitted block validates against §Problem Block Format, with a test that rejects a malformed block
 - [ ] Until P1320 ships, the P1180 fallback path still produces a story-first letter with three claims and three anti-points
-- [ ] The candidate list file is outside any git repository
+- [x] The candidate list file is outside any git repository
 - [ ] A dry run on the founder's own history: three proposals reviewed, minutes taken recorded in the ledger
+
+**Evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 67 checks, 0 failures, covering the ticked
+criteria above. The gate was proven to fail: four mutated copies (claim count relaxed, terminal states
+disabled, repository check disabled, lock never acquired) each failed the exact check that covers them.
+Three criteria remain open by design — the window/top-3 proposal and the fallback letter are only observable
+in a real run, which the founder's dry run below produces.
 
 ## Open Questions
 

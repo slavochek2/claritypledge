@@ -1,0 +1,29 @@
+{
+  "format_version": 1,
+  "draft_id": "3f2b9c1e-7a4d-4e0b-9f6a-2c8d1e5b7a90",
+  "whose_problem": "member",
+  "project": "A weekly meetup where people practise disagreeing well",
+  "story": "The author has run a weekly meetup for four months. About twelve people come each week, but almost nobody comes a third time. They want to get to a group where half of each evening's attendees have been at least three times. Last month they changed the format twice and the return rate did not move. They think this is the problem to work on now because the venue contract renews in six weeks.",
+  "want_sentence": "They want to get to a group where half of each evening's attendees have been at least three times.",
+  "claims": [
+    {
+      "slot": "frame",
+      "label": "local",
+      "point": "What keeps newcomers from returning to this meetup is that the first evening leaves them nothing unfinished to come back for, not the format of the evening.",
+      "anti_point": "What keeps newcomers from returning to this meetup is the format itself: the long silent reading stretch makes the evening feel like homework."
+    },
+    {
+      "slot": "obstacle",
+      "label": "portable",
+      "point": "People return to a group when they leave with an unfinished conversation they care about.",
+      "anti_point": "People return to a group when they feel they belong to it, whether or not a conversation was left unfinished."
+    },
+    {
+      "slot": "hypothesis",
+      "label": "portable",
+      "point": "Ending each first evening with one open disagreement the newcomer is invited back to finish would raise the share of people who return a third time.",
+      "anti_point": "Pairing each newcomer with a regular for the whole first evening would raise the share of people who return a third time more than any open disagreement would."
+    }
+  ],
+  "links": ["https://example.org/meetup-notes"]
+}
