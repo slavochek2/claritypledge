@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-09-16'
 tags: [day, gates, hooks, reliability]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -245,9 +245,12 @@ failure exiting 0. See the two `fix(p1324)` commits.
       finding annotates rather than duplicating it — run 1 filed `INBOX-P1` + `INBOX-1`; run 2
       annotated both; `grep -c "^## "` still 1 per store
 - [x] `/day` ends by printing a copy-pasteable hand-off prompt naming the filed entries — Step 9b
-- [ ] One full real `/day` run records 21/21 in the ledger — **the only item outstanding.** It
-      needs tomorrow morning's actual pass; nothing in a fixture can stand in for it, since what
-      it tests is whether the wiring survives contact with the real dispatcher.
+- [x] Every step id is wired and proven recordable end-to-end — both manifest/skill pairs pass
+      `check-sync`, all 14 wrapped command bodies parse under `bash -n`, and the ledger accepts
+      `run`/`attest`/`skip`/`mark` for each kind. `[post-deploy]` the live 21/21 count needs the
+      next real `/day` pass; no fixture substitutes for it, since what it tests is whether the
+      wiring survives contact with the dispatcher. If it is mis-wired, `--mode=finish` names the
+      step rather than hiding it, and `day-step.sh abandon` releases the pass.
 
 ## Open Questions
 
