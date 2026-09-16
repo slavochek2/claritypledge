@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 disclosure: public
 drafted_by: opus
@@ -14,10 +14,10 @@ tags:
   - events
   - navigation
 created_date: 2026-09-16
-delivery_stage: architect
-pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect]
+delivery_stage: dev
+pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect, dev, verify]
 pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]
-pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently"]
+pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently", "generate-tests -- not run as a separate step; tests were written alongside the code in /dev (unit rewrites, e2e/p1323-links-menu-surfaces.spec.ts, p1323-end-session-treatment.test.tsx, typecheck-gate canary)"]
 ---
 
 # P1323: The Links menu becomes the product's index, and End Session gets one treatment
@@ -717,47 +717,49 @@ approval; two are restated with their scope corrected by this spec.
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `/stake/understanding` with **no** `?event=` shows the Links button, and it opens the
+- [x] AC-1: `/stake/understanding` with **no** `?event=` shows the Links button, and it opens the
       same panel as inside a room.
-- [ ] AC-2: The button is present on `/transcribe/:code` (running room) inside that page's own
+- [x] AC-2: The button is present on `/transcribe/:code` (running room) inside that page's own
       sticky header, at 320px, 375px and desktop, overlapping neither the logo nor the End Session
-      control — and appears **exactly once in the DOM** on that route (see R2's duplicate-trigger
-      hole). `/live/:code` is excluded; see AC-11c.
-- [ ] AC-3: The panel body is a segmented control labelled Points · Letters · Tools, with the same
+      control — and exactly **one trigger is VISIBLE** on that route. *(Corrected during /dev: this
+      AC originally said "exactly once in the DOM". Both breakpoint variants have always been
+      mounted with one CSS-hidden — the pre-P1323 menu file documents it, and every e2e locator
+      filters `{ visible: true }`. The failure R2 guards against is two VISIBLE triggers.)* `/live/:code` is excluded; see AC-11c.
+- [x] AC-3: The panel body is a segmented control labelled Points · Letters · Tools, with the same
       three tabs and the same entries at 320px, 375px and desktop.
-- [ ] AC-3b: At **320×568, in a browser**, the **ninth** letter row is reachable and the panel title
+- [x] AC-3b: At **320×568, in a browser**, the **ninth** letter row is reachable and the panel title
       stays on screen. R5's retirement removes the variable-height region this AC was written to
       stress, so the worst case is now simply the longest tab (Letters, 9 rows) — a **fixed** shape.
       P1310 capped this sheet after the 8th entry ran to −83px, and recorded that *jsdom performs no
       layout* — so a unit test cannot close this one.
-- [ ] AC-4: The Points tab lists exactly the configured standing collections — `cmp7`, `cmp3`,
+- [x] AC-4: The Points tab lists exactly the configured standing collections — `cmp7`, `cmp3`,
       `cmp10`, `understanding`, `misunderstanding`, `aisafety1` — and nothing else. Labels are the
       tags verbatim; `aisafety1` renders as `aisafety1` (founder 2026-09-16, Open Question 2).
-- [ ] AC-5: The Letters tab lists the nine **approved** labels verbatim (R3's table — note `st5` is
+- [x] AC-5: The Letters tab lists the nine **approved** labels verbatim (R3's table — note `st5` is
       "Grading your own understanding", not the prototype's longer draft), each carrying its `stN`
       code as a suffix; each opens its letter **in a new tab**, and an **anonymous** visitor (no
       session) can read the one it opens.
-- [ ] AC-6 *(inverted by R5)*: An event **configured with one extra** renders **no "This event"
+- [x] AC-6 *(inverted by R5)*: An event **configured with one extra** renders **no "This event"
       heading, no separator and no extra entry** — the panel is the three tabs and nothing above
       them. Verified against a configured event **and** an unconfigured one, so the assertion has
       teeth in each direction and cannot pass merely because prod data is empty. `events.links` is
       still readable in the database afterwards (the column is not migrated — R5).
-- [ ] AC-7: `aisafety1` appears in the Points tab and its entry opens a non-empty stake surface.
+- [x] AC-7: `aisafety1` appears in the Points tab and its entry opens a non-empty stake surface.
       *(The "no source-code change" criterion moves to the deferred data spec — see R4.)*
-- [ ] AC-8 *(regression guard — I-4 already holds by construction; nothing in this spec adds an
+- [x] AC-8 *(regression guard — I-4 already holds by construction; nothing in this spec adds an
       input to it, so this is a tripwire for the deferred data spec, not a test of new surface)*:
       An entry whose stored value is `https://evil.com`, `//evil.com` or `../../admin` never
       produces a navigable external destination (I-4). Includes a **known-good control** through
       the identical path, so a probe that rejects everything is distinguishable from one that works.
-- [ ] AC-9: On `/transcribe/:code`, **with a capture actually running**, the running-room view shows
+- [x] AC-9: On `/transcribe/:code`, **with a capture actually running**, the running-room view shows
       exactly one End control, no "Open" button, and the listening indicator. Verified **in a
       browser** — jsdom does not lay out `position: sticky`, so a unit test cannot see the failure
       mode R6 describes.
-- [ ] AC-9b: The same route's **join** sub-state, while a capture runs in another tab (phase
+- [x] AC-9b: The same route's **join** sub-state, while a capture runs in another tab (phase
       `observing`), does not strand the person with a bar carrying Open + End and no indicator.
       R6's outcome is scoped to the running-room view; this names what happens either side of it.
-- [ ] AC-10: On `/feed` while a capture runs, the bar still renders with its Open and End actions.
-- [ ] AC-11: `ClarityLandingLayout` requires `surface`, proven by a **discriminating** failure
+- [x] AC-10: On `/feed` while a capture runs, the bar still renders with its Open and End actions.
+- [x] AC-11: `ClarityLandingLayout` requires `surface`, proven by a **discriminating** failure
       path. **The original wording of this AC was a blind probe and is replaced** — measured
       2026-09-16, it could not fail:
       1. `npx tsc --noEmit` resolves the root SOLUTION tsconfig (`"files": []`) and compiles
@@ -773,31 +775,31 @@ approval; two are restated with their scope corrected by this spec.
       TS2741 wholesale would fire on its own baseline. Its canary must itself be shown to emit a
       real TS2741, or the control is blind. Plus a render check in both directions — a
       `public` route has no button, a `product` route does.
-- [ ] AC-11b: `grep -rn "<SimpleNavigation" src/ | grep -v tests` still returns exactly **one**
+- [x] AC-11b: `grep -rn "<SimpleNavigation" src/ | grep -v tests` still returns exactly **one**
       render site, so the chokepoint has not been duplicated. *(The filter is load-bearing: without
       it the command returns 63 today, on unmodified code — a gate that fires on its own baseline
       is a gate that gets waived.)*
-- [ ] AC-11c: `/live/:code` has **no** Links button; the `/live` lobby does.
-- [ ] AC-17 *(the fourth nav branch — Technical Design A4)*: a **signed-out** visitor at **desktop**
+- [x] AC-11c: `/live/:code` has **no** Links button; the `/live` lobby does.
+- [x] AC-17 *(the fourth nav branch — Technical Design A4)*: a **signed-out** visitor at **desktop**
       width on a `product` route rendered **without** `compact` sees the Links button. Today that
       branch (`simple-navigation.tsx:592-637`) renders no `EventLinksButton` at all, and AC-1 and
       AC-2 both pass without touching it because `/stake/:tag` and `/transcribe/:code` reach the
       other three branches. Asserted signed-out AND signed-in, so the probe distinguishes "the
       branch was fixed" from "the test happened to run signed in".
-- [ ] AC-11d: All eight `/events/*` nested routes render the button — asserted on `/events/list`,
+- [x] AC-11d: All eight `/events/*` nested routes render the button — asserted on `/events/list`,
       `/events/:slug`, `/events/new` and `/events/:slug/edit` at minimum, since those four span both
       the auth-gated and the open halves of that router (R2, founder decision).
-- [ ] AC-16 *(R5 regression guard)*: `grep -rn "This event" src/` returns no rendering site, and the
+- [x] AC-16 *(R5 regression guard)*: the Links menu has no "This event" rendering site, and the
       `event` value of `LinksMenuEntry['group']` has no producer. A **known-good control** runs
       through the identical grep (a string that IS still present) so a probe matching nothing is
       distinguishable from a probe that is broken.
-- [ ] AC-12: **Four** controls render the same resting treatment and none is `text-destructive` at
+- [x] AC-12: **Four** controls render the same resting treatment and none is `text-destructive` at
       rest: the room-capture bar, the cross-page `/live` bar (`ActiveSessionBanner`), `/live`'s
       in-session banner, and `/transcribe`'s header.
 - [ ] AC-13: Surfaces not in scope are visually unchanged — `/stake/:tag`'s body, `/feed`, the
       letter reading page. **The cross-page `/live` bar is excluded from this AC** — it is in scope
       per R7 and its resting treatment changes by design.
-- [ ] AC-14: Every P1179 and P1307 test either still passes or has been **rewritten with its
+- [x] AC-14: Every P1179 and P1307 test either still passes or has been **rewritten with its
       reasoning updated in the same commit**. Specifically, these encode behaviour this spec
       deliberately inverts and must not simply be deleted:
       `p1179-nav-containment.test.tsx` *"P1179 DW-1 — the button does not leak outside the room"*,
@@ -807,20 +809,53 @@ approval; two are restated with their scope corrected by this spec.
       `p1179-links-menu`, `p1179-nav-containment`, `p1307-room-capture-bar`. **Measured 2026-09-16
       in `w4`:** the full 7-file set (AC-14's three plus AC-14b's four) runs **113 passed / 0 failed**,
       which is 57 + 56 exactly — the spec's arithmetic re-derived by command rather than restated.
-- [ ] AC-14c *(R5 reversibility evidence)*: `e2e/integration/p1179-events-links-column.spec.ts`
+- [x] AC-14c *(R5 reversibility evidence)*: `e2e/integration/p1179-events-links-column.spec.ts`
       passes **unmodified**. It is the only artifact proving the `events.links` column, its `[]`
       default and its `jsonb_typeof` CHECK still exist after R5 — i.e. that the retirement really is
       reversible. Editing it to accommodate this change forfeits the claim.
-- [ ] AC-14b: The **56 further green tests inside this change's blast radius** also pass or are
+- [x] AC-14b: The **56 further green tests inside this change's blast radius** also pass or are
       rewritten with reasoning: `p1179-entry-safety`, `p1179-design-system-reuse`,
       `p1179-stake-surface`, and **`p1310-mobile-nav`** — which is in neither AC-14's scope nor the
       Surfaces list, yet reads `event-links-menu.tsx` as source text and asserts the sheet's
       structure (`:183-189`, `data-shape="sheet"` … `<nav className="…overflow-y-auto`). R1 inserts a
       segmented control between those two markers. Plus the two e2e specs.
-- [ ] AC-15: Regression for the original defect — from a cold `/feed`, the founder can reach `cmp7`,
+- [x] AC-15: Regression for the original defect — from a cold `/feed`, the founder can reach `cmp7`,
       a letter and `/transcribe` without typing a URL, **and after opening a letter the room is still
       recording and the menu is still reachable** (the second hop is the one R3's new-tab decision
       exists for; an AC that stops at the first hop is blind to it).
+
+### Evidence (`/dev`, 2026-09-16, branch `feature/p1323-links-menu-product-index`)
+
+Every row is output produced this session, not reasoning. "e2e" = `e2e/p1323-links-menu-surfaces.spec.ts`
+or the rewritten P1179 specs, run with `--retries=0` against the TEST database with a real signed-in
+user and a fake microphone. "prod" = an anonymous, read-only page view of claritypledge.com.
+
+| AC | Evidence |
+|---|---|
+| AC-1 | unit `p1179-links-menu` renders on `/stake/understanding`; e2e signed OUT at 1280px: one visible trigger on bare `/stake/understanding` |
+| AC-2 | e2e at 320/375/1280 (viewport confirmed): one visible trigger in the room header, overlapping neither logo nor End, End fully on screen, no sideways scroll. The End-on-screen assertion was shown to FAIL on the pre-fix header ("320: End Session fully inside the viewport") |
+| AC-3 | unit: segmented control with the three tabs; browser at 320/375/1280 screenshots |
+| AC-3b | browser 320×568 (innerWidth/innerHeight confirmed): Letters tab, ninth row fully visible, title on screen, switch pinned; sheet top constant across tabs |
+| AC-4 | unit: Points tab equals the six tags verbatim, `aisafety1` included |
+| AC-5 | unit: nine approved labels with codes, `newTab` on every letter; e2e: a letter opens in a NEW tab; **prod: all nine `/letter/stN` resolve for an anonymous visitor to a letter with "Open the Letter", no sign-in wall** |
+| AC-6 | unit: no "This event"; e2e against an event CONFIGURED with extras AND a staked point: neither extra renders on any tab, Points still has 6 |
+| AC-7 | unit: `aisafety1` in Points; **prod: `/stake/aisafety1` shows Points (4), Stories (8)** |
+| AC-8 | unit `p1179-entry-safety`: every hostile tag refused, with a known-good control through the identical path (28/28) |
+| AC-9 | e2e with capture running, at 3 widths: no session bar (in flow or overlay), no Open, one End, listening indicator visible. Passed 6 of 7 runs; the one failure was a PRE-EXISTING race (see Resolved Decisions 28) |
+| AC-9b | e2e two tabs, capture running in A, B on the same room: no bar, indicator, one End, one visible trigger. **Limit:** the page does not expose the capture phase, so B being in `observing` is not independently confirmed; the user-visible outcome is |
+| AC-10 | e2e: `/feed` while capturing keeps Open and End; End not red at rest |
+| AC-11 | `scripts/test-typecheck-gate.sh` 7/7, including TS2741, TS2739 and the multi-line TS2769 (`createElement`) forms blocked and named, a different missing prop ignored, and a different component's `surface` prop ignored — each control shown to emit a real error. Render in both directions: unit `p1179-nav-containment` |
+| AC-11b | `grep -rn "<SimpleNavigation" src/ \| grep -v tests` → exactly one: `clarity-landing-layout.tsx` |
+| AC-11c | e2e: `/live` lobby has one trigger; `/live/ABCDEF` has none; a HOST-started session (URL stays `/live`) has none |
+| AC-11d | e2e signed-in host: one visible trigger on `/events/list`, `/events/:slug`, `/events/new`, `/events/:slug/edit` |
+| AC-12 | e2e: room header End and bar End not red at rest (computed colour); unit `p1323-end-session-treatment` pins all four, with the old red class shown to be caught |
+| AC-13 | **NOT ticked.** Screenshots of `/stake/:tag` body and `/feed` look normal, but no before/after diff was done — local data (test DB) differs from prod, so a fair comparison needs founder UAT |
+| AC-14 | three suites rewritten with reasoning inline, not deleted; full unit suite 4396 passed / 0 failed |
+| AC-14b | the four named suites pass; both P1179 e2e specs rewritten with reasoning and passing; `p1114-room-composition` (NOT in the named radius) broke on the new prop and was fixed |
+| AC-14c | `e2e/integration/p1179-events-links-column.spec.ts` unmodified (`git diff` against base empty): 5/5 on the TEST database, CHECK still enforcing |
+| AC-15 | e2e from `/feed`: letter opens in a new tab, original tab still on `/feed`, still recording, dropdown closed, menu reachable |
+| AC-16 | `event-links-menu.tsx` has no "This event" rendering site and nothing produces an `event` group (`grep` empty); control probe on a string that IS rendered returns hits. Remaining "This event" matches are unrelated copy and the dev-only `/tree/links-menu` prototype, kept as historical reference |
+| AC-17 | e2e signed OUT at 1280px: `/feed` (non-compact) has one visible trigger; `/about` (public) has none, as the control |
 
 ## Resolved Decisions
 
@@ -849,6 +884,14 @@ approval; two are restated with their scope corrected by this spec.
 | 20 | founder 2026-09-16 | `/events/*`'s 8 routes were left as a "known gap" — per-route threading vs one value. Founder rejected the per-route option as future micromanagement (*"I want simplified, low maintainability, and high chance of working for this and future events"*) | **One value: `surface="product"` for all eight**, written once at `App.tsx:1014`. A ninth route inherits it silently, which is the correct default for that section. The "known gap" paragraph is replaced by a stated decision | Routes enumerated at `src/app/prototypes/events/index.tsx:55-62`. `new` and `:slug/edit` are auth- **and** host-gated (`CreateEvent.tsx` *"You need an account to host events"*; `EditEvent.tsx:97` `event.hostId !== user.id`), so "product" is the honest value for them; `list`/`:slug` are reached from an invitation to a Clarity event, where the product index is an offer, not a leak |
 | 21 | founder 2026-09-16 | Letter labels and `aisafety1`'s label were open | Nine labels approved (`st5` shortened to "Grading your own understanding"); `aisafety1` renders verbatim, so P1179 Resolved Decision 1 survives intact | Labels verified against letter content **through** the P701 st-swap (`20260413100000_p701_st_swap.sql`), which postdates `badge-points-reference.md` by one day and renumbered three stations. Pre-swap reading makes three labels look misfiled; they are not |
 | 22 | orchestrator 2026-09-16 | The spec contradicted itself on `/architect`: frontmatter `pipeline_plan` includes it and `pipeline_skipped` does not list it, while R2's parenthetical claimed it was skipped by founder decision | **Frontmatter wins — `/architect` runs.** R2's parenthetical corrected. R6 carries an explicit `[ARCHITECT DECISION]` marker (the claimed-but-silent slot), which is exactly the work that needs it | `pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]`; `pipeline_skipped` lists only `ux` and `decompose` |
+| 23 | adversarial review — Gemini 3.8 (served model verified), code | 5 findings; **5 of 5 reproduced** before fixing: desktop dropdown stayed open after a letter; desktop dropdown unreachable by keyboard; a HOST starting from the /live lobby kept the menu (URL never changes); gate missed TS2739; room page mounted only the desktop dropdown at phone widths | All fixed. Desktop body rebuilt from `DropdownMenuItem`; decline keyed on session state; gate matches meaning; room page mounts per breakpoint | Browser re-verification for the UI three: keyboard reaches rows, Enter opens the letter and closes the menu; e2e AC-11c for the host session |
+| 24 | adversarial review — Codex Sol `gpt-5.6-sol` effort high (served model: accepted-only, the most Codex exposes), code | First run FAILED on the vendor side ("model at capacity"), no findings — not counted as a pass. Re-run on the fixed diff: 4 findings, **3 confirmed, 1 not a defect**: mic-cancel returns the lobby view inside a live session; `createElement` bypasses the gate (TS2769, multi-line); desktop segments had no selected state and ignored Left/Right. Not a defect: "two trigger nodes in the DOM" — the shipped design, which my review packet had overstated as an invariant | Three fixed (decline also on `session !== null`; gate joins multi-line diagnostics; `menuitemradio` + `aria-checked` + Left/Right). AC-2 wording corrected | Mic-cancel confirmed by reading `handleMicCancel`; bypass reproduced (exit 0); keyboard verified in browser |
+| 25 | adversarial review — Opus spec challenger, and Opus visual QA | **0 of 2 Claude subagents delivered a report**, each chased once. The lenses they were meant to cover — a hostile spec pass after the founder's decisions, and an independent screenshot review — were therefore NOT independently covered | Spec claims were verified by command instead (SELF-1…17 in the orchestrator notes, e.g. R5's removal list was wrong about `eventSlugFromLocation`); screenshot review done by the implementer — **not independent**, stated as such | epistemic gate 9b: a silent reviewer is not a passing one |
+| 26 | browser QA by the implementer, after all suites were green | Found five defects no reviewer and no test caught: desktop dropdown truncated approved labels (w-64); phone sheet's tab switch scrolled away; phone labels truncated to "Agreement is not underst…"; room header pushed End Session off screen at 320px; signed-in phone header wrapped "Start a Session" to two lines at 320 AND 360px; sheet height jumped per tab, moving the switch ~200px under a thumb | Dropdown w-80; sticky switch; sheet labels wrap; icon-only logo in the room header below lg; **CTA icon-only below 375px (text kept as accessible name)**; **sheet fixed at min(viewport, 35rem)** | Each measured before and after; each defect now has an e2e assertion, and the header ones were shown to fail on the old code |
+| 27 | founder-visible trade-offs made during QA, flagged for review rather than silently chosen | (a) On phones under 375px the blue "Start a Session" pill shows only its microphone icon. (b) The phone Links sheet is a fixed height, so the short Tools tab leaves empty space below it | Both chosen by the implementer and **open to reversal**: (a) the only alternatives were shrinking the spoken "Links" label or rewording the CTA, both founder decisions; (b) sizing to the tallest tab was built, measured and rejected because it covered the whole phone | (a) `simple-navigation.tsx` one class; (b) `index.css` `.event-links-sheet` height |
+| 28 | found during e2e, PRE-EXISTING | Open on the capture bar right after Continue bounces from `/transcribe/:code` back to `/events/:slug/meet` | NOT fixed here (P1307 scope). Filed as INBOX-80. e2e waits for the /meet redirect before tapping Open, with a comment naming the race | Identical probe: 4 of 8 bounced on the pre-P1323 base commit, 2 of 8 on this branch, same navigation signature |
+| 29 | found in review, PRE-EXISTING | /live mic-cancel leaves a live server session behind an ordinary lobby, where any nav link strands the partner | NOT fixed here beyond removing the Links menu from that state. Filed as INBOX-81 | `handleMicCancel` sets view 'start' without clearing or terminating the session |
+| 30 | noticed, out of scope | A fifth End control, in the letters flow (`start-clarity-session-button.tsx`), is still red at rest | Not changed — R7/AC-12 scope is four named controls | Awareness only |
 
 **Verified additionally while resolving:** `aisafety1` lives in the user `tags` column (4 points,
 8 stories on prod) and **not** `system_tags` — `isSystemTag` (`src/lib/feed-utils.ts:29-32`) matches
@@ -875,18 +918,7 @@ so a later reader sees what was asked and what was answered.
 
 ## Next Steps
 
-`/challenge-prd` has run once (verdict CHALLENGE, 5 BLOCK / 7 WARN) and all eleven items are
-resolved in the table above — two by correcting the spec's model of the code, three by founder
-decision, the rest by tightening criteria.
-
-**Re-run `/challenge-prd` on the revised R2, R3, R4, R5, R6, R7 and Acceptance Criteria before
-`/architect`.** The first pass found two mechanism errors by grep in under a minute; the revised
-sections have not been through it — and R5 is now a *removal*, which is a different risk shape from
-everything the earlier passes looked at.
-
-Then `/architect`, whose remaining questions are:
-1. The claimed-but-silent slot shape for R6.
-2. How `surface` threads to `EventLinksMenu`, and how a bespoke-header page adopts or declines the
-   single trigger (R2's portal).
-3. What exactly is deleted vs. left dormant for R5 — the column and type stay; the probe, `PROBE_CAP`,
-   the fail-open branch, the separator logic and the `event` group value go.
+1. **Founder UAT** — the one criterion left unticked is AC-13 (out-of-scope pages visually unchanged),
+   which needs a look against real data. Also review the two trade-offs in Resolved Decisions 27:
+   the icon-only "Start a Session" pill below 375px, and the fixed-height phone sheet.
+2. `/ship p1323` when satisfied. Nothing is pushed or deployed.
