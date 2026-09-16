@@ -165,6 +165,35 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     await expect(page.getByTestId('event-links-menu')).toHaveAttribute('data-shape', 'sheet');
   });
 
+  /**
+   * AC-9b. Capture runs in tab A; tab B opens the same room. B's capture phase is `observing`
+   * (Web Locks give the microphone to one tab), which the room page counts as running — so B
+   * shows the room view. What must NOT happen is the stranded state: a bar carrying Open + End
+   * with no indicator. R6's claimed-but-silent slot is what keeps the bar off this page in BOTH
+   * tabs; the indicator is the D9 signal.
+   */
+  test('AC-9b: a second tab on the running room is not stranded — no bar, an indicator, one End', async ({ browser }) => {
+    const context = await browser.newContext({ permissions: ['microphone'] });
+    try {
+      const pageA = await context.newPage();
+      await reachCapturing(pageA);
+      await pageA.getByTestId('room-capture-bar-open').click();
+      await expect(pageA.getByTestId('transcribe-room-screen')).toBeVisible({ timeout: 20_000 });
+      const roomUrl = new URL(pageA.url()).pathname;
+
+      const pageB = await context.newPage();
+      await setTestSession(pageB, attendee.email);
+      await pageB.goto(roomUrl);
+      await expect(pageB.getByTestId('transcribe-room-screen'), 'tab B shows the room, not a join or consent screen').toBeVisible({ timeout: 20_000 });
+      await expect(pageB.getByTestId('room-capture-bar'), 'tab B: no session bar').toHaveCount(0);
+      await expect(pageB.getByTestId('transcribe-listening-indicator'), 'tab B: indicator on screen').toBeVisible();
+      await expect(pageB.getByRole('button', { name: /end session/i }).filter({ visible: true }), 'tab B: exactly one End').toHaveCount(1);
+      await expect(visibleLinksTriggers(pageB), 'tab B: exactly one visible Links trigger').toHaveCount(1);
+    } finally {
+      await context.close();
+    }
+  });
+
   test('AC-10 + AC-12: on /feed while capturing, the bar keeps Open and End, and End is not red at rest', async ({ page }) => {
     await reachCapturing(page);
     await page.goto('/feed');
