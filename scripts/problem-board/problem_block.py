@@ -12,22 +12,27 @@ block whose info string is `problem-block`:
     {"format_version": 1, "draft_id": "...", ...}
     ```
 
-A bare JSON object (no fence) is also accepted on input. More than one
-problem-block fence in the input is invalid — one block is one problem.
+A bare JSON object (no fence) is also accepted on input, backticks inside its
+strings and all. More than one problem-block fence — or one that is never
+closed — is invalid: one block is one problem.
 
 Usage:
   problem_block.py validate [FILE|-]   exit 0 valid · 1 invalid, every failing field named on stderr
-  problem_block.py emit FILE           validate, then print the fenced block · exit 1 and print nothing if invalid
+  problem_block.py emit FILE           validate, then print the fenced block · 1 if invalid
+                                       · 3 if FILE sits inside a git repository (drafts are private)
   problem_block.py new-id              print a fresh draft_id
 
 Exit 2 = usage error or unreadable input.
 
 Stdlib only: it has to run on a member's machine with nothing installed.
 """
+import ipaddress
 import json
 import re
 import sys
 import uuid
+from pathlib import Path
+from urllib.parse import urlsplit
 
 FORMAT_VERSION = 1
 FENCE_INFO = "problem-block"
@@ -42,9 +47,12 @@ REQUIRED_TOP = ("format_version", "draft_id", "whose_problem", "story",
                 "want_sentence", "claims")
 CLAIM_KEYS = {"slot", "label", "point", "anti_point", "blank_reason"}
 
-DRAFT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+# \A…\Z, not ^…$: Python's $ also matches before a trailing newline, which let a
+# draft_id carrying "\n" validate (found by review, 2026-09-16).
+DRAFT_ID_RE = re.compile(r"\A[A-Za-z0-9_-]{8,64}\Z")
 FENCE_RE = re.compile(r"^```problem-block[ \t]*\n(.*?)^```[ \t]*$", re.S | re.M)
-LINK_RE = re.compile(r"^https?://[^\s/]+\.[^\s]+$")
+FENCE_OPEN_RE = re.compile(r"^```problem-block[ \t]*$", re.M)
+PRIVATE_HOST_SUFFIXES = (".local", ".internal", ".localdomain")
 PROJECT_MAX = 200
 
 
@@ -52,18 +60,64 @@ def _text(value):
     return isinstance(value, str) and value.strip() != ""
 
 
+def enclosing_repo(path):
+    """The git repository containing path, or None. Shared with candidates.py.
+
+    Catches a working tree (.git directory), a worktree or submodule (.git FILE),
+    and a bare repository (HEAD + objects/ + refs/ with no .git at all).
+    """
+    try:
+        resolved = Path(path).resolve()
+    except OSError:
+        return None
+    for candidate in (resolved, *resolved.parents):
+        try:
+            if (candidate / ".git").exists():
+                return candidate
+            if ((candidate / "HEAD").is_file() and (candidate / "objects").is_dir()
+                    and (candidate / "refs").is_dir()):
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
 def extract(raw):
     """Return (obj, errors) from input holding one fenced block or a bare JSON object."""
+    raw = raw.replace("\r\n", "\n")
+    opened = len(FENCE_OPEN_RE.findall(raw))
     blocks = FENCE_RE.findall(raw)
-    if len(blocks) > 1:
-        return None, [f"(block): {len(blocks)} problem-block fences found; exactly one is allowed"]
-    if not blocks and "```" in raw:
-        return None, ["(block): a code fence is present but none is a ```problem-block fence"]
+    if opened > 1 or len(blocks) > 1:
+        return None, [f"(block): {max(opened, len(blocks))} problem-block fences found; exactly one is allowed"]
+    if opened == 1 and not blocks:
+        return None, ["(block): a ```problem-block fence is opened and never closed"]
     body = blocks[0] if blocks else raw
     try:
         return json.loads(body), []
     except json.JSONDecodeError as e:
         return None, [f"(block): not valid JSON — {e.msg} at line {e.lineno} column {e.colno}"]
+
+
+def _link_error(url):
+    """None when the URL is a public http(s) link a stranger could open."""
+    if not isinstance(url, str) or url.strip() != url or not url.strip():
+        return "must be a public http(s) URL"
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return "must be a public http(s) URL"
+    host = parts.hostname.lower()
+    if host == "localhost" or host.endswith(PRIVATE_HOST_SUFFIXES):
+        return "points at a private host, which no reader can open"
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    if ip is not None:
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return "points at a private address, which no reader can open"
+    elif "." not in host:
+        return "must be a public http(s) URL"
+    return None
 
 
 def _claims(claims):
@@ -72,6 +126,7 @@ def _claims(claims):
     if len(claims) != 3:
         return [f"claims: exactly 3 required, found {len(claims)}"]
     errs = []
+    filled = 0
     for i, (claim, (slot, label)) in enumerate(zip(claims, SLOTS)):
         f = f"claims[{i}]"
         if not isinstance(claim, dict):
@@ -90,12 +145,16 @@ def _claims(claims):
                 if key in claim:
                     errs.append(f"{f}.{key}: a blank slot carries no text")
             continue
+        filled += 1
         for key in ("point", "anti_point"):
             if not _text(claim.get(key)):
                 errs.append(f"{f}.{key}: required non-empty text (or set blank_reason)")
         if _text(claim.get("point")) and _text(claim.get("anti_point")) \
                 and claim["point"].strip() == claim["anti_point"].strip():
             errs.append(f"{f}.anti_point: must be a rival position, not the point repeated")
+    if filled == 0:
+        errs.append("claims: all three slots are blank — a submission with nothing to take a position on "
+                    "is a run to report, not a block to emit")
     return errs
 
 
@@ -139,8 +198,9 @@ def validate(obj):
             errs.append("links: must be a list of http(s) URLs")
         else:
             for i, url in enumerate(links):
-                if not (isinstance(url, str) and LINK_RE.match(url)):
-                    errs.append(f"links[{i}]: must be a public http(s) URL")
+                problem = _link_error(url)
+                if problem:
+                    errs.append(f"links[{i}]: {problem}")
     return errs
 
 
@@ -170,9 +230,16 @@ def main(argv):
         print(f"usage: problem_block.py validate [FILE|-] | emit FILE | new-id  (got: {' '.join(argv)})",
               file=sys.stderr)
         return 2
+
+    if cmd == "emit":
+        repo = enclosing_repo(rest[0])
+        if repo is not None:
+            print(f"refusing to emit: {rest[0]} is inside the git repository at {repo}. Drafts hold corpus "
+                  "content and live with the candidate list, outside every repository.", file=sys.stderr)
+            return 3
     try:
         raw = _read(rest[0] if rest else None)
-    except OSError as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f"cannot read input: {e}", file=sys.stderr)
         return 2
 

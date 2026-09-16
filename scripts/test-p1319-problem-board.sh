@@ -52,7 +52,10 @@ expect_code "valid fixture with a blank slot validates" 0 block validate "$FIX/v
 OUT=$(block validate - < "$FIX/valid.json" 2>&1); CODE=$?
 [ "$CODE" = 0 ] && ok "validates from stdin" || bad "validates from stdin — exit $CODE: $OUT"
 
-run block emit "$FIX/valid.json"
+# emit refuses a draft inside a repository (checked below), so emit from a copy outside one —
+# which is where a real draft lives anyway.
+cp "$FIX/valid.json" "$TMPROOT/valid-copy.json"
+run block emit "$TMPROOT/valid-copy.json"
 if [ "$CODE" = 0 ]; then
   EMITTED=$OUT
   printf 'Here is your problem block:\n\n%s\n\nPaste it into the review page.\n' "$EMITTED" > "$TMPROOT/fenced.md"
@@ -232,6 +235,109 @@ wait
 SELECTED=$(ids_in selected | wc -w | tr -d ' ')
 [ "$SELECTED" = "3" ] && ok "6 concurrent selections stop at the cap of 3" \
   || bad "6 concurrent selections left $SELECTED selected, want 3"
+
+echo "edge cases found by review, 2026-09-16"
+
+# A valid bare JSON block may contain triple backticks inside its text.
+python3 - "$FIX/valid.json" "$TMPROOT/backticks.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+d["story"] += " They tried ```npm test``` and it passed."
+json.dump(d, open(sys.argv[2], "w", encoding="utf-8"))
+PY
+expect_code "bare JSON containing triple backticks validates" 0 block validate "$TMPROOT/backticks.json"
+
+run block emit "$TMPROOT/valid-copy.json"
+printf '%s\n\n```problem-block\n' "$OUT" > "$TMPROOT/unclosed.md"
+expect_code "an unclosed second fence is rejected" 1 block validate "$TMPROOT/unclosed.md"
+
+# A single fence that is never closed. Exit 1 alone does not bind the never-closed guard —
+# without it the whole input parses as JSON and fails anyway — so assert the REASON.
+printf '```problem-block\n{"format_version": 1}\n' > "$TMPROOT/lone-unclosed.md"
+run block validate "$TMPROOT/lone-unclosed.md"
+if [ "$CODE" = 1 ] && grep -qF 'opened and never closed' <<<"$OUT"; then
+  ok "a lone fence that is never closed is rejected as unclosed"
+else
+  bad "a lone unclosed fence — exit $CODE, wanted the unclosed-fence reason in: $OUT"
+fi
+
+python3 -c 'import sys; open(sys.argv[2],"wb").write(open(sys.argv[1],"rb").read().replace(b"\n", b"\r\n"))' \
+  "$TMPROOT/fenced.md" "$TMPROOT/crlf.md"
+expect_code "a fenced block with CRLF line endings validates" 0 block validate "$TMPROOT/crlf.md"
+
+# Drafts hold corpus content: emit refuses one inside a repository, and accepts one outside (control).
+mkdir -p "$TMPROOT/draftrepo" && git -C "$TMPROOT/draftrepo" init -q
+cp "$FIX/valid.json" "$TMPROOT/draftrepo/draft.json"
+expect_code "emit refuses a draft inside a git repository" 3 block emit "$TMPROOT/draftrepo/draft.json"
+cp "$FIX/valid.json" "$TMPROOT/outside-draft.json"
+expect_code "emit accepts a draft outside any repository (control)" 0 block emit "$TMPROOT/outside-draft.json"
+
+# A bare repository has no .git at all; a worktree's .git is a FILE.
+git init -q --bare "$TMPROOT/bare.git"
+run env CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/bare.git/pb" python3 "$PB/candidates.py" profile-set "A project"
+if [ "$CODE" = 4 ] && [ ! -e "$TMPROOT/bare.git/pb/profile.json" ]; then ok "a bare repository is refused as a location"
+else bad "a bare repository is refused — exit $CODE: $OUT"; fi
+# Identity strings, deliberately not email-shaped: the privacy gate scans staged content.
+git -C "$TMPROOT/somerepo" -c user.email=canary -c user.name=canary commit -q --allow-empty -m init
+git -C "$TMPROOT/somerepo" worktree add -q "$TMPROOT/wt" -b wtbranch 2>/dev/null
+run env CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/wt/pb" python3 "$PB/candidates.py" profile-set "A project"
+[ "$CODE" = 4 ] && ok "a git worktree (.git is a file) is refused as a location" \
+  || bad "a git worktree is refused — exit $CODE: $OUT"
+
+# A profile of the wrong shape is refused, never replaced.
+export CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/edge/problem-board"
+mkdir -p "$CLARITY_PROBLEM_BOARD_DIR"
+printf '["a project line the member wrote"]' > "$CLARITY_PROBLEM_BOARD_DIR/profile.json"
+cp "$CLARITY_PROBLEM_BOARD_DIR/profile.json" "$TMPROOT/profile.orig"
+expect_code "a profile of the wrong shape is refused" 7 candidates cap 5
+cmp -s "$CLARITY_PROBLEM_BOARD_DIR/profile.json" "$TMPROOT/profile.orig" \
+  && ok "a profile of the wrong shape is never overwritten" || bad "the profile was overwritten"
+expect_code "profile-set refuses it too" 7 candidates profile-set "New line"
+printf '\xff\xfe\x00not utf-8' > "$CLARITY_PROBLEM_BOARD_DIR/candidates.json"
+expect_code "a non-UTF-8 state file is refused, not a traceback" 7 candidates add "Anything"
+
+# Re-proposing a title with a different project updates the project.
+export CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/proj/problem-board"
+run candidates add "Shared title" "Project A"; PID=$OUT
+run candidates add "shared TITLE!" "Project B"
+PROJ=$(candidates list 2>/dev/null | python3 -c 'import json,sys
+for v in json.load(sys.stdin).values():
+    for c in v:
+        if c["id"] == sys.argv[1]: print(c.get("project"))' "$PID")
+[ "$PROJ" = "Project B" ] && ok "re-proposing with a new project updates it" || bad "project stayed '$PROJ'"
+
+# An entry whose timestamp is missing must not buy an extra slot under the cap.
+export CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/nots/problem-board"
+candidates cap 1 > /dev/null 2>&1
+run candidates add "Timestamped"; T1=$OUT
+candidates mark "$T1" select > /dev/null 2>&1
+python3 - "$CLARITY_PROBLEM_BOARD_DIR/candidates.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p, encoding="utf-8"))
+for c in d["candidates"]:
+    c.pop("state_changed_at", None)
+json.dump(d, open(p, "w", encoding="utf-8"))
+PY
+run candidates add "Second one"; T2=$OUT
+expect_code "an entry with no timestamp still counts toward the cap" 6 candidates mark "$T2" select
+
+# reopen: the member's own undo of a terminal state.
+export CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/reopen/problem-board"
+run candidates add "Emitted but never pasted"; R=$OUT
+candidates mark "$R" select > /dev/null 2>&1
+candidates submitted "$R" "$DRAFT" > /dev/null 2>&1
+expect_code "a submitted entry is terminal before any reopen" 3 candidates add "Emitted but never pasted"
+expect_code "reopen needs a reason" 2 candidates reopen "$R"
+expect_code "the member can reopen it" 0 candidates reopen "$R" "the block never reached the page"
+case " $(ids_in maybe_later) " in
+  *" $R "*) ok "a reopened entry comes back as maybe later" ;;
+  *) bad "a reopened entry did not return to maybe_later" ;;
+esac
+run candidates add "Emitted but never pasted"
+[ "$CODE" = 0 ] && [ "$OUT" = "$R" ] && ok "a reopened entry can be proposed again" \
+  || bad "re-proposing a reopened entry — exit $CODE, got '$OUT'"
+expect_code "reopen refuses an entry that is not terminal" 3 candidates reopen "$R" "already open"
 
 export CLARITY_PROBLEM_BOARD_DIR="$TMPROOT/corrupt/problem-board"
 mkdir -p "$CLARITY_PROBLEM_BOARD_DIR"

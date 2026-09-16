@@ -45,10 +45,10 @@ python3 "$PB/candidates.py" --help      # every command, every exit code
 
 | State | Meaning | Proposed again? |
 |---|---|---|
-| `proposed` | shown, not marked | yes |
+| `proposed` | recorded, not marked — **including candidates ranked below the top 3** | yes |
 | `maybe_later` | member said maybe later | yes |
 | `selected` | marked *submit*, block not yet emitted | resumed, not re-proposed |
-| `submitted` · `rejected` | emitted, or refused | **never** |
+| `submitted` · `rejected` | a block was emitted, or the member refused it | **never** — only the member's own `reopen` undoes it |
 
 The helper matches titles exactly. **Deciding that a differently-worded problem is the same one as a rejected or submitted entry is your job** — compare against `list` and name the entry you matched. **Without the helper** (another machine, no Python): keep the same two files at the same location by hand, apply the same states, never delete an entry, never write inside a repository — and say you are running without it.
 
@@ -129,7 +129,7 @@ Why: ‹ONE sentence›       Confirm, correct a line, or name different content
 
 **1c. Size the stake in its OWN currency** — an estimate of the loss if the why is misread, not a score. **Time** (the default; **never rate-convert time into money** — the project's own buyer-language finding records zero currency figures from people pricing their own loss), **money** only when the loss *is* money, or **a burned read** — a measurement that can only be taken once, frequently the largest loss on a research programme; name what becomes unmeasurable. **Bound the exposure window** (*"you'd notice by ‹when›"*); if they genuinely cannot notice, say so and let the magnitude run. **Contradictions raise the estimate**, never block detection. **Loudness is not stake** — a deadline mentioned once is often the most valuable item.
 
-**Reading the transcripts:** subagents can read them **from the path** (never inline the contents), and a background agent's final text may not reach you — have each **write its candidates to a file under the private-state location and return that path**. Fan-out is optional, is never coverage, and a run that fanned out is only faster.
+**Reading the transcripts:** subagents can read them **from the path** (never inline the contents), and a background agent's final text may not reach you — have each **write its candidates to a file under the private-state location and return that path**. **Every quote a subagent returns must survive an exact `grep -F` anchor test against the transcript it claims to come from — run it before that quote reaches a draft.** An agent asserting it verified its own quotes is not verification (`.claude/rules/epistemic.md` gate 9); an unanchored quote is dropped and counted. Fan-out is optional, is never coverage, and a run that fanned out is only faster.
 
 ---
 
@@ -139,7 +139,7 @@ Why: ‹ONE sentence›       Confirm, correct a line, or name different content
 
 **2b. Still open only.** Drop, **and print as an exclusion with the reason**: anything the history shows as **settled** (decided and acted on, abandoned, solved), and anything that is **the same problem** as a `rejected` or `submitted` entry — name it: *"same as ‹title›, rejected ‹date›"*. When unsure whether two are the same, say so and treat it as the same. Carry forward every still-open `maybe_later` and unmarked `proposed` entry.
 
-**2c. Rank and propose the top 3.** Rank by **stake** and **worth discussing now** — working on it this week, a decision near, a window closing. **Duration-still-open is a tiebreaker, never the gate**: a two-day-old problem they just bet the year on is the most valuable thing here. Tag each with a profile project or `no project`, and record each with `candidates.py add "‹title›" ["‹project›"]` (exit 3 = terminal; drop it and say which).
+**2c. Rank and propose the top 3.** Rank by **stake** and **worth discussing now** — working on it this week, a decision near, a window closing. **Duration-still-open is a tiebreaker, never the gate**: a two-day-old problem they just bet the year on is the most valuable thing here. Tag each with a profile project or `no project`. **Record EVERY surviving candidate with `candidates.py add "‹title›" ["‹project›"]`, including the ones ranked below 3** — they stay `proposed` and come back next run, which is the whole point of keeping a list (exit 3 = terminal; drop it and say which). Print only the top 3.
 
 ```
 THIS WEEK — ranked
@@ -212,8 +212,10 @@ Settled by the reader test — `docs/decisions.md` 2026-08-31 [product] *"The re
 1. `python3 "$PB/problem_block.py" new-id` → the `draft_id`.
 2. Write the draft to `‹state-dir›/drafts/‹draft_id›.json` — never inside a repository.
 3. `python3 "$PB/problem_block.py" emit "‹state-dir›/drafts/‹draft_id›.json"`. **Exit 1 is a defect in the draft, never a case for the member or the page to repair** — fix the named field and re-emit. Never show a block that has not passed.
-4. Print the fenced block exactly as emitted; on the review-page path, tell the member to paste it there.
-5. `python3 "$PB/candidates.py" submitted ‹id› ‹draft_id›` — it can never be proposed or drafted again.
+4. `python3 "$PB/candidates.py" submitted ‹id› ‹draft_id›` — **record it before printing**, so a crash between the two cannot leave a problem that gets drafted and emitted twice under different ids.
+5. Print the fenced block exactly as emitted; on the review-page path, tell the member to paste it there.
+
+**If the member says the block never reached the page** — they closed the terminal, the paste failed, they changed their mind at the review page — `candidates.py reopen ‹id› "‹their reason›"` puts it back on the list. **Only ever on the member's own say-so**; never reopen an entry on your own judgement, and never to "retry" something you think should have worked.
 
 **Without the validator:** check field by field against P1319 §Problem Block Format, say you did it by hand, and still refuse to emit anything that fails.
 

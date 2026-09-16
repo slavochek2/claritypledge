@@ -155,8 +155,8 @@ banner costs context on every run and tells the member something they chose by i
 | `project` | no | the approved profile line (one line, ≤200 chars), or absent |
 | `story` | yes | third person; contains one explicit sentence stating the want |
 | `want_sentence` | yes | that sentence, copied verbatim; must appear inside `story` *(added at /dev so Requirement 8 is checked by machine, not by eye)* |
-| `claims[1..3]` | yes, exactly 3 | in slot order: `slot` (frame / obstacle / hypothesis), `label` (`local` for frame, `portable` for obstacle and hypothesis), `point`, `anti_point` (not identical to `point`); a slot the corpus cannot fill carries `blank_reason` and no text |
-| `links` | no | author-attached only (P1180 Stage 4); public http(s) URLs |
+| `claims[1..3]` | yes, exactly 3 | in slot order: `slot` (frame / obstacle / hypothesis), `label` (`local` for frame, `portable` for obstacle and hypothesis), `point`, `anti_point` (not identical to `point`); a slot the corpus cannot fill carries `blank_reason` and no text. **At least one slot must be filled** — all three blank is a run to report, not a block to emit |
+| `links` | no | author-attached only (P1180 Stage 4); public http(s) URLs — loopback, LAN and `.local`/`.internal` hosts are refused, because a link no reader can open is either useless or a pointer into the author's own machine |
 
 No other fields are allowed, top-level or per claim.
 
@@ -250,9 +250,19 @@ Added by this spec:
 - [x] The candidate list file is outside any git repository
 - [ ] A dry run on the founder's own history: three proposals reviewed, minutes taken recorded in the ledger
 
-**Evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 67 checks, 0 failures, covering the ticked
-criteria above. The gate was proven to fail: four mutated copies (claim count relaxed, terminal states
-disabled, repository check disabled, lock never acquired) each failed the exact check that covers them.
+**Evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 92 checks, 0 failures, covering the ticked
+criteria above. The gate was proven to fail: eleven mutated copies each failed the exact check that covers
+them (claim count relaxed · terminal states disabled · repository check disabled · lock never acquired ·
+bare-repo detection removed · profile-shape guard disabled · draft-location guard disabled · all-blank
+check removed · draft_id anchored with `$` instead of `\Z` · unclosed-fence guard removed · missing
+timestamp not counted). The eleventh mutation initially PASSED, which exposed a test defect rather than a
+code one: the unclosed-fence case was being caught by the "more than one fence" guard instead, so the check
+now asserts the reason and not just the exit code.
+Three independent hostile reviews (Opus, Codex Sol, Gemini 3.8) ran on the first implementation and reported
+6 HIGH and 14 MEDIUM between them; every converged finding is fixed and covered above — the profile being
+silently overwritten, bare repositories passing the location guard, the lock being defeated by replacing its
+file, timezone-dependent week accounting, candidates ranked below 3 never reaching the list, drafts not
+location-guarded, and a deleted quote-anchor rule restored to the skill.
 Three criteria remain open by design — the window/top-3 proposal and the fallback letter are only observable
 in a real run, which the founder's dry run below produces.
 

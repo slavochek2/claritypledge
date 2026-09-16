@@ -20,6 +20,11 @@
     {"name": "whose_problem not allowed", "set": {"whose_problem": "a friend of theirs"}, "expect": "whose_problem: must be one of"},
     {"name": "link into a local file", "set": {"links": ["file:///tmp/session.jsonl"]}, "expect": "links[0]: must be a public http(s) URL"},
     {"name": "multi-line project", "set": {"project": "line one\nline two"}, "expect": "project: when present"},
-    {"name": "draft_id too short", "set": {"draft_id": "abc"}, "expect": "draft_id: must be 8-64 characters"}
+    {"name": "draft_id too short", "set": {"draft_id": "abc"}, "expect": "draft_id: must be 8-64 characters"},
+    {"name": "draft_id with a trailing newline", "set": {"draft_id": "abcdefgh\n"}, "expect": "draft_id: must be 8-64 characters"},
+    {"name": "link to a loopback address", "set": {"links": ["http://127.0.0.1:8080/transcripts/session.jsonl"]}, "expect": "links[0]: points at a private address"},
+    {"name": "link to a LAN address", "set": {"links": ["http://192.168.1.9/corpus.html"]}, "expect": "links[0]: points at a private address"},
+    {"name": "link to a private host name", "set": {"links": ["http://localhost:5001/letter/1"]}, "expect": "links[0]: points at a private host"},
+    {"name": "all three slots blank", "set": {"claims.0.blank_reason": "Nothing in the history.", "claims.1.blank_reason": "Nothing in the history.", "claims.2.blank_reason": "Nothing in the history."}, "delete": ["claims.0.point", "claims.0.anti_point", "claims.1.point", "claims.1.anti_point"], "expect": "claims: all three slots are blank"}
   ]
 }

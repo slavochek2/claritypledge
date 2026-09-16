@@ -2,14 +2,15 @@
 """scripts/problem-board/candidates.py — the member's private candidate list and profile (P1319).
 
 Both files live on the member's machine, OUTSIDE every git repository, and never
-leave it. Every command refuses to run when the location is inside a repository.
+leave it. Every command refuses to run when the location is inside a repository —
+a working tree, a worktree, a submodule, or a bare repository.
 
 Location: $CLARITY_PROBLEM_BOARD_DIR, else ~/.clarity-pledge/problem-board/
   profile.json     "what I'm working on" — project lines, and the member's weekly cap
   candidates.json  every problem ever proposed, and its state
 
 States:
-  proposed     shown to the member, not yet marked
+  proposed     recorded, not marked (includes candidates ranked below the top 3)
   maybe_later  re-offered on the next run
   selected     marked "submit this week", not yet drafted and emitted
   submitted    a validated block was emitted for it — terminal, never proposed again
@@ -25,13 +26,16 @@ Usage:
                                               (an identical title already on the list returns that id)
   candidates.py mark ID maybe|reject|select
   candidates.py submitted ID DRAFT_ID         record the emitted block — terminal
+  candidates.py reopen ID REASON              undo a terminal state, ONLY when the member says so
+                                              (e.g. the block was emitted but never pasted)
 
 Exit codes: 0 ok · 2 usage · 3 refused, the entry is terminal · 4 location inside a git repository
             · 5 no profile yet · 6 weekly cap reached · 7 unreadable state file (never overwritten)
             · 8 another run holds the lock
 
 Every command that writes holds an exclusive lock across its whole read-modify-write,
-so two runs at once cannot lose each other's marks.
+so two runs at once cannot lose each other's marks. No state file is ever overwritten
+when it cannot be read and understood.
 
 Titles match exactly after lowercasing and dropping punctuation. Deciding that two
 differently-worded problems are the same one is the calling agent's job, which is
@@ -54,7 +58,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from problem_block import DRAFT_ID_RE  # noqa: E402 — one definition of a valid draft_id
+from problem_block import DRAFT_ID_RE, enclosing_repo  # noqa: E402 — one definition of each
 
 FORMAT_VERSION = 1
 # decisions.md 2026-09-15 [product]: one problem per member per week, max 3. The
@@ -79,14 +83,6 @@ def state_dir():
     return Path(env).expanduser() if env else Path.home() / ".clarity-pledge" / "problem-board"
 
 
-def enclosing_repo(path):
-    resolved = path.resolve()
-    for candidate in (resolved, *resolved.parents):
-        if (candidate / ".git").exists():
-            return candidate
-    return None
-
-
 def checked_dir():
     d = state_dir()
     repo = enclosing_repo(d)
@@ -101,22 +97,38 @@ def locked(d):
     """Hold an exclusive lock across a whole read-modify-write. Two runs cannot interleave."""
     d.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = d / ".lock"
-    fh = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     deadline = time.monotonic() + LOCK_TIMEOUT_SECONDS
+    fh = None
     try:
         while True:
+            fh = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
             try:
                 fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
             except OSError as e:
                 if e.errno not in (errno.EACCES, errno.EAGAIN):
                     raise
+                os.close(fh)
+                fh = None
                 if time.monotonic() >= deadline:
                     raise Refused(8, f"another run has held {path} for more than {LOCK_TIMEOUT_SECONDS}s")
                 time.sleep(0.05)
+                continue
+            # The lock is only mutual exclusion while everyone locks the SAME inode. If the
+            # file was replaced or deleted between open and flock, this lock guards nothing.
+            try:
+                if os.fstat(fh).st_ino == os.stat(path).st_ino:
+                    break
+            except FileNotFoundError:
+                pass
+            os.close(fh)
+            fh = None
+            if time.monotonic() >= deadline:
+                raise Refused(8, f"{path} keeps being replaced under this run")
+            time.sleep(0.05)
         yield
     finally:
-        os.close(fh)
+        if fh is not None:
+            os.close(fh)
 
 
 def now():
@@ -132,7 +144,7 @@ def load(path, default):
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
+    except (OSError, ValueError) as e:  # ValueError covers JSONDecodeError and UnicodeDecodeError
         raise Refused(7, f"cannot read {path}: {e}. Not overwriting it — fix or move the file by hand.")
 
 
@@ -159,8 +171,14 @@ def load_candidates(d):
 
 
 def load_profile(d):
-    profile = load(d / "profile.json", None)
-    return profile if isinstance(profile, dict) else None
+    """The profile, or None when there is no file. A file of the wrong shape is exit 7, never replaced."""
+    path = d / "profile.json"
+    profile = load(path, None)
+    if profile is None:
+        return None
+    if not isinstance(profile, dict) or ("projects" in profile and not isinstance(profile["projects"], list)):
+        raise Refused(7, f"{path} is not a profile. Not overwriting it — fix or move the file by hand.")
+    return profile
 
 
 def weekly_cap(d):
@@ -181,11 +199,16 @@ def find(data, cid):
 
 
 def in_current_week(ts, ref):
+    """ISO week in UTC, the same zone the timestamps are written in.
+
+    A missing or unreadable timestamp counts as THIS week: the cap is a brake, and an
+    entry that cannot prove it belongs to an earlier week must not buy an extra slot.
+    """
     try:
         t = dt.datetime.strptime(ts, TS_FORMAT).replace(tzinfo=dt.timezone.utc)
     except (TypeError, ValueError):
-        return False
-    return t.astimezone().isocalendar()[:2] == ref.astimezone().isocalendar()[:2]
+        return True
+    return t.isocalendar()[:2] == ref.isocalendar()[:2]
 
 
 def one_line(value):
@@ -268,10 +291,15 @@ def cmd_add(args):
                 if c.get("state") in TERMINAL:
                     raise Refused(3, f"{c['id']} '{c['title']}' is {c['state']} — never propose it again")
                 c["last_proposed"] = t
+                if project is not None and project != c.get("project"):
+                    c["project"] = project
                 save(d / "candidates.json", data)
                 print(c["id"])
                 return 0
+        taken = {c.get("id") for c in data["candidates"]}
         cid = uuid.uuid4().hex[:12]
+        while cid in taken:
+            cid = uuid.uuid4().hex[:12]
         data["candidates"].append({
             "id": cid, "title": title, "project": project,
             "first_proposed": t, "last_proposed": t,
@@ -291,8 +319,8 @@ def cmd_mark(args):
         c = find(data, args[0])
         ref = now()
         if c.get("state") in TERMINAL:
-            raise Refused(3, f"{c['id']} is {c['state']}, which is terminal. If that is truly a mistake, "
-                             f"edit {d / 'candidates.json'} by hand.")
+            raise Refused(3, f"{c['id']} is {c['state']}, which is terminal. If the member says that was "
+                             f"wrong — a block emitted but never pasted, say — use `reopen {c['id']} \"reason\"`.")
         new_state = MARKS[args[1]]
         if new_state == "selected" and c.get("state") != "selected":
             cap = weekly_cap(d)
@@ -328,9 +356,29 @@ def cmd_submitted(args):
     return 0
 
 
+def cmd_reopen(args):
+    """Undo a terminal state. The member asks for this; an agent never decides it alone."""
+    if len(args) != 2 or not args[1].strip():
+        raise Refused(2, "usage: reopen ID REASON   (the member's own reason, recorded)")
+    d = checked_dir()
+    with locked(d):
+        data = load_candidates(d)
+        c = find(data, args[0])
+        if c.get("state") not in TERMINAL:
+            raise Refused(3, f"{c['id']} is {c.get('state')}, which is not terminal — nothing to reopen")
+        history = c.setdefault("reopened", [])
+        history.append({"from": c["state"], "at": stamp(now()), "reason": args[1].strip(),
+                        "draft_id": c.get("draft_id")})
+        c["state"] = "maybe_later"
+        c["state_changed_at"] = stamp(now())
+        save(d / "candidates.json", data)
+    print(f"{args[0]} -> maybe_later (reopened)")
+    return 0
+
+
 COMMANDS = {
     "where": cmd_where, "profile": cmd_profile, "profile-set": cmd_profile_set, "cap": cmd_cap,
-    "list": cmd_list, "add": cmd_add, "mark": cmd_mark, "submitted": cmd_submitted,
+    "list": cmd_list, "add": cmd_add, "mark": cmd_mark, "submitted": cmd_submitted, "reopen": cmd_reopen,
 }
 
 
