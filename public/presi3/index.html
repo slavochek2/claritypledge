@@ -19,13 +19,23 @@
   event room's Links menu (src/app/data/event-links.ts); "Slides" there points at
   /presi and should keep doing so.
 
-  THE THREE NEW SLIDES (1-3) and what changed:
-    1 · TITLE       the evening's topic, held up while the room fills
-    2 · REGISTER    ONE QR → claritypledge.com/aisafety
-    3 · THE ROOM    host cue: switch to the live event tab, click "Join now"
-    (was 22) CTA    €295 Clarity Champions → the FREE community join. The offline
-                    configuration's CTA is the community join, not the membership
-                    — docs/events/clarity-practice-event.md § The offer.
+  THE TWO NEW SLIDES (1-2) and what changed:
+    1 · TITLE + QR  the evening's topic AND the one QR to claritypledge.com/aisafety,
+                    on one holding slide so the QR is up for the whole arrival.
+                    (Was two slides; merged 2026-09-16 at the founder's request.)
+    2 · THE EVENT   the real event page, EMBEDDED in an iframe. You click "Join now"
+                    inside it live. Only works served from claritypledge.com — see
+                    that slide's own comment for the CSP/X-Frame-Options resolution
+                    and why the frame is empty when tested locally.
+    CTA slide       €295 Clarity Champions → the FREE community join, now carrying a
+                    QR instead of an unclickable button. The offline configuration's
+                    CTA is the community join, not the membership —
+                    docs/events/clarity-practice-event.md § The offer.
+
+  ARC ORDER was re-cut by the founder 2026-09-16: the arc is slides 1-15 and ends on
+  the Chiang Mai calendar gift. Nine slides were demoted to an event-specific backup
+  block that sits between the arc and the permanent backing block; see the banner
+  above that block for the list and the reasoning.
 
   WHY ONLY ONE QR (asked and answered 2026-09-16): a second QR straight to
   /events/<slug>/room would drop an unregistered walk-in on the gate wall
@@ -128,6 +138,13 @@
   sup a{color:var(--blue);text-decoration:none;font-size:.62em;font-weight:700}
   .note{position:absolute;bottom:2.6vh;left:0;right:0;text-align:center;font-size:.74rem;
     color:var(--muted-fg);font-style:italic;opacity:.7;padding:0 9vw;line-height:1.45}
+
+  /* live embed — slide 2 only; the frame is the event page itself */
+  .live-embed{width:min(92vw,1500px);height:min(70vh,760px);border-radius:14px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 60px rgba(0,0,0,.45);
+    background:#fff;line-height:0}
+  .live-embed iframe{width:100%;height:100%;border:0;display:block}
+  @media (max-width:760px){ .live-embed{height:60vh} }
 
   /* QR */
   .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:1.4rem;margin-top:1rem}
@@ -660,72 +677,92 @@
 <div class="deck" id="deck">
 
   <!-- ══════════════════════════════════════════════════════════════════════
-       SLIDES 1-3 · ARRIVAL. Only these three are new in /presi3. Slide 1 is the
-       holding slide while the room fills; 2 is the one QR; 3 is the host's cue
-       to leave the deck and drive the live event page. From slide 4 on, this is
-       /presi unchanged.
+       SLIDES 1-2 · ARRIVAL. Only these two are new in /presi3. Slide 1 is the
+       holding slide while the room fills AND carries the one QR; 2 is the host's
+       cue to leave the deck and drive the live event page. From slide 3 on, this
+       is /presi unchanged.
+
+       MERGED 2026-09-16 (founder: "maybe put qr code on 1st slide so we save one
+       slide"). Title and QR were two slides; they are one now, which also means
+       the QR is on screen for the whole arrival, not only when the host advances.
        ══════════════════════════════════════════════════════════════════════ -->
 
-  <!-- 1 · TITLE — the evening's topic. Held up while people arrive and sit down. -->
+  <!-- 1 · TITLE + REGISTER — the evening's topic and the one QR, on the holding slide. -->
   <section class="slide grid-bg">
     <!-- NOTES
-      - This slide is up BEFORE you say anything. People walk in, read it, sit down.
+      - This slide is up BEFORE you say anything, and STAYS up while the room fills. People
+        walk in, read the topic, scan, sit down. That is the whole arrival.
       - Title is the published one, verbatim (docs/events/aisafety1-source-material.md § Title).
         Say the four names as a LIST, never "Sanders vs the others" — Sanders shares a point with
         Leahy only, and none at all with LeCun or Bengio. The "vs" form misstates the structure.
+      - Say the link out loud as well as showing it: "claritypledge dot com slash a-i-safety."
+        Someone's camera will not focus; the spoken link is the fallback, every time.
+      - ONE link for everybody. Not registered → registers. Already registered → same page,
+        and "Join now" is the tab at the top next to "Details" (it says "Event Room" until
+        60 minutes before start, then flips to "Join now" — EventDetail.tsx:44,285).
+      - Anyone who cannot scan: they sit with someone who did. Do not stall the room for one
+        phone, and do not offer to type it in for them from the stage.
       - Do NOT explain the format yet, and do NOT name the Clarity Meeting Principle here.
         The room feels the failure before it is offered the fix (docs/goals.md:15).
       - If asked "what is Clarity Night?" before you start: "a free discussion where we check we
         actually understood each other. Ninety minutes." Then stop.
+      - VERIFY BEFORE THE NIGHT: scan this QR with your own phone once and confirm it lands on
+        the event page. It was generated, not decoded — nobody has read it back yet.
     -->
     <div class="badge">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
       Clarity Night &middot; Chiang Mai
     </div>
-    <h1>Sanders, LeCun, Bengio and&nbsp;Leahy<br>disagree on AI safety.<br><span class="accent">Where do you stand?</span></h1>
-    <p class="lead" style="margin-top:1.2rem;max-width:44ch;text-wrap:balance">Friday 18&nbsp;September &middot; 18:00<br>Zuzalu Library, 4Seas Nimman</p>
-  </section>
-
-  <!-- 2 · REGISTER — the ONE QR. claritypledge.com/aisafety -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Say it out loud as well as showing it: "claritypledge dot com slash a-i-safety."
-        Someone's camera will not focus; the spoken link is the fallback, every time.
-      - ONE link for everybody. Not registered → registers. Already registered → same page,
-        and "Join now" is the tab at the top next to "Details" (it says "Event Room" until
-        60 minutes before start, then flips to "Join now" — EventDetail.tsx:44,285).
-      - Leave this slide up while people scan. Do not talk over it. Count to twenty.
-      - Anyone who cannot scan: they sit with someone who did. Do not stall the room for one
-        phone, and do not offer to type it in for them from the stage.
-      - VERIFY BEFORE THE NIGHT: scan this QR with your own phone once and confirm it lands on
-        the event page. It was generated, not decoded — nobody has read it back yet.
-    -->
-    <h2>Join tonight&rsquo;s room</h2>
-    <div class="qr-wrap" style="--qr-size:min(56vh,460px)">
+    <h1 style="font-size:clamp(1.5rem,3.6vw,2.9rem)">Sanders, LeCun, Bengio and&nbsp;Leahy disagree on AI safety.<br><span class="accent">Where do you stand?</span></h1>
+    <p class="lead" style="margin-top:.7rem;max-width:56ch;text-wrap:balance">Friday 18&nbsp;September &middot; 18:00 &middot; Zuzalu Library, 4Seas Nimman</p>
+    <div class="qr-wrap" style="--qr-size:min(38vh,300px);margin-top:1.3rem;gap:.7rem">
       <img class="qr" alt="QR code to claritypledge.com/aisafety" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYAQMAAACEqAqfAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACyklEQVR4nO3bMZK0IBCGYaYmMPQIc5Q5mh7No3iEDSeYkr9oGppGq/7UXd4v2UHkcbMuaA3xlJDzjHFPf2e97AZbeFwsxMLCwsK6s/UTmsxqvePXrris+fJD9ZIXFhYWFtZY1pJvO9SaUqHJ87r8aSvl3k0tveGLhYWFhYXVpEzvabkMPonEwsLCwvoT1taWCznAsmBhYWFhYYUmzpLY9EMHk+07LFhYWFhYI1l9XB3SMiWFJpeptVqnhVhYWFhY97WuMqWZvJforDK9Xa7DwsLCwhrDas+sXDlp6pDm0Q0sXywsLCyskSxbudXBZPN2/361bdHmR5CahYWFhYV1Y0svfdOnE24+9yja7yiO9lGx61E0D8bCwsLC+vOW7TsOveLq1Hz9HUXzn9RpLCwsLKwxrC5SdVwdCrXfEXVlyUv76v2ZFRYWFhbWXa0lj3ITwqy97VEUS2LvRrk6g4WFhYU1hCUX1lAyK/+u/Y6fCrv+ttNrrxwLCwsLawRLD6UkpQ7F7hu8Jf9y/Q53vlXPrLCwsLCwRrC62uK+397bOlTgLu35FxYWFhbWna2S7ap2aAdE+h2HvSjlzqxKOwQLCwsLaxjLCs3RnVm9qhVtes2lJ2qZKlZT07CwsLCwBrKi1aFysy4vj5JM+l7tq7TauzMrLCwsLKy7Wku6ddOVUg9Kf1uyZLj0t6fY5FNbGBELCwsLaxDrKtOp3xGk6kjWWodCW7OwsLCwsMax4ily0zv9MutpGxqJ9Dv2ap165VhYWFhY97NKcQh687l2LLW/Hdo9iqz+6KOi9bexsLCwsEawZN76283GQvP875nVHgIWFhYW1thWLPMprg51aWAsLCwsrN9o5Xdh7czKxb6jKEnPxcLCwsIayLLM0be87VG7Lz2HPEoGq3uvFgsLCwtrAKtPt4eZ6+Ch8Ce10g991Ee3OAELCwsLaxTrH0eo1NubZm0hAAAAAElFTkSuQmCC">
       <div class="url"><span class="accent">claritypledge.com/aisafety</span></div>
     </div>
-    <p class="lead" style="margin-top:1.1rem;max-width:40ch;text-wrap:balance">Register, then tap <b>Join&nbsp;now</b> at the top of the page.</p>
+    <p class="lead" style="margin-top:.55rem;font-size:clamp(.85rem,1.25vw,1.05rem);max-width:44ch;text-wrap:balance">Register, then tap <b>Join&nbsp;now</b> at the top of the page.</p>
   </section>
 
-  <!-- 3 · THE ROOM IS OPEN — host cue. You LEAVE the deck here; you do not present this slide. -->
+  <!-- 2 · THE EVENT, LIVE AND EMBEDDED — the real page, inside the deck.
+       Founder, 2026-09-16: "slide 3 should instead just show <event url> — embedded".
+       Replaces the switch-to-the-other-tab cue card.
+
+       THIS ONLY WORKS WHEN THE DECK IS SERVED FROM claritypledge.com.
+       The event page ships BOTH `content-security-policy: frame-ancestors 'self'` AND
+       `x-frame-options: DENY`. Those conflict; Chrome resolves it by ignoring XFO when
+       CSP frame-ancestors is present, so SAME-ORIGIN framing is allowed and cross-origin
+       is not. Verified 2026-09-16 against real prod in a real browser: framing the event
+       page from claritypledge.com loaded 4,980 chars of body text, while the same probe
+       framing example.com came back blocked — so the check could tell the two apart.
+
+       CONSEQUENCE FOR LOCAL TESTING: open this file from localhost or file:// and the
+       frame is EMPTY. That is the CSP doing its job, not a broken slide. Only a
+       claritypledge.com/presi3 load proves it.
+
+       The src is a ROOT-RELATIVE path on purpose — it resolves against whatever origin
+       serves the deck, and hardcoding https://claritypledge.com here would make the
+       same-origin guarantee depend on a string instead of on where the file is served. -->
   <section class="slide dark">
     <!-- NOTES
-      - THIS SLIDE IS A CUE, NOT A SLIDE. The moment it is up, switch to the event tab and drive
-        it live: event page -> "Join now" -> /ready -> the roster. They need to SEE where it is.
-      - HAVE THE TAB OPEN AND SIGNED IN BEFORE THE ROOM FILLS. The room is registered+signed-in
-        only (P1114 rev2); a login screen on the projector at 18:00 is the failure mode here.
-      - The roster is live: it updates over realtime with a 30s reconciliation poll behind it
-        (event-room-service.ts). Leave it projected while people join — watching their own name
-        appear is the point. Do not narrate it.
-      - Come back to the deck (Alt-Tab, then Left-Arrow is slide 3 again) only when you are ready
-        for the opening question on slide 4.
-      - If the roster is empty or frozen: say nothing, carry on, run the evening off the room's
-        own phones. It degrades to a static list by design and never to an error.
+      - You are NOT presenting this slide, you are driving it. The real event page is in the
+        frame: click "Join now" at the top of it and walk the room through what they just did.
+      - BE SIGNED IN BEFORE THE ROOM FILLS. The frame shares this browser's session, so if you
+        are signed out here you are signed out in there, and "Join now" lands on the gate wall.
+      - KEYBOARD GOTCHA: once you click inside the frame, arrow keys go to the EVENT PAGE, not
+        to the deck. To advance the deck again, click the dark area outside the frame first,
+        then press Right. This is the one way to get stuck on this slide.
+      - The roster updates live once you are through to the room — realtime with a 30s
+        reconciliation poll behind it (event-room-service.ts). Leave it up while people join
+        and let them watch their own name appear. Do not narrate it.
+      - If the frame is blank or frozen: say nothing, read the URL out loud, and carry on from
+        the room's own phones. The line under the frame is the fallback and is always visible.
     -->
     <div class="badge" style="border-color:rgba(255,255,255,.18);color:#fafafa">The room is open</div>
-    <h2 style="color:#fafafa">Switch to the event tab.<br><span class="accent">Click &ldquo;Join now&rdquo;.</span></h2>
-    <div class="url" style="margin-top:1.4rem;opacity:.7">claritypledge.com/aisafety</div>
+    <div class="live-embed">
+      <iframe src="/events/clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj"
+              title="Clarity Night event page, live"
+              loading="eager" referrerpolicy="same-origin"></iframe>
+    </div>
+    <div class="url" style="margin-top:.85rem;opacity:.75">claritypledge.com/aisafety</div>
   </section>
 
   <!-- 1 · HERO — the landing hero (P1004 LOCKED copy, src/app/pages/build-right-thing-landing.tsx). Eyebrow and H1 verbatim;
