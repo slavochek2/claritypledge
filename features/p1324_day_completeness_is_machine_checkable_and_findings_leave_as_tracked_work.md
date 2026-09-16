@@ -202,9 +202,17 @@ EXECUTE grants.
 
 ## Done-When
 
-Evidence: `day-step.test.sh` 40 · `day-gates.test.sh` 134 · `day-pass-guard.test.sh` 40 ·
-`test-p1324-day-ledger.sh` 13 — **227 cases, 0 failures**, and none of them writes
+Evidence: `day-step.test.sh` 57 · `day-gates.test.sh` 134 · `day-pass-guard.test.sh` 40 ·
+`test-p1324-day-ledger.sh` 18 — **249 cases, 0 failures**, and none of them writes
 `~/.claude-day-ledger` (asserted by the suites themselves).
+
+**A Codex adversarial review returned VERDICT: FAIL with five defects**, every one reproduced
+here by command before being fixed, and every one now a regression test with a 7c control:
+a forged receipt injectable through a newline in `--evidence` (critical — it certified a hard
+step that never ran); a missing manifest silently emptying the required-step list instead of
+failing it; a second session's `begin` truncating an open pass; a finding's metadata row
+written before its body, so a failed body write still reported success; and a partial filing
+failure exiting 0. See the two `fix(p1324)` commits.
 
 - [x] A manifest exists listing every required `/day` step, and a check fails if a step id in
       either skill file is absent from it or vice versa — `day-step.sh check-sync`, watched
