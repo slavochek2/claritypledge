@@ -1562,3 +1562,13 @@ The first /prioritize pass over the inbox (2026-09-15, P1317) left 88 open entri
 src/tests/p887-reproduce.test.ts buildSandbox (around line 85) runs copyFileSync over readdirSync('scripts/lib'). Any directory there (a Python __pycache__ from importing a module in scripts/lib, which is gitignored and so invisible in git status) makes the pre-commit canary fail with ENOTSUP, blocking an unrelated commit that stages migrate.sh. Hit 2026-09-15 on P1322; worked around by PYTHONDONTWRITEBYTECODE=1 in test-keyring-escrow.sh. Fix: copy files only (skip directories), or copy only the lib files migrate.sh actually sources.
 
 ---
+## The Links menu's standing lists are compile-time constants with no founder write path
+
+**ID:** INBOX-78
+**Date:** 2026-09-16
+**Status:** proposed
+**due:** month
+
+Split out of P1323 by founder decision. Two lists in src/app/data/event-links.ts are source constants, so adding an entry needs a code change and a deploy: STANDARD_STAKE_TAGS (six point collections after P1323 adds aisafety1) and the nine public letters st1-st9. The letters list is the larger and the growing one — st10 returns null today, so the next letter hits this first. A spec here must own the **write path**, not just the storage: "editable without a deploy" is not delivered by a migration, because a migration is a deploy, and hand-written SQL against prod puts nothing between the founder's keyboard and P1179's open-redirect invariant (I-4: an entry supplies a tag, never a path or URL — enforced today by isSafeTag plus stakePath being the only tag-to-path constructor). Do NOT auto-derive the list from "tags the founder created": there is no tags table and no author on a tag, so that resolves to every incidental #hashtag ever written (20260327084215_auto_extract_story_hashtags.sql). Precedent for operator-written destination data: the events.links jsonb column, 20260828120000_p1179_event_links.sql.
+
+---

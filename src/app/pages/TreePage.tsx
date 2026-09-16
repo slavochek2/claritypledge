@@ -55,6 +55,11 @@ const devPages = [
     description: 'Story/Point tab switcher (meaning vs validity) — cut from the coach landing 2026-06, preserved for future product/how-it-works use'
   },
   {
+    path: '/tree/links-menu',
+    label: 'Links menu + session line',
+    description: 'Three shapes for a Links menu carrying instruments, 9 letters and tools; plus the /transcribe duplicate End Session'
+  },
+  {
     path: '/tree/event-transcription',
     label: 'P1307: Event Room Transcription',
     description: 'Clickable prototype — transcribe toggle on /ready, cross-page bar, transcript view, practice session. Mock state only.'

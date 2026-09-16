@@ -14,6 +14,7 @@ exec_model: opus
 exec_effort: high
 driver: heuristic
 completed_at: 2026-08-31
+superseded_by: p1323
 ---
 
 # P1179: The event room "Links" menu and the locked stake surface
