@@ -14,8 +14,8 @@ tags:
   - events
   - navigation
 created_date: 2026-09-16
-delivery_stage: challenge-prd
-pipeline_ran: [change-request, challenge-prd, simplify]
+delivery_stage: architect
+pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect]
 pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently"]
 ---
@@ -412,9 +412,16 @@ entry** — not neglect, absence of a surface. The founder's stated objection (*
 micromanage the future when I create an event to explicitly remember to say that it should be put
 there"*) understates what the mechanism actually asked for.
 
-**What retiring removes:** `eventSlugFromLocation`'s use by the menu, the extras fetch, the emptiness
-probe and `PROBE_CAP`, the fail-open-on-error branch, the separator logic, and the `event` value of
-`LinksMenuEntry['group']`. The panel becomes a **fixed shape** — which removes the variable-height
+**What retiring removes:** the extras loop (`event-links.ts:142-155`), the `event` value of
+`LinksMenuEntry['group']`, the heading and separator logic (`event-links-menu.tsx:153-154` and
+`:344-345`), the extras fetch, the emptiness probe and `PROBE_CAP` (`event-links-menu.tsx:246-248`),
+and the fail-open-on-error branch.
+
+**`eventSlugFromLocation` SURVIVES — an earlier draft of this section wrongly listed it as removed.**
+It feeds `stakePath(tag, eventSlug)` for the **standard** tags too (`event-links.ts:158`), which is
+what puts `?event=` on a Points entry inside a room — behaviour "What Stays the Same" explicitly
+preserves. Its single non-test consumer (`event-links-menu.tsx:194`) stays. Verified by command;
+recorded because removing it would silently drop event attribution from every stake link. The panel becomes a **fixed shape** — which removes the variable-height
 region above the segmented control that was R1's only layout risk, and is the largest single factor
 in the desktop rendering the founder flagged as unseen.
 
@@ -423,8 +430,13 @@ pinned above the standing list for one event only. It appears in the Points tab 
 standing collection. P1179's *"the event's own link goes FIRST"* is therefore **superseded, not
 relocated** — see the superseded table.
 
-**Reversible by construction.** The `events.links` column and the `EventLinkEntry` type are **not
-dropped and not migrated**; the menu simply stops reading the column. Restoring the capability later
+**Reversible by construction, and there is a test that proves it.**
+`e2e/integration/p1179-events-links-column.spec.ts` asserts against the **live test database** that
+the column exists, defaults to `[]` with no NULLs, and that a `jsonb_typeof` CHECK rejects any shape
+other than `{tag, label?}`. That spec **must stay green and must not be edited by this change** — it
+is the mechanical evidence for the reversibility claim this section rests on, and weakening it would
+leave the claim asserted and unproven. The `events.links` column and the `EventLinkEntry` type are
+**not dropped and not migrated**; the menu simply stops reading the column. Restoring the capability later
 is a code change against data that is still there, and the deferred data spec (R4) is where a real
 write path would belong if it is ever wanted.
 
@@ -489,6 +501,124 @@ requirement exists to remove. Four controls, one treatment.
 action and wrong as a resting state in a bar that persists for the entire session next to a blue
 primary. The other two controls already made this call; this aligns the third with them rather than
 inventing a fourth treatment.
+
+## Technical Design (`/architect`, 2026-09-16)
+
+Every mechanism below was verified by command in `w4` before being written here. Line numbers are
+against the branch base `a6d71c798`.
+
+### A1 — The segmented control is `@/components/ui/tabs`, NOT the prototype's markup
+
+**The prototype's segmented control cannot be copied.** `src/tests/p1179-design-system-reuse.test.ts`
+scans `event-links-menu.tsx` as **source text** and asserts three things that its markup violates:
+
+| Assertion | Test | Prototype's control |
+|---|---|---|
+| `SRC.match(/#[0-9a-fA-F]{3,8}\b/g)` equals `[]` | `:30-33` | `bg-[#002B5C]` — a raw hex |
+| no `rounded-[` | `:35-37` | (passes) |
+| the only `h-[…]` token is the shared 44px | `:39-42` | (passes) |
+
+So the Approved-reference rule ("the prototype's *rendering* wins") **yields here to a green test
+that predates this spec** — the prototype is a throwaway page and was never subject to the
+design-system scan. Raised rather than picked silently, as the Approved-reference section requires.
+
+**The repo already ships the right primitive.** `src/components/ui/tabs.tsx` (Radix) renders exactly
+the intended look in tokens only:
+
+- `TabsList`: `inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground`
+- `TabsTrigger` active: `data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow`
+
+No hex, no arbitrary height, no arbitrary radius — all three source-scan assertions stay green — and
+it brings real tab semantics (roving tabindex, arrow keys, correct `aria-selected`/`aria-controls`)
+that the prototype's hand-rolled `role="tab"` buttons only imitate. Already in use at
+`letters-page.tsx`, `org-page.tsx` and `usp-contrast-demo.tsx`, so it is not a new dependency.
+
+Only override needed: `TabsList` is `inline-flex`; the sheet wants full width. Add `w-full` plus
+`grid grid-cols-3` (or `flex-1` per trigger). Both are token-free utilities.
+
+**Open risk for `/verify`, not resolvable in jsdom — Radix Tabs nested inside Radix DropdownMenu.**
+The desktop half renders inside `DropdownMenuContent`, which runs its own roving-tabindex manager
+and typeahead over `DropdownMenuItem`s; a nested `Tabs` runs a second one. Must be exercised by hand
+at desktop width. If they fight, the fix is to stop wrapping panel rows in `DropdownMenuItem` and
+render them as plain buttons inside the content — the trigger and anchoring stay as they are.
+
+### A2 — R6: the claimed-but-silent slot is three lines, and introduces no new concept
+
+`room-capture-bar.tsx:47-51` already separates the two responsibilities:
+
+```tsx
+export function RoomCaptureBarSlot() {
+  const { registerBarSlot, barVisible } = useRoomCapture();
+  useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
+  return barVisible ? <RoomCaptureBar /> : null;
+}
+```
+
+The claim (`registerBarSlot`) and the render are separate statements. A silent claim is the same
+effect with `return null`. `RoomCaptureBarFallback`'s `barSlotCount > 0` guard is untouched and keeps
+holding, so **no route list is introduced** — which is what R6 forbids.
+
+### A3 — R7: one line, and the target treatment already exists twice
+
+`session-bar.tsx:66` today:
+`whitespace-nowrap text-sm text-destructive hover:underline h-8 px-3 disabled:opacity-50 sm:ml-0 ml-auto`
+
+Target — the treatment `live-session-banner.tsx:80` and `transcribe-room-page.tsx:326` already share:
+neutral at rest, destructive on hover/focus, `h-9`, with the `LogOut` icon. Reaches **both**
+`SessionBar` consumers by design (R7); AC-12 counts four controls.
+
+### A4 — `surface` threading, and the fourth nav branch that has no button today
+
+`ClarityLandingLayout` (`clarity-landing-layout.tsx:17-27`) gains required `surface: 'product' | 'public'`
+and passes it to `ClarityLandingLayoutInner` → `SimpleNavigation`. `SimpleNavigation` has exactly one
+render site (`clarity-landing-layout.tsx:140`), which is what makes the prop a real chokepoint.
+
+**But `EventLinksButton` has FOUR possible homes inside the nav and only three are occupied:**
+
+| Branch | Line | Has the button today |
+|---|---|---|
+| desktop, signed in | `:553` | yes |
+| desktop, `compact` + logged out | `:589` | yes |
+| mobile (both auth states) | `:670` | yes |
+| **desktop, logged out, NOT compact** | `:592`–`:637` | **no** |
+
+Today that hole is invisible because `linksMenuAppliesTo` is false on every route reaching it. Under
+R2 it becomes live: a signed-out visitor at desktop width on a `product` route that is not rendered
+`compact` gets no trigger, while the same person at phone width does — an I-1 violation that **AC-1
+and AC-2 both pass anyway**, because `/stake/:tag` and `/transcribe/:code` reach the other branches.
+Covered by new **AC-17**.
+
+### A5 — `events.links` has exactly two readers; R5 removes one and must keep the other
+
+`grep -rn --include='*.ts' --include='*.tsx' '\.links\b' src/`:
+
+- `event-links-menu.tsx:204` — `.then(ev => setExtras(ev?.links ?? []))` → **removed** (the extras fetch)
+- `events-service-real.ts:154` — `links: Array.isArray(row.links) ? row.links : []` → **kept.** It is
+  the DB-row→`Event` mapper; removing it changes the `Event` type and forfeits R5's reversibility claim.
+- `src/lib/profile-links.ts:10` cites `events.links` as the sibling **precedent** for why a schema
+  cannot carry URL validation. A comment, not a reader — accurate only while the column survives.
+
+*Control probe:* the same grep also returns `profiles.links` (P1259) at `api.ts:629`,
+`profile-page-v2.tsx:1097`, `profile-subject-links.tsx:110` — a different column that must not be
+touched. The mixed verdict is what shows the probe discriminates rather than matching everything
+named "links".
+
+### A6 — `newTab` works for a letter, and two comments become false
+
+`event-links-menu.tsx:301` → `window.open(entry.to, '_blank', 'noopener,noreferrer')`. A full document
+load at `/letter/st1` is served by `vercel.json`'s catch-all rewrite `/((?!api|_next|.*\..*).*)` →
+`/index.html`, so React Router resolves it; `LetterRoute` (`App.tsx:179-205`) then resolves the
+shortcode via `resolveLetterShortcode(id, 'slava')` and `<Navigate replace>`s to the UUID. Works.
+
+**Two comments assert `newTab` is only for paths OUTSIDE the SPA router** —
+`event-links.ts:29-33` (the `LinksMenuEntry.newTab` docstring) and `event-links-menu.tsx:295-300`.
+Both become false the moment letters adopt it. They must be corrected in the same diff, or the file
+ships documentation that contradicts its own behaviour. No test asserts the exclusivity
+(`grep -rn "newTab" src/tests/ e2e/` → one hit, `p1310-mobile-nav.test.tsx:211`, which only asserts
+that Slides *has* the flag).
+
+Second-order: the new tab shows `ClarityPageLoader` while the RPC resolves. Acceptable in a new tab;
+named so `/verify` does not report it as a defect.
 
 ## Predecessor Sections Superseded
 
@@ -635,6 +765,12 @@ approval; two are restated with their scope corrected by this spec.
       it the command returns 63 today, on unmodified code — a gate that fires on its own baseline
       is a gate that gets waived.)*
 - [ ] AC-11c: `/live/:code` has **no** Links button; the `/live` lobby does.
+- [ ] AC-17 *(the fourth nav branch — Technical Design A4)*: a **signed-out** visitor at **desktop**
+      width on a `product` route rendered **without** `compact` sees the Links button. Today that
+      branch (`simple-navigation.tsx:592-637`) renders no `EventLinksButton` at all, and AC-1 and
+      AC-2 both pass without touching it because `/stake/:tag` and `/transcribe/:code` reach the
+      other three branches. Asserted signed-out AND signed-in, so the probe distinguishes "the
+      branch was fixed" from "the test happened to run signed in".
 - [ ] AC-11d: All eight `/events/*` nested routes render the button — asserted on `/events/list`,
       `/events/:slug`, `/events/new` and `/events/:slug/edit` at minimum, since those four span both
       the auth-gated and the open halves of that router (R2, founder decision).
@@ -655,7 +791,13 @@ approval; two are restated with their scope corrected by this spec.
       `p1179-links-menu.test.tsx` *"renders NOTHING outside an event context — a bare /stake/:tag
       has no button"*, and *"lists the five approved labels verbatim, and nothing else"*.
       Baseline before any change: 57/57 green across
-      `p1179-links-menu`, `p1179-nav-containment`, `p1307-room-capture-bar`.
+      `p1179-links-menu`, `p1179-nav-containment`, `p1307-room-capture-bar`. **Measured 2026-09-16
+      in `w4`:** the full 7-file set (AC-14's three plus AC-14b's four) runs **113 passed / 0 failed**,
+      which is 57 + 56 exactly — the spec's arithmetic re-derived by command rather than restated.
+- [ ] AC-14c *(R5 reversibility evidence)*: `e2e/integration/p1179-events-links-column.spec.ts`
+      passes **unmodified**. It is the only artifact proving the `events.links` column, its `[]`
+      default and its `jsonb_typeof` CHECK still exist after R5 — i.e. that the retirement really is
+      reversible. Editing it to accommodate this change forfeits the claim.
 - [ ] AC-14b: The **56 further green tests inside this change's blast radius** also pass or are
       rewritten with reasoning: `p1179-entry-safety`, `p1179-design-system-reuse`,
       `p1179-stake-surface`, and **`p1310-mobile-nav`** — which is in neither AC-14's scope nor the
