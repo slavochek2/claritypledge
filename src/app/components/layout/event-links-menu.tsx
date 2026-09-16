@@ -169,9 +169,12 @@ function LinksMenuTabs({
           `bg-background` on the wrapper, not just the pill, so rows passing underneath do not
           show through the pill's rounded corners and its padding. */}
       <div className="sticky top-0 z-10 bg-background pb-2">
-        <TabsList className="grid w-full grid-cols-3" data-testid="event-links-tabs">
+        {/* h-12 list / h-10 triggers: the primitive's default (h-9 list, ~28px triggers) measured
+            about 32px tall on a phone — under the 40px touch target — in independent visual QA.
+            This switch is tapped standing, one-handed, mid-event; it gets a real target. */}
+        <TabsList className="grid h-12 w-full grid-cols-3" data-testid="event-links-tabs">
           {TABS.map(t => (
-            <TabsTrigger key={t.value} value={t.value} data-testid={`event-links-tab-${t.value}`}>
+            <TabsTrigger key={t.value} value={t.value} className="h-10" data-testid={`event-links-tab-${t.value}`}>
               {t.label}
             </TabsTrigger>
           ))}
