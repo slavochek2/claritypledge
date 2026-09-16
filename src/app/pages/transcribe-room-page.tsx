@@ -41,7 +41,9 @@ import {
   type TranscribeMessage,
 } from '@/app/data/transcribe-service';
 import { useRoomCapture, type CapturePhase } from '@/app/contexts/room-capture-context';
-import { RoomCaptureBarSlot } from '@/app/components/session/room-capture-bar';
+import { RoomCaptureBarClaimSilent } from '@/app/components/session/room-capture-bar';
+import { EventLinksButton } from '@/app/components/layout/event-links-menu';
+import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 
 type ViewState = 'loading' | 'consent' | 'joining' | 'room' | 'ended';
@@ -81,6 +83,20 @@ export function TranscribeRoomPage() {
     !urlCode || (capture.roomCode ?? '').toUpperCase() === urlCode.toUpperCase();
   const showRunningRoom = captureRunning && codeMatchesRunningRoom && view !== 'ended';
   const showReadOnlyRoom = !showRunningRoom && readOnlyRoomId !== null && view !== 'ended';
+
+  /**
+   * P1323 R2 — this page's Links-trigger declaration, made from INSIDE the page because the
+   * sub-state is only visible here.
+   *
+   * ADOPT on the views that draw their own sticky header over the nav (the running room and
+   * the read-only room): the nav's trigger stands down and this page renders the one trigger
+   * in its own header. NULL on the join, loading and ended views — they draw no bespoke
+   * header, so the nav serves them normally with no declaration at all.
+   *
+   * Called unconditionally at the top level, before any of the early returns below, because
+   * a hook cannot live behind one. The MODE is what varies.
+   */
+  useLinksTriggerOverride(showRunningRoom || showReadOnlyRoom ? 'adopt' : null);
   const roomId = showRunningRoom ? capture.roomId : showReadOnlyRoom ? readOnlyRoomId : null;
 
   // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
@@ -319,6 +335,14 @@ export function TranscribeRoomPage() {
         <div className="container mx-auto px-4 lg:px-8 h-full">
           <div className="flex items-center justify-between h-full">
             <ClarityLogo size="sm" />
+            <div className="flex items-center gap-2">
+              {/* P1323 R2: this page draws its own header OVER the nav — the layout's nav
+                  guard is `!hasOwnNavigation && !isImmersiveLetterRoute` and does NOT include
+                  isLivePage, so the nav is covered, not hidden. ADOPTING moves the ONE
+                  trigger here: the nav's instances stand down, so there is still exactly one
+                  `event-links-button` node in the DOM (a second would be the strict-mode
+                  locator violation that broke the e2e suite in 2026-08-28). */}
+              <EventLinksButton owner="page" variant="dropdown" />
             <button
               type="button"
               onClick={() => void handleEndSession()}
@@ -329,14 +353,17 @@ export function TranscribeRoomPage() {
               <LogOut className="h-4 w-4" />
               <span>End Session</span>
             </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* P1307 D9: this page has its own header, so it gives the bar its own in-flow place. */}
-      <div className="shrink-0">
-        <RoomCaptureBarSlot />
-      </div>
+      {/* P1323 R6: the slot is CLAIMED and draws nothing — the page header above already
+          carries End Session, and the listening indicator plus the live transcript below are
+          a stronger D9 indicator than the bar was. Claiming rather than deleting is
+          load-bearing: an unclaimed slot drops barSlotCount to 0 and fires the app-wide
+          fallback, which re-draws the same bar as a sticky overlay. See the component. */}
+      <RoomCaptureBarClaimSilent />
 
       <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col flex-1 min-h-0 w-full">
         {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the

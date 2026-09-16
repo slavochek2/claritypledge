@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
 import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles, Loader2 } from 'lucide-react';
 import { ClarityLoader } from '@/components/ui/clarity-loader';
 import * as Sentry from '@sentry/react';
@@ -358,6 +359,24 @@ export function ClarityLivePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
+
+  /**
+   * P1323 R2 — `/live/:code` DECLINES the Links trigger; the `/live` lobby keeps it.
+   *
+   * Founder decision, 2026-09-16. Every menu entry except Slides and the letters is a
+   * same-tab router navigation, and this page's exit is deliberately singular: P779 routes
+   * every exit through `onExit()` so `terminate()` writes `sessionEnded=true`, which is what
+   * the OTHER party's subscription reads to navigate away. There is no route-level guard —
+   * BrowserRouter has no `useBlocker` (see the note further down this file). A menu tap
+   * would therefore leave the partner sitting in a session that looks live and is not.
+   *
+   * That is the same hazard class the letters' new-tab decision exists for, and the reason a
+   * route-level prop cannot express this: `/live` and `/live/:code` render THIS component
+   * inside the same bare layout (App.tsx), so only the page can tell the lobby from a
+   * running two-party session.
+   */
+  useLinksTriggerOverride(isJoinViaLink ? 'decline' : null);
+
   const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
   const terminate = useTerminateSession();
 

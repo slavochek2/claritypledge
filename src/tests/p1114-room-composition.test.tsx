@@ -189,7 +189,15 @@ describe('P1114 rev2: chrome and routing', () => {
       const i = s.indexOf(route);
       expect(i, `src/App.tsx has no explicit route for ${route}. The room routes must be hoisted out of the /events/* wildcard, which wraps them in the full ClarityLandingLayout — that is where the marketing nav and the footer come from.`).toBeGreaterThan(-1);
       const window_ = s.slice(i, i + 400);
-      expect(/ClarityLandingLayout\s+compact/.test(window_), `${route} does not mount under <ClarityLandingLayout compact>. The founder annotated "hide footer" and "delete" on the projected-chrome control; compact resolves both, and it is what the shipped /ready and /meet already use.`).toBe(true);
+      // P1323 inserted a required `surface` prop before `compact`, so the two are no longer
+      // adjacent in the source. The assertion is about `compact` being PRESENT on the room
+      // routes — not about prop order — so it matches the prop anywhere in the element.
+      // Kept as a source scan rather than loosened to a substring search: `[^>]*` stops at
+      // the end of the opening tag, so a `compact` on some LATER element in the 400-char
+      // window cannot satisfy it.
+      expect(/<ClarityLandingLayout\b[^>]*\bcompact\b/.test(window_), `${route} does not mount under a compact ClarityLandingLayout. The founder annotated "hide footer" and "delete" on the projected-chrome control; compact resolves both, and it is what the shipped /ready and /meet already use.`).toBe(true);
+      // P1323: and the room is a PRODUCT surface — it must carry the Links menu.
+      expect(/<ClarityLandingLayout\b[^>]*surface="product"/.test(window_), `${route} must declare surface="product" — the room is where the Links menu matters most.`).toBe(true);
     }
   });
 

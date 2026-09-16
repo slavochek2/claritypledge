@@ -113,7 +113,9 @@ function HomeRedirect() {
   // While session is resolving (~10ms from localStorage), show loader
   if (!sessionChecked) {
     return (
-      <ClarityLandingLayout>
+      // "/" while the session resolves. `public` matches the landing it may become; a
+      // signed-in visitor is redirected to /feed a tick later and never sees this.
+      <ClarityLandingLayout surface="public">
         <ClarityPageLoader />
       </ClarityLandingLayout>
     );
@@ -127,7 +129,8 @@ function HomeRedirect() {
   // Anonymous → show the build-the-right-thing landing (the public homepage, P1004). The
   // key-hire ProgramPage moved to /hiring; coach landing at /coach; old landing at /tree/old-landing.
   return (
-    <ClarityLandingLayout>
+    // The public homepage — reading ABOUT the thing.
+    <ClarityLandingLayout surface="public">
       <LazyRoute>
         <BuildRightThingLanding />
       </LazyRoute>
@@ -200,7 +203,12 @@ export function LetterRoute() {
   if (!isUUID && resolved) return <Navigate to={`/letter/${resolved}`} replace />;
   if (!isUUID && !notFound) return <ClarityPageLoader />;
   return (
-    <ClarityLandingLayout compact>
+    // `/letter/:id` — reading a letter someone sent you IS using the thing. The value is
+    // inert in practice: this route matches IMMERSIVE_LETTER_PATH, so the layout's own
+    // `!isImmersiveLetterRoute` guard suppresses the nav and there is no trigger to mount.
+    // It is set honestly rather than as `public`, so the next person to widen that guard
+    // inherits the right answer instead of a convenient lie.
+    <ClarityLandingLayout surface="product" compact>
       <LazyRoute><LetterReadingPage /></LazyRoute>
     </ClarityLandingLayout>
   );
@@ -330,7 +338,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/hiring"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><ProgramPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -340,7 +348,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/coach"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><CoachPartnershipPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -353,7 +361,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/pricing"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><OffersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -364,7 +372,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/login"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><LoginPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -373,7 +381,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/signup"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><SignupPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -382,7 +390,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/sign-pledge"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><SignPledgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -391,7 +399,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/sign-pledge/confirm"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><PledgeConfirmationPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -402,7 +410,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/me/calibration"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute><CalibrationBreakdownPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -411,7 +419,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/me"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute><MePage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -420,7 +428,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/sessions"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <MySessionsPage />
               </LazyRoute>
@@ -431,7 +439,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/p/:id/partners"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <ProfileConnectionsPage />
               </LazyRoute>
@@ -442,7 +450,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/p/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute><ProfilePageV2 /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -451,7 +459,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/p/:id/badge"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute><BadgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -460,7 +468,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/p/:id/pledge"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute><PledgePage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -469,7 +477,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/create"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <CreateStoryPage />
               </LazyRoute>
@@ -493,7 +501,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/agreements/new/create"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <CreateAgreementPage />
               </LazyRoute>
@@ -505,7 +513,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/agreements/confirm-email"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <AgreementEmailConfirmationPage />
               </LazyRoute>
@@ -516,7 +524,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/agreements/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <AgreementPage />
               </LazyRoute>
@@ -527,7 +535,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/agreements/:id/accept"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <AcceptAgreementPage />
               </LazyRoute>
@@ -539,7 +547,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/partner-template"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <PartnerTemplatePage />
               </LazyRoute>
@@ -550,7 +558,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/agreements/:id/declined"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <DeclinedAgreementPage />
               </LazyRoute>
@@ -560,7 +568,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/blog-subscribed"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <BlogSubscribedPage />
               </LazyRoute>
@@ -571,7 +579,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/story/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <StoryDetailPage />
               </LazyRoute>
@@ -584,7 +592,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/explain-back/:id"
           element={
-            <ClarityLandingLayout chromeFree>
+            <ClarityLandingLayout surface="product" chromeFree>
               <LazyRoute>
                 <ExplainBackViewPage />
               </LazyRoute>
@@ -595,7 +603,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/point/:id"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <PointDetailPage />
               </LazyRoute>
@@ -606,7 +614,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/pledgers"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute><ClarityPledgersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
@@ -635,7 +643,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/machines"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <MachinesPage />
               </LazyRoute>
@@ -646,7 +654,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/about"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <AboutPage />
               </LazyRoute>
@@ -657,7 +665,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/intro"
           element={
-            <ClarityLandingLayout logoOnly>
+            <ClarityLandingLayout surface="public" logoOnly>
               <LazyRoute>
                 <IntroPage />
               </LazyRoute>
@@ -668,7 +676,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/auth/callback"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <AuthCallbackPage />
             </ClarityLandingLayout>
           }
@@ -683,7 +691,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/auth/verify"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <AuthVerifyPage />
             </ClarityLandingLayout>
           }
@@ -692,7 +700,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/manifesto"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <FullArticlePage />
               </LazyRoute>
@@ -708,7 +716,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/privacy-policy"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <PrivacyPolicyPage />
               </LazyRoute>
@@ -719,7 +727,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/terms-of-service"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <TermsOfServicePage />
               </LazyRoute>
@@ -738,7 +746,7 @@ export default function ClarityPledgeApp() {
             /* compact: this page's whole job is one tap on one button, and the full nav
                puts a second, equally loud blue CTA ("Book a free alignment audit") in the
                same viewport. Compact keeps the logo and drops the marketing chrome. */
-            <ClarityLandingLayout compact>
+            <ClarityLandingLayout surface="product" compact>
               <LazyRoute>
                 <MeetingTermsPage />
               </LazyRoute>
@@ -752,7 +760,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/ready"
           element={
-            <ClarityLandingLayout compact>
+            <ClarityLandingLayout surface="product" compact>
               <LazyRoute>
                 <ReadyPage />
               </LazyRoute>
@@ -763,7 +771,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/settings"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <SettingsPage />
               </LazyRoute>
@@ -775,7 +783,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/co-create"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <CollaboratePage />
               </LazyRoute>
@@ -786,7 +794,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/demo"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="public">
               <LazyRoute>
                 <ClarityDemoPage />
               </LazyRoute>
@@ -807,7 +815,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/feed"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <FeedPage />
               </LazyRoute>
@@ -817,14 +825,14 @@ export default function ClarityPledgeApp() {
         {/* P1179: /stake/:tag — the feed with search, tag cloud, sort and Share removed.
             `compact` matches the room routes so the nav's right-hand group (and the
             Links button in it) is present and in the same place on arrival. */}
-        <Route path="/stake/:tag" element={<ClarityLandingLayout compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 
         <Route
           path="/live"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <ClarityLivePage />
               </LazyRoute>
@@ -836,7 +844,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/live/:code"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <ClarityLivePage />
               </LazyRoute>
@@ -848,7 +856,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/transcribe"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <TranscribeRoomPage />
               </LazyRoute>
@@ -858,7 +866,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/transcribe/:code"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <TranscribeRoomPage />
               </LazyRoute>
@@ -870,7 +878,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letters"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <LettersPage />
               </LazyRoute>
@@ -882,7 +890,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letters/drafts/:docId"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <DocDetailPage />
               </LazyRoute>
@@ -898,7 +906,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:docId/compose"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <LetterComposePage />
               </LazyRoute>
@@ -910,7 +918,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:docId/preview"
           element={
-            <ClarityLandingLayout chromeFree>
+            <ClarityLandingLayout surface="product" chromeFree>
               <LazyRoute>
                 <LetterPreviewPage />
               </LazyRoute>
@@ -922,7 +930,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:id/overview"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <LetterOverviewPage />
               </LazyRoute>
@@ -934,7 +942,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:id/results"
           element={
-            <ClarityLandingLayout>
+            <ClarityLandingLayout surface="product">
               <LazyRoute>
                 <LetterResultsPage />
               </LazyRoute>
@@ -946,7 +954,7 @@ export default function ClarityPledgeApp() {
         <Route
           path="/letter/:letterId/confirm"
           element={
-            <ClarityLandingLayout chromeFree>
+            <ClarityLandingLayout surface="product" chromeFree>
               <LazyRoute>
                 <LetterResponseConfirmPage />
               </LazyRoute>
@@ -991,14 +999,14 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a
             real route + nav entry instead of a dev-only /tree snapshot. */}
-        <Route path="/founder" element={<ClarityLandingLayout><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />
-        {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
-        {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
-        {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
+        <Route path="/founder" element={<ClarityLandingLayout surface="public"><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />
+        {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
+        {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
         {/* P1114 rev2: the three room routes, hoisted OUT of the /events/* wildcard
             below (Solution, "REVISED (2)" — "/room collapses to the gate"). The
             wildcard wraps everything in the full ClarityLandingLayout (marketing nav,
@@ -1007,29 +1015,29 @@ export default function ClarityPledgeApp() {
             Router's ranking never has to arbitrate — an explicit three-segment path
             outranks `/events/*` regardless of declaration order, but keeping them
             adjacent to the routes they hoist out of documents the relationship. */}
-        <Route path="/events/:slug/room" element={<ClarityLandingLayout compact><LazyRoute><EventRoomGate /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/events/:slug/ready" element={<ClarityLandingLayout compact><LazyRoute><EventRoomReady /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/events/:slug/meet" element={<ClarityLandingLayout compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/room" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomGate /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/ready" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomReady /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
-        <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/*" element={<ClarityLandingLayout surface="product"><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}
-        <Route path="/cm" element={<ClarityLandingLayout chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/cm" element={<ClarityLandingLayout surface="public" chromeFree><LazyRoute><ChiangMaiPage /></LazyRoute></ClarityLandingLayout>} />
 
         {/* P1060 D5: /groups — the public directory of all Clarity Groups. Declared
             BEFORE /groups/:slug so the bare path is never captured as a slug. A
             listing only; p1010 Decision 7 (no create-group surface) stands. */}
-        <Route path="/groups" element={<ClarityLandingLayout><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/groups" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1010: Clarity Groups — /groups/:slug (seeded groups: cm, online) */}
-        <Route path="/groups/:slug" element={<ClarityLandingLayout><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/groups/:slug" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Group Terms IS the join (focus page). */}
-        <Route path="/groups/:slug/join" element={<ClarityLandingLayout><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/groups/:slug/join" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1193: the pre-rename paths, kept alive permanently. See OrgLegacyRedirect —
             shared invite links carry ?from= attribution and must not lose it. */}
         <Route path="/org" element={<OrgLegacyRedirect />} />
         <Route path="/org/*" element={<OrgLegacyRedirect />} />
 
         {/* Catch-all: 404 for unknown routes */}
-        <Route path="*" element={<ClarityLandingLayout><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="*" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundPage /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </TermsAcceptanceGate>
       </AgentAccountsProvider>

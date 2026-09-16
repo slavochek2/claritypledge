@@ -51,6 +51,33 @@ export function RoomCaptureBarSlot() {
 }
 
 /**
+ * P1323 R6: CLAIM the slot and draw NOTHING.
+ *
+ * `/transcribe/:code`'s running-room view already carries its own "End Session" in the page
+ * header, its own listening indicator and the live transcript. The bar underneath it was a
+ * second end-control plus an "Open" button pointing at the page it was drawn on.
+ *
+ * DELETING the page's slot does the OPPOSITE of what it looks like, and this is the whole
+ * reason this component exists. `RoomCaptureBarFallback` is mounted app-wide (App.tsx) and
+ * fires whenever `barSlotCount === 0`. The layout's own slot is already gated off for this
+ * route (`clarity-landing-layout.tsx`, `!isLivePage`, and `isLivePage` covers
+ * `/transcribe/`), so the page's slot is the ONLY one here. Remove it and the count drops to
+ * zero, the fallback fires, and the same bar comes back as a `sticky top-0 z-[45]` overlay —
+ * the duplicate relocated, not removed.
+ *
+ * So: keep the registration, drop the render. D9 ("capture never runs with no indicator") is
+ * SATISFIED, not weakened — the room page's own indicator is a stronger signal than the bar.
+ * And D9 stays a RULE rather than a route list: nothing here knows which route it is on. A
+ * route check inside the fallback was the rejected alternative, because the next page with
+ * its own header would reproduce this bug.
+ */
+export function RoomCaptureBarClaimSilent() {
+  const { registerBarSlot } = useRoomCapture();
+  useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
+  return null;
+}
+
+/**
  * D9 as a rule, not a route list: on any route that mounts no slot — chrome-free letter pages,
  * ?embed=true, routes outside the layout — the bar still renders, in flow at the top of the
  * document, above the page's own content.

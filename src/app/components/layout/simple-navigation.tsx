@@ -21,7 +21,9 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 // P1179: the room's Links button. Renders as a sibling of the avatar in BOTH
 // right-hand groups so it holds the same position at every width, and returns
 // null outside an event context so the ~30 other routes are untouched (DW-1).
-import { EventLinksMenu, EventLinksButton } from "@/app/components/layout/event-links-menu";
+import { EventLinksButton } from "@/app/components/layout/event-links-menu";
+// Type-only, so it is erased at build time and creates no runtime cycle with the layout
+// that renders this component.
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
@@ -384,10 +386,21 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // iOS status-bar inset (active once viewport-fit=cover is set) so the nav row
   // sits below the notch instead of under it. Resolves to 0 on Android/desktop.
   return (
-    // P1179: ONE provider for the whole nav — it owns the Links sheet and the
-    // event fetch, while EventLinksButton is mounted in BOTH right-hand groups.
-    // Mounting the whole menu in both gave two independent instances.
-    <EventLinksMenu>
+    // P1179: ONE provider, and EventLinksButton is mounted in BOTH right-hand groups
+    // (mounting the whole menu in both gave two independent instances).
+    // P1323 MOVED the provider UP, to ClarityLandingLayoutInner. It used to wrap this
+    // <nav> only, which put the page's children OUTSIDE it — so a page with its own
+    // sticky header had no way to render the trigger in its own chrome without a portal.
+    // With the provider above both, a bespoke-header page calls useLinksTriggerOverride
+    // and mounts its own trigger with the page owner, and the nav's instances stand down.
+    // (The JSX for that is deliberately NOT written out here, and neither is the element
+    // syntax around the component name: p1179-nav-containment scans this file as source
+    // text and counts every EventLinksButton ELEMENT it finds, comments included. A worked
+    // example in a comment is indistinguishable from a real mount and breaks the count.
+    // Measured twice: once with a real prop list, once with an ellipsis standing in for
+    // one — the regex does not care which.)
+    // Whether the provider exists at all is decided by the layout's `surface` prop; these
+    // buttons render null with no context, exactly as they did off a Links route before.
     <nav
       data-nav="main"
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 pt-[env(safe-area-inset-top)] ${
@@ -591,6 +604,15 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             ) : (
               /* Phase 3b: Logged-out (or unverified): Only Events visible; rest in hamburger dropdown */
               <div className="flex items-center gap-3 transition-opacity duration-150">
+                {/* P1323: this branch had NO Links trigger. It was invisible while the menu
+                    was gated on a room-shaped path predicate — no route reaching this
+                    branch ever satisfied it. Under `surface` the hole is live: a
+                    SIGNED-OUT visitor at DESKTOP width on a product route that is not
+                    rendered `compact` would get no trigger, while the same person at phone
+                    width does. That is an I-1 violation ("reachable at every width") and
+                    AC-1/AC-2 both pass without touching it, because /stake/:tag and
+                    /transcribe/:code reach the other three branches. AC-17 covers it. */}
+                <EventLinksButton variant="dropdown" />
                 <UseCasesMenu pathname={location.pathname} />
                 <Link
                   to="/pricing"
@@ -775,6 +797,6 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         )}
       </div>
     </nav>
-    </EventLinksMenu>
+
   );
 }

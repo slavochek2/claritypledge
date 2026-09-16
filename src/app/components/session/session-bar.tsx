@@ -8,6 +8,7 @@
  * Markup and classes are P511's ActiveSessionBanner, moved here unchanged.
  */
 import type { ReactNode } from 'react';
+import { LogOut } from 'lucide-react';
 
 export interface SessionBarAction {
   label: string;
@@ -58,13 +59,23 @@ export function SessionBar({ text, primary, secondary, ariaLabel, testId, showDo
           >
             {primary.label}
           </button>
+          {/* P1323 R7: ONE End treatment across all four controls. This was the only one
+              red AT REST, and it is the one that persists on every page for the whole
+              session, immediately beside a blue primary — which is where destructive-red is
+              wrong. Red at the MOMENT OF ACTION is right, so it moves to hover and focus.
+              The other three (/live's in-session banner, /transcribe's header) already
+              shared exactly this: neutral at rest, destructive on hover, LogOut icon, h-9.
+              This reaches BOTH SessionBar consumers on purpose — the room-capture bar and
+              ActiveSessionBanner (the cross-page /live bar). Parameterising so only one
+              changed would invent the fourth treatment this requirement exists to remove. */}
           <button
             type="button"
             onClick={secondary.onClick}
             disabled={secondary.disabled}
             data-testid={secondary.testId}
-            className="whitespace-nowrap text-sm text-destructive hover:underline h-8 px-3 disabled:opacity-50 sm:ml-0 ml-auto"
+            className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg h-9 px-3 transition-colors disabled:opacity-50 sm:ml-0 ml-auto"
           >
+            <LogOut className="h-4 w-4" />
             {secondary.label}
           </button>
         </div>

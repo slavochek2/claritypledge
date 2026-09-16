@@ -27,10 +27,30 @@
  * right-hand groups and hides one with CSS), so each one owns the shape that
  * belongs to its breakpoint. Nothing measures the viewport at runtime.
  *
- * ORDER: the event's own links come FIRST, then cmp7/cmp3, then the tools
- * (founder 2026-08-31: "tonight should be the first link if the event has it").
- * A separator closes the "This event" group as well as opening the tools one,
- * so the heading's scope is visible rather than inferred.
+ * CONTENT — P1323: three tabs, Points · Letters · Tools. One flat list became a
+ * segmented panel when the contents outgrew it: six standing collections plus nine
+ * letters plus three tools is 18 entries, and P1310 had already had to cap this sheet
+ * after the 8th entry ran to -83px at 320x568. The tab names are the founder's own
+ * ("instruments is a point collection... maybe we want to call it just points").
+ *
+ * The per-event "This event" group and its FIRST position (founder 2026-08-31:
+ * "tonight should be the first link if the event has it") are RETIRED — see the
+ * provider below for why, and note the panel is now a FIXED shape as a result.
+ *
+ * WHY Radix `Tabs` AND NOT THE PROTOTYPE'S MARKUP. `/tree/links-menu` is the approved
+ * reference, and its segmented control is hand-rolled `role="tab"` buttons whose selected
+ * state is an arbitrary Tailwind value carrying the brand navy as a RAW HEX LITERAL. That
+ * cannot come here: p1179-design-system-reuse.test.ts scans THIS FILE as source text and
+ * asserts it contains no raw hex, no arbitrary radius and no height token other than the
+ * shared 44px.
+ *
+ * (The literal is deliberately not quoted in this comment. The scan reads raw source and
+ * cannot tell a comment from a class name, so writing the value here — even to explain why
+ * it is banned — fails the very check being described. Measured: it did.) `@/components/ui/tabs` renders the same
+ * segmented look entirely in design tokens (`bg-muted` / `data-[state=active]:bg-background`)
+ * and brings roving tabindex, arrow-key navigation and correct aria for free. The
+ * prototype's RENDERING wins over this spec's rules, but a green design-system test that
+ * predates both wins over a throwaway prototype page.
  *
  * DESIGN SYSTEM: this control introduces no colour, radius or height of its own.
  * The button and the sheet entries take ANSWER_BUTTON_CLASS — the room's
@@ -41,25 +61,20 @@
  * the same reason: it must read as part of the nav, not as a second system.
  */
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { cn } from '@/lib/utils';
-import { eventsService } from '@/app/data/events-service';
-import { pointsService } from '@/app/data/points-service';
-import { storiesService } from '@/app/data/stories-service';
 import { analytics } from '@/lib/mixpanel';
-import { buildLinksMenu, eventSlugFromLocation, linksMenuAppliesTo, isSafeTag, type LinksMenuEntry } from '@/app/data/event-links';
-import type { EventLinkEntry } from '@/app/types';
+import { buildLinksMenu, eventSlugFromLocation, type LinksMenuEntry } from '@/app/data/event-links';
+import { EventLinksContext, type TriggerOverride } from '@/app/components/layout/event-links-context';
 
 /**
  * ONE instance of this provider owns the open state, the event fetch and the
@@ -78,22 +93,29 @@ import type { EventLinkEntry } from '@/app/types';
  * trigger can be opened — so the two variants never put two entry lists in the
  * DOM at once, and the testid stays unique.
  */
-const EventLinksContext = createContext<{
-  open: boolean;
-  setOpen: (v: boolean) => void;
-  entries: LinksMenuEntry[];
-  go: (entry: LinksMenuEntry) => void;
-} | null>(null);
-
 /**
  * The trigger. Mount this wherever the avatar is; it renders null off-event.
  *
  * `variant` picks the open shape and MUST match the breakpoint of the group it
  * is mounted in — see the file header.
  */
-export function EventLinksButton({ variant = 'sheet' }: { variant?: 'sheet' | 'dropdown' }) {
+export function EventLinksButton({
+  variant = 'sheet',
+  owner = 'nav',
+}: {
+  variant?: 'sheet' | 'dropdown';
+  /**
+   * Which chrome this instance belongs to. The nav's instances stand down when a page has
+   * ADOPTED the trigger; a page's instance renders only then. Exactly one is live at a
+   * time, which is what keeps `data-testid="event-links-button"` unique in the DOM.
+   */
+  owner?: 'nav' | 'page';
+}) {
   const ctx = useContext(EventLinksContext);
   if (!ctx) return null;
+  if (ctx.override === 'decline') return null;
+  if (owner === 'nav' && ctx.override === 'adopt') return null;
+  if (owner === 'page' && ctx.override !== 'adopt') return null;
 
   const triggerClass = cn(ANSWER_BUTTON_CLASS, 'inline-flex items-center rounded-md px-3 py-0');
 
@@ -113,6 +135,73 @@ export function EventLinksButton({ variant = 'sheet' }: { variant?: 'sheet' | 'd
   }
 
   return <EventLinksDropdown ctx={ctx} triggerClass={triggerClass} />;
+}
+
+/** The three tabs, in render order. Values are the `group` field on every entry. */
+const TABS = [
+  { value: 'points' as const, label: 'Points' },
+  { value: 'letters' as const, label: 'Letters' },
+  { value: 'tools' as const, label: 'Tools' },
+];
+
+/**
+ * The panel body — IDENTICAL at every breakpoint, which is the P1323 contract. Only the
+ * chrome around it differs (sheet below `lg`, anchored dropdown at `lg` and up).
+ *
+ * `renderEntry` is injected because the two chromes wrap a row differently: the sheet uses
+ * a plain button carrying ANSWER_BUTTON_CLASS, the dropdown uses the nav's own menu-item
+ * treatment so it reads as part of the nav. The GROUPING and the tab state live here once.
+ */
+function LinksMenuTabs({
+  entries,
+  renderEntry,
+}: {
+  entries: LinksMenuEntry[];
+  renderEntry: (entry: LinksMenuEntry, key: string) => React.ReactNode;
+}) {
+  return (
+    <Tabs defaultValue="points" className="w-full">
+      <TabsList className="grid w-full grid-cols-3" data-testid="event-links-tabs">
+        {TABS.map(t => (
+          <TabsTrigger key={t.value} value={t.value} data-testid={`event-links-tab-${t.value}`}>
+            {t.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {TABS.map(t => (
+        <TabsContent
+          key={t.value}
+          value={t.value}
+          className="flex flex-col gap-2"
+          data-testid={`event-links-panel-${t.value}`}
+        >
+          {entries
+            .filter(e => e.group === t.value)
+            .map((entry, i) => renderEntry(entry, `${entry.group}-${entry.label}-${i}`))}
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
+
+/**
+ * A row's visible text. The `stN` hint trails the label at reduced weight — the codes are
+ * internal taxonomy and may not LEAD (decisions.md: "do not surface them as primary labels
+ * on outward-facing surfaces"), but they are what the founder says out loud in a room, so
+ * dropping them entirely would make the menu unspeakable.
+ *
+ * `truncate` on the label, not on the row: at 320x568 a label is cut around 24-28
+ * characters and the hint is what gets lost first if the row truncates as a whole. Keeping
+ * the hint outside the truncating span means the code survives and the words give way,
+ * which is the right way round for someone being told "tap st5".
+ */
+function EntryText({ entry }: { entry: LinksMenuEntry }) {
+  return (
+    <>
+      <span className="truncate">{entry.label}</span>
+      {entry.hint && <span className="ml-2 shrink-0 text-xs font-normal opacity-60">{entry.hint}</span>}
+    </>
+  );
 }
 
 /**
@@ -148,139 +237,74 @@ function EventLinksDropdown({
         data-testid="event-links-menu"
         data-shape="dropdown"
       >
-        {ctx.entries.map((entry, i) => {
-          const prev = ctx.entries[i - 1];
-          const separator = prev && prev.group !== entry.group && (entry.group === 'tools' || prev.group === 'event');
-          const heading = entry.group === 'event' && (!prev || prev.group !== 'event');
-          return (
-            <div key={`${entry.group}-${entry.label}-${i}`}>
-              {separator && <DropdownMenuSeparator data-testid="event-links-separator" />}
-              {heading && (
-                <DropdownMenuLabel className="text-xs uppercase tracking-wide text-muted-foreground">
-                  This event
-                </DropdownMenuLabel>
-              )}
-              <DropdownMenuItem
-                data-testid="event-links-entry"
-                onSelect={() => ctx.go(entry)}
-                className="cursor-pointer"
-              >
-                {entry.label}
-              </DropdownMenuItem>
-            </div>
-          );
-        })}
+        <LinksMenuTabs
+          entries={ctx.entries}
+          renderEntry={(entry, key) => (
+            <button
+              key={key}
+              type="button"
+              data-testid="event-links-entry"
+              onClick={() => ctx.go(entry)}
+              className="flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+            >
+              <EntryText entry={entry} />
+            </button>
+          )}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
+export function EventLinksMenu({
+  enabled,
+  children,
+}: {
+  /**
+   * P1323: whether this page is a product surface. Comes from `ClarityLandingLayout`'s
+   * required `surface` prop via `SimpleNavigation` — the ONE place that mounts this.
+   *
+   * When false the provider is not installed, so every `EventLinksButton` beneath it
+   * renders null (it returns null with no context). That is deliberately the same
+   * mechanism the old location gate used, so the "exactly one trigger in the DOM"
+   * property e2e/p1179-links-menu.spec.ts asserts is unchanged.
+   */
+  enabled: boolean;
+  children?: React.ReactNode;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [extras, setExtras] = useState<EventLinkEntry[]>([]);
-  /**
-   * The per-event tags that actually have something behind them.
-   *
-   * `null` means "not resolved yet", and is rendered as NO event entries rather
-   * than as all of them. Showing them first and removing them a moment later
-   * would make the menu twitch during a live event, which is the one moment it
-   * must not; and an entry that vanishes under a thumb is worse than one that
-   * arrives a beat late. See the founder note below for why this exists at all.
-   */
-  const [liveTags, setLiveTags] = useState<ReadonlySet<string> | null>(null);
+  const [override, setOverride] = useState<TriggerOverride>(null);
 
+  /**
+   * P1323 REMOVED the per-event extras machinery that used to live here: the
+   * `getEventBySlug` fetch, the `liveTags` emptiness probe, its `PROBE_CAP` fan-out
+   * limit, the fail-open-on-error branch and `visibleExtras`.
+   *
+   * They existed to serve the "This event" group, which is retired — an extra carried a
+   * TAG, i.e. the same thing a Points entry carries, and no UI to write `events.links`
+   * ever existed, so 0 of 14 prod events had one. The column and the `EventLinkEntry`
+   * type are kept, so restoring the capability is a code change against data that is
+   * still there.
+   *
+   * Two consequences worth stating, because they were load-bearing before:
+   *   - The menu no longer performs ANY network call to render. It was one
+   *     `getEventBySlug` plus up to 8 concurrent feed probes per room mount.
+   *   - The panel is a FIXED shape. The variable-height region above the tabs is gone,
+   *     which is what made the 9-letter list safe to add at 320px.
+   *
+   * `eventSlugFromLocation` STAYS. It is not part of the retired group: it is what puts
+   * `?event=` on a Points entry so a stake surface opened from inside a room still knows
+   * which room. Removing it would silently drop event attribution from every stake link.
+   */
   const eventSlug = eventSlugFromLocation(location.pathname, location.search);
-
-  // The list is static for the whole event, so this is fetched once per slug and
-  // never refreshed while the room is running. An event whose row cannot be read
-  // still gets the five standard entries — the menu must not fail closed
-  // mid-event over an optional column.
-  useEffect(() => {
-    let cancelled = false;
-    if (!eventSlug) { setExtras([]); return; }
-    eventsService.getEventBySlug(eventSlug)
-      .then(ev => { if (!cancelled) setExtras(ev?.links ?? []); })
-      .catch(() => { if (!cancelled) setExtras([]); });
-    return () => { cancelled = true; };
-  }, [eventSlug]);
-
-  /**
-   * AUTO-HIDE (2026-08-31, founder): a configured event link whose tag has NO
-   * points and NO stories is dropped from the menu.
-   *
-   * Founder, verbatim: "I don't think we need to include the link to tonight or
-   * whatever if ... we don't have points with tags that ... need to appear in a
-   * given event." What he saw was a "Tonight" entry that opened an empty
-   * surface — the event had the tag configured, but nothing had been staked
-   * under it. A menu entry is a promise that there is something at the other
-   * end; an empty one is a dead end that the operator has to remember to avoid
-   * creating. This makes the menu enforce that instead of the operator.
-   *
-   * SCOPED TO THE `event` GROUP ONLY. cmp7/cmp3 are the framework's
-   * permanent surfaces and are not hidden when empty: a room where nobody has
-   * staked yet would otherwise render a menu with only Transcribe and Start a
-   * Session, which reads as broken rather than as empty.
-   *
-   * The emptiness test is the STAKE SURFACE'S OWN query, not a raw row count —
-   * `getPublicPointsFeed` ends in a `totalPositions > 0` filter (P543), so a
-   * tag with rows that the feed will not render still shows nothing. Counting
-   * rows here would put the menu and the destination out of step: the entry
-   * would survive and still open an empty page, which is the exact defect.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    const allTags = Array.from(new Set(
-      (extras ?? [])
-        .map(e => (e && typeof e === 'object' ? e.tag : null))
-        .filter((t): t is string => isSafeTag(t))
-    ));
-    // The design assumes a short, hand-curated list (spec: "no scrolling, no
-    // scanning"). Nothing at the data layer enforces that, so cap the probe
-    // fan-out rather than firing an unbounded number of concurrent Supabase
-    // calls per room mount if an operator's `links` column grows past what the
-    // menu was designed to show. Tags past the cap fail OPEN (rendered, not
-    // probed) — same reasoning as a failed probe above: an unprobed tag must
-    // not silently vanish from the menu.
-    const PROBE_CAP = 8;
-    const tags = allTags.slice(0, PROBE_CAP);
-    const unprobed = allTags.slice(PROBE_CAP);
-    if (!eventSlug || allTags.length === 0) { setLiveTags(new Set()); return; }
-    if (tags.length === 0) { setLiveTags(new Set(unprobed)); return; }
-    setLiveTags(null);
-    Promise.all(tags.map(async tag => {
-      try {
-        const [points, stories] = await Promise.all([
-          pointsService.getPublicPointsFeed(1, 0, tag, undefined, true),
-          storiesService.getPublicStoriesFeed(1, 0, tag, true),
-        ]);
-        return (points?.length ?? 0) + (stories?.length ?? 0) > 0 ? tag : null;
-      } catch {
-        // A probe that FAILS must not delete the entry. An outage would
-        // otherwise silently empty the "This event" group mid-room, which is
-        // indistinguishable to the attendee from the host never having set it.
-        return tag;
-      }
-    })).then(resolved => {
-      if (!cancelled) setLiveTags(new Set([...resolved.filter((t): t is string => t !== null), ...unprobed]));
-    });
-    return () => { cancelled = true; };
-  }, [eventSlug, extras]);
 
   // Close on navigation — the attendee taps an entry and the menu must not
   // still be covering the destination when they arrive.
   useEffect(() => { setOpen(false); }, [location.pathname, location.search]);
 
-  const visibleExtras = useMemo(
-    () => (liveTags === null ? [] : (extras ?? []).filter(e => e && isSafeTag(e.tag) && liveTags.has(e.tag))),
-    [extras, liveTags]
-  );
-
-  const entries = useMemo(
-    () => buildLinksMenu(visibleExtras, eventSlug),
-    [visibleExtras, eventSlug]
-  );
+  const entries = useMemo(() => buildLinksMenu(eventSlug), [eventSlug]);
 
   const ctxValue = useMemo(() => ({
     open,
@@ -304,12 +328,26 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
       }
       navigate(entry.to);
     },
-  }), [open, eventSlug, entries, navigate]);
+    override,
+    setOverride,
+  }), [open, eventSlug, entries, navigate, override]);
 
-  // Mounted on the room routes AND on the standalone /ready and /meet, which run
-  // the same ritual without an event (founder, 2026-09-07). Off both, the ~30
-  // other routes are untouched: no provider, and EventLinksButton renders null.
-  if (!linksMenuAppliesTo(location.pathname, location.search)) return <>{children}</>;
+  /**
+   * P1323: THE LOCATION GATE IS GONE. This used to read
+   * `if (!linksMenuAppliesTo(pathname, search)) return <>{children}</>` — a path predicate
+   * that mounted the menu only inside a room or on a `?event=`-carrying stake URL.
+   *
+   * That predicate was the defect: the destinations it guards are entirely
+   * event-independent, so an event-shaped mount rule meant a `/stake/understanding` link
+   * shared without `?event=` opened the same page with no menu at all.
+   *
+   * The decision moved to where a route is DECLARED — `ClarityLandingLayout`'s required
+   * `surface` prop, read by `SimpleNavigation`, which is the only thing that mounts this
+   * provider. So this component no longer decides WHERE it appears; it only decides what
+   * it contains. Do not reintroduce a path check here: a regex in this file is exactly the
+   * list the prop exists to avoid.
+   */
+  if (!enabled) return <>{children}</>;
 
   return (
     <EventLinksContext.Provider value={ctxValue}>
@@ -333,35 +371,29 @@ export function EventLinksMenu({ children }: { children?: React.ReactNode }) {
               ? 'Destinations for this event. The list does not change during the event.'
               : 'Destinations for this session.'}
           </DrawerDescription>
-          {/* The entries scroll, the title does not — so the heading that names the
-              sheet stays on screen no matter how many destinations the list carries. */}
+          {/* The tabs and the entries scroll together; the title does not — so the heading
+              that names the sheet stays on screen no matter how long a tab's list is. With
+              the per-event group retired (P1323) the tallest case is a FIXED one: nine
+              letters. That is what makes AC-3b testable rather than data-dependent. */}
+          {/* Kept on ONE line deliberately: p1310-mobile-nav asserts the sheet's scroll
+              container as source text with `<nav className="[^"]*overflow-y-auto`, which
+              cannot span a line break. Wrapping these attributes fails a green test that is
+              pinning real behaviour (P1310's viewport cap), not formatting. */}
           <nav className="flex flex-col gap-2 overflow-y-auto overscroll-contain" aria-label={eventSlug ? 'Event links' : 'Links'}>
-            {entries.map((entry, i) => {
-              const prev = entries[i - 1];
-              // The approved reference's separator falls before Transcribe —
-              // i.e. at the stake→tools group change, drawn from the grouping
-              // rather than from a row in the data.
-              const separator = prev && prev.group !== entry.group && (entry.group === 'tools' || prev.group === 'event');
-              const heading = entry.group === 'event' && (!prev || prev.group !== 'event');
-              return (
-                <div key={`${entry.group}-${entry.label}-${i}`}>
-                  {separator && <hr className="my-2 border-border" data-testid="event-links-separator" />}
-                  {heading && (
-                    <p className="pt-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                      This event
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    data-testid="event-links-entry"
-                    onClick={() => ctxValue.go(entry)}
-                    className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left')}
-                  >
-                    {entry.label}
-                  </button>
-                </div>
-              );
-            })}
+            <LinksMenuTabs
+              entries={entries}
+              renderEntry={(entry, key) => (
+                <button
+                  key={key}
+                  type="button"
+                  data-testid="event-links-entry"
+                  onClick={() => ctxValue.go(entry)}
+                  className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2')}
+                >
+                  <EntryText entry={entry} />
+                </button>
+              )}
+            />
           </nav>
         </DrawerContent>
       </Drawer>

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
@@ -14,8 +15,37 @@ import { LiveSessionProvider } from "@/app/contexts/live-session-context";
 import { useRoomCapture } from "@/app/contexts/room-capture-context";
 import { isImmersiveLetterRoute as matchImmersiveLetterRoute } from "@/app/layouts/immersive-letter-route";
 
+/**
+ * P1323: is this page somewhere a person is USING the thing, or READING ABOUT it?
+ *
+ * `product` gets the Links menu — the product's standing index of point collections,
+ * letters and tools. `public` does not.
+ *
+ * Signed-out is NOT the test. An anonymous attendee who followed a link to
+ * `/stake/cmp7` during an event is on a product surface and needs the index more than a
+ * signed-in founder does.
+ *
+ * WHY A REQUIRED PROP AND NOT A LIST. Founder, 2026-09-16: "What I want is minimizing
+ * future decisions or future mistakes when we create and modify pages... it needs to be
+ * sustainable." An allow-list and a deny-list fail the same way — a route is added, the
+ * list is not updated, and nothing says so. `SimpleNavigation` has exactly one render
+ * site (below), so this layout is a real chokepoint: making the prop required puts the
+ * question in the same diff that creates the route, where whoever is writing it has the
+ * most context.
+ *
+ * HONEST LIMIT, measured 2026-09-16 — do not restate the stronger claim. "A new page
+ * cannot compile without answering" is true of `tsc` and of an IDE, and FALSE of this
+ * repo's pipeline: `scripts/typecheck-gate.sh` (pre-commit AND CI) gates only the
+ * undeclared-identifier family TS2304/2552/2582, a missing required prop is TS2741, and
+ * `vite build` uses esbuild and does not typecheck at all. `scripts/surface-prop-gate.sh`
+ * exists to close that hole; if it is ever removed, this prop becomes advisory again.
+ */
+export type ClarityLayoutSurface = 'product' | 'public';
+
 interface ClarityLandingLayoutProps {
   children: ReactNode;
+  /** Required — see ClarityLayoutSurface. */
+  surface: ClarityLayoutSurface;
   /** P665: When true, render children inside LiveSessionProvider with Toaster but without nav/footer/padding */
   chromeFree?: boolean;
   /** When true, nav shows only logo + avatar — hides nav links, CTA, and hamburger. Used on /letter/:id. */
@@ -24,7 +54,7 @@ interface ClarityLandingLayoutProps {
   logoOnly?: boolean;
 }
 
-export function ClarityLandingLayout({ children, chromeFree, compact, logoOnly }: ClarityLandingLayoutProps) {
+export function ClarityLandingLayout({ children, surface, chromeFree, compact, logoOnly }: ClarityLandingLayoutProps) {
   const [searchParams] = useSearchParams();
 
   // Embed mode: strip all page chrome (nav, footer, bottom nav)
@@ -49,7 +79,7 @@ export function ClarityLandingLayout({ children, chromeFree, compact, logoOnly }
 
   return (
     <LiveSessionProvider>
-      <ClarityLandingLayoutInner compact={compact} logoOnly={logoOnly}>{children}</ClarityLandingLayoutInner>
+      <ClarityLandingLayoutInner surface={surface} compact={compact} logoOnly={logoOnly}>{children}</ClarityLandingLayoutInner>
     </LiveSessionProvider>
   );
 }
@@ -58,7 +88,7 @@ export function ClarityLandingLayout({ children, chromeFree, compact, logoOnly }
  * Inner layout component — must be inside LiveSessionProvider
  * so useActiveSession can access the session context.
  */
-function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: ReactNode; compact?: boolean; logoOnly?: boolean }) {
+function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { showUserMenu } = useNavAuthState();
@@ -134,6 +164,21 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
   // own `/events/:slug/ready`, and the gate itself (`/events/:slug/room`) — same reasoning.
   const isReadyPage = /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
   return (
+    /**
+     * P1323: the Links provider wraps the WHOLE layout — nav and page children alike.
+     *
+     * It used to wrap only the <nav> inside SimpleNavigation, which left the page's own
+     * children outside it. A page that draws its own sticky header over the nav
+     * (/transcribe/:code, /live/:code — the guard below deliberately does NOT hide the nav
+     * there, it is merely covered) therefore had no way to render the one trigger in its
+     * own chrome without portalling. From here, such a page calls useLinksTriggerOverride
+     * and renders <EventLinksButton owner="page" />; the nav's instances stand down, so
+     * there is still exactly one trigger node in the DOM.
+     *
+     * `enabled` is the whole mount rule. `surface` is required on this component, so a new
+     * route cannot be added without answering the product/public question.
+     */
+    <EventLinksMenu enabled={surface === 'product'}>
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
@@ -162,5 +207,6 @@ function ClarityLandingLayoutInner({ children, compact, logoOnly }: { children: 
       {!logoOnly && <BottomNav />}
       <Toaster />
     </div>
+    </EventLinksMenu>
   );
 }

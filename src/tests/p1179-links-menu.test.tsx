@@ -1,252 +1,218 @@
 /**
  * @file p1179-links-menu.test.tsx
- * @description P1179 AC-1 / AC-4 / AC-5 — the button renders in an event
- * context, and the sheet lists exactly the approved entries.
+ * @description P1179 AC-1/AC-4 as REWRITTEN by P1323 — the trigger renders on any product
+ * surface, and the panel lists exactly the approved entries under three tabs.
  *
- * The labels are asserted VERBATIM on purpose. The prototype's "Seven
- * dimensions" / "The triad" / "All ten" are the agent's words and are not
- * approved copy (Resolved Decisions 1); this suite fails if any of them reach
- * the screen.
+ * Labels are asserted VERBATIM on purpose, and that is the one thing P1323 does not change.
+ * The prototype's "Seven dimensions" / "The triad" / "All ten" are agent words and are not
+ * approved copy (P1179 Resolved Decisions 1); this suite fails if any of them reach the
+ * screen. P1323 adds nine letter labels to the same discipline — they ARE founder-approved
+ * (2026-09-16), and the prototype's longer draft of `st5` is explicitly not.
+ *
+ * WHAT WAS DELETED HERE AND WHY — do not restore it without reading P1323 R5.
+ * Three describe blocks are gone: "extras are additive and per-event", "a configured event
+ * link with nothing behind it is not shown" (the auto-hide probe), and the AC-1 case
+ * "renders NOTHING outside an event context — a bare /stake/:tag has no button".
+ *
+ * They tested the per-event "This event" group, which is RETIRED. The group carried a TAG —
+ * the same thing a Points entry carries — and no UI to populate `events.links` ever existed,
+ * so 0 of 14 prod events had one. With no extras there is no auto-hide probe to test, and
+ * the bare-/stake/ assertion is inverted by the founder's explicit sign-off ("yes in /stake
+ * we will have LINKS!"). The events-service, points-service and stories-service mocks went
+ * with them: the menu now performs NO network call to render at all.
+ *
+ * The per-event capability is restorable (column and type kept, not migrated). If it comes
+ * back, so do those blocks.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { EventLinksMenu, EventLinksButton } from '@/app/components/layout/event-links-menu';
+import {
+  STANDARD_STAKE_TAGS,
+  STANDARD_LETTER_ENTRIES,
+  STANDARD_TOOL_ENTRIES,
+} from '@/app/data/event-links';
 
-const eventRow = vi.hoisted(() => ({ current: null as null | { links?: { tag: string; label?: string }[] } }));
-
-vi.mock('@/app/data/events-service', () => ({
-  eventsService: { getEventBySlug: vi.fn(async () => eventRow.current) },
-}));
-
-/**
- * The auto-hide probe (2026-08-31). A configured event link is only rendered
- * once the stake surface confirms it has something behind it, so every test
- * touching extras has to say what that surface returns.
- *
- * `tagContent` maps tag -> how many rows the feed hands back. A tag absent from
- * the map is EMPTY, which is the case the founder reported: "Tonight" was
- * configured on the event and opened nothing.
- */
-const tagContent = vi.hoisted(() => ({ current: {} as Record<string, number> }));
-const probeThrows = vi.hoisted(() => ({ current: false }));
-const rows = (tag: string) => {
-  if (probeThrows.current) throw new Error('probe failed');
-  return Array.from({ length: tagContent.current[tag] ?? 0 }, (_, i) => ({ id: `${tag}-${i}` }));
-};
-
-vi.mock('@/app/data/points-service', () => ({
-  pointsService: { getPublicPointsFeed: vi.fn(async (_l: number, _o: number, tag: string) => rows(tag)) },
-}));
-vi.mock('@/app/data/stories-service', () => ({
-  storiesService: { getPublicStoriesFeed: vi.fn(async () => []) },
-}));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 
-/**
- * The standard entries, IN ORDER. Asserting the array verbatim is what keeps
- * unapproved copy from drifting in — that is still this constant's job.
- *
- * P1256 (2026-09-07): `cmp10` returns, and `understanding` / `misunderstanding`
- * join it, at the founder's explicit instruction. This list previously carried a
- * note pinning cmp10's 2026-08-31 removal; that note is gone rather than
- * softened, because the decision it recorded has been reversed by the same
- * person who made it. See event-links.ts for both sides.
- */
-// P1310 added 'Slides' (-> /presi, the live deck) to the tools group at the founder's
-// request. Label is founder-approved copy, like every other entry here.
-const APPROVED = ['cmp7', 'cmp3', 'cmp10', 'understanding', 'misunderstanding', 'Transcribe', 'Start a Clarity Session', 'Slides'];
-const UNAPPROVED = ['Seven dimensions', 'The triad', 'All ten'];
+/** Founder-approved, in order. The Points tab. */
+const POINTS = [...STANDARD_STAKE_TAGS];
+/** Founder-approved 2026-09-16. `st5` is the SHORTENED form; the long draft is unapproved. */
+const LETTERS = STANDARD_LETTER_ENTRIES.map(l => l.label);
+const TOOLS = STANDARD_TOOL_ENTRIES.map(t => t.label);
+
+const UNAPPROVED = [
+  'Seven dimensions',
+  'The triad',
+  'All ten',
+  // P1323: the prototype's st5 draft, 38 chars, cut on both phone widths.
+  'You cannot grade your own understanding',
+];
 
 function renderAt(path: string, variant?: 'sheet' | 'dropdown') {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <EventLinksMenu><EventLinksButton variant={variant} /></EventLinksMenu>
+      <EventLinksMenu enabled><EventLinksButton variant={variant} /></EventLinksMenu>
     </MemoryRouter>
   );
 }
 
-async function openSheet() {
-  const btn = await screen.findByTestId('event-links-button');
-  await userEvent.click(btn);
-  return screen.findAllByTestId('event-links-entry');
+async function open() {
+  await userEvent.click(await screen.findByTestId('event-links-button'));
 }
 
-describe('P1179 AC-1 — the Links button renders on every room screen', () => {
-  beforeEach(() => { eventRow.current = { links: [] }; });
+/** Row text for whichever tab is currently selected. */
+function visibleEntries() {
+  return screen.getAllByTestId('event-links-entry').map(e => e.textContent ?? '');
+}
 
+async function selectTab(tab: 'points' | 'letters' | 'tools') {
+  await userEvent.click(screen.getByTestId(`event-links-tab-${tab}`));
+}
+
+describe('P1323 AC-1 — the trigger renders on any product surface, event or not', () => {
   it.each([
     '/events/cm-1/room',
     '/events/cm-1/ready',
     '/events/cm-1/meet',
     '/stake/cmp7?event=cm-1',
+    // The reversal. P1179 asserted this rendered NOTHING; decisions.md 2026-08-28 recorded
+    // it as a property. Superseded on the founder's sign-off, 2026-09-16.
+    '/stake/understanding',
+    '/feed',
+    '/transcribe',
   ])('renders on %s', async (path) => {
     renderAt(path);
     expect(await screen.findByTestId('event-links-button')).toHaveTextContent('Links');
   });
 
-  it('renders NOTHING outside an event context — a bare /stake/:tag has no button', () => {
-    const { container } = renderAt('/stake/cmp7');
-    expect(container).toBeEmptyDOMElement();
+  it('a bare /stake/:tag opens the SAME panel as inside a room (AC-1)', async () => {
+    renderAt('/stake/understanding');
+    await open();
+    expect(visibleEntries()).toEqual(POINTS);
+    await selectTab('letters');
+    expect(visibleEntries()).toEqual(LETTERS.map((l, i) => l + STANDARD_LETTER_ENTRIES[i]!.code));
   });
 });
 
-describe('P1179 AC-4 — an event with no extras lists exactly the standard entries', () => {
-  beforeEach(() => { eventRow.current = { links: [] }; });
-
-  it('lists the five approved labels verbatim, and nothing else', async () => {
+describe('P1323 AC-3/AC-4/AC-5 — three tabs, exact contents', () => {
+  it('the panel body is a segmented control labelled Points / Letters / Tools', async () => {
     renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
-  });
-
-  it('none of the unapproved prototype labels reach the screen', async () => {
-    renderAt('/events/cm-1/room');
-    await openSheet();
-    for (const word of UNAPPROVED) {
-      expect(screen.queryByText(word)).toBeNull();
+    await open();
+    expect(screen.getByTestId('event-links-tabs')).toBeInTheDocument();
+    for (const t of ['points', 'letters', 'tools'] as const) {
+      expect(screen.getByTestId(`event-links-tab-${t}`)).toBeInTheDocument();
     }
   });
 
-  it('every entry points at an internal path carrying the event', async () => {
+  it('AC-4: the Points tab is exactly the six standing collections, including aisafety1', async () => {
     renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    // Derived from APPROVED, not a literal: P1256 grew this list from 4 to 7 and
-    // a hardcoded count made that a test edit in three separate places.
-    expect(entries).toHaveLength(APPROVED.length);
-    // The separator the approved reference puts before Transcribe is present.
-    expect(screen.getByTestId('event-links-separator')).toBeInTheDocument();
-  });
-});
-
-describe('P1179 AC-5 — extras are additive and per-event', () => {
-  beforeEach(() => { tagContent.current = { tonight: 3 }; probeThrows.current = false; });
-
-  it('one configured extra prepends ONE entry, FIRST, under its own "This event" heading', async () => {
-    // Order is the assertion (founder 2026-08-31: "tonight should be the first
-    // link if the event has it") — the per-event tag is why this attendee is in
-    // this room, the standing instruments are the same at every event.
-    eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
-    renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries).toHaveLength(APPROVED.length + 1);
-    expect(entries[0]).toHaveTextContent('Tonight');
-    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
-    expect(screen.getByText('This event')).toBeInTheDocument();
+    await open();
+    expect(visibleEntries()).toEqual(POINTS);
+    expect(POINTS).toContain('aisafety1');
+    // Labels are the tags VERBATIM — P1179 Resolved Decision 1 survives P1323: the spoken
+    // word and the rendered label are the same token, `aisafety1` included (founder,
+    // 2026-09-16: "leave it as aisafety1").
+    expect(visibleEntries()).toEqual([...STANDARD_STAKE_TAGS]);
   });
 
-  it('an extra with no label renders its tag (Resolved Decision 3)', async () => {
-    eventRow.current = { links: [{ tag: 'tonight' }] };
+  it('AC-5: the Letters tab is nine entries, each with its stN code as a quiet suffix', async () => {
     renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries[0]).toHaveTextContent('tonight');
+    await open();
+    await selectTab('letters');
+    const rows = visibleEntries();
+    expect(rows).toHaveLength(9);
+    for (const [i, l] of STANDARD_LETTER_ENTRIES.entries()) {
+      expect(rows[i]).toBe(`${l.label}${l.code}`);
+    }
   });
 
-  it('a SECOND event with none still shows exactly five', async () => {
-    eventRow.current = { links: [] };
-    renderAt('/events/cm-2/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
+  it('the Tools tab is unchanged from P1310', async () => {
+    renderAt('/events/cm-1/room');
+    await open();
+    await selectTab('tools');
+    expect(visibleEntries()).toEqual(TOOLS);
   });
 
-  it('an unreadable event row still yields the standard entries — the menu never fails closed mid-event', async () => {
-    eventRow.current = null;
+  it('no unapproved label reaches the screen, on ANY tab', async () => {
     renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
+    await open();
+    for (const tab of ['points', 'letters', 'tools'] as const) {
+      await selectTab(tab);
+      for (const word of UNAPPROVED) {
+        expect(screen.queryByText(word), `${word} on ${tab}`).toBeNull();
+      }
+    }
   });
-});
 
-
-/**
- * AUTO-HIDE (2026-08-31, founder). "I don't think we need to include the link to
- * tonight or whatever if ... we don't have points with tags that ... need to
- * appear in a given event." He had opened the menu during an event, tapped
- * "Tonight", and landed on an empty surface — the tag was configured, nothing
- * had been staked under it yet.
- */
-describe('P1179 — a configured event link with nothing behind it is not shown', () => {
-  beforeEach(() => { probeThrows.current = false; });
-
-  it('drops the entry when the tag has no points and no stories', async () => {
-    eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
-    tagContent.current = {};
+  it('AC-6 (inverted): an event CONFIGURED with an extra renders no "This event" group', async () => {
+    // The group is retired. This is asserted against a configured event on purpose — the
+    // old behaviour was driven by `events.links`, so a test that only used an UNconfigured
+    // event would pass merely because prod data is empty, which is what made the original
+    // defect invisible for 14 events.
     renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
-    // The heading goes with it — an empty "This event" group is its own dead end.
+    await open();
     expect(screen.queryByText('This event')).toBeNull();
-  });
-
-  it('keeps the entry when the tag HAS content — the control, so the test above has teeth', async () => {
-    eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
-    tagContent.current = { tonight: 1 };
-    renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
-  });
-
-  it('hides only the empty one when several are configured', async () => {
-    eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }, { tag: 'empty', label: 'Empty' }] };
-    tagContent.current = { tonight: 2 };
-    renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
-  });
-
-  it('NEVER hides the three standard stake entries, however empty they are', async () => {
-    // Scoped deliberately: a room where nobody has staked yet must not render a
-    // menu containing only Transcribe and Start a Clarity Session, which reads
-    // as broken rather than as empty.
-    eventRow.current = { links: [] };
-    tagContent.current = {};
-    renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
-  });
-
-  it('keeps the entry when the PROBE ITSELF fails — an outage must not empty the menu', async () => {
-    // Fail-open. A failed probe is not evidence the tag is empty, and silently
-    // deleting the host's link mid-event is indistinguishable to the attendee
-    // from the host never having configured it.
-    eventRow.current = { links: [{ tag: 'tonight', label: 'Tonight' }] };
-    tagContent.current = {};
-    probeThrows.current = true;
-    renderAt('/events/cm-1/room');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(['Tonight', ...APPROVED]);
+    expect(screen.queryByTestId('event-links-separator')).toBeNull();
   });
 });
 
+describe('P1323 — the tabs partition the entries; nothing is in two places', () => {
+  it('each tab shows only its own group, and together they are the whole list', async () => {
+    renderAt('/events/cm-1/room');
+    await open();
+
+    const seen: string[] = [];
+    for (const tab of ['points', 'letters', 'tools'] as const) {
+      await selectTab(tab);
+      seen.push(...visibleEntries());
+    }
+    expect(seen).toHaveLength(POINTS.length + LETTERS.length + TOOLS.length);
+    // No duplicates across tabs.
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it('switching tabs REPLACES the rows rather than appending them', async () => {
+    // The panel is one body with three states, not a stack. If TabsContent ever rendered
+    // all three at once the counts above would still pass while the sheet grew to 18 rows
+    // at 320px — the exact overflow P1310 capped this sheet for.
+    renderAt('/events/cm-1/room');
+    await open();
+    expect(visibleEntries()).toHaveLength(POINTS.length);
+    await selectTab('letters');
+    expect(visibleEntries()).toHaveLength(LETTERS.length);
+  });
+});
 
 /**
- * THE DESKTOP SHAPE (2026-08-31). Founder, on a monitor: "it's really weird on
- * desktop it just like slides up ... it should be like we have the use cases you
- * know at the top and then I click". Below `lg` nothing changes — the bottom
- * sheet is the phone-in-a-room shape and every test above still exercises it.
+ * THE DESKTOP SHAPE (2026-08-31). Founder, on a monitor: "it's really weird on desktop it
+ * just like slides up ... it should be like we have the use cases you know at the top and
+ * then I click". Below `lg` nothing changes — the bottom sheet is the phone-in-a-room shape
+ * and every test above exercises it. P1323 keeps the chrome split and makes the BODY
+ * identical across it.
  */
 describe('P1179 — the desktop variant opens an anchored dropdown, not the sheet', () => {
-  beforeEach(() => { tagContent.current = {}; probeThrows.current = false; eventRow.current = { links: [] }; });
-
-  it('lists the same entries as the sheet', async () => {
+  it('lists the same entries as the sheet, tab for tab', async () => {
     renderAt('/events/cm-1/room', 'dropdown');
-    const entries = await openSheet();
-    expect(entries.map(e => e.textContent)).toEqual(APPROVED);
+    await open();
+    expect(visibleEntries()).toEqual(POINTS);
+    await selectTab('tools');
+    expect(visibleEntries()).toEqual(TOOLS);
   });
 
   it('does NOT mount the bottom sheet — a drawer overlay would swallow its clicks', async () => {
-    // The two shapes deliberately hold SEPARATE open state. Sharing it mounted
-    // the sheet underneath the dropdown, and the overlay took the pointer events
-    // the dropdown was waiting for.
+    // The two shapes deliberately hold SEPARATE open state. Sharing it mounted the sheet
+    // underneath the dropdown, and the overlay took the pointer events the dropdown wanted.
     renderAt('/events/cm-1/room', 'dropdown');
-    await openSheet();
+    await open();
     expect(screen.getByTestId('event-links-menu')).toHaveAttribute('data-shape', 'dropdown');
   });
 
   it('the sheet variant still opens the sheet — so the assertion above has teeth', async () => {
     renderAt('/events/cm-1/room', 'sheet');
-    await openSheet();
+    await open();
     expect(screen.getByTestId('event-links-menu')).toHaveAttribute('data-shape', 'sheet');
   });
 });

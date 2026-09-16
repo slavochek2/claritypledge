@@ -1,12 +1,24 @@
 /**
  * @file p1179-nav-containment.test.tsx
- * @description P1179 DW-1 / DW-2 — the blast radius of adding a sibling to the
- * nav's right-hand group is zero on the ~30 routes that also render it.
+ * @description P1179 DW-2 + P1323 R2 — where the Links trigger may and may not appear.
  *
- * DW-1 is written so it FAILS if the button leaks outside an event context —
- * that is the assertion the Done-When line asks for, not a render of the happy
- * path. DW-2 pins the centre slot's geometry, which this change must not touch:
- * /terms portals into it, and the slot is the placement this spec REJECTED.
+ * DW-1 IS INVERTED BY P1323, DELIBERATELY. It used to read "the button does not leak
+ * outside the room" and asserted an empty DOM on /feed, /stake/cmp7, /transcribe and the
+ * marketing pages alike. That containment was the DEFECT, not the guarantee: the menu
+ * indexes destinations that are entirely event-independent, so a room-shaped mount rule
+ * meant a /stake/understanding link shared without ?event= opened with no menu at all.
+ * Founder, 2026-09-16: "yes in /stake we will have LINKS!" and "yes LINKS menu will be in
+ * other points too". P1179 Invariant 3's scoping clause is superseded on that sign-off.
+ *
+ * WHAT REPLACES IT, and why this file still has teeth. The rule is no longer a path
+ * predicate at all — `ClarityLandingLayout` takes a required `surface: 'product' | 'public'`
+ * prop and the provider mounts only for `product`. So the assertions below are written in
+ * BOTH directions against that prop: a product surface renders the trigger, a public one
+ * renders nothing. A test that only checked the positive would pass if `enabled` were
+ * ignored entirely.
+ *
+ * DW-2 is UNCHANGED and still pins the centre slot's geometry: /terms portals into it, and
+ * the slot is the placement P1179 rejected.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -15,7 +27,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import userEvent from '@testing-library/user-event';
 import { EventLinksMenu, EventLinksButton } from '@/app/components/layout/event-links-menu';
-import { buildLinksMenu, STANDARD_STAKE_TAGS, STANDARD_TOOL_ENTRIES } from '@/app/data/event-links';
+import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
+import { buildLinksMenu, STANDARD_STAKE_TAGS, STANDARD_TOOL_ENTRIES, STANDARD_LETTER_ENTRIES } from '@/app/data/event-links';
 
 vi.mock('@/app/data/events-service', () => ({
   eventsService: { getEventBySlug: vi.fn(async () => ({ links: [] })) },
@@ -27,58 +40,128 @@ const NAV_SRC = readFileSync(
   'utf8'
 );
 
-/** Routes outside /events/:slug/* that render the same right-hand group. */
-const OUTSIDE = [
-  '/', '/feed', '/live', '/transcribe', '/events', '/events/cm-1',
-  '/pricing', '/terms', '/partners', '/stake/cmp7',
-  '/events/cm-1/room/extra', '/eventsX/cm-1/room',
-];
+/**
+ * Routes that were the OLD DW-1 "outside the room" list and are now PRODUCT surfaces —
+ * i.e. the exact set whose emptiness P1179 asserted and P1323 reverses. Keeping the same
+ * paths is deliberate: it makes the inversion visible in the diff rather than hiding it
+ * behind a fresh list.
+ */
+const PRODUCT_PATHS = ['/feed', '/live', '/transcribe', '/stake/cmp7', '/events/cm-1/room', '/ready', '/meet'];
 
-describe('P1179 DW-1 — the button does not leak outside the room', () => {
-  it.each(OUTSIDE)('renders nothing on %s', (path) => {
+/** Routes that must still render NOTHING — reading ABOUT the thing. */
+const PUBLIC_PATHS = ['/', '/pricing', '/about', '/manifesto', '/coach', '/hiring'];
+
+describe('P1323 R2 — the trigger follows the SURFACE, not the route shape', () => {
+  it.each(PRODUCT_PATHS)('renders on a product surface: %s', async (path) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <EventLinksMenu enabled><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
+    );
+    expect(await screen.findByTestId('event-links-button')).toBeInTheDocument();
+  });
+
+  it.each(PUBLIC_PATHS)('renders NOTHING on a public surface: %s', (path) => {
     const { container } = render(
-      <MemoryRouter initialEntries={[path]}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
+        <EventLinksMenu enabled={false}><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
     );
     expect(container).toBeEmptyDOMElement();
     expect(screen.queryByTestId('event-links-button')).toBeNull();
   });
 
-  it.each(['/ready/extra', '/readyx', '/meet/extra', '/meetings'])(
-    'the standalone widening is exact — %s still renders nothing',
-    (path) => {
-      const { container } = render(
-        <MemoryRouter initialEntries={[path]}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
-      );
-      expect(container).toBeEmptyDOMElement();
-    }
-  );
-
-  it('the assertion has teeth — the SAME component does render inside the room', async () => {
-    render(<MemoryRouter initialEntries={['/events/cm-1/room']}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>);
+  /**
+   * The assertion above is the one that can rot silently: it passes if `enabled` is
+   * ignored and the component simply never renders. This is its control — the SAME path
+   * with `enabled` flipped must produce the opposite result. Without it, "renders nothing
+   * on /pricing" is satisfied by a component that renders nothing anywhere.
+   */
+  it.each(PUBLIC_PATHS)('...and the emptiness is caused by the surface, not by the path: %s', async (path) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <EventLinksMenu enabled><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
+    );
     expect(await screen.findByTestId('event-links-button')).toBeInTheDocument();
   });
 });
 
-describe('2026-09-07 — the standalone /ready and /meet carry the same menu', () => {
-  it.each(['/ready', '/ready/', '/meet', '/meet/'])('renders the trigger on %s', async (path) => {
-    render(
-      <MemoryRouter initialEntries={[path]}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+describe('P1323 R2 — a page with its own chrome adopts or declines the single trigger', () => {
+  it('DECLINE removes the trigger even on a product surface', () => {
+    function Decliner() { useLinksTriggerOverride('decline'); return null; }
+    const { container } = render(
+      <MemoryRouter initialEntries={['/live/ABCD']}>
+        <EventLinksMenu enabled><Decliner /><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
     );
-    expect(await screen.findByTestId('event-links-button')).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="event-links-button"]')).toBeNull();
   });
 
-  it('off-event the menu carries the standard entries with NO event group and NO ?event=', async () => {
+  it('ADOPT moves the trigger to the page — exactly ONE node, never two', async () => {
+    function Adopter() { useLinksTriggerOverride('adopt'); return <EventLinksButton owner="page" />; }
+    render(
+      <MemoryRouter initialEntries={['/transcribe/ABCD']}>
+        <EventLinksMenu enabled>
+          <EventLinksButton />
+          <Adopter />
+        </EventLinksMenu>
+      </MemoryRouter>
+    );
+    // Two mounted instances, one rendered node. Two identical data-testids is the
+    // strict-mode locator violation that broke e2e/p1179-links-menu.spec.ts in 2026-08-28.
+    expect(await screen.findAllByTestId('event-links-button')).toHaveLength(1);
+  });
+
+  it('with NO declaration the nav keeps it and the page instance stays silent', async () => {
+    render(
+      <MemoryRouter initialEntries={['/feed']}>
+        <EventLinksMenu enabled>
+          <EventLinksButton />
+          <EventLinksButton owner="page" />
+        </EventLinksMenu>
+      </MemoryRouter>
+    );
+    expect(await screen.findAllByTestId('event-links-button')).toHaveLength(1);
+  });
+});
+
+describe('2026-09-07 / P1323 — off-event the menu carries the standard entries, bare', () => {
+  it('the Points tab is the standard tags and there is NO "This event" group anywhere', async () => {
     const user = userEvent.setup();
     render(
-      <MemoryRouter initialEntries={['/ready']}><EventLinksMenu><EventLinksButton /></EventLinksMenu></MemoryRouter>
+      <MemoryRouter initialEntries={['/ready']}>
+        <EventLinksMenu enabled><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
     );
     await user.click(await screen.findByTestId('event-links-button'));
+    // Points is the default tab; only its rows are in the DOM.
     const labels = (await screen.findAllByTestId('event-links-entry')).map(e => e.textContent);
-    expect(labels).toEqual([...STANDARD_STAKE_TAGS, ...STANDARD_TOOL_ENTRIES.map(t => t.label)]);
+    expect(labels).toEqual([...STANDARD_STAKE_TAGS]);
+    // P1323 R5: the group is retired, so the heading must be gone on EVERY tab, not just
+    // absent from the one that happens to be open.
     expect(screen.queryByText('This event')).toBeNull();
-    // No event to carry, so the stake paths must be bare — a dangling `?event=`
-    // would point the stake surface at an event that is not in play.
-    expect(buildLinksMenu(null, null).every(e => !e.to.includes('?event='))).toBe(true);
+  });
+
+  it('no event to carry, so no stake path carries a dangling ?event=', () => {
+    // A dangling ?event= would point the stake surface at an event that is not in play.
+    expect(buildLinksMenu(null).every(e => !e.to.includes('?event='))).toBe(true);
+    // Control: WITH an event, the points entries DO carry it — otherwise this assertion
+    // would pass on a build that had dropped event attribution altogether (which is what
+    // wrongly removing eventSlugFromLocation with R5 would have done).
+    const withEvent = buildLinksMenu('cm-1').filter(e => e.group === 'points');
+    expect(withEvent.length).toBeGreaterThan(0);
+    expect(withEvent.every(e => e.to.includes('?event=cm-1'))).toBe(true);
+  });
+
+  it('the three groups are exactly the three tabs, and every entry belongs to one', () => {
+    const entries = buildLinksMenu(null);
+    expect(entries.filter(e => e.group === 'points')).toHaveLength(STANDARD_STAKE_TAGS.length);
+    expect(entries.filter(e => e.group === 'letters')).toHaveLength(STANDARD_LETTER_ENTRIES.length);
+    expect(entries.filter(e => e.group === 'tools')).toHaveLength(STANDARD_TOOL_ENTRIES.length);
+    expect(entries).toHaveLength(
+      STANDARD_STAKE_TAGS.length + STANDARD_LETTER_ENTRIES.length + STANDARD_TOOL_ENTRIES.length
+    );
   });
 });
 
@@ -123,9 +206,20 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
     expect(dropdowns.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('the PROVIDER is mounted exactly ONCE — two instances meant two states and two fetches', () => {
-    const providers = NAV_SRC.match(/<EventLinksMenu>/g) ?? [];
-    expect(providers).toHaveLength(1);
+  it('the nav mounts NO provider — P1323 moved it up to the layout', () => {
+    // Two instances meant two open states and two event fetches (P1179). P1323 keeps that
+    // "exactly one" property but moves the single provider to ClarityLandingLayoutInner, so
+    // the page's own children sit inside it too and a bespoke-header page can adopt the
+    // trigger without a portal. The nav must therefore mount NONE.
+    expect(NAV_SRC.match(/<EventLinksMenu\b/g) ?? []).toHaveLength(0);
+
+    const LAYOUT_SRC = readFileSync(
+      resolve(process.cwd(), 'src/app/layouts/clarity-landing-layout.tsx'),
+      'utf8'
+    );
+    expect(LAYOUT_SRC.match(/<EventLinksMenu\b/g) ?? []).toHaveLength(1);
+    // And it is gated on the surface prop, not on a path.
+    expect(LAYOUT_SRC).toMatch(/<EventLinksMenu enabled=\{surface === 'product'\}>/);
   });
 
   it('the button is not hidden at a breakpoint — the one fix the invariant forbids', () => {
