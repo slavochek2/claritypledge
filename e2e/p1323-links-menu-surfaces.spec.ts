@@ -277,6 +277,11 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
           // The defect this test was extended for: at 320px the CTA WRAPPED to two lines (56px).
           const ctaBox = await cta.boundingBox();
           expect(ctaBox!.height, `${path} @ ${w.name}: "Start a Session" wrapped (${ctaBox!.height}px tall)`).toBeLessThanOrEqual(40);
+          if (w.width < 375) {
+            // Icon-only below 375px — and still a real touch target (visual QA measured ~38px).
+            expect(ctaBox!.width, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.width}px wide`).toBeGreaterThanOrEqual(40);
+            expect(ctaBox!.height, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.height}px tall`).toBeGreaterThanOrEqual(40);
+          }
         }
         const boxes = await nav.evaluate((el) => {
           return [...el.querySelectorAll('a, button')]

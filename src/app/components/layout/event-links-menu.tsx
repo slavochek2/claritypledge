@@ -484,7 +484,11 @@ export function EventLinksMenu({
               container as source text with `<nav className="[^"]*overflow-y-auto`, which
               cannot span a line break. Wrapping these attributes fails a green test that is
               pinning real behaviour (P1310's viewport cap), not formatting. */}
-          <nav className="flex flex-col gap-2 overflow-y-auto overscroll-contain" aria-label={eventSlug ? 'Event links' : 'Links'}>
+          {/* min-h-0 flex-1: the list alone absorbs the fixed sheet height. Without it, a tab
+              whose list is taller than the space (Letters) made EVERY item in the sheet's flex
+              column shrink a little — drag handle included — so the title and switch rode up
+              2–3px on that tab only. Measured: nothing scrolled; the list height changed. */}
+          <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain" aria-label={eventSlug ? 'Event links' : 'Links'}>
             <LinksMenuTabs
               entries={entries}
               renderEntry={(entry, key) => (

@@ -684,7 +684,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   // is what gives way on the narrowest phones — visually only: it stays the
                   // accessible name via sr-only, and the icon, colour and destination are
                   // unchanged. From 375px up the button is exactly as before.
-                  className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full px-3 min-[375px]:px-4 py-2 min-h-9"
+                  // Below 375px: a true 40x40 circle (independent visual QA measured the first
+                  // icon-only cut at ~38px, under the touch target). From 375px up: the original
+                  // pill classes, unchanged — its 36px height pre-dates P1323.
+                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full h-10 w-10 min-[375px]:h-auto min-[375px]:w-auto min-[375px]:justify-start min-[375px]:px-4 min-[375px]:py-2"
                   onClick={(e) => {
                     analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
                     if (location.pathname.startsWith('/live')) {
