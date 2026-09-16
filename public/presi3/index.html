@@ -19,23 +19,36 @@
   event room's Links menu (src/app/data/event-links.ts); "Slides" there points at
   /presi and should keep doing so.
 
-  THE TWO NEW SLIDES (1-2) and what changed:
+  WHAT IS NEW HERE, versus /presi:
     1 · TITLE + QR  the evening's topic AND the one QR to claritypledge.com/aisafety,
                     on one holding slide so the QR is up for the whole arrival.
                     (Was two slides; merged 2026-09-16 at the founder's request.)
-    2 · THE EVENT   the real event page, EMBEDDED in an iframe. You click "Join now"
-                    inside it live. Only works served from claritypledge.com — see
-                    that slide's own comment for the CSP/X-Frame-Options resolution
-                    and why the frame is empty when tested locally.
+    6 · THE SWITCH  the ask: turn on "Transcribe for AI insights". Three reasons, no
+                    favour-framing. Consent copy — see that slide's comment before
+                    touching a word of it.
+    9 · THE EVENT   the real event page, EMBEDDED in an iframe, driven live: you click
+                    "Event Room" inside the frame and land on /ready. Only renders when
+                    served from claritypledge.com — see that slide's own comment for the
+                    CSP/X-Frame-Options resolution and why the frame is empty locally.
     CTA slide       €295 Clarity Champions → the FREE community join, now carrying a
                     QR instead of an unclickable button. The offline configuration's
                     CTA is the community join, not the membership —
                     docs/events/clarity-practice-event.md § The offer.
 
-  ARC ORDER was re-cut by the founder 2026-09-16: the arc is slides 1-15 and ends on
-  the Chiang Mai calendar gift. Nine slides were demoted to an event-specific backup
-  block that sits between the arc and the permanent backing block; see the banner
-  above that block for the list and the reasoning.
+  ARC ORDER was re-cut by the founder over four rounds on 2026-09-16. The arc is now
+  slides 1-15 and ends on the Chiang Mai calendar gift:
+
+      1 title + QR          6 the switch (the ask)      11 when I refuse
+      2 credibility         7 what is cognitive          12 how the illusion prevents
+      3 influences            understanding?                meaningful discussion
+      4 the names it has    8 how to verify it?          13 make it a habit
+      5 proven, not          9 THE EVENT, live           14 join the community
+        practiced          10 Clarity Group Terms        15 a gift for Chiang Mai
+
+  Slides 7 and 8 were pulled back up out of the backup blocks in the last round
+  ("21, then 31, then 7") and the founder named both headings himself. Everything
+  else that left the arc sits in an event-specific backup block between the arc and
+  the permanent backing block; see the banner above that block.
 
   WHY ONLY ONE QR (asked and answered 2026-09-16): a second QR straight to
   /events/<slug>/room would drop an unregistered walk-in on the gate wall
@@ -145,6 +158,18 @@
      That is why embed-keys.js forwards Left/Right out of the frame. */
   .slide.embed-full{padding:0;background:#fff}
   .slide.embed-full iframe{width:100%;height:100%;border:0;display:block}
+  /* Parent-level escape hatch for the full-bleed embed. Once you click INSIDE the
+     frame, focus belongs to the embedded document and the deck stops seeing arrow
+     keys. Key forwarding (below, in JS) fixes that only when the frame is same-origin
+     — i.e. on claritypledge.com. These two buttons live in the PARENT document, so
+     they work in every case, including a blocked or cross-origin frame, and clicking
+     one also pulls focus back out of the iframe so the keyboard starts working again. */
+  /* bottom-LEFT: the deck's own slide counter sits bottom-right and the two collided. */
+  .embed-nav{position:absolute;left:14px;bottom:14px;z-index:5;display:flex;gap:8px}
+  .embed-nav button{width:42px;height:42px;border-radius:999px;border:1px solid rgba(15,23,42,.14);
+    background:rgba(255,255,255,.92);box-shadow:0 2px 10px rgba(15,23,42,.14);
+    font:600 19px/1 system-ui,sans-serif;color:#0f172a;cursor:pointer;backdrop-filter:blur(6px)}
+  .embed-nav button:hover{background:#fff;border-color:rgba(15,23,42,.3)}
 
   /* QR */
   .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:1.4rem;margin-top:1rem}
@@ -846,9 +871,12 @@
     </div>
   </section>
 
-  <!-- 7 · THE ASK: VOLUNTEER TO BE RECORDED. Three reasons, in the founder's terms
-       (2026-09-16). This slide exists to recruit volunteers for the transcription
-       switch on the next slide — people who let their OWN microphone record THEM.
+  <!-- 7 · THE ASK: TURN THE SWITCH ON. Three reasons, in the founder's terms
+       (2026-09-16, second cut: "much, much less text, just three most small things" —
+       and it is not framed as a favour, it is framed as contributing to the research).
+       The headline is the SHIPPED SWITCH LABEL verbatim, so the host can point at the
+       same words on the next slide. Recruits volunteers who let their OWN microphone
+       record THEM.
 
        EVERY CLAIM HERE IS CHECKED AGAINST SHIPPED BEHAVIOUR, not aspiration. Do not
        soften or inflate it; this is consent copy on a projector.
@@ -864,27 +892,28 @@
        If any of those three stops being true, this slide is wrong and must change. -->
   <section class="slide soft">
     <!-- NOTES
-      - THE ASK, said plainly: "Some of you can help me by letting your own phone record
-        YOU — not the room, not the person next to you. It's a switch on the next screen,
-        it's off unless you turn it on, and you can turn it off at any point."
+      - THE ASK, said plainly and once: "On the next screen there's a switch called
+        Transcribe for AI insights. Your own phone records YOU — not the room, not the
+        person next to you. It's off unless you turn it on, and you can turn it off at
+        any point. If you turn it on, you're helping me build this."
       - Do NOT pressure, do NOT count hands, do NOT look at anyone. A recording consent
         obtained by social pressure in a room is not consent. Say it once and move on.
-      - Reason 2 is the honest one and the one people respond to: you cannot tell whether
-        this format works from the feeling in the room, only from what was actually said.
+      - The three cards are the whole slide. Say each in one sentence; the detail belongs
+        in your voice, not on the projector.
       - If asked "who sees it": only people in this room. That is enforced server-side,
         not a policy promise — a signed-in stranger is refused entry to the room.
       - If asked "how long": your own capture runs for this event and you end it yourself
         by switching it off. Do not quote a retention period from this stage; point at the
         terms. [FOUNDER DECISION: whether to state a retention period out loud]
     -->
-    <div class="kicker">A favour, if you're willing</div>
-    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">Let your phone record <span class="accent">you</span></h2>
+    <div class="kicker">One switch, off by default</div>
+    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">Transcribe for <span class="accent">AI insights</span></h2>
     <div class="cards four" style="margin-top:2rem">
-      <div class="card"><h3>You're in the research</h3><p>I can only tell whether this format works from what was actually said, not from how the room felt.</p></div>
-      <div class="card"><h3>It shapes the next one</h3><p>What I learn here is what makes the next evening sharper, and more built around the people in it.</p></div>
-      <div class="card"><h3>It stays in this room</h3><p>The transcript is shared with the people who were here, and nobody else can open it.</p></div>
+      <div class="card"><h3>A better next event</h3><p>I see what actually worked.</p></div>
+      <div class="card"><h3>Tuned to you</h3><p>The next discussion fits the people who were in this one.</p></div>
+      <div class="card"><h3>A better platform</h3><p>Real conversations decide what I build.</p></div>
     </div>
-    <div class="note">It's one switch, it's off unless you turn it on, and you can switch it off whenever you like.</div>
+    <div class="note">Your own phone, recording you. Off unless you turn it on.</div>
   </section>
 
   <!-- 7 · THE EVENT, FULL SCREEN — ONE embed, driven live. Founder, 2026-09-16:
@@ -913,6 +942,80 @@
        `frame-ancestors 'self'` (plus an `x-frame-options: DENY` that Chrome ignores in
        its presence — verified against prod in a real browser). Locally the frame is
        EMPTY; that is the CSP, and the only real test is claritypledge.com/presi3. -->
+  <section class="slide">
+    <!-- NOTES
+      - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
+        now sit between the volunteer ask and the live embed, and he named them himself:
+        this one is "What is Cognitive Understanding?", the Venn is "How to verify".
+        NOTE the two LinkedIn poll slides that used to flank it (the "sees it your way"
+        poll before, the "three things" poll after) stayed in the backing block — this
+        card travels alone now.
+      - WAS at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
+      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
+      - Cognitive understanding is the only one we measure; the other two are not the target.
+    -->
+    <div class="kicker">What is Cognitive Understanding?</div>
+    <h2 style="margin-bottom:.2rem">A lie, memory issue or <span class="accent">misunderstanding?</span></h2>
+    <div class="st1-card">
+      <div class="st1-head">
+        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
+        <div>
+          <div class="st1-nameline">
+            <span class="st1-name">Vyacheslav Ladischenski</span>
+            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
+          </div>
+          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
+        </div>
+      </div>
+      <div class="st1-wrap">
+        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
+        <span class="st1-pulse" style="left:61%;top:49%"></span>
+        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9b · POINT — st1 #understanding belief, rendered as the live StatementPointCard -->
+  <section class="slide">
+    <!-- NOTES
+      - Four layers fade in: your private, their private, assumed shared, verified.
+      - The green ellipse is small on purpose; verified understanding is always narrower than assumed.
+    -->
+    <!-- Title named by the founder 2026-09-16; moved into the arc with slide 21. -->
+    <div class="kicker">How to verify Cognitive Understanding?</div>
+    <h2 style="margin-bottom:.4rem">Three <span class="accent">types</span> of cognitive understanding</h2>
+    <!-- st3's "picture" is the live 3-levels diagram: its four layers fade in on
+         entry (FX levels(), keyed on .lv) — the redrawn cp diagram, standalone (no story card) -->
+    <div class="st1-wrap" style="--cap:64vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
+        <svg viewBox="0 0 640 372" role="img" style="display:block;width:100%;height:auto" aria-label="Three nested levels of cognitive understanding. Two overlapping circles: Your Private Understanding (you understand, they don't) and Their Private Understanding (they understand, you don't). Their overlap is Assumed Shared Understanding (you assume they understand what you mean). Inside it, a green core is Verified Understanding (you both verified they understand what you mean).">
+          <defs>
+            <clipPath id="cu-left"><circle cx="240" cy="185" r="170"/></clipPath>
+          </defs>
+          <g class="lv">
+            <circle cx="240" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
+            <text x="150" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Your Private<tspan x="150" dy="23">Understanding</tspan></text>
+            <text x="150" y="202" text-anchor="middle" font-size="12.5" fill="#475569">You understand,<tspan x="150" dy="15" font-weight="700" fill="#0f172a">they don't</tspan></text>
+          </g>
+          <g class="lv">
+            <circle cx="400" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
+            <text x="490" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Their Private<tspan x="490" dy="23">Understanding</tspan></text>
+            <text x="490" y="202" text-anchor="middle" font-size="12.5" fill="#475569">They understand,<tspan x="490" dy="15" font-weight="700" fill="#0f172a">you don't</tspan></text>
+          </g>
+          <g class="lv">
+            <circle cx="400" cy="185" r="170" fill="rgba(100,116,139,.18)" clip-path="url(#cu-left)"/>
+            <text x="320" y="104" text-anchor="middle" font-size="14" font-weight="800" fill="#1d4ed8" letter-spacing="-.2">Assumed Shared<tspan x="320" dy="17">Understanding</tspan></text>
+            <text x="320" y="146" text-anchor="middle" font-size="11" fill="#475569">You <tspan font-weight="700" fill="#1d4ed8">assume</tspan> they<tspan x="320" dy="13">understand what you mean</tspan></text>
+          </g>
+          <g class="lv">
+            <ellipse cx="320" cy="232" rx="75" ry="62" fill="rgba(34,197,94,.30)" stroke="#16a34a" stroke-width="1.75"/>
+            <text x="320" y="210" text-anchor="middle" font-size="16" font-weight="800" fill="#14532d" letter-spacing="-.2">Verified<tspan x="320" dy="17">Understanding</tspan></text>
+            <text x="320" y="245" text-anchor="middle" font-size="10" fill="#166534">You <tspan font-weight="700">both verified</tspan> they<tspan x="320" dy="12">understand what you mean</tspan></text>
+          </g>
+        </svg>
+      </div>
+  </section>
+
+  <!-- 4c · st2 story — assumed understanding (Asymmetry of Information) -->
 <section class="slide embed-full">
     <!-- NOTES
       - Drive it, in this order: the event page is on screen → click "Event Room" at the top
@@ -926,10 +1029,18 @@
         loud if anyone asks — it is the same guarantee the roster deliberately does not give.
       - IF THIS SHOWS A SIGN-IN WALL you are signed out in this browser. Fix it before the
         room fills, not from the stage.
-      - KEYBOARD: Left/Right still move the deck from inside the frame; Up/Down scroll it.
+      - KEYBOARD: on claritypledge.com, Left/Right still move the deck from inside the
+        frame and Up/Down scroll it. ANYWHERE ELSE (localhost, or a blocked frame) the
+        keyboard stops working the moment you click into the frame — use the two round
+        buttons at the bottom right of this slide. They are in the deck, not the embed,
+        so they always work, and clicking one hands the keyboard back to the deck.
     -->
     <iframe src="https://claritypledge.com/events/clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj"
             title="Clarity Night — the event page, driven through to the room" loading="eager"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+    </div>
   </section>
 
   <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
@@ -992,9 +1103,9 @@
     <div class="cards four">
       <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
       <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
-      <div class="card refuse"><h3>Fear</h3><p>&ldquo;Then I can't blame you.&rdquo;</p></div>
+      <div class="card refuse"><h3>Fear</h3><p>&ldquo;You will think I am stupid.&rdquo;</p></div>
       <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
-      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know why closed-loop communication is important.&rdquo;</p></div>
+      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know how it benefits me.&rdquo;</p></div>
     </div>
     <div class="note">Deniability is the one we <em>both</em> want &mdash; which is why asking feels like an imposition.</div>
   </section>
@@ -1110,20 +1221,24 @@
   </section>
 
   <!-- ══════ DEMOTED FOR THIS EVENT — BACKUP / Q&A ONLY ══════
-       Nine slides the founder pulled OUT of the arc for Clarity Night #1 (2026-09-16),
+       Eleven slides the founder pulled OUT of the arc for Clarity Night #1 (2026-09-16),
        in their original relative order. They are unchanged; only their position moved.
        They sit here, after the gift, for the same reason as the permanent block below:
        the arc ends on the ask, then hands over the calendar (P1218).
 
-         was  7 · 35% of failed startups            was 17 · the skill, defined
-         was  9 · WhatsApp, what they didn't say    was 19 · st1 anti-point card
-         was 10 · what assumed agreement cost me    was 20 · a lie / memory / misunderstanding
-         was 11 · everybody assumes they understand was 21 · the three things "you don't understand me" means
-         was 16 · what's the solution?
+       Counted from the file, not from memory (this list was stale once already):
+         · 35% of failed startups                   · the skill, defined — listening calibration
+         · WhatsApp, what your team member didn't say · LinkedIn poll — "they see it your way"
+         · what assumed agreement cost me            · LinkedIn poll — the three things
+         · everybody assumes they understand         · prevent rework before work begins
+         · what's the solution? (open source)        · which situations need the Principle
+         · live demo QR — disagreement vs misunderstanding
 
-       NOTE — 19/20/21 are the PAYLOAD of the live-demo QR, which stayed in the arc. Reaching
-       them mid-demo means paging past the gift. If that bites on the night, either move the
-       demo QR down here too, or move these three back up under it.
+       NOTE — the live-demo QR and BOTH poll slides are down here, but the third payload
+       card ("a lie, memory issue or misunderstanding?") was pulled back UP into the arc on
+       2026-09-16 as "What is Cognitive Understanding?". So the demo and its payload are now
+       split across the deck: reaching the polls mid-demo still means paging past the gift.
+       If that bites on the night, move the demo QR up next to the story card instead.
        These are still /presi's slides; edit them there and re-copy for the next event.
        The permanent backing block follows below. -->
 
@@ -1341,33 +1456,6 @@
   </style>
 
   <!-- 4b copy · st1 story — "a lie, memory issue or misunderstanding?" — repeated here to re-set up the Differentiate beat -->
-  <section class="slide">
-    <!-- NOTES
-      - IN THE ARC at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
-      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
-      - Cognitive understanding is the only one we measure; the other two are not the target.
-    -->
-    <h2 style="margin-bottom:.2rem">A lie, memory issue or <span class="accent">misunderstanding?</span></h2>
-    <div class="st1-card">
-      <div class="st1-head">
-        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
-        <div>
-          <div class="st1-nameline">
-            <span class="st1-name">Vyacheslav Ladischenski</span>
-            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
-          </div>
-          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
-        </div>
-      </div>
-      <div class="st1-wrap">
-        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
-        <span class="st1-pulse" style="left:61%;top:49%"></span>
-        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- 9b · POINT — st1 #understanding belief, rendered as the live StatementPointCard -->
   <section class="slide">
     <!-- NOTES
       - Full point text (read or paraphrase): "When someone says 'you don't understand me,' they could mean at least three different things. They might mean I don't feel what they feel. They might mean I don't agree with them. Or they might mean they don't know whether I actually know what they mean. These are three separate requests. Satisfying one doesn't necessarily satisfy the others. The word 'understand' never tells me which kind of understanding is being asked for."
@@ -1717,44 +1805,6 @@
   </section>
 
   <!-- 4d · st3 story — make the gap visible with a 0–10 number -->
-  <section class="slide">
-    <!-- NOTES
-      - Four layers fade in: your private, their private, assumed shared, verified.
-      - The green ellipse is small on purpose; verified understanding is always narrower than assumed.
-    -->
-    <h2 style="margin-bottom:.4rem">Three <span class="accent">types</span> of cognitive understanding</h2>
-    <!-- st3's "picture" is the live 3-levels diagram: its four layers fade in on
-         entry (FX levels(), keyed on .lv) — the redrawn cp diagram, standalone (no story card) -->
-    <div class="st1-wrap" style="--cap:64vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
-        <svg viewBox="0 0 640 372" role="img" style="display:block;width:100%;height:auto" aria-label="Three nested levels of cognitive understanding. Two overlapping circles: Your Private Understanding (you understand, they don't) and Their Private Understanding (they understand, you don't). Their overlap is Assumed Shared Understanding (you assume they understand what you mean). Inside it, a green core is Verified Understanding (you both verified they understand what you mean).">
-          <defs>
-            <clipPath id="cu-left"><circle cx="240" cy="185" r="170"/></clipPath>
-          </defs>
-          <g class="lv">
-            <circle cx="240" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
-            <text x="150" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Your Private<tspan x="150" dy="23">Understanding</tspan></text>
-            <text x="150" y="202" text-anchor="middle" font-size="12.5" fill="#475569">You understand,<tspan x="150" dy="15" font-weight="700" fill="#0f172a">they don't</tspan></text>
-          </g>
-          <g class="lv">
-            <circle cx="400" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
-            <text x="490" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Their Private<tspan x="490" dy="23">Understanding</tspan></text>
-            <text x="490" y="202" text-anchor="middle" font-size="12.5" fill="#475569">They understand,<tspan x="490" dy="15" font-weight="700" fill="#0f172a">you don't</tspan></text>
-          </g>
-          <g class="lv">
-            <circle cx="400" cy="185" r="170" fill="rgba(100,116,139,.18)" clip-path="url(#cu-left)"/>
-            <text x="320" y="104" text-anchor="middle" font-size="14" font-weight="800" fill="#1d4ed8" letter-spacing="-.2">Assumed Shared<tspan x="320" dy="17">Understanding</tspan></text>
-            <text x="320" y="146" text-anchor="middle" font-size="11" fill="#475569">You <tspan font-weight="700" fill="#1d4ed8">assume</tspan> they<tspan x="320" dy="13">understand what you mean</tspan></text>
-          </g>
-          <g class="lv">
-            <ellipse cx="320" cy="232" rx="75" ry="62" fill="rgba(34,197,94,.30)" stroke="#16a34a" stroke-width="1.75"/>
-            <text x="320" y="210" text-anchor="middle" font-size="16" font-weight="800" fill="#14532d" letter-spacing="-.2">Verified<tspan x="320" dy="17">Understanding</tspan></text>
-            <text x="320" y="245" text-anchor="middle" font-size="10" fill="#166534">You <tspan font-weight="700">both verified</tspan> they<tspan x="320" dy="12">understand what you mean</tspan></text>
-          </g>
-        </svg>
-      </div>
-  </section>
-
-  <!-- 4c · st2 story — assumed understanding (Asymmetry of Information) -->
   <section class="slide">
     <!-- NOTES
       - BACKING: information asymmetry story card; supports the illusion slide if challenged.
@@ -2224,6 +2274,16 @@
     document.querySelectorAll('.slide iframe').forEach(f=>{
       f.addEventListener('load',()=>attach(f));
       attach(f);
+    });
+    /* The in-deck buttons: the case forwarding cannot reach. stopPropagation keeps the
+       deck's own click-to-advance handler from firing a second time, and blur() stops
+       Space/Enter re-triggering the button once focus has returned to the deck. */
+    document.querySelectorAll('[data-embed-nav]').forEach(b=>{
+      b.addEventListener('click',ev=>{
+        ev.stopPropagation(); ev.preventDefault();
+        (b.dataset.embedNav==='prev')?prev():next();
+        b.blur(); window.focus();
+      });
     });
   })();
 
