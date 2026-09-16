@@ -117,6 +117,33 @@ run and never the stage-then-run-again sequence the tool itself creates. Fixed b
 diff's *shape* rather than its existence. See [decisions.md](../../docs/decisions.md) 2026-08-27
 [technical] (P1173).
 
+## 7d. A check that searches a file can be satisfied by that file's own examples
+
+Gate 7 proves a check *can* fail. It proves nothing when the control was a **synthetic fixture**.
+
+When a check greps a file for tokens, any worked example, template or comment in that file speaks
+the same language as the evidence, and the check cannot tell them apart — a real entry deleted
+from the file still passes, because its own documentation answers for it. Two things follow, and
+the second is the one gate 7 misses:
+
+- Examples in a searched file must use a placeholder that **cannot** match (`<step-id>`, never a
+  real id).
+- **The control proving the check fires must be built by mutating the REAL file**, not a fixture
+  that contains no examples.
+
+**Do not reach for fence-stripping as the fix without reading the file first.** In
+`.claude/commands/slava/maintain/day-cp.md` the teaching example and the live step sit inside
+byte-identical ` ```bash ` fences, so stripping meta-content deletes the evidence too — verified
+in code before this gate was written, against a reviewer who proposed it without looking.
+
+This is [gate 3](#3-test-model-claims-against-fixture-not-prose) one level down: *verify against
+the artifact, not the documentation about the artifact* — except here the thing fooled is a
+checker, not an agent, so nothing reports it.
+
+P1324 (2026-09-16): `day-step.sh check-sync` passed with a required step deleted, while its three
+controls (`scripts/test-p1324-day-ledger.sh`, synthetic one-line docs with no examples) all
+passed. Found by a manual deletion experiment outside the suite, not by the suite.
+
 ## 8. Record under uncertainty — never withhold on "wait until validated" grounds
 
 Recording a decision, bet, or learning is never deferred because it is unvalidated, unproven, or "wait until the test / the interviews / it's confirmed." Record it NOW with an honest `UNTESTED` label + a one-line falsifier — that axis is retired ([docs/decisions.md](../../docs/decisions.md) 2026-07-03 [process]). Routing (which doc it belongs in) is advisory, never a block. Applies **in open conversation too**, before `/docs-strategy-update` or `/kdd` is entered — the recommendation to "hold off recording for now" is itself the failure this gate names.
