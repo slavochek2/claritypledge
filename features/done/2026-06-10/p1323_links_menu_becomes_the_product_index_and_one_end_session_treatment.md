@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 disclosure: public
 drafted_by: opus
@@ -14,16 +14,16 @@ tags:
   - events
   - navigation
 created_date: 2026-09-16
-delivery_stage: ship
 pipeline_ran: [change-request, challenge-prd, simplify, challenge-prd, architect, dev, verify, ship]
 pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently", "generate-tests -- not run as a separate step; tests were written alongside the code in /dev (unit rewrites, e2e/p1323-links-menu-surfaces.spec.ts, p1323-end-session-treatment.test.tsx, typecheck-gate canary)"]
+completed_at: 2026-09-16
 ---
 
 # P1323: The Links menu becomes the product's index, and End Session gets one treatment
 
-> **Redesign of:** [P1179: The event room "Links" menu and the locked stake surface](done/2026-06-10/p1179_event_room_links_menu_and_stake_surface.md)
-> **Also corrects a placement decision from:** [P1307: Event transcription from the ready screen, across pages, into sessions](done/2026-06-10/p1307_event_transcription_from_ready_across_pages_into_sessions.md)
+> **Redesign of:** [P1179: The event room "Links" menu and the locked stake surface](p1179_event_room_links_menu_and_stake_surface.md)
+> **Also corrects a placement decision from:** [P1307: Event transcription from the ready screen, across pages, into sessions](p1307_event_transcription_from_ready_across_pages_into_sessions.md)
 >
 > **What was wrong:** P1179 scoped the menu to the room and the menu's contents outgrew that
 > scope. Eight of its nine entries are identical at every event and on every no-event page;
@@ -310,7 +310,7 @@ Verified on prod 2026-09-16: `st1`–`st9` each resolve to a letter id; `st10` r
 navigate to `/letter/<code>`, an internal path built in `event-links.ts`, never a URL from data.
 
 **The nine labels are APPROVED copy, founder 2026-09-16.** `st1`–`st9` are internal taxonomy
-([decisions.md](../docs/decisions.md): *"The `st1…st9` identifiers are an internal taxonomy; do not
+([decisions.md](../../../docs/decisions.md): *"The `st1…st9` identifiers are an internal taxonomy; do not
 surface them as primary labels on outward-facing surfaces"*), so each row leads with the phrase and
 carries the code as a quiet suffix.
 
