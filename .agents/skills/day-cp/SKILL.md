@@ -32,6 +32,46 @@ then a 24h delta rather than a since-last-run delta.
 the HEALTH rows listed at the end of this file. Return the rows; do not wrap them in a
 `HEALTH` header — the dispatcher concatenates them with its own.
 
+### The step ledger — `$DAY_STEP` (P1324)
+
+The dispatcher also passes **`DAY_STEP`**: an absolute path to the step runner. Use it exactly
+as given and **never write a home-directory path here** — that is the contract table above, and
+this file is in a public repo. `scripts/day-cp-steps.tsv` is this sub-day's half of the
+manifest; the dispatcher discovers and registers it at its Step 1.
+
+Every wave and step below carries an id and records itself:
+
+```bash
+"$DAY_STEP" run <step-id> <<'STEP'
+<the wave's commands, exactly as written below>
+STEP
+
+"$DAY_STEP" attest <step-id> --evidence "what the MCP call RETURNED, in a sentence"
+```
+
+Why, in one number: across the 13 real `/day` passes since 2026-08-28, Wave 1 ran 13 times,
+Sentry 10, Mixpanel 7, and the privilege-floor check inside Wave 3 eight. Every wave here except
+the first has been silently dropped at least once, and nothing could tell that apart from a
+clean morning.
+
+**A wave that RAN AND FAILED is recorded and does not hold the pass open** — report the failure
+and move on. Only a wave that never executed is missing, and `day-gates.sh --mode=finish` will
+name it.
+
+**If `DAY_STEP` was not passed**, you were invoked directly rather than by `/day`. Run the
+commands as written, and **say so in the output**: nothing this pass does is recorded, exactly
+as an unsupplied `$SINCE` is called out above.
+
+**Findings do not stay in this output.** Anything a check finds — drift, a failing guard, a
+stranded spec — is recorded where it is found, and the dispatcher files it at its Step 9b:
+
+```bash
+"$DAY_STEP" finding --check <step-id> --severity high --store private \
+  --title "one line, stable across days — counts and dates go in the BODY" <<'BODY'
+<what was found, and what would settle it>
+BODY
+```
+
 ---
 
 ## Steps
@@ -46,6 +86,7 @@ Each wave = at most 2 tool calls. Process results between waves.
 Combine ALL local operations into a single bash script:
 
 ```bash
+"$DAY_STEP" run cp.w1 <<'STEP'
 cd "$(git rev-parse --show-toplevel)"
 
 echo "=== PROD SMOKE ==="
@@ -183,6 +224,7 @@ print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(e
 '
 echo "(empty above = no always-on/GPU cost leaks)"
 
+STEP
 ```
 
 Process Wave 1 results before proceeding.
@@ -267,6 +309,7 @@ Run these two in parallel:
 **b) All Supabase queries** — single bash call with all curls:
 
 ```bash
+"$DAY_STEP" run cp.w2 <<'STEP'
 # P1214: every query here is a READ, so it runs on the scoped read-only credential through
 # scripts/supabase-readonly-sql.py — never the prod master key or the account-wide platform
 # token. The helper refuses to fall back to either, and refuses to return rows if its role
@@ -416,6 +459,7 @@ if [[ "$FUNNEL_SIGNUPS" =~ ^[0-9]+$ ]] && [[ "$FUNNEL_STORY_USERS" =~ ^[0-9]+$ ]
 else
   echo "CSV_APPEND_SKIPPED — one or more funnel counts was non-numeric (query failure): signups=$FUNNEL_SIGNUPS story=$FUNNEL_STORY_USERS pos=$FUNNEL_POSITION_USERS agreements=$FUNNEL_AGREEMENTS"
 fi
+STEP
 ```
 
 **This append is mandatory, not optional — it runs inline in the Wave 2b bash script above, using the funnel counts it already computed.** If `CSV_APPEND_SKIPPED` or `⚠ FUNNEL CSV STALE` appears in output, flag it (a query failed, or a prior run silently didn't append) rather than continuing past it. Filter out `test-agent@claritypledge.com` from all results.
@@ -500,6 +544,12 @@ Quiet period (no real users): `Quiet: no real user activity since last /day (fou
 The daily CSV row was already appended earlier in this wave's bash script (`=== FUNNEL CSV ===` block) — no separate step needed here. If a previous entry exists, show deltas in the funnel line.
 
 Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
+
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.w2s --evidence "how many Sentry issues since $SINCE, and the worst one"
+```
 
 #### Wave 2b: User Intelligence (Mixpanel MCP — after Wave 2)
 
@@ -631,6 +681,12 @@ USER INTELLIGENCE (since last /day)
   ⚠ MAGIC LINK GAP: 3 sent, 0 completed — check Brevo logs
 ```
 
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.w2b --evidence "what the Mixpanel queries returned — counts, not that you ran them"
+```
+
 #### Wave 2c: Signup Intel (WebSearch — after Wave 2, only if new real-user signups exist)
 
 For each new real-user signup (non-founder, non-test, max 10), run one WebSearch:
@@ -653,10 +709,22 @@ Output appended to the USER INTELLIGENCE block:
 
 ---
 
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.w2c --evidence "what the search found about the new signups"
+```
+If Wave 2 found no new real-user signups this step does not apply — record that:
+
+```bash
+"$DAY_STEP" skip cp.w2c --reason "Wave 2 reported no new real-user signups this window"
+```
+
 #### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
 
 **a) Repo health** (1 bash call):
 ```bash
+"$DAY_STEP" run cp.w3 <<'STEP'
 cd "$(git rev-parse --show-toplevel)"
 echo "=== LINT ==="
 npm run lint 2>&1 | grep -c "error" || echo "0"
@@ -711,6 +779,7 @@ echo "privilege_floor_exit=$PF_RC"
 # of this detector with `true AND true`, so a green live run is not evidence the check works.
 python3 "$RLS_MAIN_ROOT/scripts/check-p1207-privilege-floor.py" --self-test 2>&1
 echo "privilege_floor_selftest_exit=$?"
+STEP
 ```
 Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
 
@@ -778,6 +847,12 @@ The GCP credits, AI keys and Agent VM rows are **not** yours — they are person
 and the dispatcher emits them. Do not print placeholders for them.
 
 ---
+
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.health --evidence "how many HEALTH rows are being returned to the dispatcher"
+```
 
 ### 2. Reflection (since last /day)
 
@@ -849,6 +924,12 @@ TOMORROW
 If git log is empty: "No commits since last /day." Reflect on non-code work from KDD/milestone reads.
 
 ---
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.reflect --evidence "what the reflection covered since $SINCE"
+```
+
 ### 3. Goals & Milestone
 
 **Primary source: `docs/goals.md`**
@@ -877,6 +958,12 @@ DON'T: [comma-separated one-liners]
 ```
 
 ---
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.goals --evidence "the milestone state and what moved"
+```
+
 ### 4. Branch Status
 
 Use the branch, stranded spec, and stash data already collected in Wave 1 (no additional tool calls).
@@ -898,7 +985,9 @@ that it exists is not. Sort oldest first.
 
 **4c. Stash check:**
 ```bash
+"$DAY_STEP" run cp.branch <<'STEP'
 git stash list
+STEP
 ```
 If non-empty, print all entries (max 10; if more, note "N more — run `git stash list` to see all"):
 ```
@@ -946,6 +1035,12 @@ Reviews are auto-run rather than printed as commands because printed commands ne
 copy-pasted and the reviews simply did not happen (P900).
 
 ---
+
+
+**Record it:**
+```bash
+"$DAY_STEP" attest cp.due --evidence "the Due Board verdict and what was done about it"
+```
 
 ## Event-to-Journey Mapping (Wave 2b reference)
 

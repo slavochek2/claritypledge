@@ -1,0 +1,36 @@
+# day-cp-steps.tsv — P1324. The ClarityPledge sub-day's half of /day's step manifest.
+#
+# The dispatcher discovers this file at run time — `$ROOT/scripts/day-<name>-steps.tsv`,
+# alongside the same glob that finds the sub-day itself — and registers it with
+# `day-step.sh add-manifest`. It is never hardcoded in the dispatcher (CLAUDE.md Dynamic
+# Discovery), and this file never names a home-directory path, so `day-cp.md`'s contract
+# ("do not read or write dispatcher state") holds: the sub-day is handed the runner's path
+# in $DAY_STEP, exactly as it is already handed $SINCE and $DUE_VERDICT.
+#
+# Columns and the meaning of kind/policy: see ~/.claude/day-steps.tsv, which owns the format.
+# Short version: cmd = must run through `day-step.sh run` so the exit code is recorded;
+# attest = an MCP or Skill call with no exit code, recorded with a sentence of evidence;
+# hard = cannot be skipped; skippable = genuinely conditional, recorded with a reason.
+#
+# WHY THESE IDS AND NOT FINER ONES. One id per WAVE, because a wave is already one bash call
+# in day-cp.md — so the ledger entry and the thing that executes are the same unit, and no
+# prose rewrite is needed to make the receipt honest. Finer ids would need the waves split,
+# which this spec explicitly deferred (P1324 Alternatives Considered).
+#
+# Measured coverage of these ten across the 13 real passes since 2026-08-28, from transcript
+# tool-calls: Wave 1 and the Supabase half of Wave 2 ran 13/13; Sentry 10/13; Mixpanel 7/13;
+# the privilege-floor check inside Wave 3 8/13. Everything here has been silently dropped at
+# least once except Wave 1.
+#
+# id	kind	policy	label
+cp.w1	cmd	hard	Wave 1 — prod smoke, git log, stranded specs, cloud, key digest, GCP leak tripwire
+cp.w2	cmd	hard	Wave 2 — Supabase signup funnel, job health, email cron delivery evidence
+cp.w2s	attest	hard	Wave 2 — Sentry issues since last run
+cp.w2b	attest	hard	Wave 2b — Mixpanel user intelligence
+cp.w2c	attest	skippable	Wave 2c — signup intel (only when Wave 2 found new real-user signups)
+cp.w3	cmd	hard	Wave 3 — repo health, RLS drift, function grants, privilege floor, lint
+cp.health	attest	hard	HEALTH rows returned to the dispatcher
+cp.reflect	attest	hard	Reflection since last /day
+cp.goals	attest	hard	Goals and milestone
+cp.branch	cmd	hard	Branch status
+cp.due	attest	hard	Due Board — act on the dispatcher's verdict
