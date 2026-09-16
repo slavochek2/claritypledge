@@ -334,7 +334,13 @@ export function TranscribeRoomPage() {
       <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)] shrink-0">
         <div className="container mx-auto px-4 lg:px-8 h-full">
           <div className="flex items-center justify-between h-full">
-            <ClarityLogo size="sm" />
+            {/* Icon-only below `lg`, exactly as the site nav does (simple-navigation.tsx). Adding
+                the Links trigger to this row (P1323) made the full wordmark + Links + End Session
+                overflow a phone: measured at 320px, End Session was pushed off the right edge and
+                Links butted into the wordmark. End Session is the one control this header exists
+                for, so the wordmark gives way, not it. */}
+            <ClarityLogo size="sm" iconOnly className="lg:hidden" />
+            <ClarityLogo size="sm" className="hidden lg:inline-flex" />
             <div className="flex items-center gap-2">
               {/* P1323 R2: this page draws its own header OVER the nav — the layout's nav
                   guard is `!hasOwnNavigation && !isImmersiveLetterRoute` and does NOT include

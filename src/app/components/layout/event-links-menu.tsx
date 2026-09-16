@@ -263,9 +263,30 @@ function LinksMenuDropdownBody({
             key={t.value}
             data-testid={`event-links-tab-${t.value}`}
             data-active={tab === t.value}
-            aria-current={tab === t.value ? 'true' : undefined}
+            // "Choose one of three" inside a menu is a RADIO menu item — the role Radix's own
+            // DropdownMenuRadioItem renders. A first version used plain menuitems with
+            // aria-current, which announced three unrelated commands and no selected state
+            // (adversarial review, Codex Sol). Radix spreads these after its default role, so
+            // they take effect.
+            role="menuitemradio"
+            aria-checked={tab === t.value}
             // Keep the menu open: switching segments is navigation WITHIN the panel.
             onSelect={e => { e.preventDefault(); setTab(t.value); }}
+            // The segments LOOK horizontal, so Left/Right must move between them — the menu's
+            // own roving focus is vertical and only answers Up/Down. Measured before this: Right
+            // Arrow left focus on Points. Up/Down still work, and continue into the rows.
+            onKeyDown={e => {
+              if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+              e.preventDefault();
+              const i = TABS.findIndex(x => x.value === t.value);
+              const next = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
+              if (!next) return;
+              setTab(next.value);
+              const el = e.currentTarget.parentElement?.querySelector<HTMLElement>(
+                `[data-testid="event-links-tab-${next.value}"]`
+              );
+              el?.focus();
+            }}
             className="justify-center rounded-md px-2 py-1 font-medium text-muted-foreground focus:bg-background/60 focus:text-foreground data-[active=true]:bg-background data-[active=true]:text-foreground data-[active=true]:shadow"
           >
             {t.label}

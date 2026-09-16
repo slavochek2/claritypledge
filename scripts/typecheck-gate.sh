@@ -90,19 +90,26 @@ BROKEN="$(grep -E "$GATE_CODES" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
 # must carry it. If `surface` is ever renamed or removed, delete this block — a gate whose
 # subject no longer exists is worse than no gate, because it stays green forever.
 #
-# TWO ERROR FORMS, and a first version caught only one (found in adversarial review, Gemini
-# 3.8; reproduced — `<ClarityLandingLayout />` passed this gate with exit 0):
-#   TS2741  "Property 'surface' is missing in type ... but required in type 'ClarityLandingLayoutProps'"
-#           — when surface is the ONLY required prop missing.
-#   TS2739  "Type '{}' is missing the following properties from type 'ClarityLandingLayoutProps':
-#           children, surface" — when SEVERAL are missing at once. (TS2740, the "and N more"
-#           form, cannot name surface here: the props type has only two required members.)
+# MATCH WHOLE DIAGNOSTICS, NOT LINES, AND NOT ERROR CODES. Three versions of this block, each
+# broken by a different reviewer and each reproduced before it was replaced:
+#   v1  matched `TS2741: Property 'surface' is missing` — `<ClarityLandingLayout />` (several props
+#       missing at once) is TS2739 instead, and passed with exit 0 (Gemini 3.8).
+#   v2  matched TS2739|TS2741 — `createElement(ClarityLandingLayout, {}, child)` is TS2769, and the
+#       "missing ... surface" text is on an indented CONTINUATION line carrying no error code at all,
+#       so a line-based grep can never see it. Passed with exit 0 (Codex Sol).
+# Chasing codes is whack-a-mole. What is stable is the MEANING: a diagnostic about
+# ClarityLandingLayoutProps that says `surface` is missing. So join each `path(l,c): error TS…`
+# line with the indented lines under it, then match that meaning on the joined text.
 #
-# SCOPED TO THE TYPE NAME, NOT JUST THE PROPERTY NAME. Other components also have a prop
-# called `surface` — the feed cards, ShareDialog, and a prototype where it is REQUIRED
-# (`position-buttons-prototype.tsx`). Matching the property name alone would block a commit
-# over an unrelated component. Both forms above carry the props type name, so require it.
-SURFACE_MISSING="$(grep -E "error TS27(39|41):" <<< "$TSC_OUT" | grep -F "ClarityLandingLayoutProps" | grep -E "(\bsurface\b)" | grep -vE "$TEST_PATHS")"
+# SCOPED TO THE TYPE NAME. Other components also have a `surface` prop — the feed cards,
+# ShareDialog, and a prototype where it is REQUIRED — so the property name alone would block
+# commits over unrelated components.
+SURFACE_MISSING="$(awk '
+  /^[^ ].*\([0-9]+,[0-9]+\): error TS[0-9]+/ { if (blk != "") print blk; blk = $0; next }
+  /^ / { if (blk != "") blk = blk " " $0; next }
+  { if (blk != "") print blk; blk = "" }
+  END { if (blk != "") print blk }
+' <<< "$TSC_OUT" | grep -F "ClarityLandingLayoutProps" | grep -E "(Property .surface. is missing|missing the following properties[^.]*[:,] ?surface\b)" | grep -vE "$TEST_PATHS")"
 
 if [ -n "$SURFACE_MISSING" ]; then
   echo "typecheck-gate: a ClarityLandingLayout is missing its required \`surface\` prop."

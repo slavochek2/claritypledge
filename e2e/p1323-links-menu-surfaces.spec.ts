@@ -119,9 +119,20 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
       await expect(triggers, `${w.name}: exactly one visible Links trigger`).toHaveCount(1);
       const trigger = await triggers.first().boundingBox();
       const end = await ends.first().boundingBox();
-      const logo = await page.getByTestId('transcribe-room-screen').locator('svg').first().boundingBox();
+      // The VISIBLE logo — one of two is CSS-hidden per breakpoint.
+      const logo = await page.getByTestId('transcribe-room-screen').locator('svg').filter({ visible: true }).first().boundingBox();
       expect(trigger, `${w.name}: trigger has a box`).not.toBeNull();
       expect(trigger!.x + trigger!.width, `${w.name}: trigger inside the viewport`).toBeLessThanOrEqual(w.width);
+      // Found by LOOKING at a 320px screenshot, after this test had passed: the trigger was on
+      // screen and overlapped nothing, while End Session had been pushed OFF the right edge.
+      // Checking only the new control let the existing, more important one fall out of view.
+      // So every control in the header row must be fully on screen, and the page must not
+      // scroll sideways.
+      expect(end, `${w.name}: End Session has a box`).not.toBeNull();
+      expect(end!.x, `${w.name}: End Session starts on screen`).toBeGreaterThanOrEqual(0);
+      expect(end!.x + end!.width, `${w.name}: End Session fully inside the viewport`).toBeLessThanOrEqual(w.width);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, `${w.name}: page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
       expect(overlaps(trigger!, end!), `${w.name}: trigger overlaps End Session`).toBe(false);
       if (logo) expect(overlaps(trigger!, logo), `${w.name}: trigger overlaps the logo`).toBe(false);
 

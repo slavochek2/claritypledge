@@ -112,6 +112,24 @@ else
 fi
 rm -f "$CANARY_TSX"
 
+# 5b. BLOCKS the createElement form: TS2769, where "missing ... surface" is on a CONTINUATION
+#     line with no error code. A line-based match cannot see it (Codex Sol reproduced exit 0).
+printf '%s\n' \
+  "import { createElement } from 'react';" \
+  "import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';" \
+  "export const viaCreate = createElement(ClarityLandingLayout, {}, 'x');" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 1 ] && grep -qF "missing its required \`surface\` prop" <<< "$GATE_OUT"; then
+  echo "  OK   blocks-missing-surface-createElement — TS2769 multi-line form blocked and named (exit 1)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL blocks-missing-surface-createElement — expected BLOCK naming the surface rule, got exit $GATE_RC:"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
+
 # 6. DOES NOT FIRE on a DIFFERENT component whose required prop is ALSO named `surface`.
 #    Scenario 4 proves the rule ignores other property names; this proves it ignores other
 #    COMPONENTS. The repo really has such a component (a prototype with `surface: string`),
