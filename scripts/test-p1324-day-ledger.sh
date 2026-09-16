@@ -157,5 +157,42 @@ else
 fi
 
 echo
+echo "== gate 7d: the control that proves check-sync fires mutates the REAL file =="
+# The three controls above are SYNTHETIC — fixture docs containing no worked example. They were
+# all green while check-sync was passing on a day-cp.md with a required step deleted, because
+# the file's own teaching example answered for it. A control built from a fixture cannot see
+# that class at all. This one copies the real file, deletes a real receipt, and requires the
+# failure. epistemic.md gate 7d.
+if [ -x "$DAY_STEP" ]; then
+  REAL="$TMP/day-cp-mutated.md"
+  cp "$SKILL" "$REAL"
+  FIRST_ID="$(grep -v '^[[:space:]]*#' "$MANIFEST" | grep -v '^[[:space:]]*$' | head -1 | cut -f1)"
+  # Remove the REAL recording line for that id, leaving the teaching example untouched.
+  python3 - "$REAL" "$FIRST_ID" <<'PY'
+import re, sys
+path, sid = sys.argv[1], sys.argv[2]
+lines = open(path, encoding="utf-8").read().split("\n")
+pat = re.compile(r'(day-step\.sh|DAY_STEP"?) +(run|attest|skip|mark) +' + re.escape(sid) + r'([^A-Za-z0-9.]|$)')
+out, removed = [], 0
+for ln in lines:
+    if removed == 0 and pat.search(ln):
+        removed = 1
+        continue
+    out.append(ln)
+open(path, "w", encoding="utf-8").write("\n".join(out))
+raise SystemExit(0 if removed else 1)
+PY
+  if [ $? -ne 0 ]; then
+    bad "could not find a real recording line for ${FIRST_ID} to delete — the control did NOT run"
+  else
+    "$DAY_STEP" check-sync "$MANIFEST" "$REAL" >/dev/null 2>&1
+    want "deleting a REAL receipt from the REAL file makes check-sync fail" "$?" "1"
+    # And the unmutated original must still pass — otherwise the case above proves nothing.
+    "$DAY_STEP" check-sync "$MANIFEST" "$SKILL" >/dev/null 2>&1
+    want "CONTROL: the unmutated real file still passes" "$?" "0"
+  fi
+fi
+
+echo
 echo "== ${pass} passed, ${fail} failed =="
 [ "$fail" -eq 0 ]
