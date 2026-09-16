@@ -181,7 +181,9 @@ function LinksMenuTabs({
         <TabsContent
           key={t.value}
           value={t.value}
-          className="flex flex-col gap-2"
+          // mt-0: the pinned switch's wrapper already carries the gap (pb-2). The primitive's own
+          // mt-2 doubled it — visible as a loose band between the switch and the first row.
+          className="mt-0 flex flex-col gap-2"
           data-testid={`event-links-panel-${t.value}`}
         >
           {entries

@@ -85,6 +85,15 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     await page.getByRole('switch').click();
     await page.getByRole('button', { name: /continue/i }).click();
     await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 20_000 });
+    // Wait for Continue's own redirect to land BEFORE touching the bar. This is NOT hiding a
+    // P1323 defect — it steps around a PRE-EXISTING P1307 race, measured on the pre-P1323 base
+    // commit (Open bounced back to /meet in 4 of 8 runs; 2 of 8 on this branch, same signature):
+    // EventRoomReady's Continue does `await capture.startCapture(...)` and only THEN navigates to
+    // /meet, but the bar renders as soon as capture is running — i.e. while still on /ready. An
+    // Open tap in that window reaches /transcribe/:code and is then overtaken by the late /meet
+    // navigation. Filed separately; remove this wait when that is fixed, and this test will
+    // start catching it.
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 20_000 });
   }
 
   test('AC-9 + AC-2 + AC-12: the running room has one End, no bar, the indicator, and one adopted trigger', async ({ page }) => {
@@ -209,6 +218,58 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     await newSession.click();
     await expect(page, 'a host-started session stays on /live — which is exactly why the URL cannot be the test').toHaveURL(/\/live\/?$/, { timeout: 15_000 });
     await expect(page.getByTestId('event-links-button'), 'inside a host-started session the trigger is declined').toHaveCount(0, { timeout: 15_000 });
+  });
+
+  /**
+   * R2 put the Links trigger on every SIGNED-IN product page, whose phone header already carries
+   * a "Start a Session" button and the avatar. Before P1323 the trigger only ever appeared on
+   * compact room pages, where "Start a Session" is not shown — so no test had ever measured this
+   * row with all three controls in it.
+   */
+  test('I-1 + I-3: a signed-in phone header fits the Links trigger with every other control', async ({ page }) => {
+    await setTestSession(page, attendee.email);
+    await page.waitForLoadState('networkidle');
+    for (const path of ['/feed', '/stake/understanding', `/p/${attendee.slug}`]) {
+      // 360 included deliberately: a first fix was verified at 320 and 375 only and still wrapped
+      // at 360, the most common Android width, which neither end of the range could see.
+      for (const w of [{ name: '320', width: 320, height: 568 }, { name: '360', width: 360, height: 640 }, { name: '375', width: 375, height: 667 }]) {
+        await setViewport(page, w.width, w.height);
+        await page.goto(path);
+        const nav = page.locator('nav[data-nav="main"]');
+        await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: one visible trigger`).toHaveCount(1, { timeout: 20_000 });
+        // Measure the FINAL signed-in header, not an intermediate one. "Start a Session" renders
+        // only once the profile has loaded (showUserMenu = sessionChecked && !isLoading &&
+        // isVerifiedUser), and a first version of this test measured before it appeared — so it
+        // passed on a header that did not yet contain the widest control. /stake/:tag is compact
+        // and never shows it.
+        if (path !== '/stake/understanding') {
+          const cta = nav.getByRole('link', { name: /start a session/i }).filter({ visible: true });
+          await expect(cta, `${path} @ ${w.name}: full signed-in header loaded`).toBeVisible({ timeout: 20_000 });
+          // The defect this test was extended for: at 320px the CTA WRAPPED to two lines (56px).
+          const ctaBox = await cta.boundingBox();
+          expect(ctaBox!.height, `${path} @ ${w.name}: "Start a Session" wrapped (${ctaBox!.height}px tall)`).toBeLessThanOrEqual(40);
+        }
+        const boxes = await nav.evaluate((el) => {
+          return [...el.querySelectorAll('a, button')]
+            .map(n => { const r = n.getBoundingClientRect(); return { label: (n.getAttribute('aria-label') || n.textContent || '').trim().slice(0, 30), x: r.x, y: r.y, width: r.width, height: r.height }; })
+            .filter(b => b.width > 0 && b.height > 0 && b.y < 90);
+        });
+        expect(boxes.length, `${path} @ ${w.name}: found header controls`).toBeGreaterThanOrEqual(2);
+        for (const b of boxes) {
+          expect(b.x, `${path} @ ${w.name}: "${b.label}" starts on screen`).toBeGreaterThanOrEqual(0);
+          expect(b.x + b.width, `${path} @ ${w.name}: "${b.label}" ends on screen`).toBeLessThanOrEqual(w.width);
+        }
+        const contains = (p: { x: number; y: number; width: number; height: number }, q: { x: number; y: number; width: number; height: number }) =>
+          p.x <= q.x && p.y <= q.y && p.x + p.width >= q.x + q.width && p.y + p.height >= q.y + q.height;
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i]!; const b = boxes[j]!;
+          if (contains(a, b) || contains(b, a)) continue; // nested controls share a box
+          expect(overlaps(a, b), `${path} @ ${w.name}: "${a.label}" overlaps "${b.label}"`).toBe(false);
+        }
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        expect(overflow, `${path} @ ${w.name}: page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
+      }
+    }
   });
 
   test('AC-1 + AC-17: a bare /stake/:tag carries the menu, signed OUT, at desktop width, non-compact routes too', async ({ page }) => {

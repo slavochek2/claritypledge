@@ -156,12 +156,23 @@ html body[data-scroll-locked] {
  * same ordering reason as the nav panel above, AND because the P1179 design-system
  * suite asserts that event-links-menu.tsx names no height token of its own — a
  * standard that fix should meet rather than relax. */
+/* P1323: a FIXED height, not only a cap. The sheet holds three tabs of different lengths
+ * (Points 6, Letters 9, Tools 3); sized to its content it changed height on every tab switch,
+ * and because it is bottom-anchored the segmented switch MOVED — measured at 375px, it dropped
+ * ~200px going Points -> Tools, so the next tap from a thumb that had not moved hit whatever
+ * slid under it. For a control tapped repeatedly while standing in a room the switch must stay
+ * put. 35rem fits the Points tab without scrolling; Letters scrolls inside it with the switch
+ * pinned; Tools leaves some space below. Sizing to the TALLEST tab was tried and rejected: with
+ * wrapped letter labels it covered almost the whole phone and left Tools mostly blank.
+ * Capped by the viewport exactly as before, so a short phone still gets a scrolling sheet. */
 .event-links-sheet {
+  height: min(calc(100vh - 1rem), 35rem);
   max-height: calc(100vh - 1rem);
 }
 
 @supports (height: 100dvh) {
   .event-links-sheet {
+    height: min(calc(100dvh - 1rem), 35rem);
     max-height: calc(100dvh - 1rem);
   }
 }

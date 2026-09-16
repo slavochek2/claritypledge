@@ -674,7 +674,17 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full px-4 py-2"
+                  // P1323: icon-only below 375px. Adding the Links trigger to this row made
+                  // the four controls need ~358px at natural width; measured at 320px the CTA
+                  // was squeezed to 108px and WRAPPED to two lines (56px tall, not 36), jammed
+                  // against the logo. A first cut at 360px still wrapped AT 360 — Tailwind's
+                  // `not-sr-only` resets `white-space: normal` on the span, overriding the
+                  // link's nowrap — and 360 only just fits anyway, so the cutoff is 375. The Links label cannot shrink (it is the word said out
+                  // loud in a room) and the CTA copy is not ours to change, so the CTA's TEXT
+                  // is what gives way on the narrowest phones — visually only: it stays the
+                  // accessible name via sr-only, and the icon, colour and destination are
+                  // unchanged. From 375px up the button is exactly as before.
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full px-3 min-[375px]:px-4 py-2 min-h-9"
                   onClick={(e) => {
                     analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
                     if (location.pathname.startsWith('/live')) {
@@ -684,8 +694,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     }
                   }}
                 >
-                  <MicIcon className="w-3.5 h-3.5" />
-                  Start a Session
+                  <MicIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span className="sr-only min-[375px]:not-sr-only min-[375px]:whitespace-nowrap">Start a Session</span>
                 </Link>
               )}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}

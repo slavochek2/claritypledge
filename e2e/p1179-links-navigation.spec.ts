@@ -39,6 +39,22 @@ async function settle(page: Page) {
   }
 }
 
+/**
+ * P1323: wait for the room gate's redirect EXPLICITLY before opening the menu.
+ *
+ * `settle()` above treats "the URL did not change for 300ms" as settled, but the gate reads room
+ * state over the network first and can redirect /room -> /ready later than that. The menu then
+ * closes itself on the location change — correct product behaviour — and the next click has
+ * nothing to hit. P1323 made this likelier by adding a TAB click between opening the menu and
+ * choosing an entry. Observed: "Start a Clarity Session reaches /live" timed out on the Tools
+ * tab with the page on "Before you meet" and the Links button focused but its menu gone. Waiting
+ * for the destination the gate actually sends an RSVP'd attendee to removes the race from the
+ * test without touching what is asserted.
+ */
+async function waitForRoomGate(page: Page) {
+  await expect(page).toHaveURL(/\/events\/[^/]+\/(ready|meet)(\?|$)/, { timeout: 30000 });
+}
+
 async function openMenu(page: Page) {
   await settle(page);
   const btn = linksButton(page);
@@ -132,6 +148,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
+      await waitForRoomGate(page);
       await openMenu(page);
       // P1323: tools live under the Tools tab.
       await page.getByTestId('event-links-tab-tools').click();
@@ -144,6 +161,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
+      await waitForRoomGate(page);
       await openMenu(page);
       await page.getByTestId('event-links-tab-tools').click();
       await page.getByTestId('event-links-entry').filter({ hasText: 'Transcribe' }).click();
@@ -157,6 +175,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
+      await waitForRoomGate(page);
       await openMenu(page);
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp7$/ }).click();
 
@@ -183,6 +202,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
+      await waitForRoomGate(page);
       await openMenu(page);
       await expect(page.getByTestId('event-links-menu')).not.toContainText('This event');
       for (const tab of ['points', 'letters', 'tools'] as const) {

@@ -54,6 +54,9 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
         const page = await context.newPage();
         await page.setViewportSize({ width, height: 780 });
         await page.goto(`/events/${slug}/room`);
+      // P1323: wait for the room gate's async /room -> /ready redirect, which closes an open menu
+      // (see waitForRoomGate in p1179-links-navigation.spec.ts for the observed failure).
+      await expect(page).toHaveURL(/\/events\/[^/]+\/(ready|meet)(\?|$)/, { timeout: 30000 });
 
         // The nav renders BOTH right-hand groups and hides one by breakpoint, so
         // the trigger is in the DOM twice. Measure the one the attendee can
@@ -95,6 +98,9 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       const page = await context.newPage();
       await page.setViewportSize({ width: 375, height: 780 });
       await page.goto(`/events/${slug}/room`);
+      // P1323: wait for the room gate's async /room -> /ready redirect, which closes an open menu
+      // (see waitForRoomGate in p1179-links-navigation.spec.ts for the observed failure).
+      await expect(page).toHaveURL(/\/events\/[^/]+\/(ready|meet)(\?|$)/, { timeout: 30000 });
 
       const btn = page.getByTestId('event-links-button').filter({ visible: true }).first();
       await expect(btn).toBeVisible({ timeout: 15000 });
@@ -175,6 +181,9 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       const page = await context.newPage();
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(`/events/${slug}/room`);
+      // P1323: wait for the room gate's async /room -> /ready redirect, which closes an open menu
+      // (see waitForRoomGate in p1179-links-navigation.spec.ts for the observed failure).
+      await expect(page).toHaveURL(/\/events\/[^/]+\/(ready|meet)(\?|$)/, { timeout: 30000 });
 
       const btn = page.getByTestId('event-links-button').filter({ visible: true }).first();
       await expect(btn).toBeVisible({ timeout: 15000 });
