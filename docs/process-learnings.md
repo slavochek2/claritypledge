@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 80
+**Next ID:** 82
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1594,5 +1594,27 @@ unsatisfiable by construction — the ship gate refuses to merge while any box i
 the box cannot be ticked before the merge. P1216 deadlocked its own ship that way on 2026-09-03.
 The documented pattern is to tick what was verified to the limit checkable pre-deploy and track
 the live re-check here, which is what this entry is.
+
+---
+
+## Fix P1307 race: Open on the capture bar right after Continue bounces back to /meet
+
+**ID:** INBOX-80
+**Date:** 2026-09-16
+**Status:** proposed
+**due:** week
+
+Pre-existing, found during P1323: EventRoomReady's Continue awaits capture.startCapture() and only then navigates to /events/:slug/meet, but the capture bar renders as soon as capture runs (still on /ready), so an Open tap in that window reaches /transcribe/:code and is overtaken by the late /meet navigation; an identical Playwright probe bounced 4 of 8 on base a6d71c798 and 2 of 8 on the P1323 branch. Done when the bar's Open cannot be overtaken (e.g. skip the /meet navigate if the location already changed) and the /meet-URL wait in e2e/p1323-links-menu-surfaces.spec.ts reachCapturing is removed with that test still passing; droppable if the ready-to-meet flow is redesigned so Continue no longer navigates after an await.
+
+---
+
+## Fix /live mic-cancel leaving a live session with an unguarded lobby
+
+**ID:** INBOX-81
+**Date:** 2026-09-16
+**Status:** proposed
+**due:** week
+
+Pre-existing, found in adversarial review during P1323: in clarity-live-page.tsx, handleMicCancel sets view back to 'start' without clearing the session, terminating it, or writing sessionEnded, so a host denied the microphone sits on the lobby inside a live server session and any same-tab nav link strands the partner in a session that still looks live (P1323 only removed the Links menu from that state, keyed on session !== null). Done when mic-cancel either terminates the session through onExit()/terminate() or keeps the in-session view; droppable if the mic-permission gate is redesigned so cancel cannot happen after a session exists.
 
 ---
