@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 78
+**Next ID:** 80
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1570,5 +1570,29 @@ src/tests/p887-reproduce.test.ts buildSandbox (around line 85) runs copyFileSync
 **due:** month
 
 Split out of P1323 by founder decision. Two lists in src/app/data/event-links.ts are source constants, so adding an entry needs a code change and a deploy: STANDARD_STAKE_TAGS (six point collections after P1323 adds aisafety1) and the nine public letters st1-st9. The letters list is the larger and the growing one — st10 returns null today, so the next letter hits this first. A spec here must own the **write path**, not just the storage: "editable without a deploy" is not delivered by a migration, because a migration is a deploy, and hand-written SQL against prod puts nothing between the founder's keyboard and P1179's open-redirect invariant (I-4: an entry supplies a tag, never a path or URL — enforced today by isSafeTag plus stakePath being the only tag-to-path constructor). Do NOT auto-derive the list from "tags the founder created": there is no tags table and no author on a tag, so that resolves to every incidental #hashtag ever written (20260327084215_auto_extract_story_hashtags.sql). Precedent for operator-written destination data: the events.links jsonb column, 20260828120000_p1179_event_links.sql.
+
+---
+
+## Confirm P1324 records a full complete pass on the next real /day
+
+**ID:** INBOX-79
+**Date:** 2026-09-16
+**Status:** proposed
+**due:** week
+
+P1324 shipped with one criterion verified only as far as it can be pre-deploy: every step id is
+wired and proven recordable (both manifest/skill pairs pass check-sync, all 14 wrapped bodies
+parse, the ledger accepts every verb/kind combination), but the live count from a real pass has
+not been observed.
+
+On the next /day: confirm the finish gate reports every required step recorded, and that the
+count matches the manifest. If it does not, the gate names the missing step rather than hiding
+it, and the pass can be released with the ledger abandon verb.
+
+Why this is a note and not an unticked box in the spec: a standalone post-deploy checkbox is
+unsatisfiable by construction — the ship gate refuses to merge while any box is unticked, and
+the box cannot be ticked before the merge. P1216 deadlocked its own ship that way on 2026-09-03.
+The documented pattern is to tick what was verified to the limit checkable pre-deploy and track
+the live re-check here, which is what this entry is.
 
 ---
