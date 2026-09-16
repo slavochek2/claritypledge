@@ -11,6 +11,11 @@
       "permanent": false
     },
     {
+      "source": "/presi3",
+      "destination": "/presi3/",
+      "permanent": false
+    },
+    {
       "source": "/pricing",
       "destination": "/program",
       "permanent": true
