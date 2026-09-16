@@ -326,6 +326,36 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     }
   });
 
+  /**
+   * Founder, 2026-09-16: the phone bottom nav and the desktop tab row disagreed on /stake/:tag
+   * (phone showed Home/Letters/Partners/Groups/My Profile; desktop hid them). Measured signed in,
+   * that was the only room-flow page that disagreed. /stake is now focused on both; /feed is the
+   * control that must still show both, or "hidden" would prove nothing.
+   */
+  test('nav consistency: /stake hides browse nav on phone AND desktop; /feed shows it on both', async ({ browser }) => {
+    const count = async (page: Page) => page.evaluate(() => {
+      const vis = (el: Element) => (el as HTMLElement).getBoundingClientRect().height > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const main = document.querySelector('nav[data-nav="main"]');
+      const tabs = [...document.querySelectorAll('nav[data-nav="main"] a')].filter(a => /^(Home|Letters|Partners|Groups|My Profile)$/.test((a.textContent || '').trim()) && vis(a)).length;
+      const bottom = [...document.querySelectorAll('nav')].filter(nv => nv !== main && /Home/.test(nv.textContent || '') && /My Profile/.test(nv.textContent || '') && vis(nv)).length;
+      return tabs + bottom;
+    });
+    for (const [name, w, h, mobile] of [['phone', 375, 667, true], ['desktop', 1280, 800, false]] as const) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, isMobile: mobile, hasTouch: mobile });
+      try {
+        const page = await ctx.newPage();
+        await setTestSession(page, attendee.email);
+        await page.goto('/feed');
+        await expect.poll(() => count(page), { message: `${name} /feed: browse nav visible (control)`, timeout: 20_000 }).toBeGreaterThan(0);
+        await page.goto('/stake/understanding');
+        await expect(visibleLinksTriggers(page), `${name} /stake: page loaded with its Links trigger`).toHaveCount(1, { timeout: 20_000 });
+        expect(await count(page), `${name} /stake: no browse nav`).toBe(0);
+      } finally {
+        await ctx.close();
+      }
+    }
+  });
+
   test('AC-1 + AC-17: a bare /stake/:tag carries the menu, signed OUT, at desktop width, non-compact routes too', async ({ page }) => {
     // Signed out on purpose: the signed-out desktop non-compact nav branch had no trigger at all.
     await setViewport(page, 1280, 800);

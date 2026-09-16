@@ -75,7 +75,13 @@ export function BottomNav() {
     // because it is a REGEX, not a quoted path string.
     || /^\/(org|groups)\/[^/]+\/join\/?$/.test(location.pathname)
     || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(location.pathname)
-    || /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname);
+    || /^\/(ready|events\/[^/]+\/(ready|room))\/?$/.test(location.pathname)
+    // P1323: /stake/:tag — the page attendees land on from a room ("Links -> cmp7"). Desktop
+    // renders it `compact` (no tab row); the phone was the one device still showing the full
+    // browse bar under the points (founder, 2026-09-16, measured signed in). Focused on every
+    // device, like the room pages; Back, the logo and the Links trigger still reach everything.
+    // EXACT: one segment only, so /stakeholders or /stake/x/y are not swallowed.
+    || /^\/stake\/[^/]+\/?$/.test(location.pathname);
   const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
   if (onFocusRoute && !completedLetterReading) {
     return null;
