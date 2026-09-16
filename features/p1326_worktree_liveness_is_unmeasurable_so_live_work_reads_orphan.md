@@ -7,7 +7,7 @@ created_date: '2026-09-16'
 tags: [worktree, git-ops, concurrent-sessions, session-lifecycle]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -59,83 +59,115 @@ or reclaim work that is in flight?
 
 ## Appetite
 
-Blast radius: high — every concurrent session relies on these verdicts, and a false one invites
-shipping or reclaiming live work (the cross-session damage class `.claude/rules/git.md` documents).
-Reversibility: high — scripts and hooks only, git revert. Decision density: low — no founder calls;
-the design choices are technical and constrained by the invariants below.
+Blast radius: high — every concurrent session relies on these verdicts, and a false ORPHAN is not
+cosmetic: `git-ops.sh abandon` on an ORPHAN slot runs `git worktree remove --force` (falling back to
+`rm -rf`) with no nonce, destroying uncommitted work. Reversibility: high for the change (scripts and
+hooks, git revert); **none** for the data a false verdict deletes. Decision density: zero founder calls.
+
+## Review record (2026-09-16, before implementation)
+
+Adversarial spec review: Gemini 3.8 Flash (7 findings) and an Opus reviewer (12 findings) —
+**2 of 2 reports received**. Load-bearing claims re-run by command in the main session before being
+promoted here:
+
+- **Root cause incomplete (Opus 1):** 4 of the 19 w1 edits ran with the session cwd on main; the hook
+  resolves its slot from its own cwd, so those could never beat even with a matching identity.
+- **False ORPHAN is a data-loss path today (Opus 3):** `cmd_abandon` refuses only LIVE; on ORPHAN it
+  force-removes the worktree. Only `/park` calls it (with a nonce), so exposure is a session acting
+  by hand on a false verdict — but the verdict is false on every agent-claimed slot after 12h.
+- **Adopt takes over any expired slot (Opus 4, Gemini F1):** adopt without nonce proceeds whenever the
+  heartbeat is stale, re-binding `SESSION_ID`, after which the real owner's beats are refused.
+- **Identity binding cannot be made safe (Opus 6):** trust-on-first-use lets whichever session touches
+  the slot first own it; pattern-matching the fallback id fails because `hostname -s` now returns
+  `Mac` while all three live locks carry `Vyacheslavs-MacBook-Pro-…`; nothing in agent Bash exposes
+  the session id.
+- **A naive dirty check is always true (Opus 9):** every slot shows `?? .lock` and `?? node_modules`.
+- **Detached worktrees are skipped twice (Opus 11):** `pipeline-strandings.sh` L75 (outside the slot
+  dir) *and* L77 (`br == HEAD`); the STRANDED line also prints a `remove --force` hint with no dirty check.
+- **Live-process cwd is a blind oracle (Opus 8):** no claude process has cwd in any slot.
+
+Consequence: the draft Solution ("bind the real session identity") is **withdrawn**. Liveness moves to
+identity-free activity evidence, and destructive paths gain a guard that does not depend on liveness
+being right.
 
 ## Invariants
 
-- **Test from the entry point the caller really uses** (decisions.md 2026-09-09). Every liveness test
-  must start from an agent-shaped `claim` with **no** `CP_SESSION_ID` in the environment, then drive
-  the real hook with hook-shaped stdin JSON. A test that pre-binds identity does not count.
-- **A dead claim-time PID is never sufficient evidence to reclaim, adopt, or ship a slot.** PID is at
-  most a fast path to LIVE, never a path to ORPHAN.
-- **Refresh stays activity-driven, never a timer** (P1268 rationale, git-ops.sh `cmd_heartbeat`
-  header): a scheduled stamper outlives its session and manufactures false LIVE.
-- **Heartbeat containment stays** (P1268 adversarial finding): a caller outside the slot, or a
-  session that does not own the lock, cannot keep it alive by echoing an identity it read from the
-  lockfile.
-- **A refused heartbeat is observable.** Hooks must still never block a tool call, but a refusal
-  must leave a trace a test and a human can read — silent exit 0 is what hid this twice.
+- **Test from the entry point the caller really uses** (decisions.md 2026-09-09). Tests start from a
+  `claim` with **no** `CP_SESSION_ID`, drive the real hook with hook-shaped stdin JSON, and include the
+  shapes that failed in production: cwd on main with an in-slot `file_path`, and a Bash command that
+  `cd`s into the slot from main.
+- **A dead claim-time PID is never sufficient evidence to reclaim, adopt, ship-hint or remove a slot.**
+- **Uncommitted work is never destroyed without the nonce**, whatever the lock state says. This guard
+  must not depend on the liveness classifier being correct.
+- **Liveness evidence may only err toward LIVE.** A forged or spurious activity signal may hold a slot
+  open; it must never be able to make a slot look abandoned.
+- **Refresh stays activity-driven, never a timer** (P1268): a scheduled stamper outlives its session.
+- P1268's invariants hold unchanged: state names LIVE/STALE/ORPHAN/NO_LOCK and `test-preflight.sh`'s
+  five-state matrix; identity fields survive adoption; LIVE is never adoptable without the nonce.
 
 ## Solution
 
-1. **Bind the real session identity to the lock in the sequence agents run.** Whatever mechanism is
-   chosen (e.g. the first in-slot hook call from a session adopting an unbound fallback identity under
-   containment, or making the session id reachable at claim time), an agent-run `claim` followed by
-   ordinary work in the slot must advance `HEARTBEAT` — without re-opening the "echo the lockfile's
-   id" seizure P1268 closed.
-2. **Refresh on the activity agents actually produce.** The hook fires on Edit|Write only; bypass-mode
-   sessions are instructed to edit through Bash. Liveness must not depend on which edit tool was used.
-3. **Never report READY TO SHIP (or any reclaim/ship hint) for a slot that is LIVE or has uncommitted
-   changes.** Report it as in-flight instead.
-4. **Scan `git worktree list`, not the slot directory.** A registered worktree outside
-   `.claude/worktrees/` is reported (e.g. `UNMANAGED WORKTREE <path> — last modified <date>`), never
-   silently skipped.
+1. **Activity signal, identity-free.** The PostToolUse hook (all tools, not only Edit|Write) records
+   activity for slot `wN` when the payload's `tool_input.file_path`, the payload `cwd`, or the Bash
+   `tool_input.command` references a path inside `.claude/worktrees/wN`. It writes a per-slot activity
+   marker **separate from the lockfile**, so it never races `adopt`'s lock rewrite and never needs an
+   identity check. Bounded and non-blocking as today.
+2. **Classifier input widens, names do not.** `classify_lock_state` reads LIVE if (existing PID rule)
+   OR heartbeat fresh OR activity fresh within the same TTL. Additive, like P1268's change.
+3. **Dirty-tree guard on destructive paths.** `abandon` and nonce-less `adopt` refuse when the worktree
+   has changes other than the slot's own bookkeeping (`.lock`, `.lock.*`, the activity marker, and the
+   hydration symlinks), naming `--nonce` as the way through.
+4. **The report never advises shipping or removing in-flight work.** `pipeline-strandings.sh` prints
+   READY TO SHIP and STRANDED/remove hints only for a slot that is neither LIVE nor dirty (same
+   bookkeeping exclusions); otherwise IN FLIGHT with the reason.
+5. **The report sees every worktree.** Worktrees outside `.claude/worktrees/` and detached worktrees are
+   listed (`UNMANAGED WORKTREE <path> — detached|<branch>, last modified <date>`), never skipped.
+6. `status` shows last activity alongside last heartbeat, so a human can see why a verdict was reached.
 
 ## Alternatives Considered
 
-- **Timer-based heartbeat daemon** — rejected by P1268 and kept rejected (Invariants).
-- **Reclaim when PID is dead** — rejected; see owning session's quote above.
-- **Liveness from recent file mtimes in the worktree** — plausible fallback signal for the report
-  (#3), but mtimes are forgeable and are touched by non-session tools (node_modules installs). If used,
-  only as a reason to *withhold* a ship/reclaim hint, never as a reason to report LIVE to `adopt`.
-- **Forbid worktrees outside `.claude/worktrees/`** — a rule nothing enforces; reporting them (#4) is
-  mechanical and catches the case whoever creates it.
+- **Bind the real session id to the lock** (the draft) — withdrawn; see Review record.
+- **Claim-time bind token** — the token must reach a hook, and anything a hook can read, any process can.
+- **Timer heartbeat** — rejected by P1268 and kept rejected.
+- **Reclaim when PID is dead** — rejected; the owning session's quote above.
+- **Worktree file mtimes as activity** — touched by non-session tools and blind to read-only work;
+  the explicit marker is written only by the tool-call hook.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Identity binding re-opens the heartbeat-seizure hole P1268 closed | MITIGATE | Containment invariant + an explicit adversarial test: a session outside the slot, and a second session inside it, both fail to refresh |
-| Broader hook matcher adds latency to every Bash call | MITIGATE | Keep the existing bounded (≤3s, backgrounded) budget; measure |
-| A slot abandoned with uncommitted changes is never shown READY TO SHIP | ACCEPT | Correct: uncommitted work is not shippable; it is reported as in-flight/stale instead |
-| Existing locks carry fallback identities | MITIGATE | The fix must bring the currently live w1/w2/w4 locks to a correct verdict without manual editing |
+| A session that merely mentions a slot path in a Bash command keeps it LIVE | ACCEPT | Errs toward LIVE by design; the slot expires one TTL after the mentions stop |
+| Hook on every tool call adds latency | MITIGATE | Path match first, marker write backgrounded and bounded as today; measured before ship |
+| Dirty guard blocks a legitimate cleanup of a truly dead slot with scratch files | ACCEPT | `--nonce` or committing/removing the files is the way through; refusal names it |
+| Slot LIVE only through a subagent or resumed session with a different id | ACCEPT | Correct outcome: work is happening there |
+| Local processes can forge activity or read the nonce | ACCEPT | These guards prevent accidents between cooperating sessions, not a hostile local process (Opus 5) |
 
 **Non-Goals**
-- Do NOT change the `claim` slot-allocation or nonce/`adopt --nonce` seizure rules.
-- Do NOT auto-remove or auto-reclaim any worktree, managed or unmanaged — report only.
+- Do NOT change `claim` slot allocation, nonce generation, or the rule that a LIVE lock needs the nonce.
+- Do NOT remove the heartbeat/`SESSION_ID` path; it stays as an additional LIVE input.
+- Do NOT auto-remove or auto-reclaim any worktree — report only.
+- Do NOT change `ship-gates.sh` spec lookup (Opus 11, L128 branch-selection note) — separate spec if wanted.
 - Do NOT touch P-number/rank assignment (P1000).
 
 ## Done-When
 
-- [ ] From an environment with no `CP_SESSION_ID`, `git-ops.sh claim` followed by a hook-shaped
-      in-slot edit event advances `HEARTBEAT`, with the heartbeat pre-aged so an unchanged value
-      fails the test.
-- [ ] The same holds when the in-slot activity is a Bash tool call rather than Edit/Write.
-- [ ] A session outside the slot, and a different session inside it, both fail to refresh — watched
-      failing with non-zero test exit pasted.
-- [ ] A refused heartbeat leaves a readable trace (log line or status field), verified by triggering one.
-- [ ] `pipeline-strandings.sh` does not print READY TO SHIP for a LIVE slot or a slot with uncommitted
-      changes — each watched failing against the unfixed script first.
-- [ ] A worktree registered outside `.claude/worktrees/` is listed by the report, verified with a
-      scratch `git worktree add --detach` outside the slot dir; a control inside the slot dir is not
+- [ ] From an environment with no `CP_SESSION_ID`: `claim`, age heartbeat and activity past the TTL,
+      then a hook-shaped Edit event makes `status` read LIVE — in three shapes, each watched failing
+      against the unfixed code: (a) cwd in slot, (b) cwd on main with in-slot `file_path`, (c) Bash
+      event with cwd on main and `command` containing `cd <slot> && …`.
+- [ ] A hook event whose paths are all outside the slot does not mark it active (control).
+- [ ] `abandon wN` without nonce on an aged ORPHAN slot holding an uncommitted file refuses, non-zero,
+      and the file still exists; the same slot with only `.lock` and `node_modules` is removed (control).
+- [ ] Nonce-less `adopt` on an aged slot with uncommitted changes refuses and leaves `SESSION_ID` unchanged.
+- [ ] `pipeline-strandings.sh`: a gate-passing slot that is LIVE or dirty prints IN FLIGHT, not READY
+      TO SHIP; a clean, aged, gate-passing slot still prints READY TO SHIP (control, P1246 not regressed).
+- [ ] The STRANDED remove hint is not printed for a dirty slot.
+- [ ] A detached worktree outside `.claude/worktrees/` is reported as UNMANAGED; a managed slot is not
       double-reported.
-- [ ] P1268's existing suite (`scripts/test-git-ops-adopt.sh`, `scripts/test-preflight.sh`) still
-      passes, and the pre-bound `CP_SESSION_ID` test is replaced or joined by the agent-shaped one.
-- [ ] Live slots on this machine at ship time each report a verdict matching an independent check
-      (live process cwd / recent session activity), pasted.
+- [ ] `scripts/test-git-ops-adopt.sh` and `scripts/test-preflight.sh` pass unchanged.
+- [ ] Live slots on this machine at ship time each get a verdict matching an oracle independent of the
+      lock and the hook: per-session transcript mtime plus last recorded `cwd`/`file_path` — pasted.
 
 ## Related
 
