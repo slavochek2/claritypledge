@@ -82,7 +82,7 @@ WT="$FAKE/.claude/worktrees"
 mkdir -p "$WT"
 git -C "$FAKE" worktree add -q "$WT/w1" -b feature/p9999-scratch main
 mkdir -p "$FAKE/scripts"
-cp "$GIT_OPS_SRC" "$FAKE/scripts/git-ops.sh"
+cp "$GIT_OPS_SRC" "$FAKE/scripts/git-ops.sh"; mkdir -p "$FAKE/scripts/lib"; cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$FAKE/scripts/lib/"
 chmod +x "$FAKE/scripts/git-ops.sh"
 GO="$FAKE/scripts/git-ops.sh"
 

@@ -139,6 +139,19 @@ check "live PID + wrong start + stale heartbeat -> STALE" STALE "$L"
 make_lock "$L" "$live_pid" "Mon Jan 01 00:00:01 1990" "$(now_iso)"
 check "live PID + wrong start + FRESH heartbeat -> LIVE" LIVE "$L"
 
+# P1326: activity is a LIVE input in both implementations, and fails closed the same way.
+make_lock "$L" "$dead_pid" "x" "$(old_iso)"
+now_iso > "$SCRATCH/.activity"
+check "dead PID + stale heartbeat + FRESH activity -> LIVE (P1326)" LIVE "$L"
+echo "1990-01-01T00:00:00Z" > "$SCRATCH/.activity"
+check "dead PID + stale heartbeat + stale activity -> ORPHAN (P1326)" ORPHAN "$L"
+echo "garbage; rm -rf /" > "$SCRATCH/.activity"
+check "dead PID + stale heartbeat + malformed activity -> ORPHAN (fail closed, P1326)" ORPHAN "$L"
+make_lock "$L" "$live_pid" "Mon Jan 01 00:00:01 1990" "$(old_iso)"
+now_iso > "$SCRATCH/.activity"
+check "live PID + wrong start + stale heartbeat + FRESH activity -> LIVE (P1326)" LIVE "$L"
+rm -f "$SCRATCH/.activity"
+
 make_lock "$L" "$dead_pid" "Mon Jan 01 00:00:01 1990" "$(old_iso)"
 check "dead PID + stale heartbeat -> ORPHAN" ORPHAN "$L"
 

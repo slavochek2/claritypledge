@@ -81,8 +81,13 @@ load_lockfile() {
   local lockfile="$1"
   LOCK_PID=""; LOCK_PID_START_TIME=""; LOCK_SESSION_ID=""
   LOCK_SLOT=""; LOCK_BRANCH=""; LOCK_P_NUMBER=""; LOCK_HEARTBEAT=""
+  LOCK_ACTIVITY=""
   if [[ ! -f "$lockfile" ]]; then
     return 1
+  fi
+  # P1326: mirror of git-ops.sh — the activity marker beside the lock (parity-tested).
+  if [[ -f "$(dirname "$lockfile")/.activity" ]]; then
+    IFS= read -r LOCK_ACTIVITY < "$(dirname "$lockfile")/.activity" || true
   fi
   local line key value
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -114,14 +119,14 @@ classify_lock_state() {
       echo "LIVE"
       return
     fi
-    if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+    if heartbeat_fresh "${LOCK_HEARTBEAT:-}" || heartbeat_fresh "${LOCK_ACTIVITY:-}"; then
       echo "LIVE"
       return
     fi
     echo "STALE"
     return
   fi
-  if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+  if heartbeat_fresh "${LOCK_HEARTBEAT:-}" || heartbeat_fresh "${LOCK_ACTIVITY:-}"; then
     echo "LIVE"
     return
   fi

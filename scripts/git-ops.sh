@@ -78,6 +78,14 @@ if [[ -f "$REPO_ROOT/scripts/lib-datetime.sh" ]]; then
 fi
 # TTY-only gate override (P1246). See scripts/lib/gate-override.sh for why the
 # escape hatch is a controlling terminal and not a flag file or env var.
+# P1326: the dirty-tree guard on destructive paths. If the helper is missing the
+# guard must not silently disappear — define a stand-in that reports every
+# worktree as changed, so abandon/adopt refuse rather than destroy.
+if [[ -f "$REPO_ROOT/scripts/lib/worktree-changes.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib/worktree-changes.sh"
+else
+  worktree_has_user_changes() { return 0; }
+fi
 if [[ -f "$REPO_ROOT/scripts/lib/gate-override.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/gate-override.sh"
 fi
@@ -230,8 +238,16 @@ load_lockfile() {
   local lockfile="$1"
   LOCK_PID=""; LOCK_PID_START_TIME=""; LOCK_NONCE=""; LOCK_SESSION_ID=""
   LOCK_SLOT=""; LOCK_BRANCH=""; LOCK_P_NUMBER=""; LOCK_CLAIMED_AT=""; LOCK_HEARTBEAT=""
+  LOCK_ACTIVITY=""
   if [[ ! -f "$lockfile" ]]; then
     return 1
+  fi
+  # P1326: identity-free activity evidence, written by the PostToolUse hook via
+  # `git-ops activity` whenever a tool call touches this slot. A separate file, so
+  # it never races adopt's rewrite of the lock. First line only, and it goes through
+  # the same fail-closed ISO parser as HEARTBEAT.
+  if [[ -f "$(dirname "$lockfile")/.activity" ]]; then
+    IFS= read -r LOCK_ACTIVITY < "$(dirname "$lockfile")/.activity" || true
   fi
   local line key value
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -306,8 +322,8 @@ classify_lock_state() {
       echo "LIVE"
       return
     fi
-    # PID recycled. A fresh heartbeat still evidences a live owner.
-    if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+    # PID recycled. A fresh heartbeat or fresh activity still evidences a live owner.
+    if heartbeat_fresh "${LOCK_HEARTBEAT:-}" || heartbeat_fresh "${LOCK_ACTIVITY:-}"; then
       echo "LIVE"
       return
     fi
@@ -317,7 +333,13 @@ classify_lock_state() {
   # P1268: no process in an agent harness outlives a single command, so PID
   # absence alone cannot mean abandoned. A heartbeat inside the TTL is the
   # positive evidence of an owner; without it the slot really is orphaned.
-  if heartbeat_fresh "${LOCK_HEARTBEAT:-}"; then
+  #
+  # P1326: HEARTBEAT alone was inert in real use — it only advances for a session
+  # whose id matches the lock, and an agent-run `claim` never binds one. ACTIVITY is
+  # written for ANY tool call touching the slot, with no identity check. It may only
+  # err toward LIVE: a spurious mark holds a slot open, it can never make work look
+  # abandoned.
+  if heartbeat_fresh "${LOCK_HEARTBEAT:-}" || heartbeat_fresh "${LOCK_ACTIVITY:-}"; then
     echo "LIVE"
     return
   fi
@@ -552,6 +574,7 @@ cmd_status_single() {
   echo "Session:  ${LOCK_SESSION_ID:-?}"
   echo "Claimed:  ${LOCK_CLAIMED_AT:-?}"
   echo "Heartbeat:${LOCK_HEARTBEAT:+ }${LOCK_HEARTBEAT:-?}"
+  echo "Activity: ${LOCK_ACTIVITY:-none}"
 }
 
 cmd_status_table() {
@@ -679,6 +702,35 @@ cmd_release() {
 # Subcommand: heartbeat (P1268)
 # ----------------------------------------------------------------------------
 #
+# ----------------------------------------------------------------------------
+# Subcommand: activity (P1326)
+# ----------------------------------------------------------------------------
+#
+# Record that a tool call touched slot wN, by writing an ISO stamp to wN/.activity.
+#
+# Deliberately NO identity or containment check, which is the opposite of
+# cmd_heartbeat, and the reason is the direction of the error. The only thing this
+# stamp can do is make a slot read LIVE for one TTL. A LIVE slot refuses adopt and
+# abandon without the nonce and is never advertised as ready to ship — so a forged or
+# spurious stamp can hold a slot open, and can never cause anything to be taken or
+# deleted. Identity-gating it is what made HEARTBEAT inert: an agent-run `claim` never
+# binds the session id, so every real beat was refused (P1326, decisions.md 2026-09-09).
+#
+# Never creates a lock: no lock means nothing is claimed. Silent, always exit 0 for a
+# well-formed call — its callers are hooks on the hot path.
+cmd_activity() {
+  local slot="${1:-}"
+  [[ -n "$slot" ]] || { echo "usage: git-ops activity <slot>" >&2; exit 2; }
+  [[ "$slot" =~ ^w[0-9]+$ ]] || exit 0
+  local dir="$WORKTREES_DIR/$slot"
+  [[ -f "$dir/.lock" ]] || exit 0
+  local tmp
+  tmp="$(mktemp "$dir/.activity.XXXXXX" 2>/dev/null)" || exit 0
+  iso_now > "$tmp" || { rm -f "$tmp"; exit 0; }
+  mv -f "$tmp" "$dir/.activity" 2>/dev/null || rm -f "$tmp"
+  exit 0
+}
+
 # Refresh ONLY the HEARTBEAT of a slot's lock, in place. Cheap enough to call on
 # every file edit, which is the point: `adopt` fires once at session start, so a
 # session that outlives the TTL would go ORPHAN again while its owner is still
@@ -881,6 +933,19 @@ cmd_adopt() {
         echo "A fresh heartbeat means a session is actively working in this slot."
         echo "If this claim is yours, pass --nonce <value>. If that session is gone,"
         echo "its heartbeat expires after ${LOCK_TTL_SECONDS}s and adopt will succeed."
+      } >&2
+      exit 1
+    fi
+    # P1326: an expired lock is not proof nobody is working here. Liveness was
+    # inert for every agent-claimed slot, so a stale verdict cannot license
+    # re-binding SESSION_ID over uncommitted work — once taken, the real owner's
+    # beats are refused and the takeover locks itself in. Independent of the
+    # classifier on purpose: it must hold even when liveness is wrong.
+    if worktree_has_user_changes "$slot_path"; then
+      {
+        echo "git-ops: refusing to adopt $slot — the worktree has uncommitted changes"
+        echo "An expired lock is not proof the work was abandoned. If this claim is"
+        echo "yours, pass --nonce <value>."
       } >&2
       exit 1
     fi
@@ -1544,9 +1609,26 @@ cmd_abandon() {
         exit 1
       fi
     fi
-    # STALE, ORPHAN: proceed (the claiming session is dead — spec-safe cleanup).
-    rm -f "$lockfile"
   fi
+
+  # P1326: never destroy uncommitted work without the nonce, whatever the lock says.
+  # `worktree remove --force` below skips git's own refusal, and a false ORPHAN
+  # verdict (inert heartbeat) used to make that a one-command data loss. This check
+  # does not trust the classifier: it runs for LIVE-with-nonce-owner, STALE, ORPHAN
+  # and no-lock alike, and only the nonce bypasses it.
+  if [[ -z "$nonce_arg" || "$nonce_arg" != "${LOCK_NONCE:-}" ]]; then
+    if worktree_has_user_changes "$slot_path"; then
+      {
+        echo "git-ops abandon: refusing $slot — the worktree has uncommitted changes"
+        echo "  $(git -C "$slot_path" status --porcelain 2>/dev/null | grep -v '^?? \.lock$\|^?? \.activity$' | head -5 | tr '\n' ';')"
+        echo "abandon removes the worktree with --force, so these would be lost."
+        echo "Commit or remove them, or pass --nonce <value> if the slot is yours."
+      } >&2
+      exit 1
+    fi
+  fi
+  # STALE, ORPHAN, or owner-proven LIVE: proceed.
+  rm -f "$lockfile"
 
   # Kill any dev server squatting inside the slot before we remove it (orphan-port guard).
   reap_worktree_servers "$slot_path"
@@ -4188,6 +4270,10 @@ SUBCOMMANDS (T02 scope)
                                be called from an editing hook so a session outliving
                                the TTL does not go ORPHAN while still working.
 
+  activity <slot>              Stamp wN/.activity (P1326). Called by the PostToolUse hook
+                               for any tool call touching the slot. No identity check by
+                               design: it can only make a slot read LIVE, never abandoned.
+
   adopt <slot> [--nonce <v>] [--session <id>]
                                Re-own an EXISTING lock: refresh PID / PID_START_TIME /
                                SESSION_ID / HEARTBEAT, preserve SLOT / BRANCH / P_NUMBER /
@@ -5189,6 +5275,7 @@ main() {
     release)         cmd_release "$@" ;;
     adopt)           cmd_adopt "$@" ;;
     heartbeat)       cmd_heartbeat "$@" ;;
+    activity)        cmd_activity "$@" ;;
     gc)              cmd_gc "$@" ;;
     abandon)         cmd_abandon "$@" ;;
     reconcile)       cmd_reconcile "$@" ;;

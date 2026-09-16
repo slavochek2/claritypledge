@@ -238,7 +238,7 @@ echo ""
 # setup or env-file handling is staged. Hermetic, ~1 second. Proves three
 # invariants: env files survive the script, no redirect-parseable output,
 # adversarial eval cannot wipe a sandbox file.
-WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight|test-git-ops-adopt|test-lock-state-parity)\.sh$' || true)
+WORKTREE_SETUP_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(setup-worktree|create-worktree|setup-cloud-worktrees|check-worktree-env|git-ops|lib/env-sentinel|lib/worktree-changes|pipeline-strandings|test-worktree-setup|test-git-ops-extensions|pre-flight|test-preflight|test-git-ops-adopt|test-lock-state-parity|test-p1326-worktree-liveness)|\.claude/hooks/heartbeat-worktree-slot)\.sh$' || true)
 if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     if ! run_quiet "Worktree setup canary (P783)" bash scripts/test-worktree-setup.sh; then
         ERRORS=$((ERRORS + 1))
@@ -259,6 +259,13 @@ if [ -n "$WORKTREE_SETUP_STAGED" ]; then
     fi
     if [ -f "scripts/test-git-ops-adopt.sh" ]; then
         if ! run_quiet "git-ops adopt/heartbeat canary (P1268)" bash scripts/test-git-ops-adopt.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # P1326: liveness from the sequence agents really run (no CP_SESSION_ID at claim,
+    # hook-shaped payloads, cwd on main), and the dirty-tree guard on abandon/adopt.
+    if [ -f "scripts/test-p1326-worktree-liveness.sh" ]; then
+        if ! run_quiet "Worktree liveness + dirty guard canary (P1326)" bash scripts/test-p1326-worktree-liveness.sh; then
             ERRORS=$((ERRORS + 1))
         fi
     fi
