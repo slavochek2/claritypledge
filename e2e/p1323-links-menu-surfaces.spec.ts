@@ -277,8 +277,8 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
           // The defect this test was extended for: at 320px the CTA WRAPPED to two lines (56px).
           const ctaBox = await cta.boundingBox();
           expect(ctaBox!.height, `${path} @ ${w.name}: "Start a Session" wrapped (${ctaBox!.height}px tall)`).toBeLessThanOrEqual(40);
-          if (w.width < 375) {
-            // Icon-only below 375px — and still a real touch target (visual QA measured ~38px).
+          if (w.width < 360) {
+            // Icon-only below 360px — and still a real touch target (visual QA measured ~38px).
             expect(ctaBox!.width, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.width}px wide`).toBeGreaterThanOrEqual(40);
             expect(ctaBox!.height, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.height}px tall`).toBeGreaterThanOrEqual(40);
           }
@@ -315,9 +315,13 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
     await setViewport(page, 1280, 800);
-    for (const path of ['/events/list', `/events/${event.slug}`, '/events/new', `/events/${event.slug}/edit`]) {
+    // /groups added after the founder found it had no trigger: it was misclassified `public`,
+    // yet "Groups" is a tab in the signed-in bottom nav — a product surface by any reading.
+    for (const path of ['/events/list', `/events/${event.slug}`, '/events/new', `/events/${event.slug}/edit`, '/groups']) {
       await page.goto(path);
-      await page.waitForLoadState('networkidle');
+      // No `networkidle` wait: it timed out the whole test once (90s) on a page holding a
+      // realtime connection open, before this assertion ran. The retrying count below is the
+      // real readiness condition.
       await expect(visibleLinksTriggers(page), `${path}: one visible Links trigger`).toHaveCount(1, { timeout: 20_000 });
     }
   });

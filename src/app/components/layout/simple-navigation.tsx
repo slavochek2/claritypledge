@@ -674,20 +674,22 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  // P1323: icon-only below 375px. Adding the Links trigger to this row made
-                  // the four controls need ~358px at natural width; measured at 320px the CTA
-                  // was squeezed to 108px and WRAPPED to two lines (56px tall, not 36), jammed
-                  // against the logo. A first cut at 360px still wrapped AT 360 — Tailwind's
-                  // `not-sr-only` resets `white-space: normal` on the span, overriding the
-                  // link's nowrap — and 360 only just fits anyway, so the cutoff is 375. The Links label cannot shrink (it is the word said out
+                  // P1323: icon-only below 360px. Adding the Links trigger to this row made
+                  // the controls overflow the narrowest phones; measured at 320px the CTA was
+                  // squeezed to 108px and WRAPPED to two lines (56px tall, not 36). The cutoff
+                  // was first 375px, while the trigger was a 69px boxed "Links". Once the trigger
+                  // became a 44px icon (founder, 2026-09-16) the label fits again at 360 — the
+                  // most common Android width — measured by e2e (no wrap, overlap or sideways
+                  // scroll) and by eye. `min-[360px]:whitespace-nowrap` on the span is required:
+                  // Tailwind's `not-sr-only` resets `white-space: normal`. The Links label cannot shrink (it is the word said out
                   // loud in a room) and the CTA copy is not ours to change, so the CTA's TEXT
                   // is what gives way on the narrowest phones — visually only: it stays the
                   // accessible name via sr-only, and the icon, colour and destination are
-                  // unchanged. From 375px up the button is exactly as before.
-                  // Below 375px: a true 40x40 circle (independent visual QA measured the first
-                  // icon-only cut at ~38px, under the touch target). From 375px up: the original
+                  // unchanged. From 360px up the button is exactly as before.
+                  // Below 360px: a true 40x40 circle (independent visual QA measured the first
+                  // icon-only cut at ~38px, under the touch target). From 360px up: the original
                   // pill classes, unchanged — its 36px height pre-dates P1323.
-                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full h-10 w-10 min-[375px]:h-auto min-[375px]:w-auto min-[375px]:justify-start min-[375px]:px-4 min-[375px]:py-2"
+                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full h-10 w-10 min-[360px]:h-auto min-[360px]:w-auto min-[360px]:justify-start min-[360px]:px-4 min-[360px]:py-2"
                   onClick={(e) => {
                     analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
                     if (location.pathname.startsWith('/live')) {
@@ -698,7 +700,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   }}
                 >
                   <MicIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span className="sr-only min-[375px]:not-sr-only min-[375px]:whitespace-nowrap">Start a Session</span>
+                  <span className="sr-only min-[360px]:not-sr-only min-[360px]:whitespace-nowrap">Start a Session</span>
                 </Link>
               )}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}

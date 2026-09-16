@@ -1026,11 +1026,13 @@ export default function ClarityPledgeApp() {
         {/* P1060 D5: /groups — the public directory of all Clarity Groups. Declared
             BEFORE /groups/:slug so the bare path is never captured as a slug. A
             listing only; p1010 Decision 7 (no create-group surface) stands. */}
-        <Route path="/groups" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1323: /groups* are PRODUCT surfaces — "Groups" is a tab in the signed-in bottom nav.
+            First classified `public` by mistake; the founder found the missing Links trigger. */}
+        <Route path="/groups" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgDirectoryPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1010: Clarity Groups — /groups/:slug (seeded groups: cm, online) */}
-        <Route path="/groups/:slug" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/groups/:slug" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgPage /></LazyRoute></ClarityLandingLayout>} />
         {/* Join gate — accepting the Clarity Group Terms IS the join (focus page). */}
-        <Route path="/groups/:slug/join" element={<ClarityLandingLayout surface="public"><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/groups/:slug/join" element={<ClarityLandingLayout surface="product"><LazyRoute><OrgJoinPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1193: the pre-rename paths, kept alive permanently. See OrgLegacyRedirect —
             shared invite links carry ?from= attribution and must not lose it. */}
         <Route path="/org" element={<OrgLegacyRedirect />} />

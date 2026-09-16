@@ -71,6 +71,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Link as LinkIcon } from 'lucide-react';
 import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { cn } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
@@ -118,7 +119,29 @@ export function EventLinksButton({
   if (owner === 'nav' && ctx.override === 'adopt') return null;
   if (owner === 'page' && ctx.override !== 'adopt') return null;
 
-  const triggerClass = cn(ANSWER_BUTTON_CLASS, 'inline-flex items-center rounded-md px-3 py-0');
+  /**
+   * P1323: an ICON trigger, not the word "Links" in an outlined navy box. Founder, 2026-09-16:
+   * "instead of writing links in the big thing, making it a small link icon — then everything
+   * shrinks and it's nice." Measured before: in the full signed-in desktop header the boxed
+   * trigger was 69x44 with a 2px near-black border and the largest type in the nav cluster —
+   * 4px taller than the primary CTA beside it, competing with it for the eye (independent
+   * visual QA). Mocked in the live header at 1280/375/320 before building.
+   *
+   * What is KEPT on purpose:
+   *   - a 44x44 tap target (P1179 AC-2 asserts >= 44px at 320 and 375);
+   *   - the word "Links" as the accessible name AND the visible tooltip, so a host can still
+   *     say "tap Links" and a hover on desktop confirms it. The sr-only label is real text,
+   *     which is also why existing assertions on the trigger's text still hold.
+   * The known cost, stated rather than hidden: a chain icon can be read as "copy/share link".
+   */
+  const triggerClass =
+    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  const triggerContent = (
+    <>
+      <LinkIcon className="h-5 w-5" aria-hidden="true" />
+      <span className="sr-only">Links</span>
+    </>
+  );
 
   if (variant === 'sheet') {
     return (
@@ -128,14 +151,15 @@ export function EventLinksButton({
         onClick={() => ctx.setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={ctx.open}
+        title="Links"
         className={triggerClass}
       >
-        Links
+        {triggerContent}
       </button>
     );
   }
 
-  return <EventLinksDropdown ctx={ctx} triggerClass={triggerClass} />;
+  return <EventLinksDropdown ctx={ctx} triggerClass={triggerClass} triggerContent={triggerContent} />;
 }
 
 /** The three tabs, in render order. Values are the `group` field on every entry. */
@@ -326,9 +350,11 @@ function LinksMenuDropdownBody({
 function EventLinksDropdown({
   ctx,
   triggerClass,
+  triggerContent,
 }: {
   ctx: NonNullable<React.ContextType<typeof EventLinksContext>>;
   triggerClass: string;
+  triggerContent: React.ReactNode;
 }) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -337,8 +363,8 @@ function EventLinksDropdown({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger data-testid="event-links-button" className={triggerClass}>
-        Links
+      <DropdownMenuTrigger data-testid="event-links-button" title="Links" className={triggerClass}>
+        {triggerContent}
       </DropdownMenuTrigger>
       {/* `align="end"`: the trigger sits in the nav's RIGHT-hand group, so an
           "end"-aligned panel stays inside the viewport. The nav's own left-hand
