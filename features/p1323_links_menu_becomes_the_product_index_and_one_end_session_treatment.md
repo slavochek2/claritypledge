@@ -757,9 +757,22 @@ approval; two are restated with their scope corrected by this spec.
       `observing`), does not strand the person with a bar carrying Open + End and no indicator.
       R6's outcome is scoped to the running-room view; this names what happens either side of it.
 - [ ] AC-10: On `/feed` while a capture runs, the bar still renders with its Open and End actions.
-- [ ] AC-11: `ClarityLandingLayout` requires `surface`, proven by the failure path: removing the
-      prop from one call site fails `npx tsc --noEmit` with a non-zero exit (paste it). Plus a
-      render check in both directions — a `public` route has no button, a `product` route does.
+- [ ] AC-11: `ClarityLandingLayout` requires `surface`, proven by a **discriminating** failure
+      path. **The original wording of this AC was a blind probe and is replaced** — measured
+      2026-09-16, it could not fail:
+      1. `npx tsc --noEmit` resolves the root SOLUTION tsconfig (`"files": []`) and compiles
+         nothing, so it exits 0 whether or not the prop is present (the P861 bug).
+      2. `tsc -p tsconfig.app.json` exits non-zero on ~1065 pre-existing errors, so an exit code
+         cannot discriminate in either direction.
+      3. Neither pre-commit nor CI (`scripts/typecheck-gate.sh`) gated TS2741, and `vite build`
+         does not typecheck — so a route with no `surface` passed every mechanical check.
+      **Required proof now:** `scripts/test-typecheck-gate.sh` passes all four scenarios,
+      including `blocks-missing-surface` (a layout with no `surface` → exit 1 **and** the output
+      names the rule) and `ignores-other-missing-prop` (a *different* missing prop → exit 0).
+      The second is the control: app code carries 6 pre-existing TS2741, so a rule that matched
+      TS2741 wholesale would fire on its own baseline. Its canary must itself be shown to emit a
+      real TS2741, or the control is blind. Plus a render check in both directions — a
+      `public` route has no button, a `product` route does.
 - [ ] AC-11b: `grep -rn "<SimpleNavigation" src/ | grep -v tests` still returns exactly **one**
       render site, so the chokepoint has not been duplicated. *(The filter is load-bearing: without
       it the command returns 63 today, on unmodified code — a gate that fires on its own baseline

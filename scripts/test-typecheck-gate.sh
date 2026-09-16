@@ -14,10 +14,12 @@ set -u
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GATE="$REPO_ROOT/scripts/typecheck-gate.sh"
 CANARY="$REPO_ROOT/src/__typecheck_gate_canary__.ts"
+# P1323: a .tsx sibling, because the surface-prop scenarios need JSX.
+CANARY_TSX="$REPO_ROOT/src/__typecheck_gate_canary__.tsx"
 PASS=0
 FAIL=0
 
-cleanup() { rm -f "$CANARY"; }
+cleanup() { rm -f "$CANARY" "$CANARY_TSX"; }
 trap cleanup EXIT
 
 # 1. BLOCKS: an undeclared identifier in non-test app code → gate exits exactly
@@ -48,6 +50,49 @@ else
   "$GATE" 2>&1 | head -10
   FAIL=$((FAIL+1))
 fi
+
+# ── P1323: the required `surface` prop on ClarityLandingLayout ───────────────────
+#
+# 3. BLOCKS a layout with no `surface`. Asserting exit 1 alone is NOT enough here: this
+#    canary tree could hit the gate for an unrelated reason and still exit 1. So the output
+#    must also NAME the surface rule — otherwise a passing scenario 3 would not prove that
+#    THIS rule fired, only that something did.
+printf '%s\n' \
+  "import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';" \
+  "export const noSurface = <ClarityLandingLayout><div /></ClarityLandingLayout>;" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 1 ] && grep -qF "missing its required \`surface\` prop" <<< "$GATE_OUT"; then
+  echo "  OK   blocks-missing-surface — gate blocked and named the surface rule (exit 1)"
+  PASS=$((PASS+1))
+elif [ "$GATE_RC" -eq 2 ]; then
+  echo "  FAIL blocks-missing-surface — gate tooling error (exit 2); cannot confirm it detected the missing prop"
+  FAIL=$((FAIL+1))
+else
+  echo "  FAIL blocks-missing-surface — expected BLOCK naming the surface rule, got exit $GATE_RC:"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
+
+# 4. DOES NOT FIRE on a DIFFERENT missing required prop. This is the discriminating control.
+#    App code carries pre-existing TS2741 errors for other props; a surface rule that matched
+#    TS2741 wholesale would block every commit on its own baseline. Scenario 3 cannot see that
+#    defect — it only proves the rule fires — so this one proves it fires on `surface` ONLY.
+printf '%s\n' \
+  "function NeedsSomeOtherProp(_props: { somethingElse: string }) { return null; }" \
+  "export const otherMissing = <NeedsSomeOtherProp />;" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 0 ]; then
+  echo "  OK   ignores-other-missing-prop — a non-surface TS2741 does not trip the rule (exit 0)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL ignores-other-missing-prop — the surface rule fired on an unrelated prop (exit $GATE_RC):"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
 
 echo "typecheck-gate canary: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

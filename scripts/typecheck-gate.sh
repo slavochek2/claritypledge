@@ -65,6 +65,41 @@ fi
 
 BROKEN="$(grep -E "$GATE_CODES" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
 
+# ── P1323: one more class, scoped to ONE property name ────────────────────────
+#
+# P1323 made `surface: 'product' | 'public'` a REQUIRED prop on ClarityLandingLayout so that
+# adding a route forces the product/public question in the same diff that creates it — chosen
+# over an allow-list or deny-list because a list rots silently. The spec sold that as
+# "a new page cannot compile without answering."
+#
+# Measured 2026-09-16, that was FALSE of this pipeline, three ways:
+#   1. `npx tsc --noEmit` resolves the root SOLUTION tsconfig and compiles nothing (the P861
+#      bug above) — so the spec's own stated proof was a no-op.
+#   2. `tsc -p tsconfig.app.json` exits non-zero on ~1065 pre-existing errors, so an
+#      exit-code proof cannot discriminate in either direction.
+#   3. The gate above covers TS2304/2552/2582 only. A missing required prop is TS2741, and
+#      `vite build` uses esbuild, which does not typecheck at all.
+# A route added with no `surface` therefore passed pre-commit, passed CI, and built clean.
+#
+# WHY NOT GATE TS2741 WHOLESALE: app code carries 6 pre-existing TS2741, so a blanket rule
+# would fire on its own baseline — the defect this spec's own AC-11b names for a grep ("a
+# gate that fires on its own baseline is a gate that gets waived"). Scoping to the property
+# NAME gives 0 baseline hits and fires exactly on the failure it exists to catch.
+#
+# This is narrow on purpose and it is NOT a route list: it names one prop, not the pages that
+# must carry it. If `surface` is ever renamed or removed, delete this block — a gate whose
+# subject no longer exists is worse than no gate, because it stays green forever.
+SURFACE_MISSING="$(grep -E "error TS2741: Property 'surface' is missing" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
+
+if [ -n "$SURFACE_MISSING" ]; then
+  echo "typecheck-gate: a ClarityLandingLayout is missing its required \`surface\` prop."
+  echo "Every page must declare whether it is a 'product' surface (someone USING the thing —"
+  echo "it carries the Links menu) or 'public' (someone READING ABOUT it — it does not)."
+  echo "See src/app/layouts/clarity-landing-layout.tsx (P1323 R2)."
+  printf '%s\n' "$SURFACE_MISSING"
+  exit 1
+fi
+
 if [ -n "$BROKEN" ]; then
   printf '%s\n' "$BROKEN"
   exit 1
