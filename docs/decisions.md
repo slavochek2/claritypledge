@@ -6,6 +6,50 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-16 [technical]: PKCE never protected the email link from scanners — so the link now redeems in any browser (P1325)
+
+**Context:** An attendee could not register for an event: every confirmation link failed. The prod
+auth log showed the final link's `GET /auth/v1/verify` returning `303 user_signedup` — email
+confirmed — with **no** `/token?grant_type=pkce` exchange ever following. The link had been opened
+in a browser that did not hold the PKCE verifier, and `auth-js` silently declines a `?code=` URL in
+that case (`_isPKCECallback` requires the stored verifier). Mixpanel showed the same shape in 6 of
+~10 failed-link episodes since Aug 1, nearly all event signups.
+
+**This corrects the 2026-09-03 [technical] premise** that the cross-browser break is the price of
+P608's pre-fetch protection and that moving to `token_hash` must wait on the pre-fetch question.
+Tested on the test project: a plain GET of today's link (no JavaScript) **burns the token** — a
+real click afterwards gets "Email link is invalid or has expired" (E2). PKCE stops a scanner from
+*getting a session*; it never stopped a scanner from *spending the link*. A link redeemed only when
+page JavaScript calls `verifyOtp` survives any non-executing fetcher, so it is strictly more
+scanner-resistant, not less. JS-executing scanners (Defender Safe Links) spend both — **UNTESTED**
+against a real Defender tenant.
+
+**Decision:** The signup-confirmation and magic-link templates point at the existing `/auth/verify`
+route (`token_hash` + escaped `redirect_to`); `verifyOtp({ token_hash, type: 'email' })` works from a
+fresh browser for both token types (E1, E4). PKCE stays on and `/auth/callback` is unchanged, so
+mail already in inboxes keeps working. Because every signup now lands on `/auth/verify`, it was
+hardened: carried redirect accepted only for this origin's `/auth/callback`; transient failures
+(which supabase-js *returns* as `AuthRetryableFetchError`, never throws) keep the token; a signed-in
+re-click goes to the destination page, never through the callback; recovery keeps the intent and
+sends failed signups to `/signup` (not `/login`, which refuses people with no profile); sign-in
+tokens are redacted from Mixpanel and Sentry and session recording is off on `/auth/*`.
+
+**Alternatives rejected:** A typed code in the email — dropped after review: the measured failures
+are link-opened-elsewhere, and it adds a credential form to three screens for one Outlook case
+(revisit under P1258). Error-page copy only — the link is already spent when that page shows.
+Turning PKCE off — gives up session protection for nothing this does not already provide.
+
+**Consequences:** Login CSRF via a forwarded link is real and **pre-existing** (the token in today's
+GoTrue link is the same hash `/auth/verify` accepts, live since P1257) — accepted, not widened.
+`AuthCallbackPage` runs actions for any signed-in session reached by URL; noted, out of scope. The
+Brevo click-tracking redirect wraps every auth link; it did not break redemption.
+
+**References:** features/p1325_signup_link_dies_outside_the_browser_that_requested_it.md ·
+decisions.md 2026-09-03 [technical] (premise corrected) · 2026-09-07 [technical] (P1257 route) ·
+`.private/incidents/2026-09-16-signup-link-opened-in-other-browser.md`
+
+---
+
 ## 2026-09-16 [product]: The weekly problem's runtime shape — one drafted per run, the cap is the member's own number, and the provider disclosure is documentation rather than a banner (P1319)
 
 **Context:** P1319 fixed the unit at one problem a week (2026-09-15) but left three runtime values open as

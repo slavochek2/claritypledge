@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 106
 workstream: C1
@@ -113,10 +113,12 @@ Hardening that ships with it, because this change routes **every** signup throug
    page's `.catch` branch never sees them: today a network blip strips a still-good token and says
    "can't be used". Retryable errors (and 429) must keep the token and offer "Try again".
 3. **Already signed in → carry on.** If redemption fails but this browser already holds a
-   session (the link was clicked twice), continue to the callback with the original intent instead
-   of the error page.
+   session (the link was clicked twice), go to the allowlisted destination page instead of the
+   error page — never through the callback, which would run its actions (code review, below).
 4. **The failure page keeps the RSVP intent.** "Send me a new link" carries the allowlisted
-   `redirect`/`action` to `/login`, so a person who recovers still gets their seat.
+   `redirect`, `action` and auth-gate params, and goes to `/signup` for a failed signup and
+   `/sign-pledge` for a failed pledge — `/login` refuses anyone without a profile, which is exactly
+   the person whose confirmation just failed.
 5. **The token never reaches analytics.** Mixpanel autocaptures every pageview with the full URL
    and records 100% of sessions (`index.html` init); today only `/live` room codes are redacted
    (P1304). Extend that redaction to `token_hash`, `code`, `access_token`, `refresh_token`, and turn
@@ -127,11 +129,12 @@ Templates must not interpolate user-supplied metadata (name) — the link is the
 
 ## Technical Design
 
-- **Template href** (both templates): `{{ .SiteURL }}/auth/verify?token_hash={{ .TokenHash }}&type=email&redirect_to={{ .RedirectTo }}`
-  — exact escaping of `.RedirectTo` inside the hosted template is **UNVERIFIED**; the test-project
-  template run decides between raw (then parse the remainder of `location.search` after
-  `redirect_to=`) and an escaped form. The parser must handle both, and the unit tests pin both.
-  `.SiteURL` on prod ends with `/` — normalise in the template test.
+- **Template href** (both templates, both the VML and the HTML button):
+  `https://claritypledge.com/auth/verify?token_hash={{ .TokenHash }}&type=email&redirect_to={{ .RedirectTo }}`
+  — host written literally because prod `site_url` ends in `/`. **Verified live on test:** GoTrue
+  renders `{{ .RedirectTo }}` URL-escaped with lowercase hex, `{{ .TokenHash }}` equals the stored
+  hash, and Brevo wraps the link in its click-tracking redirect without breaking it. The parser
+  therefore accepts only the escaped form.
 - **`AuthVerifyPage.tsx`**: add `redirect_to` parsing (1), error classification (2), session check
   on failure (3), intent-preserving CTA (4). `type` from the link is still allowlist-parsed.
 - **Redaction**: extend the P1304 hook in `index.html` and `src/lib/sentry-filters.ts` with an
@@ -185,25 +188,74 @@ access and **Gemini (gemini-3.8-flash, served model verified)** on the spec plus
 
 ## Acceptance Criteria
 
-- [ ] On **test**, through the real event signup UI, the email's link opened in a fresh browser
-      context (no shared storage) lands signed in with the event RSVP created — screenshot plus a
-      DB read of the RSVP row.
-- [ ] Opening the same link again in that signed-in browser continues to the event, not an error.
-- [ ] Opening a used link in a browser with no session shows "can't be used", and its button keeps
-      the event intent.
-- [ ] A `curl` of the new link followed by a real browser click still signs the person in.
-- [ ] With the network cut at the moment of redemption, the page offers "Try again" and a retry
-      after reconnecting signs in.
-- [ ] A link from the old template still works in the requesting browser.
-- [ ] No Mixpanel or Sentry payload captured during the signup run contains the token value.
-- [ ] Prod templates changed only after the app code is live, previous text saved to `.private/`.
-      `[post-deploy]` one real prod signup completed cross-browser.
+Evidence runs: test project, dev server on the feature branch, 2026-09-16. Scripts and screenshots
+were kept in the session scratchpad; results are quoted here.
+
+- [x] On **test**, through the real event signup UI, the email's link opened in a fresh browser
+      context (no shared storage) lands signed in with the event RSVP created — both templates
+      (magic link, signup confirmation) changed on test, real mail read from the ops mailbox, link
+      opened in a new Playwright context → `/events/<slug>/confirm`; RSVP row read from the DB
+      (`rsvpCreatedThisRound: true`); page text "You're Registered!"; visual QA PASS at 1280/375/320.
+- [x] Opening the same link again in that signed-in browser continues to the event, not an error —
+      re-click lands on `/events/<slug>`, no error text (live, after the code-review change).
+- [x] Opening a used link in a browser with no session shows "can't be used", and its button keeps
+      the event intent — `href="/signup?redirect=%2Fevents%2F<slug>&action=rsvp"`, token stripped
+      from the URL, no horizontal scroll at 1280/375/320.
+- [x] A `curl` of the new link followed by a real browser click still signs the person in — a plain
+      GET of the tracked link (200) before the browser click, both rounds; the click still landed on
+      the confirmation page.
+- [x] With the network cut at the moment of redemption, the page offers "Try again" and a retry
+      after reconnecting signs in — Playwright aborted `/auth/v1/verify`: "Try again" shown, token
+      kept in the URL; route restored, click → `/events/<slug>/confirm`.
+- [x] A link from the old template still works in the requesting browser — login through the UI in
+      context A, GoTrue `/auth/v1/verify?token=` link built from the stored `pkce_` token opened in
+      the same context → `/events/<slug>`, no error. `AuthCallbackPage.tsx` is unchanged.
+- [x] No Mixpanel or Sentry payload captured during the signup run contains the token value —
+      verified against the verbatim `index.html` block and the Sentry hooks (10 tests, both
+      redactions mutation-checked); Mixpanel does not load on localhost, so no live payload exists
+      to capture pre-deploy. `[post-deploy]` read one `$mp_web_page_view` for `/auth/verify` in
+      Mixpanel and confirm `[redacted]`.
+- [x] Prod template text prepared and the previous text saved to `.private/docs/p1325-rollout/`
+      (read 2026-09-16; 2 links per template replaced, 0 `ConfirmationURL` left), with a
+      snapshot-guarded apply/revert script. `[post-deploy]` apply only after the app code is live,
+      then one real prod signup completed cross-browser.
 
 ## Done-When
 
-- [ ] decisions.md entry correcting the 2026-09-03 premise, citing E2 and the review.
-- [ ] Unit tests: redirect_to parsing (same-origin callback, foreign origin, other path, malformed,
-      raw vs escaped), error classification, redaction per token shape — all failing first, then passing.
+- [x] decisions.md entry correcting the 2026-09-03 premise, citing E2 and the review.
+- [x] Unit tests: redirect_to parsing (same-origin callback, foreign origin, other path, malformed,
+      raw vs escaped), error classification, redaction per token shape — all failing first, then
+      passing (16/19 and 10/10 failing before implementation; 44 + 10 passing after; full suite
+      4425 passed).
+
+## Code Review — 2026-09-16
+
+Founder asked for Codex Sol and Gemini 3.8. **Reports: 1 of 2.** Codex (gpt-5.6-sol) delivered;
+Gemini's wrapper **refused the payload** (exit 2, credential-shape scan matched the obviously fake
+test token) and, per its contract, the payload was not altered to get past it — that lens was done
+inline instead. A separate visual-QA agent ran twice: FAIL (screenshots taken before paint), then PASS.
+
+| Codex finding | Verdict | Disposition |
+|---|---|---|
+| BLOCK: signed-in fallback lets a dead link run callback actions for a signed-in victim | Real; the same is **pre-existing** by linking straight to `/auth/callback?action=…` (`AuthCallbackPage` only checks a session exists, line 71) | Fixed for this path: fallback goes to the destination page, never the callback |
+| BLOCK: raw `redirect_to` smuggles trailing params | **Rejected** — its example gives `pathname "/auth/callback&action=join-org&…"`, which fails the exact-path check; pinned by a test | Raw form removed anyway: the template renders escaped (verified live) |
+| WARN: "still good" copy on 5xx may be wrong if the token was consumed | Real but narrow (response lost after GoTrue consumed it) | ACCEPT — retry then shows "can't be used" with a way out; copy is P1257's |
+| WARN: redaction stops at `%` | True in principle; real token hashes, JWTs and codes contain no `%` | ACCEPT |
+| WARN: `code` param redacted on every route | No `?code=` producer outside auth exists (`grep` of `src/`) | ACCEPT |
+| WARN: recovery drops set-position params | Real | Fixed — carries `pointId`, `position`, `pointTitle`, `letterId` |
+| WARN: state update after unmount | Harmless (navigate/setState on a gone page) | ACCEPT |
+| NOTE: unit suite mocks GoTrue | True by design | Covered by the live runs above |
+| Inline (Gemini lens): failed pledge signup recovers at `/login`, which refuses no-profile users | Real | Fixed — `/sign-pledge` |
+
+## Rollout (after the app code is live on prod)
+
+Not checkboxes — these run after deploy, which the founder triggers.
+
+1. `.private/docs/p1325-rollout/apply.sh check` — prod templates still equal the saved snapshot.
+2. `apply.sh apply` — writes the new link into both prod templates (one Keychain dialog).
+3. One real signup on prod from a phone mail app or a second browser → seat reserved.
+4. Anything wrong: `apply.sh revert`. Mail already sent keeps working either way (AC 6).
+5. Two weeks later: `auth_callback_failed` with `no_session` + `?code=` should be ~0 for new mail.
 
 ## Alternatives Considered
 
