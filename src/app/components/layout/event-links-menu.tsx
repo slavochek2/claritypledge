@@ -68,6 +68,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
@@ -161,13 +162,21 @@ function LinksMenuTabs({
 }) {
   return (
     <Tabs defaultValue="points" className="w-full">
-      <TabsList className="grid w-full grid-cols-3" data-testid="event-links-tabs">
-        {TABS.map(t => (
-          <TabsTrigger key={t.value} value={t.value} data-testid={`event-links-tab-${t.value}`}>
-            {t.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      {/* STICKY, measured necessary: at 320x568 the Letters tab is taller than the sheet, and
+          with the switch inside the scroll container, scrolling down to the ninth letter
+          scrolled Points / Letters / Tools off the top — changing tabs meant scrolling back
+          up first. Pinned under the title, the switch is reachable from any scroll position.
+          `bg-background` on the wrapper, not just the pill, so rows passing underneath do not
+          show through the pill's rounded corners and its padding. */}
+      <div className="sticky top-0 z-10 bg-background pb-2">
+        <TabsList className="grid w-full grid-cols-3" data-testid="event-links-tabs">
+          {TABS.map(t => (
+            <TabsTrigger key={t.value} value={t.value} data-testid={`event-links-tab-${t.value}`}>
+              {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
       {TABS.map(t => (
         <TabsContent
           key={t.value}
@@ -195,11 +204,89 @@ function LinksMenuTabs({
  * the hint outside the truncating span means the code survives and the words give way,
  * which is the right way round for someone being told "tap st5".
  */
-function EntryText({ entry }: { entry: LinksMenuEntry }) {
+function EntryText({ entry, wrap = false }: { entry: LinksMenuEntry; wrap?: boolean }) {
   return (
     <>
-      <span className="truncate">{entry.label}</span>
+      {/* min-w-0 lets the label shrink inside a flex row; without it neither truncation nor
+          wrapping engages and a long label pushes the code out of the panel instead.
+
+          `wrap` is for the PHONE SHEET. Measured at 320x568: four of the nine approved letter
+          labels truncated to "Agreement is not underst…" / "Grading your own underst…" —
+          cutting exactly the words that carry the meaning, on a list whose words ARE the
+          content. The sheet's rows are `min-h-11 py-4`, so they grow to two lines safely.
+          The desktop dropdown keeps `truncate` as a guard only: at w-80 every approved
+          label measured whole. */}
+      <span className={cn('min-w-0', wrap ? 'break-words leading-snug' : 'truncate')}>{entry.label}</span>
       {entry.hint && <span className="ml-2 shrink-0 text-xs font-normal opacity-60">{entry.hint}</span>}
+    </>
+  );
+}
+
+/**
+ * The DESKTOP panel body. Same three segments and the same rows as the sheet — but built from
+ * `DropdownMenuItem`, not Radix `Tabs` and plain buttons. That split is deliberate and was
+ * forced by two defects found in adversarial review (Gemini 3.8) and REPRODUCED in a real
+ * browser at 1280px before this was written:
+ *
+ *   1. KEYBOARD: `DropdownMenuContent` is a WAI-ARIA menu. It swallows Tab (focus never
+ *      leaves the menu container) and its arrow-key roving focus only visits
+ *      `role="menuitem"` children. With Tabs + plain buttons inside, Tab, ArrowDown and
+ *      ArrowRight all left focus stuck on the container — measured: zero `focusin` events
+ *      across five key presses. No tab and no row was reachable by keyboard.
+ *   2. CLOSE ON SELECT: a plain button does not run the menu's select handler, so opening a
+ *      letter (new tab — no route change, so the close-on-navigate effect never fires) left
+ *      the dropdown standing open behind it. Measured: dropdownStillOpen === true.
+ *
+ * Both were regressions: before P1323 the rows were `DropdownMenuItem`s. As menu items, arrow
+ * keys walk the segments and then the rows, typeahead works, Enter selects, and a row CLOSES
+ * the menu by default. A segment calls `preventDefault()` in `onSelect` so switching tabs
+ * keeps the menu open.
+ *
+ * The phone SHEET keeps real Radix Tabs: a Drawer is a dialog, not a menu, so Tab moves
+ * through it normally and tab semantics are the correct ones there. "The body is identical at
+ * every breakpoint" is the VISUAL contract; the element roles follow the container.
+ */
+function LinksMenuDropdownBody({
+  entries,
+  go,
+}: {
+  entries: LinksMenuEntry[];
+  go: (entry: LinksMenuEntry) => void;
+}) {
+  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('points');
+
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" data-testid="event-links-tabs">
+        {TABS.map(t => (
+          <DropdownMenuItem
+            key={t.value}
+            data-testid={`event-links-tab-${t.value}`}
+            data-active={tab === t.value}
+            aria-current={tab === t.value ? 'true' : undefined}
+            // Keep the menu open: switching segments is navigation WITHIN the panel.
+            onSelect={e => { e.preventDefault(); setTab(t.value); }}
+            className="justify-center rounded-md px-2 py-1 font-medium text-muted-foreground focus:bg-background/60 focus:text-foreground data-[active=true]:bg-background data-[active=true]:text-foreground data-[active=true]:shadow"
+          >
+            {t.label}
+          </DropdownMenuItem>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-col" data-testid={`event-links-panel-${tab}`}>
+        {entries
+          .filter(e => e.group === tab)
+          .map((entry, i) => (
+            <DropdownMenuItem
+              key={`${entry.group}-${entry.label}-${i}`}
+              data-testid="event-links-entry"
+              // Default onSelect behaviour closes the menu — which is the fix for defect 2.
+              onSelect={() => go(entry)}
+              className="cursor-pointer justify-between"
+            >
+              <EntryText entry={entry} />
+            </DropdownMenuItem>
+          ))}
+      </div>
     </>
   );
 }
@@ -233,24 +320,16 @@ function EventLinksDropdown({
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-64"
+        // P1323: w-80, not the original w-64. Measured in a browser at 1280px: the nine
+        // approved letter labels need ~218px at text-sm plus the stN code and row padding
+        // (~270px). At w-64 (256px) three of them truncated — "Shared belief vs common be…" —
+        // on a MONITOR, where there is no width reason to cut founder-approved copy. w-80
+        // holds the full ~30-character label budget event-links.ts documents.
+        className="w-80"
         data-testid="event-links-menu"
         data-shape="dropdown"
       >
-        <LinksMenuTabs
-          entries={ctx.entries}
-          renderEntry={(entry, key) => (
-            <button
-              key={key}
-              type="button"
-              data-testid="event-links-entry"
-              onClick={() => ctx.go(entry)}
-              className="flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
-            >
-              <EntryText entry={entry} />
-            </button>
-          )}
-        />
+        <LinksMenuDropdownBody entries={ctx.entries} go={ctx.go} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -390,7 +469,7 @@ export function EventLinksMenu({
                   onClick={() => ctxValue.go(entry)}
                   className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2')}
                 >
-                  <EntryText entry={entry} />
+                  <EntryText entry={entry} wrap />
                 </button>
               )}
             />

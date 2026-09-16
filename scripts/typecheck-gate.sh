@@ -89,7 +89,20 @@ BROKEN="$(grep -E "$GATE_CODES" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
 # This is narrow on purpose and it is NOT a route list: it names one prop, not the pages that
 # must carry it. If `surface` is ever renamed or removed, delete this block — a gate whose
 # subject no longer exists is worse than no gate, because it stays green forever.
-SURFACE_MISSING="$(grep -E "error TS2741: Property 'surface' is missing" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
+#
+# TWO ERROR FORMS, and a first version caught only one (found in adversarial review, Gemini
+# 3.8; reproduced — `<ClarityLandingLayout />` passed this gate with exit 0):
+#   TS2741  "Property 'surface' is missing in type ... but required in type 'ClarityLandingLayoutProps'"
+#           — when surface is the ONLY required prop missing.
+#   TS2739  "Type '{}' is missing the following properties from type 'ClarityLandingLayoutProps':
+#           children, surface" — when SEVERAL are missing at once. (TS2740, the "and N more"
+#           form, cannot name surface here: the props type has only two required members.)
+#
+# SCOPED TO THE TYPE NAME, NOT JUST THE PROPERTY NAME. Other components also have a prop
+# called `surface` — the feed cards, ShareDialog, and a prototype where it is REQUIRED
+# (`position-buttons-prototype.tsx`). Matching the property name alone would block a commit
+# over an unrelated component. Both forms above carry the props type name, so require it.
+SURFACE_MISSING="$(grep -E "error TS27(39|41):" <<< "$TSC_OUT" | grep -F "ClarityLandingLayoutProps" | grep -E "(\bsurface\b)" | grep -vE "$TEST_PATHS")"
 
 if [ -n "$SURFACE_MISSING" ]; then
   echo "typecheck-gate: a ClarityLandingLayout is missing its required \`surface\` prop."

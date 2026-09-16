@@ -94,5 +94,42 @@ else
 fi
 rm -f "$CANARY_TSX"
 
+# 5. BLOCKS the MULTI-prop form. `<ClarityLandingLayout />` is missing children AND surface,
+#    which tsc reports as TS2739, not TS2741 — the form a first version of the gate let
+#    through with exit 0 (adversarial review, Gemini 3.8).
+printf '%s\n' \
+  "import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';" \
+  "export const bothMissing = <ClarityLandingLayout />;" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 1 ] && grep -qF "missing its required \`surface\` prop" <<< "$GATE_OUT"; then
+  echo "  OK   blocks-missing-surface-multi-prop — TS2739 form blocked and named (exit 1)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL blocks-missing-surface-multi-prop — expected BLOCK naming the surface rule, got exit $GATE_RC:"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
+
+# 6. DOES NOT FIRE on a DIFFERENT component whose required prop is ALSO named `surface`.
+#    Scenario 4 proves the rule ignores other property names; this proves it ignores other
+#    COMPONENTS. The repo really has such a component (a prototype with `surface: string`),
+#    so a property-name-only match would block unrelated commits.
+printf '%s\n' \
+  "function OtherSurfaceThing(_props: { surface: string }) { return null; }" \
+  "export const otherComponent = <OtherSurfaceThing />;" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 0 ]; then
+  echo "  OK   ignores-surface-on-other-component — scoped to ClarityLandingLayoutProps (exit 0)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL ignores-surface-on-other-component — the rule fired on an unrelated component (exit $GATE_RC):"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
+
 echo "typecheck-gate canary: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

@@ -360,22 +360,6 @@ export function ClarityLivePage() {
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
 
-  /**
-   * P1323 R2 — `/live/:code` DECLINES the Links trigger; the `/live` lobby keeps it.
-   *
-   * Founder decision, 2026-09-16. Every menu entry except Slides and the letters is a
-   * same-tab router navigation, and this page's exit is deliberately singular: P779 routes
-   * every exit through `onExit()` so `terminate()` writes `sessionEnded=true`, which is what
-   * the OTHER party's subscription reads to navigate away. There is no route-level guard —
-   * BrowserRouter has no `useBlocker` (see the note further down this file). A menu tap
-   * would therefore leave the partner sitting in a session that looks live and is not.
-   *
-   * That is the same hazard class the letters' new-tab decision exists for, and the reason a
-   * route-level prop cannot express this: `/live` and `/live/:code` render THIS component
-   * inside the same bare layout (App.tsx), so only the page can tell the lobby from a
-   * running two-party session.
-   */
-  useLinksTriggerOverride(isJoinViaLink ? 'decline' : null);
 
   const { setIsLive, setActiveSession, clearActiveSession } = useLiveSession();
   const terminate = useTerminateSession();
@@ -392,6 +376,29 @@ export function ClarityLivePage() {
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
+
+  /**
+   * P1323 R2 — the Links trigger is DECLINED for any person inside a session, and kept only
+   * on the untouched lobby.
+   *
+   * Founder decision, 2026-09-16. Every menu entry except Slides and the letters is a
+   * same-tab router navigation, and this page's exit is deliberately singular: P779 routes
+   * every exit through `onExit()` so `terminate()` writes `sessionEnded=true`, which is what
+   * the OTHER party's subscription reads to navigate away. There is no route-level guard —
+   * BrowserRouter has no `useBlocker` (see the note further down this file). A menu tap
+   * would therefore leave the partner sitting in a session that looks live and is not.
+   *
+   * WHY `view`, NOT THE URL. The first version declined on `isJoinViaLink` (a `:code` in the
+   * URL). Adversarial review (Gemini 3.8) found the hole, confirmed by reading this file: a
+   * HOST who creates a session from the lobby never gets a `/live/:code` URL — nothing here
+   * navigates there; `view` just moves 'start' → 'waiting' → 'live' in state. So the host,
+   * the one person most able to strand a partner, kept the menu for the whole session. The
+   * URL still counts too, so a guest arriving by link is covered before they have joined.
+   *
+   * A route-level prop cannot express either case: `/live` and `/live/:code` render THIS
+   * component in the same bare layout, and the host's session never changes route at all.
+   */
+  useLinksTriggerOverride(isJoinViaLink || view !== 'start' ? 'decline' : null);
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState(urlCode?.toUpperCase() || '');
   const [session, setSession] = useState<ClaritySession | null>(null);

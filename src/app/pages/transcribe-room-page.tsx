@@ -342,7 +342,15 @@ export function TranscribeRoomPage() {
                   trigger here: the nav's instances stand down, so there is still exactly one
                   `event-links-button` node in the DOM (a second would be the strict-mode
                   locator violation that broke the e2e suite in 2026-08-28). */}
-              <EventLinksButton owner="page" variant="dropdown" />
+              {/* Per breakpoint, exactly as the nav does it: the phone SHEET below `lg`, the
+                  anchored DROPDOWN at `lg` and up. A first version mounted only the dropdown,
+                  which put a fixed-width desktop menu inside a 320px phone header instead of the
+                  thumb-reach sheet this control was designed around (found in adversarial
+                  review, Gemini 3.8). One of the two is CSS-hidden at any width, so exactly one
+                  trigger is VISIBLE — the property e2e/p1179-links-menu.spec.ts actually asserts
+                  (`.filter({ visible: true })`), and the same one the nav has always had. */}
+              <span className="lg:hidden inline-flex"><EventLinksButton owner="page" /></span>
+              <span className="hidden lg:inline-flex"><EventLinksButton owner="page" variant="dropdown" /></span>
             <button
               type="button"
               onClick={() => void handleEndSession()}
