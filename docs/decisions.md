@@ -6,6 +6,56 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-16 [product]: The weekly problem's runtime shape — one drafted per run, the cap is the member's own number, and the provider disclosure is documentation rather than a banner (P1319)
+
+**Context:** P1319 fixed the unit at one problem a week (2026-09-15) but left three runtime values open as
+founder decisions: the default window, the per-run maximum, and the exact wording of a sentence telling the
+member that the drafting model reads their history through its provider. The first implementation printed
+that sentence at the top of every run, before any store was read.
+**Decision:** The window defaults to **this week**, with "a period back" one keystroke away. **One** problem
+is drafted per run by default; the member may ask for more, and is told what that costs them (each drafted
+problem is another full review). The weekly cap is **the member's own number**, stored in their profile and
+defaulting to 3 — an agent never raises it for them. The provider disclosure is **skill documentation**: it
+lives in the skill's `description` and its "what leaves" section, read when the skill is installed or read,
+and is **not printed per run**. Founder, verbatim: *"Clearly, they run a skill, and then it runs the chat
+history. Why would they not want it? … I don't think that we should run it all the time … I think this would
+be considered spam … It has to be as minimum text as possible to complete the job."*
+**Alternatives rejected:** *A per-run disclosure banner* — it tells the member something they chose by
+invoking the skill, and spends context on every run to do it. *A fixed cap of 3 enforced for everyone* — the
+number is a brake on the member's own attention, so it is theirs to set; the default carries the intent
+without taking the choice. *Defaulting the window to the last month* (P1180's behaviour) — the habit being
+built is weekly, and the longer window is still one keystroke away.
+**Consequences:** The same minimum-text standard now applies to skill prose generally: this skill dropped
+from 444 to 326 lines in the same pass, with every operative rule kept and the rationale left in the specs.
+P1319 Requirement 7 was rewritten to match, and its acceptance criterion is satisfied by documentation
+rather than by a runtime print.
+**References:** [p1319](../features/p1319_weekly_problem_submit_with_profile.md) ·
+[problem-board-process.md](problem-board-process.md) · 2026-09-15 [product] (the weekly unit)
+
+## 2026-09-16 [process]: A mutation that still PASSES the suite is a test defect — and when two guards share an exit code, the check must assert the reason (P1319)
+
+**Context:** P1319's canary was proven by mutation: eleven deliberately broken copies of the code, each
+expected to fail the check that covers it. Ten did. The eleventh — the guard rejecting a `problem-block`
+fence that is opened and never closed — **passed the whole suite with the guard removed**.
+**Decision:** Treat a mutation that survives as a defect in the test, never as evidence the code is
+redundant, and fix it by asserting the *reason* rather than the exit code. The unclosed-fence case was being
+caught by a different guard (the "more than one fence" rule) because the fixture contained a complete block
+plus a stray opener; with the guard gone the remaining input still failed to parse, so the exit code was
+identical either way. The check now feeds a lone unclosed fence and asserts the error names it as unclosed.
+**Alternatives rejected:** *Accepting the pass and deleting the guard as unreachable* — it is reachable, by
+the input the test was not sending. *Counting exit codes alone* — two guards that both exit 1 are
+indistinguishable to an exit-code assertion, which is exactly how a check ends up bound to the wrong rule.
+**Consequences:** Generalises [gate 7](../.claude/rules/epistemic.md) one step: a green mutation run bounds
+only the mutations you wrote, and a *surviving* mutation is the cheapest signal available that a check is
+anchored to something other than what its name claims. A rule-file edit is **blocked on
+`/slava:maintain:claude-md`** and not made here. Also measured this session: three independent hostile
+reviews (Opus, Codex Sol, Gemini 3.8) of an implementation that had already passed one in-session review
+returned 6 HIGH and 14 MEDIUM, several reproduced by probe — including private state being silently
+overwritten and a lock defeated by replacing its file. The in-session reviewer had found 2 HIGH. Status:
+proposed — one measurement, one change.
+**References:** [p1319](../features/p1319_weekly_problem_submit_with_profile.md) ·
+`scripts/test-p1319-problem-board.sh` · [epistemic.md](../.claude/rules/epistemic.md) gates 7, 7b, 7d
+
 ## 2026-09-16 [process]: Two reviewers split on a proposed gate, and reading the code settled it — the one that had not read it was wrong twice (P1324)
 
 **Context:** A consistency checker (`day-step.sh check-sync`) passed while a required step had been deleted from the file it checks, because the file's own **teaching example** used a real step id and so satisfied the grep. Whether to add a rule for this went to two independent reviewers. **Gemini said DON'T ADD**, on three grounds: the gates doc holds deep epistemic rules and this is tactical dilution; the existing gate 7 *"exercise a gate's failure path"* already caught it, so the protocol worked; and the real fix is structural — make the checker ignore fenced examples. **Opus said ADD**, and each of its three load-bearing claims was re-run here by command before being accepted (gate 9).
