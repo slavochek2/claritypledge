@@ -35,28 +35,21 @@
                     CTA is the community join, not the membership —
                     docs/events/clarity-practice-event.md § The offer.
 
-  ARC ORDER was re-cut by the founder over five rounds on 2026-09-16. The arc is now
-  slides 1-17 and ends on the Chiang Mai calendar gift:
+  ARC ORDER was re-cut by the founder over seven rounds on 2026-09-16. The arc is now
+  slides 1-15 (counted in a browser, not from memory):
 
-      1 title + QR          7 proven, not              13 Clarity Group Terms
-      2 agenda                practiced                14 why people refuse to verify
-      3 QUOTES COLLAGE      8 which situations         15 make it a habit
-      4 credibility           need this                16 join the community
-      5 influences          9 what is cognitive        17 a gift for Chiang Mai
-      6 the names it has      understanding?
-                           10 how to verify it?
-                           11 volunteer for R&D
-                           12 THE EVENT, live
+      1 title + QR             6 no social norm to admit    11 aisafety1, LIVE — the points
+      2 agenda                   "I don't understand"       12 how a round works
+      3 influences             7 looking for 6 volunteers   13 cmp10, LIVE — did it change?
+      4 proven, not practiced  8 THE EVENT, LIVE (/ready)   14 join the community
+      5 what is cognitive      9 the principle, LIVE (/meet) 15 a gift for Chiang Mai
+        understanding?        10 cmp7, LIVE — value perception
 
-  Round 6 (same day) added 3, the quotes collage: what people said when invited to this
-  evening. See that slide's own comment for the consent record and the pairing rule.
-
-  Round 5 moved a lot: the agenda came in at 2 (read off the event page itself), the
-  situations matrix came back at 7, the two cognitive-understanding slides came up out
-  of the backup blocks, the R&D ask moved down to sit directly against the live embed,
-  and "how the illusion prevents meaningful discussion" was demoted. Everything that
-  left the arc sits in an event-specific backup block between the arc and the permanent
-  backing block; see the banner above that block.
+  Round 7: the quotes collage, the bio, "names", "how to verify", the barrier cards and
+  the static principle all went to the event-specific backup block (see its banner). The
+  arc keeps only what someone needs before choosing to opt in or out, then the evening's
+  mechanics. Two parallel sessions edited this file on this day: renumbered header
+  comments are theirs, and a commit of theirs carries some of this session's changes.
 
   WHY ONLY ONE QR (asked and answered 2026-09-16): a second QR straight to
   /events/<slug>/room would drop an unregistered walk-in on the gate wall
@@ -769,7 +762,7 @@
       font-size:clamp(.8rem,1.5vw,1rem);display:flex;align-items:center;
       justify-content:center;margin-top:.15rem;line-height:1}
     /* few words per line, so they can be big enough to read from the back row */
-    .agn{max-width:min(46rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
+    .agn{max-width:min(72rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
     .agn .ritual-h{font-size:clamp(1.35rem,2.7vw,2.25rem)}
     .agn .agn-n{width:clamp(1.8rem,3.2vw,2.5rem);height:clamp(1.8rem,3.2vw,2.5rem);font-size:clamp(.95rem,1.7vw,1.25rem);margin-top:.05rem}
   </style>
@@ -794,7 +787,7 @@
     <div class="kicker">What happens this evening</div>
     <h2>Agenda</h2>
     <div class="ritual agn" style="margin-top:clamp(1.4rem,3.6vh,2.6rem)">
-      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h"><span class="ritual-lab">Introduction</span> &mdash; opt in or out</p></div>
+      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h"><span class="ritual-lab">Introduction</span> &mdash; opt in or out of the Clarity Meeting Principle</p></div>
       <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h"><span class="ritual-lab">Take a position</span> &mdash; four contested points</p></div>
       <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">On stage</span> &mdash; two volunteers try it</p></div>
       <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h"><span class="ritual-lab">In pairs</span> &mdash; discuss the points</p></div>
@@ -802,111 +795,24 @@
     </div>
   </section>
 
-  <!-- 3 · QUOTES COLLAGE — what Chiang Mai said this week, about AI safety and about tonight.
-       Every word is verbatim from WhatsApp (spelling and all). A clipped quote carries a
-       visible ellipsis; nothing inside a quote is reworded. Do not tidy typos.
-       ROUND 3 (founder, 2026-09-16): "lots of text — can we do with much much less?" The slide
-       is read in about five seconds and carries ONE feeling: people expect this evening to go
-       badly. Arguments belong on the four point slides, not here. Keep it under ~80 words.
-       CONSENT: Zach — private DM. Asked 2026-09-16; he replied "you can quote me directly
-       by namd" and "Just make sure to include the tweet when you quote me". So his strip is
-       named and the tweet stays in it. Everyone else is anonymous (colour bar per sender).
-       PAIRING RULE: two group messages share a strip only where the second really followed
-       the first in the chat. Do not compose fake threads. -->
-  <style>
-    .slide.collage-slide{padding:5vh 5vw;
-      background:
-        radial-gradient(circle at 18% 22%,rgba(120,90,40,.07) 0 1px,transparent 1.5px) 0 0/9px 9px,
-        radial-gradient(circle at 70% 60%,rgba(120,90,40,.05) 0 1px,transparent 1.5px) 0 0/13px 13px,
-        linear-gradient(135deg,#efe6d3,#e6dbc3 55%,#ece2cf);}
-    .collage{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4vh 2.2vw;
-      width:min(100%,1680px);align-items:center;text-align:left}
-    .collage .cut{position:relative}
-    .collage .cut-in{position:relative;filter:drop-shadow(0 6px 10px rgba(60,40,10,.22)) drop-shadow(0 1px 1px rgba(0,0,0,.18))}
-    /* tilts are scoped: .r2/.r3 already mean "nest step" elsewhere in this deck */
-    .collage .tilt-1{transform:rotate(-1.8deg)} .collage .tilt-2{transform:rotate(1.3deg)}
-    .collage .tilt-3{transform:rotate(-.8deg)} .collage .tilt-4{transform:rotate(2deg)}
-    .collage .tilt-5{transform:rotate(-2.4deg)} .collage .tilt-6{transform:rotate(.7deg)}
-    .collage .paper{background:var(--wa-wall);padding:clamp(.5rem,.9vw,1rem) clamp(.55rem,1vw,1.1rem);
-      display:flex;flex-direction:column;gap:.45em;
-      clip-path:polygon(0% 2%,6% 0%,14% 1.5%,23% 0%,31% 2%,42% .5%,51% 2%,60% 0%,71% 1.5%,80% 0%,89% 2%,100% .5%,
-        99% 22%,100% 47%,98% 71%,100% 98%,91% 100%,82% 98%,70% 100%,61% 98.5%,50% 100%,39% 98%,29% 100%,
-        19% 98.5%,9% 100%,0% 98.5%,1% 74%,0% 50%,2% 27%)}
-    .collage .src{font-size:clamp(.65rem,1vw,1.2rem);font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-      color:#54656f;padding:.1em .2em .05em}
-    .collage .src b{color:#06a884;letter-spacing:.04em;text-transform:none;font-size:1.25em}
-    .collage .bub{max-width:96%;font-size:clamp(1.05rem,1.85vw,2.3rem);line-height:1.32;padding:.5em .7em}
-    .collage .bub.out{align-self:flex-end}
-    .collage .bub .t{font-size:.72em}
-    .collage .who{display:block;height:.9em;margin:.1em 0 .35em;border-radius:2px;transform:rotate(-1deg)}
-    .collage .gap{align-self:center;font-size:clamp(.7rem,.9vw,1.1rem);color:#8696a0;letter-spacing:.3em;line-height:.6}
-    .collage .tape{position:absolute;top:-.7em;left:50%;width:5.2em;height:1.5em;margin-left:-2.6em;z-index:2;
-      background:rgba(255,248,215,.75);box-shadow:0 1px 2px rgba(0,0,0,.08);font-size:clamp(.9rem,1.3vw,1.6rem)}
-    .collage .lp{display:flex;gap:.6em;background:#e7ecef;border-radius:6px;padding:.45em;margin:.1em 0 .4em;font-size:.86em;line-height:1.26}
-    .collage .lp-x{flex:0 0 auto;width:2.4em;height:2.4em;border-radius:4px;background:#000;color:#fff;font-weight:800;
-      display:flex;align-items:center;justify-content:center}
-    .collage .lp b{display:block}
-    .collage .lp span{display:block;color:#3b4a54}
-    .collage .lp i{display:block;font-style:normal;color:#667781;font-size:.9em;margin-top:.15em}
-    .collage a.lp{color:inherit;text-decoration:none}
-    .collage-title{background:#fff;padding:clamp(.7rem,1.4vw,1.4rem) clamp(1rem,1.8vw,1.8rem);
-      clip-path:polygon(0 4%,12% 0,30% 3%,52% 0,74% 4%,100% 0,99% 50%,100% 100%,78% 96%,55% 100%,33% 97%,11% 100%,0 96%,1% 50%)}
-    .collage-title .k{font-weight:700;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(.6rem,.9vw,1.05rem);color:var(--blue)}
-    .collage-title h2{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;
-      font-size:clamp(1.5rem,3.3vw,4.1rem);line-height:1.04;letter-spacing:-.01em;margin-top:.25em}
-    .who.c-s1{width:5.4em;background:#e26b00} .who.c-s2{width:4.2em;background:#7f66ff}
-    .who.c-s3{width:2.6em;background:#d3396d}    .who.c-s4{width:4.8em;background:#1f7aec}
-    .who.c-s5{width:6em;background:#a0522d} .who.c-s6{width:6.4em;background:#5b8c00}
-    .who.c-s7{width:3.6em;background:#0094a8} .who.c-s8{width:3em;background:#c4532d}
-    @media (max-width:720px){
-      .slide.collage-slide{padding:5vh 5vw}
-      .collage{grid-template-columns:1fr;gap:1.4rem}
-      .collage .cut,.collage .stack{grid-column:1 !important;grid-row:auto !important}
-    }
-  </style>
-  <section class="slide collage-slide">
+
+  <!-- 3 · WHY — founder, round 8: "between slide 2 and 3 we need the why... the reason people
+       think it's not meaningful". The three lines are the founder's, verbatim.
+       [FOUNDER DECISION: the headline wording is drafted.] -->
+  <section class="slide soft">
     <!-- NOTES
-      - Let it land. Say nothing for three or four seconds while people read.
-      - Then: "This is what people said when I invited them to tonight. Some of it is fair.
-        Most public discussions do go in circles. Tonight tests whether that's a law of
-        nature or a missing social norm."
-      - Point at the NORM, never at a person. Several of these people may be in the room.
-        Zach is the only one named, with his consent; he was invited and declined.
-      - Do not read the tweet aloud.
+      - This is the problem tonight exists for. Read the three, pause on the third —
+        it names the room most hosts end up with.
     -->
-    <div class="collage">
-      <div class="cut" style="grid-column:1/8;grid-row:1">
-        <div class="cut-in tilt-1"><div class="collage-title">
-          <div class="k">Chiang Mai &middot; this week</div>
-          <h2>What people said about tonight&rsquo;s topic</h2>
-        </div></div>
-      </div>
-
-      <div class="cut" style="grid-column:8/13;grid-row:1">
-        <div class="cut-in tilt-4"><span class="tape"></span><div class="paper">
-          <div class="bub in"><span class="who c-s8"></span>Im in a constant state of excitement/terror with AI<span class="t">10:48</span></div>
-        </div></div>
-      </div>
-
-      <div class="cut" style="grid-column:1/8;grid-row:2">
-        <div class="cut-in tilt-6"><span class="tape"></span><div class="paper">
-          <div class="src"><b>Zach</b> &middot; private message</div>
-          <div class="bub in">&hellip;It's not worth my time and emotional energy to debate with the types of people who often come to these types of events<span class="t">12:00</span></div>
-          <div class="bub in">
-            <a class="lp" href="https://x.com/esrtweet/status/2099917698230837569" target="_blank" rel="noopener"><div class="lp-x">𝕏</div><div><b>Eric S. Raymond (@esrtweet) on X</b><span>&hellip;Following AI-doomer logic, it is now absolutely imperative that we bomb the hell out of Chinese data centers be&hellip;</span></div></a>
-            &hellip;just shush them and keep pointing to it 😂<span class="t">12:07</span></div>
-        </div></div>
-      </div>
-
-      <div class="cut" style="grid-column:8/13;grid-row:2">
-        <div class="cut-in tilt-5"><span class="tape"></span><div class="paper">
-          <div class="src">AI group chat &middot; Chiang Mai</div>
-          <div class="bub in"><span class="who c-s7"></span>Wow, that escalated quickly<span class="t">11:12</span></div>
-          <div class="bub in"><span class="who c-s1"></span>We had the meeting here no need for meetup now lol<span class="t">11:12</span></div>
-        </div></div>
-      </div>
+    <div class="kicker">The problem with most group and pair discussions</div>
+    <h2>Why most discussions don&rsquo;t feel <span class="accent">meaningful</span></h2>
+    <div class="ritual agn" style="margin-top:clamp(1.4rem,3.6vh,2.6rem)">
+      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h">People give <span class="ritual-lab">monologues</span> instead of actively listening</p></div>
+      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h">Honest disagreement <span class="ritual-lab">splits people</span> instead of teaching them anything</p></div>
+      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h">The room fills with people who <span class="ritual-lab">already agree</span> with the host</p></div>
     </div>
   </section>
+
 
   <!-- 4 · CREDIBILITY — paid for the lesson (ladischenski.com About, two-column) -->
   <section class="slide soft">
@@ -927,6 +833,7 @@
       </div>
     </div>
   </section>
+
 
   <!-- 8.5 · INFLUENCES — the thinkers behind the work (name cloud; biggest-first reveal + gentle bob via cloudReveal() in JS) -->
   <style>
@@ -982,25 +889,6 @@
     </div>
   </section>
 
-  <!-- 5 · PRIOR ART, BY NAME — the same move under the names other fields already use.
-       Lost its header comment in an earlier reorder; restored 2026-09-16. -->
-  <section class="slide dark cloud-slide">
-    <!-- NOTES
-      - IN THE ARC at slide 12 (round 5, founder): placed immediately BEFORE the solution so the room hears the method is not new before it is introduced.
-      - Names the room already knows; we are not inventing a category.
-      - Difference: a number, decoupled from agreement, pre-committed.
-    -->
-    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
-    <div class="cloud">
-      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
-      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
-      <span class="cw xl"><span class="cw-i">Active listening</span></span>
-      <span class="cw m"><span class="cw-i">Mirroring</span></span>
-      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
-      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
-      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
-    </div>
-  </section>
 
   <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
        Deliberately NOT pitched as a discovery: the mechanic is old and cited
@@ -1031,101 +919,56 @@
     </div>
   </section>
 
-  <!-- 6 · WHICH SITUATIONS NEED THIS — restored to the arc 2026-09-16 at the founder's
-       ask ("after slide five... which situations need the clarity practice"). It was in
-       the arc at position 2 in round 5 and had been demoted since.
-       WHY THE MATRIX AND NOT A LIST OF CRITERIA: the four arbiter-failure modes
-       (docs/arbiter-failure-model.md) fire on 5 of 5 public claims — measured, P1190 —
-       so reading them out would qualify literally any public argument and prove nothing.
-       The two axes discriminate; the four modes do not. There are FOUR modes, not five:
-       "specifiability" and "fuzzy intent" are the same one under two names.
-       ON STAGE: land the hot cell, then say tonight's topic sits in it — "safe",
-       "superintelligence" and "aligned" are left to each of us, and LeCun and Bengio
-       hold genuinely different models of how it works.
-       [FOUNDER DECISION: whether to swap the hot cell's example from the co-founders to
-       an AI-safety one. Left alone — it is a shared slide with /presi.] -->
-  <style>
-    /* SCOPED to this slide only - the decisions slide ("How misunderstandings influence
-       decisions") shares .mx-* and must not move. This slide's row labels ("different idea
-       of how it works") are far longer than that slide's ("Good"/"Bad"), so on a phone the
-       auto-sized rail ate the plot and
-       broke the cell copy mid-phrase. Cap the rail and step the label down instead. */
-    @media(max-width:480px){
-      .mx-scope{grid-template-columns:64px 1fr}
-      .mx-scope .mx-rh{font-size:.53rem;letter-spacing:.05em;line-height:1.3;padding:.4rem .15rem}
-      .mx-scope .mx-cell{padding:.6rem .4rem}
-    }
-  </style>
-  <section class="slide soft">
-    <!-- NOTES
-      - IN THE ARC at slide 2 (round 5, founder): the room learns which situations this applies to before anything is claimed. Not a qualifier — a boundary.
-      - Four situations land neutral; ADVANCE ONCE to light ours (top-right).
-      - Where a price, rule, standard or precedent exists, use it. We are for what no wording can pin down.
-      - "Clarity Principle" is the repo's own term (full-article.md § VI; how-platform-works move 2, "a minimum clarity principle"). Say it as written.
-    -->
-    <div class="kicker">Which situations need the Clarity Principle?</div>
-    <div class="mx-frame mx-scope" data-flip>
-      <span class="mx-lab mx-lab-y">explanatory divergence</span>
-      <div class="mx-rows">
-        <div class="mx-rh">Different idea of<br>how it works</div>
-        <div class="mx-rh">Same idea of<br>how it works</div>
-      </div>
-      <div class="mx-plot">
-        <div class="mx">
-          <div class="mx-cell">Landlord &amp; tenant:<br>the lease</div>
-          <div class="mx-cell hot">Two co-founders:<br>&ldquo;equal partners&rdquo;</div>
-          <div class="mx-cell">Buyer &amp; seller:<br>the price tag</div>
-          <div class="mx-cell">Friends:<br>&ldquo;let's travel together&rdquo;</div>
-        </div>
-      </div>
-      <div class="mx-ticks">
-        <div class="mx-ch">Written down</div>
-        <div class="mx-ch">Left to each of us</div>
-      </div>
-      <span class="mx-lab mx-lab-x">room for interpretation</span>
-    </div>
-    <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
-  </section>
 
-  <!-- 8 · HOW TO VERIFY COGNITIVE UNDERSTANDING? — the private / assumed / verified Venn.
-       Titled by the founder 2026-09-16; the headline used to be "Three types of cognitive
-       understanding". The green ellipse IS the answer the title asks for: the only part of
-       the overlap both sides actually checked. It is small on purpose. -->
+  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
+       "understand" into cognitive / emotional / agreement. Pulled back into the arc
+       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
+       be the post's own question, "A lie, memory issue or misunderstanding?".
+       Its two companion poll slides stayed in the backup block — this card travels alone.
+       Cognitive understanding is the only one this product measures. Say that here. -->
   <section class="slide">
     <!-- NOTES
-      - Four layers fade in: your private, their private, assumed shared, verified.
-      - The green ellipse is small on purpose; verified understanding is always narrower than assumed.
+      - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
+        now sit between the volunteer ask and the live embed, and he named them himself:
+        this one is "What is Cognitive Understanding?", the Venn is "How to verify".
+        NOTE the two LinkedIn poll slides that used to flank it (the "sees it your way"
+        poll before, the "three things" poll after) stayed in the backing block — this
+        card travels alone now.
+      - WAS at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
+      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
+      - Cognitive understanding is the only one we measure; the other two are not the target.
     -->
-    <h2 style="margin-bottom:.4rem">How to <span class="accent">verify</span> Cognitive Understanding?</h2>
-    <!-- st3's "picture" is the live 3-levels diagram: its four layers fade in on
-         entry (FX levels(), keyed on .lv) — the redrawn cp diagram, standalone (no story card) -->
-    <div class="st1-wrap" style="--cap:64vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
-        <svg viewBox="0 0 640 372" role="img" style="display:block;width:100%;height:auto" aria-label="Three nested levels of cognitive understanding. Two overlapping circles: Your Private Understanding (you understand, they don't) and Their Private Understanding (they understand, you don't). Their overlap is Assumed Shared Understanding (you assume they understand what you mean). Inside it, a green core is Verified Understanding (you both verified they understand what you mean).">
-          <defs>
-            <clipPath id="cu-left"><circle cx="240" cy="185" r="170"/></clipPath>
-          </defs>
-          <g class="lv">
-            <circle cx="240" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
-            <text x="150" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Your Private<tspan x="150" dy="23">Understanding</tspan></text>
-            <text x="150" y="202" text-anchor="middle" font-size="12.5" fill="#475569">You understand,<tspan x="150" dy="15" font-weight="700" fill="#0f172a">they don't</tspan></text>
-          </g>
-          <g class="lv">
-            <circle cx="400" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
-            <text x="490" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Their Private<tspan x="490" dy="23">Understanding</tspan></text>
-            <text x="490" y="202" text-anchor="middle" font-size="12.5" fill="#475569">They understand,<tspan x="490" dy="15" font-weight="700" fill="#0f172a">you don't</tspan></text>
-          </g>
-          <g class="lv">
-            <circle cx="400" cy="185" r="170" fill="rgba(100,116,139,.18)" clip-path="url(#cu-left)"/>
-            <text x="320" y="104" text-anchor="middle" font-size="14" font-weight="800" fill="#1d4ed8" letter-spacing="-.2">Assumed Shared<tspan x="320" dy="17">Understanding</tspan></text>
-            <text x="320" y="146" text-anchor="middle" font-size="11" fill="#475569">You <tspan font-weight="700" fill="#1d4ed8">assume</tspan> they<tspan x="320" dy="13">understand what you mean</tspan></text>
-          </g>
-          <g class="lv">
-            <ellipse cx="320" cy="232" rx="75" ry="62" fill="rgba(34,197,94,.30)" stroke="#16a34a" stroke-width="1.75"/>
-            <text x="320" y="210" text-anchor="middle" font-size="16" font-weight="800" fill="#14532d" letter-spacing="-.2">Verified<tspan x="320" dy="17">Understanding</tspan></text>
-            <text x="320" y="245" text-anchor="middle" font-size="10" fill="#166534">You <tspan font-weight="700">both verified</tspan> they<tspan x="320" dy="12">understand what you mean</tspan></text>
-          </g>
-        </svg>
+    <h2 style="margin-bottom:.2rem">What is <span class="accent">Cognitive Understanding?</span></h2>
+    <div class="st1-card">
+      <div class="st1-head">
+        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
+        <div>
+          <div class="st1-nameline">
+            <span class="st1-name">Vyacheslav Ladischenski</span>
+            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
+          </div>
+          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
+        </div>
       </div>
+      <div class="st1-wrap">
+        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
+        <span class="st1-pulse" style="left:61%;top:49%"></span>
+        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- 10 · THE NORM — one line, before the principle. Founder, rounds 6-7: the five barrier cards
+       went to backup ("barrier is maybe backup"); only the root cause stays in the arc, so
+       nobody who later opts out has just been shown a list of labels for it. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - One sentence, then move on. This is WHY the principle exists; the principle is next.
+      - The five barrier cards are in the backup block if someone asks why people don't do this.
+    -->
+    <div class="kicker">Why almost nobody does it</div>
+    <h2 style="font-size:clamp(1.6rem,4vw,3.2rem);max-width:22ch">No social norm to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
   </section>
 
   <!-- 7 · THE ASK: TURN THE SWITCH ON. Three reasons, in the founder's terms
@@ -1140,13 +983,20 @@
          · opt-in, off by default — the switch starts OFF and tapping it IS the consent
            (P1307 D12, which cites Planet49 C-673/17 and GDPR Recital 32). Never say
            "we're recording the room".
-         · own device, own voice — startCapture runs on the volunteer's own phone with
-           their own display name. Nobody is recorded by someone else's device.
-         · room-scoped — the shipped switch reads "Record audio and share transcript
-           with others in the room", and entry to the transcription room is refused
-           server-side to anyone who is not a registered attendee or the host
-           (p1307 UAT-5.1). So "only people in this room" is enforced, not a promise.
-       If any of those three stops being true, this slide is wrong and must change. -->
+         · own device — startCapture runs on the volunteer's own phone under their own
+           display name. CORRECTED 2026-09-16 after an adversarial review: that does NOT
+           mean "own voice only". A phone microphone picks up whoever is talking near it,
+           and the terms make the volunteer responsible for the consent of anyone whose
+           voice it captures (tos.md §Transcribe Rooms). Never promise "only you".
+         · shared, and narrower than "the room" — the shipped switch reads "Record audio
+           and share transcript with others in the room", but the privacy policy is
+           narrower: only people who have switched transcription on in that room can read
+           its transcript (privacy.md). Entry is refused server-side to anyone who is not a
+           registered attendee or the host (p1307 UAT-5.1).
+         · pauses in /live — room capture pauses, with no message, while a person is in a
+           /live session (P1307 D3). If the pairs rounds run through the app's practice
+           rooms, nothing is transcribed during them.
+       If any of these stops being true, this slide is wrong and must change. -->
   <style>
     /* icons for the three R&D reasons — scoped to this slide's cards */
     .rnd-ic{width:clamp(1.7rem,3.2vw,2.3rem);height:clamp(1.7rem,3.2vw,2.3rem);
@@ -1155,9 +1005,10 @@
   <section class="slide soft">
     <!-- NOTES
       - THE ASK, said plainly and once: "On the next screen there's a switch called
-        Transcribe for AI insights. Your own phone records YOU — not the room, not the
-        person next to you. It's off unless you turn it on, and you can turn it off at
-        any point. Turning it on is volunteering for the R&D."
+        Transcribe for AI insights. It records through your own phone, and the transcript
+        is shared with the others in this room who have it on. It's off unless you turn
+        it on, and you can turn it off at any point. If you're talking with someone, ask
+        them first. Turning it on is volunteering for the R&D."
       - The three cards are three DIFFERENT beneficiaries on purpose — the next room,
         you, the research. The earlier cut had two cards that both meant "I learn what
         worked" (founder: "maybe they're a bit overlapping"). If you reword one, keep
@@ -1168,8 +1019,9 @@
         obtained by social pressure in a room is not consent. Say it once and move on.
       - The three cards are the whole slide. Say each in one sentence; the detail belongs
         in your voice, not on the projector.
-      - If asked "who sees it": only people in this room. That is enforced server-side,
-        not a policy promise — a signed-in stranger is refused entry to the room.
+      - If asked "who sees it": the people in this room who ALSO have transcription on
+        (privacy policy). Strangers are refused entry server-side. Do not say "everyone
+        in the room" and do not say "only you".
       - If asked "how long": your own capture runs for this event and you end it yourself
         by switching it off. Do not quote a retention period from this stage; point at the
         terms. [FOUNDER DECISION: whether to state a retention period out loud]
@@ -1245,129 +1097,136 @@
     </div>
   </section>
 
-  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
-       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
-       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
-       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
-       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
+
+  <!-- 13 · THE PRINCIPLE, LIVE — founder, round 7: "make it live version of the event, so I can
+       demonstrate what happens when they click (they answer the next question — how much they
+       understand the principle)". The frame is the real /events/<slug>/meet page.
+       ON PROD YOUR CLICK IS REAL: tapping Opt in / Opt out records YOUR own choice as host.
+       Same-origin only: renders on claritypledge.com/presi3, EMPTY locally (CSP frame-ancestors).
+       The static version, retitled "Clarity Meeting Principle", is in the backup block. -->
+<section class="slide embed-full">
+    <!-- NOTES
+      - Read the principle on the page, then tap Opt in so they see the next question
+        (how well they understand the principle) appear.
+      - Say that opting out is a real option: those who opt out watch those who opt in.
+      - Keyboard stops working once you click inside — use the round buttons bottom-left.
+    -->
+    <iframe src="https://claritypledge.com/events/clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj/meet"
+            title="Clarity Meeting Principle — live, opt in or out" loading="lazy"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+    </div>
+  </section>
+
   <style>
-    .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
-    .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
-      text-transform:uppercase;color:#ef4444;margin-bottom:.75rem}
-    .card.refuse p{font-size:clamp(.95rem,1.8vw,1.2rem);color:var(--fg);line-height:1.45;font-weight:600}
-    /* the reason under the reasons — deliberately NOT a sixth card (founder: "maybe not
-       as a fifth point, but below them"). Heavier than a .note so it reads as the answer. */
-    .norm{display:flex;align-items:baseline;gap:.9rem;max-width:min(64rem,92vw);
-      margin:clamp(1.6rem,4vh,2.6rem) auto 0;text-align:left}
-    .norm-lab{flex:0 0 auto;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-      font-size:clamp(.72rem,1.3vw,.9rem);color:var(--blue)}
-    .norm p{font-size:clamp(1rem,1.9vw,1.35rem);line-height:1.45;font-weight:600;color:var(--fg);margin:0}
+    /* STAKE SLIDES — instruction on the left, the live stake page on the right at phone
+       width, so the room sees exactly the screen in their hand. Layout lives on an inner
+       wrapper: .slide itself is shown/hidden by toggling display, so it must not be
+       given a display of its own. */
+    .ss{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4vw;align-items:center;
+      width:100%;max-width:1500px;text-align:left}
+    .ss-step{font-size:clamp(1.25rem,2.5vw,2.1rem);font-weight:600;line-height:1.35;margin:.35em 0}
+    .ss-step b{color:var(--blue)}
+    .ss-frame{position:relative;width:min(420px,32vw);height:80vh;border:1px solid hsl(240 6% 86%);
+      border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 10px 40px rgba(15,23,42,.12)}
+    .ss-frame iframe{width:100%;height:100%;border:0;display:block}
+    .ss-ph{display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;
+      font-weight:700;color:#71717a;background:repeating-linear-gradient(45deg,#fafafa 0 12px,#f1f1f3 12px 24px)}
   </style>
+  <!-- 14 · STAKE CMP7 — founder, round 7: "maybe we put after 13 a slide that shows the
+       CMP7 and just says use two minutes... those two slides would help me to remember it,
+       otherwise I might forget." The frame is the real /stake/cmp7 page (the Links menu's own
+       entry, event-links.ts stakePath), so the room sees what their phone shows.
+       Same-origin only: renders on claritypledge.com/presi3, EMPTY locally (CSP frame-ancestors). -->
   <section class="slide soft">
     <!-- NOTES
-      - The five cards are the barriers; the line underneath is the real cause. Land the
-        cards fast, then slow down on the social norm — the VERY NEXT slide answers it word
-        for word: "Make it normal to admit 'I don't understand'". Let that echo land.
-      - PLACED BEFORE THE PRINCIPLE on purpose (founder, round 6): name the barriers before
-        anyone opts in or out, so opting out is never cast as one of them after the fact.
-        Opting out is welcome. Say so if the room reads the cards as an accusation.
-      - Titled "5 barriers" rather than "why people refuse" to be less attacking (round 6).
-        Was, before that, "When I refuse, what am I protecting?".
-      - The "most of all" line was cut to seven words in round 6; the long version it
-        replaced quoted the event page ("admitting it gets punished nearly everywhere").
+      - Run-of-show block 5: they build a model before arguing. Say "menu, then cmp7" — the
+        spoken word and the menu label are the same token by design.
+      - Keep the clock. Two minutes, then move on even if some are not done.
+      - If you click INTO the frame, the keyboard belongs to it — use the round buttons
+        bottom-left to move on.
     -->
-    <div class="kicker">Where the will breaks down</div>
-    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)"><span class="accent">5 barriers</span> to verifying cognitive understanding</h2>
-    <div class="cards four">
-      <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
-      <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
-      <div class="card refuse"><h3>Fear</h3><p>&ldquo;You will think I am stupid.&rdquo;</p></div>
-      <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
-      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know how it benefits me.&rdquo;</p></div>
+    <div class="ss">
+      <div>
+        <h2 style="margin-bottom:.6em">Your value perception of <span class="accent">Clarity Meeting Principle</span>?</h2>
+        <p class="ss-step">Menu &rarr; <b>cmp7</b></p>
+        <p class="ss-step"><b>2 minutes</b></p>
+      </div>
+      <div class="ss-frame"><iframe src="https://claritypledge.com/stake/cmp7?event=clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj" title="Stake cmp7 — the live page" loading="lazy"></iframe></div>
     </div>
-    <!-- The founder's own framing, 2026-09-16: the five cards are the reasons people give
-         themselves; the REAL reason sits underneath all of them and is not a sixth card.
-         Wording is his, from the live event page ("admitting you did not understand gets
-         punished nearly everywhere") — do not soften it into a generic "culture" line. -->
-    <div class="norm">
-      <span class="norm-lab">Most of all</span>
-      <p>No social norm to admit &ldquo;I don&rsquo;t understand&rdquo;</p>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
     </div>
   </section>
 
-  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
-  <section class="slide soft">
+  <!-- 15 · TONIGHT'S FOUR POINTS, LIVE — the #aisafety1 stake page (4 points, 8 stories on prod,
+       checked 2026-09-16). FULL SCREEN on purpose (founder, round 7): "then I can open and
+       navigate to stories and back". Same-origin only; EMPTY locally. -->
+<section class="slide embed-full">
     <!-- NOTES
-      - REBUILT 2026-09-16. The arc used to show three flat clauses; the founder rejected them
-        ("the current three doesn't make sense to me") and named the right three: the TRIGGER
-        (you can ask me the question), the PROMISE (I'll answer), and the EXCEPTION. Those are
-        "Your right" / "My promise" / "The exception" — the shape the full terms already had.
-      - The text is VERBATIM the join page's oath, promoted here from the old backing slide,
-        which has been deleted so there is one copy. Do NOT reword it for the room: this deck's
-        own rule is "same oath text as the join page; never fork it for a talk." If it reads too
-        dense on the projector, DROP a paragraph — do not rewrite one.
-      - "Reveal gaps easily. Bridge them safely." was deleted from this slide by the founder.
-      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
-      - Org-scope terms: one person can commit today without recruiting a counterparty.
+      - Menu → aisafety1. Read each point in one sentence; open a story only if the room is stuck.
+      - Everyone takes a position on all four before the stage demo.
+      - Keyboard stops working once you click inside — use the round buttons bottom-left.
     -->
-    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.45rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
-    <div class="cert-wrap">
-      <div class="cert">
-        <div class="cert-head">
-          <h3>Clarity Group Terms</h3>
-        </div>
-        <p class="cert-intro"><b>A commitment to every member</b> &mdash; <i>We all crave being understood. Let's commit to listen.</i></p>
-        <div class="cert-clause">
-          <h4>Your right</h4>
-          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>My promise</h4>
-          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
-          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
-          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>The exception</h4>
-          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
-        </div>
-      </div>
+    <iframe src="https://claritypledge.com/stake/aisafety1?event=clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj"
+            title="aisafety1 — tonight's four contested points, live" loading="lazy"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
     </div>
   </section>
 
-  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
+  <!-- 16 · HOW A ROUND WORKS — used twice: the stage demo runs one point this way in front of
+       everyone, then the pairs run all four. Founder, round 7: "should we have [the round] as a
+       slide, to guide people how a round works". "Responds only at 8+" IS the "don't push back
+       until they confirm you understood" rule the event page promised — it lives here as the
+       rule of the exercise, not as a change to the principle.
+       [FOUNDER DECISION: 8 is the founder's number, round 7.] -->
   <section class="slide soft">
     <!-- NOTES
-      - Title is "Make it a habit" (was the badge text); setup line "A bracelet is the reminder: on in the morning, counted in the evening."
-      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
-      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
+      - Founder's order, round 8: A states, A asks B for the number, B says it back, A scores,
+        repeat, then swap. "Until 8+" carries the founder's round-7 threshold.
+      - You run the clock, not the content: "go" · "switch" at 5 min · "next point" at 10.
+      - Opted out? Same clock, just talk.
+      - Agree on a point? Still say back WHY they hold it — misunderstanding hides inside
+        agreement too.
+      - PAIRING: see the founder decision on mics and matching before Friday.
     -->
-    <h2 style="margin-bottom:.3rem">Make it a <span class="accent">habit</span></h2>
-    <div class="ritual">
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
+    <div class="kicker">One round &middot; 10 minutes per point &middot; 5 each</div>
+    <h2>How a <span class="accent">round</span> works</h2>
+    <div class="ritual agn" style="margin-top:clamp(1.4rem,3.6vh,2.6rem)">
+      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h"><span class="ritual-lab">A</span> says where they stand</p></div>
+      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h"><span class="ritual-lab">A</span> asks B: &ldquo;How much did you understand, 0&ndash;10?&rdquo;</p></div>
+      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">B</span> says it back &middot; A gives a number &middot; repeat until 8+</p></div>
+      <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h"><span class="ritual-lab">Swap</span></p></div>
+    </div>
+  </section>
+
+
+  <!-- 17 · STAKE CMP10 — founder, round 7: "maybe we put after 13 a slide that shows the
+       CMP7 and just says use two minutes... those two slides would help me to remember it,
+       otherwise I might forget." The frame is the real /stake/cmp10 page (the Links menu's own
+       entry, event-links.ts stakePath), so the room sees what their phone shows.
+       Same-origin only: renders on claritypledge.com/presi3, EMPTY locally (CSP frame-ancestors). -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Run-of-show block 7+8: one closing stake of cmp10, which contains cmp7 and cmp3.
+        The cmp7 delta from the start is the "what moved" the reveal shows.
+      - Do this BEFORE the community ask, while people still have the app open.
+    -->
+    <div class="ss">
+      <div>
+        <h2 style="margin-bottom:.6em">Did your value perception of <span class="accent">CMP</span> change?</h2>
+        <p class="ss-step">Menu &rarr; <b>cmp10</b></p>
+        <p class="ss-step"><b>2 minutes</b></p>
       </div>
-      <div class="ritual-nest">
-        <div class="ritual-step">
-          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
-          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
-        </div>
-        <div class="ritual-nest">
-          <div class="ritual-step">
-            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
-          </div>
-          <div class="ritual-step">
-            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
-            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
-          </div>
-        </div>
-      </div>
-      <div class="ritual-step">
-        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
-      </div>
+      <div class="ss-frame"><iframe src="https://claritypledge.com/stake/cmp10?event=clarity-night-sanders-lecun-bengio-and-leahy-disagree-on-ai-safety-where-do-you-stand-2026-09-11-rkfj" title="Stake cmp10 — the live page" loading="lazy"></iframe></div>
+    </div>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
     </div>
   </section>
 
@@ -1430,9 +1289,7 @@
          · everybody assumes they understand         · prevent rework before work begins
          · what's the solution? (open source)        · live demo QR — disagreement vs misunderstanding
          · how the illusion prevents meaningful discussion   (demoted in round 5)
-
-       "Which situations need the Clarity Principle?" LEFT this block in round 5 and is
-       back in the arc at 7.
+         · which situations need the Clarity Principle       (back in round 5, out again in round 6)
 
        NOTE — the live-demo QR and BOTH poll slides are down here, but the third payload
        card ("a lie, memory issue or misunderstanding?") was pulled back UP into the arc on
@@ -1813,41 +1670,265 @@
     </div>
   </section>
 
-  <!-- Demoted 2026-09-16, round 6 (founder: "slide 8 move into backlog"). -->
-  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
-       "understand" into cognitive / emotional / agreement. Pulled back into the arc
-       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
-       be the post's own question, "A lie, memory issue or misunderstanding?".
-       Its two companion poll slides stayed in the backup block — this card travels alone.
-       Cognitive understanding is the only one this product measures. Say that here. -->
-  <section class="slide">
+
+  <!-- Demoted again 2026-09-16, round 6 (founder, on the criteria: "every public discussion
+       qualifies, so it takes us nothing... then we don't build it... that's fine").
+       WHICH SITUATIONS NEED THIS — was restored to the arc 2026-09-16 at the founder's
+       ask ("after slide five... which situations need the clarity practice"). It was in
+       the arc at position 2 in round 5 and had been demoted since.
+       WHY THE MATRIX AND NOT A LIST OF CRITERIA: the four arbiter-failure modes
+       (docs/arbiter-failure-model.md) fire on 5 of 5 public claims — measured, P1190 —
+       so reading them out would qualify literally any public argument and prove nothing.
+       The two axes discriminate; the four modes do not. There are FOUR modes, not five:
+       "specifiability" and "fuzzy intent" are the same one under two names.
+       ON STAGE: land the hot cell, then say tonight's topic sits in it — "safe",
+       "superintelligence" and "aligned" are left to each of us, and LeCun and Bengio
+       hold genuinely different models of how it works.
+       [FOUNDER DECISION: whether to swap the hot cell's example from the co-founders to
+       an AI-safety one. Left alone — it is a shared slide with /presi.] -->
+  <style>
+    /* SCOPED to this slide only - the decisions slide ("How misunderstandings influence
+       decisions") shares .mx-* and must not move. This slide's row labels ("different idea
+       of how it works") are far longer than that slide's ("Good"/"Bad"), so on a phone the
+       auto-sized rail ate the plot and
+       broke the cell copy mid-phrase. Cap the rail and step the label down instead. */
+    @media(max-width:480px){
+      .mx-scope{grid-template-columns:64px 1fr}
+      .mx-scope .mx-rh{font-size:.53rem;letter-spacing:.05em;line-height:1.3;padding:.4rem .15rem}
+      .mx-scope .mx-cell{padding:.6rem .4rem}
+    }
+  </style>
+  <section class="slide soft">
     <!-- NOTES
-      - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
-        now sit between the volunteer ask and the live embed, and he named them himself:
-        this one is "What is Cognitive Understanding?", the Venn is "How to verify".
-        NOTE the two LinkedIn poll slides that used to flank it (the "sees it your way"
-        poll before, the "three things" poll after) stayed in the backing block — this
-        card travels alone now.
-      - WAS at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
-      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
-      - Cognitive understanding is the only one we measure; the other two are not the target.
+      - IN THE ARC at slide 2 (round 5, founder): the room learns which situations this applies to before anything is claimed. Not a qualifier — a boundary.
+      - Four situations land neutral; ADVANCE ONCE to light ours (top-right).
+      - Where a price, rule, standard or precedent exists, use it. We are for what no wording can pin down.
+      - "Clarity Principle" is the repo's own term (full-article.md § VI; how-platform-works move 2, "a minimum clarity principle"). Say it as written.
     -->
-    <h2 style="margin-bottom:.2rem">What is <span class="accent">Cognitive Understanding?</span></h2>
-    <div class="st1-card">
-      <div class="st1-head">
-        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
-        <div>
-          <div class="st1-nameline">
-            <span class="st1-name">Vyacheslav Ladischenski</span>
-            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
-          </div>
-          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
+    <div class="kicker">Which situations need the Clarity Principle?</div>
+    <div class="mx-frame mx-scope" data-flip>
+      <span class="mx-lab mx-lab-y">explanatory divergence</span>
+      <div class="mx-rows">
+        <div class="mx-rh">Different idea of<br>how it works</div>
+        <div class="mx-rh">Same idea of<br>how it works</div>
+      </div>
+      <div class="mx-plot">
+        <div class="mx">
+          <div class="mx-cell">Landlord &amp; tenant:<br>the lease</div>
+          <div class="mx-cell hot">Two co-founders:<br>&ldquo;equal partners&rdquo;</div>
+          <div class="mx-cell">Buyer &amp; seller:<br>the price tag</div>
+          <div class="mx-cell">Friends:<br>&ldquo;let's travel together&rdquo;</div>
         </div>
       </div>
-      <div class="st1-wrap">
-        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
-        <span class="st1-pulse" style="left:61%;top:49%"></span>
-        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
+      <div class="mx-ticks">
+        <div class="mx-ch">Written down</div>
+        <div class="mx-ch">Left to each of us</div>
+      </div>
+      <span class="mx-lab mx-lab-x">room for interpretation</span>
+    </div>
+    <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
+  </section>
+
+  <!-- Demoted 2026-09-16, round 7 (founder: "move the slide 14 out into backlog"). No
+       bracelets exist for event #1 (clarity-forum.md), so the ritual could not be done. -->
+  <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Title is "Make it a habit" (was the badge text); setup line "A bracelet is the reminder: on in the morning, counted in the evening."
+      - The whole practice reduces to one sentence: "I believe I understand you at N out of 10."
+      - Bracelet is a slip-tracker, not a reward. Evening count is the metric.
+    -->
+    <h2 style="margin-bottom:.3rem">Make it a <span class="accent">habit</span></h2>
+    <div class="ritual">
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Morning</span> — put the bracelet on, commit to never miss acting on the trigger</p>
+      </div>
+      <div class="ritual-nest">
+        <div class="ritual-step">
+          <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <p class="ritual-h"><span class="ritual-lab">Trigger</span> — notice an important agreement or disagreement</p>
+        </div>
+        <div class="ritual-nest">
+          <div class="ritual-step">
+            <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <p class="ritual-h"><span class="ritual-lab">Act</span> — <em class="ritual-say">&ldquo;I believe I understand you at [Number] out of 10&rdquo;</em></p>
+          </div>
+          <div class="ritual-step">
+            <svg class="ritual-ic miss" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>
+            <p class="ritual-h"><span class="ritual-lab miss">Don&rsquo;t act</span> — switch the bracelet to the other hand</p>
+          </div>
+        </div>
+      </div>
+      <div class="ritual-step">
+        <svg class="ritual-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <p class="ritual-h"><span class="ritual-lab">Evening</span> — count how many triggers you missed acting on</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Demoted 2026-09-16, round 7 (founder). Content unchanged; position only. ──
+       · quotes collage — DELETED from the file, round 8 (founder: "quotes cut"; "like starting
+         a book club by discussing why people hate books"). Deleted rather than kept as backup
+         because backup slides are publicly reachable at /presi3 and it quoted a WhatsApp
+         group. Last committed version: 73c5def50 (a parallel session's "collage round 3").
+       · credibility (the bio) — demoted, then BROUGHT BACK in round 8 ("lets bring back the
+         slide with me"); it now sits after the why, before the influences.
+       · names this method goes by — overlaps "proven" (closed-loop is on both).
+       · how to verify — "maybe backup ok"; the live principle is the how.
+       · the five barrier cards — "barrier is maybe backup"; the norm line stayed in the arc.
+       · the static principle — replaced by the live /meet embed; retitled Clarity Meeting
+         Principle ("retitle: yes"). -->
+
+
+  <!-- 5 · PRIOR ART, BY NAME — the same move under the names other fields already use.
+       Lost its header comment in an earlier reorder; restored 2026-09-16. -->
+  <section class="slide dark cloud-slide">
+    <!-- NOTES
+      - IN THE ARC at slide 12 (round 5, founder): placed immediately BEFORE the solution so the room hears the method is not new before it is introduced.
+      - Names the room already knows; we are not inventing a category.
+      - Difference: a number, decoupled from agreement, pre-committed.
+    -->
+    <div class="kicker" style="color:#60a5fa;max-width:48ch;margin-bottom:clamp(1.4rem,4vh,2.8rem)">Names this method already goes by, in other fields</div>
+    <div class="cloud">
+      <span class="cw xl"><span class="cw-i">Teach-back</span></span>
+      <span class="cw l"><span class="cw-i">Closed-loop communication</span></span>
+      <span class="cw xl"><span class="cw-i">Active listening</span></span>
+      <span class="cw m"><span class="cw-i">Mirroring</span></span>
+      <span class="cw l"><span class="cw-i">Ideological Turing test</span></span>
+      <span class="cw m"><span class="cw-i">Steelmanning</span></span>
+      <span class="cw l"><span class="cw-i">Devil's advocate</span></span>
+    </div>
+  </section>
+
+  <!-- 8 · HOW TO VERIFY COGNITIVE UNDERSTANDING? — the private / assumed / verified Venn.
+       Titled by the founder 2026-09-16; the headline used to be "Three types of cognitive
+       understanding". The green ellipse IS the answer the title asks for: the only part of
+       the overlap both sides actually checked. It is small on purpose. -->
+  <section class="slide">
+    <!-- NOTES
+      - Four layers fade in: your private, their private, assumed shared, verified.
+      - The green ellipse is small on purpose; verified understanding is always narrower than assumed.
+    -->
+    <h2 style="margin-bottom:.4rem">How to <span class="accent">verify</span> Cognitive Understanding?</h2>
+    <!-- st3's "picture" is the live 3-levels diagram: its four layers fade in on
+         entry (FX levels(), keyed on .lv) — the redrawn cp diagram, standalone (no story card) -->
+    <div class="st1-wrap" style="--cap:64vh;background:#fff;padding:.7rem 1rem;box-sizing:border-box">
+        <svg viewBox="0 0 640 372" role="img" style="display:block;width:100%;height:auto" aria-label="Three nested levels of cognitive understanding. Two overlapping circles: Your Private Understanding (you understand, they don't) and Their Private Understanding (they understand, you don't). Their overlap is Assumed Shared Understanding (you assume they understand what you mean). Inside it, a green core is Verified Understanding (you both verified they understand what you mean).">
+          <defs>
+            <clipPath id="cu-left"><circle cx="240" cy="185" r="170"/></clipPath>
+          </defs>
+          <g class="lv">
+            <circle cx="240" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
+            <text x="150" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Your Private<tspan x="150" dy="23">Understanding</tspan></text>
+            <text x="150" y="202" text-anchor="middle" font-size="12.5" fill="#475569">You understand,<tspan x="150" dy="15" font-weight="700" fill="#0f172a">they don't</tspan></text>
+          </g>
+          <g class="lv">
+            <circle cx="400" cy="185" r="170" fill="rgba(59,130,246,.12)" stroke="#3b82f6" stroke-width="2"/>
+            <text x="490" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-.3">Their Private<tspan x="490" dy="23">Understanding</tspan></text>
+            <text x="490" y="202" text-anchor="middle" font-size="12.5" fill="#475569">They understand,<tspan x="490" dy="15" font-weight="700" fill="#0f172a">you don't</tspan></text>
+          </g>
+          <g class="lv">
+            <circle cx="400" cy="185" r="170" fill="rgba(100,116,139,.18)" clip-path="url(#cu-left)"/>
+            <text x="320" y="104" text-anchor="middle" font-size="14" font-weight="800" fill="#1d4ed8" letter-spacing="-.2">Assumed Shared<tspan x="320" dy="17">Understanding</tspan></text>
+            <text x="320" y="146" text-anchor="middle" font-size="11" fill="#475569">You <tspan font-weight="700" fill="#1d4ed8">assume</tspan> they<tspan x="320" dy="13">understand what you mean</tspan></text>
+          </g>
+          <g class="lv">
+            <ellipse cx="320" cy="232" rx="75" ry="62" fill="rgba(34,197,94,.30)" stroke="#16a34a" stroke-width="1.75"/>
+            <text x="320" y="210" text-anchor="middle" font-size="16" font-weight="800" fill="#14532d" letter-spacing="-.2">Verified<tspan x="320" dy="17">Understanding</tspan></text>
+            <text x="320" y="245" text-anchor="middle" font-size="10" fill="#166534">You <tspan font-weight="700">both verified</tspan> they<tspan x="320" dy="12">understand what you mean</tspan></text>
+          </g>
+        </svg>
+      </div>
+  </section>
+
+  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
+       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
+       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
+       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
+       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
+  <style>
+    .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
+    .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
+      text-transform:uppercase;color:#ef4444;margin-bottom:.75rem}
+    .card.refuse p{font-size:clamp(.95rem,1.8vw,1.2rem);color:var(--fg);line-height:1.45;font-weight:600}
+    /* the reason under the reasons — deliberately NOT a sixth card (founder: "maybe not
+       as a fifth point, but below them"). Heavier than a .note so it reads as the answer. */
+    .norm{display:flex;align-items:baseline;gap:.9rem;max-width:min(64rem,92vw);
+      margin:clamp(1.6rem,4vh,2.6rem) auto 0;text-align:left}
+    .norm-lab{flex:0 0 auto;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+      font-size:clamp(.72rem,1.3vw,.9rem);color:var(--blue)}
+    .norm p{font-size:clamp(1rem,1.9vw,1.35rem);line-height:1.45;font-weight:600;color:var(--fg);margin:0}
+  </style>
+  <section class="slide soft">
+    <!-- NOTES
+      - The five cards are the barriers; the line underneath is the real cause. Land the
+        cards fast, then slow down on the social norm — three slides later the Clarity Group
+        Terms answer it word for word: "Make it normal to admit 'I don't understand'".
+      - PLACED RIGHT AFTER "How to verify" on purpose (founder, round 6: "slide 14 after
+        slide 10"): verify → why nobody does → then the practical setup. Crucially it lands
+        BEFORE anyone opts in or out, so opting out is never cast as a barrier after the fact.
+        Opting out is welcome. Say so if the room reads the cards as an accusation.
+      - Titled "5 barriers" rather than "why people refuse" to be less attacking (round 6).
+        Was, before that, "When I refuse, what am I protecting?".
+      - The "most of all" line was cut to seven words in round 6; the long version it
+        replaced quoted the event page ("admitting it gets punished nearly everywhere").
+    -->
+    <div class="kicker">Where the will breaks down</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)"><span class="accent">5 barriers</span> to verifying cognitive understanding</h2>
+    <div class="cards four">
+      <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
+      <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
+      <div class="card refuse"><h3>Fear</h3><p>&ldquo;You will think I am stupid.&rdquo;</p></div>
+      <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
+      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know how it benefits me.&rdquo;</p></div>
+    </div>
+    <!-- The founder's own framing, 2026-09-16: the five cards are the reasons people give
+         themselves; the REAL reason sits underneath all of them and is not a sixth card.
+         Wording is his, from the live event page ("admitting you did not understand gets
+         punished nearly everywhere") — do not soften it into a generic "culture" line. -->
+    <div class="norm">
+      <span class="norm-lab">Most of all</span>
+      <p>No social norm to admit &ldquo;I don&rsquo;t understand&rdquo;</p>
+    </div>
+  </section>
+
+  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - REBUILT 2026-09-16. The arc used to show three flat clauses; the founder rejected them
+        ("the current three doesn't make sense to me") and named the right three: the TRIGGER
+        (you can ask me the question), the PROMISE (I'll answer), and the EXCEPTION. Those are
+        "Your right" / "My promise" / "The exception" — the shape the full terms already had.
+      - The text is VERBATIM the join page's oath, promoted here from the old backing slide,
+        which has been deleted so there is one copy. Do NOT reword it for the room: this deck's
+        own rule is "same oath text as the join page; never fork it for a talk." If it reads too
+        dense on the projector, DROP a paragraph — do not rewrite one.
+      - "Reveal gaps easily. Bridge them safely." was deleted from this slide by the founder.
+      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
+      - Org-scope terms: one person can commit today without recruiting a counterparty.
+    -->
+    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.45rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
+    <div class="cert-wrap">
+      <div class="cert">
+        <div class="cert-head">
+          <h3>Clarity Meeting Principle</h3>
+        </div>
+        <p class="cert-intro"><b>A commitment to every member</b> &mdash; <i>We all crave being understood. Let's commit to listen.</i></p>
+        <div class="cert-clause">
+          <h4>Your right</h4>
+          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>My promise</h4>
+          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
+          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
+          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p>
+        </div>
+        <div class="cert-clause">
+          <h4>The exception</h4>
+          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
+        </div>
       </div>
     </div>
   </section>
