@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-16 [product]: The Links menu is the product's index on every product surface, not an event feature — the per-event group is retired and /stake gets the menu
+
+**Context:** P1179 built "Links" as an event-room menu with a "This event" group, and the 2026-08-28 stake-surface entry said a bare `/stake/:tag` has "no button". The 2026-09-07 entry widened it to the standalone `/ready` and `/meet` via a route predicate. Each widening added another list of routes to keep in sync. The founder, reviewing P1323: *"yes LINKS menue will be in other points too"* and *"yes in /stake we will have LINKS!"*. On the event group: tags made for an event already appear in the menu, so a separate group only duplicated entries.
+
+**Decision:** (1) The menu appears on every **product** surface and on no public/marketing surface, decided per route by a required `surface: 'product' | 'public'` prop on the layout (40 product / 29 public at ship; `/groups*` is product). (2) Three fixed groups, Points / Letters / Tools, with the "This event" group retired; `?event=` is still carried on stake paths. (3) Letters open in a new tab, so live capture is not paused and the nav is not lost. (4) The trigger is a 44px link icon, not a boxed "Links" label, so it fits the desktop header and a 320px phone header. (5) `/stake/:tag` is a focused surface on phones too: no browse bottom bar, matching desktop. (6) End Session has one treatment everywhere: neutral at rest, destructive on hover/focus.
+
+**Alternatives rejected:** Keeping a route predicate inside `event-links.ts` (a second route list with no test tying it to `App.tsx`, which is the drift the 2026-09-07 entry already named). Keeping the "This event" group (duplicate entries, per-event maintenance). A boxed text trigger on desktop (it made the top menu heavier, the founder's stated worry). Opening letters in the same tab (it stops capture in the room).
+
+**Consequences:** Reverses P1179's "no Links on /stake" invariant and the "bare `/stake/:tag` has no button" line of the 2026-08-28 entry. A new route cannot compile without choosing its surface. Rooms that own their header adopt the trigger (`useLinksTriggerOverride('adopt')`), and the `/live` host view declines it. Left as-is on purpose: `/pledgers` stays public; the `/transcribe` join screen keeps the bottom bar on phones (the reverse of the /stake mismatch); the phone CTA shows only an icon below 360px. Known pre-existing race, filed as INBOX-80: an Open tap right after Continue on `/events/:slug/ready` can bounce back to `/meet`.
+
+**References:** [P1323 spec](../features/done/2026-06-10/p1323_links_menu_becomes_the_product_index_and_one_end_session_treatment.md) · [src/app/data/event-links.ts](../src/app/data/event-links.ts) · [src/app/layouts/clarity-landing-layout.tsx](../src/app/layouts/clarity-landing-layout.tsx)
+
+---
+
+## 2026-09-16 [technical]: A required prop is only enforced if the typecheck that CI runs can see it — `npx tsc --noEmit` checks nothing in this repo
+
+**Context:** P1323 made `surface` a required prop so no route could skip the decision. The first probe, `npx tsc --noEmit`, returned clean for a call site with the prop deleted, and it returned clean for a correct one too. The root `tsconfig.json` is a solution file with `files: []`, so that command checks zero files. The real check is `tsc -p tsconfig.app.json`, which carries a baseline of about 1,065 unrelated errors, so a new missing-prop error is not a failed build. It is one more line in the noise.
+
+**Decision:** `scripts/typecheck-gate.sh` (pre-commit + CI) fails on a missing or invalid `surface`. It first joins multi-line tsc diagnostics, then matches `ClarityLandingLayoutProps` with TS2741/TS2739/TS2769, or TS2322 against `ClarityLayoutSurface`. Each code has its own canary in `scripts/test-typecheck-gate.sh` (8 scenarios). A single ordered regex was tried and silently stopped catching TS2739; the canary caught it, and the gate went back to order-independent filters.
+
+**Alternatives rejected:** A source-scan test that greps call sites (it cannot tell a comment from code; two P1323 tests already broke on a hex value and on JSX inside comments). Fixing the ~1,065-error baseline first (a separate project; the gate is scoped to the codes this rule needs).
+
+**Consequences:** Any future "required prop as a guard" in this repo needs a matching gate filter plus a canary, or it guards nothing. Before trusting a clean `tsc` run here, run a known-bad control through the same command.
+
+**References:** [scripts/typecheck-gate.sh](../scripts/typecheck-gate.sh) · [scripts/test-typecheck-gate.sh](../scripts/test-typecheck-gate.sh) · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 7
+
+---
+
 ## 2026-09-16 [product]: At an event, the unit of recording consent is the PAIR — lavalier wearers pair only with each other
 
 **Context:** Clarity Night #1 recruits six volunteers to wear a lavalier and turn on "Transcribe
