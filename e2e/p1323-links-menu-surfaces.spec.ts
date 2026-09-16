@@ -301,6 +301,22 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     }
   });
 
+  /**
+   * AC-11d. `/events/*` is ONE route in App.tsx whose nested router carries 8 routes, and all
+   * of them take a single `surface="product"` (founder decision). Asserted on the four that span
+   * both halves of that router: two anyone can open, two gated to the signed-in HOST.
+   */
+  test('AC-11d: the /events/* pages carry the trigger — public and host-gated halves', async ({ page }) => {
+    await setTestSession(page, attendee.email);
+    await page.waitForLoadState('networkidle');
+    await setViewport(page, 1280, 800);
+    for (const path of ['/events/list', `/events/${event.slug}`, '/events/new', `/events/${event.slug}/edit`]) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      await expect(visibleLinksTriggers(page), `${path}: one visible Links trigger`).toHaveCount(1, { timeout: 20_000 });
+    }
+  });
+
   test('AC-1 + AC-17: a bare /stake/:tag carries the menu, signed OUT, at desktop width, non-compact routes too', async ({ page }) => {
     // Signed out on purpose: the signed-out desktop non-compact nav branch had no trigger at all.
     await setViewport(page, 1280, 800);
