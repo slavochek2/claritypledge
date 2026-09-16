@@ -17,6 +17,13 @@
 # are symlinks: a symlink a session created is work, and exempting every untracked
 # symlink made `abandon` delete it (adversarial review, 2026-09-16).
 #
+# IGNORED files count too (three independent reviewers, 2026-09-16). `.gitignore`
+# says "do not commit", not "disposable": a session's notes under `.private/`, or a
+# real (non-symlink) `.env.local`, are ignored AND the only copy. Exempt only what is
+# regenerated — measured on the live slots that day: dist/, playwright-report/,
+# test-results/, and .private/test-auth/ (e2e login state). coverage/ added as the
+# same class.
+#
 # FAILS TOWARD DIRTY. Callers use this to decide whether destroying or advertising
 # a worktree is safe, so anything unreadable — a git error, a quoted filename this
 # parser does not unpick — counts as a change. A false "dirty" costs one refusal
@@ -24,9 +31,22 @@
 worktree_has_user_changes() {
   local wt="$1" out line name
   [[ -d "$wt" ]] || return 0
-  out="$(git -C "$wt" status --porcelain --untracked-files=normal 2>/dev/null)" || return 0
+  out="$(git -C "$wt" status --porcelain --ignored --untracked-files=normal 2>/dev/null)" || return 0
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
+    if [[ "${line:0:3}" == "!! " ]]; then
+      name="${line:3}"; name="${name%/}"
+      case "$name" in
+        dist|playwright-report|test-results|coverage|node_modules|.activity|.activity.*) continue ;;
+        .env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
+        .private)
+          # Directory reported collapsed; look inside for anything that is not e2e login state.
+          if [[ -z "$(find "$wt/.private" \( -type f -o -type l \) ! -path "$wt/.private/test-auth/*" -print 2>/dev/null | awk 'NR==1')" ]]; then
+            continue
+          fi ;;
+      esac
+      return 0
+    fi
     if [[ "${line:0:3}" == "?? " ]]; then
       name="${line:3}"
       name="${name%/}"

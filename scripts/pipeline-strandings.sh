@@ -95,9 +95,11 @@ hold_reason() {
   if [[ -x scripts/git-ops.sh ]]; then
     st="$(bash scripts/git-ops.sh status "$slot" 2>/dev/null | awk '/^State/{print $2; exit}')"
   fi
-  if [[ "$st" == "LIVE" ]]; then
-    echo "slot is LIVE (recent activity or heartbeat)"; return
-  fi
+  case "$st" in
+    ORPHAN|STALE|NO_LOCK) ;;   # positively measured as not in use
+    LIVE) echo "slot is LIVE (recent activity or heartbeat)" ;;
+    *)    echo "liveness could not be measured (git-ops status gave '${st:-nothing}')" ;;
+  esac
 }
 
 mtime_of() {  # portable: BSD stat first, then GNU
@@ -111,7 +113,9 @@ while IFS= read -r wt; do
   [[ "$wt" == "$REPO_ROOT" ]] && continue
   br="$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
   managed=0
-  case "$wt" in "$WORKTREES_DIR"/w[0-9]*) [[ -n "$br" && "$br" != "HEAD" ]] && managed=1 ;; esac
+  if [[ "$(dirname "$wt")" == "$WORKTREES_DIR" && "$(basename "$wt")" =~ ^w[0-9]+$ && -n "$br" && "$br" != "HEAD" ]]; then
+    managed=1
+  fi
 
   if [[ "$managed" -eq 0 ]]; then
     gd="$(git -C "$wt" rev-parse --path-format=absolute --git-dir 2>/dev/null || echo '')"

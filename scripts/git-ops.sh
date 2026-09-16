@@ -694,7 +694,7 @@ cmd_release() {
     exit 1
   fi
 
-  rm -f "$lockfile"
+  rm -f "$lockfile" "$(dirname "$lockfile")/.activity"
   echo "git-ops: released $slot (lockfile removed, worktree/branch preserved)" >&2
 }
 
@@ -702,6 +702,29 @@ cmd_release() {
 # Subcommand: heartbeat (P1268)
 # ----------------------------------------------------------------------------
 #
+# P1326: remove a shipped/published feature's worktree ONLY if it holds no user
+# changes. `git worktree remove --force` deletes uncommitted work silently, and a
+# session can edit a worktree after ship snapshots it (two independent reviewers,
+# reproduced). Ship has already landed on main by the time this runs, so a dirty
+# worktree is RETAINED with a message rather than failing the ship.
+# Prints nothing and returns 0 when removed (or absent); returns 1 when retained.
+teardown_worktree_if_clean() {
+  local wt_path="$1" who="$2"
+  [[ -n "$wt_path" && -d "$wt_path" ]] || return 0
+  if worktree_has_user_changes "$wt_path"; then
+    {
+      echo "$who: worktree RETAINED — it holds uncommitted changes that are not on main:"
+      git -C "$wt_path" status --porcelain 2>/dev/null | awk '!/^\?\? (\.lock|\.activity|node_modules)$/ && n++ < 10' | sed 's/^/    /'
+      echo "  path: $wt_path"
+      echo "  Commit and ship them, or discard them deliberately, then remove the worktree."
+    } >&2
+    return 1
+  fi
+  reap_worktree_servers "$wt_path"
+  ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
+  return 0
+}
+
 # ----------------------------------------------------------------------------
 # Subcommand: activity (P1326)
 # ----------------------------------------------------------------------------
@@ -930,7 +953,8 @@ cmd_adopt() {
         echo "git-ops: refusing to adopt $slot — the lock is LIVE"
         echo "  held by  : ${LOCK_SESSION_ID:-?}"
         echo "  last beat: ${LOCK_HEARTBEAT:-?}"
-        echo "A fresh heartbeat means a session is actively working in this slot."
+        echo "  activity : ${LOCK_ACTIVITY:-none} (any tool call touching this slot refreshes it)"
+        echo "A fresh heartbeat or activity stamp means a session is working in this slot."
         echo "If this claim is yours, pass --nonce <value>. If that session is gone,"
         echo "its heartbeat expires after ${LOCK_TTL_SECONDS}s and adopt will succeed."
       } >&2
@@ -1605,6 +1629,10 @@ cmd_abandon() {
             echo "If that session is really gone, its heartbeat expires ${LOCK_TTL_SECONDS}s after"
             echo "the stamp above, after which 'abandon' needs no nonce."
           fi
+          if [[ -n "${LOCK_ACTIVITY:-}" ]] && heartbeat_fresh "${LOCK_ACTIVITY}"; then
+            echo "  activity   : ${LOCK_ACTIVITY} (fresh — a tool call touched this slot; inspecting it counts too)"
+            echo "It reads ORPHAN ${LOCK_TTL_SECONDS}s after the last tool call that touched the slot."
+          fi
         } >&2
         exit 1
       fi
@@ -1628,7 +1656,46 @@ cmd_abandon() {
       exit 1
     fi
   fi
-  # STALE, ORPHAN, or owner-proven LIVE: proceed.
+  # P1326: the dirty check above is a snapshot, and a session can write between it
+  # and the removal below. Without the nonce, never force: set aside our own
+  # bookkeeping, then let plain `git worktree remove` refuse on anything that
+  # appeared in the window. Restore the bookkeeping if it does.
+  if [[ -z "$nonce_arg" || "$nonce_arg" != "${LOCK_NONCE:-}" ]]; then
+    if grep -Fxq "worktree $slot_path" < <( cd "$REPO_ROOT" && git worktree list --porcelain 2>/dev/null ); then
+      # Moved aside (never deleted) into a sibling dir outside the worktree, so a
+      # refusal restores every byte — including .activity: a refused abandon must
+      # not leave the slot reading LESS alive than before (review finding).
+      local _aside _n
+      _aside="$(mktemp -d "$WORKTREES_DIR/.abandon-aside.$slot.XXXXXX")" || die "abandon: mktemp failed"
+      for _n in .lock .activity node_modules .env.local .env.test.local; do
+        case "$_n" in
+          node_modules|.env.local|.env.test.local) [[ -L "$slot_path/$_n" ]] || continue ;;
+          *) [[ -e "$slot_path/$_n" ]] || continue ;;
+        esac
+        mv "$slot_path/$_n" "$_aside/$_n"
+      done
+      reap_worktree_servers "$slot_path"
+      local _gerr
+      if ! _gerr="$( cd "$REPO_ROOT" && git worktree remove "$slot_path" 2>&1 )"; then
+        for _n in .lock .activity node_modules .env.local .env.test.local; do
+          if [[ -e "$_aside/$_n" || -L "$_aside/$_n" ]]; then mv "$_aside/$_n" "$slot_path/$_n"; fi
+        done
+        rmdir "$_aside" 2>/dev/null || true
+        {
+          echo "git-ops abandon: refusing $slot — git would not remove the worktree without --force:"
+          echo "  $_gerr"
+          echo "Something changed in it since the check. Inspect it, or pass --nonce <value> if the slot is yours."
+        } >&2
+        exit 1
+      fi
+      rm -rf -- "$_aside"
+      ( cd "$REPO_ROOT" && git worktree prune ) >/dev/null 2>&1 || true
+      echo "git-ops abandon: removed lockfile and worktree for $slot (branch preserved)" >&2
+      return 0
+    fi
+  fi
+
+  # Owner-proven (nonce), or not a registered worktree: the original forced path.
   rm -f "$lockfile"
 
   # Kill any dev server squatting inside the slot before we remove it (orphan-port guard).
@@ -3083,11 +3150,13 @@ PYEOF
                 /^worktree / { path = substr($0, 10); next }
                 /^branch / { if ($2 == br) print path }
               ' | sed -n '1p' )" || wt_path=""
+  local _ps_retained=0
   if [[ -n "$wt_path" ]]; then
-    reap_worktree_servers "$wt_path"
-    ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
+    teardown_worktree_if_clean "$wt_path" "publish-spec" || _ps_retained=1
   fi
-  if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
+  if (( _ps_retained == 1 )); then
+    echo "publish-spec: branch $branch kept with its worktree." >&2
+  elif ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
     ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
       echo "publish-spec: WARNING — branch delete failed for $branch" >&2
   fi
@@ -4206,18 +4275,23 @@ The branch is authoritative for shipped migrations. Compare each file with
                   /^worktree / { path = substr($0, 10); next }
                   /^branch / { if ($2 == br) print path }
                 ' | head -n1 )"
+    local _ship_retained=0
     if [[ -n "$wt_path" ]]; then
-      # Kill any dev server squatting inside the worktree before removal (orphan-port guard).
-      reap_worktree_servers "$wt_path"
-      ( cd "$REPO_ROOT" && git worktree remove --force "$wt_path" ) >/dev/null 2>&1 || true
+      # Kill any dev server squatting inside the worktree before removal (orphan-port
+      # guard) — inside the helper, and only when the worktree is actually removed.
+      teardown_worktree_if_clean "$wt_path" "ship" || _ship_retained=1
     fi
-    # Branch may already be deleted if a prior run reached here — treat "branch
-    # not found" as success for idempotency.
-    if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
-      ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
-        die "ship: branch delete failed for $branch"
+    if (( _ship_retained == 1 )); then
+      echo "ship: branch $branch kept with its worktree (git cannot delete a checked-out branch, and it holds the only copy of those changes)." >&2
+    else
+      # Branch may already be deleted if a prior run reached here — treat "branch
+      # not found" as success for idempotency.
+      if ( cd "$REPO_ROOT" && git rev-parse --verify "$branch" >/dev/null 2>&1 ); then
+        ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 || \
+          die "ship: branch delete failed for $branch"
+      fi
+      ship_set_journal_flag "$pn" "branch_deleted"
     fi
-    ship_set_journal_flag "$pn" "branch_deleted"
   fi
 
   # Capture the snapshot BEFORE releasing the lock — see the no-branch path above.

@@ -130,6 +130,9 @@ chmod +x "$SCRATCH/main/scripts/git-ops.sh"
 mkdir -p "$SCRATCH/main/scripts/lib"
 cp "$REPO_ROOT/scripts/ship-gates.sh" "$SCRATCH/main/scripts/ship-gates.sh"
 cp "$REPO_ROOT/scripts/lib/gate-override.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
+# P1326: ship's worktree teardown consults the dirty-tree helper, and git-ops fails
+# CLOSED (treats every worktree as holding work) when it is absent.
+cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$SCRATCH/main/scripts/lib/worktree-changes.sh"
 chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-override.sh"
 
 : > "$SCRATCH/main/features/done/2026-04-22/.gitkeep"
@@ -141,7 +144,7 @@ chmod +x "$SCRATCH/main/scripts/ship-gates.sh" "$SCRATCH/main/scripts/lib/gate-o
   git config user.name canary
   git config commit.gpgsign false
   echo "seed" > README.md
-  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh features/done/2026-04-22/.gitkeep
+  git add README.md scripts/git-ops.sh scripts/ship-gates.sh scripts/lib/gate-override.sh scripts/lib/worktree-changes.sh features/done/2026-04-22/.gitkeep
   git commit -qm "seed"
   git branch -M main
 ) >/dev/null
@@ -2928,6 +2931,53 @@ fi
 ( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
 scratch_reset p164
 pass "UU (P1250): a malformed co-located spec is named in the report, left in place, and does not strand Phase 3"
+
+# -----------------------------------------------------------------------------
+# UU-P1326. Phase 3 must not delete uncommitted work. `git worktree remove
+#     --force` destroys it silently, and a session can edit a worktree after ship
+#     snapshots the branch (two independent reviewers, reproduced). The commits
+#     have already landed, so the ship still SUCCEEDS — the worktree and its
+#     branch are retained and named, never force-removed.
+# -----------------------------------------------------------------------------
+cat > "$SCRATCH/main/features/p166_demo.md" <<'EOF'
+---
+status: qa
+type: task
+rank: 1
+tags: [demo]
+delivery_stage: fix
+pipeline_ran: [fix]
+---
+# p166: Dirty worktree at ship time
+Problem: late uncommitted work.
+
+## Done-When
+
+- [x] fixture criterion
+EOF
+( cd "$SCRATCH/main" && git add features/p166_demo.md && git commit -qm "chore: add p166 spec" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q -b feature/p166-demo ) >/dev/null
+echo "fix" > "$SCRATCH/main/p166_fix.txt"
+( cd "$SCRATCH/main" && git add p166_fix.txt && git commit -qm "p166: fix" ) >/dev/null
+( cd "$SCRATCH/main" && git checkout -q main ) >/dev/null
+UW_WT="$SCRATCH/main/.claude/worktrees/w6"
+( cd "$SCRATCH/main" && git worktree add -q "$UW_WT" feature/p166-demo ) >/dev/null 2>&1
+echo "not yet committed" > "$UW_WT/late-work.sql"
+UW_RC=0
+UW_OUT="$(cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p166)" || UW_RC=$?
+uw_ok=1
+[[ "$UW_RC" == "0" ]] || { echo "$UW_OUT" >&2; fail "UU-P1326: ship exited $UW_RC — the commits landed, so a dirty worktree must not fail the ship"; uw_ok=0; }
+[[ -f "$UW_WT/late-work.sql" ]] || { echo "$UW_OUT" >&2; fail "UU-P1326: ship DELETED uncommitted work in the worktree"; uw_ok=0; }
+( cd "$SCRATCH/main" && git rev-parse --verify feature/p166-demo >/dev/null 2>&1 ) \
+  || { echo "$UW_OUT" >&2; fail "UU-P1326: branch deleted although its worktree was retained"; uw_ok=0; }
+grep -q 'RETAINED' <<<"$UW_OUT" || { echo "$UW_OUT" >&2; fail "UU-P1326: retention was silent — the operator is never told"; uw_ok=0; }
+ls "$SCRATCH/main"/features/done/*/p166_demo.md >/dev/null 2>&1 \
+  || { echo "$UW_OUT" >&2; fail "UU-P1326: spec not closed — retention must not undo the ship"; uw_ok=0; }
+( cd "$SCRATCH/main" && git worktree remove --force "$UW_WT" ) >/dev/null 2>&1 || true
+( cd "$SCRATCH/main" && git worktree prune ) >/dev/null 2>&1 || true
+scratch_reset p166
+rm -f "$SCRATCH/main"/features/done/*/p166_demo.md
+(( uw_ok == 1 )) && pass "UU-P1326: a dirty worktree at ship time is retained with its branch and named; the ship still completes"
 
 # -----------------------------------------------------------------------------
 # VV. Stranded-state signal. Phase 3 (branch + worktree cleanup) runs LAST, so

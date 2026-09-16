@@ -35,7 +35,7 @@ fi
 # this process's cwd names a worktree slot, neither signal below can fire, so do not
 # pay for a python parse and two git calls on every tool use.
 case "$RAW$PWD" in
-  *worktrees/w[0-9]*) ;;
+  *worktrees/*) ;;
   *) exit 0 ;;
 esac
 
@@ -83,7 +83,7 @@ run_bounded() {  # never let a slow git-ops stall the tool call: 3s hard budget
 # ── activity (P1326) ─────────────────────────────────────────────────────────
 # Cheap substring gate first: almost no tool call mentions a worktree slot.
 case "$RAW" in
-  *worktrees/w[0-9]*)
+  *worktrees/*)
     SLOTS="$(printf '%s' "$RAW" | WT_DIR="$WT_DIR" python3 -c '
 import json,os,re,sys
 try:
@@ -112,13 +112,23 @@ for v in [ti.get("file_path"),ti.get("notebook_path"),ti.get("path"),d.get("cwd"
 # Commands: absolute under this repo, or the repo-relative spelling.
 cmd=ti.get("command")
 if isinstance(cmd,str):
+    repo=os.path.dirname(os.path.dirname(wt))
+    home=os.path.expanduser("~")
+    for var in ("${CLAUDE_PROJECT_DIR}","$CLAUDE_PROJECT_DIR"):
+        cmd=cmd.replace(var,repo)
+    cmd=re.sub(r"(?<![\w/])~(?=/)",home,cmd)
     alts="|".join([re.escape(r) for r in roots]+[r"\.claude/worktrees"])
-    for m in re.finditer(r"(?:^|(?<=[\s\"'"'"'=:(]))(?:"+alts+")/"+slot,cmd):
+    # The slot component may be quoted on its own: cd .claude/worktrees/"w1"
+    # No left anchor: ./.claude/worktrees/w1, "x/.claude/worktrees/w1" and a quoted
+    # component all count. A false match can only hold a slot LIVE.
+    for m in re.finditer(r"(?:"+alts+")/[\"'"'"']?"+slot,cmd):
         found.add(m.group(1))
 print("\n".join(sorted(found)))
 ' 2>/dev/null || true)"
     for S in $SLOTS; do
-      case "$S" in w[0-9]*) [ -f "$WT_DIR/$S/.lock" ] && run_bounded "$GIT_OPS" activity "$S" ;; esac
+      # From REPO_ROOT: git-ops.sh finds its repo from its cwd, and the hook's own cwd
+      # need not be inside the repo (found by firing the hook from a neutral dir).
+      case "$S" in w[0-9]*) [ -f "$WT_DIR/$S/.lock" ] && ( cd "$REPO_ROOT" && run_bounded "$GIT_OPS" activity "$S" ) ;; esac
     done
     ;;
 esac

@@ -153,3 +153,7 @@ scripts/.trusted-ship-gates.sh
 
 # P1317: inbox CLI temp files (a crash between write and rename must not leave a committable copy)
 *.inbox.tmp
+
+# P1326: per-slot activity marker written by the PostToolUse hook (never committed)
+.activity
+.activity.*
