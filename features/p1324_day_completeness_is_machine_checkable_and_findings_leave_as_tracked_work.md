@@ -7,7 +7,7 @@ created_date: '2026-09-16'
 tags: [day, gates, hooks, reliability]
 disclosure: public
 delivery_stage: ship
-pipeline_ran: [create-spec, ship]
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
