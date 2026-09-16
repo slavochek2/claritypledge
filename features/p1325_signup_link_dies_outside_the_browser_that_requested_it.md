@@ -7,8 +7,9 @@ created_date: '2026-09-16'
 tags: [auth, magic-link, events, activation]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
-pipeline_plan: [create-spec, challenge-prd, architect, generate-tests, dev, verify]
+pipeline_ran: [create-spec, challenge-prd]
+pipeline_plan: [create-spec, challenge-prd, dev, verify]
+pipeline_skipped: ["architect -- security design settled by two external adversarial reviews plus four live experiments on test; Technical Design section below", "generate-tests -- tests written test-first inside /dev against the Technical Design"]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -33,7 +34,7 @@ loaded. Nothing the person does with that email can work again.
 
 Measured (Mixpanel `auth_callback_failed`, a floor — it no-ops under tracker blockers):
 June–July 4 events; **Aug 1 – Sep 16: 17 events, ~10 episodes, 6 of them this exact shape**
-(`no_session` with `?code=` in the URL), 4 `otp_expired`. Nearly all are event-RSVP signups.
+(`no_session` with `?code=` in the URL — the verifier was absent in the browser that opened the link, whether that was another browser, cleared storage or a private window), 4 `otp_expired`. Nearly all are event-RSVP signups.
 Three September people never got in at all. Evidence and per-case table:
 `.private/incidents/2026-09-16-signup-link-opened-in-other-browser.md`.
 
@@ -57,12 +58,26 @@ page JavaScript runs `verifyOtp` survives any non-executing fetcher, which today
 **UNTESTED** against a JS-executing scanner (Defender Safe Links) — for those, both designs are
 presumed equal, and that presumption is what the acceptance test checks.
 
+**Verified on the test project, 2026-09-16** (`supabase-js` with `flowType: 'pkce'`, magic-link
+mail to the ops mailbox, token hash read from `auth.one_time_tokens`, which carries the `pkce_`
+prefix):
+
+| # | Experiment | Result |
+|---|---|---|
+| E1 | Mail requested in client A (verifier stored); `verifyOtp({ token_hash, type: 'magiclink' })` from a fresh client B with empty storage | **session established** — cross-browser redemption works for PKCE-issued tokens |
+| E2 | Plain `GET /auth/v1/verify?token=…` (today's link shape, no JS), then `verifyOtp` from client B | GET → `303` with `?code=`; `verifyOtp` → **"Email link is invalid or has expired"** — a non-executing fetch burns today's link |
+| E3 | Same as E1 with `type: 'email'`; then the same hash again | **session**; replay → **rejected** |
+| E4 | Test user set unconfirmed; PKCE `signInWithOtp` issues a `confirmation_token` (`pkce_`); `verifyOtp({ token_hash, type: 'email' })` from a fresh client | **session**, email confirmed — the signup type works |
+
+Not yet covered: whether the hosted template's `{{ .TokenHash }}` renders the stored hash, and how
+`{{ .RedirectTo }}` is escaped — the first steps of the test-project template run.
+
 ## Appetite
 
 - **Blast radius:** high — every new signup and every emailed login.
 - **Reversibility:** high — the link format lives in two hosted email templates; reverting is
   restoring the saved template text. The app-side change is additive to an existing route.
-- **Decision density:** low — two copy calls (below). The technical direction is evidence-led.
+- **Decision density:** zero after review — the email wording does not change, only the link target.
 
 ## Invariants
 
@@ -79,75 +94,124 @@ presumed equal, and that presumption is what the acceptance test checks.
 
 ## Solution
 
-**Part 1 — the link works in any browser.** Change the hosted *Confirm signup* and *Magic link*
-email templates so the button points at the existing `/auth/verify` route with the template's
-token hash and the original redirect target, instead of GoTrue's `/auth/v1/verify` URL.
-`/auth/verify` redeems it with `verifyOtp({ token_hash, type })` and hands off to
-`/auth/callback` with the original `source`/`redirect`/`action` intact. Make `/auth/verify`
-understand the carried redirect target (today it only forwards flat query params). Change
-**test** first, prove it end-to-end with a real inbox and a *different* browser context, then prod.
+**The link works in any browser.** Change the hosted *Confirm signup* and *Magic link* email
+templates so the button points at the existing `/auth/verify` route with the template's token
+hash and the original redirect target, instead of GoTrue's `/auth/v1/verify` URL. `/auth/verify`
+redeems it with `verifyOtp({ token_hash, type: 'email' })` — verified for both token types (E1,
+E4) — and hands off to `/auth/callback` with `source`/`redirect`/`action` intact. Change **test**
+first, prove it end-to-end, then prod, and only after the app code is live.
 
-**Part 2 — the code in the email is a fallback when the link can't be used.** Put the one-time
-code (prod `mailer_otp_length = 8`) in the same emails, and add a "type the code" field to the
-"Check Your Email" screens, verified with `verifyOtp({ email, token, type })` in the tab the
-person is already in, then the same hand-off to `/auth/callback`. This covers mail clients that
-disable links (the Outlook junk case in P1258) and people who read mail on one device and sign up
-on another. `/architect` confirms the exact list of screens; grep today finds
-`signup-page.tsx`, `login-form.tsx`, `sign-pledge-page.tsx`.
+Hardening that ships with it, because this change routes **every** signup through `/auth/verify`
+(each item came out of review and was verified, see below):
 
-Part 2 ships only if `/challenge-prd` and `/architect` keep it; Part 1 stands alone.
+1. **Carried redirect is parsed, not forwarded.** `redirect_to` is accepted only when it parses as
+   an absolute URL whose origin is this site and whose path is exactly `/auth/callback`; only its
+   query params are forwarded. Anything else is dropped (sign-in still proceeds, to the default
+   destination). The existing flat-param forwarding stays for P1257 operator links.
+2. **A transient failure never destroys the link.** supabase-js *returns* network failures and
+   5xx as `AuthRetryableFetchError` rather than throwing (`lib/fetch.js` `handleError`), so the
+   page's `.catch` branch never sees them: today a network blip strips a still-good token and says
+   "can't be used". Retryable errors (and 429) must keep the token and offer "Try again".
+3. **Already signed in → carry on.** If redemption fails but this browser already holds a
+   session (the link was clicked twice), continue to the callback with the original intent instead
+   of the error page.
+4. **The failure page keeps the RSVP intent.** "Send me a new link" carries the allowlisted
+   `redirect`/`action` to `/login`, so a person who recovers still gets their seat.
+5. **The token never reaches analytics.** Mixpanel autocaptures every pageview with the full URL
+   and records 100% of sessions (`index.html` init); today only `/live` room codes are redacted
+   (P1304). Extend that redaction to `token_hash`, `code`, `access_token`, `refresh_token`, and turn
+   session recording off on `/auth/verify`. Same for Sentry's URL redaction. (Mixpanel already
+   holds one full `#access_token=` URL from 2026-09-07.)
 
-[FOUNDER DECISION: email wording around the button and the code — draft proposed at the review
-gate, in the conversational tone decisions.md records for email templates.]
-[FOUNDER DECISION: the words on the "Check Your Email" screen for the code field — draft proposed
-at the same gate.]
+Templates must not interpolate user-supplied metadata (name) — the link is the only change.
+
+## Technical Design
+
+- **Template href** (both templates): `{{ .SiteURL }}/auth/verify?token_hash={{ .TokenHash }}&type=email&redirect_to={{ .RedirectTo }}`
+  — exact escaping of `.RedirectTo` inside the hosted template is **UNVERIFIED**; the test-project
+  template run decides between raw (then parse the remainder of `location.search` after
+  `redirect_to=`) and an escaped form. The parser must handle both, and the unit tests pin both.
+  `.SiteURL` on prod ends with `/` — normalise in the template test.
+- **`AuthVerifyPage.tsx`**: add `redirect_to` parsing (1), error classification (2), session check
+  on failure (3), intent-preserving CTA (4). `type` from the link is still allowlist-parsed.
+- **Redaction**: extend the P1304 hook in `index.html` and `src/lib/sentry-filters.ts` with an
+  auth-token pattern; recording off when `pathname === '/auth/verify'`. The existing test asserting
+  the two patterns stay identical must keep passing.
+- **`AuthCallbackPage.tsx` is not modified.** `/auth/callback` keeps handling `?code=`.
+- **Rollout order**: app code live on prod → prod templates changed (previous text saved to
+  `.private/`) → one real cross-browser signup. Revert = paste the saved template.
+
+## Adversarial Review — 2026-09-16
+
+Run in place of the `/challenge-prd` skill, as the founder asked: **Codex (gpt-5.6-sol)** with repo
+access and **Gemini (gemini-3.8-flash, served model verified)** on the spec plus source.
+**Reports: 2 of 2.** Every load-bearing claim was re-run before being accepted or rejected.
+
+| Finding | Source | Verdict | Disposition |
+|---|---|---|---|
+| Signup token type unproven | both, BLOCK | **Resolved by test** — E4: PKCE signup token redeemed from a fresh client, `type: 'email'` | Design uses `type: 'email'` for both templates |
+| Login CSRF: attacker forwards own link, victim lands in attacker's account | Codex, BLOCK | **Real, pre-existing** — the token in today's GoTrue link *is* the hash (E2 passed the stored hash as `token=` and GoTrue accepted it), and `/auth/verify` has been live since P1257, so anyone can build this link today | ACCEPT — not widened by this spec. A user-gesture interstitial would narrow it; out of scope, noted |
+| Token in URL reaches logs / analytics before stripping | Codex, BLOCK | **Real, pre-existing, and widened** — Mixpanel pageview autocapture + 100% session recording, redaction covers room codes only | MITIGATE — hardening 5 |
+| Nested `redirect_to` drops RSVP intent / open redirect | both | Real | MITIGATE — hardening 1 |
+| 5xx / 429 / network failure strips a good token | Gemini (Codex: related) | **Confirmed, worse than stated** — retryable errors are returned, not thrown | MITIGATE — hardening 2 |
+| Re-click while signed in shows a dead-end error | Gemini | Real (no session check, read in code) | MITIGATE — hardening 3 |
+| Failure CTA drops RSVP intent | Codex | Real (`/login` with no params) | MITIGATE — hardening 4 |
+| Open redirect via `/events/..//attacker.com` in the allowlist | Gemini | **Rejected** — `new URL('/events/..//attacker.com', origin)` resolves to `https://claritypledge.com//attacker.com`; navigation is same-origin | None |
+| "6 cross-browser cases" over-attributed | Codex | Fair — the shape proves the verifier was **absent**, not why (other browser, cleared storage, private mode) | Wording fixed; the fix covers every cause of an absent verifier |
+| JS-executing scanners (Defender) still burn the link | Codex | Real | ACCEPT — today's link is burned by *any* GET (E2), the new one only by JS executors: strictly better |
+| Part 2 (typed code) unjustified by the measurement | Codex | Agreed — one Outlook case, three screens, extra credential form | **Dropped** from this spec; belongs with P1258 if the junk case recurs |
+| Brute force of the code | Codex | Moot with Part 2 dropped, and pre-existing: `POST /verify` with email + code is public today | None |
+| Template injection | Codex | Valid constraint | Templates interpolate no user metadata |
+| Resend reordering | Codex | Real, inherent to single-use tokens | ACCEPT |
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Template edit breaks every signup at once | MITIGATE | Test project first with a real inbox; save the prod template text before editing; revert is a paste |
-| Mails already sent carry the old `?code=` link | ACCEPT | `/auth/callback` is untouched, so they behave exactly as today |
-| `verifyOtp` with a token hash rejects a PKCE-issued token | MITIGATE | UNTESTED; the first thing the test-project run proves. If it fails, Part 1 is dead and Part 2 carries the fix |
-| JS-executing scanner (Defender) burns the new link | ACCEPT | Burns today's link too (see premise); Part 2's code survives because typing it needs a person |
-| Carried redirect target becomes an open-redirect vector | MITIGATE | Invariant above; unit tests for foreign origin, other path, malformed URL |
-| Code brute force | ACCEPT | 8 digits, 1-hour expiry, `rate_limit_verify = 30` on prod |
-| A resend still kills earlier mails | DEFER | Inherent to single-use tokens; Part 2's screen names the newest mail. Unblocked by founder copy decision |
-| Existing tests assume `/auth/v1/verify` links | MITIGATE | `/generate-tests` greps e2e for link parsing before the template changes |
+| Template edit breaks every signup at once | MITIGATE | Test project first with the real signup UI; prod template text saved first; revert is a paste |
+| Mails already sent carry the old `?code=` link | ACCEPT | `/auth/callback` untouched — they behave exactly as today |
+| Prod template changed before app code is live | MITIGATE | Rollout order in Technical Design; template step checks the deployed bundle contains the `redirect_to` parser |
+| `.RedirectTo` escaping differs from the unit-test assumption | MITIGATE | Parser handles raw and escaped; the test-project template run decides |
+| Login CSRF via a forwarded link | ACCEPT | Pre-existing since P1257 (see review table) |
+| JS-executing scanner burns the link | ACCEPT | Strictly less exposed than today (E2) |
+| Redaction regex misses a token shape | MITIGATE | Unit test per shape; `?token_hash=`, `&code=`, `#access_token=`, `refresh_token=` |
 
 **Non-Goals**
-- Do NOT turn PKCE off or change `/auth/callback`'s handling of `?code=`.
-- Do NOT change the sending provider or headers — that is P1258.
+- Do NOT turn PKCE off or modify `AuthCallbackPage.tsx`.
+- Do NOT add a code-entry field (dropped after review).
+- Do NOT change the sending provider, headers or email wording — that is P1258.
 - Do NOT touch session persistence after sign-in — that is P1240.
-- Do NOT change rate limits or resend throttling.
+- Do NOT change rate limits.
 
 ## Acceptance Criteria
 
-- [ ] On **test**, a signup started in browser context A, with the email's link opened in a fresh
-      context B (no shared storage), lands signed in with the event RSVP created — captured by
-      screenshot plus a DB read of the RSVP row.
-- [ ] Same run, opening the link a second time shows the "can't be used" page, not a crash, and a
-      person already signed in stays signed in.
-- [ ] A non-executing fetch (`curl`) of the new link, followed by a real browser click, still
-      signs the person in — the scanner-burn premise verified, not assumed.
-- [ ] (Part 2) Typing the code on the "Check Your Email" screen signs in and reserves the seat,
-      with no link clicked.
-- [ ] A link from the old template, still in an inbox, behaves exactly as before in the
-      requesting browser.
-- [ ] Prod templates changed only after the test run above, with the previous text saved to
-      `.private/`. `[post-deploy]` one real prod signup completed cross-browser.
+- [ ] On **test**, through the real event signup UI, the email's link opened in a fresh browser
+      context (no shared storage) lands signed in with the event RSVP created — screenshot plus a
+      DB read of the RSVP row.
+- [ ] Opening the same link again in that signed-in browser continues to the event, not an error.
+- [ ] Opening a used link in a browser with no session shows "can't be used", and its button keeps
+      the event intent.
+- [ ] A `curl` of the new link followed by a real browser click still signs the person in.
+- [ ] With the network cut at the moment of redemption, the page offers "Try again" and a retry
+      after reconnecting signs in.
+- [ ] A link from the old template still works in the requesting browser.
+- [ ] No Mixpanel or Sentry payload captured during the signup run contains the token value.
+- [ ] Prod templates changed only after the app code is live, previous text saved to `.private/`.
+      `[post-deploy]` one real prod signup completed cross-browser.
 
 ## Done-When
 
-- [ ] Both founder copy decisions recorded in this spec.
-- [ ] decisions.md entry correcting the 2026-09-03 premise, citing the log evidence and the test result.
+- [ ] decisions.md entry correcting the 2026-09-03 premise, citing E2 and the review.
+- [ ] Unit tests: redirect_to parsing (same-origin callback, foreign origin, other path, malformed,
+      raw vs escaped), error classification, redaction per token shape — all failing first, then passing.
 
 ## Alternatives Considered
 
 - **Error-page copy only** ("open it in the browser you signed up in") — rejected: the link is
   already spent when that page shows, so the advice cannot be followed from that email.
-- **Code entry only, link unchanged** — keeps the dead-link experience for the 6-of-10 shape; the
-  person must know to go back to the original tab. Kept as Part 2, not as the whole fix.
+- **Code entry (typed code), with or without the link change** — dropped after review: the measured
+  failures are link-opened-elsewhere, which the link change fixes; code entry adds a credential form
+  to three screens for one Outlook case. Revisit under P1258.
 - **Turn PKCE off (implicit flow)** — rejected: tokens in URL fragments, and it gives up the
   session protection P608 bought for nothing Part 1 doesn't already provide.
 
