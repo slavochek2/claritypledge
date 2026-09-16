@@ -102,7 +102,7 @@ hold_reason() {
 
 mtime_of() {  # portable: BSD stat first, then GNU
   stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$1" 2>/dev/null \
-    || date -r "$(stat -c %Y "$1" 2>/dev/null || echo 0)" '+%Y-%m-%d %H:%M' 2>/dev/null \
+    || date -d "@$(stat -c %Y "$1" 2>/dev/null || echo 0)" '+%Y-%m-%d %H:%M' 2>/dev/null \
     || echo "?"
 }
 

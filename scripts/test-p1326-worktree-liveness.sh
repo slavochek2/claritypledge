@@ -61,7 +61,8 @@ claim_slot() {  # $1=pN $2=slug -> prints slot
   done
 }
 age() {  # $1=slot — expire every liveness input
-  sed -i '' "s|^HEARTBEAT=.*|HEARTBEAT=$OLD|" "$WT/$1/.lock"
+  # Portable in-place edit: BSD and GNU sed disagree on -i.
+  sed "s|^HEARTBEAT=.*|HEARTBEAT=$OLD|" "$WT/$1/.lock" > "$WT/$1/.lock.tmp" && mv -f "$WT/$1/.lock.tmp" "$WT/$1/.lock"
   rm -f "$WT/$1/.activity"
 }
 ensure_slot() {  # a section destroyed by an earlier failure must not make later ones pass vacuously
@@ -102,6 +103,10 @@ age "$S"
 fire "$FAKE" "{\"session_id\":\"real-session-uuid\",\"cwd\":\"$FAKE\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cd .claude/worktrees/$S && git status\"}}"
 [[ "$(state_of "$S")" == "LIVE" ]] && pass "1c: Bash 'cd <slot> && …' from main -> LIVE" || fail "1c: Bash cd into slot from main -> $(state_of "$S")"
 
+age "$S"
+fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Grep\",\"tool_input\":{\"pattern\":\"x\",\"path\":\".claude/worktrees/$S/src\"}}"
+[[ "$(state_of "$S")" == "LIVE" ]] && pass "1d: Grep with a RELATIVE in-slot path from main -> LIVE" || fail "1d: relative path field -> $(state_of "$S")"
+
 echo "--- 2. control: activity elsewhere does not mark the slot ---"
 age "$S"
 fire "$FAKE" "{\"session_id\":\"x\",\"cwd\":\"$FAKE\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$FAKE/seed.txt\"}}"
@@ -115,6 +120,14 @@ echo "precious" > "$SP/uncommitted-migration.sql"
 [[ $rc -ne 0 ]] && pass "3a: abandon on an ORPHAN dirty slot refuses (exit $rc)" || fail "3a: abandon on a dirty slot exited 0"
 [[ -f "$SP/uncommitted-migration.sql" ]] && pass "3b: the uncommitted file still exists" || fail "3b: abandon DELETED uncommitted work"
 
+ensure_slot
+echo "--- 3d. a symlink a session created is work, not bookkeeping ---"
+rm -f "$SP/uncommitted-migration.sql"; age "$S"
+ln -s seed.txt "$SP/my-link"
+( cd "$FAKE" && "$GO" abandon "$S" ) >/dev/null 2>&1; rc=$?
+[[ $rc -ne 0 && -L "$SP/my-link" ]] && pass "3d: abandon refuses when the only change is a session-made symlink" \
+  || fail "3d: session symlink treated as bookkeeping (exit $rc)"
+rm -f "$SP/my-link"
 ensure_slot
 echo "--- 4. nonce-less adopt never takes over a dirty slot ---"
 age "$S"

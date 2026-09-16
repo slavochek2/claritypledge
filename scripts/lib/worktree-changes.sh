@@ -12,7 +12,10 @@
 # therefore always true, and would mark every slot in-flight forever.
 #
 # Bookkeeping = the lockfile and its temp/mutex siblings, the activity marker and
-# its temp siblings, and untracked SYMLINKS (what worktree setup hydrates).
+# its temp siblings, and the SYMLINKS scripts/setup-worktree.sh hydrates
+# (node_modules, .env.local, .env.test.local). Only those names, and only when they
+# are symlinks: a symlink a session created is work, and exempting every untracked
+# symlink made `abandon` delete it (adversarial review, 2026-09-16).
 #
 # FAILS TOWARD DIRTY. Callers use this to decide whether destroying or advertising
 # a worktree is safe, so anything unreadable — a git error, a quoted filename this
@@ -30,7 +33,9 @@ worktree_has_user_changes() {
       case "$name" in
         .lock|.lock.*|.activity|.activity.*) continue ;;
       esac
-      [[ "$name" != \"* && -L "$wt/$name" ]] && continue
+      case "$name" in
+        node_modules|.env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
+      esac
     fi
     return 0
   done <<< "$out"

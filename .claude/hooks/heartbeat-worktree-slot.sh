@@ -67,12 +67,16 @@ GIT_OPS="$REPO_ROOT/scripts/git-ops.sh"
 [ -x "$GIT_OPS" ] || exit 0
 WT_DIR="$REPO_ROOT/.claude/worktrees"
 
-run_bounded() {  # never let a slow git-ops stall the tool call
+run_bounded() {  # never let a slow git-ops stall the tool call: 3s hard budget
   "$@" >/dev/null 2>&1 &
-  local pid=$! waited=0
+  local pid=$! ticks=0
+  # Poll in 50ms steps. The previous `sleep 1` step charged a full second to every
+  # call whose child had not exited by the first check — which is nearly all of
+  # them — so with activity + heartbeat each in-slot tool call cost ~2.1s (measured
+  # 2026-09-16, flagged by adversarial review). 60 ticks keeps the 3s ceiling.
   while kill -0 "$pid" 2>/dev/null; do
-    if [ "$waited" -ge 3 ]; then kill -9 "$pid" 2>/dev/null || true; break; fi
-    sleep 1; waited=$((waited + 1))
+    if [ "$ticks" -ge 60 ]; then kill -9 "$pid" 2>/dev/null || true; break; fi
+    sleep 0.05; ticks=$((ticks + 1))
   done
 }
 
@@ -96,8 +100,12 @@ slot=r"(w[0-9]+)(?=$|[/\s\"'"'"';&|)])"
 found=set()
 # Absolute path fields: must sit under THIS repo'"'"'s worktree dir.
 abs_re=[re.compile(re.escape(r)+"/"+slot) for r in roots]
+base=d.get("cwd") if isinstance(d.get("cwd"),str) else os.getcwd()
 for v in [ti.get("file_path"),ti.get("notebook_path"),ti.get("path"),d.get("cwd")]:
-    if isinstance(v,str):
+    if isinstance(v,str) and v:
+        # A relative path (Grep/Glob `path` can be one) is relative to the session cwd.
+        if not os.path.isabs(v):
+            v=os.path.normpath(os.path.join(base,v))
         for r in abs_re:
             m=r.match(v)
             if m: found.add(m.group(1))
