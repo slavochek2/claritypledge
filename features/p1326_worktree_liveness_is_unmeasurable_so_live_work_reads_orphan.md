@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 106
 workstream: infrastructure
 created_date: '2026-09-16'
 tags: [worktree, git-ops, concurrent-sessions, session-lifecycle]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, challenge-prd]
+delivery_stage: dev
+pipeline_ran: [create-spec, challenge-prd, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -30,7 +30,7 @@ slot LIVE while the heartbeat is inside a 12h TTL. The session-start pipeline re
   including **19 Edit/Write tool calls inside w1** and an uncommitted migration written 20 minutes
   before it was observed. `HEARTBEAT` was still byte-equal to `CLAIMED_AT`. `git-ops.sh status`
   printed `w1 … ORPHAN`.
-- The lock's `SESSION_ID` is `Vyacheslavs-MacBook-Pro-55547-1789486557` — the `hostname-pid-epoch`
+- The lock's `SESSION_ID` is `<hostname>-55547-1789486557` — the `hostname-pid-epoch`
   **fallback**, not the session's real id (`90163655-…`). `cmd_heartbeat` only writes when
   `CP_SESSION_ID == LOCK_SESSION_ID`, and otherwise **exits 0 silently**. `CP_SESSION_ID` is unset in
   an agent's Bash (verified: `echo ${CP_SESSION_ID:-UNSET}` → `UNSET`), so an agent-run `claim`
@@ -79,12 +79,32 @@ promoted here:
   heartbeat is stale, re-binding `SESSION_ID`, after which the real owner's beats are refused.
 - **Identity binding cannot be made safe (Opus 6):** trust-on-first-use lets whichever session touches
   the slot first own it; pattern-matching the fallback id fails because `hostname -s` now returns
-  `Mac` while all three live locks carry `Vyacheslavs-MacBook-Pro-…`; nothing in agent Bash exposes
+  `Mac` while all three live locks carry `<hostname>-…`; nothing in agent Bash exposes
   the session id.
 - **A naive dirty check is always true (Opus 9):** every slot shows `?? .lock` and `?? node_modules`.
 - **Detached worktrees are skipped twice (Opus 11):** `pipeline-strandings.sh` L75 (outside the slot
   dir) *and* L77 (`br == HEAD`); the STRANDED line also prints a `remove --force` hint with no dirty check.
 - **Live-process cwd is a blind oracle (Opus 8):** no claude process has cwd in any slot.
+
+**Code review, after implementation — Codex Sol (low effort, P67 default), Gemini 3.8 Flash, and an
+Opus reviewer with mutation testing: 3 of 3 reports received.** Every finding acted on was re-run by
+command first; fixes landed in 08c8c365f and 3ceffb139, each with a test watched failing against the
+prior commit.
+
+- Fixed: hook cost 2110ms per in-slot tool call (1s poll) -> 200ms; `ship`/`publish-spec` teardown
+  force-removed dirty worktrees (Gemini + Codex, reproduced) -> retained and named, ship completes;
+  nonce-less `abandon` race between check and `--force` -> no force, git's own refusal is the second
+  check, bookkeeping restored on refusal; every untracked symlink exempt -> only hydrated names;
+  ignored files treated as disposable (all three) -> ignored = work except measured regenerated output;
+  strandings failed open on unmeasurable liveness and matched `w9evil` as a slot -> both closed; hook
+  missed relative/`./`/`~`/`$CLAUDE_PROJECT_DIR`/quoted forms -> matched; hook silently inert when its
+  own cwd is outside the repo (found by closing Opus's neutral-cwd test gap) -> runs from REPO_ROOT;
+  test gaps (neutral cwd, wrong nonce, swallowed claim errors, 3e passing for the wrong reason) -> closed.
+- Refuted by command: strandings resolving `scripts/` relative to the wrong cwd (it `cd`s to REPO_ROOT,
+  L43); test 6a matching backwards (it failed against unfixed code; tightened anyway).
+- Accepted, see Risks: a hand-corrupted `.activity`, activity renewable indefinitely by anything that
+  keeps touching a slot, shell-variable paths the hook cannot see, `claim`'s auto-heal of a dir with no
+  `.git` marker (not a worktree, pre-existing), skip-worktree files.
 
 Consequence: the draft Solution ("bind the real session identity") is **withdrawn**. Liveness moves to
 identity-free activity evidence, and destructive paths gain a guard that does not depend on liveness
@@ -142,6 +162,11 @@ being right.
 | Dirty guard blocks a legitimate cleanup of a truly dead slot with scratch files | ACCEPT | `--nonce` or committing/removing the files is the way through; refusal names it |
 | Slot LIVE only through a subagent or resumed session with a different id | ACCEPT | Correct outcome: work is happening there |
 | Local processes can forge activity or read the nonce | ACCEPT | These guards prevent accidents between cooperating sessions, not a hostile local process (Opus 5) |
+| Anything that keeps touching a slot (even inspecting it) keeps it LIVE indefinitely | ACCEPT | Errs toward LIVE; the nonce always works, and LIVE refusals now print the activity stamp and when it expires |
+| A hand-written malformed `.activity` erases activity evidence | ACCEPT | Only `git-ops activity` writes it, atomically; forging it is a deliberate local act, not an accident |
+| Paths hidden in shell variables (`cd "$slot"`) are invisible to the hook | ACCEPT | The payload `cwd` still marks any session actually working in the slot; replay of the P1181 session shows no active-period gap over 7 min |
+| A session idle longer than the TTL reads ORPHAN (P1181 was idle 15.5h overnight) | ACCEPT | P1268's named TTL trade-off; the dirty guard, which does not trust the verdict, protects the work in that window |
+| Ignored files hold the only copy of work | MITIGATE | Counted as work unless regenerated output measured on live slots (dist/, playwright-report/, test-results/, coverage/, .private/test-auth/) |
 
 **Non-Goals**
 - Do NOT change `claim` slot allocation, nonce generation, or the rule that a LIVE lock needs the nonce.
@@ -152,22 +177,38 @@ being right.
 
 ## Done-When
 
-- [ ] From an environment with no `CP_SESSION_ID`: `claim`, age heartbeat and activity past the TTL,
+- [x] From an environment with no `CP_SESSION_ID`: `claim`, age heartbeat and activity past the TTL,
       then a hook-shaped Edit event makes `status` read LIVE — in three shapes, each watched failing
       against the unfixed code: (a) cwd in slot, (b) cwd on main with in-slot `file_path`, (c) Bash
-      event with cwd on main and `command` containing `cd <slot> && …`.
-- [ ] A hook event whose paths are all outside the slot does not mark it active (control).
-- [ ] `abandon wN` without nonce on an aged ORPHAN slot holding an uncommitted file refuses, non-zero,
+      event with cwd on main and `command` containing `cd <slot> && …`. — `test-p1326` 1a/1b/1c red
+      (ORPHAN) at f05f93352, green now; plus 1d-1f (relative, quoted, `./`, `$CLAUDE_PROJECT_DIR`),
+      all fired from a neutral cwd.
+- [x] A hook event whose paths are all outside the slot does not mark it active (control). — test 2.
+- [x] `abandon wN` without nonce on an aged ORPHAN slot holding an uncommitted file refuses, non-zero,
       and the file still exists; the same slot with only `.lock` and `node_modules` is removed (control).
-- [ ] Nonce-less `adopt` on an aged slot with uncommitted changes refuses and leaves `SESSION_ID` unchanged.
-- [ ] `pipeline-strandings.sh`: a gate-passing slot that is LIVE or dirty prints IN FLIGHT, not READY
+      — 3a/3b red (exit 0, file deleted) on unfixed code; 3c control; plus 3d-3i (session symlink,
+      race past the check, restore incl. `.activity`, wrong nonce, ignored `.private/` work,
+      regenerated-output control).
+- [x] Nonce-less `adopt` on an aged slot with uncommitted changes refuses and leaves `SESSION_ID` unchanged.
+      — 4a/4b red on unfixed code (`SESSION_ID changed … -> intruder`), green now.
+- [x] `pipeline-strandings.sh`: a gate-passing slot that is LIVE or dirty prints IN FLIGHT, not READY
       TO SHIP; a clean, aged, gate-passing slot still prints READY TO SHIP (control, P1246 not regressed).
-- [ ] The STRANDED remove hint is not printed for a dirty slot.
-- [ ] A detached worktree outside `.claude/worktrees/` is reported as UNMANAGED; a managed slot is not
-      double-reported.
-- [ ] `scripts/test-git-ops-adopt.sh` and `scripts/test-preflight.sh` pass unchanged.
-- [ ] Live slots on this machine at ship time each get a verdict matching an oracle independent of the
+      — 5a/5b red on unfixed code, 5c control, 5d unmeasurable liveness held.
+- [x] The STRANDED remove hint is not printed for a dirty slot. — 6a red on unfixed code, 6b control.
+- [x] A detached worktree outside `.claude/worktrees/` is reported as UNMANAGED; a managed slot is not
+      double-reported. — 7a red on unfixed code, 7b control, 7c `w9evil`.
+- [x] `scripts/test-git-ops-adopt.sh` and `scripts/test-preflight.sh` pass. — both exit 0. The adopt
+      suite's fixture now copies `scripts/lib/worktree-changes.sh` (without it git-ops fails closed and
+      9 assertions refused; with it 42/0 before any other change). Also exit 0: lock-state parity
+      (19/0, 4 new activity cases), pipeline-gates, extensions, ship (new UU-P1326, red on the prior
+      commit), p972, p924, worktree-setup.
+- [x] Live slots on this machine at ship time each get a verdict matching an oracle independent of the
       lock and the hook: per-session transcript mtime plus last recorded `cwd`/`file_path` — pasted.
+      Pre-deploy half (the hook is not live until shipped): the real P1181 session transcript, 152 tool
+      calls, replayed read-only through the new hook — 119 mark w1; across 3 active periods the longest
+      unmarked stretch is 6m55s against a 12h TTL. The only longer gap is 15h30m with zero tool calls
+      (idle overnight), which no activity signal can or should fill. `[post-deploy]` re-check `status`
+      for every live slot against transcript activity once the hook runs from main.
 
 ## Related
 
