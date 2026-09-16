@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 106
 workstream: infrastructure
 created_date: '2026-09-16'
 tags: [day, gates, hooks, reliability]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-16
 ---
 
 # P1324: `/day` completeness is not machine-checkable, and its findings leave as prose
@@ -79,14 +79,14 @@ recorded under Alternatives Considered.
 
 ## Related — read before designing
 
-- **[P1205](done/2026-06-10/p1205_day_dispatcher_continuity_check_and_step_ordering_fix.md)** — D6,
+- **[P1205](p1205_day_dispatcher_continuity_check_and_step_ordering_fix.md)** — D6,
   the dispatcher-continuity gate. Grades a pass on the push receipt. Extended here, never
   revisited.
-- **[P1206](done/p1206_day_needs_a_forcing_mechanism_outside_the_agents_control.md)** — the Stop
+- **[P1206](../p1206_day_needs_a_forcing_mechanism_outside_the_agents_control.md)** — the Stop
   hook. Its own Open Question 4 names this spec's gap in advance: *"the observed agent dropped 8
   of 11 steps, so dropping the 9th is a difference of degree."* P1206 deliberately scoped itself
   to the whole-pass shape; this is the step-level successor.
-- **[P1317](done/2026-06-10/p1317_board_renders_deferred_work_inbox.md)** — the task inbox CLI (`scripts/inbox.sh`),
+- **[P1317](p1317_board_renders_deferred_work_inbox.md)** — the task inbox CLI (`scripts/inbox.sh`),
   shipped 2026-09-15. The rail findings will leave on. Already exists; do not build a second one.
 
 ## Invariants
