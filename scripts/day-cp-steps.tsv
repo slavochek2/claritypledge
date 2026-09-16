@@ -7,7 +7,7 @@
 # ("do not read or write dispatcher state") holds: the sub-day is handed the runner's path
 # in $DAY_STEP, exactly as it is already handed $SINCE and $DUE_VERDICT.
 #
-# Columns and the meaning of kind/policy: see ~/.claude/day-steps.tsv, which owns the format.
+# Columns and the meaning of kind/policy: see ~/.claude/scripts/day-steps.tsv, which owns the format.
 # Short version: cmd = must run through `day-step.sh run` so the exit code is recorded;
 # attest = an MCP or Skill call with no exit code, recorded with a sentence of evidence;
 # hard = cannot be skipped; skippable = genuinely conditional, recorded with a reason.
