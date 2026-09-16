@@ -6,6 +6,142 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-16 [product]: At an event, the unit of recording consent is the PAIR — lavalier wearers pair only with each other
+
+**Context:** Clarity Night #1 recruits six volunteers to wear a lavalier and turn on "Transcribe
+for AI insights" for the pairs rounds. The first framing of the ask treated consent as
+individual ("your phone records you, not the person next to you"). That is false: a
+directional lavalier still picks up the partner, and the terms make the person recording
+responsible for the consent of anyone whose voice is captured (`src/app/content/tos.md`
+§Transcribe Rooms). An adversarial review caught it in the deck's speaker notes.
+
+**Decision:** Consent is given by the pair, because a conversation is a two-person act.
+- Lavalier wearers pair only with other lavalier wearers (six mics → three recorded pairs,
+  which can rotate partners across four rounds). Everyone else pairs without mics.
+- Recorded pairs sit apart from the rest, so the lavaliers do not pick up neighbours.
+- Stage volunteers are asked on stage, once, before they start.
+- In Q&A the questioner is not recorded; the host repeats the question into their own mic.
+- Opt-in is signalled by wearing the mic — nobody has to declare a refusal in public.
+
+**Alternatives rejected:**
+- *"The event is recorded; anyone who objects stays silent"* — makes taking part conditional
+  on being recorded (pressure that voids consent) and tells opt-outs to keep quiet.
+- *"Ask who does not want to be recorded, pair them together"* — same grouping, but refusal
+  becomes a public declaration and recorded becomes the default.
+- *"Anyone records; the partner can ask to stop"* — the burden lands on the person who never
+  agreed, and everything before they object is already captured.
+- *Dropping the mics* — a phone on a table in a room of talking pairs records mostly noise;
+  the mics are what make the transcript worth having. The fallback, if the device test
+  fails, is recording only the stage demo.
+- *Building pause/resume into room capture before the event* — it fixes only capture during
+  breaks, not partner consent or neighbour bleed, and volunteers can start at round 1 and
+  end the session after round 4 instead.
+
+**Consequences:** Holds for follow-up events, not only #1. **UNTESTED on real devices:**
+whether a volunteer can start capture just before round 1 from the Links menu and still land
+in the event's room, and whether capture survives a locked screen (P1307's risk table marks
+that UNVERIFIED). Falsifier: the device test shows either fails → fall back to stage-only
+recording. The legal basis (Thai PDPA, GDPR for AI analysis) was reasoned, not checked by
+counsel; explicit pair-level opt-in is the strongest basis available, not a legal opinion.
+**References:** `public/presi3/index.html` (R&D slide notes), [p1307](../features/done/2026-06-10/p1307_event_transcription_from_ready_across_pages_into_sessions.md), `src/app/content/privacy.md`
+
+---
+
+## 2026-09-16 [product]: Clarity Night #1 runs pairs rounds, and "don't push back until they confirm" lives on the round slide as 8+
+
+**Context:** The published event page promised a stage demo, then pairs "over a few rounds",
+and a rule: "you do not push back on someone until they confirm you understood what they
+meant". The run-of-show still describes a fishbowl (2–4 speak, everyone votes, 12 min per
+point, [clarity-practice-event.md](events/clarity-practice-event.md)), and nothing written said
+how a pairs round runs. The rule itself existed nowhere — not in the principle, which only
+says each side gives a number and the lower one counts, and never says what to do with a low one.
+
+**Decision:**
+- **Round:** 10 minutes per contested point, 5 per person, four rounds. A says where they
+  stand; A asks B "how much did you understand, 0–10?"; B explains back A's intended meaning;
+  A gives a number; repeat until 8+; swap. The host runs the clock only.
+- **The pushback rule is the rule of the exercise** ("repeat until 8+", on the round slide),
+  not a new clause in the Clarity Meeting Principle. 8 is the founder's number.
+- **Stage demo** runs one point the same way (~15 min), so the demo doubles as the instructions.
+- **No matching on positions or on opt-in.** Neighbours pair. Across four points two people
+  almost always disagree on at least one, and where they agree, saying back *why* still
+  surfaces misunderstanding. Opted-in and opted-out people may pair; only the opted-in have
+  promised to answer honestly.
+- **Budget:** fits 18:00–20:30 with ~20 min slack (intro 15, principle + opt-in 10, cmp7 3,
+  positions 5, demo 15, pairs 45, cmp10 4, Q&A 15).
+
+**Alternatives rejected:** changing the principle's text two days before the event (a core text
+deserves evidence first); the event-room-only variant of the principle (a fork, and longer);
+re-pairing every round (≈2 min lost per round); matching by opposite positions or opt-in
+status (three constraints the room cannot sort by hand, for little gain).
+
+**Consequences:** The run-of-show doc now disagrees with the evening that will run — it must be
+updated after the event with what actually happened. The public event page lists "take a
+position" before "opt in", the reverse of the real order. Whether putting the rule on the round
+slide rather than in the principle is enough is an **open question for after event #1**; a
+recurrence of pairs arguing before 8 is the signal to reconsider adding it to the principle.
+**References:** `public/presi3/index.html` (slide "How a round works"), [clarity-practice-event.md](events/clarity-practice-event.md)
+
+---
+
+## 2026-09-16 [product]: Before the opt-in, the room gets the minimum needed to choose — an amendment to "protocol silence" for event decks
+
+**Context:** The protocol-silence rule (decisions.md 2026-08-16 [product], "The protocol is a feedback loop whose object is understanding", point 5)
+says nothing about the protocol before the room has felt the failure, one designated showing at
+the opt-in, objections answered only when raised. The event #1 deck had drifted into showing the
+method about seven times before the opt-in. Cutting to the rule literally was then challenged by
+the founder: *"what's the point if I say opt in or opt out before giving any info — then most opt
+out and what did we learn?"*
+
+**Decision:** Split explanatory slides by one test — **does someone need this to decide whether to
+opt in?**
+- Before the principle: what the method is and where it comes from (read-back is required in
+  aviation and in hospitals — Joint Commission PC.02.01.03 EP 20 requires read-back of verbal
+  orders), what "cognitive understanding" means, and one line on why almost nobody verifies it.
+- After it, on demand only: the barrier cards, the names the method goes by, "how to verify".
+- Nothing that labels a personal flaw (ego, laziness, fear) appears before people choose, so an
+  opt-out is never shown a description of themselves first.
+
+**Alternatives rejected:** strict silence (the opt-out rate would measure confusion, not
+preference — the founder's point, and correct); showing all objection-answer slides right after
+the principle (still pre-empts doubts nobody raised); moving everything after the principle (the
+principle is unreadable without "cognitive understanding" defined — the overwhelm the founder had
+already observed at `/presi`).
+
+**Consequences:** Protocol silence still governs objections; it no longer blocks the information an
+informed choice needs. **UNTESTED** — falsifier: at event #1 the opt-in rate is near zero, or
+opt-outs cite not understanding what they were choosing.
+**References:** `public/presi3/index.html`, [clarity-practice-event.md](events/clarity-practice-event.md) §Protocol silence
+
+---
+
+## 2026-09-16 [process]: Event decks are public pages — delete private material rather than demoting it, and give live embeds an in-deck way out
+
+**Context:** Building `/presi3`, two facts surfaced. (1) "Backup" slides are only backup in the
+host's head: every section ships in the same public HTML and anyone with the URL can page to it —
+and deck URLs are guessable (`/presi`, `/presi2`, `/presi3`). A quotes slide built from a WhatsApp
+group was demoted to backup before this was noticed. (2) Full-bleed iframes of the live app leave
+no parent pixel to click; once the host clicks into the frame, the embedded document owns the
+keyboard and the deck stops advancing. The founder hit it live in rehearsal ("if I click once on
+the slide, then I cannot move").
+
+**Decision:** (1) Private or third-party material is **deleted** from a deck, never demoted; git
+history keeps it. (2) Every live-embed slide carries two nav buttons in the deck itself. Arrow-key
+forwarding out of the frame is kept, but it only works same-origin, so it cannot be the only exit.
+Embedded app pages render only on the production origin (`frame-ancestors 'self'`); locally they
+are blank by design, and the absolute production URL is used so a local server never embeds its
+local database.
+
+**Alternatives rejected:** keeping sensitive slides "hidden" in backup; relying on key forwarding
+alone (fails locally and on any cross-origin frame).
+
+**Consequences:** Applies to every future `/presi*` deck — and to the event-deck skill, when it is
+built. The in-deck buttons were verified in a real browser with a control: with the frame focused,
+a real ArrowRight did not advance; the button advanced exactly once; the next ArrowRight worked.
+**References:** `public/presi3/index.html` (embed-nav), `vercel.json`
+
+---
+
 ## 2026-09-16 [technical]: PKCE never protected the email link from scanners — so the link now redeems in any browser (P1325)
 
 **Context:** An attendee could not register for an event: every confirmation link failed. The prod
