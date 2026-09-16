@@ -96,10 +96,11 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     const event = await createTestEvent(host.id);
     eventId = event.id;
     slug = event.slug;
-    // TWO per-event extras, so this file covers both sides of the auto-hide added
-    // 2026-08-31: `tonight` gets a real staked point and must appear; `hollow` gets
-    // nothing and must not. Seeding only the first would leave the hide untested
-    // here and the menu would look identical whether or not the feature worked.
+    // P1323 R5 RETIRED the per-event group. The seed is KEPT on purpose, and so is the real
+    // staked point under `tonight`: the inverted assertion below must prove the group is gone
+    // for an event that is CONFIGURED and HAS CONTENT. Dropping the seed would let "absent"
+    // pass merely because nothing was configured — which is exactly how the original group
+    // went unnoticed on 14 prod events that had nothing configured.
     const { error: linkErr } = await supabaseAdmin.from('events')
       .update({ links: [{ tag: 'tonight', label: 'Tonight' }, { tag: 'hollow', label: 'Hollow' }] })
       .eq('id', eventId);
@@ -132,6 +133,8 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     try {
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
+      // P1323: tools live under the Tools tab.
+      await page.getByTestId('event-links-tab-tools').click();
       await page.getByTestId('event-links-entry').filter({ hasText: 'Start a Clarity Session' }).click();
       await expect(page).toHaveURL(/\/live/, { timeout: 30000 });
     } finally { await page.close(); }
@@ -142,6 +145,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     try {
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
+      await page.getByTestId('event-links-tab-tools').click();
       await page.getByTestId('event-links-entry').filter({ hasText: 'Transcribe' }).click();
       await expect(page).toHaveURL(/\/transcribe/, { timeout: 30000 });
       // Not a 404 / not-found shell — the working room actually mounted.
@@ -168,33 +172,44 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
     } finally { await page.close(); }
   });
 
-  test('the per-event extra appears and resolves to its tag — and the EMPTY one does not appear at all', async () => {
+  /**
+   * P1323 AC-6, INVERTED. This test used to assert that a configured extra appeared FIRST under
+   * "This event". R5 retired that group (founder 2026-09-16): an extra carried a TAG, i.e. the
+   * same thing a Points entry carries, and no UI to write `events.links` ever existed.
+   * The event here IS configured and `tonight` DOES have a staked point, so absence cannot be
+   * explained by empty data.
+   */
+  test('a CONFIGURED per-event extra with real content no longer renders — the group is retired', async () => {
     const page = await auth.context.newPage();
     try {
       await page.goto(`/events/${slug}/room`);
       await openMenu(page);
-      // Four standard + Tonight, and Tonight is FIRST (founder 2026-08-31). "Hollow" is configured on the same event and has
-      // nothing staked under it, so the menu drops it (founder, 2026-08-31: an
-      // entry that opens an empty surface is a dead end the host had to remember
-      // to avoid creating). Asserting the COUNT and the absence together is what
-      // makes this a two-sided test rather than a restatement of the seed.
-      await expect(page.getByTestId('event-links-entry')).toHaveCount(5);
-      await expect(page.getByTestId('event-links-entry').first()).toHaveText('Tonight');
-      await expect(page.getByTestId('event-links-entry').filter({ hasText: 'Hollow' })).toHaveCount(0);
-
-      await page.getByTestId('event-links-entry').filter({ hasText: 'Tonight' }).click();
-      await expect(page).toHaveURL(new RegExp(`/stake/tonight\\?event=${slug}`), { timeout: 30000 });
+      await expect(page.getByTestId('event-links-menu')).not.toContainText('This event');
+      for (const tab of ['points', 'letters', 'tools'] as const) {
+        await page.getByTestId(`event-links-tab-${tab}`).click();
+        await expect(page.getByTestId('event-links-entry').filter({ hasText: /^(Tonight|Hollow)$/ }), `${tab} tab`).toHaveCount(0);
+      }
+      // Control: the menu itself is populated, so the absence above is not an empty panel.
+      await page.getByTestId('event-links-tab-points').click();
+      await expect(page.getByTestId('event-links-entry')).toHaveCount(6);
     } finally { await page.close(); }
   });
 
-  test('a BARE /stake/:tag renders the cut-down feed with NO button and no event context', async () => {
+  /**
+   * P1323 AC-1, INVERTED on the founder's sign-off (2026-09-16: "yes in /stake we will have
+   * LINKS!"). decisions.md 2026-08-28 had recorded "a bare /stake/:tag ... with no button" as a
+   * property; that is superseded. The page's CONTENT is unchanged — still no event context.
+   */
+  test('a BARE /stake/:tag keeps its cut-down feed with no event context — and now carries the menu', async () => {
     const page = await auth.context.newPage();
     try {
       await page.goto('/stake/cmp7');
-      // The surface itself mounted...
       await expect(page.getByTestId('stake-event-slug')).toHaveText('', { timeout: 30000 });
-      // ...and carries no Links button, because there is no event.
-      await expect(page.getByTestId('event-links-button')).toHaveCount(0);
+      await expect(linksButton(page)).toBeVisible();
+      await openMenu(page);
+      // Off-event, a Points entry carries no dangling ?event=.
+      await page.getByTestId('event-links-entry').filter({ hasText: /^cmp3$/ }).click();
+      await expect(page).toHaveURL(/\/stake\/cmp3$/, { timeout: 30000 });
     } finally { await page.close(); }
   });
 });

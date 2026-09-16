@@ -141,12 +141,19 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       expect(sheetBox.y, 'the sheet hangs from the header — that is the desktop shape on a phone')
         .toBeGreaterThan(btnBox.y + btnBox.height);
 
+      // P1323: the sheet opens on the Points tab (six standing collections). The 44px floor is
+      // then re-checked on the Letters tab, whose approved labels WRAP to two lines at phone
+      // widths — a wrapped row must still be at least a thumb target, never squeezed shorter.
       const entries = page.getByTestId('event-links-entry');
-      const n = await entries.count();
-      expect(n).toBe(4);
-      for (let i = 0; i < n; i++) {
-        const box = (await entries.nth(i).boundingBox())!;
-        expect(box.height, `entry ${i} is ${box.height}px tall`).toBeGreaterThanOrEqual(44);
+      await expect(entries).toHaveCount(6);
+      for (const tab of ['points', 'letters'] as const) {
+        await page.getByTestId(`event-links-tab-${tab}`).click();
+        const n = await entries.count();
+        expect(n, `${tab} tab has entries`).toBeGreaterThan(0);
+        for (let i = 0; i < n; i++) {
+          const box = (await entries.nth(i).boundingBox())!;
+          expect(box.height, `${tab} entry ${i} is ${box.height}px tall`).toBeGreaterThanOrEqual(44);
+        }
       }
     } finally { await cleanup(); }
   });
