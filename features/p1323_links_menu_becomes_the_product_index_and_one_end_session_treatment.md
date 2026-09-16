@@ -15,7 +15,7 @@ tags:
   - navigation
 created_date: 2026-09-16
 delivery_stage: challenge-prd
-pipeline_ran: [change-request, challenge-prd]
+pipeline_ran: [change-request, challenge-prd, simplify]
 pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]
 pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the only open design item is letter label copy, which is a FOUNDER DECISION not a layout question", "decompose -- three concerns but they ship together; split specs could not land independently"]
 ---
@@ -46,8 +46,9 @@ pipeline_skipped: ["ux -- shape chosen by the founder at /tree/links-menu; the o
 ## Approved reference
 
 **`/tree/links-menu`** (DEV-only, `src/app/pages/prototypes/links-menu-prototype.tsx`). It is the
-approved reference for shape, grouping, the "This event" empty state, and the End Session
-treatment. Where this spec and the prototype disagree, the prototype's *rendering* wins and this
+approved reference for shape, grouping and the End Session treatment. **Its "This event" empty-state
+handling is superseded by R5** — that group is retired, so the prototype's rendering of it is no
+longer the reference for anything. Where this spec and the prototype disagree, the prototype's *rendering* wins and this
 spec's *rules* win; raise the conflict rather than picking silently.
 
 ## Problem Statement
@@ -279,10 +280,20 @@ This keeps the compiler asking the product/public question at page-creation time
 narrower call to the only place that can answer it. Precedent for the portal exists in this nav
 already — `id="nav-center-slot"`, which `/terms` portals into (P1179 Invariant 2).
 
-**Known gap, accepted and named:** the `/events/*` nested router still takes one `surface` for eight
-routes. Either it threads its own per-route value or those eight are accepted as a block. Not
-resolved here. *(`/architect` was skipped by founder decision, so `/dev` settles the mechanism —
-this section is the contract it must satisfy, not a suggestion.)*
+**`/events/*`'s eight routes take ONE value: `product`. Founder decision, 2026-09-16** — *"I want
+simplified, low maintainability, and high chance of working for this and future events... I don't
+want to micromanage the future."* The nested router's 8 routes (`src/app/prototypes/events/index.tsx:55-62`:
+root redirect, `list`, `experiment`, `webinar`, `new`, `:slug`, `:slug/edit`, `:slug/confirm`) inherit
+the single `surface="product"` written at `App.tsx:1014`, and a ninth route added later inherits it
+silently — which is the correct outcome, not a gap.
+
+Per-route threading was offered and rejected: it is eight decisions now plus one every time that
+section grows. The two routes that read most "public" — `list` and `:slug` — are event pages a
+person reaches from an invitation to a Clarity event, where the product's index is an offer rather
+than a leak. The two that are most clearly product (`new`, `:slug/edit`) are auth-gated and
+host-gated (`CreateEvent.tsx`: *"You need an account to host events"*; `EditEvent.tsx:97`:
+`event.hostId !== user.id`), and taking the menu off them to satisfy a cleaner taxonomy would remove
+it from the exact forms the founder uses to run events.
 
 **`/live/:code` is excluded by founder decision, 2026-09-16.** Every menu entry except Slides is a
 same-tab router navigation, and `/live`'s exit is deliberately singular: `live-session-banner.tsx:72-74`
@@ -292,19 +303,39 @@ party's `subscribeToClaritySession` handler reads that write and navigates to `r
 support `useBlocker`"*). A menu tap would leave the partner in a session that looks live and is not.
 The `/live` lobby keeps the menu; `/live/:code` declines it.
 
-layouts and want no menu.
-
 ### R3 — The nine letters
 
 The Letters tab lists the nine sealed one-to-many letters that `resolve_letter_shortcode` serves.
 Verified on prod 2026-09-16: `st1`–`st9` each resolve to a letter id; `st10` returns null. Entries
 navigate to `/letter/<code>`, an internal path built in `event-links.ts`, never a URL from data.
 
-**[FOUNDER DECISION: copy — nine labels]** `st1`–`st9` are internal taxonomy
+**The nine labels are APPROVED copy, founder 2026-09-16.** `st1`–`st9` are internal taxonomy
 ([decisions.md](../docs/decisions.md): *"The `st1…st9` identifiers are an internal taxonomy; do not
-surface them as primary labels on outward-facing surfaces"*), so each row leads with a phrase and
-carries the code as a quiet suffix. The prototype's nine phrases were written by an agent from each
-letter's own point statements and are **NOT approved copy**.
+surface them as primary labels on outward-facing surfaces"*), so each row leads with the phrase and
+carries the code as a quiet suffix.
+
+| code | approved label | chars |
+|---|---|---|
+| `st1` | Three kinds of understanding | 28 |
+| `st2` | Explain it back | 15 |
+| `st3` | Shared belief vs common belief | 30 |
+| `st4` | Explain back without judgment | 29 |
+| `st5` | **Grading your own understanding** | 30 |
+| `st6` | Agreement is not understanding | 30 |
+| `st7` | Knowing that they know | 22 |
+| `st8` | Putting it in writing | 21 |
+| `st9` | A public signal | 15 |
+
+`st5` is the **only** change from the prototype's draft: *"You cannot grade your own understanding"*
+is 38 characters and is cut on both phone widths. Every other row was approved verbatim.
+
+**These labels were verified against the letters' own content before approval, and the check was
+not trivial.** `docs/technical/badge-points-reference.md` (exported 2026-04-12) maps station →
+statement, but `supabase/migrations/20260413100000_p701_st_swap.sql` renumbered three stations the
+**next day** (old `st3`→`st2`, old `st5`→`st3`, old `st2`→`st5`). Read against the pre-swap export,
+three of the nine labels look misfiled; read through the swap, all nine are correct. **Do not
+re-derive these labels from `badge-points-reference.md` without applying P701** — a future agent
+"correcting" three of them would be reverting them to the wrong letters.
 
 **Letters open in a NEW TAB, like Slides — this is not a style choice.** `/letter/<code>` matches
 `IMMERSIVE_LETTER_PATH` (`immersive-letter-route.ts:17`), and two things follow that make a same-tab
@@ -325,9 +356,9 @@ not"* — and R3 reproduced it on `/transcribe`. `newTab` is the pattern this re
 exactly this reason (`event-links.ts:93-97`, Slides: *"a same-document load would reach the deck but
 tear down a live room to do it. The room stays running behind the new tab."*).
 
-[FOUNDER DECISION: this changes letters from ordinary entries to new-tab entries. The alternative —
+**APPROVED, founder 2026-09-16** (*"letters in new tab is fine!"*). The rejected alternative —
 hiding Letters while a capture runs — makes the menu's contents depend on session state, which the
-whole design avoids. Recommendation: new tab.]
+whole design avoids.
 
 **Measured constraint for that copy:** labels truncate at **both** phone widths, not only the
 small one. Measured at `/tree/links-menu`: at 320×568 a label is cut at roughly 24–28 characters
@@ -361,18 +392,47 @@ tags table and no author on a tag — a tag is a string a DB trigger extracts fr
 content (`20260327084215_auto_extract_story_hashtags.sql`). "My tags" would resolve to every
 incidental hashtag ever written. Curated, editable, explicit.
 
-### R5 — "This event" is kept, and nothing is designed around it
+### R5 — The per-event "This event" group is RETIRED
 
-The group renders above the segmented control when the event has links, exactly as today, and
-**renders nothing at all — no heading, no separator — when it does not**, which is every event on
-prod. P1179's "the event's own link goes FIRST" survives unchanged in that position: above the tabs
-is first. The auto-hide-when-empty probe and its fail-open behaviour are untouched.
+**Founder decision, 2026-09-16.** The group stops rendering. The panel is the three tabs and nothing
+above them, at every breakpoint and on every event.
 
-**It is kept because the capability may be wanted, not because it is free.** Keeping it is what
-holds `eventSlugFromLocation`, the extras fetch, the emptiness probe, `PROBE_CAP`, the fail-open
-branch, the separator logic and AC-6's two-event fixture alive, and it is why R1's panel has a
-variable-height region above a fixed segmented control — which is the layout risk AC-3b tests.
-[FOUNDER DECISION: keep the per-event group, or retire it and simplify all of the above?]
+**The reason is structural, not a preference about clutter.** A per-event entry is
+`EventLinkEntry = { tag: string; label?: string }` (`src/app/types/index.ts:938-942`) — it carries a
+**stake tag**, which is the same kind of thing a Points entry carries. So the group was never a
+second *kind* of destination; it was a second, event-scoped, manually-populated copy of the list the
+Points tab already renders globally. Founder: *"There is only one specific tag for /stake that is
+created for the event. But if this is already linked, so be it. We don't need a duplicate, do we?"*
+
+**And no write path for it has ever existed.** `grep -rln "EventLinkEntry" src/ e2e/` returns exactly
+three files — the type, `event-links.ts`, and `event-links-menu.tsx`. Neither `CreateEvent.tsx` nor
+`EditEvent.tsx` carries a `links` field; nothing in the events flow writes one. The only way to
+populate `events.links` is hand-written SQL against prod. **That is why 0 of 14 prod events have an
+entry** — not neglect, absence of a surface. The founder's stated objection (*"I don't want to
+micromanage the future when I create an event to explicitly remember to say that it should be put
+there"*) understates what the mechanism actually asked for.
+
+**What retiring removes:** `eventSlugFromLocation`'s use by the menu, the extras fetch, the emptiness
+probe and `PROBE_CAP`, the fail-open-on-error branch, the separator logic, and the `event` value of
+`LinksMenuEntry['group']`. The panel becomes a **fixed shape** — which removes the variable-height
+region above the segmented control that was R1's only layout risk, and is the largest single factor
+in the desktop rendering the founder flagged as unseen.
+
+**What is deliberately given up, named so it is not discovered later:** a tag can no longer be
+pinned above the standing list for one event only. It appears in the Points tab like every other
+standing collection. P1179's *"the event's own link goes FIRST"* is therefore **superseded, not
+relocated** — see the superseded table.
+
+**Reversible by construction.** The `events.links` column and the `EventLinkEntry` type are **not
+dropped and not migrated**; the menu simply stops reading the column. Restoring the capability later
+is a code change against data that is still there, and the deferred data spec (R4) is where a real
+write path would belong if it is ever wanted.
+
+**Interaction with R4, stated so the gap is not silent:** with the per-event group gone, the only way
+to add an event-specific tag to the menu is to add it to `STANDARD_STAKE_TAGS` — a one-line source
+change and a deploy, exactly as `aisafety1` is added by this spec. That is *less* work than the SQL
+the retired mechanism required, and the deferred spec is what makes it founder-editable. No
+capability regresses; one that was never usable is removed.
 
 ### R6 — The session bar hides on the page it points at
 
@@ -434,7 +494,7 @@ inventing a fourth treatment.
 
 | Section | P1179 said | Status | Replaced by |
 |---|---|---|---|
-| **Invariant 3** | *"The nav's right-hand group renders on every route. Any change to it is scoped to the room... it must not alter layout on any route outside `/events/:slug/*`."* | **Superseded — needs explicit founder sign-off** | R2. The scoping clause is deliberately removed. The layout-safety half is carried forward as Invariant **I-3** below. |
+| **Invariant 3** | *"The nav's right-hand group renders on every route. Any change to it is scoped to the room... it must not alter layout on any route outside `/events/:slug/*`."* | **Superseded — SIGNED OFF, founder 2026-09-16** (*"yes LINKS menu will be in other points too"*) | R2. The scoping clause is deliberately removed. The layout-safety half is carried forward as Invariant **I-3** below. |
 | Problem Statement | *"where does it live so it is reachable from every room screen"* | Partially superseded | Problem Statement above — room scope becomes product scope |
 | UI Contract / Solution §2 | flat list: extras, then standard tags, separator, then tools | Superseded | R1 — three tabs |
 | Resolved Decision 1 / 1b | the five standard entries and their flat grouping | Superseded in grouping, preserved in labelling | R1 + R4. Labels are still the tags themselves; the group they sit in is now named "Points" |
@@ -442,7 +502,8 @@ inventing a fourth treatment.
 | AC "an event with one configured extra shows five entries; a second with none still shows exactly four" | count-based | Superseded | AC-6 — additivity and per-event isolation preserved, counts re-derived |
 | AC "At phone width... a bottom sheet, not a dropdown" / "At desktop width... anchored panel" | two shapes | Partially superseded | R1 — the chrome split stands, the content-divergence premise does not |
 | P1179 §"present on `/room`, `/ready`, `/meet` and the stake routes" | route-scoped mount | Superseded | R2 |
-| **decisions.md 2026-08-28 [product]** + P1179 Resolved Decision 2 | *"a bare `/stake/:tag` is a usable, handable cut-down feed with **no button** and no event context"* | **Superseded — needs explicit founder sign-off** | AC-1. Read cold, that sentence describes the *consequence* of the chosen architecture (*"the button has no way to know it is in an event, so it disappears"*, Alternatives rejected (b)) rather than asserting the bare page should lack a menu — and decisions.md 2026-09-07 already moved toward *"scoped to a surface, not to an event"*. It is still a recorded decision being reversed, so it is named here rather than assumed. |
+| **decisions.md 2026-08-28 [product]** + P1179 Resolved Decision 2 | *"a bare `/stake/:tag` is a usable, handable cut-down feed with **no button** and no event context"* | **Superseded — SIGNED OFF, founder 2026-09-16** (*"yes in /stake we will have LINKS!"*) | AC-1. Read cold, that sentence describes the *consequence* of the chosen architecture (*"the button has no way to know it is in an event, so it disappears"*, Alternatives rejected (b)) rather than asserting the bare page should lack a menu — and decisions.md 2026-09-07 already moved toward *"scoped to a surface, not to an event"*. It is still a recorded decision being reversed, so it is named here rather than assumed. |
+| **P1179 §"the event's own link goes FIRST"** + the `event` group and the "This event" heading | a per-event extras group rendered above the standard entries | **Superseded — RETIRED, founder 2026-09-16** | R5. The per-event entry carried a *tag* (`EventLinkEntry = {tag, label?}`), i.e. the same thing a Points entry carries, and no UI to populate it ever existed — the only write path was hand-written SQL, which is why 0 of 14 prod events had one. The column is **not** migrated, so the capability is restorable in code. |
 | **P1307 D9 implementation** | `transcribe-room-page.tsx` mounts its own `RoomCaptureBarSlot` | Superseded | R6. D9's *rule* is preserved; its application to the room's own page is not |
 
 ## Invariants
@@ -480,8 +541,10 @@ approval; two are restated with their scope corrected by this spec.
 - `?event=` continues to ride along on stake paths when there is an event. A bare `/stake/:tag`
   keeps its **content and behaviour** exactly as today — what changes, deliberately, is that it now
   carries the menu (see the superseded row above; its absence was the recorded property).
-- The per-event extras data shape `{tag, label?}`, the auto-hide-when-empty probe, and its
-  fail-open-on-error behaviour.
+- The `events.links` **column** and the `EventLinkEntry` type: **not dropped, not migrated.** The
+  menu stops reading them (R5); the data and the type stay, so restoring the capability later is a
+  code change rather than a data recovery. The auto-hide-when-empty probe, `PROBE_CAP` and the
+  fail-open-on-error branch are **removed** — they existed only to serve the retired group.
 - The bar on every page other than `/transcribe/:code` — same text, same Open, same placement.
   Its End Session *styling* changes with R7; nothing else about it does.
 - `/live`'s own in-session banner and `/transcribe`'s header End Session **behaviour**; only the
@@ -492,8 +555,8 @@ approval; two are restated with their scope corrected by this spec.
 ## Surfaces in Scope
 
 **In scope**
-- `src/app/data/event-links.ts` — mount predicate, group model, letters, `aisafety1` added as a
-  literal (**not** a data-sourced list — that is deferred, R4)
+- `src/app/data/event-links.ts` — mount predicate, group model (the `event` group is **removed**,
+  R5), letters, `aisafety1` added as a literal (**not** a data-sourced list — that is deferred, R4)
 - `src/app/components/layout/event-links-menu.tsx` — segmented panel
 - `src/app/components/layout/simple-navigation.tsx` — mount rule
 - `src/app/layouts/clarity-landing-layout.tsx` — the required `surface` prop
@@ -532,17 +595,23 @@ approval; two are restated with their scope corrected by this spec.
       hole). `/live/:code` is excluded; see AC-11c.
 - [ ] AC-3: The panel body is a segmented control labelled Points · Letters · Tools, with the same
       three tabs and the same entries at 320px, 375px and desktop.
-- [ ] AC-3b: At **320×568, in a browser**, with an event configured so the "This event" group is
-      also present, the **ninth** letter row is reachable and the panel title stays on screen.
+- [ ] AC-3b: At **320×568, in a browser**, the **ninth** letter row is reachable and the panel title
+      stays on screen. R5's retirement removes the variable-height region this AC was written to
+      stress, so the worst case is now simply the longest tab (Letters, 9 rows) — a **fixed** shape.
       P1310 capped this sheet after the 8th entry ran to −83px, and recorded that *jsdom performs no
       layout* — so a unit test cannot close this one.
 - [ ] AC-4: The Points tab lists exactly the configured standing collections — `cmp7`, `cmp3`,
-      `cmp10`, `understanding`, `misunderstanding`, `aisafety1` — and nothing else.
-- [ ] AC-5: The Letters tab lists nine entries; each opens its letter, and an **anonymous** visitor
-      (no session) can read the one it opens.
-- [ ] AC-6: An event configured with one extra shows it above the tabs under "This event"; a second
-      event with none shows **no heading and no separator** — verified against both, so the
-      assertion has teeth in each direction.
+      `cmp10`, `understanding`, `misunderstanding`, `aisafety1` — and nothing else. Labels are the
+      tags verbatim; `aisafety1` renders as `aisafety1` (founder 2026-09-16, Open Question 2).
+- [ ] AC-5: The Letters tab lists the nine **approved** labels verbatim (R3's table — note `st5` is
+      "Grading your own understanding", not the prototype's longer draft), each carrying its `stN`
+      code as a suffix; each opens its letter **in a new tab**, and an **anonymous** visitor (no
+      session) can read the one it opens.
+- [ ] AC-6 *(inverted by R5)*: An event **configured with one extra** renders **no "This event"
+      heading, no separator and no extra entry** — the panel is the three tabs and nothing above
+      them. Verified against a configured event **and** an unconfigured one, so the assertion has
+      teeth in each direction and cannot pass merely because prod data is empty. `events.links` is
+      still readable in the database afterwards (the column is not migrated — R5).
 - [ ] AC-7: `aisafety1` appears in the Points tab and its entry opens a non-empty stake surface.
       *(The "no source-code change" criterion moves to the deferred data spec — see R4.)*
 - [ ] AC-8 *(regression guard — I-4 already holds by construction; nothing in this spec adds an
@@ -566,6 +635,13 @@ approval; two are restated with their scope corrected by this spec.
       it the command returns 63 today, on unmodified code — a gate that fires on its own baseline
       is a gate that gets waived.)*
 - [ ] AC-11c: `/live/:code` has **no** Links button; the `/live` lobby does.
+- [ ] AC-11d: All eight `/events/*` nested routes render the button — asserted on `/events/list`,
+      `/events/:slug`, `/events/new` and `/events/:slug/edit` at minimum, since those four span both
+      the auth-gated and the open halves of that router (R2, founder decision).
+- [ ] AC-16 *(R5 regression guard)*: `grep -rn "This event" src/` returns no rendering site, and the
+      `event` value of `LinksMenuEntry['group']` has no producer. A **known-good control** runs
+      through the identical grep (a string that IS still present) so a probe matching nothing is
+      distinguishable from a probe that is broken.
 - [ ] AC-12: **Four** controls render the same resting treatment and none is `text-destructive` at
       rest: the room-capture bar, the cross-page `/live` bar (`ActiveSessionBanner`), `/live`'s
       in-session banner, and `/transcribe`'s header.
@@ -613,7 +689,11 @@ approval; two are restated with their scope corrected by this spec.
 | 15 | adversarial round 2 (Opus) | [WARN] AC-11b's own command returns 63 on unmodified code; counts stated as 71 call sites and 13 `/tree` routes are 69 and 15; the superseded table pointed at I-2 where it meant I-3 | All corrected | `grep -rn "<SimpleNavigation" src/ \| wc -l` → 63; `grep -c "<ClarityLandingLayout" src/App.tsx` → 69; `grep -c 'path="/tree/' src/App.tsx` → 15 |
 | 16 | adversarial round 2 (Opus) | [WARN] AC-9 passes vacuously with no capture running, and 56 green tests sit inside the blast radius owned by no AC | AC-9 now requires a running capture and a browser; AC-9b covers the join sub-state; AC-14b names the 56 | `p1310-mobile-nav` asserts `event-links-menu.tsx`'s sheet structure as source text, and R1 inserts a control between its two markers |
 | 17 | adversarial round 2 (Opus) | [NOTE] AC-8 now tests shipped code this spec does not touch — R4's deferral removed the only new input | Kept, relabelled as a regression guard rather than a new-surface test | I-4 holds by construction today (`isSafeTag`); the criterion is a green light with nothing under it until the deferred spec lands |
-| 18 | adversarial round 2 (Opus) | [NOTE] The approved-reference prototype is untracked, and `/dev` defaults to a worktree where it would not exist | Commit the prototype and its route before `/dev` | `git status --short` → `?? src/app/pages/prototypes/links-menu-prototype.tsx` |
+| 18 | adversarial round 2 (Opus) | [NOTE] The approved-reference prototype is untracked, and `/dev` defaults to a worktree where it would not exist | **Closed** — committed in `ae2aac6c5` alongside the spec; present in `w4` | `git log --oneline -- src/app/pages/prototypes/links-menu-prototype.tsx` → `ae2aac6c5` |
+| 19 | founder 2026-09-16 | The per-event "This event" group duplicates the Points list and requires per-event micromanagement (*"There is only one specific tag for /stake that is created for the event. But if this is already linked, so be it. We don't need a duplicate, do we?"*) | **R5 rewritten: the group is RETIRED.** Column and type kept, menu stops reading them. AC-6 inverted; AC-3b's worst case simplified; AC-16 added as the regression guard | Verified, and stronger than the founder's own argument: `EventLinkEntry = {tag, label?}` (`types/index.ts:938-942`) carries a stake tag — structurally identical to a Points entry — and **no writer exists anywhere** (`grep -rln "EventLinkEntry" src/ e2e/` → type, `event-links.ts`, `event-links-menu.tsx`; no `links` field in `CreateEvent.tsx`/`EditEvent.tsx`). The only write path was direct SQL, which is why 0 of 14 prod events had one |
+| 20 | founder 2026-09-16 | `/events/*`'s 8 routes were left as a "known gap" — per-route threading vs one value. Founder rejected the per-route option as future micromanagement (*"I want simplified, low maintainability, and high chance of working for this and future events"*) | **One value: `surface="product"` for all eight**, written once at `App.tsx:1014`. A ninth route inherits it silently, which is the correct default for that section. The "known gap" paragraph is replaced by a stated decision | Routes enumerated at `src/app/prototypes/events/index.tsx:55-62`. `new` and `:slug/edit` are auth- **and** host-gated (`CreateEvent.tsx` *"You need an account to host events"*; `EditEvent.tsx:97` `event.hostId !== user.id`), so "product" is the honest value for them; `list`/`:slug` are reached from an invitation to a Clarity event, where the product index is an offer, not a leak |
+| 21 | founder 2026-09-16 | Letter labels and `aisafety1`'s label were open | Nine labels approved (`st5` shortened to "Grading your own understanding"); `aisafety1` renders verbatim, so P1179 Resolved Decision 1 survives intact | Labels verified against letter content **through** the P701 st-swap (`20260413100000_p701_st_swap.sql`), which postdates `badge-points-reference.md` by one day and renumbered three stations. Pre-swap reading makes three labels look misfiled; they are not |
+| 22 | orchestrator 2026-09-16 | The spec contradicted itself on `/architect`: frontmatter `pipeline_plan` includes it and `pipeline_skipped` does not list it, while R2's parenthetical claimed it was skipped by founder decision | **Frontmatter wins — `/architect` runs.** R2's parenthetical corrected. R6 carries an explicit `[ARCHITECT DECISION]` marker (the claimed-but-silent slot), which is exactly the work that needs it | `pipeline_plan: [change-request, challenge-prd, architect, generate-tests, dev, verify]`; `pipeline_skipped` lists only `ux` and `decompose` |
 
 **Verified additionally while resolving:** `aisafety1` lives in the user `tags` column (4 points,
 8 stories on prod) and **not** `system_tags` — `isSystemTag` (`src/lib/feed-utils.ts:29-32`) matches
@@ -623,14 +703,20 @@ bar P1179's own comment set for adding a tag to this list.
 
 ## Open Questions
 
-1. **The nine letter labels.** Founder copy required (R3). Blocks AC-5's final wording, not the build.
-2. **Does a standing collection get an optional display label,** or do labels stay identical to the
-   tag? P1179 Resolved Decision 1 says the spoken word and the rendered label must match; `aisafety1`
-   is the first tag where that reads awkwardly. [FOUNDER DECISION]
-3. ~~Allow-list or deny-list for the mount rule~~ — **resolved**, see Resolved Decisions 9: neither.
-   A required `surface` prop on the layout.
-4. **Does the per-event "This event" group stay?** (R5) It has never rendered an entry on prod and
-   keeps six mechanisms alive. Keeping it is fine; the spec just no longer claims it is free.
+**All four are closed** (founder, 2026-09-16). Kept here with their resolutions rather than deleted,
+so a later reader sees what was asked and what was answered.
+
+1. ~~The nine letter labels~~ — **approved**, R3's table. `st5` shortened to "Grading your own
+   understanding"; the other eight verbatim from the prototype.
+2. ~~Optional display label for a standing collection~~ — **no.** Labels stay identical to the tag;
+   `aisafety1` renders as `aisafety1`. Founder: *"leave it as aisafety1"*. P1179 Resolved Decision 1
+   (the spoken word and the rendered label are the same token) therefore survives intact.
+3. ~~Allow-list or deny-list for the mount rule~~ — **neither**, see Resolved Decisions 9: a required
+   `surface` prop on the layout, with per-page adopt/decline for bespoke-header pages (Resolved
+   Decisions 12) and one value for `/events/*` (Resolved Decisions 20).
+4. ~~Does the per-event "This event" group stay?~~ — **retired**, see R5 and Resolved Decisions 19.
+
+**No open question blocks `/dev`.**
 
 ## Next Steps
 
@@ -638,7 +724,14 @@ bar P1179's own comment set for adding a tag to this list.
 resolved in the table above — two by correcting the spec's model of the code, three by founder
 decision, the rest by tightening criteria.
 
-**Re-run `/challenge-prd` on the revised R2, R4, R6, R7 and Acceptance Criteria before
+**Re-run `/challenge-prd` on the revised R2, R3, R4, R5, R6, R7 and Acceptance Criteria before
 `/architect`.** The first pass found two mechanism errors by grep in under a minute; the revised
-sections have not been through it. Then `/architect`, whose remaining questions are: the
-claimed-but-silent slot shape for R6, and how `surface` threads to `EventLinksMenu`.
+sections have not been through it — and R5 is now a *removal*, which is a different risk shape from
+everything the earlier passes looked at.
+
+Then `/architect`, whose remaining questions are:
+1. The claimed-but-silent slot shape for R6.
+2. How `surface` threads to `EventLinksMenu`, and how a bespoke-header page adopts or declines the
+   single trigger (R2's portal).
+3. What exactly is deleted vs. left dormant for R5 — the column and type stay; the probe, `PROBE_CAP`,
+   the fail-open branch, the separator logic and the `event` group value go.
