@@ -361,7 +361,7 @@ export function TranscribeRoomPage() {
               type="button"
               onClick={() => void handleEndSession()}
               aria-label="End Session"
-              className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
+              className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
               data-testid="transcribe-end-session-button"
             >
               <LogOut className="h-4 w-4" />

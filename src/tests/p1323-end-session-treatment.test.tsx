@@ -28,6 +28,9 @@ function assertNeutralAtRest(cls: string, where: string) {
   expect(t, `${where}: red AT REST — the P1323 defect`).not.toContain('text-destructive');
   expect(t, `${where}: neutral resting colour`).toContain('text-muted-foreground');
   expect(t, `${where}: destructive on hover`).toContain('hover:text-destructive');
+  // Keyboard users get the same signal: a first version gave focus-visible to SessionBar only
+  // (adversarial review, Codex Sol).
+  expect(t, `${where}: destructive on keyboard focus`).toContain('focus-visible:text-destructive');
 }
 
 describe('P1323 AC-12 — one End Session treatment across four controls', () => {

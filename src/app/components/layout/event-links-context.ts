@@ -8,7 +8,7 @@
  * (`react-refresh/only-export-components`, which this repo lints as an error), and the
  * warning is real: an edit to the menu would stop hot-reloading cleanly.
  */
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useLayoutEffect } from 'react';
 import type { LinksMenuEntry } from '@/app/data/event-links';
 
 export type TriggerOverride = 'adopt' | 'decline' | null;
@@ -45,7 +45,10 @@ export const EventLinksContext = createContext<{
 export function useLinksTriggerOverride(mode: TriggerOverride) {
   const ctx = useContext(EventLinksContext);
   const setOverride = ctx?.setOverride;
-  useEffect(() => {
+  // useLayoutEffect, not useEffect: the declaration must land BEFORE paint. With useEffect the
+  // first frame of an adopting page rendered the NAV's trigger (override still null), then
+  // swapped it for the page's — a one-frame double-handoff (adversarial review, Gemini 3.8).
+  useLayoutEffect(() => {
     if (!setOverride) return;
     setOverride(mode);
     // Restore on unmount so leaving the room hands the trigger back to the nav.

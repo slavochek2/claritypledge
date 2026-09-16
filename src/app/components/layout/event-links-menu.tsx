@@ -61,7 +61,7 @@
  * the same reason: it must read as part of the nav, not as a second system.
  */
 
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer';
 import {
@@ -184,8 +184,19 @@ function LinksMenuTabs({
   entries: LinksMenuEntry[];
   renderEntry: (entry: LinksMenuEntry, key: string) => React.ReactNode;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   return (
-    <Tabs defaultValue="points" className="w-full">
+    <Tabs
+      ref={rootRef}
+      defaultValue="points"
+      className="w-full"
+      // Start every tab at its TOP. The sheet's list scrolls, and the scroll position belongs to
+      // the scroll container, not to a tab — so switching from a scrolled Letters tab left Points
+      // scrolled too. Measured at 667x375 landscape (adversarial review, Gemini 3.8): after
+      // Letters scrolled to the bottom, Points opened at scrollTop 183 with `cmp7` 38px above
+      // the pinned switch, reading as a missing entry.
+      onValueChange={() => rootRef.current?.closest('nav')?.scrollTo({ top: 0 })}
+    >
       {/* STICKY, measured necessary: at 320x568 the Letters tab is taller than the sheet, and
           with the switch inside the scroll container, scrolling down to the ninth letter
           scrolled Points / Letters / Tools off the top — changing tabs meant scrolling back
@@ -246,7 +257,11 @@ function EntryText({ entry, wrap = false }: { entry: LinksMenuEntry; wrap?: bool
           The desktop dropdown keeps `truncate` as a guard only: at w-80 every approved
           label measured whole. */}
       <span className={cn('min-w-0', wrap ? 'break-words leading-snug' : 'truncate')}>{entry.label}</span>
-      {entry.hint && <span className="ml-2 shrink-0 text-xs font-normal opacity-60">{entry.hint}</span>}
+      {/* The {' '} is for ASSISTIVE TECH, not layout (whitespace between flex items is not
+          rendered). Without it the text is "Agreement is not understandingst6" — the gap was a
+          CSS margin only. Chrome's accessibility tree happened to insert a space; an accessible-name
+          computation on the DOM did not (adversarial review, Codex Sol). */}
+      {entry.hint && <>{' '}<span className="ml-2 shrink-0 text-xs font-normal opacity-60">{entry.hint}</span></>}
     </>
   );
 }

@@ -356,6 +356,32 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     }
   });
 
+  /**
+   * Adversarial review (Gemini 3.8), reproduced before fixing: on a landscape phone the sheet is
+   * capped short, so switching from a scrolled Letters tab to Points kept the list scrolled and
+   * `cmp7` sat hidden above the pinned switch — reading as a missing entry.
+   */
+  test('landscape phone: switching tabs starts the list at the top', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 667, height: 375 }, isMobile: true, hasTouch: true });
+    try {
+      const page = await ctx.newPage();
+      await page.goto('/stake/understanding');
+      await visibleLinksTriggers(page).first().tap();
+      await expect(page.getByTestId('event-links-menu')).toHaveAttribute('data-shape', 'sheet');
+      await page.getByTestId('event-links-tab-letters').tap();
+      const nav = page.getByTestId('event-links-menu').locator('nav');
+      await nav.evaluate(el => { el.scrollTop = el.scrollHeight; });
+      expect(await nav.evaluate(el => el.scrollTop), 'precondition: Letters list is scrolled').toBeGreaterThan(0);
+      await page.getByTestId('event-links-tab-points').tap();
+      await expect.poll(() => nav.evaluate(el => el.scrollTop), { message: 'Points opened scrolled' }).toBe(0);
+      const first = await page.getByTestId('event-links-entry').first().boundingBox();
+      const tabs = await page.getByTestId('event-links-tabs').boundingBox();
+      expect(first!.y, 'cmp7 is below the pinned switch, not hidden above it').toBeGreaterThanOrEqual(tabs!.y + tabs!.height - 1);
+    } finally {
+      await ctx.close();
+    }
+  });
+
   test('AC-1 + AC-17: a bare /stake/:tag carries the menu, signed OUT, at desktop width, non-compact routes too', async ({ page }) => {
     // Signed out on purpose: the signed-out desktop non-compact nav branch had no trigger at all.
     await setViewport(page, 1280, 800);

@@ -77,7 +77,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
               disabled={isEnding}
               aria-busy={isEnding}
               aria-label={isEnding ? 'Ending session, please wait' : 'End Session'}
-              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-3 h-9 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg px-3 h-9 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               data-testid="leave-meeting"
             >
               <LogOut className="h-4 w-4" />

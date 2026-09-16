@@ -93,7 +93,7 @@ describe('P1323 AC-1 — the trigger renders on any product surface, event or no
     await open();
     expect(visibleEntries()).toEqual(POINTS);
     await selectTab('letters');
-    expect(visibleEntries()).toEqual(LETTERS.map((l, i) => l + STANDARD_LETTER_ENTRIES[i]!.code));
+    expect(visibleEntries()).toEqual(LETTERS.map((l, i) => `${l} ${STANDARD_LETTER_ENTRIES[i]!.code}`));
   });
 });
 
@@ -125,7 +125,8 @@ describe('P1323 AC-3/AC-4/AC-5 — three tabs, exact contents', () => {
     const rows = visibleEntries();
     expect(rows).toHaveLength(9);
     for (const [i, l] of STANDARD_LETTER_ENTRIES.entries()) {
-      expect(rows[i]).toBe(`${l.label}${l.code}`);
+      // A real space before the code, so assistive tech does not read "...understandingst6".
+      expect(rows[i]).toBe(`${l.label} ${l.code}`);
     }
   });
 
