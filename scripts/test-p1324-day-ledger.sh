@@ -110,5 +110,52 @@ printf 'prose naming ~/.claude/commands/day.md\n\n```bash\n# a comment about ~/.
 want "and does NOT flag prose or a fenced comment (no false positive)" "$(_scount "$TMP/ok-path.md")" "0"
 
 echo
+echo "== codex review 2026-09-16: a PARTIAL filing failure is still a failure =="
+# Exiting 0 because SOME finding filed would let the ledger record Step 9b as clean while a
+# real finding stayed untracked AND absent from the hand-off prompt — the defect this step
+# exists to close, one level up. Reproduced on the shipped code before the fix.
+FILER="${DAY_FILE_FINDINGS_BIN:-$HOME/.claude/scripts/day-file-findings.sh}"
+DAY_STEP_BIN_PATH="${DAY_STEP:-$HOME/.claude/scripts/day-step.sh}"
+# inbox.sh runs through tools/kanban/node_modules, which is a MAIN-CHECKOUT artifact — a
+# worktree has no copy, so the worktree's own inbox.sh exits 2 before doing anything. Pin to
+# the main checkout, the same way day-cp.md pins its baseline reads. --git-common-dir resolves
+# identically from w0 and from any worktree.
+MAIN_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." 2>/dev/null && pwd || echo "$ROOT")"
+INBOX_CLI="$MAIN_ROOT/scripts/inbox.sh"
+if [ ! -x "$FILER" ] || [ ! -x "$DAY_STEP_BIN_PATH" ]; then
+  bad "day-file-findings.sh or day-step.sh not found — the partial-failure case could NOT run, treat as unverified"
+elif [ ! -x "$MAIN_ROOT/tools/kanban/node_modules/.bin/tsx" ]; then
+  # Loud, never a silent pass: without the CLI this section asserts nothing at all.
+  bad "tools/kanban is not installed in the main checkout — the filing cases could NOT run, treat as unverified (npm install in tools/kanban)"
+else
+  FX="$TMP/fx"; mkdir -p "$FX"
+  printf '# Process Learnings\n\nPublic.\n\n---\n' > "$FX/public.md"
+  mkdir -p "$FX/private.md"   # a DIRECTORY where a file must be: private writes cannot succeed
+  printf 'x\tcmd\thard\tX\n' > "$TMP/f-man.tsv"
+  export DAY_STEP_LEDGER="$TMP/f-led" DAY_STEP_MANIFEST="$TMP/f-man.tsv"
+  "$DAY_STEP_BIN_PATH" begin --pass-id F >/dev/null 2>&1
+  printf 'public body\n'  | "$DAY_STEP_BIN_PATH" finding --check x --severity low  --title "Public one"  --store public  >/dev/null 2>&1
+  printf 'private body\n' | "$DAY_STEP_BIN_PATH" finding --check x --severity high --title "Private one" --store private >/dev/null 2>&1
+  out="$(DAY_FINDINGS_FIXTURE_DIR="$FX" "$FILER" --inbox "$INBOX_CLI" 2>&1)"; rc=$?
+  want "one filed and one refused exits NON-zero" "$rc" "1"
+  if printf '%s' "$out" | grep -q "UNTRACKED"; then ok "and it says plainly which are untracked"
+  else bad "the partial failure was not surfaced: $out"; fi
+  if printf '%s' "$out" | grep -q "Work the /day findings.*INBOX-1"; then
+    ok "the hand-off still names the finding that DID land"
+  else bad "the hand-off lost the successful id"; fi
+  if printf '%s' "$out" | grep -q "Work the /day findings.*INBOX-P"; then
+    bad "the hand-off names a finding that never filed"
+  else ok "and does NOT name the one that never filed"; fi
+  # 7c control: with both stores writable, the same inputs must exit 0.
+  rm -rf "$FX/private.md"; printf '# Private\n\n---\n' > "$FX/private.md"
+  export DAY_STEP_LEDGER="$TMP/f-led2"
+  "$DAY_STEP_BIN_PATH" begin --pass-id F2 >/dev/null 2>&1
+  printf 'b\n' | "$DAY_STEP_BIN_PATH" finding --check x --severity low --title "Public two" --store public >/dev/null 2>&1
+  DAY_FINDINGS_FIXTURE_DIR="$FX" "$FILER" --inbox "$INBOX_CLI" >/dev/null 2>&1
+  want "CONTROL: a fully successful filing still exits 0" "$?" "0"
+  unset DAY_STEP_LEDGER DAY_STEP_MANIFEST
+fi
+
+echo
 echo "== ${pass} passed, ${fail} failed =="
 [ "$fail" -eq 0 ]
