@@ -27,7 +27,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import userEvent from '@testing-library/user-event';
 import { EventLinksMenu, EventLinksButton } from '@/app/components/layout/event-links-menu';
-import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
+import { useContext } from 'react';
+import { useLinksTriggerOverride, EventLinksContext } from '@/app/components/layout/event-links-context';
+
+/** Test-only: subscribe to the MAIN menu context, as the control for the render-count test. */
+function useLinksMenuOpenProbe() { return useContext(EventLinksContext)?.open; }
 import { buildLinksMenu, STANDARD_STAKE_TAGS, STANDARD_TOOL_ENTRIES, STANDARD_LETTER_ENTRIES } from '@/app/data/event-links';
 
 vi.mock('@/app/data/events-service', () => ({
@@ -231,5 +235,37 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
       const around = NAV_SRC.slice(idx - 200, idx + m.length);
       expect(around, `breakpoint hide around ${m}`).not.toMatch(/hidden\s+(sm|md|lg):/);
     }
+  });
+});
+
+describe('P1323 — declaring adopt/decline does not re-render the page on every menu toggle', () => {
+  /**
+   * Adversarial review (Opus): the override setter used to live on the main menu context, whose
+   * value changes on every open/close — so TranscribeRoomPage and ClarityLivePage (which call the
+   * hook only to DECLARE) re-rendered on each tap. The setter now has its own stable context.
+   * Control: a component that reads the MAIN context does re-render, so a zero delta below is not
+   * a counter that never moves.
+   */
+  it('an override-only consumer renders the same number of times across open + close', async () => {
+    const user = userEvent.setup();
+    const renders = { declarer: 0, reader: 0 };
+    function Declarer() { renders.declarer++; useLinksTriggerOverride(null); return null; }
+    function MainContextReader() { renders.reader++; useLinksMenuOpenProbe(); return null; }
+    render(
+      <MemoryRouter initialEntries={['/feed']}>
+        <EventLinksMenu enabled>
+          <Declarer />
+          <MainContextReader />
+          <EventLinksButton />
+        </EventLinksMenu>
+      </MemoryRouter>
+    );
+    const declarerBefore = renders.declarer;
+    const readerBefore = renders.reader;
+    await user.click(await screen.findByTestId('event-links-button'));
+    expect(await screen.findByTestId('event-links-menu')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(renders.declarer - declarerBefore, 'override-only consumer re-rendered on a menu toggle').toBe(0);
+    expect(renders.reader - readerBefore, 'control: a main-context consumer DOES re-render').toBeGreaterThan(0);
   });
 });

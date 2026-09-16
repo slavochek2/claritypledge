@@ -76,7 +76,7 @@ import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { cn } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
 import { buildLinksMenu, eventSlugFromLocation, type LinksMenuEntry } from '@/app/data/event-links';
-import { EventLinksContext, type TriggerOverride } from '@/app/components/layout/event-links-context';
+import { EventLinksContext, EventLinksOverrideContext, type TriggerOverride } from '@/app/components/layout/event-links-context';
 
 /**
  * ONE instance of this provider owns the open state, the event fetch and the
@@ -301,7 +301,9 @@ function LinksMenuDropdownBody({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" data-testid="event-links-tabs">
+      {/* role="group" + label: related menuitemradio items announced as one set of three
+          (WAI-ARIA menu pattern; /finish code review). */}
+      <div role="group" aria-label="Links sections" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" data-testid="event-links-tabs">
         {TABS.map(t => (
           <DropdownMenuItem
             key={t.value}
@@ -475,7 +477,6 @@ export function EventLinksMenu({
       navigate(entry.to);
     },
     override,
-    setOverride,
   }), [open, eventSlug, entries, navigate, override]);
 
   /**
@@ -496,6 +497,7 @@ export function EventLinksMenu({
   if (!enabled) return <>{children}</>;
 
   return (
+    <EventLinksOverrideContext.Provider value={setOverride}>
     <EventLinksContext.Provider value={ctxValue}>
       {children}
       <Drawer open={open} onOpenChange={setOpen} forceSheet>
@@ -548,5 +550,6 @@ export function EventLinksMenu({
         </DrawerContent>
       </Drawer>
     </EventLinksContext.Provider>
+    </EventLinksOverrideContext.Provider>
   );
 }

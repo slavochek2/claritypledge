@@ -18,12 +18,10 @@ import {
 import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-// P1179: the room's Links button. Renders as a sibling of the avatar in BOTH
-// right-hand groups so it holds the same position at every width, and returns
-// null outside an event context so the ~30 other routes are untouched (DW-1).
+// P1179/P1323: the Links trigger. Renders as a sibling of the avatar in EVERY right-hand group
+// so it holds the same position at every width. It returns null when the layout's `surface` is
+// not `product` (no provider), or when a page has adopted/declined it (useLinksTriggerOverride).
 import { EventLinksButton } from "@/app/components/layout/event-links-menu";
-// Type-only, so it is erased at build time and creates no runtime cycle with the layout
-// that renders this component.
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";

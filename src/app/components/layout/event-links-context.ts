@@ -20,8 +20,16 @@ export const EventLinksContext = createContext<{
   go: (entry: LinksMenuEntry) => void;
   /** See `useLinksTriggerOverride`. */
   override: TriggerOverride;
-  setOverride: (v: TriggerOverride) => void;
 } | null>(null);
+
+/**
+ * The override SETTER, in its own context on purpose. Its value is a React state setter, whose
+ * identity never changes — so a page that only DECLARES adopt/decline subscribes to something
+ * that never updates. When the setter lived on EventLinksContext, every open/close of the menu
+ * produced a new context value and re-rendered TranscribeRoomPage and ClarityLivePage (the latter
+ * ~3.9k lines, the former streaming a live transcript) on each tap (adversarial review, Opus).
+ */
+export const EventLinksOverrideContext = createContext<((v: TriggerOverride) => void) | null>(null);
 
 /**
  * P1323: how a page that draws its OWN sticky header over the nav settles where the single
@@ -39,12 +47,11 @@ export const EventLinksContext = createContext<{
  *   - `null`    — the nav serves this page normally (the default; no declaration needed).
  *
  * A route-level prop cannot express either: `/live` and `/live/:code` render the SAME
- * component inside the SAME bare layout (App.tsx:827, 839), so nothing at the route level
- * distinguishes the lobby from a running two-party session.
+ * component inside the SAME bare layout (their two routes in App.tsx), so nothing at the route
+ * level distinguishes the lobby from a running two-party session.
  */
 export function useLinksTriggerOverride(mode: TriggerOverride) {
-  const ctx = useContext(EventLinksContext);
-  const setOverride = ctx?.setOverride;
+  const setOverride = useContext(EventLinksOverrideContext);
   // useLayoutEffect, not useEffect: the declaration must land BEFORE paint. With useEffect the
   // first frame of an adopting page rendered the NAV's trigger (override still null), then
   // swapped it for the page's — a one-frame double-handoff (adversarial review, Gemini 3.8).

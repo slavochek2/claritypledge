@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 disclosure: public
 drafted_by: opus
@@ -647,10 +647,13 @@ approval; two are restated with their scope corrected by this spec.
 - **I-3. Adding to the nav's right-hand group must not alter layout on any route.** This is P1179's
   Invariant 3 with its "scoped to the room" clause removed by R2 and its layout-safety requirement
   *widened*: the button now appears on most of the routes where the nav renders, instead of 4 — so the geometry
-  requirement applies to all of them rather than being satisfied by absence. **The exact number is
-  not yet knowable**: `src/App.tsx` carries 97 `path=` entries including wildcards and 13 dev-only
-  `/tree/*` prototypes, and the marketing set is not yet enumerated (R2). P1179 estimated "~30
-  routes" for the same population. Do not quote a figure until R2's list exists.
+  requirement applies to all of them rather than being satisfied by absence. **Enumerated during
+  `/dev`:** all 69 `<ClarityLandingLayout>` call sites in `src/App.tsx` carry `surface` — **40 `product`,
+  29 `public`** (after Resolved Decision 36 moved `/groups*` to product). The public set is marketing,
+  legal, auth, dev-only `/tree/*` and chrome-free routes; `/pledgers` is the one borderline case. The
+  typecheck gate keeps every future call site answering. Geometry is asserted by e2e on the
+  signed-in phone header at 320/360/375 and on the room header at 320/375/1280. *(This invariant
+  originally said the set was not yet enumerated; corrected per `/finish` spec review.)*
 - **I-4 (security). Menu entries resolve to internal paths only — never an arbitrary or external
   URL.** This is P1179's DW-3 and P1310 restated it for Slides. **In THIS spec the guarantee is unchanged** — a
   standard entry's path is still a literal in `event-links.ts` and an extra still carries a bare tag
@@ -902,7 +905,8 @@ user and a fake microphone. "prod" = an anonymous, read-only page view of clarit
 | 38 | founder 2026-09-16: phone bottom nav vs desktop tab row | Measured signed in at 375 and 1280 across /feed, /stake, event room, event page, /groups, /live, /transcribe: /stake disagreed (phone bar shown, desktop tabs hidden); /transcribe's join screen disagreed the other way | Founder chose: fix /stake only. `/stake/:tag` joins the bottom nav's focus routes (exact one-segment pattern). /transcribe left as is | Test-first: failed 3/7 before the fix (controls /stakeholders, /stake, /stake/x/y, /feed passing), 7/7 after; e2e asserts no browse nav on /stake on phone AND desktop with /feed as the control |
 | 39 | final adversarial review — Gemini 3.8 (served model verified), full diff | No BLOCK. WARN: landscape phone kept the list's scroll across tabs, hiding `cmp7` above the switch. NOTE: override set in `useEffect` gave a one-frame nav trigger on adopting pages. NOTE: arrow keys wrap from the last row to the Points segment | WARN fixed (tab change scrolls the list to top) and pinned in e2e; first NOTE fixed (`useLayoutEffect`); second NOTE **not a defect** — standard menu roving focus, selection unchanged | WARN reproduced at 667x375 before fixing: Points opened at scrollTop 183, cmp7 at -38px; after: 0, cmp7 below the switch |
 | 40 | final adversarial review — Codex Sol `gpt-5.6-sol` effort high (served model: accepted-only), full diff | No BLOCK. WARN: letter rows' accessible name concatenated ("understandingst6"). WARN: /live banner and /transcribe header End controls lacked the keyboard-focus destructive state. WARN: the "Links" tooltip does not appear on touch devices | First two fixed (explicit space; `focus-visible:` classes) with tests tightened; third accepted and the spec corrected (row 34) | Row name: Chrome's accessibility tree had inserted a space, a DOM accessible-name computation had not — fixed for both. The tightened tests fail on the old markup |
-| 41 | final adversarial review — Opus | Spawned on the same packet; went idle without delivering, chased once | See the report count in the session summary | Counted, not assumed |
+| 41 | final adversarial review — Opus (delivered after one chase; final round **3 of 3**) | No BLOCK. WARN: the layout's comment named a `scripts/surface-prop-gate.sh` that never existed. NOTE: an INVALID `surface` (TS2322) passed the gate. NOTE: every menu toggle re-rendered TranscribeRoomPage and ClarityLivePage via the override hook's context. NOTE: /stake keeps 80px bottom-nav padding with the nav hidden. NOTE: stale line numbers | WARN fixed. Invalid-value case reproduced (gate exit 0) then blocked — canary 7 -> 8, and an ordered-regex rewrite that broke the TS2739 case was caught by the canary before it landed. Re-render fixed by moving the setter to its own stable context, with a render-count test and a main-context control. Padding NOT changed (room pages already behave so; separate layout rule). Line numbers removed | Opus killed nine further hypotheses with evidence (vaul drag not mounted under forceSheet; the sheet height wins the cascade; /stake regex ignores the query; /groups draws no chrome; trigger ARIA intact; CTA a true 40x40; awk joiner edge cases; ClaimSilent cannot hide another room; /live decline resets) |
+| 42 | `/finish` (code: Sonnet; specs: Sonnet; privacy) before `/ship` gate 2.7 | Code: 3 LOW — a stale "Type-only" comment on a runtime import, no `role="group"` around the desktop segments, AC-9 e2e's measured flake. Specs: 2 HIGH — Next Steps still said "run /ship" while ship had started; I-3 still said the route set was unenumerated. 1 MEDIUM status `in-progress` with all ACs ticked. 1 LOW AC/decision numbering out of sequence. Privacy: clean | Applied: comments corrected, `role="group"` + label, I-3 rewritten with the enumeration (40 product / 29 public), Next Steps replaced, status `qa`. Not applied: renumbering — numbering is append-only by convention so references stay valid; AC-9 flake already mitigated (reachCapturing waits for the /meet redirect) and its cause filed as INBOX-80 | Unit 4408/0, e2e 19/19 clean run, lint, build, gate canary 8/8 |
 
 **Verified additionally while resolving:** `aisafety1` lives in the user `tags` column (4 points,
 8 stories on prod) and **not** `system_tags` — `isSystemTag` (`src/lib/feed-utils.ts:29-32`) matches
@@ -929,6 +933,7 @@ so a later reader sees what was asked and what was answered.
 
 ## Next Steps
 
-1. **Founder review** — all acceptance criteria now carry evidence. Review the trade-offs in Resolved Decisions 27 and 34:
-   the icon-only "Start a Session" button below 360px, the icon-only Links trigger, and the fixed-height phone sheet.
-2. `/ship p1323` when satisfied. Nothing is pushed or deployed.
+`/ship p1323` is in progress (founder, 2026-09-16: ship, then `/kdd`, then commit). All acceptance
+criteria carry evidence. Trade-offs the founder may still revisit after shipping: Resolved Decisions 27
+and 34 (icon-only Links trigger, icon-only "Start a Session" below 360px, fixed-height phone sheet).
+Nothing is pushed or deployed until the founder pushes.

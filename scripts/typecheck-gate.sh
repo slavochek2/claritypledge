@@ -104,15 +104,27 @@ BROKEN="$(grep -E "$GATE_CODES" <<< "$TSC_OUT" | grep -vE "$TEST_PATHS")"
 # SCOPED TO THE TYPE NAME. Other components also have a `surface` prop — the feed cards,
 # ShareDialog, and a prototype where it is REQUIRED — so the property name alone would block
 # commits over unrelated components.
-SURFACE_MISSING="$(awk '
+JOINED_DIAGNOSTICS="$(awk '
   /^[^ ].*\([0-9]+,[0-9]+\): error TS[0-9]+/ { if (blk != "") print blk; blk = $0; next }
   /^ / { if (blk != "") blk = blk " " $0; next }
   { if (blk != "") print blk; blk = "" }
   END { if (blk != "") print blk }
-' <<< "$TSC_OUT" | grep -F "ClarityLandingLayoutProps" | grep -E "(Property .surface. is missing|missing the following properties[^.]*[:,] ?surface\b)" | grep -vE "$TEST_PATHS")"
+' <<< "$TSC_OUT")"
+# Two independent matches, deliberately NOT one ordered regex. An ordered rewrite broke the TS2739
+# form, whose message puts the type name BETWEEN "missing the following properties" and "surface"
+# (caught by canary scenario 5 the moment it ran). Filters in a pipeline do not care about order.
+#   1. MISSING: the props type name AND a surface-missing phrase anywhere in the joined diagnostic.
+#   2. INVALID: TS2322 "not assignable to type 'ClarityLayoutSurface'" — e.g.
+#      `surface={flag ? 'product' : undefined}`. Not a "missing" diagnostic, and at runtime any
+#      non-'product' value silently disables the menu (adversarial review, Opus; reproduced
+#      exit 0 before this). Matched on the surface TYPE name, which only this prop uses.
+SURFACE_MISSING="$( {
+  grep -F "ClarityLandingLayoutProps" <<< "$JOINED_DIAGNOSTICS" | grep -E "(Property .surface. is missing|missing the following properties[^.]*[:,] ?surface\b)"
+  grep -F "not assignable to type 'ClarityLayoutSurface'" <<< "$JOINED_DIAGNOSTICS"
+} | grep -vE "$TEST_PATHS")"
 
 if [ -n "$SURFACE_MISSING" ]; then
-  echo "typecheck-gate: a ClarityLandingLayout is missing its required \`surface\` prop."
+  echo "typecheck-gate: a ClarityLandingLayout is missing its required \`surface\` prop (or passes an invalid value)."
   echo "Every page must declare whether it is a 'product' surface (someone USING the thing —"
   echo "it carries the Links menu) or 'public' (someone READING ABOUT it — it does not)."
   echo "See src/app/layouts/clarity-landing-layout.tsx (P1323 R2)."

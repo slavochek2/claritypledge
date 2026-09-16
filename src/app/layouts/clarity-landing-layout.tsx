@@ -33,12 +33,14 @@ import { isImmersiveLetterRoute as matchImmersiveLetterRoute } from "@/app/layou
  * question in the same diff that creates the route, where whoever is writing it has the
  * most context.
  *
- * HONEST LIMIT, measured 2026-09-16 — do not restate the stronger claim. "A new page
- * cannot compile without answering" is true of `tsc` and of an IDE, and FALSE of this
- * repo's pipeline: `scripts/typecheck-gate.sh` (pre-commit AND CI) gates only the
- * undeclared-identifier family TS2304/2552/2582, a missing required prop is TS2741, and
- * `vite build` uses esbuild and does not typecheck at all. `scripts/surface-prop-gate.sh`
- * exists to close that hole; if it is ever removed, this prop becomes advisory again.
+ * ENFORCEMENT, measured 2026-09-16 — read this before trusting the prop. `vite build` uses
+ * esbuild and does not typecheck, so a required prop alone is enforced only by an IDE or a
+ * manual `tsc`. What makes it mechanical is a dedicated rule inside `scripts/typecheck-gate.sh`
+ * (pre-commit AND CI): it blocks a `surface` that is MISSING (TS2741 / TS2739 / the multi-line
+ * TS2769 `createElement` form) or INVALID (TS2322 against `ClarityLayoutSurface`), proven by
+ * the scenarios in `scripts/test-typecheck-gate.sh`. If that rule is ever removed, this prop
+ * becomes advisory again. (An earlier version of this comment named a separate
+ * `surface-prop-gate.sh` that never existed — adversarial review, Opus.)
  */
 export type ClarityLayoutSurface = 'product' | 'public';
 

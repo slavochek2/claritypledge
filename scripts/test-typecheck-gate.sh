@@ -130,6 +130,24 @@ else
 fi
 rm -f "$CANARY_TSX"
 
+# 5c. BLOCKS an INVALID value: a conditional that can be undefined is TS2322 against
+#     ClarityLayoutSurface, not a "missing" diagnostic, and silently disables the menu at runtime.
+printf '%s\n' \
+  "import { ClarityLandingLayout } from '@/app/layouts/clarity-landing-layout';" \
+  "declare const flag: boolean;" \
+  "export const badValue = <ClarityLandingLayout surface={flag ? 'product' : undefined}><div /></ClarityLandingLayout>;" \
+  > "$CANARY_TSX"
+GATE_RC=0; GATE_OUT="$("$GATE" 2>&1)" || GATE_RC=$?
+if [ "$GATE_RC" -eq 1 ] && grep -qF "missing its required \`surface\` prop" <<< "$GATE_OUT"; then
+  echo "  OK   blocks-invalid-surface-value — TS2322 against ClarityLayoutSurface blocked and named (exit 1)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL blocks-invalid-surface-value — expected BLOCK naming the surface rule, got exit $GATE_RC:"
+  head -10 <<< "$GATE_OUT"
+  FAIL=$((FAIL+1))
+fi
+rm -f "$CANARY_TSX"
+
 # 6. DOES NOT FIRE on a DIFFERENT component whose required prop is ALSO named `surface`.
 #    Scenario 4 proves the rule ignores other property names; this proves it ignores other
 #    COMPONENTS. The repo really has such a component (a prototype with `surface: string`),
