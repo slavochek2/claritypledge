@@ -643,7 +643,7 @@
      markers that group them. A previous cut inverted this (tier words huge, domains
      as captions) and lost the argument entirely: three abstract words tell a viewer
      nothing. If you are tempted to shrink the domains again, don't. */
-  .clc{width:100%;max-width:min(92vw,720px);margin:clamp(1.9rem,5vh,3.2rem) auto 0;
+  .clc{width:100%;max-width:min(92vw,920px);margin:clamp(1.9rem,5vh,3.2rem) auto 0;
     text-align:center;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
   /* fixed row box, contents centred: uniform padding against descender-driven line
      boxes rendered three "equal" tiers at visibly different heights. */
@@ -756,8 +756,6 @@
     </div>
   </section>
 
-
-
   <!-- 2 · AGENDA — the evening's five moves, taken from the EVENT PAGE's own "Agenda"
        section (claritypledge.com/events/<slug>, read live 2026-09-16) and shortened only
        for projection. Anyone who registered has already read this; putting it second is
@@ -770,49 +768,60 @@
       border-radius:999px;background:var(--blue);color:#fff;font-weight:800;
       font-size:clamp(.8rem,1.5vw,1rem);display:flex;align-items:center;
       justify-content:center;margin-top:.15rem;line-height:1}
+    /* few words per line, so they can be big enough to read from the back row */
+    .agn{max-width:min(46rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
+    .agn .ritual-h{font-size:clamp(1.35rem,2.7vw,2.25rem)}
+    .agn .agn-n{width:clamp(1.8rem,3.2vw,2.5rem);height:clamp(1.8rem,3.2vw,2.5rem);font-size:clamp(.95rem,1.7vw,1.25rem);margin-top:.05rem}
   </style>
   <section class="slide soft">
     <!-- NOTES
-      - Read it, don't perform it. Five lines.
-      - Step 2 is the only one that asks anything of them. Say it slowly, and say that
-        opting out is a real option — the principle is opt-in for the evening.
+      - Read it, don't perform it. Five lines, a few words each (founder, round 6:
+        "nobody can read that" — the first version quoted the event page in full).
+      - ORDER IS THE REAL ORDER, not the event page's: the page lists "take a position"
+        BEFORE "opt in or out", but the evening runs opt-in first (run-of-show block 3,
+        /meet) and stakes the points after (blocks 5-6). Founder confirmed, round 6.
+      - Step 1 hides a lot on purpose — the slides, the event room, signing in, the
+        readiness slider, the R&D ask, the principle, the opt-in, the understanding
+        question, and staking cmp7. That is YOUR run-of-show, not their agenda.
+      - Step 1 "opt in or out": say that opting out is a real option. Those who opt out
+        watch those who opted in (run-of-show block 3).
       - Step 3 is where you will need two hands later. Plant it here, ask on the night.
+        Both of them opt in; ideally they hold opposite positions.
+      - Step 5 closes on staking cmp10 (run-of-show block 7+8).
       - This is also the answer to the question nobody asks out loud: "am I going to be
         made to talk?" Yes, in pairs, and they now know it from the start.
     -->
     <div class="kicker">What happens this evening</div>
     <h2>Agenda</h2>
-    <div class="ritual" style="margin-top:clamp(1.2rem,3.2vh,2.4rem)">
-      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h">Everybody takes a position on <span class="ritual-lab">four contested points</span> about AI safety.</p></div>
-      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h">You choose to <span class="ritual-lab">opt in or out</span> of the Clarity Meeting Principle: you don't push back on someone until they confirm you understood them.</p></div>
-      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">Two volunteers who disagree</span> come on stage and try the principle in their discussion.</p></div>
-      <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h">The audience splits into <span class="ritual-lab">pairs</span> and discusses the points over a few rounds. Those who opted in use the principle.</p></div>
-      <div class="ritual-step"><span class="agn-n">5</span><p class="ritual-h"><span class="ritual-lab">Questions and answers.</span></p></div>
+    <div class="ritual agn" style="margin-top:clamp(1.4rem,3.6vh,2.6rem)">
+      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h"><span class="ritual-lab">Introduction</span> &mdash; opt in or out</p></div>
+      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h"><span class="ritual-lab">Take a position</span> &mdash; four contested points</p></div>
+      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">On stage</span> &mdash; two volunteers try it</p></div>
+      <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h"><span class="ritual-lab">In pairs</span> &mdash; discuss the points</p></div>
+      <div class="ritual-step"><span class="agn-n">5</span><p class="ritual-h"><span class="ritual-lab">Q&amp;A</span> and wrap-up</p></div>
     </div>
   </section>
 
-  <!-- 3 · QUOTES COLLAGE — what people said when I invited them to tonight.
-       Every word is verbatim from WhatsApp (spelling and all), 2026-09-15/16. Do not tidy it:
-       a corrected typo is a misquote. Clipped quotes carry a visible ellipsis.
+  <!-- 3 · QUOTES COLLAGE — what Chiang Mai said this week, about AI safety and about tonight.
+       Every word is verbatim from WhatsApp (spelling and all). A clipped quote carries a
+       visible ellipsis; nothing inside a quote is reworded. Do not tidy typos.
+       ROUND 3 (founder, 2026-09-16): "lots of text — can we do with much much less?" The slide
+       is read in about five seconds and carries ONE feeling: people expect this evening to go
+       badly. Arguments belong on the four point slides, not here. Keep it under ~80 words.
        CONSENT: Zach — private DM. Asked 2026-09-16; he replied "you can quote me directly
        by namd" and "Just make sure to include the tweet when you quote me". So his strip is
-       named, and the tweet preview sits inside the 12:07 message exactly as he sent it.
-       Everyone else is from the public [AI] Chiang Mai group thread of 2026-09-16; names are
-       replaced by coloured bars (one colour per sender, as WhatsApp does) and must stay out.
-       PAIRING RULE: a two-message group strip is only allowed where the second message is a
-       real reply to the first in the chat data. Do not compose fake threads.
-       SELECTION (round 2, after an adversarial review): the spread across positions and the
-       four points matters more than volume. No quote here mocks the people in the room. -->
+       named and the tweet stays in it. Everyone else is anonymous (colour bar per sender).
+       PAIRING RULE: two group messages share a strip only where the second really followed
+       the first in the chat. Do not compose fake threads. -->
   <style>
-    .slide.collage-slide{padding:1.6vh 3vw;
+    .slide.collage-slide{padding:5vh 5vw;
       background:
         radial-gradient(circle at 18% 22%,rgba(120,90,40,.07) 0 1px,transparent 1.5px) 0 0/9px 9px,
         radial-gradient(circle at 70% 60%,rgba(120,90,40,.05) 0 1px,transparent 1.5px) 0 0/13px 13px,
         linear-gradient(135deg,#efe6d3,#e6dbc3 55%,#ece2cf);}
-    .collage{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1.1vh 1.3vw;
-      width:min(100%,1760px);align-items:start;text-align:left}
+    .collage{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4vh 2.2vw;
+      width:min(100%,1680px);align-items:center;text-align:left}
     .collage .cut{position:relative}
-    .collage .stack{display:flex;flex-direction:column;gap:1.8vh}
     .collage .cut-in{position:relative;filter:drop-shadow(0 6px 10px rgba(60,40,10,.22)) drop-shadow(0 1px 1px rgba(0,0,0,.18))}
     /* tilts are scoped: .r2/.r3 already mean "nest step" elsewhere in this deck */
     .collage .tilt-1{transform:rotate(-1.8deg)} .collage .tilt-2{transform:rotate(1.3deg)}
@@ -823,10 +832,10 @@
       clip-path:polygon(0% 2%,6% 0%,14% 1.5%,23% 0%,31% 2%,42% .5%,51% 2%,60% 0%,71% 1.5%,80% 0%,89% 2%,100% .5%,
         99% 22%,100% 47%,98% 71%,100% 98%,91% 100%,82% 98%,70% 100%,61% 98.5%,50% 100%,39% 98%,29% 100%,
         19% 98.5%,9% 100%,0% 98.5%,1% 74%,0% 50%,2% 27%)}
-    .collage .src{font-size:clamp(.6rem,.85vw,1rem);font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    .collage .src{font-size:clamp(.65rem,1vw,1.2rem);font-weight:700;letter-spacing:.14em;text-transform:uppercase;
       color:#54656f;padding:.1em .2em .05em}
     .collage .src b{color:#06a884;letter-spacing:.04em;text-transform:none;font-size:1.25em}
-    .collage .bub{max-width:94%;font-size:clamp(.82rem,1.1vw,1.38rem);line-height:1.32;padding:.5em .7em}
+    .collage .bub{max-width:96%;font-size:clamp(1.05rem,1.85vw,2.3rem);line-height:1.32;padding:.5em .7em}
     .collage .bub.out{align-self:flex-end}
     .collage .bub .t{font-size:.72em}
     .collage .who{display:block;height:.9em;margin:.1em 0 .35em;border-radius:2px;transform:rotate(-1deg)}
@@ -844,11 +853,11 @@
       clip-path:polygon(0 4%,12% 0,30% 3%,52% 0,74% 4%,100% 0,99% 50%,100% 100%,78% 96%,55% 100%,33% 97%,11% 100%,0 96%,1% 50%)}
     .collage-title .k{font-weight:700;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(.6rem,.9vw,1.05rem);color:var(--blue)}
     .collage-title h2{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;
-      font-size:clamp(1.15rem,2.05vw,2.6rem);line-height:1.06;letter-spacing:-.01em;margin-top:.25em}
+      font-size:clamp(1.5rem,3.3vw,4.1rem);line-height:1.04;letter-spacing:-.01em;margin-top:.25em}
     .who.c-s1{width:5.4em;background:#e26b00} .who.c-s2{width:4.2em;background:#7f66ff}
     .who.c-s3{width:2.6em;background:#d3396d}    .who.c-s4{width:4.8em;background:#1f7aec}
     .who.c-s5{width:6em;background:#a0522d} .who.c-s6{width:6.4em;background:#5b8c00}
-    .who.c-s7{width:3.6em;background:#0094a8}
+    .who.c-s7{width:3.6em;background:#0094a8} .who.c-s8{width:3em;background:#c4532d}
     @media (max-width:720px){
       .slide.collage-slide{padding:5vh 5vw}
       .collage{grid-template-columns:1fr;gap:1.4rem}
@@ -866,60 +875,35 @@
       - Do not read the tweet aloud.
     -->
     <div class="collage">
-      <div class="cut" style="grid-column:5/13;grid-row:1">
+      <div class="cut" style="grid-column:1/8;grid-row:1">
         <div class="cut-in tilt-1"><div class="collage-title">
           <div class="k">Chiang Mai &middot; this week</div>
-          <h2>What people said when I invited them to tonight</h2>
+          <h2>What people said about tonight&rsquo;s topic</h2>
         </div></div>
       </div>
 
-      <div class="cut" style="grid-column:5/13;grid-row:2">
-        <div class="cut-in tilt-2"><span class="tape"></span><div class="paper">
-          <div class="src">AI group chat &middot; Chiang Mai</div>
-          <div class="bub in"><span class="who c-s1"></span>Behind every agent is a human that gave it a directive<span class="t">10:29</span></div>
-          <div class="bub in"><span class="who c-s2"></span>Humans are notorious bad and knowing what they want. Agents, given, lots of tools, and lots of...agency...will accomplish that directive regardless of the collateral damage. It's the paperclip maximizer argument.<span class="t">10:31</span></div>
+      <div class="cut" style="grid-column:8/13;grid-row:1">
+        <div class="cut-in tilt-4"><span class="tape"></span><div class="paper">
+          <div class="bub in"><span class="who c-s8"></span>Im in a constant state of excitement/terror with AI<span class="t">10:48</span></div>
         </div></div>
       </div>
 
-      <div class="cut" style="grid-column:1/5;grid-row:1/5">
+      <div class="cut" style="grid-column:1/8;grid-row:2">
         <div class="cut-in tilt-6"><span class="tape"></span><div class="paper">
           <div class="src"><b>Zach</b> &middot; private message</div>
-          <div class="bub out">Hey Zach! Would love if you can join the AI safety discussion Friday 18:00, 4Seas. claritypledge.com/aisafety<span class="t">21:22</span></div>
-          <div class="bub in">I don't really want to come. It's not worth my time and emotional energy to debate with the types of people who often come to these types of events<span class="t">12:00</span></div>
-          <div class="bub in">Meaning, anything about how <b>fill in the blank</b> issue is going to kill us all in ten years, is always filled with idiots who want to believe they are virtuous and helpful finally for being afraid of everything<span class="t">12:01</span></div>
+          <div class="bub in">&hellip;It's not worth my time and emotional energy to debate with the types of people who often come to these types of events<span class="t">12:00</span></div>
           <div class="bub in">
-            <a class="lp" href="https://x.com/esrtweet/status/2099917698230837569" target="_blank" rel="noopener"><div class="lp-x">𝕏</div><div><b>Eric S. Raymond (@esrtweet) on X</b><span>So, the Chinese have officially stated that they consider the calls for an AI pause to be a "power play" and will not be participating in any US-led agreements to slow down development. Following AI-doomer logic, it is now absolutely imperative that we bomb the hell out of Chinese data centers be…</span><i>x.com</i></div></a>
-            If you want, you can just point to this tweet for me for a few minutes, and whenever anyone says anything, just shush them and keep pointing to it 😂<span class="t">12:07</span></div>
+            <a class="lp" href="https://x.com/esrtweet/status/2099917698230837569" target="_blank" rel="noopener"><div class="lp-x">𝕏</div><div><b>Eric S. Raymond (@esrtweet) on X</b><span>&hellip;Following AI-doomer logic, it is now absolutely imperative that we bomb the hell out of Chinese data centers be&hellip;</span></div></a>
+            &hellip;just shush them and keep pointing to it 😂<span class="t">12:07</span></div>
         </div></div>
       </div>
 
-      <div class="stack" style="grid-column:5/9;grid-row:3">
-      <div class="cut">
-        <div class="cut-in tilt-1"><div class="paper">
+      <div class="cut" style="grid-column:8/13;grid-row:2">
+        <div class="cut-in tilt-5"><span class="tape"></span><div class="paper">
           <div class="src">AI group chat &middot; Chiang Mai</div>
-          <div class="bub in"><span class="who c-s3"></span>I'm very in favor of guardrails - so long as I am the one who chooses what the guardrails are.<span class="t">12:44</span></div>
-          <div class="bub in"><span class="who c-s4"></span>Are you fine with terrorist or criminal organizations also using the best frontier models and choosing their own guardrails?<span class="t">12:45</span></div>
-        </div></div>
-      </div>
-      <div class="cut">
-        <div class="cut-in tilt-3"><span class="tape"></span><div class="paper">
-          <div class="bub in"><span class="who c-s6"></span>2) The Hugging Face incident original motivation was innocent; if this can happen with innocent intent, how much worse would an intentional event be?<span class="t">10:44</span></div>
-        </div></div>
-      </div>
-      </div>
-      <div class="stack" style="grid-column:9/13;grid-row:3">
-      <div class="cut">
-        <div class="cut-in tilt-4"><span class="tape"></span><div class="paper">
-          <div class="bub in"><span class="who c-s5"></span>Who is dooming about AI Safety who simultaneously has the requisite knowledge and does not have a financial incentive in hype? Serious question. I have not found such an individual yet.<span class="t">10:31</span></div>
-        </div></div>
-      </div>
-      <div class="cut">
-        <div class="cut-in tilt-2"><div class="paper">
           <div class="bub in"><span class="who c-s7"></span>Wow, that escalated quickly<span class="t">11:12</span></div>
-          <div class="gap">&middot;&middot;&middot;</div>
           <div class="bub in"><span class="who c-s1"></span>We had the meeting here no need for meetup now lol<span class="t">11:12</span></div>
         </div></div>
-      </div>
       </div>
     </div>
   </section>
@@ -1047,8 +1031,6 @@
     </div>
   </section>
 
-
-
   <!-- 6 · WHICH SITUATIONS NEED THIS — restored to the arc 2026-09-16 at the founder's
        ask ("after slide five... which situations need the clarity practice"). It was in
        the arc at position 2 in round 5 and had been demoted since.
@@ -1103,44 +1085,6 @@
       <span class="mx-lab mx-lab-x">room for interpretation</span>
     </div>
     <div class="note">A price, a rule, a standard, a precedent &mdash; where one already exists, use it.</div>
-  </section>
-
-  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
-       "understand" into cognitive / emotional / agreement. Pulled back into the arc
-       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
-       be the post's own question, "A lie, memory issue or misunderstanding?".
-       Its two companion poll slides stayed in the backup block — this card travels alone.
-       Cognitive understanding is the only one this product measures. Say that here. -->
-  <section class="slide">
-    <!-- NOTES
-      - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
-        now sit between the volunteer ask and the live embed, and he named them himself:
-        this one is "What is Cognitive Understanding?", the Venn is "How to verify".
-        NOTE the two LinkedIn poll slides that used to flank it (the "sees it your way"
-        poll before, the "three things" poll after) stayed in the backing block — this
-        card travels alone now.
-      - WAS at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
-      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
-      - Cognitive understanding is the only one we measure; the other two are not the target.
-    -->
-    <h2 style="margin-bottom:.2rem">What is <span class="accent">Cognitive Understanding?</span></h2>
-    <div class="st1-card">
-      <div class="st1-head">
-        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
-        <div>
-          <div class="st1-nameline">
-            <span class="st1-name">Vyacheslav Ladischenski</span>
-            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
-          </div>
-          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
-        </div>
-      </div>
-      <div class="st1-wrap">
-        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
-        <span class="st1-pulse" style="left:61%;top:49%"></span>
-        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
-      </div>
-    </div>
   </section>
 
   <!-- 8 · HOW TO VERIFY COGNITIVE UNDERSTANDING? — the private / assumed / verified Venn.
@@ -1231,7 +1175,7 @@
         terms. [FOUNDER DECISION: whether to state a retention period out loud]
     -->
     <div class="kicker">Turn on &ldquo;Transcribe for AI insights&rdquo;</div>
-    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">Volunteer to help with <span class="accent">Research &amp; Development</span></h2>
+    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">Looking for <span class="accent">6 volunteers</span> to contribute to R&amp;D</h2>
     <div class="cards four" style="margin-top:2rem">
       <div class="card">
         <svg class="rnd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1301,6 +1245,56 @@
     </div>
   </section>
 
+  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
+       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
+       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
+       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
+       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
+  <style>
+    .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
+    .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
+      text-transform:uppercase;color:#ef4444;margin-bottom:.75rem}
+    .card.refuse p{font-size:clamp(.95rem,1.8vw,1.2rem);color:var(--fg);line-height:1.45;font-weight:600}
+    /* the reason under the reasons — deliberately NOT a sixth card (founder: "maybe not
+       as a fifth point, but below them"). Heavier than a .note so it reads as the answer. */
+    .norm{display:flex;align-items:baseline;gap:.9rem;max-width:min(64rem,92vw);
+      margin:clamp(1.6rem,4vh,2.6rem) auto 0;text-align:left}
+    .norm-lab{flex:0 0 auto;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+      font-size:clamp(.72rem,1.3vw,.9rem);color:var(--blue)}
+    .norm p{font-size:clamp(1rem,1.9vw,1.35rem);line-height:1.45;font-weight:600;color:var(--fg);margin:0}
+  </style>
+  <section class="slide soft">
+    <!-- NOTES
+      - The five cards are the barriers; the line underneath is the real cause. Land the
+        cards fast, then slow down on the social norm — the VERY NEXT slide answers it word
+        for word: "Make it normal to admit 'I don't understand'". Let that echo land.
+      - PLACED BEFORE THE PRINCIPLE on purpose (founder, round 6): name the barriers before
+        anyone opts in or out, so opting out is never cast as one of them after the fact.
+        Opting out is welcome. Say so if the room reads the cards as an accusation.
+      - Titled "5 barriers" rather than "why people refuse" to be less attacking (round 6).
+        Was, before that, "When I refuse, what am I protecting?".
+      - The "most of all" line was cut to seven words in round 6; the long version it
+        replaced quoted the event page ("admitting it gets punished nearly everywhere").
+    -->
+    <div class="kicker">Where the will breaks down</div>
+    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)"><span class="accent">5 barriers</span> to verifying cognitive understanding</h2>
+    <div class="cards four">
+      <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
+      <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
+      <div class="card refuse"><h3>Fear</h3><p>&ldquo;You will think I am stupid.&rdquo;</p></div>
+      <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
+      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know how it benefits me.&rdquo;</p></div>
+    </div>
+    <!-- The founder's own framing, 2026-09-16: the five cards are the reasons people give
+         themselves; the REAL reason sits underneath all of them and is not a sixth card.
+         Wording is his, from the live event page ("admitting you did not understand gets
+         punished nearly everywhere") — do not soften it into a generic "culture" line. -->
+    <div class="norm">
+      <span class="norm-lab">Most of all</span>
+      <p>No social norm to admit &ldquo;I don&rsquo;t understand&rdquo;</p>
+    </div>
+  </section>
+
   <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
   <section class="slide soft">
     <!-- NOTES
@@ -1340,54 +1334,6 @@
       </div>
     </div>
   </section>
-
-  <!-- D · WHAT A REFUSAL PROTECTS — the diagnostic behind "increase the will". Static: three flips in a row would tire.
-       FIVE cards since 2026-09-16 (founder: "add ignorance as the fifth"), in both decks.
-       KEEP the container class "cards four" — it is a misnomer on purpose. The motion layer
-       tests `.cards.five` before `.cards` and reveals `.card.step` (none here), and reveal()
-       returns early on an empty list, so renaming it silently kills this slide's stagger. -->
-  <style>
-    .card.refuse{text-align:left;padding:1.9rem 1.7rem;border-color:rgba(239,68,68,.28);background:#fffbfb}
-    .card.refuse h3{font-size:clamp(1.1rem,2.1vw,1.45rem);font-weight:800;letter-spacing:.06em;
-      text-transform:uppercase;color:#ef4444;margin-bottom:.75rem}
-    .card.refuse p{font-size:clamp(.95rem,1.8vw,1.2rem);color:var(--fg);line-height:1.45;font-weight:600}
-    /* the reason under the reasons — deliberately NOT a sixth card (founder: "maybe not
-       as a fifth point, but below them"). Heavier than a .note so it reads as the answer. */
-    .norm{display:flex;align-items:baseline;gap:.9rem;max-width:min(64rem,92vw);
-      margin:clamp(1.6rem,4vh,2.6rem) auto 0;text-align:left}
-    .norm-lab{flex:0 0 auto;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-      font-size:clamp(.72rem,1.3vw,.9rem);color:var(--blue)}
-    .norm p{font-size:clamp(1rem,1.9vw,1.35rem);line-height:1.45;font-weight:600;color:var(--fg);margin:0}
-  </style>
-  <section class="slide soft">
-    <!-- NOTES
-      - The five cards are the excuses; the line underneath is the real cause. Land the
-        cards fast, then slow down on the social norm — that is the one that earns the
-        Clarity Group Terms two slides back.
-      - Renamed 2026-09-16 by the founder, from "When I refuse, what am I protecting?".
-      - The old "deniability is the one we both want" line was cut in the same pass.
-    -->
-    <div class="kicker">Where the will breaks down</div>
-    <h2 style="font-size:clamp(1.4rem,3.4vw,2.6rem)">Why do people <span class="accent">refuse</span> to verify cognitive understanding?</h2>
-    <div class="cards four">
-      <div class="card refuse"><h3>Ego</h3><p>&ldquo;I might look incompetent.&rdquo;</p></div>
-      <div class="card refuse"><h3>Laziness</h3><p>&ldquo;That's real work.&rdquo;</p></div>
-      <div class="card refuse"><h3>Fear</h3><p>&ldquo;You will think I am stupid.&rdquo;</p></div>
-      <div class="card refuse"><h3>Deniability</h3><p>&ldquo;I can claim I meant something else.&rdquo;</p></div>
-      <div class="card refuse"><h3>Ignorance</h3><p>&ldquo;I don't know how it benefits me.&rdquo;</p></div>
-    </div>
-    <!-- The founder's own framing, 2026-09-16: the five cards are the reasons people give
-         themselves; the REAL reason sits underneath all of them and is not a sixth card.
-         Wording is his, from the live event page ("admitting you did not understand gets
-         punished nearly everywhere") — do not soften it into a generic "culture" line. -->
-    <div class="norm">
-      <span class="norm-lab">Most of all</span>
-      <p>There is no social norm for saying &ldquo;I didn't understand.&rdquo; Nowhere are we
-         explicitly allowed to &mdash; and admitting it gets punished nearly everywhere.</p>
-    </div>
-  </section>
-
-
 
   <!-- 9e · HABIT — install the move via a daily bracelet ritual (morning → trigger → ask → slip-track → evening) -->
   <section class="slide soft">
@@ -1864,6 +1810,45 @@
       <div class="spiral-step"><span class="spiral-n">3</span><p class="spiral-line">Honest feedback dries up <span class="spiral-arr">→</span> <span class="accent">people go quiet</span>: the real objection never gets said.</p></div>
       <div class="spiral-step"><span class="spiral-n">4</span><p class="spiral-line">The damage lands <span class="spiral-arr">→</span> <span class="accent">mistrust and despair</span> set in.</p></div>
       <div class="spiral-step end"><span class="spiral-n">5</span><p class="spiral-end">Until no discussion worth having is possible at all.</p></div>
+    </div>
+  </section>
+
+  <!-- Demoted 2026-09-16, round 6 (founder: "slide 8 move into backlog"). -->
+  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
+       "understand" into cognitive / emotional / agreement. Pulled back into the arc
+       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
+       be the post's own question, "A lie, memory issue or misunderstanding?".
+       Its two companion poll slides stayed in the backup block — this card travels alone.
+       Cognitive understanding is the only one this product measures. Say that here. -->
+  <section class="slide">
+    <!-- NOTES
+      - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
+        now sit between the volunteer ask and the live embed, and he named them himself:
+        this one is "What is Cognitive Understanding?", the Venn is "How to verify".
+        NOTE the two LinkedIn poll slides that used to flank it (the "sees it your way"
+        poll before, the "three things" poll after) stayed in the backing block — this
+        card travels alone now.
+      - WAS at slide 17 (round 5, founder): sits between the two point cards, so the room sees the same /letter/st1 item as a point and then as the story. Card still shows the cofounder-era byline.
+      - "You don't understand me" can mean three things: not feeling it, not agreeing, not knowing.
+      - Cognitive understanding is the only one we measure; the other two are not the target.
+    -->
+    <h2 style="margin-bottom:.2rem">What is <span class="accent">Cognitive Understanding?</span></h2>
+    <div class="st1-card">
+      <div class="st1-head">
+        <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
+        <div>
+          <div class="st1-nameline">
+            <span class="st1-name">Vyacheslav Ladischenski</span>
+            <span class="st1-ear" title="Verified cognitive understanding"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"></path><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"></path></svg><span class="st1-earn">0</span></span>
+          </div>
+          <div class="st1-role">I have lost partners. I help you keep yours. · 3mo ago<svg class="st1-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Public"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div>
+        </div>
+      </div>
+      <div class="st1-wrap">
+        <img src="st1-understand.jpg" alt="The word 'understand' as a tangle of three icons — brain, heart, handshake — then separated into Cognitive (brain), Emotional (heart) and Agreement (handshake).">
+        <span class="st1-pulse" style="left:61%;top:49%"></span>
+        <span class="st1-pulse emo" style="left:74.5%;top:49.5%;animation-delay:1.4s"></span>
+      </div>
     </div>
   </section>
 
