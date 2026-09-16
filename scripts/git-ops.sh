@@ -1620,7 +1620,8 @@ cmd_abandon() {
     if worktree_has_user_changes "$slot_path"; then
       {
         echo "git-ops abandon: refusing $slot — the worktree has uncommitted changes"
-        echo "  $(git -C "$slot_path" status --porcelain 2>/dev/null | grep -v '^?? \.lock$\|^?? \.activity$' | head -5 | tr '\n' ';')"
+        # awk drains its input: `| head` can SIGPIPE the producer under pipefail (gate 7).
+        echo "  $(git -C "$slot_path" status --porcelain 2>/dev/null | awk '!/^\?\? \.(lock|activity)$/ && n++ < 5' | tr '\n' ';')"
         echo "abandon removes the worktree with --force, so these would be lost."
         echo "Commit or remove them, or pass --nonce <value> if the slot is yours."
       } >&2
