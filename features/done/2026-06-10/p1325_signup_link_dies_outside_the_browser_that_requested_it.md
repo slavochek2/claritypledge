@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 106
 workstream: C1
 created_date: '2026-09-16'
 tags: [auth, magic-link, events, activation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 pipeline_plan: [create-spec, challenge-prd, dev, verify]
 pipeline_skipped: ["architect -- security design settled by two external adversarial reviews plus four live experiments on test; Technical Design section below", "generate-tests -- tests written test-first inside /dev against the Technical Design"]
@@ -14,6 +13,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-16
 ---
 
 # P1325: The signup link only works in the browser that asked for it
