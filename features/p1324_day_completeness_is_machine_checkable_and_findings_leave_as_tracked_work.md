@@ -202,24 +202,44 @@ EXECUTE grants.
 
 ## Done-When
 
-- [ ] A manifest exists listing every required `/day` step, and a check fails if a step id in
-      either skill file is absent from it or vice versa
-- [ ] Running `/day` and dropping a step makes `day-gates.sh --mode=finish` exit non-zero and
-      name that step — demonstrated by the exit code, not by reasoning (epistemic gate 7)
-- [ ] The Stop hook blocks a simulated pass with unrecorded steps, and the block text names both
-      the owed steps and the escape — exit code pasted
-- [ ] A step that ran and FAILED does not block; a step that never ran does — both demonstrated
-- [ ] Gate 7c pass: an abandoned `/day`, a `/day` that aborts at the gcloud gate, and an ordinary
-      non-`/day` session each stop normally with the hook installed — exit codes pasted
-- [ ] `stop_hook_active: true` is in the test fixture set and exits without blocking
-- [ ] The block counter fails OPEN (returns the limit) when its state directory is unwritable —
-      demonstrated by making it unwritable
-- [ ] Every new test case stubs the global state it reads; the suite passes on a machine with the
-      hook uninstalled
-- [ ] A `/day` finding files an inbox entry via `scripts/inbox.sh`, and a second run with the same
-      finding annotates rather than duplicating it
-- [ ] `/day` ends by printing a copy-pasteable hand-off prompt naming the filed entries
-- [ ] One full real `/day` run records 21/21 in the ledger
+Evidence: `day-step.test.sh` 40 · `day-gates.test.sh` 134 · `day-pass-guard.test.sh` 40 ·
+`test-p1324-day-ledger.sh` 13 — **227 cases, 0 failures**, and none of them writes
+`~/.claude-day-ledger` (asserted by the suites themselves).
+
+- [x] A manifest exists listing every required `/day` step, and a check fails if a step id in
+      either skill file is absent from it or vice versa — `day-step.sh check-sync`, watched
+      failing in BOTH directions and on a prefix collision (`q.onexyz` does not satisfy
+      `q.one`), and watched catching a real deleted step (`cp.w1`'s receipt removed, exit 1;
+      restored, exit 0)
+- [x] Running `/day` and dropping a step makes `day-gates.sh --mode=finish` exit non-zero and
+      name that step — `d8 FIRES: finish refuses while a required step never ran: exit 1`,
+      naming `MISSING z.two`
+- [x] The Stop hook blocks a simulated pass with unrecorded steps, and the block text names both
+      the owed steps and the escape — `rc=2`, text carries `MISSING x.one` and `ESCAPE`
+- [x] A step that ran and FAILED does not block; a step that never ran does — both demonstrated
+      (`exit 3` step recorded, `MISSING x.two` named, `x.one` absent from the missing list)
+- [x] Gate 7c pass: an abandoned `/day`, a `/day` that aborts at the gcloud gate, and an ordinary
+      non-`/day` session each stop normally with the hook installed — abandoned `rc=0`, complete
+      pass `rc=0`, other-session pass `rc=0`, no ledger at all `rc=0`
+- [x] `stop_hook_active: true` is in the test fixture set and exits without blocking — `rc=0`
+- [x] The block counter fails OPEN when its state directory is unwritable — demonstrated by
+      `chmod 444` on the ledger plus `chmod 555` on its directory. **Corrected during
+      implementation:** the first version returned *the limit*, which is still a blocking value
+      because the caller releases on `n > limit` — so an unwritable ledger would have blocked on
+      every Stop forever, the exact bug wearing the fix's wording. Its own test caught it; the
+      sentinel is now `limit + 1`
+- [x] Every new test case stubs the global state it reads; the suite passes on a machine with the
+      hook uninstalled — verified by the stronger control: a live `state=open` ledger for THIS
+      session was planted at `~/.claude-day-ledger` and both suites still returned 40/40 and
+      134/134. Two pre-existing leaks were found and closed while doing it (`--mode=start` in
+      both suites was overwriting the founder's real ledger)
+- [x] A `/day` finding files an inbox entry via `scripts/inbox.sh`, and a second run with the same
+      finding annotates rather than duplicating it — run 1 filed `INBOX-P1` + `INBOX-1`; run 2
+      annotated both; `grep -c "^## "` still 1 per store
+- [x] `/day` ends by printing a copy-pasteable hand-off prompt naming the filed entries — Step 9b
+- [ ] One full real `/day` run records 21/21 in the ledger — **the only item outstanding.** It
+      needs tomorrow morning's actual pass; nothing in a fixture can stand in for it, since what
+      it tests is whether the wiring survives contact with the real dispatcher.
 
 ## Open Questions
 
