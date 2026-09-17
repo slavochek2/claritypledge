@@ -126,9 +126,13 @@ accept, and confirmation on each revocation.
       — *2026-09-15:* all listed with a proposed verdict in the private record
       `p1322-locked-path-hardening.md` §1, all measured names-only with controls. Transcripts: 349
       files hold a locked name next to a value-shaped string. Restic: included by construction.
-      Cloud VM: no locked name. CI: one accept, one purge. Second store: accepted here. Env files:
-      both mode 644. **Not yet met:** the transcript pass, and the two founder-call verdicts
-      (redaction, env file modes).
+      Cloud VM: no locked name. CI: one accept, one purge. Second store: accepted here.
+      **Transcript pass run 2026-09-17** (founder approved): 1,050 occurrences across 236 files
+      replaced with a placeholder; re-scan returns 0; every redacted file still parses as JSON line
+      for line; the working backups were deleted after verification rather than left as a fresh
+      plaintext copy. **Env file modes fixed the same day:** both are now owner-only, and the
+      keyring selftest that had failed on this passes (35/35).
+      **Not yet met:** the escrow's own drill, which shares this item's fate through Done-When 1.
 - [x] The four unused-but-live credentials and the CI master key each carry a prepared revocation step and
       a dependents check, and sit in an active P1148 queue (P1148 promoted, or the compensating-control
       window given an end date)
