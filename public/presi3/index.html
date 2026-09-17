@@ -1299,6 +1299,13 @@
       .lv-2{border-color:var(--blue);background:var(--blue-tint)}
       .lv-t{font-weight:800;letter-spacing:-.01em;color:var(--fg);line-height:1.15;font-size:clamp(1rem,2.1vw,1.55rem)}
       .lv-2 .lv-t{color:var(--blue-700)}
+      /* round 4 (founder): appears from the bottom step up, on its own, no clicks. Restarts on
+         every visit because .active toggles display. */
+      .slide.active .lv{opacity:0;animation:lvup .55s cubic-bezier(.2,.7,.2,1) forwards}
+      .slide.active .lv-1{animation-delay:.15s}.slide.active .lv-2{animation-delay:.6s}
+      .slide.active .lv-3{animation-delay:1.05s}.slide.active .lv-4{animation-delay:1.5s}
+      @keyframes lvup{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+      @media (prefers-reduced-motion:reduce){.slide.active .lv{opacity:1;animation:none}}
       .lv-s{color:var(--muted-fg);font-weight:600;font-size:clamp(.85rem,1.3vw,1.1rem)}
       @media(max-width:720px){.lv-4{width:76%}.lv-3{width:84%}.lv-2{width:92%}.lvl{gap:.5rem}}
     </style>
