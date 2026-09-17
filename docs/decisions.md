@@ -6,6 +6,124 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [process]: A capability claim in a rule file is a hypothesis until a probe is cited beside it — "subagents have no MCP access" was false and cost /day its context (P1328)
+
+**Context:** `/day` kept running out of context on Sonnet and dropping work. Measured from the
+2026-09-17 transcript: 115K tokens before Step 0, 160K once the dispatcher and sub-day files loaded,
+286K at the end, with the CM Events scrape abandoned at 2 of 7 pages. Asked "you can spin subagents?",
+the run quoted `.claude/rules/skills.md` back: subagents have no MCP access. The same sentence sat in
+four places (this repo's skills rule and review criteria, and the dispatcher twice). No file cited
+where it came from.
+
+**Decision:** It was tested before anything was built on it. Three live probes, read from raw tool
+results rather than agent summaries: a Sonnet subagent loaded the browser tool schemas, created its
+own Chrome tab group, navigated, ran page scripts and closed the tab; the main session's identical
+call was the control; a subagent spawned from inside a subagent returned its result. All four sites
+are corrected. `/day` now runs its sub-day in one subagent, the calendar refresh in another, and each
+browser source in its own. The step ledger still decides what ran; the dispatcher now names any
+unrecorded sub-day step itself, because `day-gates --mode=subday-return` checks continuity only.
+
+**Why not Gemini** (the founder asked): the delegation lane is a text REST call. It cannot drive a
+browser, call MCP, or write the ledger, and that is what this work is.
+
+**Alternatives rejected:** Trimming prose to fit inline, since the skill text was 47K of the 286K.
+Splitting `day-cp.md` so only its health waves delegate, which would break P1324's one-doc check-sync
+while leaving the rest of the file in the dispatcher.
+
+**Consequences:** When a rule states what a tool can or cannot do, cite the probe that established it
+beside the claim. An uncited capability claim is exactly what the next agent quotes back as a reason
+to refuse work. This is gate 3 ("verify against the artifact, not the documentation") applied to the
+rules files themselves. Post-deploy check: the founder's next `/day` on Sonnet should finish every
+ledger step, with peak context reported against 286K.
+
+**References:** [features/p1328_day_context_budget_delegate_to_subagents.md](../features/p1328_day_context_budget_delegate_to_subagents.md), `.claude/rules/skills.md`, `.claude/commands/slava/maintain/day-cp.md`
+
+## 2026-09-17 [technical]: Browser extraction goes through one detached in-page job and `get_page_text`, and the writer checks the page's own count — two tool limits measured, one found only live (P1328)
+
+**Context:** Two limits of the browser automation tool, both measured on 2026-09-17. A
+`javascript_tool` result is cut at about 1 KB (`[TRUNCATED]`), which is why the scrape used to drain
+events four at a time through the model. A `javascript_tool` call is cut off at 45 seconds (CDP
+`Runtime.evaluate` timeout). `get_page_text`, by contrast, returned a 21,001-character payload intact.
+
+**Decision:** Each extractor starts one detached job in the page and returns at once. The job loads
+every page through same-origin iframes, which carry the logged-in session, and writes its progress to
+a small status object that is polled. When done, it replaces the page body with
+`CMEVT-BEGIN<json>CMEVT-END` for `get_page_text`. The job's count travels separately to the writer as
+`--expect`. The writer counts distinct, complete rows, and for Todo.Today rows dated inside the
+scraped week, and refuses on any mismatch before writing. The job itself renders nothing when a date
+list is not 7 consecutive days, a day other than today is empty, a card's date is not its page, or a
+Sola frame never reaches its own event. Live: Todo.Today 117 events, whose per-day counts match an
+independent drain run; Sola 24 of 24 timed, in one job instead of 24 page loads.
+
+**Alternatives rejected:** Downloading the payload as a file, which needs a download permission every
+morning. POSTing to a localhost receiver, which is blocked by page CSP and the local-network prompt.
+Bare count equality, which let a blanked title, a duplicated row, or a week shifted to other dates
+through with the length intact (review, below).
+
+**Consequences:** The first design passed every unit test and failed live. A stricter stability wait
+across seven sequential days crossed the 45s limit and rendered nothing, and no hermetic test can
+reach a limit that lives in the tool. For browser work, a live run through the real tool is part of
+done, not a follow-up.
+
+**References:** `~/.agents/skills/cm-events-update/SKILL.md` step 2.5; the extractors and writers live in the private events repo
+
+## 2026-09-17 [technical]: The anon-execute allowlist gains a `policy:` category whose citation the checker verifies — resolving the 2026-09-10 open question (P1327)
+
+**Context:** The 2026-09-10 [technical] entry left open how to classify an anon grant that an RLS
+policy predicate requires. Such a grant has no client call site, but revoking it breaks anon reads.
+The drift check had since been red every day on four understood grants, and the founder delegated
+the decision on 2026-09-17.
+
+**Decision:** Such an entry reads `signature  # policy: supabase/migrations/<file>.sql:<line> — reason`,
+and the checker refuses the whole run unless all of these hold:
+- the path is a migration
+- the cited line calls the function outside comments and string literals, unqualified or
+  `public.`-qualified, with the signature's arity
+- the open statement is CREATE/ALTER POLICY
+- the policy can evaluate as anon (no `TO` list, or one naming anon or public)
+- no later migration drops the policy without re-creating it
+
+The two P1207 predicates are listed this way. The stale seat-release signature is re-listed.
+`event_grace_interval()` loses its anon grant: every caller is SECURITY DEFINER. Applied to test;
+prod is pending.
+
+**Alternatives rejected:** The three from 2026-09-10 (allowlist as a call-site entry, baseline as
+known-open, revoke and see what breaks) still stand.
+
+**Consequences:** What the citation still cannot show: argument types, and a policy re-created later
+whose predicate no longer calls the function. The live catalog remains the authority for those.
+
+Also found in passing: P1214 changed a function signature that two test stubs mirrored, and the
+checker's self-test had crashed at that point ever since, so every later section had not run. One
+suite had been silently truncated by a refactor to the code it tests.
+
+**References:** [features/p1327_function_grant_drift_four_unresolvable_new.md](../features/p1327_function_grant_drift_four_unresolvable_new.md), `scripts/anon-execute-allowlist.txt`, `scripts/function-grant-drift-check.py`
+
+## 2026-09-17 [process]: Three reviewers and live runs found disjoint defects — each claim was reproduced before it changed code (P1327, P1328)
+
+**Context:** The founder asked for verification by several independent models. Codex Sol, Gemini 3.8
+and Opus each reviewed one bundle covering all four repos touched. o3 is not available on the
+ChatGPT-account Codex (400), so that lens was not covered. All 3 reporting reviewers delivered.
+
+**Decision:** Every finding was reproduced or disproven before any code changed. Two were rejected
+with evidence:
+- that revoking PUBLIC breaks the service role (the post-migration integration run passed its
+  service-role control)
+- that the VM heal pointer runs the script from the wrong directory (the command file `cd`s first)
+
+The rest were real and fixed with tests and mutants. Among them: a policy citation satisfiable by a
+comment, another schema, or the allowlist's own header; count equality missing count-preserving
+corruption; a heal script exiting 0 on a held lock; and the dispatcher claiming a gate graded
+sub-day steps that it does not.
+
+**Consequences:** Reviewers and live runs caught different things. None of the reviewers foresaw two
+defects that only running found. The Facebook brief failed an entire source on a venue page that
+legitimately lists no events. The extractor's own header comment contained the placeholder token a
+first-occurrence replace would substitute, which is the gate 7d shape inside a script. A review
+bundle is not a substitute for the live run; each covers the other's blind side.
+
+**References:** P1327, P1328; `.claude/rules/epistemic.md` gates 7d, 9, 9b
+
 ## 2026-09-17 [process]: A credential approval names the session and marks the asking tab; the agent also says it in chat (P1330)
 
 **Context:** The per-access keyring dialog can only say "python". The existing announcement gave an 8-hex session id and shell-wrapper boilerplate, which match nothing on screen, and the agent's stderr line is folded into "Ran N shell commands". The founder could not tell which of ~12 tabs was asking or what for.
