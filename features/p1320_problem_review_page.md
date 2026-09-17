@@ -79,9 +79,15 @@ to `auth.uid()`). An unverified member sees how to verify, not a failing form.
 5. **Send** — sealing stays the existing, separate human action. Audience:
    - **one named person** (private) — works today;
    - **the member's community** — requires P1181; **this is the option the first event needs**;
-   - **anyone with the link** — requires the story to be public (the seal snapshots private stories only for
-     one-to-one letters), stated to the member at send time.
-   `[FOUNDER DECISION: send-time copy, and the default audience once P1181 exists]`
+   - **anyone with the link** — requires the story to be public, stated to the member at send time.
+     *(Corrected 2026-09-17: the seal snapshots private stories for one-to-one letters **and** for
+     community letters — P1181 widened that filter deliberately, which is what makes a community
+     letter from a private problem draft possible at all. Public-link letters stay public-only.)*
+
+   **The audience control is P1331's**, not this page's: the picker, the write that sets the audience
+   on the draft, and the words naming who can read it. This page owns only where that control sits in
+   the review flow. The send-time copy and the default-audience call are recorded as founder decisions
+   **in P1331** and deliberately not duplicated here — two specs cannot each own the same default.
 
 ## Risks / Non-Goals
 

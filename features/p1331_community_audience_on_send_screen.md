@@ -121,9 +121,11 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
   reversible by editing one function; this spec must **surface** the consequence rather than assume
   the reader-side rule is the whole story. `[FOUNDER DECISION: should a departed author's letters
   stay readable by the community that already received them?]`
-- **Self-enrolled reader deliveries must never be emailed.** A delivery minted when a member opens a
-  letter carries an address; emailing it would send unsolicited invitations to every reader
-  (`docs/decisions.md` 2026-06-04, P884, which names this class explicitly for P778 deliveries).
+- **Self-enrolled reader deliveries must never be emailed — already enforced, do not undo it.** A
+  delivery minted when a member opens a letter carries an address, and emailing it would send
+  unsolicited invitations to every reader. Shipped code already prevents this: the mint stamps
+  `notified_at` at insert time precisely so the mailer skips it (P884). **No work here** — this is
+  listed so a change to the send or mail path does not quietly remove it.
 - **A community letter may carry PRIVATE stories, and that exemption is the point.** P1181 widened
   the seal-time snapshot filter so a story that is private still enters an organisation letter —
   without it, a community letter from a private problem draft could not exist at all. Note this
