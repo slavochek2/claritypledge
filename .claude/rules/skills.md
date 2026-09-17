@@ -77,7 +77,7 @@ No skill without a namespace — if none fits, propose a new one first.
 
 ## MCP Calls — Always Include a Bash Fallback
 
-When a skill instruction says "Use X MCP", it must also specify an explicit bash fallback for when MCP is unavailable (subagents, CI, non-interactive sessions).
+When a skill instruction says "Use X MCP", it must also specify an explicit bash fallback for when MCP is unavailable (CI, non-interactive sessions, or a server that failed to connect). Subagents DO get MCP tools — verified by live probe 2026-09-17 (P1328); never cite a subagent as the reason MCP is missing.
 
 **Pattern:**
 ```
@@ -87,7 +87,7 @@ Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-s
 
 **Tool hierarchy for Supabase prod queries:**
 1. **curl + service role key** — prod only, universal (works in any context including subagents)
-2. **Supabase MCP** — test DB only (MCP points at `gfjctyxqlwexxwsmkakq`; never use for prod). Ad-hoc SQL in main conversation context only — subagents never have MCP access.
+2. **Supabase MCP** — test DB only (MCP points at `gfjctyxqlwexxwsmkakq`; never use for prod).
 3. **Supabase CLI** — migrations/schema only (`db push`, `db pull`, `projects api-keys`); cannot run ad-hoc SQL queries (`supabase db query` does not exist in v2.75.0)
 
 **Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.

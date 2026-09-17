@@ -28,9 +28,16 @@ rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not 
 fall back to `date -u -v-24H` and **say so in the output**, because every delta below is
 then a 24h delta rather than a since-last-run delta.
 
-**Output to the dispatcher:** the reflection/goals/branches blocks printed inline, plus
-the HEALTH rows listed at the end of this file. Return the rows; do not wrap them in a
-`HEALTH` header — the dispatcher concatenates them with its own.
+**Output to the dispatcher:** the reflection/goals/branches blocks, plus the HEALTH rows
+listed at the end of this file. Return the rows; do not wrap them in a `HEALTH` header — the
+dispatcher concatenates them with its own.
+
+**You run in a subagent (P1328).** The dispatcher spawns this sub-day in its own context so
+its instructions and tool output do not fill the founder's conversation. Two consequences:
+your final reply IS the output — every block this file says to print, verbatim, in order —
+and you cannot wait for the founder. Where a step below says to ask, put the question under a
+closing `QUESTIONS FOR THE FOUNDER` heading instead, and the dispatcher asks it. Subagents do
+get MCP tools (Sentry, Mixpanel) and can spawn their own subagents; both verified 2026-09-17.
 
 ### The step ledger — `$DAY_STEP` (P1324)
 
@@ -996,7 +1003,7 @@ If non-empty, print all entries (max 10; if more, note "N more — run `git stas
 ```
 Note: stash message includes the branch it was created on — apply only if you are on that branch.
 
-Ask: "Apply, drop, or continue?" Wait for response.
+Ask: "Apply, drop, or continue?" — under `QUESTIONS FOR THE FOUNDER` (you run in a subagent and cannot wait; the dispatcher asks).
 
 ---
 ### 5. Due Board — act on the dispatcher's verdict
@@ -1023,10 +1030,11 @@ Empty verdict → print nothing (no empty board). Otherwise print the rows verba
    threshold and name the other: "monthly is also overdue — it'll run on the next /day."
 2. **Announce, then invoke** — no y/n gate:
    > weekly is Nd overdue — running it now. Say "skip" at any point to abandon it.
-   Then immediately invoke `/slava:maintain:weekly` or `/slava:maintain:monthly` in this
-   conversation. These are cp skills, which is why the *acting* half lives here while the
+   Then immediately invoke `/slava:maintain:weekly` or `/slava:maintain:monthly` here, in this
+   sub-day's subagent (its own subagent fan-out works from here). These are cp skills, which is why the *acting* half lives here while the
    *marker* half lives in the dispatcher.
-3. **Skip is conversational.** If the founder says "skip", stop. Markers are written only
+3. **Skip is conversational, and belongs to the dispatcher's conversation.** You cannot hear a
+   "skip" from inside the subagent; the founder stops the pass there. If the founder says "skip", stop. Markers are written only
    on review completion (by the review skill itself), so a skipped run stays overdue and
    resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** — the dispatcher marks those `never run`; offer only.
