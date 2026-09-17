@@ -57,7 +57,7 @@ through the model, roughly 150-200 calls. Measured alternatives, same day:
   load per event.
 
 Found in the same pass: the Agent VM heal pointer (`~/.claude/commands/slava/util/agent-vm-heal.md`)
-invokes `/lh-heal`, a command local to another repo, so a `/day` session in this repo can never reach
+invokes a heal command local to the private workload repo, so a `/day` session in this repo can never reach
 it. Run by path in dry mode, the heal script printed nothing and exited 0 while the app reported
 NOT READY.
 
@@ -97,10 +97,9 @@ zero founder decisions. The founder delegated the design ("I trust your expertis
 4. **The Agent VM heal runs the workload repo's heal script by path.** That script names an unmatched
    NOT READY and exits non-zero, and so does a run that attempted nothing (a held lock) or a readiness
    check that failed to run.
-   **Changed during build:** `ready`'s verdict on a staged newer runtime is left as NOT READY. That
-   repo's 2026-09-16 note keeps the check, its autoheal escalation keys on the verdict, and flipping
-   it deserves its own look. The staged skew itself is the founder's call, because the remedy
-   (`./lh update`) restarts the container and interrupts a running campaign.
+   **Changed during build:** the workload's own readiness verdict is left unchanged. That repo's
+   notes keep the check, its autoheal keys on the verdict, and changing it deserves its own look.
+   The remaining fault is the founder's call, because its remedy interrupts running work.
 
 **Why not Gemini** (the founder asked): the delegation lane `~/.agents/bin/delegate-gemini` is a text
 REST call. It cannot drive Chrome, call MCP, run the ledger, or read the machine, and the scrape and
@@ -131,7 +130,7 @@ reason, not because the work was small. Review: Codex Sol, Gemini 3.8 and Opus o
 | iframe loading breaks if a site adds `X-Frame-Options: DENY` | DEFER | The count check fails loudly; the drain fallback is the path |
 
 **Non-Goals**
-- Do NOT change what any check measures, or any gate's verdict logic. (heal.sh's exit codes are the exception, and only toward louder: states that were exit 0 without being "nothing needed or verified".)
+- Do NOT change what any check measures, or any gate's verdict logic. (the heal script's exit codes are the exception, and only toward louder: states that were exit 0 without being "nothing needed or verified".)
 - Do NOT split `day-cp.md` into multiple files (P1324's check-sync pairs one manifest with one doc).
 - Do NOT extend the heal whitelist with a new repair.
 
@@ -152,8 +151,8 @@ reason, not because the work was small. Review: Codex Sol, Gemini 3.8 and Opus o
 
 ## Rollback Strategy
 
-Each change is a commit in its own repo (`~/.claude`, this repo, `beeper-digest`,
-`linked-helper-docker`). Reverting the `day.md` Step 1/8 commit restores inline dispatch; the
+Each change is a commit in its own repo (`~/.claude`, `~/.agents`, this repo, and two private
+repos: the events tooling and the VM workload). Reverting the `day.md` Step 1/8 commit restores inline dispatch; the
 extractors are additive files and the writer flag is optional.
 
 ## Related
