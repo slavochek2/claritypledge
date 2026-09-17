@@ -14,7 +14,7 @@ exec_effort: high
 driver: heuristic
 blocked_by: [p1319]
 blocks: []
-related: [p1181, p1215, p1182]
+related: [p1181, p1215, p1182, p1331]
 ---
 
 # P1320: Review page — read your drafted problem as the reader will, fix it, send it
@@ -97,7 +97,11 @@ to `auth.uid()`). An unverified member sees how to verify, not a failing form.
 - Do NOT implement voice input or transcription in v1 — the founder's stated direction, as a follow-up.
   `[FOUNDER DECISION: confirm typed-only for v1]`
 - Do NOT change `/letter/:docId/preview` or the existing compose flow.
-- Do NOT build community visibility here — P1181.
+- Do NOT build community visibility here — P1181 owns the backend, and **P1331 owns the send-screen
+  door** (the audience picker and the write path that sets it). Reuse P1331's picker and write path
+  rather than building a second one; this page owns only how the audience is confirmed at send.
+  *(Added 2026-09-17: P1331 did not exist when this spec was written, so this routing named only
+  P1181 and the two specs pointed past each other — neither claimed the picker.)*
 - Do NOT build agent drafting here — P1215.
 
 ## UX Notes

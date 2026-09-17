@@ -55,9 +55,11 @@ silently no-ops that check.
 ## Appetite
 
 **Blast radius: medium** — one screen, the draft-creation path, and a new write path for the audience
-(below). The backend it drives is gated on every read path and covered by 16 integration assertions
-against the test database, so this spec adds a control surface rather than a trust boundary — **but
-that backend is not on main or prod yet**, so this cannot ship before P1181 does. **Reversibility:
+(below). The backend it drives is gated on every read path and covered by 16 integration tests
+against the test database — **run by hand on the branch, never in CI**: no workflow runs that suite
+(CI runs typecheck, lint and unit tests only), so nothing re-checks those gates automatically. This
+spec adds a control surface rather than a trust boundary — **but that backend is not on main or prod
+yet**, so this cannot ship before P1181 does. **Reversibility:
 high for the screen** (the choice can be removed), **low for what it produces** — a letter's audience
 is immutable after sealing, so a wrong default writes rows that cannot be reclassified.
 **Decision density: two**, both founder calls, both below.
@@ -141,7 +143,7 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
 | A wrong default writes community letters nobody intended, unfixable per row | MITIGATE | The default is a founder decision recorded here before any row is written; audience is immutable after seal |
 | The new option renders indistinguishably from "private" and people misjudge their audience | MITIGATE | Naming is a founder decision; the send screen must state who can read it, in words, before sending |
 | A member belongs to two organisations and picks the wrong one | MITIGATE | Show the organisation name on the confirmation, not only in the picker |
-| Members can read the sender's predictions before rating on a community letter, as on a public one | DEFER | Pre-existing on every one-to-many letter and not introduced here; the 2026-08-13 ruling calls it a defect for public letters. Needs its own spec — see Open Questions |
+| Members can read the sender's predictions before rating on a community letter, as on a public one | DEFER — **blocks the first event, not this spec** | Pre-existing on every one-to-many letter and genuinely not introduced here (the reading function has returned predictions since April, and P1181 copied that body verbatim). But this spec is what first points it at a **measurement**: the 2026-08-13 ruling was about an *anonymous* reader, while a community reader is an identified member whose rating is the calibration data. The server hands predictions over on open; only client-side convention withholds them until after rating, so a member calling the endpoint directly is unanchored by politeness alone. Fix belongs to the reading path, not this screen — but it must be closed before the first event, not merely noted |
 | A member with no organisation sees an option that cannot be used | ACCEPT | Hide it when the member belongs to none; no empty state needed |
 
 **Non-Goals**
