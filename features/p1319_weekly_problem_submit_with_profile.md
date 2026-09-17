@@ -295,7 +295,15 @@ Added by this spec:
    disagreement on this"*; and no fallback when the delegate refuses a month on credential-shaped strings
    (April and May went unscanned).
 
-**Evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 92 checks, 0 failures, covering the ticked
+**Live-run evidence (2026-09-17):** `run:run-2026-09-17-d3` in `.private/logs/problem-submit.log` — a
+correction line plus four per-round lines, replacing an aggregate its own author recorded as
+hand-assembled. Read those lines, not the superseded aggregate: the counts that matter (`proposed:3` per
+round, `minutes_to_mark:NOT-TIMED`, `recorded_on_list` rather than a filter pass, one store read) only
+appear there. The run's outcome — zero submitted — is the finding, and it is recorded in
+[decisions.md](../docs/decisions.md) 2026-09-17 [product] with [P1332](p1332_canvas_to_letter_skill.md)
+as the direction it produced.
+
+**Build evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 92 checks, 0 failures, covering the ticked
 criteria above. The gate was proven to fail: eleven mutated copies each failed the exact check that covers
 them (claim count relaxed · terminal states disabled · repository check disabled · lock never acquired ·
 bare-repo detection removed · profile-shape guard disabled · draft-location guard disabled · all-blank
