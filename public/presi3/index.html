@@ -767,6 +767,8 @@
     .agn{max-width:min(72rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
     .agn .ritual-h{font-size:clamp(1.35rem,2.7vw,2.25rem)}
     .agn .agn-n{width:clamp(1.8rem,3.2vw,2.5rem);height:clamp(1.8rem,3.2vw,2.5rem);font-size:clamp(.95rem,1.7vw,1.25rem);margin-top:.05rem}
+    /* the same numbered badge, inline in a sentence ("back to ③") */
+    .agn .agn-n.agn-inline{display:inline-flex;vertical-align:.1em;margin:0 0 0 .1em}
   </style>
   <section class="slide soft">
     <!-- NOTES
@@ -1222,7 +1224,7 @@
       <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h"><span class="ritual-lab">A</span> shares the experience and reasoning behind their position</p></div>
       <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h"><span class="ritual-lab">B</span> rates their understanding, 0&ndash;10</p></div>
       <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">B</span> explains back &middot; <span class="ritual-lab">A</span> rates it, 0&ndash;10</p></div>
-      <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h">Lower number under 8? <span class="ritual-lab">No disagreeing yet</span> &mdash; back to 3</p></div>
+      <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h">Lower number under 8? <span class="ritual-lab">No disagreeing yet</span> &mdash; back to <span class="agn-n agn-inline">3</span></p></div>
     </div>
   </section>
 
