@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 108
 workstream: infrastructure
 created_date: '2026-09-17'
 tags: [credentials, keyring, notifications]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
 driver: friction
+completed_at: 2026-09-17
 ---
 
 # P1330: Keyring requests name the session and mark the asking tab
