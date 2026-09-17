@@ -12,15 +12,18 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
-blocked_by: []
-related: [p1181, p1320, p1182]
+blocked_by: [p1181]
+related: [p1320, p1182]
 ---
 
 # P1331: Community as a third audience on the letter send screen
 
 ## Problem
 
-**Situation:** P1181 landed the whole backend for community-scoped letters. A one-to-many letter can
+**Situation:** P1181 has **built** the whole backend for community-scoped letters, on
+`feature/p1181-community-scoped-letters` — **not yet merged to main** (`main` contains none of its
+commits and no P1181 migration; main's copy of that spec still reads `status: backlog`). Its two
+migrations are applied to the **test** database only. A one-to-many letter can
 carry an organisation address and is then readable only by that organisation's **current** members —
 refused to anonymous callers on every read path, refused to non-members, and taken away from someone
 who leaves, resolved fresh at every read.
@@ -48,12 +51,13 @@ silently no-ops that check.
 
 ## Appetite
 
-**Blast radius: medium** — one screen and the draft-creation path. The backend it drives is already
-shipped, gated on every read path and covered by 16 integration assertions, so this spec adds a
-control surface rather than a trust boundary. **Reversibility: high for the screen** (the choice can
-be removed), **low for what it produces** — a letter's audience is immutable after sealing, so a
-wrong default writes rows that cannot be reclassified. **Decision density: two**, both founder calls,
-both below.
+**Blast radius: medium** — one screen, the draft-creation path, and a new write path for the audience
+(below). The backend it drives is gated on every read path and covered by 16 integration assertions
+against the test database, so this spec adds a control surface rather than a trust boundary — **but
+that backend is not on main or prod yet**, so this cannot ship before P1181 does. **Reversibility:
+high for the screen** (the choice can be removed), **low for what it produces** — a letter's audience
+is immutable after sealing, so a wrong default writes rows that cannot be reclassified.
+**Decision density: two**, both founder calls, both below.
 
 ## Solution
 
@@ -62,8 +66,16 @@ type a name, pick the match.
 
 **Selecting a community is not adding a recipient.** It switches what kind of letter this is. A
 community letter has no named recipients by design — its readers are whoever is a member when they
-open it — and `seal_and_send_letter` already refuses named recipients on such a letter. So the
-picker sets the letter's audience on the draft; the existing seal path does the rest, unchanged.
+open it — and `seal_and_send_letter` already refuses named recipients on such a letter.
+
+**There is no write path for the audience today, and building one is part of this spec.** Verified
+2026-09-17: `createLetter` inserts three columns and takes no audience
+(`src/app/data/letters-service.ts:59-82`); `sealLetter` takes the letter, predictions, deliveries and
+responses mode (`:92-108`); and the seal function *reads* the audience off the row rather than
+accepting it as an argument. So the work is a new way to set it on the draft — either a widened
+`createLetter` or an update on the draft row, which RLS already permits to its own sender while the
+letter is a draft. Picking a community must also set the letter's mode, because the database refuses
+an audience on any other kind of letter. The seal path itself stays unchanged.
 
 `[FOUNDER DECISION: what the third option is called where a member sees it.` The standing warning
 from P1181's Open Question 2 is that an option which renders identically to "private" is worse than
@@ -83,6 +95,13 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
   read a letter sent today; a member who leaves loses it immediately, including through a link or
   token they already hold. Do **not** implement this as a fan-out of private letters to the current
   member list — that was the imprecise "shared" model cut on 2026-03-24.
+- **The AUTHOR's membership gates the letter too, not only the reader's.** P1181's predicate requires
+  that both the reader *and the sender* are current members, so when an author leaves, every member
+  loses that letter — its content, snapshots and predictions. A community's archive is therefore
+  hostage to each author's membership. That was a deliberate fail-closed choice in P1181 and it is
+  reversible by editing one function; this spec must **surface** the consequence rather than assume
+  the reader-side rule is the whole story. `[FOUNDER DECISION: should a departed author's letters
+  stay readable by the community that already received them?]`
 - **Self-enrolled reader deliveries must never be emailed.** A delivery minted when a member opens a
   letter carries an address; emailing it would send unsolicited invitations to every reader
   (`docs/decisions.md` 2026-06-04, P884, which names this class explicitly for P778 deliveries).
@@ -133,13 +152,20 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
    an anchored rating is not a measurement. It is **pre-existing and out of scope here**, but a
    community letter is where calibration data for the first event would come from, so it is worth
    deciding before that event rather than after. Not assessed.
-2. **Does the picker search organisations the member belongs to, or all public ones?** Only
-   memberships can produce a sendable letter, so the narrower list is probably right — unconfirmed.
+2. **A genuinely private community cannot be offered in the picker at all.** Verified 2026-09-17:
+   organisation rows are readable only when `visibility = 'public'` — one policy definition, never
+   amended — so a `private` organisation is invisible to every caller, **including its own members**.
+   A member can still read their own membership row, so they know they belong to something they
+   cannot name. Today this blocks nothing: the only seeded organisation is public. But "closed
+   community" is P1181's own framing, and the moment a private one exists this picker cannot list
+   it. Either the picker resolves names through a member-scoped path, or private organisations stay
+   out of scope and the spec says so. Not decided.
 
 ## Related
 
 - **P1181** — the backend this opens the door to: the audience column, the read-time predicate, every
-  gated read path, and the member-only export. Shipped and tested; dormant until this lands.
+  gated read path, and the member-only export. **Built and tested on its branch, awaiting `/ship`** —
+  this spec is blocked on that merge, and is dormant until both land.
 - **P1320** — the review page carries the same send step for the weekly problem flow, and its spec
   already lists community as the audience the first event needs. It should reuse this, not
   reimplement it.
