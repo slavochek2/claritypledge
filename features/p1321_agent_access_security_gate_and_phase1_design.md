@@ -123,6 +123,39 @@ Sequential, in one worktree:
 - [ ] Phase-1 architecture document exists with two blind review rounds recorded, and zero unresolved critical or high findings
 - [ ] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
 
+## Resolved Decisions
+
+**2026-09-16 — Allowlist category for a grant an RLS policy requires** (answers the
+`[FOUNDER DECISION]` marker in Solution step 3). Add a third category, **policy-required**: the
+entry cites the policy whose predicate needs the grant — schema, table and policy name — instead of
+a call site, and the triage step asserts that policy still exists. The existing rule is unchanged for
+everything else: a call-site entry still needs a real anonymous caller at `file:line`
+(decisions.md 2026-09-10 [technical]). Grants that are neither are revoked, not listed.
+
+**2026-09-16 — Execution is ATTENDED. The unattended path is dropped.** No `/goal` loop, no
+goal-gate contract, no contract pin, no turn cap. The founder starts the work and is present for it;
+sequential, in one worktree, as planned.
+
+Why: this spec's first invariant asked that the run's process environment hold **no production write
+credential**, enforced rather than instructed. Preparing that showed it cannot be ensured on the
+founder's account as it stands — the mechanism is recorded in the private security log entry of
+2026-09-15 ("Credential exposure found while preparing P1321's unattended run"), which also carries
+one finding that needs action independently of this spec. Options offered were: a separate macOS
+account for the run, rotating the exposed credentials first, or attended execution. **Founder chose
+attended execution** (2026-09-16), explicitly dropping the overnight requirement.
+
+**Invariant 1 therefore does not hold as written and is the founder's to edit.** Proposed
+replacement, not applied here: *"Attended execution. No production write is performed. Production is
+read only through `scripts/supabase-readonly-sql.py`; any step that would write to production stops
+and asks. Production migration history is captured read-only before and after the work, and the two
+must be identical."* The last sentence is the part that still holds unchanged.
+
+**2026-09-16 — Reviewers.** Security findings and the phase-1 design go to **Codex Sol** via
+`~/.agents/bin/codex-review`. If it errors or hits a usage limit: a **Fable** subagent, then an
+**Opus** subagent. Record which reviewer actually reviewed each round.
+`~/.agents/bin/delegate-gemini` is for **public documentation research only** — never send it a
+security finding, an audit result, or any part of the private log.
+
 ## Related
 
 - P1215 — blocked by this spec
