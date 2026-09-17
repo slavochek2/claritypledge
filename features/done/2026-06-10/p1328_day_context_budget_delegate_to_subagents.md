@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 107
 workstream: infrastructure
 created_date: '2026-09-17'
 tags: [day, subagents, context, browser-automation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-17
 ---
 
 # P1328: /day runs out of context because it refuses to delegate, on a premise that is false
