@@ -6,6 +6,43 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [product]: The round rule, final for event #1 — no disagreeing while the lower number is under 8, and numbers only when the listener opted in
+
+**Context:** Amends 2026-09-16 [product] "Clarity Night #1 runs pairs rounds…", whose round read
+"A states; A asks B 0–10; B explains back; A gives a number; repeat until 8+; swap". Two founder
+passes changed it. The rule moved from "repeat until 8+" to a prohibition — B may not disagree
+while the lower number is under 8. And the founder asked whether the number question applies only
+when B opted in. The first rewording ran to three long lines and left a gap: it named "the lower of
+the two numbers" but never showed where the second number came from.
+
+**Decision:** The projected round, about 35 words:
+1. A shares the experience and reasoning behind their position
+2. B rates their understanding, 0–10
+3. B explains back · A rates it, 0–10
+4. Lower number under 8? No disagreeing yet — back to 3
+
+Kicker: "10 min per point · 5 each · numbers only if B opted in".
+- **Numbers depend on B, the listener, not on A.** The promise to give an honest number belongs to
+  the person who opted in. A may ask whether or not A opted in. If B opted out, the pair just
+  talks, on the same clock.
+- **The order follows the principle:** B's own number (assumed understanding) comes before the
+  explain-back, and A's number (verified understanding) comes after. The lower of the two counts.
+- **"Ask and answer questions"** is part of explaining back and is said aloud, not projected.
+  "Swap" is cut as obvious; "5 each" and the host's call at 5 min carry it.
+
+**Alternatives rejected:** "repeat until 8+" (it names a loop but not what is forbidden, and the
+forbidden move is the point); showing only A's number (it drops the assumed-versus-verified gap the
+principle exists to reveal); the three-line founder draft (its content is kept, and the restatement
+is cut).
+
+**Consequences:** "Disagree" is now the named forbidden move. Whether pairs actually hold off is the
+observable for event #1. Falsifier: pairs routinely argue before any number is given, or never
+reach 8 inside 5 minutes and skip the rule. Either result means the rule is too demanding for a
+first rep and needs a lower threshold or a longer turn.
+**References:** `public/presi3/index.html` (slide "How a round works"), decisions.md 2026-09-16 [product] (pairs rounds)
+
+---
+
 ## 2026-09-16 [product]: The Links menu is the product's index on every product surface, not an event feature — the per-event group is retired and /stake gets the menu
 
 **Context:** P1179 built "Links" as an event-room menu with a "This event" group, and the 2026-08-28 stake-surface entry said a bare `/stake/:tag` has "no button". The 2026-09-07 entry widened it to the standalone `/ready` and `/meet` via a route predicate. Each widening added another list of routes to keep in sync. The founder, reviewing P1323: *"yes LINKS menue will be in other points too"* and *"yes in /stake we will have LINKS!"*. On the event group: tags made for an event already appear in the menu, so a separate group only duplicated entries.
