@@ -95,8 +95,12 @@ zero founder decisions. The founder delegated the design ("I trust your expertis
    truncated or mistyped transfer fails instead of publishing a partial week. The drain one-liner
    stays documented as the fallback.
 4. **The Agent VM heal runs the workload repo's heal script by path.** That script names an unmatched
-   NOT READY and exits non-zero. A staged newer runtime is reported as a warning, not NOT READY, which
-   is that repo's own recorded conclusion of 2026-09-16.
+   NOT READY and exits non-zero, and so does a run that attempted nothing (a held lock) or a readiness
+   check that failed to run.
+   **Changed during build:** `ready`'s verdict on a staged newer runtime is left as NOT READY. That
+   repo's 2026-09-16 note keeps the check, its autoheal escalation keys on the verdict, and flipping
+   it deserves its own look. The staged skew itself is the founder's call, because the remedy
+   (`./lh update`) restarts the container and interrupts a running campaign.
 
 **Why not Gemini** (the founder asked): the delegation lane `~/.agents/bin/delegate-gemini` is a text
 REST call. It cannot drive Chrome, call MCP, run the ledger, or read the machine, and the scrape and
@@ -107,25 +111,32 @@ transcript), none of which is on `/day`'s critical path today.
 
 | Risk | Label | Note |
 |---|---|---|
-| A subagent returns a partial report that reads complete | MITIGATE | The ledger and `day-gates --mode=subday-return` grade the steps, not the report |
+| A subagent returns a partial report that reads complete | MITIGATE | `day.md` Step 1 runs `day-step.sh missing` filtered to the sub-day's ids right after the reply; `--mode=finish` grades again at Step 11. (`--mode=subday-return` checks continuity only; the first draft said otherwise, and the review caught it) |
+| A subagent self-attests an `attest` step it did not really do | ACCEPT | Unchanged from inline runs: attest steps were always the agent's own statement (P1324). `cmd` steps record real exit codes |
+| An overdue `/weekly` inside the sub-day cannot hear "skip" | MITIGATE | The dispatcher announces it before spawning, while an interrupt still stops it |
+| A question for the founder is answered after the sub-day's step was recorded | ACCEPT | Only Branch Status asks, and its question is informational (apply/drop a stash) |
+| A copy that keeps its length but corrupts content | MITIGATE | The count is distinct complete rows; Todo.Today rows must fall in the scraped week |
+| A partly hydrated day is read as complete | MITIGATE | Count must hold for 3s; foreign-dated cards or an empty day (except day 0) render no payload. A page that hydrates a stable subset for >3s is still possible — ACCEPT, no in-page signal distinguishes it |
+| Sola's first time-range leaf is venue hours, not the event | ACCEPT | Same heuristic as the pre-existing detail extractor; no instance observed (24/24 plausible on 2026-09-17) |
+| A count refusal leaves no failure row in scrape history | DEFER | The recorder exists only in an uncommitted working copy of `scrape_guard.py`; the RESULT/FAILED line and Step 8b's unchanged-cache check still surface it |
 | Concurrent subagents collide in one Chrome | MITIGATE | Probed: each subagent gets its own tab group. Sources still run one at a time |
-| The model mistypes the payload when writing the raw file | MITIGATE | Writer `--expect N` refuses a count mismatch |
+| The model mistypes the payload when writing the raw file | MITIGATE | Writer `--expect N` refuses a count or content mismatch |
 | `get_page_text` truncates a larger week | MITIGATE | Same count check. Drain fallback documented |
 | Subagent context still fills on a very large Facebook page | ACCEPT | It is isolated from the dispatcher; the failure is per source and loud |
 | iframe loading breaks if a site adds `X-Frame-Options: DENY` | DEFER | The count check fails loudly; the drain fallback is the path |
 
 **Non-Goals**
-- Do NOT change what any check measures, or any gate's verdict logic.
+- Do NOT change what any check measures, or any gate's verdict logic. (heal.sh's exit codes are the exception, and only toward louder: states that were exit 0 without being "nothing needed or verified".)
 - Do NOT split `day-cp.md` into multiple files (P1324's check-sync pairs one manifest with one doc).
 - Do NOT extend the heal whitelist with a new repair.
 
 ## Done-When
 
-- [ ] `grep -rn "no MCP access"` over this repo's `.claude/`, `~/.claude/commands` and `~/.claude/CLAUDE.md` returns nothing; the corrected wording cites the 2026-09-17 probe
-- [ ] Writer `--expect` refuses a raw file whose count disagrees (exit 1, message names both counts), proven by a test that feeds it a truncated copy of a real payload; the correct count still writes
-- [ ] The Todo.Today week and Sola extractors run end to end in a subagent against the live sites and their writers report the counts the pages show
-- [ ] A dry heal from a claritypledge session prints a verdict, and an unmatched NOT READY exits non-zero (test in the workload repo)
-- [ ] One real `/day` pass on Sonnet: every ledger step recorded, all due browser sources refreshed, `day-gates.sh --mode=finish` clean. Peak main-session context, read from its transcript, reported against the 286K baseline. `[post-deploy]` this is the founder's next `/day`
+- [x] `grep -rn "no MCP access"` over this repo's `.claude/`, `~/.claude/commands` and `~/.claude/CLAUDE.md` returns nothing; the corrected wording cites the 2026-09-17 probe — empty on this branch and in `~/.claude`; control: the same grep on unshipped main still finds both lines. `[post-deploy]` re-run on main after ship
+- [x] Writer `--expect` refuses a raw file whose count disagrees (exit 1, message names both counts), proven by a test that feeds it a truncated copy of a real payload; the correct count still writes — `test_payload_count.py` 20/20, hermetic, real payloads for both sources; also refuses count-preserving corruption and a shifted week; the mutant with the check removed fails 11
+- [x] The Todo.Today week and Sola extractors run end to end in a subagent against the live sites and their writers report the counts the pages show — final brief text, 2026-09-17: todo_today 117 (per-day 10/23/29/13/9/17/16, identical to an independent drain run), sola 24/24 timed, both "page count checked"; facebook 13 from 11 raw cards with an empty venue page skipped
+- [x] A dry heal from a claritypledge session prints a verdict, and an unmatched NOT READY exits non-zero (test in the workload repo) — live dry run against the VM: exit 1 naming the staged skew; heal-decisions 60/60, red before each fix
+- [x] The pieces a real pass depends on are verified in isolation: subagents drive Chrome and spawn subagents (live probes), all three browser briefs pass live, ledger check-sync OK for both manifests, `day-step`/`day-gates`/`day-pass-guard` suites 57/134/40, the sub-day-steps probe names an unrecorded step and warns with no ledger. `[post-deploy]` one real `/day` on Sonnet — every ledger step recorded, all due sources refreshed, `--mode=finish` clean, peak context reported against the 286K baseline — is the founder's next `/day`
 
 ## Alternatives Considered
 
