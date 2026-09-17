@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 disclosure: public
 workstream: problem-board
@@ -13,15 +13,15 @@ tags:
   - p1180
   - problem-board
 created_date: '2026-09-15'
-delivery_stage: dev
 pipeline_ran: [change-request, dev]
 blocked_by: []
 blocks: [p1320, p1182]
+completed_at: 2026-09-17
 ---
 
 # P1319: Problem-submit proposes one current problem a week, under a standing profile, and hands the draft to the review page
 
-> **Redesign of:** [P1180: `/problem-submit`](done/2026-06-10/p1180_problem_submit_skill.md)
+> **Redesign of:** [P1180: `/problem-submit`](p1180_problem_submit_skill.md)
 > **What was wrong:** P1180 rationed nothing, on the premise that *"Reading is done by an agent, so
 > there is no attention to ration"* (§Solution, "No submission limit"). That counted the **reader's**
 > attention and forgot the **author's**. A mining run produced 209 problems for the founder to choose
@@ -269,7 +269,7 @@ Added by this spec:
       refused by the delegate with no fallback — a real result about what the founder was shown, not a
       census of his history.
       **The zero is the finding this criterion was for.** It falsified the premise rather than the build:
-      see [decisions.md](../docs/decisions.md) 2026-09-17 [product].
+      see [decisions.md](../../../docs/decisions.md) 2026-09-17 [product].
 
 ## Follow-up (does not block closure)
 
@@ -300,7 +300,7 @@ correction line plus four per-round lines, replacing an aggregate its own author
 hand-assembled. Read those lines, not the superseded aggregate: the counts that matter (`proposed:3` per
 round, `minutes_to_mark:NOT-TIMED`, `recorded_on_list` rather than a filter pass, one store read) only
 appear there. The run's outcome — zero submitted — is the finding, and it is recorded in
-[decisions.md](../docs/decisions.md) 2026-09-17 [product] with [P1332](p1332_canvas_to_letter_skill.md)
+[decisions.md](../../../docs/decisions.md) 2026-09-17 [product] with [P1332](../../p1332_canvas_to_letter_skill.md)
 as the direction it produced.
 
 **Build evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 92 checks, 0 failures, covering the ticked
