@@ -229,18 +229,109 @@ def _request_context(service, reason):
         # string lets that string forge extra fields on the same line — the same
         # defect as the newline, one level down. Neutralise the separator too.
         return text.replace("|", "/")[:limit].strip()
+    tty = _agent_tty()
     return {
+        "title": clean(_session_title(session) or "", 80),
+        "agent_tty": tty or "",
         "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "key": clean(service[len("cp.keyring."):] if service.startswith("cp.keyring.") else service, 80),
         "reason": clean(reason or os.environ.get("KEYRING_REASON", "") or "(no reason given)"),
         "session": clean(session[:8] if session else "not-a-claude-session", 32),
         "branch": clean(run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) or "?"),
         "cwd": clean(os.getcwd()),
-        "caller": clean(run(["ps", "-o", "command=", "-p", str(ppid)])[:160] or "?"),
+        "caller": clean(_readable_caller(run(["ps", "-o", "command=", "-p", str(ppid)]))[:160] or "?"),
         "pid": os.getpid(),
         "ppid": ppid,
         "tty": clean(run(["tty"]) or os.environ.get("TERM_SESSION_ID", "?")),
     }
+
+
+def _session_title(session_id):
+    """The name the founder sees for this session: a /rename title if one was set,
+    else Claude Code's own generated title. An 8-hex session id matches nothing on
+    screen, so it cannot tell him which tab is asking (P1330)."""
+    if not session_id or "/" in session_id or ".." in session_id:
+        return ""
+    projects = os.path.expanduser("~/.claude/projects")
+    try:
+        dirs = os.listdir(projects)
+    except Exception:
+        return ""
+    for d in dirs:
+        path = os.path.join(projects, d, session_id + ".jsonl")
+        if not os.path.isfile(path):
+            continue
+        custom = ai = ""
+        try:
+            import json
+            with open(path, "rb") as fh:
+                for raw in fh:
+                    if b'"custom-title"' not in raw and b'"ai-title"' not in raw:
+                        continue
+                    try:
+                        rec = json.loads(raw)
+                    except Exception:
+                        continue
+                    if rec.get("type") == "custom-title":
+                        custom = rec.get("customTitle") or custom
+                    elif rec.get("type") == "ai-title":
+                        ai = rec.get("aiTitle") or ai
+        except Exception:
+            return ""
+        return custom or ai
+    return ""
+
+
+def _agent_tty():
+    """The terminal the requesting agent is drawn in. The Bash tool has no tty of
+    its own, so walk up the process tree to the first ancestor that has one —
+    that is the Claude Code process, i.e. the tab the founder has to find."""
+    pid = os.getppid()
+    for _ in range(12):
+        try:
+            out = subprocess.run(["ps", "-o", "ppid=,tty=", "-p", str(pid)],
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                 timeout=3).stdout.decode().split()
+        except Exception:
+            return None
+        if len(out) < 2:
+            return None
+        ppid, tty = out[0], out[1]
+        if tty not in ("??", "-") and tty.startswith("ttys"):
+            return tty
+        if ppid in ("0", "1"):
+            return None
+        pid = ppid
+    return None
+
+
+def _ring_tab(tty):
+    """Ring the bell on the requesting tab. Ghostty (default bell-features) puts a
+    bell in that tab's title and requests window attention, so the founder can see
+    WHICH tab is asking instead of matching ids by hand (P1330). A BEL is a
+    non-printing control byte; it changes nothing the TUI draws."""
+    if not tty or not tty.startswith("ttys") or "/" in tty:
+        return
+    try:
+        fd = os.open("/dev/" + tty, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        try:
+            os.write(fd, b"\a")
+        finally:
+            os.close(fd)
+    except Exception:
+        pass
+
+
+def _readable_caller(cmd):
+    """The Bash tool wraps every command in `zsh -c source <snapshot> ... && ...`,
+    so the raw parent argv is 160 chars of boilerplate. Say what it is instead."""
+    if "shell-snapshots" in cmd:
+        return "Claude Code shell command"
+    return cmd
+
+
+def _tier(key):
+    return "PROD" if key.upper().startswith("PROD") else ""
 
 
 def _log_path():
@@ -263,8 +354,8 @@ def _announce(ctx):
     """Record the request and put it on screen. Never blocks and never fails the
     read: an attribution problem must not become an availability problem."""
     line = ("%(time)s | key=%(key)s | session=%(session)s | branch=%(branch)s | "
-            "reason=%(reason)s | caller=%(caller)s | cwd=%(cwd)s | "
-            "pid=%(pid)s ppid=%(ppid)s | tty=%(tty)s" % ctx)
+            "reason=%(reason)s | title=%(title)s | caller=%(caller)s | cwd=%(cwd)s | "
+            "pid=%(pid)s ppid=%(ppid)s | tty=%(tty)s | agent_tty=%(agent_tty)s" % ctx)
     path = _log_path()
     if path:
         try:
@@ -274,20 +365,34 @@ def _announce(ctx):
         except Exception:
             pass
 
+    who = ctx["title"] or ("session " + ctx["session"])
+    tier = _tier(ctx["key"])
+    what = ("%s key " % tier if tier else "key ") + ctx["key"]
+
     # Printed to stderr as well, so it is visible in whichever session asked.
     # Wrapped: with stderr closed this raised before the read was even attempted,
     # turning a missing announcement into a missing credential.
     try:
-        sys.stderr.write("keyring: requesting %(key)s — %(reason)s "
-                         "[session %(session)s · %(branch)s]\n" % ctx)
+        sys.stderr.write(
+            "\nkeyring: a macOS dialog saying \"python wants to use your confidential "
+            "information\" is about to appear.\n"
+            "  what : %s\n  why  : %s\n  who  : %s · %s%s\n"
+            "  -> Allow (never Always Allow) only if this matches.\n\n"
+            % (what, ctx["reason"], who, ctx["branch"],
+               (" · tab " + ctx["agent_tty"] + " (bell)") if ctx["agent_tty"] else ""))
         sys.stderr.flush()
     except Exception:
         pass
 
-    body = "%(reason)s\nsession %(session)s · %(branch)s\n%(caller)s" % ctx
+    _ring_tab(ctx["agent_tty"])
+
+    # Notification is read at a glance: title = WHICH tab, subtitle = WHAT,
+    # body = WHY. The "python" dialog follows it (P1330).
+    title = ("🔑 " + ("PROD · " if tier else "") + who)[:90]
+    subtitle = "wants " + what
+    body = "%s\nThe tab with 🔔 is asking · branch %s" % (ctx["reason"], ctx["branch"])
     script = ('display notification %s with title %s subtitle %s'
-              % (_osa_str(body), _osa_str("Keyring: " + ctx["key"] + " requested"),
-                 _osa_str("Approve in the dialog only if you recognise this")))
+              % (_osa_str(body), _osa_str(title), _osa_str(subtitle)))
     try:
         subprocess.Popen(["osascript", "-e", script],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

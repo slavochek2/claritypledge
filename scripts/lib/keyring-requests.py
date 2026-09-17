@@ -47,7 +47,7 @@ def main(path, limit):
     if not lines:
         print("No credential requests recorded yet.")
         return 0
-    print("%-10s %-26s %-8s %s" % ("WHEN", "KEY", "WORK", "WHY"))
+    print("%-10s %-26s %-24s %s" % ("WHEN", "KEY", "SESSION", "WHY"))
     rows = []
     for line in lines:
         f = {}
@@ -75,7 +75,7 @@ def main(path, limit):
             why = "(no reason) " + " ".join(x for x in (prog, script) if x) if prog \
                   else "(no reason given)"
         rows.append((age(stamp), f.get("key", "?")[:26],
-                     spec_of(f.get("branch"), f.get("cwd"))[:8], why[:52]))
+                     (f.get("title") or spec_of(f.get("branch"), f.get("cwd")))[:24], why[:52]))
 
     # Collapse a run of identical requests. Five prompts in five minutes for one
     # key is the thing worth seeing, and five near-identical lines hide it.
@@ -87,7 +87,7 @@ def main(path, limit):
         else:
             out.append([row[0], row[1], row[2], row[3], 1])
     for when, key, work, why, n in out:
-        print("%-10s %-26s %-8s %s%s" % (
+        print("%-10s %-26s %-24s %s%s" % (
             when, key, work, why, ("   [x%d]" % n) if n > 1 else ""))
     return 0
 

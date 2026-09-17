@@ -112,8 +112,17 @@ The dialog cannot name you. It says "Python wants to use ...", which is why the 
 denied a legitimate request on 2026-09-08 and had no way to find out whose it was.
 
 Every read now announces itself before the dialog — notification, stderr line, and a
-record in the request log — carrying the key, the session id, the branch and **the
-reason you supply**. Supply one:
+record in the request log — carrying the key, the **session title** (the renamed name,
+else Claude Code's generated title), the branch and **the reason you supply**. It also
+rings the bell on the asking terminal, so that tab shows 🔔 (P1330).
+
+**Write it in your reply too, before the command runs.** The stderr line is folded into
+"Ran N shell commands" and nobody sees it. A plain sentence in your own message is the
+only thing guaranteed on screen. Name: the key, and whether it's **prod** or test; the exact
+action it unlocks ("delete auth user X on prod"); and that a dialog saying *python*
+is coming, marked by 🔔 on this tab, and the answer is **Allow**, never Always Allow.
+
+Supply the reason:
 
 ```bash
 KEYRING_REASON="weekly ops mailbox check" keyring_require OPS_EXAMPLE_KEY
