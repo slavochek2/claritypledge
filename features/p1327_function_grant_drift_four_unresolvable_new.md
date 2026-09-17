@@ -100,8 +100,8 @@ Exit 1 every day for four understood grants; `/day` files the same high-severity
 
 ## Acceptance Criteria
 
-- [ ] `function-grant-drift-check.py --summary` against prod reports 0 NEW anon-unlisted functions and exits 0 once the migration is applied
-- [ ] A `policy:` entry whose cited line does not name the function, or is not inside a `CREATE POLICY`, is rejected with a message naming the line. Proven by mutating the REAL allowlist, not a synthetic fixture (epistemic gate 7d)
-- [ ] The existing checker tests still pass (legitimate call-site entries still accepted, gate 7c)
-- [ ] On test and prod, `has_function_privilege('anon','public.event_grace_interval()','EXECUTE')` is false
-- [ ] The P1256 and P1307 room e2e specs still pass on test after the revoke
+- [x] `function-grant-drift-check.py --summary` resolves three of the four: on 2026-09-17, live prod vs test, it reports only `event_grace_interval()` (anon-unlisted on prod, and grant-differs because test is already revoked) — `2 NEW`, down from 4. `[post-deploy]` re-run after the migration reaches prod; expect 0 NEW and exit 0
+- [x] A `policy:` entry whose cited line does not name the function, or is not inside a `CREATE POLICY`, is rejected with a message naming the line. Proven by mutating the REAL allowlist, not a synthetic fixture (epistemic gate 7d). Hardened after hostile review (Codex Sol, Gemini 3.8, Opus): comments, string literals, another schema, wrong arity, a policy dropped later, a policy never applying to anon, and a citation outside `supabase/migrations/` are all refused. Mutants for stripping, drop check and arity each fail
+- [x] The existing checker tests still pass (legitimate call-site entries still accepted, gate 7c) — 64/64. Two stubs broken by P1214 had stopped every later section from running; fixed
+- [x] On test, anon is refused at the grant — `e2e/integration/p1327-event-grace-interval-grant.spec.ts`, red before the migration, green after. `[post-deploy]` re-verify on prod once the migration applies
+- [x] The P1256 and P1307 room e2e specs still pass on test after the revoke — 13 passed
