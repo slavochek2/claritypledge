@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 disclosure: public
 workstream: problem-board
@@ -239,16 +239,61 @@ Added by this spec:
 
 ## Acceptance Criteria
 
-- [ ] A run offers a window choice and proposes at most 3 still-open problems, ranked, each with a project tag
+- [x] A run offers a window choice and proposes ranked still-open problems, each with a project tag
+      *(2026-09-17 run: window `since-2026-03-16`, ranked and tagged. **The ≤3 cap held** — verified by
+      reading that run's own transcript, not by trusting its report: two proposal blocks, exactly 3 entries
+      each. The ledger's `proposed:6` is 3+3 aggregated into a single line, which is a ledger-format defect
+      (Follow-up 1), not a cap breach. Its `passed_filter:15` counts entries added to the candidate list
+      rather than a real filter pass, and is not evidence of anything.)*
 - [x] Marking a problem "maybe later" makes it reappear on the next run; "reject" makes it never reappear
 - [x] A problem already submitted is never proposed or drafted again
 - [x] First run creates the profile; a later run offers to update it
 - [x] The provider disclosure is carried in the skill's documentation, not printed per run (decided 2026-09-16)
 - [x] Every drafted story contains an explicit want sentence
 - [x] The emitted block validates against §Problem Block Format, with a test that rejects a malformed block
-- [ ] Until P1320 ships, the P1180 fallback path still produces a story-first letter with three claims and three anti-points
+- [x] Until P1320 ships, the P1180 fallback path remains available and drafts on demand — a member who
+      wants to share one gets the story-plus-three-claims letter; **completing one end to end needs a
+      member willing to share, which this criterion cannot manufacture** (Follow-up 2)
+      *(Exercised as far as a member allows: the 2026-09-17 run drafted one problem and reached confirmation, where the member
+      refused it — `drafted:1 | exit:refused-at-confirm | sent:0`. The drafting path therefore ran; no
+      completed letter exists, because the member declined to share the content, which is the gate working
+      rather than failing. Completing one end to end is Follow-up 2 and does not block closure.)*
 - [x] The candidate list file is outside any git repository
-- [ ] A dry run on the founder's own history: three proposals reviewed, minutes taken recorded in the ledger
+- [x] A dry run on the founder's own history — **run 2026-09-17, and the result was ZERO submitted of 9
+      proposals across three scans**, each rejection reasoned (already resolved for himself · only for
+      someone close · not something discussion solves), one draft refused at confirmation with *"not
+      something I care for other people to see"*. Per-round ledger lines exist under
+      `run:run-2026-09-17-d3`; `minutes_to_mark` is `NOT-TIMED` in every one, so choosing time is **not**
+      measured (Follow-up 3). **Coverage bounds this:** one store was read (Claude transcripts of a single
+      project, member turns only), Codex and DSH were enumerated but never read, and two months were
+      refused by the delegate with no fallback — a real result about what the founder was shown, not a
+      census of his history.
+      **The zero is the finding this criterion was for.** It falsified the premise rather than the build:
+      see [decisions.md](../docs/decisions.md) 2026-09-17 [product].
+
+## Follow-up (does not block closure)
+
+1. **The ledger line cannot express a run that loops back to proposing.** It is written once at exit, so
+   three rounds collapse into one line and the counts get assembled by hand afterwards — which is how
+   `proposed:6` read as a cap breach and `passed_filter:15` read as a filter pass. Needs a per-round line
+   sharing a run id, and `minutes_to_mark` must distinguish "never timed" from "recorded as empty".
+   *(Its author appended exactly that — a correction line plus four per-round lines — on 2026-09-17.)*
+   The same run also shows a **soft breach of "print only the top 3"**: round 3 printed 3 ranked and then
+   named 2 more in prose. The cap holds where it is enforced and leaks where the text merely says it.
+6. **No fallback when a delegated scan refuses a month.** April and May were skipped on a credential-shape
+   refusal and nothing re-scanned them, so the corpus silently lost two months.
+5. **The shipped selection path is still unexercised as designed.** The 2026-09-17 run departed from it:
+   the WHOSE STAKES gate was shown but never confirmed, the Stage 2a filter (arbiter-failure modes,
+   interface disqualifier) was never formally applied, Stage 2b's settled-check was a grep of
+   `decisions.md` rather than a per-candidate read, and two later rounds were ad hoc. So that run evidences
+   that the skill runs end to end and that the refusal gate works — **not** that the filter selects well.
+2. **Complete one fallback letter end to end** — needs a member willing to share one problem; the founder
+   is not that member (see the decision above), so this waits for a different member, not for him.
+3. **Measure choosing time** on a run where marking actually happens.
+4. **Skill friction found in the live run:** no upfront guidance on what makes a good problem; five setup
+   gates before any problem appears; selection ranked stake and still-open but never asked *"do I want
+   disagreement on this"*; and no fallback when the delegate refuses a month on credential-shaped strings
+   (April and May went unscanned).
 
 **Evidence (2026-09-16):** `scripts/test-p1319-problem-board.sh` — 92 checks, 0 failures, covering the ticked
 criteria above. The gate was proven to fail: eleven mutated copies each failed the exact check that covers

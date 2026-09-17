@@ -6,6 +6,59 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [product]: The founder has no problem he wants strangers to argue with — the board's premise, not its volume, is what the zeros were measuring (P1319, P1320, P1182, problem-board)
+
+**Context:** The first real run of `/slava:problem:submit` on the founder's own history returned
+**0 submitted out of 9 proposals**, across three scans (six months by stake; this week; three months
+with a "would others benefit / do I want feedback" test). Ledger evidence, `problem-submit.log`, per round under
+`run:run-2026-09-17-d3` (a first aggregate line was superseded by its own author as hand-assembled).
+**The coverage is narrower than the zero suggests, and that bounds the claim:** exactly ONE store was
+read — Claude transcripts from one project, member turns only — while Codex and DSH were enumerated and
+never read, and two months (April, May) were refused by the delegate with no fallback. So this is a real
+result about the problems the founder was *shown*, and **not a census of his history**. Every rejection carried one of three reasons: already resolved for
+himself, only something he would discuss with someone close, or not something discussion solves. The
+one draft that reached confirmation was refused — *"not something I care for other people to see"*.
+The mechanism behaved correctly at every gate; what failed was an assumption underneath it.
+**Decision:** **P1319's scope does not change** — the weekly unit, the ranked proposal, the private
+candidate list, the profile and the block format all ran as designed, and the run is the evidence.
+**The premise in [problem-board-process.md](problem-board-process.md) does change**: "each member
+posts one problem they are still working on" is now recorded as **UNTESTED with contrary evidence at
+n=1**. For a founder, the artifact they want strangers to understand and take positions on is their
+**lean canvas — their bets about other people's problems** — not a problem they are stuck on.
+Direction proposed by the founder and **not yet decided**: leave problem-submit as it is for members
+who are genuinely stuck, and add a separate skill that turns a canvas into one letter in canvas order,
+the riskiest bets (per `hypotheses.md`) carrying a story plus a point with its rival so misunderstanding
+and disagreement stay separable, the rest carrying a point only. **Filed as [P1332](../features/p1332_canvas_to_letter_skill.md) —
+`status: backlog`, `driver: anomaly`, nothing built.** A canvas draft was the one thing in the whole run
+the founder reacted to positively (*"This one is cool"*), which is the signal the spec rests on.
+**Alternatives rejected:** *Treating 0/9 as a tuning problem and adjusting the filter* — the founder's
+rejections were not about which problems were selected but about whether he wanted any of them seen.
+*Building the canvas skill immediately* — that repeats the error below on a premise supported by one
+person; the cheapest test is one hand-written canvas letter that gets an answer, and it needs no code.
+*Closing the board down* — the instrument works and is untested for its actual target, a member who is
+stuck; the founder is explicitly the least typical member.
+**Consequences:** **The 2026-09-15 [product] entry's reading of "209 candidates, 0 ticked" as a volume
+problem is now doubted.** The same zero fits *"none of them was something he wanted to post"*, and that
+rival was never listed or tested before a redesign was built on the first reading. **Process lesson,
+general: before building a fix for a zero result, enumerate the rival explanations and test the cheapest
+one** — here, *"would you post any of these five?"*, which costs one question. `H-AbsentCounterparty`
+remains UNTESTED: nothing was sent, so no round has run. **Falsifier for the new premise:** one member
+who is not the founder proposes a problem and submits it without prompting — that would show the
+premise holds for the target member and only fails for the founder. **One number nearly misled the closure:** the ledger
+recorded `proposed:6` against a shipped cap of 3. Reading the run's own transcript showed two blocks of
+exactly 3 — the cap held, and the line aggregates a run that looped back to proposing. Its
+`passed_filter:15` likewise counts list entries, not a filter pass. **A hand-assembled summary line is not
+evidence; the artifact it summarises is.** The run also departed from the shipped stages (whose-stakes
+never confirmed, the Stage 2a filter never formally applied), so it evidences that the skill runs and that
+the refusal gate holds, not that the selection filter works. Friction also recorded for the skill: no upfront guidance on what makes a good problem,
+five setup gates before any problem appears, selection criteria that never asked *"do I want
+disagreement on this"*, and no fallback when the delegate refuses a month on credential-shaped strings
+(April and May went unscanned). Status: proposed — n=1, and the founder is the least typical member.
+**References:** [p1319](../features/p1319_weekly_problem_submit_with_profile.md) ·
+[problem-board-process.md](problem-board-process.md) · [hypotheses.md](hypotheses.md)
+`H-AbsentCounterparty` · 2026-09-15 [product] (the reading this doubts) · 2026-05-19 (Clarity Canvas
+parked pending demand)
+
 ## 2026-09-17 [process]: A capability claim in a rule file is a hypothesis until a probe is cited beside it — "subagents have no MCP access" was false and cost /day its context (P1328)
 
 **Context:** `/day` kept running out of context on Sonnet and dropping work. Measured from the
