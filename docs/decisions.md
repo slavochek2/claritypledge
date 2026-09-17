@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [technical]: A viewport-capped fixed panel subtracts every fixed bar actually on the page, keyed on the bar's presence (P1329)
+
+**Context:** P1310 capped the mobile menu panel at the viewport minus the top header. Signed in, the fixed bottom tab bar (same z-50, later in the DOM) covered the panel's last ~65px, so Settings and Log Out were unreachable. Every P1310 check ran signed out, where that bar does not exist.
+**Decision:** `body:has([data-nav="bottom"]) .mobile-nav-panel` subtracts the bar's row, border and bottom safe-area inset as well. The rule keys on the element being in the DOM rather than on auth state, because BottomNav also unmounts itself on focus routes.
+**Alternatives rejected:** Raising the header's z-index above the bottom bar (the panel would then cover the bar and hide it, with the scroll end still behind the fold on shorter phones). Passing a signed-in prop into the nav (duplicates BottomNav's own route and auth visibility logic, which drifts).
+**Consequences:** Any new fixed chrome, or any new capped overlay, must be measured in the signed-in state as well. jsdom cannot see this; `e2e/p1329-mobile-menu-bottom-nav.spec.ts` measures the geometry. Browsers without `:has()` keep the old behaviour.
+**References:** [p1329 spec](../features/done/2026-06-10/p1329_mobile_menu_under_bottom_nav.md)
+
 ## 2026-09-17 [technical]: Worktree liveness comes from identity-free activity, and nothing destructive trusts the liveness verdict (P1326)
 
 **Context:** P1268's heartbeat fix (2026-09-09) was still inert in real use. On 2026-09-16 slot w1
