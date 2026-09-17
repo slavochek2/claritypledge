@@ -146,6 +146,21 @@ html body[data-scroll-locked] {
   }
 }
 
+/* P1329: signed in, BottomNav (bottom-nav.tsx, `data-nav="bottom"`) is also fixed
+ * at z-50 and later in the DOM, so it painted over the panel's last ~65px and the
+ * final entries could not be scrolled into view. Subtract its row (h-16), its 1px
+ * top border and the home-indicator inset it pads for. Keyed on the element's
+ * presence, not on auth, because BottomNav also hides itself on focus routes. */
+body:has([data-nav="bottom"]) .mobile-nav-panel {
+  max-height: calc(100vh - 8rem - 1px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+@supports (height: 100dvh) {
+  body:has([data-nav="bottom"]) .mobile-nav-panel {
+    max-height: calc(100dvh - 8rem - 1px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+
 /* P1310: the room's Links bottom sheet has a ceiling.
  *
  * The sheet is `fixed bottom-0 h-auto` (drawer.tsx) and grows upward with no cap.
