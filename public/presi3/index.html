@@ -1281,13 +1281,13 @@
        it, you can join." Round 2 (founder): show it all at once, no click-through; it is
        "levels of commitment"; partner = a pair, group terms = a community or organization,
        pledge = social impact. Round 3: a pyramid. Width = how many people will be able to do it:
-       Meeting is the wide base, then Group Terms, Partner (above organization), Pledge at the top.
+       Meeting is the wide base, then Partner, Group Terms (round 4: community above the pair), Pledge at the top.
        [FOUNDER DECISION: "Clarity Partner Principle" has no page or doc in the repo yet.] -->
-  <section class="slide soft">
+  <section class="slide soft" data-lvl>
     <!-- NOTES
       - Read it bottom to top: the wider the step, the more people can do it.
       - Tonight you used the bottom step.
-      - Point at Group Terms: "I use them for my own group. If you like it, you can join." Next slide.
+      - Press next once: Group Terms turns blue (round 4, founder: on next, not automatic). Then say: "I use them for my own group. If you like it, you can join." Next slide.
     -->
     <style>
       .lvl{display:flex;flex-direction:column;align-items:center;gap:clamp(.45rem,1.3vh,.8rem);
@@ -1296,9 +1296,10 @@
         border:2px solid var(--blue-tint-bd);border-radius:18px;background:#fff;text-align:left;
         padding:clamp(.75rem,2.1vh,1.25rem) clamp(.9rem,2vw,1.5rem)}
       .lv-4{width:58%}.lv-3{width:72%}.lv-2{width:86%}.lv-1{width:100%}
-      .lv-2{border-color:var(--blue);background:var(--blue-tint)}
+      .lv{transition:border-color .45s ease,background-color .45s ease}
+      .lvl.hl .lv-join{border-color:var(--blue);background:var(--blue-tint)}
       .lv-t{font-weight:800;letter-spacing:-.01em;color:var(--fg);line-height:1.15;font-size:clamp(1rem,2.1vw,1.55rem)}
-      .lv-2 .lv-t{color:var(--blue-700)}
+      .lv-t{transition:color .45s ease}.lvl.hl .lv-join .lv-t{color:var(--blue-700)}
       /* round 4 (founder): appears from the bottom step up, on its own, no clicks. Restarts on
          every visit because .active toggles display. */
       .slide.active .lv{opacity:0;animation:lvup .55s cubic-bezier(.2,.7,.2,1) forwards}
@@ -1312,8 +1313,8 @@
     <h2>Levels of <span class="accent">commitment</span></h2>
     <div class="lvl">
       <div class="lv lv-4"><span class="lv-t">Clarity Pledge</span><span class="lv-s">social impact</span></div>
-      <div class="lv lv-3"><span class="lv-t">Clarity Partner Principle</span><span class="lv-s">a pair</span></div>
-      <div class="lv lv-2"><span class="lv-t">Clarity Group Terms</span><span class="lv-s">community or organization</span></div>
+      <div class="lv lv-3 lv-join"><span class="lv-t">Clarity Group Terms</span><span class="lv-s">community or organization</span></div>
+      <div class="lv lv-2"><span class="lv-t">Clarity Partner Principle</span><span class="lv-s">a pair</span></div>
       <div class="lv lv-1"><span class="lv-t">Clarity Meeting Principle</span><span class="lv-s">one meeting</span></div>
     </div>
   </section>
@@ -2607,6 +2608,7 @@
     if(mv) mv.classList.remove('verified');   // venn always re-enters in the "problem" state
     slides[i].querySelectorAll('[data-flip]').forEach(el=>el.classList.remove('flipped')); // flip diagrams re-enter unsolved
     slides[i].querySelectorAll('.nest').forEach(n=>{n._step=1;n.classList.remove('r2','r3');}); // nested integrity re-enters at outer ring only
+    slides[i].querySelectorAll('.lvl').forEach(n=>n.classList.remove('hl')); // levels re-enter without the Group Terms highlight
     nav.textContent=(i+1)+' / '+slides.length;
     prog.style.width=((i+1)/slides.length*100)+'%';
     window.scrollTo(0,0);   // mobile: each slide flows in the page, start it at the top
@@ -2638,6 +2640,8 @@
       const nest=s.querySelector('.nest'); const step=nest._step||1;
       if(step<3){ nest._step=step+1; nest.classList.add('r'+(step+1)); FX.flip(); return; }
     }
+    // levels of commitment: first advance highlights Group Terms, the next moves on
+    if(s.hasAttribute('data-lvl')){ const l=s.querySelector('.lvl'); if(!l.classList.contains('hl')){ l.classList.add('hl'); return; } }
     show(i+1);
   }
   function prev(){show(i-1)}
