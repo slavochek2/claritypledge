@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 106
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, grants, drift-check, day]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
+completed_at: 2026-09-17
 ---
 
 # P1327: Function grant drift check reports 4 NEW anon grants it can never resolve, so it is red every day
