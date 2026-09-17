@@ -1148,6 +1148,22 @@
     .ss-frame iframe{width:100%;height:100%;border:0;display:block}
     .ss-ph{display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;
       font-weight:700;color:#71717a;background:repeating-linear-gradient(45deg,#fafafa 0 12px,#f1f1f3 12px 24px)}
+
+    /* PHONE — founder, 2026-09-17: live slides "look awful" on mobile. The phone layout
+       turns slides into auto-height blocks, so height:100% on an iframe resolved to the
+       150px default. Every live slide gets one exact screen instead, and the stake slides
+       drop the fake phone: the page is full screen, the instruction a one-line bar on top.
+       Placed after .ss on purpose — these rules must win on source order. */
+    @media (max-width:720px){
+      .slide.embed-full,.slide:has(.ss){position:relative;padding:0;height:100vh;height:100dvh;min-height:0}
+      .slide:has(.ss){background:#fff}
+      .ss{display:flex;flex-direction:column;height:100%;gap:0;max-width:none}
+      .ss>div:first-child{align-self:stretch;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;
+        gap:.2rem .9rem;padding:.65rem 1rem;border-bottom:1px solid hsl(240 6% 90%);background:var(--muted-soft)}
+      .ss h2{display:none}
+      .ss-step{font-size:1rem;margin:0}
+      .ss-frame{align-self:stretch;flex:1;width:100%;height:auto;min-height:0;border:0;border-radius:0;box-shadow:none}
+    }
   </style>
   <!-- 14 · STAKE CMP7 — founder, round 7: "maybe we put after 13 a slide that shows the
        CMP7 and just says use two minutes... those two slides would help me to remember it,
@@ -1257,6 +1273,56 @@
     <div class="embed-nav">
       <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
       <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+    </div>
+  </section>
+
+  <!-- LEVELS — founder, 2026-09-17: between cmp10 and the community ask, "a slide that shows
+       different levels of clarity principle ... the hierarchy ... least amount of text, some
+       slide that allows me to talk about it and then say ... I use it for my own group, the
+       terms. So if you like it, you can join." Nested boxes, because each level contains the
+       one inside it. Reveals INSIDE→OUT (the closing integrity rings go outside→in, so the two
+       don't read as a repeat). Advance three times.
+       [FOUNDER DECISION: level names are the founder's words; "Clarity Partner Principle" has
+       no page or doc in the repo yet. The small scope words (one meeting, one person...) are
+       mine: change or delete them.] -->
+  <section class="slide soft" data-lvl>
+    <!-- NOTES
+      - ADVANCE THREE TIMES: each advance draws the next, wider level around the last one.
+      - Meeting: tonight, one conversation. Partner: one relationship. Group Terms: a whole group.
+        Pledge: in public, with everyone.
+      - End on the Group Terms: "I use them for my own group. If you like it, you can join." Next slide.
+    -->
+    <style>
+      .lvl{position:relative;width:min(92vw,820px);text-align:left}
+      .lv{border:2px solid var(--blue-tint-bd);border-radius:24px;background:rgba(59,130,246,.035);
+        padding:clamp(.7rem,2vh,1.2rem) clamp(.8rem,2vw,1.5rem) clamp(.9rem,2.6vh,1.6rem);
+        transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+      .lv-4,.lv-3,.lv-2{opacity:.18}
+      .lvl.s2 .lv-2,.lvl.s3 .lv-3,.lvl.s4 .lv-4{opacity:1}
+      .lv-1{border-color:var(--blue);background:var(--blue-tint);text-align:center;
+        padding:clamp(1rem,3vh,1.8rem) 1rem}
+      .lv>.lv{margin-top:clamp(.6rem,1.8vh,1rem)}
+      .lv-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.1rem .8rem}
+      .lv-1 .lv-h{justify-content:center;flex-direction:column;align-items:center}
+      .lv-t{font-weight:800;letter-spacing:-.01em;color:var(--fg);line-height:1.15;
+        font-size:clamp(1rem,2.1vw,1.55rem)}
+      .lv-1 .lv-t{color:var(--blue-700)}
+      .lv-s{color:var(--muted-fg);font-weight:600;font-size:clamp(.85rem,1.3vw,1.1rem)}
+    </style>
+    <div class="kicker">Levels of clarity</div>
+    <div class="lvl">
+      <div class="lv lv-4">
+        <div class="lv-h"><span class="lv-t">Clarity Pledge</span><span class="lv-s">in public</span></div>
+        <div class="lv lv-3">
+          <div class="lv-h"><span class="lv-t">Clarity <span class="accent">Group Terms</span></span><span class="lv-s">one group</span></div>
+          <div class="lv lv-2">
+            <div class="lv-h"><span class="lv-t">Clarity Partner Principle</span><span class="lv-s">one person</span></div>
+            <div class="lv lv-1">
+              <div class="lv-h"><span class="lv-t">Clarity Meeting Principle</span><span class="lv-s">one meeting &middot; tonight</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -2549,6 +2615,7 @@
     if(mv) mv.classList.remove('verified');   // venn always re-enters in the "problem" state
     slides[i].querySelectorAll('[data-flip]').forEach(el=>el.classList.remove('flipped')); // flip diagrams re-enter unsolved
     slides[i].querySelectorAll('.nest').forEach(n=>{n._step=1;n.classList.remove('r2','r3');}); // nested integrity re-enters at outer ring only
+    slides[i].querySelectorAll('.lvl').forEach(n=>{n._step=1;n.classList.remove('s2','s3','s4');}); // levels re-enter at the innermost level only
     nav.textContent=(i+1)+' / '+slides.length;
     prog.style.width=((i+1)/slides.length*100)+'%';
     window.scrollTo(0,0);   // mobile: each slide flows in the page, start it at the top
@@ -2579,6 +2646,11 @@
     if(s.hasAttribute('data-nest')){
       const nest=s.querySelector('.nest'); const step=nest._step||1;
       if(step<3){ nest._step=step+1; nest.classList.add('r'+(step+1)); FX.flip(); return; }
+    }
+    // levels: each advance draws the next, wider level (inside to out) before moving on
+    if(s.hasAttribute('data-lvl')){
+      const l=s.querySelector('.lvl'); const step=l._step||1;
+      if(step<4){ l._step=step+1; l.classList.add('s'+(step+1)); FX.flip(); return; }
     }
     show(i+1);
   }
