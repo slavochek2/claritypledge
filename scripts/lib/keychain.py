@@ -257,10 +257,14 @@ def _session_title(session_id):
         dirs = os.listdir(projects)
     except Exception:
         return ""
-    for d in dirs:
-        path = os.path.join(projects, d, session_id + ".jsonl")
-        if not os.path.isfile(path):
-            continue
+    # Newest copy wins if a transcript exists under two project dirs; skip huge
+    # files rather than delay the dialog (P1330 review).
+    paths = [os.path.join(projects, d, session_id + ".jsonl") for d in dirs]
+    paths = sorted((p for p in paths if os.path.isfile(p)),
+                   key=os.path.getmtime, reverse=True)
+    for path in paths[:1]:
+        if os.path.getsize(path) > 256 * 1024 * 1024:
+            return ""
         custom = ai = ""
         try:
             import json
@@ -330,10 +334,6 @@ def _readable_caller(cmd):
     return cmd
 
 
-def _tier(key):
-    return "PROD" if key.upper().startswith("PROD") else ""
-
-
 def _log_path():
     """The request log lives in the gitignored half, resolved through git's
     common directory so it is the same file from a worktree or the main repo."""
@@ -366,8 +366,9 @@ def _announce(ctx):
             pass
 
     who = ctx["title"] or ("session " + ctx["session"])
-    tier = _tier(ctx["key"])
-    what = ("%s key " % tier if tier else "key ") + ctx["key"]
+    # No prod/test label: key names do not reliably encode the tier, and a missing
+    # label reads as "not prod". The key name and the reason carry it (P1330 review).
+    what = "key " + ctx["key"]
 
     # Printed to stderr as well, so it is visible in whichever session asked.
     # Wrapped: with stderr closed this raised before the read was even attempted,
@@ -388,9 +389,11 @@ def _announce(ctx):
 
     # Notification is read at a glance: title = WHICH tab, subtitle = WHAT,
     # body = WHY. The "python" dialog follows it (P1330).
-    title = ("🔑 " + ("PROD · " if tier else "") + who)[:90]
+    title = ("🔑 " + who)[:90]
     subtitle = "wants " + what
-    body = "%s\nThe tab with 🔔 is asking · branch %s" % (ctx["reason"], ctx["branch"])
+    # The title comes from the caller's environment and could be forged; the bell
+    # is rung on the real process's terminal, so the tab is the trustworthy signal.
+    body = "%s\nTrust the tab with 🔔 · branch %s" % (ctx["reason"], ctx["branch"])
     script = ('display notification %s with title %s subtitle %s'
               % (_osa_str(body), _osa_str(title), _osa_str(subtitle)))
     try:
