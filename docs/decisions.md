@@ -6,6 +6,56 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [technical]: Worktree liveness comes from identity-free activity, and nothing destructive trusts the liveness verdict (P1326)
+
+**Context:** P1268's heartbeat fix (2026-09-09) was still inert in real use. On 2026-09-16 slot w1
+had been worked in for 16h — 19 edits, an uncommitted migration minutes old — while `git-ops.sh
+status` printed ORPHAN and the session-start report told another session the feature was READY TO
+SHIP. Cause, reproduced: `cmd_heartbeat` only writes when `CP_SESSION_ID` matches the lock, nothing
+exports `CP_SESSION_ID` into an agent's Bash, so an agent-run `claim` always binds a fallback identity
+and every later beat is refused with exit 0. P1268's own regression test set `CP_SESSION_ID` by hand
+before `claim` — the convenient-sequence trap the 2026-09-09 entry named, one layer down. Separately,
+a false ORPHAN was not cosmetic: `abandon` force-removed any non-LIVE worktree, and `ship` /
+`publish-spec` teardown force-removed without looking.
+
+**Decision:**
+1. **Liveness input:** any tool call whose payload (file path, cwd, or a path in a Bash command)
+   touches `.claude/worktrees/wN` stamps `wN/.activity` through `git-ops activity`. No identity
+   check, deliberately: the stamp can only make a slot read LIVE, never abandoned, so forging it
+   holds a slot open and cannot cause anything to be taken or deleted. Identity-gating is what made
+   the heartbeat inert. The heartbeat path stays as an additional input.
+2. **Destructive paths do not trust the verdict.** `abandon` and nonce-less `adopt` refuse on user
+   changes — tracked, untracked, symlinks a session made, and ignored files except measured
+   regenerated output — whatever the lock says. Without the nonce, `abandon` never passes `--force`:
+   bookkeeping is moved aside and plain `git worktree remove` is the final check, so a write landing
+   after the dirty check is refused by git and everything is restored. `ship` / `publish-spec`
+   retain a dirty worktree and its branch, name it, and still complete (the merge has landed).
+3. **The report never advises in-flight work:** READY TO SHIP and remove hints require a positively
+   measured non-LIVE state and a clean tree; worktrees outside the slot dir or detached are listed.
+
+**Alternatives rejected:** *Bind the real session id to the lock* (the draft) — both adversarial
+spec reviewers showed every variant either lets whichever session touches a slot first own it, fails
+on existing locks (the recorded hostname prefix had already drifted), or needs the session id where
+agent Bash cannot see it. *Reclaim when the claim-time PID is dead* — that PID belongs to a
+short-lived Bash process and is dead seconds after every healthy claim. *Timer heartbeat* — outlives
+its session (P1268). *File mtimes as activity* — touched by non-session tools, blind to read-only work.
+
+**Consequences:** A slot idle longer than the 12h TTL still reads ORPHAN — replaying the real P1181
+session showed a 15h30m overnight gap with zero tool calls, while the longest unmarked stretch inside
+active work was 6m55s; the dirty guard, not the verdict, protects that window. Anything that keeps
+touching a slot keeps it LIVE; the nonce always works and refusals print the activity stamp. Test
+fixtures that copy `git-ops.sh` into a scratch repo must also copy `scripts/lib/worktree-changes.sh`,
+or git-ops fails closed and treats every worktree as dirty (the adopt suite refused 9 assertions
+until its fixture did). Worktree commits run the main checkout's `pre-commit-checks.sh`, so a canary
+wired on a branch does not run in that branch's own commits — run it by hand until ship. Review:
+Gemini 3.8 Flash + Opus on the spec (2 of 2), Codex Sol + Gemini 3.8 Flash + Opus on the code (3 of
+3); the hook's 2.1s-per-call cost and ship's silent deletion of uncommitted work were found there,
+not by the author.
+
+**References:** [P1326](../features/done/2026-06-10/p1326_worktree_liveness_is_unmeasurable_so_live_work_reads_orphan.md) · 2026-09-09 [technical] (P1268)
+
+---
+
 ## 2026-09-17 [product]: The round rule, final for event #1 — no disagreeing while the lower number is under 8, and numbers only when the listener opted in
 
 **Context:** Amends 2026-09-16 [product] "Clarity Night #1 runs pairs rounds…", whose round read
