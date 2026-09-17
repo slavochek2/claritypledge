@@ -302,7 +302,7 @@ Run these two in parallel:
    ```
    (Hash `305d49f5287a7c289157a704a0ed3b1e` = `md5('https://mcp.sentry.dev/mcp')` — stable, derived from the server URL, NOT the token. This glob clears ONLY Sentry, never Mixpanel's `3065cf…`. Verified 2026-07-03.)
    Then re-run ToolSearch for `mcp__sentry__search_issues`. If tools appear, proceed — repair was silent (note it in the status line).
-   If tools still absent after clearing: prompt once: "Sentry auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect sentry (browser OAuth opens), then say 'done'." On "done": retry once more. If still unavailable, skip with the loud line below.
+   If tools still absent after clearing: skip with the loud line below, and put under `QUESTIONS FOR THE FOUNDER`: "Sentry auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect sentry (browser OAuth opens) — Wave 2a was skipped this pass." (You run in a subagent and cannot wait for the reconnect; P1328.)
 3. **No log / different error**: skip with the loud line — don't clear auth blindly.
 
 **Query** (once connected): use `mcp__sentry__search_issues`: org `22minds-llc`, project `javascript-react`, unresolved issues first seen since `$SINCE`. Also look for `live_state_update_failed` in results.
@@ -585,7 +585,7 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
    ```
    (The `3065cf…` hash is stable — derived from the Mixpanel server URL, not the token. Verified 2026-06-06.)
    Then re-run ToolSearch for `mcp__mixpanel__Run-Query`. If tools appear now, proceed — repair was silent.
-   If tools still absent after clearing: prompt once: "Mixpanel auth was stale and cleared, but the MCP didn't reconnect automatically. Run `/mcp` → reconnect mixpanel (browser OAuth opens), then say 'done'." On "done": retry once more. If still unavailable, skip all three phases with: `⚠ Mixpanel MCP unavailable — user narratives skipped`
+   If tools still absent after clearing: skip all three phases with `⚠ Mixpanel MCP unavailable — user narratives skipped`, and put under `QUESTIONS FOR THE FOUNDER`: "Mixpanel auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect mixpanel (browser OAuth opens) — Wave 2b was skipped this pass." (You run in a subagent and cannot wait for the reconnect; P1328.)
 3. **No log / different error**: skip with `⚠ Mixpanel MCP unavailable — user narratives skipped` — don't clear auth blindly.
 
 **Always emit exactly one explicit Mixpanel status line** — a connection failure MUST read differently from a legitimately-idle day (the two look identical otherwise, which is the confusion this prevents):
@@ -1029,7 +1029,9 @@ Empty verdict → print nothing (no empty board). Otherwise print the rows verba
 1. **Max one review per run.** If both are OVERDUE, run the one with more days past its
    threshold and name the other: "monthly is also overdue — it'll run on the next /day."
 2. **Announce, then invoke** — no y/n gate:
-   > weekly is Nd overdue — running it now. Say "skip" at any point to abandon it.
+   > weekly is Nd overdue — running it now.
+   (The dispatcher announced this before spawning you, which is the only point where the founder
+   could still interrupt it — a "skip" cannot reach you inside the subagent. P1328.)
    Then immediately invoke `/slava:maintain:weekly` or `/slava:maintain:monthly` here, in this
    sub-day's subagent (its own subagent fan-out works from here). These are cp skills, which is why the *acting* half lives here while the
    *marker* half lives in the dispatcher.
@@ -1079,7 +1081,7 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- Only interactive prompt here: stash (step 4c).
+- No step here waits for the founder (this runs in a subagent). Questions go under `QUESTIONS FOR THE FOUNDER`: the stash decision (step 4c), and a Sentry or Mixpanel MCP that did not reconnect (Waves 2a/2b).
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry,
   Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool
   calls per wave to prevent permission prompt floods.

@@ -14,8 +14,8 @@ You are reviewing changes to `.claude/commands/slava/**` — skill files that in
 ## Content Quality
 
 - No hallucinated tool names or capabilities (tool must actually exist)
-- MCP calls have explicit bash fallbacks (CI and non-interactive runs have no MCP; subagents do)
-- Subagent prompts name the exact file paths to read (subagents can read files and use MCP tools — P1328, 2026-09-17); inline content only when the file is not on this machine
+- MCP calls have explicit bash fallbacks for the cases `.claude/rules/skills.md` "MCP Calls" names (CI, non-interactive sessions, a server that failed to connect); subagents do get MCP
+- Subagent prompts follow `.claude/rules/skills.md` "Subagent I/O": inline small artifacts, pass exact paths for large ones (subagents can read files and use MCP tools — P1328, 2026-09-17)
 - Output format specified explicitly for each agent spawned
 - No ambiguous instructions ("review this" without specifying what "good" looks like)
 

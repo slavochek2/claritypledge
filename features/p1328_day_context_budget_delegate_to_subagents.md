@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-09-17'
 tags: [day, subagents, context, browser-automation]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -107,6 +107,11 @@ REST call. It cannot drive Chrome, call MCP, run the ledger, or read the machine
 the health waves are exactly that. It remains the right lane for text-only bulk (summarising a
 transcript), none of which is on `/day`'s critical path today.
 
+**Implementation record.** Built directly in the session that filed this spec, not through `/dev`,
+because four of the five repos it touches are outside this one; `pipeline_ran` says `inline` for that
+reason, not because the work was small. Review: Codex Sol, Gemini 3.8 and Opus on the whole change
+(o3 unavailable), every finding reproduced before fixing, then `/finish` on this branch (6 found, 6 fixed).
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -114,7 +119,7 @@ transcript), none of which is on `/day`'s critical path today.
 | A subagent returns a partial report that reads complete | MITIGATE | `day.md` Step 1 runs `day-step.sh missing` filtered to the sub-day's ids right after the reply; `--mode=finish` grades again at Step 11. (`--mode=subday-return` checks continuity only; the first draft said otherwise, and the review caught it) |
 | A subagent self-attests an `attest` step it did not really do | ACCEPT | Unchanged from inline runs: attest steps were always the agent's own statement (P1324). `cmd` steps record real exit codes |
 | An overdue `/weekly` inside the sub-day cannot hear "skip" | MITIGATE | The dispatcher announces it before spawning, while an interrupt still stops it |
-| A question for the founder is answered after the sub-day's step was recorded | ACCEPT | Only Branch Status asks, and its question is informational (apply/drop a stash) |
+| A question for the founder is answered after the sub-day's step was recorded | ACCEPT | Two kinds are returned: the stash decision (informational), and a Sentry/Mixpanel MCP that did not reconnect — that wave is recorded as skipped loudly, and the reconnect happens before the next pass |
 | A copy that keeps its length but corrupts content | MITIGATE | The count is distinct complete rows; Todo.Today rows must fall in the scraped week |
 | A partly hydrated day is read as complete | MITIGATE | Count must hold for 3s; foreign-dated cards or an empty day (except day 0) render no payload. A page that hydrates a stable subset for >3s is still possible — ACCEPT, no in-page signal distinguishes it |
 | Sola's first time-range leaf is venue hours, not the event | ACCEPT | Same heuristic as the pre-existing detail extractor; no instance observed (24/24 plausible on 2026-09-17) |
@@ -136,7 +141,7 @@ transcript), none of which is on `/day`'s critical path today.
 - [x] Writer `--expect` refuses a raw file whose count disagrees (exit 1, message names both counts), proven by a test that feeds it a truncated copy of a real payload; the correct count still writes — `test_payload_count.py` 20/20, hermetic, real payloads for both sources; also refuses count-preserving corruption and a shifted week; the mutant with the check removed fails 11
 - [x] The Todo.Today week and Sola extractors run end to end in a subagent against the live sites and their writers report the counts the pages show — final brief text, 2026-09-17: todo_today 117 (per-day 10/23/29/13/9/17/16, identical to an independent drain run), sola 24/24 timed, both "page count checked"; facebook 13 from 11 raw cards with an empty venue page skipped
 - [x] A dry heal from a claritypledge session prints a verdict, and an unmatched NOT READY exits non-zero (test in the workload repo) — live dry run against the VM: exit 1 naming the staged skew; heal-decisions 60/60, red before each fix
-- [x] The pieces a real pass depends on are verified in isolation: subagents drive Chrome and spawn subagents (live probes), all three browser briefs pass live, ledger check-sync OK for both manifests, `day-step`/`day-gates`/`day-pass-guard` suites 57/134/40, the sub-day-steps probe names an unrecorded step and warns with no ledger. `[post-deploy]` one real `/day` on Sonnet — every ledger step recorded, all due sources refreshed, `--mode=finish` clean, peak context reported against the 286K baseline — is the founder's next `/day`
+- [x] The pieces a real pass depends on are verified in isolation: subagents drive Chrome and spawn subagents (live probes), all three browser briefs pass live, ledger check-sync OK for both manifests, `day-step`/`day-gates`/`day-pass-guard` suites 57/134/40, the sub-day-steps probe names an unrecorded step and warns with no ledger. `[post-deploy]` one real `/day` on Sonnet — every ledger step recorded, all due sources refreshed, `--mode=finish` clean, peak context reported against the 286K baseline — is the founder's next `/day`. It cannot be run by the implementing session: a representative peak-context number needs a fresh Sonnet session (this one is Opus with its context already full), and a pass pushes the real calendar
 
 ## Alternatives Considered
 
