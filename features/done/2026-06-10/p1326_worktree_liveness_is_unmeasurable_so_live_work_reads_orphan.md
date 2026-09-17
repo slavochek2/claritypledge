@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 106
 workstream: infrastructure
 created_date: '2026-09-16'
 tags: [worktree, git-ops, concurrent-sessions, session-lifecycle]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-17
 ---
 
 # P1326: A worktree in active use reads ORPHAN, and the session-start report calls it ready to ship
