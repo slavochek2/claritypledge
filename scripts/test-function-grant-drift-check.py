@@ -403,6 +403,12 @@ check("refuses a citation that points outside supabase/migrations (e.g. the allo
 check("refuses an absolute path",
       "must point into supabase/migrations" in str(fgdu.verify_policy_citation(
           "can_read_widget(uuid)", "policy: /private/tmp/x.sql:1 — r")))
+_bad_root = mig_root({"001_p.sql": POLICY_OK})
+with open(os.path.join(_bad_root, "supabase", "migrations", "002_bad.sql"), "wb") as _fh:
+    _fh.write(b"\xff\xfe\x00 not utf-8")
+check("an unreadable later migration refuses with a message instead of raising",
+      "unreadable" in str(fgdu.verify_policy_citation(
+          "can_read_widget(uuid)", "policy: supabase/migrations/001_p.sql:3 — r", root=_bad_root)))
 check("refuses when the drop is later in the SAME file",
       "never re-created" in str(verdict({"001_p.sql": POLICY_OK + DROP})))
 

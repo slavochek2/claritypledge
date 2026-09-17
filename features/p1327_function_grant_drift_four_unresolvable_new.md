@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [security, grants, drift-check, day]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 ---
 
 # P1327: Function grant drift check reports 4 NEW anon grants it can never resolve, so it is red every day
@@ -97,6 +97,14 @@ Exit 1 every day for four understood grants; `/day` files the same high-severity
 4. Rejected: *allowlist the two policy functions as ordinary entries* (rule 1: no call site), *baseline
    them as known-open* (the baseline means backlog, which is false for them), *revoke and see what
    breaks* (destructive probe against prod RLS, epistemic gate 2b). All three are from decisions.md 2026-09-10.
+
+## Implementation Record
+
+Reproduced and fixed directly in the session that filed this spec, not through `/reproduce` → `/fix`;
+`pipeline_ran` says `inline` for that reason, not because the change was small. The failing e2e
+assertion was run red on test before the migration and green after. Review: Codex Sol, Gemini 3.8
+and Opus (o3 unavailable), each finding reproduced before fixing; then `/finish` — its reviewer
+stalled without reporting, so the review was completed inline (1 finding, fixed).
 
 ## Acceptance Criteria
 

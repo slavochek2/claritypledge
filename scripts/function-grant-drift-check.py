@@ -476,8 +476,11 @@ def verify_policy_citation(sig, reason, root=None):
     target = os.path.join(root, rel)
     if not os.path.isfile(target):
         return f"cited policy file not found: {rel}"
-    with open(target, "r", encoding="utf-8") as fh:
-        raw = fh.read()
+    try:
+        with open(target, "r", encoding="utf-8") as fh:
+            raw = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        return f"cited policy file unreadable: {rel} ({type(exc).__name__})"
     code = _sql_code(raw)
     lines = code.split("\n")
     if not 1 <= line_no <= len(lines):
@@ -517,8 +520,13 @@ def verify_policy_citation(sig, reason, root=None):
                        if f.endswith(".sql") and f > os.path.basename(target))
         chunks = [(os.path.basename(target), code[stmt_end + 1:] if stmt_end >= 0 else "")]
         for f in later:
-            with open(os.path.join(mig_dir, f), "r", encoding="utf-8") as fh:
-                chunks.append((f, _sql_code(fh.read())))
+            # An unreadable later migration must refuse the run (exit 2), never escape as an
+            # uncaught exception, whose exit 1 would read as "drift found" (/finish review).
+            try:
+                with open(os.path.join(mig_dir, f), "r", encoding="utf-8") as fh:
+                    chunks.append((f, _sql_code(fh.read())))
+            except (OSError, UnicodeDecodeError) as exc:
+                return f"cannot confirm the policy survives: later migration {f} is unreadable ({type(exc).__name__})"
         dropped_in = None
         for fname, text in chunks:
             events = [(d.start(), "drop") for d in DROP_POLICY_RE.finditer(text)
