@@ -342,6 +342,61 @@ for label, citation, needle in [
     os.unlink(path)
 
 # ---------------------------------------------------------------------------
+print("\nA policy: citation cannot be satisfied by comments, literals, other schemas, "
+      "wrong arity, or a policy a later migration dropped (P1327 review)")
+# Each shape was reported by the 2026-09-17 Codex/Gemini review. Every refusal sits next
+# to an ACCEPT control built from the same text, so a checker that refused everything
+# would fail this section too (gate 7c).
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location("_fgd_unit", CHECKER)
+fgdu = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(fgdu)
+
+POLICY_OK = '''CREATE POLICY "Rows follow their session's visibility"
+  ON public.widgets FOR SELECT TO anon
+  USING (note <> 'a;b' AND can_read_widget(session_id));
+'''
+
+
+def mig_root(files):
+    root = tempfile.mkdtemp(prefix="fgd-mig-")
+    os.makedirs(os.path.join(root, "supabase", "migrations"))
+    for name, body in files.items():
+        with open(os.path.join(root, "supabase", "migrations", name), "w", encoding="utf-8") as fh:
+            fh.write(body)
+    return root
+
+
+def verdict(files, sig="can_read_widget(uuid)", line=3, cite="001_p.sql"):
+    return fgdu.verify_policy_citation(sig, f"policy: supabase/migrations/{cite}:{line} — r",
+                                       root=mig_root(files))
+
+
+check("ACCEPT: a real call, with a ';' inside a literal earlier in the statement",
+      verdict({"001_p.sql": POLICY_OK}) is None, str(verdict({"001_p.sql": POLICY_OK})))
+check("refuses a call that exists only inside a block comment",
+      "does not call" in str(verdict({"001_p.sql": POLICY_OK.replace(
+          "note <> 'a;b' AND can_read_widget(session_id)", "true /* can_read_widget(session_id) */")})))
+check("refuses a call that exists only inside a string literal",
+      "does not call" in str(verdict({"001_p.sql": POLICY_OK.replace(
+          "note <> 'a;b' AND can_read_widget(session_id)", "note = 'can_read_widget(x)'")})))
+check("refuses a call to a same-named function in another schema",
+      "does not call" in str(verdict({"001_p.sql": POLICY_OK.replace(
+          "can_read_widget(session_id)", "evil.can_read_widget(session_id)")})))
+check("ACCEPT: a public.-qualified call",
+      verdict({"001_p.sql": POLICY_OK.replace("can_read_widget(", "public.can_read_widget(")}) is None)
+check("refuses a call whose argument count differs from the allowlisted signature",
+      "argument(s)" in str(verdict({"001_p.sql": POLICY_OK.replace(
+          "can_read_widget(session_id)", "can_read_widget(session_id, 'x')")})))
+DROP = 'DROP POLICY IF EXISTS "Rows follow their session\'s visibility" ON public.widgets;\n'
+check("refuses a citation whose policy a LATER migration drops and never re-creates",
+      "never re-created" in str(verdict({"001_p.sql": POLICY_OK, "002_drop.sql": DROP})))
+check("ACCEPT: dropped later and then re-created",
+      verdict({"001_p.sql": POLICY_OK, "002_drop.sql": DROP, "003_again.sql": POLICY_OK}) is None)
+check("refuses when the drop is later in the SAME file",
+      "never re-created" in str(verdict({"001_p.sql": POLICY_OK + DROP})))
+
+# ---------------------------------------------------------------------------
 passed = sum(1 for _, ok, _ in results if ok)
 total = len(results)
 print(f"\n{passed}/{total} assertions held.")

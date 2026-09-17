@@ -353,6 +353,91 @@ def load_allowlist(path):
 
 POLICY_CITATION_RE = re.compile(r"^policy:\s*(\S+?):(\d+)\b")
 STATEMENT_OPENS_POLICY_RE = re.compile(r"\b(?:CREATE|ALTER)\s+POLICY\b", re.IGNORECASE)
+POLICY_HEAD_RE = re.compile(
+    r'\bCREATE\s+POLICY\s+("(?:[^"]|"")+"|\w+)\s+ON\s+((?:\w+|"[^"]+")(?:\.(?:\w+|"[^"]+"))?)',
+    re.IGNORECASE)
+DROP_POLICY_RE = re.compile(
+    r'\bDROP\s+POLICY\s+(?:IF\s+EXISTS\s+)?("(?:[^"]|"")+"|\w+)\s+ON\s+((?:\w+|"[^"]+")(?:\.(?:\w+|"[^"]+"))?)',
+    re.IGNORECASE)
+
+
+def _sql_code(text):
+    """SQL with comments and string literals blanked, keeping line structure.
+
+    A function name inside a `/* */` comment, a `--` comment or a '...' literal is
+    not a call, and a `;` inside a literal is not a statement boundary. Blanking
+    (rather than deleting) keeps every line number the citation points at.
+    """
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append("".join("\n" if ch == "\n" else " " for ch in text[i:j])); i = j
+        elif text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i)); i = j
+        elif c == '"':
+            # A quoted identifier is copied verbatim and skipped as a unit: policy names
+            # like "…session's visibility" carry an apostrophe that is not a literal.
+            j = text.find('"', i + 1)
+            while j >= 0 and j + 1 < n and text[j + 1] == '"':
+                j = text.find('"', j + 2)
+            j = n if j < 0 else j + 1
+            out.append(text[i:j]); i = j
+        elif c == "'":
+            j = i + 1
+            while j < n:
+                if text[j] == "'" and j + 1 < n and text[j + 1] == "'":
+                    j += 2; continue
+                if text[j] == "'":
+                    break
+                j += 1
+            j = min(j + 1, n)
+            out.append("".join("\n" if ch == "\n" else " " for ch in text[i:j])); i = j
+        elif c == "$" and re.match(r"\$\w*\$", text[i:]):
+            tag = re.match(r"\$\w*\$", text[i:]).group(0)
+            j = text.find(tag, i + len(tag))
+            j = n if j < 0 else j + len(tag)
+            out.append("".join("\n" if ch == "\n" else " " for ch in text[i:j])); i = j
+        else:
+            out.append(c); i += 1
+    return "".join(out)
+
+
+def _norm_ident(ident):
+    parts = [p.strip('"').replace('""', '"') if p.startswith('"') else p.lower()
+             for p in re.findall(r'"(?:[^"]|"")+"|\w+', ident)]
+    if len(parts) == 1:
+        parts = ["public"] + parts
+    return ".".join(parts)
+
+
+def _call_arity(code, start):
+    """Count top-level arguments of the call whose '(' is at `start`, or None if unclosed."""
+    depth, args, seen = 0, 0, False
+    for ch in code[start:]:
+        if ch == "(":
+            depth += 1
+            if depth == 1:
+                continue
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return args + 1 if seen else 0
+        elif ch == "," and depth == 1:
+            args += 1
+            continue
+        if depth >= 1 and not ch.isspace():
+            seen = True
+    return None
+
+
+def _sig_arity(sig):
+    inner = sig.split("(", 1)[1].rsplit(")", 1)[0].strip()
+    return 0 if not inner else inner.count(",") + 1
 
 
 def verify_policy_citation(sig, reason, root=None):
@@ -366,8 +451,17 @@ def verify_policy_citation(sig, reason, root=None):
     header's warning applies to this category most of all: an entry justified by
     prose is the entry the check would then bless forever.
 
-    Holds when the cited migration exists, the cited line names the function, and
-    the SQL statement open at that line is a CREATE/ALTER POLICY.
+    Holds when, reading the migrations with comments and string literals blanked:
+      - the cited file exists and the cited line calls the function, unqualified or
+        `public.`-qualified, with as many arguments as the allowlisted signature has;
+      - the statement open at that line is a CREATE/ALTER POLICY;
+      - no LATER migration drops that policy without re-creating it. Citing history
+        is not citing the schema: a policy dropped in a later file would otherwise
+        keep blessing a grant nothing needs (2026-09-17 review, Codex and Gemini).
+
+    What it still cannot see, said plainly: argument TYPES (an overload with the same
+    arity), and a policy re-created later with a predicate that no longer calls the
+    function. The live catalog is the only authority for those.
     """
     m = POLICY_CITATION_RE.match(reason)
     if not m:
@@ -378,20 +472,52 @@ def verify_policy_citation(sig, reason, root=None):
     if not os.path.isfile(target):
         return f"cited policy file not found: {rel}"
     with open(target, "r", encoding="utf-8") as fh:
-        lines = fh.read().splitlines()
+        raw = fh.read()
+    code = _sql_code(raw)
+    lines = code.split("\n")
     if not 1 <= line_no <= len(lines):
         return f"cited line {line_no} is outside {rel} ({len(lines)} lines)"
     name = sig.split("(", 1)[0].strip()
-    code = lambda s: s.split("--", 1)[0]
-    if not re.search(r"\b" + re.escape(name) + r"\s*\(", code(lines[line_no - 1])):
+    line = lines[line_no - 1]
+    call = None
+    for cm in re.finditer(r"(?:\b(\w+)\s*\.\s*)?\b" + re.escape(name) + r"\s*\(", line):
+        if cm.group(1) and cm.group(1).lower() != "public":
+            continue
+        call = cm
+        break
+    if not call:
         return f"{rel}:{line_no} does not call {name}()"
-    # The statement open at the cited line starts after the last `;` above it.
-    start = line_no - 1
-    while start > 0 and not code(lines[start - 1]).rstrip().endswith(";"):
-        start -= 1
-    statement = "\n".join(code(l) for l in lines[start:line_no])
+    offset = sum(len(l) + 1 for l in lines[:line_no - 1]) + call.end() - 1
+    arity = _call_arity(code, offset)
+    if arity is not None and arity != _sig_arity(sig):
+        return f"{rel}:{line_no} calls {name}() with {arity} argument(s), but the entry is {sig}"
+    # The statement open at the cited line starts after the last `;` before it.
+    stmt_start = code.rfind(";", 0, offset) + 1
+    stmt_end = code.find(";", offset)
+    statement = code[stmt_start: len(code) if stmt_end < 0 else stmt_end]
     if not STATEMENT_OPENS_POLICY_RE.search(statement):
         return f"{rel}:{line_no} is not inside a CREATE/ALTER POLICY statement"
+    head = POLICY_HEAD_RE.search(statement)
+    if head:
+        key = (head.group(1).strip('"').replace('""', '"'), _norm_ident(head.group(2)))
+        mig_dir = os.path.dirname(target)
+        later = sorted(f for f in os.listdir(mig_dir)
+                       if f.endswith(".sql") and f > os.path.basename(target))
+        chunks = [(os.path.basename(target), code[stmt_end + 1:] if stmt_end >= 0 else "")]
+        for f in later:
+            with open(os.path.join(mig_dir, f), "r", encoding="utf-8") as fh:
+                chunks.append((f, _sql_code(fh.read())))
+        dropped_in = None
+        for fname, text in chunks:
+            events = [(d.start(), "drop") for d in DROP_POLICY_RE.finditer(text)
+                      if (d.group(1).strip('"').replace('""', '"'), _norm_ident(d.group(2))) == key]
+            events += [(c.start(), "create") for c in POLICY_HEAD_RE.finditer(text)
+                       if (c.group(1).strip('"').replace('""', '"'), _norm_ident(c.group(2))) == key]
+            for _, kind in sorted(events):
+                dropped_in = fname if kind == "drop" else None
+        if dropped_in:
+            return (f"{rel}:{line_no}: policy {key[0]!r} on {key[1]} is dropped in {dropped_in} "
+                    f"and never re-created — cite the migration that defines it now, or remove the entry")
     return None
 
 
