@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-17 [process]: A credential approval names the session and marks the asking tab; the agent also says it in chat (P1330)
+
+**Context:** The per-access keyring dialog can only say "python". The existing announcement gave an 8-hex session id and shell-wrapper boilerplate, which match nothing on screen, and the agent's stderr line is folded into "Ran N shell commands". The founder could not tell which of ~12 tabs was asking or what for.
+**Decision:** The notification title is the session's human title (renamed name, else generated title), subtitle the key, body the reason. A BEL is written to the requesting agent's terminal (first ancestor with a tty), so Ghostty marks that tab. The credentials rule now requires the agent to state key, tier, action and the coming dialog in its own reply before the read.
+**Alternatives rejected:** Renaming "python" in the dialog (it names the executable; needs a signed helper app). A prod/test label inferred from the key-name prefix (review: prod mail keys carry no prefix, so a missing label would read as "not prod"). Treating the title as authenticated: it derives from caller environment and can be forged, so the notification points at the bell, which is rung on the real process's terminal.
+**Consequences:** Relies on Ghostty's default `bell-features` including `title`; a terminal without it loses the tab marker but keeps the titled notification. Gemini 3.8 refused the review payload twice (vendor block), so only one independent review covered this.
+**References:** [p1330](../features/done/2026-06-10/p1330_keyring_request_attribution.md), [credentials.md](../.claude/rules/credentials.md)
+
 ## 2026-09-17 [technical]: A viewport-capped fixed panel subtracts every fixed bar actually on the page, keyed on the bar's presence (P1329)
 
 **Context:** P1310 capped the mobile menu panel at the viewport minus the top header. Signed in, the fixed bottom tab bar (same z-50, later in the DOM) covered the panel's last ~65px, so Settings and Log Out were unreachable. Every P1310 check ran signed out, where that bar does not exist.
