@@ -393,6 +393,16 @@ check("refuses a citation whose policy a LATER migration drops and never re-crea
       "never re-created" in str(verdict({"001_p.sql": POLICY_OK, "002_drop.sql": DROP})))
 check("ACCEPT: dropped later and then re-created",
       verdict({"001_p.sql": POLICY_OK, "002_drop.sql": DROP, "003_again.sql": POLICY_OK}) is None)
+check("refuses a policy scoped TO authenticated only",
+      "never to anon" in str(verdict({"001_p.sql": POLICY_OK.replace("TO anon", "TO authenticated")})))
+check("ACCEPT: a policy with no TO clause (applies to PUBLIC)",
+      verdict({"001_p.sql": POLICY_OK.replace("  ON public.widgets FOR SELECT TO anon", "  ON public.widgets FOR SELECT")}) is None)
+check("refuses a citation that points outside supabase/migrations (e.g. the allowlist itself)",
+      "must point into supabase/migrations" in str(fgdu.verify_policy_citation(
+          "can_read_clarity_session(uuid)", "policy: scripts/anon-execute-allowlist.txt:104 — r")))
+check("refuses an absolute path",
+      "must point into supabase/migrations" in str(fgdu.verify_policy_citation(
+          "can_read_widget(uuid)", "policy: /private/tmp/x.sql:1 — r")))
 check("refuses when the drop is later in the SAME file",
       "never re-created" in str(verdict({"001_p.sql": POLICY_OK + DROP})))
 

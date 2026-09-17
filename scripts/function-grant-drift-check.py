@@ -467,8 +467,13 @@ def verify_policy_citation(sig, reason, root=None):
     if not m:
         return "policy entry must cite `policy: supabase/migrations/<file>.sql:<line>`"
     rel, line_no = m.group(1), int(m.group(2))
+    # Only a migration can define a policy. Without this an entry could cite the allowlist
+    # itself — its own header text mentions CREATE POLICY — or any file outside the repo
+    # (Opus review 2026-09-17).
+    if os.path.isabs(rel) or ".." in rel.split("/") or not re.fullmatch(r"supabase/migrations/[^/]+\.sql", rel):
+        return f"policy citation must point into supabase/migrations/*.sql, got {rel}"
     root = root or repo_roots()[0]
-    target = rel if os.path.isabs(rel) else os.path.join(root, rel)
+    target = os.path.join(root, rel)
     if not os.path.isfile(target):
         return f"cited policy file not found: {rel}"
     with open(target, "r", encoding="utf-8") as fh:
@@ -497,6 +502,13 @@ def verify_policy_citation(sig, reason, root=None):
     statement = code[stmt_start: len(code) if stmt_end < 0 else stmt_end]
     if not STATEMENT_OPENS_POLICY_RE.search(statement):
         return f"{rel}:{line_no} is not inside a CREATE/ALTER POLICY statement"
+    # The grant is only load-bearing if anon can be the querying role: a policy scoped TO
+    # authenticated (or any list without anon/public) never evaluates as anon.
+    roles = re.search(r"\bTO\s+(.+?)(?=\bUSING\b|\bWITH\s+CHECK\b|$)", statement, re.IGNORECASE | re.DOTALL)
+    if roles:
+        names = {r.strip().strip('"').lower() for r in roles.group(1).split(",")}
+        if not names & {"anon", "public"}:
+            return f"{rel}:{line_no}: the policy applies TO {', '.join(sorted(names))} — never to anon, so it does not need the anon grant"
     head = POLICY_HEAD_RE.search(statement)
     if head:
         key = (head.group(1).strip('"').replace('""', '"'), _norm_ident(head.group(2)))
