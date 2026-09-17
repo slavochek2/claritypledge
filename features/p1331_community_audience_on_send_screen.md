@@ -28,8 +28,11 @@ carry an organisation address and is then readable only by that organisation's *
 refused to anonymous callers on every read path, refused to non-members, and taken away from someone
 who leaves, resolved fresh at every read.
 
-**Complication:** nothing in the product sets it. Verified 2026-09-17: the column name appears **zero
-times** across `src/app/`, and the send screen offers exactly two audiences — one named person
+**Complication:** nothing in the product sets it. Verified 2026-09-17: **no letters code reads or
+writes the audience column** — zero hits across `src/app/data/letters-service.ts` and
+`src/app/components/letters/`. (The bare column name does appear 31 times elsewhere in `src/app/`,
+in events and organisations code, where it means something else — do not grep the bare token and
+conclude it is wired up.) The send screen offers exactly two audiences — one named person
 (search box: `Name or email address`) or a public link
 (`src/app/components/letters/letter-receiver-modal.tsx`, mode selector at `:321`–`:337`). So the
 founder can file a community letter for himself with his own login, and **no other member can file
@@ -61,8 +64,22 @@ is immutable after sealing, so a wrong default writes rows that cannot be reclas
 
 ## Solution
 
-Add a **third audience** to the existing send screen, chosen with the gesture members already know:
-type a name, pick the match.
+Add a **third audience** to the send screen: type a name, pick the match.
+
+**Two things that read like reuse and are not, both verified 2026-09-17.**
+
+*The picker is a new data source.* The existing one searches **profiles** through a relationship-scoped
+function; **no organisation search exists anywhere in the codebase**, and the organisations service
+offers only "list the public ones", "my membership ids" and "get one by slug". The familiar gesture
+can be kept; the thing behind it has to be built.
+
+*The mode selector never renders where this is needed.* For a **private** document the screen
+force-selects one-to-one and hides the selector entirely
+(`src/app/components/letters/letter-receiver-modal.tsx:321-323`, gated `!isAddRecipientMode &&
+!isPrivateDoc`), and both call sites pass that straight off the document's own visibility. **A
+problem-board draft is exactly the private-document case**, so a third button added to the existing
+selector would be unreachable on the only flow that needs it. Acceptance must be demonstrated from a
+private document, or it proves nothing.
 
 **Selecting a community is not adding a recipient.** It switches what kind of letter this is. A
 community letter has no named recipients by design — its readers are whoever is a member when they
@@ -105,6 +122,11 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
 - **Self-enrolled reader deliveries must never be emailed.** A delivery minted when a member opens a
   letter carries an address; emailing it would send unsolicited invitations to every reader
   (`docs/decisions.md` 2026-06-04, P884, which names this class explicitly for P778 deliveries).
+- **A community letter may carry PRIVATE stories, and that exemption is the point.** P1181 widened
+  the seal-time snapshot filter so a story that is private still enters an organisation letter —
+  without it, a community letter from a private problem draft could not exist at all. Note this
+  differs from an ordinary link letter, which snapshots public stories only. Do not "tidy" the filter
+  back to symmetry.
 - **The sealed-bid guarantee is load-bearing** (`docs/decisions.md` 2026-08-13 [product], founder
   ruling): a reader who sees the sender's prediction before rating is anchored, so the rating stops
   being an independent measurement. This spec must not widen that surface.
@@ -133,8 +155,9 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
 
 ## Acceptance Criteria
 
-- [ ] A member composing a letter can choose their community as the audience, by typing its name and
-      selecting it in the existing picker
+- [ ] A member composing a letter **from a private document** can choose their community as the
+      audience, by typing its name and selecting it. Demonstrated from a private document
+      specifically — the public-document path does not exercise this flow
 - [ ] The screen states, in words, who will be able to read the letter before it is sent
 - [ ] Sending to a community produces a letter with no named recipients, and no invitation email is
       sent to anyone
@@ -152,7 +175,14 @@ Earned constraints. Later specs may add; removing an entry needs explicit founde
    an anchored rating is not a measurement. It is **pre-existing and out of scope here**, but a
    community letter is where calibration data for the first event would come from, so it is worth
    deciding before that event rather than after. Not assessed.
-2. **A genuinely private community cannot be offered in the picker at all.** Verified 2026-09-17:
+2. **Which communities the picker can even offer is a BUILD choice, not a preference.** There is no
+   organisation search to configure — whichever answer is taken, something new gets built, and the
+   two answers build different things: "the ones I belong to" reads from membership, "any public
+   one" reads the public directory. The narrow one is almost certainly right (only a membership can
+   produce a sendable letter), and it is recorded here as an engineering decision to be made with
+   the implementation, not as a founder call.
+
+3. **A genuinely private community cannot be offered in the picker at all.** Verified 2026-09-17:
    organisation rows are readable only when `visibility = 'public'` — one policy definition, never
    amended — so a `private` organisation is invisible to every caller, **including its own members**.
    A member can still read their own membership row, so they know they belong to something they
