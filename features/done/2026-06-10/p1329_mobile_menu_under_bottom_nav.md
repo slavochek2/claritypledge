@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 1
 workstream: ux
 created_date: '2026-09-17'
 tags: [mobile, navigation, css, bottom-nav]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [fix]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: founder-report
+completed_at: 2026-09-17
 ---
 
 # P1329: signed in on a phone, the open menu's last entries sit under the bottom nav
