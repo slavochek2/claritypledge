@@ -213,7 +213,7 @@ _spec.loader.exec_module(fgd)
 
 _real_run_sql = fgd.run_sql
 
-def _all_requests_fail(env, sql, timeout=90):
+def _all_requests_fail(env, sql, timeout=90, needs_role_switch=False):
     raise fgd.ApiError(503, '{"message":"upstream unavailable"}')
 
 fgd.run_sql = _all_requests_fail
@@ -224,7 +224,7 @@ check("a probe that can reach nothing is reported blind, not clean",
 # The mirror failure: a transport that swallows errors and returns success for
 # everything. Then a degenerate guard and a correct one look identical, and the
 # probe silently reports every function as permitting anon.
-def _all_requests_succeed(env, sql, timeout=90):
+def _all_requests_succeed(env, sql, timeout=90, needs_role_switch=False):
     return [{"ok": 1}]
 
 fgd.run_sql = _all_requests_succeed
@@ -296,6 +296,50 @@ check("the recorded backlog is quiet while unchanged", code == 0, f"exit {code}"
 code, out, err = run(esc_after, esc_after, baseline=esc_baseline)
 check("the same finding turning SECURITY DEFINER re-alarms as NEW", code == 1,
       f"exit {code} — a severity escalation was absorbed as known-open")
+
+# ---------------------------------------------------------------------------
+print("\nA policy: entry's citation is verified, not trusted (P1327)")
+# Built by mutating the REAL allowlist (epistemic gate 7d): a synthetic fixture has
+# no neighbouring entries, comments or example text that could satisfy a sloppy
+# matcher. Every mutation must refuse the run (exit 2), and the unmutated file must
+# still load — the second half is the false-positive control (gate 7c).
+REAL_ALLOWLIST = os.path.join(HERE, "anon-execute-allowlist.txt")
+real_text = open(REAL_ALLOWLIST, encoding="utf-8").read()
+POLICY_MIGRATION = "supabase/migrations/20260901180000_p1207_session_children_inherit_parent_scope.sql"
+real_citation = f"policy: {POLICY_MIGRATION}:70"
+check("the real allowlist carries the policy citation this suite mutates",
+      real_citation in real_text)
+
+code, out, err = run(CLEAN, CLEAN, allowlist=REAL_ALLOWLIST)
+check("the real allowlist, policy entries included, parses and runs",
+      code in (0, 1) and "malformed allowlist" not in err, f"exit {code}; stderr: {err[:300]}")
+
+
+def mutated(new_citation):
+    fd, path = tempfile.mkstemp(prefix="fgd-policy-", suffix=".txt")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(real_text.replace(real_citation, new_citation))
+    return path
+
+
+for label, citation, needle in [
+    # Line 65 is `GRANT EXECUTE ON FUNCTION public.can_read_clarity_session(uuid) ...`:
+    # it names the function, so only the statement check can refuse it.
+    ("a cited line that names the function outside any policy is refused",
+     f"policy: {POLICY_MIGRATION}:65", "not inside a CREATE/ALTER POLICY"),
+    # Line 69 is the `ON public.clarity_demo_rounds FOR SELECT` line of a real policy,
+    # so only the calls-the-function check can refuse it.
+    ("a cited policy line that does not call the function is refused",
+     f"policy: {POLICY_MIGRATION}:69", "does not call can_read_clarity_session()"),
+    ("a cited file that does not exist is refused",
+     "policy: supabase/migrations/19990101000000_no_such_file.sql:1", "cited policy file not found"),
+    ("a policy entry with no file:line citation is refused",
+     "policy: the sessions table reads it", "must cite"),
+]:
+    path = mutated(citation)
+    code, out, err = run(CLEAN, CLEAN, allowlist=path)
+    check(label, code == 2 and needle in err, f"exit {code}; stderr: {err[:300]}")
+    os.unlink(path)
 
 # ---------------------------------------------------------------------------
 passed = sum(1 for _, ok, _ in results if ok)

@@ -90,11 +90,22 @@ get_public_agreements_for_profile(uuid)       # a public profile lists its activ
 # and a future signature change must be re-listed by the change that makes it.
 claim_joiner_seat(text,text)                  # a guest takes the joiner seat by code with no account; the signature prod runs until P1269's migration is applied — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995 with user?.id optional
 claim_joiner_seat(text,text,uuid)             # the same guest join after P1269, the client sending its seat secret when it holds one — src/app/data/api.ts:1139, called from src/app/pages/clarity-live-page.tsx:2995
-release_joiner_seat(uuid,text)                # the same guest leaves the room with no account (P1058) — src/app/data/api.ts:1468 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3652 and src/app/components/session/live-session-bar.tsx:38
+release_joiner_seat(uuid,text,uuid)           # the same guest leaves the room with no account, sending its seat secret when it holds one (P1058, re-listed for P1314 C's signature by P1327) — src/app/data/api.ts:1468 via clearSessionJoiner, called from src/app/pages/clarity-live-page.tsx:3652 and src/app/components/session/live-session-bar.tsx:38
 #
-# can_read_clarity_session(uuid), can_read_verification_message(uuid) and
-# event_grace_interval() are NOT LISTED (2026-09-15): no anonymous client call site was
-# found by grep, so rule 1 is not met. Classification is in the private security log.
+# --- 2026-09-17, P1327: grants an RLS POLICY requires, which no call site can justify ---
+# A policy predicate runs as the querying role, so a function called in a policy's USING or
+# WITH CHECK needs the anon grant for anon reads to work at all — revoking it is an outage, and
+# rule 1 can never be met because no client calls it. These entries cite the POLICY instead:
+#   signature  # policy: supabase/migrations/<file>.sql:<line> — reason
+# The checker VERIFIES the citation: the file exists, the cited line calls the function, and
+# the statement open at that line is CREATE/ALTER POLICY. An unverifiable citation refuses the
+# whole run, exactly as an entry with no reason does. Cite the migration that currently
+# defines the policy, not the first one that ever did.
+can_read_clarity_session(uuid)                # policy: supabase/migrations/20260901180000_p1207_session_children_inherit_parent_scope.sql:70 — anon viewers of a public session read its rounds, ideas and turns through this predicate (P1207)
+can_read_verification_message(uuid)           # policy: supabase/migrations/20260903103000_p1207_fix_verification_scope_definer.sql:52 — anon viewers of a public session read its verifications through this predicate (P1207 F11)
+#
+# event_grace_interval() is NOT LISTED: no call site and no policy needs its anon grant (every
+# caller is SECURITY DEFINER). P1327 revokes it instead.
 #
 # get_transcribe_room_by_code(text) IS DELIBERATELY NOT LISTED. It was added here on
 # 2026-09-10 and removed the same day by adversarial review, because the entry was wrong in

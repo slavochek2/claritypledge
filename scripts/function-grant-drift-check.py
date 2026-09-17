@@ -69,6 +69,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -340,8 +341,58 @@ def load_allowlist(path):
                     f"{path}:{lineno}: not a function signature (expected `name(argtype,...)`): {sig}"
                 )
                 continue
-            entries[normalise_signature(sig)] = reason.strip()
+            reason = reason.strip()
+            if reason.lower().startswith("policy:"):
+                problem = verify_policy_citation(sig, reason)
+                if problem:
+                    errors.append(f"{path}:{lineno}: {sig}: {problem}")
+                    continue
+            entries[normalise_signature(sig)] = reason
     return entries, errors
+
+
+POLICY_CITATION_RE = re.compile(r"^policy:\s*(\S+?):(\d+)\b")
+STATEMENT_OPENS_POLICY_RE = re.compile(r"\b(?:CREATE|ALTER)\s+POLICY\b", re.IGNORECASE)
+
+
+def verify_policy_citation(sig, reason, root=None):
+    """Return None when a `policy:` entry's citation holds, else what is wrong (P1327).
+
+    Some anon grants have no client call site and are still permanent: an RLS
+    policy's USING/WITH CHECK clause calls the function, and a policy predicate
+    runs as the querying role, so revoking the grant breaks anon reads of the
+    table. Rule 1 (cite a call site) cannot justify those, so this category cites
+    the POLICY instead, and the citation is checked here rather than trusted. The
+    header's warning applies to this category most of all: an entry justified by
+    prose is the entry the check would then bless forever.
+
+    Holds when the cited migration exists, the cited line names the function, and
+    the SQL statement open at that line is a CREATE/ALTER POLICY.
+    """
+    m = POLICY_CITATION_RE.match(reason)
+    if not m:
+        return "policy entry must cite `policy: supabase/migrations/<file>.sql:<line>`"
+    rel, line_no = m.group(1), int(m.group(2))
+    root = root or repo_roots()[0]
+    target = rel if os.path.isabs(rel) else os.path.join(root, rel)
+    if not os.path.isfile(target):
+        return f"cited policy file not found: {rel}"
+    with open(target, "r", encoding="utf-8") as fh:
+        lines = fh.read().splitlines()
+    if not 1 <= line_no <= len(lines):
+        return f"cited line {line_no} is outside {rel} ({len(lines)} lines)"
+    name = sig.split("(", 1)[0].strip()
+    code = lambda s: s.split("--", 1)[0]
+    if not re.search(r"\b" + re.escape(name) + r"\s*\(", code(lines[line_no - 1])):
+        return f"{rel}:{line_no} does not call {name}()"
+    # The statement open at the cited line starts after the last `;` above it.
+    start = line_no - 1
+    while start > 0 and not code(lines[start - 1]).rstrip().endswith(";"):
+        start -= 1
+    statement = "\n".join(code(l) for l in lines[start:line_no])
+    if not STATEMENT_OPENS_POLICY_RE.search(statement):
+        return f"{rel}:{line_no} is not inside a CREATE/ALTER POLICY statement"
+    return None
 
 
 # ---------------------------------------------------------------------------
