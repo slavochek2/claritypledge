@@ -36,7 +36,9 @@ vi.mock('@/app/components/feed/feed-point-card', () => ({
   FeedPointCard: ({ point, onPointRemoved }: { point: PointWithUserPosition; onPointRemoved?: (id: string, p: null) => void }) => (
     <div data-testid="point-card">
       {point.statement}
-      <button data-testid={`withdraw-${point.id}`} onClick={() => onPointRemoved?.(point.id, null)}>withdraw</button>
+      <span data-testid={`total-${point.id}`}>{point.totalPositions}</span>
+      <span data-testid={`mine-${point.id}`}>{point.userPosition ? 'mine' : 'none'}</span>
+      <button data-testid={`withdraw-${point.id}`} onClick={() => onPointRemoved?.(point.id, 'agree' as never)}>withdraw</button>
     </div>
   ),
 }));
@@ -85,10 +87,17 @@ describe('P1179 AC-9 — a position change triggers no refetch and no loading fl
   });
 
   it('withdrawing the LAST position keeps the point on the list, still with no refetch', async () => {
-    getPoints.mockResolvedValue([point('p1', 'first', 1), point('p2', 'second', 2)]);
+    const mine = { ...point('p1', 'first', 1), userPosition: { position: 'agree' } } as unknown as PointWithUserPosition;
+    getPoints.mockResolvedValue([mine, point('p2', 'second', 2)]);
     renderStake();
     await screen.findAllByTestId('point-card');
+    expect(screen.getByTestId('total-p1').textContent).toBe('1');
+    expect(screen.getByTestId('mine-p1').textContent).toBe('mine');
     await userEvent.click(screen.getByTestId('withdraw-p1'));
+    // The withdrawal was applied (not merely ignored): count down to zero, and the viewer's
+    // own position gone, so a remount (tab switch) cannot re-light the withdrawn button.
+    expect(screen.getByTestId('total-p1').textContent).toBe('0');
+    expect(screen.getByTestId('mine-p1').textContent).toBe('none');
     expect(screen.getAllByTestId('point-card')).toHaveLength(2);
     expect(getPoints).toHaveBeenCalledTimes(1);
   });

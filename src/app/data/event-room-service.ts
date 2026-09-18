@@ -88,10 +88,10 @@ export async function joinEventRoom(eventId: string, displayName: string): Promi
  * the append-only history row (Decision 6) — this function never sees or sends that count.
  * Ownership is auth.uid() = profile_id, enforced server-side.
  *
- * Called twice per answer (2026-09-18, founder: people show as opted in/out the moment they
- * tap): first with `comprehension = null` on the tap, which records the answer, then with
- * the same answer and the rating. The RPC writes a history row only when the ANSWER changes,
- * so the second call attaches the rating without a second row. */
+ * The tap (2026-09-18, founder: people show as opted in/out the moment they tap) calls this
+ * with `comprehension = null`, which records the answer; the number then attaches through
+ * `setRoomRating`, never through a second call here. A non-null `comprehension` is the
+ * pre-2026-09-18 one-call form, kept for old clients. */
 export async function setRoomOptIn(memberId: string, optedIn: boolean, comprehension: number | null): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('set_room_opt_in', {
     p_member_id: memberId,
@@ -100,6 +100,22 @@ export async function setRoomOptIn(memberId: string, optedIn: boolean, comprehen
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) {
     throw new Error(error?.message ?? 'Could not update your answer');
+  }
+  return mapMember(data[0] as DbRoomMemberRow);
+}
+
+/** Attaches the rating to the answer the person rated — compare-and-set (migration
+ * 20260918120100). Refused, with nothing changed, when the row no longer holds
+ * `expectedOptedIn` or already has a rating (e.g. the answer changed on another device);
+ * the caller should re-read. Never changes the answer, never writes answer history. */
+export async function setRoomRating(memberId: string, expectedOptedIn: boolean, comprehension: number): Promise<EventRoomSelf> {
+  const { data, error } = await supabase.rpc('set_room_rating', {
+    p_member_id: memberId,
+    p_expected_opted_in: expectedOptedIn,
+    p_comprehension: comprehension,
+  });
+  if (error || !data || !Array.isArray(data) || data.length === 0) {
+    throw new Error(error?.message ?? 'Could not save your rating');
   }
   return mapMember(data[0] as DbRoomMemberRow);
 }
@@ -209,10 +225,15 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
  * also produce. Returns an unsubscribe function. */
 export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventRoomMember[]) => void): () => void {
   let cancelled = false;
+  // Latest-issued wins: every realtime event starts a reload, and at the "everyone answer
+  // now" moment several are in flight and can resolve out of order. An older response
+  // landing last used to put a superseded roster back until the next event or poll.
+  let seq = 0;
 
   const reload = async () => {
+    const ticket = ++seq;
     const roster = await getRoomRoster(eventId);
-    if (!cancelled) onUpdate(roster);
+    if (!cancelled && ticket === seq) onUpdate(roster);
   };
 
   const channel = supabase

@@ -133,6 +133,37 @@ describe('P543: Zero-position point filtering', () => {
 
       expect(result).toEqual([]);
     });
+
+    // 2026-09-18: /stake on the standing instruments passes includeUnstaked — the real
+    // filter, not the page's argument, is what these two assert.
+    function mockFeedQuery(points: unknown[], positions: unknown[] | null, posError: unknown = null) {
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockReturnValue({
+              range: vi.fn().mockResolvedValue({ data: points, error: null }),
+            }),
+          }),
+        })
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({ data: positions, error: posError }),
+        });
+    }
+
+    it('includeUnstaked keeps a zero-position point, at zero, beside a staked one', async () => {
+      mockFeedQuery(
+        [mockPointRow('staked', 'Staked'), mockPointRow('bare', 'Never staked')],
+        [{ point_id: 'staked', position: 'agree' }],
+      );
+      const result = await service.getPublicPointsFeed(10, 0, undefined, undefined, true, true);
+      expect(result.map(p => p.id)).toEqual(['staked', 'bare']);
+      expect(result.find(p => p.id === 'bare')?.totalPositions).toBe(0);
+    });
+
+    it('includeUnstaked FAILS on a count-query error instead of painting every point at zero', async () => {
+      mockFeedQuery([mockPointRow('a', 'A')], null, { message: 'boom', code: 'XX000' });
+      await expect(service.getPublicPointsFeed(10, 0, undefined, undefined, true, true)).rejects.toThrow();
+    });
   });
 
   // ===========================================================================

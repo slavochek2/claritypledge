@@ -20,7 +20,10 @@ import { createTestPoint, createTestPosition, deleteTestPoint } from './helpers/
 import { seedRoomMember, readRoomMember, deleteRoomMembers } from './helpers/test-event-room';
 import { supabaseAdmin } from './helpers/supabase-admin';
 
-const TAG = `p1179x${Date.now().toString(36)}`;
+// Per WORKER, not per millisecond: the file's tests run in parallel workers, each loading this
+// module and running beforeAll, and two workers loading in the same ms shared a tag — each
+// then saw the other's points (4 cards where 2 were seeded, 2026-09-18).
+const TAG = `p1179x${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** Counts requests the page makes for the POINTS feed specifically. */
 function countFeedRequests(page: Page) {
@@ -144,6 +147,87 @@ test.describe('P1179 AC-9 / AC-10 — staking on the locked surface', () => {
 
       // ...and they are still opted OUT. Staking must not flip that.
       expect((await readRoomMember(member.id))?.opted_in).toBe(false);
+    } finally { await cleanup(); }
+  });
+});
+
+/**
+ * 2026-09-18 (founder screenshot: "when I remove my position here the point disappears
+ * from /stake, why??"). On the standing instruments (STANDARD_STAKE_TAGS — cmp7 is seven
+ * points) a point stays listed at zero positions: on clear, AND on a fresh load. Every
+ * other tag keeps P543, like /feed.
+ *
+ * Uses the real `cmp7` tag, because the behaviour is keyed on it. The test DB's cmp7 list
+ * holds other points, so cards are found by their unique statement, never counted.
+ */
+test.describe('/stake keeps zero-position points on the standing instruments', () => {
+  const STANDARD = 'cmp7';
+  const OTHER = `p1179z${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const ids: string[] = [];
+  let ownerId: string;
+
+  test.beforeAll(async () => {
+    const { user } = await createTestUser({ name: 'P1179 Zero Owner' });
+    ownerId = user.id;
+  });
+
+  test.afterAll(async () => {
+    for (const id of ids) await deleteTestPoint(id);
+  });
+
+  test('a never-staked cmp7 point is listed; clearing your own last position keeps it, also after reload', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { context, user, cleanup } = await getTestAuthContext('host', browser);
+    try {
+      const never = `P1179 never staked ${Date.now()}`;
+      const neverPoint = await createTestPoint(ownerId, { statement: never, tags: [STANDARD], visibility: 'public' });
+      ids.push(neverPoint.id);
+      const statement = `P1179 only mine ${Date.now()}`;
+      const mine = await createTestPoint(ownerId, { statement, tags: [STANDARD], visibility: 'public' });
+      ids.push(mine.id);
+      await createTestPosition(mine.id, user.user.id, 'agree');
+
+      const page = await context.newPage();
+      await page.goto(`/stake/${STANDARD}`);
+      await expect(page.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByText(never)).toBeVisible();
+
+      const card = page.locator('[data-testid="stake-list"] > *').filter({ hasText: statement });
+      await expect(card.getByTestId('agree-count-badge')).toHaveText('1');
+      await card.getByTestId('agree-group').click(); // selected group -> its menu
+      await page.getByRole('option', { name: /clear position/i }).click();
+      // The app's own confirm (useRemovePositionGuard) — the founder's flow went through it too.
+      await page.getByRole('button', { name: 'Remove position' }).click();
+
+      // The withdrawal really happened (ground truth, RLS bypassed)...
+      await expect.poll(async () => {
+        const { data } = await supabaseAdmin.from('point_positions').select('id').eq('point_id', mine.id);
+        return data?.length ?? -1;
+      }, { timeout: 15000 }).toBe(0);
+      // ...and the card is still there, at zero.
+      await expect(card).toHaveCount(1);
+      await expect(card.getByTestId('agree-count-badge')).toHaveCount(0);
+
+      await page.reload();
+      await expect(page.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });
+      await expect(page.getByText(statement)).toBeVisible();
+    } finally { await cleanup(); }
+  });
+
+  test('any OTHER tag still hides a zero-position point (P543 unchanged off the instruments)', async ({ browser }) => {
+    const { context, cleanup } = await getTestAuthContext('host', browser);
+    try {
+      const staked = await createTestPoint(ownerId, { statement: `P1179 other staked ${Date.now()}`, tags: [OTHER], visibility: 'public' });
+      ids.push(staked.id);
+      await createTestPosition(staked.id, ownerId, 'agree');
+      const bare = `P1179 other never staked ${Date.now()}`;
+      const barePoint = await createTestPoint(ownerId, { statement: bare, tags: [OTHER], visibility: 'public' });
+      ids.push(barePoint.id);
+
+      const page = await context.newPage();
+      await page.goto(`/stake/${OTHER}`);
+      await expect(page.locator('[data-testid="stake-list"] > *')).toHaveCount(1, { timeout: 20000 });
+      await expect(page.getByText(bare)).toHaveCount(0);
     } finally { await cleanup(); }
   });
 });

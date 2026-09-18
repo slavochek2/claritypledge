@@ -1033,8 +1033,9 @@ export interface EventRoomMember {
   optedIn: boolean | null;
   /** null = has not answered yet. 0-10, no expiry (Decision 6 / spec §7). */
   readinessValue: number | null;
-  /** null = has not rated yet. 0-10. Required by set_room_opt_in to answer at all
-   * (2026-08-21 reinstatement) — never set without opted_in also being set, and vice versa. */
+  /** null = has not rated yet. 0-10. Since 2026-09-18 the answer is written on the tap and
+   * this attaches afterwards (set_room_rating), so opted_in can be set while this is null;
+   * a rating is still never set without opted_in. */
   comprehensionRating: number | null;
   joinedAt: string;
   /** Read-side join to `profiles`, populated only by the public roster query

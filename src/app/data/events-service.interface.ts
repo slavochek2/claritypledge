@@ -57,7 +57,8 @@ export interface EventsService {
  */
 export type EventRoomServiceContract = {
   joinEventRoom: (eventId: string, displayName: string) => Promise<import('@/app/types').EventRoomSelf>;
-  setRoomOptIn: (memberId: string, optedIn: boolean) => Promise<import('@/app/types').EventRoomSelf>;
+  setRoomOptIn: (memberId: string, optedIn: boolean, comprehension: number | null) => Promise<import('@/app/types').EventRoomSelf>;
+  setRoomRating: (memberId: string, expectedOptedIn: boolean, comprehension: number) => Promise<import('@/app/types').EventRoomSelf>;
   setRoomReadiness: (memberId: string, value: number) => Promise<import('@/app/types').EventRoomSelf>;
   getMyRoomStatus: (eventId: string) => Promise<import('@/app/types').EventRoomSelf | null>;
   getRoomRoster: (eventId: string) => Promise<import('@/app/types').EventRoomMember[]>;

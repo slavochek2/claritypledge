@@ -80,6 +80,9 @@ export interface EventRoomSelfState {
   self: EventRoomSelf | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  /** Adopt a row a write RPC just returned, as the newest known state. Any read issued
+   * before this call that resolves later is discarded (see `seqRef`). */
+  applySelf: (row: EventRoomSelf) => void;
 }
 
 /** Auto-joins a granted (registered + signed-in) caller into the room the first time
@@ -112,16 +115,27 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   // must not lie on.
   const startedKeyRef = useRef<string | null>(null);
 
+  /**
+   * Latest-issued wins (2026-09-18 adversarial review). The room page refreshes `self` on
+   * every roster event, so several reads are in flight at the "everyone answer now" moment,
+   * and they can resolve out of order: a read issued just BEFORE your own write, landing
+   * AFTER it, used to put the pre-write row back — the rating card reappeared after Submit.
+   * Each read takes a ticket; only the newest ticket may write `self`. `applySelf` takes a
+   * ticket too, so a write's returned row outranks every read issued before it.
+   */
+  const seqRef = useRef(0);
+
   const load = useCallback(async () => {
     if (!event || !granted) return;
+    const ticket = ++seqRef.current;
     const status = await getMyRoomStatus(event.id);
     if (status) {
-      setSelf(status);
+      if (ticket === seqRef.current) setSelf(status);
       return;
     }
     try {
       const joined = await joinEventRoom(event.id, user?.name || 'Guest');
-      setSelf(joined);
+      if (ticket === seqRef.current) setSelf(joined);
     } catch {
       // Room closed/full — leave self null; callers degrade to their own frozen/error UI.
     }
@@ -150,6 +164,11 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     await load();
   }, [load]);
 
+  const applySelf = useCallback((row: EventRoomSelf) => {
+    ++seqRef.current;
+    setSelf(row);
+  }, []);
+
   // Render-time correction for the race described above: if this render's
   // (event, granted) says a load should be running for a key the effect hasn't
   // started on yet, report loading regardless of the `loading` state left over
@@ -157,5 +176,5 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   // defer to the real `loading` state, which correctly tracks in-flight vs done.
   const effectiveLoading = currentKey !== null && startedKeyRef.current !== currentKey ? true : loading;
 
-  return { self, loading: effectiveLoading, refresh };
+  return { self, loading: effectiveLoading, refresh, applySelf };
 }

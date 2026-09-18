@@ -249,26 +249,111 @@ test.describe('P1114: join_event_room / set_room_opt_in / set_room_readiness / g
     expect(afterRight?.comprehension_rating, 'the comprehension rating must be written together with the answer').toBe(8);
   });
 
-  test('set_room_opt_in rejects a NULL/omitted comprehension rating — a rating is required to answer at all, opt-in or opt-out', async () => {
-    // ISOLATED event — a fresh member with a KNOWN starting state (opted_in: null),
-    // not `joiner`'s row on the shared `upcomingEvent`, which other tests in this
-    // file already answer.
-    const ratingGateEvent = await createTestEvent(host.user.id, new Date());
-    eventIds.push(ratingGateEvent.id);
-    const member = await seedRoomMember(ratingGateEvent.id, { optedIn: null, profileId: joiner.user.id });
+  test('the tap records the answer with no rating; set_room_rating attaches it without a second history row (2026-09-18)', async () => {
+    test.setTimeout(120_000); // a dozen sequential RPC + service-role reads against the remote test DB
+    // ISOLATED event — a fresh member with a KNOWN starting state (opted_in: null).
+    const tapEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(tapEvent.id);
+    const member = await seedRoomMember(tapEvent.id, { optedIn: null, profileId: joiner.user.id });
     memberIds.push(member.id);
     const client = await signInAs(joiner);
 
-    const missing = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null });
-    expect(missing.error, 'a NULL comprehension rating must be rejected — reinstated 2026-08-21, required for both opt-in and opt-out').not.toBeNull();
-    const after = await readRoomMember(member.id);
-    expect(after?.opted_in, 'state must be unchanged after a rejected missing-rating attempt').toBeNull();
+    // The tap: answer, no number. Visible on the roster at once — that is the point.
+    const tap = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null });
+    expect(tap.error, `the tap must be accepted with a NULL rating: ${tap.error?.message}`).toBeNull();
+    let row = await readRoomMember(member.id);
+    expect(row?.opted_in).toBe(true);
+    expect(row?.comprehension_rating).toBeNull();
+    expect((await readRoomAnswers(member.id)).length, 'the tap is the answer: exactly one history row').toBe(1);
 
-    const outOk = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false, p_comprehension: 2 });
-    expect(outOk.error, 'a valid rating must be required for OPT-OUT too, not just opt-in').toBeNull();
-    const afterOut = await readRoomMember(member.id);
-    expect(afterOut?.opted_in).toBe(false);
-    expect(afterOut?.comprehension_rating).toBe(2);
+    // A repeated identical tap (second device, double tap) is not a new answer.
+    const again = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null });
+    expect(again.error).toBeNull();
+    expect((await readRoomAnswers(member.id)).length, 'an unchanged answer writes no second history row').toBe(1);
+
+    // The number attaches through set_room_rating, which never writes history.
+    const rated = await client.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: true, p_comprehension: 7 });
+    expect(rated.error, `rating the recorded answer must succeed: ${rated.error?.message}`).toBeNull();
+    row = await readRoomMember(member.id);
+    expect(row?.opted_in).toBe(true);
+    expect(row?.comprehension_rating).toBe(7);
+    expect((await readRoomAnswers(member.id)).length, 'attaching the rating writes no history row').toBe(1);
+
+    // A second rating for an already-rated answer is refused (compare-and-set), unchanged.
+    const reRate = await client.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: true, p_comprehension: 2 });
+    expect(reRate.error, 'an already-rated answer must not be re-rated by a late call').not.toBeNull();
+    expect((await readRoomMember(member.id))?.comprehension_rating).toBe(7);
+
+    // p_opted_in NULL is not an answer.
+    const nullAnswer = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: null, p_comprehension: null });
+    expect(nullAnswer.error, 'a NULL answer must be rejected').not.toBeNull();
+    expect((await readRoomMember(member.id))?.opted_in).toBe(true);
+  });
+
+  test('a stale rating can never flip an answer changed on another device (compare-and-set, 2026-09-18)', async () => {
+    test.setTimeout(120_000); // a dozen sequential RPC + service-role reads against the remote test DB
+    const staleEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(staleEvent.id);
+    const member = await seedRoomMember(staleEvent.id, { optedIn: null, profileId: joiner.user.id });
+    memberIds.push(member.id);
+    const client = await signInAs(joiner);
+
+    // Device A taps Opt in; device B then resets and taps Opt out.
+    expect((await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null })).error).toBeNull();
+    expect((await client.rpc('reset_room_answer', { p_member_id: member.id })).error).toBeNull();
+    expect((await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false, p_comprehension: null })).error).toBeNull();
+    const historyBefore = (await readRoomAnswers(member.id)).length;
+
+    // A's rating, given for "Opt in", arrives late: refused, nothing changes.
+    const stale = await client.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: true, p_comprehension: 9 });
+    expect(stale.error, 'a rating for an answer that is no longer on the row must be refused').not.toBeNull();
+    const row = await readRoomMember(member.id);
+    expect(row?.opted_in, 'the stale rating must not flip the answer back').toBe(false);
+    expect(row?.comprehension_rating).toBeNull();
+    expect((await readRoomAnswers(member.id)).length, 'and must write no history row').toBe(historyBefore);
+
+    // After a reset to undecided, a late rating is refused too.
+    expect((await client.rpc('reset_room_answer', { p_member_id: member.id })).error).toBeNull();
+    const afterReset = await client.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: false, p_comprehension: 4 });
+    expect(afterReset.error).not.toBeNull();
+    expect((await readRoomMember(member.id))?.opted_in).toBeNull();
+  });
+
+  test('a NEW answer with no rating clears the rating left from the previous answer', async () => {
+    test.setTimeout(120_000); // a dozen sequential RPC + service-role reads against the remote test DB
+    const clearEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(clearEvent.id);
+    // Rated opt-OUT on the row, written by the pre-2026-09-18 one-call form (still accepted).
+    const member = await seedRoomMember(clearEvent.id, { optedIn: null, profileId: joiner.user.id });
+    memberIds.push(member.id);
+    const client = await signInAs(joiner);
+    const oneCall = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: false, p_comprehension: 2 });
+    expect(oneCall.error, 'the old one-call form (answer + rating) must keep working during the deploy window').toBeNull();
+    expect((await readRoomMember(member.id))?.comprehension_rating).toBe(2);
+
+    const flip = await client.rpc('set_room_opt_in', { p_member_id: member.id, p_opted_in: true, p_comprehension: null });
+    expect(flip.error).toBeNull();
+    const row = await readRoomMember(member.id);
+    expect(row?.opted_in).toBe(true);
+    expect(row?.comprehension_rating, 'a number given for "Opt out" must not be shown against "Opt in"').toBeNull();
+    expect((await readRoomAnswers(member.id)).length).toBe(2);
+  });
+
+  test('set_room_rating refuses a non-owner and anon', async () => {
+    test.setTimeout(120_000); // a dozen sequential RPC + service-role reads against the remote test DB
+    const ownEvent = await createTestEvent(host.user.id, new Date());
+    eventIds.push(ownEvent.id);
+    const member = await seedRoomMember(ownEvent.id, { optedIn: true, profileId: joiner.user.id });
+    memberIds.push(member.id);
+
+    const strangerClient = await signInAs(outsider);
+    const denied = await strangerClient.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: true, p_comprehension: 5 });
+    expect(denied.error, 'a non-owner must not rate someone else').not.toBeNull();
+
+    const anon = makeAnonClient();
+    const anonTry = await anon.rpc('set_room_rating', { p_member_id: member.id, p_expected_opted_in: true, p_comprehension: 5 });
+    expect(anonTry.error, 'anon must not reach set_room_rating').not.toBeNull();
+    expect((await readRoomMember(member.id))?.comprehension_rating).toBeNull();
   });
 
   test('reset_room_answer clears both the answer and the rating back to undecided, and rejects a non-owner', async () => {

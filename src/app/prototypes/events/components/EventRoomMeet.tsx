@@ -89,12 +89,12 @@ import {
   BAR_INNER_CLASS,
   UNDERSTANDING_QUESTION,
 } from '@/app/pages/meeting-terms-page';
-import { setRoomOptIn, resetRoomAnswer, subscribeToRoomRoster } from '@/app/data/event-room-service';
+import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PracticeRooms } from './PracticeRooms';
-import type { EventRoomMember } from '@/app/types';
+import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
@@ -210,7 +210,7 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
 
 export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
-  const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
+  const { self, loading: selfLoading, refresh, applySelf } = useEventRoomSelf(event, granted);
   const { user } = useAuth();
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
@@ -273,63 +273,61 @@ export function EventRoomMeet() {
     });
   }, [event?.id]);
 
+  /**
+   * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read.
+   * Only the write's own failure is reported as "That didn't save": when the write commits
+   * and a separate refresh then failed, the phone used to say it didn't save while the
+   * projector already showed the person opted in (2026-09-18 adversarial review). A failed
+   * write still refreshes, because a write whose RESPONSE was lost may have committed.
+   */
+  const runWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setWriteFailed(false);
+    try {
+      applySelf(await write());
+    } catch {
+      setWriteFailed(true);
+      void refresh().catch(() => undefined);
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [applySelf, refresh]);
+
   /** The tap on Opt in / Opt out. Writes the answer with no rating, so the roster shows it
-   * at once; the step then derives to `rating` from server state. On failure nothing was
-   * recorded and the screen stays on the two buttons, saying so. */
-  const handleAnswer = useCallback(async (answer: boolean) => {
-    if (!self || inFlight.current) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    setWriteFailed(false);
-    try {
-      await setRoomOptIn(self.id, answer, null);
-      await refresh();
-    } catch {
-      setWriteFailed(true);
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  }, [self, refresh]);
+   * at once; the step then derives to `rating` from server state. With no `self` (the
+   * room could not be joined) there is nothing to write to — say so rather than ignore the
+   * tap. */
+  const handleAnswer = useCallback((answer: boolean) => {
+    if (!self) { setWriteFailed(true); return; }
+    void runWrite(() => setRoomOptIn(self.id, answer, null));
+  }, [self, runWrite]);
 
-  /** Attaches the number to the answer already recorded. Sends that same answer back, so the
-   * RPC updates the rating and writes no second history row. On failure the answer stands
-   * and the card stays up for another try. */
-  const handleSubmitRating = useCallback(async (rating: number) => {
-    if (!self || self.optedIn == null || inFlight.current) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    setWriteFailed(false);
-    try {
-      await setRoomOptIn(self.id, self.optedIn, rating);
-      await refresh();
-    } catch {
-      setWriteFailed(true);
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  }, [self, refresh]);
+  /** Attaches the number to the answer this screen shows, compare-and-set: if the answer
+   * changed on another device meanwhile, the RPC refuses rather than flipping it back
+   * (migration 20260918120100), and the refresh in `runWrite` shows the current answer. */
+  const handleSubmitRating = useCallback((rating: number) => {
+    if (!self || self.optedIn == null) return;
+    const expected = self.optedIn;
+    void runWrite(() => setRoomRating(self.id, expected, rating));
+  }, [self, runWrite]);
 
-  const handleChangeChoice = useCallback(async () => {
-    // Same latch as handleSubmitRating, and SHARED with it rather than a second one: the
-    // two must not be able to run concurrently either. reset_room_answer writes no history
-    // row, but a reset racing a submit would still leave the local step and the server
-    // answer disagreeing about which one landed last.
-    if (!self || inFlight.current) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    setWriteFailed(false);
-    try {
-      await resetRoomAnswer(self.id);
-      await refresh();
-    } catch {
-      setWriteFailed(true);
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  }, [self, refresh]);
+  const handleChangeChoice = useCallback(() => {
+    // Same latch as the other writes, and SHARED with them rather than a second one: a
+    // reset racing a submit would leave the local step and the server answer disagreeing
+    // about which one landed last.
+    if (!self) return;
+    void runWrite(() => resetRoomAnswer(self.id));
+  }, [self, runWrite]);
+
+  // An error belongs to the step it happened in. A tap whose response was lost can still
+  // have committed; when realtime then moves the step on, "That didn't save" must go too.
+  // Keyed on the same derivation as `step` below, computed here because hooks must run
+  // before the early returns.
+  const stepKey = self?.optedIn == null ? 'choosing' : self.comprehensionRating == null ? 'rating' : 'answered';
+  useEffect(() => { setWriteFailed(false); }, [stepKey]);
 
   if (loading || (granted && selfLoading)) return null;
   if (!granted) {
@@ -613,6 +611,23 @@ export function EventRoomMeet() {
                   className="px-2 sm:px-5"
                   questionClassName="text-lg font-semibold text-center leading-snug"
                 />
+              )}
+
+              {step === 'rating' && writeFailed && (
+                /* The one exit from the card, and ONLY after a failed save (2026-09-18
+                   adversarial review). Since the tap now writes the answer, a rating write
+                   that keeps failing would otherwise hold the person on this card with no
+                   way off it — a reload derives the same step. The founder's 2026-08-21
+                   "no cancel under the card" still holds on the normal path. */
+                <Button
+                  data-testid="room-change-choice"
+                  onClick={handleChangeChoice}
+                  size="lg"
+                  disabled={submitting}
+                  className={cn(ANSWER_BUTTON_CLASS, 'w-full')}
+                >
+                  Change your choice
+                </Button>
               )}
 
               {step === 'answered' && (

@@ -242,7 +242,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
       await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
       await expect(actorPage.getByText(/How much do you think you understand/)).toBeVisible();
       await expect(viewerPage.getByTestId('room-roster-in')).toContainText('P1114 Live Opt-in Actor', { timeout: 20_000 });
-      await expect(viewerPage.getByTestId('room-roster-in')).not.toContainText('understood at');
+      await expect(viewerPage.getByTestId('room-roster-in').getByTestId('room-roster-rating')).toHaveCount(0);
 
       // The number then attaches to that same row.
       await actorPage.getByRole('button', { name: 'Rate 7' }).click();
@@ -326,13 +326,39 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
   });
 
-  test('a double-tapped Submit writes exactly ONE answer-history row, not two', async ({ page }) => {
+  test('a rating save that fails offers the one way off the card, and it resets the answer (2026-09-18)', async ({ page }) => {
+    // Since the tap records the answer, a rating write that keeps failing would otherwise
+    // hold the person on the card: a reload derives the same step. The exit exists ONLY
+    // after a failed save — the founder's "no cancel under the card" holds otherwise.
+    const visitor = await freshUser('P1114 Rating Failure Visitor');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
+
+    await page.getByTestId('room-opt-in-yes').click();
+    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
+    await expect(page.getByTestId('room-change-choice'), 'no exit on the normal path').toHaveCount(0);
+
+    await page.route('**/rest/v1/rpc/set_room_rating', (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"forced failure"}' }),
+    );
+    await page.getByRole('button', { name: 'Rate 4' }).click();
+    await page.getByRole('button', { name: 'Submit' }).click();
+    await expect(page.getByText("That didn't save. Try again.")).toBeVisible();
+
+    await page.unroute('**/rest/v1/rpc/set_room_rating');
+    await page.getByTestId('room-change-choice').click();
+    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+    await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
+  });
+
+  test('Opt in and Opt out tapped in the SAME frame write exactly one answer — the first', async ({ page }) => {
     // event_room_answers is append-only and cascade-counted, and it is the table the
-    // spec's research question reads — a duplicate row is corrupted data, not a cosmetic
-    // glitch. The disabled-while-submitting styling cannot prevent this on its own: it is
-    // driven by React state, so two taps dispatched in the same frame both observe
-    // "not submitting" before either re-render lands. A synchronous ref latch is what
-    // actually closes the window, and this test is what proves the latch is real.
+    // spec's research question reads. Since 2026-09-18 the TAP is the write, so the race
+    // the in-flight latch exists for is two DIFFERENT answers in one frame: the server
+    // dedupes an identical second tap by itself (the old triple-Submit version of this
+    // test passed with the latch removed — adversarial review, 2026-09-18), but Opt in then
+    // Opt out would be two real answers and two history rows. React's disabled styling
+    // cannot stop a same-frame burst; only the synchronous ref latch can.
     const visitor = await freshUser('P1114 Double Tap Visitor');
     await rsvpToEvent(event.id, visitor.user.id);
     // Seeded (undecided) purely so the test holds the member id — arriving would create
@@ -344,33 +370,29 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     memberIds.push(member.id);
     await setTestSession(page, visitor.email);
     await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
 
-    await page.getByTestId('room-opt-in-yes').click();
-    await page.getByRole('button', { name: 'Rate 5' }).click();
-
-    // Fired from INSIDE the page, three synchronous .click() calls in ONE frame. This is
-    // load-bearing and was arrived at the hard way: three awaited Playwright clicks (even
-    // under Promise.all) still round-trip over CDP between each one, which gives React
-    // time to re-render and disable the button — that version of this test PASSED against
-    // a deliberately broken guard, i.e. it proved nothing. Only a same-frame burst
-    // reproduces the race the latch exists for.
+    // Fired from INSIDE the page, in ONE frame. Awaited Playwright clicks round-trip over
+    // CDP between each one, which gives React time to re-render and disable the buttons —
+    // that version proved nothing. Only a same-frame burst reproduces the race.
     await page.evaluate(() => {
-      const submit = Array.from(document.querySelectorAll('button')).find(
-        (b) => b.textContent?.trim() === 'Submit',
-      );
-      if (!submit) throw new Error('Submit button not found — the rating step did not render.');
-      submit.click();
-      submit.click();
-      submit.click();
+      const yes = document.querySelector<HTMLButtonElement>('[data-testid="room-opt-in-yes"]');
+      const no = document.querySelector<HTMLButtonElement>('[data-testid="room-opt-in-no"]');
+      if (!yes || !no) throw new Error('answer buttons not found — the choosing step did not render.');
+      yes.click();
+      no.click();
+      yes.click();
+      no.click();
     });
 
     await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
-
+    // Past the realtime hop, so a second write that lands late is still caught.
+    await page.waitForTimeout(1500);
     const answers = await readRoomAnswers(member.id);
     expect(
-      answers.length,
-      `${answers.length} answer-history rows were written by a triple-tapped Submit. Exactly one belongs there; the in-flight latch in EventRoomMeet.tsx is not holding.`,
-    ).toBe(1);
+      answers.map((a) => a.opted_in),
+      `${answers.length} answer-history rows from one same-frame burst. Exactly one belongs there — the first tap's; the in-flight latch in EventRoomMeet.tsx is not holding.`,
+    ).toEqual([true]);
   });
 
   test('a frozen room (past EVENT_GRACE_HOURS) still displays who was there, and offers no way to change an answer', async ({ page }) => {

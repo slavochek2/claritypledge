@@ -36,10 +36,19 @@ import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { isSafeTag } from '@/app/data/event-links';
+import { isSafeTag, STANDARD_STAKE_TAGS } from '@/app/data/event-links';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
+
+/**
+ * Zero-position points stay listed only on the standing instruments (cmp7 is seven
+ * points; a point nobody has staked yet is still one of the seven). Verified on prod
+ * 2026-09-18 before shipping: every zero-position point under these six tags is a real
+ * instrument statement (cmp7 1 of 7, cmp10 1 of 10, understanding 2 of 18), none is
+ * junk. Any other /stake/<tag> keeps P543, like /feed.
+ */
+const keepsUnstaked = (t: string) => (STANDARD_STAKE_TAGS as readonly string[]).includes(t);
 
 const STAKE_LIMIT = 50;
 
@@ -82,7 +91,7 @@ export function StakePage() {
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
       const [fetchedPoints, fetchedStories] = await Promise.all([
-        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, true),
+        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag)),
         storiesService.getPublicStoriesFeed(STAKE_LIMIT, 0, tag, true),
       ]);
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
@@ -107,14 +116,18 @@ export function StakePage() {
    * even at zero: this list is a fixed instrument (cmp7 is seven points), and dropping a
    * point when its last holder cleared it left the room one point short with no way to
    * stake it again (founder screenshot 2026-09-18, "the point disappears from /stake,
-   * why??"). The fetch keeps zero-position points for the same reason. Local only.
+   * why??"). The fetch keeps zero-position points for the same reason (standing
+   * instruments only — see `keepsUnstaked`). Local only.
    */
   const handlePointRemoved = useCallback((pointId: string, removedPosition: PositionType | null) => {
     setPoints(prev => prev.map(p => {
       if (p.id !== pointId) return p;
       const counts = { ...p.positionCounts };
       if (removedPosition) counts[removedPosition] = Math.max(0, (counts[removedPosition] || 0) - 1);
-      return { ...p, positionCounts: counts, totalPositions: Math.max(0, p.totalPositions - 1) };
+      // The viewer's own position is gone too: without this, a remount (switching the
+      // Points/Stories tabs) re-seeded the card from the fetched `userPosition` and lit the
+      // withdrawn button again. Only the viewer's own withdrawal ever calls this.
+      return { ...p, positionCounts: counts, totalPositions: Math.max(0, p.totalPositions - 1), userPosition: undefined };
     }));
   }, []);
 

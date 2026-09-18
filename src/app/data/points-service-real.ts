@@ -802,6 +802,12 @@ export const realPointsService: PointsService = {
       .select('point_id, position')
       .in('point_id', pointIds);
 
+    // With zero-position points KEPT, a failed count read would paint every point at "0" —
+    // wrong numbers on a projected screen. Fail loudly instead; the caller shows its error.
+    // (With the P543 filter on, the same failure empties the list, as it always has.)
+    if (posError && includeUnstaked) {
+      throwDbError('getPublicPointsFeed positions', posError, 'Could not load position counts');
+    }
     if (!posError && positions) {
       pointIds.forEach(id => countsMap.set(id, emptyPositionCounts()));
       positions.forEach(pos => {

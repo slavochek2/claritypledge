@@ -23,7 +23,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIGRATIONS = join(process.cwd(), 'supabase/migrations');
-const RPC_FNS = ['join_event_room', 'set_room_opt_in', 'set_room_readiness', 'get_my_room_status'];
+const RPC_FNS = ['join_event_room', 'set_room_opt_in', 'set_room_rating', 'set_room_readiness', 'get_my_room_status'];
 
 /** Every migration touching this feature — never a hardcoded list, so a later migration
  *  that re-grants cannot hide from this test by having a name we did not think of. */
