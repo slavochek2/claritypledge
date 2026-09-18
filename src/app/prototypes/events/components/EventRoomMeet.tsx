@@ -54,13 +54,15 @@
  * The ordering is here because the founder asked for this shape, and that is the whole of
  * the reason. If publication of the number is ever revisited, revisit this with it.
  *
- * Consequence, accepted deliberately: between step 1 and step 2 the person has tapped
- * "Opt in" but nothing is written, so the projected roster still lists them Undecided until
- * they submit a number. That is correct rather than a lag — an answer without a rating is
- * not a complete answer under "require for both", and the roster showing an incomplete
- * answer as incomplete is the honest render. It is also why the status element stays
- * mounted through all three steps — hidden but readable during the rating step, since its
- * `data-opted-in` is the only proof available that nothing has been written yet.
+ * REVISED 2026-09-18 (founder: "they need to be shown as opt in or opt out right away, not
+ * after they click how much they understand"). The tap now WRITES the answer, with no
+ * rating, so the projected roster moves the person into Opted in / Opted out at once; the
+ * rating step then attaches the number to that answer (migration 20260918120000 — the
+ * history row is written for the answer, not again for the rating). The rating is still
+ * asked of both answers and the card still has no way around it: a person who leaves
+ * mid-card comes back to the card, because the step is derived from server state
+ * (answered, no rating yet -> rating). What changed is that the roster no longer hides an
+ * answer while its number is pending — the row simply shows no "understood at" yet.
  *
  * Bottom-bar height is MEASURED, not a static pb-N: the bar's height differs by several
  * times between steps, and a fixed padding sized for one clips the last roster row under
@@ -139,8 +141,9 @@ const ROSTER_COLUMN_CLASS = 'min-[1600px]:max-w-[22rem]';
 
 /** One roster row: PersonRow plus what that person answered, spelled out rather than
  * abbreviated — founder, 2026-08-21: "put here what they answered e.g. 'understood at
- * 4/10'". Undecided members never carry a rating (it is required at answer time), so this
- * only ever appears on an opted-in / opted-out row. */
+ * 4/10'". Undecided members never carry a rating. Since 2026-09-18 an opted-in / opted-out
+ * row can be briefly without one too — the answer is written on the tap, the number when
+ * submitted — and then shows no trailing text until it arrives. */
 function RosterRow({ member }: { member: EventRoomMember }) {
   return (
     <PersonRow
@@ -215,9 +218,6 @@ export function EventRoomMeet() {
   const location = useLocation();
   const transcriptionFailed = (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
-  /** Which answer the person has chosen but not yet committed with a number. Local, never
-   * server state — nothing is written until the rating card's Submit. */
-  const [pendingAnswer, setPendingAnswer] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
   /**
@@ -273,29 +273,43 @@ export function EventRoomMeet() {
     });
   }, [event?.id]);
 
-  const handleSubmitRating = useCallback(async (rating: number) => {
-    if (!self || pendingAnswer === null || inFlight.current) return;
+  /** The tap on Opt in / Opt out. Writes the answer with no rating, so the roster shows it
+   * at once; the step then derives to `rating` from server state. On failure nothing was
+   * recorded and the screen stays on the two buttons, saying so. */
+  const handleAnswer = useCallback(async (answer: boolean) => {
+    if (!self || inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
     setWriteFailed(false);
     try {
-      await setRoomOptIn(self.id, pendingAnswer, rating);
+      await setRoomOptIn(self.id, answer, null);
       await refresh();
-      setPendingAnswer(null);
     } catch {
-      // The freeze boundary, a transient failure, or the RPC's own null-rating guard
-      // rejected the write. Drop back to `choosing` rather than leaving the person parked
-      // on a card that says they are confirming an opt-in which was never recorded — the
-      // screen must not claim a state the server does not hold (adversarial review,
-      // 2026-08-21). `writeFailed` says so out loud, because silently rewinding a step
-      // reads as the tap having been missed.
-      setPendingAnswer(null);
       setWriteFailed(true);
     } finally {
       inFlight.current = false;
       setSubmitting(false);
     }
-  }, [self, pendingAnswer, refresh]);
+  }, [self, refresh]);
+
+  /** Attaches the number to the answer already recorded. Sends that same answer back, so the
+   * RPC updates the rating and writes no second history row. On failure the answer stands
+   * and the card stays up for another try. */
+  const handleSubmitRating = useCallback(async (rating: number) => {
+    if (!self || self.optedIn == null || inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setWriteFailed(false);
+    try {
+      await setRoomOptIn(self.id, self.optedIn, rating);
+      await refresh();
+    } catch {
+      setWriteFailed(true);
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }, [self, refresh]);
 
   const handleChangeChoice = useCallback(async () => {
     // Same latch as handleSubmitRating, and SHARED with it rather than a second one: the
@@ -309,7 +323,6 @@ export function EventRoomMeet() {
     try {
       await resetRoomAnswer(self.id);
       await refresh();
-      setPendingAnswer(null);
     } catch {
       setWriteFailed(true);
     } finally {
@@ -331,13 +344,12 @@ export function EventRoomMeet() {
   const outMembers = roster.filter((m) => m.optedIn === false);
   const undecidedMembers = roster.filter((m) => m.optedIn == null);
 
-  // Server state wins over the local pending answer: a refresh that lands an answer — this
-  // tab's own write, or the same person answering on another device, which now reaches
-  // here because `self` refreshes with the roster (see above) — must not leave a stale
-  // rating card up.
+  // Derived from server state alone: no answer -> choosing; an answer with no number yet ->
+  // rating; both -> answered. The same person answering on another device reaches here too,
+  // because `self` refreshes with the roster (see above).
   const answered = self?.optedIn != null;
   const step: 'choosing' | 'rating' | 'answered' =
-    answered ? 'answered' : pendingAnswer === null ? 'choosing' : 'rating';
+    !answered ? 'choosing' : self?.comprehensionRating == null ? 'rating' : 'answered';
 
   /**
    * Empty during the rating step, on the founder's instruction (2026-08-21): the card
@@ -523,13 +535,12 @@ export function EventRoomMeet() {
                   An earlier build rendered it only once answered, which broke every check
                   of the unanswered state (2026-08-21) — including the one that proves the
                   "membership does not auto-opt-in" non-goal. `data-opted-in` reports SERVER
-                  state, so it stays "unanswered" through the rating step: nothing is
-                  written until Submit.
+                  state: since 2026-09-18 the tap writes the answer, so it already reads
+                  "true" / "false" during the rating step.
 
-                  The rating step hides it rather than unmounting it, for that reason: the
-                  attribute is the only readable proof that nothing has been written yet,
-                  and `display:none` keeps it queryable while taking it out of flow, so the
-                  bar does not carry a blank line above the card. */}
+                  The rating step hides it rather than unmounting it, so the attribute stays
+                  queryable, and `display:none` takes it out of flow so the bar does not
+                  carry a blank line above the card. */}
               <div
                 data-testid="room-my-opt-in-status"
                 data-opted-in={answered ? (self?.optedIn ? 'true' : 'false') : 'unanswered'}
@@ -546,14 +557,15 @@ export function EventRoomMeet() {
 
               {step === 'choosing' && (
                 /* Founder-annotated "this is nice and simple!" on the shipped /meet's copy
-                   of exactly this. Neither pre-selected, neither disabled — the rating that
-                   gates the answer is now the step AFTER this one, so there is nothing left
-                   to disable these on. Only one filled control, so P955's one-primary rule
-                   holds. */
+                   of exactly this. Neither pre-selected. The tap writes the answer (2026-09-18),
+                   so both are disabled only while that write is in flight — a double tap
+                   would otherwise write two history rows. Only one filled control, so
+                   P955's one-primary rule holds. */
                 <div className="flex w-full gap-2">
                   <Button
                     data-testid="room-opt-in-yes"
-                    onClick={() => { setWriteFailed(false); setPendingAnswer(true); }}
+                    onClick={() => void handleAnswer(true)}
+                    disabled={submitting}
                     size="lg"
                     className={cn(PRIMARY_BUTTON_CLASS, 'flex-1')}
                   >
@@ -561,7 +573,8 @@ export function EventRoomMeet() {
                   </Button>
                   <Button
                     data-testid="room-opt-in-no"
-                    onClick={() => { setWriteFailed(false); setPendingAnswer(false); }}
+                    onClick={() => void handleAnswer(false)}
+                    disabled={submitting}
                     size="lg"
                     className={cn(ANSWER_BUTTON_CLASS, 'flex-1')}
                   >
@@ -579,10 +592,10 @@ export function EventRoomMeet() {
                       `disabled={submitting}` is not optional here. The card's own Submit
                       guards only on "no rating picked", and the shipped page can get away
                       with that because its state flip is synchronous — this one awaits a
-                      round trip, and every call INSERTs a row into event_room_answers with
-                      a cascade count. Two taps inside that window would write two history
-                      rows into the table the research question reads (adversarial review,
-                      2026-08-21). `handleSubmitRating` re-checks `submitting` as well.
+                      round trip. (Written when every call inserted a history row, adversarial
+                      review 2026-08-21; since 2026-09-18 the rating call writes none, but a
+                      double submit still races the refresh.) `handleSubmitRating` also
+                      checks the synchronous `inFlight` latch.
 
                       No cancel control under the card, and the card's own `onBack` is left
                       unpassed so it renders none either. Removed on the founder's

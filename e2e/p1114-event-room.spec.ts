@@ -22,14 +22,15 @@
  *     non-empty group's heading DOES show "(N)"; only the zero-member hide survives.
  *   - `room-my-opt-in-status`        — the participant's OWN state, `data-opted-in`,
  *                                      ALWAYS MOUNTED, in all three steps. Reports SERVER
- *                                      state, so it stays "unanswered" through the rating
- *                                      step — nothing is written until Submit. Its visible
+ *                                      state. Since 2026-09-18 the tap writes the answer,
+ *                                      so it reads "true"/"false" during the rating step
+ *                                      (the number attaches on Submit). Its visible
  *                                      TEXT is empty during that step (2026-08-21 round 3,
  *                                      founder deleted "Opting in — give a number to
  *                                      confirm"), so assert the attribute there, not text.
- *   - `room-opt-in-yes` / `room-opt-in-no` — the answer controls. NOT disabled any more
- *                                      (2026-08-21 round 2): the rating that gates the
- *                                      answer is now the step AFTER these, not before.
+ *   - `room-opt-in-yes` / `room-opt-in-no` — the answer controls. Enabled on arrival; since
+ *                                      2026-09-18 disabled only while the tap's own write
+ *                                      is in flight. The rating is the step AFTER these.
  *   - `room-cancel-answer`           — GONE (2026-08-21 round 3, founder: "you invented
  *                                      it"). The rating step has no cancel; the way out is
  *                                      to answer, then `room-change-choice`. Asserted
@@ -234,25 +235,19 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
       await actorPage.goto(`/events/${event.slug}/meet`);
       await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
 
-      // Three steps (2026-08-21 round 2): choose the answer, THEN give the number, and the
-      // number is what commits. Tapping "Opt in" alone must persist nothing — asserted
-      // explicitly below, because the whole reason this ordering is safe is that an answer
-      // without a rating is not a complete answer under "require a rating for both".
+      // 2026-09-18 (founder): the TAP records the answer, so the room sees the person under
+      // Opted in before they give the number. No page.reload() on the viewer — the app's own
+      // delivery mechanism (realtime + Decision 3's reconciliation poll) must surface this.
       await actorPage.getByTestId('room-opt-in-yes').click();
-      await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
-      // A bare toHaveCount(0) here would pass at t=0 even if the tap DID write, because the
-      // row needs a realtime hop to arrive. Wait past that hop first, so this asserts "no
-      // write happened" rather than "no write has arrived yet".
-      await actorPage.waitForTimeout(1500);
-      await expect(viewerPage.getByTestId('room-roster-in')).toHaveCount(0);
+      await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
+      await expect(actorPage.getByText(/How much do you think you understand/)).toBeVisible();
+      await expect(viewerPage.getByTestId('room-roster-in')).toContainText('P1114 Live Opt-in Actor', { timeout: 20_000 });
+      await expect(viewerPage.getByTestId('room-roster-in')).not.toContainText('understood at');
 
+      // The number then attaches to that same row.
       await actorPage.getByRole('button', { name: 'Rate 7' }).click();
       await actorPage.getByRole('button', { name: 'Submit' }).click();
-      await expect(actorPage.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'true');
-
-      // No page.reload() on the viewer — the app's own delivery mechanism
-      // (realtime + Decision 3's reconciliation poll) must surface this.
-      await expect(roster(viewerPage)).toContainText('P1114 Live Opt-in Actor', { timeout: 20_000 });
+      await expect(viewerPage.getByTestId('room-roster-in')).toContainText('7/10', { timeout: 20_000 });
     } finally {
       await viewerContext.close();
       await actorContext.close();
@@ -279,10 +274,14 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
 
-    // Nothing is written while the card is up. The status element stays MOUNTED through
-    // the rating step (display:none, so read the attribute, not the text) precisely so
-    // this stays checkable after the founder removed its visible line.
-    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+    // The tap already recorded the answer (2026-09-18); the card only attaches the number.
+    // The status element stays MOUNTED through the rating step (display:none, so read the
+    // attribute, not the text).
+    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'false');
+    // Leaving mid-card does not skip the number: the step is derived from server state, so
+    // a reload lands back on the card.
+    await page.reload();
+    await expect(page.getByText(/How much do you think you understand/)).toBeVisible();
 
     // No cancel control under the card, and none inside it — founder, 2026-08-21
     // ("you invented it"). Asserted, not assumed: this test previously drove the flow

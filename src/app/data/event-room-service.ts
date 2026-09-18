@@ -88,10 +88,11 @@ export async function joinEventRoom(eventId: string, displayName: string): Promi
  * the append-only history row (Decision 6) — this function never sees or sends that count.
  * Ownership is auth.uid() = profile_id, enforced server-side.
  *
- * comprehension is REQUIRED (2026-08-21 reinstatement) — the RPC rejects a null rating for
- * either answer, opt-in or opt-out alike. Callers must not offer opt-in/opt-out without a
- * rating already selected. */
-export async function setRoomOptIn(memberId: string, optedIn: boolean, comprehension: number): Promise<EventRoomSelf> {
+ * Called twice per answer (2026-09-18, founder: people show as opted in/out the moment they
+ * tap): first with `comprehension = null` on the tap, which records the answer, then with
+ * the same answer and the rating. The RPC writes a history row only when the ANSWER changes,
+ * so the second call attaches the rating without a second row. */
+export async function setRoomOptIn(memberId: string, optedIn: boolean, comprehension: number | null): Promise<EventRoomSelf> {
   const { data, error } = await supabase.rpc('set_room_opt_in', {
     p_member_id: memberId,
     p_opted_in: optedIn,

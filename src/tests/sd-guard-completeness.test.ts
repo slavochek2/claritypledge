@@ -63,6 +63,14 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1114 (20260918120000_p1114_opt_in_before_rating.sql), founder 2026-09-18: the room
+  // answer is written on the tap and the rating attaches in a second call, so a null rating
+  // is now a valid input. This was a product rule ("answer only with a number"), not an
+  // access guard: ownership (auth.uid() = profile_id) and the room freeze boundary are
+  // unchanged in the new body. The rating is still asked before the answered step, which
+  // the client derives from server state.
+  'set_room_opt_in:a comprehension rating is required to answer',
+
   // P699 (20260413110000_p699_inbox_items_no_param.sql) changed get_inbox_items API:
   // removed the p_user_id parameter and replaced it with auth.uid() directly. The
   // IS DISTINCT FROM auth.uid() ownership check and its RAISE EXCEPTION became
