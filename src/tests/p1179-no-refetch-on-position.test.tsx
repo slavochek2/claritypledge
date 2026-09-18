@@ -84,12 +84,12 @@ describe('P1179 AC-9 — a position change triggers no refetch and no loading fl
     expect(screen.getAllByTestId('point-card')).toHaveLength(2);
   });
 
-  it('withdrawing the LAST position removes the point locally, still with no refetch', async () => {
+  it('withdrawing the LAST position keeps the point on the list, still with no refetch', async () => {
     getPoints.mockResolvedValue([point('p1', 'first', 1), point('p2', 'second', 2)]);
     renderStake();
     await screen.findAllByTestId('point-card');
     await userEvent.click(screen.getByTestId('withdraw-p1'));
-    await waitFor(() => expect(screen.getAllByTestId('point-card')).toHaveLength(1));
+    expect(screen.getAllByTestId('point-card')).toHaveLength(2);
     expect(getPoints).toHaveBeenCalledTimes(1);
   });
 

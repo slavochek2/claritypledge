@@ -81,7 +81,7 @@ describe('P1179 AC-6 — the locked surface has the feed chrome removed', () => 
     renderStake();
     await screen.findAllByTestId('point-card');
     // signature: (limit, offset, tag, viewerUserId, ascending)
-    expect(getPoints).toHaveBeenCalledWith(50, 0, 'cmp7', 'u1', true);
+    expect(getPoints).toHaveBeenCalledWith(50, 0, 'cmp7', 'u1', true, true);
     expect(getStories).toHaveBeenCalledWith(50, 0, 'cmp7', true);
     // the rendered order is the service's order, untouched
     const cards = screen.getAllByTestId('point-card').map(c => c.textContent);

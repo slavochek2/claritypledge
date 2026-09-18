@@ -753,9 +753,10 @@ export const realPointsService: PointsService = {
     offset: number,
     tag?: string,
     viewerUserId?: string,
-    ascending?: boolean
+    ascending?: boolean,
+    includeUnstaked?: boolean
   ): Promise<PointWithUserPosition[]> {
-    log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId });
+    log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId, includeUnstaked });
 
     let query = supabase
       .from('points')
@@ -828,7 +829,7 @@ export const realPointsService: PointsService = {
           userPosition: viewerPositionsMap.get(point.id),
         };
       })
-      .filter(point => point.totalPositions > 0);  // P543: exclude zero-position points
+      .filter(point => includeUnstaked || point.totalPositions > 0);  // P543: exclude zero-position points
   },
 
   // ============================================================================

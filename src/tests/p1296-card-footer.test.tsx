@@ -259,7 +259,7 @@ describe('P1296 — the point card footer', () => {
    */
   function Page({ initial }: { initial: PointWithUserPosition }) {
     const [point, setPoint] = useState(initial);
-    // The same local update /stake applies on onPointRemoved, including dropping a point
+    // The same local update /feed applies on onPointRemoved, including dropping a point
     // whose last position is withdrawn.
     const onPointRemoved = (_id: string, removed: PositionType | null) =>
       setPoint((prev) => ({

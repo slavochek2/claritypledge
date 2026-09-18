@@ -187,13 +187,16 @@ export interface PointsService {
    * P491: Get public points feed with optional tag filter.
    * Returns points ordered by created_at desc with position counts and viewer positions.
    * Optionally filters by tag using Supabase .contains() on the tags TEXT[] column.
+   * P543 hides zero-position points; `includeUnstaked` keeps them, for /stake/:tag, whose
+   * list is a fixed instrument (cmp7 is seven points) rather than a feed of engagement.
    */
   getPublicPointsFeed(
     limit: number,
     offset: number,
     tag?: string,
     viewerUserId?: string,
-    ascending?: boolean
+    ascending?: boolean,
+    includeUnstaked?: boolean
   ): Promise<PointWithUserPosition[]>;
 
   // ============================================================================

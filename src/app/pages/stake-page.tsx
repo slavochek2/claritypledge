@@ -82,7 +82,7 @@ export function StakePage() {
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
       const [fetchedPoints, fetchedStories] = await Promise.all([
-        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true),
+        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, true),
         storiesService.getPublicStoriesFeed(STAKE_LIMIT, 0, tag, true),
       ]);
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
@@ -102,18 +102,20 @@ export function StakePage() {
   // the acceptance criterion forbids. The card updates its own count optimistically.
   useEffect(() => { void fetchData(); }, [fetchData]);
 
-  /** P543: a point whose last position is withdrawn leaves the list. Local only. */
+  /**
+   * A withdrawn position lowers the count and nothing else. Unlike /feed, the point STAYS
+   * even at zero: this list is a fixed instrument (cmp7 is seven points), and dropping a
+   * point when its last holder cleared it left the room one point short with no way to
+   * stake it again (founder screenshot 2026-09-18, "the point disappears from /stake,
+   * why??"). The fetch keeps zero-position points for the same reason. Local only.
+   */
   const handlePointRemoved = useCallback((pointId: string, removedPosition: PositionType | null) => {
-    setPoints(prev => prev
-      .map(p => {
-        if (p.id !== pointId) return p;
-        const counts = { ...p.positionCounts };
-        if (removedPosition) counts[removedPosition] = Math.max(0, (counts[removedPosition] || 0) - 1);
-        const total = Math.max(0, p.totalPositions - 1);
-        if (total === 0) return null;
-        return { ...p, positionCounts: counts, totalPositions: total };
-      })
-      .filter((p): p is PointWithUserPosition => p !== null));
+    setPoints(prev => prev.map(p => {
+      if (p.id !== pointId) return p;
+      const counts = { ...p.positionCounts };
+      if (removedPosition) counts[removedPosition] = Math.max(0, (counts[removedPosition] || 0) - 1);
+      return { ...p, positionCounts: counts, totalPositions: Math.max(0, p.totalPositions - 1) };
+    }));
   }, []);
 
   // A tab renders only if it has content. cmp7/cmp3 are Points only, so no tabs
