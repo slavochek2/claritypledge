@@ -37,7 +37,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
 const MIDPOINT_VALUE = 5;
-const POLE_LABELS = { low: 'Keep it light', high: 'Go deep' };
+const POLE_LABELS = { low: 'Stay on the surface', high: 'Go deep' };
 /** Deliberately the same sentence the general /ready uses for its own marks — this is the
  * screen-reader-only description of the `others` dots, and the two surfaces render the
  * identical thing. Scoped to this event's room rather than the whole site. */

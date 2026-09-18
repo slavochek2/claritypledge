@@ -56,7 +56,7 @@ describe('P1077 — /ready', () => {
     await renderPage();
     // Twice each since P1083: once for the distribution's own axis, once for the
     // slider's — both are simple presence checks, not a specific-instance claim.
-    expect(screen.getAllByText('Keep it light').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Stay on the surface').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Go deep').length).toBeGreaterThan(0);
   });
 

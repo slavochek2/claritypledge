@@ -93,7 +93,7 @@ test.describe('P1083 /ready distribution', () => {
     await page.goto('/ready');
     // The axis now belongs to the slider itself (one shared ruler), so assert it
     // there rather than inside the marks layer, which no longer carries labels.
-    await expect(page.getByText('Keep it light')).toBeVisible();
+    await expect(page.getByText('Stay on the surface')).toBeVisible();
     const bodyText = (await page.locator('body').innerText()) ?? '';
     expect(bodyText).not.toMatch(/error|failed|unavailable|nobody/i);
   });

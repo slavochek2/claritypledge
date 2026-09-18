@@ -50,7 +50,7 @@ const PAGE_TITLE = "Before you meet";
 const QUESTION = "How up for thinking are you right now?";
 const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
-const POLE_LABELS = { low: "Keep it light", high: "Go deep" };
+const POLE_LABELS = { low: "Stay on the surface", high: "Go deep" };
 const DISTRIBUTION_LABEL = "How up for thinking others are right now";
 
 export function ReadyPage() {

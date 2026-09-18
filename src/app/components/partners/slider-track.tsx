@@ -23,7 +23,7 @@ interface SliderTrackProps {
   ariaLabel?: string;
   /** P1077: when set, renders a tick + label at the midpoint (5/10) — e.g. "Neutral". */
   midpointLabel?: string;
-  /** P1077: when set, renders a label under each end of the track (e.g. "Keep it light" / "Go deep"). */
+  /** P1077: when set, renders a label under each end of the track (e.g. "Stay on the surface" / "Go deep"). */
   poleLabels?: { low: string; high: string };
   /**
    * P1077: renders the thumb hollow and the fill bar grey instead of solid blue —

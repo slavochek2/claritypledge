@@ -175,7 +175,7 @@ describe('P1083 — /ready distribution', () => {
     expect(othersLabel()).not.toBeInTheDocument();
     expect(screen.getByRole('slider')).not.toHaveAttribute('aria-describedby');
     // The slider's own axis still renders — the page is unchanged, not emptied.
-    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Stay on the surface')).toBeInTheDocument();
     expect(screen.queryByText(/error|failed|unavailable/i)).not.toBeInTheDocument();
   });
 
@@ -207,7 +207,7 @@ describe('P1083 — /ready distribution', () => {
     column.querySelectorAll('.sr-only').forEach((el) => el.remove());
     const words = (column.textContent ?? '').replace(/\s+/g, ' ').trim();
     expect(words).toBe(
-      'How up for thinking are you right now?Keep it lightGo deepNeutralContinue'
+      'How up for thinking are you right now?Stay on the surfaceGo deepNeutralContinue'
     );
   });
 

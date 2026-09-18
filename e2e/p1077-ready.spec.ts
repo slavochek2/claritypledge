@@ -38,9 +38,9 @@ test.describe('P1077 /ready', () => {
     // distribution row carried its own axis); that row was reviewed as unreadable
     // and its marks moved onto the slider, so there is one shared ruler again.
     // The count assertion is the guard against a duplicate axis coming back.
-    await expect(page.getByText('Keep it light')).toHaveCount(1);
+    await expect(page.getByText('Stay on the surface')).toHaveCount(1);
     await expect(page.getByText('Go deep')).toHaveCount(1);
-    for (const locator of [page.getByText('Keep it light'), page.getByText('Go deep')]) {
+    for (const locator of [page.getByText('Stay on the surface'), page.getByText('Go deep')]) {
       await expect(locator).toBeVisible();
     }
   });
@@ -60,7 +60,7 @@ test.describe('P1077 /ready', () => {
     // that part of the intended touch-target expansion.
     await page.goto('/ready');
     const sliderBox = await slider(page).boundingBox();
-    const labelBox = await page.getByText('Keep it light').boundingBox();
+    const labelBox = await page.getByText('Stay on the surface').boundingBox();
     expect(sliderBox && labelBox && labelBox.y).toBeGreaterThanOrEqual(
       (sliderBox?.y ?? 0) + (sliderBox?.height ?? 0)
     );
@@ -159,7 +159,7 @@ test.describe('P1077 /ready', () => {
 
       await expect(slider(page)).toBeInViewport();
       await expect(page.getByText('Neutral')).toBeInViewport();
-      for (const locator of [page.getByText('Keep it light'), page.getByText('Go deep')]) {
+      for (const locator of [page.getByText('Stay on the surface'), page.getByText('Go deep')]) {
         await expect(locator).toBeInViewport();
       }
       await expect(continueButton(page)).toBeInViewport();

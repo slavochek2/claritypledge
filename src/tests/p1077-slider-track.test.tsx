@@ -88,7 +88,7 @@ describe('P1077 — SliderTrack new props (opt-in only)', () => {
 
   it('renders no pole labels when poleLabels is not passed', () => {
     render(<SliderTrack value={5} onChange={vi.fn()} midpointLabel="Neutral" />);
-    expect(screen.queryByText('Keep it light')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stay on the surface')).not.toBeInTheDocument();
     expect(screen.queryByText('Go deep')).not.toBeInTheDocument();
   });
 
@@ -97,10 +97,10 @@ describe('P1077 — SliderTrack new props (opt-in only)', () => {
       <SliderTrack
         value={5}
         onChange={vi.fn()}
-        poleLabels={{ low: 'Keep it light', high: 'Go deep' }}
+        poleLabels={{ low: 'Stay on the surface', high: 'Go deep' }}
       />
     );
-    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Stay on the surface')).toBeInTheDocument();
     expect(screen.getByText('Go deep')).toBeInTheDocument();
   });
 
@@ -110,10 +110,10 @@ describe('P1077 — SliderTrack new props (opt-in only)', () => {
         value={5}
         onChange={vi.fn()}
         midpointLabel="Neutral"
-        poleLabels={{ low: 'Keep it light', high: 'Go deep' }}
+        poleLabels={{ low: 'Stay on the surface', high: 'Go deep' }}
       />
     );
-    expect(screen.getByText('Keep it light')).toBeInTheDocument();
+    expect(screen.getByText('Stay on the surface')).toBeInTheDocument();
     expect(screen.getByText('Neutral')).toBeInTheDocument();
     expect(screen.getByText('Go deep')).toBeInTheDocument();
   });
