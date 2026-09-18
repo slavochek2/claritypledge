@@ -931,6 +931,8 @@ Worked example: `e2e/integration/p425-stories-rls.spec.ts`. Rationale:
 
 **When required:** Any feature that adds a migration file (`supabase/migrations/*.sql`) MUST have an integration test. This is mandatory — not optional.
 
+**Run them explicitly — a browser e2e run does not include them.** `playwright.config.ts` gives the `chromium` project `testIgnore: '**/integration/**'`, so `npx playwright test e2e/<file>` and any `--project=chromium` run skip this directory entirely. A change to a migration or an RPC is not "tested" until `npx playwright test --project=integration` (or the specific `e2e/integration/<file>` with that flag) has run green against the migrated DB. 2026-09-18 (P1114): a browser run reported 16/16 while `e2e/integration/p1114-room-rpcs.spec.ts` still asserted the pre-change contract and would have failed.
+
 **Two-Client Pattern (mandatory):**
 
 ```typescript
