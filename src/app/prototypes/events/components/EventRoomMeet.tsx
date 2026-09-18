@@ -96,6 +96,9 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
+/** Pause between re-reads while a failed write is unreconciled (see `runWrite`). */
+const RECONCILE_RETRY_MS = 2000;
+
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
 
@@ -235,6 +238,13 @@ export function EventRoomMeet() {
    * synchronously on the first call and closes it.
    */
   const inFlight = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true; // re-set on remount (StrictMode runs effects twice in dev)
+    return () => { mountedRef.current = false; };
+  }, []);
+  /** The current step, readable from inside an async write (see `runWrite`). */
+  const stepKeyRef = useRef<string>('choosing');
 
   // Measured bottom-bar height (see file doc comment) — same pattern as
   // meeting-terms-page.tsx's ratingBarHeight.
@@ -295,12 +305,25 @@ export function EventRoomMeet() {
     inFlight.current = true;
     setSubmitting(true);
     setWriteFailed(false);
+    const stepBefore = stepKeyRef.current;
     try {
       await runSelfWrite(write);
     } catch {
-      const ok = await refresh().catch(() => false);
-      setReconciled(ok);
-      setWriteFailed(true);
+      // Round 4: until a read succeeds this screen does not know the current answer (the
+      // write may have committed with its response lost), so every control stays locked and
+      // the read is retried. Unlocking early let a tap on the OTHER answer record a false
+      // change of mind in the research history. Writes cannot succeed offline anyway.
+      let ok = await refresh().catch(() => false);
+      while (!ok && mountedRef.current) {
+        setReconciled(false);
+        setWriteFailed(true);
+        await new Promise((r) => setTimeout(r, RECONCILE_RETRY_MS));
+        ok = await refresh().catch(() => false);
+      }
+      setReconciled(true);
+      // The re-read may show the write DID commit (response lost): the step moved on, and
+      // "That didn't save" would be false. Flag it only when the step is unchanged.
+      setWriteFailed(stepKeyRef.current === stepBefore);
     } finally {
       inFlight.current = false;
       setSubmitting(false);
@@ -338,6 +361,7 @@ export function EventRoomMeet() {
   // Keyed on the same derivation as `step` below, computed here because hooks must run
   // before the early returns.
   const stepKey = self?.optedIn == null ? 'choosing' : self.comprehensionRating == null ? 'rating' : 'answered';
+  stepKeyRef.current = stepKey;
   useEffect(() => { setWriteFailed(false); }, [stepKey]);
 
   if (loading || (granted && selfLoading)) return null;
@@ -562,7 +586,7 @@ export function EventRoomMeet() {
                 <p role="status" className="text-center text-sm font-medium text-destructive">
                   {reconciled
                     ? <>That didn&apos;t save. Try again.</>
-                    : <>That didn&apos;t save, and the connection looks down. Try again in a moment.</>}
+                    : <>Reconnecting&hellip;</>}
                 </p>
               )}
 

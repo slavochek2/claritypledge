@@ -27,7 +27,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { subscribeToRoomRoster } from '@/app/data/event-room-service';
+import { subscribeToRoomRoster, ROSTER_FETCH_TIMEOUT_MS } from '@/app/data/event-room-service';
 
 const dbRow = (id: string) => ({ id, event_id: 'e1', profile_id: null, display_name: id, opted_in: null, comprehension_rating: null, joined_at: '2026-09-18T00:00:00Z', profile: null });
 function deferred() {
@@ -69,6 +69,25 @@ describe('subscribeToRoomRoster', () => {
     expect(fetches, 'exactly one follow-up fetch for all three events').toBe(2);
     expect(seen.at(-1)).toEqual(['ann', 'bo']);
     stop();
+  });
+
+  it('a fetch that HANGS times out and the queued reload runs — the projector never freezes (round 4)', async () => {
+    vi.useFakeTimers();
+    try {
+      queue.push(new Promise<Result>(() => {}));                    // never settles
+      const seen: string[][] = [];
+      const stop = subscribeToRoomRoster('e1', (r) => seen.push(r.map((m) => m.displayName)));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetches).toBe(1);
+      queue.push(Promise.resolve({ data: [dbRow('ann')], error: null }));
+      realtimeHandler!();                                           // someone answered
+      await vi.advanceTimersByTimeAsync(ROSTER_FETCH_TIMEOUT_MS + 1);
+      expect(fetches, 'the queued reload must run once the hung fetch times out').toBe(2);
+      expect(seen.at(-1)).toEqual(['ann']);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('the FIRST load still reports [] on failure, so the zero-state renders', async () => {

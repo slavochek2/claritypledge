@@ -199,10 +199,26 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
   return (await fetchRoomRoster(eventId)) ?? [];
 }
 
+/** Longest a single roster fetch may take before it counts as failed. */
+export const ROSTER_FETCH_TIMEOUT_MS = 10_000;
+
 /** `getRoomRoster` without the failure-to-`[]` collapse: `null` means the read FAILED, so
  * the realtime path can keep the last good roster instead of painting an empty one over
  * it (2026-09-18 adversarial review). */
 async function fetchRoomRoster(eventId: string): Promise<EventRoomMember[] | null> {
+  // Bounded (round 4): the realtime path runs one fetch at a time, so a request that hangs
+  // on venue Wi-Fi would otherwise freeze the projected roster for good. A timed-out fetch
+  // counts as FAILED — it applies nothing, and the queued reload runs next.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ROSTER_FETCH_TIMEOUT_MS); });
+  try {
+    return await Promise.race([queryRoomRoster(eventId), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function queryRoomRoster(eventId: string): Promise<EventRoomMember[] | null> {
   const { data, error } = await supabase
     .from('event_room_members')
     .select(`

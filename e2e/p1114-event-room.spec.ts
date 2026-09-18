@@ -351,6 +351,32 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
   });
 
+  test('a failed answer whose re-read ALSO fails keeps every control locked until the connection is back (round 4)', async ({ page }) => {
+    // The write may have committed with its response lost; until a read succeeds the screen
+    // does not know the answer, and unlocking let a tap on the OTHER answer record a false
+    // change of mind in the history.
+    const visitor = await freshUser('P1114 Reconnect Visitor');
+    await signInRegistered(page, event, visitor);
+    await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
+
+    const down = (route: import('@playwright/test').Route) =>
+      route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"offline"}' });
+    for (const fn of ['set_room_opt_in', 'get_my_room_status', 'join_event_room']) {
+      await page.route(`**/rest/v1/rpc/${fn}`, down);
+    }
+    await page.getByTestId('room-opt-in-yes').click();
+    await expect(page.getByText('Reconnecting…')).toBeVisible();
+    await expect(page.getByTestId('room-opt-in-no'), 'the other answer must stay locked').toBeDisabled();
+    await expect(page.getByTestId('room-opt-in-yes')).toBeDisabled();
+
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    // Reconciled: nothing was written, so the screen says so and unlocks.
+    await expect(page.getByText("That didn't save. Try again.")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('room-opt-in-no')).toBeEnabled();
+    await expect(page.getByTestId('room-my-opt-in-status')).toHaveAttribute('data-opted-in', 'unanswered');
+  });
+
   test('Opt in and Opt out tapped in the SAME frame write exactly one answer — the first', async ({ page }) => {
     // event_room_answers is append-only and cascade-counted, and it is the table the
     // spec's research question reads. Since 2026-09-18 the TAP is the write, so the race
