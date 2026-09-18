@@ -53,9 +53,9 @@ beforeEach(() => {
   getStories.mockReset().mockResolvedValue([]);
 });
 
-function renderStake() {
+function renderStake(tag = 'cmp7') {
   return render(
-    <MemoryRouter initialEntries={['/stake/cmp7']}>
+    <MemoryRouter initialEntries={[`/stake/${tag}`]}>
       <Routes><Route path="/stake/:tag" element={<StakePage />} /></Routes>
     </MemoryRouter>
   );
@@ -99,6 +99,16 @@ describe('P1179 AC-9 — a position change triggers no refetch and no loading fl
     expect(screen.getByTestId('total-p1').textContent).toBe('0');
     expect(screen.getByTestId('mine-p1').textContent).toBe('none');
     expect(screen.getAllByTestId('point-card')).toHaveLength(2);
+    expect(getPoints).toHaveBeenCalledTimes(1);
+  });
+
+  it('OFF the standing instruments, withdrawing the last position drops the point locally (P543), still with no refetch', async () => {
+    const mine = { ...point('p1', 'first', 1), userPosition: { position: 'agree' } } as unknown as PointWithUserPosition;
+    getPoints.mockResolvedValue([mine, point('p2', 'second', 2)]);
+    renderStake('someothertag');
+    await screen.findAllByTestId('point-card');
+    await userEvent.click(screen.getByTestId('withdraw-p1'));
+    expect(screen.getAllByTestId('point-card')).toHaveLength(1);
     expect(getPoints).toHaveBeenCalledTimes(1);
   });
 

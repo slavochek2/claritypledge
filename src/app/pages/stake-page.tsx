@@ -128,8 +128,11 @@ export function StakePage() {
       // Points/Stories tabs) re-seeded the card from the fetched `userPosition` and lit the
       // withdrawn button again. Only the viewer's own withdrawal ever calls this.
       return { ...p, positionCounts: counts, totalPositions: Math.max(0, p.totalPositions - 1), userPosition: undefined };
-    }));
-  }, []);
+    })
+      // Off the standing instruments, P543 holds locally too: the fetch would hide this point
+      // on the next load, so it must not linger until then (round 2).
+      .filter(p => keepsUnstaked(tag ?? '') || p.totalPositions > 0));
+  }, [tag]);
 
   // A tab renders only if it has content. cmp7/cmp3 are Points only, so no tabs
   // appear there; a per-event topic tag may carry both. Founder: "a tab is only

@@ -80,9 +80,9 @@ export interface EventRoomSelfState {
   self: EventRoomSelf | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  /** Adopt a row a write RPC just returned, as the newest known state. Any read issued
-   * before this call that resolves later is discarded (see `seqRef`). */
-  applySelf: (row: EventRoomSelf) => void;
+  /** Run one of this person's writes and adopt the row it returns — ordered by when the
+   * write STARTED against every read (see `offer`). Rejects when the write fails. */
+  runSelfWrite: (write: () => Promise<EventRoomSelf>) => Promise<void>;
 }
 
 /** Auto-joins a granted (registered + signed-in) caller into the room the first time
@@ -116,30 +116,42 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   const startedKeyRef = useRef<string | null>(null);
 
   /**
-   * Latest-issued wins (2026-09-18 adversarial review). The room page refreshes `self` on
-   * every roster event, so several reads are in flight at the "everyone answer now" moment,
-   * and they can resolve out of order: a read issued just BEFORE your own write, landing
-   * AFTER it, used to put the pre-write row back — the rating card reappeared after Submit.
-   * Each read takes a ticket; only the newest ticket may write `self`. `applySelf` takes a
-   * ticket too, so a write's returned row outranks every read issued before it.
+   * Newest-ISSUED-and-applied wins (2026-09-18 adversarial review, two rounds). The room
+   * page refreshes `self` on every roster event, so reads and this person's own writes are
+   * in flight together and resolve out of order. Every read and every write takes a ticket
+   * when it STARTS; a response is applied only if its ticket is newer than the last one
+   * applied. So:
+   *   - a read issued before your write, landing after it, cannot put the pre-write row
+   *     back (the rating card reappearing after Submit);
+   *   - a write whose response is delayed cannot overwrite a newer state a later read has
+   *     already shown (the same person changing their answer on a second device);
+   *   - a FAILED read applies nothing and cancels nothing still in flight.
+   * If a later read was issued before a write committed, it can show the pre-write row for
+   * a moment; the write's own realtime event triggers a fresh read that corrects it.
    */
-  const seqRef = useRef(0);
+  const issuedRef = useRef(0);
+  const appliedRef = useRef(0);
+  const offer = useCallback((ticket: number, row: EventRoomSelf) => {
+    if (ticket <= appliedRef.current) return;
+    appliedRef.current = ticket;
+    setSelf(row);
+  }, []);
 
   const load = useCallback(async () => {
     if (!event || !granted) return;
-    const ticket = ++seqRef.current;
+    const ticket = ++issuedRef.current;
     const status = await getMyRoomStatus(event.id);
     if (status) {
-      if (ticket === seqRef.current) setSelf(status);
+      offer(ticket, status);
       return;
     }
     try {
       const joined = await joinEventRoom(event.id, user?.name || 'Guest');
-      if (ticket === seqRef.current) setSelf(joined);
+      offer(ticket, joined);
     } catch {
       // Room closed/full — leave self null; callers degrade to their own frozen/error UI.
     }
-  }, [event, granted, user?.name]);
+  }, [event, granted, user?.name, offer]);
 
   const currentKey = granted && event ? event.id : null;
 
@@ -164,10 +176,13 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     await load();
   }, [load]);
 
-  const applySelf = useCallback((row: EventRoomSelf) => {
-    ++seqRef.current;
-    setSelf(row);
-  }, []);
+  /** Runs a write under a ticket taken NOW, before it is sent, and offers its returned
+   * row under that ticket — so a response that arrives late loses to any read issued after
+   * the write started. Resolves true when the write succeeded (applied or superseded). */
+  const runSelfWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
+    const ticket = ++issuedRef.current;
+    offer(ticket, await write());
+  }, [offer]);
 
   // Render-time correction for the race described above: if this render's
   // (event, granted) says a load should be running for a key the effect hasn't
@@ -176,5 +191,5 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   // defer to the real `loading` state, which correctly tracks in-flight vs done.
   const effectiveLoading = currentKey !== null && startedKeyRef.current !== currentKey ? true : loading;
 
-  return { self, loading: effectiveLoading, refresh, applySelf };
+  return { self, loading: effectiveLoading, refresh, runSelfWrite };
 }

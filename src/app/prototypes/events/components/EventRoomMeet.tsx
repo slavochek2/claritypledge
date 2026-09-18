@@ -210,7 +210,7 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
 
 export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
-  const { self, loading: selfLoading, refresh, applySelf } = useEventRoomSelf(event, granted);
+  const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
   const { user } = useAuth();
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
@@ -274,11 +274,17 @@ export function EventRoomMeet() {
   }, [event?.id]);
 
   /**
-   * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read.
-   * Only the write's own failure is reported as "That didn't save": when the write commits
-   * and a separate refresh then failed, the phone used to say it didn't save while the
-   * projector already showed the person opted in (2026-09-18 adversarial review). A failed
-   * write still refreshes, because a write whose RESPONSE was lost may have committed.
+   * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read
+   * (ordering against concurrent reads lives in `runSelfWrite`). Only the write's own
+   * failure is reported as "That didn't save": when the write committed and a separate
+   * refresh then failed, the phone used to say it didn't save while the projector already
+   * showed the person opted in (2026-09-18 adversarial review).
+   *
+   * On failure the latch is HELD until a fresh read has come back, and only then is the
+   * error (and the rating step's "Change your choice") shown: a write whose response was
+   * lost may have committed, and a rating refused because the answer changed on another
+   * device must not offer a reset of an answer this screen has not caught up with yet
+   * (round 2).
    */
   const runWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
     if (inFlight.current) return;
@@ -286,15 +292,15 @@ export function EventRoomMeet() {
     setSubmitting(true);
     setWriteFailed(false);
     try {
-      applySelf(await write());
+      await runSelfWrite(write);
     } catch {
+      await refresh().catch(() => undefined);
       setWriteFailed(true);
-      void refresh().catch(() => undefined);
     } finally {
       inFlight.current = false;
       setSubmitting(false);
     }
-  }, [applySelf, refresh]);
+  }, [runSelfWrite, refresh]);
 
   /** The tap on Opt in / Opt out. Writes the answer with no rating, so the roster shows it
    * at once; the step then derives to `rating` from server state. With no `self` (the

@@ -196,6 +196,13 @@ export async function getRoomReadinessDistribution(eventId: string): Promise<num
  * the normal person row used elsewhere — full name, profile link, avatar, pledge ring,
  * ear badge. */
 export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]> {
+  return (await fetchRoomRoster(eventId)) ?? [];
+}
+
+/** `getRoomRoster` without the failure-to-`[]` collapse: `null` means the read FAILED, so
+ * the realtime path can keep the last good roster instead of painting an empty one over
+ * it (2026-09-18 adversarial review). */
+async function fetchRoomRoster(eventId: string): Promise<EventRoomMember[] | null> {
   const { data, error } = await supabase
     .from('event_room_members')
     .select(`
@@ -210,7 +217,7 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
     `)
     .eq('event_id', eventId)
     .order('joined_at', { ascending: true });
-  if (error) return [];
+  if (error) return null;
   return (data as DbRoomMemberRow[]).map(mapMember);
 }
 
@@ -225,15 +232,23 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
  * also produce. Returns an unsubscribe function. */
 export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventRoomMember[]) => void): () => void {
   let cancelled = false;
-  // Latest-issued wins: every realtime event starts a reload, and at the "everyone answer
-  // now" moment several are in flight and can resolve out of order. An older response
-  // landing last used to put a superseded roster back until the next event or poll.
-  let seq = 0;
+  // Newest-APPLIED wins: every realtime event starts a reload, and at the "everyone answer
+  // now" moment several are in flight and can resolve out of order. A response is applied
+  // only if it was issued after the last one applied, so an older roster can never land
+  // over a newer one. A FAILED read applies nothing — it neither blanks the projected
+  // roster nor cancels a good read still in flight (2026-09-18 adversarial review, round 2).
+  // The first load keeps the old contract (`[]` on failure) so the page's whole-roster
+  // zero-state still renders.
+  let issued = 0;
+  let applied = 0;
 
-  const reload = async () => {
-    const ticket = ++seq;
-    const roster = await getRoomRoster(eventId);
-    if (!cancelled && ticket === seq) onUpdate(roster);
+  const reload = async (initial = false) => {
+    const ticket = ++issued;
+    const roster = await fetchRoomRoster(eventId);
+    if (cancelled || ticket <= applied) return;
+    if (roster === null && !initial) return;
+    applied = ticket;
+    onUpdate(roster ?? []);
   };
 
   const channel = supabase
@@ -245,7 +260,7 @@ export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventR
     )
     .subscribe();
 
-  void reload();
+  void reload(true);
   const pollId = setInterval(() => { void reload(); }, RECONCILE_POLL_MS);
 
   return () => {
