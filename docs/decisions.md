@@ -6,6 +6,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-18 [product]: In the event room the TAP is the answer — the projector shows Opt in / Opt out at once, the understanding number attaches after (P1114)
+
+**Context:** Founder: *"when people opt in in /meeting or event room — they need to be shown as opt in or opt out right away, not after they click 'how much they understand'."* Since 2026-08-21 the tap wrote nothing; the answer and the 0–10 number were committed together on Submit, so the projected roster held everyone as Undecided through the rating step.
+
+**Decision:** The tap writes the answer (`set_room_opt_in` with a NULL rating) and the roster moves the person immediately; the number attaches through a new compare-and-set RPC, `set_room_rating`, which never changes the answer and never writes answer history. The rating is still asked of both answers before the answered step. **Mis-tap handling kept as is (founder, 2026-09-18, "keep as is"):** the rating card has no cancel on the normal path — a mis-tap is undone by submitting a number, then "Change your choice". The only exit from the card is after a failed save that has been reconciled.
+
+**Alternatives rejected:** Keeping the 2026-08-21 flow (answer invisible until rated) — the founder's request. Always showing "Change your choice" on the rating card — recommended by two reviewers because a mis-tap is now public on the projector; the founder kept the card as is.
+
+**Consequences:** **Research-data definition cutoff, 2026-09-18:** an `event_room_answers` row is now written at the tap, not at Submit; `answered_at` is tap time, `cascade_count` counts tapped-but-unrated opt-ins, and a tapped-but-never-rated answer keeps its history row (and may stay on the frozen roster with a NULL rating). Rows before and after this date are not directly comparable. Deploy order is load-bearing: both migrations on prod before the frontend — the new client against the old RPC cannot answer at all; the old client works against the new RPCs.
+
+**References:** `supabase/migrations/20260918120000_p1114_opt_in_before_rating.sql`, `supabase/migrations/20260918120100_p1114_set_room_rating.sql`, `src/app/prototypes/events/components/EventRoomMeet.tsx`
+
+## 2026-09-18 [technical]: Event-room client state is ordered by rules, not by request order — and 40001 is not a "conflict" code (P1114)
+
+**Context:** Making the tap a write put two writes per person in flight during the "everyone answer now" burst, alongside a self re-read on every roster event. Four adversarial review rounds (Codex ×4, Gemini 3.8, Opus ×2) each found a real ordering defect in the previous fix: arrival order, then issue order, were both used as a freshness oracle, and neither tells which response holds the newer database state.
+
+**Decision:** No client-side freshness guessing. (1) A write's returned row beats every read sent while it was in flight; (2) every write is followed by one fresh read sent after it resolved; (3) among reads, only one sent after the last applied may apply, and a failed read applies nothing (`refresh()` reports it); (4) rows from another event never apply. On a failed write whose re-read also fails, every control stays locked ("Reconnecting…", retry every 2 s) — unlocking let a tap on the other answer record a false change of mind. The roster fetch is single-flight with a dirty flag and a 10 s bound, and a failed fetch keeps the last good roster. Stale ratings are stopped server-side by compare-and-set, not by the client.
+
+**Alternatives rejected:** Latest-issued-wins and newest-applied tickets (rounds 1–2 — both let a stale snapshot win or a failed read cancel a good one). A server row revision column — sound, but a schema change on event day; the rules above reach the same end state within one round trip.
+
+**Consequences:** **Gotcha:** a RAISE with `ERRCODE = '40001'` (serialization_failure) made the client treat the refusal as retryable and hang until timeout — use `P0001` (or a check-violation code) for business refusals. The unit ordering tests (`p1114-self-ordering`, `p1114-roster-reload-ordering`) each have a control that fails on the previous design. Known LOW residuals, not fixed: `join_event_room`'s upsert always writes, so the load fallback emits a roster event even when nothing changed; a one-frame "That didn't save" flash when a lost-response write actually committed. Separately found and **not** caused by this work: on the TEST project, `readiness_value` is still anon-selectable (integration test "room readiness has no expiry" fails) — needs its own look.
+
+**References:** `src/app/prototypes/events/components/EventRoomAccess.tsx`, `src/app/data/event-room-service.ts`, `e2e/integration/p1114-room-rpcs.spec.ts`
+
+## 2026-09-18 [product]: /stake keeps zero-position points on the standing instruments — cmp7 is seven points even when nobody has staked one (P1179, P543)
+
+**Context:** Founder screenshot on `/stake/cmp7`: *"when I remove my position here the point disappears from /stake, why??"* P543 hides zero-position points from every listing, and /stake reused that filter plus a local drop-at-zero. Measured on prod the same day: `/stake/cmp7` was showing **6 of 7** points and `/stake/cmp10` 9 of 10, because one instrument statement had no stakes.
+
+**Decision:** On the six `STANDARD_STAKE_TAGS` (cmp7, cmp3, cmp10, understanding, misunderstanding, aisafety1) a point stays listed at zero — on load and after withdrawing. Every other `/stake/<tag>` and `/feed` keep P543. With zero-position points kept, a failed count read throws (the page shows its retry) instead of painting every point at 0. Low pole label on /ready changed the same day: "Keep it light" → **"Stay on the surface"** (pairs with "Go deep" on one surface/depth axis without the put-down "superficial" carries).
+
+**Alternatives rejected:** Dropping P543 on /stake for every tag — arbitrary user tags would show abandoned points on a projected screen. Leaving it — the instrument is incomplete by definition.
+
+**Consequences:** Prod was checked before shipping: every zero-position point under the six tags is a real instrument statement, none is junk. A new standing tag inherits this behaviour by being added to `STANDARD_STAKE_TAGS`.
+
+**References:** `src/app/pages/stake-page.tsx`, `src/app/data/event-links.ts`, `e2e/p1179-stake-surface.spec.ts`
+
+---
+
 ## 2026-09-17 [product]: The founder has no problem he wants strangers to argue with — the board's premise, not its volume, is what the zeros were measuring (P1319, P1320, P1182, problem-board)
 
 **Context:** The first real run of `/slava:problem:submit` on the founder's own history returned
