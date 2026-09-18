@@ -79,9 +79,10 @@ export function useEventRoomAccess(): EventRoomAccess {
 export interface EventRoomSelfState {
   self: EventRoomSelf | null;
   loading: boolean;
-  refresh: () => Promise<void>;
-  /** Run one of this person's writes and adopt the row it returns — ordered by when the
-   * write STARTED against every read (see `offer`). Rejects when the write fails. */
+  /** Resolves true when the server answered, false when the read failed. */
+  refresh: () => Promise<boolean>;
+  /** Run one of this person's writes and adopt the row it returns, then re-read (see the
+   * ordering rules in the hook). Rejects when the write fails. */
   runSelfWrite: (write: () => Promise<EventRoomSelf>) => Promise<void>;
 }
 
@@ -116,40 +117,52 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   const startedKeyRef = useRef<string | null>(null);
 
   /**
-   * Newest-ISSUED-and-applied wins (2026-09-18 adversarial review, two rounds). The room
-   * page refreshes `self` on every roster event, so reads and this person's own writes are
-   * in flight together and resolve out of order. Every read and every write takes a ticket
-   * when it STARTS; a response is applied only if its ticket is newer than the last one
-   * applied. So:
-   *   - a read issued before your write, landing after it, cannot put the pre-write row
-   *     back (the rating card reappearing after Submit);
-   *   - a write whose response is delayed cannot overwrite a newer state a later read has
-   *     already shown (the same person changing their answer on a second device);
-   *   - a FAILED read applies nothing and cancels nothing still in flight.
-   * If a later read was issued before a write committed, it can show the pre-write row for
-   * a moment; the write's own realtime event triggers a fresh read that corrects it.
+   * Ordering of `self` (2026-09-18 adversarial review, three rounds). The room page refreshes
+   * `self` on every roster event, so reads and this person's own writes are in flight together
+   * and resolve out of order — and a client cannot tell which response reflects the newer
+   * DATABASE state from when it sent or received it. So the rules do not guess:
+   *   1. A write's returned row is authoritative over every read that was already sent while
+   *      it was in flight (those may have snapshotted the pre-write row): when the write
+   *      resolves, all reads issued so far are fenced off.
+   *   2. Every write is followed by one fresh read, sent after it resolved — so a newer
+   *      state from elsewhere (the same person on a second device) still wins, one round
+   *      trip later.
+   *   3. Among reads, a response applies only if it was sent after the last applied one.
+   *      A FAILED read applies nothing and fences nothing.
+   *   4. Everything is scoped to the current event: a response for another event, or from
+   *      before an event switch, is dropped.
    */
   const issuedRef = useRef(0);
   const appliedRef = useRef(0);
+  const eventIdRef = useRef<string | null>(null);
+  eventIdRef.current = granted && event ? event.id : null;
+
   const offer = useCallback((ticket: number, row: EventRoomSelf) => {
+    if (row.eventId !== eventIdRef.current) return;
     if (ticket <= appliedRef.current) return;
     appliedRef.current = ticket;
     setSelf(row);
   }, []);
 
-  const load = useCallback(async () => {
-    if (!event || !granted) return;
+  /** One read. Resolves true when the server answered (applied, or superseded by something
+   * newer), false when the read FAILED — so a caller can tell "reconciled" from "unknown". */
+  const load = useCallback(async (): Promise<boolean> => {
+    if (!event || !granted) return false;
     const ticket = ++issuedRef.current;
     const status = await getMyRoomStatus(event.id);
     if (status) {
       offer(ticket, status);
-      return;
+      return true;
     }
     try {
+      // join_event_room upserts and never resets an existing answer, so this also recovers
+      // the row when the status read itself failed.
       const joined = await joinEventRoom(event.id, user?.name || 'Guest');
       offer(ticket, joined);
+      return true;
     } catch {
-      // Room closed/full — leave self null; callers degrade to their own frozen/error UI.
+      // Room closed/full, or unreachable — leave self as it is; callers degrade.
+      return false;
     }
   }, [event, granted, user?.name, offer]);
 
@@ -161,6 +174,7 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       setLoading(false);
       return;
     }
+    if (startedKeyRef.current !== event.id) setSelf(null); // another event's row must never show here
     startedKeyRef.current = event.id;
     let cancelled = false;
     setLoading(true);
@@ -172,17 +186,16 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load is derived from the same [event, granted] pair
   }, [event, granted]);
 
-  const refresh = useCallback(async () => {
-    await load();
-  }, [load]);
+  const refresh = useCallback(() => load(), [load]);
 
-  /** Runs a write under a ticket taken NOW, before it is sent, and offers its returned
-   * row under that ticket — so a response that arrives late loses to any read issued after
-   * the write started. Resolves true when the write succeeded (applied or superseded). */
+  /** Runs one of this person's writes (rules 1 and 2 above). Rejects when the write fails,
+   * with nothing applied. */
   const runSelfWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
-    const ticket = ++issuedRef.current;
-    offer(ticket, await write());
-  }, [offer]);
+    const row = await write();
+    const fence = ++issuedRef.current; // newer than every read sent so far
+    offer(fence, row);
+    void load();
+  }, [offer, load]);
 
   // Render-time correction for the race described above: if this render's
   // (event, granted) says a load should be running for a key the effect hasn't

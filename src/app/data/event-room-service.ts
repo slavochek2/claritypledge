@@ -232,23 +232,30 @@ async function fetchRoomRoster(eventId: string): Promise<EventRoomMember[] | nul
  * also produce. Returns an unsubscribe function. */
 export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventRoomMember[]) => void): () => void {
   let cancelled = false;
-  // Newest-APPLIED wins: every realtime event starts a reload, and at the "everyone answer
-  // now" moment several are in flight and can resolve out of order. A response is applied
-  // only if it was issued after the last one applied, so an older roster can never land
-  // over a newer one. A FAILED read applies nothing — it neither blanks the projected
-  // roster nor cancels a good read still in flight (2026-09-18 adversarial review, round 2).
-  // The first load keeps the old contract (`[]` on failure) so the page's whole-roster
-  // zero-state still renders.
-  let issued = 0;
-  let applied = 0;
+  // ONE fetch in flight at a time; an event that arrives meanwhile marks the roster dirty and
+  // triggers exactly one more fetch, sent after the current one returned. So the last fetch
+  // always starts after the last event — the projector ends on the newest state without
+  // guessing freshness from request order (2026-09-18 adversarial review, three rounds). A
+  // FAILED fetch applies nothing, so it never blanks a roster already shown; before the
+  // first success it reports [] (the page's whole-roster zero-state contract).
+  let inFlight = false;
+  let dirty = false;
+  let hasGood = false;
 
-  const reload = async (initial = false) => {
-    const ticket = ++issued;
-    const roster = await fetchRoomRoster(eventId);
-    if (cancelled || ticket <= applied) return;
-    if (roster === null && !initial) return;
-    applied = ticket;
-    onUpdate(roster ?? []);
+  const reload = async () => {
+    if (inFlight) { dirty = true; return; }
+    inFlight = true;
+    try {
+      do {
+        dirty = false;
+        const roster = await fetchRoomRoster(eventId);
+        if (cancelled) return;
+        if (roster !== null) { hasGood = true; onUpdate(roster); }
+        else if (!hasGood) onUpdate([]);
+      } while (dirty && !cancelled);
+    } finally {
+      inFlight = false;
+    }
   };
 
   const channel = supabase
@@ -260,7 +267,7 @@ export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventR
     )
     .subscribe();
 
-  void reload(true);
+  void reload();
   const pollId = setInterval(() => { void reload(); }, RECONCILE_POLL_MS);
 
   return () => {

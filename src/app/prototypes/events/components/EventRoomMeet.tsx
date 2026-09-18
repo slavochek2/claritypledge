@@ -220,6 +220,9 @@ export function EventRoomMeet() {
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
+  /** After a failed write: did the re-read succeed? Only then does this screen know the
+   * current answer — and only then may it offer a reset of it. */
+  const [reconciled, setReconciled] = useState(true);
   /**
    * Synchronous in-flight latch. `submitting` drives the DISABLED styling, but it cannot
    * be the guard: it is React state, so two taps dispatched in the same frame both read
@@ -280,11 +283,12 @@ export function EventRoomMeet() {
    * refresh then failed, the phone used to say it didn't save while the projector already
    * showed the person opted in (2026-09-18 adversarial review).
    *
-   * On failure the latch is HELD until a fresh read has come back, and only then is the
-   * error (and the rating step's "Change your choice") shown: a write whose response was
-   * lost may have committed, and a rating refused because the answer changed on another
-   * device must not offer a reset of an answer this screen has not caught up with yet
-   * (round 2).
+   * On failure the latch is HELD until a re-read has come back, and only then is the error
+   * shown. The rating step's "Change your choice" appears only if that re-read SUCCEEDED
+   * (`reconciled`): a write whose response was lost may have committed, and a reset must
+   * never be offered against an answer this screen has not caught up with (rounds 2-3).
+   * Retrying an answer or a rating is safe without reconciliation — an identical answer is
+   * deduped server-side and a rating is compare-and-set.
    */
   const runWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
     if (inFlight.current) return;
@@ -294,7 +298,8 @@ export function EventRoomMeet() {
     try {
       await runSelfWrite(write);
     } catch {
-      await refresh().catch(() => undefined);
+      const ok = await refresh().catch(() => false);
+      setReconciled(ok);
       setWriteFailed(true);
     } finally {
       inFlight.current = false;
@@ -555,7 +560,9 @@ export function EventRoomMeet() {
 
               {writeFailed && (
                 <p role="status" className="text-center text-sm font-medium text-destructive">
-                  That didn&apos;t save. Try again.
+                  {reconciled
+                    ? <>That didn&apos;t save. Try again.</>
+                    : <>That didn&apos;t save, and the connection looks down. Try again in a moment.</>}
                 </p>
               )}
 
@@ -619,7 +626,7 @@ export function EventRoomMeet() {
                 />
               )}
 
-              {step === 'rating' && writeFailed && (
+              {step === 'rating' && writeFailed && reconciled && (
                 /* The one exit from the card, and ONLY after a failed save (2026-09-18
                    adversarial review). Since the tap now writes the answer, a rating write
                    that keeps failing would otherwise hold the person on this card with no
