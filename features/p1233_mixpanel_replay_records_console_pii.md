@@ -12,9 +12,7 @@ tags:
   - gdpr
 severity: high
 delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
-  - fix
+pipeline_ran: [create-bug, fix]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
