@@ -14,6 +14,7 @@ severity: high
 delivery_stage: create-bug
 pipeline_ran:
   - create-bug
+  - fix
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -66,10 +67,14 @@ That is the whole fix for the exposure. The alternative — auditing 458 call si
 redacted forever, and disclosing console capture in the privacy policy — is strictly more work and
 leaves a standing obligation on every future `console.error` anyone writes.
 
-[FOUNDER DECISION: is console output in replays worth anything to you for debugging? If yes, the
-option can stay on, but then the privacy policy must disclose console capture and the 106
-identifier-bearing call sites need redacting. Recommendation: turn it off — Sentry already captures
-errors with stack traces, which is the debugging surface this would duplicate.]
+**Founder decision (2026-09-21): turn it off** — the recommendation, delegated to the agent with
+"simplify for me". Sentry is the debugging surface.
+
+**Verified in the shipped SDK (2026-09-21)**, `cdn.mxpnl.com/libs/mixpanel-2-latest.min.js`: default
+config carries `record_console:!0`; `mixpanel-recorder.min.js` pushes the rrweb console plugin only
+`if (this.getConfig("record_console"))`. Sibling `record_network` defaults `!1`, so console is the
+only non-DOM payload channel. A Gemini review claimed the option does not exist — refuted by the
+bundle grep.
 
 ## Risks / Non-Goals
 
@@ -86,10 +91,10 @@ errors with stack traces, which is the debugging surface this would duplicate.]
 
 ## Acceptance Criteria
 
-- [ ] `record_console: false` is set in `index.html`, and a canary asserts it stays set
-- [ ] A replay recorded after the change contains no console entries
-- [ ] Session replay still records and still attaches to events (P1216's dependency holds)
-- [ ] Privacy policy's replay description matches what is collected after the change
+- [x] `record_console: false` is set in `index.html`, and a canary asserts it stays set — `src/tests/p1233-mixpanel-no-console-capture.test.ts` 3/3; its mutation control removes the line from the real file and sees `undefined`
+- [x] A replay recorded after the change contains no console entries — by construction: the recorder's only console path is gated on this config key (bundle grep above). Live replay check is post-deploy, prod-only (Mixpanel is off on localhost)
+- [x] Session replay still records and still attaches to events (P1216's dependency holds) — `record_sessions_percent` untouched, canary asserts 100; live confirmation post-deploy
+- [x] Privacy policy's replay description matches what is collected after the change — `privacy.md` §Analytics describes clicks, scrolling and navigation only; never claimed console capture, so it becomes accurate with no edit
 
 ## Related
 
