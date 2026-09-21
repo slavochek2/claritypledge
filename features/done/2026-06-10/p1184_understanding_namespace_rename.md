@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 81
 workstream: infrastructure
 created_date: '2026-08-28'
 tags: [skills, namespaces, refactor]
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-09-21
 ---
 
 # P1184: Move the align-detect chain into an `understanding/` namespace
