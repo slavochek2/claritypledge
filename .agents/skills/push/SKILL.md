@@ -2,7 +2,7 @@
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
 when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 6.0.0
+version: 7.0.0
 ---
 
 # /push
@@ -62,6 +62,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 - Commit tracked changes **you modified this session** → **yes**, no need to ask. Dirty files you did *not* touch → **classified automatically** (below) and left uncommitted with a reported reason. Never ask the user about them.
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
+- Apply to **prod** the migrations the pushed SHA carries → **yes, automatically** (P1211, founder decision D1 = A, 2026-09-21). Typing `/push` authorizes exactly the set `check-schema-ready.sh` names for the SHA being pushed — step 2.5 before the push, step 6 after it — and nothing else. The macOS keychain dialog is the physical confirmation. Never ask "apply migrations?"; never apply a file C1 did not name.
 
 ### Bystander dirty files — resolved automatically, never asked (P1287, 2026-09-09)
 
@@ -167,6 +168,7 @@ A verdict of `UNKNOWN` is not an escalation.
 - **Behind `origin/main`** (divergence) → could be co-tenant work. Report ahead/behind counts and let the user resolve. Do not blindly proceed or auto-rebase shared main.
 - **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`.
 - **Any required check red on staging** (`audit-privacy`, `disclosure`, or whatever the ruleset requires today) → surfaced by `push-docs` naming the context; relay it. Never `--force` or bypass.
+- **Schema gate (P1211)** — any of: `check-schema-ready.sh` exit 2 (cannot determine), an `invalid-marker` line (a `requires-frontend` sha that no longer resolves — P1106; a human repoints it), a non-zero `migrate.sh`, a C1 re-run that is still not 0, or a failed manifest-stamp commit. Relay the lines verbatim. There is no override and no `--force`.
 - **`Authentication failed for 'https://github.com'`** → run `gh auth setup-git` (wires the active `gh` token into git's credential helper — needed after a token rotation), then re-run `push-docs`. One-time fix; does not need user confirmation.
 
 ---
@@ -199,6 +201,63 @@ Respect the git firewall (`.claude/rules/git.md`): **explicit paths only, never 
    ```
 3. Stage **only paths you modified in this session**, by explicit path. Never `git add .` / `-A`. This repo runs concurrent worktree sessions and `git.md` calls staging-everything *"the #1 cause of wrong-files-in-wrong-commit"* — `/push` does not get an exemption from that. The `MINE` set from the classifier above **is** that list; everything else is left alone and reported. Do not ask the user to adjudicate it.
 4. `/push` runs on the shared main checkout, so commit through `./scripts/git-ops.sh commit-to-main --message "..." --files <explicit paths>` (`.claude/rules/git.md` — corrected 2026-08-20: a hand-run `git add` + `git commit -- <files>` is NOT safe there even bystander-checked; `commit-to-main` holds a lock across the whole staging+commit sequence, which is the actual guarantee needed). Use the user's message (or a descriptive `chore:`/`docs:`/`fix:` summary of the staged files) plus the commit trailers your session was given (the `Co-Authored-By:` model line + `Claude-Session:` link from your session's git instructions). **Use the running session's model in the trailer — do not hardcode a model name** (a Sonnet `/push` must not stamp Opus authorship).
+
+### 2.5. Schema before code (P1211) — every time, even with a clean tree
+
+Vercel deploys `main` the moment it moves, and the schema deploys only when someone runs
+`migrate.sh`. On 2026-09-18 a `/push` shipped a client ten minutes ahead of the two migrations
+it needed, on event day, because nothing on this path knew migrations existed. This step is
+that knowledge. `push-docs` (C2) and the `schema-ready` required check (C3) refuse the unsafe
+push whatever this step does; this step is what makes the refusal resolve itself.
+
+```bash
+git fetch origin main
+SHA=$(git rev-parse HEAD)
+./scripts/check-schema-ready.sh --sha "$SHA" > /tmp/schema-ready.out; echo "rc=$?"
+cat /tmp/schema-ready.out
+```
+
+`check-schema-ready.sh` is the only judge — never decide pending-ness yourself from `ls`, the
+manifest, or the diff. Its stdout is one `<reason> <basename>` line per file.
+
+- **rc 0** → continue to step 3. Say nothing.
+- **rc 2** → STOP. Relay its reason (no token, API error, unversioned file, duplicate version,
+  applied migration edited in place). Nothing here resolves a 2.
+- **rc 1 with any `invalid-marker`** → STOP. That is P1106: the `requires-frontend` sha does not
+  resolve, or points outside both `origin/main` and this push. A human repoints the marker.
+- **rc 1 with only `pending` / `overdue-coupled`** → apply exactly those files:
+  1. **`overdue-coupled` present?** Its frontend is already on `origin/main`, but that is not
+     proof the bundle is being served (the promote that carried it may have died before step 6,
+     or its deploy failed). Check first:
+     ```bash
+     ./scripts/check-prod-deploy.sh --sha "$(git rev-parse origin/main)"
+     ```
+     Exit 0 → go on. Anything else → STOP: applying a client-breaking migration while the old
+     bundle is live is the other half of this failure class (Gemini F5 / Codex #9).
+  2. **Announce the dialog in your reply before running it** (`credentials.md`): *"Applying N
+     migration(s) to **prod** for `<sha>`: `<files>`. A macOS dialog saying python will ask for
+     the prod management token (🔔 on this tab) — answer **Allow**, never Always Allow."*
+  3. Apply them, from the committed blobs of `$SHA`:
+     ```bash
+     KEYRING_REASON="/push step 2.5: apply <files> for ${SHA:0:9}" \
+       ./scripts/migrate.sh --env prod --only <basenames from C1> --expect-sha "$SHA" --yes
+     ```
+     `--yes` is D1 = A: `/push` is the acknowledgement, and the list you announced is the list
+     migrate.sh shows. **Any non-zero exit is a STOP** — gate block, blob mismatch (someone
+     edited the file after it was committed), SQL failure, smoke failure. Nothing is pushed.
+  4. Re-run `./scripts/check-schema-ready.sh --sha "$SHA"`. It must exit 0; otherwise STOP.
+  5. Commit the manifest stamp migrate.sh staged, **before** step 3, so the privacy stamp covers
+     it and it rides this push:
+     ```bash
+     ./scripts/git-ops.sh commit-to-main --message "chore: stamp deploy manifest (/push step 2.5)" \
+       --files supabase/deploy-manifest.json
+     ```
+     A non-zero exit is a STOP naming the cause. The migration is already applied, so the push
+     itself would be safe; what is at risk is the stamp's accuracy, and that is never silent.
+
+Client-safe migrations therefore reach prod before the push is authorized. If `push-on` never
+comes, prod holds schema the live client does not use yet — which is what `client-safe` means,
+and is the state `ship.md`'s merge-first flow already produces (spec Risks, Gemini F3).
 
 ### 3. Write the privacy stamp (only if a watched path changed)
 
@@ -299,8 +358,14 @@ fresh grant, but say that plainly.
 ### 5. Run the staging hop
 
 ```bash
-PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs
+PUSH_T0=$(date +%s)          # step 6 accepts only a deployment created after this
+PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs; echo "rc=$?"
 ```
+
+Exit codes (P1211): **0** pushed, nothing due · **1** refused or failed — including the schema gate,
+which runs on the pinned snapshot before anything reaches origin and again right before the
+promote · **3** PUSHED, and coupled migrations are now due → step 6 · **4** PUSHED, but the
+post-promote schema check could not confirm the tree → report it loudly, verbatim.
 
 Deterministic: **snapshot pin** → privacy-coverage check → `main.lock` → staging push to `staging/doc-<short-sha>` → **required-check CI poll** → promote → staging cleanup. `PUSH_DOCS_ASSUME_YES=1` silences only the script's own `y/N`; with the flag FRESH the pre-push waiver handles the rest, and it runs unattended end to end.
 
@@ -359,11 +424,39 @@ A `staging/doc-*` branch is only ever a copy of local `main` at push time, so on
 
 **Real blockers (surface, don't auto-resolve):** `audit-privacy` CI **red** (content is not publishable — never `--force`), privacy coverage gap, staging push rejected (behind origin), `gh` not authenticated.
 
-**What stays protected:** the server-side required checks on main are the real boundary (P919). **Correction, 2026-09-09:** this line previously said "required" is not verifiable from here because the branch-protection API returns 403 to the local `gh` token. That is true of the *branch-protection* endpoint and false of the *rulesets* endpoint — `gh api repos/:owner/:repo/rules/branches/main` returns the required contexts to the ordinary local token, which is exactly how P1290 was diagnosed and what `derive_required_contexts` now calls on every run. Verify, don't assume it is unverifiable. Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, whose `Confirm prod push? (y/N)` + `exec < /dev/tty` in `cmd_ship_to_prod` has no `ASSUME_YES` escape at all.
+**What stays protected:** the server-side required checks on main are the real boundary (P919) — and, once it is added to the ruleset, `schema-ready` (P1211): no SHA whose migrations are not on prod's ledger can become `main`, whatever route it takes. **Correction, 2026-09-09:** this line previously said "required" is not verifiable from here because the branch-protection API returns 403 to the local `gh` token. That is true of the *branch-protection* endpoint and false of the *rulesets* endpoint — `gh api repos/:owner/:repo/rules/branches/main` returns the required contexts to the ordinary local token, which is exactly how P1290 was diagnosed and what `derive_required_contexts` now calls on every run. Verify, don't assume it is unverifiable. Layer 1's PII scan runs on every ref regardless of the flag. `PUSH_DOCS_ASSUME_YES` applies to `push-docs` ONLY — never `ship-to-prod`, whose `Confirm prod push? (y/N)` + `exec < /dev/tty` in `cmd_ship_to_prod` has no `ASSUME_YES` escape at all.
 
 **Never hand the user `! <command>` as a workaround.** Claude Code's `!` bash mode is **not** a TTY: `push-docs` dies at the `[[ -t 0 ]]` guard in its promote step, and the pre-push hook's `/dev/tty` read fails the same way. If the flag is unavailable, the fallback is the user running it in a **real terminal** — not `!`.
 
 Verify and report: `git rev-list --left-right --count origin/main...HEAD` → expect `0	0`.
+
+### 6. After the promote — coupled migrations (P1211)
+
+Only when step 5 exited **3**: a migration marked `-- requires-frontend: <sha>` rode this push
+together with its frontend. It must apply **after** the new bundle is served, never before
+(applying it early breaks the old client still being served — Gemini F5).
+
+```bash
+NEW=$(git rev-parse origin/main)
+./scripts/check-prod-deploy.sh --sha "$NEW" --since "$PUSH_T0" --wait 900; echo "rc=$?"
+```
+
+`check-prod-deploy.sh` accepts only a `vercel[bot]` **Production** deployment of exactly `$NEW`,
+created after the push started, whose latest status is `success`.
+
+- **rc 0** → list what is due and apply exactly that, announcing the dialog as in step 2.5:
+  ```bash
+  ./scripts/check-schema-ready.sh --post --sha "$NEW"        # "due <basename>" lines, exit 3
+  KEYRING_REASON="/push step 6: apply due coupled migrations for ${NEW:0:9}" \
+    ./scripts/migrate.sh --env prod --only <due basenames> --expect-sha "$NEW" --yes
+  ./scripts/check-schema-ready.sh --post --sha "$NEW"        # must now exit 0
+  ./scripts/git-ops.sh commit-to-main --message "chore: stamp deploy manifest (/push step 6)" \
+    --files supabase/deploy-manifest.json
+  ```
+  That stamp commit is local and rides the **next** push — say so in the report.
+- **rc 1** (the deployment failed) or **rc 2** (not live within 15 min, or the API was unreadable)
+  → do **not** apply. Report in one line. This is not silent across pushes: the next `/push`
+  sees the file as `overdue-coupled`, and step 2.5 re-checks the deploy before applying it.
 
 **Never** offer `git push --no-verify`, a direct `git push origin staging/<sha>:main` (skips the lock), or creating `~/.push-enabled` yourself. The flag is the user's to set; `push-on` is theirs to type.
 
@@ -379,5 +472,6 @@ Verify and report: `git rev-list --left-right --count origin/main...HEAD` → ex
 | agent rediscovers the protocol each time | one documented delegation |
 | agent guesses at what blocks it and asserts the guess | flag semantics read from source and cited (step 4) |
 | two `push-on` asks per push (one burned on local work, one on the CI poll) | one ask, after the local work, sized to cover both pushes (step 4) + `--resume` when it still lapses (step 5) |
+| "first migrate prod, then push" living in another session's memory (2026-09-18) | step 2.5 applies what the SHA needs before the push, step 6 applies coupled ones after the deploy, and the gate refuses the push otherwise |
 
 **Honest contract:** with `~/.push-enabled` set, `/push` runs end to end and pushes to main. Without it, `/push` does everything up to the push and asks the user for one word — `push-on` — never a push procedure, and never `!`.

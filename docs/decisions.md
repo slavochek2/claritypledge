@@ -717,6 +717,7 @@ the entries; `/create-spec <ID>` executes them). The seven were finished work no
   and `FUNCTION_UNPUSHED_STAMP` are emitted (P1284).
 - *next-rank.sh still ratchets* (2026-09-01) — `./scripts/next-rank.sh week` returns `106`.
 - *Deploy P1236's schema to prod* (2026-09-14) — done the same day; the manifest stamps are on `origin/main`.
+  *Correction 2026-09-21 (P1211):* "done the same day" hid a ~65 h window in which `/transcribe` was live without its database functions; manifest stamps are self-attested and are not evidence that prod has a migration. The P1211 gate reads prod's ledger instead.
 Private store — resolve 2, keep 20; its reasoning lives in `.private/docs/`. One reviewer-proposed
 private close was **overturned**: the fix it cited removed a symptom, but the entry asked for the test
 to fail loudly, and it still only warns.
@@ -22850,6 +22851,7 @@ Both decisions enforce one invariant: **the snapshot freezes what the author com
 **Alternatives rejected:** Smoke only when `APPLIED_COUNT > 0` (zero-pending runs also smoke — fewer states, every prod-migrate run ends verified); warn-only coupling marker (a warning recreates the P886 "prose, not enforcement" gap).
 
 **Consequences:** Any future client-breaking migration must name its frontend commit or affirm client-safety at commit time — forgetting is mechanically blocked twice (pre-commit, then prod apply). The gates were live-validated post-ship with a zero-pending prod run: enumeration correct against 173 remote versions, no ack demanded, real smoke 7/7. Regression canary `src/tests/p887-reproduce.test.ts` (11 scenarios, hermetic PATH-stub sandbox) runs in `npm test` and via pre-commit whenever migrate.sh, the checker, or the canary is staged.
+> *Correction 2026-09-21 (P1211):* "blocked twice" holds only in the migration-before-client direction. The opposite direction — the client reaching prod before its migration — had no gate at all until P1211 (`check-schema-ready.sh`, wired into `git-ops.sh` push commands and the `schema-ready` workflow).
 
 **References:** `features/done/2026-04-22/p887_migrate_sh_pending_ack_and_post_migrate_smoke.md`; `scripts/migrate.sh`; `scripts/check-migration-client-safety.sh`; `docs/technical/database.md` (Migration workflow); P886/P887 incident entry below.
 
@@ -30592,6 +30594,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 **Decision:** (1) Applied P586 migration to prod immediately. (2) Added GitHub Actions CI check (`.github/workflows/check-deploy-drift.yml`) that runs `check-deploy-manifest.sh --env prod` on every push to main — cannot be bypassed regardless of which workflow gets the code to main. (3) Added cross-viewer E2E smoke test (`e2e/cross-viewer-profile.spec.ts`) to catch the self-view masking failure mode. The existing `/ship` step 3.6 already had a manifest check — this bug happened because `/ship` was never run.
 **Alternatives rejected:** (A) Add migration to Pre-deploy Checklist only — redundant with CI check, can still be bypassed. (B) Add git-diff check to `/ship` — redundant with existing step 3.6. (C) Block Vercel deploy until migrations confirmed — disproportionate complexity for a solo project. (D) Branch protection on main — changes workflow, adds friction for legitimate direct commits.
 **Consequences:** Three-layer defense: CI check (prevention, bypass-proof), Sentry logging (detection, immediate), cross-viewer test (regression, catches masking). Also fixed stale Supabase PAT in macOS keychain that was blocking `migrate.sh`.
+> *Correction 2026-09-21 (P1211):* the drift CI above was made daily-only two days after this entry, so it was never "prevention, bypass-proof" on the push path — nothing on any route to `origin/main` checked migrations until P1211's `schema-ready` gate. Eleven class-A incidents (code live before its migration) followed; census in `features/p1211_*`.
 **References:** [check-deploy-drift.yml](.github/workflows/check-deploy-drift.yml), [cross-viewer-profile.spec.ts](e2e/cross-viewer-profile.spec.ts), [db-error-logger.ts](src/app/data/db-error-logger.ts)
 
 ## 2026-03-26 [process]: Add /spec-compact to pipeline — the only skill that prunes

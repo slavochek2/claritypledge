@@ -128,7 +128,7 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session (Edit-tool inverse only — NEVER via `git checkout HEAD --`/`git restore`, which is ALWAYS-ASK), npm install (devDependencies).
 
-ALWAYS-ASK (never skip): `git push`, `git checkout HEAD --`/`git restore` (no reflog recovery — see git.md), deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod, modify `.env.prod`, create/modify GitHub PR, publish anything.
+ALWAYS-ASK (never skip): `git push`, `git checkout HEAD --`/`git restore` (no reflog recovery — see git.md), deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod (except the exact set `/push` step 2.5 or step 6 applies for the SHA it is pushing — P1211 D1), modify `.env.prod`, create/modify GitHub PR, publish anything.
 
 JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes — see [.claude/rules/git.md](.claude/rules/git.md).
 
