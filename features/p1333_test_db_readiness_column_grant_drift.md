@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 severity: low
 workstream: events
@@ -10,8 +10,11 @@ exec_model: opus
 exec_effort: medium
 tags: [p1114-followup, test-db-drift, privacy]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: 2026-09-21
+root_cause: "P1042's renumber (2026-08-24) made migrate.sh re-run 20260819161000_p1114_event_room_tables on test after 20260821170000 had revoked readiness_value; its REVOKE-then-GRANT replayed the pre-170000 column list. A 2026-09-14 manual grant of comprehension_rating on test (P1307 session) patched the other half of the symptom without noticing readiness."
+resolution: "Re-applied 170000's revoke-then-column-grant idiom on TEST only via the Management API, and dropped the orphaned 'opted-in room members are visible' policy the same re-run had recreated. No migration: a fresh apply in version order is already correct."
 ---
 
 # P1333: The TEST database lets anyone read room readiness values; prod does not
@@ -52,3 +55,60 @@ known test-only drift in this area (see the 2026-09-07 note in
    only; if a migration is at fault, fix it forward so a fresh apply is also correct).
 3. `npx playwright test --project=integration e2e/integration/p1114-room-rpcs.spec.ts` → 23/23.
 4. Control: the same column-privilege query returns identical rows on both projects.
+
+## Resolution (2026-09-21)
+
+### 1. Root cause: a migration re-run on test, not a migration bug
+
+Timeline on **test** (`gfjcty…`):
+
+| When | What ran | `readiness_value` | `comprehension_rating` |
+|---|---|---|---|
+| 2026-08-21 | `20260821120000` then `20260821170000` | closed | open, correct |
+| 2026-08-24 | P1042 (`3c7808179`) renumbered `…160000` → `20260819161000_p1114_event_room_tables` and `migrate.sh --env test` **re-ran it** (`✓ 20260819161000_p1114_event_room_tables.sql applied`). Lines 107–109: table-level REVOKE (which, per the Postgres REVOKE docs, also revokes every column grant) then `GRANT SELECT (…, readiness_value, joined_at)` | **open** | closed |
+| 2026-09-14 | P1307 session saw `permission denied` on `comprehension_rating` and ran a manual `GRANT SELECT (comprehension_rating)` on test | open | open |
+
+Result: test ended up in exactly the `20260821120000` state. Prod never re-ran anything. There,
+161000 ran for the first time *before* the `20260821*` follow-ups, so the order was correct.
+
+The same 08-24 re-run also:
+- recreated the 2-arg `set_room_opt_in(uuid, boolean)` from `20260819171000`. That is the
+  "test-only drift" `20260907150000_p1256_drop_legacy_set_room_opt_in.sql` found and put down
+  to "the 2026-08-21 drop did not take on test". The drop did take; the re-run brought it back.
+- recreated policy `"opted-in room members are visible"` (`161000:128-129`), which `120000:65`
+  had dropped. It was harmless (OR'd with `"all room members are visible"` USING `true`), but it
+  was still drift.
+
+No migration is at fault: applied fresh in version order, 161000 → 120000 → 170000 ends
+correct. The cause was re-applying an already-superseded file under a new version number.
+The same class is now P1334.
+
+### 2. Fix, applied to test only (Management API, one transaction)
+
+```sql
+REVOKE SELECT ON public.event_room_members FROM PUBLIC;
+REVOKE SELECT ON public.event_room_members FROM anon, authenticated;
+GRANT SELECT (id, event_id, profile_id, display_name, opted_in, comprehension_rating, joined_at)
+  ON public.event_room_members TO anon, authenticated;
+DROP POLICY IF EXISTS "opted-in room members are visible" ON public.event_room_members;
+```
+
+### 3. Evidence
+
+- Before: `p1114-room-rpcs.spec.ts` → **22 passed, 1 failed** ("room readiness has no expiry …").
+- After: `npx playwright test --project=integration e2e/integration/p1114-room-rpcs.spec.ts` → **23 passed**.
+- Blast radius: `p1114-db-schema.spec.ts` + `p1114-realtime-payload.spec.ts` → **14 passed**.
+- Control (AC4): `has_column_privilege(anon|authenticated, event_room_members, <col>, 'SELECT')`
+  for every column returns **identical rows on prod and test**. The probe discriminates: before the
+  fix the same query differed on `readiness_value`. `client_secret` (closed on both) and
+  `display_name` (open on both) act as fixed controls.
+- `pg_policies` on `event_room_members`: one policy on each project, `"all room members are visible"`.
+
+### Out of scope, observed
+
+A wider prod/test diff (every public column ACL, policy and function hash) shows other
+differences: letter/audience functions, `point_references`, `worktree_status`, `_p1212_v`. These
+look like unshipped branches deployed to test, not this re-run, and none touch the event room.
+They were not investigated further.
+
+Filed during this fix: **P1334**, no detector compares table/column grants between test and prod.
