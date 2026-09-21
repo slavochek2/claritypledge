@@ -473,6 +473,12 @@ fails.
       any `overdue-coupled` file.
 - [ ] **Server test isolates `schema-ready`** (Codex #16): in the server-boundary run, assert that
       the GH013 message names `schema-ready`, not only that the promote was refused.
+- [x] **Implementation-review holes closed** (2026-09-21): quoted/symlinked entries → 2; appended
+      SQL in an applied marker-bearing file → 2; grandfathered pair replaced by one file → 2; new
+      file on a version the ledger names for another file → 2 (control → 0); trailing-junk marker →
+      `invalid-marker`; lease on a moved base refused by git (control accepted); non-array 200 on
+      prod `--only` → failure, no ledger row. Live re-run after the change: real tree → 0,
+      fabricated control → 1.
 
 ## Done-When
 
@@ -519,5 +525,16 @@ fails.
   #15 confirmed (`ship.md` printed a direct push, GH013 per `git-workflow.md:112`), #1/#4
   confirmed in code. Fixed: #1, #2, #4, #5 (narrowed), #7, #8, #9, #10, #12, #13, #15, #16 (AC
   added). Accepted with reasons in Risks: #3, #6, #11, #14.
+- Implementation review 2026-09-21, Codex (same model, high, read-only; 1 of 1 reported): REJECT,
+  8 findings; canaries not runnable in its sandbox, so INCONCLUSIVE per the wrapper. Re-verified:
+  #2 (a quoted filename vanished from C1 while migrate.sh's glob would apply it) and #7 (marker
+  with trailing text parsed as a sha) reproduced by command; #1/#4 reproduced as failing canary
+  cases before the fix. Fixed: #1 marker exception narrowed to marker-only diffs, #2 `ls-tree -z`
+  plus structural refusal of unsafe entries, #3 promote is compare-and-swap on the re-checked base
+  and hand-promote hints removed, #4 blob-multiset check per applied version plus ledger-name
+  check, #6 deploy-API override localhost-only, #7 strict marker, #8 array-only success on
+  prod/--only. Not changed: #5 (`schema-ready` in the required-checks fallback) — this spec pairs
+  it with the ruleset change in one commit, which waits for the founder. Residual, stated: a
+  PR merged in the GitHub UI after main moved is judged against the old base (no merge queue).
 - Incident transcripts: `d6d4ccd1` (09-18 push), `57e1165b` (09-18 author session), `1dc5108d`
   (08-14 P1053).
