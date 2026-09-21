@@ -44,7 +44,7 @@ detector for table/column grant drift between test and prod; that is P1334.
 
 **References:** [features/p1333_test_db_readiness_column_grant_drift.md](../features/p1333_test_db_readiness_column_grant_drift.md) ·
 [features/p1334_no_detector_for_table_column_grant_drift.md](../features/p1334_no_detector_for_table_column_grant_drift.md) ·
-`supabase/migrations/20260819161000_p1114_event_room_tables.sql:107-129`
+`supabase/migrations/20260819161000_p1114_event_room_tables.sql:107-132`
 
 ## 2026-09-18 [product]: In the event room the TAP is the answer — the projector shows Opt in / Opt out at once, the understanding number attaches after (P1114)
 

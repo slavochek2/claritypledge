@@ -1,6 +1,7 @@
 ---
 status: qa
 type: bug
+rank: 82
 severity: low
 workstream: events
 date_reported: 2026-09-18
@@ -46,7 +47,7 @@ future change that re-opens readiness on prod: that regression would pass on tes
 known test-only drift in this area (see the 2026-09-07 note in
 `20260907150000_p1256_drop_legacy_set_room_opt_in.sql`).
 
-## Done when
+## Done-When
 
 - [x] Root cause named: which migration or manual change left the grant open on test (compare
    `supabase_migrations.schema_migrations` on both projects; check later migrations that
@@ -75,7 +76,7 @@ The same 08-24 re-run also:
 - recreated the 2-arg `set_room_opt_in(uuid, boolean)` from `20260819171000`. That is the
   "test-only drift" `20260907150000_p1256_drop_legacy_set_room_opt_in.sql` found and put down
   to "the 2026-08-21 drop did not take on test". The drop did take; the re-run brought it back.
-- recreated policy `"opted-in room members are visible"` (`161000:128-129`), which `120000:65`
+- recreated policy `"opted-in room members are visible"` (`161000:128-132`), which `120000:65`
   had dropped. It was harmless (OR'd with `"all room members are visible"` USING `true`), but it
   was still drift.
 

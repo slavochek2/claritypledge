@@ -46,9 +46,13 @@ did before the rename asked whether re-running would *fail*. It never asked whet
 ## Expected Behavior
 
 An anon/authenticated table or column privilege that differs between test and prod is
-reported by the scheduled drift workflow. The report reads privileges from ACLs, not from
-`information_schema` (see TRAP 1 in `check-p1207-privilege-floor.py`). Grants that differ
-on purpose (a branch still on test) go on an allowlist with a reason.
+reported by the scheduled drift workflow. It asks `has_table_privilege()` /
+`has_any_column_privilege()`, which is what `check-p1207-privilege-floor.py` already does and
+what its own header requires: **neither `information_schema` (TRAP 1: role-filtered) nor raw
+`aclexplode()` (TRAP 2: misses owner-default NULL ACLs and role-membership-derived grants) —
+"both will pass their tests, pass review, and silently stop detecting things"**
+(`scripts/check-p1207-privilege-floor.py:51-78`). Grants that differ on purpose (a branch still
+on test) go on an allowlist with a reason.
 
 ## Actual Behavior
 
@@ -61,13 +65,18 @@ The difference goes unreported until one specific integration assertion happens 
 
 ## Fix Approach
 
-Add a leg that diffs `aclexplode(relacl)` / `aclexplode(attacl)` for `anon` and
-`authenticated` across both projects. Include a known-bad control: diff a snapshot taken
-before P1333's fix, and it must report `event_room_members.readiness_value`.
+Add a leg that diffs, per project, `has_table_privilege(role, table, priv)` and
+`has_any_column_privilege(...)` — plus a per-column `has_column_privilege(...)` pass, since the
+column-only grant is exactly the case P1333 was — for `anon`, `authenticated` and `public`
+across SELECT/INSERT/UPDATE/DELETE. Reuse the query shapes in
+`check-p1207-privilege-floor.py` (TABLE_PRIVS_SQL / COLUMN_PRIVS_SQL) rather than writing new
+ACL parsing. Include a known-bad control: a synthetic pre-P1333 test row
+(`readiness_value` selectable by anon on test only) must be reported, and a known-good control
+(`client_secret`, closed on both) must not be.
 
 ## Acceptance Criteria
 
 - [ ] Detector reports a table/column privilege held by anon/authenticated on one project and not the other
-- [ ] Control: the pre-P1333 test ACL snapshot (readiness_value open on test only) is flagged; current state is clean or allowlisted
+- [ ] Controls, both scored by the same probe: a synthetic pre-P1333 state (readiness_value selectable by anon on test only) is reported, and `client_secret` (closed on both) is not; current live state is clean or allowlisted
 - [ ] Runs on the scheduled drift workflow, not only in a skill
 - [ ] Optional, decide during fix: `migrate.sh` warns when a pending file's SQL body matches a migration already in the ledger under another version (the renumber-replay class)
