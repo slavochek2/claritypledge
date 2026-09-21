@@ -4446,6 +4446,71 @@ DESIGN NOTES
 EOF
 }
 
+# ── Schema gate (P1211 C2) ────────────────────────────────────────────────────
+# Code must never reach origin/main ahead of its migration. Both push commands run
+# scripts/check-schema-ready.sh (C1) on the exact SHA they will push, BEFORE anything
+# reaches origin — so a blocked push leaks no staging branch and burns no CI run — and
+# again with --post after a successful promote. The server-side `schema-ready` check
+# (C3) is the boundary; this is the fail-fast local half, forgeable by design.
+#
+# --8<-- SCHEMA-GATE-BEGIN (extracted by scripts/test-p1211-git-ops-schema-gate.sh; may
+# read only REPO_ROOT and the `die` function.)
+schema_gate_pre() {
+  local label="$1" sha="$2" out rc=0
+  echo "${label}: schema gate — every migration in ${sha:0:9} must already be on prod..." >&2
+  # Best-effort freshness: a stale origin/main would misfile an overdue coupled
+  # migration as "coupled in this push". A failed fetch is not fatal here: the push
+  # itself cannot fast-forward a moved origin/main.
+  git -C "$REPO_ROOT" fetch -q origin main 2>/dev/null \
+    || echo "  ⚠️  could not fetch origin/main — checking against the local ref." >&2
+  out="$(cd "$REPO_ROOT" && ./scripts/check-schema-ready.sh --sha "$sha" --base origin/main 2>&1)" || rc=$?
+  if (( rc == 0 )); then
+    printf '%s\n' "$out" | sed 's/^/  /' >&2
+    return 0
+  fi
+  echo "" >&2
+  echo "  ❌ ${label} STOPPED before anything was pushed: schema gate exit ${rc}." >&2
+  printf '%s\n' "$out" | sed 's/^/     /' >&2
+  echo "" >&2
+  if (( rc == 1 )); then
+    local files
+    files="$(printf '%s\n' "$out" | awk '$1 == "pending" || $1 == "overdue-coupled" { print $2 }' | tr '\n' ' ')"
+    if [[ -n "$files" ]]; then
+      echo "  Resolve: apply them to prod first (/push step 2.5 does this), then re-run:" >&2
+      echo "    ./scripts/migrate.sh --env prod --only ${files}--expect-sha ${sha}" >&2
+    fi
+    if grep -q '^invalid-marker ' <<< "$out"; then
+      echo "  invalid-marker: fix the requires-frontend sha by hand (P1106) — nothing applies it." >&2
+    fi
+  else
+    echo "  Cannot determine readiness — fix the cause above; there is no override." >&2
+  fi
+  die "${label}: schema gate refused ${sha:0:9} (P1211)"
+}
+
+# After a successful promote. Returns 0 (nothing due), 3 (coupled migrations are now
+# due — the caller exits 3 so /push step 6 applies them after Vercel reports the
+# deploy), or 4 (promoted, but the post-check could not confirm the tree; loud).
+schema_gate_post() {
+  local label="$1" sha="$2" out rc=0
+  out="$(cd "$REPO_ROOT" && ./scripts/check-schema-ready.sh --post --sha "$sha" 2>&1)" || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    3)
+      echo "" >&2
+      echo "  ⏳ ${label}: coupled migration(s) are now DUE — their frontend just landed:" >&2
+      printf '%s\n' "$out" | sed 's/^/     /' >&2
+      echo "  Apply them once Vercel reports ${sha:0:9}'s Production deployment (/push step 6)." >&2
+      return 3 ;;
+    *)
+      echo "" >&2
+      echo "  ⚠️  ${label}: PROMOTED, but the post-promote schema check exited ${rc}:" >&2
+      printf '%s\n' "$out" | sed 's/^/     /' >&2
+      return 4 ;;
+  esac
+}
+# --8<-- SCHEMA-GATE-END
+
 # ── cmd_ship_to_prod ──────────────────────────────────────────────────────────
 # P950: Execute the documented staging->CI->main push sequence autonomously.
 # Usage: git-ops.sh ship-to-prod <pN>
@@ -4490,6 +4555,9 @@ cmd_ship_to_prod() {
     fi
     die "ship-to-prod: no commits matching '${pn}' found ahead of origin/main. Run git-ops.sh ship ${pn} first."
   fi
+
+  # ── Step 0.5: Schema gate (P1211) — before anything reaches origin ────────
+  schema_gate_pre "ship-to-prod" "$local_sha"
 
   # ── Step 1: Privacy check (detect-only -- D2) ─────────────────────────────
   echo "ship-to-prod [1/6]: checking privacy stamp covers push range..." >&2
@@ -4665,6 +4733,12 @@ cmd_ship_to_prod() {
 
   echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
+  # P1211: re-check at promote time. The CI verdict is attached to a SHA, but the
+  # answer depends on origin/main and on prod's ledger, both of which can move during
+  # the CI wait (Codex review 2026-09-21, #1 and #5).
+  ( schema_gate_pre "ship-to-prod (promote-time re-check)" "$local_sha" ) \
+    || reclaim_staging_and_die "${staging_branch}" "ship-to-prod: schema gate failed at promote time — nothing was promoted"
+
   # ── Step 5: Promote to main (D1: ALWAYS prompt TTY y/N) ──────────────────
   echo "" >&2
   echo "ship-to-prod [5/6]: CI verified. Ready to push to main." >&2
@@ -4719,6 +4793,11 @@ cmd_ship_to_prod() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
   echo "  ship-to-prod complete. ${pn} is live on claritypledge.com." >&2
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+
+  # P1211: exit 3 = coupled migrations now due (/push step 6), 4 = post-check unsure.
+  local post_rc=0
+  schema_gate_post "ship-to-prod" "$local_sha" || post_rc=$?
+  (( post_rc == 0 )) || exit "$post_rc"
 }
 
 # remote_branch_sha <branch> — echo the SHA origin has for refs/heads/<branch>, or
@@ -4794,6 +4873,11 @@ remote_heads() {
 #   D2: Detect-and-stop on uncovered watched-path commits; never writes the stamp.
 #
 # Usage: git-ops.sh push-docs [--resume]
+#
+# Exit codes (P1211): 0 pushed, nothing due · 1 refused/failed (incl. the schema gate,
+#   before anything reaches origin) · 3 PUSHED, and coupled migrations are now due —
+#   /push step 6 applies them after Vercel reports the deploy · 4 PUSHED, but the
+#   post-promote schema check could not confirm the tree. ship-to-prod uses the same.
 #
 # --resume: a previous run already pushed the staging branch and then aborted
 #   (typically the push-on flag lapsing during the CI poll). Deletes that leftover
@@ -4940,6 +5024,9 @@ cmd_push_docs() {
     exit 0
   fi
   echo "push-docs: ${ahead_count} commit(s) ahead of origin/main (snapshot ${local_sha:0:9})." >&2
+
+  # ── Step 0.5: Schema gate (P1211) — on the PINNED snapshot, --resume included ──
+  schema_gate_pre "push-docs" "$local_sha"
 
   # ── Step 1: Privacy check (D2) ────────────────────────────────────────────
   echo "push-docs [1/6]: checking privacy stamp covers push range..." >&2
@@ -5262,6 +5349,10 @@ cmd_push_docs() {
 
   echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
+  # P1211: re-check at promote time — see the identical block in cmd_ship_to_prod.
+  ( schema_gate_pre "push-docs (promote-time re-check)" "$local_sha" ) \
+    || reclaim_staging_and_die "${staging_branch}" "push-docs: schema gate failed at promote time — nothing was promoted"
+
   # ── Step 4: Promote to main (TTY y/N — auto-confirmed when PUSH_DOCS_ASSUME_YES=1) ──
   echo "" >&2
   echo "push-docs [5/6]: CI verified. Ready to push to main." >&2
@@ -5336,6 +5427,11 @@ cmd_push_docs() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
   echo "  push-docs complete." >&2
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+
+  # P1211: exit 3 = coupled migrations now due (/push step 6), 4 = post-check unsure.
+  local post_rc=0
+  schema_gate_post "push-docs" "$local_sha" || post_rc=$?
+  (( post_rc == 0 )) || exit "$post_rc"
 }
 
 main() {

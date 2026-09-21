@@ -484,6 +484,24 @@ else
 fi
 echo ""
 
+# 4.7c3. git-ops.sh schema gate canary (P1211 C2) — both push commands must run the
+# checker before anything reaches origin, re-check at promote time, and run --post
+# after. Real git-ops.sh against a local bare origin; stubbed ledger.
+GITOPS_SCHEMA_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|check-schema-ready|lib/prod-ledger|test-p1211-git-ops-schema-gate)\.sh$' || true)
+if [ -n "$GITOPS_SCHEMA_STAGED" ]; then
+    if [ -f "scripts/test-p1211-git-ops-schema-gate.sh" ]; then
+        if ! run_quiet "git-ops.sh schema gate canary (P1211)" bash scripts/test-p1211-git-ops-schema-gate.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> git-ops.sh schema gate canary... ${RED}✗ scripts/test-p1211-git-ops-schema-gate.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> git-ops.sh schema gate canary skipped (git-ops.sh / checker not staged)"
+fi
+echo ""
+
 # 4.7e. RLS scope gate canary (P1039/P1041) — runs when the unscoped-policy
 # checker or either of its tests is staged. Proves the gate still BLOCKS the
 # exact P1035 shape (unscoped, role-identity WITH CHECK, non-SELECT) --

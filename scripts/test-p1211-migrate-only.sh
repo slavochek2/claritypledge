@@ -9,6 +9,9 @@
 #   D. Untracked listed file refuses; a path-shaped argument refuses.
 #   E. Test env: --only skips `supabase db push` (which applies every pending file).
 #   F. What reaches the database is the committed blob, byte for byte.
+#   G. An "already exists" SQL error is a failure on prod and under --only, and records
+#      no ledger row (the schema gate trusts that row). Test env keeps the heuristic.
+#   H. --only stops at the first failure.
 #
 # Same harness as test-p1174-pending-set-integrity.sh: throwaway repo, real migrate.sh
 # and scripts/lib, PATH-stubbed curl/npx/security, stubbed keychain. No network.
@@ -45,7 +48,14 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ "$QUIET" = true ] && exit 0
+if [ "$QUIET" = true ]; then
+  [ -n "${INSERT_LOG:-}" ] && printf '%s\n' "$PAYLOAD" >> "$INSERT_LOG"
+  exit 0
+fi
+if printf '%s' "$PAYLOAD" | grep -q 'ALREADY_EXISTS_BODY'; then
+  printf '%s\n400' '{"message":"ERROR: 42P07: relation \"x\" already exists"}'
+  exit 0
+fi
 if printf '%s' "$PAYLOAD" | grep -q 'SELECT version'; then
   BODY=$(cat "$FAKE_LEDGER")
 else
@@ -98,7 +108,7 @@ build() {
 
 run() { # run <name> <args...>
   local P="$TMPROOT/$1"; shift
-  (cd "$P" && FAKE_LEDGER="$P/ledger.json" APPLY_LOG="$P/applied.log" NPX_LOG="$P/npx.log" \
+  (cd "$P" && FAKE_LEDGER="$P/ledger.json" APPLY_LOG="$P/applied.log" NPX_LOG="$P/npx.log" INSERT_LOG="$P/insert.log" \
      PATH="$STUBS:$PATH" bash "$P/scripts/migrate.sh" "$@" > "$P/out.log" 2>&1)
   RC=$?
   OUTF="$P/out.log"; APPLIED="$(cat "$P/applied.log" 2>/dev/null || true)"
@@ -170,6 +180,35 @@ run f --env prod --only 20990101000000_cs.sql --yes
 if [ "$RC" -ne 0 ] && grep -q "differs from its blob" "$OUTF"; then
   ok "control: default HEAD sees the tree differs (exit $RC)"
 else bad "control expect HEAD: exit $RC"; fi
+
+echo "== G. 'already exists' is a failure on prod / --only (Codex #8)"
+build g prod
+P="$TMPROOT/g"
+printf -- "-- client-safe: additive\nselect 'ALREADY_EXISTS_BODY';\n" > "$P/supabase/migrations/20990101000000_cs.sql"
+git -C "$P" add supabase/migrations/20990101000000_cs.sql; git -C "$P" commit -q -m ae
+run g --env prod --only 20990101000000_cs.sql --yes
+if [ "$RC" -ne 0 ] && ! grep -q 20990101000000 "$P/insert.log" 2>/dev/null; then
+  ok "prod --only: 'already exists' fails and records NO ledger row (exit $RC)"
+else bad "already-exists prod: exit $RC, inserts: $(cat "$P/insert.log" 2>/dev/null)"; fi
+build g2 local
+P="$TMPROOT/g2"
+printf -- "-- client-safe: additive\nselect 'ALREADY_EXISTS_BODY';\n" > "$P/supabase/migrations/20990101000000_cs.sql"
+git -C "$P" add supabase/migrations/20990101000000_cs.sql; git -C "$P" commit -q -m ae
+rm -f "$P/supabase/migrations/20990102000000_cp.sql"; git -C "$P" rm -q --cached supabase/migrations/20990102000000_cp.sql; git -C "$P" commit -q -m drop-cp
+run g2 --env local
+if grep -q 20990101000000 "$P/insert.log" 2>/dev/null; then
+  ok "control: test env without --only keeps the old heuristic (row recorded)"
+else bad "control test heuristic: exit $RC, inserts: $(cat "$P/insert.log" 2>/dev/null); $(tail -3 "$OUTF")"; fi
+
+echo "== H. --only stops at the first failure"
+build h prod
+P="$TMPROOT/h"
+printf -- "-- client-safe: additive\nselect 'ALREADY_EXISTS_BODY';\n" > "$P/supabase/migrations/20990100000000_first.sql"
+git -C "$P" add supabase/migrations/20990100000000_first.sql; git -C "$P" commit -q -m first
+run h --env prod --only 20990100000000_first.sql 20990101000000_cs.sql --yes
+if [ "$RC" -ne 0 ] && ! printf '%s' "$APPLIED" | grep -q CLIENT_SAFE_BODY && grep -q "stopping after the first failure" "$OUTF"; then
+  ok "second listed file not attempted after the first failed (exit $RC)"
+else bad "stop-on-failure: exit $RC, applied: $APPLIED"; fi
 
 echo ""
 echo "test-p1211-migrate-only: $PASS passed, $FAIL failed"

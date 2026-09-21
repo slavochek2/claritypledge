@@ -77,7 +77,12 @@ trap 'rm -rf "$TMPD"' EXIT
 CONF_REF="$TRUSTED"
 if ! git cat-file -e "$TRUSTED:scripts/check-schema-ready.sh" 2>/dev/null; then
   # Bootstrap: the gate itself is not on the trusted ref yet, so there is no trusted
-  # rule set to weaken. Same one-time fallback disclosure-gate.yml uses.
+  # rule set to weaken. But only if it has NEVER been there: a push that deletes the
+  # checker would otherwise re-arm this fallback, and the next push would be judged by
+  # a checker it supplies itself (Codex review 2026-09-21, #4). Needs full history.
+  if [ -n "$(git log -1 --format=%H "$TRUSTED" -- scripts/check-schema-ready.sh 2>/dev/null)" ]; then
+    cannot "scripts/check-schema-ready.sh existed in $TRUSTED_ARG's history and has been removed — failing closed, never falling back to the pushed copy"
+  fi
   say "WARNING: scripts/check-schema-ready.sh is not on $TRUSTED_ARG yet — reading the"
   say "  exempt file and prod-ledger.sh from the CHECKED commit (bootstrap only)."
   CONF_REF="$SHA"
@@ -131,6 +136,13 @@ done < "$TMPD/exempt"
 git ls-tree "$SHA" -- "$MIG_DIR/" > "$TMPD/tree" 2>/dev/null || cannot "git ls-tree failed on $SHA"
 FILES=$(awk -F'\t' '{ split($1, m, " "); if (m[2] == "blob") print $2 }' "$TMPD/tree" \
         | sed 's|.*/||' | grep -E '\.sql$' || true)
+# "blob<TAB>basename" for this SHA and for the base — the edited-in-place check below.
+blobs_of() {
+  git ls-tree "$1" -- "$MIG_DIR/" 2>/dev/null \
+    | awk -F'\t' '{ split($1, m, " "); if (m[2] == "blob") { n = $2; sub(/.*\//, "", n); if (n ~ /\.sql$/) print m[3] "\t" n } }'
+}
+SHA_BLOBS=$(blobs_of "$SHA")
+BASE_BLOBS=$(blobs_of "$BASE")
 [ -n "$FILES" ] || cannot "no migration files found in $SHA:$MIG_DIR — refusing to call an empty tree ready"
 
 STRUCT_ERRORS=0
@@ -179,6 +191,35 @@ if ! APPLIED=$(pl_fetch_prod_versions 2>"$TMPD/ledger.err"); then
   say "  reachable ledger re-checks the whole tree."
   exit 0
 fi
+
+# --- Applied migrations edited in place (Codex review 2026-09-21, #2) --------------
+# The ledger is keyed on version, so editing a file whose version is already recorded
+# changes SQL that will never run again — and C1 would still call it applied. P967's
+# RPC was fixed this way on 2026-06-28. Compared against the base: a file (same
+# basename, or the sole owner of its version) whose blob changed while its version is
+# applied is refused. Exception: the base copy carried a requires-frontend marker —
+# such a file may legitimately have been unapplied on the base (P1106 marker repair).
+EDITED=0
+while IFS=$'\t' read -r NB F; do
+  [ -n "$F" ] || continue
+  V=$(pl_version_of "$F")
+  printf '%s\n' "$APPLIED" | grep -qxF "$V" || continue
+  OB=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' -v f="$F" '$2 == f { print $1; exit }')
+  if [ -z "$OB" ]; then
+    # Renamed? Only when exactly one base file owns this version.
+    OWNERS=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' '{ print $2 }' | while IFS= read -r BN; do
+      [ -n "$BN" ] && [ "$(pl_version_of "$BN")" = "$V" ] && echo "$BN"; done)
+    [ "$(printf '%s' "$OWNERS" | grep -c .)" -eq 1 ] || continue
+    OB=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' -v f="$OWNERS" '$2 == f { print $1; exit }')
+  fi
+  [ -n "$OB" ] && [ "$OB" != "$NB" ] || continue
+  if [ "$(git cat-file blob "$OB" 2>/dev/null | pl_marker_sha)" != "none" ]; then
+    continue
+  fi
+  say "$F: version $V is already applied on prod, but its SQL changed since $BASE_ARG — the edit will never run. Write a NEW migration instead."
+  EDITED=$((EDITED + 1))
+done <<< "$SHA_BLOBS"
+[ "$EDITED" -eq 0 ] || cannot "$EDITED applied migration(s) edited in place"
 
 # --- Classify every unapplied file -------------------------------------------------
 FINDINGS=""

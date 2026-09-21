@@ -283,8 +283,13 @@ apply_via_api() {
       -H "Content-Type: application/json" \
       -d "{\"query\": $(echo "$INSERT_SQL" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
     return 0
-  elif echo "$BODY" | grep -q "already exists"; then
-    # Object already exists → migration is effectively applied; record in history and skip
+  elif [ "$ENV_NAME" != "prod" ] && [ "$ONLY_MODE" != true ] && echo "$BODY" | grep -q "already exists"; then
+    # Object already exists → migration is effectively applied; record in history and skip.
+    # TEST ONLY (P1211, Codex review #8). A statement failing with "already exists" says
+    # nothing about the statements after it, yet this branch writes the ledger row —
+    # after which the schema gate (check-schema-ready.sh) trusts the version as applied
+    # and lets code ship against SQL that never ran. On prod and under --only (the /push
+    # path) it is an ordinary failure: nothing is recorded.
     echo "  ~ $BASENAME already applied (skipping)"
     curl -s -o /dev/null \
       -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
@@ -672,6 +677,13 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       APPLIED_COUNT=$((APPLIED_COUNT + 1))
     else
       FAIL_COUNT=$((FAIL_COUNT + 1))
+      if [ "$ONLY_MODE" = true ]; then
+        # P1211: stop at the first failure. The caller (/push) stops the push on any
+        # non-zero exit; applying the files after a failed one only widens the
+        # partially-migrated state someone then has to reason about.
+        echo "  --only: stopping after the first failure; later listed files were NOT attempted."
+        break
+      fi
     fi
   done
 
