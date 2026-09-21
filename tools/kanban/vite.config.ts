@@ -4,6 +4,10 @@ import { KANBAN_CONFIG } from './config'
 
 export default defineConfig({
   plugins: [react()],
+  // One dep cache per instance: cp (9050) and pp (9052) run this same install, and a
+  // shared node_modules/.vite let one server's re-optimize delete chunks the other
+  // was still serving (blank board, 404 on deps/chunk-*.js — twice on 2026-09-21).
+  cacheDir: `node_modules/.vite-${KANBAN_CONFIG.ports.frontend}`,
   server: {
     port: KANBAN_CONFIG.ports.frontend,
     strictPort: true, // fail loud if 9050 is held by a zombie, never drift to 9052
