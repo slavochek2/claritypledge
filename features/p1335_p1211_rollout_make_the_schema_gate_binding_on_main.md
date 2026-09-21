@@ -11,8 +11,7 @@ tags:
   - rollout
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
