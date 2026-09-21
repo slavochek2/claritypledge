@@ -77,7 +77,11 @@ the login keychain with a fresh one and kept the old file under a renamed name. 
 were in the old file, confirmed by name only. `keyring.sh status` reported all 14 not enrolled, and
 every locked consumer would have failed closed. It was caught by an ad-hoc status check, not by
 `/weekly`. Recovery took three commands (`enroll`, plus `enroll-from .env.prod` for the two prod-tier
-names), and `verify` then passed for all 14. **After step 4 those commands have no source.** The same
+names), and `verify` then passed for all 14. **Cause, found later the same day:** the reset was a "Reset My Default Keychain" click, following
+agent advice for an unrelated app prompt after a macOS update. The agent then wrongly said the
+button "no longer resets anything". The old keychain opened with the current login password and was
+swapped back in with a restart, so the original items, the 14 included, are live again. A
+keychain-wide reset is never the fix for one app's prompt. **After step 4 those commands have no source.** The same
 event then means 14 manual re-enrolls from the password-manager copy. Removal should wait until that
 path has been walked once, or until a keychain reset is made to surface the same day.
 
