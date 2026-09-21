@@ -119,6 +119,14 @@ registration yes that becomes a room no is visible, but H-ChampionYield reads th
    opt-in exchange (*"you both opted in… what was your number? Eight."*). Decide here; produce a clip only
    if the page needs one. Attendee consent to publish is not yet asked.
 
+4. What does the registrant read before the opt-in/opt-out choice? Founder direction 2026-09-21: reuse the
+   event-1 explanation of **cognitive understanding** (deck `public/presi3/`, "Cognitive Understanding?"
+   slides + speaker notes) and the ready screen, as text/screens first; a clean recorded version may
+   follow once the wording has held for an event or two. What is opted into (founder's correction,
+   2026-09-21): the commitment is only to **answer "how much do you understand my intended meaning,
+   0–10?"** when asked — the minimum principle. The "below 8, don't push the disagreement" use is a
+   separate suggestion the host makes in the meeting, not part of what registration asks people to accept.
+
 ## Related
 
 - [p1055](p1055_norm_measurement_instrument.md) — the CMP point set; the opt-in it defines
