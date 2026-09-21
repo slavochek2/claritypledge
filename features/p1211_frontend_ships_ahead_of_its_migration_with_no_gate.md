@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [migrations, deploy, ship, push, tooling]
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 driver: anomaly
 feature_type: backend
 ---
