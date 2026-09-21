@@ -1,0 +1,28 @@
+# Schema gate exemptions (P1211) — read by scripts/check-schema-ready.sh.
+#
+# The gate refuses to let a SHA become origin/main while any migration file in its
+# tree is missing from prod's supabase_migrations.schema_migrations, and it requires
+# exactly one file per version. This file lists the only exceptions.
+#
+# The gate reads this file from the TRUSTED ref (origin/main), never from the commit
+# being checked: an entry added in a push takes effect only after that push has
+# landed, so a push can never exempt its own migration.
+#
+# Format — one entry per line, a reason is mandatory:
+#   legacy   <basename>                : <reason>
+#   dup-pair <basename> <basename>     : <reason>
+#
+# legacy   — a file the runner never applies (no version prefix). Exempt from the
+#            ledger check entirely.
+# dup-pair — a grandfathered P1042 collision. Both files share one version; the pair
+#            is allowed ONLY with exactly these two members. A third file on that
+#            version fails the gate (exit 2), which is the hole the existing
+#            duplicate check has: it skips allowlisted versions wholesale.
+#
+# No regexes, no wildcards: a new exemption must be a visible, reviewed diff.
+
+legacy p63_google_oauth_avatar.sql : no version prefix, so migrate.sh skips it; pre-dates the ledger (P63)
+
+dup-pair 20260223_p396_host_rls_and_session_constraints.sql 20260223_p414_profile_bio.sql : P1042 grandfathered, both halves verified on test and prod 2026-08-24 (see .duplicate-version-allowlist)
+dup-pair 20260409120000_fix_position_history_trigger.sql 20260409120000_patch_live_state_auto_reveal.sql : P1042 grandfathered, both halves verified on test and prod 2026-08-24 (see .duplicate-version-allowlist)
+dup-pair 20260413100000_p699_get_letter_results.sql 20260413100000_p701_st_swap.sql : P1042 grandfathered, p701 half unverifiable by design (see .duplicate-version-allowlist)

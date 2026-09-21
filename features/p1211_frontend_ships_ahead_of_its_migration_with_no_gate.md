@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 disclosure: public
 rank: 0.01
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [migrations, deploy, ship, push, tooling]
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 driver: anomaly
 feature_type: backend
 ---

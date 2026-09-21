@@ -11,6 +11,10 @@
 #   ./scripts/migrate.sh --env prod --yes   # prod, non-interactive: acknowledges the
 #                                           # printed pending list (calling skill must
 #                                           # show that list in its own ASK gate first)
+#   ./scripts/migrate.sh --env prod --only A.sql B.sql [--expect-sha HEAD] [--yes]
+#                                           # P1211: act on exactly these files, applied from
+#                                           # their committed blobs (refuses a working-tree
+#                                           # difference). Used by /push step 2.5 and step 6.
 #
 # Prod gates (P887, after the P886 auth outage):
 #   1. Pending migrations are enumerated upfront; applying requires explicit ack
@@ -42,14 +46,80 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # the old for-loop misparsed "--yes --env prod" into ENV_NAME="--env".
 ENV_NAME="local"
 YES_FLAG=false
+ONLY_MODE=false
+ONLY_FILES=()       # --only: basenames, the ONLY files this run may enumerate or apply
+EXPECT_SHA=""       # --only: the commit whose blobs the listed files must match
 while [ $# -gt 0 ]; do
   case "$1" in
     --env)   shift; ENV_NAME="$1"; shift ;;
     --env=*) ENV_NAME="${1#--env=}"; shift ;;
     --yes)   YES_FLAG=true; shift ;;
+    --only)
+      ONLY_MODE=true
+      shift
+      while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do
+        ONLY_FILES+=("$1")
+        shift
+      done
+      ;;
+    --expect-sha) shift; EXPECT_SHA="${1:-}"; shift ;;
     *)       shift ;;
   esac
 done
+
+# shellcheck source=lib/prod-ledger.sh
+source "$SCRIPT_DIR/lib/prod-ledger.sh"
+
+# --- --only mode (P1211) ---
+# Restricts enumeration, gate 1's ack, gate 1b's re-verification, gate 2's coupling
+# scan and the apply loop to exactly the listed files. /push step 2.5 needs this: a push
+# carrying one client-safe migration and one coupled to the frontend in that same push
+# deadlocked the whole-tree run (gate 2 refuses everything while the coupled file's
+# frontend is not yet on origin/main).
+#
+# Each listed file must be byte-identical to its blob at --expect-sha (default HEAD),
+# and is APPLIED FROM THAT BLOB, never from the working tree — so a co-tenant's
+# uncommitted edit or an untracked file can never be what reaches the database.
+if [ "$ONLY_MODE" = true ]; then
+  if [ ${#ONLY_FILES[@]} -eq 0 ]; then
+    echo "ERROR: --only needs at least one migration basename."
+    exit 1
+  fi
+  EXPECT_SHA="${EXPECT_SHA:-HEAD}"
+  if ! EXPECT_COMMIT=$(git -C "$PROJECT_DIR" rev-parse --verify -q "${EXPECT_SHA}^{commit}"); then
+    echo "ERROR: --expect-sha $EXPECT_SHA is not a commit."
+    exit 1
+  fi
+  ONLY_BAD=0
+  for ONLY in "${ONLY_FILES[@]}"; do
+    if [ "$ONLY" != "$(basename "$ONLY")" ] || ! echo "$ONLY" | grep -qE '^[0-9].*\.sql$'; then
+      echo "REFUSED: --only $ONLY — expected a versioned migration basename (NNN_name.sql)."
+      ONLY_BAD=$((ONLY_BAD + 1)); continue
+    fi
+    ONLY_PATH="supabase/migrations/$ONLY"
+    if ! BLOB=$(git -C "$PROJECT_DIR" rev-parse --verify -q "$EXPECT_COMMIT:$ONLY_PATH"); then
+      echo "REFUSED: $ONLY is not committed at ${EXPECT_COMMIT:0:12} (untracked or uncommitted)."
+      ONLY_BAD=$((ONLY_BAD + 1)); continue
+    fi
+    if [ ! -f "$PROJECT_DIR/$ONLY_PATH" ] ||
+       [ "$(git -C "$PROJECT_DIR" hash-object "$ONLY_PATH")" != "$BLOB" ]; then
+      echo "REFUSED: $ONLY in the working tree differs from its blob at ${EXPECT_COMMIT:0:12}."
+      echo "  An uncommitted edit (possibly a co-tenant's) must never be what reaches the database."
+      ONLY_BAD=$((ONLY_BAD + 1)); continue
+    fi
+  done
+  if [ $ONLY_BAD -gt 0 ]; then
+    echo "Aborted before applying anything — no migration was run, no ledger row written."
+    exit 1
+  fi
+  echo ">>> --only: restricted to ${#ONLY_FILES[@]} file(s) at ${EXPECT_COMMIT:0:12}: ${ONLY_FILES[*]}"
+fi
+
+# In scope for this run? Always true without --only.
+_in_scope() {
+  [ "$ONLY_MODE" = true ] || return 0
+  printf '%s\n' "${ONLY_FILES[@]}" | grep -qxF "$1"
+}
 
 if [ "$ENV_NAME" = "prod" ]; then
   ENV_FILE="$PROJECT_DIR/.env.prod"
@@ -136,23 +206,7 @@ except Exception:
 # must keep working — the two must never collapse into each other.
 # Emits one "version<TAB>name" row per ledger entry.
 _parse_ledger_rows() {
-  python3 -c "
-import json, sys
-try:
-    rows = json.loads(sys.stdin.read())
-except Exception:
-    sys.exit(1)
-if not isinstance(rows, list):
-    sys.exit(1)
-out = []
-for r in rows:
-    if not isinstance(r, dict) or 'version' not in r:
-        sys.exit(1)
-    # P1042: name is absent or NULL on every row written before that change,
-    # so r.get() must tolerate both a missing key and a null value.
-    out.append(str(r['version']) + '\t' + (r.get('name') or ''))
-print('\n'.join(out))
-" <<< "$1"
+  pl_parse_ledger_rows "$1"   # scripts/lib/prod-ledger.sh — shared with check-schema-ready.sh
 }
 
 # --- Helper: ledger `name` for a migration basename (P1042) ---
@@ -184,7 +238,13 @@ apply_via_api() {
   local BASENAME
   BASENAME=$(basename "$FILE")
   local SQL
-  SQL=$(cat "$FILE")
+  if [ "$ONLY_MODE" = true ]; then
+    # --only: the committed blob, never the working tree (verified identical up front,
+    # and read from the object store here so an edit in between cannot ride along).
+    SQL=$(git -C "$PROJECT_DIR" show "$EXPECT_COMMIT:supabase/migrations/$BASENAME")
+  else
+    SQL=$(cat "$FILE")
+  fi
   local RESPONSE HTTP_CODE BODY
   RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query" \
@@ -315,7 +375,11 @@ if ! preflight_ledger_name_check; then
 fi
 
 # --- Primary path: supabase db push (test only — CLI is always linked to test project) ---
-if [ "$ENV_NAME" != "prod" ]; then
+if [ "$ENV_NAME" != "prod" ] && [ "$ONLY_MODE" = true ]; then
+  # `supabase db push` applies EVERY pending file; --only must go file by file.
+  echo ">>> --only: skipping the CLI push path, applying via Management API..."
+  NEEDS_FALLBACK=true
+elif [ "$ENV_NAME" != "prod" ]; then
   echo ">>> Checking migration status..."
   npx supabase migration list -p "$DB_PASSWORD" 2>&1 || echo "(migration list unavailable — pooler auth issue, continuing)"
 
@@ -429,7 +493,8 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     for MIGRATION_FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
       BASENAME=$(basename "$MIGRATION_FILE")
       echo "$BASENAME" | grep -qE '^[0-9]' || continue
-      VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
+      _in_scope "$BASENAME" || continue
+      VERSION=$(pl_version_of "$BASENAME")
       echo "$REMOTE_VERSIONS" | grep -qx "$VERSION" && continue
       PENDING_FILES+=("$BASENAME")
     done
@@ -451,17 +516,21 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       MARKER_BLOCKED=0
       for PENDING in "${PENDING_FILES[@]}"; do
         PENDING_PATH="$PROJECT_DIR/supabase/migrations/$PENDING"
-        # [[:space:]]* — an indented marker must still arm the gate, never bypass it
-        MARKER_LINE=$(grep -iE '^[[:space:]]*-- requires-frontend:' "$PENDING_PATH" | head -1 || true)
-        [ -z "$MARKER_LINE" ] && continue
-        # lowercase first: accepts any case variant; sha hex is case-insensitive
-        REQUIRED_SHA=$(echo "$MARKER_LINE" | tr 'A-Z' 'a-z' | sed -E 's/^[[:space:]]*-- requires-frontend:[[:space:]]*([0-9a-f]+).*/\1/')
-        if ! echo "$REQUIRED_SHA" | grep -qE '^[0-9a-f]{7,40}$'; then
-          # tr: echoed file content must not re-introduce redirect tokens (P783)
-          echo "BLOCKED: $PENDING carries a malformed requires-frontend marker: $(echo "$MARKER_LINE" | tr '<>|' '___')"
+        # Shared parser (scripts/lib/prod-ledger.sh): indented markers still arm the
+        # gate, any case is accepted, echoed content has redirect tokens replaced (P783).
+        # --only reads the committed blob, the same bytes the apply loop will send.
+        if [ "$ONLY_MODE" = true ]; then
+          MARKER=$(git -C "$PROJECT_DIR" show "$EXPECT_COMMIT:supabase/migrations/$PENDING" | pl_marker_sha)
+        else
+          MARKER=$(pl_marker_sha < "$PENDING_PATH")
+        fi
+        [ "$MARKER" = "none" ] && continue
+        if [ "${MARKER%% *}" = "malformed" ]; then
+          echo "BLOCKED: $PENDING carries a malformed requires-frontend marker: ${MARKER#malformed }"
           MARKER_BLOCKED=$((MARKER_BLOCKED + 1))
           continue
         fi
+        REQUIRED_SHA="${MARKER#sha }"
         if git -C "$PROJECT_DIR" merge-base --is-ancestor "$REQUIRED_SHA" origin/main 2>/dev/null; then
           echo "  coupling OK: $PENDING (frontend $REQUIRED_SHA is on origin/main)"
         else
@@ -507,7 +576,8 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     for MIGRATION_FILE in "$PROJECT_DIR"/supabase/migrations/*.sql; do
       BASENAME=$(basename "$MIGRATION_FILE")
       echo "$BASENAME" | grep -qE '^[0-9]' || continue
-      VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
+      _in_scope "$BASENAME" || continue
+      VERSION=$(pl_version_of "$BASENAME")
       echo "$REMOTE_VERSIONS" | grep -qx "$VERSION" && continue
       FRESH_PENDING+=("$BASENAME")
     done
@@ -551,9 +621,11 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
 
     # Skip files with no version prefix (non-standard filenames like p63_*.sql)
     if ! echo "$BASENAME" | grep -qE '^[0-9]'; then
-      echo "  - $BASENAME (no version prefix, skipping)"
+      [ "$ONLY_MODE" = true ] || echo "  - $BASENAME (no version prefix, skipping)"
       continue
     fi
+    # --only: everything outside the listed set is invisible to this run (P1211).
+    _in_scope "$BASENAME" || continue
 
     # Skip if this version is already in remote history
     if echo "$REMOTE_VERSIONS" | grep -qx "$VERSION"; then

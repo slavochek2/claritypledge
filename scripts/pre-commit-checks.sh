@@ -444,13 +444,43 @@ echo ""
 # security/npx). Proves the three prod gates hold: pending-list ack refusal,
 # requires-frontend coupling hard-block, mandatory post-migrate smoke — and
 # that test-env behavior stays unchanged.
-MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
+MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
 if [ -n "$MIGRATE_STAGED" ]; then
     if ! run_quiet "migrate.sh prod-gates canary (P887)" npx vitest run src/tests/p887-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
     fi
+    # P1211: --only (deadlock resolution, blob pinning). Missing canary blocks.
+    if [ -f "scripts/test-p1211-migrate-only.sh" ]; then
+        if ! run_quiet "migrate.sh --only canary (P1211)" bash scripts/test-p1211-migrate-only.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> migrate.sh --only canary... ${RED}✗ scripts/test-p1211-migrate-only.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
 else
     echo ">>> migrate.sh prod-gates canary skipped (no migrate scripts staged)"
+fi
+echo ""
+
+# 4.7c2. Schema gate canary (P1211) — runs when the checker, its shared ledger library
+# or the canary is staged. Stubbed ledger, throwaway repo. Proves every pass case has a
+# failing control and that mutants of the version comparison, the ancestor tests and
+# the one-file-per-version rule are killed. A missing canary blocks: the checker guards
+# every route to origin/main, and an unguarded edit to it is the one change it cannot
+# catch itself.
+SCHEMA_GATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(check-schema-ready|lib/prod-ledger|test-check-schema-ready)\.sh$' || true)
+if [ -n "$SCHEMA_GATE_STAGED" ]; then
+    if [ -f "scripts/test-check-schema-ready.sh" ]; then
+        if ! run_quiet "Schema gate canary (P1211)" bash scripts/test-check-schema-ready.sh; then
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo -e ">>> Schema gate canary... ${RED}✗ scripts/test-check-schema-ready.sh missing — blocking commit${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Schema gate canary skipped (check-schema-ready.sh / prod-ledger.sh not staged)"
 fi
 echo ""
 
