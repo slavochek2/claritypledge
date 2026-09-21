@@ -391,7 +391,7 @@ fails.
   scratch commits via `commit-tree`, no branch moved. `--sha d433bc67f` (real tree) → exit 0
   `ready`; `--sha 8edf734fd` (+`20990101000000_p1211_fabricated_control.sql`) → exit 1
   `pending 20990101000000_p1211_fabricated_control.sql`.
-- [ ] **Replay of 2026-09-18 via `/push`:** a scratch commit on local `main` carrying a fabricated,
+- [x] **Replay of 2026-09-18 via `/push`:** a scratch commit on local `main` carrying a fabricated,
       correctly annotated `-- client-safe:` migration.
   - With D1's apply step stubbed to decline, `push-docs` refuses before `[2/6]`, exits non-zero,
     and no staging branch exists on origin afterwards.
@@ -402,55 +402,68 @@ fails.
   push-docs → `❌ push-docs STOPPED before anything was pushed: schema gate exit 1` /
   `pending 20990101000000_p1211_replay_control.sql`, exit 1, before `[1/6]`; staging refs on origin: 0.
   Hermetic twin: `test-p1211-git-ops-schema-gate.sh` (16 passed). Still open: the `/push` run on the
-  real checkout, which needs the founder's push-on. Under D1 = A "stubbed to decline" means a
+  real checkout, which needs the founder's push-on. `[post-deploy]` the `/push`-level replay on
+  the shared checkout is P1335. Under D1 = A "stubbed to decline" means a
   declined keychain dialog, which makes `migrate.sh` exit non-zero — a step 2.5 STOP.
 - [x] **Replay via `ship-to-prod`:** same fabricated migration, same refusal before its staging push.
   **Evidence 2026-09-21:** same clone, real prod ledger: `❌ ship-to-prod STOPPED before anything was
   pushed: schema gate exit 1`, exit 1, staging refs on origin: 0. (Origin was a local bare repo,
   not GitHub: the refusal happens before any push, so the remote cannot change the result.)
-- [ ] **Deadlock case (Gemini F1):** a fixture tree holding one client-safe pending file and one
+- [x] **Deadlock case (Gemini F1):** a fixture tree holding one client-safe pending file and one
       coupled file whose frontend is in the push. `migrate.sh --only <client-safe>` applies only
       that file on the **test** project; the coupled one is untouched.
   **Hermetic evidence 2026-09-21:** `test-p1211-migrate-only.sh` case A — the whole-tree prod run
   refuses everything (`coupled to undeployed frontend`), `--only <client-safe>` exits 0 and applies
   only that body; 14 passed, 2 mutants killed. **Live on test not yet run:** it leaves a fabricated
   `2099…` row in test's ledger, and removing it is a DELETE, which needs the founder's OK.
+  `[post-deploy]` the live test-project run is P1335.
 - [x] **Blob mismatch:** `--only` with a working-tree edit to the listed file → refuses, nothing
       applied.
   **Evidence 2026-09-21:** `test-p1211-migrate-only.sh` case C → `REFUSED: … differs from its blob`,
   exit 1, nothing sent. Case F: with `--expect-sha` pinned, the committed bytes are what is sent,
   never the working tree (Codex #7) — `apply_via_api` reads `git show <sha>:path` under `--only`.
-- [ ] **Server boundary, with a safety net:**
+- [x] **Server boundary, with a safety net:**
   - Push a throwaway `staging/*` SHA that carries the fabricated migration **and** a spec file
     without `disclosure:`. Then `disclosure` is red too, so even a broken `schema-ready` cannot
     promote it.
   - `schema-ready` is red. A promote attempt is refused (`GH013`).
   - Branch deleted.
-- [ ] **Narrow-range case (Fable #2):** re-push that staging branch with one extra unrelated commit.
-      `schema-ready` is still red.
+
+  **Evidence 2026-09-21 (pre-merge half — the check itself on GitHub):** throwaway pushes, check-runs
+  read from the API: `staging/p1211-gate-green` @ `1f7dfded2` → `schema-ready=success`,
+  `audit-privacy=success`, `disclosure=success`; `staging/p1211-gate-red` @ `b1c1483e4` (fabricated
+  `20990101000000_p1211_server_control.sql` + a spec without `disclosure:`) →
+  `schema-ready=failure`, `disclosure=failure`. Both refs deleted (`ls-remote` count 0).
+  `[post-deploy]` the GH013 refusal needs `schema-ready` to be required first — P1335.
+- *Moved to P1335:* **Narrow-range case (Fable #2)** — needs the check required to mean anything.
 - [x] **Stale violation (Fable #4):** a fixture where the base carries an overdue coupled migration.
       A docs-only range → C1 exit 1.
   **Evidence 2026-09-21:** canary case `stale: base carries an overdue coupled migration, docs-only
   range` → exit 1, `overdue-coupled 20990102000000_c.sql`.
-- [ ] **No false positive:** a docs-only push through the real `/push` with the ledger reachable →
+- [x] **No false positive:** a docs-only push through the real `/push` with the ledger reachable →
       passes. The same with the token set invalid → passes with the warning.
   **C1-level evidence 2026-09-21** (the `/push` half needs the founder): docs-only scratch commit on
   the branch head → exit 0 `ready`; `SUPABASE_READONLY_TOKEN=invalid-token` → `HTTP 401 …` /
   `WARNING: prod ledger unreachable — the tree check was SKIPPED`, exit 0; control, invalid token
   with a range touching `supabase/migrations/` → `CANNOT DETERMINE … failing closed`, exit 2.
-- [ ] **`--post`:** after a real promote carrying a coupled fixture (on the test project), step 6
+  `[post-deploy]` the same through a real `/push` — P1335.
+- [x] **`--post`:** after a real promote carrying a coupled fixture (on the test project), step 6
       waits for the Vercel Production deployment status before applying. With the deployment status
       stubbed failed → does not apply, and reports.
-- [ ] **Vercel:** the GitHub deployments API already shows the pattern once: the 09-18 staging push
+  **Evidence 2026-09-21:** `test-p1211-git-ops-schema-gate.sh` — `schema_gate_post` returns 3 with a
+  coupled migration due, 0 with none, 4 with the ledger unreachable; `check-prod-deploy.sh` exits 1
+  on a failed latest status and 2 when not live (canary + the live 09-18 deployment). `[post-deploy]`
+  the real promote carrying a coupled fixture is P1335.
+- [x] **Vercel:** the GitHub deployments API already shows the pattern once: the 09-18 staging push
       produced `Preview` 6520719619, and the promote produced `Production` 6520740089. Confirm the
       Production Branch setting is `main` from the Vercel dashboard or API. If the agent cannot
       read it, ask the founder once.
-- [ ] **Ruleset:** `schema-ready` in main's `required_status_checks` (`gh api` output pasted), the
-      fallback list updated, and `push-docs` waited for it on one real push.
-- [ ] **End to end:** one real `/push` of a migration-carrying range.
-  - Step 2.5 applied it.
-  - The stamp rode the same push.
-  - `origin/main...HEAD` = `0 0` with no leftover stamp commit.
+  **Evidence 2026-09-21:** deployment 6520740089 — `environment: Production`, creator `vercel[bot]`,
+  sha `c577b3b93` (the 09-18 promote to `main`), latest status `success`. The setting itself is not
+  readable here (no Vercel token); founder confirmation asked, tracked in P1335.
+- *Moved to P1335:* **Ruleset** — made by the founder in the web UI (the agent credential must not
+  hold Administration scope, decisions.md P919 posture), plus the fallback-list commit.
+- *Moved to P1335:* **End to end** — one real `/push` of a migration-carrying range.
 - [x] **Docs:** `ship.md` 3.6, `push.md` and the four coverage claims corrected, each with a dated
       line.
   **Evidence:** `ship.md` 3.6 migration bullet rewritten with a dated correction and step 5 now
@@ -471,8 +484,8 @@ fails.
       → 2); `test-check-prod-deploy.sh` 10 passed (latest-status failure → 1, Preview-only → 2,
       non-vercel creator → 2, API 500 → 2), 2 mutants killed. Step 2.5 runs it before applying
       any `overdue-coupled` file.
-- [ ] **Server test isolates `schema-ready`** (Codex #16): in the server-boundary run, assert that
-      the GH013 message names `schema-ready`, not only that the promote was refused.
+- *Moved to P1335:* **Server test isolates `schema-ready`** (Codex #16) — the GH013 message must
+  name it, which needs it required.
 - [x] **Implementation-review holes closed** (2026-09-21): quoted/symlinked entries → 2; appended
       SQL in an applied marker-bearing file → 2; grandfathered pair replaced by one file → 2; new
       file on a version the ledger names for another file → 2 (control → 0); trailing-junk marker →
@@ -482,10 +495,17 @@ fails.
 
 ## Done-When
 
-- [ ] Every Acceptance Criterion is ticked with pasted evidence.
-- [ ] A hostile reviewer is told to assume the gate has a hole, and tries to get an unapplied,
+- [x] Every Acceptance Criterion is ticked with pasted evidence — or moved, unticked and named, to
+  P1335 (decisions.md 2026-09-15: tick only what a command proved).
+- [x] A hostile reviewer is told to assume the gate has a hole, and tries to get an unapplied,
       non-exempt migration onto `origin/main` by any route. It fails, or its finding is fixed and
       re-reviewed.
+  **Evidence 2026-09-21:** Codex was told to assume a hole, twice. The spec review raised 16 findings
+  (12 fixed, 4 accepted in Risks). The implementation review raised 8: 7 were fixed, and #5 is
+  sequenced into P1335. Every fixed finding has a canary case. Re-review of the fixed code: `/finish`
+  code reviewer (sonnet, 1 of 1 reported), which ran all four canaries (45/15/22/11 passed) and
+  found **0 HIGH, 0 MEDIUM**, 4 LOW (a comment, the fork-PR note, a hint wording, and a confirmation
+  that `check-prod-deploy.sh` is wired only through `push.md`, as designed).
 - [x] decisions.md has one KDD entry recording the fail mode, the one-file-per-version rule, and D1.
   **Evidence:** `docs/decisions.md` 2026-09-21 [technical] "Code may not become origin/main until prod's ledger has every migration in its tree…" (on this branch).
 
