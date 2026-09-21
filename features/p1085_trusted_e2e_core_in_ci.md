@@ -1,8 +1,8 @@
 ---
-status: today
+status: backlog
 type: task
 disclosure: public
-rank: 4
+rank: 19
 created_date: '2026-08-14'
 tags:
   - testing
@@ -13,7 +13,6 @@ delivery_stage: create-spec
 pipeline_ran:
   - create-spec
 driver: anomaly
-locked_at: '2026-08-28T05:20:54.230Z'
 ---
 
 # P1085: A trusted E2E core that runs in CI

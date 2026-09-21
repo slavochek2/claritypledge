@@ -1,8 +1,8 @@
 ---
-status: today
+status: backlog
 type: task
 disclosure: public
-rank: 5
+rank: 20
 workstream: infrastructure
 created_date: '2026-08-28'
 tags:
@@ -17,7 +17,6 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
-locked_at: '2026-08-28T05:39:53.149Z'
 ---
 
 # P1175: The shell canaries have no automated runner — they only fire when someone remembers

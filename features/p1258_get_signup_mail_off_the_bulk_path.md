@@ -2,7 +2,7 @@
 status: week
 type: task
 disclosure: public
-rank: 4
+rank: 2
 workstream: C1
 created_date: '2026-09-07'
 tags:

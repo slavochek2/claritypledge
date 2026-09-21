@@ -1,8 +1,8 @@
 ---
-status: week
+status: backlog
 type: comment
 disclosure: public
-rank: 14
+rank: 24
 created_date: '2026-08-06'
 tags:
   - hypotheses
@@ -11,7 +11,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-08-07T09:16:14.555Z'
 ---
 
 # P1029: Hypothesis inventory audit and trim

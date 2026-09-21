@@ -1,8 +1,8 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 12
+rank: 22
 created_date: '2026-07-20'
 tags:
   - funnel
@@ -13,7 +13,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-08-07T09:13:15.764Z'
 ---
 
 # P1003: 3-Minute Alignment Audit Funnel (replace the letter dead-end)

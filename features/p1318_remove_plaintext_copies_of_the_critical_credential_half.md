@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-rank: 9
+rank: 8
 workstream: keyring
 created_date: '2026-09-15'
 tags:

@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: story
-rank: 1
+rank: 4
 workstream: events
 created_date: '2026-09-21'
 tags:

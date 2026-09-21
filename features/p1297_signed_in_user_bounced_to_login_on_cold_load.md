@@ -1,7 +1,7 @@
 ---
-status: week
+status: today
 type: bug
-rank: 3
+rank: 5
 severity: high
 workstream: infrastructure
 date_reported: '2026-09-10'

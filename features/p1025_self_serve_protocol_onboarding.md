@@ -1,8 +1,8 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 11
+rank: 21
 workstream: letters
 created_date: '2026-08-01'
 tags:
@@ -13,7 +13,6 @@ tags:
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
-locked_at: '2026-08-07T09:13:03.570Z'
 ---
 
 # P1025: Self-serve protocol onboarding — AI-assisted, human-scored

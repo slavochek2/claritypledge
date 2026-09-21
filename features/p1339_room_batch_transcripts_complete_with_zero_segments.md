@@ -1,18 +1,25 @@
 ---
 status: week
 type: bug
-rank: 11
+rank: 5
 workstream: transcription
 created_date: '2026-09-21'
-tags: [transcription, batch, events, silent-failure]
+tags:
+  - transcription
+  - batch
+  - events
+  - silent-failure
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-related: [p1307, p1152]
+related:
+  - p1307
+  - p1152
 ---
 
 # P1339: Every room's after-event transcript comes out empty while its job reports "completed"

@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 6
+rank: 4
 severity: medium
 workstream: transcribe
 date_reported: 2026-09-11T00:00:00.000Z

@@ -2,7 +2,7 @@
 status: week
 type: bug
 disclosure: public
-rank: 5
+rank: 3
 severity: medium
 workstream: infra
 date_reported: '2026-09-01'

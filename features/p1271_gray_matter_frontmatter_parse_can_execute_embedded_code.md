@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 7
+rank: 6
 severity: medium
 workstream: spec-schema
 date_reported: '2026-09-08'

@@ -2,7 +2,7 @@
 status: week
 type: bug
 disclosure: public
-rank: 8
+rank: 7
 created_date: '2026-08-18'
 tags:
   - security
