@@ -48,13 +48,14 @@ trail cannot be judged from a paragraph about it.
 
 ### Exclusions — the never-again list
 
-A "don't offer that again" ruling has exactly two homes, and both are **read and enforced** by the
+A "don't offer that again" ruling has exactly three homes, and each is **read and enforced** by the
 skill that could otherwise violate them:
 
 | What | Where | Enforced by |
 |---|---|---|
 | Trails, venues, areas | `.private/event-exclusions.json` | `/slava:events:select-hike` step 1 — matches are dropped before any tab is opened |
 | Group chats we must not post to | `do_not_post[]` in `.private/event-channels.json` | `/slava:events:promote-groups` step 2 — a blocked chatID also present in `groups` refuses the whole run |
+| Individual people we must not DM about events | `people[]` in `.private/event-contact-exclusions.json` | `/slava:events:promote-dm` step 2 — a matched contact is dropped from the audience before the list is shown for pruning |
 
 Record the ruling the moment it is made, with the founder's own reason and the date. Prose in a doc
 does not count: this paragraph replaced a written-but-unread note about Wat Pha Lat, and the German

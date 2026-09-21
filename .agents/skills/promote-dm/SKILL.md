@@ -46,6 +46,8 @@ Translate the audience signal to data sources:
 
 Query the relevant source(s), deduplicate by email + chatID, resolve firstnames.
 
+**Exclusion check — before the list is shown for pruning.** Read `.private/event-contact-exclusions.json` (`people[]`). Drop any contact whose Beeper chatID or name matches an entry's `beeper_chat_id`/`match[]` — do not include them in the audience table at all, don't ask, don't re-surface them next campaign. This is a hard block, same status as the trail and group-chat exclusion lists (`docs/events/process.md` § Exclusions). If the file is missing or empty, proceed with no exclusions.
+
 **CRM query pattern (SQLite):**
 ```bash
 sqlite3 ~/Projects/private/personal/data/crm.db \
