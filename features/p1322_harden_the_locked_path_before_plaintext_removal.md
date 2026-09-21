@@ -7,8 +7,8 @@ created_date: '2026-09-15'
 tags: [security, credentials, keyring, recovery]
 disclosure: public
 related: [p1318, p1316, p1239, p1148]
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
