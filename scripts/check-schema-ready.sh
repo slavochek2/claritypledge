@@ -229,13 +229,16 @@ APPLIED=$(printf '%s\n' "$LEDGER" | cut -f1)
 #     the ledger's recorded name, when present, must name this file — otherwise another
 #     file already claimed V and this one will never run (P1042, cross-tree).
 strip_marker() { git cat-file blob "$1" 2>/dev/null | grep -viE '^[[:space:]]*-- requires-frontend:' | shasum | cut -d' ' -f1; }
+# "version<TAB>blob" for the base, computed ONCE. Leading digits = pl_version_of's rule
+# for every name that reaches here (all start with a digit). The per-file version of this
+# spawned ~350 x 350 processes and stalled a real run for minutes.
+BASE_VB=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' 'match($2, /^[0-9]+/) { print substr($2, 1, RLENGTH) "\t" $1 }')
 EDITED=0
 while IFS=$'\t' read -r NB F; do
   [ -n "$F" ] || continue
   V=$(pl_version_of "$F")
   printf '%s\n' "$APPLIED" | grep -qxF "$V" || continue
-  BV=$(printf '%s\n' "$BASE_BLOBS" | while IFS=$'\t' read -r OB BN; do
-    [ -n "$BN" ] && [ "$(pl_version_of "$BN")" = "$V" ] && echo "$OB"; done)
+  BV=$(printf '%s\n' "$BASE_VB" | awk -F'\t' -v v="$V" '$1 == v { print $2 }')
   if [ -n "$BV" ]; then
     printf '%s\n' "$BV" | grep -qxF "$NB" && continue
     NS=$(strip_marker "$NB")
