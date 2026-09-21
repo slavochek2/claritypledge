@@ -1,0 +1,88 @@
+# Schema gate — server-side half of P1211. Check context: `schema-ready`.
+#
+# Invariant I1: when a SHA becomes origin/main, every migration file in its tree is
+# already recorded in PROD's supabase_migrations.schema_migrations (except migrations
+# coupled to a frontend in the same push, and the trusted legacy exemptions). Vercel
+# deploys main the moment it moves, so a SHA that fails this must never become main.
+#
+# This is the boundary for every update of main on GitHub: --no-verify, another
+# machine, a raw `git push`, a PR merged in the UI. git-ops.sh push-docs/ship-to-prod
+# run the same checker locally first (fail fast); this job is what makes it binding
+# once `schema-ready` is a required status check on main.
+#
+# Load-bearing design notes, mirrored from disclosure-gate.yml:
+#  - The checker AND its inputs (scripts/lib/prod-ledger.sh, the exempt file) come from
+#    origin/main, never the pushed commit, so a push cannot edit the rules it is judged
+#    by. The bootstrap fallback to the pushed copy exists only while the checker has
+#    NEVER been on main; once it has, its absence fails closed (a deletion cannot
+#    re-arm the fallback — Codex review 2026-09-21).
+#  - The range is always origin/main..<head sha>, never the event's before..after:
+#    ship-to-prod force-updates an existing staging/pN, and an event range could omit
+#    a still-pending migration. With a reachable ledger the whole tree is checked
+#    anyway; the range only matters when the ledger is unreachable.
+#  - BLOCKING, never continue-on-error. permissions: contents: read only.
+#  - Fork PRs get no secrets, so the checker exits 2 (no token) and this is red.
+#    Fail-closed by design.
+#
+# Known limitation, stated not solved: this workflow file itself runs from the pushed
+# commit, so a push that edits it can weaken it — the same as every required workflow
+# in this repo. See features/p1211 C3.
+
+name: schema-gate
+
+on:
+  push:
+    branches: ['staging/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-ready:
+    name: schema-ready
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # full history: ancestor tests and the bootstrap history check need it
+
+      - name: Fetch trusted base (origin/main)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main:refs/remotes/origin/main \
+            || git fetch --no-tags --quiet origin main
+
+      - name: schema-ready (trusted-base checker, prod ledger)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SUPABASE_READONLY_TOKEN: ${{ secrets.SUPABASE_READONLY_TOKEN }}
+        run: |
+          set -euo pipefail
+          # pull_request: the head SHA (what the check-run attaches to), not the merge ref.
+          if [ "$EVENT_NAME" = "pull_request" ]; then AFTER="$PR_HEAD_SHA"; else AFTER="$PUSH_SHA"; fi
+          echo "Checking ${AFTER} against origin/main ($(git rev-parse origin/main))."
+
+          if git show origin/main:scripts/check-schema-ready.sh > /tmp/trusted-schema-ready.sh 2>/dev/null; then
+            echo "Using trusted checker from origin/main."
+          elif [ -n "$(git log -1 --format=%H origin/main -- scripts/check-schema-ready.sh)" ]; then
+            echo "::error::scripts/check-schema-ready.sh was on origin/main and has been removed. Failing closed — the pushed copy is never trusted after bootstrap."
+            exit 1
+          else
+            echo "::warning::check-schema-ready.sh has never been on origin/main — running the PUSHED copy (bootstrap only)."
+            git show "${AFTER}:scripts/check-schema-ready.sh" > /tmp/trusted-schema-ready.sh
+          fi
+
+          set +e
+          bash /tmp/trusted-schema-ready.sh --sha "$AFTER" --base origin/main --trusted-ref origin/main
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "schema-ready: every migration in ${AFTER} is on prod." ;;
+            1) echo "::error::schema-ready: migrations above are NOT on prod. Apply them first (/push step 2.5), then re-push." ;;
+            2) echo "::error::schema-ready: cannot determine readiness (see above). Fail-closed." ;;
+            *) echo "::error::schema-ready: unexpected checker exit ${rc}." ;;
+          esac
+          exit "$rc"
