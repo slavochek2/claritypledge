@@ -137,6 +137,8 @@ run --sha "$RENCHG" --base "$BASE";               expect "rename with changed SQ
 run --sha "$RENSAME" --base "$BASE";              expect "control: pure rename, identical SQL"            0
 run --sha "$BASE" --base "$BASE" --trusted-ref "$NOCHECKER"; expect "checker deleted from trusted ref: no bootstrap, fail closed" 2
 if printf '%s' "$ERR" | grep -q "has been removed"; then ok "  ...named as removal"; else bad "  ...not named: $ERR"; fi
+STALE=$(commit_on "$COUPLED" docs-on-stale "README.md=docs only, on top of a base that is already overdue")
+run --sha "$STALE" --base "$COUPLED";             expect "stale: base carries an overdue coupled migration, docs-only range" 1 "overdue-coupled 20990102000000_c.sql"
 run --sha "$COUPLED" --base "$BASE" --post;       expect "--post: coupled now due"                       3 "due 20990102000000_c.sql"
 run --sha "$FAB" --base "$BASE" --post;           expect "--post: plain pending is not 'due'"            1 "pending 20990101000000_fab.sql"
 
