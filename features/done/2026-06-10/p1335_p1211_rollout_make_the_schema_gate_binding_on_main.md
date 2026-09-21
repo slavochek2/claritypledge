@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: task
 rank: 3
 workstream: infrastructure
@@ -10,12 +10,12 @@ tags:
   - ci
   - rollout
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-21
 ---
 
 # P1335: P1211 rollout — make the schema gate binding on `main`
