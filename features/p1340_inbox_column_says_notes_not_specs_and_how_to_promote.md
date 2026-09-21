@@ -1,17 +1,22 @@
 ---
-status: week
+status: backlog
 type: story
-rank: 10
+rank: 25
 workstream: kanban
 created_date: '2026-09-21'
-tags: [kanban, inbox, ux]
+tags:
+  - kanban
+  - inbox
+  - ux
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
-related: [p1317]
+related:
+  - p1317
 ---
 
 # P1340: The Inbox column says its cards are notes, not specs, and shows how to promote one
