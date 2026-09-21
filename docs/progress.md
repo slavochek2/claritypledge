@@ -40,6 +40,7 @@ Every P0 bet carries a pre-committed falsifier written before its data arrives. 
 | 2026-01→03 | 28 facilitated /live sessions (the H-WTP-Pain evidence base — [hypotheses.md](hypotheses.md)) |
 | 2026-05 | Chiang Mai — AI agents meetup ([luma.com/lrskf8sh](https://luma.com/lrskf8sh)) |
 | 2026-05/06 | Chiang Mai — public clarity event + 3-hour workshop (4C's) `[FOUNDER REVIEW: dates]` |
+| 2026-09-18 | Chiang Mai — Clarity Night #1 (AI safety), the first event of the free series; debrief in [goals.md](goals.md) |
 | upcoming | Chiang Mai — recorded co-presented talks + panel + Q&A |
 
 ## Evidence index

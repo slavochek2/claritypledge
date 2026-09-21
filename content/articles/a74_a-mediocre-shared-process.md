@@ -46,4 +46,4 @@ It reframes feedback-culture advice (be direct / be kind) as a coordination prob
 
 - **Privacy:** the source story used named characters personalised to a real person. The names are deliberately dropped here. Keep them out of any draft unless that person consents.
 - Overlaps to handle in the draft, not duplicates: a67 (disclosure needs a safety gate as well as legibility, and this piece is the mechanism by which a shared process supplies part of the safety), and research-programme rival (e) (CRM and closed-loop readback as prior art). The aviation cases are rival (e)'s evidence, so cite them as such rather than as ours.
-- Bilingual: the source was produced English + Thai for a Thai-speaking reader. A Thai version is a distribution option, not a requirement.
+- A translated version is a distribution option, not a requirement.
