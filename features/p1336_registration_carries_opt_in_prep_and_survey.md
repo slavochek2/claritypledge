@@ -33,8 +33,8 @@ event room, with everyone present (P1114). Setup ate the practice time: too much
 forcing repeats, pairs stuck together, and people unsure what to click
 ([goals.md](../docs/goals.md), "Event #1 ran 2026-09-18").
 
-**Complication:** Every attendee opted in: 12 of 12 room members, 0 opted out (verified 2026-09-21 from
-prod room data). A yes given in a room with the host present and everyone else saying yes partly measures the
+**Complication:** Every attendee opted in: all 11, 0 opted out (verified 2026-09-21 from prod room data;
+the room held 12 members, one of them the host). A yes given in a room with the host present and everyone else saying yes partly measures the
 room. With no variance, the pre-registered H-ChampionYield prediction (in-room opt-in predicts paid
 conversion) cannot be read at all ([hypotheses.md](../docs/hypotheses.md) H-ChampionYield; article
 idea a73). Events now run **weekly**, starting **event #2 on Tuesday 2026-09-29**, and the new active
