@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: task
 disclosure: public
 rank: 1000064
@@ -16,6 +16,8 @@ driver: heuristic
 ---
 
 # P1215: A user's agent can act as them, without ever holding their credentials
+
+> **Deferred to backlog 2026-09-21 (founder).** Still gated on P1321, now also deferred; nothing in the champion pilots or weekly events needs a member's agent.
 
 > **Revised 2026-09-01 after adversarial review** (codex, two passes; plus an independent
 > protocol verification). The review overturned three factual claims and one security

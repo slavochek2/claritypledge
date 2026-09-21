@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: backlog
 type: task
 disclosure: public
 rank: 87
@@ -15,6 +15,8 @@ driver: anomaly
 ---
 
 # P1190: The disagreement pipeline ranks points by split-hardness and never asks whether they matter
+
+> **Held in backlog 2026-09-21 (founder).** 12 of 17 Done-When items done; the blinded A/B scoring (the last five) never ran. No upcoming event or pilot needs the arbiter filter. Resume only if the disagreement pipeline is picked up again.
 
 ## Problem
 

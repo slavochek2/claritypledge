@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 106
 workstream: problem-board
@@ -17,6 +17,8 @@ related: [p1320, p1182]
 ---
 
 # P1331: Community as a third audience on the letter send screen
+
+> **Deferred to backlog 2026-09-21 (founder).** Part of the problem-board chain whose premise failed at P1319 ([decisions.md](../docs/decisions.md) 2026-09-17 [product]). Kept, not rejected; revive with P1181 if a pilot organization wants to write letters inside the org.
 
 ## Problem
 

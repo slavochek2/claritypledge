@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: task
 rank: 105
 workstream: infrastructure
@@ -18,6 +18,8 @@ related: [p1207, p1044, p1065, p1215]
 ---
 
 # P1321: Answer the agent-access security gate, and design phase-1 agent access
+
+> **Deferred to backlog 2026-09-21 (founder).** Agent access comes after the champion-pilot and weekly-event work ([decisions.md](../docs/decisions.md) 2026-09-21 [product]). Unowned security items here (untriaged anonymous-callable functions) stay open; revisit before any agent work starts.
 
 ## Problem
 

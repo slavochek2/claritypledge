@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 rank: 104
 workstream: problem-board
@@ -18,6 +18,8 @@ related: [p1181, p1215, p1182, p1331]
 ---
 
 # P1320: Review page — read your drafted problem as the reader will, fix it, send it
+
+> **Deferred to backlog 2026-09-21 (founder).** Its premise failed at P1319: the first real run submitted 0 of 9 problems, because the founder did not want any of them seen ([decisions.md](../docs/decisions.md) 2026-09-17 [product]). Kept, not rejected: the board may still suit members who are genuinely stuck, which no one has tested yet.
 
 ## Problem
 
