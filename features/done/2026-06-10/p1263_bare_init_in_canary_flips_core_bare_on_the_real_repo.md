@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 rank: 1000079
@@ -11,8 +11,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 tags: [git, hooks, canary, worktrees, GIT_DIR]
-delivery_stage: dev
 pipeline_ran: [create-bug, dev]
+completed_at: 2026-09-21
 ---
 
 # P1263: A canary's `git init --bare` flips `core.bare` on the real repo, breaking git for every session
