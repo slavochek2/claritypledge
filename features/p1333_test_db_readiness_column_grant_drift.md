@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: medium
 tags: [p1114-followup, test-db-drift, privacy]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 date_resolved: 2026-09-21
 root_cause: "P1042's renumber (2026-08-24) made migrate.sh re-run 20260819161000_p1114_event_room_tables on test after 20260821170000 had revoked readiness_value; its REVOKE-then-GRANT replayed the pre-170000 column list. A 2026-09-14 manual grant of comprehension_rating on test (P1307 session) patched the other half of the symptom without noticing readiness."
 resolution: "Re-applied 170000's revoke-then-column-grant idiom on TEST only via the Management API, and dropped the orphaned 'opted-in room members are visible' policy the same re-run had recreated. No migration: a fresh apply in version order is already correct."
@@ -48,13 +48,13 @@ known test-only drift in this area (see the 2026-09-07 note in
 
 ## Done when
 
-1. Root cause named: which migration or manual change left the grant open on test (compare
+- [x] Root cause named: which migration or manual change left the grant open on test (compare
    `supabase_migrations.schema_migrations` on both projects; check later migrations that
    re-GRANT on `event_room_members`, e.g. P1307/P1315).
-2. The column grant on test matches prod (re-apply the revoke-then-column-grant idiom on test
+- [x] The column grant on test matches prod (re-apply the revoke-then-column-grant idiom on test
    only; if a migration is at fault, fix it forward so a fresh apply is also correct).
-3. `npx playwright test --project=integration e2e/integration/p1114-room-rpcs.spec.ts` → 23/23.
-4. Control: the same column-privilege query returns identical rows on both projects.
+- [x] `npx playwright test --project=integration e2e/integration/p1114-room-rpcs.spec.ts` → 23/23.
+- [x] Control: the same column-privilege query returns identical rows on both projects.
 
 ## Resolution (2026-09-21)
 
