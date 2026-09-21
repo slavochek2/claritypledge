@@ -107,3 +107,14 @@ Same monotone direction the article names: widening scope, diffusing the payer. 
 **The sharpened guard:** the falsifier has to be pre-committed against the *audience and the price*, not only against the buyer segment named in a strategy discussion. Copy edits are where a segment moves without anyone noticing a decision was made, because each one is arguable as craft and none of them announces itself.
 
 **Honesty beat for the draft:** the pre-commitment this article proposes was written into `docs/process-learnings.md` on 2026-07-27 with its thresholds left as `[FOUNDER DECISION]`. It was never filled in. In the week that followed, the relocation described above happened. The guard's first real test was a miss — not because the guard was wrong, but because an unfilled number is not a pre-commitment. That belongs in the piece.
+
+## Enrichment (2026-09-21)
+
+Source: "Narrowing event strategy: AI safety vs. broader topics" (2026-09-14) + "Improving the Clarity meeting event" (2026-09-21)
+Applied to: a-spec body
+
+**The third instance, fifty days on, and the thresholds still blank.** Four days before event #1, one conversation moved the target three times: AI safety as the whole venture → AI-safety sub-questions chosen for legibility → free events for nonprofits. The model named it mid-flight: *each move reasonable on its own, and the event is in four days with promotion still ahead.* The missing element was the same one: *"you can't reduce this uncertainty by thinking — one event resolves more of it than another month of criteria work."*
+
+**What is new in this instance: criteria standing in for a test.** The founder's selection criteria (fuzzy intent, delayed feedback, compounding consequences, scale) were built to answer *who has the problem badly enough to pay*, and were being used to answer *where does the protocol demonstrate best*. The model's line: **"criteria without a mechanism will ratify whatever you already want"**, and a rule whose output is always the same domain *"isn't selecting, it's ratifying."* A second conversation, the day after the event, moved the buyer again (mid-size organisations via internal champions). Whether that move is earned is exactly what the unfilled pre-commitment would settle.
+
+**Concession that belongs in the draft (founder won the point):** the model argued AI safety demonstrates badly because its costs arrive in ten years. The founder answered that the demo shows the drop in time, effort and social cost of admitting a gap, which is visible in any domain, and the model conceded. That concession took the demo axis out of the choice entirely, which is the clean version of ARC-6: the argument got better, and the decision was still not one that argument could make.

@@ -160,6 +160,16 @@ The mechanism is mechanical, not moral: a **timestamped, publicly held position 
 
 *Conversation-sourced, **UNTESTED**, zero field contact — no archive has run long enough for a single incoherence cost to have been paid. Narrative: `content/articles/a71_raising-the-cost-of-incoherence.md`. Adjacent and distinct: a31 (feedback infrastructure as an error-minimizing layer). The Pinker deniability material lives in a24 / a10 / a29 and is deliberately not restated. Rationale: [decisions.md](decisions.md) 2026-09-09 [product].*
 
+### Scope limit: comprehension is not commitment (2026-09-21, argument not data, UNTESTED)
+
+Verified understanding can make a disagreement **more precise** without resolving it. Three independent sources point the same way: **(1)** Fearon, *Rationalist Explanations for War* (1995): parties who understand each other perfectly can still fail to agree, because neither can trust the other to keep a deal once power shifts (the commitment problem), and some stakes cannot be divided. **(2) Constructive ambiguity:** some agreements hold *because* each side reads them differently (UN Resolution 242, "One China"), and forcing verification could collapse an agreement that ambiguity was holding together. **(3) Nuclear-era verification** (hotlines, inspections, launch notification) made the arms race more predictable without ending it. What it verified was capability and intent, not comprehension.
+
+**Consequence:** the end-state lines above ("coordination unlocked") hold for the **comprehension layer** only. Trust that a commitment will be kept is a separate layer that this mechanism does not supply. That is consistent with [hypotheses.md](hypotheses.md) H-GroupCounterparty, where internal verification is *necessary, not sufficient*, for a group's commitment to bind. A result where everyone passes the comprehension check and still disagrees is the protocol working (understood-and-rejected), not failing.
+
+**Falsifier:** a case where verified mutual comprehension alone, with no new enforcement or incentive change, turns a commitment problem into a kept agreement ⟹ comprehension does reach the commitment layer, and this limit is too conservative.
+
+*Conversation-sourced (2026-09-10 and 2026-09-14), zero field contact. Sources are cited as argued in conversation; read Fearon 1995 before this appears in published writing.*
+
 ---
 
 ## Strategic Assumptions

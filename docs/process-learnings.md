@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 82
+**Next ID:** 83
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1616,5 +1616,20 @@ Pre-existing, found during P1323: EventRoomReady's Continue awaits capture.start
 **due:** week
 
 Pre-existing, found in adversarial review during P1323: in clarity-live-page.tsx, handleMicCancel sets view back to 'start' without clearing the session, terminating it, or writing sessionEnded, so a host denied the microphone sits on the lobby inside a live server session and any same-tab nav link strands the partner in a session that still looks live (P1323 only removed the Links menu from that state, keyed on session !== null). Done when mic-cancel either terminates the session through onExit()/terminate() or keeps the in-session view; droppable if the mic-permission gate is redesigned so cancel cannot happen after a session exists.
+
+---
+
+## Every event needs a post-event debrief written into the repo
+
+**ID:** INBOX-82
+**Date:** 2026-09-21
+**Status:** proposed
+**due:** week
+
+Event #1 (Clarity Night #1, 2026-09-18) ran and its results, attendee frictions and next-event changes existed only in a Claude.ai chat for three days. Every pre-event decision was logged (round rule, consent unit, tap-is-the-answer), but nothing after — so goals.md still read "Event #1 date: not yet set" and several strategy docs still said "zero events run" until the 2026-09-21 conversation sync caught it.
+
+**Fix to test:** add a close-out step to `docs/events/series/clarity-night.md` (§7 Close-out) and `docs/events/process.md`: within 48h of an event, record in goals.md (tactical) the attendance, opt-in count **read from the event-room data, not recollection**, CTA uptake, frictions, and next-event changes; route any hypothesis reading (e.g. H-ChampionYield's pre-registered opt-in prediction) through /docs-strategy-update.
+
+**Done when:** the step exists in the event process and event #2's debrief lands in the repo without a conversation sync having to find it.
 
 ---

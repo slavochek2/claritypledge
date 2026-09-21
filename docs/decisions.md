@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [product]: Active focus moves to mid-size organizations reached through an internal champion; the channel moves from public one-per-company events to champion-hosted pilots. Founder decision, deductive, **UNTESTED**
+
+**Context:** Event #1 ran 2026-09-18 (public Chiang Mai audience, AI safety; see [goals.md](goals.md) "Event #1 ran 2026-09-18"). In the 2026-09-21 debrief conversation the founder concluded that audience will not buy, and proposed champion-led pilots in organizations of ~100–1,000 people. The agent first recommended recording this as a candidate only, citing research-programme.md stopping-rule clause 1. **The founder rejected that as a non-merits argument, and he was right:** clause 1 forbids re-cutting an untested wedge, and the outgoing focus had **zero tests** (no pilot, nobody paid). Its evidence (H-FounderWince, n=5) is **pain** evidence, never buying evidence. Clause 2's check was run the same day: `/slava:maintain:programme-health` = **STAGNATING** (1 test run, event #1, 0 corroborated), with the recommendation *"Adopt the mid-size segment switch only with a novel prediction recorded at adoption, or it scores as an accommodation"* (recorded in the check's local state file; the check writes nothing to the repo).
+
+**Decision:**
+1. `active-market-focus` → **mid-size organizations (~100–1,000 people) reached through an internal champion**, who supplies a stuck disagreement and invites colleagues to one free, personally prepared online pilot. Support is offered only after the room shows adoption. The outgoing seed–A focus goes **dormant, revivable**.
+2. `active-channel` → **champion-hosted pilots**. The room is colleagues from **one** organization, replacing "one person per company". Public events stay as the **lab** for the protocol and a sourcing surface, subordinate.
+
+**Why (founder's reasoning, plus two recorded learnings it matches):** seed–A/co-founder buyers cannot pay, are few, and are "done" once solved; large organizations buy too slowly; mid-size organizations have findable champions. The 2026-03-29 field learning holds that conversion needs an existing relationship and strangers do not convert (theory-of-change.md "Only works with existing high-stakes relationships"). A public one-per-company room structurally cannot supply that, and a champion-hosted room of colleagues does. This is H-ChampionYield's buyer.
+
+**Novel prediction (recorded at adoption, before any pilot):** champion-hosted rooms of colleagues from one organization produce a **traceable second adopter**: a colleague who uses the principle in a real meeting within 2 weeks, without the champion prompting it. It appears in at least 1 of the first 3 pilots. The predecessor (one person per company) could not produce this signal at all.
+
+**Falsifier (agent-proposed defaults, `[FOUNDER DECISION: overwrite]`):** 5 champion conversations with 0 agreeing to host a pilot ⟹ the pitch is wrong (change the pitch, not the segment). 3 pilots with nobody asking about anything paid ⟹ the segment is wrong. Revive the dormant focus if either fires. These are the candidate numbers for INBOX-11's standing pre-commitment. INBOX-11 stays open until the founder confirms or overwrites them.
+
+**Gate 2 — reversal-lock WARN, carried rather than answered.** This move sits under two recorded rulings:
+- **The slot-move rule (2026-07-29 [product]):** a slot moves only on a named human's field datum collected since it last moved. Event #1 is a dated datum, but its audience was not mid-size-organization staff, so it does not bear on this positioning. Applied anyway under 2026-08-05 [process] (*"no rule may block a write, only require a label"*), with the same precedent as the 2026-08-07 channel move: the founder is executing it, and a canvas that disagrees with that is the desync.
+- **The 2026-08-05 CORRECTION's objections to widening toward larger teams.** Not one has been answered, and they are restated so the next reader sees them:
+  - (a) *"large orgs have already bought process"*. Partial answer: the pitch is a stuck disagreement, not a process, and the target is not engineering-specific.
+  - (b) **buyer ≠ sufferer.** Embraced here via the champion, but the champion is recorded as having no budget or authority. Ask early who approves a follow-up.
+  - (c) the co-founder pair's *"reference network of 2"* rationale weakens with size.
+  - (d) the instrument broke at 6–7 people on the only dev-team datum. Keep pilot rooms pair-based.
+  - (e) the market is unsized.
+  - (f) the stronger qualifier recorded 2026-07-29 is *a trigger, not a headcount* ("teams whose throughput outgrew their coordination process"). It is compatible with this focus and should be the pilot qualifier alongside the 2026-09-14 "abandoned conversation" question.
+
+**Not changed:** the §Problem, §Current Alternatives, §Revenue and §Market Size Active-focus boxes still carry the outgoing wedge's content, labelled in place as *not yet re-derived*. Re-deriving the pain and the price for this focus is `[FOUNDER DECISION]`. `H-BuildRightThing` is not re-statused here.
+
+---
+
 ## 2026-09-21 [technical]: Re-running a superseded migration reverts later migrations. "Idempotent" means it won't fail, not that it won't undo anything (P1333, P1042)
 
 **Context:** On test, `event_room_members.readiness_value` was selectable by anon for four weeks
