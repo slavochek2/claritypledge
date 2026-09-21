@@ -72,6 +72,15 @@ prompt count exceeds the threshold.
 
 ## Solution
 
+**Observed 2026-09-21 — the failure this spec must survive, for real.** At 15:52 macOS replaced
+the login keychain with a fresh one and kept the old file under a renamed name. All 14 locked items
+were in the old file, confirmed by name only. `keyring.sh status` reported all 14 not enrolled, and
+every locked consumer would have failed closed. It was caught by an ad-hoc status check, not by
+`/weekly`. Recovery took three commands (`enroll`, plus `enroll-from .env.prod` for the two prod-tier
+names), and `verify` then passed for all 14. **After step 4 those commands have no source.** The same
+event then means 14 manual re-enrolls from the password-manager copy. Removal should wait until that
+path has been walked once, or until a keychain reset is made to surface the same day.
+
 **Precondition (P1322):** do not start step 4 until P1322's recovery escrow exists and its Always-Allow
 check is wired into `/weekly`. *Both hold as of 2026-09-21. The escrow is the founder's
 password-manager copy of both env files. The founder waived the restore drill, so the copy is
