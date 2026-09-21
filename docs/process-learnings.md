@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 83
+**Next ID:** 84
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1631,5 +1631,16 @@ Event #1 (Clarity Night #1, 2026-09-18) ran and its results, attendee frictions 
 **Fix to test:** add a close-out step to `docs/events/series/clarity-night.md` (§7 Close-out) and `docs/events/process.md`: within 48h of an event, record in goals.md (tactical) the attendance, opt-in count **read from the event-room data, not recollection**, CTA uptake, frictions, and next-event changes; route any hypothesis reading (e.g. H-ChampionYield's pre-registered opt-in prediction) through /docs-strategy-update.
 
 **Done when:** the step exists in the event process and event #2's debrief lands in the repo without a conversation sync having to find it.
+
+---
+
+## Forced-verdict pass on the 42 backlog specs created before 2026-06-23
+
+**ID:** INBOX-83
+**Date:** 2026-09-21
+**Status:** proposed
+**due:** week
+
+The /prioritize run of 2026-09-21 fitted today/week/in-progress but could not age-test backlog: git last-touch reads 2026-09-08 on every spec (the P1255 disclosure backfill), so the 90-day untouched test is blind. Use created_date instead. 42 backlog specs are older than 90 days by created_date; each needs keep or close-with-reason. Also the inbox itself (75 public + 24 private) was not triaged in that run.
 
 ---

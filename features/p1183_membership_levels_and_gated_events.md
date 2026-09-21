@@ -5,13 +5,15 @@ disclosure: public
 rank: 44
 created_date: '2026-08-28'
 tags: [organizations, membership, events, pricing, schema]
-blocked_by: [p1060]
+blocked_by: []
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: founder
 ---
 
 # P1183: A membership carries a level, and some events only paid members may join
+
+> **Unblocked 2026-09-21 (/prioritize).** Its blocker P1060 shipped 2026-08-31 (`all-done`). Stays in backlog: relevant again once champion pilots create real organizations.
 
 **Blocked by [P1060](p1060_link_events_to_organizations.md).** Do not start until P1060 has shipped. P1060 creates `events.org_id` and the second organization; without that edge there is no organization for a level to be scoped to and no gated event to attach a requirement to. This is an ordering dependency, not an association — P1183 is unbuildable before it, not merely related to it.
 

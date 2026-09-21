@@ -5,13 +5,15 @@ disclosure: public
 rank: 45
 created_date: '2026-08-28'
 tags: [organizations, events, roster, privacy]
-blocked_by: [p1060]
+blocked_by: []
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: founder
 ---
 
 # P1192: The people who showed up have no page
+
+> **Unblocked 2026-09-21 (/prioritize).** Its blocker P1060 shipped 2026-08-31 (`all-done`). Stays in backlog: relevant again once champion pilots create real organizations.
 
 **Blocked by [P1060](p1060_link_events_to_organizations.md).** A participant is defined by an RSVP to an event *belonging to an organization*; that edge does not exist until P1060 ships. P1060 also ships the **count** — this spec is only the browsable list behind it.
 
