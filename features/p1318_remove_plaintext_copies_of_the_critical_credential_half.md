@@ -7,7 +7,6 @@ created_date: '2026-09-15'
 tags: [security, credentials, keyring, least-privilege]
 disclosure: public
 related: [p1322, p1316, p1239, p1214, p1148]
-blocked_by: p1322
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 drafted_by: opus
@@ -73,8 +72,11 @@ prompt count exceeds the threshold.
 
 ## Solution
 
-**Precondition (P1322):** do not start step 4 until P1322's recovery escrow exists and its restore
-drill has passed on a clean keychain, and its Always-Allow check is wired into `/weekly`.
+**Precondition (P1322):** do not start step 4 until P1322's recovery escrow exists and its Always-Allow
+check is wired into `/weekly`. *Both hold as of 2026-09-21. The escrow is the founder's
+password-manager copy of both env files. The founder waived the restore drill, so the copy is
+founder-attested and was not drilled (P1322 Done-When 1). Recovery steps:
+`docs/technical/credential-keyring.md` § Recovery.*
 
 1. Run the first real prod migrate, deploy and publish on the locked path, one dialog each, and start
    the prompt count from that date.
@@ -99,15 +101,18 @@ drill has passed on a clean keychain, and its Always-Allow check is wired into `
 | The prompt count is inflated by one unusual week | ACCEPT | Revisit only above the stop-number |
 
 **Non-Goals**
-- Do NOT start removal before P1322's escrow Done-When holds.
+- Do NOT start removal before P1322's escrow Done-When holds (it does, as of 2026-09-21).
 - Do NOT revoke, rotate or delete any credential at a provider — that is P1148, queued by P1322.
 - Do NOT change which credentials are in the locked half.
 - Do NOT re-migrate consumers P1316 already moved; a newly found consumer is a P1316-style census entry.
 
 ## Done-When
 
-- [ ] P1322's escrow Done-When holds (recovery drill passed on a clean keychain; `/weekly` runs
+- [x] P1322's escrow Done-When holds (recovery drill passed on a clean keychain; `/weekly` runs
       `keyring.sh verify`) — this spec does not start step 4 until then
+      — *2026-09-21:* holds by founder decision, and the drill clause is waived. The escrow is a
+      password-manager copy of both env files. `/weekly` step 2.10.3 runs `keyring.sh verify`. See P1322
+      Done-When 1 for what this does and does not prove.
 - [ ] The first real prod migrate, deploy and publish each complete on the locked path with one dialog,
       while the plaintext copy still exists; the prompt count starts from that date
 - [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded against P1322's re-derived

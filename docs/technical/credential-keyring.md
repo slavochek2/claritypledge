@@ -197,9 +197,25 @@ removes them), a lost, corrupted or defeated item is re-enrolled from them:
 Executed as a drill on 2026-09-07 (withdraw → confirm gone → enroll → confirm
 restored → confirm gate intact) before any plaintext removal was contemplated.
 
-**After removal, the only recovery source is the offline escrow**
-([P1322](../../features/p1322_harden_the_locked_path_before_plaintext_removal.md)): an AES-256
-encrypted disk image on removable media, whose passphrase is not stored on this Mac.
+**After removal, the recovery source is the founder's password manager**
+([P1322](../../features/p1322_harden_the_locked_path_before_plaintext_removal.md), 2026-09-21): a
+full copy of both `.env.local` and `.env.prod`, encrypted by the manager and synced off this Mac.
+Both files are needed: two locked names come only from `.env.prod`, under different variable names.
+Which manager is recorded in the private record, not here. To recover a lost item, the founder puts
+the one line into a mode-600 temp file outside the repo, runs
+`./scripts/keyring.sh enroll-from <tmpfile> <VAR> <NAME>`, deletes the file, and runs
+`./scripts/keyring.sh verify`.
+
+- **This copy was not drilled.** The founder declined the check, and an agent-run comparison was
+  rejected, because an unlocked password-manager CLI exposes the whole vault to every process running
+  as the founder. The residual risk is a stale or mistyped entry.
+- **Keep it current: on any rotation of a locked key, update the password-manager copy the same day.**
+  A copy from before the rotation restores a revoked value.
+- **Never give an agent a password-manager session.** The per-access lock exists so that no agent
+  holds standing access to these values, and an unlocked vault would undo that for all of them.
+
+**Optional second copy: the offline escrow image**, an AES-256 encrypted disk image on removable
+media whose passphrase is not stored on this Mac:
 
 ```bash
 ./scripts/keyring-escrow.sh export  /Volumes/ESCROW_MEDIA/cp-escrow-YYYY-MM-DD.dmg
@@ -211,7 +227,8 @@ encrypted disk image on removable media, whose passphrase is not stored on this 
 - **`export`** reads every registered key through the lock (one Allow each), then macOS asks for
   the image passphrase in its own dialog. Do not tick "Remember password": a saved passphrase ties
   the escrow to the keychain it replaces, and `export` fails if macOS saved one.
-- **`drill`** is the proof P1318 is gated on. It runs in a sandbox that denies every read of the env
+- **`drill`** proves the image restores (P1318 was gated on it until the founder accepted the
+  password-manager copy instead). It runs in a sandbox that denies every read of the env
   files and confirms the denial from inside, restores into throwaway `cp.keyring.escrowdrill.*`
   items confirmed absent first, checks every gate, reads one item back, and deletes the drill items.
   A registered key missing from the escrow fails it.
@@ -224,8 +241,8 @@ encrypted disk image on removable media, whose passphrase is not stored on this 
 `./scripts/test-keyring-escrow.sh` checks all of this hermetically without a dialog. It cannot cover
 the passphrase dialog, the per-key Allow dialogs, or a read-back: those are the founder-run drill.
 
-**Do not remove anything from `.env.local` until** the escrow exists and its drill has passed
-(P1322), `/day-cp` and one deploy have both completed on the locked path, and the measured prompt
+**Do not remove anything from `.env.local` until** the password-manager copy of both env files is
+current (P1322), `/day-cp` and one deploy have both completed on the locked path, and the measured prompt
 count over a full `/weekly` + `/day-cp` cycle is at or below roughly 10/week (P1318).
 
 ## Why not `security add-generic-password -w <value>`

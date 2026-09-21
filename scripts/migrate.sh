@@ -395,9 +395,9 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
     echo "ERROR: Management API rejected the request (HTTP $APPLIED_HTTP) — the resolved Supabase PAT is invalid or expired."
     if [ "$ENV_NAME" = "prod" ]; then
       echo "  The prod token comes from the keyring (PROD_SUPABASE_ACCESS_TOKEN)."
-      echo "  Rotated: the rotation must write the locked copy too (P1148), then re-export the escrow."
-      echo "  Item lost: restore it from the offline escrow (P1322), never from a plaintext copy:"
-      echo "    ./scripts/keyring-escrow.sh restore /Volumes/ESCROW_MEDIA/ESCROW.dmg PROD_SUPABASE_ACCESS_TOKEN"
+      echo "  Rotated: the rotation must write the locked copy too (P1148), then update the password-manager copy."
+      echo "  Item lost: re-enroll it from the password-manager copy (P1322), never from a plaintext copy:"
+      echo "    see docs/technical/credential-keyring.md, Recovery section"
     else
       echo "  The test token comes from SUPABASE_ACCESS_TOKEN in $ENV_FILE — refresh it there."
     fi

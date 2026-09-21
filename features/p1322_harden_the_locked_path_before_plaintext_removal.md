@@ -58,6 +58,7 @@ accept, and confirmation on each revocation.
   this spec's escrow plus its own measured week.
 - **The recovery drill must be proven to restore AFTER a simulated plaintext loss**, on a keychain that
   does not already hold the item — a drill that reads the plaintext proves nothing about life without it.
+  *Waived by the founder on 2026-09-21 in favour of a password-manager copy; see Done-When 1.*
 - **Revocation is the founder's action at the provider** (a security-setting change the agent does not
   perform); the agent probes, enumerates dependents, and prepares exact steps.
 - **Never print a credential value** — every check here is names, counts, status codes, fingerprints.
@@ -97,8 +98,20 @@ accept, and confirmation on each revocation.
 
 ## Done-When
 
-- [ ] A recovery escrow exists off the plaintext path, and a restore drill has passed on a keychain that
+- [x] A recovery escrow exists off the plaintext path, and a restore drill has passed on a keychain that
       did not already hold the item — evidence: the drill's own output, values redacted
+      — **Met by founder decision, 2026-09-21, with the drill waived — recorded as a trade, not a
+      proof.** The founder holds both env files, copied in full, in their password manager, which is
+      encrypted, synced off this Mac and reachable from their phone. Which manager is named in the private
+      record. The founder declined verification ("all in [the password manager], no need to verify"). The agent's
+      fingerprint comparison was withdrawn at the founder's question: the manager's CLI, once unlocked, exposes
+      the whole vault to every process running as the founder, agents included. Measured names-only before
+      closing: 12 of the 14 locked names come from `.env.local` and 2 only from `.env.prod`, under
+      different variable names, so both files had to be in the copy. The founder confirmed both are.
+      **What this does not prove:** that every value matches the keychain byte for byte. The
+      residual risk is a stale or mistyped entry found on the day it is needed. Keeping it current is
+      now a rotation step (`credential-keyring.md` § Recovery). The encrypted-image tool below stays
+      as an optional second copy, not the gate.
       — *2026-09-15, tooling built, real run pending the founder:* `scripts/keyring-escrow.sh`
       (export / drill / restore) writes an AES-256 disk image whose passphrase macOS asks for in its
       own dialog, and refuses paths inside a checkout or under `$HOME`. `drill` runs under a sandbox
@@ -107,8 +120,8 @@ accept, and confirmation on each revocation.
       `scripts/test-keyring-escrow.sh` passes 37/37 with known-bad controls, including: the value is
       absent from the encrypted image's bytes, and the same grep finds it in an unencrypted image; a
       drill run outside the sandbox refuses (exit 2); an incomplete escrow fails (exit 2).
-      **Not yet met:** the real export and drill need removable media, one Allow per locked key and
-      the founder's passphrase.
+      Never run for real: it needs removable media the founder does not have. Kept as the optional
+      second copy.
 - [x] `migrate.sh` and the `keyring.sh enroll` guidance name the escrow, not `.env.prod`, as the
       post-removal recovery source
       — *2026-09-15:* the `migrate.sh` prod-token error now points a lost item to
@@ -121,7 +134,7 @@ accept, and confirmation on each revocation.
       `defeated=1 exit=2` · unenrolled `missing=1 exit=1` · unreadable registry
       `missing=0 exit=1`. That last one is indistinguishable by exit code alone, so the step reads
       the count too. On the real registry: `intact=14 exit=0`.
-- [ ] Every plaintext copy outside the env files (transcripts, restic, cloud VM, CI, second store) is
+- [x] Every plaintext copy outside the env files (transcripts, restic, cloud VM, CI, second store) is
       listed with a *purge* or *accept-with-reason* verdict; the transcript pass is run or explicitly declined
       — *2026-09-15:* all listed with a proposed verdict in the private record
       `p1322-locked-path-hardening.md` §1, all measured names-only with controls. Transcripts: 349
@@ -132,7 +145,8 @@ accept, and confirmation on each revocation.
       for line; the working backups were deleted after verification rather than left as a fresh
       plaintext copy. **Env file modes fixed the same day:** both are now owner-only, and the
       keyring selftest that had failed on this passes (35/35).
-      **Not yet met:** the escrow's own drill, which shares this item's fate through Done-When 1.
+      Closed with Done-When 1 on 2026-09-21: the second store and the password-manager copy are
+      both accepted as founder-held.
 - [x] The four unused-but-live credentials and the CI master key each carry a prepared revocation step and
       a dependents check, and sit in an active P1148 queue (P1148 promoted, or the compensating-control
       window given an end date)
