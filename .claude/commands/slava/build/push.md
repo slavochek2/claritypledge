@@ -169,7 +169,7 @@ A verdict of `UNKNOWN` is not an escalation.
 - **Privacy review finds a HARD flag** → real PII can't reach a public repo. Surface it; let the user fix or move to `.private/`.
 - **Any required check red on staging** (`audit-privacy`, `disclosure`, or whatever the ruleset requires today) → surfaced by `push-docs` naming the context; relay it. Never `--force` or bypass.
 - **Schema gate (P1211)** — any of: `check-schema-ready.sh` exit 2 (cannot determine), an `invalid-marker` line (a `requires-frontend` sha that no longer resolves — P1106; a human repoints it), a non-zero `migrate.sh`, a C1 re-run that is still not 0, or a failed manifest-stamp commit. Relay the lines verbatim. There is no override and no `--force`.
-- **`Authentication failed for 'https://github.com'`** → run `gh auth setup-git` (wires the active `gh` token into git's credential helper — needed after a token rotation), then re-run `push-docs`. One-time fix; does not need user confirmation.
+- **`Authentication failed for 'https://github.com'`** → first run `gh auth status`. The token must be the fine-grained `cp-agent-push` PAT (`github_pat_…`). If it is, run `gh auth setup-git` (wires it into git's credential helper after a rotation), then re-run `push-docs`; no confirmation needed. If the PAT is expired, or the token is an OAuth `gho_…`, **STOP**: ask the founder to renew or restore `cp-agent-push`. **Never run `gh auth login` with the browser flow.** It installs an OAuth token that has Administration rights, so the agent could then edit the ruleset that gates it. See decisions.md 2026-06-27 [technical] "Agent push credential scoped to Contents-only" (P970). This happened on 2026-09-21 and is being undone in P1335.
 
 ---
 
