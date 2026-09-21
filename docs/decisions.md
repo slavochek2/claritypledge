@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [technical]: Re-running a superseded migration reverts later migrations. "Idempotent" means it won't fail, not that it won't undo anything (P1333, P1042)
+
+**Context:** On test, `event_room_members.readiness_value` was selectable by anon for four weeks
+while prod was correct. P1042 (2026-08-24) renumbered `20260819160000_p1114_event_room_tables` to
+`…161000` to break a version collision. `migrate.sh` then saw the new version as pending and
+re-ran the file on test, where it had already run under the old number. That was three days after
+`20260821120000` and `…170000` had superseded it. Its REVOKE-then-GRANT idiom reset the column
+list to the pre-170000 state. A table-level REVOKE also revokes every column grant (Postgres
+REVOKE docs), so the re-run *closed* `comprehension_rating` as well. The same re-run brought
+back a function (the 2-arg `set_room_opt_in`) and a policy (`"opted-in room members are visible"`)
+that 120000 had dropped. P1042 had checked the file was idempotent before the rename, meaning it
+would not *fail* on re-run. Nobody asked whether it would *revert* anything.
+
+**Correction to 2026-09-07 (P1256):** that migration's comment says the 2-arg `set_room_opt_in`
+survived on test because "the 2026-08-21 drop did not take". The drop took. The 08-24 re-run
+recreated the function.
+
+**A symptom-only patch hid half of it.** On 2026-09-14 a session saw `permission denied` on
+`comprehension_rating`, granted that one column by hand on test, and moved on. It fixed the
+visible symptom and left `readiness_value` open. A grant fix on one environment should first diff
+the table's full column ACL against the other environment, not just the column that errored.
+
+**Decision:** repaired test only, by re-issuing 170000's canonical grant and dropping the stale
+policy. No new migration: applied fresh in version order, the files already produce the correct
+state.
+
+**Alternatives rejected:** *A forward-fix migration re-issuing the grant.* It would be a no-op on
+prod and push a migration through the prod deploy path to correct a test-only state. *Leave test
+open because prod is correct.* A test DB that is already open cannot catch a future change that
+reopens prod.
+
+**Consequences:** Before renumbering or re-applying a migration that already ran anywhere, list
+every later migration that touches the same objects (grants, policies, function signatures). If
+any exist, re-applying the file will revert them, however idempotent it is. There is still no
+detector for table/column grant drift between test and prod; that is P1334.
+
+**References:** [features/p1333_test_db_readiness_column_grant_drift.md](../features/p1333_test_db_readiness_column_grant_drift.md) ·
+[features/p1334_no_detector_for_table_column_grant_drift.md](../features/p1334_no_detector_for_table_column_grant_drift.md) ·
+`supabase/migrations/20260819161000_p1114_event_room_tables.sql:107-129`
+
 ## 2026-09-18 [product]: In the event room the TAP is the answer — the projector shows Opt in / Opt out at once, the understanding number attaches after (P1114)
 
 **Context:** Founder: *"when people opt in in /meeting or event room — they need to be shown as opt in or opt out right away, not after they click 'how much they understand'."* Since 2026-08-21 the tap wrote nothing; the answer and the 0–10 number were committed together on Submit, so the projected roster held everyone as Undecided through the rating step.
