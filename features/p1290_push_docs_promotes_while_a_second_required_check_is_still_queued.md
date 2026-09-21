@@ -311,3 +311,5 @@ recorded because each is invisible to inspection:
 - Commits `7d66f2ed4` (freshness guard racing the scan), `1547d6c10` (poll timeout),
   `ec63d4746` (check-name correction) — the three prior fixes to this same poll
 - `.claude/rules/epistemic.md` gates 7, 7b, 7c
+
+> **Implementation on main:** `1c7ed58c1` (verified ancestor of main 2026-09-21); code review recorded in `.finish-reviewed` the same day, 0 issues; `scripts/test-p1290-required-checks-poll.sh` 19/19.
