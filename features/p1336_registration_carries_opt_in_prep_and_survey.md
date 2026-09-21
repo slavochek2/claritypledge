@@ -113,6 +113,11 @@ registration yes that becomes a room no is visible, but H-ChampionYield reads th
    places the opt-in in the room; read it and amend it rather than build a second opt-in.
 2. Does the event page for weekly events reuse one registration setup, so the host is not rebuilding the
    form each week?
+3. Does the registration page need a short video of the opt-in moment from event #1? Source material:
+   three phone clips from 2026-09-18 with timestamped transcripts, held locally in the founder's video
+   library (`clarity-night-1-ai-safety-sep-2026/`, not in this repo). The 1:35 clip (~19:06) holds the
+   opt-in exchange (*"you both opted in… what was your number? Eight."*). Decide here; produce a clip only
+   if the page needs one. Attendee consent to publish is not yet asked.
 
 ## Related
 
