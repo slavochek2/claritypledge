@@ -502,6 +502,18 @@ else
 fi
 echo ""
 
+# 4.7c4. Production-deploy oracle canary (P1211) — /push step 6 applies coupled
+# migrations only when this says the new bundle is live. Local fake API.
+PROD_DEPLOY_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(check-prod-deploy|test-check-prod-deploy)\.sh$' || true)
+if [ -n "$PROD_DEPLOY_STAGED" ]; then
+    if ! run_quiet "Production-deploy oracle canary (P1211)" bash scripts/test-check-prod-deploy.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Production-deploy oracle canary skipped (check-prod-deploy.sh not staged)"
+fi
+echo ""
+
 # 4.7e. RLS scope gate canary (P1039/P1041) — runs when the unscoped-policy
 # checker or either of its tests is staged. Proves the gate still BLOCKS the
 # exact P1035 shape (unscoped, role-identity WITH CHECK, non-SELECT) --
