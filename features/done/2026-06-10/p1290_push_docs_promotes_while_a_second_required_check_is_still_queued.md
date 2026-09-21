@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 disclosure: public
 rank: 1000094
@@ -12,6 +12,7 @@ pipeline_plan: [create-spec, reproduce, fix]
 pipeline_ran: [create-spec, reproduce, fix]
 pipeline_skipped: ["architect -- single function, no new structure", "ux -- no visual surface", "verify -- no UI", "generate-tests -- /reproduce owns the canary"]
 tags: [git-ops, push-docs, ci, required-status-checks, ruleset, p919, p1255]
+completed_at: 2026-09-21
 ---
 
 # P1290: push-docs promotes to main while a second required check is still queued
