@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 82
 severity: low
@@ -11,11 +11,11 @@ exec_model: opus
 exec_effort: medium
 tags: [p1114-followup, test-db-drift, privacy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 date_resolved: 2026-09-21
 root_cause: "P1042's renumber (2026-08-24) made migrate.sh re-run 20260819161000_p1114_event_room_tables on test after 20260821170000 had revoked readiness_value; its REVOKE-then-GRANT replayed the pre-170000 column list. A 2026-09-14 manual grant of comprehension_rating on test (P1307 session) patched the other half of the symptom without noticing readiness."
 resolution: "Re-applied 170000's revoke-then-column-grant idiom on TEST only via the Management API, and dropped the orphaned 'opted-in room members are visible' policy the same re-run had recreated. No migration: a fresh apply in version order is already correct."
+completed_at: 2026-09-21
 ---
 
 # P1333: The TEST database lets anyone read room readiness values; prod does not
