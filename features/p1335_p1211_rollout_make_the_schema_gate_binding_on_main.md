@@ -85,14 +85,22 @@ In order:
 
 ## Done-When
 
-- [ ] `gh` is back on the fine-grained PAT: the protection probe returns 403 (pasted).
+- [x] `gh` is back on the fine-grained PAT: the protection probe returns 403 (pasted).
+  **Evidence 2026-09-21:** `gh auth status` → `github_pat_…` (new PAT `cp-agent-push-2026-09`:
+  claritypledge only, Contents RW, Workflows RW — founder's choice, the push carried a workflow file —
+  Metadata R). `gh api repos/<repo>/branches/main/protection` → `403 "Resource not accessible by
+  personal access token"`.
 - [ ] Real `/push` of the P1211 range: exit 0, `origin/main...HEAD` = `0 0` (pasted).
 - [ ] Docs-only `/push` with the ledger reachable passes; with `SUPABASE_READONLY_TOKEN` invalid it
       passes with the skip warning (P1211 C1-level evidence already recorded).
 - [ ] Replay of 2026-09-18 via `/push` on local `main` (scratch commit, fabricated client-safe
       migration, keychain dialog declined): step 2.5 STOPs, nothing is pushed, scratch commit dropped.
-- [ ] `schema-ready` in `main`'s required checks (founder, web UI; rulesets JSON before/after pasted)
+- [x] `schema-ready` in `main`'s required checks (founder, web UI; rulesets JSON before/after pasted)
       and in `REQUIRED_CHECKS_FALLBACK`; `push-docs` waited for it on one real push.
+  **Evidence 2026-09-21:** `gh api repos/<repo>/rules/branches/main` required contexts →
+  `audit-privacy`, `disclosure`, `schema-ready` (added by the founder in the web UI).
+  `REQUIRED_CHECKS_FALLBACK` gains `schema-ready`; P1290 canary 19/0. `[post-deploy]` a `push-docs`
+  that waits on it is observed on the next real push.
 - [ ] Server boundary: throwaway staging SHA with a fabricated migration and a spec lacking
       `disclosure:` — a promote attempt is refused `GH013` and the message names `schema-ready`
       (Codex #16). Branch deleted.

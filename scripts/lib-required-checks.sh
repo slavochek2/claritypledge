@@ -59,7 +59,7 @@
 # represent one and callers splitting on spaces would wait forever for a context that
 # does not exist. One format, one splitting rule, both paths.
 if [[ -z "${REQUIRED_CHECKS_FALLBACK+x}" ]]; then
-  REQUIRED_CHECKS_FALLBACK=$'audit-privacy\ndisclosure'
+  REQUIRED_CHECKS_FALLBACK=$'audit-privacy\ndisclosure\nschema-ready'
 fi
 
 # derive_required_contexts [branch] — echo one required status-check context per line.

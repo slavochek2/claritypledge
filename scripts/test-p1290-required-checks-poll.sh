@@ -159,7 +159,7 @@ fb="$(derive_required_contexts main; echo "rc=$?")"
 rc="${fb##*rc=}"
 list="$(printf '%s' "$fb" | sed '/^rc=/d;/^[[:space:]]*$/d' | tr '\n' ' ' | sed 's/ *$//')"
 check "unreadable ruleset → non-zero return" "1" "$rc"
-check "unreadable ruleset → fallback list, never empty" "audit-privacy disclosure" "$list"
+check "unreadable ruleset → fallback list, never empty" "audit-privacy disclosure schema-ready" "$list"
 
 export RULESET_CONTEXTS=$'audit-privacy\ndisclosure'
 check "readable ruleset → derived list" "audit-privacy disclosure" \
