@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 103
 workstream: keyring
@@ -7,12 +7,12 @@ created_date: '2026-09-15'
 tags: [security, credentials, keyring, recovery]
 disclosure: public
 related: [p1318, p1316, p1239, p1148]
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-21
 ---
 
 # P1322: Harden the locked path — recovery escrow, an Always-Allow check, and the plaintext copies outside the env files — before P1318 removes anything
@@ -168,7 +168,7 @@ accept, and confirmation on each revocation.
 
 ## Related
 
-- [P1318](p1318_remove_plaintext_copies_of_the_critical_credential_half.md) — the removal this gates; its safety and scope holes are why this exists
-- [P1316](done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration and the liveness probes
-- [P1239](done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
-- [P1148](p1148_credential_rotation_system.md) — rotation and revocation execution
+- [P1318](../../p1318_remove_plaintext_copies_of_the_critical_credential_half.md) — the removal this gates; its safety and scope holes are why this exists
+- [P1316](p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration and the liveness probes
+- [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
+- [P1148](../../p1148_credential_rotation_system.md) — rotation and revocation execution
