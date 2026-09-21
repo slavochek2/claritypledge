@@ -1,18 +1,27 @@
 ---
-status: week
+status: today
 type: story
-rank: 108
+rank: 1
 workstream: events
 created_date: '2026-09-21'
-tags: [events, registration, opt-in, survey]
+tags:
+  - events
+  - registration
+  - opt-in
+  - survey
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-related: [p1055, p1114, p1179, p1256]
+related:
+  - p1055
+  - p1114
+  - p1179
+  - p1256
 ---
 
 # P1336: Registering for a Clarity Night carries the opt-in, the prep and a disagreement survey
@@ -24,8 +33,8 @@ event room, with everyone present (P1114). Setup ate the practice time: too much
 forcing repeats, pairs stuck together, and people unsure what to click
 ([goals.md](../docs/goals.md), "Event #1 ran 2026-09-18").
 
-**Complication:** Every attendee opted in (~13, founder recollection, not yet verified from the room
-data). A yes given in a room with the host present and everyone else saying yes partly measures the
+**Complication:** Every attendee opted in: 12 of 12 room members, 0 opted out (verified 2026-09-21 from
+prod room data). A yes given in a room with the host present and everyone else saying yes partly measures the
 room. With no variance, the pre-registered H-ChampionYield prediction (in-room opt-in predicts paid
 conversion) cannot be read at all ([hypotheses.md](../docs/hypotheses.md) H-ChampionYield; article
 idea a73). Events now run **weekly**, starting **event #2 on Tuesday 2026-09-29**, and the new active

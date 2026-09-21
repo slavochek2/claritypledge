@@ -2,7 +2,7 @@
 status: week
 type: bug
 disclosure: public
-rank: 1000067
+rank: 5
 severity: medium
 workstream: infra
 date_reported: '2026-09-01'
@@ -10,9 +10,15 @@ created_date: '2026-09-01'
 drafted_by: fable
 exec_model: opus
 exec_effort: high
-tags: [auth, magic-link, oauth, sentry, mixpanel]
+tags:
+  - auth
+  - magic-link
+  - oauth
+  - sentry
+  - mixpanel
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1228: "Auth callback: no session, unexplained" — failures rising alongside a login-page spike

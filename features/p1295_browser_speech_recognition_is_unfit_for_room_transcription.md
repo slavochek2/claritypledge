@@ -1,14 +1,20 @@
 ---
-status: week
+status: backlog
 type: bug
 severity: high
-rank: 1000094
+rank: 6
 workstream: transcription
 created_date: '2026-09-10'
-tags: [transcribe, transcription, mobile, android, investigation]
+tags:
+  - transcribe
+  - transcription
+  - mobile
+  - android
+  - investigation
 feature_type: frontend
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 driver: anomaly
 disclosure: public

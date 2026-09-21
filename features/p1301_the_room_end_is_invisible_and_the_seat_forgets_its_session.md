@@ -1,18 +1,22 @@
 ---
 status: week
 type: bug
-rank: 95
+rank: 6
 severity: medium
 workstream: transcribe
-date_reported: 2026-09-11
-created_date: 2026-09-11
+date_reported: 2026-09-11T00:00:00.000Z
+created_date: 2026-09-11T00:00:00.000Z
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-tags: [transcribe, p1236-followup, adversarial-review]
+tags:
+  - transcribe
+  - p1236-followup
+  - adversarial-review
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1301: A room can end without telling anyone, and a seat can forget which session it belongs to

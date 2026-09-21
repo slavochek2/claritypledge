@@ -1,14 +1,19 @@
 ---
-status: today
+status: week
 type: bug
 disclosure: public
-rank: 1000066
+rank: 2
 workstream: infrastructure
 created_date: '2026-09-03'
-tags: [privacy, pii, analytics, gdpr]
+tags:
+  - privacy
+  - pii
+  - analytics
+  - gdpr
 severity: high
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 drafted_by: opus
 exec_model: opus
 exec_effort: high

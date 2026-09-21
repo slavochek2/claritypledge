@@ -1,17 +1,22 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 1000082
+rank: 7
 severity: medium
 date_reported: '2026-09-09'
 created_date: '2026-09-09'
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-tags: [anon-position, embed, storage, test-coverage]
+tags:
+  - anon-position
+  - embed
+  - storage
+  - test-coverage
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1291: Anonymous positions staked inside an embedded point are silently discarded, and no test covers the stake-to-sign-in round trip

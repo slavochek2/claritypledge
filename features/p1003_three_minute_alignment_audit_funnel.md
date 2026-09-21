@@ -2,7 +2,7 @@
 status: week
 type: story
 disclosure: public
-rank: 7
+rank: 12
 created_date: '2026-07-20'
 tags:
   - funnel

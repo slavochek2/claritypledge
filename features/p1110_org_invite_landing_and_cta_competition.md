@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 7
+rank: 10
 workstream: landing
 created_date: '2026-08-19'
-tags: [organizations, invite, navigation, cta]
+tags:
+  - organizations
+  - invite
+  - navigation
+  - cta
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 driver: anomaly
 ---
 

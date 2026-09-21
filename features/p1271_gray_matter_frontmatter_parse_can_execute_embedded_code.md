@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 1000079
+rank: 7
 severity: medium
 workstream: spec-schema
 date_reported: '2026-09-08'
@@ -9,10 +9,16 @@ created_date: '2026-09-08'
 drafted_by: sonnet
 exec_model: sonnet
 exec_effort: low
-tags: [tooling, security, dependencies]
+tags:
+  - tooling
+  - security
+  - dependencies
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-bug, fix, adversarial-review]
+pipeline_ran:
+  - create-bug
+  - fix
+  - adversarial-review
 ---
 
 # P1271: `gray-matter`'s frontmatter parsing can execute embedded code via a language-tag switch

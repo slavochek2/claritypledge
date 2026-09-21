@@ -1,15 +1,20 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 2
+rank: 8
 severity: medium
 workstream: C2
 date_reported: '2026-09-09'
 created_date: '2026-09-09'
-tags: [embed, points, stories, blog]
+tags:
+  - embed
+  - points
+  - stories
+  - blog
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 drafted_by: opus
 exec_model: opus
 exec_effort: medium

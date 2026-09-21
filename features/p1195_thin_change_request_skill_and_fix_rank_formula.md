@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: task
 disclosure: public
-rank: 87
+rank: 17
 workstream: infrastructure
 created_date: '2026-08-31'
-tags: [skills, tooling, change-request, kanban]
+tags:
+  - skills
+  - tooling
+  - change-request
+  - kanban
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

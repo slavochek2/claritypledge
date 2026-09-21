@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: comment
-rank: 98
+rank: 18
 workstream: infrastructure
 created_date: '2026-09-11'
-tags: [hooks, stop-hook, verification, epistemics]
+tags:
+  - hooks
+  - stop-hook
+  - verification
+  - epistemics
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

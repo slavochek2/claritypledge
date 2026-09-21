@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: bug
 disclosure: public
-rank: 1000058
+rank: 14
 workstream: infrastructure
 created_date: '2026-09-01'
-tags: [git-ops, concurrency, data-loss, shared-checkout]
+tags:
+  - git-ops
+  - concurrency
+  - data-loss
+  - shared-checkout
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 drafted_by: opus
 exec_model: opus
 exec_effort: high

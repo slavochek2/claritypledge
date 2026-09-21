@@ -2,7 +2,7 @@
 status: week
 type: bug
 disclosure: public
-rank: 90
+rank: 10
 severity: critical
 workstream: infra
 date_reported: '2026-08-31'
@@ -10,9 +10,15 @@ created_date: '2026-08-31'
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
-tags: [link-preview, og, supabase, api-keys, crawlers]
+tags:
+  - link-preview
+  - og
+  - supabase
+  - api-keys
+  - crawlers
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1201: Link previews for every event/story/point/profile crash with HTTP 500

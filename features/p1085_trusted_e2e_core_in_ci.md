@@ -2,7 +2,7 @@
 status: today
 type: task
 disclosure: public
-rank: 0.032
+rank: 4
 created_date: '2026-08-14'
 tags:
   - testing

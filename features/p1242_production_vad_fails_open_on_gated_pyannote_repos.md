@@ -1,8 +1,8 @@
 ---
-status: week
+status: backlog
 type: bug
 disclosure: public
-rank: 1000070
+rank: 5
 severity: high
 workstream: transcription
 date_reported: '2026-09-03'
@@ -10,9 +10,14 @@ created_date: '2026-09-03'
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
-tags: [transcription, pyannote, vad, hallucination]
+tags:
+  - transcription
+  - pyannote
+  - vad
+  - hallucination
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1242: VAD fails open in the shipped configuration — `hf-token` is 403 on the two gated repos `vad.py` needs

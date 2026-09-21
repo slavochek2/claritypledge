@@ -1,13 +1,18 @@
 ---
 status: today
 type: task
-rank: 2
+rank: 3
 workstream: infrastructure
 created_date: '2026-09-21'
-tags: [migrations, push, ci, rollout]
+tags:
+  - migrations
+  - push
+  - ci
+  - rollout
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

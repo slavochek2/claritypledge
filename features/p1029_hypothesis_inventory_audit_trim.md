@@ -2,7 +2,7 @@
 status: week
 type: comment
 disclosure: public
-rank: 11
+rank: 14
 created_date: '2026-08-06'
 tags:
   - hypotheses

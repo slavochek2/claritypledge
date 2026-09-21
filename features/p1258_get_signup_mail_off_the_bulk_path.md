@@ -2,12 +2,18 @@
 status: week
 type: task
 disclosure: public
-rank: 1000076
+rank: 4
 workstream: C1
 created_date: '2026-09-07'
-tags: [email, deliverability, auth, brevo, mailgun]
+tags:
+  - email
+  - deliverability
+  - auth
+  - brevo
+  - mailgun
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

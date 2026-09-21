@@ -1,8 +1,8 @@
 ---
-status: week
+status: backlog
 type: bug
 disclosure: public
-rank: 85
+rank: 16
 severity: medium
 workstream: infrastructure
 date_reported: '2026-08-28'
@@ -10,9 +10,14 @@ created_date: '2026-08-28'
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
-tags: [testing, edge-functions, test-env, safety-net]
+tags:
+  - testing
+  - edge-functions
+  - test-env
+  - safety-net
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1188: Two edge-fn authz regression tests can never pass — their functions are not deployed to test

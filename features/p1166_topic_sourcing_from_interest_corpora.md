@@ -1,13 +1,19 @@
 ---
-status: week
+status: backlog
 type: task
 disclosure: public
-rank: 6
+rank: 9
 workstream: gtm
 created_date: '2026-08-27'
-tags: [events, disagreement-pipeline, topic-sourcing, cmp, chiang-mai]
+tags:
+  - events
+  - disagreement-pipeline
+  - topic-sourcing
+  - cmp
+  - chiang-mai
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

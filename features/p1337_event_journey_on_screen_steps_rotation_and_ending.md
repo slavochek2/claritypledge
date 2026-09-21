@@ -1,18 +1,28 @@
 ---
 status: week
 type: story
-rank: 109
+rank: 1
 workstream: events
 created_date: '2026-09-21'
-tags: [events, event-room, journey, rotation]
+tags:
+  - events
+  - event-room
+  - journey
+  - rotation
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-related: [p1336, p1338, p1114, p1179, p1323]
+related:
+  - p1336
+  - p1338
+  - p1114
+  - p1179
+  - p1323
 ---
 
 # P1337: At a Clarity Night everyone can see which step they are on, rounds rotate on a timer, and the evening ends with a next step

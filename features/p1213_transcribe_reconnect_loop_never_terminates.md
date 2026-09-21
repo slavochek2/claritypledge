@@ -1,13 +1,23 @@
 ---
-status: week
+status: backlog
 type: bug
 disclosure: public
-rank: 5
+rank: 4
 workstream: events
 created_date: '2026-09-01'
-tags: [transcribe, mobile, speech, p1196, p1149, p1152]
+tags:
+  - transcribe
+  - mobile
+  - speech
+  - p1196
+  - p1149
+  - p1152
 delivery_stage: dev
-pipeline_ran: [create-bug, inline, adversarial-review, kdd]
+pipeline_ran:
+  - create-bug
+  - inline
+  - adversarial-review
+  - kdd
 drafted_by: opus
 driver: founder
 ---

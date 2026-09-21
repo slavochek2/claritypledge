@@ -2,7 +2,7 @@
 status: week
 type: task
 disclosure: public
-rank: 9
+rank: 13
 created_date: '2026-08-06'
 tags:
   - cta

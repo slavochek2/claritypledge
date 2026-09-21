@@ -1,14 +1,24 @@
 ---
 status: week
 type: task
-rank: 102
+rank: 9
 workstream: keyring
 created_date: '2026-09-15'
-tags: [security, credentials, keyring, least-privilege]
+tags:
+  - security
+  - credentials
+  - keyring
+  - least-privilege
 disclosure: public
-related: [p1322, p1316, p1239, p1214, p1148]
+related:
+  - p1322
+  - p1316
+  - p1239
+  - p1214
+  - p1148
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high

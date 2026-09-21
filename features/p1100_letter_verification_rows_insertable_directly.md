@@ -2,11 +2,17 @@
 status: week
 type: bug
 disclosure: public
-rank: 3
+rank: 8
 created_date: '2026-08-18'
-tags: [security, letters, integrity, calibration, rls]
+tags:
+  - security
+  - letters
+  - integrity
+  - calibration
+  - rls
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 driver: anomaly
 ---
 

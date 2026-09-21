@@ -1,12 +1,17 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 8
+rank: 11
 created_date: '2026-07-31'
-tags: [consent, recording, legal, video]
+tags:
+  - consent
+  - recording
+  - legal
+  - video
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 ---
 
 # P1022: `/consent` — recording & publishing release

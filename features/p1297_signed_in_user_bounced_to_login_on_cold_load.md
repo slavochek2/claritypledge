@@ -1,7 +1,7 @@
 ---
 status: week
 type: bug
-rank: 92
+rank: 3
 severity: high
 workstream: infrastructure
 date_reported: '2026-09-10'
@@ -9,10 +9,15 @@ created_date: '2026-09-10'
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-tags: [auth, session, routing, regression-risk]
+tags:
+  - auth
+  - session
+  - routing
+  - regression-risk
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1297: A signed-in user is bounced to /login on a cold page load, with a valid session in storage

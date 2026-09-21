@@ -1,16 +1,25 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 5
+rank: 2
 created_date: '2026-08-12'
-tags: [cmp, points, events, commercial]
+tags:
+  - cmp
+  - points
+  - events
+  - commercial
 delivery_stage: create-spec
-pipeline_ran: [create-spec, create-spec.2, create-spec.3]
+pipeline_ran:
+  - create-spec
+  - create-spec.2
+  - create-spec.3
 driver: heuristic
 ---
 
 # P1055: The CMP Point Set — the event's opt-in, argument and offer
+
+> **Backlog 2026-09-21 (/prioritize).** P1336 moves the opt-in to registration and must amend this spec rather than build a second opt-in; resume through P1336.
 
 > **Merged and rewritten 2026-08-13.** Absorbs P1062 (the dimension battery), which was split out earlier the same day and is now archived — they were always one artifact. The original spec (a 4-item norm battery answering "descriptive or social norm", plus a staged dense passage and an in-room tally) is retired. Reasoning: [decisions.md](../docs/decisions.md) 2026-08-13.
 

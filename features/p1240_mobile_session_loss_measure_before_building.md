@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: story
 disclosure: public
-rank: 1000069
+rank: 12
 workstream: C1
 created_date: '2026-09-03'
-tags: [auth, mobile, in-app-browser, activation]
+tags:
+  - auth
+  - mobile
+  - in-app-browser
+  - activation
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -15,6 +20,8 @@ driver: anomaly
 ---
 
 # P1240: Does a signed-in person on a phone actually lose their session? Measure it
+
+> **Backlog 2026-09-21 (/prioritize).** 3 of 6 criteria done. The rest need the session-loss recorder live on prod for about 2 weeks, which nothing shows has happened. P1297 carries the attendee-facing login symptom meanwhile.
 
 ## Problem
 

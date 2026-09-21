@@ -1,18 +1,25 @@
 ---
-status: week
+status: today
 type: task
-rank: 110
+rank: 2
 workstream: events
 created_date: '2026-09-21'
-tags: [events, deck, presi3, run-of-show]
+tags:
+  - events
+  - deck
+  - presi3
+  - run-of-show
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
-related: [p1336, p1337]
+related:
+  - p1336
+  - p1337
 ---
 
 # P1338: The Clarity Night deck cuts theory to about 5 minutes and runs the rounds on a timer

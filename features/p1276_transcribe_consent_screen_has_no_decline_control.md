@@ -1,7 +1,7 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 1000081
+rank: 3
 severity: medium
 workstream: transcription
 date_reported: '2026-09-08'
@@ -9,10 +9,15 @@ created_date: '2026-09-08'
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
-tags: [transcribe, consent, ux, test-divergence]
+tags:
+  - transcribe
+  - consent
+  - ux
+  - test-divergence
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1276: The `/transcribe` consent screen has no way to decline

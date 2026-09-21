@@ -40,6 +40,6 @@ Every workshop and community builder counts show-of-hands buy-in. The general le
 
 ## Open
 
-- The attendee count is the founder's recollection ("11 or so, 13"). The event room writes opt-in taps to the database since P1114. Verify the number from the room data before the draft cites it.
+- **Verified 2026-09-21 from prod room data: 12 of 12 opted in, 0 opted out** (not 13). The title needs to become twelve of twelve. One member toggled opt-in 9 times before settling on yes, which the draft may use.
 - Whether "joined the group" means the paid community or a free group is not recorded. It decides whether the pre-registered prediction has any reading at all.
 - Related: [hypotheses.md](../../docs/hypotheses.md) H-ChampionYield (the pre-registered prediction), a60 (instrument contaminated by its invitation), a51 (facilitator fails first).

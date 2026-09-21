@@ -1,18 +1,22 @@
 ---
-status: week
+status: backlog
 type: bug
-rank: 107
+rank: 13
 severity: low
 workstream: infra
-date_reported: 2026-09-21
-created_date: 2026-09-21
+date_reported: 2026-09-21T00:00:00.000Z
+created_date: 2026-09-21T00:00:00.000Z
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
-tags: [test-db-drift, privacy, drift-check]
+tags:
+  - test-db-drift
+  - privacy
+  - drift-check
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran:
+  - create-bug
 ---
 
 # P1334: Nothing compares table or column SELECT grants between test and prod

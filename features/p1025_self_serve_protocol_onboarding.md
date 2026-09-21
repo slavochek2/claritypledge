@@ -2,7 +2,7 @@
 status: week
 type: story
 disclosure: public
-rank: 2
+rank: 11
 workstream: letters
 created_date: '2026-08-01'
 tags:

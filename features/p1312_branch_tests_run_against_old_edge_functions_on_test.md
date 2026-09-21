@@ -1,13 +1,18 @@
 ---
-status: week
+status: backlog
 type: task
-rank: 99
+rank: 15
 workstream: infrastructure
 created_date: '2026-09-14'
-tags: [edge-functions, e2e, deploy, testing]
+tags:
+  - edge-functions
+  - e2e
+  - deploy
+  - testing
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran:
+  - create-spec
 drafted_by: opus
 exec_model: opus
 exec_effort: high
