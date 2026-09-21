@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 disclosure: public
 rank: 2
@@ -11,12 +11,12 @@ tags:
   - analytics
   - gdpr
 severity: high
-delivery_stage: create-bug
 pipeline_ran: [create-bug, fix]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-21
 ---
 
 # P1233: Mixpanel session replay records console output, which carries user IDs and backend error detail
