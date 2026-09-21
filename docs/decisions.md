@@ -6,6 +6,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [technical]: The agent's push key carries Workflows write; it still cannot administer the ruleset (P1335)
+
+**Context:** P1335 restored the fine-grained agent PAT after a browser `gh auth login` had replaced it with an admin OAuth token earlier the same day. P1211's push carried a new `.github/workflows/` file, and GitHub refuses a workflow-file change from a token without the Workflows permission.
+**Decision:** The founder minted `cp-agent-push-2026-09`: this repo only, with Contents RW + Workflows RW + Metadata R. The founder created it in the web UI (passkey plus the final Generate click), and the agent filled in the form. The agent's auto-mode classifier refused to tick Workflows itself, which is the right place for that call. It is proven non-admin by the same non-destructive probe as P970: `branches/main/protection` returns 403. `/push` now STOPs when a GitHub auth fails on a non-PAT token, and never runs a browser `gh auth login`.
+**Alternatives rejected:** Contents-only (P970's scope). Every push that touches a workflow file would be refused and fall to the founder, and five such pushes landed in the week before. Agent-minted token via the founder's browser: the enforced party would choose its own scope.
+**Consequences:** Accepted residual: the agent can now edit a check's workflow definition (not which checks are required). Such an edit still transits a staging branch and the required checks before `main`. Transferring a token through the clipboard failed once more: a copy of terminal output replaced the token. The credentials.md clipboard rule was already on record and was not followed. Next renewal: use a `600` temp file, not `pbpaste`.
+**References:** decisions.md 2026-06-27 [technical] (P970), [p1335](../features/done/2026-06-10/p1335_p1211_rollout_make_the_schema_gate_binding_on_main.md)
+
+## 2026-09-21 [process]: Two proofs P1335 could not run as written, and why the gap is safe to leave
+
+**Context:** Closing P1335 (the schema gate made a required check on `main`).
+**Decision:** (1) The live test-DB "deadlock" proof is structurally impossible. Pre-commit refuses to commit a new migration that is not yet applied to test, and `migrate.sh --only` accepts committed files only, so a fabricated fixture cannot exist. The hermetic canary (`test-p1211-migrate-only.sh` case A) is the evidence. (2) The end-to-end run of steps 2.5/6 needs a real pending migration, and fabricating one on prod is not acceptable, so it is filed as INBOX-84 (observe the first migration-carrying `/push`). The GH013 proof was isolated to `schema-ready` by pushing a fabricated migration with no other defect: the refusal names only that check.
+**Alternatives rejected:** Bypassing the pre-commit hook to build the fixture. The deploy hook rightly blocks hook bypass, and the proof is not worth a bypass. Leaving P1335 open for days for an observation that needs no work.
+**Consequences:** `ship-gates.sh` gate 2.5 reads `pipeline_ran` only in the inline `[a, b]` form. The YAML block-list form reports "no implementation recorded" even when an entry exists, and `/create-spec` wrote P1335's list that way. The fail is loud, not silent, but it misleads. A Vercel setting behind login can still be answered from GitHub: every `Production` deployment's sha is an ancestor of `origin/main`.
+**References:** INBOX-84, `scripts/ship-gates.sh` (gate 2.5 regex), P1211, P1335
+
+
 ## 2026-09-21 [product]: Event #1 had 11 attendees, not 12 or 13. The host's own account sat in the room and supplied every anomalous number
 
 **Context:** The first read of Clarity Night #1's prod room data, read-only, reported 12 of 12 members opted in, one member who toggled opt-in 9 times, and one profile with weeks of rapid position flips. The founder asked "who was the outlier?". Both outliers were the host's own account, which had joined the room it was running. The "12 of 12" figure had already been written into goals.md, P1336 and the a73 draft before anyone asked, and was corrected in all three.
