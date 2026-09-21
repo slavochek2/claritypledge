@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 disclosure: public
 rank: 0.01
@@ -11,10 +11,10 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 tags: [migrations, deploy, ship, push, tooling]
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
 driver: anomaly
 feature_type: backend
+completed_at: 2026-09-21
 ---
 
 # P1211: Code reaches prod ahead of its migration, and no gate on the push path knows migrations exist
@@ -525,7 +525,7 @@ fails.
 
 ## Related
 
-- [p1106](p1106_requires_frontend_sha_invalidated_by_ship.md): the stalled-marker direction. C1
+- [p1106](../../p1106_requires_frontend_sha_invalidated_by_ship.md): the stalled-marker direction. C1
   `--post` makes it loud.
 - P886/P887 (`features/done/2026-04-22/`): the migration→client gates this complements.
 - P1214/P1316: the scoped read-only token C1 and C3 use.
