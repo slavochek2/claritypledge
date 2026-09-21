@@ -45,6 +45,52 @@ These are the candidate numbers for INBOX-11's standing pre-commitment. INBOX-11
 
 ---
 
+## 2026-09-21 [technical]: Code may not become origin/main until prod's ledger has every migration in its tree — checked by one script on every route, failing closed only when the push carries migrations (P1211)
+
+**Context:** Eleven class-A incidents (code live before its migration) in eight months, the last
+on 2026-09-18: a `/push` in one session shipped a client ten minutes ahead of two migrations
+another session had written, on event day. Every route to `origin/main` knew migrations only as
+a privacy-watched path. The order lived in the memory of whichever session wrote the migration.
+
+**Decision:** `scripts/check-schema-ready.sh` is the single judge. It reads prod's
+`supabase_migrations.schema_migrations` with the scoped read-only token, and takes every input
+from git objects, never the working tree. The exempt file and its library come from the trusted
+ref (`origin/main`). `git-ops.sh push-docs` / `ship-to-prod` run it before anything reaches
+origin and again right before the promote. The `schema-ready` workflow runs it on every staging
+push and PR. `/push` step 2.5 applies exactly what it names (`migrate.sh --only`, from committed
+blobs), and step 6 applies coupled migrations once the deploy oracle confirms the new bundle is live.
+
+- **Fail mode.** Ledger reachable → always a full tree check. Ledger unreachable → fail closed if
+  the range `origin/main..SHA` touches `supabase/migrations/`, pass with a loud warning otherwise.
+  A Supabase outage never blocks a docs push. I1 is therefore claimed only while the ledger is
+  readable (a stated carve-out, not an oversight).
+- **One file per version.** The ledger is keyed on version, and its `name` column is empty on
+  ~235 rows, so matching is by version. That is sound only if one file owns each version. C1
+  enforces it itself, with exactly the three grandfathered basename pairs as exceptions, because
+  the older duplicate check skips allowlisted versions wholesale. It also refuses an applied
+  migration whose SQL changed since the base (P967 was fixed that way on 2026-06-28). The ledger
+  cannot see such an edit, and C1 would otherwise call it applied.
+- **D1 = A (founder, 2026-09-21).** Typing `/push` authorizes exactly the prod migrations the
+  pushed SHA carries; the keychain dialog is the physical confirmation. `CLAUDE.md` ALWAYS-ASK
+  carries that one exception.
+
+**Alternatives rejected:** a manifest-based gate (self-attested; wrong about prod during P1053);
+a range-only check (misses stale violations); a `requires-migration` marker on client code
+(relies on the memory it replaces); blocking the Vercel deploy itself (moves the check to a
+system this repo does not script).
+
+**Consequences:** `migrate.sh` treats "already exists" as a failure on prod and under `--only`,
+since the gate now trusts the row that heuristic wrote. The checker, its library and the
+workflow can still be weakened by a push reviewed as harmless (two-push attack, UNTESTED against
+a real attempt). Only an externally protected checker or a push ruleset on those paths closes
+that. **Falsifier:** any class-A incident after `schema-ready` is required on `main`.
+
+**References:** [p1211](../features/p1211_frontend_ships_ahead_of_its_migration_with_no_gate.md) ·
+`scripts/check-schema-ready.sh` · `scripts/lib/prod-ledger.sh` · `.github/workflows/schema-gate.yml` ·
+`scripts/check-prod-deploy.sh` · push.md steps 2.5 and 6.
+
+---
+
 ## 2026-09-21 [technical]: Re-running a superseded migration reverts later migrations. "Idempotent" means it won't fail, not that it won't undo anything (P1333, P1042)
 
 **Context:** On test, `event_room_members.readiness_value` was selectable by anon for four weeks

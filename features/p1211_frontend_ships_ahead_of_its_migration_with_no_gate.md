@@ -295,6 +295,8 @@ Update `push.md`'s step list, the "What stays protected" paragraph and the heade
 
 ### D1 (founder decision): who says yes to the prod migrate inside `/push`
 
+**Decided 2026-09-21: A.** `CLAUDE.md` ALWAYS-ASK now carries the scoped exception.
+
 - **A. `/push` is the yes (recommended).** Typing `/push` authorizes exactly the migrations in the SHA
   it ships. The keychain dialog is the physical confirmation. One action, no extra turn.
 - **B. `/push` asks once.** It prints the list, waits for "apply", then continues. One extra turn
@@ -325,6 +327,24 @@ C2 and C3 block the unsafe push either way. D1 decides only whether the block re
 - **Accepted: C2 is forgeable locally** (an agent could edit the script). C3 is the boundary; C2
   exists to fail fast and cheap.
 - **Stated limitation:** see C3's workflow-file note.
+- **ACCEPT (Codex 2026-09-21 #3): the gate can be weakened in two pushes.** Push A edits the
+  checker, its library or the exempt file; the trusted copy judges A (which carries no pending
+  migration) and passes it; push B is then judged by the weakened copy. Same class as the
+  workflow-file limitation — only an externally protected checker or a push ruleset on these
+  paths closes it. Follow-up, with the C3 note.
+- **ACCEPT (Codex #6): the outage fail-open is a deliberate carve-out from I1.** With the ledger
+  unreachable, a migration-free range passes with a warning. Such a push cannot put new code ahead
+  of schema (it carries no migration and no new coupling); a stale violation already on
+  `origin/main` is re-caught by the next reachable run. I1 therefore holds whenever the ledger is
+  readable, and this spec does not claim more.
+- **ACCEPT (Codex #11): P1106 makes every `/ship`-cherry-picked coupled marker an
+  `invalid-marker` STOP.** Fails closed; repair stays in P1106.
+- **ACCEPT (Codex #14): the manifest stamp enumerates the directory**, so a `--only` run stamps a
+  deferred coupled version as deployed until step 6 applies it. The gate never reads the manifest;
+  the daily drift check does, and will report it.
+- **ACCEPT: the promote-time re-check narrows, not closes, the base-movement window** (Codex #1/#5).
+  A move between the re-check and the promote is seconds wide, and the case it enables — a coupled
+  migration whose frontend is already live — is due, not harmful; `--post` reports it.
 
 ## Rollback Strategy
 
@@ -340,7 +360,7 @@ changed by this spec.
 Every criterion pastes its command, exit code and output. Every "passes" has a paired control that
 fails.
 
-- [ ] **C1 unit canary** (`scripts/test-check-schema-ready.sh`, stubbed ledger, wired into
+- [x] **C1 unit canary** (`scripts/test-check-schema-ready.sh`, stubbed ledger, wired into
       pre-commit for changes to C1 or `prod-ledger.sh`). One case each:
   - applied → 0
   - fabricated `2099…` → 1 `pending`
@@ -355,19 +375,51 @@ fails.
     0 with a warning
   - an exempt-file edit present only in the checked SHA, not in `--trusted-ref` → ignored
   - mutants that drop the version comparison, the ancestor test or the one-file rule are killed
-- [ ] **Live ledger controls:** C1 against real prod on the current tree → 0. The same run with one
+
+  **Evidence 2026-09-21:** `bash scripts/test-check-schema-ready.sh` → `37 passed, 0 failed`, exit 0;
+  mutants killed: version comparison, base-ancestor test, push-ancestor test, one-file rule,
+  edited-in-place check. Failure path seen: an earlier run with a wrong case exited 1. Wired into
+  pre-commit (4.7c2); the branch's own `pre-commit-checks.sh` shows `Schema gate canary (P1211)... ✓`.
+  **Deviation:** the p63 control (legacy line removed) exits **2**, not 1 — an unversioned file is
+  structural (the runner never applies it), so step 2.5 must STOP rather than try `--only` on it.
+  **Added after the Codex review:** applied migration edited in place → 2 (control: edit to a
+  marker-bearing file → 0); rename with changed SQL → 2 (control: pure rename → 0); checker deleted
+  from the trusted ref → 2, no bootstrap; truncated / empty / error-object ledger → 2.
+- [x] **Live ledger controls:** C1 against real prod on the current tree → 0. The same run with one
       fabricated file injected via a scratch commit → 1.
+  **Evidence 2026-09-21** (prod ledger, read-only token, 350 rows, newest `20260918120100`):
+  scratch commits via `commit-tree`, no branch moved. `--sha d433bc67f` (real tree) → exit 0
+  `ready`; `--sha 8edf734fd` (+`20990101000000_p1211_fabricated_control.sql`) → exit 1
+  `pending 20990101000000_p1211_fabricated_control.sql`.
 - [ ] **Replay of 2026-09-18 via `/push`:** a scratch commit on local `main` carrying a fabricated,
       correctly annotated `-- client-safe:` migration.
   - With D1's apply step stubbed to decline, `push-docs` refuses before `[2/6]`, exits non-zero,
     and no staging branch exists on origin afterwards.
   - The scratch commit is then dropped.
-- [ ] **Replay via `ship-to-prod`:** same fabricated migration, same refusal before its staging push.
+
+  **Partial evidence 2026-09-21 (git-ops level, not yet via `/push`):** the real `git-ops.sh` from
+  this branch, in a throwaway clone whose `origin` is a local bare repo, with the real prod ledger:
+  push-docs → `❌ push-docs STOPPED before anything was pushed: schema gate exit 1` /
+  `pending 20990101000000_p1211_replay_control.sql`, exit 1, before `[1/6]`; staging refs on origin: 0.
+  Hermetic twin: `test-p1211-git-ops-schema-gate.sh` (16 passed). Still open: the `/push` run on the
+  real checkout, which needs the founder's push-on. Under D1 = A "stubbed to decline" means a
+  declined keychain dialog, which makes `migrate.sh` exit non-zero — a step 2.5 STOP.
+- [x] **Replay via `ship-to-prod`:** same fabricated migration, same refusal before its staging push.
+  **Evidence 2026-09-21:** same clone, real prod ledger: `❌ ship-to-prod STOPPED before anything was
+  pushed: schema gate exit 1`, exit 1, staging refs on origin: 0. (Origin was a local bare repo,
+  not GitHub: the refusal happens before any push, so the remote cannot change the result.)
 - [ ] **Deadlock case (Gemini F1):** a fixture tree holding one client-safe pending file and one
       coupled file whose frontend is in the push. `migrate.sh --only <client-safe>` applies only
       that file on the **test** project; the coupled one is untouched.
-- [ ] **Blob mismatch:** `--only` with a working-tree edit to the listed file → refuses, nothing
+  **Hermetic evidence 2026-09-21:** `test-p1211-migrate-only.sh` case A — the whole-tree prod run
+  refuses everything (`coupled to undeployed frontend`), `--only <client-safe>` exits 0 and applies
+  only that body; 14 passed, 2 mutants killed. **Live on test not yet run:** it leaves a fabricated
+  `2099…` row in test's ledger, and removing it is a DELETE, which needs the founder's OK.
+- [x] **Blob mismatch:** `--only` with a working-tree edit to the listed file → refuses, nothing
       applied.
+  **Evidence 2026-09-21:** `test-p1211-migrate-only.sh` case C → `REFUSED: … differs from its blob`,
+  exit 1, nothing sent. Case F: with `--expect-sha` pinned, the committed bytes are what is sent,
+  never the working tree (Codex #7) — `apply_via_api` reads `git show <sha>:path` under `--only`.
 - [ ] **Server boundary, with a safety net:**
   - Push a throwaway `staging/*` SHA that carries the fabricated migration **and** a spec file
     without `disclosure:`. Then `disclosure` is red too, so even a broken `schema-ready` cannot
@@ -376,10 +428,16 @@ fails.
   - Branch deleted.
 - [ ] **Narrow-range case (Fable #2):** re-push that staging branch with one extra unrelated commit.
       `schema-ready` is still red.
-- [ ] **Stale violation (Fable #4):** a fixture where the base carries an overdue coupled migration.
+- [x] **Stale violation (Fable #4):** a fixture where the base carries an overdue coupled migration.
       A docs-only range → C1 exit 1.
+  **Evidence 2026-09-21:** canary case `stale: base carries an overdue coupled migration, docs-only
+  range` → exit 1, `overdue-coupled 20990102000000_c.sql`.
 - [ ] **No false positive:** a docs-only push through the real `/push` with the ledger reachable →
       passes. The same with the token set invalid → passes with the warning.
+  **C1-level evidence 2026-09-21** (the `/push` half needs the founder): docs-only scratch commit on
+  the branch head → exit 0 `ready`; `SUPABASE_READONLY_TOKEN=invalid-token` → `HTTP 401 …` /
+  `WARNING: prod ledger unreachable — the tree check was SKIPPED`, exit 0; control, invalid token
+  with a range touching `supabase/migrations/` → `CANNOT DETERMINE … failing closed`, exit 2.
 - [ ] **`--post`:** after a real promote carrying a coupled fixture (on the test project), step 6
       waits for the Vercel Production deployment status before applying. With the deployment status
       stubbed failed → does not apply, and reports.
@@ -393,8 +451,28 @@ fails.
   - Step 2.5 applied it.
   - The stamp rode the same push.
   - `origin/main...HEAD` = `0 0` with no leftover stamp commit.
-- [ ] **Docs:** `ship.md` 3.6, `push.md` and the four coverage claims corrected, each with a dated
+- [x] **Docs:** `ship.md` 3.6, `push.md` and the four coverage claims corrected, each with a dated
       line.
+  **Evidence:** `ship.md` 3.6 migration bullet rewritten with a dated correction and step 5 now
+  hands off to `/push`; `push.md` v7 steps 2.5/5/6, STOPs, protected paragraph and table row;
+  dated `Correction 2026-09-21 (P1211)` lines under the three `decisions.md` claims.
+
+### Added by the 2026-09-21 Codex review (each ticked item has a canary)
+
+- [x] **Promote-time re-check** (Codex #1/#5): both push commands re-run C1 between the CI poll and
+      the promote; ordering asserted by `test-p1211-git-ops-schema-gate.sh`, and removing either
+      pre-gate call is a killed mutant.
+- [x] **"already exists" is a failure on prod and under `--only`** (Codex #8), no ledger row is
+      written; test env keeps the heuristic. `test-p1211-migrate-only.sh` case G, with control.
+- [x] **`--only` stops at the first failure** (Codex #13): case H.
+- [x] **`--only` never takes `supabase db push`** (Codex #12): case E, with control.
+- [x] **Deploy oracle** (Codex #9/#10): `scripts/check-prod-deploy.sh` — verified live on the
+      09-18 deployment 6520740089 (`c577b3b93…` → exit 0; `--since` after it → 2; an undeployed SHA
+      → 2); `test-check-prod-deploy.sh` 10 passed (latest-status failure → 1, Preview-only → 2,
+      non-vercel creator → 2, API 500 → 2), 2 mutants killed. Step 2.5 runs it before applying
+      any `overdue-coupled` file.
+- [ ] **Server test isolates `schema-ready`** (Codex #16): in the server-boundary run, assert that
+      the GH013 message names `schema-ready`, not only that the promote was refused.
 
 ## Done-When
 
@@ -402,7 +480,8 @@ fails.
 - [ ] A hostile reviewer is told to assume the gate has a hole, and tries to get an unapplied,
       non-exempt migration onto `origin/main` by any route. It fails, or its finding is fixed and
       re-reviewed.
-- [ ] decisions.md has one KDD entry recording the fail mode, the one-file-per-version rule, and D1.
+- [x] decisions.md has one KDD entry recording the fail mode, the one-file-per-version rule, and D1.
+  **Evidence:** `docs/decisions.md` 2026-09-21 [technical] "Code may not become origin/main until prod's ledger has every migration in its tree…" (on this branch).
 
 ## Alternatives Considered
 
@@ -433,5 +512,12 @@ fails.
   - Fable: REVISE, 11 findings, all folded in.
   - Codex: hit its usage limit mid-run, so it produced no verdict. Its two partial notes (the route
     overclaim, allowlisted duplicate versions) were folded in. **Codex must re-run on this revision.**
+- Spec re-review 2026-09-21, Codex (gpt-5.6-sol, high, read-only; 1 of 1 reported): REJECT, 16
+  findings. The wrapper marked the run INCONCLUSIVE (its sandbox could not run fixtures or reach the
+  ledger). Each was re-checked by command before acting: #2 confirmed (P967's migration was edited
+  in place on 2026-06-28), #8 confirmed (`migrate.sh` records the version on "already exists"),
+  #15 confirmed (`ship.md` printed a direct push, GH013 per `git-workflow.md:112`), #1/#4
+  confirmed in code. Fixed: #1, #2, #4, #5 (narrowed), #7, #8, #9, #10, #12, #13, #15, #16 (AC
+  added). Accepted with reasons in Risks: #3, #6, #11, #14.
 - Incident transcripts: `d6d4ccd1` (09-18 push), `57e1165b` (09-18 author session), `1dc5108d`
   (08-14 P1053).
