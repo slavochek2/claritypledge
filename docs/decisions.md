@@ -6,6 +6,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [process]: A scripted kanban status change should not stamp the manual lock (Status: proposed)
+
+**Context:** The kanban status endpoint writes `locked_at` on every status change, while the rule describing the lock says only the UI writes it, and `/prioritize` tells agents to use that endpoint. One session stamped 31 specs this way plus two more, each batch cleaned up by hand.
+**Decision:** Founder-confirmed at /kdd: the endpoint gains an opt-out for scripted callers, and a human drag keeps locking. Filed as [P1341](../features/p1341_kanban_api_status_patch_can_skip_the_manual_lock.md).
+**Consequences:** Until P1341 ships, any agent moving specs through the API must strip its own stamps afterwards by timestamp, never all `locked_at` lines, so the founder's own locks survive.
+**References:** 2026-09-21 [process] board refit · [.claude/rules/features.md](../.claude/rules/features.md) Manual Status Lock
+
 ## 2026-09-21 [technical]: The agent's push key carries Workflows write; it still cannot administer the ruleset (P1335)
 
 **Context:** P1335 restored the fine-grained agent PAT after a browser `gh auth login` had replaced it with an admin OAuth token earlier the same day. P1211's push carried a new `.github/workflows/` file, and GitHub refuses a workflow-file change from a token without the Workflows permission.
