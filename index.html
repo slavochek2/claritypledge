@@ -139,6 +139,11 @@
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
           autocapture: { pageview: true, formContents: false },
           record_sessions_percent: p1325NoRecord ? 0 : 100,
+          // P1233: record_console defaults to true, and DOM masking does not
+          // reach console arguments — console.* calls carry user IDs and
+          // backend error detail. Sentry is the error surface. Canary:
+          // src/tests/p1233-mixpanel-no-console-capture.test.ts
+          record_console: false,
           hooks: { before_send_events: p1325Redact },
           api_host: 'https://api-eu.mixpanel.com',
           // P881: default ~5s batch window strands events when the page dies
