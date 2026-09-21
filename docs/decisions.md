@@ -6,6 +6,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [product]: Event #1 had 11 attendees, not 12 or 13. The host's own account sat in the room and supplied every anomalous number
+
+**Context:** The first read of Clarity Night #1's prod room data, read-only, reported 12 of 12 members opted in, one member who toggled opt-in 9 times, and one profile with weeks of rapid position flips. The founder asked "who was the outlier?". Both outliers were the host's own account, which had joined the room it was running. The "12 of 12" figure had already been written into goals.md, P1336 and the a73 draft before anyone asked, and was corrected in all three.
+**Decision:** Room metrics exclude the host's account. Event #1 reads **11 attendees, all 11 opted in, 0 opted out**. Understanding ratings, cmp7 stakes and position revisions were counted with the host included (9/12 rated 8+, 12/12 staked, 3 revised) and are labelled that way in goals.md. They must be re-counted without the host before any of them is cited.
+**Also found:** every after-event room transcript since the P1307 batch pipeline went live (6 of 6 rooms, including event #1's three) has 0 segments, while its jobs report `completed` with no error. The live `/transcribe` capture works: 572 raw messages sit in event #1's main room. Filed as [P1339](../features/p1339_room_batch_transcripts_complete_with_zero_segments.md); cause unknown.
+**Alternatives rejected:** Keeping 12 with a footnote. The host's taps are test activity, not attendee behaviour, and the 9 toggles would otherwise read as a finding about the opt-in.
+**Consequences:** Any query over an event's room must filter out the host's profile first. The opt-in instrument P1336 builds should make the host invisible to its own counts. **Falsifier for "the room data is now clean":** a second non-attendee account (a test or demo profile) turns up in an event room.
+**References:** [goals.md](goals.md) "Event #1 ran 2026-09-18" · [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · a73
+
+## 2026-09-21 [process]: The board was refitted around event #2. Kanban moves stamp a manual lock, and feature branches cannot be backed up to the only remote
+
+**Context:** The founder set the direction. Physical Clarity Nights become weekly. Until event #2 (Tue 2026-09-29) the only work is physical-event improvement; from 09-30 the focus moves to champion outreach and online pilots, with about 30% of founder time on development. The board showed 33 specs in `week` against a limit of 10, almost all infra. Nothing on it covered event #2.
+**Decision:** Filed P1336 (registration with opt-in, prep and survey), P1337 (event journey) and P1338 (deck). `today` is event prep plus P1297. Six founder-locked infra and funnel specs, the agent-access pair (P1321, P1215) and the problem-board chain (P1320, P1331) went to backlog, each with its reason written in the spec, none rejected. P1181 was **parked**: its worktree was removed and its branch kept, with the ship trigger written in the spec. P1184, P1263 and P1290 were closed after a recorded code review.
+**Tool findings, each measured this session:**
+- A status change through the kanban API writes `locked_at`, the same stamp a human drag writes. 31 specs moved by the agent came out "manually locked", which would suppress automated status changes (e.g. `/dev` setting `in-progress`). The run's stamps were stripped by timestamp; the founder's six locks were kept.
+- The backlog's 90-day untouched test is blind. The 2026-09-08 disclosure backfill touched every spec, so git last-touch reads that date everywhere. Use `created_date`. Tracked as INBOX-83, together with the untriaged inbox.
+- `git-ops.sh ship` on the direct-to-main path requires a `pN ready for QA` stamp commit. P1290's work was on main without one, so a stamp citing the implementing commit was added.
+- The push guard refuses to publish `feature/*` refs to the public remote, even with push enabled. That is correct for embargoed specs, and it also means a parked branch has **no off-machine backup**. The founder's choice between an explicit, logged override, a local bundle, or local-only is open.
+**Consequences:** A parked branch's only reminder is its spec card in `qa`. The board shows no branches, by design. **Falsifier for the refit:** event #2 runs on 09-29 without P1336 or P1338 in use. Then the ranking picked the wrong items.
+**References:** [goals.md](goals.md) "THIS WEEK 2026-09-21" · [p1181](../features/p1181_community_scoped_visibility.md) · [.claude/rules/features.md](../.claude/rules/features.md) Manual Status Lock
+
 ## 2026-09-21 [process]: A reviewer's claim about a vendor SDK is checked against the shipped bundle, not the model's memory (P1233)
 
 **Context:** P1233 turned off Mixpanel replay's console capture (`record_console: false` in
