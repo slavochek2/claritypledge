@@ -6,6 +6,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-21 [process]: A reviewer's claim about a vendor SDK is checked against the shipped bundle, not the model's memory (P1233)
+
+**Context:** P1233 turned off Mixpanel replay's console capture (`record_console: false` in
+`index.html`; P1216's 2026-09-03 entry first flagged the default). The Gemini review said the option
+does not exist and that Mixpanel has no network recording, so the fix would be a silent no-op.
+Grepping the shipped `mixpanel-2-latest.min.js` refuted both claims. The default config carries
+`record_console:!0` and `record_network:!1`, and the recorder bundle adds its console plugin only
+when `getConfig("record_console")` is true.
+**Decision:** When a reviewer (model or human) makes a claim about a third-party SDK option, check
+it against the vendor's shipped code (the CDN bundle or the package source) before it changes a fix.
+This is gate 9 of the epistemic rules, applied to vendor APIs, where a model's answer from memory is
+most likely out of date.
+**Alternatives rejected:** Dropping the fix because of the review. That would have left user IDs and
+backend error detail flowing into 100% of replays.
+**Consequences:** Also found: `scripts/ship-gates.sh` gate 2.5 reads only the first line of
+`pipeline_ran:`, so a block-style YAML list (`- fix` on a later line) fails with "no implementation
+recorded". Workaround: use the inline form `[create-bug, fix]`. The gate is not fixed yet.
+**References:** [p1233](../features/done/2026-06-10/p1233_mixpanel_replay_records_console_pii.md), `src/tests/p1233-mixpanel-no-console-capture.test.ts`
+
 ## 2026-09-21 [product]: Active focus moves to mid-size organizations reached through an internal champion; the channel moves from public one-per-company events to champion-hosted pilots. Founder decision, deductive, **UNTESTED · PROPOSED-PENDING-CONTACT**
 
 **Context:** Event #1 ran 2026-09-18 (public Chiang Mai audience, AI safety; see [goals.md](goals.md) "Event #1 ran 2026-09-18"). In the 2026-09-21 debrief conversation the founder concluded that audience will not buy, and proposed champion-led pilots in organizations of ~100–1,000 people. The agent first recommended recording this as a candidate only, citing research-programme.md stopping-rule clause 1 (*"A wedge definition may not be re-cut until it has been tested at least twice."*). **The founder rejected that as a non-merits argument.** On the merits the outgoing focus had no buying evidence: H-BuildRightThing, n=2, no pilot, nobody paid. Event #1 tested the *channel* with a non-target audience, so it was not a test of the wedge. **Clause 1 is therefore breached, knowingly.** The move is applied under 2026-08-05 [process] (*"No rule may block a write to the docs. Rules may only require a label."*) with the labels this heading carries. Clause 2's check was run the same day: `/slava:maintain:programme-health` returned **STAGNATING, LOW confidence**. Its analyst counted 0 tests because the event #1 debrief was not yet in the docs it read. The main agent re-counted 1 (event #1), and the verdict is unchanged. The analyst's recommendation (a problem-board test) assumed no test had run, so the main agent substituted its own: *adopt the switch only with a novel prediction recorded at adoption*. That substitution is the agent's, not the independent check's.
