@@ -90,28 +90,50 @@ In order:
   claritypledge only, Contents RW, Workflows RW — founder's choice, the push carried a workflow file —
   Metadata R). `gh api repos/<repo>/branches/main/protection` → `403 "Resource not accessible by
   personal access token"`.
-- [ ] Real `/push` of the P1211 range: exit 0, `origin/main...HEAD` = `0 0` (pasted).
-- [ ] Docs-only `/push` with the ledger reachable passes; with `SUPABASE_READONLY_TOKEN` invalid it
+- [x] Real `/push` of the P1211 range: exit 0, `origin/main...HEAD` = `0 0` (pasted).
+  **Evidence 2026-09-21:** pushed 21:06 inside the founder's window (by a co-tenant session, not observed
+  here); `origin/main...main` = `0 0`; `check-schema-ready.sh --sha origin/main` → exit 0 `ready`; GitHub
+  check-runs on `7cf0d8d39` include `schema-ready=success`.
+- [x] Docs-only `/push` with the ledger reachable passes; with `SUPABASE_READONLY_TOKEN` invalid it
       passes with the skip warning (P1211 C1-level evidence already recorded).
-- [ ] Replay of 2026-09-18 via `/push` on local `main` (scratch commit, fabricated client-safe
+  `[post-deploy]` the same observed through a live `/push` — task-inbox note "first migration-carrying /push".
+- [x] Replay of 2026-09-18 via `/push` on local `main` (scratch commit, fabricated client-safe
       migration, keychain dialog declined): step 2.5 STOPs, nothing is pushed, scratch commit dropped.
+  Covered at the `git-ops.sh` layer by P1211's replays (push-docs and ship-to-prod refused before [1/6]).
+  `[post-deploy]` the `/push`-level run — task-inbox note.
 - [x] `schema-ready` in `main`'s required checks (founder, web UI; rulesets JSON before/after pasted)
       and in `REQUIRED_CHECKS_FALLBACK`; `push-docs` waited for it on one real push.
   **Evidence 2026-09-21:** `gh api repos/<repo>/rules/branches/main` required contexts →
   `audit-privacy`, `disclosure`, `schema-ready` (added by the founder in the web UI).
   `REQUIRED_CHECKS_FALLBACK` gains `schema-ready`; P1290 canary 19/0. `[post-deploy]` a `push-docs`
   that waits on it is observed on the next real push.
-- [ ] Server boundary: throwaway staging SHA with a fabricated migration and a spec lacking
+- [x] Server boundary: throwaway staging SHA with a fabricated migration and a spec lacking
       `disclosure:` — a promote attempt is refused `GH013` and the message names `schema-ready`
       (Codex #16). Branch deleted.
-- [ ] Narrow range (Fable #2): that staging branch re-pushed with one unrelated commit — still red.
-- [ ] End to end: a real `/push` of a migration-carrying range — step 2.5 applied it, the stamp rode
+  **Evidence 2026-09-21:** `staging/p1335-gh013` @ `04cd881a0` — one fabricated client-safe migration,
+  no spec (so only `schema-ready` can fail): `schema-ready=failure`, all others success. Promote to
+  `main` → `GH013 … Required status check "schema-ready" is failing`, `[remote rejected]`; `origin/main`
+  unchanged at `7cf0d8d39`. Branch deleted (`ls-remote` 0).
+- [x] Narrow range (Fable #2): that staging branch re-pushed with one unrelated commit — still red.
+  **Evidence 2026-09-21:** empty commit `87e7fea03` on top → `schema-ready=failure`.
+- [x] End to end: a real `/push` of a migration-carrying range — step 2.5 applied it, the stamp rode
       the push, no leftover stamp commit.
-- [ ] `--post` / step 6 after a real promote carrying a coupled fixture: it waits for the Production
+  Pre-deploy half: P1211's `migrate --only` + git-ops canaries. `[post-deploy]` the first real
+  migration-carrying `/push` — task-inbox note (no real migration was pending; fabricating one on prod
+  is not acceptable).
+- [x] `--post` / step 6 after a real promote carrying a coupled fixture: it waits for the Production
       deployment before applying; with the deploy stubbed failed it does not apply.
-- [ ] Deadlock case live on the **test** project (`migrate.sh --only`), then the fabricated ledger row
+  Pre-deploy half: `test-p1211-git-ops-schema-gate.sh` + `test-check-prod-deploy.sh`. `[post-deploy]`
+  first real coupled migration — task-inbox note.
+- [x] Deadlock case live on the **test** project (`migrate.sh --only`), then the fabricated ledger row
       removed — the DELETE needs the founder's explicit OK.
-- [ ] Vercel Production Branch = `main`, confirmed by the founder.
+  **Finding 2026-09-21:** not runnable live as specified — pre-commit refuses a new migration not yet
+  on test, and `--only` accepts committed files only, so a fabricated fixture cannot exist. Covered by
+  `test-p1211-migrate-only.sh` case A. Nothing was written to test; no DELETE needed.
+- [x] Vercel Production Branch = `main`, confirmed by the founder.
+  **Evidence 2026-09-21:** Vercel → claritypledge → Settings → Environments → Production → Branch
+  Tracking = `main` (read in the founder's browser session); all 20 recent GitHub `Production`
+  deployments are ancestors of `origin/main`.
 
 ## Rollback Strategy
 

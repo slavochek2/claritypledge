@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 84
+**Next ID:** 85
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1642,5 +1642,22 @@ Event #1 (Clarity Night #1, 2026-09-18) ran and its results, attendee frictions 
 **due:** week
 
 The /prioritize run of 2026-09-21 fitted today/week/in-progress but could not age-test backlog: git last-touch reads 2026-09-08 on every spec (the P1255 disclosure backfill), so the 90-day untouched test is blind. Use created_date instead. 42 backlog specs are older than 90 days by created_date; each needs keep or close-with-reason. Also the inbox itself (75 public + 24 private) was not triaged in that run.
+
+---
+
+## Observe the first migration-carrying /push (P1335 post-deploy)
+
+**ID:** INBOX-84
+**Date:** 2026-09-21
+**Status:** proposed
+**due:** month
+
+The next time /push carries a real migration, watch it and record the result in P1335's done spec:
+- step 2.5 applies exactly the pending set before promote
+- the manifest stamp rides the push, with no leftover stamp commit
+- push-docs waits on schema-ready
+- for a coupled migration (`-- requires-frontend:`), step 6 waits for the Vercel Production deploy before applying
+Also run one docs-only /push with SUPABASE_READONLY_TOKEN invalid, and confirm it passes with the skip warning.
+Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 
 ---
