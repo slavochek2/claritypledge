@@ -82,6 +82,9 @@ run --sha "$(sha 6)";                         expect "newest deployment errored,
 run --sha "$(sha 7)";                         expect "no deployment at all"                        2
 run --sha "$(sha 99)";                        expect "API HTTP 500 is not-live, not failed"        2
 run --sha "abc";                              expect "malformed sha"                               2
+(cd "$TMPROOT/repo" && PATH="$TMPROOT/stubs:$PATH" CHECK_PROD_DEPLOY_API="https://evil.example" \
+  bash "$REPO_ROOT/scripts/check-prod-deploy.sh" --sha "$(sha 1)" >/dev/null 2>&1); RC=$?
+expect "API override to a non-local host is refused"                                                 2
 
 echo ""
 echo "test-check-prod-deploy: $PASS passed, $FAIL failed"

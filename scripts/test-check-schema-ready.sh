@@ -53,7 +53,7 @@ git commit -q -m base
 BASE=$(git rev-parse HEAD)
 
 LEDGER="$TMPROOT/ledger.json"
-printf '%s' '[{"version":"20260101000000","total":3},{"version":"20260223","total":3},{"version":"20260102000000","total":3}]' > "$LEDGER"
+printf '%s' '[{"version":"20260101000000","total":4},{"version":"20260223","total":4},{"version":"20260102000000","total":4},{"version":"20260301000000","name":"new","total":4}]' > "$LEDGER"
 
 # run <label-for-log> <args...> — sets RC and OUT (stdout) / ERR (stderr)
 CHECKER="$R/scripts/check-schema-ready.sh"
@@ -112,6 +112,19 @@ git checkout -q --detach "$BASE"; git mv "$M/20260101000000_one.sql" "$M/2026010
 RENSAME=$(git rev-parse HEAD)
 git checkout -q --detach "$BASE"; git rm -q scripts/check-schema-ready.sh; git commit -q -m "delete checker"
 NOCHECKER=$(git rev-parse HEAD)
+EDITMK2=$(commit_on "$BASE" edit-marked-sql "$M/20260102000000_mk.sql=-- requires-frontend: abcdef1
+select 1;
+select 2; -- appended after it ran")
+git checkout -q --detach "$BASE"; git rm -q "$M/20260223_a.sql" "$M/20260223_b.sql"
+echo "select 99; -- replaces the grandfathered pair" > "$M/20260223_payload.sql"; git add "$M/20260223_payload.sql"; git commit -q -m pair-replaced
+PAIRREP=$(git rev-parse HEAD)
+QUOTED=$(commit_on "$BASE" quoted "$M/20990106000000_bad\"name.sql=select 1;")
+git checkout -q --detach "$BASE"; ln -s 20260101000000_one.sql "$M/20990107000000_link.sql"; git add "$M/20990107000000_link.sql"; git commit -q -m symlink
+SYMLINK=$(git rev-parse HEAD)
+NAMEBAD=$(commit_on "$BASE" name-bad "$M/20260301000000_other.sql=select 1;")
+NAMEOK=$(commit_on "$BASE" name-ok "$M/20260301000000_new.sql=select 1;")
+JUNK=$(commit_on "$BASE" junk "$M/20990108000000_j.sql=-- requires-frontend: ${BASE:0:12} see P886
+select 1;")
 SELFEX=$(commit_on "$BASE" self-exempt "$M/zz_new.sql=select 1;" \
   "$M/.schema-gate-exempt=legacy p63_google_oauth_avatar.sql : fixture legacy
 legacy zz_new.sql : exempting myself
@@ -131,8 +144,15 @@ run --sha "$DUP" --base "$BASE";                  expect "new file on an allowli
 run --sha "$SELFEX" --base "$BASE" --trusted-ref "$BASE";    expect "exempt edit only in checked SHA: ignored" 2
 run --sha "$SELFEX" --base "$BASE" --trusted-ref "$SELFEX";  expect "control: same edit on trusted ref"   0
 run --sha "$EDIT" --base "$BASE";                 expect "applied migration edited in place"             2
-if printf '%s' "$ERR" | grep -q "edit will never run"; then ok "  ...named as an in-place edit"; else bad "  ...not named: $ERR"; fi
+if printf '%s' "$ERR" | grep -q "will never run"; then ok "  ...named as an in-place edit"; else bad "  ...not named: $ERR"; fi
 run --sha "$EDITMK" --base "$BASE";               expect "control: edit to a marker-bearing file allowed (P1106 repair)" 0
+run --sha "$EDITMK2" --base "$BASE";              expect "marker-bearing applied file with appended SQL (Codex impl #1)" 2
+run --sha "$PAIRREP" --base "$BASE";              expect "grandfathered pair replaced by one new file (Codex impl #4)" 2
+run --sha "$QUOTED" --base "$BASE";               expect "quoted filename is not silently dropped (Codex impl #2)" 2
+run --sha "$SYMLINK" --base "$BASE";              expect "symlinked .sql is structural"                   2
+run --sha "$NAMEBAD" --base "$BASE";              expect "new file on a version the ledger names for another file" 2
+run --sha "$NAMEOK" --base "$BASE";               expect "control: ledger name matches the file"          0
+run --sha "$JUNK" --base "$BASE";                 expect "marker with trailing junk is malformed (Codex impl #7)" 1 "invalid-marker 20990108000000_j.sql"
 run --sha "$RENCHG" --base "$BASE";               expect "rename with changed SQL on an applied version"  2
 run --sha "$RENSAME" --base "$BASE";              expect "control: pure rename, identical SQL"            0
 run --sha "$BASE" --base "$BASE" --trusted-ref "$NOCHECKER"; expect "checker deleted from trusted ref: no bootstrap, fail closed" 2
@@ -148,7 +168,7 @@ STUB="$TMPROOT/unreach" run --sha "$DOCS" --base "$BASE";  expect "unreachable +
 if printf '%s' "$ERR" | grep -q "tree check was SKIPPED"; then ok "  ...and it warned"; else bad "  ...no skip warning: $ERR"; fi
 printf '%s' '{"message":"boom"}' > "$TMPROOT/errobj"
 STUB="$TMPROOT/errobj" run --sha "$FAB" --base "$BASE";    expect "2xx error object is unreachable, not empty" 2
-printf '%s' '[{"version":"20260101000000","total":4},{"version":"20260223","total":4},{"version":"20260102000000","total":4}]' > "$TMPROOT/trunc"
+printf '%s' '[{"version":"20260101000000","total":5},{"version":"20260223","total":5},{"version":"20260102000000","total":5}]' > "$TMPROOT/trunc"
 STUB="$TMPROOT/trunc" run --sha "$FAB" --base "$BASE";     expect "truncated ledger (count != total)"      2
 if printf '%s' "$ERR" | grep -q "truncated response"; then ok "  ...named as truncation"; else bad "  ...truncation not named: $ERR"; fi
 printf '%s' '[]' > "$TMPROOT/empty"
@@ -184,7 +204,8 @@ PY
 mutant "drop version comparison" 'grep -qxF "$V" && continue' 'true && continue' 1 --sha "$FAB" --base "$BASE"
 mutant "drop base-ancestor test" 'elif git merge-base --is-ancestor "$FULL" "$BASE"' 'elif false' 1 --sha "$COUPLED" --base "$FRONT"
 mutant "drop push-ancestor test" 'elif git merge-base --is-ancestor "$FULL" "$SHA"' 'elif true' 1 --sha "$STRAY" --base "$BASE"
-mutant "drop edited-in-place check" '[ "$OB" != "$NB" ] || continue' 'false || continue' 2 --sha "$EDIT" --base "$BASE"
+mutant "drop edited-in-place check" 'say "$F: version $V is already applied on prod, but this SQL' 'continue; say "' 2 --sha "$EDIT" --base "$BASE"
+mutant "drop ledger-name check" '[ -n "$REC" ] && ! pl_name_matches "$REC" "$F"' 'false' 2 --sha "$NAMEBAD" --base "$BASE"
 mutant "drop one-file rule" 'grep -qxF "${V}	${MEMBERS}"' 'true' 2 --sha "$DUP" --base "$BASE"
 
 echo ""

@@ -8,7 +8,9 @@
 #   pl_version_of <basename>          version prefix, exactly as the runner derives it
 #   pl_parse_ledger_rows <json>       "version<TAB>name" per row; exit 1 = unusable body
 #   pl_marker_sha                     requires-frontend marker of SQL on stdin
-#   pl_fetch_prod_versions            prod's applied versions, one per line
+#   pl_migration_name_of <basename>   the ledger `name` the runner writes for a file
+#   pl_name_matches <recorded> <base> does a ledger name refer to this file? (P1042)
+#   pl_fetch_prod_versions            prod's applied "version<TAB>name", one per line
 #
 # Output contract (shell-safety.md): nothing here prints a bare redirect token.
 
@@ -59,15 +61,35 @@ pl_marker_sha() {
     echo "none"
     return 0
   fi
-  sha=$(echo "$line" | tr 'A-Z' 'a-z' | sed -E 's/^[[:space:]]*-- requires-frontend:[[:space:]]*([0-9a-f]+).*/\1/')
-  if echo "$sha" | grep -qE '^[0-9a-f]{7,40}$'; then
+  # The WHOLE value must be 7-40 hex chars (trailing whitespace allowed). Anything after
+  # it — "abc1234 see P886" — is malformed, not "abc1234": a parser that reads a prefix
+  # accepts a marker nobody wrote on purpose (Codex implementation review 2026-09-21, #7).
+  sha=$(echo "$line" | tr 'A-Z' 'a-z' | sed -nE 's/^[[:space:]]*-- requires-frontend:[[:space:]]*([0-9a-f]{7,40})[[:space:]]*$/\1/p')
+  if [ -n "$sha" ]; then
     echo "sha $sha"
   else
     echo "malformed $(echo "$line" | tr '<>|' '___')"
   fi
 }
 
-# Prod's applied versions, one per line, on stdout. Return 1 with the reason on
+# Ledger `name` for a migration basename (P1042): the version prefix and the .sql
+# extension stripped — what both `supabase db push` and migrate.sh write.
+pl_migration_name_of() {
+  local noext="${1%.sql}"
+  echo "$noext" | sed -E 's/^[0-9]+_//'
+}
+
+# Does a recorded ledger name refer to this file? Tolerant on purpose (the ledger was
+# written by more than one tool over time); false only when it names a DIFFERENT file.
+pl_name_matches() {
+  local recorded="$1" base="$2" noext slug
+  noext="${base%.sql}"
+  slug=$(pl_migration_name_of "$base")
+  [ "$recorded" = "$base" ] || [ "$recorded" = "$noext" ] ||
+    [ "$recorded" = "$slug" ] || [ "$recorded" = "$slug.sql" ]
+}
+
+# Prod's applied versions, one "version<TAB>name" per line (name may be empty), on stdout. Return 1 with the reason on
 # stderr when the ledger cannot be read — the caller decides fail-open or -closed.
 #
 # Credential: SUPABASE_READONLY_TOKEN only (P1214: Database:Read, read-only
@@ -112,7 +134,7 @@ pl_fetch_prod_versions() {
       -H @<(printf 'Authorization: Bearer %s\n' "$token") \
       -H "Content-Type: application/json" \
       -H "User-Agent: claritypledge-schema-gate/1.0" \
-      -d '{"query": "SELECT version, count(*) OVER () AS total FROM supabase_migrations.schema_migrations"}' \
+      -d '{"query": "SELECT version, name, count(*) OVER () AS total FROM supabase_migrations.schema_migrations"}' \
       2>/dev/null) || {
       echo "prod-ledger: curl failed (network)" >&2; return 1; }
     http=$(printf '%s\n' "$resp" | tail -n1)
@@ -139,6 +161,6 @@ for r in rows:
     totals.add(r.get('total'))
 if len(totals) != 1 or int(list(totals)[0]) != len(rows):
     sys.stderr.write('prod-ledger: row count %d does not match server total %r — truncated response\n' % (len(rows), totals)); sys.exit(1)
-print('\n'.join(str(r['version']) for r in rows))
+print('\n'.join(str(r['version']) + '\t' + str(r.get('name') or '').replace('\t', ' ').replace('\n', ' ') for r in rows))
 " <<< "$body"
 }

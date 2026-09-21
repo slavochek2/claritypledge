@@ -36,6 +36,12 @@ echo "$SHA" | grep -qE '^[0-9a-f]{40}$' || { echo "check-prod-deploy: --sha must
 SLUG=$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')
 echo "$SLUG" | grep -qE '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' || { echo "check-prod-deploy: cannot derive owner/repo from origin" >&2; exit 2; }
 API="${CHECK_PROD_DEPLOY_API:-https://api.github.com}"
+# The override exists for the hermetic canary only. It may point at localhost and nowhere
+# else — otherwise any endpoint could answer "live" for step 2.5 / step 6 (Codex impl #6).
+case "$API" in
+  https://api.github.com|http://127.0.0.1:*|http://localhost:*) ;;
+  *) echo "check-prod-deploy: CHECK_PROD_DEPLOY_API may only point at localhost (got: $API)" >&2; exit 2 ;;
+esac
 TOKEN=$(gh auth token 2>/dev/null || true)
 
 get() { # get <path> — body on stdout, non-zero on transport/HTTP failure

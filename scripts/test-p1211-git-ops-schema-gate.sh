@@ -111,10 +111,37 @@ for fn in cmd_push_docs cmd_ship_to_prod; do
   if [ -n "$RECHECK" ] && [ "$RECHECK" -gt "$POLL" ] && [ "$RECHECK" -lt "$PROMOTE" ]; then
     ok "$fn: promote-time re-check between the CI poll and the promote"
   else bad "$fn: recheck=$RECHECK poll=$POLL promote=$PROMOTE"; fi
+  PLINE=$(printf '%s\n' "$B" | grep -E 'refs/heads/main"; then' | head -1)
+  if printf '%s' "$PLINE" | grep -qF -- '--force-with-lease="refs/heads/main:${checked_base}"'; then
+    ok "$fn: promote is a compare-and-swap on the re-checked base"
+  else bad "$fn: promote is not leased on checked_base: $PLINE"; fi
 done
+if grep -nE 'echo .*push origin \$\{local_sha\}:refs/heads/main' "$GITOPS" >/dev/null; then
+  bad "a printed hand-promote hint remains (it would skip the schema re-check)"
+else ok "no printed hand-promote hint remains"; fi
 RETREAT_END=$(grep -n 'STEP0-RETREAT-END' "$GITOPS" | cut -d: -f1)
 PD_PRE=$(first_line "$(body cmd_push_docs)" 'schema_gate_pre ')
 [ "$PD_PRE" -gt "$RETREAT_END" ] && ok "push-docs: pre-gate after the resume replay and Step-0 retreat (checks the pinned SHA)" || bad "push-docs pre-gate precedes the snapshot pin"
+
+run_block schema_gate_pre push-docs "$BASE"
+if [ "$(printf '%s\n' "$OUT" | tail -1)" = "$(git rev-parse origin/main)" ]; then
+  ok "pre: prints the exact origin/main it judged (the promote's lease)"
+else bad "pre did not print the checked base: $(printf '%s' "$OUT" | tail -1)"; fi
+
+echo "== 2b. the lease form git-ops.sh uses refuses a moved base (local bare origin)"
+OTHER="$TMPROOT/other"; git clone -q "$ORIGIN" "$OTHER"
+( cd "$OTHER" && git config user.email t@example.invalid && git config user.name t \
+  && echo moved > moved.txt && git add moved.txt && git commit -q -m moved && git push -q origin HEAD:main )
+MOVED=$(git --git-dir="$ORIGIN" rev-parse main)
+git fetch -q origin
+STALE_CAND=$(git commit-tree "$(git rev-parse "$MOVED^{tree}")" -p "$MOVED" -m stale-candidate)
+if git push -q --force-with-lease="refs/heads/main:${BASE}" origin "${STALE_CAND}:refs/heads/main" 2>/dev/null; then
+  bad "lease on a stale base was ACCEPTED"
+else ok "lease on a stale base is refused (main moved after the check)"; fi
+if git push -q --force-with-lease="refs/heads/main:${MOVED}" origin "${STALE_CAND}:refs/heads/main" 2>/dev/null; then
+  ok "control: lease on the current base is accepted"
+else bad "control: lease on the current base refused"; fi
+git push -q --force origin "${BASE}:refs/heads/main"; git fetch -q origin
 
 echo "== 3. end to end (real git-ops.sh, local bare origin)"
 staging_refs() { git --git-dir="$ORIGIN" for-each-ref --format='%(refname)' refs/heads/staging/ | wc -l | tr -d ' '; }

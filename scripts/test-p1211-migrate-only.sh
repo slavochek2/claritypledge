@@ -12,6 +12,8 @@
 #   G. An "already exists" SQL error is a failure on prod and under --only, and records
 #      no ledger row (the schema gate trusts that row). Test env keeps the heuristic.
 #   H. --only stops at the first failure.
+#   I. On prod / --only only a JSON array counts as success (an error object without a
+#      "message" key used to pass and have its ledger row written).
 #
 # Same harness as test-p1174-pending-set-integrity.sh: throwaway repo, real migrate.sh
 # and scripts/lib, PATH-stubbed curl/npx/security, stubbed keychain. No network.
@@ -50,6 +52,10 @@ while [ $# -gt 0 ]; do
 done
 if [ "$QUIET" = true ]; then
   [ -n "${INSERT_LOG:-}" ] && printf '%s\n' "$PAYLOAD" >> "$INSERT_LOG"
+  exit 0
+fi
+if printf '%s' "$PAYLOAD" | grep -q 'OBJECT_BODY'; then
+  printf '%s\n200' '{"code":"sql_failed","details":"no message key"}'
   exit 0
 fi
 if printf '%s' "$PAYLOAD" | grep -q 'ALREADY_EXISTS_BODY'; then
@@ -209,6 +215,16 @@ run h --env prod --only 20990100000000_first.sql 20990101000000_cs.sql --yes
 if [ "$RC" -ne 0 ] && ! printf '%s' "$APPLIED" | grep -q CLIENT_SAFE_BODY && grep -q "stopping after the first failure" "$OUTF"; then
   ok "second listed file not attempted after the first failed (exit $RC)"
 else bad "stop-on-failure: exit $RC, applied: $APPLIED"; fi
+
+echo "== I. HTTP 200 with a non-array body is a failure on prod / --only (Codex impl #8)"
+build i prod
+P="$TMPROOT/i"
+printf -- "-- client-safe: additive\nselect 'OBJECT_BODY';\n" > "$P/supabase/migrations/20990101000000_cs.sql"
+git -C "$P" add supabase/migrations/20990101000000_cs.sql; git -C "$P" commit -q -m obj
+run i --env prod --only 20990101000000_cs.sql --yes
+if [ "$RC" -ne 0 ] && ! grep -q 20990101000000 "$P/insert.log" 2>/dev/null; then
+  ok "error-shaped object without 'message' fails; no ledger row (exit $RC)"
+else bad "object body: exit $RC, inserts: $(cat "$P/insert.log" 2>/dev/null)"; fi
 
 echo ""
 echo "test-p1211-migrate-only: $PASS passed, $FAIL failed"

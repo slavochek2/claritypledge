@@ -179,6 +179,13 @@ fi
 # from silent failure (JSON object with message key). P417 regression guard.
 _check_api_success() {
   local BODY="$1"
+  # P1211 (Codex impl review #8): on prod and under --only the schema gate trusts the
+  # ledger row written after this returns 0, so only the documented success shape — a
+  # JSON array — counts there. The lenient "other shapes are success" stays for test.
+  if [ "$ENV_NAME" = "prod" ] || [ "$ONLY_MODE" = true ]; then
+    python3 -c "import json,sys; sys.exit(0 if isinstance(json.loads(sys.stdin.read()), list) else 1)" <<< "$BODY" 2>/dev/null
+    return $?
+  fi
   python3 -c "
 import json, sys
 try:
@@ -212,25 +219,8 @@ _parse_ledger_rows() {
 # --- Helper: ledger `name` for a migration basename (P1042) ---
 # Strips the version prefix and the .sql extension, matching what `supabase db push`
 # writes into supabase_migrations.schema_migrations.name.
-_migration_name_of() {
-  local NOEXT="${1%.sql}"
-  echo "$NOEXT" | sed -E 's/^[0-9]+_//'
-}
-
-# --- Helper: does a recorded ledger name refer to this file? (P1042) ---
-# Tolerant on purpose. The rows in the ledger were written by more than one tool over
-# time, and a FALSE mismatch here would abort a legitimate run — so accept every form
-# that plausibly denotes the same file, and abort only when the recorded name denotes a
-# DIFFERENT migration. Rows written before this change carry name = NULL and are handled
-# by the caller (they cannot be judged, and are covered instead by the in-tree scan).
-_migration_name_matches() {
-  local RECORDED="$1" BASE="$2"
-  local NOEXT="${BASE%.sql}"
-  local SLUG
-  SLUG=$(_migration_name_of "$BASE")
-  [ "$RECORDED" = "$BASE" ] || [ "$RECORDED" = "$NOEXT" ] ||
-    [ "$RECORDED" = "$SLUG" ] || [ "$RECORDED" = "$SLUG.sql" ]
-}
+_migration_name_of() { pl_migration_name_of "$1"; }          # scripts/lib/prod-ledger.sh
+_migration_name_matches() { pl_name_matches "$1" "$2"; }     # shared with check-schema-ready.sh
 
 # --- Helper: apply a single SQL file via Management API ---
 apply_via_api() {

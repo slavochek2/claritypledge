@@ -4463,9 +4463,17 @@ schema_gate_pre() {
   # itself cannot fast-forward a moved origin/main.
   git -C "$REPO_ROOT" fetch -q origin main 2>/dev/null \
     || echo "  ⚠️  could not fetch origin/main — checking against the local ref." >&2
-  out="$(cd "$REPO_ROOT" && ./scripts/check-schema-ready.sh --sha "$sha" --base origin/main 2>&1)" || rc=$?
+  # Resolve the base ONCE and check against that exact SHA; it is printed on stdout on
+  # success so the promote can compare-and-swap on it (Codex implementation review #3):
+  # a green verdict is a verdict on (sha, base), and a base that moves after it is judged
+  # is a different question.
+  local base_sha
+  base_sha="$(git -C "$REPO_ROOT" rev-parse --verify -q origin/main)" \
+    || die "${label}: cannot resolve origin/main — refusing to judge against nothing"
+  out="$(cd "$REPO_ROOT" && ./scripts/check-schema-ready.sh --sha "$sha" --base "$base_sha" --trusted-ref "$base_sha" 2>&1)" || rc=$?
   if (( rc == 0 )); then
     printf '%s\n' "$out" | sed 's/^/  /' >&2
+    echo "$base_sha"
     return 0
   fi
   echo "" >&2
@@ -4557,7 +4565,7 @@ cmd_ship_to_prod() {
   fi
 
   # ── Step 0.5: Schema gate (P1211) — before anything reaches origin ────────
-  schema_gate_pre "ship-to-prod" "$local_sha"
+  schema_gate_pre "ship-to-prod" "$local_sha" >/dev/null
 
   # ── Step 1: Privacy check (detect-only -- D2) ─────────────────────────────
   echo "ship-to-prod [1/6]: checking privacy stamp covers push range..." >&2
@@ -4669,12 +4677,12 @@ cmd_ship_to_prod() {
     echo "" >&2
     echo "  ❌ ship-to-prod: 'gh' CLI not found. Cannot poll CI." >&2
     echo "  Manual fallback: wait for [${ctx_list}] to pass in GitHub Actions," >&2
-    echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
+    echo "  then re-run this command once gh works — a hand promote would skip the schema re-check (P1211)." >&2
     die "gh not available"
   fi
   if ! gh auth status >/dev/null 2>&1; then
     echo "  ❌ ship-to-prod: gh not authenticated. Run: gh auth login" >&2
-    echo "  Manual fallback: wait for CI, then: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
+    echo "  Then re-run this command — never promote by hand: that skips the promote-time schema re-check (P1211)." >&2
     die "gh not authenticated"
   fi
 
@@ -4727,7 +4735,7 @@ cmd_ship_to_prod() {
     echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
     echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
     echo "  reclaimed, and /weekly prints that report." >&2
-    echo "  Check GitHub Actions manually, then promote the snapshot to main and delete ${staging_branch}." >&2
+    echo "  Check GitHub Actions manually, then re-run this command (it re-checks the schema and promotes by compare-and-swap, P1211)." >&2
     die "CI poll timeout"
   fi
 
@@ -4736,7 +4744,8 @@ cmd_ship_to_prod() {
   # P1211: re-check at promote time. The CI verdict is attached to a SHA, but the
   # answer depends on origin/main and on prod's ledger, both of which can move during
   # the CI wait (Codex review 2026-09-21, #1 and #5).
-  ( schema_gate_pre "ship-to-prod (promote-time re-check)" "$local_sha" ) \
+  local checked_base
+  checked_base="$(schema_gate_pre "ship-to-prod (promote-time re-check)" "$local_sha")" \
     || reclaim_staging_and_die "${staging_branch}" "ship-to-prod: schema gate failed at promote time — nothing was promoted"
 
   # ── Step 5: Promote to main (D1: ALWAYS prompt TTY y/N) ──────────────────
@@ -4774,7 +4783,9 @@ cmd_ship_to_prod() {
   echo "" >&2
   echo "  Pushing to main..." >&2
   # Promote the EXACT SHA that CI scanned — same rule as cmd_push_docs above.
-  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/main"; then
+  # P1211: compare-and-swap. The lease names the exact origin/main the promote-time
+  # schema re-check judged; if main moved since, git refuses and nothing is promoted.
+  if ! git -C "$REPO_ROOT" push --force-with-lease="refs/heads/main:${checked_base}" origin "${local_sha}:refs/heads/main"; then
     die "ship-to-prod: promote of ${local_sha} to refs/heads/main failed"
   fi
   echo "  ✅ Pushed to main." >&2
@@ -5026,7 +5037,7 @@ cmd_push_docs() {
   echo "push-docs: ${ahead_count} commit(s) ahead of origin/main (snapshot ${local_sha:0:9})." >&2
 
   # ── Step 0.5: Schema gate (P1211) — on the PINNED snapshot, --resume included ──
-  schema_gate_pre "push-docs" "$local_sha"
+  schema_gate_pre "push-docs" "$local_sha" >/dev/null
 
   # ── Step 1: Privacy check (D2) ────────────────────────────────────────────
   echo "push-docs [1/6]: checking privacy stamp covers push range..." >&2
@@ -5269,12 +5280,12 @@ cmd_push_docs() {
     echo "" >&2
     echo "  ❌ push-docs: 'gh' CLI not found. Cannot poll CI." >&2
     echo "  Manual fallback: wait for [${ctx_list}] to pass in GitHub Actions," >&2
-    echo "  then run: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
+    echo "  then re-run this command once gh works — a hand promote would skip the schema re-check (P1211)." >&2
     die "gh not available"
   fi
   if ! gh auth status >/dev/null 2>&1; then
     echo "  ❌ push-docs: gh not authenticated. Run: gh auth login" >&2
-    echo "  Manual fallback: wait for CI, then: git push origin ${local_sha}:refs/heads/main && git push origin --delete ${staging_branch}" >&2
+    echo "  Then re-run this command — never promote by hand: that skips the promote-time schema re-check (P1211)." >&2
     die "gh not authenticated"
   fi
 
@@ -5343,14 +5354,15 @@ cmd_push_docs() {
     echo "  Staging branch ${staging_branch} left for inspection (deliberate -- it is the" >&2
     echo "  handle for the manual promote). 'git-ops.sh gc' now reports it until it is" >&2
     echo "  reclaimed, and /weekly prints that report." >&2
-    echo "  Check GitHub Actions manually, then promote the snapshot to main and delete ${staging_branch}." >&2
+    echo "  Check GitHub Actions manually, then re-run this command (it re-checks the schema and promotes by compare-and-swap, P1211)." >&2
     die "CI poll timeout"
   fi
 
   echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
   # P1211: re-check at promote time — see the identical block in cmd_ship_to_prod.
-  ( schema_gate_pre "push-docs (promote-time re-check)" "$local_sha" ) \
+  local checked_base
+  checked_base="$(schema_gate_pre "push-docs (promote-time re-check)" "$local_sha")" \
     || reclaim_staging_and_die "${staging_branch}" "push-docs: schema gate failed at promote time — nothing was promoted"
 
   # ── Step 4: Promote to main (TTY y/N — auto-confirmed when PUSH_DOCS_ASSUME_YES=1) ──
@@ -5405,7 +5417,9 @@ cmd_push_docs() {
   # an instrumented pre-push hook: the SHA form yields local_ref=<sha>,
   # remote_ref=refs/heads/main, and pre-push-checks.sh reads local_ref (:57/:87/:212)
   # but never uses it; every layer gates on remote_ref.
-  if ! git -C "$REPO_ROOT" push origin "${local_sha}:refs/heads/main"; then
+  # P1211: compare-and-swap. The lease names the exact origin/main the promote-time
+  # schema re-check judged; if main moved since, git refuses and nothing is promoted.
+  if ! git -C "$REPO_ROOT" push --force-with-lease="refs/heads/main:${checked_base}" origin "${local_sha}:refs/heads/main"; then
     die "push-docs: promote of ${local_sha} to refs/heads/main failed"
   fi
   echo "  ✅ Pushed to main." >&2

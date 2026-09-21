@@ -131,21 +131,43 @@ while IFS= read -r RAW || [ -n "$RAW" ]; do
 done < "$TMPD/exempt"
 
 # --- Tree enumeration (git objects only) -------------------------------------------
-# Non-recursive, blobs only, *.sql only: exactly the set migrate.sh's
-# supabase/migrations/*.sql glob sees.
-git ls-tree "$SHA" -- "$MIG_DIR/" > "$TMPD/tree" 2>/dev/null || cannot "git ls-tree failed on $SHA"
-FILES=$(awk -F'\t' '{ split($1, m, " "); if (m[2] == "blob") print $2 }' "$TMPD/tree" \
-        | sed 's|.*/||' | grep -E '\.sql$' || true)
-# "blob<TAB>basename" for this SHA and for the base — the edited-in-place check below.
-blobs_of() {
-  git ls-tree "$1" -- "$MIG_DIR/" 2>/dev/null \
-    | awk -F'\t' '{ split($1, m, " "); if (m[2] == "blob") { n = $2; sub(/.*\//, "", n); if (n ~ /\.sql$/) print m[3] "\t" n } }'
+# Parsed from `git ls-tree -z`, never the quoted text form: git C-quotes a name holding
+# a quote, backslash or control byte, and a filter on the quoted text dropped such a file
+# while migrate.sh's glob would still apply it (Codex implementation review #2). Every
+# directory entry whose name ends in .sql is judged — exactly what migrate.sh's
+# supabase/migrations/*.sql glob sees. One that is not a regular file (a symlink, a
+# directory, a submodule) or whose name is outside [A-Za-z0-9._-] is structural: the
+# two tools could read different bytes for it, so nobody can vouch for it.
+list_sql() { # list_sql <commit> — "blob<TAB>basename" per safe entry; BAD lines on fd 3
+  git ls-tree -z "$1" -- "$MIG_DIR/" 2>/dev/null | python3 -c '
+import sys, re
+data = sys.stdin.buffer.read()
+for rec in data.split(b"\0"):
+    if not rec:
+        continue
+    meta, _, path = rec.partition(b"\t")
+    mode, typ, obj = meta.split(b" ")
+    name = path.rsplit(b"/", 1)[-1]
+    if not name.endswith(b".sql"):
+        continue
+    ok_name = re.fullmatch(rb"[A-Za-z0-9._-]+", name) is not None
+    if typ != b"blob" or mode not in (b"100644", b"100755") or not ok_name:
+        sys.stderr.write("BAD\t%s (mode %s, %s)\n" % (name.decode("utf-8", "backslashreplace").encode("unicode_escape").decode(), mode.decode(), typ.decode()))
+        continue
+    sys.stdout.write("%s\t%s\n" % (obj.decode(), name.decode()))
+'
 }
-SHA_BLOBS=$(blobs_of "$SHA")
-BASE_BLOBS=$(blobs_of "$BASE")
+SHA_BLOBS=$(list_sql "$SHA" 2>"$TMPD/bad") || cannot "git ls-tree failed on $SHA"
+BASE_BLOBS=$(list_sql "$BASE" 2>/dev/null)
+FILES=$(printf '%s\n' "$SHA_BLOBS" | cut -f2 | grep -v '^$' || true)
 [ -n "$FILES" ] || cannot "no migration files found in $SHA:$MIG_DIR — refusing to call an empty tree ready"
 
 STRUCT_ERRORS=0
+while IFS= read -r BADLINE; do
+  [ -n "$BADLINE" ] || continue
+  say "unsafe migration entry ${BADLINE#BAD	}: not a regular file with a plain name — the runner and this gate could disagree about it"
+  STRUCT_ERRORS=$((STRUCT_ERRORS + 1))
+done < "$TMPD/bad"
 VERSIONED=""   # "version<TAB>basename"
 while IFS= read -r F; do
   [ -n "$F" ] || continue
@@ -177,7 +199,7 @@ done <<< "$DUP_VERSIONS"
 [ "$STRUCT_ERRORS" -eq 0 ] || cannot "$STRUCT_ERRORS structural problem(s) above — fix the tree or the trusted exempt file"
 
 # --- Ledger ------------------------------------------------------------------------
-if ! APPLIED=$(pl_fetch_prod_versions 2>"$TMPD/ledger.err"); then
+if ! LEDGER=$(pl_fetch_prod_versions 2>"$TMPD/ledger.err"); then
   cat "$TMPD/ledger.err" >&2
   if [ "$POST" = true ]; then
     cannot "prod ledger unreachable — cannot tell which coupled migrations are due"
@@ -191,35 +213,48 @@ if ! APPLIED=$(pl_fetch_prod_versions 2>"$TMPD/ledger.err"); then
   say "  reachable ledger re-checks the whole tree."
   exit 0
 fi
+APPLIED=$(printf '%s\n' "$LEDGER" | cut -f1)
 
-# --- Applied migrations edited in place (Codex review 2026-09-21, #2) --------------
-# The ledger is keyed on version, so editing a file whose version is already recorded
-# changes SQL that will never run again — and C1 would still call it applied. P967's
-# RPC was fixed this way on 2026-06-28. Compared against the base: a file (same
-# basename, or the sole owner of its version) whose blob changed while its version is
-# applied is refused. Exception: the base copy carried a requires-frontend marker —
-# such a file may legitimately have been unapplied on the base (P1106 marker repair).
+# --- Applied migrations whose SQL is not what ran (Codex reviews 2026-09-21) ---------
+# The ledger is keyed on version, so for an APPLIED version this gate cannot see the SQL
+# that ran — only which blobs the base carried for it. Rule, per file on an applied
+# version V in the checked tree:
+#   - its blob is one of the base's blobs for V              → unchanged, fine
+#   - it differs from a base blob for V ONLY in the requires-frontend marker line
+#                                                            → a P1106 marker repair, fine
+#   - the base has blobs for V but this is none of them      → SQL changed after it ran:
+#     an in-place edit (P967, 2026-06-28), a rename with new SQL, or a grandfathered pair
+#     replaced by a single new file. Refused.
+#   - the base has NO file for V (new here, or applied by /push step 2.5 just now):
+#     the ledger's recorded name, when present, must name this file — otherwise another
+#     file already claimed V and this one will never run (P1042, cross-tree).
+strip_marker() { git cat-file blob "$1" 2>/dev/null | grep -viE '^[[:space:]]*-- requires-frontend:' | shasum | cut -d' ' -f1; }
 EDITED=0
 while IFS=$'\t' read -r NB F; do
   [ -n "$F" ] || continue
   V=$(pl_version_of "$F")
   printf '%s\n' "$APPLIED" | grep -qxF "$V" || continue
-  OB=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' -v f="$F" '$2 == f { print $1; exit }')
-  if [ -z "$OB" ]; then
-    # Renamed? Only when exactly one base file owns this version.
-    OWNERS=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' '{ print $2 }' | while IFS= read -r BN; do
-      [ -n "$BN" ] && [ "$(pl_version_of "$BN")" = "$V" ] && echo "$BN"; done)
-    [ "$(printf '%s' "$OWNERS" | grep -c .)" -eq 1 ] || continue
-    OB=$(printf '%s\n' "$BASE_BLOBS" | awk -F'\t' -v f="$OWNERS" '$2 == f { print $1; exit }')
+  BV=$(printf '%s\n' "$BASE_BLOBS" | while IFS=$'\t' read -r OB BN; do
+    [ -n "$BN" ] && [ "$(pl_version_of "$BN")" = "$V" ] && echo "$OB"; done)
+  if [ -n "$BV" ]; then
+    printf '%s\n' "$BV" | grep -qxF "$NB" && continue
+    NS=$(strip_marker "$NB")
+    MATCH=false
+    while IFS= read -r OB; do
+      [ "$(strip_marker "$OB")" = "$NS" ] && { MATCH=true; break; }
+    done <<< "$BV"
+    [ "$MATCH" = true ] && continue
+    say "$F: version $V is already applied on prod, but this SQL is not what the base carried for it — the change will never run. Write a NEW migration instead."
+    EDITED=$((EDITED + 1))
+  else
+    REC=$(printf '%s\n' "$LEDGER" | awk -F'\t' -v v="$V" '$1 == v { print $2; exit }')
+    if [ -n "$REC" ] && ! pl_name_matches "$REC" "$F"; then
+      say "$F: version $V is recorded on prod by a DIFFERENT migration ($REC) — this file will never run (P1042). Renumber it."
+      EDITED=$((EDITED + 1))
+    fi
   fi
-  [ -n "$OB" ] && [ "$OB" != "$NB" ] || continue
-  if [ "$(git cat-file blob "$OB" 2>/dev/null | pl_marker_sha)" != "none" ]; then
-    continue
-  fi
-  say "$F: version $V is already applied on prod, but its SQL changed since $BASE_ARG — the edit will never run. Write a NEW migration instead."
-  EDITED=$((EDITED + 1))
 done <<< "$SHA_BLOBS"
-[ "$EDITED" -eq 0 ] || cannot "$EDITED applied migration(s) edited in place"
+[ "$EDITED" -eq 0 ] || cannot "$EDITED applied version(s) whose SQL in this tree is not what ran"
 
 # --- Classify every unapplied file -------------------------------------------------
 FINDINGS=""
