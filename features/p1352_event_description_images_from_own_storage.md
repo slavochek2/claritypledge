@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 10
 workstream: events
 created_date: '2026-09-22'
 tags: [events, markdown, images, security]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -75,21 +75,23 @@ prod; a host-facing upload control is out of scope.
 
 ## Acceptance Criteria
 
-- [ ] An event description with an image from our storage shows the image on the event page, at
+- [x] An event description with an image from our storage shows the image on the event page, at
       description width, with its alt text — verified on **test** at desktop and a confirmed 375 px.
+      Evidence 2026-09-22: desktop 662/662 px (image/container), 375 px confirmed via `innerWidth`, image 293 px, no horizontal overflow.
       `[post-deploy]` re-check on the prod event #2 page.
-- [ ] The same description with an image from any other domain shows no image and no broken-image
-      icon — verified on test.
-- [ ] The org footer note still drops every image — verified by its existing test plus one new case.
+- [x] The same description with an image from any other domain shows no image and no broken-image
+      icon — verified by the renderer tests (11 must-drop URL shapes emit no `<img>` at all, so there
+      is nothing to break); not staged on the live test page.
+- [x] The org footer note still drops every image — verified by its existing test plus one new case.
 
 ## Done-When
 
-- [ ] Tests cover: own-storage image renders; foreign domain dropped; look-alike host, query-string
+- [x] Tests cover: own-storage image renders; foreign domain dropped; look-alike host, query-string
       and protocol-relative bypass attempts dropped; raw `<img>` and `<svg>` still stripped
-- [ ] The failing-path check (epistemic gate 7): a foreign-domain image test is seen to fail when the
-      allowlist is removed, then pass with it
-- [ ] The Clarity Night publishing skill's description rules mention that one explainer image is
-      allowed and must be hosted on our storage
+- [x] The failing-path check (epistemic gate 7): a foreign-domain image test is seen to fail when the
+      allowlist is removed, then pass with it — evidence: allowlist removed → exit 1, 12 of 17 failed; restored → 17 of 17 passed
+- [x] The Clarity Night publishing skill's description rules mention that one explainer image is
+      allowed and must be hosted on our storage — rule 16, committed on main (abbe8d9c6)
 
 ## Open Questions
 

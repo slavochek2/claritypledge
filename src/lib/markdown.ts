@@ -166,6 +166,61 @@ const safeMd = new Marked({
   },
 });
 
+/**
+ * P1352: an image URL is allowed only if it sits under one of the given storage prefixes.
+ * Parsed with URL and compared by protocol + origin + path prefix, never by substring, so
+ * a look-alike host, a prefix hidden in a query string, a protocol-relative URL or a
+ * `..` climb out of the public path all fail.
+ */
+function isAllowedImageSrc(src: string, allowedPrefixes: readonly string[]): boolean {
+  let url: URL;
+  try {
+    url = new URL(src); // no base: relative and protocol-relative URLs throw
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return false;
+  return allowedPrefixes.some((prefix) => {
+    try {
+      const allowed = new URL(prefix);
+      return (
+        allowed.protocol === 'https:' &&
+        url.origin === allowed.origin &&
+        url.pathname.startsWith(allowed.pathname)
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** P1352: our own public storage, the only place event description images may come from */
+function ownStoragePrefixes(): string[] {
+  const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  return base ? [`${base.replace(/\/+$/, '')}/storage/v1/object/public/`] : [];
+}
+
+/**
+ * P1352: event descriptions — safeMd plus own-storage images. A fresh instance per call
+ * keeps the allowlist a parameter (testable) without mutating any shared Marked instance.
+ */
+function eventDescriptionMd(allowedPrefixes: readonly string[]): Marked {
+  return new Marked({
+    renderer: {
+      html() { return ''; },
+      image({ href, text }) {
+        if (!isAllowedImageSrc(href, allowedPrefixes)) return '';
+        return `<img src="${escapeHtml(new URL(href).href)}" alt="${escapeHtml(text)}" loading="lazy" decoding="async">`;
+      },
+      link({ href, text }) {
+        const safe = sanitizeHref(href);
+        if (!safe) return escapeHtml(text);
+        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+      },
+    },
+  });
+}
+
 /** For trusted content (committed content like ToS) */
 const trustedMd = new Marked(trustedLinkRenderer);
 
@@ -200,6 +255,19 @@ const articleMd = new Marked(katexExtension(), articleRenderer);
 export function renderMarkdownSafe(content: string): string {
   if (!content) return '';
   return safeMd.parse(content) as string;
+}
+
+/**
+ * P1352: render an event description — renderMarkdownSafe plus images hosted on our own
+ * storage. Every other image is dropped. `allowedImagePrefixes` defaults to this
+ * environment's public storage URL; tests pass their own.
+ */
+export function renderEventDescription(
+  content: string,
+  allowedImagePrefixes: readonly string[] = ownStoragePrefixes(),
+): string {
+  if (!content) return '';
+  return eventDescriptionMd(allowedImagePrefixes).parse(content) as string;
 }
 
 /** Render trusted markdown (committed content like ToS) */

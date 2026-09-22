@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { renderMarkdownSafe } from '@/lib/markdown';
+import { renderEventDescription } from '@/lib/markdown';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -783,10 +783,10 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* Description - Markdown rendered (safe renderer strips raw HTML to prevent XSS) */}
+              {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               <div
                 className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
-                dangerouslySetInnerHTML={{ __html: renderMarkdownSafe(event.description) }}
+                dangerouslySetInnerHTML={{ __html: renderEventDescription(event.description) }}
               />
 
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}

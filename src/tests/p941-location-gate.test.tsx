@@ -52,7 +52,7 @@ vi.mock('@/lib/mixpanel', () => ({
 }));
 
 // ── Markdown ──────────────────────────────────────────────────────────────────
-vi.mock('@/lib/markdown', () => ({ renderMarkdownSafe: (s: string) => s }));
+vi.mock('@/lib/markdown', () => ({ renderMarkdownSafe: (s: string) => s, renderEventDescription: (s: string) => s }));
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
