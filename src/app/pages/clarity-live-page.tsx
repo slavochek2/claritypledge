@@ -396,10 +396,10 @@ export function ClarityLivePage() {
    *   - `view !== 'start'` — a HOST who created the session from the lobby: nothing navigates to
    *     /live/:code, the view just moves start → waiting → live in state, so a URL-only check left
    *     the host with the menu for the whole session (adversarial review, Gemini 3.8).
-   *   - `session !== null` — `handleMicCancel` returns the view to 'start' WITHOUT clearing the
-   *     session or terminating it, so after a denied microphone the host sits on the lobby view
-   *     inside a live server session and `view` alone read as "not in a session" (adversarial
-   *     review, Codex Sol; confirmed by reading handleMicCancel).
+   *   - `session !== null` — any state where a session is held while `view` reads 'start'.
+   *     It was added because `handleMicCancel` used to reset the view without clearing or
+   *     ending the session (adversarial review, Codex Sol). P1344 routes that cancel through
+   *     the proper exits, and this signal stays as the guard for any other path to that state.
    *
    * A route-level prop cannot express any of this: `/live` and `/live/:code` render THIS
    * component in the same bare layout, and the host's session never changes route at all.
@@ -3852,13 +3852,36 @@ export function ClarityLivePage() {
 
   // P40: Handle mic permission dialog cancel
   // B48: Cancel returns user to start view (they can't join without mic permission)
+  // P1344: the dialog also opens for people who already HOLD a session — a waiting host
+  // (proactive request) and anyone going live through gateMicAndGoLive (e.g. the creator
+  // whose partner joins while the dialog is up). Resetting only the view left them on the
+  // lobby inside a live server session with the partner stranded. The split is on whether
+  // a PARTNER exists, not on the view: a creator can still be in view 'waiting' after the
+  // joiner has arrived, because the mic gate is what moves waiting -> live. With no partner
+  // the waiting-room Cancel is the sanctioned exit; with one, confirmExitMeeting — the
+  // single in-session exit (P779/P921), which is what notifies the partner.
+  // Called through a ref: handleCancelWaiting is a plain function recreated every render,
+  // and depending on it directly would rebuild this callback on every render too.
+  const handleCancelWaitingRef = useRef(handleCancelWaiting);
+  useEffect(() => {
+    handleCancelWaitingRef.current = handleCancelWaiting;
+  });
   const handleMicCancel = useCallback(() => {
     setShowMicDialog(false);
     resetMic();
     pendingJoinRef.current = null; // Clear any pending join info
-    setView('start');
     toast.error('Microphone access is required to join Clarity Sessions');
-  }, [resetMic]);
+    if (!session) {
+      setView('start');
+      return;
+    }
+    const partnerPresent = !isCreator || hasJoinerRef.current || !!session.joinerName;
+    if (!partnerPresent) {
+      void handleCancelWaitingRef.current();
+      return;
+    }
+    void confirmExitMeeting();
+  }, [resetMic, session, isCreator, confirmExitMeeting]);
 
   // B48: Gate transition to live view behind mic permission check
   // This ensures users grant microphone access BEFORE seeing the live meeting UI
