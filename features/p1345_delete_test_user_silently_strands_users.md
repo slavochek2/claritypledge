@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 13
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-helpers, cleanup]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1345: deleteTestUser swallows a failed profile delete, so test users pile up unseen
@@ -63,14 +63,18 @@ It resolves and the user is stranded without anyone noticing.
 
 ## Fix Approach
 
-Check the error from both pre-cleans and from the profile delete. Throw
-`Error('[TEST HELPER] deleteTestUser(<id>) failed at <step>: <message>')`. Leave the auth-delete
-handling as it is. Known trade-off: a throw inside a `finally` replaces the test's own error in the
-report. It was accepted because a silent leak is the worse failure (INBOX-58). Existing stranded
+As built (revised after review): check the error from both pre-cleans and the profile delete.
+Inside a Playwright test each failure is `expect.soft` — the test fails, every failing step is
+reported, and the caller's remaining cleanup still runs. A plain throw (first version) skipped
+every later `deleteTestUser` and `ctx.close()` in the 225 e2e files that delete several users in
+a row — recreating the leak (Opus review). Outside a Playwright test (the Vitest integration
+lane) it throws. Auth-delete handling unchanged. Existing stranded
 test users are **not** deleted by this fix, since a DB delete needs founder approval.
 
 ## Acceptance Criteria
 
-- [ ] A unit test with a mocked admin client shows `deleteTestUser` rejects when the profile delete returns an error, and when either pre-clean does.
-- [ ] The same test shows it resolves when every delete returns no error, and when the auth delete returns 404.
-- [ ] A real e2e spec that creates and deletes a user still passes against the test project.
+- [x] A unit test with a mocked admin client shows `deleteTestUser` rejects when the profile delete returns an error, and when either pre-clean does. — `src/tests/p1345-delete-test-user.test.ts` (outside-Playwright path); plus in-Playwright cases: no throw, soft failure per failing step. 7/7; the old helper fails the three reject cases.
+- [x] The same test shows it resolves when every delete returns no error, and when the auth delete returns 404.
+- [x] A real e2e spec that creates and deletes a user still passes against the test project. — `e2e/p1149-auth-gate.spec.ts` 3/3 on the branch. Real soft-fail probe (malformed id): test marked failed, all three DB steps reported, execution continued. `p1149-consent-gate.spec.ts:52` fails identically with the old helper (INBOX-86).
+
+Not done, by design: the test users already stranded on the test project are not deleted (a DB delete needs founder approval).
