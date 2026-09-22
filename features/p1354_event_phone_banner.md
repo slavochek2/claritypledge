@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 12
 workstream: events
 created_date: '2026-09-22'
 tags: [events, banner, mobile]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
