@@ -82,10 +82,10 @@ renders as today). Decision density: low; the founder decided the direction abov
 
 ## Acceptance Criteria
 
-- [ ] An event with a phone banner shows the phone image at 375px and 320px, and the regular banner at 768px, 1280px and 1920px, verified by screenshot at each width (`innerWidth` confirmed).
-- [ ] An event without a phone banner looks the same as before at 375px and 1280px.
-- [ ] A profile page banner looks the same as before.
-- [ ] If the phone image URL is broken, the phone shows the gradient fallback, not a broken-image icon.
+- [x] An event with a phone banner shows the phone image at 375px and 320px, and the regular banner at 768px, 1280px and 1920px, verified by screenshot at each width (`innerWidth` confirmed).
+- [x] An event without a phone banner looks the same as before at 375px and 1280px.
+- [x] A profile page banner looks the same as before.
+- [x] If the phone image URL is broken, the phone shows the gradient fallback, not a broken-image icon.
 - [ ] The Clarity Night #2 event on TEST has a phone banner whose faces and names are readable on a 375px phone, reviewed by the founder.
 
 ## Done-When
