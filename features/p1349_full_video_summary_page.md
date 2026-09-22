@@ -51,7 +51,7 @@ can be unpublished. Decision density: a few (below).
   returns to the story.
 
 [FOUNDER DECISION: link copy. Working text "Read the full summary →"]
-[FOUNDER DECISION: is the summary a neutral digest, or organised by the points/positions in the video?]
+**Decided (founder, 2026-09-22): a neutral summary of the whole video, all speakers, like read-first.** It is not about stories, points or any one speaker's position. Its job: "understand what is in the video without watching all the video." Founder's own use: "i need it myself if i would be participant, i cant watch so many videos."
 
 ## Risks / Non-Goals
 
@@ -99,3 +99,14 @@ returned BLOCK, and they agreed. Load-bearing claims re-checked by command:
 8. **Copyright is a pre-publish gate, not a DEFER.**
 
 Next: founder decides whether to proceed. If yes, rewrite the Solution around a source entity before `/architect`.
+
+**Founder ruling on the review (2026-09-22):** judge it on product and user grounds; storage is technical.
+Reframed that way:
+- Finding 4 (PS-1 conflict) goes away. PS-1 governs stories that name a person's position, and this is a
+  neutral summary of the video. Its remaining rule: label it as machine-written, keep it separate from
+  verbatim quotes (the P1141 honesty signal), and timestamp each section back to the source.
+- Findings 1–3 and 6 are technical (source table, link only when a summary exists, top-level link from
+  embeds). Findings 2's point-page case: the founder notes every expanded point with a story still
+  shows a player, so the rule is "link under every player", and a repeat there is acceptable.
+- Finding 7 (need unproven): answered by the founder as a participant's own need.
+- Finding 8 (copyright) remains a pre-publish check.
