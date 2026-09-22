@@ -105,10 +105,9 @@ prod; a host-facing upload control is out of scope.
 
 ## Open Questions
 
-0. `[FOUNDER DECISION: the review hardened the shared link check that renderMarkdownSafe also uses,
-   so its link hrefs are now fully HTML-escaped. Image dropping is unchanged, but the invariant
-   "not a change to safeMd" is no longer literally true. Keep the shared fix and reword the invariant
-   to "images stay dropped everywhere else", or move the link fix to its own spec?]`
+0. RESOLVED 2026-09-22, founder: keep the shared link-check fix in this change ("sure keep"). The
+   invariant "not a change to safeMd" now reads as: images stay dropped everywhere else; link hrefs
+   in every user-content renderer are fully HTML-escaped.
 
 1. `[FOUNDER DECISION: the ikigai explainer itself — the famous four-circle diagram presented as a
    question ("the famous version, is it right?"), or a neutral illustration?]` The four-circle
