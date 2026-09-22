@@ -95,7 +95,7 @@ returned BLOCK, and they agreed. Load-bearing claims re-checked by command:
 5. **The AC checks timestamps on one video and nothing about attribution or fidelity.** It contradicts
    the invariant.
 6. **Embeds:** the link must open top-level or in a new tab. Inside an iframe, "back" can't work.
-7. **Need is unproven now that P1348 has shipped.** Always-visible timestamped quotes may already answer "is this slice fair?".
+7. **Need is unproven once P1348 ships.** Always-visible timestamped quotes may already answer "is this slice fair?".
 8. **Copyright is a pre-publish gate, not a DEFER.**
 
 Next: founder decides whether to proceed. If yes, rewrite the Solution around a source entity before `/architect`.
