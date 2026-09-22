@@ -10,7 +10,7 @@ tags:
   - links-menu
   - events
 disclosure: public
-delivery_stage: dev
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - challenge-prd
