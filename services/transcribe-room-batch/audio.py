@@ -1,9 +1,13 @@
 """
 P1307 Decision 5: reassemble one room member's archived audio into ≤5-minute WAV segments.
 
-Archive layout (api.ts buildRoomAudioPathSegments + Decision 6's server-issued numbering):
+Archive layout (api.ts buildRoomAudioPathSegments + Decision 6's server-issued numbering).
+The client asks for the first path; the out-of-repo signed-URL Cloud Function actually writes
+the second (it prepends `sessions/` and strips the slashes). P1339: reading only the first found
+zero chunks for every room, so both are read.
 
-    gs://<bucket>/rooms/{room_code}/{sanitised-name}-{member_id}/[_dev_]chunk_NNN.webm
+    gs://<bucket>/rooms/{room_code}/{sanitised-name}-{member_id}/[_dev_]chunk_NNN.webm   (requested)
+    gs://<bucket>/sessions/rooms{room_code}{sanitised-name}-{member_id}/[_dev_]chunk_NNN.webm   (stored)
 
 Each chunk is one 30-second MediaRecorder flush. Only the FIRST chunk of a MediaRecorder
 session carries the WebM/EBML header; later chunks are raw continuation bytes and cannot be
@@ -55,17 +59,22 @@ class ChunkRef:
     created_ms: int
 
 
-def select_member_chunks(objects: list[tuple[str, int]], room_code: str, member_id: str) -> list[ChunkRef]:
-    """From (object_name, created_ms) pairs under rooms/{code}/, keep this member's chunks in order.
+def room_listing_prefixes(room_code: str) -> list[str]:
+    """Object-name prefixes that can hold this room's chunks — requested layout, then stored."""
+    return [f"rooms/{room_code}/", f"sessions/rooms{room_code}"]
 
-    The directory is `{sanitised-name}-{member_id}`. The name part is not trusted or needed —
-    matching on the member-id suffix is what binds a directory to a member, the same way
-    gcs-signed-url binds the prefix to the caller's member row.
+
+def select_member_chunks(objects: list[tuple[str, int]], room_code: str, member_id: str) -> list[ChunkRef]:
+    """From (object_name, created_ms) pairs under the room's prefixes, keep this member's chunks in order.
+
+    The member directory ends `{sanitised-name}-{member_id}`. The name part is not trusted or
+    needed — matching on the member-id suffix is what binds a directory to a member, the same
+    way gcs-signed-url binds the prefix to the caller's member row.
     """
-    prefix = f"rooms/{room_code}/"
     by_number: dict[int, ChunkRef] = {}
     for name, created_ms in objects:
-        if not name.startswith(prefix):
+        prefix = next((p for p in room_listing_prefixes(room_code) if name.startswith(p)), None)
+        if prefix is None:
             continue
         parts = name[len(prefix):].split("/")
         if len(parts) != 2 or not parts[0].endswith(f"-{member_id}"):
@@ -179,7 +188,7 @@ def decode_run_to_pcm(run: list[tuple[ChunkRef, bytes]]) -> bytes:
 
 
 def list_room_objects(bucket_name: str, room_code: str) -> list[tuple[str, int]]:
-    """(object_name, created_ms) for everything under rooms/{room_code}/. Service account only."""
+    """(object_name, created_ms) for everything under the room's prefixes. Service account only."""
     from google.cloud import storage
 
     if not validate_room_code(room_code):
@@ -187,7 +196,8 @@ def list_room_objects(bucket_name: str, room_code: str) -> list[tuple[str, int]]
     client = storage.Client()
     return [
         (blob.name, int(blob.time_created.timestamp() * 1000))
-        for blob in client.list_blobs(bucket_name, prefix=f"rooms/{room_code}/")
+        for prefix in room_listing_prefixes(room_code)
+        for blob in client.list_blobs(bucket_name, prefix=prefix)
     ]
 
 

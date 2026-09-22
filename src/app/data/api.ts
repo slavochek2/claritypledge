@@ -4263,7 +4263,9 @@ export async function fetchRoomTranscript(roomId: string): Promise<RoomTranscrip
     console.error('[Transcription API] Error fetching room transcript:', savedError);
   }
 
-  if (saved) {
+  // P1339: an empty after-event transcript (a batch pass that found no audio) must not hide
+  // the live one — fall through to transcribe_messages instead.
+  if (saved && ((saved.segments ?? []) as unknown[]).length > 0) {
     const speakerMap = (saved.speaker_map ?? {}) as Record<string, string>;
     const incomplete = new Set((saved.incomplete_member_ids ?? []) as string[]);
     const rows = (saved.segments ?? []) as Array<{ member_id: string; start_ms: number; text: string; also_heard_by?: string[] }>;

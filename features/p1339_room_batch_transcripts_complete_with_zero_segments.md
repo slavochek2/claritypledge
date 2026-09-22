@@ -10,9 +10,12 @@ tags:
   - events
   - silent-failure
 disclosure: public
-delivery_stage: create-bug
+delivery_stage: dev
 pipeline_ran:
   - create-bug
+  - reproduce
+  - fix
+  - adversarial-review
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -50,11 +53,57 @@ Diagnosis must not re-run the batch against the event-1 rooms before their state
 
 ## Root Cause
 
-Unknown. **Hypothesis:** the archived audio chunks the job reassembles are missing, so every member ends
-up "incomplete" and nothing is transcribed, while the job still marks itself completed (the pipeline
-counts `missing` chunks in its stats, `services/transcribe-room-batch/pipeline.py`). **Cheapest
-disproof:** list the event-1 rooms' archived chunk objects in storage, read-only, and compare them with
-the slice counts on the member rows.
+**Confirmed 2026-09-22, read-only.** The job looks for audio where the app *asks* for it to be stored,
+not where it *is* stored. The app requests the upload folder `rooms/{code}/{name}-{member_id}/`; the
+out-of-repo signed-URL Cloud Function stores it as `sessions/rooms{code}{name}-{member_id}/` (adds
+`sessions/`, strips the slashes). Evidence:
+
+- Cloud Run logs: all 8 completed jobs since 2026-09-16 logged `chunks: 0, runs: 0, segments: 0`.
+- Bucket: `rooms/` holds no objects; `sessions/rooms*` holds 24 member folders, ~325 chunks.
+- The fixed selector run over the real listings of SY8KAP / MWZDVT / 24LSKP picks 142/142, 40/40 and
+  5/5 chunks with no gaps (the old one picked 0).
+
+The first hypothesis (chunks missing) is disproved: the audio is intact, so event #1 is recoverable.
+
+## Fix
+
+- `audio.py`: list and match both layouts (`room_listing_prefixes`); the member-id suffix still binds.
+- `pipeline.py`: zero chunks never completes. It goes back to pending for the sweep (an upload can still
+  be in flight), and on the last attempt the member is written into the transcript as incomplete and
+  the job fails with `no_audio_chunks`. Members who only listened get jobs too (the sweep creates one
+  per member with `last_seen_at`), so they end as `failed: no_audio_chunks`, listed as incomplete.
+- `api.ts fetchRoomTranscript`: an after-event transcript with zero segments no longer hides the live
+  transcript. Until this ships, every recorded room's page shows an empty transcript to readers.
+
+## Recovery runbook (after deploy, founder approval, prod write)
+
+Old jobs are `completed`, and nothing re-claims a completed job. After the service is redeployed:
+
+```sql
+UPDATE public.transcribe_room_transcription_jobs
+   SET status = 'pending', attempts = 0, error = NULL, updated_at = now()
+ WHERE status = 'completed' AND created_at >= '2026-09-14';
+```
+
+Then trigger `/sweep` (or wait for Cloud Scheduler). Each job re-merges only its own member's entries,
+so re-running is safe for the transcript rows. This spends Gemini batch quota for every recording.
+
+## Known gap (not fixed here, pre-existing)
+
+A final chunk still uploading when the job lists the bucket is not detected: numbering has no known end,
+so 0..4 visible out of 0..5 reads as complete. Reviewer finding (Codex); candidate follow-up.
+
+Also open (Opus reviewer): once any member's after-event transcript is non-empty, it replaces the live
+one for the whole room, so a member whose audio is missing loses their live lines on that page (they
+are shown as incomplete only after the last retry). And `no_audio_chunks` will also fire for members
+who only listened, which adds noise to the failure signal. Both are candidate follow-ups.
+
+## Review log (2026-09-22)
+
+3 of 3 reviewers reported: Codex (REJECT: old jobs stranded, no-audio race permanent, late final chunk),
+Gemini 3.8 Flash, served-verified (REJECT: listeners vanish from the transcript, no-audio race),
+Opus (listener noise, partial-room hiding, test gaps). Fixed: retry on no audio, keep the member
+listed on the last try, empty-transcript fallback, recovery runbook. Deferred: see the two sections above.
 
 ## Invariants
 
@@ -64,9 +113,9 @@ the slice counts on the member rows.
 
 ## Acceptance Criteria
 
-- [ ] The cause is named, with the read-only evidence that shows it
+- [x] The cause is named, with the read-only evidence that shows it
 - [ ] A new recorded room produces a non-empty after-event transcript on prod
-- [ ] A job that cannot transcribe a member says so (failed, or completed with a reason), and a test watches that path fail
+- [x] A job that cannot transcribe a member says so (failed, or completed with a reason), and a test watches that path fail
 - [ ] Event #1's rooms: either their after-event transcript is recovered, or it is recorded plainly why it cannot be
 
 ## Related

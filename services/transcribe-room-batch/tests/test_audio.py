@@ -77,3 +77,19 @@ def test_encode_wav_declares_16k_mono_16bit_and_the_true_length():
 
 def test_run_start_is_one_chunk_interval_before_the_first_chunk_was_created():
     assert audio.run_start_ms(ref(0, created_ms=100_000), chunk_seconds=30) == 70_000
+
+
+def test_select_member_chunks_reads_the_layout_the_upload_function_actually_writes():
+    # P1339: the out-of-repo signed-URL Cloud Function stores the client's `rooms/{code}/{who}-{id}`
+    # prefix as `sessions/rooms{code}{who}-{id}` (prefix added, slashes removed). Observed in the
+    # prod bucket 2026-09-22 for all 24 room directories; `rooms/` itself holds nothing.
+    objects = [
+        (f"sessions/roomsABC234alice-{MEMBER}/chunk_001.webm", 2),
+        (f"sessions/roomsABC234alice-{MEMBER}/chunk_000.webm", 1),
+        (f"sessions/roomsABC234bob-{OTHER}/chunk_000.webm", 1),     # another member
+        (f"sessions/roomsZZZ999alice-{MEMBER}/chunk_002.webm", 3),  # another room
+        (f"sessions/ABC234/alice_chunk_000.webm", 1),               # a /live session, not a room
+    ]
+    refs = audio.select_member_chunks(objects, "ABC234", MEMBER)
+    assert [r.number for r in refs] == [0, 1]
+    assert audio.room_listing_prefixes("ABC234") == ["rooms/ABC234/", "sessions/roomsABC234"]

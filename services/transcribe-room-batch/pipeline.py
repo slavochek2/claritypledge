@@ -27,6 +27,7 @@ from config import (
     DUPLICATE_MIN_SIMILARITY,
     DUPLICATE_WINDOW_MS,
     GCS_BUCKET,
+    MAX_ATTEMPTS,
     SEGMENT_SECONDS,
     STALE_MINUTES,
 )
@@ -57,6 +58,8 @@ def transcribe_member(room_code: str, member_id: str) -> tuple[list[Entry], bool
     """Returns (entries, incomplete, stats). Stats are counts only — safe to log."""
     objects = audio.list_room_objects(GCS_BUCKET, room_code)
     refs = audio.select_member_chunks(objects, room_code, member_id)
+    if not refs:
+        return [], True, {"chunks": 0, "missing": 0, "orphaned": 0, "runs": 0, "segments": 0}
     missing = audio.missing_chunk_numbers([r.number for r in refs])
     chunks = audio.download_objects(GCS_BUCKET, refs)
     runs, orphaned = audio.split_into_runs(chunks)
@@ -114,6 +117,16 @@ def process_job(job: dict) -> None:
             return
 
         entries, incomplete, stats = transcribe_member(room["code"], member["id"])
+        if stats["chunks"] == 0:
+            # P1339: nothing found to transcribe. A "completed" here hid a wrong archive path for
+            # a week across every room, so it never completes. It can still be legitimate (a
+            # member who only listened) or an upload still in flight: retry via the sweep, and on
+            # the last attempt keep the member in the transcript as incomplete and fail with why.
+            if attempts >= MAX_ATTEMPTS:
+                write_member_into_room_transcript(room["id"], member["id"], member["display_name"], [], True)
+            storage.finish_job(job_id, error="no_audio_chunks", retryable=True, attempts=attempts)
+            logger.error("job %s: no audio chunks found (attempt %s)", job_id, attempts)
+            return
         incomplete = incomplete or ended_by_staleness(member)
         write_member_into_room_transcript(room["id"], member["id"], member["display_name"], entries, incomplete)
         storage.finish_job(job_id)
