@@ -40,7 +40,7 @@ interface StoryMediaProps {
  */
 function VideoSummaryLink({ videoId }: { videoId: string }) {
   const href = videoSummaryPath(videoId);
-  const className = 'mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400';
+  const className = 'ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400';
   const content = <><FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary</>;
   // Inside an embed (iframe on someone else's page), open a new tab: navigating the iframe would
   // squeeze the summary into the embed box, and "back" could not return the reader.
@@ -55,6 +55,20 @@ function VideoSummaryLink({ videoId }: { videoId: string }) {
     <Link to={href} onClick={(e) => e.stopPropagation()} className={className}>
       {content}
     </Link>
+  );
+}
+
+/**
+ * With a link, the caller's spacing classes move to a wrapper around player + link, so the
+ * margins surround the pair instead of being dropped. Without one, the media renders bare.
+ */
+function MediaWithSummaryLink({ className, link, children }: { className?: string; link: React.ReactNode; children: React.ReactNode }) {
+  if (!link) return <>{children}</>;
+  return (
+    <div className={className} data-testid="story-media-with-summary-link">
+      {children}
+      {link}
+    </div>
   );
 }
 
@@ -75,29 +89,27 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
 
     if (mode === 'player') {
       return (
-        <>
-        <StoryVideoPlayer
-          ref={ref}
-          videoUrl={videoUrl as string}
-          durationSeconds={durationSeconds}
-          onBlockedChange={onBlockedChange}
-          className={summaryLink ? '' : className}
-        />
-        {summaryLink}
-        </>
+        <MediaWithSummaryLink className={className} link={summaryLink}>
+          <StoryVideoPlayer
+            ref={ref}
+            videoUrl={videoUrl as string}
+            durationSeconds={durationSeconds}
+            onBlockedChange={onBlockedChange}
+            className={summaryLink ? undefined : className}
+          />
+        </MediaWithSummaryLink>
       );
     }
 
     return (
-      <>
-      <VideoThumbnailCard
-        videoUrl={videoUrl as string}
-        href={storyHref}
-        durationSeconds={durationSeconds}
-        className={summaryLink ? '' : className}
-      />
-      {summaryLink}
-      </>
+      <MediaWithSummaryLink className={className} link={summaryLink}>
+        <VideoThumbnailCard
+          videoUrl={videoUrl as string}
+          href={storyHref}
+          durationSeconds={durationSeconds}
+          className={summaryLink ? undefined : className}
+        />
+      </MediaWithSummaryLink>
     );
   }
 );

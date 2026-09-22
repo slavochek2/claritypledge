@@ -84,6 +84,13 @@ describe('P1349 — the link under the player', () => {
     expect(link.getAttribute('href')).toBe(`/video/${ID}`);
   });
 
+  it('keeps the caller spacing around player + link when the link renders', async () => {
+    rows = [ROW];
+    wrap(<StoryMedia videoUrl={`https://youtu.be/${ID}`} mode="player" className="mt-2 mb-2" />);
+    await screen.findByRole('link', { name: /read video summary/i });
+    expect(screen.getByTestId('story-media-with-summary-link').className).toBe('mt-2 mb-2');
+  });
+
   it('shows no link when the video has no confirmed summary (no dead links)', async () => {
     rows = [];
     wrap(<StoryMedia videoUrl={`https://www.youtube.com/watch?v=${ID}`} mode="thumbnail" storyHref="/story/x" />);

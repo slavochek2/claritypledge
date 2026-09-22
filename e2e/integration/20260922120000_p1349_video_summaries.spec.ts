@@ -49,7 +49,7 @@ test.describe.serial('P1349 video_summaries RLS', () => {
   });
 
   test.afterAll(async () => {
-    await supabaseAdmin.from('video_summaries').delete().in('video_id', Object.values(ids));
+    await supabaseAdmin.from('video_summaries').delete().in('video_id', [...Object.values(ids), `p1349n${run}`, `p1349s${run}`]);
   });
 
   test('anon sees the confirmed summary and neither the draft nor the checked one', async () => {
@@ -70,6 +70,12 @@ test.describe.serial('P1349 video_summaries RLS', () => {
     const bad = { ...row(`p1349s${run}`, 'checked'), checked_by: 'writer-agent' };
     const { error } = await supabaseAdmin.from('video_summaries').insert(bad);
     expect(error?.code).toBe('23514'); // check_violation
+  });
+
+  test('a confirmed summary must name its checker', async () => {
+    const bad = { ...row(`p1349n${run}`, 'confirmed'), checked_by: null };
+    const { error } = await supabaseAdmin.from('video_summaries').insert(bad);
+    expect(error?.code).toBe('23514');
   });
 
   test('one row per video: a second summary for the same video is refused', async () => {
