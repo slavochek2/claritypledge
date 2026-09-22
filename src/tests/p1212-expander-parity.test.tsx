@@ -515,7 +515,7 @@ describe('P1212 §1 (eighth surface) — QuotedStory suppresses the quote label'
       </MemoryRouter>
     );
 
-    // P1296 item 8 — folded by default: open it the way a reader would.
+    // P1348 — never folded; the quotes are already on the page.
 
     // The quote block, with a working timecode carrying that second. P1259 change 1 turned
     // this surface's timecodes from new-tab anchors into seek buttons (it mounts a player

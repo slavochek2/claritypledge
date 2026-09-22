@@ -248,10 +248,10 @@ describe('P1212 DW-6 — a letter sealed BEFORE §1 renders its quotes exactly o
   it('the post-§1 shape (label only, bodies in video_quotes) renders the block, once', () => {
     renderCard(`${QUOTE_LABEL_PREFIX} Yann LeCun`);
     expect(screen.getByTestId('story-video-quotes')).toBeTruthy();
-    // P1296 item 8 — folded by default; the quote is one tap away, and rendered once.
+    // P1348 — never folded; the quote is rendered once.
     expect(quoteOccurrences()).toBe(1);
     // Exactly one heading: the body's copy is stripped, the block supplies its own. Since
-    // P1296 that heading is the fold toggle and states the count, so the prose label must
+    // P1296 that heading states the count (never folded since P1348), so the prose label must
     // appear ZERO times and the toggle once.
     const headings = (document.body.textContent ?? '').split(QUOTE_LABEL_PREFIX).length - 1;
     expect(headings).toBe(0);

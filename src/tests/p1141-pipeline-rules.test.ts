@@ -67,7 +67,7 @@ describe('p1141 DW-11 — the voice rules live in exactly one skill', () => {
    * P1296 item 8 SPLIT THESE TWO STRINGS ON PURPOSE. The skill still writes
    * "Supporting quotes from {Full Name}" into the story text, and that label is still the one
    * `storyTextForDisplay` strips before display. What changed is the component's HEADING: it is
-   * the fold toggle now and states the count only (founder: "not sure we need the name of
+   * a plain label now and states the count only (founder: "not sure we need the name of
    * person again here? redundant?"). So the parity that matters is skill ↔ stripper, and the
    * component must NOT carry the old label, or it would read twice again.
    */
@@ -153,7 +153,7 @@ describe('p1141 — every UI Contract and RD-1 string appears verbatim where it 
     // Removing those two entries also left this line duplicated byte-for-byte — one file
     // checked twice and the second slot doing nothing. A deletion that leaves a copy of
     // its neighbour behind looks like coverage and is not.
-    // P1296 item 8 — the heading is the fold toggle: the count, not the name.
+    // P1296 item 8 / P1348 — the heading is a plain label: the count, not the name.
     ['src/app/components/shared/story-video-quotes.tsx', "{count} supporting {count === 1 ? 'quote' : 'quotes'}"],
     ['src/app/components/shared/agent-story-footer.tsx', 'An agent account operated by ClarityPledge wrote this on {fullName}.'],
     ['src/app/components/shared/agent-story-footer.tsx', 'How agent accounts work →'],

@@ -83,7 +83,7 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
   it('renders the quote BODIES, not only the heading', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
     expect(screen.getByTestId('story-video-quotes')).toBeTruthy();
-    // P1296 item 8 — folded by default; the bodies are one tap away, never absent.
+    // P1348 — never folded; the bodies are on the page from first paint.
     expect(document.body.textContent).toContain(QUOTE_A);
     expect(document.body.textContent).toContain(QUOTE_B);
   });
@@ -91,7 +91,7 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
   /** The heading is the component's own <h3>. It must appear exactly once — the whole point of
    *  §1 was that it appeared twice when the bodies also sat inline in `content`.
    *
-   *  P1296 item 8 — that heading is now the fold toggle, and it states the count rather than
+   *  P1296 item 8 / P1348 — that heading states the count rather than
    *  "Supporting quotes from {Name}". So "once" is asserted on the toggle, and the prose label
    *  must still be stripped: zero copies of it, not one. */
   it('renders the heading exactly once, and no prose copy of the old label', () => {

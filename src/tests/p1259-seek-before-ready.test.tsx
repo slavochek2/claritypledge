@@ -165,7 +165,7 @@ describe('P1259 — gap 2: the card is still a thumbnail', () => {
   it('clicking a timecode forces the mount and seeks to that second', async () => {
     const { seekTo, ready } = installYouTube();
     render(<LazyHarness />);
-    // P1296 item 8 — the quotes are folded by default. Opening the fold mounts nothing.
+    // P1348 — the quotes are never folded, and rendering them mounts nothing.
     expect(screen.getByTestId('mode').textContent).toBe('thumbnail');
 
     const timecodes = screen.getAllByTestId('story-video-quote-timecode');

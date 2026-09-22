@@ -233,7 +233,7 @@ describe('P1270 §1 — profile Points tab renders nested story media', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('story-video-quotes')).not.toBeNull();
     });
-    // P1296 item 8 — the quotes are folded by default on every surface; open the fold.
+    // P1348 — the quotes are never folded, on every surface.
     expect(screen.getByTestId('story-video-quote-timecode')).toBeTruthy();
   });
 

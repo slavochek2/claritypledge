@@ -17,8 +17,6 @@ import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/
 import { __resetYouTubeApiLoader } from '@/lib/video';
 import { createRef } from 'react';
 
-/** P1348 — the quotes are never folded; kept as a no-op so call sites read the same. */
-function openQuotes() {}
 
 const VIDEO = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 const QUOTES = [
@@ -41,7 +39,6 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
     render(
       <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={onSeek} />
     );
-    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks).toHaveLength(2);
 
@@ -83,7 +80,6 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
 
   it('the timecode label is the UI Contract format', () => {
     render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
-    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks[0].textContent).toContain('0:42');
     expect(marks[1].textContent).toContain('3:05');
@@ -121,7 +117,6 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
 
   it('every timecode is a real touch target, not a hairline', () => {
     render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
-    openQuotes();
     for (const mark of screen.getAllByTestId('story-video-quote-timecode')) {
       expect(mark.className).toContain('h-10');
     }
@@ -156,7 +151,6 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
         playerBlocked
       />
     );
-    openQuotes();
     const marks = screen.getAllByTestId('story-video-quote-timecode');
     expect(marks[0].tagName).toBe('A');
     expect(marks[0].getAttribute('href')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s');
@@ -169,14 +163,12 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     render(
       <StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} playerBlocked />
     );
-    openQuotes();
     expect(screen.getByText('the first thing said')).toBeTruthy();
     expect(screen.getByText('the second thing said')).toBeTruthy();
   });
 
   it('with no seek handler at all, timecodes still open the source rather than dying', () => {
     render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} />);
-    openQuotes();
     expect(screen.getAllByTestId('story-video-quote-timecode')[0].tagName).toBe('A');
   });
 
