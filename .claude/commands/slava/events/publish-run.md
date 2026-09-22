@@ -305,6 +305,14 @@ of a wide crop get cut, and on 2026-08-31 this was only caught after the banner 
 adjust the crop offset and re-upload until every face is intact. Fixing it after five
 platforms already have the image means re-doing all five.
 
+**If no single crop reads well at both widths** (small faces spread across a wide banner —
+the same shape as the 2026-08-31 incident), set a phone-specific variant instead of fighting
+the crop offset: `events.banner_mobile_url` (P1354), hand-set via `PATCH
+/rest/v1/events?id=eq.<id>` (same shape as the `banner_url` patch above), shown by
+`BannerDisplay` only below the 768px breakpoint. `banner_url` and its desktop crop are
+unaffected. No generator or upload UI supports it — compose it yourself from the same source
+photo/art.
+
 Note `event-photo-prep.sh` skips the upload when an object already exists at that path
 (idempotent HEAD check) — when replacing a banner with a new crop, confirm the storage object's
 dimensions actually changed rather than trusting the script's success line.

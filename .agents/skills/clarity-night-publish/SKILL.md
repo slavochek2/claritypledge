@@ -229,6 +229,17 @@ Paste the evidence; do not ask to move to PROD until all pass.
    as them attending. If so, regenerate with keywords about the room (*library evening, people in a
    discussion circle*). Then check the crop at desktop and a confirmed 375 px (publish-run's rule:
    faces near the top of a wide crop get cut).
+
+   **If the banner has faces or names that go illegible at 375px** (a wide desktop crop squeezed
+   into the 192px phone slot — the exact case this rule exists for), a phone-specific variant can
+   be set separately: `events.banner_mobile_url` (P1354), read by `BannerDisplay` and shown only
+   below the `md` (768px) breakpoint, with `banner_url` unaffected at every other width. It is
+   **hand-set only** — no generator support, no host UI — set it directly via `PATCH
+   /rest/v1/events?id=eq.<id>` with the service role key, same pattern as any other direct-DB step
+   in this skill. Compose it from the same illustrated portraits already in the desktop banner
+   (crop each one out and lay them out 2-row/3-column, or whatever grid reads best at ~2:1) rather
+   than regenerating fresh art — that keeps the two banners visually consistent. Confirm at 375px
+   the same way as the desktop crop.
 4. **Render check on prod, signed out** (an isolated browser context): title, venue, all six
    sections, and the locked group-chat state a stranger sees.
 
@@ -269,6 +280,7 @@ Next: `/slava:events:promote-all`.
 - [ ] The founder confirmed the move to PROD in the same turn, after hearing the Step 6.1 known gap
 - [ ] The group-chat read-back printed `True`
 - [ ] Prod rendered signed out with the venue and all six sections, and the banner passed the look-and-crop check
+- [ ] If a phone-specific banner was set (`banner_mobile_url`), it was confirmed legible at 375px too
 
 ## Related Skills
 
