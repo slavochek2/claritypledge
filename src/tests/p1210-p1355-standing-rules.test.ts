@@ -17,7 +17,7 @@ import path from 'node:path'
 import { RULES, recencyFloors, parseOverride } from '../../scripts/points/standing-rules.mjs'
 import { run as sweep, FIXTURES as SWEEP } from '../../scripts/points/candidate-sweep.mjs'
 import { run as minutes, FIXTURES as MIN, parseVtt } from '../../scripts/points/on-topic-minutes.mjs'
-import { run as runFileCheck, FIXTURES as RFC } from '../../scripts/points/run-file-check.mjs'
+import { run as runFileCheck, FIXTURES as RFC, parseRunFile } from '../../scripts/points/run-file-check.mjs'
 import { parseRun } from '../../scripts/points/redact-run.mjs'
 import { run as rulePresent, REPO_ROOT } from '../../scripts/points/rule-present.mjs'
 
@@ -332,6 +332,22 @@ describe('C4 — run-file-check refuses an approvals block that breaks a standin
   it('review fix: the schema doc\'s `arguers:   # comment` line still parses (Gemini finding 1)', () => {
     const text = runFile(arguer(good)).replace('arguers:\n', 'arguers:                              # REPEATABLE, 2..6 entries\n')
     expect(check(text).verdict).toBe('SEALABLE')
+  })
+
+  it('the REAL documented run-file template parses — built from docs/points-process.md, not a copy (gate 7d)', () => {
+    // A hand-copied template line stays green when the doc changes; reading the doc does not.
+    const doc = readFileSync(path.join(REPO_ROOT, 'docs/points-process.md'), 'utf8')
+    const start = doc.indexOf('### Schema Format')
+    const fence = doc.indexOf('```markdown', start)
+    const template = doc.slice(fence + '```markdown'.length, doc.indexOf('\n```\n', fence))
+    expect(template).toContain('<!-- end-approvals-block -->')
+    const parsed = parseRunFile(template)
+    expect(parsed).not.toBeNull()
+    expect(parsed!.arguers.length).toBeGreaterThanOrEqual(2)
+    // every field run-file-check requires is spelled in the template the way the parser reads it
+    for (const k of ['voice', 'why_in_the_room', 'on_topic_seconds', 'on_topic_input', 'upload_date', 'language']) {
+      expect(parsed!.arguers[0], k).toHaveProperty(k)
+    }
   })
 
   it('review fix: yt\'s `NA` language is "not reported", never "not English"', () => {
