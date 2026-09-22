@@ -135,6 +135,38 @@ else
 fi
 unset GIT_DIR GIT_INDEX_FILE
 
+echo "-- 5. P1346: a step's 'git init' cannot re-initialise the hook's worktree git-dir --"
+# The DECOY is a throwaway repo with a linked worktree, never this repository (P1131: the
+# first version of that canary pointed at the real git-dir and destroyed it four times).
+DECOY="$SCRATCH/decoy"
+git init -q "$DECOY/main"
+( cd "$DECOY/main" && git config user.email c@example.com && git config user.name c \
+  && git commit -q --allow-empty -m seed && git worktree add -q "$DECOY/wt" ) >/dev/null 2>&1
+decoy_bare() { git --git-dir="$DECOY/main/.git" config --get core.bare; }
+[ "$(decoy_bare)" = "false" ] && ok "control: decoy starts with core.bare=false" \
+                               || bad "control: decoy did not start non-bare"
+export GIT_DIR="$DECOY/main/.git/worktrees/wt"
+run_quiet "canary that inits a scratch repo" git init -q "$SCRATCH/scratch-init" >/dev/null 2>&1
+[ "$(decoy_bare)" = "false" ] && ok "core.bare still false after a step ran 'git init' under a worktree GIT_DIR" \
+                               || bad "a run_quiet step flipped the decoy's core.bare to true"
+# Control that the mechanism is live here: the same command OUTSIDE run_quiet does flip it.
+git init -q "$SCRATCH/scratch-init-2" >/dev/null 2>&1
+if [ "$(decoy_bare)" = "true" ]; then
+  ok "control: the bare 'git init' outside run_quiet does flip core.bare (scenario 5 is not vacuous)"
+else
+  bad "control: the mechanism did not reproduce — scenario 5 proved nothing"
+fi
+unset GIT_DIR
+
+echo "-- 6. P1346: GIT_INDEX_FILE is still passed through (privacy scans read the commit's index) --"
+export GIT_INDEX_FILE="$SCRATCH/some-index"
+if run_quiet "index passthrough" bash -c '[ "${GIT_INDEX_FILE:-}" = "$0" ]' "$SCRATCH/some-index" >/dev/null 2>&1; then
+  ok "run_quiet step sees the caller's GIT_INDEX_FILE"
+else
+  bad "run_quiet dropped GIT_INDEX_FILE"
+fi
+unset GIT_INDEX_FILE
+
 echo ""
 echo "=== $pass passed, $fail failed ==="
 [ "$fail" -eq 0 ]

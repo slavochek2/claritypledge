@@ -71,7 +71,15 @@ run_quiet() {
     before=$(_index_fingerprint)
     before_list=$(_index_listing)
     echo -n ">>> $label... "
-    if "$@" > "$tmpfile" 2>&1; then
+    # P1346: every step runs WITHOUT the hook's repo-scoping env. From a linked worktree git
+    # hands its hooks GIT_DIR=<repo>/.git/worktrees/wN, and a step that inherits it and runs
+    # `git init <scratch>` re-initialises THAT git-dir, writing core.bare=true into the shared
+    # config (fourth incident, 2026-09-22); its `git commit` lands in the real repo and fires
+    # this hook again, recursively. Per-canary unsets (P1131, P1273, P1279) kept missing one.
+    # GIT_INDEX_FILE is deliberately KEPT: a pathspec or -a commit stages into a temporary
+    # index that the privacy scans must read. Index writes stay the guard's job, below.
+    # A subshell, not `env -u`, so a step that is a shell function still runs.
+    if ( unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; "$@" ) > "$tmpfile" 2>&1; then
         echo -e "${GREEN}✓${NC}"
         rc=0
     else
