@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 12
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [live, mic-permission, session-end]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1344: cancelling the mic dialog on /live leaves a live server session behind the lobby
@@ -46,12 +46,20 @@ already records this gap.
 
 ## Reproduction Steps
 
-1. Host (mic granted) creates a session at `/live`, and the joiner joins so both are live.
-2. The joiner reloads with mic permission revoked. Restore → `gateMicAndGoLive` → mic dialog.
-3. The joiner taps Cancel.
-4. Observe: the joiner is on the lobby. The host never gets the joiner-left signal, and the session stays live.
+**Corrected during the fix (2026-09-22).** The reload path first written here is NOT
+reachable: on restore `gateMicAndGoLive` returns early on `isPrivate`, local state that resets
+to `true` on reload, so a reloaded participant is never mic-gated (measured; filed as
+INBOX-85). The reachable paths, both reproduced by `e2e/p1344-live-mic-cancel.spec.ts`
+failing on the pre-fix page:
 
-**Reproduction rate:** 100% by reading the code. No browser repro yet (`/reproduce` owns that).
+A. Host turns recording on, creates a session, denies the mic in the waiting room, taps
+   Cancel → lobby, but the session survives in state and storage; a reload puts the host back
+   in the waiting room.
+B. Same host leaves the dialog open; a partner joins (view is still `waiting`, because the mic
+   gate is what moves waiting → live); host taps Cancel → host on the lobby, partner stays in a
+   session that still looks live.
+
+**Reproduction rate:** 100% (both E2E cases fail on `main`'s page).
 
 ## Expected Behavior
 
@@ -74,13 +82,19 @@ Local view resets to the lobby. The session and the partner are left as they wer
 
 ## Fix Approach
 
-Branch in `handleMicCancel`: no session → current behaviour. `view === 'waiting'` →
-`handleCancelWaiting()`. Otherwise with a session → `confirmExitMeeting()`. The toast stays in every
-branch. The Links-trigger comment at line 399 is updated to say the state no longer occurs.
+As built: no session → lobby as before. Session, no partner (`isCreator` and no
+`hasJoinerRef` / `session.joinerName`) → end the session server-side
+(`completeClaritySessionKeepalive`, so a joiner who raced in is told) plus the waiting-room
+Cancel. Partner present → `confirmExitMeeting()`. Split on the PARTNER, not the view (first
+draft keyed on `view === 'waiting'`, wrong for case B). Toast in every branch.
+
+Known and accepted: in case B the creator lands on the session-end screen, and
+`confirmExitMeeting` creates a transcription job for a session with no creator audio — the
+same as any existing in-session exit (Opus review, medium; not changed here).
 
 ## Acceptance Criteria
 
-- [ ] Pre-join joiner who cancels returns to the lobby, and the creator still sees "Invite Your Partner" (existing test passes).
-- [ ] A live-session participant who cancels the mic dialog causes the partner's view to leave the live session.
-- [ ] A waiting host who cancels ends up on the lobby with no stored session, the same as pressing the waiting-room Cancel.
-- [ ] No console errors in these flows.
+- [x] Pre-join joiner who cancels returns to the lobby, and the creator still sees "Invite Your Partner" (existing test passes). — `e2e/live-meeting-mic-permission.spec.ts` "joiner who cancels mic dialog…" passes on the branch (2026-09-22). Caveat filed as INBOX-87: that test's Cancel click is `if (isVisible)`-hedged.
+- [x] A session holder with a partner present who cancels the mic dialog causes the partner's view to leave the live session. — E2E B: partner sees "Session ended"; fails on the pre-fix page. (The joiner-side variant is unreachable today, see Reproduction.)
+- [x] A waiting host who cancels ends up on the lobby with no stored session, the same as pressing the waiting-room Cancel. — E2E A: lobby, no `clarity_live_session_code`, reload stays on the lobby, and `live_state.sessionEnded = true`; fails on the pre-fix page.
+- [x] No console errors in these flows. — both E2E cases assert zero uncaught `pageerror` events.

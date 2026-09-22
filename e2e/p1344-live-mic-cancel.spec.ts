@@ -85,6 +85,13 @@ async function waitForJoiner(code: string, timeoutMs = 20000): Promise<void> {
   throw new Error(`[p1344] no joiner recorded for ${code} within ${timeoutMs}ms`);
 }
 
+/** Collect uncaught exceptions (pageerror) — the spec's "no console errors" in its strict form. */
+function trackPageErrors(...pages: Page[]): string[] {
+  const errs: string[] = [];
+  for (const p of pages) p.on('pageerror', (e) => errs.push(e.message));
+  return errs;
+}
+
 async function cancelMicDialog(page: Page): Promise<void> {
   const cancel = page.getByRole('dialog').getByRole('button', { name: 'Cancel' });
   await expect(cancel).toBeVisible({ timeout: 10000 });
@@ -97,6 +104,7 @@ test.describe('P1344: mic-dialog Cancel with a session held', () => {
   test('A. waiting host who cancels the mic dialog keeps no session (reload stays on the lobby)', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
+    const pageErrors = trackPageErrors(page);
     await installSwitchableMic(page);
     let host: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let code: string | null = null;
@@ -124,6 +132,7 @@ test.describe('P1344: mic-dialog Cancel with a session held', () => {
       await page.waitForLoadState('networkidle');
       await expect(page.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 10000 });
       await expect(page.getByText('Invite Your Partner')).toHaveCount(0);
+      expect(pageErrors, 'no uncaught exceptions').toEqual([]);
     } finally {
       if (code) await deleteClaritySession(code).catch(() => {});
       if (host) await deleteTestUser(host.user.id);
@@ -136,6 +145,7 @@ test.describe('P1344: mic-dialog Cancel with a session held', () => {
     const joinerCtx = await browser.newContext();
     const creatorPage = await creatorCtx.newPage();
     const joinerPage = await joinerCtx.newPage();
+    const pageErrors = trackPageErrors(creatorPage, joinerPage);
     await installSwitchableMic(creatorPage);
     await installSwitchableMic(joinerPage);
     let creator: Awaited<ReturnType<typeof createTestUser>> | null = null;
@@ -166,6 +176,7 @@ test.describe('P1344: mic-dialog Cancel with a session held', () => {
       // Before the fix the creator dropped to the lobby and the partner stayed in a
       // session that still looked live. The partner must be told it ended.
       await expect(joinerPage.getByText('Session ended')).toBeVisible({ timeout: 20000 });
+      expect(pageErrors, 'no uncaught exceptions').toEqual([]);
     } finally {
       if (code) await deleteClaritySession(code).catch(() => {});
       if (creator) await deleteTestUser(creator.user.id);
