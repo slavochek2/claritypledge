@@ -11,10 +11,7 @@ tags:
   - events
 disclosure: public
 delivery_stage: ship
-pipeline_ran:
-  - create-spec
-  - challenge-prd
-  - dev
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
