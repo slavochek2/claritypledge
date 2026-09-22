@@ -133,7 +133,7 @@ export function VideoSummaryPage() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Summary <span className="font-normal normal-case tracking-normal">· {readMin}-min read</span>
         </h2>
-        <div className="mt-3 max-w-[65ch] space-y-6 font-serif text-[17px] leading-[1.75] text-foreground sm:text-lg">
+        <div className="mt-3 max-w-[65ch] space-y-6 text-base leading-[1.75] text-foreground">
           {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
         </div>
       </section>
