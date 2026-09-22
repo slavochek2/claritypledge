@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [hooks, git-ops, spec-close]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1343: block-manual-spec-close refuses the reverse move git-ops prints as its own recovery
