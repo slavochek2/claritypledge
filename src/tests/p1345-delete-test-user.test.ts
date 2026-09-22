@@ -11,7 +11,13 @@ type Err = { message: string } | null;
 let errors: Record<string, Err> = {};
 let authError: { status?: number; message: string } | null = null;
 
-vi.mock('@playwright/test', () => ({}));
+// Playwright's test.info() throws outside a Playwright test; soft is what an in-test failure uses.
+const soft = vi.fn(() => ({ toBeTruthy: () => {} }));
+let inPlaywright = false;
+vi.mock('@playwright/test', () => ({
+  test: { info: () => { if (!inPlaywright) throw new Error('not in a test'); return {}; } },
+  expect: { soft: (...a: unknown[]) => soft(...a) },
+}));
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({}) }));
 vi.mock('../../e2e/helpers/supabase-admin', () => {
   const result = (table: string) => Promise.resolve({ error: errors[table] ?? null });
@@ -33,6 +39,9 @@ const { deleteTestUser } = await import('../../e2e/helpers/test-user');
 describe('P1345 deleteTestUser', () => {
   beforeEach(() => {
     errors = {};
+    inPlaywright = false;
+    soft.mockClear();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     authError = null;
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -60,5 +69,21 @@ describe('P1345 deleteTestUser', () => {
   it('rejects when the stories pre-clean fails', async () => {
     errors.stories = { message: 'trigger raised' };
     await expect(deleteTestUser('u-1')).rejects.toThrow(/stories pre-clean/);
+  });
+
+  it('inside a Playwright test: does NOT throw (later cleanup still runs) but soft-fails the test', async () => {
+    inPlaywright = true;
+    errors.profiles = { message: 'violates foreign key constraint' };
+    await expect(deleteTestUser('u-1')).resolves.toBeUndefined();
+    expect(soft).toHaveBeenCalledTimes(1);
+    expect(String(soft.mock.calls[0][1])).toMatch(/failed at profile delete/);
+  });
+
+  it('inside a Playwright test: every failing step is reported, not just the first', async () => {
+    inPlaywright = true;
+    errors.stories = { message: 'trigger raised' };
+    errors.profiles = { message: 'fk' };
+    await deleteTestUser('u-1');
+    expect(soft).toHaveBeenCalledTimes(2);
   });
 });

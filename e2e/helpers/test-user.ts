@@ -14,7 +14,7 @@
 
 import { supabaseAdmin } from './supabase-admin';
 import { createClient } from '@supabase/supabase-js';
-import { Page } from '@playwright/test';
+import { Page, test, expect } from '@playwright/test';
 import { User } from '@supabase/supabase-js';
 
 /** Return type for createTestUser helper */
@@ -436,13 +436,22 @@ export async function deleteTestUser(userId: string) {
     if (entry.userId === userId) sessionCache.delete(email);
   }
 
-  // P1345: every step below THROWS on error. A delete that matches no row is a no-op and
-  // returns no error, so an error here is a real failure (FK violation, RLS, trigger) and
-  // the user it leaves behind outlives the test. It used to be a console.warn: 38 users
-  // stranded that way went unnoticed for two days and then broke eight unrelated tests.
-  // Trade-off, accepted: called from a `finally`, this error replaces the test's own.
+  // P1345: a failed step must FAIL THE TEST, not just log. A delete that matches no row is
+  // a no-op and returns no error, so an error here is real (FK violation, RLS, trigger) and
+  // the user it leaves behind outlives the test: 38 users stranded by a console.warn went
+  // unseen for two days and then broke eight unrelated tests.
+  // It must NOT throw inside a Playwright test, though: callers run several deletes in a row
+  // in `finally`, and a throw on the first would skip the rest and ctx.close() -- the very
+  // leak this exists to stop (review finding). So: expect.soft marks the test failed and
+  // cleanup carries on. Outside a Playwright test (the Vitest integration lane) there is no
+  // soft channel, so it throws.
   const fail = (step: string, err: { message?: string }) => {
-    throw new Error(`[TEST HELPER] deleteTestUser(${userId}) failed at ${step}: ${err.message ?? String(err)}`);
+    const msg = `[TEST HELPER] deleteTestUser(${userId}) failed at ${step}: ${err.message ?? String(err)}`;
+    let inPlaywrightTest = false;
+    try { test.info(); inPlaywrightTest = true; } catch { /* not inside a Playwright test */ }
+    if (!inPlaywrightTest) throw new Error(msg);
+    console.error(msg);
+    expect.soft(null, msg).toBeTruthy();
   };
 
   // Pre-clean dependent records that might block cascade deletes or user deletion.
