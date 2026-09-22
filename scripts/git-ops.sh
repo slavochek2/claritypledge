@@ -4335,7 +4335,9 @@ The branch is authoritative for shipped migrations. Compare each file with
       # match), and present on a branch but never committed to main (its die carries
       # a recovery recipe). Swallowing stderr collapsed all three into one wrong line.
       local cospec_err_r=""
-      cospec_file_r="$(resolve_ship_spec "$cospec_pn" 2>/tmp/cospec_err.$$ || true)"
+      # die() exits the $( ) subshell before an inner `|| true` runs, so the guard must
+      # sit outside the substitution — or set -e aborts the ship on an already-closed co-spec.
+      cospec_file_r="$(resolve_ship_spec "$cospec_pn" 2>/tmp/cospec_err.$$)" || true
       cospec_err_r="$(head -1 /tmp/cospec_err.$$ 2>/dev/null || true)"
       rm -f /tmp/cospec_err.$$ 2>/dev/null || true
       if [[ -n "$cospec_file_r" ]]; then

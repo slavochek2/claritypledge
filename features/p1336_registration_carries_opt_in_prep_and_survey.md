@@ -118,6 +118,10 @@ registration yes that becomes a room no is visible, but H-ChampionYield reads th
    library (`clarity-night-1-ai-safety-sep-2026/`, not in this repo). The 1:35 clip (~19:06) holds the
    opt-in exchange (*"you both opted in… what was your number? Eight."*). Decide here; produce a clip only
    if the page needs one. Attendee consent to publish is not yet asked.
+   Update 2026-09-22: the 48-min main recording (starts 18:05) is also transcribed. Candidate stretches,
+   all the founder speaking: **7:37–8:45** the three meanings of "understanding" (agreement / emotional /
+   cognitive) · **19:38–20:58** the principle itself (right, promise, exception; the 0–10 question) ·
+   **23:11–24:21** what opt-in vs opt-out means. The later two are interrupted by latecomers.
 
 4. What does the registrant read before the opt-in/opt-out choice? Founder direction 2026-09-21: reuse the
    event-1 explanation of **cognitive understanding** (deck `public/presi3/`, "Cognitive Understanding?"
