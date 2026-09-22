@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 14
 severity: high
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pre-commit, canary, core-bare, git-env]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-22
 ---
 
 # P1346: a pre-commit canary run from a worktree sets core.bare=true on the shared repo and recurses into the hook
