@@ -18,52 +18,38 @@ driver: anomaly
 
 ## Problem
 
-**Situation:** Linked points (the quotes with timestamps) are collapsed by default on story cards
-(`story-card-with-links.tsx:110`, `feed-story-card.tsx:88`, `profile-page-v2.tsx:1331`,
-`StoryCardDetail.tsx:159` via `defaultCollapsed`). The code comment says the position badge makes them
-redundant; git history shows the collapse actually came from fixed-height blog embeds
-(`49da73984`, `dfa9879f5`).
-**Complication:** A reader asked why they're collapsed at all. Agent stories are also becoming 1–2
-sentences, so a story with its quotes hidden is a claim with no evidence.
-**Question:** Remove the collapse everywhere, and change the pipeline's story-length rule.
+The "N supporting quotes" block under a video story (`StoryVideoQuotes`, the verbatim quotes with timecodes)
+is folded by default on every surface (P1296 item 8). A reader asked why. Agent stories are also
+becoming 1–2 sentences, so hiding the quotes leaves a claim with no visible evidence.
 
 > Founder, verbatim: "if we want uncollapsed .. so be it everywhere! including embeds.."
 > Founder, verbatim: "only one sentence summary of story (experience/reasoning why the agent
 > predicts the protagonist to hold a specific position) or max two sentences"
 
+**Correction 2026-09-22:** the first implementation uncollapsed the *linked points* below the story,
+which was not the ask (founder screenshot). That was reverted. Linked-point collapse is unchanged.
+
 ## Appetite
 
-Blast radius: medium. Every story surface, including third-party blog embeds. Reversibility: git
-revert. Decision density: zero, founder decided both halves above.
-
-## Invariants
-
-- **Mirror surfaces change together** (decisions.md, point-card embed gate ruling): if linked points
-  render uncollapsed under a story, check that stories-under-a-point in `point-card-with-links.tsx`
-  follow the same rule, or state why they differ.
-- Quotes and timestamps are never behind a toggle on any surface (matches P1280 "Timestamps never collapse").
+Blast radius: one shared component, all story surfaces. Reversibility: git revert. Decision density: zero.
 
 ## Solution
 
-1. Remove the expand/collapse state and toggle for linked points on every story surface. Points always render.
-2. Embeds: let the iframe grow to fit the content. The founder accepts taller embeds.
-3. `story-draft.md:51`: replace "Three or four sentences" with **one sentence, at most two**, saying
-   why the agent predicts this person holds this position (their experience or reasoning). Then the
-   point's quote. Visibility needs no pipeline change.
+1. `StoryVideoQuotes` is never folded; its heading is a plain "N supporting quotes" label. Reverses P1296 item 8.
+2. `story-draft.md`: a story is one sentence, two at most. Then the quote.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Fixed-height blog iframes clip the now-visible quotes | MITIGATE | Check embed resize behaviour; clip = auto-height or post height via postMessage |
-| Stories with many linked points get long | ACCEPT | Pipeline is now one point per story (P1210 §7) |
-| 1-sentence stories break story-craft rules (e.g. "first sentence must earn the second") | MITIGATE | Update `docs/story-craft.md` wording where it assumes ≥3 sentences |
+| Long quote lists make cards tall | ACCEPT | Founder chose always-visible |
+| Compact embed shows no video or quotes | DEFER | Existing embed behaviour, unchanged; separate call |
 
-**Non-Goals:** do NOT change the story text collapse (`textExpanded`); do NOT touch how quotes are verified.
+**Non-Goals:** do NOT change linked-point or linked-story collapse; do NOT change quote verification.
 
 ## Done-When
 
-- [ ] Story card, story detail, feed card, profile card and blog embed all show quotes + timestamps with no toggle (screenshots at 375/320/desktop)
-- [ ] A blog embed with 3 linked points shows all of them without clipping or an inner scrollbar
-- [ ] `story-draft.md` states 1 sentence (max 2); `docs/story-craft.md` doesn't contradict it
-- [ ] Existing tests for the toggle updated to assert always-visible (a spec change, not a test weakened)
+- [x] Story detail shows all supporting quotes and timecodes with no click (browser, test DB: 7 quotes visible)
+- [ ] Founder confirms on story detail, profile and feed
+- [x] Pipeline rule: `story-draft.md` says one sentence, two at most (`rule-present story-unit` RESOLVE)
+- [x] Tests: unit 400 files pass; e2e p1141 + p1296 quote tests pass. 2 p1296 "Go back → /feed" tests fail identically on main (pre-existing)
