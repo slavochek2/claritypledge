@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [git-ops, regression, commit-to-main, canary]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1342: P1279's commit-to-main fix was wiped by a stale whole-file overwrite, and its canary is not wired to catch it
