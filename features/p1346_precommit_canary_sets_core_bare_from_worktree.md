@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pre-commit, canary, core-bare, git-env]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1346: a pre-commit canary run from a worktree sets core.bare=true on the shared repo and recurses into the hook
