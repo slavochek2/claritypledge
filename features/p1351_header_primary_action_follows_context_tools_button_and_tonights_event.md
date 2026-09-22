@@ -10,9 +10,10 @@ tags:
   - links-menu
   - events
 disclosure: public
-delivery_stage: create-spec
+delivery_stage: challenge-prd
 pipeline_ran:
   - create-spec
+  - challenge-prd
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -50,7 +51,7 @@ Blast radius: medium to high. It changes the header on every page, in both the p
 1. **"Start a Clarity Session" is no longer a header button.** It stays reachable as a tool inside the menu. The founder accepted the recommendation "yes".
 2. **The menu trigger gets a visible label, "Tools".** The name was delegated to the agent. "Tools" was picked over "Links" because it says what is inside the menu. **Reverses** the 2026-09-16 decision (4) that the trigger is an icon only (decisions.md, "The Links menu is the product's index"). That decision rested on header width, and removing the session button frees the width it was worried about.
 3. **Menu tab order: Tools, Points, Letters**, with Tools open by default. This is the founder's own suggestion: *"put the tools first, points second and letters last."*
-4. **The /cm events calendar is added as a tool**, labelled "Event calendar". The founder: *"slash cm the calendar … there is a tool, we can include it."*
+4. **The /cm events calendar is added as a tool**, labelled "Chiang Mai events" and opened in a new tab (the page is a chrome-free public Google Calendar embed with no header, so a same-tab visit would strand the user without Tools). The founder: *"slash cm the calendar … there is a tool, we can include it."*
 5. **Logged out:** the page's existing marketing button (for example "Book a free alignment audit") stays the main button. The Tools trigger gets the same visible label wherever it already appears.
 6. **Event day:** a signed-in person with an RSVP for an event that happens today sees a blue **"Tonight's event"** button as the header's main action. It takes them to that event. This is the entry point for P1337's on-screen journey.
 
@@ -69,12 +70,15 @@ One rule decides the header's right-hand side:
 - **Logged in, Tools appears on public pages too.** The session button used to appear there. Removing it without this would leave a signed-in user on a public page with no way to reach the core product, which is the exact defect recorded in the 2026-08-21 decision. On public pages the Tools trigger shows only to signed-in users.
 - Pages that own their header (the event rooms that adopt the trigger, and the `/live` host view that declines it) keep their current adopt or decline behaviour. They get the label wherever the trigger appears.
 - On phones the label stays visible down to 320px wide. The room comes from the removed session button.
+- **"Removed" means every render site**, including the full-width "Start a Clarity Session" entry in the phone hamburger menu, not only the top-bar button. The hamburger panel gets no replacement entry: the Tools trigger already sits in the phone header.
+- **Group pages (`/groups/:slug`) are an ordinary product page under this rule.** They get Tools like every other page. The P1087 carve-out that kept the session button there existed only to preserve a route to `/live`; Tools now provides that route, so the carve-out is subsumed, not dropped.
+- **"Has an event today"** means an RSVP to an event whose status is not `cancelled` and whose date, in the event's own timezone, is today.
 
 ## Invariants
 
 - **A signed-in user has a route to Clarity Session (`/live`) from the header on every page that shows the header.** The bottom nav carries no `/live` entry. Source: decisions.md 2026-08-21, "A nav CTA is either a competing OFFER or product navigation".
 - **At most one blue primary button per view.** If the page has its own primary action (RSVP, the paid offer), the header adds no second one. Source: P955 / visual-qa.md.
-- **Every menu entry is an internal path built in `event-links.ts`, never from data.** This is the open-redirect invariant (event-links.ts header, P1179). "Event calendar" is a hardcoded `/cm`.
+- **Every menu entry is an internal path built in `event-links.ts`, never from data.** This is the open-redirect invariant (event-links.ts header, P1179). "Chiang Mai events" is a hardcoded `/cm`.
 
 ## Risks / Non-Goals
 
@@ -86,6 +90,8 @@ One rule decides the header's right-hand side:
 | Time zones: "today" differs between the host's city and a traveller's | ACCEPT | Events are local, in-person meetups. The viewer's local date is used |
 | People who got used to the blue session button look for it | ACCEPT | Founder decision 1. It is one click away inside Tools |
 
+| Tests that pin the old button (`src/tests/p1087-nav-groups.test.tsx` "KEEPS the logged-in … CTA on pricing", "still hides the session CTA on event detail"; `e2e/p844-verify.spec.ts`) go red | MITIGATE | Intended reversal (founder decision 1). Rewrite each to assert the invariant it protected: a route to `/live` via Tools, and one primary per view. Listed in the ship notes, never silently edited |
+
 **Non-Goals**
 - Do NOT build any of P1337's event journey (steps, rotation, ending). This spec only adds the button that leads into it.
 - Do NOT change public marketing buttons or their hide rules (P1087, P844, P1110).
@@ -95,14 +101,24 @@ One rule decides the header's right-hand side:
 ## Acceptance Criteria
 
 - [ ] Signed in, no event today: the header shows no blue "Start a Clarity Session" button on any page, and a labeled "Tools" button is visible.
-- [ ] Opening Tools shows the tabs in the order Tools, Points, Letters, with Tools selected. Tools lists Transcribe, Start a Clarity Session, Slides and Event calendar.
-- [ ] "Event calendar" opens `/cm`.
+- [ ] Opening Tools shows the tabs in the order Tools, Points, Letters, with Tools selected. Tools lists Transcribe, Start a Clarity Session, Slides and Chiang Mai events.
+- [ ] "Chiang Mai events" opens `/cm` in a new tab.
 - [ ] Signed in on a public page (for example `/pricing`), the Tools button is present and reaches `/live`.
 - [ ] Signed in with an RSVP for an event today: a blue "Tonight's event" button leads to that event. On that event's own page it is not shown.
 - [ ] Logged out: public pages look as before. On product pages, the trigger reads "Tools".
 - [ ] Event detail and pricing pages show at most one blue primary button.
 - [ ] Screenshots at 320px, 375px and desktop for: logged out public, logged out product, logged in, logged in with an event today, event detail, and an event room. None show overflow or clipping, and each resize is confirmed.
 - [ ] Visual and code critique from independent reviewers (Codex, Gemini, a separate Opus) is recorded, and every finding is either fixed or answered.
+
+## Challenge Resolutions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] Phone hamburger-menu session entry not addressed | Remove it too | Same reasoning as the top bar; a half-removed button is inconsistent |
+| 2 | /challenge-prd | [BLOCK] `/groups/:slug` carve-out not acknowledged | Explicitly subsumed by Tools | The carve-out's only purpose was the `/live` route, which Tools provides |
+| 3 | /challenge-prd | [WARN] Cancelled events would trigger "Tonight's event" | Exclude `cancelled` | A button leading to a cancelled event is worse than no button |
+| 4 | /challenge-prd | [WARN] `/cm` is Chiang Mai-specific and chrome-free | Label "Chiang Mai events", new tab | Honest label; no stranding |
+| 5 | /challenge-prd | [WARN] Existing tests pin old behaviour | Rewrite to the invariant they protected | Intended reversal, recorded here |
 
 ## Open Questions
 
