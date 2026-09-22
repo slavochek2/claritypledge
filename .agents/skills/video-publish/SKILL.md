@@ -42,7 +42,7 @@ Get answers, then run Stages 1→6 without further questions until Gate 2.
 
 ## Stage 1 — Trim & normalize  (`/video-edit-talk`, EDIT lane)
 
-Run that skill's workflow with the Gate-1 answers. Probe → extract audio → transcribe (`mlx_whisper`) → apply the confirmed cuts → loudness-normalize.
+Run that skill's workflow with the Gate-1 answers. Probe → extract audio → transcribe (`~/.agents/bin/transcribe`, never `mlx_whisper` directly) → apply the confirmed cuts → loudness-normalize.
 
 **Output:** `~/video-edits/final.mp4` + `audio.srt` (the whisper SRT, named after its audio input) + the condensed readable transcript. ⚠️ `/video-edit-talk` only *shows* the readable markdown inline — it does not persist it. **You must write it to `~/video-edits/transcript-readable.md`** here, or Stage 3's ingest `cp` and slide-overlay's hard-require both fail. Do not delete intermediates yet.
 

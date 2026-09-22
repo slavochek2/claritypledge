@@ -81,7 +81,7 @@ node scripts/points/audio-check.mjs <check.json>   # {quote, asr, threshold?} ->
 node scripts/points/audio-check.mjs --controls     # the Step 2a control set; exit 1 if any control is wrong
 ```
 
-**Run `--controls` FIRST and read the exit code.** A non-zero exit means the harness is broken and every verdict it produced in this run carries no weight (Step 2a). Then, per quote: cut the audio at the resolved timecode, transcribe it with an ASR that is **not** the caption robot that produced the transcript (`~/.whisper-env/bin/mlx_whisper --model mlx-community/whisper-large-v3-mlx`), and pass the quote plus that transcription to `audio-check.mjs`. Record **who ran it and when** in the run file. A REJECT is handled by the replacement rule above; a REFUSE is an infrastructure failure and is never recorded as evidence against the quote.
+**Run `--controls` FIRST and read the exit code.** A non-zero exit means the harness is broken and every verdict it produced in this run carries no weight (Step 2a). Then, per quote: cut the audio at the resolved timecode, transcribe it with an ASR that is **not** the caption robot that produced the transcript (`~/.agents/bin/transcribe <clip> -f txt`: local whisper-large-v3-mlx through the agent-store; never `mlx_whisper` directly), and pass the quote plus that transcription to `audio-check.mjs`. Record **who ran it and when** in the run file. A REJECT is handled by the replacement rule above; a REFUSE is an infrastructure failure and is never recorded as evidence against the quote.
 
 > **Do this HERE, and act on it HERE — do not carry an unverified quote forward for `publish` to
 > reject.** This line used to end *"`/slava:disagreement:publish` requires both artifacts as a hard
