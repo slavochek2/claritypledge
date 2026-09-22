@@ -21,20 +21,11 @@ interface StoryVideoQuotesProps {
  * (quotes inline in the prose; a hinge line before each quote) were built and
  * rejected for exactly that.
  *
- * P1296 item 8 — FOLDED BY DEFAULT, ON EVERY SURFACE, and the fold lives here rather
- * than in each card. Founder: *"who wants to read after the story the supporting quotes?
- * Maybe, but maybe not"*, then *"so its folded per default everywhere?"* — yes. Six call
- * sites render this component; a per-card toggle would be six chances to drift, which is
- * the defect this spec exists to close.
- *
- * The heading IS the toggle, and it states the count and nothing else. The subject's name
- * left it on every surface: the byline above already names the person (founder: *"not
- * sure we need the name of person again here? redundant?"*). The count is whatever the
- * caller passes — live sessions and letters pass only the quotes their prose does not
- * already print, so their N is the number actually behind the fold.
- *
- * FOLDING IS NOT REMOVAL. Quotes and timecodes stay one tap away on every surface, behind
- * a control that says how many there are. Deleting them is out of bounds (spec, Invariant).
+ * P1348 — NEVER FOLDED, ON EVERY SURFACE (reverses P1296 item 8, founder 2026-09-22: "if we want
+ * uncollapsed .. so be it everywhere"). The fold lived here, so removing it here covers all call
+ * sites. The heading is a plain h3 stating the count; the byline above already names the person.
+ * The count is whatever the caller passes — live sessions and letters pass only the quotes their
+ * prose does not already print.
  *
  * Renders nothing when there are no quotes — the argument and player stand alone.
  */
@@ -56,13 +47,9 @@ export function StoryVideoQuotes({
       {/* P1141 amendment 2026-08-24: the `{n} marks · {duration}` meta line was removed.
           The count is visible by looking, and the video's total length answers a question
           nobody asked at this position. The blocked-player fallback gets its own duration
-          from StoryMedia, not from here. (P1296 put a count back — in the fold toggle, where
-          it says what the fold is hiding, not as a meta line.) */}
-      {/* A heading that CONTAINS the button — the disclosure pattern that keeps the section
-          navigable by heading while making the whole label the control. 40px tall, the
-          same floor as the timecodes below. */}
+          from StoryMedia, not from here. */}
       {/* P1348 — never folded. The heading is a plain label stating the count. */}
-      <h3 className="text-sm font-medium text-muted-foreground" data-testid="story-video-quotes-heading">
+      <h3 id={`${listId}-heading`} className="text-sm font-medium text-muted-foreground" data-testid="story-video-quotes-heading">
         {count} supporting {count === 1 ? 'quote' : 'quotes'}
       </h3>
 
@@ -74,8 +61,7 @@ export function StoryVideoQuotes({
         target. A hit area the eye cannot see is not a hit area a reader will
         use. The measurement was never the disagreement; the affordance was.
       */}
-      {(
-        <ul id={listId} className="mt-2 space-y-3" data-testid="story-video-quotes-list">
+      <ul id={listId} aria-labelledby={`${listId}-heading`} className="mt-2 space-y-3" data-testid="story-video-quotes-list">
           {quotes.map((quote, index) => {
             const timecode = formatTimecode(quote.seconds);
             const timestampUrl = getTimestampUrl(videoUrl, quote.seconds);
@@ -127,8 +113,7 @@ export function StoryVideoQuotes({
               </li>
             );
           })}
-        </ul>
-      )}
+      </ul>
     </section>
   );
 }

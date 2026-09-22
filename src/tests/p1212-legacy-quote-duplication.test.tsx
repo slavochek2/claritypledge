@@ -26,7 +26,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { quotesNotInStoryText } from '@/lib/video';
@@ -69,10 +69,7 @@ function renderCard(story: StoryWithPoints) {
       <LiveStoryCardExpanded story={story} defaultStoryExpanded />
     </BrowserRouter>
   );
-  // P1296 item 8 — the quote block is folded by default. Open it, so "renders once" counts
-  // what a reader sees after one tap rather than what the fold hides.
-  const toggle = result.container.querySelector('[data-testid="story-video-quotes-heading"]');
-  if (toggle) fireEvent.click(toggle);
+  // P1348: the quote block is never folded — "renders once" counts what is on the page.
   return result;
 }
 

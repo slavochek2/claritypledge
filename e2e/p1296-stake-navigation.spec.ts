@@ -125,7 +125,10 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     await expect(heading).toBeVisible();
     await expect(heading).toHaveText(/^\d+ supporting quotes?$/);
     const card = page.getByRole('button', { name: /^Story by / }).first();
-    await expect(card.getByTestId('story-video-quote-timecode').first()).toBeVisible();
+    const timecode = card.getByTestId('story-video-quote-timecode').first();
+    await expect(timecode).toBeVisible();
+    // A control inside the card must act in place, not navigate to the story.
+    await timecode.click();
     await expect(page).toHaveURL(/\/stake\/aisafety1/);
   });
 

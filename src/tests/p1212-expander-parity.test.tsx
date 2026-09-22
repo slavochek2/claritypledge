@@ -373,13 +373,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     // which would cancel the button's own activation exactly as it used to cancel the
     // anchor's. Selecting on the testid rather than the tag keeps the assertion pointed at
     // the control instead of at whichever element type the surface currently renders.
-    // P1296 item 8 — the quotes are folded; Enter on the FOLD TOGGLE must not navigate either,
-    // or the quotes would be unreachable by keyboard. Asserted before the timecode.
-    const toggle = document.querySelector('[data-testid="story-video-quotes-heading"]');
-    expect(toggle, 'the fixture must render the quotes fold').toBeTruthy();
-    fireEvent.keyDown(toggle!, { key: 'Enter' });
-    expect(navigate.mock.calls, 'Enter on the quotes fold must not navigate to the story').toHaveLength(0);
-    fireEvent.click(toggle!);
+    // P1348: the quotes are never folded, so there is no fold control to guard here.
 
     const timecode = document.querySelector('[data-testid="story-video-quote-timecode"]');
     expect(timecode, 'the fixture must render a timecode control to press Enter on').toBeTruthy();

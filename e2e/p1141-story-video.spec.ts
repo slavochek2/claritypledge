@@ -64,6 +64,7 @@ test.afterAll(async () => {
 /** P1348 — the supporting quotes are never folded; wait for the block to render. */
 async function openQuotes(page: import('@playwright/test').Page) {
   await expect(page.getByTestId('story-video-quotes-heading').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('story-video-quote-timecode').first()).toBeVisible();
 }
 
 test.describe('P1141 — a story carrying a video, on the real route', () => {

@@ -282,11 +282,11 @@ export function FeedStoryCard({
             )}
 
             {/* P1212 §4 — the quotes travel with the story, on every surface that shows it.
-                P1296 item 8 — folded by default; the fold is StoryVideoQuotes' own now.
+                P1348 — never folded (StoryVideoQuotes owns that).
                 Timecodes seek this card's player, or the group's player inside a group.
 
                 `stopPropagation` because the card root is a link to the story: without it,
-                clicking a timecode or the fold navigates to the story instead. */}
+                clicking a timecode navigates to the story instead. */}
             {videoQuotes.quotes.length > 0 && story.videoUrl && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <StoryVideoQuotes
