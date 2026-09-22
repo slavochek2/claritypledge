@@ -13,7 +13,7 @@
  */
 import { useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { TimecodePill } from '@/app/components/shared/timecode-pill';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
@@ -84,7 +84,12 @@ export function VideoSummaryPage() {
   const words = SAMPLE_SUMMARY.summary.split(/\s+/).length;
   const readMin = Math.max(1, Math.round(words / 200));
   const videoMin = Math.round(SAMPLE_SUMMARY.duration / 60);
-  const back = () => navigate(-1);
+  // Same leave-the-page rule as /stake: no in-app history (a cold arrival) goes to the feed.
+  const back = () => {
+    const idx = (window.history.state as { idx?: unknown } | null)?.idx;
+    if (idx === 0 && window.history.length <= 1) navigate('/feed', { replace: true });
+    else navigate(-1);
+  };
 
   // Scroll the player into view, then seek — the video is not pinned, so a timestamp at the
   // bottom of the page brings you back up to it.
@@ -99,8 +104,7 @@ export function VideoSummaryPage() {
 
       <h1 className="text-xl font-semibold leading-snug sm:text-3xl sm:leading-tight">{SAMPLE_SUMMARY.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {SAMPLE_SUMMARY.channel} · {videoMin}-min video · {readMin}-min read ·{' '}
-        <a href="#timestamps" className="font-medium text-blue-600 hover:underline">Jump to timestamps ↓</a>
+        {SAMPLE_SUMMARY.channel} · {videoMin}-min video
       </p>
 
       <div ref={playerBoxRef} className="mt-5 scroll-mt-20">
@@ -126,13 +130,15 @@ export function VideoSummaryPage() {
       </section>
 
       <section className="mt-10 border-t border-border pt-8">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Summary <span className="font-normal normal-case tracking-normal">· {readMin}-min read</span>
+        </h2>
         <div className="mt-3 max-w-[65ch] space-y-6 font-serif text-[17px] leading-[1.75] text-foreground sm:text-lg">
           {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
         </div>
       </section>
 
-      <section id="timestamps" className="mt-10 scroll-mt-20 border-t border-border pt-8">
+      <section className="mt-10 border-t border-border pt-8">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timestamps</h2>
         <ul className="mt-3 space-y-3">
           {SAMPLE_SUMMARY.moments.map((m) => (
@@ -144,8 +150,18 @@ export function VideoSummaryPage() {
         </ul>
       </section>
 
-      <div className="mt-10 border-t border-border pt-4">
-        <FocusHeader onBack={back} />
+      {/* Bottom exit, copied from /stake (stake-page.tsx "stake-bottom-back"): centred blue outline
+          pill. The real build should share one component between the two pages. */}
+      <div className="mt-10 flex justify-center">
+        <button
+          type="button"
+          onClick={back}
+          aria-label="Go back from the end of the summary"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-blue-200 bg-card px-5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Go back
+        </button>
       </div>
     </div>
   );
