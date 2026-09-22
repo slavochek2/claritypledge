@@ -137,12 +137,13 @@ export function EventLinksButton({
   /*
    * P1351 reverses the icon-only trigger above: attendees at Clarity Night #1 said the links
    * were "hard to find, not visible". The trigger is now a LABELED, OUTLINED button, "Tools".
-   * Outlined, never blue: it must sit beside a page's own primary (RSVP, the paid offer)
-   * without becoming a second primary (P955). The width it needs comes from the removed
+   * Round 2 (founder: "why is it white button? should it be blue so it's visible?"): TINTED
+   * blue — blue text, blue border, pale blue fill. Visible as a control at a glance, but never
+   * the solid bg-blue-500 fill, which stays reserved for the page's one primary (P955). The width it needs comes from the removed
    * "Start a Clarity Session" header button. Still >= 44px tall (P1179 AC-2).
    */
   const triggerClass =
-    'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-background px-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+    'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-blue-300 bg-blue-50 px-3 text-sm font-semibold text-blue-700 shadow-sm transition-colors hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
   const triggerContent = (
     <>
       <ToolsIcon className="h-4 w-4" aria-hidden="true" />
@@ -253,6 +254,14 @@ function LinksMenuTabs({
  * the hint outside the truncating span means the code survives and the words give way,
  * which is the right way round for someone being told "tap st5".
  */
+/**
+ * P1351: the lead Tools entry (the Clarity Session) — the one SOLID blue row, taller and bold.
+ * Solid is safe here: the menu is its own overlay view, so this is its only primary (P955).
+ * A pale tint was tried first and read WEAKER than the dark-bordered rows around it.
+ */
+const FEATURED_ENTRY_CLASS =
+  'min-h-14 border-blue-500 bg-blue-500 text-base font-semibold text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white';
+
 function EntryText({ entry, wrap = false }: { entry: LinksMenuEntry; wrap?: boolean }) {
   return (
     <>
@@ -357,7 +366,7 @@ function LinksMenuDropdownBody({
               data-testid="event-links-entry"
               // Default onSelect behaviour closes the menu — which is the fix for defect 2.
               onSelect={() => go(entry)}
-              className="cursor-pointer justify-between"
+              className={cn('cursor-pointer justify-between', entry.featured && FEATURED_ENTRY_CLASS)}
             >
               <EntryText entry={entry} />
             </DropdownMenuItem>
@@ -559,7 +568,7 @@ export function EventLinksMenu({
                   type="button"
                   data-testid="event-links-entry"
                   onClick={() => ctxValue.go(entry)}
-                  className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2')}
+                  className={cn(ANSWER_BUTTON_CLASS, 'w-full rounded-md px-4 text-left flex items-center justify-between gap-2', entry.featured && FEATURED_ENTRY_CLASS)}
                 >
                   <EntryText entry={entry} wrap />
                 </button>

@@ -62,6 +62,8 @@ export interface LinksMenuEntry {
    * does not relax the no-URL invariant in the file header.
    */
   newTab?: boolean;
+  /** P1351: render as the lead action of its tab (larger, blue-tinted). Tools only. */
+  featured?: boolean;
 }
 
 /**
@@ -203,14 +205,17 @@ export function letterPath(code: string): string {
  *
  * `/presi2` is the frozen June draft (P1218) and is deliberately NOT linked.
  */
-export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean }> = [
+export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean; featured?: boolean }> = [
+  // P1351 round 2: the session is the product's core action, so it leads and is rendered larger
+  // ("featured") — founder, 2026-09-22: "start the clarity session within tools should it be … big".
+  { label: 'Start a Clarity Session', to: '/live', featured: true },
+  { label: 'Ready', to: '/ready' },
+  { label: 'Clarity meeting principles', to: '/meet' },
   { label: 'Transcribe', to: '/transcribe' },
-  { label: 'Start a Clarity Session', to: '/live' },
   { label: 'Slides', to: '/presi', newTab: true },
-  // P1351: the Chiang Mai events calendar (founder: "slash cm the calendar … we can include it").
   // New tab: /cm is a chrome-free Google Calendar embed with no header, so a same-tab visit
   // would leave the user with no Tools button to come back through.
-  { label: 'Chiang Mai events', to: '/cm', newTab: true },
+  { label: 'Chiang Mai event calendar', to: '/cm', newTab: true },
 ];
 
 /** Path for a stake destination, carrying the event alongside when there is one. */
@@ -252,7 +257,7 @@ export function buildLinksMenu(eventSlug?: string | null): LinksMenuEntry[] {
     entries.push({ label: letter.label, to: letterPath(letter.code), group: 'letters', hint: letter.code, newTab: true });
   }
   for (const tool of STANDARD_TOOL_ENTRIES) {
-    entries.push({ label: tool.label, to: tool.to, group: 'tools', ...(tool.newTab ? { newTab: true } : {}) });
+    entries.push({ label: tool.label, to: tool.to, group: 'tools', ...(tool.newTab ? { newTab: true } : {}), ...(tool.featured ? { featured: true } : {}) });
   }
 
   return entries;

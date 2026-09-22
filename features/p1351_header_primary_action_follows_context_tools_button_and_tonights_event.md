@@ -148,3 +148,14 @@ Three independent reviewers, and all three reported: Codex `gpt-5.6-sol` at high
 ## Open Questions
 
 1. Where exactly should "Tonight's event" land: the event page or the room? For v1, use the event page: it already routes RSVPed attendees onward. P1337 can repoint it.
+
+## Round 2 — founder feedback after first review (2026-09-22)
+
+| Ask | Decision |
+|---|---|
+| "Why is it white? Should it be blue so it's visible?" | Tools trigger is TINTED blue (blue text, border, pale fill). Solid blue stays reserved for the page's one primary (P955) — "Tonight's event" or the page's own CTA. |
+| Logged-out public pages have no Tools — "can it be part of the Product section in the menu?" | Added "Clarity Session" (/live) to the public menu's Product group. The Tools button stays off logged-out public pages: their header already carries the marketing CTA, Pricing and Log in. |
+| Add /ready and /meet | Added "Ready" (/ready) and "Clarity meeting principles" (/meet), same-tab. |
+| "Start a Clarity Session … should it be extra big?" | It leads the Tools tab as the one solid-blue, taller row. |
+| "Chiang Mai event calendar", keep Slides | Renamed; Slides kept. |
+| Tools vs Links; Points naming | Kept "Tools" (it opens on tools; "Links" is what attendees could not find). Kept "Points" — founder: fine to keep. |

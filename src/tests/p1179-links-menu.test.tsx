@@ -114,12 +114,18 @@ describe('P1351 — Tools is first and open by default', () => {
     expect(order).toEqual(['event-links-tab-tools', 'event-links-tab-points', 'event-links-tab-letters']);
   });
 
-  it('Tools includes Start a Clarity Session (/live) and Chiang Mai events (/cm, new tab)', () => {
+  it('Tools: the session leads (featured), then Ready, meeting principles, Transcribe, Slides, the CM calendar', () => {
     const tools = buildLinksMenu().filter(e => e.group === 'tools');
-    expect(tools.find(e => e.label === 'Start a Clarity Session')?.to).toBe('/live');
-    const cm = tools.find(e => e.label === 'Chiang Mai events');
-    expect(cm?.to).toBe('/cm');
-    expect(cm?.newTab).toBe(true);
+    expect(tools.map(e => [e.label, e.to])).toEqual([
+      ['Start a Clarity Session', '/live'],
+      ['Ready', '/ready'],
+      ['Clarity meeting principles', '/meet'],
+      ['Transcribe', '/transcribe'],
+      ['Slides', '/presi'],
+      ['Chiang Mai event calendar', '/cm'],
+    ]);
+    expect(tools.filter(e => e.featured).map(e => e.label)).toEqual(['Start a Clarity Session']);
+    expect(tools.find(e => e.to === '/cm')?.newTab).toBe(true);
   });
 });
 

@@ -151,7 +151,7 @@ test.describe('P1179 AC-2 / AC-3 — the Links control at a literal 320px', () =
       // Points and on Letters, whose approved labels WRAP to two lines at phone widths — a
       // wrapped row must still be at least a thumb target, never squeezed shorter.
       const entries = page.getByTestId('event-links-entry');
-      await expect(entries).toHaveCount(4);
+      await expect(entries).toHaveCount(6);
       for (const tab of ['tools', 'points', 'letters'] as const) {
         await page.getByTestId(`event-links-tab-${tab}`).click();
         const n = await entries.count();

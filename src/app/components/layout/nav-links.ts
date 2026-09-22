@@ -9,6 +9,7 @@ import {
   NewspaperIcon,
   BookOpenIcon,
   InfoIcon,
+  MessagesSquareIcon,
 } from "lucide-react";
 
 /**
@@ -109,6 +110,8 @@ export const PUBLIC_NAV_GROUPS = [
       // public product surface with no entry here — reachable only by typing /feed or
       // following a tag link, which meant first-time visitors never met it.
       { to: "/feed", label: "Feed", Icon: NewspaperIcon },
+      // P1351: logged-out public pages carry no Tools button, so the core action is findable here.
+      { to: "/live", label: "Clarity Session", Icon: MessagesSquareIcon },
       { to: "/pricing", label: "Pricing", Icon: TagIcon },
       { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
