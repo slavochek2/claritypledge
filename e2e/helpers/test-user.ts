@@ -436,11 +436,21 @@ export async function deleteTestUser(userId: string) {
     if (entry.userId === userId) sessionCache.delete(email);
   }
 
+  // P1345: every step below THROWS on error. A delete that matches no row is a no-op and
+  // returns no error, so an error here is a real failure (FK violation, RLS, trigger) and
+  // the user it leaves behind outlives the test. It used to be a console.warn: 38 users
+  // stranded that way went unnoticed for two days and then broke eight unrelated tests.
+  // Trade-off, accepted: called from a `finally`, this error replaces the test's own.
+  const fail = (step: string, err: { message?: string }) => {
+    throw new Error(`[TEST HELPER] deleteTestUser(${userId}) failed at ${step}: ${err.message ?? String(err)}`);
+  };
+
   // Pre-clean dependent records that might block cascade deletes or user deletion.
-  // These are safe to run even if records don't exist (delete with no match is a no-op).
-  await supabaseAdmin.from('story_verifications').delete()
+  const { error: verificationsError } = await supabaseAdmin.from('story_verifications').delete()
     .or(`listener_id.eq.${userId},speaker_id.eq.${userId}`);
-  await supabaseAdmin.from('stories').delete().eq('author_id', userId);
+  if (verificationsError) fail('story_verifications pre-clean', verificationsError);
+  const { error: storiesError } = await supabaseAdmin.from('stories').delete().eq('author_id', userId);
+  if (storiesError) fail('stories pre-clean', storiesError);
 
   // Delete profile (cascades remaining FK-linked records)
   const { error: profileError } = await supabaseAdmin
@@ -448,10 +458,7 @@ export async function deleteTestUser(userId: string) {
     .delete()
     .eq('id', userId);
 
-  if (profileError) {
-    console.warn('[TEST HELPER] Error deleting profile:', profileError);
-    // Continue anyway - user might not have profile
-  }
+  if (profileError) fail('profile delete', profileError);
 
   // Delete auth user
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
