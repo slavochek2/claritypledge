@@ -92,8 +92,22 @@ prod; a host-facing upload control is out of scope.
       allowlist is removed, then pass with it — evidence: allowlist removed → exit 1, 12 of 17 failed; restored → 17 of 17 passed
 - [x] The Clarity Night publishing skill's description rules mention that one explainer image is
       allowed and must be hosted on our storage — rule 16, committed on main (abbe8d9c6)
+- [x] Adversarial review (2026-09-22), 3 of 3 reported (Codex Sol, Gemini 3.8, an Opus subagent),
+      every finding re-run against the real renderer before acting. Fixed, each with a test seen to
+      fail first (8 failed, then 27 of 27 passed; full suite 4491 passed):
+      the allowlist narrowed from every public bucket to `event-banners/` (other public buckets hold
+      users' banners and avatars); encoded separators and escaped percent signs rejected in image
+      paths; a clickable image renders as an image instead of raw markdown; and the shared link
+      protocol check hardened (details in the private security log). Not a finding: plain-http local
+      Supabase (dev uses the https test project). Deferred: calendar and ICS exports show the raw
+      image markdown (they carry the raw description; a text-only strip is a separate change).
 
 ## Open Questions
+
+0. `[FOUNDER DECISION: the review hardened the shared link check that renderMarkdownSafe also uses,
+   so its link hrefs are now fully HTML-escaped. Image dropping is unchanged, but the invariant
+   "not a change to safeMd" is no longer literally true. Keep the shared fix and reword the invariant
+   to "images stay dropped everywhere else", or move the link fix to its own spec?]`
 
 1. `[FOUNDER DECISION: the ikigai explainer itself — the famous four-circle diagram presented as a
    question ("the famous version, is it right?"), or a neutral illustration?]` The four-circle

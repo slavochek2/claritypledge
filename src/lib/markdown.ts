@@ -30,7 +30,9 @@ function sanitizeHref(href: string): string {
   try {
     const url = new URL(href, 'https://placeholder.invalid');
     if (['http:', 'https:', 'mailto:'].includes(url.protocol)) {
-      return href.replace(/"/g, '&quot;');
+      // Escape every HTML special, not only quotes: the result is parsed as HTML, which would
+      // decode an entity like `javascript&#58;` back into the protocol this check just refused.
+      return escapeHtml(href);
     }
     return '';
   } catch {
@@ -180,6 +182,9 @@ function isAllowedImageSrc(src: string, allowedPrefixes: readonly string[]): boo
     return false;
   }
   if (url.protocol !== 'https:' || url.username || url.password) return false;
+  // URL normalises literal `..` but keeps encoded separators and escaped percent signs, which a
+  // gateway may decode later into a climb out of the bucket. No real object name needs them.
+  if (/%(2f|5c|25)/i.test(url.pathname)) return false;
   return allowedPrefixes.some((prefix) => {
     try {
       const allowed = new URL(prefix);
@@ -197,10 +202,13 @@ function isAllowedImageSrc(src: string, allowedPrefixes: readonly string[]): boo
   });
 }
 
-/** P1352: our own public storage, the only place event description images may come from */
+/**
+ * P1352: the event-banners bucket of our own storage, the only place event description images
+ * may come from. Not the whole public path: other public buckets hold users' banners and avatars.
+ */
 function ownStoragePrefixes(): string[] {
   const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  return base ? [`${base.replace(/\/+$/, '')}/storage/v1/object/public/`] : [];
+  return base ? [`${base.replace(/\/+$/, '')}/storage/v1/object/public/event-banners/`] : [];
 }
 
 /**
@@ -215,10 +223,13 @@ function eventDescriptionMd(allowedPrefixes: readonly string[]): Marked {
         if (!isAllowedImageSrc(href, allowedPrefixes)) return '';
         return `<img src="${escapeHtml(new URL(href).href)}" alt="${escapeHtml(text)}" loading="lazy" decoding="async">`;
       },
-      link({ href, text }) {
+      // Parse the link body so a clickable image goes through image() above (and its allowlist)
+      // instead of printing as raw markdown; text tokens are escaped by marked, html() drops tags.
+      link({ href, tokens }) {
+        const body = this.parser.parseInline(tokens);
         const safe = sanitizeHref(href);
-        if (!safe) return escapeHtml(text);
-        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`;
+        if (!safe) return body;
+        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${body}</a>`;
       },
     },
   });

@@ -4,7 +4,8 @@
  * storage. An image from anywhere else is dropped exactly as renderMarkdownSafe drops it,
  * because an arbitrary image URL lets its owner see who opened the page.
  */
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
 import { renderEventDescription, renderMarkdownSafe } from '@/lib/markdown';
 
 const OURS = 'https://project.supabase.co/storage/v1/object/public/';
@@ -83,5 +84,45 @@ describe('P1352 — prefix boundary is a path segment, not a substring', () => {
     const noSlash = 'https://project.supabase.co/storage/v1/object/public';
     const html = renderEventDescription(`![x](${noSlash}/event-banners/a.png)`, [noSlash]);
     expect(html).toMatch(/<img/);
+  });
+});
+
+describe('P1352 adversarial review (2026-09-22) — holes found by the three reviewers', () => {
+  it('by default only the event-banners bucket is allowed, not every public bucket', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://project.supabase.co');
+    try {
+      expect(renderEventDescription(`![x](${OURS}agent-avatars/a.png)`)).not.toMatch(/<img/i);
+      expect(renderEventDescription(`![x](${OURS}banners/a.png)`)).not.toMatch(/<img/i);
+      expect(renderEventDescription(`![x](${OURS}event-banners/descriptions/a.jpg)`)).toMatch(/<img/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each([
+    ['an encoded slash climb', `${OURS}event-banners/..%2f..%2frest/v1/events`],
+    ['an encoded backslash', `${OURS}event-banners/..%5c..%5crest/v1/events`],
+    ['a double-encoded dot climb', `${OURS}event-banners/%252e%252e%252fsecret.png`],
+  ])('drops %s', (_label, src) => {
+    expect(render(`![x](${src})`)).not.toMatch(/<img/i);
+  });
+
+  it('a clickable own-storage image renders as an image inside the link, never as raw markdown', () => {
+    const html = render(`[![x](${OURS}event-banners/a.png)](https://example.com)`);
+    expect(html).toMatch(/<a href="https:\/\/example\.com"[^>]*><img /);
+    expect(html).not.toContain('![x]');
+  });
+
+  it.each([
+    'javascript&#58;alert(1)',
+    'javascript&colon;alert(1)',
+    'jav&#x61;script:alert(1)',
+  ])('an entity-encoded javascript: link never becomes a javascript: href in the DOM (%s)', (href) => {
+    for (const html of [render(`[c](${href})`), renderMarkdownSafe(`[c](${href})`)]) {
+      const d = document.createElement('div');
+      d.innerHTML = html;
+      const a = d.querySelector('a');
+      expect(a?.protocol ?? 'none').not.toBe('javascript:');
+    }
   });
 });
