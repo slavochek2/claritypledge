@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 12
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [live, mic-permission, session-end]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-22
 ---
 
 # P1344: cancelling the mic dialog on /live leaves a live server session behind the lobby
