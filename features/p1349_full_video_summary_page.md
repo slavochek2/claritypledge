@@ -41,17 +41,38 @@ can be unpublished. Decision density: a few (below).
 
 ## Solution
 
-- Pipeline stage: generate the summary from the retained transcript, with timestamps, writer and checker kept separate.
-- Route: `/video/<id>` (name TBD) renders summary + player; timestamps seek the player.
-- Link placement: **directly under the video player, wherever a player renders.** Story lists
-  already group by source video (`src/lib/group-by-source`, one shared `groupPlayer`, P1296), so
-  the link appears **once per group, before the first story**, never repeated per story. A story
-  shown alone (detail, embed) has its own player, and the link goes right under it. Founder,
-  verbatim: "maybe below youtube video right there? even before story begins?" Back navigation
-  returns to the story.
+Prototype on branch `feature/p1349-video-summary-page` (w2): dev-only `?p1349` URL flag on real
+pages, plus `/tree/video-summary/page`. Everything below was chosen on that prototype.
 
-[FOUNDER DECISION: link copy. Working text "Read the full summary →"]
 **Decided (founder, 2026-09-22): a neutral summary of the whole video, all speakers, like read-first.** It is not about stories, points or any one speaker's position. Its job: "understand what is in the video without watching all the video." Founder's own use: "i need it myself if i would be participant, i cant watch so many videos."
+
+**Data + pipeline (not built yet)**
+- A per-video source record (provider + video id, unique) owns the summary, its provenance and status.
+- Pipeline stage: summary from the retained transcript. Writer and checker separate. Output shape reuses the
+  founder's existing private read-first generator: `tldr`, `summary` (prose), `key_points`, `moments[{t, note}]`.
+  Drop its `worth_reading` field (an opinion about a named speaker). Key points: **3, ≤ ~12 words each.**
+- Link renders **only when a checked summary exists.** No dead links.
+
+**The link** (decided, founder + 3 review rounds)
+- Text: **"Read video summary"**, with a small document icon. "Read full summary" was rejected: in a group,
+  "full" reads as the long version of the story below, but the summary covers the whole video, all speakers.
+- Style: plain `text-sm` blue text link, **right-aligned directly under the video**, 40px tap area, no border
+  or fill. Rejected: a left-aligned pill ("too big and distracting… CTA comes before the story") and grey
+  (round-1 "barely visible"). Right edge reads as a caption on the video; the eye still enters the story at the left.
+- Placement: **once per video player, wherever a player renders.** Implemented in the one shared component
+  every video goes through (`StoryMedia`), so every surface gets it: feed and `/stake` (stories + points
+  expanded), grouped lists (once per group via `SourceGroup`), profile, point page, story detail, story and
+  point embeds. Never repeated per story in a group.
+- In an embed (iframe), the link opens a new tab.
+
+**The summary page** (layout decided)
+- Normal site chrome (top nav; bottom nav on mobile as on `/story`). Focus-page `Back` at top.
+- Title → `channel · N-min video` → video player (normal flow, **not** pinned) → small "AI summary of the full
+  video" label → **Key points** (3, numbered) → **Summary · N-min read** (prose) → **Timestamps** (the same
+  blue ▶ pill as story quotes; clicking scrolls up to the player and seeks) → `/stake`-style centred
+  "Go back" pill at the end.
+- No "report an error" line. No "jump to timestamps" link.
+- Route name: `/video/<id>` (TBD at build).
 
 ## Risks / Non-Goals
 
@@ -59,22 +80,35 @@ can be unpublished. Decision density: a few (below).
 |---|---|---|
 | Summary misrepresents a named speaker; it becomes the most-trusted, least-checked text on the site | MITIGATE | Same writer/checker + transcript verification as stories |
 | Near-duplicate pages hurt SEO / P1280 dedup | MITIGATE | One page per video, canonical URL |
-| Copyright/fair use on long summaries of others' talks | DEFER | Founder call before public launch |
+| Copyright/fair use on long summaries of others' talks | MITIGATE | Pre-publish gate: founder call before any summary goes public |
+| Point page and story embed drop a story's video (live bug, predates P1349) | FIXED on branch | `point-detail-page.tsx` (both stance rows) and the story embed built story copies without `videoUrl`/`imageUrl`/`videoQuotes`. Fixed in `e401c81ad`; needs `/code-review` before ship because it changes live pages |
 
 **Non-Goals:** do NOT host the video (embed only); do NOT change story generation beyond adding the link.
 
 ## Acceptance Criteria
 
-- [ ] Under every video player on a story surface (grouped list, detail, embed) a reader sees "Read the full summary →" and lands on that video's page
-- [ ] A group of N stories from one video shows the link exactly once, under the player, before the first story
+- [ ] Every video that has a checked summary shows "Read video summary", right-aligned under the player, on: feed stories, feed points (expanded), `/stake` stories + points, profile, point page, story detail, story embed, point embed
+- [ ] A group of N stories from one video shows the link exactly once
+- [ ] A video with no checked summary shows no link
 - [ ] Two stories from the same video link to the same URL
-- [ ] Clicking a timestamp on the summary page seeks the embedded player
-- [ ] Browser back returns to the originating story
-- [ ] Every timestamp on a sample summary matches the transcript at that time (checked by hand on ≥1 video)
+- [ ] Inside an embed the link opens a new tab
+- [ ] Summary page order: Back · title · channel + length · player (not pinned) · AI label · 3 key points · Summary + read time · Timestamps · Go back
+- [ ] Clicking a timestamp scrolls to the player and seeks it
+- [ ] Back (top) and Go back (bottom) return to the originating page
+- [ ] Point page and story embed show each story's video (bug fix)
+- [ ] At 375px and 320px: no horizontal scroll; link and timestamp pills ≥ 40px tall
+- [ ] Every timestamp and every speaker attribution on ≥ 1 real summary checked against the transcript by hand
 
 ## Open Questions
 
-1. Where is the "read-first" project and what does its summary format look like? Reuse it.
+1. [FOUNDER DECISION: one-sentence stories. With stories cut to one sentence (P1348 territory), does the rest
+   get a "…more" that expands the full story (recommended; point cards already do this), or is the story
+   only one sentence? The video summary does not replace a story's own argument.]
+2. [FOUNDER DECISION: serif font for the summary prose (closer to read-first), or the site font? The
+   prototype uses serif; it is the only place on the site that would.]
+3. [FOUNDER DECISION: copyright check before the first summary is published.]
+4. Build follow-up: `story-video-quotes.tsx` still inlines its own timestamp pill. Switch it to the shared
+   `timecode-pill.tsx` after P1348 ships (P1348 edits that file; doing it now would conflict).
 
 ## Resolved Decisions
 
@@ -110,3 +144,11 @@ Reframed that way:
   shows a player, so the rule is "link under every player", and a repeat there is acceptable.
 - Finding 7 (need unproven): answered by the founder as a participant's own need.
 - Finding 8 (copyright) remains a pre-publish check.
+
+**Prototype round, 2026-09-22 (this branch).** Built on real pages behind `?p1349`. Founder feedback drove
+five iterations of the link (below-player caption → pill → right-aligned text link) and three of the page.
+Visual reviews: 4 rounds from one UX reviewer, 4 of 4 reports received. Each claim was checked against the
+code before acting. 5 claims were refuted (pill/Back/timestamp sizes read from shrunk screenshots; turning
+pills into plain text would undo the reuse). The rest were applied. Final reviewer verdict: approve the
+right-aligned link, keep "Read video summary", keep one link per video. `/architect` skipped (founder):
+review and reflection instead.
