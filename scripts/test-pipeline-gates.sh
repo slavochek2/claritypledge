@@ -651,6 +651,33 @@ _tp_cmd='{"tool_name":"Bash","tool_input":{"command":"git mv features/p1099_thin
   && pass "F7: an un-closed spec moving INTO the done tree is still BLOCKED (exit 2)" \
   || fail "F7: the false-positive fix opened the real hole"
 
+# F8-F13. P1343: git-ops' own printed recovery moves a spec OUT of the done tree. It must
+# pass; every shape that still moves a spec IN, or cannot be parsed, must stay blocked.
+_reopen='{"tool_name":"Bash","tool_input":{"command":"git mv features/done/2026-09-14/p500_x.md features/p500_x.md"}}'
+[[ "$(hk "$_reopen")" == "0" ]] \
+  && pass "F8: git-ops' recovery (git mv OUT of features/done/) is allowed" \
+  || fail "F8: the documented recovery move is still refused"
+_reopen_dir='{"tool_name":"Bash","tool_input":{"command":"mv -v features/done/2026-09-14/p500_x.md features/"}}'
+[[ "$(hk "$_reopen_dir")" == "0" ]] \
+  && pass "F9: plain mv out of the done tree into a directory is allowed" \
+  || fail "F9: reopen into features/ refused"
+_split_close='{"tool_name":"Bash","tool_input":{"command":"mv features/p1099_t.md /tmp/x.md; mv /tmp/x.md features/done/2026-09-08/"}}'
+[[ "$(hk "$_split_close")" == "2" ]] \
+  && pass "F10: a close split across two moves is still BLOCKED" \
+  || fail "F10: two-step close slipped through the reopen exemption"
+_mixed='{"tool_name":"Bash","tool_input":{"command":"git mv features/done/2026-09-14/p500_x.md features/p500_x.md && git mv features/p501_y.md features/done/2026-09-14/"}}'
+[[ "$(hk "$_mixed")" == "2" ]] \
+  && pass "F11: a reopen chained with a real close is still BLOCKED" \
+  || fail "F11: a chained close rode the reopen exemption"
+_gitc='{"tool_name":"Bash","tool_input":{"command":"git -C . mv features/p1099_t.md features/done/2026-09-08/"}}'
+[[ "$(hk "$_gitc")" == "2" ]] \
+  && pass "F12: git -C <dir> mv into done is still BLOCKED (not parsed, not trusted)" \
+  || fail "F12: git -C form escaped"
+_subsh='{"tool_name":"Bash","tool_input":{"command":"mv $(echo features/p1099_t.md) features/done/2026-09-08/"}}'
+[[ "$(hk "$_subsh")" == "2" ]] \
+  && pass "F13: a command substitution keeps the old verdict (BLOCKED)" \
+  || fail "F13: subshell form escaped"
+
 # ── G. Stranding report ─────────────────────────────────────────────────────
 R4="$SCRATCH/r4"; mk_repo "$R4"
 cp "$REPO_ROOT/scripts/pipeline-strandings.sh" "$R4/scripts/"
@@ -682,5 +709,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F5, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F13, G1-G3)"
 exit 0

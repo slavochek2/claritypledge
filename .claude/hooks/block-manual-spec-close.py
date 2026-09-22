@@ -71,7 +71,79 @@ def is_close_shaped(cmd):
     specs = SPEC_RE.findall(cmd)
     if not specs:
         return False
-    return any(not CLOSED_SPEC_RE.fullmatch(m) for m in specs)
+    if not any(not CLOSED_SPEC_RE.fullmatch(m) for m in specs):
+        return False
+    return not is_reopen_only(cmd)
+
+
+# Flags `mv` / `git mv` may carry for is_reopen_only to still trust the argument list.
+# Anything else (-t/--target-directory, -C <path>, an unknown flag) means the LAST
+# argument might not be the destination, so the exemption is withheld.
+_SAFE_MV_FLAGS = {"-f", "-k", "-n", "-v", "-i", "--force", "--dry-run", "--verbose", "--"}
+_SEPARATORS = {"&&", "||", ";", "|", "&", ";;"}
+
+
+def is_reopen_only(cmd):
+    """True only when EVERY move in the command takes a spec OUT of features/done/.
+
+    P1343: `git-ops.sh ship` prints, as its own recovery after a failed close commit,
+    `git mv features/done/<sprint>/pN_x.md features/pN_x.md` -- re-opening the spec so the
+    gated close can run again. is_close_shaped used to refuse it: the destination is an
+    open spec path, and "any spec path not yet closed" was the whole test. It never asked
+    which path was the source and which the destination.
+
+    Narrow on purpose. This runs only AFTER the co-occurrence rule has already said
+    "close", and it may only turn that into "allow". It returns True only when the whole
+    command parses cleanly into segments, every segment that moves anything is a plain
+    `mv` / `git mv` with known flags and at least two paths, and every such destination
+    is outside the done tree. cp / rsync / install, subshells, redirects, `git -C`, and
+    anything shlex cannot parse keep the old verdict (blocked). That also covers a close
+    split across two moves -- `mv spec /tmp/x; mv /tmp/x features/done/..` -- because the
+    second destination is inside the done tree.
+    """
+    import shlex
+    try:
+        lex = shlex.shlex(cmd.replace("\n", " ; "), posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        tokens = list(lex)
+    except ValueError:
+        return False
+    segments, cur = [], []
+    for tok in tokens:
+        if tok in _SEPARATORS:
+            segments.append(cur)
+            cur = []
+        elif any(ch in tok for ch in "()<>`") or "$(" in tok:
+            return False
+        else:
+            cur.append(tok)
+    segments.append(cur)
+
+    saw_move = False
+    for seg in segments:
+        if not seg:
+            continue
+        if seg[0] in ("cp", "rsync", "install"):
+            return False
+        if seg[0] == "mv":
+            args = seg[1:]
+        elif seg[0] == "git" and len(seg) > 1 and seg[1] == "mv":
+            args = seg[2:]
+        elif seg[0] == "git" and "mv" in seg:
+            return False  # `git -C <dir> mv ...` and friends: not parsed, not trusted
+        else:
+            continue
+        paths = []
+        for a in args:
+            if a.startswith("-"):
+                if a not in _SAFE_MV_FLAGS:
+                    return False
+                continue
+            paths.append(a)
+        if len(paths) < 2 or DONE_RE.search(paths[-1]):
+            return False
+        saw_move = True
+    return saw_move
 
 
 # Invocations that legitimately close a spec, or that only READ the done/ tree.
