@@ -34,7 +34,7 @@ interface StoryMediaProps {
  */
 /**
  * P1349 PROTOTYPE — DEV-only. With `?p1349` in the URL, every video (player or thumbnail) gets a
- * one-line "Full video summary" link directly under it, so the placement can be judged on the
+ * one-line "Read video summary" link directly under it, so the placement can be judged on the
  * real feed, groups, profile, point and story surfaces. Off in prod by construction.
  */
 function p1349SummaryLink(videoId: string) {
@@ -43,9 +43,9 @@ function p1349SummaryLink(videoId: string) {
     <Link
       to={`/tree/video-summary/page?v=${videoId}`}
       onClick={(e) => e.stopPropagation()}
-      className="mt-1 mb-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+      className="mt-2 mb-3 flex h-10 w-fit items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50/60 px-3 text-sm font-medium text-blue-600 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900"
     >
-      <FileText className="h-3.5 w-3.5" /> Full video summary
+      <FileText className="h-4 w-4 shrink-0" aria-hidden="true" /> Read video summary
     </Link>
   );
 }
