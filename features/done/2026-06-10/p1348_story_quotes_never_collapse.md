@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 10
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [stories, quotes, embeds, disagreement-pipeline]
 disclosure: public
-delivery_stage: ship
 flow: inline
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-22
 ---
 
 # P1348: Story quotes never collapse, and pipeline stories shrink to 1–2 sentences
