@@ -632,8 +632,18 @@ app.get('/api/features', async (req, res) => {
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, rank, type, size, tags, blocked_by, workstream, hypothesis, delivery_stage } =
-      req.body
+    const {
+      status,
+      rank,
+      type,
+      size,
+      tags,
+      blocked_by,
+      workstream,
+      hypothesis,
+      delivery_stage,
+      lock,
+    } = req.body
     const worktreePath = req.query.worktree as string | undefined
 
     // Validate enum fields
@@ -721,8 +731,11 @@ app.patch('/api/features/:id', async (req, res) => {
       delete data.completed_at
     }
 
-    // Lock status against automated overrides: record that a human set this manually
-    if (status !== undefined) {
+    // Lock status against automated overrides: record that a human set this manually.
+    // Scripted callers (e.g. /prioritize) pass `lock: false` so a batch reprioritization
+    // does not masquerade as a founder's manual lock (P1341). Absent = lock, as the UI expects.
+    const shouldLock = status !== undefined && lock !== false
+    if (shouldLock) {
       data.locked_at = new Date().toISOString()
     }
 
@@ -758,7 +771,7 @@ app.patch('/api/features/:id', async (req, res) => {
         } else if (status && status !== 'done' && oldStatus === 'done') {
           cachedFeature.completed_at = undefined
         }
-        if (status !== undefined) {
+        if (shouldLock) {
           cachedFeature.locked_at = data.locked_at
         }
         // Keep prepped in sync with frontmatter

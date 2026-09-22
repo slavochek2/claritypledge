@@ -116,7 +116,7 @@ that lands, **run the check by hand before invoking any spec-consuming skill on 
 
 ## Manual Status Lock (`locked_at`)
 
-When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>` to frontmatter.
+The kanban API writes `locked_at: <ISO timestamp>` to frontmatter on every status PATCH, which is how a UI drag locks a card. Scripted and agent callers (e.g. `/prioritize`) must send `"lock": false` with the status, or their batch edit reads as a founder's manual lock (P1341).
 
 **CRITICAL RULE: If a feature file has `locked_at`, DO NOT change its `status` unless the user has explicitly instructed you to do so for that specific feature in this conversation.** Automated status transitions (e.g. auto-closing on `/dev` success) must be skipped for locked features. If you need to close a feature that has `locked_at`, ask the user first.
 

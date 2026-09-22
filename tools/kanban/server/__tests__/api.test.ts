@@ -633,6 +633,25 @@ describe('P147: Status Transitions - completed_at and locked_at', () => {
     expect(lockedAt.getTime()).toBeLessThanOrEqual(after.getTime() + 1000);
   });
 
+  it('P1341: PATCH with status and lock:false changes status without setting locked_at', async () => {
+    await createTestFeature('p204_nolockflag.md', { status: 'backlog', rank: 204.0 });
+
+    await fetchFeatures(TEST_WORKTREE_PATH, true);
+
+    const { status, data } = await patchFeature(
+      'p204_nolockflag',
+      { status: 'week', lock: false },
+      TEST_WORKTREE_PATH
+    );
+
+    expect(status).toBe(200);
+    expect(data.success).toBe(true);
+
+    const fileContent = await readFile(join(TEST_FEATURES_DIR, 'p204_nolockflag.md'), 'utf-8');
+    expect(fileContent).toMatch(/status:\s*week/);
+    expect(fileContent).not.toContain('locked_at:');
+  });
+
   it('PATCH without status does not set locked_at', async () => {
     await createTestFeature('p203_nolock.md', { status: 'backlog', rank: 203.0 });
 
