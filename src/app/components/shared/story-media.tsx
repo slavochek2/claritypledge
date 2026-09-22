@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { parseVideoUrl } from '@/lib/video';
+import { useHasVideoSummary, videoSummaryPath } from '@/app/data/video-summaries-service';
 import { StoryImage } from './story-image';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from './story-video-player';
 import { VideoThumbnailCard } from './video-thumbnail-card';
@@ -33,13 +34,12 @@ interface StoryMediaProps {
  * is satisfied by construction rather than by matching behaviour.
  */
 /**
- * P1349 PROTOTYPE — DEV-only. With `?p1349` in the URL, every video (player or thumbnail) gets a
- * one-line "Read video summary" link directly under it, so the placement can be judged on the
- * real feed, groups, profile, point and story surfaces. Off in prod by construction.
+ * P1349 — "Read video summary", right-aligned directly under the video. Rendered here because
+ * every player on every surface goes through StoryMedia, so each surface gets it once per
+ * player. Only when the video has an operator-confirmed summary: no dead links.
  */
-function p1349SummaryLink(videoId: string) {
-  if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has('p1349')) return null;
-  const href = `/tree/video-summary/page?v=${videoId}`;
+function VideoSummaryLink({ videoId }: { videoId: string }) {
+  const href = videoSummaryPath(videoId);
   const className = 'mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400';
   const content = <><FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary</>;
   // Inside an embed (iframe on someone else's page), open a new tab: navigating the iframe would
@@ -64,13 +64,14 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
     ref
   ) {
     const video = parseVideoUrl(videoUrl);
+    const hasSummary = useHasVideoSummary(video?.videoId);
 
     if (!video) {
       // Absent OR unparseable — both are "this story has no video", identically.
       return imageProps ? <StoryImage {...imageProps} /> : null;
     }
 
-    const summaryLink = p1349SummaryLink(video.videoId);
+    const summaryLink = hasSummary ? <VideoSummaryLink videoId={video.videoId} /> : null;
 
     if (mode === 'player') {
       return (

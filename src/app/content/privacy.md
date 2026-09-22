@@ -212,13 +212,17 @@ acknowledge your payment.
   checkbox at sign-up. Ghost records, per subscriber, whether a newsletter email was opened
   and which links in it were clicked, and where the subscriber signed up from.
 
-### Videos embedded in stories
+### Videos embedded in stories and video summaries
 
-Some stories embed a YouTube video. We use YouTube's privacy-enhanced embed
+Some stories and video summary pages embed a YouTube video. We use YouTube's privacy-enhanced embed
 (youtube-nocookie.com): loading the page still contacts Google (your IP address and browser
 details), but tracking cookies are set only when you press play. The same applies to Google
 profile pictures and the embedded booking calendar. Once you play a video, Google processes
 your viewing under its own policy.
+
+A video summary names the people who speak in the video. We process those names on the basis
+of our legitimate interest in describing public videos (Art. 6(1)(f)), with the same right to
+object, correct or remove as for people named by machine accounts (below).
 
 ### Analytics, session recording and error tracking
 

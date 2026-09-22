@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 10
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [stories, video, summary, disagreement-pipeline]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -72,7 +72,7 @@ pages, plus `/tree/video-summary/page`. Everything below was chosen on that prot
   blue ▶ pill as story quotes; clicking scrolls up to the player and seeks) → `/stake`-style centred
   "Go back" pill at the end.
 - No "report an error" line. No "jump to timestamps" link.
-- Route name: `/video/<id>` (TBD at build).
+- Route: `/video/<videoId>` (YouTube id). Table `video_summaries`; RLS serves `confirmed` rows only.
 
 ## Risks / Non-Goals
 
@@ -89,19 +89,19 @@ pages, plus `/tree/video-summary/page`. Everything below was chosen on that prot
 
 - [ ] Every video that has a checked summary shows "Read video summary", right-aligned under the player, on: feed stories, feed points (expanded), `/stake` stories + points, profile, point page, story detail, story embed, point embed
 - [ ] A group of N stories from one video shows the link exactly once
-- [ ] A video with no checked summary shows no link
-- [ ] Two stories from the same video link to the same URL
-- [ ] Inside an embed the link opens a new tab
-- [ ] Summary page order: Back · title · channel + length · player (not pinned) · AI label · 3 key points · Summary + read time · Timestamps · Go back
-- [ ] Clicking a timestamp scrolls to the player and seeks it
+- [x] A video with no checked summary shows no link
+- [x] Two stories from the same video link to the same URL
+- [x] Inside an embed the link opens a new tab
+- [x] Summary page order: Back · title · channel + length · player (not pinned) · AI label · 3 key points · Summary + read time · Timestamps · Go back
+- [x] Clicking a timestamp scrolls to the player and seeks it
 - [ ] Back (top) and Go back (bottom) return to the originating page
 - [ ] Point page and story embed show each story's video (bug fix)
 - [ ] At 375px and 320px: no horizontal scroll; link and timestamp pills ≥ 40px tall
 - [ ] Every timestamp and every speaker attribution on ≥ 1 real summary checked against the transcript by hand
 - [ ] No summary shows until its operator has confirmed it against the video (same rule as machine stories)
-- [ ] Summary page says it is AI-written and not endorsed by the creator; credits the channel
+- [x] Summary page says it is AI-written and not endorsed by the creator; credits the channel
 - [ ] ToS and privacy text below ship in the same release as the first public summary
-- [ ] Summary prose uses the site font
+- [x] Summary prose uses the site font
 
 ## Open Questions
 

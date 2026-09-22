@@ -60,11 +60,6 @@ const devPages = [
     description: 'Three shapes for a Links menu carrying instruments, 9 letters and tools; plus the /transcribe duplicate End Session'
   },
   {
-    path: '/tree/video-summary',
-    label: 'P1349: Full video summary page',
-    description: 'Story list with "Read the full summary" under the player → summary page with seekable timestamps. Real readfirst sample, mock stories.'
-  },
-  {
     path: '/tree/event-transcription',
     label: 'P1307: Event Room Transcription',
     description: 'Clickable prototype — transcribe toggle on /ready, cross-page bar, transcript view, practice session. Mock state only.'

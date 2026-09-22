@@ -220,6 +220,19 @@ partial registry — a short read here renders agents as people.
 `20260819160000_p1104_reserve_agent_name_at_the_table.sql`,
 `20260819170000_p1104_agents_cannot_self_promote.sql`
 
+### video_summaries (P1349 — one summary per source video)
+
+One row per source video (`provider` + `video_id`, unique) — the per-video identity that
+`stories.video_url` alone never gave. Holds an AI-written, neutral summary of the whole video:
+`title`, `channel`, `duration_seconds`, `summary` (prose), `key_points` (1–3), `moments`
+(`[{t: seconds, note}]`), plus provenance (`written_by`, `checked_by`, `checked_at`, `confirmed_at`).
+
+`status` is `draft` → `checked` (a different agent verified it against the transcript; a CHECK
+forbids `checked_by = written_by`) → `confirmed` (operator checked it against the video).
+**RLS exposes `confirmed` rows only** to anon/authenticated; there are no write policies, so writes
+are service-role only. The client reads it in `src/app/data/video-summaries-service.ts`: the
+"Read video summary" link under a player renders only for ids in the confirmed set.
+
 ### Stories, Points & Calibration Tables (P117)
 
 Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).

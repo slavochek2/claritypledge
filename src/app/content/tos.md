@@ -325,6 +325,11 @@ Content published by machine accounts is ours, except for the quoted material, w
 belongs to its original speakers and publishers and is quoted within the limits of the
 quotation right, with attribution and a link to the source.
 
+Video summaries are our own AI-assisted descriptions of public YouTube videos. They are not
+transcripts, and they are not endorsed by the videos' creators. The videos play through
+YouTube's official embed and remain their creators'. A creator or a person named in a summary
+can ask for a correction or removal by writing to privacy AT claritypledge DOT com.
+
 ## Disclaimer
 
 The Clarity Pledge is provided "as is" without warranties of any kind. We don't guarantee

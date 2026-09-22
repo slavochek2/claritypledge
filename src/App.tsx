@@ -96,8 +96,7 @@ const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => 
 const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
-const VideoSummaryStorySurface = lazy(() => import("@/app/pages/prototypes/video-summary-prototype").then(m => ({ default: m.VideoSummaryStorySurface })));
-const VideoSummaryPage = lazy(() => import("@/app/pages/prototypes/video-summary-prototype").then(m => ({ default: m.VideoSummaryPage })));
+const VideoSummaryPage = lazy(() => import("@/app/pages/video-summary-page").then(m => ({ default: m.VideoSummaryPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
@@ -827,6 +826,8 @@ export default function ClarityPledgeApp() {
         {/* P1179: /stake/:tag — the feed with search, tag cloud, sort and Share removed.
             `compact` matches the room routes so the nav's right-hand group (and the
             Links button in it) is present and in the same place on arrival. */}
+        {/* P1349: one summary page per source video */}
+        <Route path="/video/:videoId" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
@@ -999,8 +1000,6 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/video-summary" element={<LazyRoute><VideoSummaryStorySurface /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/video-summary/page" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
