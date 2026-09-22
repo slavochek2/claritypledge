@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 6
 workstream: events
@@ -10,7 +10,6 @@ tags:
   - links-menu
   - events
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -22,6 +21,7 @@ related:
   - p1179
   - p1087
   - p844
+completed_at: 2026-09-22
 ---
 
 # P1351: The header's main button follows the person's context: a visible "Tools" button replaces "Start a Clarity Session", and "Tonight's event" appears on an event day
