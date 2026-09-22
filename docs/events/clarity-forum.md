@@ -14,8 +14,10 @@
 first listing published the same day). Founder, verbatim: *"yes to overriding to clairty night"*. The
 June reasoning argued against "Show", not against "Night": "Night" reads as a social evening, which
 fits a room told that everybody is welcome, not only experts. **Title format while the founder picks
-topics:** `Clarity Night: <topic>`. Event #1: *"Clarity Night: Sanders, LeCun, Bengio and Leahy
-Disagree on AI Safety. Where Do You Stand?"* The fixed-tagline rule below applies once the room votes
+topics:** `Clarity Night #<N>: <topic>` (numbered from 2026-09-22, founder: *"Clarity Night #2,
+(better) and first one you can rename to clarity night #1"*). Event #1: *"Clarity Night #1: Sanders,
+LeCun, Bengio and Leahy Disagree on AI Safety. Where Do You Stand?"* Event #2: *"Clarity Night #2: AI
+and Your Ikigai. Harari, Sinek, Tan, Naval, Watts and Brooks"* The fixed-tagline rule below applies once the room votes
 topics (v2). The file keeps its name so existing links hold.
 
 **Former series name: Clarity Forum** (decided 2026-06-26, superseded 2026-09-11 above — "Forum" signals participation, not spectacle;

@@ -37,7 +37,7 @@ The last stage of the disagreement family: a tag on prod becomes an event people
 | **Run file** | `.private/points-runs/<slug>.md` — arguers, points, positions (schema: `docs/points-process.md`). |
 | **Date, start, end, venue** | Founder decision. Ask whether the room is confirmed; if not, Step 8 drafts the ask. |
 | **Community** | `cm` for in-person near Chiang Mai, per `docs/events/org-defaults.md`. |
-| **Prod host** | `host_id` of the previous `Clarity Night:` event on prod (anon-readable). |
+| **Prod host** | `host_id` of the previous `Clarity Night #` event on prod (anon-readable). |
 | **Test host** | A `role=organizer` row in the **test** `membership` table for the **test** `cm` org id. It is a different user from the prod host; reusing the prod id on test fails the org trigger. |
 
 **Read before writing, never restate:** `docs/events/clarity-practice-event.md` (run-of-show,
@@ -65,18 +65,31 @@ it a reason he will recognise.
 
 ### Step 1 — Title
 
-`Clarity Night: <Names> Disagree on <Topic>. Where Do You Stand?`
+`Clarity Night #<N>: <Topic>. <Names>`
 
-- **Prefix exactly `Clarity Night:`** — the series name, recorded in `docs/events/clarity-forum.md`.
-  `/slava:events:re-create-event` identifies series by exact title prefix, so keep it byte-identical.
+- **Prefix exactly `Clarity Night #<N>:`**, where `N` is the previous night's number plus one (read
+  it from the newest `Clarity Night #` title on prod). Numbering is the founder's decision of
+  2026-09-22 (*"Clarity Night #2, (better)"*); the series name and format live in
+  `docs/events/clarity-forum.md`. `/slava:events:re-create-event` matches the series by the prefix
+  `Clarity Night`, which the number does not change.
+- **Topic first, then the names** (#2: *"Clarity Night #2: AI and Your Ikigai. Harari, Sinek, Tan,
+  Naval, Watts and Brooks"*). #1 used `<Names> Disagree on <Topic>. Where Do You Stand?`; either
+  shape is valid until the founder settles one.
 - **Names as a comma list, never "vs".** One arguer may share a point with only one other.
-- **One colon, no counts** ("Four Sentences" was dropped: *"I would not say four sentences."*).
+- **One colon, no counts in the title** ("Four Sentences" was dropped: *"I would not say four sentences."*).
 
 ### Step 2 — Section order
 
 An opening line on who it is for (you need not work in the field; everybody is welcome), then:
 
-**Where · Why now · Why this evening · Agenda · Optional preparation · Sources**
+**Where · Why now · Who is in the room · Agenda · What makes a Clarity Night different · Optional preparation · Sources**
+
+- **Who is in the room:** one line per arguer, who they are and why they are in this debate, with
+  one verified quote and a footnote. The run file's per-person *why in the room* line is the input.
+- **What makes a Clarity Night different:** at most three sentences, near the end (founder,
+  2026-09-22: *"this is not why, this is how is Clarity Night special"*). It replaced *Why this evening*.
+- **Agenda counts are approximate** ("about five contested points"): the number is only known after
+  positions.
 
 The recording line closes Optional preparation, just above Sources.
 
@@ -168,7 +181,7 @@ Paste the evidence; do not ask to move to PROD until all pass.
 - [ ] Every date converted to Asia/Bangkok
 - [ ] The rule-6 balance table exists, with items on both sides of the points argued first
 - [ ] Exactly one pill in Optional preparation; Directions resolves to the venue's pin
-- [ ] Title starts `Clarity Night:`, comma list, no "vs"
+- [ ] Title starts `Clarity Night #<N>:` with N = previous + 1, comma list, no "vs"
 - [ ] Zero em and en dashes (counted)
 - [ ] Rendered at desktop and at a **confirmed** 375 px: `chrome-devtools` `emulate`, then read
       `window.innerWidth` (`resize_window` silently clamps near 500). No horizontal overflow.
@@ -195,7 +208,10 @@ Paste the evidence; do not ask to move to PROD until all pass.
        r = urllib.request.Request(P + path, json.dumps(data).encode() if data is not None else None, h, method=method)
        return json.loads(urllib.request.urlopen(r).read() or b"[]")
    NEW = "<new event id>"
-   prev = call(f"/rest/v1/events?title=ilike.Clarity%20Night%3A*&id=neq.{NEW}&order=datetime.desc&limit=1&select=id,title")[0]
+   # Matches "Clarity Night #N:" and the pre-numbering "Clarity Night:" titles; the regex drops any
+   # other title that merely starts with the words (the ilike alone would admit them).
+   rows = call(f"/rest/v1/events?title=ilike.Clarity%20Night*&id=neq.{NEW}&order=datetime.desc&limit=10&select=id,title")
+   prev = next(r for r in rows if re.match(r"Clarity Night( #\d+)?:", r["title"]))
    url = call(f"/rest/v1/event_private_info?event_id=eq.{prev['id']}&select=group_chat_url")[0]["group_chat_url"]
    page = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})).read().decode("utf-8", "ignore")
    m = re.search(r'og:title" content="([^"]*)', page)

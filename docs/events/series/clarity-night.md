@@ -1,7 +1,7 @@
 ---
 slug: clarity-night
 title_prefix: "Clarity Night"
-title_format: "{prefix}: {topic}"
+title_format: "{prefix} #{n}: {topic}"
 cadence: on-demand
 timezone: Asia/Bangkok
 default_location: "Zuzalu Library, 4Seas Nimman, Chiang Mai"
