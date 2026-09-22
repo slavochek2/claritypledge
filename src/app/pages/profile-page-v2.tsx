@@ -26,8 +26,6 @@ import {
   Globe,
   ExternalLink,
   Pin,
-  ChevronDown,
-  ChevronRight,
   Pencil,
   Trash2,
   ScrollText,
@@ -1328,7 +1326,6 @@ function StoryCardFull({
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const [pointsExpanded, setPointsExpanded] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -1725,16 +1722,11 @@ function StoryCardFull({
         {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {linkedPoints.length > 0 ? (
-            <button
-              onClick={() => setPointsExpanded(!pointsExpanded)}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
-              aria-expanded={pointsExpanded}
-            >
-              {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span className="flex items-center gap-2 text-sm text-muted-foreground min-h-[40px]">
               <span>
                 {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
               </span>
-            </button>
+            </span>
           ) : (
             <span className="text-sm text-muted-foreground">0 points</span>
           )}
@@ -1793,7 +1785,7 @@ function StoryCardFull({
       </div>
 
       {/* Linked points - expanded content */}
-      {pointsExpanded && linkedPoints.length > 0 && (
+      {linkedPoints.length > 0 && (
         <div role="presentation" className="pl-4 sm:pl-[68px] pr-4 pb-4" onClick={(e) => e.stopPropagation()}>
           <ThreadLineGroup>
             {linkedPoints.map((point, index) => {

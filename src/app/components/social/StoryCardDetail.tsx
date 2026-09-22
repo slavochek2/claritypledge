@@ -104,8 +104,6 @@ interface StoryCardDetailProps {
   pointOrder?: string[];
   /** Per-doc hidden point IDs — if provided, these points are filtered out */
   hiddenPointIds?: string[];
-  /** Start with points collapsed regardless of isDetailView (used by doc page) */
-  defaultCollapsed?: boolean;
   /** Wraps each point row with custom controls (e.g., drag handle + eye toggle in doc context) */
   renderPointRow?: (point: PointSummary, quotedPointElement: React.ReactNode) => React.ReactNode;
   /** P591: Story supporting image URL */
@@ -147,7 +145,6 @@ export function StoryCardDetail({
   onAddPoint,
   pointOrder,
   hiddenPointIds,
-  defaultCollapsed = false,
   renderPointRow,
   imageUrl,
   onChangeImage,
@@ -156,7 +153,6 @@ export function StoryCardDetail({
   onClear,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
-  const [pointsExpanded, setPointsExpanded] = useState(defaultCollapsed ? false : isDetailView);
 
   // Apply custom ordering + filtering (used by doc context)
   // hiddenPointIds filters points for non-owners viewing a shared doc link
@@ -465,17 +461,11 @@ export function StoryCardDetail({
             {/* Point count (always shown) + author CTA */}
             <div className="flex items-center gap-2">
               {displayPoints.length > 0 ? (
-                <button
-                  onClick={() => setPointsExpanded(!pointsExpanded)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-                  aria-expanded={pointsExpanded}
-                  aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
-                >
-                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>
                     {displayPoints.length} {displayPoints.length === 1 ? 'point' : 'points'}
                   </span>
-                </button>
+                </span>
               ) : (
                 <span className="text-sm text-muted-foreground">0 points</span>
               )}
@@ -522,8 +512,7 @@ export function StoryCardDetail({
           </div>
 
           {/* Linked points - expanded content */}
-          {pointsExpanded &&
-            displayPoints.length > 0 &&
+          {displayPoints.length > 0 &&
             (() => {
               /** Render a single QuotedPoint, optionally wrapped by renderPointRow */
               const renderPoint = (point: PointSummary) => {
