@@ -678,6 +678,22 @@ _subsh='{"tool_name":"Bash","tool_input":{"command":"mv $(echo features/p1099_t.
   && pass "F13: a command substitution keeps the old verdict (BLOCKED)" \
   || fail "F13: subshell form escaped"
 
+# F14-F19. A reopen segment must not carry a close past the hook in the same command
+# (review finding: skipped unknown segments let these through).
+_ro='git mv features/done/2026-09-14/p500_x.md features/p500_x.md; '
+_i=14
+for _tail in 'sudo mv features/p501_y.md features/done/2026-09-14/' \
+             '/bin/mv features/p501_y.md features/done/2026-09-14/' \
+             'T=features/done/2026-09-14/; mv features/p501_y.md $T' \
+             'cd features/ \u0026\u0026 mv p501_y.md done/2026-09-14/' \
+             'echo features/p501_y.md | xargs -I{} mv {} features/done/2026-09-14/' \
+             "sh -c 'mv features/p501_y.md features/done/2026-09-14/'"; do
+  _j=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}))' "$_ro$(printf '%b' "$_tail")")
+  [[ "$(hk "$_j")" == "2" ]] && pass "F$_i: reopen + '${_tail:0:30}...' is BLOCKED" \
+                             || fail "F$_i: reopen carried a close through: $_tail"
+  _i=$((_i+1))
+done
+
 # ── G. Stranding report ─────────────────────────────────────────────────────
 R4="$SCRATCH/r4"; mk_repo "$R4"
 cp "$REPO_ROOT/scripts/pipeline-strandings.sh" "$R4/scripts/"
@@ -709,5 +725,5 @@ if [[ "$FAILURES" -ne 0 ]]; then
   echo "FAILED: $FAILURES pipeline-gate invariant(s)"
   exit 1
 fi
-echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F13, G1-G3)"
+echo "PASS: all P1246 pipeline-gate invariants hold (A0-A4, B1-B4, C1, D1-D3, E1-E6, F1-F19, G1-G3)"
 exit 0

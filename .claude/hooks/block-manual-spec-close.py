@@ -95,7 +95,8 @@ def is_reopen_only(cmd):
     Narrow on purpose. This runs only AFTER the co-occurrence rule has already said
     "close", and it may only turn that into "allow". It returns True only when the whole
     command parses cleanly into segments, every segment that moves anything is a plain
-    `mv` / `git mv` with known flags and at least two paths, and every such destination
+    `mv` / `git mv` with known flags and at least two paths -- any OTHER segment (even
+    `cd`, `echo`, `sudo mv`) voids it -- and every such destination
     is outside the done tree. cp / rsync / install, subshells, redirects, `git -C`, and
     anything shlex cannot parse keep the old verdict (blocked). That also covers a close
     split across two moves -- `mv spec /tmp/x; mv /tmp/x features/done/..` -- because the
@@ -113,7 +114,7 @@ def is_reopen_only(cmd):
         if tok in _SEPARATORS:
             segments.append(cur)
             cur = []
-        elif any(ch in tok for ch in "()<>`") or "$(" in tok:
+        elif any(ch in tok for ch in "()<>`$"):
             return False
         else:
             cur.append(tok)
@@ -129,10 +130,12 @@ def is_reopen_only(cmd):
             args = seg[1:]
         elif seg[0] == "git" and len(seg) > 1 and seg[1] == "mv":
             args = seg[2:]
-        elif seg[0] == "git" and "mv" in seg:
-            return False  # `git -C <dir> mv ...` and friends: not parsed, not trusted
         else:
-            continue
+            # ANY other segment voids the exemption. Skipping unknown segments let a
+            # single reopen carry `sudo mv`, `/bin/mv`, `xargs mv`, `sh -c`, `cd dir && mv`
+            # or a `$VAR` destination through (review finding, reproduced 2026-09-22).
+            # The documented recovery is one plain git mv; nothing else needs trusting.
+            return False
         paths = []
         for a in args:
             if a.startswith("-"):
