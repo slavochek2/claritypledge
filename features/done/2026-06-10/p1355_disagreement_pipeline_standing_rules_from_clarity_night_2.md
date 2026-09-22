@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 13
 workstream: infrastructure
 created_date: '2026-09-22'
 tags: [skills, points-pipeline, selection, events]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh
 driver: anomaly
+completed_at: 2026-09-22
 ---
 
 # P1355: The disagreement pipeline learns what the founder had to repeat during Clarity Night #2
