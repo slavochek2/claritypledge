@@ -59,6 +59,8 @@ interface DbEventWithHost {
   created_at: string;
   status: 'upcoming' | 'completed' | 'cancelled';
   banner_url: string | null;
+  /** P1354: phone-optimised banner variant. Read-only from the app's side. */
+  banner_mobile_url?: string | null;
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
@@ -148,6 +150,10 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     hostHasPledged: row.host?.has_pledged ?? false, // P118: Host pledge status
     hostEarCount: earCountOf(row.host), // P940: distinct stories host was rated on
     bannerUrl: row.banner_url ?? undefined,
+    // P1354: read-only. Deliberately absent from updateEvent's UpdateEventInput mapping below —
+    // adding a write path there would make isBannerOnly's key-count check fire the
+    // attendee "event updated" email for a cosmetic phone-banner change.
+    bannerMobileUrl: row.banner_mobile_url ?? undefined,
     // P1179: the column defaults to [] in the DB, but a row read before the
     // migration lands (or a select that omits it) must still render the five
     // standard entries rather than crash the room's menu.

@@ -918,6 +918,8 @@ export interface Event {
   createdAt: string;
   status: EventStatus;
   bannerUrl?: string;
+  /** P1354: phone-optimised banner variant, hand-set via DB only — not writable through updateEvent. */
+  bannerMobileUrl?: string;
   /** P1179: optional extra Links-menu entries. Tags only, never paths — see event-links.ts. */
   links?: EventLinkEntry[];
   /** P1194: whether a group chat link exists. The existence is public; the URL is not. */

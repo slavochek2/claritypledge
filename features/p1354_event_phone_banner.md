@@ -90,8 +90,8 @@ renders as today). Decision density: low; the founder decided the direction abov
 
 ## Done-When
 
-- [ ] Migration adds the nullable column and applies cleanly on test.
-- [ ] A regression test covers: phone source present only when a phone URL is given; the switch width equals the height breakpoint; no phone URL renders the same markup as today.
+- [x] Migration adds the nullable column and applies cleanly on test.
+- [x] A regression test covers: phone source present only when a phone URL is given; the switch width equals the height breakpoint; no phone URL renders the same markup as today.
 
 ## Pre-deploy Checklist
 

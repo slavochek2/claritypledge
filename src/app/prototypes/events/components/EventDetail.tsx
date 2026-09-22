@@ -441,6 +441,7 @@ export function EventDetail() {
       {/* Header - Banner image or gradient fallback, with host controls overlay */}
       <BannerDisplay
         bannerUrl={banner.bannerUrl}
+        mobileBannerUrl={event.bannerMobileUrl}
         fallbackColor={isCancelled ? '#9ca3af' : event.hostAvatarColor}
         altText={event.title}
       >
