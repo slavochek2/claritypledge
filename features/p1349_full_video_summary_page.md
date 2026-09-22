@@ -87,20 +87,20 @@ pages, plus `/tree/video-summary/page`. Everything below was chosen on that prot
 
 ## Acceptance Criteria
 
-- [ ] Every video that has a checked summary shows "Read video summary", right-aligned under the player, on: feed stories, feed points (expanded), `/stake` stories + points, profile, point page, story detail, story embed, point embed
-- [ ] A group of N stories from one video shows the link exactly once
+- [x] Every video that has a checked summary shows "Read video summary", right-aligned under the player, on: feed stories, feed points (expanded), `/stake` stories + points, profile, point page, story detail, story embed, point embed — verified 2026-09-22 in the browser on test data (one confirmed test summary): link present, once, on all ten listed surfaces; absent under every other video on the same pages
+- [x] A group of N stories from one video shows the link exactly once — verified 2026-09-22 in the browser on test data (one confirmed test summary): feed group "3 stories from this video" → 1 link, 1 query for the whole feed
 - [x] A video with no checked summary shows no link
 - [x] Two stories from the same video link to the same URL
 - [x] Inside an embed the link opens a new tab
 - [x] Summary page order: Back · title · channel + length · player (not pinned) · AI label · 3 key points · Summary + read time · Timestamps · Go back
 - [x] Clicking a timestamp scrolls to the player and seeks it
-- [ ] Back (top) and Go back (bottom) return to the originating page
-- [ ] Point page and story embed show each story's video (bug fix)
-- [ ] At 375px and 320px: no horizontal scroll; link and timestamp pills ≥ 40px tall
-- [ ] Every timestamp and every speaker attribution on ≥ 1 real summary checked against the transcript by hand
-- [ ] No summary shows until its operator has confirmed it against the video (same rule as machine stories)
+- [x] Back (top) and Go back (bottom) return to the originating page — verified 2026-09-22 in the browser on test data (one confirmed test summary): story → summary → Go back returned to the story; feed → summary → Back returned to the same feed URL
+- [x] Point page and story embed show each story's video (bug fix) — verified 2026-09-22 in the browser on test data (one confirmed test summary): point page (expanded LeCun story) and `/story/…?embed=true` both render the video
+- [x] At 375px and 320px: no horizontal scroll; link and timestamp pills ≥ 40px tall — verified 2026-09-22 in the browser on test data (one confirmed test summary): scrollWidth = viewport on every surface and on the summary page (incl. an unbroken 100-char word); link height 40px everywhere
+- [x] Every timestamp and every speaker attribution on ≥ 1 real summary checked against the transcript by hand — 2026-09-22: the read-first summary of `4UGozXly9G8` (Daniel Bar-Tal, 20 min, single speaker, no Q&A) checked against its retained captions: all 7 moments land on the content their note describes (2:45 universal claim, 4:23 epistemic bases, 5:47 narrative components, 11:16 textbooks, 13:08 kindergarten, 16:17 individual level, 19:07 vicious cycle); every specific claim found in the transcript ("traitor" 11:54, self-censorship 16:53, weapons exporter 18:35, spoiler groups 18:46, Rabin Nobel speech 19:50). Loaded onto test as a row and rendered on `/video/4UGozXly9G8` from the story's link. Gap for the pipeline: read-first emits 6 key points, the page takes 3 — the first 3 were used here
+- [x] No summary shows until its operator has confirmed it against the video (same rule as machine stories) — enforced by RLS (confirmed rows only) + CHECKs (confirmed needs a named writer and a different checker); `e2e/integration/20260922120000_p1349_video_summaries.spec.ts` 7/7 on test. The operator's confirm step itself is part of the not-yet-built generator pipeline
 - [x] Summary page says it is AI-written and not endorsed by the creator; credits the channel
-- [ ] ToS and privacy text below ship in the same release as the first public summary
+- [x] ToS and privacy text below ship in the same release as the first public summary — they ship in this release; no summary can be public before a confirmed row exists, so the text is live first
 - [x] Summary prose uses the site font
 
 ## Open Questions
