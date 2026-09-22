@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 10
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [video, summary, pipeline, disagreement-pipeline]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -120,12 +120,12 @@ takedown requests; P1349's rule: "Corrected or removed promptly when the creator
 
 ## Done-When
 
-- [ ] `draft` on a real story video writes a `draft` row with exactly 3 key points and in-range moments — verified on test by reading the row
-- [ ] `check` passes a faithful summary to `checked` (checker named, different vendor from the writer) — verified on test
-- [ ] `check` refuses a deliberately corrupted summary (a moment moved to the wrong minute, one invented claim) and it stays `draft` with the failures printed — verified on test
-- [ ] `confirm` sets `confirmed` only after an explicit yes for that id, and the "Read video summary" link then appears under that video in the browser — verified on test
-- [ ] `demote` returns a row to `draft` and the link disappears — verified on test
-- [ ] Prod target refused unless named explicitly; no prod write happens in this spec's verification
+- [x] `draft` on a real story video writes a `draft` row with exactly 3 key points and in-range moments — 2026-09-22 on test, video `rf2KFVcKQdQ` (94-min two-person interview): row read back — 3 key points, 8 moments inside 1:33:55, `written_by: gemini:gemini-3.8-flash` (served model verified)
+- [x] `check` passes a faithful summary to `checked` (checker named, different vendor from the writer) — 2026-09-22 on test, video `rf2KFVcKQdQ` (94-min two-person interview): `checked_by: codex:gpt-5.6-sol`, 15/15 items; same verdict on a repeat run. It took two `--revise` rounds: the first drafts said Leahy *founded* EleutherAI (transcript: *led*) and invented a bioweapons example — both caught
+- [x] `check` refuses a deliberately corrupted summary (a moment moved to the wrong minute, one invented claim) and it stays `draft` with the failures printed — 2026-09-22 on test, video `rf2KFVcKQdQ` (94-min two-person interview): moved moment → `moment-3` fail; invented White House claim → `para-4` fail ("The transcript never says Leahy advised the White House…"); row stayed `draft`
+- [x] `confirm` sets `confirmed` only after an explicit yes for that id, and the "Read video summary" link then appears under that video in the browser — 2026-09-22 on test, video `rf2KFVcKQdQ` (94-min two-person interview): answering `yes` → "not confirmed — nothing changed"; typing the id → `confirmed`; feed then showed `/video/rf2KFVcKQdQ` and the page rendered at 375px
+- [x] `demote` returns a row to `draft` and the link disappears — 2026-09-22 on test, video `rf2KFVcKQdQ` (94-min two-person interview): after demote the feed showed the video's player and 0 summary links
+- [x] Prod target refused unless named explicitly; no prod write happens in this spec's verification — default target printed `[test]`; `--env staging` / bare `--env` exit 2; a test config pointing at the prod project is refused. `--env prod` itself was not run (it would raise the keychain dialog and write prod)
 - [ ] **A pipeline video's summary attributes nothing outside confirmed turns** (P1358 R2a): every
       person-attributed claim traces to a speaker-labelled turn from a window that passed Step 2c, and a
       claim with no such turn reads "the host" / "a speaker" or is absent — verified on test by reading
