@@ -1301,27 +1301,9 @@ The agent-skills sync failure hint in `scripts/pre-commit-checks.sh` (P1151 bloc
 
 ---
 
-## Make commit-to-main fail when it records fewer files than requested
+<!-- Resolved 2026-09-22: fixed and shipped as P1342 (features/done). -->
 
-**ID:** INBOX-57
-**Date:** 2026-09-11
-**Status:** proposed
-**due:** week
-
-`git-ops.sh commit-to-main` exited 0 after recording zero of seven requested files (empty commit `2ca583efd`): a concurrent session reset the shared index during the pre-commit window, and the tool printed "WARNING -- requested and recorded counts differ" yet returned success. The comment beside that warning says it "CANNOT FIRE TODAY", and `.claude/rules/git.md` says the recorded-set check "exits non-zero on any difference"; both were falsified by this run. Done when the mismatch exits non-zero and the comment and the git.md sentence match the behaviour; droppable if P1279 already changed this path.
-
----
-
-## Make deleteTestUser fail loudly when the profile delete fails
-
-**ID:** INBOX-58
-**Date:** 2026-09-11
-**Status:** proposed
-**due:** week
-
-`e2e/helpers/test-user.ts` `deleteTestUser` logs a failed profile delete as a warning and moves on, so test users accumulate silently: 38 "Feed Author" users stranded on the test project by P1292's trigger defect went unnoticed for two days and now break eight hashtag-feed tests. Make the failure throw, or return a result the caller must read. Droppable if two weeks of runs strand no test user.
-
----
+<!-- Resolved 2026-09-22: fixed and shipped as P1345 (features/done). -->
 
 ## Decide whether deleting a user who has story verifications should be refused
 
@@ -1356,14 +1338,7 @@ Two independent visual-QA passes during P1278 D found issues older than it: the 
 
 ---
 
-## The manual-spec-close hook blocks git-ops' own documented recovery command
-
-**ID:** INBOX-62
-**Date:** 2026-09-14
-**Status:** proposed
-**due:** week
-
-When `git-ops.sh ship pN` fails at the close commit (P1279 index race), it prints the recovery `git mv features/done/<sprint>/pN_x.md features/pN_x.md` — moving the spec back OUT of the done tree so the gated close can be re-run. `.claude/hooks/block-manual-spec-close.py` refuses that command: `is_close_shaped` fires whenever any spec path in the command is not already closed, and the destination (the open path) is exactly that. Hit on 2026-09-14 closing P500; worked around by doing the same move in Python, which the hook's MOVE_RE does not match — a bypass that should not be the documented path. Done when a move whose DESTINATION is outside `features/done/` is allowed (or git-ops prints a recovery the hook accepts), with a canary for both directions; droppable if the P1279 race stops stranding half-renames.
+<!-- Resolved 2026-09-22: fixed and shipped as P1343 (features/done). -->
 
 <!-- Resolved 2026-09-15: "Deploy P1236 schema to prod — /transcribe rooms are live without their database functions" — see decisions.md 2026-09-15 [process] -->
 
@@ -1608,16 +1583,7 @@ Pre-existing, found during P1323: EventRoomReady's Continue awaits capture.start
 
 ---
 
-## Fix /live mic-cancel leaving a live session with an unguarded lobby
-
-**ID:** INBOX-81
-**Date:** 2026-09-16
-**Status:** proposed
-**due:** week
-
-Pre-existing, found in adversarial review during P1323: in clarity-live-page.tsx, handleMicCancel sets view back to 'start' without clearing the session, terminating it, or writing sessionEnded, so a host denied the microphone sits on the lobby inside a live server session and any same-tab nav link strands the partner in a session that still looks live (P1323 only removed the Links menu from that state, keyed on session !== null). Done when mic-cancel either terminates the session through onExit()/terminate() or keeps the in-session view; droppable if the mic-permission gate is redesigned so cancel cannot happen after a session exists.
-
----
+<!-- Resolved 2026-09-22: fixed and shipped as P1344 (features/done). -->
 
 ## Every event needs a post-event debrief written into the repo
 
