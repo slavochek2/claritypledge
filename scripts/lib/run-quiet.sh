@@ -104,8 +104,18 @@ run_quiet() {
     if [ -n "${GIT_INDEX_FILE:-}" ] && _is_default_index "$GIT_INDEX_FILE"; then
         drop_index=1
     fi
-    if ( unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
-         [ "$drop_index" = 1 ] && unset GIT_INDEX_FILE
+    # The scrub list is git's own (`git rev-parse --local-env-vars`: GIT_DIR, GIT_WORK_TREE,
+    # GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY, alternates, GIT_CONFIG_PARAMETERS -- which can
+    # carry `-c core.hooksPath` into a scratch repo -- grafts, replace refs, shallow...),
+    # so a variable git adds later is covered too (Codex review). The fixed list is the
+    # fallback if that query fails. GIT_INDEX_FILE is handled by the rule above.
+    local scrub
+    scrub=$(git rev-parse --local-env-vars 2>/dev/null) \
+        || scrub="GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CONFIG_PARAMETERS GIT_INDEX_FILE"
+    if ( for _v in $scrub; do
+             [ "$_v" = GIT_INDEX_FILE ] && [ "$drop_index" != 1 ] && continue
+             unset "$_v"
+         done
          "$@" ) > "$tmpfile" 2>&1; then
         echo -e "${GREEN}✓${NC}"
         rc=0

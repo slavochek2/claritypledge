@@ -168,9 +168,21 @@ decoy_bare() { git --git-dir="$DECOY/main/.git" config --get core.bare; }
 [ "$(decoy_bare)" = "false" ] && ok "control: decoy starts with core.bare=false" \
                                || bad "control: decoy did not start non-bare"
 export GIT_DIR="$DECOY/main/.git/worktrees/wt"
-run_quiet "canary that inits a scratch repo" git init -q "$SCRATCH/scratch-init" >/dev/null 2>&1
+if run_quiet "canary that inits a scratch repo" git init -q "$SCRATCH/scratch-init" >/dev/null 2>&1 \
+   && [ -d "$SCRATCH/scratch-init/.git" ]; then
+  ok "the step ran: git init created its OWN repo at scratch-init/.git (not a re-init of GIT_DIR)"
+else
+  bad "the protected git init did not run or did not create scratch-init/.git — scenario 5 would be vacuous"
+fi
 [ "$(decoy_bare)" = "false" ] && ok "core.bare still false after a step ran 'git init' under a worktree GIT_DIR" \
                                || bad "a run_quiet step flipped the decoy's core.bare to true"
+export GIT_CONFIG_PARAMETERS="'core.hookspath'='/nonexistent-p1346'"
+if run_quiet "config params scrubbed" bash -c '[ -z "${GIT_CONFIG_PARAMETERS+x}" ]' >/dev/null 2>&1; then
+  ok "GIT_CONFIG_PARAMETERS (can carry -c core.hooksPath) does not reach the step"
+else
+  bad "GIT_CONFIG_PARAMETERS reached the step"
+fi
+unset GIT_CONFIG_PARAMETERS
 # Control that the mechanism is live here: the same command OUTSIDE run_quiet does flip it.
 git init -q "$SCRATCH/scratch-init-2" >/dev/null 2>&1
 if [ "$(decoy_bare)" = "true" ]; then
