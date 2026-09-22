@@ -139,7 +139,8 @@ describe('2026-09-07 / P1323 — off-event the menu carries the standard entries
       </MemoryRouter>
     );
     await user.click(await screen.findByTestId('event-links-button'));
-    // Points is the default tab; only its rows are in the DOM.
+    // P1351: Tools is the default tab; select Points. Only its rows are in the DOM.
+    await user.click(screen.getByTestId('event-links-tab-points'));
     const labels = (await screen.findAllByTestId('event-links-entry')).map(e => e.textContent);
     expect(labels).toEqual([...STANDARD_STAKE_TAGS]);
     // P1323 R5: the group is retired, so the heading must be gone on EVERY tab, not just
@@ -222,8 +223,8 @@ describe('P1179 DW-2 — the nav centre slot is untouched', () => {
       'utf8'
     );
     expect(LAYOUT_SRC.match(/<EventLinksMenu\b/g) ?? []).toHaveLength(1);
-    // And it is gated on the surface prop, not on a path.
-    expect(LAYOUT_SRC).toMatch(/<EventLinksMenu enabled=\{surface === 'product'\}>/);
+    // And it is gated on the surface prop (plus, P1351, signed-in on any surface), not on a path.
+    expect(LAYOUT_SRC).toMatch(/<EventLinksMenu enabled=\{surface === 'product' \|\| showUserMenu\}>/);
   });
 
   it('the button is not hidden at a breakpoint — the one fix the invariant forbids', () => {

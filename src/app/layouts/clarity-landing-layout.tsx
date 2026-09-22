@@ -180,7 +180,13 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
      * `enabled` is the whole mount rule. `surface` is required on this component, so a new
      * route cannot be added without answering the product/public question.
      */
-    <EventLinksMenu enabled={surface === 'product'}>
+    /*
+     * P1351: ...and on a PUBLIC surface too once signed in. The header no longer carries a
+     * "Start a Clarity Session" button, and the bottom nav has no /live entry, so without this
+     * a signed-in user on /pricing would have no route to the core product (decisions.md
+     * 2026-08-21). Logged-out public pages are unchanged: no menu.
+     */
+    <EventLinksMenu enabled={surface === 'product' || showUserMenu}>
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineBanner />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (

@@ -207,6 +207,10 @@ export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; n
   { label: 'Transcribe', to: '/transcribe' },
   { label: 'Start a Clarity Session', to: '/live' },
   { label: 'Slides', to: '/presi', newTab: true },
+  // P1351: the Chiang Mai events calendar (founder: "slash cm the calendar … we can include it").
+  // New tab: /cm is a chrome-free Google Calendar embed with no header, so a same-tab visit
+  // would leave the user with no Tools button to come back through.
+  { label: 'Chiang Mai events', to: '/cm', newTab: true },
 ];
 
 /** Path for a stake destination, carrying the event alongside when there is one. */

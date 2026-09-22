@@ -266,23 +266,15 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
         await page.goto(path);
         const nav = page.locator('nav[data-nav="main"]');
         await expect(visibleLinksTriggers(page), `${path} @ ${w.name}: one visible trigger`).toHaveCount(1, { timeout: 20_000 });
-        // Measure the FINAL signed-in header, not an intermediate one. "Start a Session" renders
-        // only once the profile has loaded (showUserMenu = sessionChecked && !isLoading &&
-        // isVerifiedUser), and a first version of this test measured before it appeared — so it
-        // passed on a header that did not yet contain the widest control. /stake/:tag is compact
-        // and never shows it.
-        if (path !== '/stake/understanding') {
-          const cta = nav.getByRole('link', { name: /start a session/i }).filter({ visible: true });
-          await expect(cta, `${path} @ ${w.name}: full signed-in header loaded`).toBeVisible({ timeout: 20_000 });
-          // The defect this test was extended for: at 320px the CTA WRAPPED to two lines (56px).
-          const ctaBox = await cta.boundingBox();
-          expect(ctaBox!.height, `${path} @ ${w.name}: "Start a Session" wrapped (${ctaBox!.height}px tall)`).toBeLessThanOrEqual(40);
-          if (w.width < 360) {
-            // Icon-only below 360px — and still a real touch target (visual QA measured ~38px).
-            expect(ctaBox!.width, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.width}px wide`).toBeGreaterThanOrEqual(40);
-            expect(ctaBox!.height, `${path} @ ${w.name}: icon-only CTA is ${ctaBox!.height}px tall`).toBeGreaterThanOrEqual(40);
-          }
-        }
+        // Measure the FINAL signed-in header: wait for the avatar (rendered only once the profile
+        // has loaded). P1351: the "Start a Session" button is gone; the widest control is now the
+        // LABELED Tools trigger, so it is the one that must not wrap and must stay a touch target.
+        await expect(nav.getByRole('button', { name: 'Open menu' }), `${path} @ ${w.name}: full signed-in header loaded`).toBeVisible({ timeout: 20_000 });
+        const trig = visibleLinksTriggers(page).first();
+        await expect(trig).toHaveText(/Tools/);
+        const tBox = await trig.boundingBox();
+        expect(tBox!.height, `${path} @ ${w.name}: Tools trigger is ${tBox!.height}px tall`).toBeGreaterThanOrEqual(44);
+        expect(tBox!.height, `${path} @ ${w.name}: Tools trigger wrapped`).toBeLessThanOrEqual(48);
         const boxes = await nav.evaluate((el) => {
           return [...el.querySelectorAll('a, button')]
             .map(n => { const r = n.getBoundingClientRect(); return { label: (n.getAttribute('aria-label') || n.textContent || '').trim().slice(0, 30), x: r.x, y: r.y, width: r.width, height: r.height }; })

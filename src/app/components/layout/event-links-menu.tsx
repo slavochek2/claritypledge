@@ -71,7 +71,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link as LinkIcon } from 'lucide-react';
+import { LayoutGrid as ToolsIcon } from 'lucide-react';
 import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { cn } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
@@ -134,12 +134,19 @@ export function EventLinksButton({
    *     which is also why existing assertions on the trigger's text still hold.
    * The known cost, stated rather than hidden: a chain icon can be read as "copy/share link".
    */
+  /*
+   * P1351 reverses the icon-only trigger above: attendees at Clarity Night #1 said the links
+   * were "hard to find, not visible". The trigger is now a LABELED, OUTLINED button, "Tools".
+   * Outlined, never blue: it must sit beside a page's own primary (RSVP, the paid offer)
+   * without becoming a second primary (P955). The width it needs comes from the removed
+   * "Start a Clarity Session" header button. Still >= 44px tall (P1179 AC-2).
+   */
   const triggerClass =
-    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+    'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-background px-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
   const triggerContent = (
     <>
-      <LinkIcon className="h-5 w-5" aria-hidden="true" />
-      <span className="sr-only">Links</span>
+      <ToolsIcon className="h-4 w-4" aria-hidden="true" />
+      <span>Tools</span>
     </>
   );
 
@@ -151,7 +158,7 @@ export function EventLinksButton({
         onClick={() => ctx.setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={ctx.open}
-        title="Links"
+        title="Tools"
         className={triggerClass}
       >
         {triggerContent}
@@ -164,9 +171,11 @@ export function EventLinksButton({
 
 /** The three tabs, in render order. Values are the `group` field on every entry. */
 const TABS = [
+  // P1351: Tools first and open by default — founder, 2026-09-22: "put the tools first,
+  // points second and letters last."
+  { value: 'tools' as const, label: 'Tools' },
   { value: 'points' as const, label: 'Points' },
   { value: 'letters' as const, label: 'Letters' },
-  { value: 'tools' as const, label: 'Tools' },
 ];
 
 /**
@@ -188,7 +197,7 @@ function LinksMenuTabs({
   return (
     <Tabs
       ref={rootRef}
-      defaultValue="points"
+      defaultValue="tools"
       className="w-full"
       // Start every tab at its TOP. The sheet's list scrolls, and the scroll position belongs to
       // the scroll container, not to a tab — so switching from a scrolled Letters tab left Points
@@ -297,13 +306,13 @@ function LinksMenuDropdownBody({
   entries: LinksMenuEntry[];
   go: (entry: LinksMenuEntry) => void;
 }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('points');
+  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('tools');
 
   return (
     <>
       {/* role="group" + label: related menuitemradio items announced as one set of three
           (WAI-ARIA menu pattern; /finish code review). */}
-      <div role="group" aria-label="Links sections" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" data-testid="event-links-tabs">
+      <div role="group" aria-label="Tools sections" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" data-testid="event-links-tabs">
         {TABS.map(t => (
           <DropdownMenuItem
             key={t.value}
@@ -380,7 +389,7 @@ function EventLinksDropdown({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger data-testid="event-links-button" title="Links" className={triggerClass}>
+      <DropdownMenuTrigger data-testid="event-links-button" title="Tools" className={triggerClass}>
         {triggerContent}
       </DropdownMenuTrigger>
       {/* `align="end"`: the trigger sits in the nav's RIGHT-hand group, so an
@@ -474,10 +483,17 @@ export function EventLinksMenu({
         window.open(entry.to, '_blank', 'noopener,noreferrer');
         return;
       }
+      // P1351 (carries P818 from the retired header button): a same-URL navigation is a
+      // silent no-op — /live would keep its post-disconnect state. Reload instead.
+      if (entry.to === location.pathname) {
+        navigate(entry.to, { replace: true });
+        window.location.reload();
+        return;
+      }
       navigate(entry.to);
     },
     override,
-  }), [open, eventSlug, entries, navigate, override]);
+  }), [open, eventSlug, entries, navigate, override, location.pathname]);
 
   /**
    * P1323: THE LOCATION GATE IS GONE. This used to read
@@ -513,7 +529,7 @@ export function EventLinksMenu({
             no height token of its own, which the P1179 design-system suite asserts by
             scanning it, and a fix should meet that standard rather than relax it. */}
         <DrawerContent data-testid="event-links-menu" data-shape="sheet" className="event-links-sheet px-4 pb-6">
-          <DrawerTitle className="px-0 pt-4 pb-2 text-base font-semibold">Links</DrawerTitle>
+          <DrawerTitle className="px-0 pt-4 pb-2 text-base font-semibold">Tools</DrawerTitle>
           <DrawerDescription className="sr-only">
             {eventSlug
               ? 'Destinations for this event. The list does not change during the event.'

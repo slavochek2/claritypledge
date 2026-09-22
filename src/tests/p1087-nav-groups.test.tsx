@@ -49,8 +49,11 @@ vi.mock('@/app/hooks/useNextWebinar', () => ({
   useNextWebinar: () => ({ nextEvent: null }),
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
+// P1351: the event-day primary. Null unless a test sets it.
+const tonight = vi.hoisted(() => ({ current: null as null | { slug: string; title: string } }));
+vi.mock('@/app/hooks/useTonightsEvent', () => ({ useTonightsEvent: () => tonight.current }));
 
-async function renderNav(route: string, { loggedIn = false } = {}) {
+async function renderNav(route: string, { loggedIn = false, withLinks = false } = {}) {
   mockAuthState.current = {
     ...mockAuthState.current,
     showUserMenu: loggedIn,
@@ -63,9 +66,13 @@ async function renderNav(route: string, { loggedIn = false } = {}) {
     hasSession: loggedIn,
   };
   const { SimpleNavigation } = await import('@/app/components/layout/simple-navigation');
+  const { EventLinksMenu } = await import('@/app/components/layout/event-links-menu');
+  // withLinks mirrors the layout's provider (P1351: enabled for any signed-in user).
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <SimpleNavigation />
+      <EventLinksMenu enabled={withLinks}>
+        <SimpleNavigation />
+      </EventLinksMenu>
     </MemoryRouter>
   );
 }
@@ -97,17 +104,55 @@ describe('P1087 — nav CTA suppression is scoped to the MARKETING cta, not the 
     }
   });
 
-  it('KEEPS the logged-in "Start a Clarity Session" CTA on the pricing page', async () => {
-    // The regression this file exists for. /live is unreachable from the bottom nav, so
-    // suppressing this button leaves a signed-in user with no route to the product.
-    await renderNav('/pricing', { loggedIn: true });
-    expect(sessionCta().length).toBeGreaterThan(0);
+  it('P1351: a signed-in user on /pricing still reaches /live — now through Tools', async () => {
+    // The regression this file exists for: /live is unreachable from the bottom nav. P1351
+    // removed the session button, so the route MUST survive via the Tools menu.
+    const userEvent = (await import('@testing-library/user-event')).default;
+    await renderNav('/pricing', { loggedIn: true, withLinks: true });
+    expect(sessionCta()).toHaveLength(0);
+    const triggers = screen.getAllByTestId('event-links-button');
+    expect(triggers[0]).toHaveTextContent('Tools');
+    await userEvent.click(triggers[0]!);
+    const rows = await screen.findAllByTestId('event-links-entry');
+    expect(rows.map(r => r.textContent)).toContain('Start a Clarity Session');
   });
 
-  it('still hides the session CTA on an event detail page (P844 behaviour preserved)', async () => {
-    // Splitting one flag into two must not relax the ORIGINAL suppression it was built on.
-    await renderNav('/events/some-event-slug', { loggedIn: true });
-    expect(sessionCta()).toHaveLength(0);
+  it('P1351: no header session button on any signed-in page, event detail included', async () => {
+    for (const route of ['/feed', '/pricing', '/events/some-event-slug', '/groups/g1']) {
+      const { unmount } = await renderNav(route, { loggedIn: true });
+      expect(sessionCta(), route).toHaveLength(0);
+      expect(screen.queryAllByText('Start a Clarity Session'), route).toHaveLength(0);
+      unmount();
+    }
+  });
+});
+
+describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day', () => {
+  beforeEach(() => { tonight.current = null; });
+
+  it('shows and links to the event when there is one today', async () => {
+    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    await renderNav('/feed', { loggedIn: true });
+    const ctas = screen.getAllByTestId('tonights-event-cta');
+    expect(ctas.length).toBeGreaterThan(0);
+    for (const c of ctas) expect(c).toHaveAttribute('href', '/events/night-2');
+  });
+
+  it('is hidden on that event\'s own pages (one primary per view)', async () => {
+    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    for (const route of ['/events/night-2', '/events/night-2/room']) {
+      const { unmount } = await renderNav(route, { loggedIn: true });
+      expect(screen.queryAllByTestId('tonights-event-cta'), route).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  it('is absent without an event, and for logged-out visitors', async () => {
+    await renderNav('/feed', { loggedIn: true });
+    expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
+    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    await renderNav('/feed');
+    expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
   });
 });
 

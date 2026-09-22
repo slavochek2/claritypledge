@@ -47,6 +47,8 @@ vi.mock('@/hooks/use-nav-auth-state', () => ({
   }),
 }));
 
+vi.mock('@/app/hooks/useTonightsEvent', () => ({ useTonightsEvent: () => null }));
+
 vi.mock('@/app/hooks/useUnreadLetterCount', () => ({
   useUnreadLetterCount: () => ({ count: 0 }),
 }));
@@ -94,50 +96,47 @@ Object.defineProperty(window, 'location', {
   writable: true,
 });
 
-describe('P818: mobile header CTA advances from /live same-URL navigation', () => {
+import { EventLinksMenu, EventLinksButton } from '@/app/components/layout/event-links-menu';
+
+/*
+ * P1351 retired every header "Start a Clarity Session" button — the route to /live now lives
+ * in the Tools menu. P818's rule moves with it: choosing that entry while ALREADY on /live must
+ * reset the page (navigate replace + reload), never be a silent same-URL no-op.
+ */
+describe('P818 (via P1351): Tools → Start a Clarity Session on /live is not a silent no-op', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('mobile "Start a Session" CTA on /live triggers navigate+reload (not a silent no-op)', () => {
+  it('the header renders no session button on /live anymore', () => {
     render(<MemoryRouter initialEntries={['/live']}><SimpleNavigation /></MemoryRouter>);
-    const mobileCtaLinks = screen.getAllByRole('link', { name: /start a (session|clarity session)/i });
-    const mobileCta = mobileCtaLinks.find(link => link.textContent?.trim() === 'Start a Session');
-    expect(mobileCta).toBeDefined();
-    fireEvent.click(mobileCta!);
-    expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
-    expect(reloadMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryAllByRole('link', { name: /start a (session|clarity session)/i })).toHaveLength(0);
   });
 
-  it('mobile menu CTA on /live triggers navigate+reload when menu is open', () => {
-    render(<MemoryRouter initialEntries={['/live']}><SimpleNavigation /></MemoryRouter>);
-    const hamburger = screen.getByRole('button', { name: 'Open menu' });
-    fireEvent.click(hamburger);
-    const menuEl = document.getElementById('mobile-navigation-menu');
-    expect(menuEl).not.toBeNull();
-    const menuCta = menuEl!.querySelector('a');
-    expect(menuCta).not.toBeNull();
-    fireEvent.click(menuCta!);
-    expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
-    expect(reloadMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('desktop "Start a Clarity Session" CTA on /live already triggers navigate+reload', () => {
-    // Regression guard: desktop CTA has the handler — this should PASS both before and after fix
+  it('the Tools entry on /live triggers navigate+reload', () => {
     render(
       <MemoryRouter initialEntries={['/live']}>
-        <SimpleNavigation />
+        <EventLinksMenu enabled><EventLinksButton /></EventLinksMenu>
       </MemoryRouter>
     );
-
-    const desktopCta = screen.getAllByRole('link', { name: /start a clarity session/i })[0];
-    expect(desktopCta).toBeDefined();
-
-    fireEvent.click(desktopCta);
-
-    // Desktop CTA calls navigate('/live', { replace: true }) and window.location.reload()
-    // This test PASSES before and after fix — confirms desktop path is already wired
+    fireEvent.click(screen.getByTestId('event-links-button'));
+    const entry = screen.getAllByTestId('event-links-entry').find(e => e.textContent === 'Start a Clarity Session');
+    expect(entry).toBeDefined();
+    fireEvent.click(entry!);
     expect(mockNavigate).toHaveBeenCalledWith('/live', { replace: true });
     expect(reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('control: the same entry from another page navigates normally, no reload', () => {
+    render(
+      <MemoryRouter initialEntries={['/feed']}>
+        <EventLinksMenu enabled><EventLinksButton /></EventLinksMenu>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByTestId('event-links-button'));
+    const entry = screen.getAllByTestId('event-links-entry').find(e => e.textContent === 'Start a Clarity Session');
+    fireEvent.click(entry!);
+    expect(mockNavigate).toHaveBeenCalledWith('/live');
+    expect(reloadMock).not.toHaveBeenCalled();
   });
 });

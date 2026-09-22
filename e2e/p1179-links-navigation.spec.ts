@@ -177,6 +177,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
       await page.goto(`/events/${slug}/room`);
       await waitForRoomGate(page);
       await openMenu(page);
+      await page.getByTestId('event-links-tab-points').click(); // P1351: Tools opens first
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp7$/ }).click();
 
       await expect(page).toHaveURL(new RegExp(`/stake/cmp7\\?event=${slug}`), { timeout: 30000 });
@@ -185,6 +186,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
 
       // And it still works — a second destination without going back.
       await openMenu(page);
+      await page.getByTestId('event-links-tab-points').click(); // P1351: Tools opens first
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp3$/ }).click();
       await expect(page).toHaveURL(new RegExp(`/stake/cmp3\\?event=${slug}`), { timeout: 30000 });
       await expect(linksButton(page)).toBeVisible();
@@ -228,6 +230,7 @@ test.describe('P1179 AC-11 — the entries reach their destinations', () => {
       await expect(linksButton(page)).toBeVisible();
       await openMenu(page);
       // Off-event, a Points entry carries no dangling ?event=.
+      await page.getByTestId('event-links-tab-points').click(); // P1351: Tools opens first
       await page.getByTestId('event-links-entry').filter({ hasText: /^cmp3$/ }).click();
       await expect(page).toHaveURL(/\/stake\/cmp3$/, { timeout: 30000 });
     } finally { await page.close(); }

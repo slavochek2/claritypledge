@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MicIcon, MailIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, LandmarkIcon, UserIcon, HomeIcon, MailIcon, CalendarCheckIcon, UsersIcon, ChevronDownIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 // P1179/P1323: the Links trigger. Renders as a sibling of the avatar in EVERY right-hand group
@@ -31,8 +31,40 @@ import { NavigationMenuItems } from "./navigation-menu-items";
 import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
+import { useTonightsEvent } from "@/app/hooks/useTonightsEvent";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
+
+/**
+ * P1351: the signed-in header's primary action on an event day. Renders null when the person
+ * has no (non-cancelled) RSVP for an event today, and on that event's own pages — the page
+ * already is where the button would go, and a second primary would compete with it (P955).
+ */
+function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
+  const event = useTonightsEvent();
+  const { pathname } = useLocation();
+  if (!event) return null;
+  const eventPath = `/events/${event.slug}`;
+  if (pathname === eventPath || pathname.startsWith(`${eventPath}/`)) return null;
+  // Mobile, below 360px: icon-only 40x40 (the P1323 precedent for the old session button).
+  // Measured by e2e/p1351-header-contexts: with the label, logo + this + Tools + avatar pushed
+  // the avatar to 357px on a 320px screen. The label stays the accessible name via sr-only.
+  const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[360px]:w-auto min-[360px]:px-4";
+  return (
+    <Link
+      to={eventPath}
+      title={event.title}
+      data-testid="tonights-event-cta"
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${size}`}
+      onClick={() => analytics.track("nav_cta_clicked", { cta: "tonights_event", device })}
+    >
+      <CalendarCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className={device === "mobile" ? "sr-only min-[360px]:not-sr-only min-[360px]:whitespace-nowrap" : undefined}>
+        Tonight&apos;s event
+      </span>
+    </Link>
+  );
+}
 
 /**
  * Logged-out primary nav CTA. Webinar-first funnel (P937/P951): every public page
@@ -257,7 +289,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   const isGroupDetailPage = location.pathname.split('/').filter(Boolean).length >= 2
     && location.pathname.startsWith('/groups/');
   const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage;
-  const hideSessionCta = isEventDetailPage;
+  // P1351: `hideSessionCta` is retired with the session button itself. The header's only
+  // signed-in primary is now TonightsEventCta, which hides itself on its own event's pages.
 
   // Close mobile menu on route change (e.g., bottom nav, back button, page links)
   useEffect(() => {
@@ -466,25 +499,6 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                     <div className="h-10 w-[80px] bg-muted rounded-md" />
                   </div>
-                  {/* P844: Hide Start-a-Session CTA on event detail pages (competing primary action) */}
-                  {!hideSessionCta && (
-                    <Link
-                      to="/live"
-                      title="Start a live clarity session"
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                      onClick={(e) => {
-                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                        if (location.pathname.startsWith('/live')) {
-                          e.preventDefault();
-                          navigate('/live', { replace: true });
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      <MicIcon className="w-4 h-4" />
-                      Start a Clarity Session
-                    </Link>
-                  )}
                   {/* Avatar/hamburger skeleton */}
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </>
@@ -498,25 +512,6 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   <StaticNavLinks />
                   {/* My Profile slot: skeleton until profile resolves */}
                   <div className="h-10 w-[88px] bg-muted rounded-md animate-pulse" />
-                  {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                  {!hideSessionCta && (
-                    <Link
-                      to="/live"
-                      title="Start a live clarity session"
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                      onClick={(e) => {
-                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                        if (location.pathname.startsWith('/live')) {
-                          e.preventDefault();
-                          navigate('/live', { replace: true });
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      <MicIcon className="w-4 h-4" />
-                      Start a Clarity Session
-                    </Link>
-                  )}
                   {/* Avatar skeleton */}
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </div>
@@ -539,25 +534,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     <span className="text-xs mt-1 font-medium">My Profile</span>
                   </Link>
                 )}
-                {/* P844: Hide Start-a-Session CTA on event detail pages */}
-                {!compact && !hideSessionCta && (
-                  <Link
-                    to="/live"
-                    title="Start a live clarity session"
-                    className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2"
-                    onClick={(e) => {
-                      analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' });
-                      if (location.pathname.startsWith('/live')) {
-                        e.preventDefault();
-                        navigate('/live', { replace: true });
-                        window.location.reload();
-                      }
-                    }}
-                  >
-                    <MicIcon className="w-4 h-4" />
-                    Start a Clarity Session
-                  </Link>
-                )}
+                {/* P1351: the session button is gone from the header (it lives in Tools). The only
+                    blue button a signed-in person sees here is their event, on its day. */}
+                {!compact && <TonightsEventCta device="desktop" />}
                 {/* P1179: Links — sibling of the avatar, same slot at every width.
                     Desktop gets the anchored dropdown, matching "Use cases"; the
                     bottom sheet is the phone-in-a-room shape and stays below `lg`. */}
@@ -666,41 +645,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             </div>
           ) : (
             <div className="lg:hidden flex items-center gap-2">
-              {/* Mobile Start Session CTA — only for authenticated users, hidden in compact mode */}
-              {/* P844: Hide on event detail pages (competing primary action) */}
-              {showUserMenu && !compact && !hideSessionCta && (
-                <Link
-                  to="/live"
-                  title="Start a live clarity session"
-                  // P1323: icon-only below 360px. Adding the Links trigger to this row made
-                  // the controls overflow the narrowest phones; measured at 320px the CTA was
-                  // squeezed to 108px and WRAPPED to two lines (56px tall, not 36). The cutoff
-                  // was first 375px, while the trigger was a 69px boxed "Links". Once the trigger
-                  // became a 44px icon (founder, 2026-09-16) the label fits again at 360 — the
-                  // most common Android width — measured by e2e (no wrap, overlap or sideways
-                  // scroll) and by eye. `min-[360px]:whitespace-nowrap` on the span is required:
-                  // Tailwind's `not-sr-only` resets `white-space: normal`. The Links label cannot shrink (it is the word said out
-                  // loud in a room) and the CTA copy is not ours to change, so the CTA's TEXT
-                  // is what gives way on the narrowest phones — visually only: it stays the
-                  // accessible name via sr-only, and the icon, colour and destination are
-                  // unchanged. From 360px up the button is exactly as before.
-                  // Below 360px: a true 40x40 circle (independent visual QA measured the first
-                  // icon-only cut at ~38px, under the touch target). From 360px up: the original
-                  // pill classes, unchanged — its 36px height pre-dates P1323.
-                  className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full h-10 w-10 min-[360px]:h-auto min-[360px]:w-auto min-[360px]:justify-start min-[360px]:px-4 min-[360px]:py-2"
-                  onClick={(e) => {
-                    analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
-                    if (location.pathname.startsWith('/live')) {
-                      e.preventDefault();
-                      navigate('/live', { replace: true });
-                      window.location.reload();
-                    }
-                  }}
-                >
-                  <MicIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span className="sr-only min-[360px]:not-sr-only min-[360px]:whitespace-nowrap">Start a Session</span>
-                </Link>
-              )}
+              {/* P1351: no session CTA; the event-day primary only. */}
+              {showUserMenu && !compact && <TonightsEventCta device="mobile" />}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}
               <EventLinksButton />
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
@@ -758,31 +704,11 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   sandwich, so a free-call CTA sits above every link on a page selling
                   €295/month. The desktop guard alone left it standing here. */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-              {!compact && !(showUserMenu ? hideSessionCta : hideMarketingCta) && (
+              {/* P1351: signed-in users get no session entry here (Tools is in the header row). */}
+              {!compact && !showUserMenu && !hideMarketingCta && (
                 <>
-                  {showUserMenu ? (
-                    <Link
-                      to="/live"
-                      title="Start a live clarity session"
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full gap-2"
-                      onClick={(e) => {
-                        analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
-                        if (location.pathname.startsWith('/live')) {
-                          e.preventDefault();
-                          navigate('/live', { replace: true });
-                          window.location.reload();
-                        } else {
-                          closeMobileMenu();
-                        }
-                      }}
-                    >
-                      <MicIcon className="w-4 h-4" />
-                      Start a Clarity Session
-                    </Link>
-                  ) : (
                     /* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */
                     <LoggedOutPrimaryCta device="mobile" sizeClass="h-11 w-full" onNavigate={closeMobileMenu} />
-                  )}
                   <div className="border-t border-border my-2"></div>
                 </>
               )}

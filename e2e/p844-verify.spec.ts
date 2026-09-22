@@ -32,10 +32,11 @@ test.describe('P844 — Reduce RSVP Friction', () => {
     await expect(page.getByRole('link', { name: 'Start a Clarity Session' })).not.toBeVisible({ timeout: 10000 });
   });
 
-  test('UAT-4: Header CTA visible on /events list page (no regression)', async ({ page }) => {
+  // P1351: the header "Start a Clarity Session" button is retired everywhere; the product's
+  // navigation affordance on this page is now the labeled Tools trigger.
+  test('UAT-4: Tools trigger visible on /events list page (no regression)', async ({ page }) => {
     await page.goto(EVENTS_LIST_URL);
-    await page.waitForTimeout(500);
-    await expect(page.getByRole('link', { name: 'Start a Clarity Session' }).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('event-links-button').filter({ visible: true }).first()).toHaveText(/Tools/, { timeout: 10000 });
   });
 
   // UAT-5/UAT-6 retargeted to /meet — P1114 round 4 moved Practice Rooms off the event

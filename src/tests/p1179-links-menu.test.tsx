@@ -33,6 +33,7 @@ import {
   STANDARD_STAKE_TAGS,
   STANDARD_LETTER_ENTRIES,
   STANDARD_TOOL_ENTRIES,
+  buildLinksMenu,
 } from '@/app/data/event-links';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
@@ -63,6 +64,12 @@ async function open() {
   await userEvent.click(await screen.findByTestId('event-links-button'));
 }
 
+/** P1351: Tools is the default tab now; most tests below start from Points. */
+async function openAtPoints() {
+  await open();
+  await selectTab('points');
+}
+
 /** Row text for whichever tab is currently selected. */
 function visibleEntries() {
   return screen.getAllByTestId('event-links-entry').map(e => e.textContent ?? '');
@@ -85,15 +92,34 @@ describe('P1323 AC-1 — the trigger renders on any product surface, event or no
     '/transcribe',
   ])('renders on %s', async (path) => {
     renderAt(path);
-    expect(await screen.findByTestId('event-links-button')).toHaveTextContent('Links');
+    expect(await screen.findByTestId('event-links-button')).toHaveTextContent('Tools');
   });
 
   it('a bare /stake/:tag opens the SAME panel as inside a room (AC-1)', async () => {
     renderAt('/stake/understanding');
-    await open();
+    await openAtPoints();
     expect(visibleEntries()).toEqual(POINTS);
     await selectTab('letters');
     expect(visibleEntries()).toEqual(LETTERS.map((l, i) => `${l} ${STANDARD_LETTER_ENTRIES[i]!.code}`));
+  });
+});
+
+describe('P1351 — Tools is first and open by default', () => {
+  it.each(['sheet', 'dropdown'] as const)('%s opens on Tools, tabs ordered Tools / Points / Letters', async (variant) => {
+    renderAt('/events/cm-1/room', variant);
+    await open();
+    expect(visibleEntries()).toEqual(TOOLS);
+    const order = Array.from(screen.getByTestId('event-links-tabs').querySelectorAll('[data-testid^="event-links-tab-"]'))
+      .map(el => el.getAttribute('data-testid'));
+    expect(order).toEqual(['event-links-tab-tools', 'event-links-tab-points', 'event-links-tab-letters']);
+  });
+
+  it('Tools includes Start a Clarity Session (/live) and Chiang Mai events (/cm, new tab)', () => {
+    const tools = buildLinksMenu().filter(e => e.group === 'tools');
+    expect(tools.find(e => e.label === 'Start a Clarity Session')?.to).toBe('/live');
+    const cm = tools.find(e => e.label === 'Chiang Mai events');
+    expect(cm?.to).toBe('/cm');
+    expect(cm?.newTab).toBe(true);
   });
 });
 
@@ -109,7 +135,7 @@ describe('P1323 AC-3/AC-4/AC-5 — three tabs, exact contents', () => {
 
   it('AC-4: the Points tab is exactly the six standing collections, including aisafety1', async () => {
     renderAt('/events/cm-1/room');
-    await open();
+    await openAtPoints();
     expect(visibleEntries()).toEqual(POINTS);
     expect(POINTS).toContain('aisafety1');
     // Labels are the tags VERBATIM — P1179 Resolved Decision 1 survives P1323: the spoken
@@ -180,7 +206,7 @@ describe('P1323 — the tabs partition the entries; nothing is in two places', (
     // all three at once the counts above would still pass while the sheet grew to 18 rows
     // at 320px — the exact overflow P1310 capped this sheet for.
     renderAt('/events/cm-1/room');
-    await open();
+    await openAtPoints();
     expect(visibleEntries()).toHaveLength(POINTS.length);
     await selectTab('letters');
     expect(visibleEntries()).toHaveLength(LETTERS.length);
@@ -197,7 +223,7 @@ describe('P1323 — the tabs partition the entries; nothing is in two places', (
 describe('P1179 — the desktop variant opens an anchored dropdown, not the sheet', () => {
   it('lists the same entries as the sheet, tab for tab', async () => {
     renderAt('/events/cm-1/room', 'dropdown');
-    await open();
+    await openAtPoints();
     expect(visibleEntries()).toEqual(POINTS);
     await selectTab('tools');
     expect(visibleEntries()).toEqual(TOOLS);
