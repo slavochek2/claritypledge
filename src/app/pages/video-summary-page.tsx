@@ -13,7 +13,13 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { TimecodePill } from '@/app/components/shared/timecode-pill';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
-import { getVideoSummary, readMinutes, summaryParagraphs, type VideoSummary } from '@/app/data/video-summaries-service';
+import {
+  getVideoSummary,
+  readMinutes,
+  resetSummarisedVideoIdsCache,
+  summaryParagraphs,
+  type VideoSummary,
+} from '@/app/data/video-summaries-service';
 import { NotFoundPage } from './not-found-page';
 
 export function VideoSummaryPage() {
@@ -21,20 +27,28 @@ export function VideoSummaryPage() {
   const navigate = useNavigate();
   const playerRef = useRef<StoryVideoPlayerHandle>(null);
   const playerBoxRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<{ status: 'loading' } | { status: 'missing' } | { status: 'ready'; data: VideoSummary }>({
-    status: 'loading',
-  });
+  const [state, setState] = useState<
+    { status: 'loading' } | { status: 'missing' } | { status: 'error' } | { status: 'ready'; data: VideoSummary }
+  >({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
     setState({ status: 'loading' });
     getVideoSummary(videoId)
-      .then((data) => live && setState(data ? { status: 'ready', data } : { status: 'missing' }))
-      .catch(() => live && setState({ status: 'missing' }));
+      .then((data) => {
+        if (!live) return;
+        if (data) return setState({ status: 'ready', data });
+        // A link may have led here from a stale cached id list — drop it so players re-check.
+        resetSummarisedVideoIdsCache();
+        setState({ status: 'missing' });
+      })
+      // A failed load is not a missing summary: say so and offer a retry instead of a 404.
+      .catch(() => live && setState({ status: 'error' }));
     return () => {
       live = false;
     };
-  }, [videoId]);
+  }, [videoId, attempt]);
 
   // Same leave-the-page rule as /stake: no in-app history (a cold arrival) goes to the feed.
   const back = () => {
@@ -45,13 +59,39 @@ export function VideoSummaryPage() {
 
   // The video is not pinned, so a timestamp far down the page scrolls back up to it, then seeks.
   const seek = (seconds: number) => {
-    playerBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    playerBoxRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
     playerRef.current?.seekTo(seconds);
   };
 
   if (state.status === 'missing') return <NotFoundPage />;
   if (state.status === 'loading') {
-    return <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" aria-busy="true" />;
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" aria-busy="true">
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading video summary…
+        </p>
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" data-testid="video-summary-error">
+        <FocusHeader onBack={back} />
+        <p role="alert" className="text-base">
+          Could not load this video summary. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full border border-blue-200 bg-card px-5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   const s = state.data;
@@ -59,7 +99,10 @@ export function VideoSummaryPage() {
   const videoMin = Math.max(1, Math.round(s.durationSeconds / 60));
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" data-testid="video-summary-page">
+    <div
+      className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8 [overflow-wrap:anywhere]"
+      data-testid="video-summary-page"
+    >
       <FocusHeader onBack={back} />
 
       <h1 className="text-xl font-semibold leading-snug sm:text-3xl sm:leading-tight">{s.title}</h1>
@@ -72,31 +115,33 @@ export function VideoSummaryPage() {
       </div>
       <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
         <Sparkles className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>
-          AI summary of the full video. Video by {s.channel}; not endorsed by the creator.
-        </span>
+        <span>AI summary of the full video. Video by {s.channel}; not endorsed by the creator.</span>
       </p>
 
-      <section className="mt-10">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Key points</h2>
-        <ol className="mt-3 space-y-3">
-          {s.keyPoints.map((k, i) => (
-            <li key={i} className="flex gap-3">
-              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-                {i + 1}
-              </span>
-              <span className="leading-relaxed">{k}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {s.keyPoints.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Key points</h2>
+          <ol className="mt-3 space-y-3">
+            {s.keyPoints.map((k, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                  {i + 1}
+                </span>
+                <span className="leading-relaxed">{k}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="mt-10 border-t border-border pt-8">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Summary <span className="font-normal normal-case tracking-normal">· {readMinutes(s.summary)}-min read</span>
         </h2>
         <div className="mt-3 max-w-[65ch] space-y-6 text-base leading-[1.75] text-foreground">
-          {summaryParagraphs(s.summary).map((p, i) => <p key={i}>{p}</p>)}
+          {summaryParagraphs(s.summary).map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
         </div>
       </section>
 
@@ -104,8 +149,8 @@ export function VideoSummaryPage() {
         <section className="mt-10 border-t border-border pt-8">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timestamps</h2>
           <ul className="mt-3 space-y-3">
-            {s.moments.map((m) => (
-              <li key={m.t} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
+            {s.moments.map((m, i) => (
+              <li key={`${m.t}-${i}`} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
                 <TimecodePill videoUrl={videoUrl} seconds={m.t} onSeek={seek} />
                 <span className="min-w-0 flex-1 text-sm text-gray-700 dark:text-gray-300">{m.note}</span>
               </li>

@@ -11,7 +11,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import { resetSummarisedVideoIdsCache, summaryParagraphs, readMinutes } from '@/app/data/video-summaries-service';
+import {
+  cleanMoments,
+  getSummarisedVideoIds,
+  resetSummarisedVideoIdsCache,
+  summaryParagraphs,
+  readMinutes,
+} from '@/app/data/video-summaries-service';
 import { VideoSummaryPage } from '@/app/pages/video-summary-page';
 
 const seekTo = vi.fn();
@@ -27,23 +33,31 @@ vi.mock('@/app/components/shared/story-video-player', async () => {
 
 let rows: Array<Record<string, unknown>> = [];
 let queryCount = 0;
+let failDetail = false;
 
 vi.mock('@/lib/supabase', () => {
   const builder = () => {
     const filters: Record<string, unknown> = {};
+    let range: [number, number] | null = null;
     const b = {
       select: () => b,
+      order: () => b,
+      range: (from: number, to: number) => {
+        range = [from, to];
+        return b;
+      },
       eq: (col: string, val: unknown) => {
         filters[col] = val;
         return b;
       },
-      maybeSingle: async () => ({
-        data: rows.find((r) => r.video_id === filters.video_id) ?? null,
-        error: null,
-      }),
+      maybeSingle: async () =>
+        failDetail
+          ? { data: null, error: { message: 'network down', code: 'NETWORK' } }
+          : { data: rows.find((r) => r.video_id === filters.video_id) ?? null, error: null },
       then: (resolve: (v: unknown) => void) => {
         queryCount += 1;
-        resolve({ data: rows.map((r) => ({ video_id: r.video_id })), error: null });
+        const all = rows.map((r) => ({ video_id: r.video_id }));
+        resolve({ data: range ? all.slice(range[0], range[1] + 1) : all, error: null });
       },
     };
     return b;
@@ -68,6 +82,7 @@ const ROW = {
 beforeEach(() => {
   rows = [];
   queryCount = 0;
+  failDetail = false;
   seekTo.mockClear();
   resetSummarisedVideoIdsCache();
 });
@@ -188,9 +203,29 @@ describe('P1349 — the summary page', () => {
     Element.prototype.scrollIntoView = scrollIntoView; // jsdom has none
     const pills = await screen.findAllByRole('button', { name: /play from/i });
     expect(pills.map((p) => p.textContent)).toEqual(['0:05', '2:05']);
-    fireEvent.click(pills[1]);
+    fireEvent.click(pills[1]!);
     expect(seekTo).toHaveBeenCalledWith(125);
     expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('a failed load is not a 404: it says so and retries', async () => {
+    rows = [ROW];
+    failDetail = true;
+    renderPage();
+    await screen.findByTestId('video-summary-error');
+    expect(document.body.textContent).toMatch(/could not load this video summary/i);
+    failDetail = false;
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+    await screen.findByTestId('video-summary-page');
+  });
+
+  it('two timestamps at the same second both render', async () => {
+    rows = [{ ...ROW, moments: [{ t: 5, note: 'A' }, { t: 5, note: 'B' }] }];
+    renderPage();
+    Element.prototype.scrollIntoView = vi.fn();
+    expect(await screen.findAllByRole('button', { name: /play from/i })).toHaveLength(2);
+    expect(screen.getByText('A')).toBeTruthy();
+    expect(screen.getByText('B')).toBeTruthy();
   });
 
   it('a video with no confirmed summary is not found', async () => {
@@ -198,6 +233,49 @@ describe('P1349 — the summary page', () => {
     renderPage('unknownVid1');
     await waitFor(() => expect(screen.queryByTestId('video-summary-page')).toBeNull());
     await waitFor(() => expect(document.body.textContent).toMatch(/not found|404|lost/i));
+  });
+});
+
+describe('P1349 — data hardening', () => {
+  it('drops moments the page cannot render or seek to, and orders the rest', () => {
+    const raw = [
+      { t: 30, note: 'ok later' },
+      null,
+      { t: 'five', note: 'x' },
+      { t: -1, note: 'x' },
+      { t: 601, note: 'past the end' },
+      { t: 2.5, note: 'x' },
+      { t: 10, note: { bad: true } },
+      { t: 12, note: '  ' },
+      { t: 3, note: 'ok first' },
+    ];
+    expect(cleanMoments(raw, 600)).toEqual([
+      { t: 3, note: 'ok first' },
+      { t: 30, note: 'ok later' },
+    ]);
+    expect(cleanMoments({ not: 'an array' }, 600)).toEqual([]);
+  });
+
+  it('pages past the 1000-row response cap so no summarised video loses its link', async () => {
+    rows = Array.from({ length: 2345 }, (_, i) => ({ video_id: `vid${String(i).padStart(8, '0')}` }));
+    const ids = await getSummarisedVideoIds();
+    expect(ids.size).toBe(2345);
+    expect(ids.has('vid00002344')).toBe(true);
+    expect(queryCount).toBe(3);
+  });
+
+  it('the cached id list expires, so a newly confirmed summary gets its link without a reload', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      rows = [];
+      expect((await getSummarisedVideoIds()).has(ID)).toBe(false);
+      rows = [ROW];
+      expect((await getSummarisedVideoIds()).has(ID)).toBe(false); // still cached
+      vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+      expect((await getSummarisedVideoIds()).has(ID)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

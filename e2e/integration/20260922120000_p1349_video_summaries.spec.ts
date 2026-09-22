@@ -18,8 +18,9 @@ const anon = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPAB
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-// Obviously-fake ids, unique per run so concurrent runs cannot collide.
-const run = Date.now().toString(36).slice(-6);
+// Obviously-fake ids, unique per run so concurrent runs cannot collide. 6 + 5 = 11 chars, the
+// YouTube id shape the table enforces.
+const run = Date.now().toString(36).slice(-5);
 const ids = { draft: `p1349d${run}`, checked: `p1349c${run}`, confirmed: `p1349f${run}` };
 const now = new Date().toISOString();
 
@@ -49,7 +50,7 @@ test.describe.serial('P1349 video_summaries RLS', () => {
   });
 
   test.afterAll(async () => {
-    await supabaseAdmin.from('video_summaries').delete().in('video_id', [...Object.values(ids), `p1349n${run}`, `p1349s${run}`]);
+    await supabaseAdmin.from('video_summaries').delete().in('video_id', [...Object.values(ids), `p1349n${run}`, `p1349s${run}`, `p1349b${run}`, `p1349w${run}x`]);
   });
 
   test('anon sees the confirmed summary and neither the draft nor the checked one', async () => {
@@ -76,6 +77,18 @@ test.describe.serial('P1349 video_summaries RLS', () => {
     const bad = { ...row(`p1349n${run}`, 'confirmed'), checked_by: null };
     const { error } = await supabaseAdmin.from('video_summaries').insert(bad);
     expect(error?.code).toBe('23514');
+  });
+
+  test('a video id that is not the 11-character YouTube shape is refused', async () => {
+    const { error } = await supabaseAdmin.from('video_summaries').insert(row(`p1349w${run}x`, 'draft'));
+    expect(error?.code).toBe('23514');
+  });
+
+  test('blank text is refused: an empty key point or a whitespace-only summary', async () => {
+    const blankPoint = await supabaseAdmin.from('video_summaries').insert({ ...row(`p1349b${run}`, 'draft'), key_points: [''] });
+    expect(blankPoint.error?.code).toBe('23514');
+    const blankSummary = await supabaseAdmin.from('video_summaries').insert({ ...row(`p1349b${run}`, 'draft'), summary: '   ' });
+    expect(blankSummary.error?.code).toBe('23514');
   });
 
   test('one row per video: a second summary for the same video is refused', async () => {
