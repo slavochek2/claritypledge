@@ -30,6 +30,15 @@ describe('realStoriesService.getStoryByUserAndPoint', () => {
     realStoriesService = module.realStoriesService;
   });
 
+  // P1349: the point page shows the viewer's own story from this query; without the media
+  // columns in the select its video never rendered there.
+  it('selects the story media columns', async () => {
+    mockLimit.mockResolvedValue({ data: [], error: null });
+    await realStoriesService.getStoryByUserAndPoint('user-1', 'point-1');
+    const selected = String((mockSelect.mock.calls[0] as unknown[])[0]);
+    for (const col of ['image_url', 'video_url', 'video_quotes']) expect(selected).toContain(col);
+  });
+
   it('returns the Story when a matching story_point exists', async () => {
     const mockDbRow = {
       story_id: 'story-1',

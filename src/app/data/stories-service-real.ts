@@ -693,7 +693,7 @@ export const realStoriesService: StoriesService = {
 
     const { data: rows, error } = await supabase
       .from('story_points')
-      .select('story_id, stories(id, author_id, content, visibility, current_version, understood_count, created_at, updated_at, tags)')
+      .select('story_id, stories(id, author_id, content, visibility, current_version, understood_count, created_at, updated_at, tags, image_url, video_url, video_quotes)')
       .eq('author_id', userId)
       .eq('point_id', pointId)
       .limit(1);
