@@ -1124,6 +1124,10 @@ export function StoryDetailPage() {
       visibility: story.visibility,
       linkedPointIds: story.points.map(p => p.id),
       understoodCount: story.understoodCount,
+      // P1349: this copy dropped the story's media, so the story embed showed no video.
+      imageUrl: story.imageUrl,
+      videoUrl: story.videoUrl,
+      videoQuotes: story.videoQuotes,
     };
 
     const embedAuthor: StoryAuthor = {

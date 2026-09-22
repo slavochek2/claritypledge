@@ -879,6 +879,10 @@ function ExpandableStoryRegion({
     visibility: story.visibility,
     linkedPointIds: [],
     understoodCount: story.understoodCount,
+    // P1349: this copy predates P1141 and dropped the story's media, so point pages showed no video.
+    imageUrl: 'imageUrl' in story ? story.imageUrl : undefined,
+    videoUrl: 'videoUrl' in story ? story.videoUrl : undefined,
+    videoQuotes: 'videoQuotes' in story ? story.videoQuotes : undefined,
   };
 
   // Author info — differs for viewer (uses holder data) vs others (uses StoryWithAuthor)
@@ -1041,6 +1045,10 @@ function PositionlessStoryRegion({
     visibility: story.visibility,
     linkedPointIds: [],
     understoodCount: story.understoodCount,
+    // P1349: same media omission as above.
+    imageUrl: story.imageUrl,
+    videoUrl: story.videoUrl,
+    videoQuotes: story.videoQuotes,
   };
 
   const storyAuthor: StoryAuthor = {

@@ -39,13 +39,21 @@ interface StoryMediaProps {
  */
 function p1349SummaryLink(videoId: string) {
   if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has('p1349')) return null;
+  const href = `/tree/video-summary/page?v=${videoId}`;
+  const className = 'mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400';
+  const content = <><FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary</>;
+  // Inside an embed (iframe on someone else's page), open a new tab: navigating the iframe would
+  // squeeze the summary into the embed box, and "back" could not return the reader.
+  if (window.self !== window.top) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={className}>
+        {content}
+      </a>
+    );
+  }
   return (
-    <Link
-      to={`/tree/video-summary/page?v=${videoId}`}
-      onClick={(e) => e.stopPropagation()}
-      className="mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400"
-    >
-      <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary
+    <Link to={href} onClick={(e) => e.stopPropagation()} className={className}>
+      {content}
     </Link>
   );
 }
