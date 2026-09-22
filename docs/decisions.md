@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [product]: H-ChampionYield gains a retrospective pledge-era datum (evidence note, n unchanged)
+
+**Context:** A one-off backfill of the founder's 2025-06 to 2026-09 Gemini chats (`/claude-conversations-to-cp`, last-run marker deliberately not updated) surfaced one signal still live under the current champion focus and not already in the docs: in 2025-10/11 the founder reported that most people valued the principle and wanted others (or their leader) to follow it, while very few would pledge themselves.
+
+**Decision:** Record it under H-ChampionYield as a retrospective datum, labeled founder recollection, unmeasured, and explicitly not counted toward n. The bet's status, n=1, and its test (a spontaneous "I wish others knew" in pilot interviews) are unchanged. Novel prediction: none identified, since this is a retrodiction and not a new framing.
+
+**Falsifier:** if the champion-hosted pilots show participants endorsing the norm for others at no higher rate than adopting it themselves, the outward-will asymmetry this datum suggests is not general, and the note should be marked as not replicated.
+
+---
+
 ## 2026-09-21 [process]: A scripted kanban status change should not stamp the manual lock (Status: proposed)
 
 **Context:** The kanban status endpoint writes `locked_at` on every status change, while the rule describing the lock says only the UI writes it, and `/prioritize` tells agents to use that endpoint. One session stamped 31 specs this way plus two more, each batch cleaned up by hand.
