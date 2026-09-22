@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [product]: Supporting quotes are never folded; agent stories are one sentence, two at most (P1348)
+
+**Context:** A reader asked why the timestamped "N supporting quotes" under a video story were folded. At the same time the founder is cutting agent-written stories to 1–2 sentences. A one-sentence claim with its evidence behind a fold is a claim with no visible evidence.
+**Decision:** `StoryVideoQuotes` renders its quotes and timecodes on first paint on every surface, embeds included, and its heading is a plain count label. This reverses P1296 item 8 ("folded per default everywhere"). The pipeline's `story-draft` now asks for one sentence, two at most, giving the experience or reasoning behind the predicted position, with the quote attached as the quote block and never in the prose.
+**Alternatives rejected:** *Wait for more readers to ask* was rejected. A cheap, reversible change after one clear signal beats waiting, because readers who find a fold useless just don't click it and never report it. *Uncollapse the linked points under a story* was built first by mistake: the agent misread which collapse was meant, and the founder's screenshot corrected it. It was reverted, and linked-point and linked-story collapse are unchanged.
+**Consequences:** Feed and point cards are taller by default and have more tab stops (accepted). The compact embed still shows no video or quotes; that is unchanged and would need its own decision. Three copies of the sentence rule were updated (`story-draft.md`, its `.agents` mirror, `docs/points-process.md`), and `docs/story-craft.md` points to the owner rather than restating it.
+**References:** [p1348](../features/done/2026-06-10/p1348_story_quotes_never_collapse.md) · `src/app/components/shared/story-video-quotes.tsx`
+
+## 2026-09-22 [product]: A per-video summary is a neutral digest of the whole video, judged on product grounds (P1349)
+
+**Context:** The founder wants one summary page per source video (like the "read-first" project), linked under every player, because a participant cannot watch every video. Two falsify reviewers (Opus, Codex) both blocked the first draft. Their BLOCKs were storage (no per-video table), link placement (point pages do not group by source) and person-safety (story-draft PS-1 forbids naming a position).
+**Decision:** The summary covers the whole video and all its speakers. It is not a story, a point or any one speaker's position. The founder's ruling: judge it on user and product grounds, and treat storage as technical. On that framing the PS-1 conflict goes away. What binds instead: label it as machine-written, keep it visibly separate from verbatim quotes (the P1141 honesty signal), timestamp each section back to the source, and put the link under every player. A repeat on point pages is acceptable.
+**Alternatives rejected:** *A summary organised by positions*, which would collide with PS-1. *No page: rely on always-visible quotes (P1348)*, which answers "is this slice fair?" but not "what is in this video?", and the second question is the participant's actual need.
+**Consequences:** Still open before build: a source entity keyed by provider and video id, showing the link only when a summary exists, top-level navigation from embeds, and copyright as a pre-publish gate (Status: proposed — P1349 needs a Solution rewrite before `/architect`).
+**References:** [p1349](../features/p1349_full_video_summary_page.md)
+
 ## 2026-09-22 [product]: H-ChampionYield gains a retrospective pledge-era datum (evidence note, n unchanged)
 
 **Context:** A one-off backfill of the founder's 2025-06 to 2026-09 Gemini chats (`/claude-conversations-to-cp`, last-run marker deliberately not updated) surfaced one signal still live under the current champion focus and not already in the docs: in 2025-10/11 the founder reported that most people valued the principle and wanted others (or their leader) to follow it, while very few would pledge themselves.
