@@ -43,7 +43,7 @@ function p1349SummaryLink(videoId: string) {
     <Link
       to={`/tree/video-summary/page?v=${videoId}`}
       onClick={(e) => e.stopPropagation()}
-      className="-mt-1 mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400"
+      className="mb-1 ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400"
     >
       <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary
     </Link>

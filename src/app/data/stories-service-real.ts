@@ -83,13 +83,25 @@ interface DbStoryPointWithStory {
 }
 
 /**
+ * P1349 PROTOTYPE — DEV-only. With `?p1349` in the URL, a video story shows only its first sentence,
+ * so the "Read video summary" link can be judged after a one-sentence story. Display-only; nothing
+ * is written. Off in prod by construction.
+ */
+function p1349FirstSentence(content: string): string {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return content;
+  if (!new URLSearchParams(window.location.search).has('p1349')) return content;
+  const m = content.match(/^[\s\S]*?[.!?](?=\s|$)/);
+  return m ? m[0] : content;
+}
+
+/**
  * Transform database row to Story type
  */
 function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
   return {
     id: row.id,
     authorId: row.author_id,
-    content: row.content,
+    content: row.video_url ? p1349FirstSentence(row.content) : row.content,
     visibility: row.visibility ?? 'private',
     currentVersion: row.current_version,
     understoodCount: row.understood_count,
