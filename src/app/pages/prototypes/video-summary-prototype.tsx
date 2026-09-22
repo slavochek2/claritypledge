@@ -5,15 +5,17 @@
  * Two screens, so the founder can see the whole loop:
  *   1. A story surface: one player, "Read the full summary →" directly under it, then the
  *      stories drawn from that video. The link shows once per player, never once per story.
- *   2. The summary page: a neutral summary of the whole video (all speakers), with timestamps
- *      that seek the player in place. The browser's Back button returns to screen 1.
+ *   2. The summary page (v3): site chrome, Back top + bottom, video in normal flow (not pinned),
+ *      3 short key points, the summary, then timestamps using the story-quote ▶ pill.
  *
  * The summary is one real output of the readfirst generator (video-summary-sample.ts), shown
  * unchecked. The stories are mock placeholders. Nothing reads or writes app data.
  */
 import { useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Flag, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Sparkles } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { TimecodePill } from '@/app/components/shared/timecode-pill';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { SAMPLE_SUMMARY } from './video-summary-sample';
 
@@ -64,63 +66,87 @@ export function VideoSummaryStorySurface() {
   );
 }
 
+/**
+ * Top 3, short. The generator returns 6 long sentences; the real prompt will ask for 3 of at most
+ * ~12 words. These three are hand-shortened from the sample's own key_points for the prototype.
+ */
+const KEY_POINTS_SHORT = [
+  'All legitimate therapies produce roughly the same outcomes.',
+  'Outcomes have not improved in decades, and therapists do not get better with experience.',
+  'What works is the relationship plus a plan the client believes in.',
+];
+
 export function VideoSummaryPage() {
+  const navigate = useNavigate();
   const playerRef = useRef<StoryVideoPlayerHandle>(null);
-  const seek = (t: string) => playerRef.current?.seekTo(toSeconds(t));
-  const paragraphs = SAMPLE_SUMMARY.summary.split(/\n\n+/);
+  const playerBoxRef = useRef<HTMLDivElement>(null);
+  const paragraphs = SAMPLE_SUMMARY.summary.split(/\n\n+/).map((p) => p.trim().replace(/\*([^*]+)\*/g, '$1')).filter(Boolean);
+  const words = SAMPLE_SUMMARY.summary.split(/\s+/).length;
+  const readMin = Math.max(1, Math.round(words / 200));
+  const videoMin = Math.round(SAMPLE_SUMMARY.duration / 60);
+  const back = () => navigate(-1);
+
+  // Scroll the player into view, then seek — the video is not pinned, so a timestamp at the
+  // bottom of the page brings you back up to it.
+  const seek = (seconds: number) => {
+    playerBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    playerRef.current?.seekTo(seconds);
+  };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <button
-        type="button"
-        onClick={() => window.history.back()}
-        className="mb-4 inline-flex min-h-[40px] items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to the story
-      </button>
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8">
+      <FocusHeader onBack={back} />
 
-      <h1 className="text-2xl font-semibold leading-tight">{SAMPLE_SUMMARY.title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{SAMPLE_SUMMARY.channel}</p>
+      <h1 className="text-xl font-semibold leading-snug sm:text-3xl sm:leading-tight">{SAMPLE_SUMMARY.title}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {SAMPLE_SUMMARY.channel} · {videoMin}-min video · {readMin}-min read ·{' '}
+        <a href="#timestamps" className="font-medium text-blue-600 hover:underline">Jump to timestamps ↓</a>
+      </p>
 
-      <div className="sticky top-0 z-10 mt-4 bg-background py-2">
+      <div ref={playerBoxRef} className="mt-5 scroll-mt-20">
         <StoryVideoPlayer ref={playerRef} videoUrl={VIDEO_URL} durationSeconds={SAMPLE_SUMMARY.duration} />
       </div>
-
-      <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5" /> AI-generated summary of the whole video, all speakers. [Prototype sample: not yet checked against the transcript]
+      <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+        <Sparkles className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        AI summary of the full video
       </p>
 
-      <p className="mt-4 text-lg leading-relaxed">{SAMPLE_SUMMARY.tldr}</p>
+      <section className="mt-10">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Key points</h2>
+        <ol className="mt-3 space-y-3">
+          {KEY_POINTS_SHORT.map((k, i) => (
+            <li key={k} className="flex gap-3">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                {i + 1}
+              </span>
+              <span className="leading-relaxed">{k}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Moments</h2>
-      <ul className="mt-2 space-y-1">
-        {SAMPLE_SUMMARY.moments.map((m) => (
-          <li key={m.t}>
-            <button
-              type="button"
-              onClick={() => seek(m.t)}
-              className="flex min-h-[40px] w-full items-start gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
-            >
-              <span className="shrink-0 font-mono text-primary">{m.t}</span>
-              <span>{m.note}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <section className="mt-10 border-t border-border pt-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</h2>
+        <div className="mt-3 max-w-[65ch] space-y-6 font-serif text-[17px] leading-[1.75] text-foreground sm:text-lg">
+          {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
+        </div>
+      </section>
 
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Full summary</h2>
-      <div className="mt-2 space-y-4 leading-relaxed">
-        {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
+      <section id="timestamps" className="mt-10 scroll-mt-20 border-t border-border pt-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timestamps</h2>
+        <ul className="mt-3 space-y-3">
+          {SAMPLE_SUMMARY.moments.map((m) => (
+            <li key={m.t} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-3">
+              <TimecodePill videoUrl={VIDEO_URL} seconds={toSeconds(m.t)} onSeek={seek} />
+              <span className="min-w-0 flex-1 text-sm text-gray-700 dark:text-gray-300">{m.note}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div className="mt-10 border-t border-border pt-4">
+        <FocusHeader onBack={back} />
       </div>
-
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Key points</h2>
-      <ul className="mt-2 list-disc space-y-1 pl-5">
-        {SAMPLE_SUMMARY.key_points.map((k) => <li key={k}>{k}</li>)}
-      </ul>
-
-      <p className="mt-10 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Flag className="h-3.5 w-3.5" /> Something wrong? [Report an error — not wired in the prototype]
-      </p>
     </div>
   );
 }

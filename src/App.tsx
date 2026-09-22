@@ -1000,7 +1000,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/video-summary" element={<LazyRoute><VideoSummaryStorySurface /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/video-summary/page" element={<LazyRoute><VideoSummaryPage /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/video-summary/page" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />}
         {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
