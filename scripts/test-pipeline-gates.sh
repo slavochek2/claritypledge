@@ -685,7 +685,7 @@ _i=14
 for _tail in 'sudo mv features/p501_y.md features/done/2026-09-14/' \
              '/bin/mv features/p501_y.md features/done/2026-09-14/' \
              'T=features/done/2026-09-14/; mv features/p501_y.md $T' \
-             'cd features/ \u0026\u0026 mv p501_y.md done/2026-09-14/' \
+             'cd features/ && mv p501_y.md done/2026-09-14/' \
              'echo features/p501_y.md | xargs -I{} mv {} features/done/2026-09-14/' \
              "sh -c 'mv features/p501_y.md features/done/2026-09-14/'"; do
   _j=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}))' "$_ro$(printf '%b' "$_tail")")
