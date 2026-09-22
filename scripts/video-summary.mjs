@@ -8,7 +8,10 @@
  *   node scripts/video-summary.mjs draft   <video id|url> [--force] [--revise]   Gemini writes a draft;
  *                                          --revise feeds it the checker's last failures to fix
  *   node scripts/video-summary.mjs check   <video id|url>             Codex checks it → checked
- *   node scripts/video-summary.mjs confirm <video id|url>             operator types the id → confirmed
+ *   node scripts/video-summary.mjs confirm <video id|url> [--approved-in-chat]
+ *                                          operator types the id → confirmed; --approved-in-chat is for an
+ *                                          agent AFTER it showed the founder the full summary in chat and got
+ *                                          an explicit yes (the disagreement-pipeline gate)
  *   node scripts/video-summary.mjs demote  <video id|url>             back to draft (corrections, takedowns)
  *   node scripts/video-summary.mjs list
  *
@@ -352,7 +355,7 @@ async function cmdCheck(client, id) {
   console.log(`checked by ${checker}: ${verdict.results.length} items passed. Next: the operator runs confirm ${id}`);
 }
 
-async function cmdConfirm(client, id, label) {
+async function cmdConfirm(client, id, label, approvedInChat) {
   const row = await getRow(client, id);
   const err = transitionError('confirm', row?.status);
   if (err) die(err);
@@ -362,7 +365,8 @@ async function cmdConfirm(client, id, label) {
   if (!report?.pass) die('no passing checker report for this row in the store — run check');
   if (report.content_sha256 !== contentSha(createHash, row) || report.transcript_sha256 !== row.transcript_sha256)
     die('the passing checker report is for different content than this row — run check again');
-  if (!process.stdin.isTTY) die('confirm is the operator\'s own review: run it in a terminal, not from a pipe or a script');
+  if (!process.stdin.isTTY && !approvedInChat)
+    die('confirm is the operator\'s own review: run it in a terminal, or pass --approved-in-chat only after the founder read the full summary in chat and said yes');
   console.log(`\n${row.title} — ${row.channel} — ${mmss(row.duration_seconds)}   [${label}]`);
   console.log(`https://www.youtube.com/watch?v=${id}\n`);
   console.log(`TL;DR  ${row.tldr ?? ''}\n`);
@@ -371,10 +375,14 @@ async function cmdConfirm(client, id, label) {
   row.moments.forEach((m) => console.log(`  ${mmss(m.t).padStart(7)}  ${m.note}`));
   console.log(`\nwritten by ${row.written_by} · checked by ${row.checked_by} · checker report: ${report.results?.length ?? 0} items passed`);
   console.log('\nConfirm only after checking it against the video. Once confirmed, "Read video summary" appears under this video.');
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (await rl.question(`Type the video id (${id}) to confirm, anything else to cancel: `)).trim();
-  rl.close();
-  if (answer !== id) die('not confirmed — nothing changed', 0);
+  if (approvedInChat) {
+    console.log('approved in chat by the founder after reading the summary above');
+  } else {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = (await rl.question(`Type the video id (${id}) to confirm, anything else to cancel: `)).trim();
+    rl.close();
+    if (answer !== id) die('not confirmed — nothing changed', 0);
+  }
   const now = new Date().toISOString();
   const { data, error } = await client
     .from('video_summaries')
@@ -408,8 +416,8 @@ async function cmdList(client) {
 }
 
 async function main() {
-  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list> [video id|url] [--env test|prod] [--force] [--revise]';
-  const flags = { env: null, force: false, revise: false };
+  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list> [video id|url] [--env test|prod] [--force] [--revise] [--approved-in-chat]';
+  const flags = { env: null, force: false, revise: false, 'approved-in-chat': false };
   const positional = [];
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
@@ -418,7 +426,7 @@ async function main() {
       if (flags.env !== null) die('--env given twice', 2);
       flags.env = argv[++i];
       if (flags.env !== 'test' && flags.env !== 'prod') die('--env must be test or prod', 2);
-    } else if (a === '--force' || a === '--revise') {
+    } else if (a === '--force' || a === '--revise' || a === '--approved-in-chat') {
       if (flags[a.slice(2)]) die(`${a} given twice`, 2);
       flags[a.slice(2)] = true;
     } else if (a.startsWith('-')) die(`unknown option ${a}\n${usage}`, 2);
@@ -429,6 +437,7 @@ async function main() {
   if (!commands.includes(command)) die(usage, 2);
   if (extra.length) die(`unexpected arguments: ${extra.join(' ')}\n${usage}`, 2);
   if ((flags.force || flags.revise) && command !== 'draft') die('--force and --revise apply only to draft', 2);
+  if (flags['approved-in-chat'] && command !== 'confirm') die('--approved-in-chat applies only to confirm', 2);
   const id = command === 'list' ? null : parseVideoId(target);
   if (command !== 'list' && !id) die(`not a YouTube video id or URL: ${target ?? '(none)'}\n${usage}`, 2);
   if (command === 'list' && target) die(`list takes no video\n${usage}`, 2);
@@ -439,7 +448,7 @@ async function main() {
   if (command === 'list') return cmdList(client);
   if (command === 'draft') return cmdDraft(client, id, flags.force, flags.revise);
   if (command === 'check') return cmdCheck(client, id);
-  if (command === 'confirm') return cmdConfirm(client, id, label);
+  if (command === 'confirm') return cmdConfirm(client, id, label, flags['approved-in-chat']);
   return cmdDemote(client, id);
 }
 

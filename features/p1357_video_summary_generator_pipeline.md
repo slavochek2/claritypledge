@@ -6,8 +6,8 @@ workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [video, summary, pipeline, disagreement-pipeline]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -94,6 +94,9 @@ approved video:
    All pass → `checked`, with the checker named. Any fail → stays `draft`, with the failures printed.
 3. **confirm `<video>`** — for the operator. Shows the summary and the checker's report, and sets
    `confirmed` only on an explicit yes for that video id.
+   Founder decision 2026-09-22: at the disagreement-pipeline gate the agent shows the full summary
+   in chat and, on the founder's explicit yes, runs `confirm --approved-in-chat`; outside that gate
+   confirm needs a terminal (no pipe or script).
 
 Plus **list** (rows and their status) and **demote `<video>`** (back to `draft`, for corrections and
 takedown requests; P1349's rule: "Corrected or removed promptly when the creator or a named person asks").
