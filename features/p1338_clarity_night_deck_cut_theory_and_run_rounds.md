@@ -45,7 +45,9 @@ few founder calls on content.
   attendees arrive having watched the ST1 video (the three meanings of "understand", the 0–10 question)
   and having already chosen opt-in or opt-out. The deck therefore only *reminds* people of that choice and
   invites changes; it doesn't teach it. Keep the cognitive-understanding slides that P1336's video
-  overlays, since the video reuses them.
+  overlays, since the video reuses them. **Roles slide wording changes (P1336):** the listener can
+  speak but may not disagree until they have *heard* the speaker's number and it is at least 8; if they
+  disagree without it, they are reminded to ask.
 - **Round slides with a visible countdown**, rotation instructions and the speaker/listener rule, matching
   the S/L lanyard cards.
 - **Topic swappable** — the topic, its statements and its slides sit in one place, so next week's deck

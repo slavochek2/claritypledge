@@ -70,15 +70,25 @@ Onboarding completion and survey answers are stored per person; the flow itself 
 ### Two parts: once per person, once per event
 
 1. **Universal onboarding, done once and remembered.** It is never asked again of someone who has
-   completed it. It works like a Clarity Letter built on **ST1**, the cognitive-understanding story:
-   - **Video** of the founder telling the ST1 story and the three meanings of "understand" (agreement,
-     emotional, cognitive), with the slides overlaid. Before playing, the viewer sees the main slide.
-   - **The point** (current ST1 point: *"you don't understand me" can mean three different requests*),
-     and the 0–10 question: *"how much do you understand my intended meaning?"*
-   - **The roles**: speaker and listener, with one worked example.
-   - **The opt-in choice**: opt in or out of the meeting principle. The commitment is only to answer
-     "how much do you understand my intended meaning, 0–10?" when asked. (The "below 8, don't push the
-     disagreement" rule is a separate suggestion the host makes in the room, and nobody is asked to accept it here.)
+   completed it. It is **letter-like**: the ST1 Clarity Letter, in order:
+   - **Why this evening exists** (the founder's intention): the few presi3 slides on why discussions
+     feel like a waste of time (monologues, disagreement that splits instead of teaching, rooms of people
+     who already agree) and "built by someone who paid for the lesson". Keep it to one screen.
+   - **ST1 story as a video**, embedded from YouTube, with the story's current image as the thumbnail.
+     Under it, the three meanings in one line each (founder-approved wording since 2026-02):
+     *Agreement: accept that I'm right. Emotional understanding: feel what I feel. Cognitive
+     understanding: reproduce my position accurately. I explain back, you rate it 0–10.*
+   - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
+     meaning of this story?"**
+   - **The Clarity Meeting Principle** (the thing opted into; a point, not a new story) + its own 0–10.
+   - **The roles, stated exactly:** the listener *can* speak (ask, explain back). The listener may not
+     **disagree** until they have **heard the speaker's number**, and that number is **at least 8**. A
+     listener who disagrees without having heard a number is reminded to ask for it. This replaces the
+     presi3 wording, where the number is not required to come first.
+   - **The opt-in choice**, which **unlocks only after both 0–10 answers**. Any number unlocks it; the
+     gate is answering, not scoring. The host sees both numbers per person, so a 3 followed by an opt-in
+     is visible. The commitment is only to answer "how much do you understand my intended meaning,
+     0–10?" when asked. (The below-8 rule for disagreement is how the rounds run; nobody opts into it.)
 2. **Per-event part, every event.** Positions on the current night's statements (the disagreement
    survey). The statements are written per event by a separate session and swapped each week; this spec
    only needs a slot for them. Also here: the optional **R&D recording volunteer** yes/no. Consent is per
@@ -96,12 +106,15 @@ of a skip decision for each step:
 - Forcing every step was rejected because people click through anyway, and it is a stack of decisions
   before the first version ships.
 
-### Reaching people who don't have time
+### Reaching people who don't have time, and getting them into the room
 
 - The **confirmation email** carries the onboarding link.
 - The **reminder** before the event links it again if onboarding or the survey is not done.
+- **Join email at start time**: "Clarity Night is starting, join here." One click signs them in and
+  opens the event room. The link works for about 3 hours. The host tells the room "open the email and
+  click join" instead of walking people through logging in.
 - **In the room**, the event page shows "Onboarding not done: do it now" at the top for anyone not
-  onboarded.
+  onboarded (the arrive step in P1337).
 
 ### The opt-in stays changeable
 
@@ -139,25 +152,27 @@ reading.
 - [ ] The confirmation email and the reminder carry the onboarding link, verified on event #2's list
 - [ ] A person not onboarded sees the onboarding prompt at the top of the event page in the room
 - [ ] An opt-in chosen at registration shows in the room and can be changed there
+- [ ] The opt-in choice is unavailable until both 0–10 answers are given
+- [ ] At start time every registrant gets a join email, and one click signs them into the event room; the link still works 2h later
 
 ## Open Questions
 
 1. Which of this belongs to P1055 (the opt-in point set)? Read it and amend it rather than build a
    second opt-in.
-2. Can the onboarding reuse the existing Clarity Letter flow (P581) with ST1, or does it need its own
-   page? Does it keep the letter's anti-point step? Recommended: reuse the letter and keep the anti-point
-   only if the letter flow already carries it for ST1.
-3. **Video source.** Candidates, founder speaking:
-   - **Zuzalu co-founder talk, June 2026** (`cofounder-clarity-talk-june-2026/`, 12:40–15:20): the ST1
-     story as told live (paraphrased back, "yes that's what I mean", then "I didn't feel understood"),
-     the three meanings, the 0–10 question and the ST1 point. Clean and uninterrupted, with slides
-     already extracted.
-   - **Clarity Night #1** main recording: 7:37–8:45 (three meanings), 19:38–20:58 (the principle,
-     0–10), 23:11–24:21 (opt-in vs opt-out). Interrupted by latecomers.
-   Recommended: Zuzalu 12:40–15:20 as the core, plus the Night #1 opt-in explanation if it survives the cut.
-4. **ST1 upgrade, not a fork.** ST1 is already the cognitive-understanding story, and its current point
-   is the three meanings. The video version is an upgraded telling of the same story. Update ST1 through
-   P784 instead of creating a separate onboarding story.
+2. Reuse the existing Clarity Letter flow (P581) with ST1, anti-point included, or build a page? Prefer
+   reuse; build only what the letter lacks (the intention screen, the principle 0–10, the opt-in).
+3. **Video:** produced in a separate session from the Zuzalu co-founder talk (June 2026), 12:40–15:20:
+   the ST1 story as told live, the short definitions, the 0–10 question. Uploaded to the ClarityPledge
+   YouTube channel, thumbnail = the ST1 story image, then embedded here and on the ST1 story. Consent held.
+4. **ST1 upgrade, not a fork.** The video becomes ST1's video, and the one-line definitions sit under it.
+   Record the change through P784.
+5. **Join link lifetime.** Supabase magic links expire according to the project's OTP setting, which is one
+   setting for all sign-ins. A ~3-hour link may need its own signed token instead of the shared setting.
+   Check before building.
+6. **/ready question.** The event room already asks the /ready question on arrival. Recommended: keep it
+   there (it asks about *right now*), with the wording taken from the event: "How up for thinking about
+   {topic} are you right now?" Filled in automatically for Clarity Nights. Not part of registration,
+   because a day-before answer does not measure the evening.
 
 ## Related
 
