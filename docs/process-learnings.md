@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 85
+**Next ID:** 89
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1659,5 +1659,49 @@ The next time /push carries a real migration, watch it and record the result in 
 - for a coupled migration (`-- requires-frontend:`), step 6 waits for the Vercel Production deploy before applying
 Also run one docs-only /push with SUPABASE_READONLY_TOKEN invalid, and confirm it passes with the skip warning.
 Not faked on 2026-09-21, because doing so means fabricating a prod migration.
+
+---
+
+## /live forgets a session's recording setting on reload, so a reloaded participant is never mic-gated
+
+**ID:** INBOX-85
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** week
+
+Found while writing P1344's E2E. `isPrivate` in `clarity-live-page.tsx` is local UI state that starts as `true` (P1307 D12) and is not restored from the session on reload. `gateMicAndGoLive` returns early on `isPrivate` (P160 Gate D), so a participant who reloads a **recorded** session goes straight back to live with no mic check. Measured 2026-09-22: joiner reload with getUserMedia denied → back in the live view, no dialog. **Unverified:** whether recording also fails to resume after that reload (the P511 comment at the rejoin path says `gateMicAndGoLive` is what re-acquires the stream). Done when a reload restores the session's real privacy setting and a recorded session re-runs the mic gate, with an E2E; droppable if recording moves off this component.
+
+---
+
+## e2e/p1149-consent-gate.spec.ts "declining leaves the room" times out on a click
+
+**ID:** INBOX-86
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** month
+
+`e2e/p1149-consent-gate.spec.ts:52` fails with `locator.click: Test timeout of 30000ms exceeded`. Reproduced identically with and without P1345's helper change on 2026-09-22, so it is pre-existing. Done when the test passes or is rewritten against the current consent UI.
+
+---
+
+## The "joiner cancels mic dialog" E2E can pass without ever seeing the dialog
+
+**ID:** INBOX-87
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** month
+
+`e2e/live-meeting-mic-permission.spec.ts` "joiner who cancels mic dialog should return to start view" clicks Cancel only `if (await cancelButton.isVisible())` after a fixed 2s wait, and its context uses `permissions: []` without the getUserMedia mock its sibling test needs. So it passes whether or not the dialog appears. Done when it asserts the dialog is visible before cancelling (the `installSwitchableMic` helper in `e2e/p1344-live-mic-cancel.spec.ts` is the pattern).
+
+---
+
+## Observe P1346 on the first worktree commit that stages git-ops.sh after it ships
+
+**ID:** INBOX-88
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** week
+
+P1346's last criterion cannot be observed before merge: the pre-commit hook always runs MAIN's pre-commit-checks.sh and run-quiet.sh. After /ship p1346, make one commit from a linked worktree that stages scripts/git-ops.sh (e.g. the P1342 ship itself, if it lands after) and confirm it completes and 'git config core.bare' on the main checkout still prints false. Record the result in P1346's done spec. Droppable once observed.
 
 ---
