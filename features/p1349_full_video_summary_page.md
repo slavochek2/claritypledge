@@ -75,3 +75,27 @@ can be unpublished. Decision density: a few (below).
 ## Open Questions
 
 1. Where is the "read-first" project and what does its summary format look like? Reuse it.
+
+## Resolved Decisions
+
+**Falsify review 2026-09-22: BLOCKED before build.** Reports: 2 of 2 (Opus reviewer + Codex). Both
+returned BLOCK, and they agreed. Load-bearing claims re-checked by command:
+
+1. **No per-video identity.** No `videos`/`sources` table in `supabase/migrations/`. The only identity is
+   `stories.video_url`, with the key normalised client-side in `src/lib/group-by-source.ts`. Needs a
+   source entity (provider + video id, unique) that owns the summary, its provenance and its status.
+2. **"Once under the player" isn't true everywhere.** `point-detail-page.tsx` has 0 `groupBySource`
+   calls, and grouping needs ≥2 stories (`group-by-source.ts:58`). Point pages and single cards get
+   one player per story, so the link would repeat. Depends on P1280 or on enumerating each surface.
+3. **Link only when a summary exists.** Otherwise it's a dead link on every un-summarised video.
+4. **Person-safety doesn't inherit from story-draft.** PS-1 forbids naming a position, but a digest
+   organised by positions does exactly that. A multi-speaker summary needs its own rules:
+   per-speaker attribution, a label saying the summary is generated, a way to correct or retract,
+   and no positions that aren't in the transcript.
+5. **The AC checks timestamps on one video and nothing about attribution or fidelity.** It contradicts
+   the invariant.
+6. **Embeds:** the link must open top-level or in a new tab. Inside an iframe, "back" can't work.
+7. **Need is unproven now that P1348 has shipped.** Always-visible timestamped quotes may already answer "is this slice fair?".
+8. **Copyright is a pre-publish gate, not a DEFER.**
+
+Next: founder decides whether to proceed. If yes, rewrite the Solution around a source entity before `/architect`.
