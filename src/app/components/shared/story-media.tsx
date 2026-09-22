@@ -1,4 +1,6 @@
 import { forwardRef } from 'react';
+import { Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 import { parseVideoUrl } from '@/lib/video';
 import { StoryImage } from './story-image';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from './story-video-player';
@@ -30,6 +32,24 @@ interface StoryMediaProps {
  * the code path it renders through today, so "renders exactly as it does today"
  * is satisfied by construction rather than by matching behaviour.
  */
+/**
+ * P1349 PROTOTYPE — DEV-only. With `?p1349` in the URL, every video (player or thumbnail) gets a
+ * one-line "Full video summary" link directly under it, so the placement can be judged on the
+ * real feed, groups, profile, point and story surfaces. Off in prod by construction.
+ */
+function p1349SummaryLink(videoId: string) {
+  if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has('p1349')) return null;
+  return (
+    <Link
+      to={`/tree/video-summary/page?v=${videoId}`}
+      onClick={(e) => e.stopPropagation()}
+      className="mt-1 mb-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+    >
+      <FileText className="h-3.5 w-3.5" /> Full video summary
+    </Link>
+  );
+}
+
 export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
   function StoryMedia(
     { videoUrl, durationSeconds, mode = 'thumbnail', storyHref, onBlockedChange, className, imageProps },
@@ -42,25 +62,33 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
       return imageProps ? <StoryImage {...imageProps} /> : null;
     }
 
+    const summaryLink = p1349SummaryLink(video.videoId);
+
     if (mode === 'player') {
       return (
+        <>
         <StoryVideoPlayer
           ref={ref}
           videoUrl={videoUrl as string}
           durationSeconds={durationSeconds}
           onBlockedChange={onBlockedChange}
-          className={className}
+          className={summaryLink ? '' : className}
         />
+        {summaryLink}
+        </>
       );
     }
 
     return (
+      <>
       <VideoThumbnailCard
         videoUrl={videoUrl as string}
         href={storyHref}
         durationSeconds={durationSeconds}
-        className={className}
+        className={summaryLink ? '' : className}
       />
+      {summaryLink}
+      </>
     );
   }
 );
