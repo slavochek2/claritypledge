@@ -16,6 +16,13 @@
 # Ledger stubbed via CHECK_SCHEMA_READY_STUB_LEDGER. No network.
 
 set -u
+# Drop the hook's repo-scoping env FIRST (P1346). Run from a linked worktree's pre-commit,
+# GIT_DIR=<repo>/.git/worktrees/wN made the `git init` below re-initialise the real repo
+# (core.bare=true on the shared config) and the fixture's `git commit` fired the real hook
+# again, recursively (2026-09-22). run_quiet now scrubs this too; this keeps a direct or
+# older-wrapper run safe.
+for _v in $(git rev-parse --local-env-vars 2>/dev/null); do unset "$_v"; done
+unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE _v
 
 REPO_ROOT_REAL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GITOPS="$REPO_ROOT_REAL/scripts/git-ops.sh"

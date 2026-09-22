@@ -353,7 +353,7 @@ fi
 # six new subcommands (gc, abandon, reconcile, commit-to-main, switch-safe, sync)
 # still hold invariants A-J: includes the concurrent commit-to-main serialization
 # regression test and shell-safety check on new subcommand outputs.
-GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|lib/ship-reap)\.sh$' || true)
+GIT_OPS_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(git-ops|test-git-ops-extensions|test-git-ops-ship|test-p924-sigterm-orphan-reap|test-p972-resume-cherry-pick-head|test-p1279-commit-to-main-index-race|lib/ship-reap)\.sh$' || true)
 if [ -n "$GIT_OPS_STAGED" ]; then
     if ! run_quiet "git-ops.sh extensions canary (P787)" bash scripts/test-git-ops-extensions.sh; then
         ERRORS=$((ERRORS + 1))
@@ -379,6 +379,13 @@ if [ -n "$GIT_OPS_STAGED" ]; then
         if ! run_quiet "git-ops.sh ship resume-continue canary (P972)" bash scripts/test-p972-resume-cherry-pick-head.sh; then
             ERRORS=$((ERRORS + 1))
         fi
+    fi
+    # P1279/P1342 — commit-to-main must exit non-zero (3) when the commit records files other
+    # than the ones requested. This canary existed but was never wired here, so a whole-file
+    # overwrite of git-ops.sh from a pre-P1279 branch (4179d97fb, P1268) deleted the fix and
+    # nothing refused the commit. It fails 5/7 against that stale copy.
+    if ! run_quiet "git-ops.sh commit-to-main recorded-set canary (P1279)" bash scripts/test-p1279-commit-to-main-index-race.sh; then
+        ERRORS=$((ERRORS + 1))
     fi
     # P1260 — the gc merged-ness oracle decides whether a branch may be deleted, so a wrong
     # MERGED destroys work. Runs the revert trap in BOTH directions against this repo's real
