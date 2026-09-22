@@ -8,7 +8,8 @@
  * zone is the one that matters (spec Risks: ACCEPT).
  *
  * Fail quiet: any error resolves to "no event", so the header still renders normally.
- * One query per signed-in user per page load of the app, memoised at module scope.
+ * Memoised at module scope for CACHE_TTL_MS, so every header on a page shares one query, but a
+ * long-lived tab still picks up a new day or a fresh RSVP (review finding, Gemini 3.8).
  */
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth';
@@ -50,7 +51,8 @@ export function pickTonightsEvent(events: CandidateEvent[], now: Date): Tonights
   return today[0] ? { slug: today[0].slug, title: today[0].title } : null;
 }
 
-const cache = new Map<string, Promise<TonightsEvent | null>>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cache = new Map<string, { at: number; promise: Promise<TonightsEvent | null> }>();
 
 export function __resetTonightsEventCacheForTest(): void {
   cache.clear();
@@ -84,12 +86,12 @@ export function useTonightsEvent(): TonightsEvent | null {
       return;
     }
     let active = true;
-    let pending = cache.get(userId);
-    if (!pending) {
-      pending = fetchTonightsEvent(userId).catch(() => null);
-      cache.set(userId, pending);
+    let entry = cache.get(userId);
+    if (!entry || Date.now() - entry.at > CACHE_TTL_MS) {
+      entry = { at: Date.now(), promise: fetchTonightsEvent(userId).catch(() => null) };
+      cache.set(userId, entry);
     }
-    pending.then(e => { if (active) setEvent(e); });
+    entry.promise.then(e => { if (active) setEvent(e); });
     return () => { active = false; };
   }, [userId]);
 

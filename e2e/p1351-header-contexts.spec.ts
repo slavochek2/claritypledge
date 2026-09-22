@@ -29,7 +29,19 @@ async function setViewport(page: Page, width: number, height: number) {
   expect(await page.evaluate(() => window.innerWidth), `resize to ${width} did not take`).toBe(width);
 }
 
+/** Wait out the app splash and data loads so checks and screenshots see the settled page. */
+async function settle(page: Page, signedIn: boolean) {
+  await page.waitForLoadState('networkidle');
+  if (signedIn) {
+    // The avatar renders only once the profile resolves (the logged-out hamburger shares its name).
+    await expect(page.locator('nav[data-nav="main"] [data-testid="gravatar-avatar-wrapper"]').filter({ visible: true }).first())
+      .toBeVisible({ timeout: 20_000 });
+  }
+  await page.waitForTimeout(400);
+}
+
 async function checkHeader(page: Page, ctx: string, w: (typeof WIDTHS)[number], expectTools: boolean, expectTonight: boolean) {
+  await settle(page, ctx.startsWith('loggedin'));
   const nav = page.locator('nav[data-nav="main"]');
   const label = `${ctx} @ ${w.name}`;
   await expect(nav.getByText('Start a Clarity Session'), `${label}: no session button`).toHaveCount(0);
@@ -63,6 +75,21 @@ async function checkHeader(page: Page, ctx: string, w: (typeof WIDTHS)[number], 
   for (const b of boxes) {
     expect(b.x, `${label}: "${b.t}" starts on screen`).toBeGreaterThanOrEqual(0);
     expect(b.x + b.w, `${label}: "${b.t}" ends on screen`).toBeLessThanOrEqual(w.width + 0.5);
+  }
+  // No two header controls overlap (visual QA caught "Tonight's event" over the logo at 375;
+  // the on-screen check above passed it). Nested controls share a box and are skipped.
+  const inside = (p: typeof boxes[number], q: typeof boxes[number]) =>
+    p.x <= q.x && p.y <= q.y && p.x + p.w >= q.x + q.w && p.y + p.h >= q.y + q.h;
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i]!; const b = boxes[j]!;
+    if (inside(a, b) || inside(b, a)) continue;
+    // Collision = overlapping OR closer than a 4px gap on the same row. Strict overlap alone was
+    // blind: at 375 the full label left the button touching the logo (logo box ends at x=40, button
+    // starts at x=40), which reads as the logo being covered, and a pure-overlap test passed it.
+    const GAP = 4;
+    const sameRow = a.y < b.y + b.h && b.y < a.y + a.h;
+    const collide = sameRow && a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP;
+    expect(collide, `${label}: "${a.t}" collides with "${b.t}" (under ${GAP}px apart)`).toBe(false);
   }
 
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${ctx}-${w.name}.png` });
@@ -146,7 +173,10 @@ test.describe('P1351 — signed in, no event', () => {
       }
     }
     await page.goto('/pricing');
+    await settle(page, true);
     await page.getByTestId('event-links-button').filter({ visible: true }).click();
+    await expect(page.getByTestId('event-links-entry').first()).toBeVisible();
+    await page.waitForTimeout(600); // dropdown fade-in — screenshot only
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/loggedin-tools-open-desktop.png` });
     await expect(page.getByTestId('event-links-entry').first()).toHaveText('Transcribe');
     await page.getByTestId('event-links-entry').filter({ hasText: 'Start a Clarity Session' }).click();

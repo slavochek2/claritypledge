@@ -59,9 +59,16 @@ function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
       onClick={() => analytics.track("nav_cta_clicked", { cta: "tonights_event", device })}
     >
       <CalendarCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className={device === "mobile" ? "sr-only min-[360px]:not-sr-only min-[360px]:whitespace-nowrap" : undefined}>
-        Tonight&apos;s event
-      </span>
+      {device === "mobile" ? (
+        // Phones: "Tonight" from 360px (the full label overlapped the logo at 360-375, visual QA),
+        // icon-only below. The full name stays the accessible name either way.
+        <>
+          <span className="hidden min-[360px]:inline whitespace-nowrap" aria-hidden="true">Tonight</span>
+          <span className="sr-only">Tonight&apos;s event</span>
+        </>
+      ) : (
+        <span>Tonight&apos;s event</span>
+      )}
     </Link>
   );
 }

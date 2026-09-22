@@ -529,7 +529,10 @@ export function EventLinksMenu({
             no height token of its own, which the P1179 design-system suite asserts by
             scanning it, and a fix should meet that standard rather than relax it. */}
         <DrawerContent data-testid="event-links-menu" data-shape="sheet" className="event-links-sheet px-4 pb-6">
-          <DrawerTitle className="px-0 pt-4 pb-2 text-base font-semibold">Tools</DrawerTitle>
+          {/* P1351: sr-only — a visible "Tools" title sat directly above the selected "Tools" tab (visual QA). */}
+          <DrawerTitle className="sr-only">Tools</DrawerTitle>
+          {/* Keeps the space the visible title used to take, so the grab handle clears the tabs. */}
+          <div aria-hidden="true" className="h-4 shrink-0" />
           <DrawerDescription className="sr-only">
             {eventSlug
               ? 'Destinations for this event. The list does not change during the event.'
