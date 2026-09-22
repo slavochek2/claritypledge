@@ -100,6 +100,6 @@ renders as today). Decision density: low; the founder decided the direction abov
 
 ## Related
 
-- [p1353](p1353_event_banner_crops_wide_images_on_desktop.md): banner height follows width; founder rejected on 2026-09-22 (this spec replaces its goal for phones).
+- [p1353](archive/p1353_event_banner_crops_wide_images_on_desktop.md): banner height follows width; founder rejected on 2026-09-22 (this spec replaces its goal for phones).
 - [p489](done/22_mar_26/p489_ai_generated_event_banners.md): AI-generated event banners.
 - [p1352](p1352_event_description_images_from_own_storage.md): description images from our own storage (same storage rule).

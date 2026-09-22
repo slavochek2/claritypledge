@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: bug
 rank: 11
 severity: medium
@@ -60,3 +60,12 @@ Give the event page banner a height that scales with width (an image-like aspect
 - [ ] At 375 and 320px wide, the banner still shows the whole image and does not dominate the screen.
 - [ ] Profile page banners are unchanged.
 - [ ] Regression test passes: `e2e/p1353-*.spec.ts` asserts the banner's height/width ratio stays within the image-like range at a wide width.
+
+## Rejected 2026-09-22
+
+Founder, on seeing the height-follows-width banner: *"also the banner he put is too height! i dont thik
+we should paly with hight"*, *"otherwise the evnet description not visible"*. The banner height stays
+fixed (192px / 256px). The cropping it targeted is solved by drawing banners for the fixed slot (the
+Clarity Night #2 banner, redrawn 2026-09-22, verified at 320 to 1920px), and phones get their own image
+in [P1354](../p1354_event_phone_banner.md). The implementation commit stays on branch
+`feature/p1353-event-banner-crop` (1f1ab212a), unmerged.
