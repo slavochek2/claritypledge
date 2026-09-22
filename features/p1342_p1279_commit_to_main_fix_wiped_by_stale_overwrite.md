@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 10
 severity: high
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [git-ops, regression, commit-to-main, canary]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1342: P1279's commit-to-main fix was wiped by a stale whole-file overwrite, and its canary is not wired to catch it
@@ -79,8 +79,18 @@ P1268 change. Wire `test-p1279-commit-to-main-index-race.sh` into the §4.7 bloc
 
 ## Acceptance Criteria
 
-- [ ] `bash scripts/test-p1279-commit-to-main-index-race.sh` → 7 passed, 0 failed.
-- [ ] Control: the same canary against `git show 4179d97fb:scripts/git-ops.sh` → fails `race` and `rc3`.
-- [ ] The P1268 canary (`scripts/test-git-ops-adopt.sh`) and the P787/P788 git-ops canaries still pass.
-- [ ] `pre-commit-checks.sh` runs the P1279 canary when `scripts/git-ops.sh` is staged — shown by a
-      staged pre-P1279 copy being refused.
+- [x] `bash scripts/test-p1279-commit-to-main-index-race.sh` → 7 passed, 0 failed. — branch run 2026-09-22: "P1279 canary: 7 passed, 0 failed" (main: 5/2).
+- [x] Control: the same canary against `git show 4179d97fb:scripts/git-ops.sh` → fails `race` and `rc3`. — `P1279_GIT_OPS_SRC=<that copy>`: "5 passed, 2 failed", both named.
+- [x] The P1268 canary (`scripts/test-git-ops-adopt.sh`) and the P787/P788 git-ops canaries still pass. — adopt 42/0; extensions and ship canaries exit 0.
+- [x] `pre-commit-checks.sh` runs the P1279 canary when `scripts/git-ops.sh` is staged — shown by a staged pre-P1279 copy being refused. — running the branch's `pre-commit-checks.sh` with the 4179d97fb copy staged: exit 1, "commit-to-main recorded-set canary (P1279)… ✗, 5 passed, 2 failed".
+
+## Known limits (review findings, recorded rather than fixed here)
+
+- The canary tests the WORKING-TREE `git-ops.sh`, not the staged blob, so a stale copy staged
+  over a fixed working tree would pass (Codex review). This is true of every pre-commit canary in
+  this repo, not specific to P1279; the AC above was proven with both copies stale.
+- The hook always runs MAIN's `pre-commit-checks.sh`, so this wiring protects worktree commits
+  only once shipped.
+- Also on this branch: `test-p1211-git-ops-schema-gate.sh` scrubs the git env at its top. Its first
+  run from this worktree's pre-commit set `core.bare=true` on the shared repo and recursed (P1346).
+  Decoy proof: the old copy flips `core.bare`, the new one does not (22/0).
