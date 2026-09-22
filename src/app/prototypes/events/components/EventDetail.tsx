@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { renderEventDescription } from '@/lib/markdown';
 import { shareOrCopy } from '@/lib/utils';
@@ -221,6 +221,12 @@ export function EventDetail() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams, isLoggedIn]);
+
+  // P1352: parse the description once per change, not on every unrelated re-render.
+  const descriptionHtml = useMemo(
+    () => (event ? renderEventDescription(event.description) : ''),
+    [event?.description],
+  );
 
   // Loading state
   if (loading) {
@@ -786,7 +792,7 @@ export function EventDetail() {
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               <div
                 className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
-                dangerouslySetInnerHTML={{ __html: renderEventDescription(event.description) }}
+                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
               />
 
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}

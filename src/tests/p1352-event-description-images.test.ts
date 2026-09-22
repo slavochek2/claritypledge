@@ -68,3 +68,20 @@ describe('P1352 — surfaces that must NOT change', () => {
     expect(renderMarkdownSafe(`![x](${OURS}a.png)`)).not.toMatch(/<img/i);
   });
 });
+
+describe('P1352 — prefix boundary is a path segment, not a substring', () => {
+  it('a prefix written without its trailing slash does not admit a sibling path', () => {
+    const noSlash = 'https://project.supabase.co/storage/v1/object/public';
+    const html = renderEventDescription(
+      '![x](https://project.supabase.co/storage/v1/object/publicity/evil.png)',
+      [noSlash],
+    );
+    expect(html).not.toMatch(/<img/i);
+  });
+
+  it('the same prefix without a trailing slash still admits real storage objects', () => {
+    const noSlash = 'https://project.supabase.co/storage/v1/object/public';
+    const html = renderEventDescription(`![x](${noSlash}/event-banners/a.png)`, [noSlash]);
+    expect(html).toMatch(/<img/);
+  });
+});

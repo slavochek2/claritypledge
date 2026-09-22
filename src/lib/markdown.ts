@@ -183,10 +183,13 @@ function isAllowedImageSrc(src: string, allowedPrefixes: readonly string[]): boo
   return allowedPrefixes.some((prefix) => {
     try {
       const allowed = new URL(prefix);
+      // Compare whole path segments: a prefix given without its trailing slash must not
+      // admit a sibling ('/public' must not match '/publicity/...').
+      const base = allowed.pathname.endsWith('/') ? allowed.pathname : `${allowed.pathname}/`;
       return (
         allowed.protocol === 'https:' &&
         url.origin === allowed.origin &&
-        url.pathname.startsWith(allowed.pathname)
+        url.pathname.startsWith(base)
       );
     } catch {
       return false;
