@@ -543,7 +543,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 )}
                 {/* P1351: the session button is gone from the header (it lives in Tools). The only
                     blue button a signed-in person sees here is their event, on its day. */}
-                {!compact && <TonightsEventCta device="desktop" />}
+                {/* P1351: not on pricing — a second blue beside the paid offer is the P1087 competition. */}
+                {!compact && !isPricingPage && <TonightsEventCta device="desktop" />}
                 {/* P1179: Links — sibling of the avatar, same slot at every width.
                     Desktop gets the anchored dropdown, matching "Use cases"; the
                     bottom sheet is the phone-in-a-room shape and stays below `lg`. */}
@@ -653,7 +654,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
           ) : (
             <div className="lg:hidden flex items-center gap-2">
               {/* P1351: no session CTA; the event-day primary only. */}
-              {showUserMenu && !compact && <TonightsEventCta device="mobile" />}
+              {showUserMenu && !compact && !isPricingPage && <TonightsEventCta device="mobile" />}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}
               <EventLinksButton />
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
@@ -714,7 +715,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
               {/* P1351: signed-in users get no session entry here (Tools is in the header row). */}
               {!compact && !showUserMenu && !hideMarketingCta && (
                 <>
-                    /* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */
+                  {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                     <LoggedOutPrimaryCta device="mobile" sizeClass="h-11 w-full" onNavigate={closeMobileMenu} />
                   <div className="border-t border-border my-2"></div>
                 </>

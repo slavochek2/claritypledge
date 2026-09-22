@@ -133,7 +133,8 @@ test.describe('P1351 — header primary action across contexts', () => {
       await expect(page.getByRole('button', { name: /open menu|menu/i }).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
       await checkHeader(page, 'loggedin-event-feed', w, true, true);
       await page.goto('/pricing');
-      await checkHeader(page, 'loggedin-event-pricing', w, true, true);
+      // Not on pricing: the page's own paid offer is the only blue primary there (P1087).
+      await checkHeader(page, 'loggedin-event-pricing', w, true, false);
       await page.goto(`/events/${event.slug}`);
       await checkHeader(page, 'loggedin-event-detail', w, true, false);
       await page.goto(`/events/${event.slug}/room`);

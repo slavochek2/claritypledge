@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 6
 workstream: events
@@ -10,10 +10,11 @@ tags:
   - links-menu
   - events
 disclosure: public
-delivery_stage: challenge-prd
+delivery_stage: dev
 pipeline_ran:
   - create-spec
   - challenge-prd
+  - dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -100,15 +101,15 @@ One rule decides the header's right-hand side:
 
 ## Acceptance Criteria
 
-- [ ] Signed in, no event today: the header shows no blue "Start a Clarity Session" button on any page, and a labeled "Tools" button is visible.
-- [ ] Opening Tools shows the tabs in the order Tools, Points, Letters, with Tools selected. Tools lists Transcribe, Start a Clarity Session, Slides and Chiang Mai events.
-- [ ] "Chiang Mai events" opens `/cm` in a new tab.
-- [ ] Signed in on a public page (for example `/pricing`), the Tools button is present and reaches `/live`.
-- [ ] Signed in with an RSVP for an event today: a blue "Tonight's event" button leads to that event. On that event's own page it is not shown.
-- [ ] Logged out: public pages look as before. On product pages, the trigger reads "Tools".
-- [ ] Event detail and pricing pages show at most one blue primary button.
-- [ ] Screenshots at 320px, 375px and desktop for: logged out public, logged out product, logged in, logged in with an event today, event detail, and an event room. None show overflow or clipping, and each resize is confirmed.
-- [ ] Visual and code critique from independent reviewers (Codex, Gemini, a separate Opus) is recorded, and every finding is either fixed or answered.
+- [x] Signed in, no event today: the header shows no blue "Start a Clarity Session" button on any page, and a labeled "Tools" button is visible.
+- [x] Opening Tools shows the tabs in the order Tools, Points, Letters, with Tools selected. Tools lists Transcribe, Start a Clarity Session, Slides and Chiang Mai events.
+- [x] "Chiang Mai events" opens `/cm` in a new tab.
+- [x] Signed in on a public page (for example `/pricing`), the Tools button is present and reaches `/live`.
+- [x] Signed in with an RSVP for an event today: a blue "Tonight's event" button leads to that event. On that event's own page it is not shown. (Also hidden on the pricing pages and on compact focus pages — see Review Resolutions 3 and 6.)
+- [x] Logged out: public pages look as before. On product pages, the trigger reads "Tools".
+- [x] Event detail and pricing pages show at most one blue primary button.
+- [x] Screenshots at 320px, 375px and desktop for: logged out public, logged out product, logged in, logged in with an event today, event detail, and an event room. None show overflow or clipping, and each resize is confirmed.
+- [x] Visual and code critique from independent reviewers (Codex, Gemini, a separate Opus) is recorded, and every finding is either fixed or answered.
 
 ## Challenge Resolutions
 
@@ -119,6 +120,30 @@ One rule decides the header's right-hand side:
 | 3 | /challenge-prd | [WARN] Cancelled events would trigger "Tonight's event" | Exclude `cancelled` | A button leading to a cancelled event is worse than no button |
 | 4 | /challenge-prd | [WARN] `/cm` is Chiang Mai-specific and chrome-free | Label "Chiang Mai events", new tab | Honest label; no stranding |
 | 5 | /challenge-prd | [WARN] Existing tests pin old behaviour | Rewrite to the invariant they protected | Intended reversal, recorded here |
+
+## Evidence
+
+- Unit: full suite 409 files, 4477 passed, 19 skipped, 0 failed. P1351-specific: `src/tests/p1351-tonights-event.test.ts` (event-day selection, cancelled, timezone), `src/tests/p1087-nav-groups.test.tsx` (no session button on any signed-in page; Tools reaches `/live` on `/pricing`; Tonight's event shown / hidden on own event pages and pricing / absent logged out; no leaked comment text), `src/tests/p1179-links-menu.test.tsx` (Tools first and default, both variants; Chiang Mai events `/cm` new tab), `src/tests/p818-reproduce.test.tsx` (Tools → Start a Clarity Session on `/live` reloads; control elsewhere does not).
+- E2E: `e2e/p1351-header-contexts.spec.ts` — 3/3 pass. It covers logged out public and product, signed in on feed, pricing and groups, and signed in on an event day on feed, pricing, event detail and event room. Each is checked at 320, 360, 375 and 1280 with the resize confirmed, and each asserts no session button, Tools labeled and at least 44px, Tonight's event presence, at most one blue button in the header, all controls on screen, and no two controls closer than 4px. Control: with the old full label on phones it fails at 360 ("ClarityPledge" collides with "Tonight's event"), and the fixed version passes.
+- Pre-existing e2e failures, confirmed on `main` with the same failures: `p844-verify` UAT-1 and UAT-2 ("Reserve a seat" missing), and the `p1323-links-menu-surfaces` capture tests (test-user cleanup blocked by a `clarity_sessions` foreign key). Flaky: the `p1179-links-navigation` bare `/stake` check failed once under parallel load and passed 5/5 alone.
+
+## Review Resolutions
+
+Three independent reviewers, and all three reported: Codex `gpt-5.6-sol` at high effort (code), Gemini `gemini-3.8-flash` (code; the tool is text-only, so it could not review screenshots), and a separate Opus agent (visual, screenshots only).
+
+| # | Reviewer | Finding | Verdict | Resolution |
+|---|----------|---------|---------|-----------|
+| 1 | Gemini | [HIGH] Embedded filter `event.datetime` always fails | **False** — e2e shows the button for a real RSVP; Codex confirmed the alias filter is correct | No change |
+| 2 | Gemini + Codex | [MED] Tonight's-event cache never expires | Real | 5-minute cache lifetime |
+| 3 | Opus visual | [HIGH] Tonight's event touches or overlaps the logo at 360–375 | Real | Phones show "Tonight", icon-only below 360; e2e gap check added and control-tested |
+| 4 | Opus visual | [HIGH/MED] Many screenshots were splash or loading frames | Real (test defect) | e2e waits for the signed-in avatar and network idle before checks and shots |
+| 5 | Opus visual | [LOW] Sheet title repeats the selected "Tools" tab | Real | Title is sr-only; spacing kept |
+| 6 | Opus visual | [LOW] Two blue buttons on the page (header + page primary) | Real on pricing | Tonight's event is hidden on the pricing pages (P1087). On feed, "Share a Story" stays: the rule is one primary per header |
+| 7 | Codex | [LOW] A code comment rendered as text in the logged-out phone menu | Real, introduced by this branch | Fixed; regression test fails on the bug and passes on the fix |
+| 8 | Codex | [MED] Unverified signed-in users get no Tools on public pages | Pre-existing: the old session button had the same `showUserMenu` gate | Not changed here |
+| 9 | Codex | [MED] `/intro` (logo-only header) has no Tools | Pre-existing: the logo-only header never had the session button | Not changed here |
+| 10 | Codex | [MED] Compact pages (e.g. `/stake`) hide Tonight's event | Deliberate: compact pages are focus surfaces, and on an event day they are usually the event itself | Recorded in the Acceptance Criteria |
+| 11 | Gemini | [MED] Same-path reload misses `/live?…` | **False** — the check compares only the path, which ignores query strings | No change |
 
 ## Open Questions
 

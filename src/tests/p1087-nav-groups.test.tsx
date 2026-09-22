@@ -127,6 +127,17 @@ describe('P1087 — nav CTA suppression is scoped to the MARKETING cta, not the 
   });
 });
 
+describe('P1351 — the logged-out phone menu renders no source comment as text', () => {
+  it('opening the hamburger shows no literal /* ... */ text (Codex review finding)', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    await renderNav('/coach');
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    const panel = document.getElementById('mobile-navigation-menu');
+    expect(panel).not.toBeNull();
+    expect(panel!.textContent).not.toMatch(/\/\*|\*\//);
+  });
+});
+
 describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day', () => {
   beforeEach(() => { tonight.current = null; });
 
@@ -140,7 +151,7 @@ describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day'
 
   it('is hidden on that event\'s own pages (one primary per view)', async () => {
     tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
-    for (const route of ['/events/night-2', '/events/night-2/room']) {
+    for (const route of ['/events/night-2', '/events/night-2/room', '/pricing']) {
       const { unmount } = await renderNav(route, { loggedIn: true });
       expect(screen.queryAllByTestId('tonights-event-cta'), route).toHaveLength(0);
       unmount();
