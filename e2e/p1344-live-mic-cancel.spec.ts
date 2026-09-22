@@ -112,6 +112,12 @@ test.describe('P1344: mic-dialog Cancel with a session held', () => {
       const stored = await page.evaluate(() => window.sessionStorage.getItem('clarity_live_session_code'));
       expect(stored, 'no stored session after cancelling the mic dialog').toBeNull();
 
+      // The session is ended server-side too, so a joiner who raced in is told (sessionEnded).
+      await expect.poll(async () => {
+        const { data } = await supabaseAdmin.from('clarity_sessions').select('live_state').eq('code', code!).maybeSingle();
+        return (data?.live_state as Record<string, unknown> | null)?.sessionEnded === true;
+      }, { timeout: 10000 }).toBe(true);
+
       // The decisive check: before the fix the session survived in state and storage, so a
       // reload put the host straight back into the waiting room.
       await page.reload();

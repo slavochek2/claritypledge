@@ -3877,6 +3877,13 @@ export function ClarityLivePage() {
     }
     const partnerPresent = !isCreator || hasJoinerRef.current || !!session.joinerName;
     if (!partnerPresent) {
+      // Also END the session server-side: hasJoinerRef / session.joinerName lag the DB, so a
+      // joiner may have written joiner_name a moment ago. sessionEnded is what their
+      // subscription reads, and later joins hit joinClaritySession's ended-session guard
+      // (P921). The waiting-room Cancel alone never writes it (review finding).
+      void completeClaritySessionKeepalive(session.id, accessTokenRef.current).catch((err) => {
+        console.error('[P1344] sessionEnded write failed on mic cancel:', err);
+      });
       void handleCancelWaitingRef.current();
       return;
     }
