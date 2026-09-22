@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 89
+**Next ID:** 91
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1669,5 +1669,27 @@ Found while writing P1344's E2E. `isPrivate` in `clarity-live-page.tsx` is local
 **due:** week
 
 P1346's last criterion cannot be observed before merge: the pre-commit hook always runs MAIN's pre-commit-checks.sh and run-quiet.sh. After /ship p1346, make one commit from a linked worktree that stages scripts/git-ops.sh (e.g. the P1342 ship itself, if it lands after) and confirm it completes and 'git config core.bare' on the main checkout still prints false. Record the result in P1346's done spec. Droppable once observed.
+
+---
+
+## Stop deploy-manifest.json conflicting on every /ship of a branch with migrations
+
+**ID:** INBOX-89
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** week
+
+The worktree migration procedure (apply via main's migrate.sh, commit main's manifest with commit-to-main, and also copy it into the worktree) puts the manifest on both main and the feature branch, so /ship's cherry-pick conflicts on it for every commit that touched it — 3 of 5 commits on P1349 (2026-09-22), each resolved by hand with main's copy. Done when a branch with migrations ships with zero manifest conflicts: either the worktree copy is never committed, or git-ops.sh ship auto-resolves the manifest to main's version.
+
+---
+
+## Fix p887-reproduce.test.ts failing whenever scripts/lib/__pycache__ exists
+
+**ID:** INBOX-90
+**Date:** 2026-09-22
+**Status:** proposed
+**due:** week
+
+src/tests/p887-reproduce.test.ts copies scripts/lib/ file by file and fails with ENOTSUP on any subdirectory; the keyring Python helper creates scripts/lib/__pycache__ (gitignored), so the test — and the pre-commit hook on main — fails for every session after any keyring use. Blocked the P1349 ship on 2026-09-22 until the cache folder was deleted. Done when the copy skips directories (or copies recursively) and the test passes with a __pycache__ folder present.
 
 ---
