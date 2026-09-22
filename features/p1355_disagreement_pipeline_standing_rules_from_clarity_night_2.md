@@ -328,7 +328,8 @@ the room's-own-lives framing, lived-experience voices, room constraints and the 
       #2 question, not this spec's): the opening is three sentences, not one.*
 - [x] Skills re-synced (`scripts/sync-agent-skills.sh`) and its check passes
       — *Evidence: `--check: OK — 127 skills in sync, 0 collisions, 0 drift`.*
-- [ ] decisions.md records the partial overturning of the 2026-08-25 and 2026-08-27 rulings (via `/kdd`)
+- [x] decisions.md records the partial overturning of the 2026-08-25 and 2026-08-27 rulings (via `/kdd`)
+      — *Evidence: `docs/decisions.md` 2026-09-22 [process], "Videos are screened before Gate 1, in two tracks", and 2026-09-22 [technical], "Standing rules live in one JSON the gates read".*
 
 ### Replay output (2026-09-22, `src/tests/p1210-p1355-standing-rules.test.ts`)
 

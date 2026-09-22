@@ -6,6 +6,39 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [process]: Videos are screened before Gate 1, in two tracks — partly overturns 2026-08-25 and 2026-08-27 (P1355)
+
+**Context:** On Clarity Night #2 the founder could not judge proposed people without their videos (*"open all options in youtube"*, five times) and asked to widen cheaply (*"widen enough to make ti nice and also token aefficient"*). Two rulings stood in the way: 2026-08-27 [process], "Before adding a founder halt", put Gate 1 before any video search because that search is the spend Phase 0 protects; 2026-08-25 [product], "YouTube search matches words, not stances", rejected discovering people through search.
+
+**Decision:** `select` screens videos **before** Gate 1, and Gate 1 now halts *before any source is approved or fetched as audio*. **Track A** (compatible with 2026-08-25): for each person Phase 1 proposed, search name + topic, 30 by relevance and 30 by views, sweep, fetch captions for survivors only, pre-screen with a delegated model. **Track B** (amends 2026-08-25): topic queries only for a position no named person argues for the minimum time; the stance is decided from the transcript, never the title — which removes the reason 2026-08-25 gave. The delegate may only propose candidates, ranges and quotes; minutes come from `on-topic-minutes.mjs`, quotes are `grep -F`-verified with a planted fake, and the stance shown at a gate is written by the orchestrator. Multi-speaker sources show `PROVISIONAL` minutes at Gate 1 (measuring them needs diarization, which needs audio) and are measured after approval.
+
+**What does NOT change:** Phase 0 still runs before any search, a `CONSENSUS` still stops the run with zero searches, and Phase 1's transcript-first counterpart hypotheses (DW-7) still come before any counterpart search.
+
+**Alternatives rejected:** *Keep people-first with no video before Gate 1* — the founder could not judge people that way, measured five times in one run. *Allow audio fetch before Gate 1 so interviews can be measured* — the audio fetch is the expensive, irreversible half of selection, which is what Gate 1 still protects.
+
+**Consequences:** The spend Phase 0 protects is now split in two: caption fetches for sweep survivors (before Gate 1) and audio (after). 2026-08-27's generalisable move still holds — the gate sits in front of the expensive half. UNTESTED on a live run; falsifier: if the next run's Gate 1 still sends the founder to YouTube to judge people, the screen did not do its job.
+
+**References:** [p1355](../features/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md) · [select.md](../.claude/commands/slava/disagreement/select.md) Phase 1b
+
+---
+
+## 2026-09-22 [technical]: Standing rules live in one JSON the gates read; minutes are hit-anchored and re-derived at the seal (P1355)
+
+**Context:** Clarity Night #2 re-asked rules that were already written (English-only, 30 results per query) because nothing made an agent read them, and one source's minutes on topic were eyeballed at 7, 3 and 1.5 in the same run.
+
+**Decision:** The measurable rules (floors 100k views / 50 comments, recency per voice class with `classic` exempt, 300s on topic, English, 30 per query, override reasons and which floors each may lift) live in `scripts/points/standing-rules.json`; `candidate-sweep.mjs`, the new `on-topic-minutes.mjs` and the new `run-file-check.mjs` read it, and `select.md` points at it instead of restating numbers. Unmeasurable rules sit in one numbered *Standing rules* section at the top of `select.md`, each checked present by `rule-present.mjs`. Two properties came out of the 3-of-3 adversarial review, not the first draft:
+- **A range bounds the count; it never supplies it.** The first C3 counted all of the arguer's speech in a range once any turn in it hit a term, so drawing Harari's ranges as the two full windows with the term "AI" moved him from 92.6s to 353.9s — the number depended on who drew the ranges. Now only turns that hit, or sit within `on_topic_context_seconds` of a hit, count; the same wide ranges give 176.6s.
+- **The seal re-derives the minutes.** `run-file-check.mjs` re-runs C3 on each arguer's `on_topic_input` file and refuses a typed `on_topic_seconds` it cannot reproduce — otherwise the eyeballed number just moves one field over.
+Supplied floors, recency lines and minute floors may only be stricter than the JSON.
+
+**Alternatives rejected:** *A dispatcher that owns every step and writes a ruleset-hash ledger* (spec review) — replaces the markdown pipeline, larger than this failure warrants. *Trusting the recorded minutes and checking only that the field exists* — exactly the failure being fixed. *Merging touching ranges before counting* — let an off-topic range borrow its neighbour's hit; caught by the predicate's own must-pass fixture.
+
+**Consequences:** Honest limits, stated in the files: no check can observe an agent reading a rule; `requested: 30` in a sweep query is self-declared (a confessed 7 is refused, a hand-trimmed id file is not detectable); a `founder-named` override's words cannot be proven to be the founder's, so Gate 2 asks for each override separately. The 100k default and the 5-minute floor remain open founder questions in the spec.
+
+**References:** [p1355](../features/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md) · [standing-rules.json](../scripts/points/standing-rules.json) · [on-topic-minutes.mjs](../scripts/points/on-topic-minutes.mjs) · [run-file-check.mjs](../scripts/points/run-file-check.mjs)
+
+---
+
 ## 2026-09-22 [technical]: Video summaries are one row per video, public only once confirmed, and the reader is defensive (P1349)
 
 **Context:** P1349 needed a per-video identity (before it, a video existed only as `stories.video_url`) and a rule that no unchecked AI text reaches a reader. An Opus + Codex edge-case review after the build found the reader trusted the table too much.
