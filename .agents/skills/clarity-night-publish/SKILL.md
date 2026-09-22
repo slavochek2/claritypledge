@@ -123,6 +123,9 @@ The recording line closes Optional preparation, just above Sources.
     Points with the Stories tab one tap away.)
 14. **Recording:** the one line the event doc's *Recording policy* describes, in its current wording.
 15. **Never the group chat in the description**, not the link and not a pointer.
+16. **At most one explainer image**, hosted on our own storage (`event-banners/descriptions/`) in the
+    same environment as the event: the page drops images from anywhere else (P1352). Moving to PROD
+    means uploading the file to prod storage and swapping the URL; a test-storage URL renders nothing there.
 
 ---
 
