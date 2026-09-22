@@ -128,9 +128,17 @@ export function parseRun(src) {
   const unfilledField = unfilledRaw === '[]' ? 0
     : unfilledRaw.replace(/^\[|\]$/g, '').split(',').filter(s => s.trim()).length
 
+  // P1355 C5: a missing floor is REFUSED, never read as 0. A 0 floor admits every
+  // source, so the old `?? 0` default turned an absent standard into the most
+  // permissive one — silently, in a derived fixture nobody re-reads.
   const floorLine = lines.find(l => /^audience_floor:/.test(l)) ?? ''
-  const minViews = Number((floorLine.match(/min_views:\s*(\d+)/) ?? [])[1] ?? 0)
-  const minComments = Number((floorLine.match(/min_comments:\s*(\d+)/) ?? [])[1] ?? 0)
+  const viewsM = floorLine.match(/min_views:\s*(\d+)/)
+  const commentsM = floorLine.match(/min_comments:\s*(\d+)/)
+  if (!viewsM || !commentsM) {
+    throw new Error('redact-run: the run file has no readable `audience_floor: { min_views: N, min_comments: N }` header. It is mandatory (docs/points-process.md); refusing rather than deriving a 0 floor.')
+  }
+  const minViews = Number(viewsM[1])
+  const minComments = Number(commentsM[1])
 
   // --- cast ----------------------------------------------------------------
   // `arguers:` is a YAML list of blocks; each starts `  - position: <n>`.

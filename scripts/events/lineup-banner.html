@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  lineup-banner.html — P1355 P6. The committed template for a Clarity Night line-up banner.
+
+  WHY A TEMPLATE. On Clarity Night #2 the banner was rebuilt five times: the image model misspelled
+  names, painted the people on a stage (reads as them attending), and put text where the fixed-height
+  slot crops it. So the names are HTML TEXT rendered by a browser, never drawn by the image model; the
+  image model supplies only the illustrated faces; and everything readable sits in ONE flat band that
+  survives the slot's crop at every width. The banner HEIGHT is never changed (founder, 2026-09-22) —
+  this template fits the slot, the slot does not fit the template.
+
+  GEOMETRY (measured on Clarity Night #2 against the fixed 256px desktop / 192px phone strip,
+  object-cover): canvas 2400x1143 (2.1:1). The band is x 264-2136 (phones down to 320px keep ~79% of
+  the width) and y 431-711 (screens up to ~1920px keep the middle ~28% of the height).
+
+  USE. Copy this file into a scratch folder next to the faces image, edit ONLY the JSON block below,
+  open it in a browser at 2400x1143 and screenshot the .canvas element. Then check the result on the
+  REAL event page at 320, 375, ~1500 and 1920 px before anyone reviews it.
+
+  `faces`: one illustrated (never photoreal) image. Either one file per person (`img`), or one sprite
+  with `sprite` + per-person `pos` ("-291px -304px") and `spriteSize` ("1384px 773px").
+  Recognisable arguers only — lived-experience voices are never on the banner (select.md Standing rule 8).
+-->
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;width:2400px;height:1143px;overflow:hidden}
+.canvas{position:relative;width:2400px;height:1143px;background:#fbfaf6;overflow:hidden;font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif}
+.band{position:absolute;left:264px;top:431px;width:1872px;height:280px;display:flex;align-items:center;justify-content:space-between}
+.emblem{position:relative;width:290px;height:290px;flex:none}
+.c{position:absolute;width:180px;height:180px;border-radius:50%;opacity:.42;mix-blend-mode:multiply}
+.word{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:46px;letter-spacing:4px;color:#1f3a5f;text-shadow:0 0 10px #fff,0 0 4px #fff}
+.col{width:300px;display:flex;flex-direction:column;align-items:center}
+.face{width:170px;height:170px;border-radius:50%;background-repeat:no-repeat;background-size:cover;background-position:center;
+  border:5px solid #fff;box-shadow:0 0 0 3px rgba(31,58,95,.25)}
+.first{margin-top:8px;font-size:36px;color:#4a5563;line-height:1.05;white-space:nowrap}
+.last{font-size:58px;font-weight:800;color:#1f2933;line-height:1.02;white-space:nowrap}
+.warn{position:absolute;left:0;top:0;right:0;padding:8px 16px;background:#b00020;color:#fff;font-size:28px}
+</style></head><body><div class="canvas" id="canvas"></div>
+
+<script type="application/json" id="lineup">
+{
+  "motif": { "word": "MOTIF", "colors": ["#8fc1e3", "#9fd8c6", "#f3c98b", "#e8a9a0"] },
+  "sprite": null,
+  "spriteSize": null,
+  "people": [
+    { "first": "First", "last": "Person", "img": "face-1.png" },
+    { "first": "Second", "last": "Person", "img": "face-2.png" }
+  ]
+}
+</script>
+
+<script>
+const cfg = JSON.parse(document.getElementById('lineup').textContent)
+const canvas = document.getElementById('canvas')
+const band = document.createElement('div')
+band.className = 'band'
+
+// The motif: overlapping circles with one word in the centre, on the left of the band.
+const emblem = document.createElement('div')
+emblem.className = 'emblem'
+const spots = [[55, 0], [0, 55], [110, 55], [55, 110]]
+cfg.motif.colors.slice(0, 4).forEach((color, i) => {
+  const c = document.createElement('div')
+  c.className = 'c'
+  c.style.left = spots[i][0] + 'px'
+  c.style.top = spots[i][1] + 'px'
+  c.style.background = color
+  emblem.appendChild(c)
+})
+const word = document.createElement('div')
+word.className = 'word'
+word.textContent = cfg.motif.word
+emblem.appendChild(word)
+band.appendChild(emblem)
+
+for (const p of cfg.people) {
+  const col = document.createElement('div')
+  col.className = 'col'
+  const face = document.createElement('div')
+  face.className = 'face'
+  if (cfg.sprite) {
+    face.style.backgroundImage = `url(${JSON.stringify(cfg.sprite)})`
+    face.style.backgroundSize = cfg.spriteSize
+    face.style.backgroundPosition = p.pos
+  } else {
+    face.style.backgroundImage = `url(${JSON.stringify(p.img)})`
+  }
+  const first = document.createElement('div')
+  first.className = 'first'
+  first.textContent = p.first
+  const last = document.createElement('div')
+  last.className = 'last'
+  last.textContent = p.last
+  col.append(face, first, last)
+  band.appendChild(col)
+}
+canvas.appendChild(band)
+
+// A band that overflows its safe zone gets cropped on some screen. Say so on the canvas itself,
+// so the screenshot cannot be shipped without someone seeing it.
+requestAnimationFrame(() => {
+  if (band.scrollWidth > band.clientWidth + 1) {
+    const w = document.createElement('div')
+    w.className = 'warn'
+    w.textContent = `Band overflows its safe width (${band.scrollWidth}px of ${band.clientWidth}px): fewer people, or shorter names.`
+    canvas.appendChild(w)
+  }
+})
+</script></body></html>

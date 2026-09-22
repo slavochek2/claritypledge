@@ -1,8 +1,8 @@
 ---
 name: clarity-night-publish
 description: "Turn a disagreement that is live on PROD under a tag into a published Clarity Night event page: write the description from the run's verified material (sourced, balanced across the points, one primary link per section), publish it on TEST for the founder to review on localhost, then, when he confirms, move it to PROD with the community, the gated group chat and a checked banner. Ends when the event is live; promotion is /slava:events:promote-all."
-when_to_use: "After /slava:disagreement:publish (or promote-to-prod) has put a tag's points and stories on PROD and the founder has a date, time and venue for the room. NOT for hikes or runs (/slava:events:publish-run), next occurrences cloned from a series (/slava:events:re-create-event), or generic events through the web form (/slava:events:publish-event)."
-version: 1.0.0
+when_to_use: "After /slava:disagreement:publish (or promote-to-prod) has put a tag's points and stories on PROD and the founder has a date, time and venue for the room. DRAFT MODE (TEST only) may run earlier, right after select Gate 2, from the approved cast. NOT for hikes or runs (/slava:events:publish-run), next occurrences cloned from a series (/slava:events:re-create-event), or generic events through the web form (/slava:events:publish-event)."
+version: 1.1.0
 ---
 
 # /slava:disagreement:clarity-night-publish
@@ -13,6 +13,23 @@ The last stage of the disagreement family: a tag on prod becomes an event people
 
 > Codified 2026-09-11 from the first run (tag `aisafety1`). Founder: *"this process that we went can
 > be now codified... so next time it is faster."* Each rule keeps its reason so it is not relitigated.
+
+---
+
+## Draft mode — a TEST page right after select Gate 2 (P1355 P1)
+
+The founder judges the page, not a paragraph, and on Clarity Night #2 the page was drafted while the
+pipeline was still running. So the TEST page may be drafted **as soon as select's Gate 2 approves the
+cast**, before any tag, point or story exists.
+
+| Draft mode needs | Draft mode does NOT need |
+|---|---|
+| The approved cast, each with its `why_in_the_room` line (run file) | A live tag on prod |
+| The **planned** tag — used for `/stake/<tag>` links, which stay unchecked until the PROD path | Points or stories |
+| Date, venue and **this night's** run of show (rule 12) | |
+
+Draft mode writes **only to TEST** (Step 4). The PROD path below keeps its precondition that the tag's
+points are live on prod, and re-checks every `/stake/<tag>` link before Step 6.
 
 ---
 
@@ -33,9 +50,10 @@ The last stage of the disagreement family: a tag on prod becomes an event people
 
 | Input | Source |
 |---|---|
-| **Tag** (e.g. `aisafety1`) | The run's publish step. Confirm `/stake/<tag>` shows the points on prod. |
+| **Tag** (e.g. `aisafety1`) | The run's publish step. Confirm `/stake/<tag>` shows the points on prod. In draft mode, the planned tag. |
 | **Run file** | `.private/points-runs/<slug>.md` — arguers, points, positions (schema: `docs/points-process.md`). |
 | **Date, start, end, venue** | Founder decision. Ask whether the room is confirmed; if not, Step 8 drafts the ask. |
+| **Run of show for THIS night** | Founder decision, asked every time. Never copied from the previous night (rule 12). |
 | **Community** | `cm` for in-person near Chiang Mai, per `docs/events/org-defaults.md`. |
 | **Prod host** | `host_id` of the previous `Clarity Night #` event on prod (anon-readable). |
 | **Test host** | A `role=organizer` row in the **test** `membership` table for the **test** `cm` org id. It is a different user from the prod host; reusing the prod id on test fails the org trigger. |
@@ -65,33 +83,44 @@ it a reason he will recognise.
 
 ### Step 1 — Title
 
-`Clarity Night #<N>: <Topic>. <Names>`
+`Clarity Night #<N>: <Topic>. <Names>` (P1355 P2)
 
 - **Prefix exactly `Clarity Night #<N>:`**, where `N` is the previous night's number plus one (read
   it from the newest `Clarity Night #` title on prod). Numbering is the founder's decision of
   2026-09-22 (*"Clarity Night #2, (better)"*); the series name and format live in
   `docs/events/clarity-forum.md`. `/slava:events:re-create-event` matches the series by the prefix
   `Clarity Night`, which the number does not change.
-- **Topic first, then the names** (#2: *"Clarity Night #2: AI and Your Ikigai. Harari, Sinek, Tan,
-  Naval, Watts and Brooks"*). #1 used `<Names> Disagree on <Topic>. Where Do You Stand?`; either
-  shape is valid until the founder settles one.
+- **Topic first, then the names** (#2: *"Clarity Night #2: AI and Your Ikigai. Sinek, Tan, Naval,
+  Watts and Brooks"*). The ending after the names stays open until the founder settles it.
+- **Only names a stranger would recognise.** The test is binary: the person has an English Wikipedia
+  article. Lived-experience voices (`voice: lived`) are **never** named in the title, even when they
+  are in the room.
 - **Names as a comma list, never "vs".** One arguer may share a point with only one other.
 - **One colon, no counts in the title** ("Four Sentences" was dropped: *"I would not say four sentences."*).
 
-### Step 2 — Section order
+### Step 2 — Section order (P1355 P3)
 
-An opening line on who it is for (you need not work in the field; everybody is welcome), then:
+These seven, in this order, and nothing else:
 
-**Where · Why now · Who is in the room · Agenda · What makes a Clarity Night different · Optional preparation · Sources**
+1. **A one-sentence opening** — who it is for. It is also the link preview, so it stands alone.
+2. **Why now**, with the one explainer image (rule 16).
+3. **Who is in the room.**
+4. **Agenda.**
+5. **How Clarity Nights are different** — at most three sentences, ending with a plain link to the
+   community (founder, 2026-09-22: *"this is not why, this is how is Clarity Night special"*).
+6. **Optional preparation**, closed by the recording line.
+7. **Sources.**
 
-- **Who is in the room:** one line per arguer, who they are and why they are in this debate, with
-  one verified quote and a footnote. The run file's per-person *why in the room* line is the input.
-- **What makes a Clarity Night different:** at most three sentences, near the end (founder,
-  2026-09-22: *"this is not why, this is how is Clarity Night special"*). It replaced *Why this evening*.
+**There is no Where section.** The venue lives in the event's location field, and the header's
+location link opens the venue's pin (rule 11).
+
+- **Who is in the room** is built from the run file's `why_in_the_room` lines (P4): one line per
+  arguer, who they are and why they are in this debate, with one verified quote and a footnote.
+  **Recognisable people first; lived-experience voices last.** After publish creates the agents'
+  stories, swap each person's video link for their story. **Never** leave a placeholder as an HTML
+  comment in the text: the promote skills copy the raw description to other platforms.
 - **Agenda counts are approximate** ("about five contested points"): the number is only known after
   positions.
-
-The recording line closes Optional preparation, just above Sources.
 
 ### Step 3 — The rules
 
@@ -99,7 +128,7 @@ The recording line closes Optional preparation, just above Sources.
 
 1. **Every link in an event description is a black pill** (`src/index.css`, `.event-description a`).
    `*[text](https://example.com)*` renders a plain link; `**[text](https://example.com)**` keeps the pill.
-2. **Pills only for primary actions:** Directions and the one Read button. At most one per section,
+2. **Pills only for primary actions:** the one Read button (the venue has no section, so no Directions pill). At most one per section,
    and nothing clickable in front of the button (the first run unlinked four names for this).
 3. **Every factual claim carries a plain footnote** `*[[n]](https://example.com)*` to its source; **Sources** is a
    short numbered list of plain links, and marker `n` is source `n`.
@@ -127,10 +156,13 @@ The recording line closes Optional preparation, just above Sources.
 
 **Sections**
 
-11. **Where:** venue name, the venue's street address as its Google Maps listing gives it, then a
-    Directions pill whose Maps query **lands on the single place** (check in a browser: a pin, not a list).
-12. **Agenda:** five or six steps in the founder's words. Re-taking positions per point happens in
-    the room whether or not the listing says so.
+11. **Venue link:** the event's location field holds the venue name and street address as its Google
+    Maps listing gives it, and the page header's location link must open **the single venue pin**
+    (check in a browser: a pin, not a list). There is no venue section in the description.
+12. **Agenda:** this night's run of show, asked as an input and **never copied from the previous
+    night**. Counts are approximate; the demo volunteer is not described; the closing step uses the
+    founder's own words. Re-taking positions per point happens in the room whether or not the
+    listing says so.
 13. **Optional preparation:** one sentence, then one button to `/stake/<tag>?tab=stories`; agenda
     item 1 links `/stake/<tag>` as a plain link. (`?tab=` opens Stories once P1296 ships; until then,
     Points with the Stories tab one tap away.)
@@ -180,7 +212,8 @@ Paste the evidence; do not ask to move to PROD until all pass.
 - [ ] Every quote found with `grep -F` in its raw source
 - [ ] Every date converted to Asia/Bangkok
 - [ ] The rule-6 balance table exists, with items on both sides of the points argued first
-- [ ] Exactly one pill in Optional preparation; Directions resolves to the venue's pin
+- [ ] The seven sections of Step 2, in order, and no venue section
+- [ ] Exactly one pill in Optional preparation; the header location link opens the venue's pin
 - [ ] Title starts `Clarity Night #<N>:` with N = previous + 1, comma list, no "vs"
 - [ ] Zero em and en dashes (counted)
 - [ ] Rendered at desktop and at a **confirmed** 375 px: `chrome-devtools` `emulate`, then read
@@ -223,25 +256,30 @@ Paste the evidence; do not ask to move to PROD until all pass.
    from, get the founder's yes, then in a second process write the row with
    `Prefer: resolution=merge-duplicates`, set `has_group_chat`, and read back printing only
    `bool(group_chat_url)`. An empty read-back means the button will not render.
-3. **Banner.** The generator accepts only the **signed-in host**; a service key cannot trigger it.
-   The founder logs in on claritypledge.com and the host controls appear on the banner strip. Then
-   **look at it**: it is given the title, so it may paint the named people on a stage, which reads
-   as them attending. If so, regenerate with keywords about the room (*library evening, people in a
-   discussion circle*). Then check the crop at desktop and a confirmed 375 px (publish-run's rule:
-   faces near the top of a wide crop get cut).
-
-   **If the banner has faces or names that go illegible at 375px** (a wide desktop crop squeezed
-   into the 192px phone slot — the exact case this rule exists for), a phone-specific variant can
-   be set separately: `events.banner_mobile_url` (P1354), read by `BannerDisplay` and shown only
-   below the `md` (768px) breakpoint, with `banner_url` unaffected at every other width. It is
-   **hand-set only** — no generator support, no host UI — set it directly via `PATCH
-   /rest/v1/events?id=eq.<id>` with the service role key, same pattern as any other direct-DB step
-   in this skill. Compose it from the same illustrated portraits already in the desktop banner
-   (crop each one out and lay them out 2-row/3-column, or whatever grid reads best at ~2:1) rather
-   than regenerating fresh art — that keeps the two banners visually consistent. Confirm at 375px
-   the same way as the desktop crop.
-4. **Render check on prod, signed out** (an isolated browser context): title, venue, all six
-   sections, and the locked group-chat state a stranger sees.
+3. **Banner — an illustrated line-up, built from the committed template** (P1355 P6). The built-in
+   generator is not used for a Clarity Night: on Clarity Night #2 it misspelled names and painted
+   the people on a stage, which reads as them attending, and the banner was rebuilt five times.
+   - **Faces:** an illustrated line-up of the **recognisable** arguers only — never photoreal, never a
+     lived-experience voice. The image model draws the faces and nothing else.
+   - **Names:** HTML text from `scripts/events/lineup-banner.html`, screenshotted in a browser — never
+     drawn by the image model. Edit only the template's JSON block (people, motif).
+   - **Motif:** accurate to the topic (Clarity Night #2: the four overlapping ikigai circles).
+   - **Layout:** everything in one flat row inside the template's middle band. **Never change the
+     banner height** (founder, 2026-09-22: *"otherwise the event description not visible"*); the
+     template is built for the fixed-height slot.
+   - **Check it on the real page** at 320, 375, ~1500 and 1920 px (confirmed widths, see Step 5).
+   - **Upload** through the existing custom-banner route — storage upload plus a `banner_url` PATCH,
+     as `/slava:events:publish-run` 8b does — in the event's own environment, and onto the **TEST**
+     page before the founder reviews it. A phone variant follows P1354 once it ships.
+   - **Phone variant (P1354):** if the faces or names go illegible at 375px (the wide banner squeezed
+     into the 192px phone slot), set `events.banner_mobile_url` as well. `BannerDisplay` shows it only
+     below the `md` (768px) breakpoint; `banner_url` is unaffected at every other width. It is
+     **hand-set only** (no generator, no host UI): `PATCH /rest/v1/events?id=eq.<id>` with the service
+     role key, like the other direct-DB steps here. Compose it from the same illustrated faces — the
+     template's JSON with the people laid out 2-row/3-column, or whatever grid reads best at ~2:1 —
+     rather than fresh art, so the two banners match. Confirm it at 375px like the desktop crop.
+4. **Render check on prod, signed out** (an isolated browser context): title, venue link, the seven
+   Step 2 sections in order, and the locked group-chat state a stranger sees.
 
 ### Step 7 — Short link, once per topic
 
@@ -279,7 +317,7 @@ Next: `/slava:events:promote-all`.
 
 - [ ] The founder confirmed the move to PROD in the same turn, after hearing the Step 6.1 known gap
 - [ ] The group-chat read-back printed `True`
-- [ ] Prod rendered signed out with the venue and all six sections, and the banner passed the look-and-crop check
+- [ ] Prod rendered signed out with the venue link and the seven Step 2 sections, and the banner passed the look-and-crop check at 320, 375, ~1500 and 1920 px
 - [ ] If a phone-specific banner was set (`banner_mobile_url`), it was confirmed legible at 375px too
 
 ## Related Skills

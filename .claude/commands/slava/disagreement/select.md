@@ -2,7 +2,7 @@
 name: select
 description: "Given a topic, establish that a disagreement exists BEFORE any search (Phase 0), then select N ∈ 2..6 arguers on distinct positions — solo talks, or one-way interviews admitted on measured evidence: enumerate the fork and its named advocates, propose credible people per position, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the set does not work, gate for set approval, and write the sealed run file for /slava:disagreement:prepare. A consensus topic STOPS at Phase 0 without searching. Terminal output only; writes nothing to the product."
 when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, first proves the topic is CONTESTED at all (Phase 0 — a consensus topic stops here, with the shared premise named and no search performed), then selects and proves N ∈ 2..6 opposing sources exist and meet Gate 0 — one voice, or one voice plus a verified questioner. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
-version: 1.3.0
+version: 1.4.0
 ---
 
 # /slava:disagreement:select
@@ -15,12 +15,64 @@ Take a single topic string and a named room. **First establish that people actua
 
 ---
 
+## Standing rules — read before Phase 0, printed at Gate 1
+
+**Read this section before anything else, every run.** These are the rules the founder had to repeat
+during Clarity Night #2 (P1355): *"improve our disagreement pipeline so I don't have to repeat myself
+next time."* Two of them were already written, at the end of this file, and were asked again anyway.
+
+**The numbers live in `scripts/points/standing-rules.json`** — floors, recency years per voice,
+minimum on-topic seconds, language, results per query, and the override reasons. They are never
+restated here, because a copy drifts silently. Three predicates read that file and refuse the outputs
+that break it: `candidate-sweep.mjs` (Phase 2), `on-topic-minutes.mjs` (Phase 2) and
+`run-file-check.mjs` (Phase 5, before the seal). **Honest limit:** no check can observe an agent
+*reading* these rules. The predicates refuse the outputs; the rules below with no measurable form stay
+prose, and the Gate 1 header prints that they were loaded.
+
+1. **English-only sources, for now** (founder, 2026-08-25 and 2026-09-22). `/slava:disagreement:prepare`
+   Stage 1 hardcodes `--sub-langs "en.*"`; pointed at a non-English source, YouTube serves the
+   auto-translated English track, every downstream check passes on the wrong artifact, and publish
+   would file a machine translation as a named person's verbatim quote. **A verbatim quote stays in
+   its original language; any translation is labelled as a translation, never shown as the speaker's
+   own words.** Measured: `language` in the sweep and in the run file.
+2. **One video per person per event.** Topic fit decides which one; popularity balances it.
+3. **AI voices are recent** (years in the JSON, per voice class). For a living person, prefer the
+   newer video: it is closer to what they believe now. `classic` voices are exempt.
+4. **Floors on views and comments**, with exceptions only as a per-arguer `override` **inside the
+   sealed approvals block**, carrying one reason from the JSON's list. Never a header field; never a
+   floor lowered for the run.
+5. **Minutes on topic, never total length** — measured by `on-topic-minutes.mjs` on the arguer's own
+   speech, never read by eye (one Clarity Night #2 source was eyeballed at 7, 3 and 1.5 minutes).
+6. **"AI + X" topics:** AI voices as the current lens, plus older thinkers on the unresolved X debate
+   (`voice: classic`).
+7. **The fork concerns the room's own lives** — for a professional-meaning topic, what AI does to the
+   meaning of the participants' own work, not a jobs forecast. A fork that names a quantity data at a
+   future date would settle is a forecast: it goes to the topic backlog as a different event (Phase 0).
+8. **Lived-experience voices** (`voice: lived`) are admissible when the famous names **do not argue a
+   side**, meaning their videos fail the minutes rule. They stay out of the title and the banner, and
+   are listed last on the page.
+9. **Room constraints** (the registry's private `constraints` field) govern the topic, the page's
+   framing and every quoted passage. They never exclude a source — see *Inputs*.
+10. **The event page's banner never changes height** — `/slava:disagreement:clarity-night-publish` owns it.
+
+---
+
 ## Inputs — both required
 
 | Input | Notes |
 |---|---|
 | **Topic** | Single topic string provided by the founder (e.g. "digital nomad lifestyle vs settling down", "effective altruism"). Run one topic per invocation — never batch. |
 | **The room** | Who these points will be shown to. **Named rooms are registered in `.private/audiences.json` — read it and resolve by key rather than inventing a room string.** Pass the entry's `room` value verbatim; it is a founder decision. An entry with `"scope": "wide"` must not be narrowed for a single run — use the per-run overlay entry (`overlay_of`) instead. An unregistered room is accepted, but say so and offer to register it. |
+| **Event intention** *(when the run feeds an event)* | Who the evening is for, what it tests, and its frame — one short paragraph from the founder. Phase 0 writes the fork against it and Gate 2's points are built from its frame. Recorded in the run header as `event_intention`. |
+
+**Room constraints.** Read the registry entry's `constraints` field (private; an overlay room inherits
+its base room's constraints). Constraints govern **the topic, the page's framing and every quoted
+passage** — they never exclude a source. A source qualifies if its on-topic minutes clear the floor
+**outside** its sensitive passages: list those passages with timecodes as `sensitive_passages`, pass
+them to `on-topic-minutes.mjs` as `sensitive` so they are not counted, and never quote them. *(Clarity
+Night #2: the judge flagged three sources the founder kept; one source's only on-topic quote sat inside
+a sensitive analogy and was dropped. Both outcomes follow from this rule.)* Never write a constraint's
+value into a tracked file.
 
 ### Optional seed — one or more positions supplied instead of proposed
 
@@ -207,6 +259,25 @@ shared premise; do not enumerate.
 >
 > That converts a silent gap into a visible one, which is the most this case admits.
 
+### Phase 0 for an event: the room's own lives, AI + X, and a fresh context (P1355)
+
+- **"AI + X" topics:** enumerate the positions on **X** — the unresolved debate the room already
+  lives in — with AI voices as the current lens on it, and name at least one older thinker per
+  position where one exists (Standing rule 6).
+- **Write the fork about the room's own lives**, against the event intention (Standing rule 7).
+- **Forecast test:** a fork that names a quantity which data at a future date would settle (*"jobs
+  will exist in 2030"*) is a **forecast**, not this event. Record it in the topic backlog as a
+  different event and write the fork again. Founder, 2026-09-22: *"is it meaning event or jobs
+  event?… its different event"*.
+- **The enumeration runs in a fresh agent context.** Its input is **only** the topic, the room and the
+  event intention — never the founder's corpus, earlier runs or stated preferences — and it must list
+  positions the founder is likely to **dislike**. Print its input list verbatim beside its output. The
+  orchestrator then writes the contradiction sentences and the verdict itself (those are never
+  delegated, see `/slava:disagreement:run-pipeline`), and re-checks each advocate's evidence line by
+  command before counting it (epistemic gate 9).
+- **A seed from the topic backlog is checked against the fork before Gate 1**: does the seeded
+  person's video argue a position on *this* fork, or on the topic's neighbour? Say which.
+
 ### Phase 0 enumerates; it does not evaluate
 
 It names positions and advocates. It does **not** rank advocates, score argument quality, count
@@ -300,20 +371,68 @@ For each candidate:
 > voices reads as comprehensive while being uniformly institutional. Judge the whole set, not
 > adjacent pairs.
 
+### Phase 1b — Screen videos before Gate 1, in two tracks (P1355 S4)
+
+**This overturns, in writing, part of two rulings.** `docs/decisions.md` 2026-08-27 [process] put
+Gate 1 before any video search, because that search is the spend Phase 0 protects. 2026-08-25
+[product] rejected discovering people through YouTube search, because search matches words, not
+stances. On Clarity Night #2 the founder could not judge people without their videos (*"open all
+options in youtube"*, five times) and asked to widen cheaply (*"widen enough to make ti nice and also
+token aefficient"*). What stays: Phase 0 still runs before any search, a `CONSENSUS` still stops the
+run with zero searches, and Phase 1's transcript-first counterpart hypotheses still come before any
+counterpart search.
+
+**Track A — named people (compatible with 2026-08-25).** For each person Phase 1 proposed, search the
+person's name plus the topic, both ways, and capture the ids mechanically:
+
+```sh
+yt --flat-playlist --skip-download --print "%(id)s" "ytsearch30:<name> <topic>" > searched-<n>-rel.txt
+yt --flat-playlist --skip-download --print "%(id)s" \
+  "https://www.youtube.com/results?search_query=<name>+<topic>&sp=CAM%253D" > searched-<n>-views.txt   # sorted by views
+```
+
+Then run the sweep (Phase 2's command, `candidate-sweep.mjs`), fetch captions **for survivors only**,
+and pre-screen them with `~/.agents/bin/delegate-gemini`.
+
+**Track B — lived-experience discovery (amends 2026-08-25).** Only for a position where **no named
+person's video argues it for the minimum time**: run topic queries, sweep, and pre-screen the same
+way. The stance is decided from the transcript, never the title — which removes the reason 2026-08-25
+gave for rejecting search-led discovery. Standing rule 8 governs how such a voice is shown.
+
+**What the delegated pre-screen may decide — and nothing else:** which candidates are worth a closer
+look, plus *proposed* on-topic ranges and quotes. **Minutes come from `on-topic-minutes.mjs`.** Every
+quote is `grep -F`-verified against the transcript, with a planted fake quote as the control (it must
+fail). **The stance shown at Gate 1 is written by the orchestrator from the quoted passages**, never
+copied from the pre-screen.
+
+**Cost:** caption fetches for sweep survivors only. Exit 7 (proxy quota) keeps its standing stop
+rule — surface it, never retry, never purchase.
+
 ### [GATE 1: Founder Approves the Spectrum AND the People]
 
-**Phase 0's spectrum is approved HERE, not at a gate of its own.** Gate 1 already sits before any
-video search — which is the spend Phase 0 exists to protect — so a separate Phase 0 gate would buy a
-second halt and no additional protection. Present, in this order:
+**Phase 0's spectrum is approved HERE, not at a gate of its own.** Gate 1 sits before any source is
+approved or its audio fetched — the expensive, irreversible half of selection — so a separate Phase 0
+gate would buy a second halt and no additional protection. Since P1355 the cheap half, the two-track
+screen above, runs before this gate so the founder judges people with their videos in front of him.
+Present, in this order:
 
+0. **The standing-rules header:** `Standing rules loaded: 1-10 (select.md) — standing-rules.json
+   v<version>: floors <views>/<comments>, recency ai <n>y · lived <n>y · classic exempt, on-topic
+   >= <s>s, language <lang>, <n> results per query` — the values read from the file this run, not
+   typed from memory.
 1. **The Phase 0 output block in full** — fork, verdict, enumerated positions, what was set aside and
-   why. The founder can reject a mis-framed spectrum here, before a single search runs.
+   why. The founder can reject a mis-framed spectrum here, before any source is approved.
 2. **Per position:** the candidate people, their credibility, resolved `subject_key`, agent status,
    and **portrait status (one of the three values above — `none` is an approvable outcome, never a
-   rejection)**, each labelled `seeded` or `proposed`.
+   rejection)**, each labelled `seeded` or `proposed`; and per person a **"unique perspective in the
+   room"** line, which becomes the run file's `why_in_the_room`.
+3. **A balance table on the evening's own question:** one row per person, the side they take, and the
+   quoted passage (with timecode) that shows it. A table whose rows all lean one way is a finding.
+4. **The screened videos, opened in Chrome in table order**, with each candidate's measured minutes,
+   upload date, views and comments beside it.
 
-**Halt for explicit founder approval of the spectrum and of one person per position before searching
-for any video.**
+**Halt for explicit founder approval of the spectrum and of one person per position** —
+**before any source is approved or fetched as audio.**
 
 **Gate 1 runners-up are CARRIED, not discarded.** Record every non-approved candidate in the run file
 as `alternates:` under its position, with `subject_key` and portrait status already resolved. When
@@ -327,9 +446,11 @@ position only**; it is never a silent substitution.
 
 ## Phase 2: Find & Rank Solo Videos (Gate 0)
 
-For each approved person, search for their solo talks on the topic — and search **against the
-position they were approved to occupy**, using that position's Phase 0 statement as the query frame
-rather than guessing keywords off the topic string.
+For each approved person, start from the Phase 1b screen: its sweep, captions and proposed ranges
+are this phase's input, and **Standing rule 2** (one video per person per event) decides which single
+video goes forward. Widen only when the screened field is thin — and search **against the position
+they were approved to occupy**, using that position's Phase 0 statement as the query frame rather
+than guessing keywords off the topic string.
 
 ### The candidate field is filtered by MEASURED METADATA, never by title — run the sweep
 
@@ -345,18 +466,20 @@ file, not an id with missing numbers:
 ```sh
 yt --flat-playlist --skip-download --print "%(id)s" "ytsearch30:<query>" > searched.txt
 node scripts/points/candidate-sweep.mjs <candidates.json>
-# candidates.json = {floor:{minViews,minComments}, recencyFloor:"YYYYMMDD",
-#                   searched:[...ids from the file above...], candidates:[{id,title,upload_date,view_count,comment_count}]}
-# ALL FOUR keys are required. Omitting the floors returns REFUSE, not a field verdict:
-# the floors ARE what "cleared" means, and this line previously named only two keys,
-# which made the documented invocation crash (found 2026-09-04, first real use).
+# candidates.json = {asOf:"YYYYMMDD",   // the run date; recency per voice comes from standing-rules.json
+#   queries:[{query:"<q>", requested:30, ids:[...ids from the file above...]}, ...],   // ONE entry per query
+#   candidates:[{id, title, voice:"ai|classic|lived", language, upload_date, view_count, comment_count}]}
+# Floors default to standing-rules.json; pass `floor` only to be STRICTER. `requested` below the
+# JSON's results_per_query is REFUSE (Clarity Night #2 took 6 to 8 per query). A missing `language`,
+# or a missing `voice` on an upload older than the ai/lived line, is REFUSE when it could change
+# the verdict. `yt --print "%(language)s"` gives the language; `voice` is your classification.
 ```
 
 Three distinct verdicts, and the difference between them is the whole point:
 
 | verdict | meaning | what it licenses |
 |---|---|---|
-| `REFUSE` | an id the search returned is missing from the set, **or** a candidate carries no metrics, **or** no `searched` list was supplied | **STOP.** No "unfillable" claim may rest on this. |
+| `REFUSE` | an id the search returned is missing from the set, **or** a candidate carries no metrics, **or** no per-query record was supplied, **or** a query asked for fewer results than the standing rule | **STOP.** No "unfillable" claim may rest on this. |
 | `FIELD-EMPTY` | every returned id measured; none cleared the floors | a real finding — report it to the founder |
 | `FIELD-NON-EMPTY` | candidates cleared | continue |
 
@@ -685,9 +808,38 @@ raw marker count (106 on this source) counts those repeats and is not the turn c
 
 ---
 
+### Minutes on topic — measured, never eyeballed (P1355 C3)
+
+For every finalist, measure the seconds of **the arguer's own speech** inside the proposed on-topic
+ranges, with the position's source-binding terms, and paste the output:
+
+```sh
+node scripts/points/on-topic-minutes.mjs <minutes.json>
+# {arguer, basis:"speaker-labelled", windows:[{file:"$DIARIZE_STORE/<id>/<start>s+<dur>s.json", speaker:"spk:0"}, ...],
+#  ranges:[["MM:SS","MM:SS"], ...], terms:[...source-binding terms...], sensitive:[["MM:SS","MM:SS"], ...]}
+# or {arguer, basis:"single-speaker", vtt:"<raw en.vtt>", ranges, terms, sensitive}
+# Map the label PER WINDOW — labels are not stable across windows (Step 2c).
+```
+
+`CLEARS` / `BELOW-FLOOR` against the JSON's minimum; `REFUSE` for unlabelled multi-speaker speech, a
+wrong label mapping, or a "single-speaker" track with turn markers inside a range. The printed
+`on_topic_seconds` and the ranges go into the run file (`on_topic_seconds`, `on_topic_ranges`). It
+cannot judge whether the ranges or terms are right — those are shown at the gate — but a number two
+readers compute differently no longer reaches the founder.
+
 ### Ranking Axes
-- **Insight / argument quality (Transcript-derived):** Decides the ranking. Does the speaker argue from causal mechanisms and reasons, or mere vibes/sentiment?
-- **Popularity (Metadata-only):** A floor to clear, never a ranking axis. Default floor: **>= 50 comments and >= 2,000 views** (or explicit founder override recorded in the run file).
+- **Floors (never ranking axes):** Standing rules 1, 3 and 4 plus the measured minutes — the values
+  are in `scripts/points/standing-rules.json`. Below a floor needs a per-arguer `override` with a
+  reason from the JSON's list, recorded inside the sealed block: `recognisable-figure-low-video-reach`,
+  `only-source-arguing-position`, or `founder-named: <verbatim words>`. Check the **recording** date
+  when the upload is an obvious re-upload; `recorded_date` is optional otherwise.
+- **Insight / argument quality (Transcript-derived):** Decides the ranking, together with **topic fit**
+  (the measured on-topic seconds). Does the speaker argue from causal mechanisms and reasons, or mere vibes/sentiment?
+- **Tiebreaks, in order:** popularity; then the newer upload for a living person; then how the video
+  looks (storyboard frames). **Views are a floor and a tiebreak, never a ranking axis.**
+- **Lived-experience voices** enter only where the famous names do not argue a side — their videos fail
+  the minutes rule. Clearing the view floor is not the test: on Clarity Night #2 the famous name
+  cleared 1.55M views and still failed on topic.
 - **Claim match:** Evaluated across the **set** — do all N videos address the same core contention,
   the one Phase 0 named as the fork? A video that argues a *different* contention is off the fork
   however good it is, and admitting it turns the spectrum into a survey.
@@ -911,7 +1063,9 @@ Present the proposed set to the founder:
    (from metadata `--print`), **the Gate 0 Step 0 identity evidence — the artefact that carries the
    name, and the pasted `grep -ciE` count against the raw `.vtt`**, Gate 0 detection method and basis
    label (`single-speaker` | `turn-verified` — for the latter, print the Step 2b measurement block
-   **and its verbatim caveat** alongside), and the core claim with a short supporting quote.
+   **and its verbatim caveat** alongside), and the core claim with a short supporting quote. Since
+   P1355 also: `voice`, `language`, the pasted `on-topic-minutes.mjs` output, the sensitive passages,
+   the `why_in_the_room` line approved at Gate 1, and any proposed `override` with its reason.
 2. **Position coverage:** state N carried and N filled, and **name every carried position that
    produced no admissible source**. An unfilled position is a finding presented to the founder, never
    a silent narrowing of the spectrum. **Print each source's `audio_in_store` verdict here too** —
@@ -929,6 +1083,12 @@ the raw material. Print, per approved pair, the candidate **points** that pair c
 cast and points are approved together rather than the points being invented afterwards, unconstrained.
 After this gate downstream may sharpen wording and drop a point the evidence kills; it may not add a
 new axis.
+
+**Candidate points are built from the frame the event page will show** (P1355 S9). A point that
+contradicts the page's own definition is rejected before it reaches the founder. *(Clarity Night #2:
+"your ikigai should not depend on being paid" was proposed beside a page whose ikigai diagram makes
+being paid one of the four circles. Founder: "this makes no snese because ikigai part is geting paid".)*
+Print the balance table again here, on the evening's own question, for the set as approved.
 
 **Cast-level controls, printed at this gate** — per-pair edges do not catch a star cast:
 
@@ -973,14 +1133,23 @@ Upon Gate 2 approval:
    `phase_0_verdict`. The `### Approvals Block` subsection **ends with the literal line
    `<!-- end-approvals-block -->`** — the seal is taken over exactly that span, so downstream appends
    cannot shift it.
-2. Extract the approvals block and seal it:
+2. **Check the block against the standing rules, and do not seal on a `REFUSE`** (P1355 C4):
+   ```sh
+   node scripts/points/run-file-check.mjs .private/points-runs/<slug>.md
+   ```
+   It refuses a block where any arguer lacks `voice`, `why_in_the_room`, `on_topic_seconds`,
+   `upload_date` or `language`, where a source is not English, where an arguer is below a floor with
+   no override **inside the block** whose reason covers that floor, or where the header
+   `audience_floor` is missing or lower than `standing-rules.json`. Fix the block, or take the
+   exception back to the founder as a named override — never lower the header floor.
+3. Extract the approvals block and seal it:
    ```bash
    mkdir -p .points-run-seals
    awk '/^### Approvals Block/{f=1} f{print} f && /end-approvals-block/{exit}' \
      .private/points-runs/<slug>.md | shasum -a 256 | cut -d' ' -f1 \
      > .points-run-seals/<slug>.approvals.sha256
    ```
-3. Announce completion and hand off to `/slava:disagreement:prepare`, which re-verifies this seal before extracting and STOPs on mismatch.
+4. Announce completion and hand off to `/slava:disagreement:prepare`, which re-verifies this seal before extracting and STOPs on mismatch.
 
 ---
 
@@ -994,7 +1163,7 @@ Upon Gate 2 approval:
 - **Do NOT reframe a topic more than once** to escape a consensus verdict. A second `CONSENSUS` is
   the answer.
 - **Do NOT batch topics.** One topic per run — the founder approves people and a set per topic, and one dead topic must not stall the other nine. The Chiang Mai set of 5–10 topics is this skill run 5–10 times.
-- **Do NOT mix languages within a set for v1** (founder decision, 2026-08-25). English sources only. `/slava:disagreement:prepare` Stage 1 hardcodes `--sub-langs "en.*"`, and pointing it at a non-English source makes YouTube serve the **auto-translated English track** — every downstream check then passes on the wrong artifact, and `/slava:disagreement:publish` would file a machine translation as a named real person's verbatim quote. **Standing rule either way: a verbatim quote stays in its original language; any translation is marked as a translation, never presented as the speaker's words.**
+- **Do NOT mix languages within a set.** English sources only — Standing rule 1 at the top of this file holds the reason and the translation rule.
 - **Do NOT extract points.** It selects; the extractor extracts.
 - **Do NOT create agent accounts.** It proves creation will succeed; creation stays in `/slava:content:provision-agent`, invoked by `/slava:disagreement:publish`.
 - **Do NOT rank primarily on views, trending status, or SEO metrics.** Reach is the axis being discounted.

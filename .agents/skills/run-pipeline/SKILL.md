@@ -2,7 +2,7 @@
 name: run-pipeline
 description: "One-command conductor for the Disagreement Pipeline. Takes a topic (optionally with a seed person or video URL) and a room, and runs /slava:disagreement:select → prepare → positions → story-draft → publish in order, carrying the run file across every stage. A topic that select's Phase 0 finds to be a CONSENSUS stops the whole pipeline there, reported, with nothing searched. Does NOT reimplement any stage — it invokes each one as-is and stops at each stage's own founder gate. Publishes to TEST by default; the PROD run is a separate, deliberate invocation."
 when_to_use: "You have a topic (or a link) and want the whole disagreement filed without remembering five command names and their order. Use the individual stage skills instead when resuming a half-finished run, re-running one stage, or debugging a single stage's output."
-version: 1.0.1
+version: 1.1.0
 ---
 
 # /slava:disagreement:run-pipeline
@@ -34,7 +34,12 @@ file.
 
 > "Running /slava:disagreement:run-pipeline — the five-stage conductor. Stages: select → prepare → positions →
 > story-draft → publish. **Every stage's own gates still halt for you; this skill removes the
-> remembering, not the approvals.** Target for this run: TEST."
+> remembering, not the approvals.** Target for this run: TEST. Standing rules loaded: select.md
+> *Standing rules* 1-10 and `scripts/points/standing-rules.json`."
+
+**Load the standing rules before Stage 1** (P1355 R2): read the *Standing rules* section at the top of
+`select.md` and the values in `scripts/points/standing-rules.json`. This file points at both and
+copies neither — a copy is how the founder ended up repeating himself on Clarity Night #2.
 
 ---
 
@@ -65,9 +70,14 @@ positions those people never took. Every existing gate stays exactly where it is
 | **The room** | Required. Who the points will be shown to. **Resolve from the audience registry at `.private/audiences.json`** — pass the entry's `room` string to `select` verbatim. A `"scope": "wide"` entry is never narrowed for one run; apply its per-run overlay (`overlay_of`) instead. |
 | **Seed** *(optional)* | A person, a video URL, or both. Passed to `select` unchanged — see its *Optional seed* section. The seeded side is accepted; only the counterpart is proposed. |
 | **Target** | `test` (default) or `prod`. **Never both in one invocation** — see the hard rule below. |
+| **Event intention** *(when the run feeds an event)* | Who the evening is for, what it tests, its frame. Passed to `select` (see its *Inputs*). |
+| **Event folder** *(when the run feeds an event)* | `.private/events/<city>-<topic>-<YYYY-MM-DD>/` — page text, handoff, prep notes, results and `improvements.md` live here, with a README linking the run file and the campaign folder. The run file itself stays at `.private/points-runs/<slug>.md`. Existing events are not migrated. |
 
 <!-- input-block:start -->
-**The story fan-out approval is asked HERE, in this block (P1210 §9).** Stage 4 spawns one writer and
+**The story fan-out approval is asked HERE, in this block (P1210 §9), and it runs only AFTER select's
+Gate 2 has approved the videos** — say so plainly when asking: the stories are written from the approved
+sources, so nothing is spawned while the cast can still change (founder, Clarity Night #2: *"Wait, what?
+So we have one video…"*). Stage 4 spawns one writer and
 one checker per arguer plus five control checkers — thirteen subagents on a four-arguer run — and the
 standing rule is that three or more need an explicit ok with a rough token estimate first. **The halt
 stays; the 3+-subagent rule is not this pipeline's to delete.** What changes is that it stops being a
@@ -119,6 +129,11 @@ people and sources, and the Gate 1/Gate 2 approvals block, sealed to
 `.points-run-seals/<slug>.approvals.sha256`.
 
 **Carry forward:** the `<slug>`. Every later stage is addressed by it.
+
+**Optional, after Gate 2 — a TEST draft of the event page** (P1355 R4). When the run feeds a Clarity
+Night, `/slava:disagreement:clarity-night-publish` may run in its **draft mode** on TEST as soon as
+Gate 2 approves the cast, so the founder reviews the real page while stages 2-5 run. PROD stays a
+separate invocation of that skill, after publish.
 
 **Stop conditions:** Gate 1 or Gate 2 refused · Gate 0 fails (multi-speaker) · `yt` exit code 7 (quota
 exhausted — surface it, never retry, never purchase) · a truncated fetch (funnel INCOMPLETE).
@@ -203,7 +218,10 @@ transcripts inline. That is the wrong work for the conductor to hold, and the fo
 
 **Never delegate:** Phase 0's contradiction sentences · which arguer occupies which position · the
 Phase 3 judge (it is *already* an isolated agent and its independence is the point) · anything
-presented at a founder gate.
+presented at a founder gate. **Delegated screening proposes; the stance and minutes shown at a gate
+are re-derived** (P1355 R6): the Phase 1b pre-screen may pick candidates and propose ranges and
+quotes, but minutes come from `on-topic-minutes.mjs`, every quote is `grep -F`-verified with a planted
+fake as the control, and the stance is written by the orchestrator from the quoted passages.
 
 **The pairing is not optional.** [epistemic.md](../../../../.claude/rules/epistemic.md) gate 9 binds
 the consumer: a subagent's claim is not evidence until a command confirms it, and the command must
@@ -215,6 +233,16 @@ ONE**, name the independent failure domain before spawning a second, and print
 
 **Announce it.** Say which work went out and that its load-bearing claims were re-run — a silent
 delegation is indistinguishable from the orchestrator having done the work itself.
+
+---
+
+## Every founder clarification is written down (P1355 R5)
+
+When the founder corrects, clarifies or decides something during a run that the pipeline should have
+known, append one line to `improvements.md` in the event folder: the date, the stage, the founder's
+words verbatim, and which rule or file should have carried it. Clarity Night #2 produced 34 such
+items, reconstructed afterwards from two halves of a transcript; the file makes the next reflection a
+read, not an archaeology.
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * rule-present.mjs — P1210 §12 / DW-6, DW-7, DW-9, DW-11, DW-14.
+ * rule-present.mjs — P1210 §12 / DW-6, DW-7, DW-9, DW-11, DW-14; P1355 standing-rules.
  *
  * SCOPE, STATED SO NOTHING CAN READ MORE INTO IT. This asserts that a rule EXISTS
  * and is correctly stated AT A NAMED LOCATION. It does NOT assert that an agent
@@ -49,6 +49,22 @@ export const RULE_SETS = {
         ["person one's transcript is read first", /transcript[- ]first|read person one's transcript first/i],
         ['2–3 counterpart candidates are named with the sentence each would produce', /2[–-]3 counterpart candidates[^.\n]*contradiction sentence/i],
         ['no counterpart video search runs before that', /no counterpart video search runs before/i],
+      ],
+    },
+  },
+  'standing-rules': {
+    // P1355. Clarity Night #2 re-asked rules that were already written — at the
+    // END of select.md, where nothing made an agent read them before starting.
+    // This asserts they sit in one section at the top, that the measurable ones
+    // point at their machine source, and that Gate 1's halt carries the P1355
+    // wording (videos are screened before Gate 1; approval still precedes audio).
+    dw: 'P1355',
+    locations: {
+      [`${SKILLS}/select.md`]: [
+        ['a Standing rules section, read before Phase 0', /^## Standing rules\b[^\n]*before Phase 0/m],
+        ['the measurable rules live in standing-rules.json', /numbers live in `scripts\/points\/standing-rules\.json`/],
+        ['one video per person per event', /\*\*One video per person per event\.\*\*/],
+        ['Gate 1 halts before any source is approved or fetched as audio', /before any source is approved or fetched as audio/i],
       ],
     },
   },

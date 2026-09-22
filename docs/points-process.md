@@ -187,7 +187,8 @@ The points pipeline turns public video into a published disagreement a room can 
   - **Gate 1:** Founder approves the **Phase 0 spectrum and one person per position**. Phase 0 has no separate gate — Gate 1 already sits before any search, which is the spend Phase 0 protects. Identity key resolved, agent existence checked, **portrait status recorded — never rejected on**. Three values: `cleared` / `none` / `UNKNOWN LICENCE`. `none` is a valid approvable outcome routed to the initials-only provisioning branch; only `UNKNOWN LICENCE` halts. Non-approved candidates are carried into the run file as that position's `alternates`, not discarded. Optionally one or more positions are **seeded** by the founder (a person and/or a video URL), in which case only the un-seeded positions are proposed.
   - **Gate 0:** One voice, or one voice plus a verified questioner. **Step 0 identity (a name-bearing artefact, with the pasted surname count against the raw `.vtt` — 0 is a STOP)** → title screen → transcript opening read (~500 words) → one-way measurement for multi-speaker sources (Step 2b, ≥75% dominant-side word share on ≥10 turns) → diarization for speaker-labelled sources (Step 2c) → founder confirmation → reported speech scan (excludes the passage, never the source).
   - **Gate 2:** Founder approves the selected video **set**. Evaluates candidate statistics, argument quality, claim match, position match, unfilled positions, and judge-step dissent.
-- **Writes:** The run file header, topic, room, fork, Phase 0 verdict, approved people/sources (one repeatable `arguers:` entry per position), and Gate 1/Gate 2 approvals block. Seals the approvals block to `.points-run-seals/<slug>.approvals.sha256`.
+- **Standing rules and the two-track screen (P1355):** the measurable rules (floors, recency per voice, minutes on topic, language, results per query, override reasons) live in `scripts/points/standing-rules.json`; the rest are the *Standing rules* section at the top of `select.md`. Videos are screened **before Gate 1** in two tracks — Track A searches each named person (30 by relevance and by views, swept, captions for survivors, a delegated pre-screen); Track B runs topic queries only for a position no named person argues for the minimum time. Delegated screening proposes; minutes come from `on-topic-minutes.mjs` and the stance shown at a gate is written by the orchestrator from quoted passages. Gate 1 halts before any source is approved or fetched as audio.
+- **Writes:** The run file header, topic, room, fork, Phase 0 verdict, approved people/sources (one repeatable `arguers:` entry per position), and Gate 1/Gate 2 approvals block. `run-file-check.mjs` must return `SEALABLE` first; then it seals the approvals block to `.points-run-seals/<slug>.approvals.sha256`.
 
 ### Step 2: `/slava:disagreement:prepare`
 - **Goal:** Extract synthesized points and record a sealed prediction of how the room will split.
@@ -227,7 +228,10 @@ The points pipeline turns public video into a published disagreement a room can 
 
 ### File Locations
 1. **Run File (Mutable progressive artifact, gitignored):**
-   `.private/points-runs/<slug>.md`
+   `.private/points-runs/<slug>.md` — this path is fixed: nine skills, `redact-run.mjs` and the seal paths read it.
+   **Event-level files** (page text, handoff, prep notes, results, `improvements.md`) live, from the
+   next event on, in `.private/events/<city>-<topic>-<YYYY-MM-DD>/`, with a README linking the run file
+   and the campaign folder. Existing events are not migrated (P1355 D3).
 2. **Tracked Seals Directory (Public repo, commit timestamped):**
    - `.points-run-seals/<slug>.approvals.sha256` — Hash of the approvals block, sealed by `disagreement:select` at Gate 2.
    - `.points-run-seals/<slug>.transcripts.sha256` — Hash of raw/clean transcripts and `vtt-clean` version, sealed by `disagreement:prepare` Stage 1.
@@ -262,7 +266,9 @@ Each section has exactly one owner skill. Downstream skills verify upstream seal
 ## Header & Approvals
 topic: "<topic string>"
 room: "<room description>"
-audience_floor: { min_views: 2000, min_comments: 50 } # or founder override
+audience_floor: { min_views: 100000, min_comments: 50 } # MANDATORY. Default = scripts/points/standing-rules.json; never LOWER than it (run-file-check.mjs refuses). Exceptions are per-arguer `override`, inside the seal
+event_intention: "<who the evening is for, what it tests, its frame>"   # when the run feeds an event
+event_folder: ".private/events/<city>-<topic>-<YYYY-MM-DD>/"            # when the run feeds an event
 
 ### Approvals Block (SEALED)
 gate_1_approved_at: "<ISO-timestamp>"
@@ -292,6 +298,16 @@ arguers:                              # REPEATABLE, 2..6 entries, one per distin
     gate_0_basis: "<single-speaker | turn-verified | speaker-labelled>"
     diarization: "<null | { oracle: passed, turns: <int>, speakers: <int>, mapping_evidence: '<the in-transcript line that fixes the label to the person>' }>"  # required when gate_0_basis is speaker-labelled
     claim: "<what this video argues>"
+    # --- P1355: checked by scripts/points/run-file-check.mjs before the seal ---
+    voice: "<ai | classic | lived>"            # recency per class (standing-rules.json); classic exempt
+    why_in_the_room: "<one line: this person's unique perspective in the room>"   # approved at Gate 1; the event page reuses it
+    on_topic_seconds: <number>                  # from scripts/points/on-topic-minutes.mjs, never eyeballed
+    on_topic_ranges: [["MM:SS", "MM:SS"], ...]  # the ranges that measurement counted
+    language: "<en>"                            # English-only (standing rule 1); never overridable
+    upload_date: "<YYYY-MM-DD>"
+    recorded_date: "<YYYY-MM-DD>"               # optional; checked when the upload is an obvious re-upload
+    sensitive_passages: [["MM:SS", "MM:SS"], ...]   # room constraints: never counted, never quoted
+    override: "<recognisable-figure-low-video-reach | only-source-arguing-position | founder-named: <verbatim>>"   # optional; lifts only the floors its reason covers
   - position: 2
     ...                               # repeat per arguer, up to 6
 judge_dissent: "<summary of why the judge step argued this set does not work — including the pairwise same-side check across all N>"

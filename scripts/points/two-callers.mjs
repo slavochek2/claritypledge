@@ -36,6 +36,7 @@ export const HARNESS = new Set([
   'redact-run.mjs',           // the derivation behind the run-B fixture
   'build-rule-fixtures.mjs',  // the must-fail fixture builder for rule-present
   'md-spans.mjs',             // P1244 — the markdown parser two scanners share
+  'standing-rules.mjs',       // P1355 C1 — the loader for standing-rules.json; decides nothing
 ])
 
 /**

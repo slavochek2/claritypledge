@@ -1,0 +1,45 @@
+{
+  "_comment": "P1355 C1. The ONE machine source for the disagreement pipeline's measurable standing rules. Scripts read it through standing-rules.mjs; select.md names this file and never restates the numbers. Founder rules and their verbatim sources: features/p1355 'Decided' table (rules 1, 3, 4, 5). Change a number here, not in prose.",
+  "version": 1,
+  "floors": {
+    "min_views": 100000,
+    "min_comments": 50
+  },
+  "recency_years": {
+    "_comment": "Upload must fall within this many years of the run date. `classic` voices (older thinkers on the unresolved X debate, rule 6) are exempt: null means no recency floor.",
+    "ai": 2,
+    "lived": 2,
+    "classic": null
+  },
+  "voices": [
+    "ai",
+    "classic",
+    "lived"
+  ],
+  "min_on_topic_seconds": 300,
+  "language": "en",
+  "results_per_query": 30,
+  "override_reasons": [
+    "recognisable-figure-low-video-reach",
+    "only-source-arguing-position",
+    "founder-named"
+  ],
+  "override_covers": {
+    "_comment": "Which floors each override reason may lift. Language is never overridable (rule 1). An override lives per arguer INSIDE the sealed approvals block, never in the header.",
+    "recognisable-figure-low-video-reach": [
+      "views",
+      "comments"
+    ],
+    "only-source-arguing-position": [
+      "views",
+      "comments",
+      "minutes"
+    ],
+    "founder-named": [
+      "views",
+      "comments",
+      "minutes",
+      "recency"
+    ]
+  }
+}

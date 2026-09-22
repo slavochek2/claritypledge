@@ -15,6 +15,7 @@ import path from 'node:path'
 const STRIP = {
   'one-gate': 'downstream may sharpen an approved axis',
   'transcript-first': 'no counterpart video search runs before that',
+  'standing-rules': 'one video per person per event',
   'story-unit': 'single-point scope judged by a checker that is not the writer',
   'same-vote': '"re-cast" means fresh Gates 1–2, a fresh seal, a new run',
   'event-contract': 'each point gets its own stake and re-stake, not one aggregate up front',

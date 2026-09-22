@@ -39,6 +39,7 @@ export const PREDICATE_MODULES = [
   'source-binding.mjs',
   'room-split.mjs',
   'audio-check.mjs',
+  'on-topic-minutes.mjs', 'run-file-check.mjs',   // P1355 C3, C4
 ]
 
 /** Modules that are harness, not predicates — the ONLY sanctioned reason for a
@@ -46,6 +47,7 @@ export const PREDICATE_MODULES = [
 export const HARNESS_MODULES = [
   'verify-all.mjs', 'two-callers.mjs', 'no-vacuous-tests.mjs', 'redact-run.mjs',
   'run-scoring.mjs', 'md-spans.mjs', 'build-rule-fixtures.mjs',
+  'standing-rules.mjs',   // P1355 C1 — loads standing-rules.json; decides nothing
 ]
 
 /**

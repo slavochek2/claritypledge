@@ -10,6 +10,10 @@
 import { describe, it, expect } from 'vitest'
 import { run, FIXTURES } from '../../scripts/points/candidate-sweep.mjs'
 
+// P1355: a sweep input records each query and how many results it requested
+// (>= 30, standing-rules.json), and every candidate carries `language`.
+const q = (ids: string[]) => [{ query: 'test query', requested: 30, ids }]
+
 describe('candidate-sweep — exclusions must be measured, not eyeballed', () => {
   it('MUST-PASS: every candidate measured; the qualifying source is admitted', () => {
     const r = run(FIXTURES.pass)
@@ -30,7 +34,7 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
   })
 
   it('an empty sweep cannot report a field as exhausted', () => {
-    const r = run({ floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', searched: [], candidates: [] })
+    const r = run({ floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', queries: q([]), candidates: [] })
     expect(r.verdict).toBe('REFUSE')
     expect(r.detail).toContain('examined nothing')
   })
@@ -46,19 +50,19 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
     console.log('[candidate-sweep omission]', r.detail)
   })
 
-  it('no searched list at all is REFUSE — the sweep cannot vouch for coverage it never saw', () => {
+  it('no search record at all is REFUSE — the sweep cannot vouch for coverage it never saw', () => {
     const r = run({
       floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127',
-      candidates: [{ id: 'x', upload_date: '20260101', view_count: 5000, comment_count: 99 }],
-    })
+      candidates: [{ id: 'x', language: 'en', upload_date: '20260101', view_count: 5000, comment_count: 99 }],
+    } as never)
     expect(r.verdict).toBe('REFUSE')
-    expect(r.detail).toContain('no `searched` list')
+    expect(r.detail).toContain('no per-query search record')
   })
 
   it('a measured field with zero survivors is FIELD-EMPTY, which is a finding — not a REFUSE', () => {
     const r = run({
-      floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', searched: ['x'],
-      candidates: [{ id: 'x', title: 't', upload_date: '20230101', view_count: 10, comment_count: 1 }],
+      floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', queries: q(['x']),
+      candidates: [{ id: 'x', title: 't', voice: 'ai', language: 'en', upload_date: '20230101', view_count: 10, comment_count: 1 }],
     })
     expect(r.ok).toBe(true)
     expect(r.verdict).toBe('FIELD-EMPTY')
@@ -67,8 +71,8 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
 
   it('a zero metric is a measurement; only null/absent is unmeasured', () => {
     const r = run({
-      floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', searched: ['z'],
-      candidates: [{ id: 'z', upload_date: '20260101', view_count: 0, comment_count: 0 }],
+      floor: { minViews: 2000, minComments: 50 }, recencyFloor: '20251127', queries: q(['z']),
+      candidates: [{ id: 'z', language: 'en', upload_date: '20260101', view_count: 0, comment_count: 0 }],
     })
     expect(r.verdict).toBe('FIELD-EMPTY')
     expect(r.unmeasured ?? []).toHaveLength(0)
@@ -77,25 +81,24 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
 
 describe('candidate-sweep: a crash is not a verdict (found 2026-09-04, first real use)', () => {
   const body = {
-    searched: ['aaa111'],
-    candidates: [{ id: 'aaa111', upload_date: '20260304', view_count: 785823, comment_count: 8700 }],
+    queries: q(['aaa111']),
+    candidates: [{ id: 'aaa111', language: 'en', upload_date: '20260304', view_count: 785823, comment_count: 8700 }],
   }
 
-  it('the shape select.md documented — no floors — REFUSES instead of throwing', () => {
+  it('the shape select.md documented — no floors — never throws', () => {
     // select.md said `{searched:[...], candidates:[...]}`. That input dereferenced
     // floor.minViews and threw a TypeError. Every fixture supplied `floor`, so
     // verify-all stayed green over an invocation the docs made impossible.
     expect(() => run(body as never)).not.toThrow()
-    const r = run(body as never)
-    expect(r.ok).toBe(false)
-    expect(r.verdict).toBe('REFUSE')
-    expect(r.detail).toMatch(/no measurement standard/i)
   })
 
-  it('names BOTH missing halves, so the caller knows what to supply', () => {
-    const r = run(body as never)
-    expect(r.detail).toContain('floor {minViews, minComments}')
-    expect(r.detail).toContain('recencyFloor')
+  it('P1355: omitted floors are READ from standing-rules.json and named in the verdict, not guessed', () => {
+    // Contract change (P1355 C2): an omitted standard is no longer a REFUSE, because
+    // the standard now has one machine home. The verdict must say where it came from.
+    const r = run({ ...body, asOf: '20260922' } as never)
+    expect(r.ok).toBe(true)
+    expect(r.detail).toContain('floor from standing-rules.json: views >= 100000, comments >= 50')
+    expect(r.detail).toContain('recency floors from standing-rules.json as of 20260922')
   })
 
   it('a floor present but non-numeric is refused too, not silently coerced', () => {
@@ -120,8 +123,8 @@ describe('candidate-sweep: unmeasured is a property of the VERDICT, not the fiel
     // (9..610 against a 2000 floor). Refusing on those blocked 4 of 5 positions.
     const r = run({
       ...base,
-      searched: ['a1'],
-      candidates: [{ id: 'a1', title: 'tiny', upload_date: '20260412', view_count: 610, comment_count: null }],
+      queries: q(['a1']),
+      candidates: [{ id: 'a1', title: 'tiny', language: 'en', upload_date: '20260412', view_count: 610, comment_count: null }],
     } as never)
     expect(r.ok).toBe(true)
     expect(r.verdict).toBe('FIELD-EMPTY')
@@ -134,8 +137,8 @@ describe('candidate-sweep: unmeasured is a property of the VERDICT, not the fiel
     // every floor that could be measured, so the missing field could still exclude it.
     const r = run({
       ...base,
-      searched: ['VKLDl3siaSE'],
-      candidates: [{ id: 'VKLDl3siaSE', title: 'ABC News Bengio', upload_date: '20251218', view_count: 36190, comment_count: null }],
+      queries: q(['VKLDl3siaSE']),
+      candidates: [{ id: 'VKLDl3siaSE', title: 'ABC News Bengio', language: 'en', upload_date: '20251218', view_count: 36190, comment_count: null }],
     } as never)
     expect(r.ok).toBe(false)
     expect(r.verdict).toBe('REFUSE')
@@ -148,8 +151,8 @@ describe('candidate-sweep: unmeasured is a property of the VERDICT, not the fiel
     // the exact conflation this predicate exists to prevent.
     const r = run({
       ...base,
-      searched: ['a1'],
-      candidates: [{ id: 'a1', upload_date: '20240101', view_count: null, comment_count: null }],
+      queries: q(['a1']),
+      candidates: [{ id: 'a1', voice: 'ai', language: 'en', upload_date: '20240101', view_count: null, comment_count: null }],
     } as never)
     expect(r.detail).toMatch(/view_count not reported/)
     expect(r.detail).not.toMatch(/views null/)

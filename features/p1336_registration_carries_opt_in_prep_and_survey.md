@@ -71,13 +71,16 @@ Onboarding completion and survey answers are stored per person; the flow itself 
 
 1. **Universal onboarding, done once and remembered.** It is never asked again of someone who has
    completed it. It is **letter-like**: the ST1 Clarity Letter, in order:
-   - **Why this evening exists** (the founder's intention): the few presi3 slides on why discussions
-     feel like a waste of time (monologues, disagreement that splits instead of teaching, rooms of people
-     who already agree) and "built by someone who paid for the lesson". Keep it to one screen.
-   - **ST1 story as a video**, embedded from YouTube, with the story's current image as the thumbnail.
-     Under it, the three meanings in one line each (founder-approved wording since 2026-02):
+   - **Why do the homework** (the founder's intention): the presi3 slides on why discussions feel like
+     a waste of time (monologues, disagreement that splits instead of teaching, rooms of people who
+     already agree) and "built by someone who paid for the lesson". Plus one line naming what the prep buys:
+     you arrive understanding the method, with a specific position. One screen.
+   - **The ST1 story as it is on the site**, with no separate onboarding copy. Its video is embedded from
+     YouTube, thumbnail = the story's current image. The story gets a new version: the video, plus the
+     three meanings in one line each appended to its text (founder-approved wording since 2026-02):
      *Agreement: accept that I'm right. Emotional understanding: feel what I feel. Cognitive
-     understanding: reproduce my position accurately. I explain back, you rate it 0–10.*
+     understanding: reproduce my position accurately. I explain back, you rate it 0–10.* The point is
+     unchanged. Every reader of ST1 gets the upgrade, and nothing is written twice.
    - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
      meaning of this story?"**
    - **The Clarity Meeting Principle** (the thing opted into; a point, not a new story) + its own 0–10.
@@ -169,10 +172,11 @@ reading.
 5. **Join link lifetime.** Supabase magic links expire according to the project's OTP setting, which is one
    setting for all sign-ins. A ~3-hour link may need its own signed token instead of the shared setting.
    Check before building.
-6. **/ready question.** The event room already asks the /ready question on arrival. Recommended: keep it
-   there (it asks about *right now*), with the wording taken from the event: "How up for thinking about
-   {topic} are you right now?" Filled in automatically for Clarity Nights. Not part of registration,
-   because a day-before answer does not measure the evening.
+6. **/ready stays at the door** (founder-confirmed 2026-09-22). The topic wording and faces instead of
+   dots are [P1356](p1356_ready_shows_faces_not_anonymous_dots.md).
+7. **More stories later (idea, not this version).** After each event, offer the next story (ST2, ST3 …)
+   as optional between-event reading, so regulars progress through the nine over time and a room can
+   later be checked one-to-many on where people are. Worth doing only once weekly regulars exist.
 
 ## Related
 

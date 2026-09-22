@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 13
 workstream: infrastructure
 created_date: '2026-09-22'
 tags: [skills, points-pipeline, selection, events]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: xhigh
@@ -287,25 +287,93 @@ the room's-own-lives framing, lived-experience voices, room constraints and the 
 
 ## Done-When
 
-- [ ] `node scripts/points/verify-all.mjs` passes with C2, C3 and C4 registered. Each must-fail
+- [x] `node scripts/points/verify-all.mjs` passes with C2, C3 and C4 registered. Each must-fail
       fixture (stale AI voice, non-English source, 7-id query, unlabelled multi-speaker minutes, run
       file missing `why_in_the_room`, below-floor arguer without override) fails, and each must-pass
       fixture passes
-- [ ] **Replay control:** event #1's and event #2's recorded sources, run through C2 and C4 with
+      — *Evidence: `PASS — 19 predicate(s)`, `on-topic-minutes.mjs CLEARS / REFUSE`,
+      `run-file-check.mjs SEALABLE / REFUSE`, coverage OK. The six must-fails are pinned in
+      `src/tests/p1210-p1355-standing-rules.test.ts` (37 tests). Full suite: 4514 passed.*
+- [x] **Replay control:** event #1's and event #2's recorded sources, run through C2 and C4 with
       C1's values, produce the expected list. Event #1: 2 sources admitted, 2 needing a
       `recognisable-figure-low-video-reach` override. Event #2: the rejected famous-name source
       rejected on minutes, the older thinker admitted despite a 2022 upload. The replay output is
-      pasted into this spec
-- [ ] C3 run on the event #2 source that recorded three different minute counts returns one
+      pasted into this spec — *see "Replay output" below; pinned as a test.*
+- [x] C3 run on the event #2 source that recorded three different minute counts returns one
       reproducible number, and a second run returns the same number
-- [ ] Event #1's recorded sweep input returns its recorded verdict under the new `candidate-sweep.mjs`,
+      — *Evidence: the stored diarization (two windows, Harari = `spk:0` in both, sensitive passage
+      36:50-40:30 subtracted) returns `92.6s (1.5 min)`, exit 1, on both runs. Without the sensitive
+      subtraction: 224.7s, still below 300s. The three eyeballed counts were 7, 3 and 1.5 minutes.*
+- [x] Event #1's recorded sweep input returns its recorded verdict under the new `candidate-sweep.mjs`,
       or differs only on a named new check
-- [ ] `rule-present.mjs` exits 0 with the updated Gate 1 wording, and exits non-zero on a copy of
+      — *Honest scope: the raw 261-candidate sweep input was never persisted (`grep -rl '"searched"'`
+      over `.private/` and the scratch dirs returns nothing). The run file records the verdict
+      (FIELD-NON-EMPTY per position) and the four selected sources' metrics. Replaying those four
+      through the new sweep differs from the recorded verdict only on the named new floor
+      (views < 100000, standing-rules.json): Bengio's and Sanders' sources are rejected, and the
+      override path in C4 admits them. The committed must-pass fixture (the 2026-09-04 run's input)
+      returns its recorded FIELD-NON-EMPTY unchanged.*
+- [x] `rule-present.mjs` exits 0 with the updated Gate 1 wording, and exits non-zero on a copy of
       the **real** `select.md` with the Standing rules section deleted
-- [ ] A TEST draft through clarity-night-publish's draft mode renders with the P3 section order and
+      — *Evidence: `P1355 standing-rules: RESOLVE — 4 rule(s)`, exit 0. The mutation test deletes the
+      section from a temp copy of the real file and gets `REJECT` (gate 7d); the generated stripped
+      fixture also REJECTs.*
+- [x] A TEST draft through clarity-night-publish's draft mode renders with the P3 section order and
       no Where section, checked on the real page at 375 px and desktop
-- [ ] Skills re-synced (`scripts/sync-agent-skills.sh`) and its check passes
+      — *Evidence, with its limit: checked against the Clarity Night #2 TEST page (the page this flow
+      produced), not a fresh draft-mode insert — a new TEST event row needs the founder's ok. Read
+      from TEST: headings `Why now · Who is in the room · Agenda · How Clarity Nights are different ·
+      Optional preparation · Sources`, 0 "Where". Rendered on a w5 dev server at a confirmed
+      `innerWidth` 375 and at 1440: same order, no horizontal overflow. Still open on that page (event
+      #2 question, not this spec's): the opening is three sentences, not one.*
+- [x] Skills re-synced (`scripts/sync-agent-skills.sh`) and its check passes
+      — *Evidence: `--check: OK — 127 skills in sync, 0 collisions, 0 drift`.*
 - [ ] decisions.md records the partial overturning of the 2026-08-25 and 2026-08-27 rulings (via `/kdd`)
+
+### Replay output (2026-09-22, `src/tests/p1210-p1355-standing-rules.test.ts`)
+
+```
+[replay event #1, C2]
+FIELD-NON-EMPTY — 2 of 4 candidate(s) clear the floors, the recency line for their voice, and the language rule.
+    ADMIT  MWMe7yjPYpE [ai]
+    ADMIT  rf2KFVcKQdQ [ai]
+    reject _-CuF1likvw [ai]: views 79388 < 100000
+    reject hqx4zk54Q6g [ai]: views 8927 < 100000
+[replay event #1, C4 without overrides]
+REFUSE — 2 of 4 arguer(s) break a standing rule. Do not seal.
+    position 2 (Yoshua Bengio): REFUSE — views 79388 < 100000 and no override covers it
+    position 4 (Bernie Sanders): REFUSE — views 8927 < 100000 and no override covers it
+[replay event #1, C4 with overrides]
+SEALABLE — both lifted by override "recognisable-figure-low-video-reach"
+[replay event #2, C2]
+FIELD-NON-EMPTY — 2 of 2: ADMIT FNZhxTtOL-I [ai], ADMIT dx4yW0mjezw [classic] (2022 upload)
+[replay event #2, C4]
+REFUSE — position 1 (Yuval Noah Harari): on topic 92.6s < 300s and no override covers it
+         position 2 (Alan Watts): ok
+```
+
+Event #1 recorded no on-topic minutes, so its C4 rows use a 600s stand-in to isolate the floors.
+Watts' 840s is the recorded single-speaker estimate (the whole lecture), not a C3 measurement.
+
+## Implementation notes (2026-09-22)
+
+- **Contract change in `candidate-sweep.mjs`:** input is now `queries: [{query, requested, ids}]`
+  (each requesting >= 30), and candidates carry `voice` and `language`. Omitted floors are read from
+  `standing-rules.json` and named in the verdict, where they used to be a REFUSE. The existing
+  p1210 sweep tests were updated for this new contract (inputs reshaped; the "no floors → REFUSE"
+  assertion became "no floors → standing-rules.json, named"); every other assertion is unchanged.
+- **C3 bug found by its own fixture:** merging touching ranges let an off-topic range borrow its
+  neighbour's term hit. Ranges are now judged one at a time and only the counted speech is unioned.
+- **C3 takes `sensitive` passages** and subtracts them (S2: qualify on minutes outside them).
+- **Override coverage is data** (`override_covers` in the JSON): the low-reach reason lifts views and
+  comments only; `only-source-arguing-position` also lifts minutes; `founder-named` also lifts
+  recency. Language is never overridable.
+- **`audience-floor.mjs` unchanged** (C5 "keeps reading"); enum validation happens once, at the seal.
+- **Room constraints:** a `constraints` field was added to the private audience registry for the
+  Chiang Mai base room, marked DRAFT for the founder to confirm.
+- **Banner template:** `scripts/events/lineup-banner.html`, generalised from the Clarity Night #2 v5
+  banner; rendered with that banner's data it reproduces it.
+- **S8 not adopted** — still the founder decision in Open Question 2.
 
 ## Alternatives Considered
 
