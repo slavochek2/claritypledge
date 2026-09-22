@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 303
 workstream: kanban
 created_date: '2026-09-21'
 tags: [kanban, api, locked_at, prioritize]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-22
 ---
 
 # P1341: A scripted status change on the kanban can skip the manual lock
@@ -20,12 +20,12 @@ driver: anomaly
 
 `tools/kanban/server/api.ts` writes `locked_at` on every status PATCH, unconditionally
 (`// Lock status against automated overrides` block). `locked_at` is the manual-lock marker that
-suppresses automated status transitions ([.claude/rules/features.md](../.claude/rules/features.md)
+suppresses automated status transitions ([.claude/rules/features.md](../../../.claude/rules/features.md)
 §Manual Status Lock), and that rule describes it as written by the **UI**. But
 `/slava:maintain:prioritize` step 7 tells agents to prefer this API, and never mentions the lock.
 
 On 2026-09-21 a `/prioritize` run stamped 31 specs this way, then P1297 and P1340 again. Each batch was
-stripped by hand ([decisions.md](../docs/decisions.md) 2026-09-21 [process], board refit). A stray lock
+stripped by hand ([decisions.md](../../../docs/decisions.md) 2026-09-21 [process], board refit). A stray lock
 stops `/dev` from setting `in-progress`. The founder's real locks had to be told apart by timestamp.
 
 > Founder, 2026-09-21, on the locks this run had to keep apart from his own: *"yes move the two to backlog - ; a ok do it; locked specs yes to backlog all"* — then, confirming this fix at /kdd: *"sure yes fix"*.
