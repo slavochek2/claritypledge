@@ -17,10 +17,8 @@ import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/
 import { __resetYouTubeApiLoader } from '@/lib/video';
 import { createRef } from 'react';
 
-/** P1296 item 8 — the quotes are folded by default; open the fold before reading them. */
-function openQuotes() {
-  fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
-}
+/** P1348 — the quotes are never folded; kept as a no-op so call sites read the same. */
+function openQuotes() {}
 
 const VIDEO = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 const QUOTES = [
@@ -105,7 +103,7 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
         onSeek={vi.fn()}
       />
     );
-    expect(screen.getByTestId('story-video-quotes-toggle').textContent).toBe('2 supporting quotes');
+    expect(screen.getByTestId('story-video-quotes-heading').textContent).toBe('2 supporting quotes');
     expect(screen.queryByText(/Supporting quotes from/)).toBeNull();
     // Amended 2026-08-24: the `{n} marks · {duration}` meta line was removed from the UI
     // Contract. The count is visible by looking and the video's total length answered a
@@ -130,36 +128,21 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
   });
 });
 
-describe('P1296 item 8 — the quotes are folded by default, behind a toggle that says how many', () => {
-  it('starts folded: the toggle shows, the quotes and timecodes do not', () => {
+describe('P1348 — the quotes are never folded (reverses P1296 item 8)', () => {
+  it('renders every quote and timecode on first paint, with no toggle', () => {
     render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
-    const toggle = screen.getByTestId('story-video-quotes-toggle');
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByTestId('story-video-quote-timecode')).toBeNull();
-    expect(screen.queryByText('the first thing said')).toBeNull();
-  });
-
-  it('opening the fold reveals every quote and timecode — folded, never removed', () => {
-    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
-    openQuotes();
-    expect(screen.getByTestId('story-video-quotes-toggle').getAttribute('aria-expanded')).toBe('true');
     expect(screen.getAllByTestId('story-video-quote-timecode')).toHaveLength(2);
+    expect(screen.getByText('the first thing said')).toBeTruthy();
     expect(screen.getByText('the second thing said')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /supporting quote/ })).toBeNull();
   });
 
-  it('the fold is reversible', () => {
-    render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES} onSeek={vi.fn()} />);
-    openQuotes();
-    openQuotes();
-    expect(screen.queryByTestId('story-video-quote-timecode')).toBeNull();
-  });
-
-  it('the count is singular for one quote, and the toggle is a 40px target inside a heading', () => {
+  it('the heading is a plain h3 label with a singular count for one quote', () => {
     render(<StoryVideoQuotes videoUrl={VIDEO} quotes={QUOTES.slice(0, 1)} onSeek={vi.fn()} />);
-    const toggle = screen.getByTestId('story-video-quotes-toggle');
-    expect(toggle.textContent).toBe('1 supporting quote');
-    expect(toggle.className).toContain('min-h-[40px]');
-    expect(toggle.closest('h3')).toBeTruthy();
+    const heading = screen.getByTestId('story-video-quotes-heading');
+    expect(heading.textContent).toBe('1 supporting quote');
+    expect(heading.tagName).toBe('H3');
+    expect(heading.hasAttribute('aria-expanded')).toBe(false);
   });
 });
 

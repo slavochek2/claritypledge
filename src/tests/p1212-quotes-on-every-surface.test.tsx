@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
@@ -84,7 +84,6 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
     expect(screen.getByTestId('story-video-quotes')).toBeTruthy();
     // P1296 item 8 — folded by default; the bodies are one tap away, never absent.
-    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     expect(document.body.textContent).toContain(QUOTE_A);
     expect(document.body.textContent).toContain(QUOTE_B);
   });
@@ -97,7 +96,7 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
    *  must still be stripped: zero copies of it, not one. */
   it('renders the heading exactly once, and no prose copy of the old label', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory({ content: `An argument.\n${QUOTE_LABEL_PREFIX} Yann LeCun:` })} /></MemoryRouter>);
-    const toggles = screen.getAllByTestId('story-video-quotes-toggle');
+    const toggles = screen.getAllByTestId('story-video-quotes-heading');
     expect(toggles, 'the quote heading must render once — twice is the §1 defect returning').toHaveLength(1);
     expect(toggles[0]!.textContent).toBe('2 supporting quotes');
     expect(document.body.textContent).not.toContain(QUOTE_LABEL_PREFIX);
@@ -121,7 +120,6 @@ describe('P1212 §4 — the feed story card carries the quotes, not just the arg
    */
   it('every timecode carries its second and seeks in place rather than leaving the page', () => {
     render(<MemoryRouter><FeedStoryCard story={agentStory()} /></MemoryRouter>);
-    fireEvent.click(screen.getByTestId('story-video-quotes-toggle'));
     const block = screen.getByTestId('story-video-quotes');
     const timecodes = [...block.querySelectorAll('[data-testid="story-video-quote-timecode"]')];
     expect(timecodes.length).toBeGreaterThanOrEqual(2);

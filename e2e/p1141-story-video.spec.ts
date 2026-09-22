@@ -61,14 +61,9 @@ test.afterAll(async () => {
   }
 });
 
-/**
- * P1296 item 8 — the supporting quotes are folded by default on every surface, behind a toggle
- * stating their count. Open it the way a reader does before reading a timecode.
- */
+/** P1348 — the supporting quotes are never folded; wait for the block to render. */
 async function openQuotes(page: import('@playwright/test').Page) {
-  const toggle = page.getByTestId('story-video-quotes-toggle').first();
-  await expect(toggle).toBeVisible({ timeout: 15_000 });
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(page.getByTestId('story-video-quotes-heading').first()).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe('P1141 — a story carrying a video, on the real route', () => {

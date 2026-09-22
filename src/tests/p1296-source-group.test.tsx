@@ -101,7 +101,7 @@ describe('P1296 — what a group looks like', () => {
       const footer = within(card).getByTestId('story-card-footer');
       expect(within(footer).getByRole('button', { name: 'Share story' })).toBeTruthy();
       expect(within(footer).getByRole('button', { name: 'Open story' })).toBeTruthy();
-      expect(within(card).getByTestId('story-video-quotes-toggle').textContent).toBe('1 supporting quote');
+      expect(within(card).getByTestId('story-video-quotes-heading').textContent).toBe('1 supporting quote');
     }
   });
 
@@ -122,7 +122,6 @@ describe('P1296 — what a group looks like', () => {
     // Every member gets the SAME player's seek.
     expect(new Set(seen.map((g) => g.onSeek)).size).toBe(1);
     const card = memberCards()[0]!;
-    fireEvent.click(within(card).getByTestId('story-video-quotes-toggle'));
     expect(within(card).getByTestId('story-video-quote-timecode').tagName).toBe('BUTTON');
   });
 });

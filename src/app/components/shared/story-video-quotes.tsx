@@ -1,5 +1,4 @@
-import { useId, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useId } from 'react';
 import { formatTimecode, getTimestampUrl, type VideoQuote } from '@/lib/video';
 
 interface StoryVideoQuotesProps {
@@ -45,7 +44,6 @@ export function StoryVideoQuotes({
   onSeek,
   playerBlocked = false,
 }: StoryVideoQuotesProps) {
-  const [open, setOpen] = useState(false);
   const listId = useId();
 
   if (!quotes || quotes.length === 0) return null;
@@ -63,25 +61,9 @@ export function StoryVideoQuotes({
       {/* A heading that CONTAINS the button — the disclosure pattern that keeps the section
           navigable by heading while making the whole label the control. 40px tall, the
           same floor as the timecodes below. */}
-      <h3 className="text-sm font-medium">
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          aria-expanded={open}
-          // Only while the list exists — an idref to an element that is not rendered is invalid.
-          aria-controls={open ? listId : undefined}
-          data-testid="story-video-quotes-toggle"
-          className="flex min-h-[40px] w-full items-center gap-1.5 rounded-md text-left text-muted-foreground transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {open ? (
-            <ChevronDown size={14} className="flex-shrink-0" aria-hidden="true" />
-          ) : (
-            <ChevronRight size={14} className="flex-shrink-0" aria-hidden="true" />
-          )}
-          <span className="min-w-0">
-            {count} supporting {count === 1 ? 'quote' : 'quotes'}
-          </span>
-        </button>
+      {/* P1348 — never folded. The heading is a plain label stating the count. */}
+      <h3 className="text-sm font-medium text-muted-foreground" data-testid="story-video-quotes-heading">
+        {count} supporting {count === 1 ? 'quote' : 'quotes'}
       </h3>
 
       {/*
@@ -92,7 +74,7 @@ export function StoryVideoQuotes({
         target. A hit area the eye cannot see is not a hit area a reader will
         use. The measurement was never the disagreement; the affordance was.
       */}
-      {open && (
+      {(
         <ul id={listId} className="mt-2 space-y-3" data-testid="story-video-quotes-list">
           {quotes.map((quote, index) => {
             const timecode = formatTimecode(quote.seconds);

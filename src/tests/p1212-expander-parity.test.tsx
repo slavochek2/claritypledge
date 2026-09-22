@@ -375,7 +375,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     // the control instead of at whichever element type the surface currently renders.
     // P1296 item 8 — the quotes are folded; Enter on the FOLD TOGGLE must not navigate either,
     // or the quotes would be unreachable by keyboard. Asserted before the timecode.
-    const toggle = document.querySelector('[data-testid="story-video-quotes-toggle"]');
+    const toggle = document.querySelector('[data-testid="story-video-quotes-heading"]');
     expect(toggle, 'the fixture must render the quotes fold').toBeTruthy();
     fireEvent.keyDown(toggle!, { key: 'Enter' });
     expect(navigate.mock.calls, 'Enter on the quotes fold must not navigate to the story').toHaveLength(0);
@@ -522,7 +522,6 @@ describe('P1212 §1 (eighth surface) — QuotedStory suppresses the quote label'
     );
 
     // P1296 item 8 — folded by default: open it the way a reader would.
-    fireEvent.click(document.querySelector('[data-testid="story-video-quotes-toggle"]')!);
 
     // The quote block, with a working timecode carrying that second. P1259 change 1 turned
     // this surface's timecodes from new-tab anchors into seek buttons (it mounts a player

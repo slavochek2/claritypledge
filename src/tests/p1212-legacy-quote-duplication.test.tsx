@@ -71,7 +71,7 @@ function renderCard(story: StoryWithPoints) {
   );
   // P1296 item 8 — the quote block is folded by default. Open it, so "renders once" counts
   // what a reader sees after one tap rather than what the fold hides.
-  const toggle = result.container.querySelector('[data-testid="story-video-quotes-toggle"]');
+  const toggle = result.container.querySelector('[data-testid="story-video-quotes-heading"]');
   if (toggle) fireEvent.click(toggle);
   return result;
 }

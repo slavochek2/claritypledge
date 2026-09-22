@@ -118,19 +118,15 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     await expect(page).toHaveURL(/\/stake\/aisafety1/);
   });
 
-  test('supporting quotes start folded behind a count, and open in place', async ({ page }) => {
+  test('supporting quotes are never folded: count heading plus visible timecodes (P1348)', async ({ page }) => {
     await page.goto(EVENT_LINK);
     await waitForList(page);
-    const toggle = page.getByTestId('story-video-quotes-toggle').first();
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await expect(toggle).toHaveText(/^\d+ supporting quotes?$/);
+    const heading = page.getByTestId('story-video-quotes-heading').first();
+    await expect(heading).toBeVisible();
+    await expect(heading).toHaveText(/^\d+ supporting quotes?$/);
     const card = page.getByRole('button', { name: /^Story by / }).first();
-    await expect(card.getByTestId('story-video-quote-timecode')).toHaveCount(0);
-
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(card.getByTestId('story-video-quote-timecode').first()).toBeVisible();
     await expect(page).toHaveURL(/\/stake\/aisafety1/);
   });
+
 });
