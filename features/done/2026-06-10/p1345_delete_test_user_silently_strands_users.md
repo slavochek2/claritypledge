@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 13
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-helpers, cleanup]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-09-22
 ---
 
 # P1345: deleteTestUser swallows a failed profile delete, so test users pile up unseen
