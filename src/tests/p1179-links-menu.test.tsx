@@ -114,15 +114,15 @@ describe('P1351 — Tools is first and open by default', () => {
     expect(order).toEqual(['event-links-tab-tools', 'event-links-tab-points', 'event-links-tab-letters']);
   });
 
-  it('Tools: the session leads (featured), then Ready, meeting principles, Transcribe, Slides, the CM calendar', () => {
+  it('Tools: Ready, meeting principles, Transcribe, Slides, the CM calendar, then the featured session last', () => {
     const tools = buildLinksMenu().filter(e => e.group === 'tools');
     expect(tools.map(e => [e.label, e.to])).toEqual([
-      ['Start a Clarity Session', '/live'],
       ['Ready', '/ready'],
-      ['Clarity meeting principles', '/meet'],
+      ['Clarity meeting principle', '/meet'],
       ['Transcribe', '/transcribe'],
       ['Slides', '/presi'],
       ['Chiang Mai event calendar', '/cm'],
+      ['Start a Clarity Session', '/live'],
     ]);
     expect(tools.filter(e => e.featured).map(e => e.label)).toEqual(['Start a Clarity Session']);
     expect(tools.find(e => e.to === '/cm')?.newTab).toBe(true);
@@ -150,12 +150,12 @@ describe('P1323 AC-3/AC-4/AC-5 — three tabs, exact contents', () => {
     expect(visibleEntries()).toEqual([...STANDARD_STAKE_TAGS]);
   });
 
-  it('AC-5: the Letters tab is nine entries, each with its stN code as a quiet suffix', async () => {
+  it('AC-5: the Letters tab is ten entries (CK, then st1–st9), each with its code as a quiet suffix', async () => {
     renderAt('/events/cm-1/room');
     await open();
     await selectTab('letters');
     const rows = visibleEntries();
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(10); // P1351: CK first, then st1–st9
     for (const [i, l] of STANDARD_LETTER_ENTRIES.entries()) {
       // A real space before the code, so assistive tech does not read "...understandingst6".
       expect(rows[i]).toBe(`${l.label} ${l.code}`);

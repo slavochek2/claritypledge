@@ -105,7 +105,7 @@ describe('P1179 DW-3 — an entry can never carry an external destination', () =
     const letters = buildLinksMenu(null).filter(e => e.group === 'letters');
     expect(letters).toHaveLength(STANDARD_LETTER_ENTRIES.length);
     for (const e of letters) {
-      expect(e.to).toMatch(/^\/letter\/st[1-9]$/);
+      expect(e.to).toMatch(/^\/letter\/(ck|st[1-9])$/); // P1351: ck added by name, still no wildcard
       // P1323 R3: a same-tab navigation to an immersive letter route suppresses the nav
       // (no way back to the menu) AND pauses a running capture while the session bar stops
       // rendering — the host would believe the room is still recording. The new tab is the

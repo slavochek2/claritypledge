@@ -146,7 +146,7 @@ test.describe('P1351 — header primary action across contexts', () => {
     // hamburger is also named "Open menu") and for the sheet's slide-up to finish.
     await expect(page.getByTestId('tonights-event-cta').filter({ visible: true })).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('event-links-button').filter({ visible: true }).click();
-    await expect(page.getByTestId('event-links-entry').first()).toHaveText('Start a Clarity Session');
+    await expect(page.getByTestId('event-links-entry').first()).toHaveText('Ready');
     await page.waitForTimeout(600); // drawer animation — screenshot only, no assertion depends on it
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/loggedin-tools-open-375.png` });
     await page.keyboard.press('Escape');
@@ -179,7 +179,7 @@ test.describe('P1351 — signed in, no event', () => {
     await expect(page.getByTestId('event-links-entry').first()).toBeVisible();
     await page.waitForTimeout(600); // dropdown fade-in — screenshot only
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/loggedin-tools-open-desktop.png` });
-    await expect(page.getByTestId('event-links-entry').first()).toHaveText('Start a Clarity Session');
+    await expect(page.getByTestId('event-links-entry').first()).toHaveText('Ready');
     await page.getByTestId('event-links-entry').filter({ hasText: 'Start a Clarity Session' }).click();
     await expect(page).toHaveURL(/\/live/);
   });

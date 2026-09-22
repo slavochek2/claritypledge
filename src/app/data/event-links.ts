@@ -162,6 +162,9 @@ export const STANDARD_STAKE_TAGS = [
  * than giving the shorter list the good ergonomics.
  */
 export const STANDARD_LETTER_ENTRIES: ReadonlyArray<{ code: string; label: string }> = [
+  // P1351 (founder): the CK letter leads — it is the letter the logged-out nav already
+  // offers ("Try a Clarity Letter"), so the label reuses that product copy.
+  { code: 'ck', label: 'Clarity Letter' },
   { code: 'st1', label: 'Three kinds of understanding' },
   { code: 'st2', label: 'Explain it back' },
   { code: 'st3', label: 'Shared belief vs common belief' },
@@ -206,16 +209,15 @@ export function letterPath(code: string): string {
  * `/presi2` is the frozen June draft (P1218) and is deliberately NOT linked.
  */
 export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean; featured?: boolean }> = [
-  // P1351 round 2: the session is the product's core action, so it leads and is rendered larger
-  // ("featured") — founder, 2026-09-22: "start the clarity session within tools should it be … big".
-  { label: 'Start a Clarity Session', to: '/live', featured: true },
   { label: 'Ready', to: '/ready' },
-  { label: 'Clarity meeting principles', to: '/meet' },
+  { label: 'Clarity meeting principle', to: '/meet' },
   { label: 'Transcribe', to: '/transcribe' },
   { label: 'Slides', to: '/presi', newTab: true },
   // New tab: /cm is a chrome-free Google Calendar embed with no header, so a same-tab visit
   // would leave the user with no Tools button to come back through.
   { label: 'Chiang Mai event calendar', to: '/cm', newTab: true },
+  // Last, outlined blue (founder, round 3): marked as the main tool without overshadowing the rest.
+  { label: 'Start a Clarity Session', to: '/live', featured: true },
 ];
 
 /** Path for a stake destination, carrying the event alongside when there is one. */

@@ -9,7 +9,6 @@ import {
   NewspaperIcon,
   BookOpenIcon,
   InfoIcon,
-  MessagesSquareIcon,
 } from "lucide-react";
 
 /**
@@ -33,10 +32,11 @@ import {
 // /founder have a link back to the main landing (the menu filters out the current pathname,
 // so it never shows a self-link).
 export const AUDIENCE_LINKS = [
-  { to: "/founder", label: "For co-founders", Icon: UsersIcon },
-  { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
-  { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
+  // P1351 order (founder): builders, hiring, co-founders, coaches.
   { to: "/", label: "For builders", Icon: TargetIcon },
+  { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
+  { to: "/founder", label: "For co-founders", Icon: UsersIcon },
+  { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
 ] as const;
 
 /**
@@ -110,18 +110,16 @@ export const PUBLIC_NAV_GROUPS = [
       // public product surface with no entry here — reachable only by typing /feed or
       // following a tag link, which meant first-time visitors never met it.
       { to: "/feed", label: "Feed", Icon: NewspaperIcon },
-      // P1351: logged-out public pages carry no Tools button, so the core action is findable here.
-      { to: "/live", label: "Clarity Session", Icon: MessagesSquareIcon },
-      { to: "/pricing", label: "Pricing", Icon: TagIcon },
       { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
+      { to: "/pricing", label: "Pricing", Icon: TagIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
     ],
   },
   {
     label: "Learn",
     items: [
-      { to: "/manifesto", label: "Manifesto", Icon: ScrollTextIcon },
       { to: "https://blog.claritypledge.com", label: "Blog", Icon: BookOpenIcon, external: true },
+      { to: "/manifesto", label: "Manifesto", Icon: ScrollTextIcon },
       { to: "/about", label: "About", Icon: InfoIcon },
     ],
   },

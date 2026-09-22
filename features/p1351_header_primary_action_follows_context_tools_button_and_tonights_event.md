@@ -159,3 +159,16 @@ Three independent reviewers, and all three reported: Codex `gpt-5.6-sol` at high
 | "Start a Clarity Session … should it be extra big?" | It leads the Tools tab as the one solid-blue, taller row. |
 | "Chiang Mai event calendar", keep Slides | Renamed; Slides kept. |
 | Tools vs Links; Points naming | Kept "Tools" (it opens on tools; "Links" is what attendees could not find). Kept "Points" — founder: fine to keep. |
+
+## Round 3 — founder feedback (2026-09-22)
+
+| Ask | Decision |
+|---|---|
+| Solid blue session row overshadows the menu | Outlined blue (blue border and text, normal height), moved to the LAST Tools entry. |
+| Tools between the main CTA and Log in | Done (logged-out desktop header). |
+| "Clarity meeting principle" (singular) | Renamed. |
+| Is Clarity Session in the public Product menu needed? | Removed: it needs login anyway, and signed-in people have it in Tools. |
+| Product order Feed, Groups, …; Use cases builders, hiring, co-founders, coaches; Learn Blog, Manifesto, About | Reordered. |
+| CK letter first in Letters | Added as "Clarity Letter" (ck); the safety test allowlists `ck` by name. |
+| Pricing link duplicated on /pricing | Hidden while on /pricing. |
+| Public versions of st1–st9 | OPEN, not built here. On the test DB all of ck, st1, st5, st9 show "Sign in to read this letter" when logged out; prod not checked. |

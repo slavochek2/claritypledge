@@ -255,12 +255,12 @@ function LinksMenuTabs({
  * which is the right way round for someone being told "tap st5".
  */
 /**
- * P1351: the lead Tools entry (the Clarity Session) — the one SOLID blue row, taller and bold.
- * Solid is safe here: the menu is its own overlay view, so this is its only primary (P955).
- * A pale tint was tried first and read WEAKER than the dark-bordered rows around it.
+ * P1351: the lead Tools entry (the Clarity Session). OUTLINED blue, bold, same height as the
+ * rows below. Round 2 made it a solid, taller blue row; the founder: "it overshadows the
+ * following items". A blue border + blue text marks it as the main tool without drowning the rest.
  */
 const FEATURED_ENTRY_CLASS =
-  'min-h-14 border-blue-500 bg-blue-500 text-base font-semibold text-white hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white';
+  'border-2 border-blue-500 font-semibold text-blue-700 hover:bg-blue-50 focus:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950';
 
 function EntryText({ entry, wrap = false }: { entry: LinksMenuEntry; wrap?: boolean }) {
   return (
