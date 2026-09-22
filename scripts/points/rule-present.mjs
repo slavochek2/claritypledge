@@ -63,7 +63,18 @@ export const RULE_SETS = {
       [`${SKILLS}/select.md`]: [
         ['a Standing rules section, read before Phase 0', /^## Standing rules\b[^\n]*before Phase 0/m],
         ['the measurable rules live in standing-rules.json', /numbers live in `scripts\/points\/standing-rules\.json`/],
-        ['one video per person per event', /\*\*One video per person per event\.\*\*/],
+        // One row per numbered standing rule, anchored on its numbered-list line so a phrase that
+        // also appears elsewhere in the file (e.g. "Room constraints" in Inputs) cannot answer for it.
+        ['1. English-only sources, translations labelled', /^1\. \*\*English-only sources, for now\*\*/m],
+        ['one video per person per event', /^2\. \*\*One video per person per event\.\*\*/m],
+        ['3. AI voices are recent', /^3\. \*\*AI voices are recent\*\*/m],
+        ['4. floors, exceptions only as overrides inside the seal', /^4\. \*\*Floors on views and comments\*\*/m],
+        ['5. minutes on topic, never total length', /^5\. \*\*Minutes on topic, never total length\*\*/m],
+        ['6. AI + X: AI voices plus older thinkers', /^6\. \*\*"AI \+ X" topics:\*\*/m],
+        ["7. the fork concerns the room's own lives", /^7\. \*\*The fork concerns the room's own lives\*\*/m],
+        ['8. lived-experience voices', /^8\. \*\*Lived-experience voices\*\*/m],
+        ['9. room constraints never exclude a source', /^9\. \*\*Room constraints\*\*/m],
+        ['10. the banner never changes height', /^10\. \*\*The event page's banner never changes height\*\*/m],
         ['Gate 1 halts before any source is approved or fetched as audio', /before any source is approved or fetched as audio/i],
       ],
     },

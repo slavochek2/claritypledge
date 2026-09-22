@@ -13,7 +13,12 @@
  *   - a source is below the view/comment floor, below the on-topic minutes, or
  *     older than its voice's recency line, WITHOUT a per-arguer `override`
  *     whose reason covers that floor (standing-rules.json `override_covers`);
- *   - the header `audience_floor` is missing, or lower than standing-rules.json.
+ *   - the header `audience_floor` is missing, or lower than standing-rules.json;
+ *   - `on_topic_seconds` is not what on-topic-minutes.mjs returns when re-run on the arguer's
+ *     `on_topic_input` file, or its basis contradicts `gate_0_basis` (P1355 review: a typed number
+ *     is the eyeballed-minutes failure moved one field over, so the CLI re-derives it);
+ *   - a `classic` voice carries no `classic_basis` (the label removes recency, so it needs a reason);
+ *   - two arguers are the same person or the same video (standing rule 2).
  *
  * WHY THE OVERRIDE MUST BE INSIDE THE BLOCK. The block is sealed; the header
  * above it is not. An exception written in the header could be edited after
@@ -61,7 +66,7 @@ export function parseRunFile(text) {
   let cur = null
   for (const l of blockLines.slice(1)) {
     if (l.includes(END)) break
-    if (/^arguers:\s*$/.test(l)) { inArguers = true; continue }
+    if (/^arguers:\s*(?:#.*)?$/.test(l)) { inArguers = true; continue }   // the schema doc writes a trailing comment here
     const top = l.match(/^([a-z_0-9]+):\s*(.*)$/)
     if (top) { inArguers = false; block[top[1]] = scalar(top[2]); continue }
     if (!inArguers) continue
@@ -80,11 +85,16 @@ function floorFromHeader(raw) {
   return Number.isFinite(v) && Number.isFinite(c) ? { minViews: v, minComments: c } : null
 }
 
+const blank = v => v === undefined || v === null || (typeof v === 'string' && !v.trim())
 const isEnglish = lang => typeof lang === 'string' && /^en(?:$|[-_])/i.test(lang.trim())
+// yt prints `NA` when YouTube leaves the field unset: that is "not reported", never "not English".
+const unreported = v => v === undefined || v === null || (typeof v === 'string' && /^(|na|none|null)$/i.test(v.trim()))
 
 /**
- * @param {{text: string, asOf?: string}} input — `asOf` defaults to the block's
- *   `gate_2_approved_at`, the date the founder approved this set.
+ * @param {{text: string, asOf?: string, measured?: Record<string, {result?: object, error?: string}>}} input
+ *   `asOf` defaults to the block's `gate_2_approved_at`. `measured` maps each arguer's
+ *   `on_topic_input` path to the on-topic-minutes.mjs result for that file (the CLI fills it by
+ *   re-running the measurement; a missing entry is REFUSE — an unverified number is not evidence).
  */
 export function run(input) {
   const parsed = parseRunFile(input.text ?? '')
@@ -112,15 +122,43 @@ export function run(input) {
   if (!recency) problems.push('no run date: gate_2_approved_at is missing from the block and no asOf was given, so recency cannot be measured')
   if (!arguers.length) problems.push('the block carries no arguers')
 
+  // Standing rule 2: one video per person per event — and one person per position.
+  for (const key of ['name', 'subject_key', 'video_id']) {
+    const seen = new Map()
+    for (const a of arguers) {
+      if (blank(a[key])) continue
+      const k = String(a[key]).trim().toLowerCase()
+      if (seen.has(k)) problems.push(`two arguers share ${key} "${a[key]}" (positions ${seen.get(k)} and ${a.position}) — one video per person per event`)
+      else seen.set(k, a.position)
+    }
+  }
+
   for (const a of arguers) {
     const who = `position ${a.position ?? '?'}${a.name ? ` (${a.name})` : ''}`
-    const missing = ['voice', 'why_in_the_room', 'on_topic_seconds', 'upload_date', 'language']
-      .filter(k => a[k] === undefined || a[k] === null || a[k] === '')
+    const missing = ['voice', 'why_in_the_room', 'on_topic_seconds', 'on_topic_input', 'upload_date', 'language']
+      .filter(k => (k === 'language' ? unreported(a[k]) : blank(a[k])))
     const fails = []
     if (missing.length) fails.push(`missing ${missing.join(', ')}`)
     if (a.voice != null && !RULES.voices.includes(a.voice)) fails.push(`voice "${a.voice}" is not one of ${RULES.voices.join(' | ')}`)
     if (a.on_topic_seconds != null && !Number.isFinite(a.on_topic_seconds)) fails.push(`on_topic_seconds "${a.on_topic_seconds}" is not a number`)
-    if (a.language != null && a.language !== '' && !isEnglish(a.language)) fails.push(`language "${a.language}" is not English — never overridable`)
+    if (a.voice === 'classic' && blank(a.classic_basis)) fails.push('voice "classic" with no classic_basis — the label removes the recency floor, so say why (e.g. an older thinker who predates the AI debate)')
+    if (a.gate_0_basis === 'single-speaker' && blank(a.single_speaker_evidence)) fails.push('gate_0_basis single-speaker with no single_speaker_evidence')
+
+    // Re-derive the minutes: the number must be what C3 returns on the named input file.
+    if (!blank(a.on_topic_input) && Number.isFinite(a.on_topic_seconds)) {
+      const m = input.measured?.[a.on_topic_input]
+      if (!m) fails.push(`on_topic_seconds ${a.on_topic_seconds} was not re-derived: no measurement of ${a.on_topic_input} (run this check through its CLI, which re-runs on-topic-minutes.mjs)`)
+      else if (m.error) fails.push(`on_topic_input ${a.on_topic_input} could not be re-measured: ${m.error}`)
+      else if (m.result.verdict === 'REFUSE') fails.push(`on_topic_input ${a.on_topic_input} is refused by on-topic-minutes.mjs: ${m.result.detail.split('\n')[0]}`)
+      else {
+        if (Math.abs(m.result.on_topic_seconds - a.on_topic_seconds) > 0.1) fails.push(`on_topic_seconds ${a.on_topic_seconds} but re-running ${a.on_topic_input} gives ${m.result.on_topic_seconds}`)
+        // A turn-verified source is measured on its diarization (parity turns cannot attribute).
+        const okBasis = !a.gate_0_basis || m.result.basis === a.gate_0_basis ||
+          (a.gate_0_basis === 'turn-verified' && m.result.basis === 'speaker-labelled')
+        if (!okBasis) fails.push(`minutes measured as ${m.result.basis} but gate_0_basis is ${a.gate_0_basis}`)
+      }
+    }
+    if (!unreported(a.language) && !isEnglish(a.language)) fails.push(`language "${a.language}" is not English — never overridable`)
 
     // Floors that a covering override may lift.
     const below = []
@@ -183,19 +221,32 @@ const ARGUER = `  - position: 1
     language: "en"
     view_count: 103240
     comment_count: 191
-    on_topic_seconds: 1800`
+    on_topic_seconds: 1800
+    on_topic_input: "minutes/position-1.json"`
+const MEASURED = { 'minutes/position-1.json': { result: { verdict: 'CLEARS', on_topic_seconds: 1800, basis: 'single-speaker', detail: 'CLEARS' } } }
 
 export const FIXTURES = {
-  pass: { text: runFile(ARGUER) },
+  pass: { text: runFile(ARGUER), measured: MEASURED },
   // must-fail: the same arguer with no `why_in_the_room`
-  fail: { text: runFile(ARGUER.replace(/\n\s+why_in_the_room:.*/, '')) },
+  fail: { text: runFile(ARGUER.replace(/\n\s+why_in_the_room:.*/, '')), measured: MEASURED },
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const file = process.argv[2]
   if (!file) { console.error('usage: run-file-check.mjs <.private/points-runs/<slug>.md> [asOf YYYYMMDD]'); process.exit(2) }
   const { readFileSync } = await import('node:fs')
-  const r = run({ text: readFileSync(file, 'utf8'), asOf: process.argv[3] })
+  const path = await import('node:path')
+  const { run: minutes, loadInput } = await import('./on-topic-minutes.mjs')
+  const text = readFileSync(file, 'utf8')
+  // Re-run C3 on every on_topic_input the block names, relative to the run file.
+  const measured = {}
+  for (const a of parseRunFile(text)?.arguers ?? []) {
+    if (blank(a.on_topic_input)) continue
+    try {
+      measured[a.on_topic_input] = { result: minutes(await loadInput(path.resolve(path.dirname(file), a.on_topic_input))) }
+    } catch (e) { measured[a.on_topic_input] = { error: e.message } }
+  }
+  const r = run({ text, asOf: process.argv[3], measured })
   console.log(r.detail)
   process.exit(r.ok ? 0 : 1)
 }

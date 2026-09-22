@@ -82,6 +82,12 @@ export function run(input) {
       detail: 'REFUSE — no measurement standard supplied: floor {minViews, minComments} is present but not numeric. The floors are what "cleared" and "did not clear" mean; without them this sweep cannot classify anything and no field verdict may rest on it.',
     }
   }
+  // A caller may make the floor STRICTER, never weaker (P1355 review: `floor: {minViews: 0}` admitted
+  // a zero-view source). The standing rule is the minimum.
+  if (floor.minViews < RULES.floors.min_views || floor.minComments < RULES.floors.min_comments) {
+    notes.push(`floor raised to standing-rules.json (supplied views >= ${floor.minViews}, comments >= ${floor.minComments} is weaker)`)
+    floor = { minViews: Math.max(floor.minViews, RULES.floors.min_views), minComments: Math.max(floor.minComments, RULES.floors.min_comments) }
+  }
 
   let floorsByVoice
   if (input.recencyFloor !== undefined) {
@@ -89,8 +95,10 @@ export function run(input) {
     if (!f) {
       return { ok: false, verdict: 'REFUSE', unmeasured: [], dropped: [], detail: `REFUSE — no measurement standard supplied: recencyFloor "${input.recencyFloor}" is not a YYYYMMDD date.` }
     }
-    floorsByVoice = { ai: f, lived: f, classic: null }
-    notes.push(`recency floor (explicit): ${f} for ai and lived voices; classic exempt`)
+    // Explicit floors may only be stricter than the standing rule as of today (or asOf).
+    const std = recencyFloors(input.asOf ?? today())
+    floorsByVoice = { ai: f > std.ai ? f : std.ai, lived: f > std.lived ? f : std.lived, classic: null }
+    notes.push(`recency floor (explicit ${f}, never looser than standing-rules.json): ai >= ${floorsByVoice.ai}, lived >= ${floorsByVoice.lived}; classic exempt`)
   } else {
     const asOf = input.asOf ?? today()
     floorsByVoice = recencyFloors(asOf)
@@ -100,6 +108,9 @@ export function run(input) {
     notes.push(`recency floors from standing-rules.json as of ${ymd(asOf)}${input.asOf ? '' : ' (asOf defaulted to today)'}: ai >= ${floorsByVoice.ai}, lived >= ${floorsByVoice.lived}, classic exempt`)
   }
 
+  if (!Array.isArray(candidates) || candidates.some(c => !c || typeof c !== 'object' || typeof c.id !== 'string')) {
+    return { ok: false, verdict: 'REFUSE', unmeasured: [], dropped: [], detail: 'REFUSE — malformed candidate list: every candidate must be an object with a string id.' }
+  }
   if (!candidates.length) {
     return { ok: false, verdict: 'REFUSE', unmeasured: [], dropped: [], detail: 'REFUSE — empty candidate list: a sweep that examined nothing cannot report a field as exhausted.' }
   }
@@ -119,9 +130,11 @@ export function run(input) {
   const narrow = []
   const queryLines = []
   for (const q of queries) {
+    if (!q || typeof q !== 'object') { narrow.push(`a query record is not an object (${JSON.stringify(q)})`); continue }
     const ids = Array.isArray(q.ids) ? q.ids : null
     const label = q.query ?? '(unnamed query)'
     if (!ids) { narrow.push(`"${label}": no ids array`); continue }
+    if (new Set(ids).size !== ids.length) { narrow.push(`"${label}": duplicate ids — a padded record is not a wider search`); continue }
     if (num(q.requested) === null) { narrow.push(`"${label}": requested count not recorded (${ids.length} ids)`); continue }
     if (q.requested < RULES.results_per_query) {
       narrow.push(`"${label}": requested ${q.requested} < ${RULES.results_per_query} (${ids.length} ids)`); continue
@@ -194,15 +207,17 @@ export function run(input) {
       if (c.voice) {
         if (vf && date < vf) failed.push(`stale ${c.voice} voice (${date} < ${vf})`)
       } else {
-        const strict = floorsByVoice.ai
-        if (strict && date < strict) unknown.push(`voice (upload ${date} is older than the ai/lived floor ${strict}; only a classic voice is exempt)`)
+        // Every candidate carries a voice (P1355 C2). Missing is "unknown" like any unmeasured field:
+        // a candidate that fails a measured floor is still a reject; one that clears everything is REFUSE.
+        unknown.push('voice (every candidate must be classified ai | classic | lived)')
       }
     }
     if (num(c.view_count) === null) unknown.push('view_count')
     else if (c.view_count < floor.minViews) failed.push(`views ${c.view_count} < ${floor.minViews}`)
     if (num(c.comment_count) === null) unknown.push('comment_count')
     else if (c.comment_count < floor.minComments) failed.push(`comments ${c.comment_count} < ${floor.minComments}`)
-    if (c.language === undefined || c.language === null || c.language === '') unknown.push('language')
+    // yt prints `NA` when YouTube leaves the field unset: "not reported", never "not English".
+    if (c.language === undefined || c.language === null || /^(|na|none|null)$/i.test(String(c.language).trim())) unknown.push('language')
     else if (!isEnglish(c.language)) failed.push(`language "${c.language}" is not English (standing rule: ${RULES.language} only)`)
     return { id: c.id, title: c.title, voice: c.voice, failed, unknown, admit: failed.length === 0 && unknown.length === 0 }
   }

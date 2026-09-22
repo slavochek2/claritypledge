@@ -27,7 +27,13 @@ export const RULES = loadRules()
 export function ymd(v) {
   if (typeof v !== 'string') return null
   const m = v.match(/^(\d{4})-?(\d{2})-?(\d{2})/)
-  return m ? `${m[1]}${m[2]}${m[3]}` : null
+  if (!m) return null
+  // A real calendar date, round-tripped: "0000-00-00" or "2026-19-45" would otherwise compare
+  // lexically below every real date and silently disable a recency floor (P1355 review).
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  if (y < 1900 || dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null
+  return `${m[1]}${m[2]}${m[3]}`
 }
 
 /**
@@ -65,8 +71,12 @@ export function parseOverride(raw, rules = RULES) {
   if (!rules.override_reasons.includes(reason)) {
     return { ok: false, reason, problem: `override reason "${reason}" is not one of: ${rules.override_reasons.join(', ')}` }
   }
-  if (reason === 'founder-named' && !detail) {
-    return { ok: false, reason, problem: 'founder-named override carries no verbatim founder words' }
+  // founder-named lifts every floor but language, so it must carry the founder's words, quoted, and
+  // at least three of them. This cannot prove he said them — the run file is agent-written — which
+  // is why select.md Gate 2 asks for each override as its own acknowledgement (P1355 review).
+  const quoted = detail.match(/^["“](.+)["”]$/)
+  if (reason === 'founder-named' && !(quoted && quoted[1].trim().split(/\s+/).length >= 3)) {
+    return { ok: false, reason, problem: 'founder-named override needs the founder\'s verbatim words in quotes, at least three of them' }
   }
   return { ok: true, reason, detail }
 }

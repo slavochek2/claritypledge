@@ -82,7 +82,7 @@ describe('candidate-sweep — exclusions must be measured, not eyeballed', () =>
 describe('candidate-sweep: a crash is not a verdict (found 2026-09-04, first real use)', () => {
   const body = {
     queries: q(['aaa111']),
-    candidates: [{ id: 'aaa111', language: 'en', upload_date: '20260304', view_count: 785823, comment_count: 8700 }],
+    candidates: [{ id: 'aaa111', voice: 'ai', language: 'en', upload_date: '20260304', view_count: 785823, comment_count: 8700 }],
   }
 
   it('the shape select.md documented — no floors — never throws', () => {
@@ -129,20 +129,23 @@ describe('candidate-sweep: unmeasured is a property of the VERDICT, not the fiel
     expect(r.ok).toBe(true)
     expect(r.verdict).toBe('FIELD-EMPTY')
     expect(r.detail).toMatch(/comment_count not reported/)
-    expect(r.detail).toMatch(/views 610 < 2000/)
+    // P1355: a supplied floor can only be stricter, so the 2000 here is raised to the standing 100k
+    expect(r.detail).toMatch(/views 610 < 100000/)
   })
 
   it('the ONE genuinely unknown case still REFUSES', () => {
-    // VKLDl3siaSE: 36,190 views, in-window, comment_count unavailable. Clears
-    // every floor that could be measured, so the missing field could still exclude it.
+    // Shape of VKLDl3siaSE (2026-09-04): in-window, comment_count unavailable, clearing every floor
+    // that could be measured, so the missing field could still exclude it. Its real 36,190 views are
+    // below the P1355 standing floor (100k, and a supplied floor can no longer be weaker), so the
+    // shape is kept with a view count that clears it.
     const r = run({
       ...base,
-      queries: q(['VKLDl3siaSE']),
-      candidates: [{ id: 'VKLDl3siaSE', title: 'ABC News Bengio', language: 'en', upload_date: '20251218', view_count: 36190, comment_count: null }],
+      queries: q(['unknownCmt1']),
+      candidates: [{ id: 'unknownCmt1', title: 'comments off', voice: 'ai', language: 'en', upload_date: '20251218', view_count: 136190, comment_count: null }],
     } as never)
     expect(r.ok).toBe(false)
     expect(r.verdict).toBe('REFUSE')
-    expect(r.unmeasured).toContain('VKLDl3siaSE')
+    expect(r.unmeasured).toContain('unknownCmt1')
     expect(r.detail).toMatch(/clears every floor that WAS measured/)
   })
 

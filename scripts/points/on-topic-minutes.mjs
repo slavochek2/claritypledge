@@ -13,10 +13,15 @@
  * diarize JSON per window, with the label->person mapping made per window
  * because labels are not stable across windows), or a single-speaker caption
  * track; the proposed on-topic ranges; and the position's source-binding terms.
- * A range counts only if at least one of the arguer's own turns inside it
- * contains a term. Its seconds are the UNION of the arguer's turn intervals
- * inside the range — a union, not a sum, because rolling auto-captions repeat
- * each line with overlapping timestamps and a sum would double-count them.
+ * Inside each proposed range, an arguer turn counts only if it contains a term,
+ * or lies within `on_topic_context_seconds` (standing-rules.json) of a turn that
+ * does. The range BOUNDS the count; it never supplies it. (P1355 review: when a
+ * single hit let a whole range count, drawing Harari's ranges as the two full
+ * windows with the term "AI" moved his result from 92.6s to 353.9s — the
+ * number depended on who drew the ranges, which is the failure this file exists
+ * to remove.) Seconds are the UNION of the counted intervals — a union, not a
+ * sum, because rolling auto-captions repeat each line with overlapping
+ * timestamps and a sum would double-count them.
  *
  * WHAT IT REFUSES. A multi-speaker source without labels is REFUSE, never
  * counted: the host's words would otherwise count as the guest's (select.md,
@@ -58,6 +63,11 @@ export function termRegex(term) {
 
 const MARKER = /(?:>>|&gt;&gt;)/
 
+/** A term must carry at least 3 letters or digits: `*`, `AI`, `a*` match nearly everything. */
+export function weakTerm(term) {
+  return (term.replace(/\*$/, '').match(/[\p{L}\p{N}]/gu) ?? []).length < 3
+}
+
 /** Length of the union of intervals, each clipped to [lo, hi]. */
 function unionLength(intervals, lo, hi) {
   const clipped = intervals
@@ -92,9 +102,14 @@ function refuse(detail, extra = {}) {
  */
 export function run(input) {
   const who = input.arguer ?? 'arguer'
-  const minSeconds = Number.isFinite(input.minSeconds) ? input.minSeconds : RULES.min_on_topic_seconds
+  // A floor may be raised for a run, never lowered: a lower one would print CLEARS for a source the
+  // standing rule rejects.
+  const minSeconds = Math.max(Number.isFinite(input.minSeconds) ? input.minSeconds : 0, RULES.min_on_topic_seconds)
+  const context = RULES.on_topic_context_seconds
   const terms = (input.terms ?? []).filter(t => typeof t === 'string' && t.trim())
   if (!terms.length) return refuse('no source-binding terms supplied. A range is on topic only if the arguer says one of the position\'s terms in it; with no terms nothing can be counted.')
+  const weak = terms.filter(weakTerm)
+  if (weak.length) return refuse(`term(s) ${weak.map(t => JSON.stringify(t)).join(', ')} carry fewer than 3 letters — they match nearly every turn. Use the position's own source-binding terms.`)
 
   // --- ranges ---------------------------------------------------------------
   const rawRanges = input.ranges ?? []
@@ -141,6 +156,11 @@ export function run(input) {
       const present = new Set(wt.map(t => t.speaker))
       const absent = labels.filter(l => !present.has(l))
       if (absent.length) return refuse(`${name}: mapped label(s) ${absent.join(', ')} never speak in this window (labels present: ${[...present].join(', ')}). The mapping is wrong for this window.`)
+      // Diarization over-splits one person across labels (select.md Step 2c), so several labels may
+      // map to one arguer — but only with the content line that proves it, or the host counts too.
+      if (labels.length > 1 && !(typeof w.mapping_evidence === 'string' && w.mapping_evidence.trim())) {
+        return refuse(`${name}: ${labels.length} labels (${labels.join(', ')}) mapped to ${who} with no mapping_evidence. Consolidating labels needs the in-transcript line that fixes each one to the person (select.md Step 2c).`)
+      }
       const lo = Number.isFinite(w.start) ? w.start : Math.min(...wt.map(t => t.start))
       const hi = Number.isFinite(w.start) && Number.isFinite(w.duration) ? w.start + w.duration : Math.max(...wt.map(t => t.end))
       covered.push([lo, hi])
@@ -165,16 +185,22 @@ export function run(input) {
   for (const [a, b] of merged) {
     const inside = turns.filter(t => t.end > a && t.start < b)
     const hits = {}
+    const hitTurns = new Set()
     for (const term of terms) {
       const re = termRegex(term)
-      const n = inside.reduce((acc, t) => acc + (t.text.match(re)?.length ?? 0), 0)
-      if (n) hits[term] = n
+      for (const t of inside) {
+        const n = t.text.match(re)?.length ?? 0
+        if (n) { hits[term] = (hits[term] ?? 0) + n; hitTurns.add(t) }
+      }
     }
+    // A turn counts if it hit, or sits within `context` seconds of a turn that did.
+    const near = t => [...hitTurns].some(h => t.start <= h.end + context && t.end >= h.start - context)
+    const countedTurns = inside.filter(t => hitTurns.has(t) || near(t))
     const coveredSecs = unionLength(covered, a, b)
     const uncovered = round1((b - a) - coveredSecs)
     const speech = unionLength(inside.map(t => [t.start, t.end]), a, b)
     const onTopic = Object.keys(hits).length > 0
-    const clipped = inside.map(t => [Math.max(t.start, a), Math.min(t.end, b)])
+    const clipped = countedTurns.map(t => [Math.max(t.start, a), Math.min(t.end, b)])
     if (onTopic) countedIntervals.push(...clipped)
     const sens = onTopic
       ? unionLength(clipped.flatMap(([x, y]) => sensitive.map(([p, q]) => [Math.max(x, p), Math.min(y, q)])), -Infinity, Infinity)
@@ -182,7 +208,7 @@ export function run(input) {
     res.push({
       start: a, end: b, hits, uncovered_seconds: uncovered,
       arguer_speech_seconds: round1(speech),
-      counted_seconds: onTopic ? round1(speech - sens) : 0,
+      counted_seconds: onTopic ? round1(unionLength(clipped, a, b) - sens) : 0,
       sensitive_seconds: round1(sens),
       status: onTopic ? 'COUNTED' : (inside.length ? 'NO-TERM-HIT' : 'NO-ARGUER-SPEECH'),
     })
@@ -204,6 +230,7 @@ export function run(input) {
     `${r.uncovered_seconds > 0 ? `; ${r.uncovered_seconds}s of this range lie outside the supplied evidence and were NOT counted` : ''}`)
   const verdict = ok ? 'CLEARS' : 'BELOW-FLOOR'
   return {
+    basis: input.basis,
     ok, verdict, on_topic_seconds: total, min_seconds: minSeconds, ranges: res,
     excluded_sensitive_seconds: excluded,
     detail: `${verdict} — ${who}: ${total}s (${round1(total / 60)} min) of the arguer's own speech on topic, against a floor of ${minSeconds}s (${input.basis})${excluded ? `; ${excluded}s inside sensitive passages NOT counted` : ''}.\n${lines.join('\n')}`,
@@ -257,6 +284,38 @@ export function parseVtt(text) {
   return cues
 }
 
+/**
+ * Load a C3 input file the way the CLI does: resolve ~ and $VAR paths relative to the file, read the
+ * diarize JSON windows or the raw VTT. Exported so run-file-check.mjs re-runs the SAME measurement
+ * from the file the run file names, instead of trusting a typed number.
+ * @returns {object} an input for run(); throws with a readable message on a missing file or variable.
+ */
+export async function loadInput(file) {
+  const { readFileSync } = await import('node:fs')
+  const path = await import('node:path')
+  const inp = JSON.parse(readFileSync(file, 'utf8'))
+  // Paths may use ~ and $VAR / ${VAR} (select.md documents $DIARIZE_STORE). An unset variable is a
+  // usage error named as such, never a literal "$DIARIZE_STORE" directory and an ENOENT crash.
+  const rel = p => {
+    const expanded = p.replace(/^~(?=\/)/, process.env.HOME).replace(/\$\{?([A-Z_][A-Z0-9_]*)\}?/g, (m, name) => {
+      if (process.env[name] === undefined) {
+        throw new Error(`${name} is not set (docs/points-process.md §0.6 names the store paths). Export it or write the path out.`)
+      }
+      return process.env[name]
+    })
+    return path.resolve(path.dirname(file), expanded)
+  }
+  if (Array.isArray(inp.windows)) {
+    inp.windows = inp.windows.map(w => {
+      if (!w.file) return w
+      const d = JSON.parse(readFileSync(rel(w.file), 'utf8'))
+      return { label: w.label ?? path.basename(w.file), speaker: w.speaker, mapping_evidence: w.mapping_evidence, start: d.start, duration: d.duration, turns: d.turns }
+    })
+  }
+  if (inp.vtt) inp.cues = parseVtt(readFileSync(rel(inp.vtt), 'utf8'))
+  return inp
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const file = process.argv[2]
   if (!file) {
@@ -265,18 +324,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       '  {arguer, basis:"single-speaker", vtt:"<raw en.vtt>", ranges:[...], terms:[...]}')
     process.exit(2)
   }
-  const { readFileSync } = await import('node:fs')
-  const path = await import('node:path')
-  const inp = JSON.parse(readFileSync(file, 'utf8'))
-  const rel = p => path.resolve(path.dirname(file), p.replace(/^~(?=\/)/, process.env.HOME))
-  if (Array.isArray(inp.windows)) {
-    inp.windows = inp.windows.map(w => {
-      if (!w.file) return w
-      const d = JSON.parse(readFileSync(rel(w.file), 'utf8'))
-      return { label: w.label ?? path.basename(w.file), speaker: w.speaker, start: d.start, duration: d.duration, turns: d.turns }
-    })
-  }
-  if (inp.vtt) inp.cues = parseVtt(readFileSync(rel(inp.vtt), 'utf8'))
+  let inp
+  try { inp = await loadInput(file) } catch (e) { console.error(`on-topic-minutes: ${e.message}`); process.exit(2) }
   const r = run(inp)
   console.log(r.detail)
   process.exit(r.ok ? 0 : 1)

@@ -41,5 +41,7 @@
       "minutes",
       "recency"
     ]
-  }
+  },
+  "on_topic_context_seconds": 60,
+  "_on_topic_context_comment": "on-topic-minutes.mjs counts an arguer turn only if it carries a term hit, or lies within this many seconds of one that does (inside the same proposed range). Bounds how much a wide range can add."
 }

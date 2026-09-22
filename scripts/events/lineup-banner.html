@@ -30,10 +30,10 @@ html,body{margin:0;padding:0;width:2400px;height:1143px;overflow:hidden}
 .word{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:46px;letter-spacing:4px;color:#1f3a5f;text-shadow:0 0 10px #fff,0 0 4px #fff}
 .col{width:300px;display:flex;flex-direction:column;align-items:center}
-.face{width:170px;height:170px;border-radius:50%;background-repeat:no-repeat;background-size:cover;background-position:center;
+.face{width:calc(170px * var(--s, 1));height:calc(170px * var(--s, 1));border-radius:50%;background-repeat:no-repeat;background-size:cover;background-position:center;
   border:5px solid #fff;box-shadow:0 0 0 3px rgba(31,58,95,.25)}
-.first{margin-top:8px;font-size:36px;color:#4a5563;line-height:1.05;white-space:nowrap}
-.last{font-size:58px;font-weight:800;color:#1f2933;line-height:1.02;white-space:nowrap}
+.first{margin-top:8px;font-size:calc(36px * var(--s, 1));color:#4a5563;line-height:1.05;white-space:nowrap}
+.last{font-size:calc(58px * var(--s, 1));font-weight:800;color:#1f2933;line-height:1.02;white-space:nowrap}
 .warn{position:absolute;left:0;top:0;right:0;padding:8px 16px;background:#b00020;color:#fff;font-size:28px}
 </style></head><body><div class="canvas" id="canvas"></div>
 
@@ -73,15 +73,24 @@ word.textContent = cfg.motif.word
 emblem.appendChild(word)
 band.appendChild(emblem)
 
+// Up to six arguers (select.md: N in 2..6) must fit the SAME fixed band, so columns shrink with N
+// instead of the band growing: 290px emblem + N columns inside 1872px. At N = 6 a column is ~263px
+// and the face and names scale down with it (P1355 review: a fixed 300px column overflowed at 6).
+const colWidth = Math.min(300, Math.floor((1872 - 290) / Math.max(1, cfg.people.length)))
+const scale = colWidth / 300
 for (const p of cfg.people) {
   const col = document.createElement('div')
   col.className = 'col'
+  col.style.width = colWidth + 'px'
+  col.style.setProperty('--s', scale)
   const face = document.createElement('div')
   face.className = 'face'
   if (cfg.sprite) {
     face.style.backgroundImage = `url(${JSON.stringify(cfg.sprite)})`
-    face.style.backgroundSize = cfg.spriteSize
-    face.style.backgroundPosition = p.pos
+    // Sprite offsets are in px for a 170px face; scale them with the face or the crop drifts.
+    const px = str => str.trim().split(/\s+/).map(v => `${parseFloat(v) * scale}px`).join(' ')
+    face.style.backgroundSize = px(cfg.spriteSize)
+    face.style.backgroundPosition = px(p.pos)
   } else {
     face.style.backgroundImage = `url(${JSON.stringify(p.img)})`
   }

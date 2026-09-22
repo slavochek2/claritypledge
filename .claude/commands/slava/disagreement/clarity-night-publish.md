@@ -199,6 +199,10 @@ print(json.loads(urllib.request.urlopen(r).read())[0]["slug"])
 Links in the description are absolute prod URLs, so they work from the test page. Revisions are a
 `PATCH` of `description` on the same row.
 
+**Build the banner now, on TEST, before the founder reviews the page** — draft mode included. Follow
+Step 6.3's banner rules (template, faces, one flat band, fixed height) and upload it to the TEST
+event; Step 6.3 later only re-uploads the approved file to prod storage.
+
 - Start the dev server from the main checkout and read its port from the log (5001 on the first run).
   A blank page mid-session usually means a co-tenant build flooded the file watcher: restart it.
 - The founder reviews the page, not a paragraph (*"no need to show me text, i can correct it on
@@ -269,8 +273,8 @@ Paste the evidence; do not ask to move to PROD until all pass.
      template is built for the fixed-height slot.
    - **Check it on the real page** at 320, 375, ~1500 and 1920 px (confirmed widths, see Step 5).
    - **Upload** through the existing custom-banner route — storage upload plus a `banner_url` PATCH,
-     as `/slava:events:publish-run` 8b does — in the event's own environment, and onto the **TEST**
-     page before the founder reviews it. A phone variant follows P1354 once it ships.
+     as `/slava:events:publish-run` 8b does — in the event's own environment. The TEST upload already
+     happened in Step 4; here the same approved file goes to **prod** storage and the prod row.
    - **Phone variant (P1354):** if the faces or names go illegible at 375px (the wide banner squeezed
      into the 192px phone slot), set `events.banner_mobile_url` as well. `BannerDisplay` shows it only
      below the `md` (768px) breakpoint; `banner_url` is unaffected at every other width. It is

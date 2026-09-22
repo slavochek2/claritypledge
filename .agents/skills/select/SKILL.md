@@ -1,6 +1,6 @@
 ---
 name: select
-description: "Given a topic, establish that a disagreement exists BEFORE any search (Phase 0), then select N ∈ 2..6 arguers on distinct positions — solo talks, or one-way interviews admitted on measured evidence: enumerate the fork and its named advocates, propose credible people per position, gate for founder approval, rank each person's solo videos by argument quality, run an isolated judge step to argue why the set does not work, gate for set approval, and write the sealed run file for /slava:disagreement:prepare. A consensus topic STOPS at Phase 0 without searching. Terminal output only; writes nothing to the product."
+description: "Given a topic, establish that a disagreement exists BEFORE any search (Phase 0), then select N ∈ 2..6 arguers on distinct positions — solo talks, or one-way interviews admitted on measured evidence: enumerate the fork and its named advocates, propose credible people per position, screen their videos in two tracks, gate for founder approval before any source is approved or its audio fetched, rank each person's videos by topic fit and argument quality, run an isolated judge step to argue why the set does not work, gate for set approval, and write the sealed run file for /slava:disagreement:prepare. A consensus topic STOPS at Phase 0 without searching. Terminal output only; writes nothing to the product."
 when_to_use: "Start of the points pipeline. Run once per topic before /slava:disagreement:prepare. Takes a topic string and a named room, first proves the topic is CONTESTED at all (Phase 0 — a consensus topic stops here, with the shared premise named and no search performed), then selects and proves N ∈ 2..6 opposing sources exist and meet Gate 0 — one voice, or one voice plus a verified questioner. The selector proves creation and extraction will succeed; it never creates accounts or writes to the database."
 version: 1.4.0
 ---
@@ -387,11 +387,14 @@ person's name plus the topic, both ways, and capture the ids mechanically:
 
 ```sh
 yt --flat-playlist --skip-download --print "%(id)s" "ytsearch30:<name> <topic>" > searched-<n>-rel.txt
-yt --flat-playlist --skip-download --print "%(id)s" \
+yt --flat-playlist --skip-download --playlist-end 30 --print "%(id)s" \
   "https://www.youtube.com/results?search_query=<name>+<topic>&sp=CAM%253D" > searched-<n>-views.txt   # sorted by views
+# --playlist-end 30 is required: the results URL is unbounded (126 ids measured on one query).
 ```
 
-Then run the sweep (Phase 2's command, `candidate-sweep.mjs`), fetch captions **for survivors only**,
+Record each file as one query with `requested: 30` and its ids **verbatim from the file**. `requested`
+is self-declared — the sweep refuses a record that confesses fewer than 30, and cannot catch a trimmed
+file, so never edit these files by hand. Then run the sweep (Phase 2's command, `candidate-sweep.mjs`), fetch captions **for survivors only**,
 and pre-screen them with `~/.agents/bin/delegate-gemini`.
 
 **Track B — lived-experience discovery (amends 2026-08-25).** Only for a position where **no named
@@ -400,7 +403,15 @@ way. The stance is decided from the transcript, never the title — which remove
 gave for rejecting search-led discovery. Standing rule 8 governs how such a voice is shown.
 
 **What the delegated pre-screen may decide — and nothing else:** which candidates are worth a closer
-look, plus *proposed* on-topic ranges and quotes. **Minutes come from `on-topic-minutes.mjs`.** Every
+look, plus *proposed* on-topic ranges and quotes. **Minutes come from `on-topic-minutes.mjs`.**
+
+**Before Gate 1, minutes are measured only where captions suffice.** A single-speaker source is
+measured from its raw caption track (`basis: "single-speaker"`). A multi-speaker source needs
+diarization, which needs its audio — and audio is fetched only after Gate 1. So at Gate 1 a
+multi-speaker candidate shows its proposed ranges labelled **`minutes: PROVISIONAL (unmeasured,
+multi-speaker)`**, never a number. It is measured on its speaker-labelled turns in Phase 2, after
+approval and before Gate 2, and a provisional candidate that then falls below the floor goes back to
+the founder with its alternates (never silently kept). Every
 quote is `grep -F`-verified against the transcript, with a planted fake quote as the control (it must
 fail). **The stance shown at Gate 1 is written by the orchestrator from the quoted passages**, never
 copied from the pre-screen.
@@ -428,8 +439,8 @@ Present, in this order:
    room"** line, which becomes the run file's `why_in_the_room`.
 3. **A balance table on the evening's own question:** one row per person, the side they take, and the
    quoted passage (with timecode) that shows it. A table whose rows all lean one way is a finding.
-4. **The screened videos, opened in Chrome in table order**, with each candidate's measured minutes,
-   upload date, views and comments beside it.
+4. **The screened videos, opened in Chrome in table order**, with each candidate's minutes (measured,
+   or `PROVISIONAL` for a multi-speaker source — see Phase 1b), upload date, views and comments beside it.
 
 **Halt for explicit founder approval of the spectrum and of one person per position** —
 **before any source is approved or fetched as audio.**
@@ -822,9 +833,14 @@ node scripts/points/on-topic-minutes.mjs <minutes.json>
 ```
 
 `CLEARS` / `BELOW-FLOOR` against the JSON's minimum; `REFUSE` for unlabelled multi-speaker speech, a
-wrong label mapping, or a "single-speaker" track with turn markers inside a range. The printed
-`on_topic_seconds` and the ranges go into the run file (`on_topic_seconds`, `on_topic_ranges`). It
-cannot judge whether the ranges or terms are right — those are shown at the gate — but a number two
+wrong label mapping, several labels merged without `mapping_evidence`, a term under three letters, or a
+"single-speaker" track with turn markers inside a range. Inside a range it counts only the arguer's
+turns that carry a term, plus those within the JSON's context window of one — the range bounds the
+count, it never supplies it. **Save the input file** as `.private/points-runs/<slug>.minutes/position-<n>.json`
+and record it as `on_topic_input`, beside the printed `on_topic_seconds` and `on_topic_ranges`:
+`run-file-check.mjs` re-runs it and refuses a number that does not match. A `turn-verified` source is
+measured on its diarization (Step 2c) — parity turns cannot attribute speech, so they cannot be counted.
+It cannot judge whether the ranges or terms are right — those are shown at the gate — but a number two
 readers compute differently no longer reaches the founder.
 
 ### Ranking Axes
@@ -1064,8 +1080,11 @@ Present the proposed set to the founder:
    name, and the pasted `grep -ciE` count against the raw `.vtt`**, Gate 0 detection method and basis
    label (`single-speaker` | `turn-verified` — for the latter, print the Step 2b measurement block
    **and its verbatim caveat** alongside), and the core claim with a short supporting quote. Since
-   P1355 also: `voice`, `language`, the pasted `on-topic-minutes.mjs` output, the sensitive passages,
-   the `why_in_the_room` line approved at Gate 1, and any proposed `override` with its reason.
+   P1355 also: `voice` (with `classic_basis` for a classic voice), `language`, the pasted
+   `on-topic-minutes.mjs` output, the sensitive passages, the `why_in_the_room` line approved at
+   Gate 1, and any proposed `override` with its reason. **Each override is asked as its own
+   acknowledgement, like a walled source below** — name the arguer, the floor it lifts and the
+   reason; for `founder-named`, record his words verbatim in quotes. A set-level "yes" never covers one.
 2. **Position coverage:** state N carried and N filled, and **name every carried position that
    produced no admissible source**. An unfilled position is a finding presented to the founder, never
    a silent narrowing of the spectrum. **Print each source's `audio_in_store` verdict here too** —
@@ -1137,8 +1156,10 @@ Upon Gate 2 approval:
    ```sh
    node scripts/points/run-file-check.mjs .private/points-runs/<slug>.md
    ```
-   It refuses a block where any arguer lacks `voice`, `why_in_the_room`, `on_topic_seconds`,
-   `upload_date` or `language`, where a source is not English, where an arguer is below a floor with
+   It re-runs each arguer's `on_topic_input` through `on-topic-minutes.mjs`, and refuses a block where
+   any arguer lacks `voice`, `why_in_the_room`, `on_topic_seconds`, `on_topic_input`, `upload_date` or
+   `language`, where the re-run disagrees with `on_topic_seconds`, where a classic voice has no
+   `classic_basis`, where two arguers share a person or a video, where a source is not English, where an arguer is below a floor with
    no override **inside the block** whose reason covers that floor, or where the header
    `audience_floor` is missing or lower than `standing-rules.json`. Fix the block, or take the
    exception back to the founder as a named override — never lower the header floor.

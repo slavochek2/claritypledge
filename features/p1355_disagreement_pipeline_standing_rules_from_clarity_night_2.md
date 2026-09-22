@@ -375,6 +375,57 @@ Watts' 840s is the recorded single-speaker estimate (the whole lecture), not a C
   banner; rendered with that banner's data it reproduces it.
 - **S8 not adopted** — still the founder decision in Open Question 2.
 
+## Implementation review record (2026-09-22)
+
+Adversarial review of commit `41b0bfe78`, **3 of 3 reported**, all FIX-FIRST or REJECT:
+- Gemini `gemini-3.8-flash` (verified as served), text only: 6 findings;
+- Opus subagent, with the private run files and live probes: 2 HIGH, 9 MEDIUM;
+- Codex `gpt-5.6-sol` at high effort (accepted-only, not verified as served), with probes: 6 HIGH, 5 MEDIUM.
+
+Each finding was re-run by command before it was acted on. Fixed:
+- **C3 counted a whole range once any turn in it hit** (Opus H1; confirmed: Harari 92.6s → 353.9s
+  with whole-window ranges and the term "AI"). A turn now counts only if it hits, or lies within
+  `on_topic_context_seconds` of a hit. Terms under 3 letters are refused, and so are several labels
+  without `mapping_evidence`. `minSeconds` can only raise the floor. Harari with whole-window ranges
+  now measures 176.6s: the verdict no longer depends on who draws the ranges.
+- **C4 trusted a typed `on_topic_seconds`** (Opus H2, Codex 6). Each arguer now names its
+  `on_topic_input`; the CLI re-runs C3 on it and refuses a mismatch or a basis that contradicts
+  `gate_0_basis`. Checked end to end on the real Harari input: 92.6 seals, a typed 400 is refused.
+- **Standard weakening** (Opus M8, Codex 4): a supplied floor or recency line can only be stricter.
+- **Impossible dates** (Codex 3): `ymd` now round-trips a real calendar date.
+- **Missing `voice`** (Codex 2): always unknown, per C2's "every candidate carries voice".
+- **Malformed or padded query records** crashed or passed (Codex 7, 1): now REFUSE.
+- **`arguers:` with the schema's trailing comment** parsed to zero arguers (Gemini 1, Opus M6).
+- **`language: NA`** read as "not English" (Gemini 3 refuted as stated — `yt` returns `en`/`en-US` —
+  but the unset case is real): now "not reported".
+- **`$DIARIZE_STORE` crashed the C3 CLI** (Gemini 5): variables are expanded, an unset one is named.
+- **Banner overflowed at 6 arguers** (Gemini 4): columns scale with N; sprite crops scale with them.
+- **Gate 1 asked for measured minutes that need audio** (Gemini 2, Opus M1): multi-speaker sources
+  show `PROVISIONAL (unmeasured)` at Gate 1 and are measured after approval.
+- **Relabel and override lifts** (Opus M4, M5): `classic` needs `classic_basis`; `founder-named`
+  needs at least three quoted words, and every override is its own Gate 2 acknowledgement.
+- **Rule 2 unchecked** (Opus LOW): C4 refuses two arguers sharing a name, subject_key or video.
+- **`turn-verified` had no path through C3** (Opus M3): select.md says to measure on diarization.
+- **Unbounded views-sorted search** (Opus M7): `--playlist-end 30`.
+- **Stale ordering prose** (Opus M9, Codex 9): points-process Gate 1 line and select's description.
+- **rule-present checked 4 phrases** (Codex 8): now one anchored row per numbered standing rule (13).
+- **Draft mode had no TEST banner** (Codex 11): banner is built in Step 4, before review.
+
+Accepted, with reasons:
+- **`requested` is self-declared** (Codex 1, Opus LOW): a record that confesses fewer than 30 is
+  refused, and duplicate padding is refused, but a hand-trimmed id file cannot be detected by a
+  predicate that only sees the record. select.md says so and says never to edit the files.
+- **Recency date from the agent-written `gate_2_approved_at`** (Opus LOW): now a real date, not
+  clamped to today, because replays of past runs must use their own date.
+- **`founder-named` words cannot be proven to be the founder's** — the run file is agent-written; the
+  separate Gate 2 acknowledgement is the control.
+- **Replay minutes** (Codex 10): event #1's 600s and Watts' 840s are labelled stand-ins; the replay
+  pins floors, recency and the minutes floor. Harari's 92.6s is the only real C3 number in it.
+- **Draft-mode Done-When** (Codex 11): verified on the existing TEST page, not a fresh insert
+  (a new TEST row needs the founder's ok) — stated on the Done-When line.
+- `redact-run.mjs` shares the old `^arguers:\s*$` pattern; it only reads the run-B file, which has
+  no comment on that line, so it is left as is.
+
 ## Alternatives Considered
 
 - **Keep people-first, with no video search before Gate 1.** Rejected on this run's evidence: the

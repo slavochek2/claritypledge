@@ -94,15 +94,35 @@ describe('C2 — candidate-sweep enforces voice-aware recency, English, and the 
     })
     expect(r.verdict).toBe('REFUSE')
     expect(r.unmeasured).toEqual(['old'])
-    expect(r.detail).toMatch(/only a classic voice is exempt/)
+    expect(r.detail).toMatch(/every candidate must be classified/)
   })
 
-  it('a recent upload with no voice needs none: the voice cannot change its verdict', () => {
+  it('review fix: every candidate carries a voice — a recent one without it is REFUSED too (Codex 2)', () => {
     const r = sweep({
       asOf: '20260922', queries: [{ query: 'q', requested: 30, ids: ['new'] }],
       candidates: [{ id: 'new', language: 'en', upload_date: '20260601', view_count: 900000, comment_count: 900 }],
     })
-    expect(r.admitted).toEqual(['new'])
+    expect(r.verdict).toBe('REFUSE')
+  })
+
+  it('review fix: a supplied floor or recency line can only be STRICTER (Opus M8, Codex 4)', () => {
+    const r = sweep({
+      floor: { minViews: 0, minComments: 0 }, recencyFloor: '19000101', asOf: '20260922',
+      queries: [{ query: 'q', requested: 30, ids: ['z'] }],
+      candidates: [{ id: 'z', voice: 'ai', language: 'en', upload_date: '20190101', view_count: 500, comment_count: 0 }],
+    })
+    expect(r.admitted).toEqual([])
+    expect(r.detail).toContain('floor raised to standing-rules.json')
+  })
+
+  it('review fix: malformed and padded query records are refused, never thrown on (Codex 7, 1)', () => {
+    expect(sweep({ asOf: '20260922', queries: [null], candidates: [{ id: 'a' }] } as never).verdict).toBe('REFUSE')
+    expect(sweep({ asOf: '20260922', queries: [{ query: 'q', requested: 30, ids: ['a', 'a'] }], candidates: [{ id: 'a' }] } as never).verdict).toBe('REFUSE')
+  })
+
+  it('review fix: impossible dates are not dates (Codex 3)', () => {
+    const r = sweep({ asOf: '0000-00-00', queries: [{ query: 'q', requested: 30, ids: ['a'] }], candidates: [{ id: 'a' }] } as never)
+    expect(r.verdict).toBe('REFUSE')
   })
 
   it('a candidate clearing everything with no language is REFUSED — never measured is not English', () => {
@@ -184,6 +204,27 @@ and meaning is something you build yourself
     expect(r.detail).toMatch(/turn marker/)
   })
 
+  it('review fix: a range bounds the count, it never supplies it (Opus H1)', () => {
+    // One hit at the start of a 40-minute range used to count all 40 minutes.
+    const turns = [{ start: 0, end: 20, speaker: 'spk:1', text: 'my purpose matters' },
+      ...Array.from({ length: 39 }, (_, i) => ({ start: 60 * (i + 1), end: 60 * (i + 1) + 55, speaker: 'spk:1', text: 'interest rates and inflation' }))]
+    const r = minutes({ basis: 'speaker-labelled', windows: [{ speaker: 'spk:1', start: 0, duration: 2400, turns }], ranges: [[0, 2400]], terms: ['purpose'] })
+    expect(r.on_topic_seconds).toBeLessThan(100)
+    expect(r.ok).toBe(false)
+  })
+
+  it('review fix: wildcard or 2-letter terms, and unexplained label merges, are REFUSED (Opus H1, Codex 5)', () => {
+    expect(minutes({ ...MIN.pass, terms: ['*'] }).verdict).toBe('REFUSE')
+    expect(minutes({ ...MIN.pass, terms: ['AI'] }).verdict).toBe('REFUSE')
+    const merged = { ...MIN.pass.windows[0], speaker: ['spk:0', 'spk:1'] }
+    expect(minutes({ ...MIN.pass, windows: [merged] }).verdict).toBe('REFUSE')
+    expect(minutes({ ...MIN.pass, windows: [{ ...merged, mapping_evidence: 'spk:0 and spk:1 both answer as the guest' }] }).verdict).not.toBe('REFUSE')
+  })
+
+  it('review fix: minSeconds can raise the floor, never lower it (Codex 4)', () => {
+    expect(minutes({ ...MIN.pass, minSeconds: 0 }).min_seconds).toBe(300)
+  })
+
   it('no terms, no ranges, or an unknown basis is REFUSE', () => {
     expect(minutes({ ...MIN.pass, terms: [] }).verdict).toBe('REFUSE')
     expect(minutes({ ...MIN.pass, ranges: [] }).verdict).toBe('REFUSE')
@@ -208,7 +249,11 @@ ${arguers}
 `
 const arguer = (fields: Record<string, string | number>) =>
   '  - position: 1\n' + Object.entries(fields).map(([k, v]) => `    ${k}: ${typeof v === 'number' ? v : JSON.stringify(v)}`).join('\n')
-const good = { name: 'A', voice: 'ai', why_in_the_room: 'why', upload_date: '2026-08-06', language: 'en', view_count: 150000, comment_count: 200, on_topic_seconds: 600 }
+const good = { name: 'A', voice: 'ai', why_in_the_room: 'why', upload_date: '2026-08-06', language: 'en', view_count: 150000, comment_count: 200, on_topic_seconds: 600, on_topic_input: 'm/p1.json' }
+// What the CLI's re-run of on-topic-minutes.mjs returns for an input file (C4 compares against it).
+const measured = (seconds: number, file = 'm/p1.json', basis = 'single-speaker') =>
+  ({ [file]: { result: { verdict: seconds >= 300 ? 'CLEARS' : 'BELOW-FLOOR', on_topic_seconds: seconds, basis, detail: '' } } })
+const check = (text: string, seconds = 600, extra: object = {}) => runFileCheck({ text, measured: measured(seconds), ...extra })
 
 describe('C4 — run-file-check refuses an approvals block that breaks a standing rule', () => {
   it('MUST-PASS / MUST-FAIL fixtures (missing why_in_the_room)', () => {
@@ -220,49 +265,88 @@ describe('C4 — run-file-check refuses an approvals block that breaks a standin
 
   it('a below-floor arguer without an override is REFUSED; a covering override inside the block lifts it', () => {
     const low = { ...good, view_count: 8927 }
-    expect(runFileCheck({ text: runFile(arguer(low)) }).detail).toMatch(/views 8927 < 100000 and no override covers it/)
-    const lifted = runFileCheck({ text: runFile(arguer({ ...low, override: 'recognisable-figure-low-video-reach' })) })
+    expect(check(runFile(arguer(low))).detail).toMatch(/views 8927 < 100000 and no override covers it/)
+    const lifted = check(runFile(arguer({ ...low, override: 'recognisable-figure-low-video-reach' })))
     expect(lifted.verdict).toBe('SEALABLE')
     expect(lifted.detail).toContain('lifted by override')
   })
 
   it('an override OUTSIDE the sealed block is ignored — the header is editable after Gate 2', () => {
     const low = { ...good, view_count: 8927 }
-    const r = runFileCheck({ text: runFile(arguer(low), undefined, 'override: "recognisable-figure-low-video-reach"\n') })
+    const r = check(runFile(arguer(low), undefined, 'override: "recognisable-figure-low-video-reach"\n'))
     expect(r.verdict).toBe('REFUSE')
   })
 
   it('an override whose reason does not cover the failing floor does not lift it', () => {
-    const r = runFileCheck({ text: runFile(arguer({ ...good, on_topic_seconds: 90, override: 'recognisable-figure-low-video-reach' })) })
+    const r = check(runFile(arguer({ ...good, on_topic_seconds: 90, override: 'recognisable-figure-low-video-reach' })), 90)
     expect(r.verdict).toBe('REFUSE')
     expect(r.detail).toMatch(/on topic 90s < 300s and no override covers it/)
   })
 
   it('an override with an unlisted reason, or founder-named without words, is REFUSED', () => {
-    expect(runFileCheck({ text: runFile(arguer({ ...good, view_count: 10, override: 'founder-seeded' })) }).verdict).toBe('REFUSE')
-    expect(runFileCheck({ text: runFile(arguer({ ...good, view_count: 10, override: 'founder-named' })) }).verdict).toBe('REFUSE')
+    expect(check(runFile(arguer({ ...good, view_count: 10, override: 'founder-seeded' }))).verdict).toBe('REFUSE')
+    expect(check(runFile(arguer({ ...good, view_count: 10, override: 'founder-named' }))).verdict).toBe('REFUSE')
   })
 
   it('a non-English source is never overridable', () => {
-    const r = runFileCheck({ text: runFile(arguer({ ...good, language: 'th', override: 'founder-named: "keep it"' })) })
+    const r = check(runFile(arguer({ ...good, language: 'th', override: 'founder-named: "keep it"' })))
     expect(r.verdict).toBe('REFUSE')
     expect(r.detail).toMatch(/never overridable/)
   })
 
   it('a header floor lower than standing-rules.json is REFUSED — floors are not relaxed in the header', () => {
-    const r = runFileCheck({ text: runFile(arguer(good), '{ min_views: 2000, min_comments: 50 }') })
+    const r = check(runFile(arguer(good), '{ min_views: 2000, min_comments: 50 }'))
     expect(r.verdict).toBe('REFUSE')
     expect(r.detail).toMatch(/LOWER than standing-rules.json/)
   })
 
   it('a stale ai voice is REFUSED; the same upload date on a classic voice passes', () => {
-    expect(runFileCheck({ text: runFile(arguer({ ...good, upload_date: '2022-08-16' })) }).verdict).toBe('REFUSE')
-    expect(runFileCheck({ text: runFile(arguer({ ...good, voice: 'classic', upload_date: '2022-08-16' })) }).verdict).toBe('SEALABLE')
+    expect(check(runFile(arguer({ ...good, upload_date: '2022-08-16' }))).verdict).toBe('REFUSE')
+    expect(check(runFile(arguer({ ...good, voice: 'classic', classic_basis: 'died 1973', upload_date: '2022-08-16' }))).verdict).toBe('SEALABLE')
+  })
+
+  it('review fix: a typed on_topic_seconds that the re-run does not reproduce is REFUSED (Opus H2, Codex 6)', () => {
+    expect(check(runFile(arguer(good)), 120).detail).toMatch(/on_topic_seconds 600 but re-running m\/p1.json gives 120/)
+    expect(runFileCheck({ text: runFile(arguer(good)) }).detail).toMatch(/was not re-derived/)
+    const { on_topic_input: _drop, ...noInput } = good
+    expect(check(runFile(arguer(noInput))).detail).toMatch(/missing on_topic_input/)
+  })
+
+  it('review fix: whitespace is not a why_in_the_room; classic needs a basis; one person once (Codex 6, Opus M5, rule 2)', () => {
+    expect(check(runFile(arguer({ ...good, why_in_the_room: ' ' }))).detail).toMatch(/missing why_in_the_room/)
+    expect(check(runFile(arguer({ ...good, voice: 'classic' }))).detail).toMatch(/no classic_basis/)
+    const two = arguer(good) + '\n' + arguer(good).replace('position: 1', 'position: 2')
+    expect(check(runFile(two)).detail).toMatch(/two arguers share name "A"/)
+  })
+
+  it('review fix: minutes measured on a basis that contradicts gate_0_basis are REFUSED (Opus M2)', () => {
+    const r = runFileCheck({ text: runFile(arguer({ ...good, gate_0_basis: 'speaker-labelled' })), measured: measured(600, 'm/p1.json', 'single-speaker') })
+    expect(r.detail).toMatch(/measured as single-speaker but gate_0_basis is speaker-labelled/)
+  })
+
+  it('review fix: founder-named needs at least three quoted words (Opus M4)', () => {
+    expect(check(runFile(arguer({ ...good, view_count: 10, override: 'founder-named: ok' }))).verdict).toBe('REFUSE')
+    expect(check(runFile(arguer({ ...good, view_count: 10, override: 'founder-named: "keep him, he is the point"' }))).verdict).toBe('SEALABLE')
+  })
+
+  it('review fix: the schema doc\'s `arguers:   # comment` line still parses (Gemini finding 1)', () => {
+    const text = runFile(arguer(good)).replace('arguers:\n', 'arguers:                              # REPEATABLE, 2..6 entries\n')
+    expect(check(text).verdict).toBe('SEALABLE')
+  })
+
+  it('review fix: yt\'s `NA` language is "not reported", never "not English"', () => {
+    const r = check(runFile(arguer({ ...good, language: 'NA' })))
+    expect(r.detail).toContain('missing language')
+    expect(r.detail).not.toMatch(/not English/)
+    const s = sweep({ asOf: '20260922', queries: [{ query: 'q', requested: 30, ids: ['na'] }],
+      candidates: [{ id: 'na', voice: 'ai', language: 'NA', upload_date: '20260601', view_count: 900000, comment_count: 900 }] })
+    expect(s.verdict).toBe('REFUSE')
+    expect(s.detail).toMatch(/missing language/)
   })
 
   it('no run date (no gate_2_approved_at, no asOf) is REFUSE', () => {
     const text = runFile(arguer(good)).replace(/gate_2_approved_at:.*\n/, '')
-    expect(runFileCheck({ text }).verdict).toBe('REFUSE')
+    expect(check(text).verdict).toBe('REFUSE')
   })
 })
 
@@ -301,14 +385,16 @@ describe('Replay: events #1 and #2 through the new predicates', () => {
   // Event #1 recorded no on-topic minutes; 600s is a stand-in so this row isolates the FLOORS.
   const e1Block = (withOverride: boolean) => EVENT1.map((e, i) =>
     `  - position: ${i + 1}\n    name: "${e.name}"\n    voice: "ai"\n    why_in_the_room: "recorded"\n    upload_date: "${e.upload_date}"\n    language: "en"\n` +
-    `    view_count: ${e.view_count}\n    comment_count: ${e.comment_count}\n    on_topic_seconds: 600` +
+    `    view_count: ${e.view_count}\n    comment_count: ${e.comment_count}\n    on_topic_seconds: 600\n    on_topic_input: "m/e1-${i + 1}.json"` +
     (withOverride && e.view_count < 100000 ? '\n    override: "recognisable-figure-low-video-reach"' : '')).join('\n')
 
   it('event #1 through C4: exactly Bengio and Sanders need the recognisable-figure override, and it suffices', () => {
-    const without = runFileCheck({ text: runFile(e1Block(false)), asOf: '20260907' })
+    // Event #1 recorded no minutes: the stand-in measurement returns the same 600s for each input.
+    const e1Measured = Object.assign({}, ...EVENT1.map((_, i) => measured(600, `m/e1-${i + 1}.json`)))
+    const without = runFileCheck({ text: runFile(e1Block(false)), asOf: '20260907', measured: e1Measured })
     console.log('[replay event #1, C4 without overrides]\n' + without.detail)
     expect(without.offenders).toEqual(['position 2 (Yoshua Bengio)', 'position 4 (Bernie Sanders)'])
-    const withO = runFileCheck({ text: runFile(e1Block(true)), asOf: '20260907' })
+    const withO = runFileCheck({ text: runFile(e1Block(true)), asOf: '20260907', measured: e1Measured })
     console.log('[replay event #1, C4 with overrides]\n' + withO.detail)
     expect(withO.verdict).toBe('SEALABLE')
   })
@@ -330,9 +416,12 @@ describe('Replay: events #1 and #2 through the new predicates', () => {
     // sensitive passage subtracted). Watts: 840s is the recorded single-speaker
     // estimate (the whole 14-minute lecture), NOT a C3 measurement.
     const block =
-      '  - position: 1\n    name: "Yuval Noah Harari"\n    voice: "ai"\n    why_in_the_room: "recorded"\n    upload_date: "2026-08-26"\n    language: "en"\n    view_count: 1553479\n    comment_count: 1100\n    on_topic_seconds: 92.6\n' +
-      '  - position: 2\n    name: "Alan Watts"\n    voice: "classic"\n    why_in_the_room: "recorded"\n    upload_date: "2022-08-16"\n    language: "en"\n    view_count: 1752705\n    comment_count: 3000\n    on_topic_seconds: 840'
-    const r = runFileCheck({ text: runFile(block), asOf: '20260922' })
+      '  - position: 1\n    name: "Yuval Noah Harari"\n    voice: "ai"\n    why_in_the_room: "recorded"\n    upload_date: "2026-08-26"\n    language: "en"\n    view_count: 1553479\n    comment_count: 1100\n    on_topic_seconds: 92.6\n    on_topic_input: "m/harari.json"\n    gate_0_basis: "speaker-labelled"\n' +
+      '  - position: 2\n    name: "Alan Watts"\n    voice: "classic"\n    why_in_the_room: "recorded"\n    upload_date: "2022-08-16"\n    language: "en"\n    view_count: 1752705\n    comment_count: 3000\n    on_topic_seconds: 840\n    on_topic_input: "m/watts.json"\n    classic_basis: "philosopher, died 1973: predates the AI debate"'
+    // Harari's 92.6s is a real C3 result on the stored diarization; Watts' 840s is a stand-in for the
+    // recorded single-speaker estimate. The replay tests floors, recency and the minutes floor, not C3.
+    const r = runFileCheck({ text: runFile(block), asOf: '20260922', measured: {
+      ...measured(92.6, 'm/harari.json', 'speaker-labelled'), ...measured(840, 'm/watts.json') } })
     console.log('[replay event #2, C4]\n' + r.detail)
     expect(r.offenders).toEqual(['position 1 (Yuval Noah Harari)'])
     expect(r.detail).toMatch(/Harari\): REFUSE — on topic 92.6s < 300s/)
