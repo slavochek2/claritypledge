@@ -441,6 +441,9 @@ export function EventDetail() {
       {/* Header - Banner image or gradient fallback, with host controls overlay */}
       <BannerDisplay
         bannerUrl={banner.bannerUrl}
+        // P1354: read from `event`, not `useBanner` — bannerMobileUrl is hand-set/read-only and
+        // never refreshed by this hook. Harmless today (nothing mutates it from the UI), but a
+        // future host-editable mobile banner will need to reconcile these two state sources.
         mobileBannerUrl={event.bannerMobileUrl}
         fallbackColor={isCancelled ? '#9ca3af' : event.hostAvatarColor}
         altText={event.title}

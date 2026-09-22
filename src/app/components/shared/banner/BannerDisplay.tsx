@@ -1,4 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
+
+// md breakpoint — same semantics as the h-48 md:h-64 height class below and
+// chiang-mai-page.tsx's DESKTOP_QUERY: mounting only the matching <img> means the
+// browser fetches exactly one banner instead of both (P1354 code review finding #2).
+const DESKTOP_QUERY = '(min-width: 768px)';
 
 interface BannerDisplayProps {
   bannerUrl?: string | null;
@@ -33,8 +38,16 @@ export function BannerDisplay({
 }: BannerDisplayProps) {
   const [imgError, setImgError] = useState(false);
   const [mobileImgError, setMobileImgError] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia(DESKTOP_QUERY).matches);
   const showImage = !!bannerUrl && !imgError;
   const heightClass = heightClassName ?? 'h-48 md:h-64';
+
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const renderFallback = () => (
     fallbackClassName ? (
@@ -58,7 +71,10 @@ export function BannerDisplay({
   // Phone-optimised variant only applies while the desktop banner is also present —
   // removing the desktop banner drops back to the single-image path below, so the phone
   // slot never shows stale art next to a gradient desktop slot (P1354 adversarial review).
-  const showMobileVariant = showImage && !!mobileBannerUrl;
+  // Presence-based (not showImage-based): a desktop image load FAILURE must not also hide
+  // an otherwise-working mobile image (P1354 code review finding #1) — each viewport's
+  // <img> owns its own error state below, independent of the other.
+  const hasMobileVariant = !!bannerUrl && !!mobileBannerUrl;
 
   return (
     <div
@@ -66,26 +82,28 @@ export function BannerDisplay({
       aria-busy={ariaBusy}
       aria-live="polite"
     >
-      {showMobileVariant ? (
-        <>
-          {/* Same md: token that drives the height class above — no separate breakpoint to drift out of sync */}
-          {!mobileImgError ? (
+      {hasMobileVariant ? (
+        isDesktop ? (
+          !imgError ? (
             <img
-              src={mobileBannerUrl}
+              src={bannerUrl}
               alt={altText}
-              className="w-full h-full object-cover rounded-t-xl md:hidden"
-              onError={() => setMobileImgError(true)}
+              className="w-full h-full object-cover rounded-t-xl"
+              onError={() => setImgError(true)}
             />
           ) : (
-            <div className="w-full h-full md:hidden">{renderFallback()}</div>
-          )}
+            renderFallback()
+          )
+        ) : !mobileImgError ? (
           <img
-            src={bannerUrl}
+            src={mobileBannerUrl}
             alt={altText}
-            className="w-full h-full object-cover rounded-t-xl hidden md:block"
-            onError={() => setImgError(true)}
+            className="w-full h-full object-cover rounded-t-xl"
+            onError={() => setMobileImgError(true)}
           />
-        </>
+        ) : (
+          renderFallback()
+        )
       ) : showImage ? (
         <img
           src={bannerUrl}

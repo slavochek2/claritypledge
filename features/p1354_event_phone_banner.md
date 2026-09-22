@@ -86,7 +86,7 @@ renders as today). Decision density: low; the founder decided the direction abov
 - [x] An event without a phone banner looks the same as before at 375px and 1280px.
 - [x] A profile page banner looks the same as before.
 - [x] If the phone image URL is broken, the phone shows the gradient fallback, not a broken-image icon.
-- [ ] The Clarity Night #2 event on TEST has a phone banner whose faces and names are readable on a 375px phone, reviewed by the founder.
+- [x] The Clarity Night #2 event on TEST has a phone banner whose faces and names are readable on a 375px phone, reviewed by the founder.
 
 ## Done-When
 
@@ -95,8 +95,8 @@ renders as today). Decision density: low; the founder decided the direction abov
 
 ## Pre-deploy Checklist
 
-- [ ] Apply the migration on prod.
-- [ ] Upload the Clarity Night #2 phone banner to prod `event-banners` storage and set it on the prod event (with the desktop banner and the ikigai description image, which also need prod copies).
+- [x] Apply the migration on prod — handled automatically by `/push` (its step 2.5 applies exactly the migrations the pushed commit carries). No separate action.
+- [x] N/A for this ship — uploading the Clarity Night #2 phone/desktop banners and description image to *prod* storage is a founder-owned follow-up when actually launching that event on prod (the AI banner generator only accepts the signed-in host, not a service key — `clarity-night-publish.md` step 6.3), and is independent of whether this code change is safe to ship. Test already has all three set for review. **When that prod launch happens:** paste the prod event URL into a chat app (or a social-preview debugger) and confirm `og:image` still shows the desktop banner correctly — the share-card code path was not touched by this spec (confirmed via grep, no `bannerMobileUrl` reference anywhere in the OG/share generation path) but this is a public link shared in WhatsApp/Facebook, so it's cheap insurance.
 
 ## Related
 
