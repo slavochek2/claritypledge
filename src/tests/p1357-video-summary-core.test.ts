@@ -48,6 +48,7 @@ const good = {
   moments: [
     { t: '1:05', note: 'Second part starts' },
     { t: '0:05', note: 'Welcome' },
+    { t: '0:08', note: 'The talk begins' },
   ],
 };
 
@@ -104,6 +105,7 @@ describe('P1357 — writer output', () => {
     expect(r.errors).toEqual([]);
     expect(r.draft.moments).toEqual([
       { t: 5, note: 'Welcome' },
+      { t: 8, note: 'The talk begins' },
       { t: 65, note: 'Second part starts' },
     ]);
   });
@@ -133,7 +135,8 @@ describe('P1357 — writer output', () => {
 
   it('rejects an overlong key point', () => {
     const r = validateDraft({ ...good, key_points: ['word '.repeat(30), 'b', 'c'] }, 600);
-    expect(r.errors).toContain('key point 1 is over 16 words');
+    expect(r.errors).toContain('key point 1 is over 12 words');
+    expect(validateDraft({ ...good, key_points: ['one two three four five six seven eight nine ten eleven twelve', 'b', 'c'] }, 600).ok).toBe(true);
   });
 });
 
@@ -147,9 +150,9 @@ describe('P1357 — check', () => {
   });
 
   it('the checker gets one item per moment, key point, tldr and paragraph', () => {
-    expect(checkItems(draft, 600).map((i) => i.id)).toEqual(['moment-1', 'moment-2', 'key-1', 'key-2', 'key-3', 'tldr', 'para-1', 'para-2']);
+    expect(checkItems(draft, 600).map((i) => i.id)).toEqual(['moment-1', 'moment-2', 'moment-3', 'key-1', 'key-2', 'key-3', 'tldr', 'para-1', 'para-2']);
     // Each moment is checked over its own span: up to the next moment, the last one to the end.
-    expect(checkItems(draft, 600).slice(0, 2).map((i) => [i.t, i.until])).toEqual([['0:05', '1:05'], ['1:05', '10:00']]);
+    expect(checkItems(draft, 600).slice(0, 3).map((i) => [i.t, i.until])).toEqual([['0:05', '0:08'], ['0:08', '1:05'], ['1:05', '10:00']]);
     expect(checkerPrompt(META, segs, draft)).toMatch(/You did not write it/);
   });
 
@@ -234,8 +237,47 @@ describe('P1357 — adversarial review fixes', () => {
     ]);
   });
 
-  it('moment count must be 2–12', () => {
-    expect(validateDraft({ ...good, moments: [{ t: '0:05', note: 'x' }] }, 600).errors).toContain('expected 2–12 moments, got 1');
+  it('#12: moment count must be 3–10, matching the prompt', () => {
+    expect(validateDraft({ ...good, moments: good.moments.slice(0, 2) }, 600).errors).toContain('expected 3–10 moments, got 2');
+    const eleven = Array.from({ length: 11 }, (_, i) => ({ t: `0:${String(i + 10)}`, note: 'x' }));
+    expect(validateDraft({ ...good, moments: eleven }, 600).errors).toContain('expected 3–10 moments, got 11');
+    expect(writerPrompt(META, segs)).toMatch(/3–10 entries/);
+  });
+
+  it('#3: NOTE blocks and cue identifiers are never read as speech', () => {
+    // The NOTE sits AFTER a cue: that is where the old line parser glued it onto the open cue.
+    const vtt = `WEBVTT
+
+00:00:01.000 --> 00:00:04.000
+First words.
+
+NOTE
+Alice founded Acme in 2020.
+
+cue-id-controlled-by-uploader
+00:00:05.000 --> 00:00:08.000
+Spoken words.
+
+STYLE
+::cue { color: red } Bob was arrested
+
+00:00:09.000 --> 00:00:10.000 align:start
+more spoken words
+`;
+    expect(parseVtt(vtt)).toEqual([
+      { t: 1, text: 'First words.' },
+      { t: 5, text: 'Spoken words.' },
+      { t: 9, text: 'more spoken words' },
+    ]);
+  });
+
+  it('#6: a pass must cite usable evidence inside the video', () => {
+    const items = checkItems(draft, 600);
+    const withEvidence = (e: string) => JSON.stringify({ nonce: NONCE, items: items.map((i) => ({ id: i.id, verdict: 'pass', reason: '', evidence: i.id === 'tldr' ? e : '0:05' })) });
+    expect(parseCheckerVerdict(withEvidence('0:08'), draft, NONCE, 600).pass).toBe(true);
+    expect(parseCheckerVerdict(withEvidence(''), draft, NONCE, 600).failures).toEqual(['tldr: pass without usable evidence ("")']);
+    expect(parseCheckerVerdict(withEvidence('99:00'), draft, NONCE, 600).pass).toBe(false);
+    expect(parseCheckerVerdict(withEvidence('[1:05]'), draft, NONCE, 600).pass).toBe(true);
   });
 
   it('H2: the content hash changes with any published field, and only with those', () => {

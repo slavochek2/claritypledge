@@ -233,6 +233,13 @@ forbids `checked_by = written_by`) → `confirmed` (operator checked it against 
 are service-role only. The client reads it in `src/app/data/video-summaries-service.ts`: the
 "Read video summary" link under a player renders only for ids in the confirmed set.
 
+**Content lock (P1357).** `transcript_sha256` records the caption file the writer read. Trigger
+`video_summaries_content_lock` stamps `updated_at` on every UPDATE and, when any published field
+(`title`, `channel`, `duration_seconds`, `tldr`, `summary`, `key_points`, `moments`) or the
+transcript hash changes, forces `status = 'draft'` and clears `checked_by/_at` and `confirmed_at` —
+so a check always describes the content it checked. Rows are written only by the operator tool
+`scripts/video-summary.mjs` (draft → check → confirm).
+
 ### Stories, Points & Calibration Tables (P117)
 
 Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).

@@ -23,7 +23,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -32,6 +32,8 @@ import { createClient } from '@supabase/supabase-js';
 import {
   checkerPrompt,
   contentSha,
+  MAX_TRANSCRIPT_CHARS,
+  transcriptText,
   mechanicalCheck,
   mmss,
   parseCheckerVerdict,
@@ -47,20 +49,36 @@ import {
 const execFileP = promisify(execFile);
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 const TEST_REF = 'gfjctyxqlwexxwsmkakq';
-const ASK_MODEL = process.env.ASK_MODEL_BIN || join(homedir(), '.agents/bin/ask-model');
+const ASK_MODEL = join(homedir(), '.agents/bin/ask-model'); // pinned: the checker binary is not configurable
 // A gate needs stable verdicts: at the wrapper's default (low) the same summary passed, then failed.
 const CHECKER_EFFORT = process.env.VIDEO_SUMMARY_CHECKER_EFFORT || 'high';
+if (!['high', 'xhigh'].includes(CHECKER_EFFORT)) {
+  console.error(`video-summary: VIDEO_SUMMARY_CHECKER_EFFORT must be high or xhigh (low gave unstable verdicts), got ${CHECKER_EFFORT}`);
+  process.exit(2);
+}
 const STORE = process.env.VIDEO_SUMMARY_STORE || join(homedir(), '.local/share/video-summary-store');
 
-function loadEnvFile(name) {
+/**
+ * Reads a dotenv file into a LOCAL object. Never copies into process.env: the checker subprocess
+ * reads uploader-controlled text and must not inherit a service key (review finding #7).
+ */
+function readEnvFile(name) {
+  const out = {};
   try {
     for (const line of readFileSync(resolve(process.cwd(), name), 'utf8').split('\n')) {
       const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
+      if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
     }
   } catch {
     /* optional */
   }
+  return out;
+}
+
+/** The only variables a child process gets: enough to run, nothing secret. */
+function childEnv() {
+  const keep = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'TERM'];
+  return Object.fromEntries(keep.filter((k) => process.env[k] !== undefined).map((k) => [k, process.env[k]]));
 }
 
 function die(msg, code = 1) {
@@ -74,9 +92,10 @@ async function db(env) {
     const key = keyringGet('PROD_SUPABASE_SERVICE_ROLE_KEY', 'video-summary: write a video summary row on prod');
     return { client: createClient(PROD_URL, key, { auth: { persistSession: false } }), label: 'PROD' };
   }
-  loadEnvFile('.env.test.local');
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // The file is authoritative for the test target; ambient variables cannot redirect it.
+  const file = readEnvFile('.env.test.local');
+  const url = file.VITE_SUPABASE_URL;
+  const key = file.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) die('test target needs VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.test.local');
   if (!url.includes(TEST_REF)) die(`the test target must be the test project (${TEST_REF}); .env.test.local points at ${url} — refusing`);
   return { client: createClient(url, key, { auth: { persistSession: false } }), label: 'test' };
@@ -95,7 +114,7 @@ const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
 async function yt(args) {
   try {
-    return await execFileP('yt', args, { maxBuffer: 1 << 24 });
+    return await execFileP('yt', args, { maxBuffer: 1 << 24, timeout: 10 * 60 * 1000, env: childEnv() });
   } catch (e) {
     if (e.code === 'ENOENT') die('`yt` is not on PATH (see ~/.claude/tools.md)');
     if (e.code === 7) die('YouTube walled every route and the free proxy quota is spent (yt exit 7) — ask the founder; do not retry or buy a top-up', 7);
@@ -155,12 +174,12 @@ function geminiModel() {
 }
 
 async function writeWithGemini(meta, segs, revise) {
-  loadEnvFile('.env.local');
-  const key = process.env.GEMINI_API_KEY;
+  const key = process.env.GEMINI_API_KEY || readEnvFile('.env.local').GEMINI_API_KEY;
   if (!key) die('GEMINI_API_KEY missing (.env.local)');
   const model = geminiModel();
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
+    signal: AbortSignal.timeout(5 * 60 * 1000),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: writerPrompt(meta, segs, revise) }] }],
@@ -187,15 +206,21 @@ async function checkWithCodex(prompt) {
   const file = join(dir, 'prompt.txt');
   writeFileSync(file, prompt);
   try {
-    const { stdout } = await execFileP(ASK_MODEL, ['codex', '--raw', '--effort', CHECKER_EFFORT, '--sandbox', 'read-only', '--no-isolate', '--timeout', '1500', '--prompt-file', file], {
-      maxBuffer: 1 << 24,
-      cwd: dir,
-    }).catch((e) => ({ stdout: e.stdout ?? '', failed: e }));
+    // cwd is an empty temp dir and the env carries no secrets: the checker reads uploader-controlled
+    // text. (--no-isolate: there is no repo to clone here; the sandbox is read-only.)
+    const { stdout, failed } = await execFileP(
+      ASK_MODEL,
+      ['codex', '--raw', '--effort', CHECKER_EFFORT, '--sandbox', 'read-only', '--no-isolate', '--timeout', '1500', '--prompt-file', file],
+      { maxBuffer: 1 << 26, cwd: dir, env: childEnv(), timeout: 30 * 60 * 1000 }
+    ).catch((e) => ({ stdout: e.stdout ?? '', failed: e }));
     const header = stdout.split('\n')[0];
     const requested = header.match(/requested=(\S+)/)?.[1];
     const exit = header.match(/exit=(\d+)/)?.[1];
-    if (!header.startsWith('ASK-MODEL:') || !requested || exit !== '0') die(`checker run failed: ${header || 'no output'}`);
-    return { text: stdout.split('\n').slice(1).join('\n'), checker: `codex:${requested}`, effort: header.match(/effort=(\S+)/)?.[1] };
+    // Any process failure (non-zero, signal, timeout, output overflow) ends the check; partial output is never parsed.
+    if (failed || !header.startsWith('ASK-MODEL:') || !requested || exit !== '0') die(`checker run failed: ${header || failed?.message || 'no output'}`);
+    const effort = header.match(/effort=(\S+)/)?.[1];
+    if (effort !== CHECKER_EFFORT) die(`checker ran at effort ${effort}, not the requested ${CHECKER_EFFORT}`);
+    return { text: stdout.split('\n').slice(1).join('\n'), checker: `codex:${requested}`, effort };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -233,6 +258,7 @@ async function cmdDraft(client, id, force, reviseFlag) {
   console.log(`fetching captions for ${id}…`);
   const { meta, vtt, track } = await fetchMetaAndCaptions(id);
   const segs = parseVtt(vtt);
+  if (transcriptText(segs).length > MAX_TRANSCRIPT_CHARS) die(`transcript is over ${MAX_TRANSCRIPT_CHARS} characters — too long to summarise and check reliably`);
   console.log(`"${meta.title}" — ${meta.channel} — ${mmss(meta.duration)} — ${segs.length} caption cues (${track})`);
   let revise = null;
   if (reviseFlag) {
@@ -249,8 +275,7 @@ async function cmdDraft(client, id, force, reviseFlag) {
   if (!ok) die(`writer output rejected, nothing written:\n  - ${errors.join('\n  - ')}`);
 
   const transcriptSha = sha256(vtt);
-  const { error } = await client.from('video_summaries').upsert(
-    {
+  const fields = {
       provider: 'youtube',
       video_id: id,
       title: meta.title,
@@ -263,10 +288,18 @@ async function cmdDraft(client, id, force, reviseFlag) {
       checked_by: null,
       checked_at: null,
       confirmed_at: null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'provider,video_id' }
-  );
+  };
+  // Write only over the exact row we read: a draft that took minutes to generate must not overwrite
+  // a row someone checked or confirmed in the meantime (review finding #9) — --force included.
+  let error;
+  if (existing) {
+    const res = await client.from('video_summaries').update(fields).eq('id', existing.id).eq('updated_at', existing.updated_at).select('id');
+    error = res.error;
+    if (!error && !res.data?.length) die('the row changed while the draft was being written — nothing saved; run draft again');
+  } else {
+    error = (await client.from('video_summaries').insert(fields)).error;
+    if (error?.code === '23505') die('a row for this video appeared while the draft was being written — nothing saved; run draft again');
+  }
   if (error) die(`writing the draft failed: ${error.message}`);
   // Store only after the row exists, and swap it in whole: the store must never describe a draft
   // the database does not hold.
@@ -300,8 +333,9 @@ async function cmdCheck(client, id) {
   const { text, checker, effort } = await checkWithCodex(checkerPrompt(meta, segs, draft, nonce));
   console.log(`checker ${checker} ran at effort ${effort}`);
   if (sameVendor(checker, row.written_by)) die(`checker ${checker} is the same vendor as writer ${row.written_by}`);
-  writeFileSync(join(storeDir(id), 'check.raw.txt'), text);
-  const verdict = parseCheckerVerdict(text, draft, nonce);
+  writeFileSync(join(storeDir(id), 'check.raw.txt'), text, { mode: 0o600 });
+  chmodSync(join(storeDir(id), 'check.raw.txt'), 0o600);
+  const verdict = parseCheckerVerdict(text, draft, nonce, row.duration_seconds);
   writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ checker, ...verdict, ...bound, at: new Date().toISOString() }, null, 2));
   if (!verdict.pass) die(`checker ${checker} failed the summary, row stays draft:\n  - ${verdict.failures.join('\n  - ')}`);
 
@@ -374,39 +408,39 @@ async function cmdList(client) {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
-  const flag = (name) => {
-    const i = args.indexOf(name);
-    if (i === -1) return false;
-    args.splice(i, 1);
-    return true;
-  };
-  let env = 'test';
-  const envAt = args.indexOf('--env');
-  if (envAt !== -1) {
-    env = args[envAt + 1];
-    args.splice(envAt, 2);
-    if (env !== 'test' && env !== 'prod') die('--env must be test or prod', 2);
-  }
-  const force = flag('--force');
-  const reviseFlag = flag('--revise');
-  const [command, target] = args;
   const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list> [video id|url] [--env test|prod] [--force] [--revise]';
-  if (!command) die(usage, 2);
-  ENV = env;
-  const { client, label } = await db(env);
-  if (command === 'list') {
-    console.log(`[${label}] list`);
-    return cmdList(client);
+  const flags = { env: null, force: false, revise: false };
+  const positional = [];
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--env') {
+      if (flags.env !== null) die('--env given twice', 2);
+      flags.env = argv[++i];
+      if (flags.env !== 'test' && flags.env !== 'prod') die('--env must be test or prod', 2);
+    } else if (a === '--force' || a === '--revise') {
+      if (flags[a.slice(2)]) die(`${a} given twice`, 2);
+      flags[a.slice(2)] = true;
+    } else if (a.startsWith('-')) die(`unknown option ${a}\n${usage}`, 2);
+    else positional.push(a);
   }
-  const id = parseVideoId(target);
-  if (!id) die(`not a YouTube video id or URL: ${target ?? '(none)'}\n${usage}`, 2);
-  console.log(`[${label}] ${command} ${id}`);
-  if (command === 'draft') return cmdDraft(client, id, force, reviseFlag);
+  const [command, target, ...extra] = positional;
+  const commands = ['draft', 'check', 'confirm', 'demote', 'list'];
+  if (!commands.includes(command)) die(usage, 2);
+  if (extra.length) die(`unexpected arguments: ${extra.join(' ')}\n${usage}`, 2);
+  if ((flags.force || flags.revise) && command !== 'draft') die('--force and --revise apply only to draft', 2);
+  const id = command === 'list' ? null : parseVideoId(target);
+  if (command !== 'list' && !id) die(`not a YouTube video id or URL: ${target ?? '(none)'}\n${usage}`, 2);
+  if (command === 'list' && target) die(`list takes no video\n${usage}`, 2);
+  // Everything is validated before a prod credential is requested.
+  ENV = flags.env ?? 'test';
+  const { client, label } = await db(ENV);
+  console.log(`[${label}] ${command}${id ? ` ${id}` : ''}`);
+  if (command === 'list') return cmdList(client);
+  if (command === 'draft') return cmdDraft(client, id, flags.force, flags.revise);
   if (command === 'check') return cmdCheck(client, id);
   if (command === 'confirm') return cmdConfirm(client, id, label);
-  if (command === 'demote') return cmdDemote(client, id);
-  die(usage, 2);
+  return cmdDemote(client, id);
 }
 
 main().catch((e) => die(e?.stack || String(e)));

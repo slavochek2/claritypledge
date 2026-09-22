@@ -9,13 +9,15 @@
  */
 
 export const KEY_POINTS = 3;
-export const KEY_POINT_MAX_WORDS = 16; // prompt asks for ≤ ~12; reject only clear overruns
+export const KEY_POINT_MAX_WORDS = 12;
 /** A moment must sit within this many seconds of a caption cue to be checkable at all. */
 export const CUE_TOLERANCE_S = 20;
-export const MIN_MOMENTS = 2;
-export const MAX_MOMENTS = 12;
+export const MIN_MOMENTS = 3;
+export const MAX_MOMENTS = 10;
 /** A quoted span must be found in the captions within this many seconds of its [mm:ss]. */
 export const QUOTE_TOLERANCE_S = 60;
+/** Refuse transcripts larger than this (characters of timed text) before any model call. */
+export const MAX_TRANSCRIPT_CHARS = 600_000;
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 
@@ -42,29 +44,30 @@ export function parseVideoId(input) {
   return id && YOUTUBE_ID.test(id) ? id : null;
 }
 
-/** WebVTT → [{t: seconds, text}], tags stripped, rolling auto-caption duplicates dropped. */
+/**
+ * WebVTT → [{t: seconds, text}]. Parsed block by block (blocks are separated by blank lines): only a
+ * cue's payload — the lines after its timing line — is speech. NOTE / STYLE / REGION blocks and cue
+ * identifiers are uploader-controlled metadata and must never read as something a speaker said.
+ * Tags stripped; rolling auto-caption duplicates dropped.
+ */
 export function parseVtt(vtt) {
   const segs = [];
-  let curT = null;
-  let buf = [];
-  const flush = () => {
-    if (buf.length && curT !== null) segs.push({ t: curT, text: buf.join(' ').trim() });
-    buf = [];
-  };
-  for (const raw of String(vtt).split('\n')) {
-    const line = raw.trim();
-    if (!line || line === 'WEBVTT' || /^(Kind|Language|NOTE)\b/.test(line)) continue;
-    const tm = line.match(/^(\d{2}):(\d{2}):(\d{2})\.\d{3}\s+-->/);
-    if (tm) {
-      flush();
-      curT = +tm[1] * 3600 + +tm[2] * 60 + +tm[3];
-      continue;
-    }
-    if (/^\d+$/.test(line)) continue; // cue number
-    const clean = line.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
-    if (clean) buf.push(clean);
+  const blocks = String(vtt).replace(/\r\n?/g, '\n').split(/\n[ \t]*\n/);
+  for (const block of blocks) {
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!lines.length || /^(WEBVTT|NOTE|STYLE|REGION)\b/.test(lines[0])) continue;
+    const ti = lines.findIndex((l) => /-->/.test(l));
+    if (ti === -1 || ti > 1) continue; // not a cue (a cue has an optional id line, then its timing)
+    const tm = lines[ti].match(/^(?:(\d+):)?(\d{2}):(\d{2})\.\d{3}\s+-->/);
+    if (!tm) continue;
+    const t = +(tm[1] ?? 0) * 3600 + +tm[2] * 60 + +tm[3];
+    const text = lines
+      .slice(ti + 1)
+      .map((l) => l.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim())
+      .filter(Boolean)
+      .join(' ');
+    if (text) segs.push({ t, text });
   }
-  flush();
   // Auto-captions repeat the previous line at the start of each cue; keep only new text.
   const out = [];
   for (const s of segs) {
@@ -125,8 +128,8 @@ Rules (all mandatory):
 - No claims the speakers did not make. Name a person only when the transcript makes clear who is speaking or who is meant; the captions carry no speaker labels, so never guess who said something.
 - "tldr": 1–2 sentences.
 - "summary": prose paragraphs separated by a blank line, scaled to the video's substance.
-- "key_points": exactly ${KEY_POINTS} items, each at most 12 words.
-- "moments": 4–10 entries in time order, each marking where a part of the video starts; "t" is the [mm:ss] marker where that part begins; "note" says in one sentence what that part covers, and only what happens before the next moment.
+- "key_points": exactly ${KEY_POINTS} items, each at most ${KEY_POINT_MAX_WORDS} words.
+- "moments": ${MIN_MOMENTS}–${MAX_MOMENTS} entries in time order, each marking where a part of the video starts; "t" is the [mm:ss] marker where that part begins; "note" says in one sentence what that part covers, and only what happens before the next moment.
 
 ${fix}
 Return JSON only: {"tldr": string, "summary": string, "key_points": [string, string, string], "moments": [{"t": "mm:ss", "note": string}]}
@@ -250,14 +253,14 @@ For EACH item below decide "pass" or "fail":
 - moment: it marks where a part of the video starts, and the part runs until its "until" time. The part the note describes must begin within about 20 seconds of "t", and everything the note says must happen between "t" and "until". A note that describes something from outside that span is a fail.
 - key point, tldr, summary paragraph: every factual claim must be supported by the transcript, and every named person must be someone the transcript names or clearly identifies. Attributing words to a person the transcript cannot place is a fail. Invented facts, numbers, names or conclusions are a fail. Your own wording differences are not a fail.
 
-Return JSON only, no prose around it, and copy this run's nonce exactly — an answer without it is discarded:
-{"nonce": "${nonce}", "items": [{"id": string, "verdict": "pass" | "fail", "reason": string, "evidence": "mm:ss or empty"}]}
-Return exactly one entry for every id, and no other ids.
-
 Items:
 ${JSON.stringify(items, null, 1)}
 
-${fencedTranscript(segs)}`;
+${fencedTranscript(segs)}
+
+End of data. Now answer. For every "pass", "evidence" must be the [mm:ss] in the transcript that supports it; a pass without evidence is discarded. Return JSON only, no prose around it, copying this run's nonce exactly — an answer without it is discarded:
+{"nonce": "${nonce}", "items": [{"id": string, "verdict": "pass" | "fail", "reason": string, "evidence": "mm:ss"}]}
+Return exactly one entry for every id, and no other ids.`;
 }
 
 /**
@@ -303,7 +306,7 @@ export function lastItemsObject(text) {
  * Parses the checker's reply. Anything malformed, without this run's nonce, missing an id, repeating
  * an id, or with an unknown verdict counts as a failure — the check fails closed.
  */
-export function parseCheckerVerdict(text, draft, nonce) {
+export function parseCheckerVerdict(text, draft, nonce, durationSeconds) {
   const expected = checkItems(draft).map((i) => i.id);
   const found = lastItemsObject(String(text ?? ''));
   if (found === undefined && !String(text ?? '').includes('{')) return { pass: false, failures: ['checker returned no JSON'], results: [] };
@@ -323,6 +326,10 @@ export function parseCheckerVerdict(text, draft, nonce) {
     if (!r) failures.push(`${id}: checker gave no verdict`);
     else if (r.verdict === 'fail') failures.push(`${id}: ${r.reason || 'failed'}${r.evidence ? ` (${r.evidence})` : ''}`);
     else if (r.verdict !== 'pass') failures.push(`${id}: unknown verdict "${r.verdict}"`);
+    else if (durationSeconds !== undefined) {
+      const t = toSeconds(String(r.evidence ?? '').replace(/^\[|\]$/g, ''));
+      if (!Number.isInteger(t) || t > durationSeconds) failures.push(`${id}: pass without usable evidence ("${r.evidence ?? ''}")`);
+    }
   }
   for (const r of results) if (r?.id && !expected.includes(r.id)) failures.push(`${r.id}: unexpected id from checker`);
   return { pass: failures.length === 0, failures, results };

@@ -130,7 +130,7 @@ takedown requests; P1349's rule: "Corrected or removed promptly when the creator
       person-attributed claim traces to a speaker-labelled turn from a window that passed Step 2c, and a
       claim with no such turn reads "the host" / "a speaker" or is absent — verified on test by reading
       the row against the turns
-- [ ] Adversarial review by Opus and Codex (Sol) on the diff: every finding verified, real ones fixed; `<received> of 2` reported
+- [x] Adversarial review by Opus and Codex (Sol) on the diff: every finding verified, real ones fixed; `<received> of 2` reported — **2 of 2 received** (Opus: 3 HIGH / 5 MEDIUM; Codex Sol at high effort: 7 HIGH / 3 MEDIUM, verdict REJECT). Overlapping HIGHs (checker-output fallback to an object planted in the captions, duplicate ids erasing a fail, store not bound to env/row, `checked` not bound to content) and Codex-only ones (VTT `NOTE`/cue-id text read as speech, checker inheriting a service key, ignored subprocess failure, stale draft overwriting a confirmed row, loose args) were each re-run against the code before fixing; fixes in `63de5d3f6` and the following commit, each with a test that fails on the old code where one could be built. Residual, accepted: the read-only Codex sandbox can still *read* local files — with a scrubbed env, no network and output kept local, an injected read cannot leave the machine; `checked_by` is the requested model (`ask-model` reports Codex as `accepted-only`). Post-fix live run: first draft again said Leahy *founded* EleutherAI plus two unsupported claims → caught → one `--revise` → 17/17 `checked`
 
 ## Related
 
