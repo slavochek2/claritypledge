@@ -140,24 +140,23 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    */
   it('renders no footer at all while the links are still loading', () => {
     renderFeedStoryCard({ linkedPoints: undefined });
-    expect(screen.queryByTestId('feed-story-point-count')).toBeNull();
+    expect(screen.queryByTestId('feed-story-point-expander')).toBeNull();
     expect(screen.queryByText(/points?$/)).toBeNull();
   });
 
   it('renders "0 points" once loaded with none linked — loaded-and-empty is not loading', () => {
     renderFeedStoryCard({ linkedPoints: [] });
     expect(screen.getByText('0 points')).toBeTruthy();
-    expect(screen.queryByTestId('feed-story-point-count')).toBeNull();
+    expect(screen.queryByTestId('feed-story-point-expander')).toBeNull();
   });
 
-  /** P1348: quotes never collapse — the count is a label, and the points render on first paint. */
-  it('renders the count as a plain label and the linked points without any click', () => {
+  it('renders a collapsed expander with the count, matching the profile card affordance', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
-    const count = screen.getByTestId('feed-story-point-count');
-    expect(count.textContent).toContain('2 points');
-    expect(count.tagName).not.toBe('BUTTON');
-    expect(count.hasAttribute('aria-expanded')).toBe(false);
-    expect(screen.getAllByTestId('quoted-point-card')).toHaveLength(POINTS.length);
+    const expander = screen.getByTestId('feed-story-point-expander');
+    expect(expander.textContent).toContain('2 points');
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    // Collapsed means collapsed — the statements must not be in the DOM yet.
+    expect(screen.queryByText(POINTS[0]!.statement)).toBeNull();
   });
 
   /**
@@ -177,6 +176,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    */
   it('expands to quoted-point CARDS, not bare text — one per linked point', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
 
     const cards = screen.getAllByTestId('quoted-point-card');
     expect(
@@ -202,6 +202,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    */
   it('Enter on a linked point navigates ONCE, to the point — not on to the story', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
 
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
     // `querySelector`, NOT `closest`: the point's own control is a DESCENDANT of the
@@ -217,6 +218,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
 
   it('Space behaves the same as Enter — one navigation, to the point', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
     // `querySelector`, NOT `closest`: the point's own control is a DESCENDANT of the
     // testid node. `closest` walks UP and finds the outer story card — a different control,
@@ -236,6 +238,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    */
   it('renders the point position controls, not a read-only slab', () => {
     renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
     const controls = card.querySelectorAll('button');
     // toBeGreaterThan(0) was the first form of this assertion and it was too weak: the
@@ -265,6 +268,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
   it('a position click on the feed PERSISTS, it does not just light up the button', async () => {
     setPosition.mockClear();
     renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
 
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
     const agree = [...card.querySelectorAll('button')].find(
@@ -388,14 +392,37 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     ).toHaveLength(0);
   });
 
+  it('Enter on the expander expands it, and does NOT navigate away', () => {
+    navigate.mockClear();
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    const expander = screen.getByTestId('feed-story-point-expander');
+
+    fireEvent.keyDown(expander, { key: 'Enter' });
+
+    expect(
+      navigate.mock.calls,
+      'a keydown on a control INSIDE the card must not reach the card root and navigate',
+    ).toHaveLength(0);
+  });
+
   it('singularises the count — "1 point", not "1 points"', () => {
     renderFeedStoryCard({ linkedPoints: [POINTS[0]!] });
-    expect(screen.getByTestId('feed-story-point-count').textContent).toContain('1 point');
-    expect(screen.getByTestId('feed-story-point-count').textContent).not.toContain('1 points');
+    expect(screen.getByTestId('feed-story-point-expander').textContent).toContain('1 point');
+    expect(screen.getByTestId('feed-story-point-expander').textContent).not.toContain('1 points');
+  });
+
+  it('expands in place to the point statements, and flips aria-expanded', () => {
+    renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
+
+    expect(screen.getByTestId('feed-story-point-expander').getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText(POINTS[0]!.statement)).toBeTruthy();
+    expect(screen.getByText(POINTS[1]!.statement)).toBeTruthy();
   });
 
   it('navigates to the point, not the story, when a linked point is clicked', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
+    fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     fireEvent.click(screen.getByText(POINTS[1]!.statement));
 
     expect(navigate).toHaveBeenCalledWith('/point/pt-2');

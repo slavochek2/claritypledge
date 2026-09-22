@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { MessageCircle, ExternalLink, Pin, Unlink2 } from 'lucide-react';
+import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin, Unlink2 } from 'lucide-react';
 import { linkifyText } from '@/app/utils/linkify';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
@@ -105,8 +105,15 @@ export function StoryCardWithLinks({
   onUnlinkPoint,
   onClear,
 }: StoryCardWithLinksProps) {
-  const { isEmbed, embedNavigate } = useEmbedNavigation();
+  const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
+  // Points collapsed by default — position badge outside quoted box already shows author's stance
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isExpanded);
   const [textExpanded, setTextExpanded] = useState(false);
+
+  // Toggle linked points expansion (works in both embed and regular mode)
+  const handlePointsToggle = () => {
+    setPointsExpanded(!pointsExpanded);
+  };
   useEffect(() => { setTextExpanded(false); }, [story.id]);
   const isAuthor = currentUserId ? story.authorId === currentUserId : false;
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
@@ -476,11 +483,17 @@ export function StoryCardWithLinks({
             {/* Point count (always shown) + author CTA */}
             <div className="flex items-center gap-2">
               {linkedPoints.length > 0 ? (
-                <span className="flex items-center gap-2 text-sm text-gray-600">
+                <button
+                  onClick={handlePointsToggle}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  aria-expanded={pointsExpanded}
+                  aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+                >
+                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span>
                     {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
                   </span>
-                </span>
+                </button>
               ) : (
                 <span className="text-sm text-gray-600">0 points</span>
               )}
@@ -527,7 +540,8 @@ export function StoryCardWithLinks({
           </div>
 
           {/* Linked points - expanded content (shown in embed to display author's stance) */}
-          {linkedPoints.length > 0 &&
+          {pointsExpanded &&
+            linkedPoints.length > 0 &&
             (() => {
               return (
                 <div className="pl-4 sm:pl-[68px] pr-4 pb-4">

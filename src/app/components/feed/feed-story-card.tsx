@@ -7,6 +7,7 @@
 
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
@@ -84,6 +85,7 @@ export function FeedStoryCard({
   const navigate = useNavigate();
   const textRef = useRef<HTMLParagraphElement>(null);
   const [textExpanded, setTextExpanded] = useState(false);
+  const [pointsExpanded, setPointsExpanded] = useState(false);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
   const isAuthor = !!currentUserId && currentUserId === story.authorId;
@@ -347,11 +349,17 @@ export function FeedStoryCard({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {linkedPoints !== undefined && (
               linkedPoints.length > 0 ? (
-                <span className="flex items-center gap-2 text-sm text-muted-foreground min-h-[40px]" data-testid="feed-story-point-count">
+                <button
+                  onClick={() => setPointsExpanded(!pointsExpanded)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
+                  aria-expanded={pointsExpanded}
+                  data-testid="feed-story-point-expander"
+                >
+                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span>
                     {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
                   </span>
-                </span>
+                </button>
               ) : (
                 <span className="text-sm text-muted-foreground">0 points</span>
               )
@@ -376,7 +384,7 @@ export function FeedStoryCard({
             uses (extracted from `profile-page-v2.tsx` for exactly this). The first P1212 §5
             pass matched only the TRIGGER and rendered the points as bare `<button>` text
             here; founder, from a screenshot: "weird this is not consistent with rest?". */}
-        {linkedPoints && linkedPoints.length > 0 && (
+        {pointsExpanded && linkedPoints && linkedPoints.length > 0 && (
           <ThreadLineGroup>
             {linkedPoints.map((point, index) => (
               <ThreadLineItem key={point.id} isLast={index === linkedPoints.length - 1}>

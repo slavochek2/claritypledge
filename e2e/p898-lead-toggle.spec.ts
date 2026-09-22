@@ -79,8 +79,10 @@ test.describe('P898: doc-detail lead toggle', () => {
     await setTestSession(page, owner.email);
     await page.goto(`/d/${docId}`);
 
-    // P1348: linked points are always visible — no expand step
-    await expect(page.getByRole('button', { name: 'Move after the story' }).first()).toBeVisible({ timeout: 15000 });
+    // Expand the collapsed points section
+    const expandButton = page.getByRole('button', { name: 'Expand linked points', exact: true });
+    await expect(expandButton).toBeVisible({ timeout: 15000 });
+    await expandButton.click();
 
     // Default: exactly one pre-marked lead (the first point), two unmarked
     const markedLeads = page.getByRole('button', { name: 'Move after the story' });
@@ -115,7 +117,7 @@ test.describe('P898: doc-detail lead toggle', () => {
   test('marking a point as lead moves it to the end of the lead group and persists lead_count=2', async ({ page }) => {
     await setTestSession(page, owner.email);
     await page.goto(`/d/${docId}`);
-    await expect(page.getByRole('button', { name: 'Move after the story' }).first()).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: 'Expand linked points', exact: true }).click();
 
     // Mark the LAST point (index 2) as lead
     await page.getByRole('button', { name: 'Show before the story' }).nth(1).click();
@@ -150,7 +152,7 @@ test.describe('P898: doc-detail lead toggle', () => {
   test('unmarking every lead persists lead_count=0 (story-first)', async ({ page }) => {
     await setTestSession(page, owner.email);
     await page.goto(`/d/${docId}`);
-    await expect(page.getByRole('button', { name: 'Move after the story' }).first()).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: 'Expand linked points', exact: true }).click();
 
     // Unmark both leads (re-query after each click — the list re-renders)
     await page.getByRole('button', { name: 'Move after the story' }).first().click();

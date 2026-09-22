@@ -40,11 +40,6 @@ that point; do not copy.
 > manage — a per-point story is short by construction. `stories.content <= 10000` is now the only
 > binding length rule. **The measurement below is kept as evidence, not as a rule**: `content_chars`
 > is still pasted per story so a ceiling can be re-derived if several runs show one is needed.
->
-> **Sentence count binds instead (P1348, 2026-09-22): one sentence, two at most.** The owning rule is
-> `story-draft.md` §Story structure; this file does not restate it. With one sentence, §2 below
-> ("the first sentence must earn the second") applies to that one sentence: it must start the
-> reasoning, not announce it.
 
 **Historical rule (no longer enforced): a pipeline story is at most 1,500 characters of AUTHORED content — the prose and the quote block.**
 **The event hashtag the filer appends is EXCLUDED from the count** (it is filer-written metadata, not
