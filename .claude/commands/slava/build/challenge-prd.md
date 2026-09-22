@@ -126,6 +126,7 @@ Apply IEEE 830 filter to every done-when criterion and acceptance criterion:
 - Is there exactly one interpretation? (two developers reading this — would they build the same thing?)
 - Are success metrics specific enough to measure? ("Improve UX" fails. "Reduce clicks from 5 to 2" passes.)
 - Are there any "TBD", "as needed", "similar to X", "standard behavior" phrases?
+- **A computation that replaces a human judgment still has human-chosen inputs.** List each input a person picks (ranges, terms, thresholds, sample). Done-When must vary each one across legitimate alternatives and state how far the verdict may move. "Same input, same output" tests the tool, not the reader. *(P1355 C3: 92.6s vs 353.9s on wider ranges, across a 300s floor — found only by post-commit review.)*
 
 **Key question:** "Can I write an automated test for this criterion? If not, what's ambiguous?"
 

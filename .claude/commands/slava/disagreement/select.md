@@ -847,7 +847,10 @@ readers compute differently no longer reaches the founder.
 - **Floors (never ranking axes):** Standing rules 1, 3 and 4 plus the measured minutes — the values
   are in `scripts/points/standing-rules.json`. Below a floor needs a per-arguer `override` with a
   reason from the JSON's list, recorded inside the sealed block: `recognisable-figure-low-video-reach`,
-  `only-source-arguing-position`, or `founder-named: <verbatim words>`. Check the **recording** date
+  `only-source-arguing-position`, or `founder-named: <verbatim words>`. **The agent may propose an
+  exception** for a source it believes is still the right one — the reason from that list plus one
+  line on *why this source* — and the founder decides at Gate 2 (founder, 2026-09-22: the 100k default
+  holds for every run, *"but agents can suggest exceptions with explanation why"*). Check the **recording** date
   when the upload is an obvious re-upload; `recorded_date` is optional otherwise.
 - **Insight / argument quality (Transcript-derived):** Decides the ranking, together with **topic fit**
   (the measured on-topic seconds). Does the speaker argue from causal mechanisms and reasons, or mere vibes/sentiment?

@@ -6,6 +6,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [process]: P1355 open questions settled — 100k for every run, 5 minutes on topic, judge before the page
+
+**Context:** P1355 shipped with three founder questions open: whether 100k views is the default for every run (event #1's approved cast would need 2 exceptions of 4), whether the Phase 3 judge must run before any title, banner or page uses the cast, and whether 5 minutes is the right on-topic floor.
+
+**Decision:**
+- **100k views + 50 comments is the default for every run.** Founder: *"yes but i guess agents can suggest exceptions with explanation why"*. That is the existing per-arguer override: the agent proposes a reason from the fixed list plus one line on why this source, and the founder decides at Gate 2. `select.md` now says so.
+- **The judge runs before the page.** The order already enforces it: judge, Gate 2, then the TEST draft of the page. Kept strict: no title or banner work before Gate 2. On Clarity Night #2, drafting early cost 5 banner rebuilds and 3 title changes after the judge removed an arguer.
+- **5 minutes on topic stays**, on the agent's reasoning (founder delegated). A 6.5-minute talk that is on topic throughout clears it, the famous-name source that only touched the topic (92.6s, measured) does not, and a lower floor would admit a passing mention. An exception covers a short, complete clip.
+
+**Alternatives rejected:** 100k for open-room events only (the founder chose one default); a 3-minute or 10-minute floor (see above).
+
+**Consequences:** UNTESTED on a live run. Falsifier for the floor: if the next run's founder repeatedly approves overrides for short sources that are fully on topic, the floor is too high.
+
+**References:** [p1355](../features/done/2026-06-10/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md) · [select.md](../.claude/commands/slava/disagreement/select.md) · [standing-rules.json](../scripts/points/standing-rules.json)
+
+---
+
 ## 2026-09-22 [process]: Videos are screened before Gate 1, in two tracks — partly overturns 2026-08-25 and 2026-08-27 (P1355)
 
 **Context:** On Clarity Night #2 the founder could not judge proposed people without their videos (*"open all options in youtube"*, five times) and asked to widen cheaply (*"widen enough to make ti nice and also token aefficient"*). Two rulings stood in the way: 2026-08-27 [process], "Before adding a founder halt", put Gate 1 before any video search because that search is the spend Phase 0 protects; 2026-08-25 [product], "YouTube search matches words, not stances", rejected discovering people through search.
