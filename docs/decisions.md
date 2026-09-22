@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [product]: The header's main button follows context; tools live behind one labeled, tinted "Tools" button
+
+**Context:** At Clarity Night #1 attendees said the links were "hard to find, not visible" — the menu trigger was an icon-only chain link. The header's fixed blue button was "Start a Clarity Session", which is not what a signed-in person wants on an event day or on most pages.
+**Decision:** No fixed session button in any header. A labeled "Tools" button (blue text, border and pale fill, never the solid primary blue) opens Tools / Points / Letters, Tools first. Tools lists Ready, Clarity meeting principle, Transcribe, Slides, Chiang Mai event calendar, then "Start a Clarity Session" last, outlined blue. A solid "Tonight's event" button appears only for a signed-in attendee on the event's local date, never on that event's own pages or on /pricing. Letters leads with the public CK letter.
+**Alternatives rejected:** A solid-blue Tools button (two solid primaries beside "Tonight's event" or the paid offer, P955); the session as a large solid first row (the founder: it "overshadows the following items"); a "Clarity Session" or "Tools" item in the public Product menu (the session needs login and signed-in people already have Tools); "Links" as the label (the word attendees failed to find).
+**Consequences:** "Start a Clarity Session" is reached through Tools, one tap deeper than before. The P1337 event journey's entry point is "Tonight's event". Open: st1–st9 (and CK on the test DB) require sign-in to read, so the Letters tab sends logged-out people to a login wall; public letter versions are unspecced.
+**References:** [P1351](../features/done/2026-06-10/p1351_header_primary_action_follows_context_tools_button_and_tonights_event.md)
+
 ## 2026-09-22 [process]: A prediction registered for a retired strategy was copied into a new spec as live
 
 **Context:** P1336 (registration onboarding) and article draft a73 justified moving the opt-in to registration by saying it would make the pre-registered "in-room opt-in predicts paid membership" prediction readable. The founder: *"there is no hypothesis whatsoever that opting in predicts who pays. That makes no sense at all."* The prediction was registered 2026-08-10, when a €295 membership was the first paid rung and free events fed it. On 2026-09-21 the active focus moved to champion-hosted pilots, and physical events stopped being a revenue path. The prediction's premise died that day, but its text in hypotheses.md was never marked. The agent read it as current because it was labelled "pre-registered" and cited in three places.
