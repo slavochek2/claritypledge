@@ -24,116 +24,145 @@ related:
   - p1256
 ---
 
-# P1336: Registering for a Clarity Night carries the opt-in, the prep and a disagreement survey
+# P1336: Registering for a Clarity Night carries the onboarding, the opt-in and the disagreement survey
 
 ## Problem
 
-**Situation:** Clarity Night #1 ran 2026-09-18. The opt-in to the meeting principle was a tap inside the
-event room, with everyone present (P1114). Setup ate the practice time: too much theory, late arrivals
+**Situation:** Clarity Night #1 ran 2026-09-18. Setup took up the practice time: too much theory
+(feedback: the product was over-demonstrated, though people were excited to see it), late arrivals
 forcing repeats, pairs stuck together, and people unsure what to click
-([goals.md](../docs/goals.md), "Event #1 ran 2026-09-18").
+([goals.md](../docs/goals.md), "Event #1 ran 2026-09-18"). The opt-in to the meeting principle was a
+tap inside the room, made by people who had just heard the idea for the first time.
 
-**Complication:** Every attendee opted in: all 11, 0 opted out (verified 2026-09-21 from prod room data;
-the room held 12 members, one of them the host). A yes given in a room with the host present and everyone else saying yes partly measures the
-room. With no variance, the pre-registered H-ChampionYield prediction (in-room opt-in predicts paid
-conversion) cannot be read at all ([hypotheses.md](../docs/hypotheses.md) H-ChampionYield; article
-idea a73). Events now run **weekly**, starting **event #2 on Tuesday 2026-09-29**, and the new active
-focus needs every event to also surface people who could host a pilot inside a 100–1,000-person
-organization ([decisions.md](../docs/decisions.md) 2026-09-21 [product]).
+**Complication:** Events now run **weekly** from **event #2 on Tuesday 2026-09-29**. Every minute of
+explanation in the room is lost practice, and every latecomer restarts it. An opt-in is only a real
+choice if the person knows what they are opting into, and that means knowing what *cognitive
+understanding* is.
 
-**Question:** What must a person do when registering so that the room starts with practice, not setup,
-and so that the opt-in and the champion signal become readable data?
+**Question:** What does a person do before arriving so that the room starts with practice, latecomers
+catch up without stopping it, and each opt-in is an informed choice?
 
-> Founder, 2026-09-21: *"registration opt-in — let's file spec!"* and *"first week physical event
-> organization and prep improvement etc. so it can run next week."*
+Three problems, and nothing else:
+
+| | Problem | What fixes it |
+|---|---|---|
+| A | The room spends its time on setup | Onboarding moves into registration |
+| B | The opt-in is uninformed | Onboarding explains cognitive understanding before the choice |
+| C | Pairs don't disagree and stay stuck together | A per-event disagreement survey the host pairs from |
+
+> Founder, 2026-09-21: *"registration opt-in — let's file spec!"* · 2026-09-22: *"if we offload the
+> onboarding into registration process of the event, that's good."*
+
+**Correction 2026-09-22.** An earlier draft said this spec made an opt-in-predicts-payment test readable.
+Wrong. Physical events are not a revenue path, and no current hypothesis links opt-in to payment
+(founder: *"there is no hypothesis whatsoever that opting in predicts who pays"*). That prediction was
+registered 2026-08-10 for the membership ladder and is retired
+([hypotheses.md](../docs/hypotheses.md) H-ChampionYield). The workplace/champion question also left
+this spec; the end of the evening handles it ([P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md)).
 
 ## Appetite
 
-Blast radius: one flow — event registration, plus what the room reads from it. Reversibility: medium —
-new answer data is stored per registrant; the form itself is a code revert. Decision density: several
-founder calls, listed inline below.
+Blast radius: one flow, event registration, plus what the room reads from it. Reversibility: medium.
+Onboarding completion and survey answers are stored per person; the flow itself is a code revert.
 
 ## Solution
 
-Registration for a physical Clarity Night gains five steps after the existing sign-in + RSVP:
+### Two parts: once per person, once per event
 
-1. **Opt in or out of the meeting principle**, alone at the keyboard, with the minimum needed to
-   choose (the 2026-09-16 amendment to protocol silence applies here as it did to the deck).
-   Recorded with a timestamp and marked as a *registration* opt-in, distinct from any room tap.
-2. **~10-minute prep** — what the evening asks of you, the speaker/listener roles, one worked example.
-   `[FOUNDER DECISION: prep content — reuse the event-1 deck's opening, or new]`
-3. **Disagreement survey** — the attendee's position on a few statements on the event's topic, so the
-   host can pair people who disagree (matching stays manual for now).
-   `[FOUNDER DECISION: the statements for event #2's topic]`
-4. **R&D recording volunteer** — yes/no, stating that consent is per pair and that volunteers pair only
-   with each other (decisions.md 2026-09-16).
-5. **Workplace question** — whether they work in a team or organization of about 100–1,000 people, and
-   whether they would want this at work. `[FOUNDER DECISION: exact wording]`
+1. **Universal onboarding, done once and remembered.** It is never asked again of someone who has
+   completed it. It works like a Clarity Letter built on **ST1**, the cognitive-understanding story:
+   - **Video** of the founder telling the ST1 story and the three meanings of "understand" (agreement,
+     emotional, cognitive), with the slides overlaid. Before playing, the viewer sees the main slide.
+   - **The point** (current ST1 point: *"you don't understand me" can mean three different requests*),
+     and the 0–10 question: *"how much do you understand my intended meaning?"*
+   - **The roles**: speaker and listener, with one worked example.
+   - **The opt-in choice**: opt in or out of the meeting principle. The commitment is only to answer
+     "how much do you understand my intended meaning, 0–10?" when asked. (The "below 8, don't push the
+     disagreement" rule is a separate suggestion the host makes in the room, and nobody is asked to accept it here.)
+2. **Per-event part, every event.** Positions on the current night's statements (the disagreement
+   survey). The statements are written per event by a separate session and swapped each week; this spec
+   only needs a slot for them. Also here: the optional **R&D recording volunteer** yes/no. Consent is per
+   pair, and volunteers pair only with each other (decisions.md 2026-09-16).
 
-Someone who registers but skips steps 1–3 is told plainly they will **observe**, not practise.
-The host sees one list per event: who completed, each person's survey answers (for matching), R&D
-volunteers, and workplace yeses (champion leads).
+A returning attendee who completed onboarding sees only the per-event part.
 
-`[FOUNDER DECISION: does the in-room opt-in tap stay? Recommended: keep it as a second reading, so a
-registration yes that becomes a room no is visible, but H-ChampionYield reads the registration answer.]`
+### Nothing is hard-blocked; the room is the gate
+
+Registration recommends each part and says why, with nothing enforced step by step. That is one rule instead
+of a skip decision for each step:
+- The host list shows each person's status: onboarded or not, survey done or not.
+- At the door the host asks. Someone not onboarded sits and does it on their phone before joining a pair,
+  while the discussion goes on. Latecomers are handled the same way, so no repeats.
+- Forcing every step was rejected because people click through anyway, and it is a stack of decisions
+  before the first version ships.
+
+### Reaching people who don't have time
+
+- The **confirmation email** carries the onboarding link.
+- The **reminder** before the event links it again if onboarding or the survey is not done.
+- **In the room**, the event page shows "Onboarding not done: do it now" at the top for anyone not
+  onboarded.
+
+### The opt-in stays changeable
+
+The registration choice is the person's current answer. It shows in the room as today (opt-ins visible,
+opt-outs never shown, P1114) and can be changed there at any time. The host reminds people of the choice
+and invites changes. There is one value, and each change is timestamped. No second, separate in-room
+reading.
 
 ## Invariants
 
-- The registration opt-in is stored separately from the room tap and never overwritten by it. Event #1
-  stays excluded from any H-ChampionYield read, and the change of instrument is recorded as a dated
-  amendment, not silently.
-- Recording consent stays per pair. Saying yes on the form never enrols someone into a recorded pair
-  without a partner who also said yes.
+- A completed universal onboarding is never shown again as required to that person.
+- Opt-outs are never shown to other attendees (P1114).
+- The host's own account is excluded from every count ([decisions.md](../docs/decisions.md) 2026-09-21).
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Fewer people register because the form is longer | ACCEPT | A drop in registration yeses is expected and is better data; observers still come |
-| Confirmation and reminder emails silently lost (fire-and-forget, decisions.md 2026-09-07, P1256) | MITIGATE | The on-time reminder is part of the event-2 fix; check it sends for every completed registration |
-| Not ready by 2026-09-29 | MITIGATE | Fallback for event #2 only: the same five questions as a plain form linked from the RSVP confirmation |
-| Workplace answers are personal data about employers | MITIGATE | Host-only view; never shown to other attendees; covered by the privacy page |
+| People skip onboarding | ACCEPT | The door check catches them; they onboard in the room |
+| Confirmation and reminder emails silently lost (fire-and-forget, decisions.md 2026-09-07, P1256) | MITIGATE | Verify both send for every registration on event #2's list |
+| Not ready by 2026-09-29 | MITIGATE | Fallback for event #2 only: the video and the questions as a plain page linked from the RSVP confirmation |
+| Video shows attendees who never agreed to publication | MITIGATE | Use founder-only footage; check every frame before publishing |
 
 **Non-Goals**
-- Do NOT build automatic matching — the survey feeds manual matching.
-- Do NOT change the event room's round flow; that is the event journey spec.
-- Do NOT touch online or pilot events; this is physical Clarity Nights.
+- Do NOT build automatic matching; the survey feeds manual pairing.
+- Do NOT change the round flow (P1337) or the deck (P1338).
+- Do NOT write the per-event statements here.
+- Do NOT touch online or pilot events.
 
 ## Acceptance Criteria
 
-- [ ] A new registrant for a Clarity Night can opt in or out, do the prep, answer the survey, choose R&D, and answer the workplace question, on a phone, without help
-- [ ] A registrant who skips the opt-in, prep or survey is told they will observe
-- [ ] The host sees, per event: completion, survey answers, R&D volunteers, workplace yeses
-- [ ] The registration opt-in and the room tap are both visible for the same person and never merged
-- [ ] Every completed registration gets its confirmation and on-time reminder, verified on event #2's list
+- [ ] A new registrant can finish onboarding (video, point, 0–10, roles, opt-in) and the survey on a phone, without help
+- [ ] A returning registrant who already onboarded sees only the current event's survey
+- [ ] The host list shows, per person: onboarded, survey done, opt-in, survey answers
+- [ ] The confirmation email and the reminder carry the onboarding link, verified on event #2's list
+- [ ] A person not onboarded sees the onboarding prompt at the top of the event page in the room
+- [ ] An opt-in chosen at registration shows in the room and can be changed there
 
 ## Open Questions
 
-1. Which of this belongs to P1055 (the event's opt-in point set) versus here? P1055 predates event #1 and
-   places the opt-in in the room; read it and amend it rather than build a second opt-in.
-2. Does the event page for weekly events reuse one registration setup, so the host is not rebuilding the
-   form each week?
-3. Does the registration page need a short video of the opt-in moment from event #1? Source material:
-   three phone clips from 2026-09-18 with timestamped transcripts, held locally in the founder's video
-   library (`clarity-night-1-ai-safety-sep-2026/`, not in this repo). The 1:35 clip (~19:06) holds the
-   opt-in exchange (*"you both opted in… what was your number? Eight."*). Decide here; produce a clip only
-   if the page needs one. Attendee consent to publish is not yet asked.
-   Update 2026-09-22: the 48-min main recording (starts 18:05) is also transcribed. Candidate stretches,
-   all the founder speaking: **7:37–8:45** the three meanings of "understanding" (agreement / emotional /
-   cognitive) · **19:38–20:58** the principle itself (right, promise, exception; the 0–10 question) ·
-   **23:11–24:21** what opt-in vs opt-out means. The later two are interrupted by latecomers.
-
-4. What does the registrant read before the opt-in/opt-out choice? Founder direction 2026-09-21: reuse the
-   event-1 explanation of **cognitive understanding** (deck `public/presi3/`, "Cognitive Understanding?"
-   slides + speaker notes) and the ready screen, as text/screens first; a clean recorded version may
-   follow once the wording has held for an event or two. What is opted into (founder's correction,
-   2026-09-21): the commitment is only to **answer "how much do you understand my intended meaning,
-   0–10?"** when asked — the minimum principle. The "below 8, don't push the disagreement" use is a
-   separate suggestion the host makes in the meeting, not part of what registration asks people to accept.
+1. Which of this belongs to P1055 (the opt-in point set)? Read it and amend it rather than build a
+   second opt-in.
+2. Can the onboarding reuse the existing Clarity Letter flow (P581) with ST1, or does it need its own
+   page? Does it keep the letter's anti-point step? Recommended: reuse the letter and keep the anti-point
+   only if the letter flow already carries it for ST1.
+3. **Video source.** Candidates, founder speaking:
+   - **Zuzalu co-founder talk, June 2026** (`cofounder-clarity-talk-june-2026/`, 12:40–15:20): the ST1
+     story as told live (paraphrased back, "yes that's what I mean", then "I didn't feel understood"),
+     the three meanings, the 0–10 question and the ST1 point. Clean and uninterrupted, with slides
+     already extracted.
+   - **Clarity Night #1** main recording: 7:37–8:45 (three meanings), 19:38–20:58 (the principle,
+     0–10), 23:11–24:21 (opt-in vs opt-out). Interrupted by latecomers.
+   Recommended: Zuzalu 12:40–15:20 as the core, plus the Night #1 opt-in explanation if it survives the cut.
+4. **ST1 upgrade, not a fork.** ST1 is already the cognitive-understanding story, and its current point
+   is the three meanings. The video version is an upgraded telling of the same story. Update ST1 through
+   P784 instead of creating a separate onboarding story.
 
 ## Related
 
-- [p1055](p1055_norm_measurement_instrument.md) — the CMP point set; the opt-in it defines
-- P1114, P1179 — the event room and its opt-in tap
-- decisions.md 2026-09-21 [product] (champion focus), 2026-09-18 [product] (the tap is the answer),
-  2026-09-16 [product] ×2 (pair consent; minimum before the opt-in), 2026-09-07 [technical] (P1256)
+- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md): the room journey and the ending
+- [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md): the deck; theory it cuts lands here
+- [p1055](p1055_norm_measurement_instrument.md), P1114, P1179: opt-in point set, event room, opt-in tap
+- [p784](p784_st1_st6_restructure_two_needs.md): ST1 content updates
+- decisions.md 2026-09-16 [product] ×2 (pair consent; minimum before the opt-in), 2026-09-07 [technical] (P1256)

@@ -6,6 +6,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-22 [process]: A prediction registered for a retired strategy was copied into a new spec as live
+
+**Context:** P1336 (registration onboarding) and article draft a73 justified moving the opt-in to registration by saying it would make the pre-registered "in-room opt-in predicts paid membership" prediction readable. The founder: *"there is no hypothesis whatsoever that opting in predicts who pays. That makes no sense at all."* The prediction was registered 2026-08-10, when a €295 membership was the first paid rung and free events fed it. On 2026-09-21 the active focus moved to champion-hosted pilots, and physical events stopped being a revenue path. The prediction's premise died that day, but its text in hypotheses.md was never marked. The agent read it as current because it was labelled "pre-registered" and cited in three places.
+**Decision:** The prediction is retired in hypotheses.md and lean-canvas.md. P1336 is rewritten around its three real problems (setup eats practice, the opt-in is uninformed, pairs don't disagree), and a73 drops the argument.
+**Consequences:** When a focus change retires a premise (a paid rung, a channel), the predictions that depend on it must be marked retired in the same change. Before citing any hypothesis as a spec's motivation, check its date against the latest active-focus entry in decisions.md and against goals.md. If it predates the focus change and depends on the retired channel, it is not a reason. **Falsifier:** another spec cites a prediction whose premise a later focus entry removed.
+**References:** [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · [hypotheses.md](hypotheses.md) H-ChampionYield · 2026-09-21 [product] (focus change) · 2026-08-10 [product] (membership ladder)
+
 ## 2026-09-22 [product]: Supporting quotes are never folded; agent stories are one sentence, two at most (P1348)
 
 **Context:** A reader asked why the timestamped "N supporting quotes" under a video story were folded. At the same time the founder is cutting agent-written stories to 1–2 sentences. A one-sentence claim with its evidence behind a fold is a claim with no visible evidence.

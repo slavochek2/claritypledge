@@ -53,8 +53,10 @@ a few founder calls, inline below.
 
 One journey, shown on each phone and mirrored on the projector:
 
-1. **Arrive** — you see where you are (e.g. "waiting for round 1") and, if you arrive late, that you
-   join at the next round rather than asking for a repeat.
+1. **Arrive**: you see where you are (e.g. "waiting for round 1") and, if you arrive late, that you
+   join at the next round rather than asking for a repeat. Anyone who hasn't done the P1336 onboarding sees
+   it at the top and does it before joining a pair. The host reminds the room of the opt-in choice,
+   which anyone can change here.
 2. **Round** — you see your partner, your role (speaker or listener, matching the S/L card), what to do
    now, and the time left. The host starts rounds; the timer is shared.
 3. **Rotate** — when the timer ends, everyone is told their next partner, rotating in one direction.
@@ -62,12 +64,22 @@ One journey, shown on each phone and mirrored on the projector:
 4. **End** — the evening closes with: (a) a topic suggestion or vote for next week, (b) the invitation to
    stake a position on cmp10, and (c) the date of the next Clarity Night.
    `[FOUNDER DECISION: which of a/b/c, and their order]`
+5. **Introductions (founder direction 2026-09-22, moved here from P1336).** An optional ask at the end:
+   connect with the host on LinkedIn, and *"may I look through your connections and suggest a few people
+   who might benefit, people in organizations where hard conversations have stopped?"* On a yes the host
+   is notified and follows up by email. The host's agents propose a few matches, and the attendee
+   approves or declines each one before any introduction. The offer to that person is a free Clarity
+   session inside their organization, a gift. Optionally, ask for a recommendation of the host and the
+   evening. The question is whether they *know* such a person, because in Chiang Mai few attendees work in a
+   100–1,000-person organization themselves.
 
 ## Invariants
 
 - A physical event must still run when a phone fails: the projector view alone carries the same step,
   role and timer.
-- Nothing at the end of an event may ask for a follow-up session or a purchase. An unprompted follow-up
+- Nothing at the end of an event may ask the attendee for a follow-up session or a purchase. (Step 5 asks
+  for introductions to *others*, with every introduction approved one by one. That is compatible, but the wording must
+  not become a sales ask.) An unprompted follow-up
   request is what the champion-pilot prediction measures
   ([decisions.md](../docs/decisions.md) 2026-09-21 [product]; research-programme ledger L4).
 

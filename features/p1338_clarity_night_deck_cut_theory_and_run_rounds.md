@@ -41,7 +41,11 @@ few founder calls on content.
 ## Solution
 
 - **Theory cut to about 5 minutes** — keep only what a person needs to choose and start. Everything else
-  moves to the registration prep (P1336) or is dropped.
+  moves to the registration onboarding (P1336) or is dropped. **Read P1336 first:** from event #2,
+  attendees arrive having watched the ST1 video (the three meanings of "understand", the 0–10 question)
+  and having already chosen opt-in or opt-out. The deck therefore only *reminds* people of that choice and
+  invites changes; it doesn't teach it. Keep the cognitive-understanding slides that P1336's video
+  overlays, since the video reuses them.
 - **Round slides with a visible countdown**, rotation instructions and the speaker/listener rule, matching
   the S/L lanyard cards.
 - **Topic swappable** — the topic, its statements and its slides sit in one place, so next week's deck
