@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [live, mic-permission, session-end]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1344: cancelling the mic dialog on /live leaves a live server session behind the lobby
