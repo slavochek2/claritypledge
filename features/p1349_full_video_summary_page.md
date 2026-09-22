@@ -80,8 +80,8 @@ pages, plus `/tree/video-summary/page`. Everything below was chosen on that prot
 |---|---|---|
 | Summary misrepresents a named speaker; it becomes the most-trusted, least-checked text on the site | MITIGATE | Same writer/checker + transcript verification as stories |
 | Near-duplicate pages hurt SEO / P1280 dedup | MITIGATE | One page per video, canonical URL |
-| Copyright/fair use on long summaries of others' talks | MITIGATE | Pre-publish gate: founder call before any summary goes public |
-| Point page and story embed drop a story's video (live bug, predates P1349) | FIXED on branch | `point-detail-page.tsx` (both stance rows) and the story embed built story copies without `videoUrl`/`imageUrl`/`videoQuotes`. Fixed in `e401c81ad`; needs `/code-review` before ship because it changes live pages |
+| Copyright/fair use on long summaries of others' talks | MITIGATE | Content rule + legal-page text below (Resolved Decisions, founder 2026-09-22). Not legal advice; a German media lawyer check is recommended before relying on it |
+| Point page and story embed drop a story's video (live bug, predates P1349) | FIXED on branch | `point-detail-page.tsx` (both stance rows) and the story embed built story copies without `videoUrl`/`imageUrl`/`videoQuotes`. Fixed in `e401c81ad`; `/code-review` found the viewer's own story still fetched no media columns (`getStoryByUserAndPoint` select), fixed + test in `2d46491df` |
 
 **Non-Goals:** do NOT host the video (embed only); do NOT change story generation beyond adding the link.
 
@@ -98,19 +98,42 @@ pages, plus `/tree/video-summary/page`. Everything below was chosen on that prot
 - [ ] Point page and story embed show each story's video (bug fix)
 - [ ] At 375px and 320px: no horizontal scroll; link and timestamp pills ≥ 40px tall
 - [ ] Every timestamp and every speaker attribution on ≥ 1 real summary checked against the transcript by hand
+- [ ] No summary shows until its operator has confirmed it against the video (same rule as machine stories)
+- [ ] Summary page says it is AI-written and not endorsed by the creator; credits the channel
+- [ ] ToS and privacy text below ship in the same release as the first public summary
+- [ ] Summary prose uses the site font
 
 ## Open Questions
 
-1. [FOUNDER DECISION: one-sentence stories. With stories cut to one sentence (P1348 territory), does the rest
-   get a "…more" that expands the full story (recommended; point cards already do this), or is the story
-   only one sentence? The video summary does not replace a story's own argument.]
-2. [FOUNDER DECISION: serif font for the summary prose (closer to read-first), or the site font? The
-   prototype uses serif; it is the only place on the site that would.]
-3. [FOUNDER DECISION: copyright check before the first summary is published.]
-4. Build follow-up: `story-video-quotes.tsx` still inlines its own timestamp pill. Switch it to the shared
-   `timecode-pill.tsx` after P1348 ships (P1348 edits that file; doing it now would conflict).
+1. Build follow-up: `story-video-quotes.tsx` still inlines its own timestamp pill. Switch it to the shared
+   `timecode-pill.tsx` (P1348 has shipped, so this is unblocked).
+2. No Impressum/legal notice route exists in `src/` (German law requires one). Out of P1349 scope; flagged.
 
 ## Resolved Decisions
+
+**Founder decisions, 2026-09-22 (after the prototype):**
+1. **Stories: rewrite short, don't cut on screen.** The existing `#aisafety1` video stories were rewritten to
+   one sentence (6 from the Clarity Night speaker notes, 4 new), on test first; prod on push. Old text
+   stays in `story_versions`. The on-screen first-sentence cut was removed. New stories are already
+   1–2 sentences by the P1348 pipeline rule (`story-draft.md`).
+2. **Site font** for the summary prose, not serif.
+3. **Copyright: a short rule, the rest in the legal pages.** Lawyer-perspective review: 1 of 1 reported;
+   its file claims were re-checked. The rule:
+   > Our own words, never a transcript. Quotes only where they support a point: one line at most, credited
+   > and timestamped. The summary sends people to the video; it does not replace it. The video is always the
+   > unmodified official embed (youtube-nocookie, already used), credited to its channel. Marked AI-written;
+   > the operator checks it against the video before it goes live. No claims the speaker did not make.
+   > Corrected or removed promptly when the creator or a named person asks.
+
+   Legal pages (ship with the first public summary):
+   - ToS, under Intellectual Property: video summaries are our AI-assisted descriptions of public YouTube
+     videos, not transcripts and not endorsed by the creators; the videos play through YouTube's official
+     embed and remain their creators'; creators or named people can ask for correction or removal at the
+     privacy address.
+   - Privacy: rename "Videos embedded in stories" to cover video summaries; add one sentence that speaker
+     names in summaries are processed on legitimate interest, with the same right to object as for machine
+     accounts.
+
 
 **Falsify review 2026-09-22: BLOCKED before build.** Reports: 2 of 2 (Opus reviewer + Codex). Both
 returned BLOCK, and they agreed. Load-bearing claims re-checked by command:
