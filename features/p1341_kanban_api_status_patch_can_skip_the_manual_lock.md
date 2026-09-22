@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 303
 workstream: kanban
@@ -70,3 +70,4 @@ The `.claude/rules/features.md` edit goes through `/slava:maintain:claude-md` fi
 - Caller grep re-checked at build time: every status PATCH in `tools/kanban/src` (App.tsx, CardDialog, PipelinePage, GoalsPage, ContentPage) omits `lock`, so UI drags still lock. `fix-kanban.md` and `kdd/SKILL.md` only GET `?refresh=true`.
 - The prioritize skill is global (`~/.claude/commands/slava/maintain/prioritize/SKILL.md`, outside this repo). Step 7's curl sends `"lock":false`, and the step explains why. pp's kanban runs this same server code (`pp/scripts/kanban.sh`), so it takes effect there once this ships.
 - `.claude/rules/features.md` §Manual Status Lock was rewritten after passing the `/slava:maintain:claude-md` gate (ADD, neutral one-sentence rewrite).
+- Review: Gemini 3.8 Flash (`delegate-gemini`, served model verified) returned NO FINDINGS on the branch diff. Control: the same diff with a planted bug (`lock !== 'false'`) was sent through the same review, and it was flagged with the correct fix, so the review can see a bug of this kind.
