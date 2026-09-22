@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 11
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [hooks, git-ops, spec-close]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1343: block-manual-spec-close refuses the reverse move git-ops prints as its own recovery
@@ -82,7 +82,13 @@ Add both directions to the canary.
 
 ## Acceptance Criteria
 
-- [ ] The reverse (recovery) move is allowed (exit 0).
-- [ ] The three forward-close shapes above are still blocked (exit 2).
-- [ ] The read-only closed-spec command is still allowed.
-- [ ] `bash scripts/test-pipeline-gates.sh` passes, with the new cases included.
+- [x] The reverse (recovery) move is allowed (exit 0). — canary F8, F9; direct probe exit 0.
+- [x] The three forward-close shapes above are still blocked (exit 2). — F1, F7, F10-F13, plus F14-F19 added after review: a reopen chained with `sudo mv`, `/bin/mv`, `$VAR` destination, `cd && mv`, `xargs mv`, `sh -c` is blocked; `command mv`, `env mv`, `bash -c` probed, exit 2.
+- [x] The read-only closed-spec command is still allowed. — F4, F6.
+- [x] `bash scripts/test-pipeline-gates.sh` passes, with the new cases included. — "all P1246 pipeline-gate invariants hold (… F1-F19 …)". Controls: pre-fix hook fails F8; the first fix commit fails F14-F19.
+
+## Review
+
+Opus and Codex both found the first version's bypass (a reopen segment carried any
+non-`mv` segment through). Fixed in `c319a3816`: any segment that is not a plain `mv` /
+`git mv` voids the exemption, and any `$` token does too.
