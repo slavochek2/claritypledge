@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 10
 workstream: events
 created_date: '2026-09-22'
 tags: [events, markdown, images, security]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-22
 ---
 
 # P1352: Event descriptions can show images hosted on our own storage
@@ -116,6 +116,6 @@ prod; a host-facing upload control is out of scope.
 
 ## Related
 
-- [p489](done/22_mar_26/p489_ai_generated_event_banners.md) — event banners; the existing storage bucket images already live in
+- [p489](../22_mar_26/p489_ai_generated_event_banners.md) — event banners; the existing storage bucket images already live in
 - [p1349](p1349_full_video_summary_page.md) — per-video summary page
 - `src/lib/markdown.ts` — `safeMd`, `legalMd` (P1219), and the 2026 decision that created the three isolated instances
