@@ -21,9 +21,9 @@
  *
  * Needs: `yt` on PATH, GEMINI_API_KEY (.env.local), ~/.agents/bin/ask-model with Codex for the checker.
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -31,6 +31,7 @@ import { promisify } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import {
   checkerPrompt,
+  contentSha,
   mechanicalCheck,
   mmss,
   parseCheckerVerdict,
@@ -45,6 +46,7 @@ import {
 
 const execFileP = promisify(execFile);
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
+const TEST_REF = 'gfjctyxqlwexxwsmkakq';
 const ASK_MODEL = process.env.ASK_MODEL_BIN || join(homedir(), '.agents/bin/ask-model');
 // A gate needs stable verdicts: at the wrapper's default (low) the same summary passed, then failed.
 const CHECKER_EFFORT = process.env.VIDEO_SUMMARY_CHECKER_EFFORT || 'high';
@@ -76,7 +78,7 @@ async function db(env) {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) die('test target needs VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.test.local');
-  if (url.includes('besjtuodziykmjidubzw')) die('.env.test.local points at PROD — refusing; use --env prod explicitly');
+  if (!url.includes(TEST_REF)) die(`the test target must be the test project (${TEST_REF}); .env.test.local points at ${url} — refusing`);
   return { client: createClient(url, key, { auth: { persistSession: false } }), label: 'test' };
 }
 
@@ -86,7 +88,9 @@ async function getRow(client, id) {
   return data;
 }
 
-const storeDir = (id) => join(STORE, id);
+let ENV = 'test';
+// Keyed by environment: test and prod drafts of one video must never share a transcript or a report.
+const storeDir = (id) => join(STORE, ENV, id);
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
 async function yt(args) {
@@ -107,11 +111,14 @@ async function yt(args) {
 
 async function fetchMetaAndCaptions(id) {
   const url = `https://www.youtube.com/watch?v=${id}`;
-  const { stdout } = await yt(['--skip-download', '--no-playlist', '--print', '%(id)s\t%(title)s\t%(duration)s\t%(channel)s', '--', url]);
-  const [gotId, title, duration, channel] = stdout.trim().split('\n').pop().split('\t');
+  const { stdout } = await yt(['--skip-download', '--no-playlist', '--print', '%(id)s\t%(title)s\t%(duration)s\t%(channel)s\t%(language)s', '--', url]);
+  const [gotId, title, duration, channel, language] = stdout.trim().split('\n').pop().split('\t');
   if (gotId !== id) die(`metadata came back for "${gotId}", not ${id}`);
   const meta = { id, title, channel, duration: Number(duration) };
   if (!meta.title || !meta.channel || !Number.isInteger(meta.duration) || meta.duration <= 0) die(`unusable metadata: ${stdout.trim()}`);
+  // Non-English videos would be summarised from machine-translated captions, and quotes would put
+  // translated words in a real person's mouth. Out of scope until someone decides how to label that.
+  if (language && language !== 'NA' && !/^en\b/i.test(language)) die(`video language is "${language}", not English — refusing (translated captions would misquote speakers)`);
 
   const dir = mkdtempSync(join(tmpdir(), 'video-summary-'));
   try {
@@ -194,14 +201,25 @@ async function checkWithCodex(prompt) {
   }
 }
 
-function readStore(id) {
+function readStore(id, row) {
   const dir = storeDir(id);
   const vttPath = join(dir, 'transcript.vtt');
-  if (!existsSync(vttPath)) die(`no retained transcript for ${id} in ${dir} — run draft first (the checker never re-fetches)`);
+  if (!existsSync(vttPath) || !existsSync(join(dir, 'meta.json'))) die(`no retained transcript for ${id} in ${dir} — run draft first (the checker never re-fetches)`);
   const vtt = readFileSync(vttPath, 'utf8');
   const meta = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'));
-  if (sha256(vtt) !== meta.transcript_sha256) die(`retained transcript for ${id} does not match the hash recorded at draft time`);
-  return { vtt, meta, segs: parseVtt(vtt) };
+  const sha = sha256(vtt);
+  if (sha !== meta.transcript_sha256) die(`retained transcript for ${id} does not match the hash recorded at draft time`);
+  if (!row.transcript_sha256 || sha !== row.transcript_sha256)
+    die(`the row was written from a different transcript than the one retained here (row ${row.transcript_sha256 ?? 'none'}, store ${sha}) — re-draft`);
+  return { vtt, meta, segs: parseVtt(vtt), sha };
+}
+
+function readReport(id) {
+  try {
+    return JSON.parse(readFileSync(join(storeDir(id), 'check.json'), 'utf8'));
+  } catch {
+    return null;
+  }
 }
 
 function draftFromRow(row) {
@@ -218,13 +236,11 @@ async function cmdDraft(client, id, force, reviseFlag) {
   console.log(`"${meta.title}" — ${meta.channel} — ${mmss(meta.duration)} — ${segs.length} caption cues (${track})`);
   let revise = null;
   if (reviseFlag) {
-    try {
-      revise = JSON.parse(readFileSync(join(storeDir(id), 'check.json'), 'utf8'));
-    } catch {
-      die('--revise needs a previous failed check for this video (none in the store)');
-    }
+    revise = readReport(id);
+    if (!revise) die('--revise needs a previous failed check for this video (none in the store)');
     if (revise.pass || !revise.failures?.length) die('--revise: the last check has no failures to fix');
     if (!existing) die('--revise needs the previous draft row');
+    if (revise.content_sha256 !== contentSha(createHash, existing)) die('--revise: the last check was of different content than this row — run check first');
     revise.previous = draftFromRow(existing);
     console.log(`revising against ${revise.failures.length} checker failures`);
   }
@@ -232,12 +248,7 @@ async function cmdDraft(client, id, force, reviseFlag) {
   const { ok, errors, draft } = validateDraft(raw, meta.duration);
   if (!ok) die(`writer output rejected, nothing written:\n  - ${errors.join('\n  - ')}`);
 
-  const dir = storeDir(id);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'transcript.vtt'), vtt);
-  writeFileSync(join(dir, 'meta.json'), JSON.stringify({ ...meta, track, transcript_sha256: sha256(vtt), written_by: writer, drafted_at: new Date().toISOString() }, null, 2));
-  rmSync(join(dir, 'check.json'), { force: true });
-
+  const transcriptSha = sha256(vtt);
   const { error } = await client.from('video_summaries').upsert(
     {
       provider: 'youtube',
@@ -246,6 +257,7 @@ async function cmdDraft(client, id, force, reviseFlag) {
       channel: meta.channel,
       duration_seconds: meta.duration,
       ...draft,
+      transcript_sha256: transcriptSha,
       status: 'draft',
       written_by: writer,
       checked_by: null,
@@ -256,6 +268,17 @@ async function cmdDraft(client, id, force, reviseFlag) {
     { onConflict: 'provider,video_id' }
   );
   if (error) die(`writing the draft failed: ${error.message}`);
+  // Store only after the row exists, and swap it in whole: the store must never describe a draft
+  // the database does not hold.
+  const dir = storeDir(id);
+  const tmp = `${dir}.tmp-${process.pid}`;
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+  writeFileSync(join(tmp, 'transcript.vtt'), vtt);
+  writeFileSync(join(tmp, 'meta.json'), JSON.stringify({ ...meta, track, transcript_sha256: transcriptSha, written_by: writer, drafted_at: new Date().toISOString() }, null, 2));
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(join(dir, '..'), { recursive: true });
+  renameSync(tmp, dir);
   console.log(`draft written by ${writer}: ${draft.key_points.length} key points, ${draft.moments.length} moments. Next: check ${id}`);
 }
 
@@ -263,21 +286,23 @@ async function cmdCheck(client, id) {
   const row = await getRow(client, id);
   const err = transitionError('check', row?.status);
   if (err) die(err);
-  const { meta, segs } = readStore(id);
+  const { meta, segs, sha } = readStore(id, row);
   if (meta.duration !== row.duration_seconds) die('stored transcript is for a different duration than the row — re-draft');
   const draft = draftFromRow(row);
+  const bound = { transcript_sha256: sha, content_sha256: contentSha(createHash, row) };
   const mech = mechanicalCheck(draft, segs, row.duration_seconds);
   if (mech.length) {
-    writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ pass: false, failures: mech, at: new Date().toISOString() }, null, 2));
+    writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ pass: false, failures: mech, ...bound, at: new Date().toISOString() }, null, 2));
     die(`mechanical check failed, row stays draft:\n  - ${mech.join('\n  - ')}`);
   }
   console.log('asking the checker (Codex)…');
-  const { text, checker, effort } = await checkWithCodex(checkerPrompt(meta, segs, draft));
+  const nonce = randomBytes(12).toString('hex');
+  const { text, checker, effort } = await checkWithCodex(checkerPrompt(meta, segs, draft, nonce));
   console.log(`checker ${checker} ran at effort ${effort}`);
   if (sameVendor(checker, row.written_by)) die(`checker ${checker} is the same vendor as writer ${row.written_by}`);
   writeFileSync(join(storeDir(id), 'check.raw.txt'), text);
-  const verdict = parseCheckerVerdict(text, draft);
-  writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ checker, ...verdict, at: new Date().toISOString() }, null, 2));
+  const verdict = parseCheckerVerdict(text, draft, nonce);
+  writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ checker, ...verdict, ...bound, at: new Date().toISOString() }, null, 2));
   if (!verdict.pass) die(`checker ${checker} failed the summary, row stays draft:\n  - ${verdict.failures.join('\n  - ')}`);
 
   const now = new Date().toISOString();
@@ -297,19 +322,20 @@ async function cmdConfirm(client, id, label) {
   const row = await getRow(client, id);
   const err = transitionError('confirm', row?.status);
   if (err) die(err);
-  let report = null;
-  try {
-    report = JSON.parse(readFileSync(join(storeDir(id), 'check.json'), 'utf8'));
-  } catch {
-    /* shown as missing */
-  }
+  const report = readReport(id);
+  // The passing report must be about exactly this content and transcript (the DB trigger also
+  // voids a check on any content edit; this catches a report from another draft or environment).
+  if (!report?.pass) die('no passing checker report for this row in the store — run check');
+  if (report.content_sha256 !== contentSha(createHash, row) || report.transcript_sha256 !== row.transcript_sha256)
+    die('the passing checker report is for different content than this row — run check again');
+  if (!process.stdin.isTTY) die('confirm is the operator\'s own review: run it in a terminal, not from a pipe or a script');
   console.log(`\n${row.title} — ${row.channel} — ${mmss(row.duration_seconds)}   [${label}]`);
   console.log(`https://www.youtube.com/watch?v=${id}\n`);
   console.log(`TL;DR  ${row.tldr ?? ''}\n`);
   row.key_points.forEach((k, i) => console.log(`${i + 1}. ${k}`));
   console.log(`\n${row.summary}\n`);
   row.moments.forEach((m) => console.log(`  ${mmss(m.t).padStart(7)}  ${m.note}`));
-  console.log(`\nwritten by ${row.written_by} · checked by ${row.checked_by} · checker report: ${report ? `${report.results?.length ?? 0} items, pass=${report.pass}` : 'MISSING'}`);
+  console.log(`\nwritten by ${row.written_by} · checked by ${row.checked_by} · checker report: ${report.results?.length ?? 0} items passed`);
   console.log('\nConfirm only after checking it against the video. Once confirmed, "Read video summary" appears under this video.');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = (await rl.question(`Type the video id (${id}) to confirm, anything else to cancel: `)).trim();
@@ -367,6 +393,7 @@ async function main() {
   const [command, target] = args;
   const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list> [video id|url] [--env test|prod] [--force] [--revise]';
   if (!command) die(usage, 2);
+  ENV = env;
   const { client, label } = await db(env);
   if (command === 'list') {
     console.log(`[${label}] list`);
