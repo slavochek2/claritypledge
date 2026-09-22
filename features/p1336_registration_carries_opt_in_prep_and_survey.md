@@ -78,11 +78,12 @@ Onboarding completion and survey answers are stored per person; the flow itself 
    - **The ST1 story as it is on the site**, with no separate onboarding copy. Its video
      (https://youtu.be/k4zpMYIKK5A, uploaded 2026-09-22) is embedded from YouTube, thumbnail = the story's current image. The story gets a new version: the video, and a **shorter text that replaces the current one**
      (the video now carries the telling). `[FOUNDER DECISION: confirm draft]`:
-     *We were trying to work something out. I explained their position back. They said: yes, that's
-     what you mean. Days later: I don't feel understood. Lying? Bad memory? Neither. One word, three
-     requests. Agreement: accept that I'm right. Emotional understanding: feel what I feel. Cognitive
-     understanding: reproduce my position accurately; I explain back, you rate it 0–10. They had
-     confirmed the third and needed the second.* The point is unchanged. The play button pulses gently
+     *Someone I've known for years and I were trying to work something out. I paraphrased their
+     position. They said: yes, that's what I mean. Days later, they said they didn't feel understood.
+     My first thought: they forgot. Then I saw it. One word, "understand", three meanings. Emotional:
+     feel what I feel. Agreement: see it my way. Cognitive: know what I mean. Only the speaker can
+     confirm it: you explain back, they rate it 0 to 10. They confirmed the cognitive one. They needed
+     the emotional one.* (Critiqued by Codex and Opus 2026-09-23; meanings ordered as in the point.) The point is unchanged. The play button pulses gently
      until the first play, wherever ST1 shows. Every reader of ST1 gets the upgrade, and nothing is written twice.
    - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
      meaning of this story?"**
