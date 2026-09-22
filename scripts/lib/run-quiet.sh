@@ -63,6 +63,22 @@ _index_may_mutate() {
     return 1
 }
 
+# True when $1 is the current repo's own default index, i.e. not a temporary one.
+# The default is asked of git with GIT_INDEX_FILE removed (--git-path index honours it),
+# but GIT_DIR kept, so a worktree resolves its own index. Both sides are made absolute
+# and physical before comparing; anything unresolvable counts as "not default" (kept).
+_is_default_index() {
+    local given="$1" dflt gdir
+    dflt=$( unset GIT_INDEX_FILE; git rev-parse --path-format=absolute --git-path index 2>/dev/null ) || return 1
+    [ -n "$dflt" ] || return 1
+    case "$given" in /*) ;; *) given="$PWD/$given" ;; esac
+    gdir=$(cd "$(dirname "$given")" 2>/dev/null && pwd -P) || return 1
+    given="$gdir/$(basename "$given")"
+    gdir=$(cd "$(dirname "$dflt")" 2>/dev/null && pwd -P) || return 1
+    dflt="$gdir/$(basename "$dflt")"
+    [ "$given" = "$dflt" ]
+}
+
 run_quiet() {
     local label="$1"
     shift
@@ -76,10 +92,21 @@ run_quiet() {
     # `git init <scratch>` re-initialises THAT git-dir, writing core.bare=true into the shared
     # config (fourth incident, 2026-09-22); its `git commit` lands in the real repo and fires
     # this hook again, recursively. Per-canary unsets (P1131, P1273, P1279) kept missing one.
-    # GIT_INDEX_FILE is deliberately KEPT: a pathspec or -a commit stages into a temporary
-    # index that the privacy scans must read. Index writes stay the guard's job, below.
+    # GIT_INDEX_FILE: git exports it on EVERY commit (measured: relative ".git/index" on the
+    # main checkout, the absolute worktree index in a worktree, a temporary next-index-*.lock
+    # for a pathspec or -a commit). Left in place, an absolute value points a scratch
+    # canary's `git add`/`commit` at THIS index (review finding, 2026-09-22). So it is dropped
+    # when it is merely the repo's default index -- the step finds the same file by cwd --
+    # and kept only when it names a TEMPORARY index, which checks reading the staged content
+    # (privacy scans) must see. Index writes remain the guard's job, below.
     # A subshell, not `env -u`, so a step that is a shell function still runs.
-    if ( unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; "$@" ) > "$tmpfile" 2>&1; then
+    local drop_index=0
+    if [ -n "${GIT_INDEX_FILE:-}" ] && _is_default_index "$GIT_INDEX_FILE"; then
+        drop_index=1
+    fi
+    if ( unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+         [ "$drop_index" = 1 ] && unset GIT_INDEX_FILE
+         "$@" ) > "$tmpfile" 2>&1; then
         echo -e "${GREEN}✓${NC}"
         rc=0
     else

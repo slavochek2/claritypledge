@@ -119,20 +119,42 @@ exit 0    # reports success, like the real one did
 EOF
 chmod +x "$SCRATCH/fixture-canary.sh"
 
-baseline=$(git diff --cached --name-only | wc -l | tr -d ' ')
+# 4a (P1346). With the hook's env pointing at this repo's DEFAULT index, run_quiet now
+# drops it, so the redirect never reaches this index at all.
+baseline=$(git diff --cached --raw | shasum)
 export GIT_DIR="$SCRATCH/repo/.git"
 export GIT_INDEX_FILE="$SCRATCH/repo/.git/index"
 if run_quiet "unfixed canary (P1260 shape)" "$SCRATCH/fixture-canary.sh" "$SCRATCH/other" >/dev/null 2>&1; then
-  bad "guard missed a canary that redirected into this index"
+  ok "4a: default-index redirect is neutralised — the step passes and cannot reach this index"
 else
-  ok "guard caught the redirect (the mechanism, not a simulation of it)"
+  bad "4a: run_quiet still let a canary redirect into the default index"
+fi
+[ "$(git diff --cached --raw | shasum)" = "$baseline" ] \
+  && ok "4a: this repo's staged content is byte-identical afterwards" \
+  || bad "4a: the default index was modified"
+# Control: outside run_quiet the same fixture DOES corrupt it (the mechanism is live here).
+cp "$SCRATCH/repo/.git/index" "$SCRATCH/index.bak"
+"$SCRATCH/fixture-canary.sh" "$SCRATCH/other" >/dev/null 2>&1
+[ "$(git diff --cached --raw | shasum)" != "$baseline" ] \
+  && ok "4a control: the same fixture outside run_quiet corrupts the index (not vacuous)" \
+  || bad "4a control: fixture could not corrupt the index — 4a proved nothing"
+cp "$SCRATCH/index.bak" "$SCRATCH/repo/.git/index"
+git -C "$SCRATCH/other" checkout -q - 2>/dev/null; git -C "$SCRATCH/other" branch -q -D fixture 2>/dev/null
+
+# 4b. A TEMPORARY index (pathspec / -a commit) is passed through on purpose, so a step
+# that writes to it must still be caught by the guard — the P1273 mechanism, end to end.
+cp "$SCRATCH/repo/.git/index" "$SCRATCH/next-index.lock"
+export GIT_INDEX_FILE="$SCRATCH/next-index.lock"
+baseline=$(git diff --cached --name-only | wc -l | tr -d ' ')
+if run_quiet "unfixed canary (temp index)" "$SCRATCH/fixture-canary.sh" "$SCRATCH/other" >/dev/null 2>&1; then
+  bad "4b: guard missed a canary that wrote into the temporary index"
+else
+  ok "4b: guard caught the write into a temporary index"
 fi
 after=$(git diff --cached --name-only | wc -l | tr -d ' ')
-if [ "$after" != "$baseline" ]; then
-  ok "control: the index really was corrupted ($baseline -> $after), so scenario 4 is not vacuous"
-else
-  bad "control: index never moved — scenario 4 proved nothing"
-fi
+[ "$after" != "$baseline" ] \
+  && ok "4b control: the temporary index really was corrupted ($baseline -> $after)" \
+  || bad "4b control: temporary index never moved — 4b proved nothing"
 unset GIT_DIR GIT_INDEX_FILE
 
 echo "-- 5. P1346: a step's 'git init' cannot re-initialise the hook's worktree git-dir --"
@@ -158,13 +180,21 @@ else
 fi
 unset GIT_DIR
 
-echo "-- 6. P1346: GIT_INDEX_FILE is still passed through (privacy scans read the commit's index) --"
+echo "-- 6. P1346: a TEMPORARY GIT_INDEX_FILE is passed through; the DEFAULT one is dropped --"
 export GIT_INDEX_FILE="$SCRATCH/some-index"
 if run_quiet "index passthrough" bash -c '[ "${GIT_INDEX_FILE:-}" = "$0" ]' "$SCRATCH/some-index" >/dev/null 2>&1; then
-  ok "run_quiet step sees the caller's GIT_INDEX_FILE"
+  ok "6a: a temporary GIT_INDEX_FILE reaches the step (privacy scans read the commit's index)"
 else
-  bad "run_quiet dropped GIT_INDEX_FILE"
+  bad "6a: run_quiet dropped a temporary GIT_INDEX_FILE"
 fi
+for _idx in "$SCRATCH/repo/.git/index" ".git/index"; do
+  export GIT_INDEX_FILE="$_idx"
+  if run_quiet "default index dropped" bash -c '[ -z "${GIT_INDEX_FILE+x}" ]' >/dev/null 2>&1; then
+    ok "6b: the default index ($_idx) is not passed to the step"
+  else
+    bad "6b: the default index ($_idx) still reaches the step"
+  fi
+done
 unset GIT_INDEX_FILE
 
 echo ""
