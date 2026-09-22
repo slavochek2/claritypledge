@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 10
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [stories, video, summary, disagreement-pipeline]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-22
 ---
 
 # P1349: One full-summary page per source video, linked from its stories
