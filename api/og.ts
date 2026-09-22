@@ -104,6 +104,14 @@ interface OgData {
 
 // ── Route-specific fetchers ─────────────────────────────────────────────
 
+/** Share-card text for an event: markdown punctuation removed; P1352: an image line is not preview text. */
+export function eventExcerpt(rawDesc: string): string {
+  return rawDesc
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/[#*_~`>[\]]/g, '')
+    .slice(0, 200);
+}
+
 async function ogForEvent(slug: string): Promise<OgData | null> {
   const row = await supabaseGet(
     'events',
@@ -124,7 +132,7 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
   const location = (row.location as string) || '';
   const rawDesc = (row.description as string) || '';
   const desc = rawDesc
-    ? rawDesc.replace(/[#*_~`>[\]]/g, '').slice(0, 200)
+    ? eventExcerpt(rawDesc)
     : [date, location].filter(Boolean).join(' — ');
 
   return {

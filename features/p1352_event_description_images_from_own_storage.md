@@ -99,8 +99,9 @@ prod; a host-facing upload control is out of scope.
       users' banners and avatars); encoded separators and escaped percent signs rejected in image
       paths; a clickable image renders as an image instead of raw markdown; and the shared link
       protocol check hardened (details in the private security log). Not a finding: plain-http local
-      Supabase (dev uses the https test project). Deferred: calendar and ICS exports show the raw
-      image markdown (they carry the raw description; a text-only strip is a separate change).
+      Supabase (dev uses the https test project). Calendar exports (ICS, Google, Outlook, Office 365)
+      and share-card text now drop the image line instead of showing raw markdown
+      (`p1352-calendar-text-strips-images.test.ts`, 6 of 6; seen to fail with the strip removed).
 
 ## Open Questions
 

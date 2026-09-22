@@ -141,6 +141,14 @@ interface ICSEventData {
 /**
  * Generate and download an ICS calendar file
  */
+/**
+ * P1352: an event description may carry one explainer image line. Wherever the description
+ * leaves the page as plain text (calendar exports), drop it rather than show raw markdown.
+ */
+export function stripImageMarkdown(text: string): string {
+  return text.replace(/!\[[^\]]*\]\([^)]*\)[ \t]*\n?/g, '');
+}
+
 export function downloadICSFile(event: ICSEventData): void {
   const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -151,7 +159,7 @@ DTSTAMP:${formatICSDate(new Date())}
 DTSTART:${formatICSDate(event.startDate)}
 DTEND:${formatICSDate(event.endDate)}
 SUMMARY:${event.title}
-DESCRIPTION:${event.description.replace(/\n/g, '\\n').substring(0, 200)}
+DESCRIPTION:${stripImageMarkdown(event.description).replace(/\n/g, '\\n').substring(0, 200)}
 LOCATION:${event.location}
 END:VEVENT
 END:VCALENDAR`;
@@ -175,7 +183,7 @@ export function getGoogleCalendarUrl(event: ICSEventData): string {
     action: 'TEMPLATE',
     text: event.title,
     dates: `${formatICSDate(event.startDate)}/${formatICSDate(event.endDate)}`,
-    details: event.description.substring(0, 500),
+    details: stripImageMarkdown(event.description).substring(0, 500),
     location: event.location,
   });
 
@@ -192,7 +200,7 @@ export function getOutlookUrl(event: ICSEventData): string {
     subject: event.title,
     startdt: event.startDate.toISOString(),
     enddt: event.endDate.toISOString(),
-    body: event.description.substring(0, 500),
+    body: stripImageMarkdown(event.description).substring(0, 500),
     location: event.location,
   });
   return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
@@ -208,7 +216,7 @@ export function getOffice365Url(event: ICSEventData): string {
     subject: event.title,
     startdt: event.startDate.toISOString(),
     enddt: event.endDate.toISOString(),
-    body: event.description.substring(0, 500),
+    body: stripImageMarkdown(event.description).substring(0, 500),
     location: event.location,
   });
   return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
