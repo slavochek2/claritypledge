@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 14
 severity: high
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pre-commit, canary, core-bare, git-env]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1346: a pre-commit canary run from a worktree sets core.bare=true on the shared repo and recurses into the hook
@@ -81,15 +81,23 @@ damages the shared repo.
 
 ## Fix Approach
 
-Make `run_quiet` execute its command under `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u
-GIT_OBJECT_DIRECTORY`. Add a canary scenario that runs `git init` through `run_quiet` with a linked
+As built (after two review rounds): `run_quiet` runs each step in a subshell that unsets
+every variable from `git rev-parse --local-env-vars` (fixed list as fallback) —
+GIT_DIR, GIT_WORK_TREE, GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY, GIT_CONFIG_PARAMETERS,
+alternates, grafts, replace refs, shallow. `GIT_INDEX_FILE` is dropped when it resolves to the
+repo's DEFAULT index (git exports it on every commit, absolute in a worktree — Opus) and kept
+only for a temporary index (pathspec / `-a` commits), which staged-content checks must read.
+The first draft kept GIT_INDEX_FILE unconditionally; the Invariants line above is superseded. Add a canary scenario that runs `git init` through `run_quiet` with a linked
 worktree's GIT_DIR exported, pointing at a **decoy** repo, never this one (P1131's lesson), and
 asserts that `core.bare` stays false. Per-file unsets in the twelve scripts become redundant under
 pre-commit. They are left in place.
 
 ## Acceptance Criteria
 
-- [ ] New canary scenario: `git init` via `run_quiet` with a decoy worktree's `GIT_DIR` leaves the decoy's `core.bare=false`.
-- [ ] Control: the same scenario against the pre-fix `run-quiet.sh` flips it to `true`.
-- [ ] `run_quiet` children still see `GIT_INDEX_FILE` (asserted).
-- [ ] After this ships, a worktree commit staging `scripts/git-ops.sh` completes and `core.bare` on main stays `false`.
+- [x] New canary scenario: `git init` via `run_quiet` with a decoy worktree's `GIT_DIR` leaves the decoy's `core.bare=false`. — `scripts/test-index-integrity-guard.sh` scenario 5, which also asserts the step ran and created its own repo.
+- [x] Control: the same scenario against the pre-fix `run-quiet.sh` flips it to `true`. — main's lib: 9 failures incl. "flipped the decoy's core.bare to true"; the same `git init` outside `run_quiet` flips it in-suite.
+- [x] `run_quiet` children still see `GIT_INDEX_FILE` (asserted). — revised: a TEMPORARY index is passed through (6a) and the default index is dropped (6b, absolute and relative); 4a/4b prove the effect. 24/0.
+
+Post-ship check, tracked in the inbox (the hook runs MAIN's lib, so it cannot be observed
+before merge): a worktree commit staging `scripts/git-ops.sh` completes and `core.bare` on main
+stays `false`.
