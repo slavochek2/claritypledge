@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [e2e, test-helpers, cleanup]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1345: deleteTestUser swallows a failed profile delete, so test users pile up unseen
