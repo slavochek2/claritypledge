@@ -329,6 +329,16 @@ Why it is load-bearing:
 
 Applies to any session whose participants are not peers — a manager with reports, a founder with early employees, any group where one person controls another's work.
 
+### Trigger rounds, not trigger-anywhere (2026-09-23)
+
+Opted-in people in free conversation rarely trigger, and when the facilitator does, it breaks a flow they came to enjoy. In low-stakes chat the protocol costs more than it returns, so dropping it there is correct, not a failure.
+
+**Rule: mark the round where triggering *is* the game.** Badges on (speaker/listener), a third person observing, the reward gesture for every ask. Outside the round, people vibe and nobody has to choose between the two in the moment. One marked round beats a standing invitation that nobody uses.
+
+**Offer the excuse before the opt-out.** When someone does not want to answer right now, suggest the excuse ("not now, I can't hold this right now"), which keeps them opted in, rather than the opt-out, which ends the commitment. The excuse is the move the Partner Agreement and the Pledge rely on ([definitions.md](definitions.md) §Partner Agreement): commitments that are always on, even with people you dislike, survive only if there is an honest way to decline a single ask. Practise it at events so it exists when the stakes are real. *Open:* the definition covers "can't paraphrase accurately"; whether "don't want to right now" also counts is undecided.
+
+**Invite people to trigger you.** People who are opted in still do not ask the facilitator, and practice needs someone to ask. Name it out loud at the end of an explanation: "ask me how well I understood you", and reward the first person who does.
+
 ---
 
 ## Dos
