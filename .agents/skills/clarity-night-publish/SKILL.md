@@ -2,7 +2,7 @@
 name: clarity-night-publish
 description: "Turn a disagreement that is live on PROD under a tag into a published Clarity Night event page: write the description from the run's verified material (sourced, balanced across the points, one primary link per section), publish it on TEST for the founder to review on localhost, then, when he confirms, move it to PROD with the community, the gated group chat and a checked banner. Ends when the event is live; promotion is /slava:events:promote-all."
 when_to_use: "After /slava:disagreement:publish (or promote-to-prod) has put a tag's points and stories on PROD and the founder has a date, time and venue for the room. DRAFT MODE (TEST only) may run earlier, right after select Gate 2, from the approved cast. NOT for hikes or runs (/slava:events:publish-run), next occurrences cloned from a series (/slava:events:re-create-event), or generic events through the web form (/slava:events:publish-event)."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /slava:disagreement:clarity-night-publish
@@ -43,6 +43,14 @@ one it took:
 not a safe harbour here: the founder reviews that page and may share the link, and a false quote under
 a real person's name is just as false on TEST.
 
+**The corrections log exists before the first correction (P1367).** Draft mode's first action,
+before any founder question, is `mkdir -p .private/events/<run-slug>` and creating an empty
+`.private/events/<run-slug>/improvements.md`. Every founder correction to the page is appended
+there **in the same turn** it is applied: the date, what he said (verbatim), the rule it implies.
+P1355 required this log and it was never created once; the ~20 corrections of 2026-09-28 had to be
+rebuilt from transcripts. Rules found this way move into this file generically, never as that
+event's text.
+
 Draft mode writes **only to TEST** (Step 4). The PROD path below keeps its precondition that the tag's
 points are live on prod, and re-checks every `/stake/<tag>` link before Step 6.
 
@@ -67,7 +75,7 @@ points are live on prod, and re-checks every `/stake/<tag>` link before Step 6.
 |---|---|
 | **Tag** (e.g. `aisafety1`) | The run's publish step. Confirm `/stake/<tag>` shows the points on prod. In draft mode, the planned tag. |
 | **Run file** | `.private/points-runs/<slug>.md` — arguers, points, positions (schema: `docs/points-process.md`). |
-| **Date, start, end, venue** | Founder decision. Ask whether the room is confirmed; if not, Step 8 drafts the ask. |
+| **Date, start, end, venue** | Founder decision. Ask whether the room is confirmed; if not, Step 8 drafts the ask. **Resolve the date by command, never in your head** (P1367): `node scripts/events/event-date.mjs resolve --today <YYYY-MM-DD> --time <HH:MM> "<his words>"`. Exit 3 means the phrase has two readings ("next Tuesday" on a Monday): show him both lines and write nothing until he picks. Echo the chosen line back, and write it into the handoff's `## Now` block in the same step as the DB write. |
 | **Run of show for THIS night** | Founder decision, asked every time. Never copied from the previous night (rule 12). |
 | **Community** | `cm` for in-person near Chiang Mai, per `docs/events/org-defaults.md`. |
 | **Prod host** | `host_id` of the previous `Clarity Night #` event on prod (anon-readable). |
@@ -113,29 +121,43 @@ it a reason he will recognise.
 - **Names as a comma list, never "vs".** One arguer may share a point with only one other.
 - **One colon, no counts in the title** ("Four Sentences" was dropped: *"I would not say four sentences."*).
 
-### Step 2 — Section order (P1355 P3)
+### Step 2 — Section order (P1355 P3, revised P1367)
 
-These seven, in this order, and nothing else:
+An opening, then these five headings, in this order, and nothing else:
 
-1. **A one-sentence opening** — who it is for. It is also the link preview, so it stands alone.
+1. **A short opening** — who it is for. It is also the link preview, so it stands alone.
 2. **Why now**, with the one explainer image (rule 16).
-3. **Who is in the room.**
-4. **Agenda.**
-5. **How Clarity Nights are different** — at most three sentences, ending with a plain link to the
-   community (founder, 2026-09-22: *"this is not why, this is how is Clarity Night special"*).
-6. **Optional preparation**, closed by the recording line.
-7. **Sources.**
+3. **Agenda.**
+4. **Prepare for the event** — the people, then the one button.
+5. **How Clarity Nights are different** — why revealing a gap in understanding is rewarded here,
+   ending with a plain link to the community (founder, 2026-09-22: *"this is not why, this is how
+   is Clarity Night special"*). No sentence cap: on 2026-09-28 the founder wrote this section
+   himself as one paragraph of nine sentences.
+6. **Sources.**
 
-**There is no Where section.** The venue lives in the event's location field, and the header's
-location link opens the venue's pin (rule 11).
+**There is no Where section and no separate "Who is in the room".** The venue lives in the event's
+location field, and the header's location link opens the venue's pin (rule 11). The people live in
+*Prepare for the event*.
 
-- **Who is in the room** is built from the run file's `why_in_the_room` lines (P4): one line per
-  arguer, who they are and why they are in this debate, with one verified quote and a footnote.
-  **Recognisable people first; lived-experience voices last.** After publish creates the agents'
-  stories, swap each person's video link for their story. **Never** leave a placeholder as an HTML
-  comment in the text: the promote skills copy the raw description to other platforms.
-- **Agenda counts are approximate** ("about five contested points"): the number is only known after
-  positions.
+- **Prepare for the event:** one lead-in sentence, then one bullet per arguer built from the run
+  file's `why_in_the_room` lines (P4): **bold name**, who they are in a few words, and one verified
+  quote (rule 4). **Recognisable people first; lived-experience voices last.** Names are never
+  linked, and nothing is clickable before the button (rule 2). The section closes with the one
+  button to `/stake/<tag>?tab=stories`. **Never** leave a placeholder as an HTML comment in the
+  text: the promote skills copy the raw description to other platforms.
+- **Agenda counts are approximate** until positions has run ("about five contested points"), then
+  exact.
+
+**The page is checked by command, on the draft file, before any DB write** (P1367):
+
+```sh
+node scripts/points/page-check.mjs <desc.md>; echo $?
+```
+
+It checks the heading list and order, sentence length, negation openers, "we quoted", product
+vocabulary, the Sources rule, the one plain `/meet` link, unlinked names, the one pill, round-rule
+mechanics and dashes. `REJECT` lists each finding; fix the draft, never the check. It checks shape
+and a closed word list only; the founder still reviews the rendered page.
 
 ### Step 3 — The rules
 
@@ -192,10 +214,25 @@ location link opens the venue's pin (rule 11).
 
 8. **No product vocabulary** ("stories", "agents", "points" as concepts); "four points" in plain
    English and the Stories tab named for navigation are fine. The Clarity Meeting Principle is named
-   once in the agenda with its one-line meaning and **never linked** (`/meet` stays unlinked). That
+   once in agenda item 1 and **linked once, plain**: `*[Clarity Meeting Principle](https://claritypledge.com/meet)*`,
+   never a pill (founder, 2026-09-28: *"maybe okay link it"*, superseding "never linked"). That
    naming is a recorded Clarity Night deviation from protocol silence; see the event doc.
 9. **Stories are machine-written:** "backed by their own quotes", never "in their own words".
 10. **No em or en dashes**, short sentences, no promise about publication, no call to action.
+    Short means checked: `page-check.mjs` fails any prose sentence over its word limit.
+17. **No negation opener.** Neither the page nor any section starts with what the event is not
+    (founder, 2026-09-28: *"Why do you start with negation?"*).
+18. **Never "we quoted".** The page shows quotes; it does not narrate quoting them.
+19. **Never imply the people spoke about the event's frame term** when they did not. If the topic
+    word is ours, say what they argue about in their own terms (2026-09-28: *"none of them said a
+    word about Ikigai… Six well-known experts argue about AI work in meaning"*).
+20. **No talk videos in Sources.** Each person's story already carries their source; Sources holds
+    only the claims in *Why now*.
+21. **The round rule is what the room does, never page copy.** In each round nobody disagrees while
+    the lower of the two understanding numbers is under 8, and numbers are given only if the
+    listener opted in (decisions.md 2026-09-17 [product]). The page states the social norm, never
+    the mechanics: no scores, no scale, no threshold (founder, 2026-09-28: *"maybe we shouldn't talk
+    here about mechanics"*).
 
 **Sections**
 
@@ -203,13 +240,15 @@ location link opens the venue's pin (rule 11).
     Maps listing gives it, and the page header's location link must open **the single venue pin**
     (check in a browser: a pin, not a list). There is no venue section in the description.
 12. **Agenda:** this night's run of show, asked as an input and **never copied from the previous
-    night**. Counts are approximate; the demo volunteer is not described; the closing step uses the
-    founder's own words. Re-taking positions per point happens in the room whether or not the
-    listing says so.
-13. **Optional preparation:** one sentence, then one button to `/stake/<tag>?tab=stories`; agenda
-    item 1 links `/stake/<tag>` as a plain link. (`?tab=` opens Stories once P1296 ships; until then,
-    Points with the Stories tab one tap away.)
-14. **Recording:** the one line the event doc's *Recording policy* describes, in its current wording.
+    night**. The room format for in-person nights is in the event doc (trios since 2026-09-28);
+    describe it in plain words, rounds and minutes included. The demo volunteer is not described;
+    the closing step uses the founder's own words; an optional dinner is listed only when he names
+    one. Re-taking positions per point happens in the room whether or not the listing says so.
+13. **The contested points link:** the agenda item where everybody takes a position links
+    `/stake/<tag>` as a plain link; the button in *Prepare for the event* links
+    `/stake/<tag>?tab=stories`.
+14. **Recording:** when the night is recorded, the one line the event doc's *Recording policy*
+    describes, in its current wording, at the end of *How Clarity Nights are different*.
 15. **Never the group chat in the description**, not the link and not a pointer.
 16. **At most one explainer image**, hosted on our own storage (`event-banners/descriptions/`) in the
     same environment as the event: the page drops images from anywhere else (P1352). Moving to PROD
@@ -269,8 +308,12 @@ Paste the evidence; do not ask to move to PROD until all pass.
       2026-09-22 failure with the check added and not run (review, 2026-09-28)
 - [ ] Every date converted to Asia/Bangkok
 - [ ] The rule-6 balance table exists, with items on both sides of the points argued first
-- [ ] The seven sections of Step 2, in order, and no venue section
-- [ ] Exactly one pill in Optional preparation; the header location link opens the venue's pin
+- [ ] `page-check.mjs` exits 0 on the description, output pasted (the five sections of Step 2,
+      one pill, one plain `/meet` link, rules 8, 10, 17 to 21)
+- [ ] `node scripts/events/event-date.mjs check --env test <slug>` exits 0, or the mismatch is
+      named to the founder (a TEST slug is hand-written; PROD slugs take the event date since P1367)
+- [ ] The handoff's `## Now` block names this page and the resolved date; `node scripts/events/run-status.mjs <run-slug>` exits 0
+- [ ] The header location link opens the venue's pin
 - [ ] Title starts `Clarity Night #<N>:` with N = previous + 1, comma list, no "vs"
 - [ ] Zero em and en dashes (counted)
 - [ ] Rendered at desktop and at a **confirmed** 375 px: `chrome-devtools` `emulate`, then read
@@ -335,8 +378,10 @@ Paste the evidence; do not ask to move to PROD until all pass.
      role key, like the other direct-DB steps here. Compose it from the same illustrated faces — the
      template's JSON with the people laid out 2-row/3-column, or whatever grid reads best at ~2:1 —
      rather than fresh art, so the two banners match. Confirm it at 375px like the desktop crop.
-4. **Render check on prod, signed out** (an isolated browser context): title, venue link, the seven
-   Step 2 sections in order, and the locked group-chat state a stranger sees.
+4. **Render check on prod, signed out** (an isolated browser context): title, venue link, the five
+   Step 2 sections in order, and the locked group-chat state a stranger sees. Then
+   `node scripts/events/event-date.mjs check --env prod <new slug>` must exit 0, and the handoff's
+   `## Now` block is rewritten for PROD.
 
 ### Step 7 — Short link, once per topic
 
@@ -357,7 +402,7 @@ skill drafts it; the founder sends it.
 
 ### Step 9 — Hand off
 
-Report the prod URL, the short link's state (live, or waiting on push), the banner's state, and
+Rewrite the handoff's `## Now` block (fields in `scripts/events/run-status.mjs`), then report the prod URL, the short link's state (live, or waiting on push), the banner's state, and
 everything waiting on the founder: log in for the banner, push, venue confirmation.
 Next: `/slava:events:promote-all`.
 
@@ -374,7 +419,7 @@ Next: `/slava:events:promote-all`.
 
 - [ ] The founder confirmed the move to PROD in the same turn, after hearing the Step 6.1 known gap
 - [ ] The group-chat read-back printed `True`
-- [ ] Prod rendered signed out with the venue link and the seven Step 2 sections, and the banner passed the look-and-crop check at 320, 375, ~1500 and 1920 px
+- [ ] Prod rendered signed out with the venue link and the five Step 2 sections, and the banner passed the look-and-crop check at 320, 375, ~1500 and 1920 px
 - [ ] If a phone-specific banner was set (`banner_mobile_url`), it was confirmed legible at 375px too
 
 ## Related Skills

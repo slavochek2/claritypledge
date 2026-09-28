@@ -476,3 +476,5 @@ The stage contracts, the run-file schema and the seal rules live in one place: [
 1. Does a synthesized point actually split a room harder than a restated one? The 2026-08-17 run produced the form but no room has answered either kind.
 2. Is the 15–40% band right for rooms of eight?
 3. Should near-misses on the kill rule be reported, so the operator sees what was almost interesting?
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.

@@ -681,3 +681,5 @@ Hand off to `/slava:disagreement:publish` (dry-run first, TEST before PROD).
 - **Do NOT have the checker rewrite.** Findings return to the writer.
 - **Do NOT treat an `idle` agent listing as a report that will not arrive**, and do NOT drop work on silence before the stated deadline has actually passed.
 - **Do NOT weaken or bypass any publish precondition** to make a story fit the ceiling — including the audio-at-timecode check and the `Supporting quotes from {Full Name}` label.
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.
