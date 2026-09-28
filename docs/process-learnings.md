@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 92
+**Next ID:** 93
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1702,5 +1702,16 @@ src/tests/p887-reproduce.test.ts copies scripts/lib/ file by file and fails with
 **due:** week
 
 P1358 R3 made Gemini 3.8 the default story writer with the threshold pre-registered and the model labelled on probation; the benchmark itself has not run, because the ikigai run had not reached story-draft. At the next story-draft: for two arguers, have Gemini and Opus each write every story, one Sonnet checker grade both sets blind to authorship, and the founder pick a favourite per pair blind. Keep Gemini only if its checker failure rate is no worse than Opus's by more than one story and the founder prefers Opus in no more than half the pairs; otherwise writers move to Opus. Record the result in P1358 and drop the probation label. Droppable if the story stage stops using per-arguer writers at all.
+
+---
+
+## Run codex-review on the two P1358 commits (Codex was quota-walled during the review gate)
+
+**ID:** INBOX-92
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+P1358 shipped with two of three reviewers delivered: Opus and Gemini both reported and their findings are fixed, but codex-review exited 1 on its usage limit, which its wrapper flags as a failed run rather than a clean review. Run codex-review over the two commits (the implementation, swept into the video-facade commit, and the fix commit) once the limit resets, and file anything real as a follow-up change rather than reopening the spec. Droppable once a later Codex review covers the same disagreement-pipeline files.
 
 ---
