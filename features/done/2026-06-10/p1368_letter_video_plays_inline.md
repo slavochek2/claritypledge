@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 15
 workstream: letters
@@ -11,6 +11,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: founder
+completed_at: 2026-09-28
 ---
 
 # P1368: Letter story video plays in place, with a sharp poster
