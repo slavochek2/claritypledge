@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
 import { toSevenPointCounts } from '@/app/utils/position-helpers';
@@ -16,6 +16,7 @@ import {
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryMedia } from '@/app/components/shared/story-media';
+import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
@@ -100,6 +101,8 @@ export function LiveStoryCardExpanded({
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
+  // P1368: in player mode, quote timecodes seek this player instead of leaving the page.
+  const playerRef = useRef<StoryVideoPlayerHandle>(null);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(initialStoryExpanded);
 
@@ -254,6 +257,7 @@ export function LiveStoryCardExpanded({
             {(story.videoUrl || story.imageUrl) && (
               <div className="mb-2">
                 <StoryMedia
+                  ref={playerRef}
                   videoUrl={story.videoUrl}
                   durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
                   mode={videoMode}
@@ -294,14 +298,16 @@ export function LiveStoryCardExpanded({
             letter sealed before §1 render its quotes TWICE, since the seal freezes the
             prose and the quote array independently and snapshots are immutable.
 
-            No `onSeek`: this card renders a thumbnail, not a player, so there is nothing to
-            seek in place. StoryVideoQuotes falls back to open-at-timestamp links, which
-            keeps the rule that no timecode is shown where clicking it does nothing. */}
+            `onSeek` only in `videoMode="player"` (P1368, letters): there is a player to seek in
+            place. In thumbnail mode there is none, so StoryVideoQuotes falls back to
+            open-at-timestamp links, which keeps the rule that no timecode is shown where
+            clicking it does nothing. */}
         {story.videoUrl && quotesToRender.length > 0 && (
           <div className="mt-2 pl-4 sm:pl-[52px] pr-4">
             <StoryVideoQuotes
               videoUrl={story.videoUrl}
               quotes={quotesToRender}
+              onSeek={videoMode === 'player' ? (seconds) => playerRef.current?.seekTo(seconds) : undefined}
             />
           </div>
         )}

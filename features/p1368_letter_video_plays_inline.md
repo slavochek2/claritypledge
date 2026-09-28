@@ -46,9 +46,13 @@ story (`883d89f5`) predated its video and carried no `videoUrl`; `point_config.v
   `/letter/7bd0d109-…`.
 - [x] The poster before play is the story's own image (1200x896), not the 480x360 YouTube thumbnail.
   Evidence: screenshot before play shows the story's diagram image under the play button.
+- [x] The poster shows the whole story image (object-contain on white), never cropped to 16:9.
+  Evidence: facade img class `object-contain`, natural 1200x896, screenshot shows the full diagram.
+- [x] Quote timecodes in a letter seek the in-letter player (`onSeek` wired in player mode only);
+  thumbnail mode keeps open-at-timestamp links. st1 has 0 quotes, so not exercised in a browser.
 - [x] Feeds and live sessions keep the thumbnail (default `videoMode='thumbnail'`; no other caller changed).
 
 ## Not verified
 
-- Phone widths (375 / 320) — desktop only.
+- 320px not checked; 375px verified (play stays in the letter, iframe mounts).
 - Results and prediction walks were not clicked through in a browser; same prop, same component.

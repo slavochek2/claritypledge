@@ -242,13 +242,15 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
           onClick={() => setActivated(true)}
           aria-label="Play video"
           data-testid="story-video-facade"
-          className={`group relative block w-full overflow-hidden rounded-lg bg-black aspect-video ${className}`}
+          className={`group relative block w-full overflow-hidden rounded-lg ${posterUrl ? 'bg-white' : 'bg-black'} aspect-video ${className}`}
         >
           {poster && (
             <img
               src={poster}
               alt=""
-              className="h-full w-full object-cover"
+              // P1368: a story's own image is any aspect ratio — show it whole on the black
+              // box. YouTube's posters are 16:9 already, so cover crops nothing there.
+              className={`h-full w-full ${posterUrl ? 'object-contain' : 'object-cover'}`}
               loading="lazy"
               onError={(e) => {
                 // maxresdefault is absent for sub-720p uploads; drop to the 480x360 one.
