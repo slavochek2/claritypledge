@@ -16,11 +16,17 @@
  *   2. At the app's first entry: was there a page BEFORE the app in this tab (P1311 — an
  *      outside page that linked here)? Then pop, back to that page; otherwise go to the
  *      fallback with `replace`.
- *      - That is recorded ONCE, at boot (`stampHistoryBoot`), as `history.length > 1` — the only
- *        moment `history.length` means "entries before me". Read later it also counts FORWARD
+ *      - That is a fact about the TAB's first app entry, recorded ONCE PER TAB at the app's
+ *        first boot (`stampHistoryBoot`) as `history.length > 1` — the only moment
+ *        `history.length` means "entries before me". Read later it also counts FORWARD
  *        entries: cold /story → push /point → browser back leaves length 2 at index 0, and the
  *        old `length <= 1` test popped at index 0, which does nothing (P1364 review: a dead
  *        Back button).
+ *      - It lives in sessionStorage (per tab, survives reload). A reload of a LATER entry must
+ *        never re-derive it: there `history.length` counts the entries before it that belong
+ *        to the app, reads "true", and made Back at index 0 pop into nothing (P1364 review 2,
+ *        D1). Without sessionStorage, a boot that is a reload or a later entry records "no
+ *        predecessor" — the fallback route, never a dead button.
  *
  * Robust to a wiped history state (a page that called `replaceState(null, …)` drops the
  * router's `{ key, idx }`): with no index and no Navigation API, `history.length <= 1` is the
@@ -32,28 +38,53 @@
 import { useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-/** The field stamped onto the boot entry's history state. */
-export const HAD_PREDECESSOR_FIELD = 'p1364HadPredecessor';
+/** sessionStorage key: per tab, survives reload. */
+export const TAB_HAD_PREDECESSOR_STORAGE_KEY = 'p1364:tabFirstEntryHadPredecessor';
 
 let bootHadPredecessor: boolean | null = null;
 
+function readStored(): boolean | null {
+  try {
+    const v = window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY);
+    return v === 'true' ? true : v === 'false' ? false : null;
+  } catch {
+    return null; // storage blocked (private mode, sandboxed frame)
+  }
+}
+
+/** Is this document load a fresh arrival at the tab's first app entry (not a reload/back)? */
+function isTabFirstBoot(): boolean {
+  const idx = (window.history.state as { idx?: unknown } | null)?.idx;
+  if (typeof idx === 'number' && idx > 0) return false; // a later entry of an earlier app session
+  try {
+    const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined;
+    if (nav && nav.type !== 'navigate') return false; // reload / back_forward: not an arrival
+  } catch {
+    // no Navigation Timing — the index check above is all there is
+  }
+  return true;
+}
+
 /**
- * Call once at app boot, before the router mounts. Records whether the tab held a page before
- * this app's first entry — on the entry's own state (merged, so react-router's fields survive)
- * and in module memory (a router `replace` at index 0 rewrites the state and drops the stamp).
+ * Call once at app boot, before the router mounts. Records, once per TAB, whether the tab held
+ * a page before this app's first entry.
  */
 export function stampHistoryBoot(): void {
+  const stored = readStored();
+  if (stored !== null) {
+    bootHadPredecessor = stored; // the tab's first boot answered this already
+    return;
+  }
+  if (!isTabFirstBoot()) {
+    // Unknown, and history.length can no longer tell: choose the answer that is never dead.
+    bootHadPredecessor = false;
+    return;
+  }
+  bootHadPredecessor = window.history.length > 1;
   try {
-    const state = (window.history.state ?? {}) as Record<string, unknown>;
-    const stamped = state[HAD_PREDECESSOR_FIELD];
-    if (typeof stamped === 'boolean') {
-      bootHadPredecessor = stamped; // a reload of an entry stamped earlier keeps its answer
-      return;
-    }
-    bootHadPredecessor = window.history.length > 1;
-    window.history.replaceState({ ...state, [HAD_PREDECESSOR_FIELD]: bootHadPredecessor }, '');
+    window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, String(bootHadPredecessor));
   } catch {
-    // history unavailable (sandboxed frame) — the length heuristic below still applies
+    // storage blocked: module memory still answers for this document
   }
 }
 
@@ -63,13 +94,32 @@ export function __resetHistoryBootForTest(): void {
 }
 
 function firstEntryHadPredecessor(): boolean {
-  const stamped = (window.history.state as Record<string, unknown> | null)?.[HAD_PREDECESSOR_FIELD];
-  if (typeof stamped === 'boolean') return stamped;
   if (bootHadPredecessor !== null) return bootHadPredecessor;
-  return window.history.length > 1; // never stamped (tests, embeds): the pre-P1364 rule
+  return window.history.length > 1; // never booted (tests, embeds): the pre-P1364 rule
 }
 
 type NavigationApi = { canGoBack?: unknown };
+
+function safeDecode(path: string): string {
+  try {
+    return decodeURI(path);
+  } catch {
+    return path; // a malformed escape: compare as-is
+  }
+}
+
+/**
+ * Is the router driving window.history (a BrowserRouter), or an in-memory router? The router's
+ * own key on the current history entry is the direct signal; the path comparison — decoded on
+ * both sides, so `ai%20safety` and `ai safety`, `caf%C3%A9` and `café` agree — covers a state
+ * that was wiped. (P1364 review 2, D3. In react-router 7.13 both sides are measured to be
+ * percent-encoded and equal, so this guards a future change rather than a present bug.)
+ */
+export function isBrowserBacked(routerLocation: { key: string; pathname: string }): boolean {
+  const stateKey = (window.history.state as { key?: unknown } | null)?.key;
+  if (typeof stateKey === 'string' && stateKey === routerLocation.key) return true;
+  return safeDecode(window.location.pathname) === safeDecode(routerLocation.pathname);
+}
 
 /** 'pop' | 'fallback' for a router backed by window.history. Exported for tests. */
 export function decideBrowserBack(): 'pop' | 'fallback' {
@@ -88,11 +138,11 @@ export function useGoBack(fallbackPath: string): () => void {
   const location = useLocation();
   const arrivedColdRef = useRef<boolean | null>(null);
   if (arrivedColdRef.current === null) arrivedColdRef.current = location.key === 'default';
-  const pathnameRef = useRef(location.pathname);
-  pathnameRef.current = location.pathname;
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   return useCallback(() => {
-    const browserBacked = window.location.pathname === pathnameRef.current;
+    const browserBacked = isBrowserBacked(locationRef.current);
     let decision: 'pop' | 'fallback';
     if (browserBacked) decision = decideBrowserBack();
     else decision = arrivedColdRef.current === true && window.history.length <= 1 ? 'fallback' : 'pop';

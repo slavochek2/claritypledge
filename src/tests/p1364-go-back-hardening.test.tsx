@@ -17,8 +17,8 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
   __resetHistoryBootForTest,
   decideBrowserBack,
-  HAD_PREDECESSOR_FIELD,
   stampHistoryBoot,
+  TAB_HAD_PREDECESSOR_STORAGE_KEY,
 } from '@/app/hooks/use-go-back';
 
 let nav: NavigateFunction;
@@ -36,6 +36,7 @@ afterEach(() => {
 describe('finding 2 — cold arrival with a forward entry', () => {
   it('cold /story → /point → browser back → Back goes to the fallback, not nowhere', async () => {
     expect(window.history.length).toBe(1); // a fresh tab
+    window.sessionStorage.clear();
     window.history.replaceState(null, '', '/story/s1');
     __resetHistoryBootForTest();
     stampHistoryBoot(); // what main.tsx does before the router mounts
@@ -62,12 +63,12 @@ describe('finding 2 — cold arrival with a forward entry', () => {
     expect(screen.getByText('the feed')).toBeTruthy();
   });
 
-  it('the boot stamp is merged into the router state, never replacing it', () => {
+  it('the boot record lives in sessionStorage and leaves the router state untouched', () => {
+    expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('false'); // from the test above
     window.history.replaceState({ usr: null, key: 'k1', idx: 0 }, '');
     __resetHistoryBootForTest();
     stampHistoryBoot();
-    expect(window.history.state).toMatchObject({ key: 'k1', idx: 0 });
-    expect(typeof (window.history.state as Record<string, unknown>)[HAD_PREDECESSOR_FIELD]).toBe('boolean');
+    expect(window.history.state).toEqual({ usr: null, key: 'k1', idx: 0 });
   });
 });
 
@@ -100,6 +101,12 @@ describe('decideBrowserBack — the decision table', () => {
   const withNavigationApi = (canGoBack: boolean) => {
     (window as unknown as { navigation: unknown }).navigation = { canGoBack };
   };
+  /** What the tab's first boot recorded. */
+  const withBoot = (hadPredecessor: boolean) => {
+    window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, String(hadPredecessor));
+    __resetHistoryBootForTest();
+    stampHistoryBoot();
+  };
 
   it('Navigation API: an earlier app entry → pop', () => {
     withState({ idx: 0 }, 1);
@@ -107,14 +114,16 @@ describe('decideBrowserBack — the decision table', () => {
     expect(decideBrowserBack()).toBe('pop');
   });
 
-  it('Navigation API: first app entry, an outside page before it (stamped) → pop (P1311)', () => {
-    withState({ idx: 0, [HAD_PREDECESSOR_FIELD]: true }, 2);
+  it('Navigation API: first app entry, an outside page before it (recorded at the tab\'s first boot) → pop (P1311)', () => {
+    withBoot(true);
+    withState({ idx: 0 }, 2);
     withNavigationApi(false);
     expect(decideBrowserBack()).toBe('pop');
   });
 
   it('Navigation API: first app entry, nothing before it, a forward entry (length 2) → fallback', () => {
-    withState({ idx: 0, [HAD_PREDECESSOR_FIELD]: false }, 2);
+    withBoot(false);
+    withState({ idx: 0 }, 2);
     withNavigationApi(false);
     expect(decideBrowserBack()).toBe('fallback');
   });
