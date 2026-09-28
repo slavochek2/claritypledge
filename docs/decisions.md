@@ -6,6 +6,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [technical]: The room batch job read an archive path the uploader never writes (P1339)
+
+**Context:** Every after-event room transcript since the P1307 batch pipeline went live had 0 segments while its job reported `completed`, `attempts=1`, `error=NULL` (6 of 6 rooms, incl. event #1). Recorded as cause-unknown on 2026-09-21; confirmed read-only on 2026-09-22.
+**Decision:** The client asks the signed-URL service for the prefix `rooms/{code}/{name}-{member_id}`; the out-of-repo Cloud Function stores the object at `sessions/rooms{code}{name}-{member_id}` — prefix prepended, slashes stripped. The batch job listed only the requested path, so it found zero chunks for every member. The job now reads both layouts (`audio.room_listing_prefixes`), and a zero-chunk member is never a clean completion: it returns to pending for the sweep (an upload can still be in flight), and on the final attempt the member is written into the transcript as incomplete and the job fails with `no_audio_chunks`. Separately, an empty after-event transcript no longer hides the live one in `fetchRoomTranscript` — until this, every recorded room's page showed a blank transcript although `transcribe_messages` held the text.
+**Alternatives rejected:** Changing the upload service (out of repo, unowned, and it would strand the ~325 chunks already stored under the current layout). Treating zero chunks as a hard non-retryable failure (the sweep creates a job per member, including people who only listened, and an upload can land seconds after the listing).
+**Consequences:** The audio was never lost, so event #1 is recoverable — the spec carries the recovery runbook (re-set the old `completed` jobs to pending after deploy; nothing re-claims a completed job). Follow-up needed, not yet specced: a member whose audio is missing still loses their live lines once any other member's transcript is non-empty; `no_audio_chunks` will also fire for listeners, adding noise to the failure signal; and a final chunk still uploading when the job lists the bucket is undetectable under server-issued numbering with no known end.
+**Process note:** P1149's own comment said this layout was "unverified here by design" and named P1152's bucket listing as the live proof. That listing was never run, and an unverified assumption sat in prod for a week behind a job that reported success. A pipeline whose success path cannot distinguish "nothing to do" from "looked in the wrong place" reports the wrong answer confidently — the gap the reviewers all converged on.
+**References:** [p1339](../features/done/2026-06-10/p1339_room_batch_transcripts_complete_with_zero_segments.md), P1307, P1149, P1152
+
 ## 2026-09-28 [process]: Two agent frictions from the video session (Status: proposed)
 
 **Context:** Meta-reflection on the click-to-play session. Two frictions, both mine, both cheap to prevent.
