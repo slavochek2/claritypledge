@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { VideoThumbnailCard } from '@/app/components/shared/video-thumbnail-card';
@@ -24,6 +24,15 @@ const IMAGE = 'https://cdn.example.com/story.png';
 
 function wrap(ui: React.ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
+/**
+ * The player mounts on a click, not on paint (founder 2026-09-28: a resting embed
+ * advertises "Watch on YouTube" and a copy-link button, both of which lead readers
+ * off the site). Tests that assert the LIVE player press play first.
+ */
+function play() {
+  fireEvent.click(screen.getByTestId('story-video-facade'));
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -81,6 +90,7 @@ describe('p1141 DW-5 — the thumbnail treatment on every card surface', () => {
 describe('p1141 DW-1 — the player takes the picture\'s place on the detail surface', () => {
   it('mode="player" mounts the live player, not a thumbnail', () => {
     wrap(<StoryMedia videoUrl={VIDEO} mode="player" />);
+    play();
     expect(screen.getByTestId('story-video-player')).toBeTruthy();
     expect(screen.queryByTestId('video-thumbnail-image')).toBeNull();
   });
@@ -93,6 +103,7 @@ describe('p1141 DW-1 — the player takes the picture\'s place on the detail sur
         imageProps={{ src: IMAGE, authorName: 'X' } as never}
       />
     );
+    play();
     expect(screen.getByTestId('story-video-player')).toBeTruthy();
     expect(screen.queryByTestId('story-image')).toBeNull();
   });
@@ -122,5 +133,20 @@ describe('p1141 DW-4 — a story with no usable video renders exactly as today',
   it('renders nothing at all when there is neither a video nor an image', () => {
     const { container } = wrap(<StoryMedia videoUrl={null} mode="thumbnail" />);
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('click-to-play facade — nothing from YouTube until the reader asks', () => {
+  it('shows a poster with a play control instead of the embed on first paint', () => {
+    wrap(<StoryMedia videoUrl={VIDEO} mode="player" />);
+    expect(screen.getByTestId('story-video-facade')).toBeTruthy();
+    expect(screen.queryByTestId('story-video-player')).toBeNull();
+  });
+
+  it('mounts the embed only after the play control is pressed', () => {
+    wrap(<StoryMedia videoUrl={VIDEO} mode="player" />);
+    fireEvent.click(screen.getByTestId('story-video-facade'));
+    expect(screen.getByTestId('story-video-player')).toBeTruthy();
+    expect(screen.queryByTestId('story-video-facade')).toBeNull();
   });
 });

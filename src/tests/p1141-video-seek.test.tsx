@@ -12,6 +12,15 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+
+/**
+ * The embed mounts on a click, not on paint (founder 2026-09-28: the resting embed
+ * advertised "Watch on YouTube" and a copy-link button). Every assertion about the
+ * live or blocked player presses play first.
+ */
+function play() {
+  fireEvent.click(screen.getByTestId('story-video-facade'));
+}
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { __resetYouTubeApiLoader } from '@/lib/video';
@@ -69,6 +78,7 @@ describe('p1141 DW-2 / AC-1 — a timecode seeks in place, in one click', () => 
 
     const ref = createRef<StoryVideoPlayerHandle>();
     render(<StoryVideoPlayer ref={ref} videoUrl={VIDEO} />);
+    play();
     await waitFor(() => expect(readyCb).toBeTypeOf('function'));
     act(() => readyCb?.());
 
@@ -184,6 +194,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     };
 
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => {
       vi.advanceTimersByTime(31_000); // past the clamp ceiling
     });
@@ -195,6 +206,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     vi.useFakeTimers();
     (window as unknown as { YT: unknown }).YT = { Player: class { destroy = vi.fn(); } };
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => { vi.advanceTimersByTime(31_000); });
     expect(screen.getByTestId('video-thumbnail-link').getAttribute('href')).toBe(VIDEO);
   });
@@ -208,6 +220,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     vi.useFakeTimers();
     (window as unknown as { YT: unknown }).YT = { Player: class { destroy = vi.fn(); } };
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => { vi.advanceTimersByTime(31_000); });
 
     const notice = screen.getByTestId('story-video-blocked-notice');
@@ -234,6 +247,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
       },
     };
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => { await Promise.resolve(); });
     act(() => readyCb?.());
     await act(async () => { vi.advanceTimersByTime(60_000); });
@@ -250,6 +264,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
       },
     };
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => { await Promise.resolve(); });
     act(() => readyCb?.());
     await act(async () => { vi.advanceTimersByTime(60_000); });
@@ -261,6 +276,7 @@ describe('p1141 DW-3 — with the player blocked, the story is still whole', () 
     vi.useFakeTimers();
     (window as unknown as { YT: unknown }).YT = { Player: class { destroy = vi.fn(); } };
     render(<StoryVideoPlayer videoUrl={VIDEO} />);
+    play();
     await act(async () => { vi.advanceTimersByTime(7_600); });
     // A false "blocked" on a working player is worse than waiting: the fallback
     // it triggers sends the reader off-site.

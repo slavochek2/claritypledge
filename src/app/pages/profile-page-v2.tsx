@@ -81,6 +81,7 @@ import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-gr
 import { groupBySource } from '@/lib/group-by-source';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { normalizeVideoQuotes } from '@/lib/video';
+import { parseVideoUrl } from '@/lib/video';
 import { uploadStoryImage } from '@/app/data/story-image-service';
 import { stripHashtags, extractHashtags } from '@/lib/utils';
 import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/types";
@@ -1356,7 +1357,7 @@ function StoryCardFull({
   /* P1259 change 1 — the profile mounts a real player, lazily. Founder: "when I click on a
      timestamp, we stay on the same page in the same way we do that when we are on a story
      card." — and not inside a group, whose own player stands in for this one. */
-  const player = useLazyStoryPlayer(!!story.videoUrl && !groupPlayer);
+  const player = useLazyStoryPlayer(!!parseVideoUrl(story.videoUrl) && !groupPlayer);
 
   // Sync localImageUrl when story prop changes (e.g., parent refetch)
   useEffect(() => {
@@ -1637,6 +1638,7 @@ function StoryCardFull({
                       videoUrl={story.videoUrl}
                       durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
                       mode={player.mode}
+                      onActivate={groupPlayer ? groupPlayer.onActivate : player.onActivate}
                       onBlockedChange={player.onBlockedChange}
                       storyHref={detailRoutes.story(story.id)}
                       imageProps={localImageUrl ? {

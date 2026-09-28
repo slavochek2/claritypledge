@@ -102,6 +102,21 @@ export function getThumbnailUrl(url: string | null | undefined): string | null {
 }
 
 /**
+ * The full-width poster for the click-to-play facade: 1280x720 where the upload has it.
+ *
+ * NOT `getThumbnailUrl`, deliberately. That one is the 480x360 `hqdefault` the OG tags and
+ * the thumbnail cards are built on (P1141), and stretching it across a 16:9 media slot is
+ * what the founder saw as a blurry picture on 2026-09-28. `maxresdefault` exists only when
+ * the source upload was at least 720p, so the caller keeps `getThumbnailUrl` as its onError
+ * fallback rather than trusting this URL to resolve.
+ */
+export function getPosterUrl(url: string | null | undefined): string | null {
+  const video = parseVideoUrl(url);
+  if (!video) return null;
+  return `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg`;
+}
+
+/**
  * The blocked-player fallback for a timecode: open the source at the second.
  * Non-finite or negative seconds clamp to 0 rather than emitting a broken link.
  */

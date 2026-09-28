@@ -3,6 +3,11 @@
  * @description P1296 items 6–7 on /feed — stories on one video group; the search regroups
  * live; the tabs carry counts.
  */
+/*
+ * The media box is one of four things since 2026-09-28: a link out (surfaces with no
+ * player), a play button or a poster facade (before the reader presses play), or the live
+ * embed. These assertions count media boxes, so they list all four.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -79,7 +84,7 @@ describe('P1296 item 7 — /feed Stories groups by source', () => {
   it('a search that leaves two of a source keeps them grouped — and keeps the SAME player mounted', async () => {
     renderFeed();
     const before = await screen.findByTestId('source-group');
-    const playerBefore = before.querySelector('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]');
+    const playerBefore = before.querySelector('[data-testid="video-thumbnail-link"], [data-testid="video-thumbnail-play"], [data-testid="story-video-facade"], [data-testid="story-video-player"]');
     expect(playerBefore, 'the group renders its one player').toBeTruthy();
 
     fireEvent.change(screen.getByPlaceholderText('Search stories and points...'), { target: { value: 'matter' } });
@@ -96,7 +101,7 @@ describe('P1296 item 7 — /feed Stories groups by source', () => {
     // Keyed by source, so the group survived the search rather than remounting — a reader
     // mid-video does not lose the player because they typed in the search box.
     expect(after).toBe(before);
-    expect(after.querySelector('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]')).toBe(playerBefore);
+    expect(after.querySelector('[data-testid="video-thumbnail-link"], [data-testid="video-thumbnail-play"], [data-testid="story-video-facade"], [data-testid="story-video-player"]')).toBe(playerBefore);
   });
 });
 

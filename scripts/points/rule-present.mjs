@@ -98,6 +98,40 @@ export const RULE_SETS = {
       ],
     },
   },
+  'speaker-confirmation': {
+    // P1358 R1a + R1b + R1c. No page quotes a speaker the pipeline has not
+    // confirmed. The banned-sentence row is the load-bearing one: this file's
+    // exemption for `speaker-labelled` quotes survived a ruling that contradicted
+    // it (decisions.md 2026-08-28) for a month, and a quote reached a real event
+    // page under the wrong person's name because of it.
+    dw: 'P1358',
+    locations: {
+      [`${SKILLS}/positions.md`]: [
+        ['Step 4b covers every multi-speaker source, diarized included',
+          /^### Step 4b — Per-quote speaker confirmation \(every multi-speaker source, diarized included\)/m],
+        // Anchored to lines that are NOT blockquotes, so the file's own record of the
+        // withdrawn sentence (quoted inside a `>` block) cannot answer for the rule —
+        // epistemic.md gate 7d, where a searched file's own examples satisfy the search.
+        ['the withdrawn skip-for-speaker-labelled exemption is absent as an instruction',
+          /^(?!>)[^\n]*Skip entirely for[^\n]*speaker-labelled/m, { absent: true }],
+        ['Step 4c receives diarized turns with the labels stripped',
+          /strip the speaker labels before handing the turns over/i],
+        ['only turns from a window that passed Step 2c may be used',
+          /a window that PASSED Step 2c may be used/],
+      ],
+      [`${SKILLS}/select.md`]: [
+        ['Step 2c is judged per window, never per source', /verdict is PER WINDOW, never per source/],
+        ['a failed or unmeasurable window is re-diarized in <=5-minute windows',
+          /re-diarized in ≤5-minute windows/],
+      ],
+      [`${SKILLS}/clarity-night-publish.md`]: [
+        ['a multi-speaker page quote needs a Step 4b + 4c record',
+          /multi-speaker source may go on the page only with a Step 4b \+ 4c confirmation record/],
+        ['the page-quote predicate is invoked as a command',
+          /node scripts\/points\/page-quote-check\.mjs/],
+      ],
+    },
+  },
   'event-contract': {
     dw: 'DW-11',
     locations: {
@@ -129,7 +163,17 @@ export function run(input) {
     const file = input.files?.[loc] ?? path.join(root, loc)
     if (!existsSync(file)) { missing.push(`${loc}: file not found at ${file}`); continue }
     const text = readFileSync(file, 'utf8')
-    for (const [label, re] of rules) {
+    for (const [label, re, opts] of rules) {
+      // A rule may require a sentence to be ABSENT. P1358: the withdrawn "Skip
+      // entirely for single-speaker AND speaker-labelled sources" exemption in
+      // positions.md is the case — a row asserting its presence cannot stop it
+      // coming back, and it came back once already by surviving a ruling that
+      // contradicted it for a month.
+      if (opts?.absent) {
+        if (re.test(text)) missing.push(`${loc}: PRESENT BUT BANNED — ${label}`)
+        else found.push(`${loc}: absent as required — ${label}`)
+        continue
+      }
       if (re.test(text)) found.push(`${loc}: ${label}`)
       else missing.push(`${loc}: MISSING — ${label}`)
     }

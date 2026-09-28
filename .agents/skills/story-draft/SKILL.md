@@ -277,9 +277,18 @@ writers + 4 checkers + 5 controls = **13 subagents**, plus a possible third-agen
 >
 > ```
 > story-draft fan-out plan: <n> writers + <n> checkers + 5 controls = <N> subagents
->   each reads one full transcript (~<k>k tokens) — estimate ~<T>k total
+>   each reads one full transcript (~<k>k tokens)
+>   writers  — Gemini 3.8 via delegate-gemini, OFF the Claude subscription: ~<G>k tokens
+>   checkers — Sonnet, on the subscription: ~<S>k tokens
+>   controls — Sonnet, on the subscription: ~<C>k tokens
+>   Opus is spent only on a checker re-run if the controls fail: ~<O>k if that happens
 >   Proceed? (yes / fewer / sequential)
 > ```
+>
+> **Print the Sonnet and Opus figures separately, and name which roles run off the subscription
+> (P1358 R3).** One blended "~T total" hides the only number the founder is deciding about: what this
+> run costs his Claude quota. The roles do not draw on the same budget, so a single total is not a
+> smaller version of the answer — it is a different question answered by accident.
 >
 > **Concurrency is bounded too** — assume roughly four slots, not thirteen, so run in **waves**. Note
 > what a wave must preserve: **a control is indistinguishable from real work by virtue of its PROMPT,
@@ -294,6 +303,62 @@ writers + 4 checkers + 5 controls = **13 subagents**, plus a possible third-agen
 The cost is deliberate and was traded explicitly: *"I don't think token efficiency is that important… we have to do it good or we don't do
 it."* (founder, 2026-08-31). The isolation is structural, not redundancy — a second agent doing the
 same job would inherit the same blind spot.
+
+### Model per role — a standing rule, not a per-run decision (P1358 R3)
+
+The founder settled this mid-run during Clarity Night #2 and it was never written down, so the next
+run would have asked again. It is standing now. Token figures below are **estimates** from a Fable
+cost review, not measurements: roughly 580k Sonnet + 150k Opus against 0.8–1.3M Opus today, about a
+3× cut in Opus-equivalent quota.
+
+| Role | Model | Why this one |
+|---|---|---|
+| **Writer** (one per arguer) | **Gemini 3.8** via `~/.agents/bin/delegate-gemini` | Free of the subscription, and the writing is bounded by a brief plus verbatim quotes. On probation until the benchmark below runs |
+| **Checker** (one per arguer) | **Sonnet** | Permitted **because** the five controls prove it every run — never because it is cheap |
+| **Controls** (five per run) | **Sonnet**, identical prompt shape to the real checkers | A control in a different model is not a control of the checker |
+| **Checker re-run after a control failure** | **Opus** | Never Sonnet again in the same run |
+| **Anything here** | never **Haiku**, and never the writer's own family as its checker | PS-3: the checker must not share the writer's blind spot |
+
+**Precondition — a clean transcript per source, or STOP.** `$YT_STORE/<video-id>/<lang>.clean.txt`
+must exist for **every** source before a single agent is spawned. **Raw `.vtt` is never a writer or
+checker input**: it is 3–4× the clean word count in timing noise, so it both wastes the budget this
+rule exists to protect and buries the prose the checker must read. A missing clean file is a STOP, not
+a fallback to the raw track — generate it first. Measured at the Clarity Night #2 story stage: **none
+of the six sources had one**, and nothing in this file said to look.
+
+**Windowing — only for sources over ~60 minutes.** Below that the transcript goes in whole. Above it,
+the writer and its checker receive **the same window ± ~3 minutes** of margin, taken only from windows
+that passed `select.md` Step 2c's per-window oracle (P1358 R1b), with the bounds recorded in the run
+file. A checker reading a different window from its writer reports every out-of-window claim as
+unsupported, which is a finding about the windowing and reads exactly like a finding about the story.
+*(The ~60-minute threshold is the Fable review's figure, not a measurement — Open Question 1 in
+P1358.)*
+
+**The writer is stateless, and its round 2 is not a conversation.** Assemble the task file by
+**shell** — brief + quotes + transcript path — so a two-hour transcript never passes through the
+orchestrator's context. A second round is the same model with **identical inputs plus its own draft
+plus the checker's findings**, and the run file records that this is what happened. An
+exit 2 from `delegate-gemini` (its credential-shaped-payload scan) routes that writer to the Claude
+path; **never edit the payload to get it past the scan.**
+
+**Writer brief — verbatim, never paraphrased:** the named extract of `docs/story-craft.md`, plus the
+Voice rules (P1141), PS-1 and PS-2 from this file. `docs/story-point-model.md` and
+`docs/points-process.md` are the **orchestrator's** reading, not the writer's — a writer given the
+point model starts reasoning about which point its story should serve, which is PS-1's failure mode
+with extra steps.
+
+**Controls sit on the SHORTEST transcripts — 4 of the 5 — with the near-miss control on a mid-length
+one.** The near-miss (modality shift) is the control that actually discriminates, and putting it on a
+short transcript makes it easier to catch than the real work it is standing in for.
+
+**Gemini stays the default writer only if the pre-registered benchmark says so** (P1358 Decision
+Criteria, confirmed by the founder 2026-09-28): for two arguers, Gemini and Opus each write every
+story; one Sonnet checker grades both sets blind to authorship; the founder picks a favourite per
+pair, also blind. **Keep Gemini if both hold** — its checker failure rate is no worse than Opus's by
+more than one story in the set, **and** the founder prefers Opus in no more than half the pairs.
+Otherwise writers move to Opus and the checker rule above is unchanged. Until that benchmark has run,
+say in the run file that the writer model is **on probation**, and record its result in P1358 when it
+does.
 
 ### The writer — one per ARGUER
 
@@ -339,7 +404,17 @@ prevent. Read it yourself and diff it against the findings: a sentence the write
 that the checker flags as an unsourced world-claim is a **disagreement about what kind of sentence it
 is**, and that disagreement is itself the finding.
 
-### The checker — one per story, never the writer
+### The checker — one per ARGUER, a separate verdict per story, never the writer
+
+**One checker per arguer, holding that arguer's stories, and it returns a SEPARATE verdict per story
+(P1358 R3).** This heading read *"one per story"* while the fan-out count in this same file and in
+`run-pipeline.md` assumed one per arguer — a file that contradicts itself about how many agents to
+spawn gets the count decided by whoever reads which line first. The unit is the arguer, because the
+checker needs that arguer's full transcript and point statements loaded to run PS-1 and PS-2 at all;
+what must never merge is the **verdicts**. A single verdict covering several stories hides which one
+carried the distortion, and a checker that has read the arguer's other stories starts grading them
+comparatively — the same failure the one-writer-per-arguer rule above exists to avoid. Print one
+row per story.
 
 **Give the checker exactly:**
 

@@ -54,10 +54,33 @@ the writer, an independent checker and the operator each doing their own step?
   per-access lock (never a plaintext copy).
 - **P1349's copyright rule binds the writer prompt:** own words, never a transcript; quotes at most one
   line, credited and timestamped; no claims the speaker did not make.
+- **A summary attributes a claim to a named person ONLY from speaker-labelled turns that passed their
+  window's Step 2c oracle** (amended by [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) R2a).
+  Otherwise it says "the host" or "a speaker", or drops the claim. On a pipeline video those turns
+  already exist; on a video with none, every claim is unattributed by default.
 
 ## Solution
 
 An operator command-line tool in `scripts/` with three steps, one row per video:
+
+### Inputs from the pipeline (amended by P1358 R2a — before any code exists)
+
+When the video came through the disagreement pipeline, the tool accepts what that pipeline already
+stored and the founder confirmed on 2026-09-28 that the pipeline drives `draft` + `check` for every
+approved video:
+
+- **The speaker-labelled turns** (`$DIARIZE_STORE/<id>/<start>s+<dur>s.json`), restricted to windows
+  that passed their own Step 2c oracle (P1358 R1b). These retire this spec's unmitigated risk —
+  *"auto-captions have no speaker labels, so multi-speaker attribution is unverifiable"* — on pipeline
+  videos, and only on those.
+- **The clean transcript** from the `yt` store, which both writer and checker read (same bytes,
+  P1349's invariant).
+- **Where it runs:** after `positions`, one row per **video** — never per story (P1349: *N stories from
+  one video → one URL*). `confirm` stays the operator's, inside publish's dry-run gate, per video id.
+- **Models:** writer **Gemini 3.8** via `~/.agents/bin/delegate-gemini`; checker **Sonnet** — a
+  different vendor and a different family, which is what this spec's "different vendor" invariant
+  already requires. Every `moments` entry carries its timestamp from the confirmed turns, so a claim
+  and the second it was said at travel together.
 
 1. **draft `<video>`** — fetch metadata and captions through `yt` (store-backed), write a neutral
    whole-video summary with Gemini in P1349's shape: `tldr`, `summary` prose, **exactly 3 key points**
@@ -80,14 +103,18 @@ takedown requests; P1349's rule: "Corrected or removed promptly when the creator
 | Risk | Label | Note |
 |---|---|---|
 | Model invents a claim or misattributes a speaker | MITIGATE | Independent checker against the transcript; operator confirm; demote for corrections |
-| Auto-captions have no speaker labels, so multi-speaker attribution is unverifiable from captions | MITIGATE | Checker fails a summary that attributes to a person the transcript cannot place; the operator sees it |
+| Auto-captions have no speaker labels, so multi-speaker attribution is unverifiable from captions | MITIGATE | **On a pipeline video this is retired (P1358 R2a):** attribution comes from speaker-labelled turns whose window passed Step 2c. Off-pipeline it stands — the checker fails a summary that attributes to a person the transcript cannot place, and the operator sees it |
 | Captions unavailable or walled | ACCEPT | `yt` handles walls; exit 7 is surfaced to the founder, never retried or paid for |
 | Long videos exceed a prompt budget | ACCEPT | Current Gemini context windows fit multi-hour captions; revisit if a real video fails |
 | Copyright on long summaries | MITIGATE | P1349 rule in the prompt + legal pages already shipped; lawyer check still recommended (P1349) |
 
 **Non-Goals**
 - Do NOT change the P1349 page, link, table or RLS.
-- Do NOT generate summaries automatically for every story video; the operator runs the tool per video.
+- **AMENDED by P1358 R2a (founder, 2026-09-28):** the pipeline DOES run `draft` + `check` for every
+  approved video of a run, right after `positions`. What stays the operator's is **`confirm`**, per
+  video id, inside publish's dry-run gate. The original Non-Goal read *"do NOT generate summaries
+  automatically for every story video; the operator runs the tool per video"* — that is withdrawn for
+  pipeline videos and still holds for any video handed to the tool by hand.
 - Do NOT add an in-app admin UI.
 - Do NOT depend on the private read-first repo at runtime; port the logic, nothing private.
 
@@ -99,6 +126,10 @@ takedown requests; P1349's rule: "Corrected or removed promptly when the creator
 - [ ] `confirm` sets `confirmed` only after an explicit yes for that id, and the "Read video summary" link then appears under that video in the browser — verified on test
 - [ ] `demote` returns a row to `draft` and the link disappears — verified on test
 - [ ] Prod target refused unless named explicitly; no prod write happens in this spec's verification
+- [ ] **A pipeline video's summary attributes nothing outside confirmed turns** (P1358 R2a): every
+      person-attributed claim traces to a speaker-labelled turn from a window that passed Step 2c, and a
+      claim with no such turn reads "the host" / "a speaker" or is absent — verified on test by reading
+      the row against the turns
 - [ ] Adversarial review by Opus and Codex (Sol) on the diff: every finding verified, real ones fixed; `<received> of 2` reported
 
 ## Related

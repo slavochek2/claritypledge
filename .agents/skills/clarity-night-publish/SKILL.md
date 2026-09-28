@@ -27,6 +27,21 @@ cast**, before any tag, point or story exists.
 | The approved cast, each with its `why_in_the_room` line (run file) | A live tag on prod |
 | The **planned** tag — used for `/stake/<tag>` links, which stay unchecked until the PROD path | Points or stories |
 | Date, venue and **this night's** run of show (rule 12) | |
+| **Quotes only with a confirmation record** — see rule 4 and the three options below | Positions to have run |
+
+**Draft mode is where the 2026-09-22 misattribution happened, so it carries rule 4 in full (P1358
+R1c).** Drafting before positions means the confirmed quote list does not exist yet. That is not a
+licence to quote on a caption match; it is a choice between three options, and the page names which
+one it took:
+
+1. **Run Step 4b + 4c now, for the page's quotes only.** A page carries a handful, not a run's worth —
+   `positions.md` Steps 4b and 4c are per quote and cost little on a handful.
+2. **Use a single-speaker quote instead.** No record needed, no cost, and most pages have the choice.
+3. **Use no quote at all.** A page whose claims are footnoted to sources does not need a blockquote.
+
+**What draft mode may never do is quote a multi-speaker source on the strength of `grep -F`.** TEST is
+not a safe harbour here: the founder reviews that page and may share the link, and a false quote under
+a real person's name is just as false on TEST.
 
 Draft mode writes **only to TEST** (Step 4). The PROD path below keeps its precondition that the tag's
 points are live on prod, and re-checks every `/stake/<tag>` link before Step 6.
@@ -138,6 +153,27 @@ location link opens the venue's pin (rule 11).
 4. **Verify first-hand:** open the source, or `curl` it and `grep -F` the quote in the raw HTML. A
    fetch-tool summary is not a source (first run: a summary said a CEO signed a letter; the article
    named only chief scientists).
+
+   **A `grep -F` hit proves the WORDS EXIST. It says nothing about who spoke them — so a quote from a
+   multi-speaker source may go on the page only with a Step 4b + 4c confirmation record behind it
+   (P1358 R1c).** Enumerate every quote the page shows and run the predicate; the stage reads its
+   exit code:
+
+   ```sh
+   node scripts/points/page-quote-check.mjs <page-quotes.json>; echo $?
+   # {quotes:[{text, person, basis, seconds,
+   #   confirmation:{step_4b, evidence, step_4c, window, speaker}}], confirmed:[…from the run file]}
+   ```
+
+   `REFUSE` = at least one quote is attributed on nothing better than a caption match. Single-speaker
+   sources need no record and never did. Pass `confirmed` once positions has run, so the page's list
+   is checked against the run file's rather than against itself.
+
+   **Measured 2026-09-22, on this skill's own TEST page.** *"we sacrifice happiness in order to be
+   successful…"* [34:13] was published under the guest; the **host** said it, and the guest's reply
+   twenty seconds later argues the opposite. It arrived from exactly the `grep -F` above, about an hour
+   before any diarization ran. The words were real, the page was wrong, and nothing in this rule
+   looked at the speaker.
 5. **Dates in the reader's timezone.** Decode an X post id to UTC and convert to Asia/Bangkok; US
    press dates are often a day earlier.
 6. **Balance "Why now" against the agenda.** Write down which side of each point every item
@@ -214,6 +250,8 @@ Paste the evidence; do not ask to move to PROD until all pass.
 
 - [ ] Marker `n` equals Sources item `n` for every `n` — checked by a script, not by eye
 - [ ] Every quote found with `grep -F` in its raw source
+- [ ] `page-quote-check.mjs` exits 0 on the page's enumerated quotes, with the exit code pasted —
+      every multi-speaker quote carries its Step 4b + 4c record (rule 4). Draft mode runs this too
 - [ ] Every date converted to Asia/Bangkok
 - [ ] The rule-6 balance table exists, with items on both sides of the points argued first
 - [ ] The seven sections of Step 2, in order, and no venue section

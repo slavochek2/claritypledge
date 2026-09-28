@@ -86,7 +86,9 @@ Onboarding completion and survey answers are stored per person; the flow itself 
      intended meaning, and we both say it is 10 out of 10. They confirmed I cognitively understood
      them, but they needed me to emotionally understand them.* (Founder wording 2026-09-24, after a
      Codex and Opus critique pass.) The point is unchanged. The play button pulses gently
-     until the first play, wherever ST1 shows. Every reader of ST1 gets the upgrade, and nothing is written twice.
+     until the first play, wherever ST1 shows. (Not built: the facade landed 2026-09-28 without it,
+     because a pulse on every video on every surface is not what was asked for. It gets wired when
+     the onboarding surface exists and can ask for it.) Every reader of ST1 gets the upgrade, and nothing is written twice.
    - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
      meaning of this story?"**
    - **The Clarity Meeting Principle** (the thing opted into; a point, not a new story) + its own 0–10.
@@ -100,7 +102,11 @@ Onboarding completion and survey answers are stored per person; the flow itself 
      0–10?" when asked. (The below-8 rule for disagreement is how the rounds run; nobody opts into it.)
 2. **Per-event part, every event.** Positions on the current night's statements (the disagreement
    survey). The statements are written per event by a separate session and swapped each week; this spec
-   only needs a slot for them. Also here: the optional **R&D recording volunteer** yes/no. Consent is per
+   only needs a slot for them. **When the night came through the disagreement pipeline, that separate
+   session's statements ARE the run's approved point statements** — the set the founder approved at
+   select's Gate 2, written into this slot unchanged, so the survey and the room's points cannot drift
+   apart ([P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) R5, which waits on
+   this slot existing). Also here: the optional **R&D recording volunteer** yes/no. Consent is per
    pair, and volunteers pair only with each other (decisions.md 2026-09-16).
 
 A returning attendee who completed onboarding sees only the per-event part.

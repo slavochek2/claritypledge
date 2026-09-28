@@ -29,6 +29,7 @@ import type { GroupPlayer } from '@/app/components/shared/source-group';
 import { pointsService } from '@/app/data/points-service';
 import type { Position } from '@/app/types';
 import { normalizeVideoQuotes } from '@/lib/video';
+import { parseVideoUrl } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
 
 interface FeedStoryCardProps {
@@ -98,7 +99,7 @@ export function FeedStoryCard({
   /* P1259 change 1 — a real player on the feed, mounted lazily. Enabled only when there is a
      video to mount AND this card owns its media: inside a group the group's player stands in,
      and an enabled hook here would mount an embed nobody can see. */
-  const player = useLazyStoryPlayer(!!story.videoUrl && !groupPlayer);
+  const player = useLazyStoryPlayer(!!parseVideoUrl(story.videoUrl) && !groupPlayer);
   const quoteSeek = groupPlayer ? groupPlayer.onSeek : player.onSeek;
   const quotePlayerBlocked = groupPlayer ? groupPlayer.playerBlocked : player.playerBlocked;
   const videoQuotes = normalizeVideoQuotes(story.videoQuotes);
@@ -235,6 +236,7 @@ export function FeedStoryCard({
                   videoUrl={story.videoUrl}
                   durationSeconds={videoQuotes.durationSeconds}
                   mode={player.mode}
+                  onActivate={player.onActivate}
                   onBlockedChange={player.onBlockedChange}
                   storyHref={`/story/${story.id}`}
                   className="mt-2 mb-2"

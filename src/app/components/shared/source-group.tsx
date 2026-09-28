@@ -21,6 +21,7 @@ import { ChevronDown } from 'lucide-react';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
+import { parseVideoUrl } from '@/lib/video';
 
 /** What a member card needs from the group in place of its own player. */
 export interface GroupPlayer {
@@ -41,7 +42,7 @@ export function SourceGroup<T extends { id: string; videoUrl?: string | null; vi
   renderStory,
 }: SourceGroupProps<T>) {
   const lead = stories[0];
-  const player = useLazyStoryPlayer(!!lead?.videoUrl);
+  const player = useLazyStoryPlayer(!!parseVideoUrl(lead?.videoUrl));
   const [showAll, setShowAll] = useState(false);
   const headingId = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -86,6 +87,7 @@ export function SourceGroup<T extends { id: string; videoUrl?: string | null; vi
           videoUrl={lead.videoUrl}
           durationSeconds={normalizeVideoQuotes(lead.videoQuotes).durationSeconds}
           mode={player.mode}
+          onActivate={player.onActivate}
           onBlockedChange={player.onBlockedChange}
           storyHref={`/story/${lead.id}`}
         />

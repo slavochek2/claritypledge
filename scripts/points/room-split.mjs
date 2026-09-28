@@ -86,11 +86,19 @@ export function run(input) {
   const leans = points.map(p => txt(p.room_split.lean)).filter(Boolean)
   const directional = leans.filter(l => !NEUTRAL.has(norm(l)))
   const allLopsided = directional.length === points.length && new Set(directional.map(norm)).size === 1 && directional.length > 1
+
+  // P1358 R4: the passing verdict SAYS WHAT IT IS. It used to read "ASSESSED",
+  // which a Gate 2 packet relayed to the founder as "room-split passed" — and on
+  // 2026-09-22 that sentence covered eight points of which the Phase 3 judge then
+  // found five dead (two unanimous, one lopsided, one a forecast, one a duplicate).
+  // Nothing here measures whether a room divides; conditions 8 and 9 are left
+  // unmeasured by design, so the word "passed" was never this predicate's to lend.
+  const verdict = allLopsided ? 'RECORDED-ALL-LOPSIDED (not measured)' : 'RECORDED (not measured)'
   return {
     ok: true,
-    verdict: allLopsided ? 'ASSESSED-ALL-LOPSIDED' : 'ASSESSED',
+    verdict,
     offenders: [],
-    detail: `${allLopsided ? 'ASSESSED-ALL-LOPSIDED' : 'ASSESSED'} — ${points.length} point(s) name two groups in "${room}".${allLopsided ? ` FINDING for the founder: every point leans the same way ("${directional[0]}"), so the evening may not divide at all. Not an auto-drop — conditions 8 and 9 are unmeasured by design.` : ''}\n${lines.join('\n')}`,
+    detail: `${verdict} — ${points.length} point(s) name two groups in "${room}". This records that the judgement was MADE; whether the room divides is conditions 8 and 9, unmeasured by design.${allLopsided ? ` FINDING for the founder: every point leans the same way ("${directional[0]}"), so the evening may not divide at all. Not an auto-drop.` : ''}\n${lines.join('\n')}`,
   }
 }
 

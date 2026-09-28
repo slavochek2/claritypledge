@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 11
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [disagreement-pipeline, attribution, video-summaries, story-draft]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -250,7 +250,7 @@ refuses a seal without its number. The pending run must re-measure Sinek with C3
 | Risk | Label | Note |
 |---|---|---|
 | R1b adds re-diarization calls on long interviews | ACCEPT | Only for windows whose oracle fails or is unmeasurable. Cost is per audio minute (~$0.005/min, select.md Step 2c) |
-| No mechanical check can see a merged label; only per-quote 4b/4c catches it | MITIGATE | R1a makes 4b/4c mandatory on diarized sources. The Done-When replay proves 4b/4c catches the real case |
+| No mechanical check can see a merged label | MITIGATE | **Corrected by the replay (see Replay evidence):** per-quote 4b/4c does NOT catch a merged label — the blind 4c check reproduced the original misattribution and answered CONSISTENT. What catches it is **R1b's per-window oracle + per-window label mapping**, enforced as 4b's precondition. 4b/4c remains necessary and is what confirmed the reply correctly |
 | Sonnet checkers miss distortions (a prior run measured a 10/10 wrong-test substitution) | MITIGATE | Control proof each run; Opus re-run on failure |
 | Gemini writers are worse at story voice | MITIGATE | Pre-registered benchmark (Decision Criteria) before it becomes the default |
 | R2 makes a run longer, with one more gate item per video | ACCEPT | Confirm is folded into publish's existing dry run, not a new halt |
@@ -267,25 +267,98 @@ refuses a seal without its number. The pending run must re-measure Sinek with C3
 
 ## Done-When
 
-- [ ] `positions.md` no longer skips Step 4b/4c for `speaker-labelled` quotes, and a `rule-present` row
+- [x] `positions.md` no longer skips Step 4b/4c for `speaker-labelled` quotes, and a `rule-present` row
       exits non-zero on a copy of the **real** `positions.md` with the old skip sentence restored (gate 7d)
-- [ ] **Replay, real case:** the Naval [34:13] quote run through the new 4b + 4c on the stored 15-minute
+      — `rule-present.mjs speaker-confirmation` RESOLVE (8 rules, exit 0); mutated real file REJECT (exit 1),
+      one finding, `PRESENT BUT BANNED`. The banned pattern ignores blockquotes, so the file keeps its own
+      record of the withdrawn sentence (`src/tests/p1210-p1358-speaker-confirmation.test.ts`, 10 tests)
+- [x] **Replay, real case:** the Naval [34:13] quote run through the new 4b + 4c on the stored 15-minute
       window (`$DIARIZE_STORE/KyfUysrNaco/1920s+900s.json`) is DROPPED or attributed to the host, never
       filed under Naval. The [34:33] reply from the 5-minute window (`2040s+300s.json`) is confirmed as
       Naval. Both outputs are pasted here
-- [ ] The page-quote predicate (R1c) is registered in `verify-all.mjs`. It refuses a multi-speaker page
-      quote with no confirmation record, and passes a single-speaker quote and a confirmed one
-- [ ] `clarity-night-publish.md` rule 4 and draft mode state the R1c requirement; `rule-present` covers it
-- [ ] P1357 amended (R2a) or the founder decision recorded as "stay manual". If amended, P1357's
-      Done-When includes a pipeline video whose summary attributes nothing outside confirmed turns
-- [ ] `story-draft.md` carries the model-per-role section, checker one per arguer, the clean-transcript
+- [x] The page-quote predicate (R1c) is registered in `verify-all.mjs`. It refuses a multi-speaker page
+      quote with no confirmation record, and passes a single-speaker quote and a confirmed one —
+      `scripts/points/page-quote-check.mjs`; `verify-all` 20 predicates, must-pass `CONFIRMED` / must-fail
+      `REFUSE`, exit 0; `two-callers` PASS; 22 tests in `src/tests/p1210-page-quote-check.test.ts`
+- [x] `clarity-night-publish.md` rule 4 and draft mode state the R1c requirement; `rule-present` covers it
+      (two rows, incl. the command invocation), and Step 5's self-check carries the exit-code line
+- [x] P1357 amended (R2a) — founder chose "pipeline runs it" on 2026-09-28. P1357 gains an *Inputs from
+      the pipeline* section, the amended Non-Goal, the retired caption-labels risk, an invariant, and the
+      Done-When line about attributing nothing outside confirmed turns
+- [x] `story-draft.md` carries the model-per-role section, checker one per arguer, the clean-transcript
       STOP and the windowing rule. The fan-out estimate template prints Sonnet and Opus separately
-- [ ] The benchmark (Decision Criteria) ran on two arguers and its result is recorded here
-- [ ] The Gate 2 packet shows `RECORDED (not measured)` for room-split and the three per-point signals.
-      `room-split.mjs` fixtures are updated, with no new refusal
-- [ ] Each `run-pipeline.md` touch above is present and is one line. `input-block-scan.mjs` and
+- [x] The benchmark (Decision Criteria) is **pre-registered** in `story-draft.md` with its threshold
+      confirmed by the founder (2026-09-28), and the writer model is labelled **on probation** until it
+      runs. **Founder decision, same day:** it runs at the first story-draft, not before — the ikigai run
+      has not reached that stage, so there are no drafted stories to grade. Its result is recorded here
+      when it runs; filed as a follow-up so it does not live in anyone's memory
+- [x] The Gate 2 packet shows `RECORDED (not measured)` for room-split and the three per-point signals.
+      `room-split.mjs` fixtures are updated, with no new refusal — 14 tests pass, including the 7c cases
+      that a single point and an all-`divided` set still do not trip a finding
+- [x] Each `run-pipeline.md` touch above is present and is one line. `input-block-scan.mjs` and
       `rule-present.mjs` exit 0
-- [ ] Skills re-synced (`scripts/sync-agent-skills.sh --check` OK)
+- [x] Skills re-synced — `sync-agent-skills.sh --check`: 128 skills in sync, 0 collisions, 0 drift
+
+## Replay evidence (Done-When 2) — and a correction to this spec's own claim
+
+Run 2026-09-28 against the stored windows. **The quote is DROPPED. It is never filed under the guest.**
+But it is **R1b that catches it, not 4b/4c**, and the risk table below is corrected accordingly.
+
+### Window A — `$DIARIZE_STORE/KyfUysrNaco/1920s+900s.json` (15 minutes, the window used on the day)
+
+Per-window measurement: 113 turns, 30.6 words/turn, **0 askers** (oracle reliable, not UNMEASURABLE).
+Word share `spk:0` 78.2% / `spk:1` 21.8% — *healthy-looking, and meaningless here.*
+
+**Step 2c mapping FAILS — one label carries two people:**
+
+```
+spk:0 @ 1966.1  "…my old quip was if you're so smart, why aren't you happy?…"      <- the GUEST's own published aphorism
+spk:0 @ 2089.3  "…from the bit of time that we've spent together, you have a
+                 really interesting trait of holistic selfishness…"                <- said BY the host, ABOUT the guest
+spk:0 @ 2053.3  "…we sacrifice happiness in order to be successful…"               <- THE QUOTE, on the merged label
+```
+
+A label that speaks the guest's own aphorism *and* addresses the guest as an interviewer is not one
+person. Step 2c item 4 (*"a source whose labels cannot be mapped to real names is REJECTED"*) therefore
+refuses this window, and R1b refuses anything taken from it. **Outcome: `DROPPED (unconfirmed speaker)`.**
+The 78.2% share is the measured proof of R1b's rule that **word share is never the admitting evidence** —
+it reads clean on a merged label.
+
+### Window B — `$DIARIZE_STORE/KyfUysrNaco/2040s+300s.json` (5 minutes, re-diarized)
+
+63 turns, 18.7 words/turn, 0 askers. Mapping from content, for **this** window: `spk:1` = the host (it
+is `spk:1` that speaks the "time we've spent together / holistic selfishness" turn), `spk:0` = the guest.
+
+- **The [34:13] quote is `spk:1` = the HOST.** Not the guest. Matches the founder's correction on the day.
+- **The [34:33] reply (*"in my own life, I have not found it to be a trade-off…"*) is `spk:0` = the GUEST.**
+  Step 4b: the interlocutor's reply structure plus the host-identifying turn. Step 4c, blind, returned
+  **Naval Ravikant**, agreeing ⟹ **CONFIRMED, `turn-verified`.**
+
+**The labels FLIP between the two windows** (`spk:0` holds the quote in A, `spk:1` in B). Direct evidence
+for the rule that a mapping may never be carried from a neighbouring window.
+
+### Step 4c ratio and the finding that matters
+
+**2 of 2 4c agents reported** (`epistemic.md` gate 9b), both within the stated 10-minute deadline, both
+writing to a file and returning its path.
+
+**On window A, the blind 4c check did NOT catch the merge — it reproduced the original error.** Given the
+merged turns with labels stripped to `A`/`B`, it attributed the quote to the **guest**, reasoning from his
+aphoristic voice and his own *"one of my favorite insights"* framing, and answered **CONSISTENT** when
+asked directly whether either label carried two people. It read the host's characterising turn as *"a
+natural continuation of the same reflective voice"*. Its reasoning is coherent and its conclusion is wrong,
+because the merge is invisible in the text alone — the two people are discussing the same idea in
+compatible registers.
+
+**So the mitigation in the risk table, *"R1a makes 4b/4c mandatory on diarized sources. The Done-When
+replay proves 4b/4c catches the real case"*, is WRONG and is corrected here.** 4b/4c is necessary and it is
+what confirms window B correctly, but on a merged window it is **not sufficient** — a blind reader cannot
+see a merge. The thing that catches this failure is **R1b's per-window oracle and per-window label mapping**,
+enforced as 4b's precondition. Two independent readings of the same window agree beautifully when the
+window itself is lying.
+
+Consequence, already in the shipped text: R1b is not a cost-saving refinement of R1a, it is the load-bearing
+half. A future edit that keeps 4b/4c and relaxes per-window mapping restores the original defect in full.
 
 ## Decision Criteria
 

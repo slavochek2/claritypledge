@@ -52,7 +52,7 @@ The prior shape was **N provisioning gates plus one publish gate** — five prom
 
 **This is a real reduction in protection and it is recorded as one.** Per-account gates made each identity a separate decision; a single gate makes them one decision. What is kept is the property that actually matters: **the operator sees everything before anything is written.** What is lost: the chance to approve three subjects and refuse the fourth mid-run.
 
-**Therefore the disclosure is not summarised, ever.** The gate prints every identity by name with its subject key, every point, every story's first line and author, every position, and the destination ref. A gate that says *"4 identities, 8 stories — confirm?"* has taken the cost of consolidation without buying the informed consent that justifies it. **A count is not a disclosure.**
+**Therefore the disclosure is not summarised, ever.** The gate prints every identity by name with its subject key, every point, every story's first line and author, every position, **every video summary being carried with its status and video id** (P1358 R2 — a summary is text about a named real person, so it belongs in a disclosure that exists for exactly that reason), and the destination ref. A gate that says *"4 identities, 8 stories — confirm?"* has taken the cost of consolidation without buying the informed consent that justifies it. **A count is not a disclosure.**
 
 **Non-negotiable, and no flag may ever be added:** silence, ambiguity, or any non-affirmative ⟹ refuse and exit **without writing**. Consolidating gates does not weaken the remaining one.
 

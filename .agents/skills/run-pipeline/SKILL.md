@@ -77,12 +77,16 @@ positions those people never took. Every existing gate stays exactly where it is
 **The story fan-out approval is asked HERE, in this block (P1210 §9), and it runs only AFTER select's
 Gate 2 has approved the videos** — say so plainly when asking: the stories are written from the approved
 sources, so nothing is spawned while the cast can still change (founder, Clarity Night #2: *"Wait, what?
-So we have one video…"*). Stage 4 spawns one writer and
-one checker per arguer plus five control checkers — thirteen subagents on a four-arguer run — and the
-standing rule is that three or more need an explicit ok with a rough token estimate first. **The halt
+So we have one video…"*). Stage 4 spawns one **Gemini 3.8** writer and one **Sonnet** checker per
+arguer plus five Sonnet control checkers — thirteen subagents on a four-arguer run, of which the four
+writers run **off** the Claude subscription (P1358 R3) — and the standing rule is that three or more
+need an explicit ok with a rough token estimate first. **The halt
 stays; the 3+-subagent rule is not this pipeline's to delete.** What changes is that it stops being a
 mid-stage interruption whose answer sits twenty lines below it in another file. Print the fan-out plan
-and the token estimate with the inputs above, and take the answer once.
+and the token estimate with the inputs above, and take the answer once. **The estimate prints Sonnet
+and Opus separately and names the roles that run off the subscription** — a blended total hides the
+only figure being decided about, which is the quota. `story-draft.md` holds the template and the
+model-per-role table; this block restates neither.
 <!-- input-block:end -->
 
 Gather all of these **before** Stage 1, in one message. Then go quiet until `select`'s Gate 1.
@@ -132,8 +136,9 @@ people and sources, and the Gate 1/Gate 2 approvals block, sealed to
 
 **Optional, after Gate 2 — a TEST draft of the event page** (P1355 R4). When the run feeds a Clarity
 Night, `/slava:disagreement:clarity-night-publish` may run in its **draft mode** on TEST as soon as
-Gate 2 approves the cast, so the founder reviews the real page while stages 2-5 run. PROD stays a
-separate invocation of that skill, after publish.
+Gate 2 approves the cast, so the founder reviews the real page while stages 2-5 run — **quotes only
+with a confirmation record** (that skill's rule 4, P1358 R1c). PROD stays a separate invocation of
+that skill, after publish.
 
 **Stop conditions:** Gate 1 or Gate 2 refused · Gate 0 fails (multi-speaker) · `yt` exit code 7 (quota
 exhausted — surface it, never retry, never purchase) · a truncated fetch (funnel INCOMPLETE).
@@ -162,9 +167,12 @@ that could accidentally leak them across that boundary. Pass the slug, nothing e
 Invoke against `<slug>`. Quotes first, then positions.
 
 **Produces:** the `## Quotes & Positions` section, with `grep -F` exit codes pasted, timecodes
-resolved from the RAW `.vtt`, an inference-strength label per position, and — on a `turn-verified`
-source — a per-quote speaker confirmation naming which evidence landed (Step 4b), plus a printed
-`DROPPED (unconfirmed speaker)` line for every quote that could not be confirmed.
+resolved from the RAW `.vtt`, an inference-strength label per position, and — on **any multi-speaker
+source**, diarized included (P1358 R1a) — a per-quote speaker confirmation naming which evidence
+landed (Step 4b), plus a printed `DROPPED (unconfirmed speaker)` line for every quote that could not
+be confirmed.
+
+**Then, per approved video: P1357 `draft` + `check` of its video summary, one row per video** (P1358 R2).
 
 **Stop conditions:** any quote that fails `grep -F` · a `turn-inferred` attribution on a multi-speaker
 source · a `turn-verified` label with no per-quote confirmation artifact behind it · a
@@ -190,6 +198,8 @@ Invoke against `<slug>` with the target environment named **out loud**.
 It runs its own precondition table (seal present, client deployed, agent accounts resolve to distinct
 profiles, avatars branch on deliberate-vs-accidental absence, filing identity is a human account),
 prints the exact payload as a **dry run**, and writes only after an explicit founder affirmative.
+
+**The dry run lists each approved video's summary status, and `confirm` is per video id** (P1358 R2).
 
 **Missing agent account:** `publish` may invoke `/slava:content:provision-agent` inline, one gated
 confirmation each. **This orchestrator does not pre-provision anything** — account creation stays

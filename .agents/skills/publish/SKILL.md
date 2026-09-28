@@ -404,9 +404,18 @@ FILE TO <ENVIRONMENT> — irreversible once public.
   Spectrum       : <filled> of <carried> positions filled
                    unfilled: <position statements | none>
   Stories        : <n>     Points: <n>     Positions: <n>
+  Summaries      : <per video id> — <draft | checked | confirmed | none>
   envelope sha256 : <hash>   (env: <test|prod>, url read from the envelope)
 Confirm to write.
 ```
+
+> **The `Summaries` line, and why `confirm` sits in this gate (P1358 R2).** Stage 3 runs P1357's
+> `draft` + `check` per approved video; `confirm` is the step that makes a summary readable, and it
+> takes an explicit yes **per video id** — one affirmative here never covers several videos, exactly as
+> a set-level approval never covers a walled source. Print every approved video, including the ones
+> with **no** row: a missing summary is a normal outcome (`none`), a story with no confirmed summary
+> publishes fine, and P1349's "Read video summary" link simply does not render. What must never happen
+> is a summary reaching `confirmed` because a run-level confirmation was read as covering it.
 
 > **The `Spectrum` line is the only place a narrowed set is visible at filing time.** Every other
 > figure here is an aggregate cardinality: at N = 4 with one position unfilled, `Agents : 3` is

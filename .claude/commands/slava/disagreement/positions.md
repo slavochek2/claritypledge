@@ -152,6 +152,13 @@ one distortion that matters. It was caught only because the inverted control had
 so and replace the method — do not adjust the threshold until the control passes, which is fitting
 the harness to the control.
 
+**Paste each control's OWN exit code, from the command itself — `node …/audio-check.mjs --controls;
+echo $?` — never read from the end of a pipe** (P1358 R6). A pipeline reports its *last* command's
+status, so `… | tail -1` prints `0` for a control that exited 1 and the run records a broken harness
+as a passing one. In this shell `$PIPESTATUS` is empty (zsh spells it `$pipestatus`, 1-indexed), so
+the obvious repair silently prints nothing at all — `.claude/rules/epistemic.md` gate 7 holds the
+measured cases.
+
 ---
 
 ## Step 3: Precise Timecode Resolution from RAW `.vtt`
@@ -207,7 +214,9 @@ Note what it is not: "highest-quality" is not claimed here — no metric, no pre
 ### Attribution Basis Label per Quote
 Tag each quote:
 - `single-speaker`: Video has only one speaker (Gate 0, solo shape).
-- `speaker-labelled`: Video has explicit speaker metadata.
+- `speaker-labelled`: Video has explicit speaker metadata (a diarization admitted by Gate 0 Step 2c),
+  **and** whose speaker was confirmed for **this quote** by Steps 4b + 4c below. The diarization is the
+  evidence those steps read; it is never a reason to skip them (P1358 R1a).
 - `turn-verified`: Multi-speaker source that cleared Gate 0 Step 2b as a one-way interview, **and**
   whose speaker was confirmed for **this quote** by Step 4b below. Filable.
 - `turn-inferred`: Multi-speaker, speaker taken from alternation parity or from the transcript's
@@ -218,10 +227,48 @@ Step 2b and still yield a quote that only earns `turn-inferred` — a passage wh
 available. `turn-verified` is a property of a **quote**, never of a video: never label a whole source
 `turn-verified` and inherit it downward.
 
-### Step 4b — Per-quote speaker confirmation (multi-speaker sources only)
+### Step 4b — Per-quote speaker confirmation (every multi-speaker source, diarized included)
 
-Skip entirely for `single-speaker` and `speaker-labelled` sources. For every quote from a
-`turn-verified` source, do this **per quote** and record the result.
+**Skip entirely for `single-speaker` sources — a video with one voice, and nothing else.** For every
+quote from **any** multi-speaker source, whatever its attribution basis (`turn-verified` **or**
+`speaker-labelled`), do this **per quote** and record the result.
+
+> **This sentence used to read *"Skip entirely for `single-speaker` and `speaker-labelled`
+> sources"*, and that exemption is withdrawn (P1358 R1a).** It contradicted the ruling that created
+> Step 2c one day after it was written — `docs/decisions.md` 2026-08-28 [technical]: *"Per-quote
+> confirmation is **not** waived."* Line 74 of this file and `select.md`'s Step 2c item 5 always
+> agreed with the ruling; only the skip line was left behind, and it named the **strongest** source
+> shape as the one that needs no check.
+>
+> **What it would have shipped, measured 2026-09-22 on the Clarity Night #2 run.** A quote —
+> *"we sacrifice happiness in order to be successful…"* [34:13] — was filed under the guest while the
+> **host** said it; the guest's reply 20 seconds later argues the opposite. One 15-minute
+> diarization window had merged both speakers onto `spk:0`, and the check that passed it was word
+> share (*"the guest holds 72–88% of the words"*), which is not an attribution test at all. Only a
+> founder's eye caught it before publication. **A diarized label is evidence FOR Step 4b, never a
+> substitute for it.**
+>
+> **And 4b/4c alone does not catch a merged label — measured on the replay, 2026-09-28.** Handed the
+> merged window's turns with labels stripped, the blind Step 4c subagent attributed the quote to the
+> **guest** (reproducing the original error) and, asked directly whether either label carried two
+> people, answered CONSISTENT: it read the host's *"the bit of time that we've spent together, you have
+> a really interesting trait of holistic selfishness"* as the guest's own reflective voice. A merge is
+> invisible in the text, because two people discussing one idea sound compatible. **What catches it is
+> the per-window rule immediately below** — the oracle and the label-to-person mapping, judged per
+> window, which fails the moment one label speaks both the guest's own published aphorism and an
+> interviewer's line about the guest. 4b and 4c are necessary and they confirmed the reply correctly;
+> they are not sufficient on a window that is itself lying.
+>
+> **On a diarized source, read the interlocutor's reply from the diarized TURNS**, with the raw
+> `.vtt` as a second view of the same seconds (Step 2 names the artifact per quote). Two views that
+> disagree about who spoke is a DROP, exactly as a 4b/4c disagreement is.
+
+**Only turns from a window that PASSED Step 2c may be used** (`select.md` Step 2c, judged per
+window). Record, per quote, the window file it came from (`$DIARIZE_STORE/<id>/<start>s+<dur>s.json`)
+and that window's own label-to-person mapping line — labels are not stable across windows, so a
+mapping carried from a neighbouring window attributes nothing. A quote whose window failed its
+oracle, or was `UNMEASURABLE`, waits for that stretch to be re-diarized in ≤5-minute windows; it is
+never admitted on the strength of a longer window that failed.
 
 **Read the turn structure from the RAW `.vtt`** — the same artifact Step 3 uses for timecodes, and for the
 same reason. `vtt-clean` drops turn boundaries (36 markers raw vs 26 cleaned on `_V_ed5fuexA`, measured
@@ -249,7 +296,7 @@ this costs little.
 **Record per quote, in the run output:** which of 1–3 confirmed it, and the confirming text quoted.
 Prose saying "attribution checked" is the sentence that lets the check not happen.
 
-### Step 4c — Independent attribution check (multi-speaker sources only)
+### Step 4c — Independent attribution check (every multi-speaker source, diarized included)
 
 **Step 4b is the extractor grading its own homework.** The agent that chose a quote also decides who
 said it, and it decides that *knowing which speaker it wants the quote to belong to* — the arguer it
@@ -265,6 +312,12 @@ For every quote surviving Step 4b, spawn a **separate subagent** (`model: "sonne
 - the quote, verbatim;
 - the surrounding turns from the RAW `.vtt` — at least two on each side, markers intact;
 - the two people's names and one line on who each is.
+
+**On a diarized source, strip the speaker labels before handing the turns over** — replace `spk:0` /
+`spk:1` with neutral `A` / `B`, keeping the boundaries. A label plus this run's mapping *is* the
+answer 4b reached, so passing it through makes 4c a re-read of 4b's conclusion rather than an
+independent check (P1358 R1a). Give it the diarized turn text, because that is the artifact the quote
+was verified against, and keep the raw `.vtt` window as the second view **you** read in 4b.
 
 **Do NOT give it:** the claimed speaker, the point being built, the position being argued, the
 inference chain, or Step 4b's reasoning. It must arrive at the speaker independently or the check is

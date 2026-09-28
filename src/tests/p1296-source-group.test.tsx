@@ -3,6 +3,11 @@
  * @description P1296 item 7 — a group of stories on one video: one player, a count heading,
  * two stories then "Show N more", and every member card keeping its footer.
  */
+/*
+ * The media box is one of four things since 2026-09-28: a link out (surfaces with no
+ * player), a play button or a poster facade (before the reader presses play), or the live
+ * embed. These assertions count media boxes, so they list all four.
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -65,9 +70,9 @@ describe('P1296 — what a group looks like', () => {
   it('ONE player for the group — the member cards mount no media box of their own', () => {
     renderGroup([story('a'), story('b')]);
     const group = screen.getByTestId('source-group');
-    expect(group.querySelectorAll('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]')).toHaveLength(1);
+    expect(group.querySelectorAll('[data-testid="video-thumbnail-link"], [data-testid="video-thumbnail-play"], [data-testid="story-video-facade"], [data-testid="story-video-player"]')).toHaveLength(1);
     for (const card of memberCards()) {
-      expect(card.querySelector('[data-testid="video-thumbnail-link"], [data-testid="story-video-player"]')).toBeNull();
+      expect(card.querySelector('[data-testid="video-thumbnail-link"], [data-testid="video-thumbnail-play"], [data-testid="story-video-facade"], [data-testid="story-video-player"]')).toBeNull();
     }
   });
 

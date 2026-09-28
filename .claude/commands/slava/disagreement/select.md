@@ -355,6 +355,15 @@ For each candidate:
 - Why credible on this specific topic
 - Why influential (reach, publications, recognized stance)
 - Resolved **`subject_key`** (Wikidata entity URI, Wikipedia URL, or official personal site URL — preference order per `/slava:content:provision-agent`: Wikidata → Wikipedia → own site → minted slug. **Never a YouTube channel URL** — a channel identifies whoever *publishes*, not who speaks.)
+  - **Never call a site missing on one `curl` (P1358 R6).** A bot-walled site answers `404` or `403`
+    to curl's default user agent and `200` to a browser's — measured 2026-09-22 on an arguer's own
+    site, which was briefly treated as dead. Retry with a browser user agent
+    (`curl -sIL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like
+    Gecko) Chrome/124.0 Safari/537.36" "$URL"; echo $?`) **and** run a known-good control URL through
+    the identical command before reporting any URL unreachable. Both answering alike means the probe
+    is blind, not that the site is gone (`.claude/rules/epistemic.md` gate 1). A wall is a fact about
+    the fetch, never about the person's identity — `subject_key` does not change because a CDN
+    dislikes curl.
 - Agent existence check: Query `agent_accounts` by exact `subject_key`.
   - **Name the environment out loud.** `subject_key` is UNIQUE **per database** — a test agent is not a prod agent — so "an agent already exists" is meaningless without saying in which database. Print the environment and the project ref it resolved to, exactly as `/slava:content:provision-agent` Step 1 does. Default the check to the environment the run will publish to; state which one was checked.
   - **This check does NOT use the service-role credential** — `agent_accounts` grants anon only `(profile_id, operator_name)`, not `subject_key`, so it goes through the read-only helper, which holds no write authority: `python3 scripts/supabase-readonly-sql.py --env <prod|test> "SELECT profile_id, subject_key FROM public.agent_accounts WHERE subject_key = '<key>'"` (P1316; measured 2026-09-15 that the helper's role sees `subject_key` on every row). **It reads; it never writes** — account creation stays in `/slava:content:provision-agent`, invoked by `/slava:disagreement:publish`.
@@ -594,6 +603,22 @@ distinguishable" is not this step.**
    at length. **If questions and answers land on the same speaker label, diarization failed and the
    source is REJECTED.** This oracle is semantic, so it is independent of the acoustics being tested —
    which is exactly what makes it admissible evidence about them.
+
+   **The verdict is PER WINDOW, never per source (P1358 R1b).** A long source is diarized in several
+   windows; each is a separate model call on different audio and **fails independently**. For every
+   window whose turns any quote, minutes count or summary will use, paste **(a)** that window's oracle
+   result or `oracle: UNMEASURABLE (<n> turns, <w> words/turn)`, and **(b)** that window's own
+   label-to-person mapping line. Labels are not stable across windows, so one mapping cannot answer
+   for another, and one sound window says nothing about the next.
+
+   **A window that FAILS its oracle or reads UNMEASURABLE is re-diarized in ≤5-minute windows before
+   anything is taken from it**, and the short windows are judged the same way. Cost is per minute of
+   audio, so shorter windows are not more money — the 15-minute size is the measured transport limit
+   (below), never a floor. **Word share is never the admitting evidence for a window**: it answers
+   "is one voice dominant", not "are these two voices separated", and a merged label reads as a
+   healthy share. Measured 2026-09-22 on `KyfUysrNaco`: one 15-minute window merged host and guest
+   onto `spk:0` at a 72–88% share, and the re-diarized 5-minute window over the same stretch
+   separated them cleanly. The merge was invisible until a quote was checked per window.
 
 3. **Map speaker labels to real names from CONTENT, and show the line that does it.** `spk:0`/`spk:1`
    are arbitrary and **not stable across runs**. Never map them from a name appearing in the
@@ -920,8 +945,10 @@ readers compute differently no longer reaches the founder.
   ```
 
   `REFUSE` = a point is UNASSESSED, ONE-SIDED, or names the SAME group on both sides.
-  `ASSESSED-ALL-LOPSIDED` = assessed, but every point leans the same way — a **finding for the
-  founder**, never an auto-drop. **It cannot tell you whether the room will actually split**:
+  `RECORDED (not measured)` = the judgement was made with a room-shaped basis, and **that is the
+  whole claim** — never relay it to the founder as "room-split passed" (P1358 R4).
+  `RECORDED-ALL-LOPSIDED (not measured)` = recorded, but every point leans the same way — a **finding
+  for the founder**, never an auto-drop. **It cannot tell you whether the room will actually split**:
   conditions 8 and 9 are left unmeasured by design and the first event falsifies them. It removes
   only the case where nobody asked.
 
@@ -1115,9 +1142,38 @@ Print the balance table again here, on the evening's own question, for the set a
 **Cast-level controls, printed at this gate** — per-pair edges do not catch a star cast:
 
 ```sh
-node scripts/points/cast-controls.mjs <cast.json>
-node scripts/points/room-split.mjs <points.json>   # points are approved at THIS gate (P1210 §4)
+node scripts/points/cast-controls.mjs <cast.json>; echo $?
+node scripts/points/room-split.mjs <points.json>; echo $?   # points are approved at THIS gate (P1210 §4)
 ```
+
+**`room-split` reports `RECORDED (not measured)`, and this packet never calls it "passed" (P1358
+R4).** Its own header says it checks that a room-split judgement was *written down* with a
+room-shaped basis — conditions 8 and 9 (whether the room actually divides) are left unmeasured by
+design. Measured 2026-09-22: it reported *"8 of 8 assessed"*, exit 0, and the packet relayed that as
+a pass; the Phase 3 judge then found two points unanimous, one lopsided, one a forecast and one a
+duplicate — five of the eight dead. The founder spent about 90 minutes rewording points that a
+one-line diagnostic could have flagged before he started.
+
+**So print three SIGNALS per candidate point, beside its predicted side per arguer with one quote
+each:**
+
+```
+P<n> "<statement>"    room-split: RECORDED (not measured)
+   <arguer A>: +2  "<~8 words>"     <arguer B>: -2  "<~8 words>"     <arguer C>: +2  "<~8 words>"
+   signals: no arguer opposes · room predicted near-unanimous · exists to seat one arguer
+```
+
+- **no arguer opposes** — every arguer with a predicted side is on the same side.
+- **room predicted near-unanimous** — the point's own predicted room split leans one way with no
+  second group named against it.
+- **exists to seat one arguer** — the point was introduced so that a particular arguer would have
+  something to hold, rather than from the pair's contradiction sentence. *(Clarity Night #2, the
+  orchestrator's own words about a replacement point: it existed "only to give [an arguer] a side".)*
+
+**All three are SIGNALS, never gates, and none may drop a point or halt the run.** `docs/decisions.md`
+2026-09-01 [product] rejected *"a point no arguer opposes is not a point"*: expert unanimity against a
+predicted room split is the **best case** in this pipeline, not a defect. The founder sees the signals
+**before** rewording, which is the whole change; what he does with them stays his.
 
 Per-person concentration above half the filed points is a **FINDING for the founder, never an
 auto-drop**; distinct verified axes and pair coverage are printed values with no threshold, because

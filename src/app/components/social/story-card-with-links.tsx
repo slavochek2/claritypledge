@@ -29,7 +29,9 @@ import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
+import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
+import { parseVideoUrl } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
@@ -106,6 +108,12 @@ export function StoryCardWithLinks({
   onClear,
 }: StoryCardWithLinksProps) {
   const { isEmbed, isExpanded, embedNavigate } = useEmbedNavigation();
+  /**
+   * P1259's lazy player, on this surface too (founder, 2026-09-28: clicking a still inside a
+   * point sent the reader to the story page, "which is weird" when the story is right there).
+   * The still now mounts the embed in place, and the quotes seek it instead of linking out.
+   */
+  const player = useLazyStoryPlayer(!!parseVideoUrl(story.videoUrl));
   // Points collapsed by default — position badge outside quoted box already shows author's stance
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isExpanded);
   const [textExpanded, setTextExpanded] = useState(false);
@@ -360,10 +368,14 @@ export function StoryCardWithLinks({
 
             {/* Supporting image. P1141: video wins when present; the image path is untouched. */}
             {(story.videoUrl || story.imageUrl) && (
+              <div ref={player.containerRef} role="presentation" onClick={(e) => e.stopPropagation()}>
               <StoryMedia
+                ref={player.playerRef}
                 videoUrl={story.videoUrl}
                 durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
-                mode="thumbnail"
+                mode={player.mode}
+                onActivate={player.onActivate}
+                onBlockedChange={player.onBlockedChange}
                 storyHref={`/story/${story.id}`}
                 className="mt-1 mb-2"
                 imageProps={story.imageUrl ? {
@@ -372,6 +384,7 @@ export function StoryCardWithLinks({
                   className: 'mt-1 mb-2',
                 } : undefined}
               />
+              </div>
             )}
 
             {/* Story text - indented under author */}
@@ -405,13 +418,18 @@ export function StoryCardWithLinks({
 
             {/* P1212 §4 — the quotes travel with the story on this surface too (a story linked
                 from a point). §1 removed the inline bodies; without this the reader gets the
-                argument and none of its evidence. No `onSeek` — no player here, so each timecode
-                becomes a link opening the source at that second, which is what §4's rule asks. */}
+                argument and none of its evidence. Since 2026-09-28 there IS a player here, so a
+                timecode seeks it in place rather than opening the source. */}
             {normalizeVideoQuotes(story.videoQuotes).quotes.length > 0 && story.videoUrl && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <StoryVideoQuotes
                   videoUrl={story.videoUrl}
                   quotes={normalizeVideoQuotes(story.videoQuotes).quotes}
+                  {...(parseVideoUrl(story.videoUrl)
+                    // An unparseable URL renders no player (StoryMedia's contract), so the
+                    // timecodes must stay links to the source rather than seek nothing.
+                    ? { onSeek: player.onSeek, playerBlocked: player.playerBlocked }
+                    : {})}
                 />
               </div>
             )}

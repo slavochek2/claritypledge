@@ -50,6 +50,8 @@ export interface LazyStoryPlayer {
   playerBlocked: boolean;
   /** Forward to `StoryVideoQuotes`. Seeks in place, mounting the player if needed. */
   onSeek: (seconds: number) => void;
+  /** Forward to `StoryMedia`. Plays the still in place instead of linking to the story. */
+  onActivate: () => void;
 }
 
 /**
@@ -101,7 +103,11 @@ export function useLazyStoryPlayer(enabled: boolean = true): LazyStoryPlayer {
    */
   const scrollPlayerIntoView = useCallback(() => {
     containerRef.current
-      ?.querySelector('[data-testid="story-video-player"], [data-testid="story-video-blocked"]')
+      ?.querySelector(
+        // The facade is listed too: until the reader presses play the embed does not exist,
+        // and a timecode click scrolls to the media slot that IS there (2026-09-28).
+        '[data-testid="story-video-player"], [data-testid="story-video-blocked"], [data-testid="story-video-facade"]',
+      )
       ?.scrollIntoView({ behavior: 'instant', block: 'center' });
   }, []);
 
@@ -130,6 +136,15 @@ export function useLazyStoryPlayer(enabled: boolean = true): LazyStoryPlayer {
     scrollPlayerIntoView();
   }, [mounted, scrollPlayerIntoView]);
 
+  /**
+   * The reader clicked the still itself. Same path as a timecode click at second 0: mount the
+   * embed and play, on this page (founder, 2026-09-28 — the still used to navigate to the
+   * story, "which is weird" when you are already reading the point it belongs to).
+   */
+  const onActivate = useCallback(() => {
+    onSeek(0);
+  }, [onSeek]);
+
   const onBlockedChange = useCallback((blocked: boolean) => {
     setPlayerBlocked(blocked);
   }, []);
@@ -141,6 +156,7 @@ export function useLazyStoryPlayer(enabled: boolean = true): LazyStoryPlayer {
     onBlockedChange,
     playerBlocked,
     onSeek,
+    onActivate,
   };
 }
 

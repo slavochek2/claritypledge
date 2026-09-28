@@ -222,7 +222,8 @@ describe('P1270 §1 — profile Points tab renders nested story media', () => {
     // The RED assertion. Today the adapter drops `video_url`, so `QuotedStory` receives a
     // story with no `videoUrl` and `StoryMedia` renders nothing for it.
     await waitFor(() => {
-      expect(screen.queryByTestId('video-thumbnail-link')).not.toBeNull();
+      // A still on a card plays in place now (2026-09-28), so it is a button, not a link.
+      expect(screen.queryByTestId('video-thumbnail-play')).not.toBeNull();
     });
   });
 

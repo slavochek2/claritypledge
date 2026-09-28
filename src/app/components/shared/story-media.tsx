@@ -19,6 +19,11 @@ interface StoryMediaProps {
   mode?: 'player' | 'thumbnail';
   /** Where a thumbnail card links. The story page, never the video source. */
   storyHref?: string;
+  /**
+   * When given, a thumbnail plays in place instead of linking to `storyHref`
+   * (founder, 2026-09-28). Surfaces with a lazy player pass the hook's `onActivate`.
+   */
+  onActivate?: () => void;
   onBlockedChange?: (blocked: boolean) => void;
   className?: string;
   /** Everything below is forwarded untouched to the existing image path. */
@@ -74,7 +79,7 @@ function MediaWithSummaryLink({ className, link, children }: { className?: strin
 
 export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
   function StoryMedia(
-    { videoUrl, durationSeconds, mode = 'thumbnail', storyHref, onBlockedChange, className, imageProps },
+    { videoUrl, durationSeconds, mode = 'thumbnail', storyHref, onBlockedChange, className, imageProps, onActivate },
     ref
   ) {
     const video = parseVideoUrl(videoUrl);
@@ -94,6 +99,7 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
             ref={ref}
             videoUrl={videoUrl as string}
             durationSeconds={durationSeconds}
+            posterUrl={imageProps?.src}
             onBlockedChange={onBlockedChange}
             className={summaryLink ? undefined : className}
           />
@@ -106,6 +112,7 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
         <VideoThumbnailCard
           videoUrl={videoUrl as string}
           href={storyHref}
+          onActivate={onActivate}
           durationSeconds={durationSeconds}
           className={summaryLink ? undefined : className}
         />

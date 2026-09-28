@@ -55,6 +55,15 @@ function installYouTube() {
   return { seekTo, playVideo, ready };
 }
 
+/**
+ * The embed mounts on a click, not on paint (founder 2026-09-28: the resting embed
+ * advertised "Watch on YouTube" and a copy-link button, both of which lead readers off
+ * the site). "Mounted but not ready" therefore begins after the play control is pressed.
+ */
+function play() {
+  fireEvent.click(screen.getByTestId('story-video-facade'));
+}
+
 beforeEach(() => {
   __resetYouTubeApiLoader();
   delete (window as unknown as { YT?: unknown }).YT;
@@ -69,6 +78,7 @@ describe('P1259 — gap 1: mounted, but the embed is not ready yet', () => {
     const { seekTo, playVideo, ready } = installYouTube();
     const ref = createRef<StoryVideoPlayerHandle>();
     render(<StoryVideoPlayer ref={ref} videoUrl={VIDEO} />);
+    play();
     await waitFor(() => expect(ready.fire).toBeTypeOf('function'));
 
     // The click lands BEFORE onReady — the whole point.
@@ -93,6 +103,7 @@ describe('P1259 — gap 1: mounted, but the embed is not ready yet', () => {
     const { seekTo, ready } = installYouTube();
     const ref = createRef<StoryVideoPlayerHandle>();
     render(<StoryVideoPlayer ref={ref} videoUrl={VIDEO} />);
+    play();
     await waitFor(() => expect(ready.fire).toBeTypeOf('function'));
 
     act(() => ref.current?.seekTo(42));
@@ -107,6 +118,7 @@ describe('P1259 — gap 1: mounted, but the embed is not ready yet', () => {
     const { seekTo, ready } = installYouTube();
     const ref = createRef<StoryVideoPlayerHandle>();
     render(<StoryVideoPlayer ref={ref} videoUrl={VIDEO} />);
+    play();
     await waitFor(() => expect(ready.fire).toBeTypeOf('function'));
 
     act(() => ref.current?.seekTo(42));
@@ -120,6 +132,7 @@ describe('P1259 — gap 1: mounted, but the embed is not ready yet', () => {
     const { seekTo, ready } = installYouTube();
     const ref = createRef<StoryVideoPlayerHandle>();
     render(<StoryVideoPlayer ref={ref} videoUrl={VIDEO} />);
+    play();
     await waitFor(() => expect(ready.fire).toBeTypeOf('function'));
 
     act(() => ref.current?.seekTo(-5));

@@ -20,6 +20,23 @@ const STRIP = {
   'same-vote': '"re-cast" means fresh Gates 1–2, a fresh seal, a new run',
   'event-contract': 'each point gets its own stake and re-stake, not one aggregate up front',
 }
+/**
+ * P1358. Some rules require a sentence to be ABSENT, and a fixture with a line
+ * DELETED cannot watch such a rule fail — the defect is the sentence coming BACK.
+ * So for these sets the fixture keeps every rule line and RESTORES the banned
+ * sentence, verbatim as positions.md carried it until 2026-09-28. That is the
+ * mutation-of-the-real-content control epistemic.md gate 7d asks for: the sentence
+ * is the one that actually shipped, not an invented stand-in.
+ *
+ * It is written WITHOUT a leading `>` on purpose — the banned pattern ignores
+ * blockquotes, because the file legitimately quotes its own history.
+ */
+const ADD = {
+  'speaker-confirmation': {
+    file: 'positions.md',
+    line: 'Skip entirely for `single-speaker` and `speaker-labelled` sources. For every quote from a `turn-verified` source, do this **per quote** and record the result.',
+  },
+}
 for (const [name, set] of Object.entries(RULE_SETS)) {
   const dir = path.join('src/tests/fixtures/p1210/rules', name)
   mkdirSync(dir, { recursive: true })
@@ -36,14 +53,20 @@ for (const [name, set] of Object.entries(RULE_SETS)) {
       '',
     ]
     let deleted = false
-    for (const [label, re] of rules) {
+    for (const [label, re, opts] of rules) {
       if (label === STRIP[name]) { deleted = true; continue }
+      // An absent-rule has no line to copy: its regex matches nothing in a correct
+      // file, which is the point. The ADD below is what makes it fire.
+      if (opts?.absent) continue
       const hit = lines.find(l => re.test(l))
       if (!hit) throw new Error(`no line matches "${label}" in ${loc}`)
       out.push(hit, '')
     }
+    let added = false
+    if (ADD[name] && path.basename(loc) === ADD[name].file) { out.push(ADD[name].line, ''); added = true }
     writeFileSync(path.join(dir, path.basename(loc)), out.join('\n'))
     if (deleted) console.log(`  ${name}/${path.basename(loc)}: deleted "${STRIP[name]}"`)
+    else if (added) console.log(`  ${name}/${path.basename(loc)}: restored the BANNED sentence, so the absent-rule must REJECT`)
     else console.log(`  ${name}/${path.basename(loc)}: all rules kept (the strip is in another file of this set)`)
   }
 }

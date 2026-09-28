@@ -16,6 +16,13 @@ interface VideoThumbnailCardProps {
    * caption reads as a dead control.
    */
   actionLabel?: string;
+  /**
+   * Play here instead of navigating (founder, 2026-09-28: "a click should keep the person on
+   * the same page"). When given, the card is a button that mounts the player in place, and
+   * `href` is ignored. Surfaces that cannot run a player (letters, off-site cards) pass none
+   * and keep the link into the story.
+   */
+  onActivate?: () => void;
 }
 
 /**
@@ -37,6 +44,7 @@ export function VideoThumbnailCard({
   className = '',
   alt = 'Video thumbnail',
   actionLabel,
+  onActivate,
 }: VideoThumbnailCardProps) {
   const thumbnail = getThumbnailUrl(videoUrl);
   if (!thumbnail) return null;
@@ -57,7 +65,11 @@ export function VideoThumbnailCard({
         aria-hidden="true"
         data-testid="video-play-affordance"
       >
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/60">
+        {/* Readable on any frame (founder, 2026-09-28: "the play button is not always visible,
+            depending on the picture"). Three layers, because a still can be light OR dark:
+            an opaque near-black disc, a white ring against dark frames, and a drop shadow
+            against light ones. */}
+        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/75 ring-2 ring-white/80 shadow-lg shadow-black/40">
           <svg viewBox="0 0 24 24" className="h-7 w-7 translate-x-0.5 fill-white">
             <path d="M8 5v14l11-7z" />
           </svg>
@@ -81,6 +93,20 @@ export function VideoThumbnailCard({
       )}
     </div>
   );
+
+  if (onActivate) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onActivate(); }}
+        data-testid="video-thumbnail-play"
+        aria-label={actionLabel ?? 'Play video'}
+        className="block w-full"
+      >
+        {inner}
+      </button>
+    );
+  }
 
   if (!target) return inner;
 

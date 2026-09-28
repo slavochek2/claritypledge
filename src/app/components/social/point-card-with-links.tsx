@@ -41,6 +41,7 @@ import {
 import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
+import { parseVideoUrl } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 
@@ -798,7 +799,7 @@ export function QuotedStory({
   /* P1259 change 1 — this card is the "point card" surface: it is what the feed point card
      and the profile point card render for each linked story. Its timecodes used to be
      open-in-a-new-tab links; they now seek a player mounted here. */
-  const player = useLazyStoryPlayer(!!story.videoUrl);
+  const player = useLazyStoryPlayer(!!parseVideoUrl(story.videoUrl));
 
   /* P1259 change 4 — a missing stance is LOGGED, not swallowed, but not from here.
      `getStoriesForPoints` reports the (point, author) pairs it found no row for: once per
@@ -1047,6 +1048,7 @@ export function QuotedStory({
             videoUrl={story.videoUrl}
             durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
             mode={player.mode}
+            onActivate={player.onActivate}
             onBlockedChange={player.onBlockedChange}
             storyHref={`/story/${story.id}`}
             className="mb-2"

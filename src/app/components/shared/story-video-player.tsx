@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   getEmbedUrl,
+  getPosterUrl,
+  getThumbnailUrl,
   loadYouTubeApi,
   parseVideoUrl,
   YOUTUBE_PLAYER_ORIGIN,
@@ -17,6 +19,8 @@ export interface StoryVideoPlayerHandle {
 interface StoryVideoPlayerProps {
   videoUrl: string;
   durationSeconds?: number | null;
+  /** Poster for the click-to-play facade; falls back to the video's own thumbnail. */
+  posterUrl?: string | null;
   onBlockedChange?: (blocked: boolean) => void;
   className?: string;
 }
@@ -39,7 +43,7 @@ interface StoryVideoPlayerProps {
  * surface already uses.
  */
 export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPlayerProps>(
-  function StoryVideoPlayer({ videoUrl, durationSeconds, onBlockedChange, className = '' }, ref) {
+  function StoryVideoPlayer({ videoUrl, durationSeconds, posterUrl, onBlockedChange, className = '' }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<{ seekTo?: (s: number, allowSeekAhead: boolean) => void; playVideo?: () => void; destroy?: () => void } | null>(null);
     const readyRef = useRef(false);
@@ -61,6 +65,15 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
     const pendingSeekRef = useRef<number | null>(null);
     const [blocked, setBlocked] = useState(false);
     const [ready, setReady] = useState(false);
+    /**
+     * Click-to-play facade (founder, 2026-09-28: the resting embed advertised
+     * "Watch on YouTube" and a copy-link button, both of which lead readers off
+     * the site). YouTube's chrome cannot be removed by player parameters, so the
+     * embed is not mounted at all until the reader asks for playback. The poster is
+     * the story's own image when it has one; otherwise it is YouTube's still, which
+     * is one image request rather than the player's scripts, cookies and chrome.
+     */
+    const [activated, setActivated] = useState(false);
 
     const video = parseVideoUrl(videoUrl);
     const embedUrl = getEmbedUrl(videoUrl);
@@ -70,7 +83,9 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
         const target = Math.max(0, Math.floor(seconds));
         const player = playerRef.current;
         if (!readyRef.current || !player?.seekTo) {
+          // A timecode click is a request to play: hold the seek and mount the embed.
           pendingSeekRef.current = target;
+          setActivated(true);
           return;
         }
         player.seekTo(target, true);
@@ -83,12 +98,43 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
       onBlockedChange?.(blocked);
     }, [blocked, onBlockedChange]);
 
+    /**
+     * A new video in the same mounted component starts from scratch (Codex review,
+     * 2026-09-28): without this, a story swapped in after the previous one was blocked
+     * kept showing the previous fallback, and no player was ever built for the new id.
+     * Activation resets too, so changing the story never autoplays a video nobody asked for.
+     */
+    const lastVideoIdRef = useRef<string | null>(video?.videoId ?? null);
     useEffect(() => {
-      if (!video || !containerRef.current) return;
+      const id = video?.videoId ?? null;
+      if (lastVideoIdRef.current === id) return;
+      lastVideoIdRef.current = id;
+      readyRef.current = false;
+      pendingSeekRef.current = null;
+      setActivated(false);
+      setBlocked(false);
+      setReady(false);
+    }, [video?.videoId]);
+
+    useEffect(() => {
+      if (!video || !activated || !containerRef.current) return;
 
       let cancelled = false;
+      /**
+       * Blocked is TERMINAL for this player instance (Codex review, 2026-09-28). The
+       * fallback replaces the container React gave to `YT.Player`, so a late `onReady`
+       * that cleared `blocked` handed the reader a fresh, empty div while the only
+       * player object stayed attached to a detached node: a permanently black frame.
+       * A new instance is created only by a new video id, which resets the state below.
+       */
+      let terminated = false;
       const timeout = window.setTimeout(() => {
-        if (!cancelled) setBlocked(true);
+        if (cancelled) return;
+        terminated = true;
+        playerRef.current?.destroy?.();
+        playerRef.current = null;
+        readyRef.current = false;
+        setBlocked(true);
       }, blockedThresholdMs());
 
       loadYouTubeApi()
@@ -98,14 +144,16 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
           playerRef.current = new YT.Player(containerRef.current, {
             videoId: video.videoId,
             host: YOUTUBE_PLAYER_ORIGIN,
-            playerVars: { rel: 0, modestbranding: 1, origin: window.location.origin },
+            playerVars: { rel: 0, modestbranding: 1, autoplay: 1, origin: window.location.origin },
             events: {
               onReady: () => {
-                if (cancelled) return;
+                if (cancelled || terminated) return;
                 window.clearTimeout(timeout);
                 readyRef.current = true;
                 setReady(true);
                 setBlocked(false);
+                // The embed mounts only on a click, so playback is what was asked for.
+                playerRef.current?.playVideo?.();
                 // Flush a seek requested while the embed was still loading. Cleared
                 // before dispatch so a failure cannot leave it to fire again later.
                 const pending = pendingSeekRef.current;
@@ -116,13 +164,23 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
                 }
               },
               onError: () => {
-                if (!cancelled) setBlocked(true);
+                if (cancelled) return;
+                // Same teardown as the backstop timer: the fallback replaces the container,
+                // so the instance attached to it must go with it rather than linger.
+                terminated = true;
+                window.clearTimeout(timeout);
+                playerRef.current?.destroy?.();
+                playerRef.current = null;
+                readyRef.current = false;
+                setBlocked(true);
               },
             },
           });
         })
         .catch(() => {
-          if (!cancelled) setBlocked(true);
+          if (cancelled) return;
+          terminated = true;
+          setBlocked(true);
         });
 
       return () => {
@@ -134,7 +192,7 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
         playerRef.current = null;
       };
       // videoUrl is the only input that should re-create the player.
-    }, [video?.videoId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [video?.videoId, activated]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!video || !embedUrl) return null;
 
@@ -172,6 +230,43 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
             policy. The thumbnail above opens the video at its source.
           </p>
         </div>
+      );
+    }
+
+    if (!activated) {
+      const poster = posterUrl || getPosterUrl(videoUrl);
+      const posterFallback = getThumbnailUrl(videoUrl);
+      return (
+        <button
+          type="button"
+          onClick={() => setActivated(true)}
+          aria-label="Play video"
+          data-testid="story-video-facade"
+          className={`group relative block w-full overflow-hidden rounded-lg bg-black aspect-video ${className}`}
+        >
+          {poster && (
+            <img
+              src={poster}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                // maxresdefault is absent for sub-720p uploads; drop to the 480x360 one.
+                const img = e.currentTarget;
+                if (posterFallback && img.src !== posterFallback) img.src = posterFallback;
+              }}
+            />
+          )}
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span
+              className={`flex h-16 w-16 items-center justify-center rounded-full bg-black/75 text-white ring-2 ring-white/80 shadow-lg shadow-black/40 transition group-hover:bg-black`}
+            >
+              <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7 fill-current" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </span>
+        </button>
       );
     }
 

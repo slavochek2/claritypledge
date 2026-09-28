@@ -40,6 +40,7 @@ export const PREDICATE_MODULES = [
   'room-split.mjs',
   'audio-check.mjs',
   'on-topic-minutes.mjs', 'run-file-check.mjs',   // P1355 C3, C4
+  'page-quote-check.mjs',   // P1358 R1c
 ]
 
 /** Modules that are harness, not predicates — the ONLY sanctioned reason for a
