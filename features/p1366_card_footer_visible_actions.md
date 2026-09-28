@@ -50,10 +50,12 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
 - **The `⋯` menu keeps the propagation guard**: it sits in its own `role="presentation"` wrapper that stops clicks, so opening the menu, `Share` → "Copy link", `Edit` and `Delete` never also navigate.
 - **Loading:** while linked stories load, the expander and slot reserve their height (no layout jump).
 
-**Surfaces in scope (verified in code):** `FeedPointCard`, `FeedStoryCard`, `PointCardWithLinks` — **both** its footer branches (quote branch ~`:395–500`, plain branch ~`:580–690`) — and the profile's `StoryCardFull` (`profile-page-v2.tsx:1320`). `profile-page-v2.tsx:1237` withholds `viewerStoryId` on one's own profile; that condition is removed so `✓ Your story` works there.
+**Surfaces in scope (verified in code):** `FeedPointCard`, `FeedStoryCard`, `PointCardWithLinks` — **both** its footer branches (quote branch ~`:395–500`, plain branch ~`:580–690`) — and the profile's `StoryCardFull` (`profile-page-v2.tsx:1320`). `profile-page-v2.tsx:1237` withholds `viewerStoryId` on one's own profile, **and** the own-profile branch (`:447–456`) builds only the count map, never `viewerStoryIdForPoint`. Both change: populate the id map from `linksByPoint` (public and private stories) and remove the guard, so `✓ Your story` works there.
 **Out of scope, must look unchanged:** live-session mode, embeds, the point detail page (`point-detail-page.tsx:471`), landing demos.
 
-**Own story card (`StoryCardFull`):** its pencil (edit) and trash (delete) move into the `⋯` menu — founder decision 2026-09-28, prototype K.
+**Own story card — profile only (`StoryCardFull`):** its pencil (edit) and trash (delete) move into the `⋯` menu — founder decision 2026-09-28, prototype K. `FeedStoryCard` has no edit/delete today; own cards on `/feed` and `/stake` get `Share` only. Edit stays **inline** (`handleEditStart`, `:1367`); while editing, the `⋯` menu is hidden and focus stays in the textarea. Delete keeps today's confirmation (`window.confirm`, `:1766`), the disabled-while-deleting state and both toasts. The card's author row (`:1505`) has no top-right slot today — restructure it so `⋯` never overlaps the name or ear badge at 320px.
+
+**Menu mechanics:** use the existing shadcn `DropdownMenu` (`@/components/ui/dropdown-menu`, pattern `share-dropdown.tsx:158`), not the prototype's hand-built div. Trigger `aria-label` names the card (e.g. "More actions for this point"). `Share` opens the **share sheet** (link + embed, decisions.md 2026-09-11), not a direct copy: the item's `onSelect` sets a card-level `shareOpen`, and a controlled `ShareDialog` renders as a sibling of the menu so it survives the menu closing; `feed_card_shared` still fires with its surface. `+ Add a point` keeps its target (`/story/:id?addPoint=true`).
 
 [FOUNDER DECISION: "+ Add a story" copy comes from the shared `getPositionCTACopy` (`position-helpers.ts:44`), also used by `story-card-with-links.tsx` and `StoryCardDetail.tsx`. Change it everywhere, or only on list cards?]
 
@@ -66,6 +68,8 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 | Solid blue expander on every card competes with the page's primary CTA (P955 "one primary per view") | ACCEPT | Founder chose reading as the loud action. The P955 gate only checks `/tree/_gate/` fixtures and full-width primaries, so it will not fire here — its pass is not evidence. Visual QA must judge the Hierarchy item against the feed's top CTA. |
 | At 320px the point card carrying both `N stories` and `+ Add a story` wraps to two lines | ACCEPT | Measured in the prototype; 375px and wider fit on one line. |
 | Share becomes two taps (inside `⋯`), away from where P1296 put it | ACCEPT | Prod Mixpanel, last 90 days to 2026-09-28: `feed_card_shared` fired 2 times against 8,248 page views. |
+| Card roots are `role="button"` containing buttons (nested interactive controls, pre-existing since P1296) | DEFER | Not introduced here; a semantics refactor (root as container, `Details` as the real link) is its own spec. |
+| `⋯` holds only `Share` on most cards (a one-item menu) | ACCEPT | Founder chose one consistent corner rule over showing the share icon directly; share is used ~2×/90 days. |
 | Users do not realise a card is tappable (founder observed one user on mobile) | MITIGATE | `Details →` is always visible; card tap stays as a secondary path. |
 | `✓ Your story` opens edit mode today (`?edit=true`, all three call sites) | MITIGATE | It opens `/story/:id` to read; aria-label becomes `Your story`; editing stays on the story page. |
 | Point page renders the same card without `isDetailView` | MITIGATE | Per decisions.md 2026-09-11, the list footer turns on only when the caller names a list surface (`shareSurface`); keep that contract. |
@@ -78,15 +82,17 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 
 ## Acceptance Criteria
 
-- [ ] On `/feed`, `/stake/:tag` and a profile, every point card shows `N stories` as a solid blue button and every story card shows `N points` the same way; tapping expands in place.
-- [ ] Every list card has one `⋯` in its top-right corner holding `Share`; the viewer's own story card's `⋯` also holds `Edit` and `Delete`, and both work.
+- [ ] On `/feed`, `/stake/:tag` and a profile, every point card with ≥1 story shows `N stories` as a solid blue button and every story card with ≥1 point shows `N points` the same way; tapping expands in place. At 0: no button (the viewer link alone, or plain `0 stories` / `0 points`).
+- [ ] Every list card has one `⋯` in its top-right corner holding `Share`, which opens the share sheet and still fires `feed_card_shared`.
+- [ ] On the profile, the viewer's own story card's `⋯` also holds `Edit` (inline edit, menu hidden meanwhile) and `Delete` (confirmation kept; card leaves the list on success; error toast on failure).
+- [ ] The `⋯` menu opens and closes with keyboard (Enter/Space, arrows, Escape) and outside click; focus returns to the trigger, or moves into the share sheet when Share is chosen.
 - [ ] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
 - [ ] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
 - [ ] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed and on every profile including their own.
-- [ ] Opening `⋯`, and clicking `Share` → "Copy link", `Edit` or `Delete`, never also navigates to the card's page.
+- [ ] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [ ] The point detail page, an embed and live-session cards look as before (screenshot compare).
 - [ ] A story's author sees `+ Add a point` on their story card; other viewers see no extra link.
-- [ ] At 375px every footer row fits on one line (screenshot per card state); at 320px nothing overflows the card.
+- [ ] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card); at 320px nothing overflows the card, including a long author name next to `⋯`.
 - [ ] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
 
 ## UI Contract
@@ -102,7 +108,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 
 ## Invariants
 
-- Every control on a list card stops its own click; the footer row keeps `role="presentation"` + stopPropagation so the share sheet cannot also navigate (card-footer-controls.tsx header).
+- Every control on a list card stops its own click. The footer row and the `⋯` menu each sit in a `role="presentation"` + stopPropagation wrapper, and the menu content, share sheet and delete confirmation render as React descendants of that wrapper — portals bubble through the React tree (card-footer-controls.tsx header).
 
 ## Related
 
