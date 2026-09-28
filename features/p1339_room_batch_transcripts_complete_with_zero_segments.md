@@ -11,12 +11,7 @@ tags:
   - silent-failure
 disclosure: public
 delivery_stage: ship
-pipeline_ran:
-  - create-bug
-  - reproduce
-  - fix
-  - adversarial-review
-  - ship
+pipeline_ran: [create-bug, reproduce, fix, adversarial-review, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
