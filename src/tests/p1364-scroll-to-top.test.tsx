@@ -11,8 +11,10 @@
  * The real-layout ACs (same first card) are asserted in Playwright: e2e/p1364-back-navigation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useEffect, useRef } from 'react';
 import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 'react-router-dom';
+import { useReturnState } from '@/app/hooks/use-return-state';
 import { ScrollToTop, RESTORE_WINDOW_MS } from '@/app/components/scroll-to-top';
 import {
   MAX_SAVED_POSITIONS,
@@ -61,7 +63,7 @@ const go = (to: string | number, opts?: { replace?: boolean }) =>
   });
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame'] });
   y = 0;
   maxY = 10_000;
   scrollTo.mockClear();
@@ -231,3 +233,41 @@ describe('P1364 scroll position store', () => {
     expect(getSavedPosition(`e${MAX_SAVED_POSITIONS + 9}`)).toBe(MAX_SAVED_POSITIONS + 9);
   });
 });
+
+/**
+ * A card above the restored position that opens AFTER the first restore attempt, with the
+ * browser's scroll anchoring modelled: when it grows by 300px, scrollY moves by 300 to keep the
+ * visible content still (Chrome's overflow-anchor). That is what shifted the reader off target.
+ */
+function AnchoredCard() {
+  const [open, setOpen] = useReturnState('anchored-card', false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    if (open) { y += 300; window.dispatchEvent(new Event('scroll')); }
+  }, [open]);
+  return <button type="button" onClick={() => setOpen(o => !o)}>{open ? 'open' : 'closed'}</button>;
+}
+
+describe('P1364 ScrollToTop — a same-route POP whose cards re-open after the first attempt', () => {
+  it('/list → PUSH /list?tag=x → Back: the card re-opens above the target, and the restore still lands on the target', () => {
+    render(
+      <MemoryRouter initialEntries={['/list']}>
+        <ScrollToTop />
+        <NavGrab />
+        <Routes>
+          <Route path="/list" element={<AnchoredCard />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'closed' })); // the reader opens it…
+    readerScrollsTo(1200); // …and scrolls to 1200 (the open card's height already counted)
+    go('/list?tag=x'); // same route, still mounted: the card resets (PUSH)
+    expect(screen.getByRole('button').textContent).toBe('closed');
+    go(-1); // POP: ScrollToTop restores 1200 first; the card re-opens in its own layout effect
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(screen.getByRole('button').textContent).toBe('open');
+    expect(y).toBe(1200);
+  });
+});
+

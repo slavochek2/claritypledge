@@ -29,9 +29,11 @@ function isReaderInput(e: Event): boolean {
  *   → stay where the reader is (P1364).
  * - POP (back/forward) → restore the position that history entry had. The page usually
  *   remounts and fetches, so at the first frame the document is only a spinner tall and the
- *   browser clamps the scroll to ~0. P1364: the restore is re-applied every frame until it
- *   lands, for up to RESTORE_WINDOW_MS, and stops at the reader's first wheel / touch / key /
- *   pointer input. A value clamped mid-restore is never saved as the entry's position.
+ *   browser clamps the scroll to ~0. P1364: for RESTORE_WINDOW_MS every animation frame checks
+ *   the position and re-applies the target whenever it has drifted (still too short, or cards
+ *   above it re-opened / swapped in after the first attempt), and it stops at the reader's first
+ *   wheel / touch / key / pointer input. A value clamped mid-restore is never saved as the
+ *   entry's position.
  * - Reload → top, deterministically: scrollRestoration "manual" stops the browser's late async
  *   restore from overriding the mount-time scrollTo, and the in-memory map is empty on a fresh
  *   load.
@@ -116,6 +118,16 @@ export function ScrollToTop() {
   return null;
 }
 
+/** One animation frame (runs before the next paint); a timer where frames are unavailable. */
+const schedule = (fn: () => void): number =>
+  typeof window.requestAnimationFrame === "function"
+    ? window.requestAnimationFrame(fn)
+    : (window.setTimeout(fn, RESTORE_RETRY_MS) as unknown as number);
+const unschedule = (id: number) => {
+  if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
+  window.clearTimeout(id);
+};
+
 interface RestoreHandle {
   cancel: () => void;
   isActive: () => boolean;
@@ -127,11 +139,11 @@ interface RestoreHandle {
  */
 function restoreScroll(target: number, currentYRef: { current: number }): RestoreHandle {
   const deadline = Date.now() + RESTORE_WINDOW_MS;
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timer: number | null = null;
   let active = true;
 
   function finish() {
-    if (timer !== null) clearTimeout(timer);
+    if (timer !== null) unschedule(timer);
     timer = null;
     if (active) {
       active = false;
@@ -143,14 +155,20 @@ function restoreScroll(target: number, currentYRef: { current: number }): Restor
     if (isReaderInput(e)) finish();
   }
 
+  // P1364 review — the restore does NOT stop at the first frame that lands. Content can still
+  // change above the target after it: on a same-route POP the cards re-open their remembered
+  // state in their own layout effects (after this sibling's), and the list may swap in from the
+  // cache in a passive effect. With scroll anchoring the browser then moves scrollY off target.
+  // So until the window closes (or the reader takes over) every frame checks, and re-applies the
+  // target only when the position has drifted — a settled page gets no further writes.
   const attempt = () => {
     timer = null;
-    window.scrollTo(0, target);
-    if (Math.abs(window.scrollY - target) <= 1 || Date.now() >= deadline) {
+    if (Math.abs(window.scrollY - target) > 1) window.scrollTo(0, target);
+    if (Date.now() >= deadline) {
       finish();
       return;
     }
-    timer = setTimeout(attempt, RESTORE_RETRY_MS);
+    timer = schedule(attempt);
   };
 
   for (const type of READER_INPUT_EVENTS) {
