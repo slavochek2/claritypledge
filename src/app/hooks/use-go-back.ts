@@ -22,11 +22,18 @@
  *        entries: cold /story → push /point → browser back leaves length 2 at index 0, and the
  *        old `length <= 1` test popped at index 0, which does nothing (P1364 review: a dead
  *        Back button).
- *      - It lives in sessionStorage (per tab, survives reload). A reload of a LATER entry must
- *        never re-derive it: there `history.length` counts the entries before it that belong
- *        to the app, reads "true", and made Back at index 0 pop into nothing (P1364 review 2,
- *        D1). Without sessionStorage, a boot that is a reload or a later entry records "no
- *        predecessor" — the fallback route, never a dead button.
+ *      - It lives in sessionStorage (per tab, survives reload). Every FRESH ARRIVAL into the
+ *        app (Navigation Timing `navigate`, no history index > 0 in state) recomputes it and
+ *        overwrites the stored value: leaving for an outside site and following a link back
+ *        is a new arrival with a new answer (P1364 review 3). Only a `reload` or
+ *        `back_forward` boot reuses the stored value — and must never re-derive it: there
+ *        `history.length` counts the app's own earlier entries, reads "true", and made Back at
+ *        index 0 pop into nothing (P1364 review 2, D1). Without sessionStorage such a boot
+ *        records "no predecessor" — the fallback route, never a dead button.
+ *      - ACCEPTED EDGE (spec Risks): a `back_forward` boot into an OLDER app document reuses
+ *        the NEWEST arrival's answer, which may differ. Telling documents apart needs an id on
+ *        each document's first entry that survives react-router's replace (which rewrites the
+ *        state), i.e. patching history.replaceState — not worth it for this path.
  *
  * Robust to a wiped history state (a page that called `replaceState(null, …)` drops the
  * router's `{ key, idx }`): with no index and no Navigation API, `history.length <= 1` is the
@@ -52,8 +59,8 @@ function readStored(): boolean | null {
   }
 }
 
-/** Is this document load a fresh arrival at the tab's first app entry (not a reload/back)? */
-function isTabFirstBoot(): boolean {
+/** Is this document load a fresh arrival into the app (not a reload or a back/forward)? */
+function isFreshArrival(): boolean {
   const idx = (window.history.state as { idx?: unknown } | null)?.idx;
   if (typeof idx === 'number' && idx > 0) return false; // a later entry of an earlier app session
   try {
@@ -66,18 +73,13 @@ function isTabFirstBoot(): boolean {
 }
 
 /**
- * Call once at app boot, before the router mounts. Records, once per TAB, whether the tab held
- * a page before this app's first entry.
+ * Call once at app boot, before the router mounts. A fresh arrival records whether the tab held
+ * a page before it (overwriting any older answer); a reload or back/forward reuses the stored one.
  */
 export function stampHistoryBoot(): void {
-  const stored = readStored();
-  if (stored !== null) {
-    bootHadPredecessor = stored; // the tab's first boot answered this already
-    return;
-  }
-  if (!isTabFirstBoot()) {
-    // Unknown, and history.length can no longer tell: choose the answer that is never dead.
-    bootHadPredecessor = false;
+  if (!isFreshArrival()) {
+    // history.length can no longer tell; the stored answer, else the one that is never dead.
+    bootHadPredecessor = readStored() ?? false;
     return;
   }
   bootHadPredecessor = window.history.length > 1;

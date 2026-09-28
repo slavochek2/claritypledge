@@ -101,11 +101,13 @@ describe('decideBrowserBack — the decision table', () => {
   const withNavigationApi = (canGoBack: boolean) => {
     (window as unknown as { navigation: unknown }).navigation = { canGoBack };
   };
-  /** What the tab's first boot recorded. */
+  /** What the tab's last fresh arrival recorded, read back by a reload boot. */
   const withBoot = (hadPredecessor: boolean) => {
     window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, String(hadPredecessor));
+    const nav = vi.spyOn(performance, 'getEntriesByType').mockReturnValue([{ type: 'reload' } as unknown as PerformanceEntry]);
     __resetHistoryBootForTest();
     stampHistoryBoot();
+    nav.mockRestore();
   };
 
   it('Navigation API: an earlier app entry → pop', () => {

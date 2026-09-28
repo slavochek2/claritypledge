@@ -13,6 +13,7 @@ import { BrowserRouter, Route, Routes, useNavigate, type NavigateFunction } from
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
   __resetHistoryBootForTest,
+  decideBrowserBack,
   isBrowserBacked,
   stampHistoryBoot,
   TAB_HAD_PREDECESSOR_STORAGE_KEY,
@@ -87,7 +88,7 @@ describe('D1 — a reload of a later entry does not make Back at the first entry
     });
   });
 
-  it("the tab's first boot records the predecessor fact once; later boots read it", () => {
+  it('a reload boot reads the stored answer and never rewrites it', () => {
     window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, 'true'); // arrived from an outside page
     vi.spyOn(window.history, 'length', 'get').mockReturnValue(5);
     bootAs('reload');
@@ -95,6 +96,51 @@ describe('D1 — a reload of a later entry does not make Back at the first entry
     window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, 'false');
     bootAs('reload');
     expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('false');
+  });
+});
+
+describe('review 3 — every fresh arrival re-records the answer (P1311 after leaving and coming back)', () => {
+  /** Cold first visit (stores "no predecessor"), then out to an outside site and back via a link. */
+  function coldThenBackViaOutsideLink() {
+    window.sessionStorage.clear();
+    const len = vi.spyOn(window.history, 'length', 'get').mockReturnValue(1);
+    bootAs('navigate'); // arrival 1: cold
+    expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('false');
+    // …the reader follows a link out, then a link on that site back into /story/:id: a NEW
+    // document, a fresh `navigate`, with the app's old entry and the outside page behind it.
+    len.mockReturnValue(3);
+    vi.spyOn(window.history, 'state', 'get').mockReturnValue(null);
+    bootAs('navigate'); // arrival 2
+    len.mockRestore();
+    expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('true');
+  }
+
+  it('without the Navigation API: Back at the new arrival pops to the outside page (not the fallback)', async () => {
+    coldThenBackViaOutsideLink();
+    vi.restoreAllMocks();
+    window.history.replaceState(null, '', '/stake/cmp7');
+    const go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
+    render(<App />); // the router's first entry in this document: idx 0
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    expect(go).toHaveBeenCalledWith(-1);
+    expect(path()).toBe('/stake/cmp7'); // not the /feed fallback
+  });
+
+  it('with the Navigation API (canGoBack false at the new document): pops too', async () => {
+    coldThenBackViaOutsideLink();
+    vi.spyOn(window.history, 'state', 'get').mockReturnValue({ idx: 0 });
+    (window as unknown as { navigation?: unknown }).navigation = { canGoBack: false };
+    try {
+      expect(decideBrowserBack()).toBe('pop');
+    } finally {
+      delete (window as unknown as { navigation?: unknown }).navigation;
+    }
+  });
+
+  it('a back_forward boot keeps the newest arrival\'s answer (the accepted edge, pinned so a change is deliberate)', () => {
+    coldThenBackViaOutsideLink();
+    bootAs('reload');
+    expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('true');
   });
 });
 
@@ -112,9 +158,10 @@ describe('D3 — the browser-backed check is encoding-safe', () => {
   });
 
   it('cold /stake/<encoded tag> → push → browser back → Back still reaches the fallback', async () => {
-    window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, 'false');
     window.history.replaceState(null, '', '/stake/ai%20safety');
+    const len = vi.spyOn(window.history, 'length', 'get').mockReturnValue(1); // a cold, fresh tab
     bootAs('navigate');
+    len.mockRestore();
     render(<App />);
     act(() => nav('/point/p1'));
     await browserBack();

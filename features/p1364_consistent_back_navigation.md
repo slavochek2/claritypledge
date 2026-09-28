@@ -157,6 +157,7 @@ Causes, verified by reading the code (not yet reproduced in a browser):
 | A cached list leaks across viewers | MITIGATE | The key includes the viewer id, and the cache is cleared on auth change. |
 | Lazy images change height after the restore | ACCEPT | Card media reserves its aspect ratio. A residual shift is within one card. |
 | Accept → agreement → Back re-shows the accept form | MITIGATE | The accept navigation becomes `replace` (§2). |
+| Browser back/forward into an OLDER app document in the same tab uses the newest arrival's "page before the app?" answer | ACCEPT | Every fresh arrival re-records the answer (review 3); only a `back_forward` boot into an earlier app document, whose own arrival answered differently, reads a stale one. Worst case: cold visit → outside site → link back in → browser back twice to the first document → in-app Back at its first entry pops and does nothing. Fixing it needs a per-document id on each document's first history entry that survives react-router's replace (which rewrites the state), i.e. patching `history.replaceState` — out of proportion for this path. |
 
 **Non-Goals:**
 
