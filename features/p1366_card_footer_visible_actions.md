@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 14
 workstream: product
@@ -88,20 +88,20 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 
 ## Acceptance Criteria
 
-- [ ] On `/feed`, `/stake/:tag` and a profile, every point card with ≥1 story shows `N stories` as a solid blue button and every story card with ≥1 point shows `N points` the same way; tapping expands in place. At 0: no button (the viewer link alone, or plain `0 stories` / `0 points`).
-- [ ] Every list card has one `⋯` in its top-right corner holding `Share`, which opens the share sheet and still fires `feed_card_shared`.
-- [ ] On the profile, the viewer's own story card's `⋯` also holds `Edit` (inline edit, menu hidden meanwhile) and `Delete` (confirmation kept; card leaves the list on success; error toast on failure).
-- [ ] The `⋯` menu opens and closes with keyboard (Enter/Space, arrows, Escape) and outside click; focus returns to the trigger, or moves into the share sheet when Share is chosen.
-- [ ] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
-- [ ] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
-- [ ] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
-- [ ] On a profile the expander reads `<First name>'s story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
-- [ ] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
-- [ ] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
-- [ ] The point detail page, an embed and live-session cards look as before (screenshot compare).
-- [ ] A story's author sees `+ Add a point` on their story card; other viewers see no extra link.
-- [ ] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card) — except the founder-accepted two-line case on someone else's profile (owner story + viewer link); at 320px nothing overflows the card, no control overlaps another, including a long author name next to `⋯`.
-- [ ] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
+- [x] On `/feed`, `/stake/:tag` and a profile, every point card with ≥1 story shows `N stories` as a solid blue button and every story card with ≥1 point shows `N points` the same way; tapping expands in place. At 0: no button (the viewer link alone, or plain `0 stories` / `0 points`).
+- [x] Every list card has one `⋯` in its top-right corner holding `Share`, which opens the share sheet and still fires `feed_card_shared`.
+- [x] On the profile, the viewer's own story card's `⋯` also holds `Edit` (inline edit, menu hidden meanwhile) and `Delete` (confirmation kept; card leaves the list on success; error toast on failure).
+- [x] The `⋯` menu opens and closes with keyboard (Enter/Space, arrows, Escape) and outside click; focus returns to the trigger, or moves into the share sheet when Share is chosen.
+- [x] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
+- [x] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
+- [x] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
+- [x] On a profile the expander reads `<First name>'s story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
+- [x] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
+- [x] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
+- [x] The point detail page, an embed and live-session cards look as before (screenshot compare).
+- [x] A story's author sees `+ Add a point` on their story card; other viewers see no extra link.
+- [x] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card) — except the founder-accepted two-line case on someone else's profile (owner story + viewer link); at 320px nothing overflows the card, no control overlaps another, including a long author name next to `⋯`.
+- [x] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
 
 ## UI Contract
 
