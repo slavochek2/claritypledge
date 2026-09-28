@@ -228,8 +228,11 @@ of the commit, and removing the hook entry.
 - [x] The status script prints the `## Now` block for the ikigai run and for an event-folder run;
       it exits non-zero on a block naming a tag with no points on the named environment, and on a date
       that differs from the event row (both pasted)
-- [ ] After a simulated `/compact`, the session-start hook prints the block with no prompt; with the
+- [x] After a simulated `/compact`, the session-start hook prints the block with no prompt; with the
       block removed from the handoff, it reports the handoff as unreadable
+      *Real `/compact` on 2026-09-28: the SessionStart:compact output carried "PIPELINE RUNS (P1367: …)
+      run ai-ikigai-2026-09-29: matches test (6 points, event date)" plus all five fields, unasked.
+      Block-removed half: scratch-root run printed `UNREADABLE: no "## Now" block`, hook exit 0.*
 - [x] decisions.md records the trio format superseding 2026-09-16/17 for physical events and the
       scoped `/meet` link (via `/kdd`); `clarity-practice-event.md` has no remaining "fishbowl panel",
       "stays unlinked" or "no link to it" (grep output pasted); P1337 and P1338 carry the pointer
