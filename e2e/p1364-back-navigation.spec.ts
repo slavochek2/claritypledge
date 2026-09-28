@@ -24,14 +24,20 @@ async function waitForCards(page: Page, min = 1) {
   await expect.poll(() => page.locator(CARD).count(), { timeout: 10000 }).toBeGreaterThanOrEqual(min);
 }
 
-/** The data-testid of the first card whose whole box is inside the viewport. */
+/**
+ * The data-testid of the first card whose whole box is inside the viewport. When no card fits —
+ * the test DB holds story cards taller than this 700px viewport — the topmost card crossing the
+ * viewport, tagged `~crossing`, so the before/after comparison still pins the same card.
+ */
 function firstFullyVisibleCard(page: Page): Promise<string | null> {
   return page.evaluate((sel) => {
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(sel)).filter(el => el.getBoundingClientRect().height > 0);
+    for (const el of cards) {
       const r = el.getBoundingClientRect();
-      if (r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
+      if (r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
     }
-    return null;
+    const crossing = cards.find(el => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < window.innerHeight; });
+    return crossing ? `${crossing.dataset.testid}~crossing` : null;
   }, CARD);
 }
 
@@ -93,7 +99,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
         expect(before).not.toBeNull();
         const urlBefore = page.url();
 
-        await openCard(page, before!);
+        await openCard(page, before!.replace(/~crossing$/, ''));
         await expect(page).toHaveURL(new RegExp(`/${detail}/`));
         await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
         if (way === 'bottom pill') await expect(page.getByTestId(`${detail}-bottom-back`)).toBeVisible({ timeout: 20000 });
@@ -119,7 +125,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
     await scrollToCard(page, Math.min(4, count - 1));
     const before = await firstFullyVisibleCard(page);
     const urlBefore = page.url();
-    await openCard(page, before!);
+    await openCard(page, before!.replace(/~crossing$/, ''));
     await expect(page).toHaveURL(/\/point\//);
     await watchForSkeleton(page);
     await page.getByRole('button', { name: 'Go back', exact: true }).click();
