@@ -600,9 +600,11 @@ distinguishable" is not this step.**
    `custom_vocabulary is incompatible with timestamps`).
 
 2. **Apply the structural oracle, and paste it.** In an interview the host asks and the guest answers
-   at length. **If questions and answers land on the same speaker label, diarization failed and the
-   source is REJECTED.** This oracle is semantic, so it is independent of the acoustics being tested —
-   which is exactly what makes it admissible evidence about them.
+   at length. **If questions and answers land on the same speaker label, diarization failed for that
+   WINDOW and that window is REJECTED** — re-diarize it per the paragraph below, and reject the
+   *source* only when every window has failed, short retries included. This oracle is semantic, so it
+   is independent of the acoustics being tested — which is exactly what makes it admissible evidence
+   about them.
 
    **The verdict is PER WINDOW, never per source (P1358 R1b).** A long source is diarized in several
    windows; each is a separate model call on different audio and **fails independently**. For every
@@ -627,8 +629,18 @@ distinguishable" is not this step.**
    in-transcript referent instead (measured 2026-08-28: *"the title of **your** book"* addressed to
    `spk:0` fixes `spk:0` as the author).
 
-4. **A source whose labels cannot be mapped to real names is REJECTED**, however clean the
-   diarization. An unmapped label is `turn-inferred` wearing a better costume.
+4. **A WINDOW whose labels cannot be mapped to real names is REJECTED**, however clean the
+   diarization, and nothing may be taken from it. An unmapped label is `turn-inferred` wearing a
+   better costume. **The source is rejected only when no window survives** — including the ≤5-minute
+   retries below.
+
+   *(Reworded 2026-09-28, P1358 R1b. Items 2 and 4 said "the **source** is REJECTED", which
+   contradicted the per-window paragraph sitting between them — and did so on the exact case the spec
+   pastes as its replay evidence: on `KyfUysrNaco` one 15-minute window merged two speakers while a
+   re-diarized 5-minute window over the same stretch separated them cleanly. Read per source, that
+   arguer leaves the cast; read per window, the good window is used. Same input, opposite outcomes,
+   decided by which sentence an agent read first — which is the defect class P1358 exists to remove,
+   reproduced inside its own fix.)*
 
 **Consolidate labels to PEOPLE before trusting any count. Measured, and it reversed a conclusion.**
 Diarization **over-splits a single speaker across multiple labels**. On `_V_ed5fuexA` it returned

@@ -294,7 +294,13 @@ refuses a seal without its number. The pending run must re-measure Sinek with C3
       when it runs; filed as a follow-up so it does not live in anyone's memory
 - [x] The Gate 2 packet shows `RECORDED (not measured)` for room-split and the three per-point signals.
       `room-split.mjs` fixtures are updated, with no new refusal — 14 tests pass, including the 7c cases
-      that a single point and an all-`divided` set still do not trip a finding
+      that a single point and an all-`divided` set still do not trip a finding.
+      **Scoped honestly after review:** the verdict string is code and is tested; the three signals are
+      **prose instructions** in `select.md`, because no predicate can observe an agent printing a packet
+      (`rule-present.mjs`'s own SCOPE note). What is mechanical is that the packet's contract states each
+      signal and states that none of them gates — four `rule-present` rows, which fail if a signal is
+      deleted. An agent that omits a signal from the packet is not caught by anything, and that limit is
+      the same one every prose rule in this pipeline carries
 - [x] Each `run-pipeline.md` touch above is present and is one line. `input-block-scan.mjs` and
       `rule-present.mjs` exit 0
 - [x] Skills re-synced — `sync-agent-skills.sh --check`: 128 skills in sync, 0 collisions, 0 drift
@@ -359,6 +365,40 @@ window itself is lying.
 
 Consequence, already in the shipped text: R1b is not a cost-saving refinement of R1a, it is the load-bearing
 half. A future edit that keeps 4b/4c and relaxes per-window mapping restores the original defect in full.
+
+## Adversarial review (2 of 3 delivered)
+
+**Opus: 5 HIGH, 5 MEDIUM, 4 LOW. Gemini 3.8: 4 HIGH, 2 MEDIUM, 1 LOW. Codex: NOT DELIVERED** — its
+usage limit was reached (`ask-model` exit 1, *"You've hit your usage limit… try again at 6:45 PM"*).
+Per `~/.agents/bin/codex-review`'s own warning that is a **failed run, not a clean review**, and it is
+reported as missing rather than as no findings (`epistemic.md` gate 9b).
+
+Every finding below was re-executed against the live file before being acted on, and the two reviewers
+overlapped on four defects — which is how one of them was found to be **wrong about what was already
+fixed**: the reviews ran while the files were being patched, so each finding was re-tested, not trusted.
+
+| # | Severity | Defect | Fixed by |
+|---|---|---|---|
+| 1 | HIGH | `basis: "single-speaker"` is the page author's own word and `continue`d past the run-file cross-check. **The real incident quote passed with exit 0 while the confirmed list said the HOST said it**, and the summary line claimed it "appears in the run file's confirmed list" | The run file is now consulted **before** any basis branch; a person **or basis** mismatch refuses; the summary is built from the checks that ran |
+| 2 | HIGH | A confirmation record was tied to nothing, so one record copied onto another quote passed — including a window from a different video and a window that could not contain the quote's own timecode | `seconds` is mandatory for a multi-speaker quote; the window's `<start>s+<dur>s` bounds must contain it; an optional `video` must appear in the window path |
+| 3 | HIGH | `select.md` Step 2c items 2 and 4 still said **"the source is REJECTED"** in bold, around the new per-window paragraph — opposite outcomes for the exact case this spec pastes as its replay evidence | Both items rescoped to the window, with source-level rejection defined as "no window survives, retries included" |
+| 4 | HIGH | `run-pipeline.md`'s Stage 3 **stop condition** still named only `turn-verified`, two lines under the sentence R1a had widened — so a `speaker-labelled` quote with no artifact had nothing to halt on | Widened to any multi-speaker basis, plus a `rule-present` row (nothing else reads that file) |
+| 5 | HIGH | The banned-sentence rule exempted blockquotes — but `positions.md` writes **binding procedure** in blockquotes, so the exemption covered the exact shape a future author would use. Three rewordings also passed | Exemption is now by explicit **historical marker**, not formatting; a semantic row bans the exemption in any wording; the record gets **one** mention, so history-marker gaming fails. All 8 evasion shapes reject; unmodified files still resolve |
+| 6 | MED | The 4b/4c table filed every confirmed quote as `turn-verified`, a label its own definition forbids for a diarized source | Files under the quote's own basis |
+| 7 | MED | R3's table banned the writer's own family as checker while R3's own fallback shipped Opus writer / Sonnet checker | Rule is now "never the same **model**"; the fallback is named as the **weaker** same-vendor configuration, recorded per run as `checker_separation` |
+| 8 | MED | The benchmark graded the Gemini arm cross-vendor and the Opus arm by its own vendor, biasing the **difference** against Gemini | The founder's blind preference decides when the arms differ by ≤1 story; the report states the asymmetry |
+| 9 | MED | Nothing derived the page's quote list from the page — an incomplete enumeration passed | Step 5 requires the count **by command** against `quotes.length`, both numbers pasted |
+| 10 | MED | Exit 0 read the same whether the page was checked against the run file or against itself | New verdict `CONFIRMED-SELF-ATTESTED`; Step 5 requires the verdict word |
+
+Also fixed: a tautological assertion, a floor-not-labels assertion, contradictory operator text listing
+`turn-inferred` among "allowed values", and — found by re-running the reviewer's own fixture rather than
+trusting the edit — **a bounds check that could never fail**, because destructuring took the regex's
+separator group and `Number("/")` is `NaN`.
+
+**Honest limit on Done-When 1.** *"Cannot come back"* is now true for the eight shapes tested: verbatim,
+wrapped, list item, odd spacing, blockquote at any depth, three rewordings, and a new exemption dressed
+as history. A wording the semantic pattern does not anticipate would still pass — the ban raises the cost
+of reintroduction and makes the accidental and house-style cases impossible; it is not a proof.
 
 ## Decision Criteria
 

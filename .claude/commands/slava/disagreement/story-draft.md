@@ -317,7 +317,7 @@ cost review, not measurements: roughly 580k Sonnet + 150k Opus against 0.8–1.3
 | **Checker** (one per arguer) | **Sonnet** | Permitted **because** the five controls prove it every run — never because it is cheap |
 | **Controls** (five per run) | **Sonnet**, identical prompt shape to the real checkers | A control in a different model is not a control of the checker |
 | **Checker re-run after a control failure** | **Opus** | Never Sonnet again in the same run |
-| **Anything here** | never **Haiku**, and never the writer's own family as its checker | PS-3: the checker must not share the writer's blind spot |
+| **Anything here** | never **Haiku**, and never the writer's own **model** as its checker | PS-3: the checker must not share the writer's blind spot |
 
 **Precondition — a clean transcript per source, or STOP.** `$YT_STORE/<video-id>/<lang>.clean.txt`
 must exist for **every** source before a single agent is spawned. **Raw `.vtt` is never a writer or
@@ -351,12 +351,35 @@ with extra steps.
 one.** The near-miss (modality shift) is the control that actually discriminates, and putting it on a
 short transcript makes it easier to catch than the real work it is standing in for.
 
+**Cross-VENDOR separation is what the default buys, and the fallback does not have it — say which you
+are running.** The default (Gemini writer / Sonnet checker) puts writer and checker in different
+vendors, which is the strongest form of PS-3. If the benchmark moves writers to **Opus**, the checker
+stays **Sonnet**: same vendor, different model, and therefore the **weaker** configuration. It is
+permitted because the five controls run every time and a control failure moves the checkers up — not
+because the separation is equivalent. Gemini cannot take the checker's place there (it cannot open the
+transcript file, per the Fable review recorded in P1358's Alternatives), so no cross-vendor option
+exists on that branch. **Record `checker_separation: cross-vendor | same-vendor` in the run file**, so
+a run that took the weaker branch says so instead of reading like the default.
+*(Added 2026-09-28: the table banned "the writer's own family as its checker" while the benchmark's own
+Otherwise branch shipped writer-Opus / checker-Sonnet, which is that pairing. Both sentences stood.)*
+
 **Gemini stays the default writer only if the pre-registered benchmark says so** (P1358 Decision
 Criteria, confirmed by the founder 2026-09-28): for two arguers, Gemini and Opus each write every
 story; one Sonnet checker grades both sets blind to authorship; the founder picks a favourite per
 pair, also blind. **Keep Gemini if both hold** — its checker failure rate is no worse than Opus's by
 more than one story in the set, **and** the founder prefers Opus in no more than half the pairs.
-Otherwise writers move to Opus and the checker rule above is unchanged. Until that benchmark has run,
+Otherwise writers move to Opus and the checker rule above is unchanged.
+
+**The failure-rate half carries a known bias, in the direction that retires Gemini — so it does not
+decide a close result.** One Sonnet checker grades both arms: the Gemini arm is graded cross-vendor,
+the Opus arm by its own vendor, which is precisely the shared blind spot PS-3 names and the table's own
+*"a control in a different model is not a control of the checker"*. The metric is the **difference**
+between the arms, so any family-forgiveness lands directly on the decision variable
+(`.claude/rules/epistemic.md`, oracle independence: the oracle must be independent of the thing under
+test, and here it is independent of one arm only). Therefore: **when the two arms' failure rates differ
+by one story or less, the founder's blind per-pair preference decides**, and the benchmark report states
+the asymmetry beside the numbers. The founder's confirmed thresholds are unchanged; this only says
+which half wins when they disagree inside the noise. *(Found by review 2026-09-28.)* Until that benchmark has run,
 say in the run file that the writer model is **on probation**, and record its result in P1358 when it
 does.
 

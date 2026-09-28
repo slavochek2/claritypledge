@@ -218,7 +218,10 @@ Tag each quote:
   **and** whose speaker was confirmed for **this quote** by Steps 4b + 4c below. The diarization is the
   evidence those steps read; it is never a reason to skip them (P1358 R1a).
 - `turn-verified`: Multi-speaker source that cleared Gate 0 Step 2b as a one-way interview, **and**
-  whose speaker was confirmed for **this quote** by Step 4b below. Filable.
+  whose speaker was confirmed for **this quote** by Steps 4b **+ 4c** below. Filable.
+  *(Corrected 2026-09-28: this line said "by Step 4b below" while Step 4c, the page-quote predicate and
+  the 4b/4c resolution table all require both — a file disagreeing with itself about which checks a
+  label needs is the exact defect P1358 exists to close, so it may not be reintroduced here.)*
 - `turn-inferred`: Multi-speaker, speaker taken from alternation parity or from the transcript's
   overall shape. *(STOP at filing time if present).*
 
@@ -329,11 +332,14 @@ Ask it exactly this:
 > not settle it, answer UNRESOLVED. Answering UNRESOLVED is a correct outcome, not a failure; a
 > confident guess is the failure. Name the evidence you used.
 
-**Resolve the two answers:**
+**Resolve the two answers.** *(The outcome column said "File as `turn-verified`" until 2026-09-28. After
+R1a a diarized quote reaches this table too, and `turn-verified` is defined above as a source admitted on
+**Step 2b** — so the table's own outcome was a label the definitions forbid for it, and the downstream stop
+condition and `publish` both key off that label.)*
 
 | Step 4b | Step 4c | Outcome |
 |---|---|---|
-| speaker X | speaker X | **File** as `turn-verified`. Record both verdicts and 4c's evidence |
+| speaker X | speaker X | **File under the quote's OWN basis** — `turn-verified` for a source admitted on Step 2b, `speaker-labelled` for one admitted on Step 2c. Record both verdicts and 4c's evidence |
 | speaker X | speaker Y | **DROP.** Two readings of the same window disagree — that is the definition of unconfirmed. Never adjudicate between them yourself; you already hold the answer you want |
 | speaker X | UNRESOLVED | **DROP.** Print both, so the founder can see the window was genuinely ambiguous rather than that nobody looked |
 

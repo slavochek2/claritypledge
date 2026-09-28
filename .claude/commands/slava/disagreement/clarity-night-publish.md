@@ -169,6 +169,13 @@ location link opens the venue's pin (rule 11).
    sources need no record and never did. Pass `confirmed` once positions has run, so the page's list
    is checked against the run file's rather than against itself.
 
+   **The predicate checks the LIST YOU HAND IT, and nothing extracts that list from the page — so
+   enumeration is yours, and an incomplete list passes.** Unlike the marker check above (*"checked by a
+   script, not by eye"*), this one cannot see the page. Build the list by reading the page's own
+   blockquotes and attributed lines top to bottom, and **paste the count beside the exit code**
+   (*"7 quotes enumerated, exit 0"*) so the number is reviewable. A quote you forgot to list is exactly
+   the 2026-09-22 failure with the check added and not run. Named by review, 2026-09-28.
+
    **Measured 2026-09-22, on this skill's own TEST page.** *"we sacrifice happiness in order to be
    successful…"* [34:13] was published under the guest; the **host** said it, and the guest's reply
    twenty seconds later argues the opposite. It arrived from exactly the `grep -F` above, about an hour
@@ -250,8 +257,16 @@ Paste the evidence; do not ask to move to PROD until all pass.
 
 - [ ] Marker `n` equals Sources item `n` for every `n` — checked by a script, not by eye
 - [ ] Every quote found with `grep -F` in its raw source
-- [ ] `page-quote-check.mjs` exits 0 on the page's enumerated quotes, with the exit code pasted —
-      every multi-speaker quote carries its Step 4b + 4c record (rule 4). Draft mode runs this too
+- [ ] `page-quote-check.mjs` exits 0 on the page's enumerated quotes, with **the verdict word and the
+      exit code both pasted** — `CONFIRMED` means the quotes were matched against the run file's
+      confirmed list, `CONFIRMED-SELF-ATTESTED` means they were checked only against themselves (no run
+      file supplied, which is the normal draft-mode state). Exit 0 alone does not distinguish them
+- [ ] **The enumerated count equals the page's own quote count, both numbers pasted** — derive the
+      page's count by command, never by eye (`grep -c '^>' <page-description-file>`, or the equivalent
+      over the description field), and compare it with `quotes.length` in the JSON you passed. The
+      marker item above already solved this problem with *"checked by a script, not by eye"*; a page
+      showing four blockquotes and enumerating three otherwise passes with exit 0, which is the
+      2026-09-22 failure with the check added and not run (review, 2026-09-28)
 - [ ] Every date converted to Asia/Bangkok
 - [ ] The rule-6 balance table exists, with items on both sides of the points argued first
 - [ ] The seven sections of Step 2, in order, and no venue section

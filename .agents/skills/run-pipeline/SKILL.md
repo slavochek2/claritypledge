@@ -169,14 +169,19 @@ Invoke against `<slug>`. Quotes first, then positions.
 **Produces:** the `## Quotes & Positions` section, with `grep -F` exit codes pasted, timecodes
 resolved from the RAW `.vtt`, an inference-strength label per position, and — on **any multi-speaker
 source**, diarized included (P1358 R1a) — a per-quote speaker confirmation naming which evidence
-landed (Step 4b), plus a printed `DROPPED (unconfirmed speaker)` line for every quote that could not
-be confirmed.
+landed (**Steps 4b + 4c**, with the window and its label-to-person mapping), plus a printed
+`DROPPED (unconfirmed speaker)` line for every quote that could not be confirmed.
 
 **Then, per approved video: P1357 `draft` + `check` of its video summary, one row per video** (P1358 R2).
 
 **Stop conditions:** any quote that fails `grep -F` · a `turn-inferred` attribution on a multi-speaker
-source · a `turn-verified` label with no per-quote confirmation artifact behind it · a
-`subject_key: UNKNOWN`.
+source · **any multi-speaker basis (`turn-verified` **or** `speaker-labelled`) with no per-quote
+4b + 4c confirmation artifact behind it** · a `subject_key: UNKNOWN`.
+
+*(Widened 2026-09-28, P1358 R1a: this named only `turn-verified`, two lines under the sentence R1a
+had widened — so a `speaker-labelled` quote with no artifact had a Produces line asking for one and
+no stop condition to halt on, which is the enforcement half missing for exactly the basis R1a was
+written about.)*
 
 ---
 

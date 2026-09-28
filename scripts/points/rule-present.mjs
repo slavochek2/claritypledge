@@ -109,11 +109,20 @@ export const RULE_SETS = {
       [`${SKILLS}/positions.md`]: [
         ['Step 4b covers every multi-speaker source, diarized included',
           /^### Step 4b — Per-quote speaker confirmation \(every multi-speaker source, diarized included\)/m],
-        // Anchored to lines that are NOT blockquotes, so the file's own record of the
-        // withdrawn sentence (quoted inside a `>` block) cannot answer for the rule —
-        // epistemic.md gate 7d, where a searched file's own examples satisfy the search.
+        // Run against the instruction view (blockquotes dropped, whitespace collapsed),
+        // so the file's own record of the withdrawn sentence cannot answer for the rule —
+        // epistemic.md gate 7d, where a searched file's own examples satisfy the search —
+        // and a re-introduction wrapped across two lines still trips it. Backticks are
+        // optional and the gap is any whitespace, because neither changes what a reader obeys.
         ['the withdrawn skip-for-speaker-labelled exemption is absent as an instruction',
-          /^(?!>)[^\n]*Skip entirely for[^\n]*speaker-labelled/m, { absent: true }],
+          /Skip entirely for\s+`?single-speaker`?\s+and\s+`?speaker-labelled`?/i, { absent: true }],
+        // The verbatim ban alone is evadable by rewording — review reinstated the rule in
+        // three equivalent forms that all passed ("Skip for …", "is EXEMPT from Steps 4b
+        // and 4c", the two bases in the other order). What is banned is the EXEMPTION, in
+        // any wording, so this row matches the meaning within one sentence.
+        ['no sentence exempts a speaker-labelled source from 4b/4c, in any wording',
+          /(skip\w*|exempt\w*|waiv\w*|need not run|no need to run|do not run)[^.]{0,90}speaker-labelled|speaker-labelled[^.]{0,90}(skip\w*|exempt\w*|waiv\w*|need not|adds? nothing)/i,
+          { absent: true, allowQuoted: 2 }],
         ['Step 4c receives diarized turns with the labels stripped',
           /strip the speaker labels before handing the turns over/i],
         ['only turns from a window that passed Step 2c may be used',
@@ -123,6 +132,24 @@ export const RULE_SETS = {
         ['Step 2c is judged per window, never per source', /verdict is PER WINDOW, never per source/],
         ['a failed or unmeasurable window is re-diarized in <=5-minute windows',
           /re-diarized in ≤5-minute windows/],
+        // P1358 R4. No predicate can observe an agent printing a packet (this file's SCOPE
+        // note), so what IS checkable is that the packet's contract states the three signals
+        // and states that none of them gates. Added after review pointed out the Done-When
+        // implied a mechanical check that does not and cannot exist.
+        ['the Gate 2 packet reports room-split as RECORDED (not measured)',
+          /never calls it "passed"/],
+        ['signal: no arguer opposes', /^- \*\*no arguer opposes\*\*/m],
+        ['signal: the room is predicted near-unanimous', /^- \*\*room predicted near-unanimous\*\*/m],
+        ['signal: the point exists to seat one arguer', /^- \*\*exists to seat one arguer\*\*/m],
+        ['the three signals are signals, never gates',
+          /All three are SIGNALS, never gates/],
+      ],
+      [`${SKILLS}/run-pipeline.md`]: [
+        // The orchestrator's stop condition is the only sentence that halts Stage 3, and
+        // nothing else reads this file. It named only `turn-verified` until 2026-09-28,
+        // two lines under the sentence R1a had widened.
+        ['the Stage 3 stop condition covers any multi-speaker basis',
+          /any multi-speaker basis \(`turn-verified` \*\*or\*\* `speaker-labelled`\) with no per-quote/],
       ],
       [`${SKILLS}/clarity-night-publish.md`]: [
         ['a multi-speaker page quote needs a Step 4b + 4c record',
@@ -149,6 +176,43 @@ export const RULE_SETS = {
 }
 
 /**
+ * The INSTRUCTION VIEW of a file, for absent-rules only.
+ *
+ * An absent-rule bans a SENTENCE FROM BEING AN INSTRUCTION, while these files
+ * deliberately record their own withdrawn rules as history. Separating the two is
+ * the whole difficulty, and two earlier attempts got it wrong:
+ *
+ *   - A line-anchored regex (`^(?!>)…[^\n]*`) both false-positived on an INDENTED
+ *     blockquote and missed a reinstatement WRAPPED across two lines.
+ *   - Exempting every `>` blockquote was worse, and review demonstrated why: this
+ *     pipeline writes **binding procedure inside blockquotes** — the 4c deadline
+ *     steps, the 4c subagent prompt, "Verification is a STEP with an artifact". So
+ *     the exemption covered exactly the shape a future author would use to add an
+ *     exception, in the file's own normative style, one paragraph below the history.
+ *
+ * So the exemption is by **explicit historical marker**, not by formatting: a line
+ * that says it is quoting a withdrawn rule is history, and everything else is an
+ * instruction whatever it is wrapped in. Lines are then joined and whitespace
+ * collapsed, so re-wrapping cannot evade a ban.
+ */
+const HISTORICAL = /used to read|withdrawn|no longer applies|Corrected \d{4}-\d{2}-\d{2}|Reworded \d{4}-\d{2}-\d{2}|Widened \d{4}-\d{2}-\d{2}/i
+
+export function instructionView(text) {
+  return text
+    .split('\n')
+    .filter(l => !HISTORICAL.test(l))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+}
+
+/** The whole file, whitespace-collapsed — history included. Used to count how many
+ *  times a banned sentence appears at all: the record is allowed ONE occurrence, so
+ *  "mark your new exception as history" is not a way past the ban. */
+export function collapsedView(text) {
+  return text.replace(/\s+/g, ' ')
+}
+
+/**
  * @param {{ruleSet: string, files?: Record<string,string>, root?: string}} input
  *   `files` overrides a location with another path — that is how the must-fail
  *   fixture (the same file with the sentence removed) runs the identical code.
@@ -170,8 +234,18 @@ export function run(input) {
       // coming back, and it came back once already by surviving a ruling that
       // contradicted it for a month.
       if (opts?.absent) {
-        if (re.test(text)) missing.push(`${loc}: PRESENT BUT BANNED — ${label}`)
-        else found.push(`${loc}: absent as required — ${label}`)
+        // Matched against the instruction view, never the raw bytes — see above.
+        if (re.test(instructionView(text))) { missing.push(`${loc}: PRESENT BUT BANNED — ${label}`); continue }
+        // The historical record gets ONE mention. A second occurrence means either the
+        // rule was re-added behind a history marker, or the record was duplicated and
+        // one copy will drift; both are findings.
+        const allowed = opts.allowQuoted ?? 1
+        const seen = (collapsedView(text).match(new RegExp(re.source, 'gi')) ?? []).length
+        if (seen > allowed) {
+          missing.push(`${loc}: QUOTED ${seen} TIMES, ${allowed} allowed — ${label}. A banned sentence marked as history more than once is how it comes back wearing the record's costume.`)
+          continue
+        }
+        found.push(`${loc}: absent as required — ${label}`)
         continue
       }
       if (re.test(text)) found.push(`${loc}: ${label}`)

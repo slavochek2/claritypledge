@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 91
+**Next ID:** 92
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1691,5 +1691,16 @@ The worktree migration procedure (apply via main's migrate.sh, commit main's man
 **due:** week
 
 src/tests/p887-reproduce.test.ts copies scripts/lib/ file by file and fails with ENOTSUP on any subdirectory; the keyring Python helper creates scripts/lib/__pycache__ (gitignored), so the test — and the pre-commit hook on main — fails for every session after any keyring use. Blocked the P1349 ship on 2026-09-22 until the cache folder was deleted. Done when the copy skips directories (or copies recursively) and the test passes with a __pycache__ folder present.
+
+---
+
+## Run the Gemini-vs-Opus story-writer benchmark at the first story-draft
+
+**ID:** INBOX-91
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+P1358 R3 made Gemini 3.8 the default story writer with the threshold pre-registered and the model labelled on probation; the benchmark itself has not run, because the ikigai run had not reached story-draft. At the next story-draft: for two arguers, have Gemini and Opus each write every story, one Sonnet checker grade both sets blind to authorship, and the founder pick a favourite per pair blind. Keep Gemini only if its checker failure rate is no worse than Opus's by more than one story and the founder prefers Opus in no more than half the pairs; otherwise writers move to Opus. Record the result in P1358 and drop the probation label. Droppable if the story stage stops using per-arguer writers at all.
 
 ---

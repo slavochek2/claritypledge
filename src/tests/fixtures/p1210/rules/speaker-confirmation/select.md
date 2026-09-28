@@ -6,3 +6,13 @@
    **The verdict is PER WINDOW, never per source (P1358 R1b).** A long source is diarized in several
 
    **A window that FAILS its oracle or reads UNMEASURABLE is re-diarized in ≤5-minute windows before
+
+**`room-split` reports `RECORDED (not measured)`, and this packet never calls it "passed" (P1358
+
+- **no arguer opposes** — every arguer with a predicted side is on the same side.
+
+- **room predicted near-unanimous** — the point's own predicted room split leans one way with no
+
+- **exists to seat one arguer** — the point was introduced so that a particular arguer would have
+
+**All three are SIGNALS, never gates, and none may drop a point or halt the run.** `docs/decisions.md`
