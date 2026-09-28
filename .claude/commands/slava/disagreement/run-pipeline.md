@@ -259,6 +259,27 @@ words verbatim, and which rule or file should have carried it. Clarity Night #2 
 items, reconstructed afterwards from two halves of a transcript; the file makes the next reflection a
 read, not an archaeology.
 
+**The event folder is `.private/events/<run-slug>/`, and it is created with an empty
+`improvements.md` before the first stage asks the founder anything** (P1367). Until 2026-09-28 the
+folder was never created, so the rule above ran zero times across ~20 page corrections.
+
+---
+
+## The handoff's `## Now` block — every stage rewrites it when it ends (P1367 S3)
+
+The run's handoff (`.private/events/<run-slug>/handoff.md`; old runs:
+`.private/points-runs/<slug>.handoff.md`) starts with a fixed `## Now` block: **done**, **next** (with
+its gate), **see** (URL per environment), **date** (absolute, from `scripts/events/event-date.mjs`),
+**not on PROD**, and a machine `check:` line (`env= tag= event= datetime=`). The field list and
+format live in `scripts/events/run-status.mjs`; never restate them elsewhere.
+
+**Every stage, invoked from here or directly on a resume, rewrites the block as its last action.**
+A SessionStart hook (`.claude/hooks/pipeline-run-status.sh`) prints it for every handoff changed in
+the last 7 days, `/compact` included, cross-checked against the environment it names, so a resume
+starts with the state on screen instead of the founder asking *"what next what we did what now"*
+(asked at least six times during Clarity Night #2). A block the check calls STALE is fixed before
+any other work.
+
 ---
 
 ## What this skill does NOT do

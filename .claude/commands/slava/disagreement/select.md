@@ -1261,3 +1261,5 @@ Upon Gate 2 approval:
 - **Do NOT rank primarily on views, trending status, or SEO metrics.** Reach is the axis being discounted.
 - **Do NOT write any comment author's name, handle or profile URL into any tracked file** — comments are quoted as evidence a position exists; their authors are private individuals.
 - **Do NOT purchase creator-SEO tooling** (vidIQ, TubeBuddy or equivalents) — keyword competition and tag optimisation do not find contested conversations.
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.

@@ -19,6 +19,7 @@ const STRIP = {
   'story-unit': 'single-point scope judged by a checker that is not the writer',
   'same-vote': '"re-cast" means fresh Gates 1–2, a fresh seal, a new run',
   'event-contract': 'each point gets its own stake and re-stake, not one aggregate up front',
+  'page-shape': '/meet linked once, plain',
 }
 /**
  * P1358. Some rules require a sentence to be ABSENT, and a fixture with a line

@@ -1,6 +1,8 @@
 # The Free Event — description and run-of-show
 
-> **`UNTESTED`. Zero events run.** Everything below is a prediction.
+> **`UNTESTED` beyond one night.** Clarity Night #1 ran in pairs; everything below not marked as
+> run is still a prediction. In-person Clarity Nights run **trios** since 2026-09-28 (see *Room
+> format* under the run-of-show).
 > **This file holds the description and the run-of-show. Nothing else.** Reasoning lives where it
 > already lives; if this file starts re-arguing decided things it has become the fourth unrun design
 > ([decisions.md](../decisions.md) 2026-08-10 [process]).
@@ -67,8 +69,11 @@ before it is offered the fix"* ([goals.md](../goals.md):15), applied to the foun
   method, and arguing it selects for the wrong room.
 - **Clarity Night deviation, founder decision 2026-09-11:** the listing names the Clarity Meeting
   Principle once, in the agenda, with its one-line plain meaning, because the agenda refers to it
-  three times (opt in, stage demo, pairs). **`/meet` stays unlinked**: a link invites studying the
-  method before the room has felt the failure. Founder's proposed wording, verbatim: *"you choose
+  three times (opt in, stage demo, pairs). The original reason for leaving `/meet` without a link: a
+  link invites studying the method before the room has felt the failure. **Amended 2026-09-28
+  (founder, *"maybe okay link it"*): on Clarity Night pages `/meet` is linked once, plain, in the
+  agenda item that names it**, never as a button. Recorded as a scoped supersession so it can be
+  reversed on evidence (decisions.md 2026-09-28). Founder's proposed wording, verbatim: *"you choose
   whether to opt in or opt out from a clarity meeting prinicple"*. The note under *Description copy*
   saying "no mention by name" still governs the online configuration.
 
@@ -128,7 +133,22 @@ prod. **They read "in an important conversation," not "in feedback," and they ar
 Points can't be edited). Correct as-is: the argument narrows, the instrument stays general.
 
 Fishbowl not breakouts, and what the event must demonstrate (*these two people did not mean the same
-thing*): [decisions.md](../decisions.md) 2026-08-10.
+thing*): [decisions.md](../decisions.md) 2026-08-10. **That is now the online configuration only.**
+
+### Room format — in person vs online (2026-09-28)
+
+**In-person Clarity Nights run trios** (founder redesign, 2026-09-28; supersedes the pairs rounds of
+[decisions.md](../decisions.md) 2026-09-16 and 2026-09-17 for physical events). Three rounds of
+15 minutes. In each round two people discuss a point they disagree on: **six minutes** to understand
+one, then they swap and spend **six** on the other; the **observer** then takes **three** minutes to
+say back what they heard. Everyone rotates through speaker, listener and observer. The round rule of
+2026-09-17 stays in force inside each round: no disagreeing while the lower of the two numbers is
+under 8, numbers only if the listener opted in. The observer rating their own understanding before
+they say it back is **tentative** (founder, 2026-09-28), and whether the speakers rate the observer
+is not decided; both belong to P1337 and P1338.
+
+**Online events** are not being organized yet. When they are: a fishbowl with an observer, no
+breakouts. Intended, not yet run.
 
 ### Where the pipeline's points enter — the contract the Disagreement Pipeline builds against
 
@@ -365,7 +385,7 @@ technocratic."* An RSVP consent checkbox was drafted and **rejected** on those g
 
 Three things that follow:
 
-- **Record the fishbowl panel on video and audio as a plain recording.** Transcribe afterwards.
+- **Record the room on video and audio as a plain recording.** Transcribe afterwards.
 - **Do NOT put live in-browser transcription on the critical path of event #1.** Verified
   2026-09-10: the speech hook is mounted page-scoped (`transcribe-room-page.tsx`,
   `transcription-input.tsx`), not globally, so navigating anywhere else unmounts it and recording
@@ -385,6 +405,7 @@ configuration is still undecided.)*
 **Notes on the draft, delete before publishing:**
 - The word "feedback" does the work in the first two lines and is then dropped — the listing shouldn't
   read as a feedback-skills workshop, which is a crowded and different product.
-- No mention of the Clarity Meeting Principle by name, and no link to it. Per the silence rule, the
-  first encounter is block 3, in the room.
+- No mention of the Clarity Meeting Principle by name in the online listing. Per the silence rule,
+  the first encounter is block 3, in the room. (Clarity Night pages differ: named and linked once,
+  plain; see the Clarity Night deviation above.)
 - "One person per company" is stated as a seat rule, not justified — justifying it invites negotiation.

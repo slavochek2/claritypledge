@@ -603,6 +603,9 @@ to `.private/logs/points-runs.log`, and `<ISO-timestamp> | disagreement:publish 
 - **Not re-runnable the way prepare is.** Every confirmed run writes. A second run files a second set.
 - **Not a `src/` change.** It writes rows the existing product already renders.
 
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.
+
 ## Related
 
 - `/slava:disagreement:clarity-night-publish` — **next, once the tag is on PROD:** builds and publishes the event page for it.

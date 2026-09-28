@@ -159,6 +159,32 @@ export const RULE_SETS = {
       ],
     },
   },
+  'page-shape': {
+    // P1367. The Clarity Night page shape the founder corrected on 2026-09-28, stated where the
+    // stage reads it. Scope as above: presence of the rule, not obedience; obedience on the page
+    // itself is page-check.mjs's job, and it is invoked here as a command.
+    dw: 'P1367',
+    locations: {
+      [`${SKILLS}/clarity-night-publish.md`]: [
+        ['five headings, in order, nothing else', /^An opening, then these five headings, in this order, and nothing else/m],
+        ['the page check is invoked as a command', /node scripts\/points\/page-check\.mjs/],
+        ['/meet linked once, plain', /\*\*linked once, plain\*\*/],
+        ['17. no negation opener', /^17\. \*\*No negation opener\.\*\*/m],
+        ['18. never "we quoted"', /^18\. \*\*Never "we quoted"\.\*\*/m],
+        ["19. never imply the people spoke about the frame term", /^19\. \*\*Never imply the people spoke about the event's frame term\*\*/m],
+        ['20. no talk videos in Sources', /^20\. \*\*No talk videos in Sources\.\*\*/m],
+        ['21. the round rule is what the room does, never page copy', /^21\. \*\*The round rule is what the room does, never page copy\.\*\*/m],
+        ['the corrections log exists before the first correction', /The corrections log exists before the first correction/],
+        ['the date is resolved by command', /node scripts\/events\/event-date\.mjs resolve/],
+        ['the withdrawn seven-section list is absent', /These seven, in this order/, { absent: true }],
+        ['the withdrawn "/meet stays unlinked" rule is absent', /\(`\/meet` stays unlinked\)/, { absent: true }],
+      ],
+      [`${SKILLS}/run-pipeline.md`]: [
+        ['every stage rewrites the Now block as its last action', /rewrites the block as its last action/],
+        ['the event folder and improvements.md exist before the first question', /before the first stage asks the founder anything/],
+      ],
+    },
+  },
   'event-contract': {
     dw: 'DW-11',
     locations: {

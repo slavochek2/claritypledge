@@ -557,3 +557,5 @@ duration_seconds: <integer>
 **Not the channel URL, not an embed URL, not a bare id** for `video_url`. The filer stores this one string and every surface re-derives the player, the thumbnail and the open-at-timestamp link from it.
 
 Hand off to `/slava:disagreement:story-draft`.
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.

@@ -339,6 +339,9 @@ A gate never seen to fail is unproven, and one that refuses everything is equall
 - **Not re-runnable.** Every confirmed run writes. A second run files a second public set.
 - **Not a `src/` change.** It writes rows the product already renders.
 
+
+**Last action of this stage (P1367 S3):** rewrite the run handoff's `## Now` block (format in `scripts/events/run-status.mjs`; see `run-pipeline.md`), then run `node scripts/events/run-status.mjs <run-slug>` and paste its exit code.
+
 ## Related
 
 - [docs/points-process.md](../../../../docs/points-process.md) — the pipeline contract.

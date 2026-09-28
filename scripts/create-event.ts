@@ -3,6 +3,7 @@
  * Create an event in the production Supabase database.
  *
  * Usage: npx tsx scripts/create-event.ts events/ai-run-2.json
+ *        npx tsx scripts/create-event.ts --dry-run events/ai-run-2.json   # validate + print SLUG, no key, no insert
  *
  * Reads the prod service key through the per-access lock (scripts/lib/keyring.mjs, P1316):
  * one authorization dialog per run, never a plaintext copy from .env.local.
@@ -18,12 +19,14 @@ import { resolve } from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { resolveOrg } from '../src/app/prototypes/events/org-defaults';
 import { keyringGet } from './lib/keyring.mjs';
+import { eventSlug } from './events/event-date.mjs';
 
 const SUPABASE_URL = 'https://besjtuodziykmjidubzw.supabase.co';
 
-const inputPath = process.argv[2];
+const dryRun = process.argv.includes('--dry-run');
+const inputPath = process.argv.slice(2).find(a => a !== '--dry-run');
 if (!inputPath) {
-  console.error('Usage: npx tsx scripts/create-event.ts <json-file>');
+  console.error('Usage: npx tsx scripts/create-event.ts [--dry-run] <json-file>');
   process.exit(1);
 }
 
@@ -62,14 +65,12 @@ for (const field of required) {
   }
 }
 
-function generateSlug(title: string): string {
-  const dateStr = new Date().toISOString().split('T')[0];
-  const titleSlug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  const randomSuffix = Math.random().toString(36).slice(2, 6);
-  return `${titleSlug}-${dateStr}-${randomSuffix}`;
+// P1367 S2: the slug carries the EVENT's local date, not the day the script ran. It used to be
+// `new Date()`, so a night created a week ahead published under the wrong date.
+const slug = eventSlug(input.title, input.datetime, input.timezone);
+if (dryRun) {
+  console.log(`SLUG=${slug}  # dry run: nothing read from the keychain, nothing inserted`);
+  process.exit(0);
 }
 
 // Read only after the input has validated, so a bad file never costs an authorization dialog.
@@ -116,7 +117,6 @@ if (decision.kind === 'org') {
   orgId = org.id;
 }
 
-const slug = generateSlug(input.title);
 
 const { data, error } = await supabase.from('events').insert({
   slug,
