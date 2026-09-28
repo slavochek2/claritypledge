@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { renderEventDescription } from '@/lib/markdown';
+import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -177,6 +178,25 @@ export function EventDetail() {
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // P1365: is the rendered description taller than the viewport? Starts false, so the
+  // desktop repeat RSVP never paints before it has been measured. A callback ref, not
+  // a mount effect: the description only exists once the event has loaded.
+  const [descriptionEl, setDescriptionEl] = useState<HTMLDivElement | null>(null);
+  const [descriptionTallerThanViewport, setDescriptionTallerThanViewport] = useState(false);
+  useEffect(() => {
+    if (!descriptionEl) return;
+    const measure = () =>
+      setDescriptionTallerThanViewport(descriptionEl.getBoundingClientRect().height > window.innerHeight);
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(descriptionEl);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [descriptionEl]);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -292,7 +312,7 @@ export function EventDetail() {
     Date.now() >= eventDate.getTime() - ROOM_JOIN_WINDOW_MS ? 'Join now' : 'Event Room';
   const isFull = eventsService.isEventFull(event);
 
-  const handleRsvp = async (trigger: 'sticky_bar' | 'card') => {
+  const handleRsvp = async (trigger: RsvpTrigger) => {
     if (!event || isPast || (isFull && !isRsvpd)) return;
     analytics.track('event_rsvp_initiated', { event_id: event.id, trigger });
 
@@ -372,8 +392,24 @@ export function EventDetail() {
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
-  // P844: Renders the RSVP action button — used in both desktop right-column card and mobile sticky bar
-  const renderRsvpButton = (trigger: 'sticky_bar' | 'card') => {
+  // P844: Renders the RSVP action button — desktop above the description ('card') and the
+  // mobile sticky bar. P1365: 'card_bottom' is the desktop repeat after a long description;
+  // it only renders when shouldShowRsvpRepeat() holds (never past/full), and carries its own
+  // label and test id so no two buttons share an accessible name or a locator.
+  const renderRsvpButton = (trigger: RsvpTrigger) => {
+    if (trigger === 'card_bottom') {
+      return (
+        <Button
+          onClick={() => handleRsvp(trigger)}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+          size="lg"
+          disabled={isActionLoading}
+          data-testid="rsvp-button-repeat"
+        >
+          {RSVP_REPEAT_LABEL}
+        </Button>
+      );
+    }
     if (isPast) {
       return (
         <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
@@ -748,6 +784,7 @@ export function EventDetail() {
               )}
 
               {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
+                  P1365 repeats it after a description taller than the viewport (below).
                   Mobile uses the sticky bottom bar (non-RSVP'd) + inline green card after description (RSVP'd). */}
               {!rsvpAffordanceHidden && (
                 <div className="hidden lg:block mb-6">
@@ -791,9 +828,24 @@ export function EventDetail() {
 
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               <div
+                ref={setDescriptionEl}
                 className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 dangerouslySetInnerHTML={{ __html: descriptionHtml }}
               />
+
+              {/* P1365: desktop repeat, only after a description taller than the viewport —
+                  so it and the top button are never in view together. */}
+              {shouldShowRsvpRepeat({
+                affordanceHidden: rsvpAffordanceHidden,
+                isRsvpd,
+                isPast,
+                isFull,
+                descriptionTallerThanViewport,
+              }) && (
+                <div className="hidden lg:block mb-6" data-testid="rsvp-repeat">
+                  {renderRsvpButton('card_bottom')}
+                </div>
+              )}
 
               {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
               {!isHost && !isCancelled && isRsvpd && (

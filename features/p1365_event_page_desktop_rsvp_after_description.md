@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 drafted_by: opus
 exec_model: sonnet
@@ -14,8 +14,8 @@ tags:
   - rsvp
 created_date: '2026-09-28'
 disclosure: public
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1365: Desktop event page repeats the RSVP after the description
@@ -120,8 +120,7 @@ opacity.
    which the top button shows).
 6. Update the stale comments at the desktop RSVP block and on `renderRsvpButton` ("desktop
    right-column card").
-7. Label: [FOUNDER DECISION: label of the repeated button. Options: "Reserve your seat",
-   "Save me a seat". Must satisfy the naming Invariant.]
+7. Label: **"Reserve your seat"** (founder decision, 2026-09-28).
 
 ## Invariants
 
@@ -155,17 +154,17 @@ Practice Rooms gating; `RsvpConfirm`, `eventsService`, the RSVP backend.
 
 ## Acceptance Criteria
 
-- [ ] On desktop, an event whose description is taller than the viewport shows the repeat directly
+- [x] On desktop, an event whose description is taller than the viewport shows the repeat directly
       after the description; one with a shorter description does not.
-- [ ] At desktop width, at scroll top and at scroll end, at most one of `rsvp-button` /
+- [x] At desktop width, at scroll top and at scroll end, at most one of `rsvp-button` /
       `rsvp-button-repeat` is in the viewport.
 - [ ] Logged out, clicking the repeat tracks `event_rsvp_initiated` with trigger `card_bottom` and
       goes to the same signup URL as the top button. Logged in, it RSVPs and lands on
       `/events/<slug>/confirm`.
-- [ ] RSVP'd, host, cancelled, past and full events show no repeat.
-- [ ] On mobile, the page is unchanged (sticky bar only, no repeat).
+- [x] RSVP'd, host, cancelled, past and full events show no repeat.
+- [x] On mobile, the page is unchanged (sticky bar only, no repeat).
 - [ ] All existing tests for P844 still pass.
-- [ ] A regression test covers the first two criteria.
+- [x] A regression test covers the first two criteria. (`e2e/p1365-rsvp-repeat.spec.ts`, 4/4; gate logic in `src/tests/p1365-rsvp-repeat.test.ts`, 8/8)
 
 ## Next Steps
 
