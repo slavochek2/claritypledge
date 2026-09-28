@@ -45,19 +45,20 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
   - story card, viewer is the author → `+ Add a point`; nobody else sees anything (there is no "your point")
 - **Bottom row, right — open the card's page:** an outlined secondary button **`Details →`, always visible on every device**. No hover-reveal. Replaces the external-link icon everywhere on list cards.
 - **Desktop hover:** the whole card's border highlights (also on `:focus-within`), confirming the card is clickable. Nothing appears, grows or moves.
+- **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. So on a profile the expander reads `2 stories by Maya` (first name), and `2 of your stories` on one's own; the feed and stake keep `2 stories`. The full set is one tap away via `Details →`.
 - **Zero counts:** the expander renders only when the count is > 0 (no dead button). With 0 and a viewer-slot link, the link alone; with 0 and no link, plain `0 stories` / `0 points` text (today's copy).
 - **The `⋯` menu joins the top row that exists on each real card** — `FeedPointCard`: the statement row; `PointCardWithLinks`: the profile-owner quote row, or the statement row on one's own profile (no quote row there, `:273`); story cards: the author row. There is no "POINT" label on real cards; the prototype's label is a stand-in.
 - **The `⋯` menu keeps the propagation guard**: it sits in its own `role="presentation"` wrapper that stops clicks, so opening the menu, `Share` → "Copy link", `Edit` and `Delete` never also navigate.
 - **Loading:** while linked stories load, the expander and slot reserve their height (no layout jump).
 
-**Surfaces in scope (verified in code):** `FeedPointCard`, `FeedStoryCard`, `PointCardWithLinks` — **both** its footer branches (quote branch ~`:395–500`, plain branch ~`:580–690`) — and the profile's `StoryCardFull` (`profile-page-v2.tsx:1320`). `profile-page-v2.tsx:1237` withholds `viewerStoryId` on one's own profile, **and** the own-profile branch (`:447–456`) builds only the count map, never `viewerStoryIdForPoint`. Both change: populate the id map from `linksByPoint` (public and private stories) and remove the guard, so `✓ Your story` works there.
+**Surfaces in scope (verified in code):** `FeedPointCard`, `FeedStoryCard`, `PointCardWithLinks` — **both** its footer branches (quote branch ~`:395–500`, plain branch ~`:580–690`) — and the profile's `StoryCardFull` (`profile-page-v2.tsx:1320`). On one's own profile the expanded stories already are the viewer's own (profiles show the owner's stories, P470), so no `✓ Your story` link is added there — the existing own-profile behaviour (`profile-page-v2.tsx:1237`, `:447–456`) stays.
 **Out of scope, must look unchanged:** live-session mode, embeds, the point detail page (`point-detail-page.tsx:471`), landing demos.
 
 **Own story card — profile only (`StoryCardFull`):** its pencil (edit) and trash (delete) move into the `⋯` menu — founder decision 2026-09-28, prototype K. `FeedStoryCard` has no edit/delete today; own cards on `/feed` and `/stake` get `Share` only. Edit stays **inline** (`handleEditStart`, `:1367`); while editing, the `⋯` menu is hidden and focus stays in the textarea. Delete keeps today's confirmation (`window.confirm`, `:1766`), the disabled-while-deleting state and both toasts. The card's author row (`:1505`) has no top-right slot today — restructure it so `⋯` never overlaps the name or ear badge at 320px.
 
 **Menu mechanics:** use the existing shadcn `DropdownMenu` (`@/components/ui/dropdown-menu`, pattern `share-dropdown.tsx:158`), not the prototype's hand-built div. Trigger `aria-label` names the card (e.g. "More actions for this point"). `Share` opens the **share sheet** (link + embed, decisions.md 2026-09-11), not a direct copy: the item's `onSelect` sets a card-level `shareOpen`, and a controlled `ShareDialog` renders as a sibling of the menu so it survives the menu closing; `feed_card_shared` still fires with its surface. `+ Add a point` keeps its target (`/story/:id?addPoint=true`).
 
-[FOUNDER DECISION: "+ Add a story" copy comes from the shared `getPositionCTACopy` (`position-helpers.ts:44`), also used by `story-card-with-links.tsx` and `StoryCardDetail.tsx`. Change it everywhere, or only on list cards?]
+**Copy change is global:** `getPositionCTACopy` (`position-helpers.ts:44`) changes to `+ Add a story`, so every surface that uses it (list cards, `story-card-with-links.tsx`, `StoryCardDetail.tsx`) says the same thing — founder decision 2026-09-28. `AddPointPill` becomes `+ Add a point`.
 
 These replace today's divergence: the `+ Add your story` pill appears on the profile only when it is the viewer's own profile (`point-card-with-links.tsx:281`), the `✏ your story` link only off it (`:417`), so on one's own profile a written story has no route from the card; the feed point card has its own pill and edit link (`feed-point-card.tsx:310`).
 
@@ -70,6 +71,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 | Share becomes two taps (inside `⋯`), away from where P1296 put it | ACCEPT | Prod Mixpanel, last 90 days to 2026-09-28: `feed_card_shared` fired 2 times against 8,248 page views. |
 | Card roots are `role="button"` containing buttons (nested interactive controls, pre-existing since P1296) | DEFER | Not introduced here; a semantics refactor (root as container, `Details` as the real link) is its own spec. |
 | `⋯` holds only `Share` on most cards (a one-item menu) | ACCEPT | Founder chose one consistent corner rule over showing the share icon directly; share is used ~2×/90 days. |
+| On a profile, a reader wants everyone's stories on the point, not just the owner's | ACCEPT | `Details →` opens the point page with all stories; watch for it in the first user sessions. |
 | Users do not realise a card is tappable (founder observed one user on mobile) | MITIGATE | `Details →` is always visible; card tap stays as a secondary path. |
 | `✓ Your story` opens edit mode today (`?edit=true`, all three call sites) | MITIGATE | It opens `/story/:id` to read; aria-label becomes `Your story`; editing stays on the story page. |
 | Point page renders the same card without `isDetailView` | MITIGATE | Per decisions.md 2026-09-11, the list footer turns on only when the caller names a list surface (`shareSurface`); keep that contract. |
@@ -88,7 +90,9 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [ ] The `⋯` menu opens and closes with keyboard (Enter/Space, arrows, Escape) and outside click; focus returns to the trigger, or moves into the share sheet when Share is chosen.
 - [ ] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
 - [ ] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
-- [ ] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed and on every profile including their own.
+- [ ] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
+- [ ] On a profile the expander reads `N stories by <first name>` (`N of your stories` on one's own); on feed and stake it reads `N stories`.
+- [ ] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
 - [ ] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [ ] The point detail page, an embed and live-session cards look as before (screenshot compare).
 - [ ] A story's author sees `+ Add a point` on their story card; other viewers see no extra link.
@@ -99,7 +103,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 
 | Element | Copy | Style |
 |---|---|---|
-| Expander (point) | `N stories` / `1 story` | solid `bg-blue-600` white, h-10, chevron |
+| Expander (point) | `N stories` / `1 story`; on a profile `N stories by Maya` / `N of your stories` | solid `bg-blue-600` white, h-10, chevron |
 | Expander (story) | `N points` / `1 point` | same |
 | Zero, no slot link | `0 stories` / `0 points` | plain muted text, no button |
 | Viewer slot | `+ Add a story` · `✓ Your story` · `+ Add a point` | blue text link, h-10 hit area |
