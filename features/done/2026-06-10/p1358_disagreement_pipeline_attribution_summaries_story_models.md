@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 11
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [disagreement-pipeline, attribution, video-summaries, story-draft]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-28
 ---
 
 # P1358: Disagreement pipeline: confirm the speaker before any page quotes them, feed video summaries, set a model per story role
@@ -19,7 +19,7 @@ driver: anomaly
 ## Problem
 
 **Situation:** The Clarity Night #2 run ("AI and your ikigai", tag planned for 2026-09-29) went through
-select Gate 2 across two sessions on 2026-09-22 (before and after one compaction). [P1355](done/2026-06-10/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md)
+select Gate 2 across two sessions on 2026-09-22 (before and after one compaction). [P1355](p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md)
 already turned most of that run's lessons into predicates and prose: floors, recency, sweep width, the
 two-track screen, `why_in_the_room`, and a reproducible minutes count (`on-topic-minutes.mjs`, C3).
 This spec covers what the run showed and P1355 does not.
@@ -50,9 +50,9 @@ This spec covers what the run showed and P1355 does not.
    `grep -F`) does not look at the speaker.
 
 2. **Video summaries have a table and a page but no writer in the pipeline.**
-   - [P1349](done/2026-06-10/p1349_full_video_summary_page.md) shipped `video_summaries`, `/video/:id`
+   - [P1349](p1349_full_video_summary_page.md) shipped `video_summaries`, `/video/:id`
      and the "Read video summary" link, which shows only for a `confirmed` row.
-   - [P1357](p1357_video_summary_generator_pipeline.md) specs the writer: an operator CLI with draft,
+   - [P1357](../../p1357_video_summary_generator_pipeline.md) specs the writer: an operator CLI with draft,
      check and confirm. Its branch has no commits yet.
    - No disagreement stage mentions summaries (`grep -i summar` over the stage files returns only
      unrelated hits), so a run's stories go out with no summary link.
@@ -427,10 +427,10 @@ any code, so no data migration is involved.
 
 ## Related
 
-- [P1355](done/2026-06-10/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md): the same run's standing rules. Its C3 closes the minutes friction; its Open Question 2 (judge before the page) stays open
-- [P1357](p1357_video_summary_generator_pipeline.md): summary writer; R2 amends its inputs
-- [P1349](done/2026-06-10/p1349_full_video_summary_page.md): the summary table and page
-- [P1336](p1336_registration_carries_opt_in_prep_and_survey.md): the per-event survey R5 feeds
-- [P1350](p1350_multi_source_evidence_per_arguer.md): multi-source evidence (not touched)
-- [P1190](p1190_arbiter_filter_into_disagreement_pipeline.md): point-consequence filter (not touched)
+- [P1355](p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md): the same run's standing rules. Its C3 closes the minutes friction; its Open Question 2 (judge before the page) stays open
+- [P1357](../../p1357_video_summary_generator_pipeline.md): summary writer; R2 amends its inputs
+- [P1349](p1349_full_video_summary_page.md): the summary table and page
+- [P1336](../../p1336_registration_carries_opt_in_prep_and_survey.md): the per-event survey R5 feeds
+- [P1350](../../p1350_multi_source_evidence_per_arguer.md): multi-source evidence (not touched)
+- [P1190](../../p1190_arbiter_filter_into_disagreement_pipeline.md): point-consequence filter (not touched)
 - decisions.md 2026-08-28 [technical] (Step 2c, per-quote not waived) · 2026-09-04 [technical] (diarized turns are the quote artifact) · 2026-09-01 [product] (no arguer-unanimity gate)
