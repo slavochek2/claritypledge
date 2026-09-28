@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 import { ProfilePageV2 } from '@/app/pages/profile-page-v2';
-import { clearListReturnCache } from '@/lib/list-return-cache';
+import { clearListReturnCache, listReturnCacheKey, readListReturnCache } from '@/lib/list-return-cache';
 import * as auth from '@/auth';
 import * as api from '@/app/data/api';
 
@@ -246,5 +246,33 @@ describe('P1364 — /p/:id returns to the same tab and the same lists', () => {
     });
     go(-1);
     await waitFor(() => expect(listCalls()).toBe(2));
+  });
+
+  it('review: a slow load for profile A that resolves AFTER switching to B never lands on B (screen or cache)', async () => {
+    const profileA = { ...mockProfile, id: 'pa', slug: 'a', name: 'Profile A' };
+    const profileB = { ...mockProfile, id: 'pb', slug: 'b', name: 'Profile B' };
+    vi.mocked(api.getProfileBySlug).mockImplementation(async (slug: string) =>
+      (slug === 'a' ? profileA : slug === 'b' ? profileB : null) as any);
+    vi.mocked(pointsService.getPointsForProfileDisplay).mockResolvedValue([] as any);
+    let resolveA!: (v: unknown) => void;
+    const storyA = { id: 'story-a', content: 'Story by A', authorId: 'pa', visibility: 'public',
+      createdAt: '2026-01-01T00:00:00Z', tags: [], understoodCount: 0, points: [] };
+    const storyB = { id: 'story-b', content: 'Story by B', authorId: 'pb', visibility: 'public',
+      createdAt: '2026-01-01T00:00:00Z', tags: [], understoodCount: 0, points: [] };
+    vi.mocked(storiesService.getStoriesByAuthorWithPoints).mockImplementation(((authorId: string) =>
+      authorId === 'pa' ? new Promise(r => { resolveA = r; }) : Promise.resolve([storyB])) as any);
+
+    renderAt(['/p/a']);
+    await waitFor(() => expect(storiesService.getStoriesByAuthorWithPoints).toHaveBeenCalledWith('pa', 'viewer-1'));
+    go('/p/b');
+    await screen.findByText('Story by B');
+    await act(async () => { resolveA([storyA]); await new Promise(r => setTimeout(r, 20)); });
+
+    expect(screen.queryByText('Story by A')).toBeNull();
+    expect(screen.getByText('Story by B')).toBeTruthy();
+    const cached = readListReturnCache<{ profile: { id: string }; stories: Array<{ id: string }> }>(
+      listReturnCacheKey('viewer-1', '/p/b'), 'profile');
+    expect(cached?.profile.id).toBe('pb');
+    expect(cached?.stories.map(x => x.id)).toEqual(['story-b']);
   });
 });

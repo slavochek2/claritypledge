@@ -284,6 +284,8 @@ export function ProfilePageV2() {
   const hydratedForRef = useRef<string | null>(
     restored ? `${restored.profile.id}|${currentUser?.id ?? ''}|${pushKey}` : null
   );
+  /** Which profile the lists on screen were loaded (or restored) for — the cache writer's check. */
+  const rowsProfileIdRef = useRef<string | null>(restored ? restored.profile.id : null);
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -365,6 +367,13 @@ export function ProfilePageV2() {
     }
     hydratedForRef.current = null;
     const requestGeneration = listReturnCacheGeneration();
+    // P1364 review — a slower load for an EARLIER profile must never land on this one's state
+    // (and, through the cache writer, under this profile's key). Every step of the chain below,
+    // including after each nested await, checks `stale()` before touching state.
+    let cancelled = false;
+    const stale = () => cancelled;
+    const loadProfileId = profile.id;
+    rowsProfileIdRef.current = null; // the rows about to be reset belong to no profile yet
 
     // Reset all content state when profile changes (e.g. navigating between profiles)
     setContentLoading(true);
@@ -387,6 +396,7 @@ export function ProfilePageV2() {
       // P422: Fetch agreements for this profile
       agreementsService.getAgreementsForProfile(profile.id, currentUser?.id ?? null),
     ]).then(async ([stories, pointsWithData, calibration, fetchedAgreements]) => {
+      if (stale()) return;
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
@@ -413,6 +423,7 @@ export function ProfilePageV2() {
           .select('point_id, story_id')
           .in('point_id', pointIds)
           .eq('author_id', profile.id);
+        if (stale()) return;
 
         // Build map: point_id → story_ids[]
         const linksByPoint = new Map<string, string[]>();
@@ -442,6 +453,7 @@ export function ProfilePageV2() {
               .in('id', allLinkedStoryIds)
               .order('created_at', { ascending: false })
           : { data: [] as Array<{ id: string; content: string; author_id: string; created_at: string; understood_count: number; tags: string[]; visibility: string; image_url: string | null; video_url: string | null; video_quotes: unknown }> };
+        if (stale()) return;
 
         const linkedStoriesById = new Map(
           (linkedStoriesRaw ?? []).map(s => [s.id, s])
@@ -517,6 +529,7 @@ export function ProfilePageV2() {
                 .select('point_id, story_id')
                 .in('point_id', pointIds)
                 .eq('author_id', currentUserId);
+              if (stale()) return;
 
               const countMap = new Map<string, number>();
               const idMap = new Map<string, string>();
@@ -547,11 +560,14 @@ export function ProfilePageV2() {
         }
       } // End of else (createdPoints.length > 0)
       dataGenerationRef.current = requestGeneration;
+      rowsProfileIdRef.current = loadProfileId;
       setContentLoading(false);
     }).catch(err => {
+      if (stale()) return;
       console.error('Failed to load profile data:', err);
       setContentLoading(false);
     });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId is derived from currentUser?.id which is already tracked
   }, [profile, currentUser?.id, pushKey]);
 
@@ -560,6 +576,7 @@ export function ProfilePageV2() {
   useEffect(() => {
     if (!profile || contentLoading || agreementsLoading || !calibrationLoaded) return;
     if (dataGenerationRef.current !== listReturnCacheGeneration()) return;
+    if (rowsProfileIdRef.current !== profile.id) return; // the rows on screen belong to another profile
     writeListReturnCache<ProfileSnapshot>(cacheKey, 'profile', {
       profile,
       stories: realStories,
@@ -587,22 +604,26 @@ export function ProfilePageV2() {
       return;
     }
 
+    let cancelled = false; // P1364 review: a slow count for an earlier profile must not land here
     calibrationService.getEarsCount(profile.id).then(count => {
-      setRealEarsCount(count);
+      if (!cancelled) setRealEarsCount(count);
     }).catch(err => {
       console.error('Failed to load ears count:', err);
     });
+    return () => { cancelled = true; };
   }, [profile, isAgent, identityPending]);
 
   // P686: Load badge count separately
   useEffect(() => {
     if (!profile) return;
 
+    let cancelled = false; // P1364 review: a slow count for an earlier profile must not land here
     badgeService.getBadgeCount(profile.id).then(count => {
-      setBadgeCount(count);
+      if (!cancelled) setBadgeCount(count);
     }).catch(err => {
       console.error('Failed to load badge count:', err);
     });
+    return () => { cancelled = true; };
   }, [profile]);
 
 
