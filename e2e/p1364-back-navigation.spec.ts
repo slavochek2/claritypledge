@@ -254,12 +254,14 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
   async function findProfileWithManyPoints(page: Page): Promise<string> {
     // Profile links on public pages are click handlers, not anchors, so the candidates come from
     // the feed's own REST responses (anonymous reads the page makes anyway): every `slug` field.
-    const slugs = new Set<string>();
+    const slugCounts = new Map<string, number>(); // how often each author appears in the feed
     const collect = (v: unknown): void => {
       if (Array.isArray(v)) v.forEach(collect);
       else if (v && typeof v === 'object') {
         for (const [k, x] of Object.entries(v)) {
-          if ((k === 'slug' || k === 'author_slug' || k === 'authorSlug') && typeof x === 'string' && x) slugs.add(x);
+          if ((k === 'slug' || k === 'author_slug' || k === 'authorSlug') && typeof x === 'string' && x) {
+            slugCounts.set(x, (slugCounts.get(x) ?? 0) + 1);
+          }
           else collect(x);
         }
       }
@@ -274,12 +276,17 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
     await waitForCards(page);
     await page.waitForTimeout(500);
     const counts: string[] = [];
-    for (const slug of [...slugs].slice(0, 15)) {
+    // Most active authors first: deterministic, and the likeliest to have a scrollable Points tab.
+    const candidates = [...slugCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([slug]) => slug);
+    for (const slug of candidates.slice(0, 15)) {
       await page.goto(`/p/${slug}`);
       const pointsTab = page.getByRole('tab', { name: /^Points/ });
       if (!(await pointsTab.waitFor({ timeout: 15000 }).then(() => true, () => false))) { counts.push(`${slug}:-`); continue; }
       await pointsTab.click();
-      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor({ timeout: 5000 }).catch(() => {});
+      // Count only once the content has loaded (the skeleton is gone) — a fixed wait read a
+      // slow 51-point profile as empty under two workers.
+      await page.getByTestId('profile-content-skeleton').waitFor({ state: 'detached', timeout: 20000 }).catch(() => {});
+      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor({ timeout: 3000 }).catch(() => {});
       const n = await page.locator('[data-testid^="point-card-with-links-"]').count();
       counts.push(`${slug}:${n}`);
       if (n >= 8) {

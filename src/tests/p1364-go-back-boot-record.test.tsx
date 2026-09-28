@@ -47,8 +47,11 @@ function bootAs(type: 'navigate' | 'reload') {
 
 async function browserBack() {
   await act(async () => {
+    const popped = new Promise<void>(resolve => window.addEventListener('popstate', () => resolve(), { once: true }));
     window.history.back();
-    await new Promise(r => setTimeout(r, 20));
+    // jsdom traverses history asynchronously: wait for the popstate itself, not a fixed delay
+    // (a 20ms sleep lost the race under a loaded parallel run).
+    await Promise.race([popped, new Promise(r => setTimeout(r, 2000))]);
   });
 }
 

@@ -52,8 +52,11 @@ describe('finding 2 — cold arrival with a forward entry', () => {
     );
     act(() => nav('/point/p1'));
     await act(async () => {
+      const popped = new Promise<void>(resolve => window.addEventListener('popstate', () => resolve(), { once: true }));
       window.history.back();
-      await new Promise(r => setTimeout(r, 20));
+      // jsdom traverses history asynchronously: wait for the popstate itself, not a fixed delay
+      // (a 20ms sleep lost the race under a loaded parallel run).
+      await Promise.race([popped, new Promise(r => setTimeout(r, 2000))]);
     });
     expect(path()).toBe('/story/s1');
     expect(window.history.length).toBe(2); // index 0, one entry FORWARD
