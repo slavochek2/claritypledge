@@ -54,6 +54,9 @@ test.describe('P1365 — desktop RSVP repeat', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/events/${longEvent.slug}`);
     await expect(page.getByTestId('rsvp-sticky-bar')).toBeVisible({ timeout: 10000 });
+    // Rendered (the description is taller than a phone screen too) but hidden by lg-only CSS —
+    // count 1 proves this is the CSS gate, not a measurement that never ran.
+    await expect(page.getByTestId('rsvp-button-repeat')).toHaveCount(1);
     await expect(page.getByTestId('rsvp-button-repeat')).not.toBeVisible();
   });
 

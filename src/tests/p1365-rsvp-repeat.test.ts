@@ -6,9 +6,7 @@
  * the naming invariants.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL } from '@/app/prototypes/events/rsvp-repeat';
+import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL } from '@/app/prototypes/events/rsvp-repeat';
 
 const base = {
   affordanceHidden: false,
@@ -41,17 +39,11 @@ describe('naming invariants', () => {
   const TOP_LABELS = ['Reserve a seat', 'Joining...', 'Event Ended', 'Event Full'];
 
   it('the repeat label contains no top-button label and vice versa (role locators match substrings)', () => {
-    for (const top of TOP_LABELS) {
-      expect(RSVP_REPEAT_LABEL.toLowerCase()).not.toContain(top.toLowerCase());
-      expect(top.toLowerCase()).not.toContain(RSVP_REPEAT_LABEL.toLowerCase());
+    for (const mine of [RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL]) {
+      for (const top of TOP_LABELS) {
+        expect(mine.toLowerCase()).not.toContain(top.toLowerCase());
+        expect(top.toLowerCase()).not.toContain(mine.toLowerCase());
+      }
     }
-  });
-
-  it('the repeat carries its own test id', () => {
-    const detail = readFileSync(
-      join(process.cwd(), 'src/app/prototypes/events/components/EventDetail.tsx'),
-      'utf-8',
-    );
-    expect(detail).toContain('rsvp-button-repeat');
   });
 });

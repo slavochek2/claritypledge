@@ -11,6 +11,8 @@
 export type RsvpTrigger = 'sticky_bar' | 'card' | 'card_bottom';
 
 export const RSVP_REPEAT_LABEL = 'Reserve your seat';
+// Its own in-flight label: the top button's "Joining..." would give two elements the same name.
+export const RSVP_REPEAT_LOADING_LABEL = 'Reserving your seat…';
 
 export function shouldShowRsvpRepeat(s: {
   affordanceHidden: boolean;

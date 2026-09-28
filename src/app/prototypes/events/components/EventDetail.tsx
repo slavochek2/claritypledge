@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { renderEventDescription } from '@/lib/markdown';
-import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, type RsvpTrigger } from '../rsvp-repeat';
+import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -179,13 +179,18 @@ export function EventDetail() {
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-  // P1365: is the rendered description taller than the viewport? Starts false, so the
-  // desktop repeat RSVP never paints before it has been measured. A callback ref, not
-  // a mount effect: the description only exists once the event has loaded.
+  // P1365: is the rendered description taller than the viewport? Starts false and resets
+  // whenever the description unmounts, and is measured in a layout effect (before paint),
+  // so the desktop repeat never paints on a stale value — e.g. navigating from a long event
+  // to a short one. A callback ref, not a mount effect: the description only exists once
+  // the event has loaded.
   const [descriptionEl, setDescriptionEl] = useState<HTMLDivElement | null>(null);
   const [descriptionTallerThanViewport, setDescriptionTallerThanViewport] = useState(false);
-  useEffect(() => {
-    if (!descriptionEl) return;
+  useLayoutEffect(() => {
+    if (!descriptionEl) {
+      setDescriptionTallerThanViewport(false);
+      return;
+    }
     const measure = () =>
       setDescriptionTallerThanViewport(descriptionEl.getBoundingClientRect().height > window.innerHeight);
     measure();
@@ -406,7 +411,7 @@ export function EventDetail() {
           disabled={isActionLoading}
           data-testid="rsvp-button-repeat"
         >
-          {RSVP_REPEAT_LABEL}
+          {isActionLoading ? RSVP_REPEAT_LOADING_LABEL : RSVP_REPEAT_LABEL}
         </Button>
       );
     }
