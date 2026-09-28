@@ -45,7 +45,7 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
   - story card, viewer is the author → `+ Add a point`; nobody else sees anything (there is no "your point")
 - **Bottom row, right — open the card's page:** an outlined secondary button **`Details →`, always visible on every device**. No hover-reveal. Replaces the external-link icon everywhere on list cards.
 - **Desktop hover:** the whole card's border highlights (also on `:focus-within`), confirming the card is clickable. Nothing appears, grows or moves.
-- **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. So on a profile the expander reads `2 stories by Maya` (first name), and `2 of your stories` on one's own; the feed and stake keep `2 stories`. The full set is one tap away via `Details →`.
+- **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. A person has at most one story per point (DB unique `story_points` author+point, `20260301120000_story_points_author_unique.sql`), so on a profile the count is only ever 0 or 1: the expander drops the number and reads `Maya's story` (first name), or `Your story` on one's own profile; with 0 it is absent. Feed and stake keep `N stories`. The full set is one tap away via `Details →`.
 - **Zero counts:** the expander renders only when the count is > 0 (no dead button). With 0 and a viewer-slot link, the link alone; with 0 and no link, plain `0 stories` / `0 points` text (today's copy).
 - **The `⋯` menu joins the top row that exists on each real card** — `FeedPointCard`: the statement row; `PointCardWithLinks`: the profile-owner quote row, or the statement row on one's own profile (no quote row there, `:273`); story cards: the author row. There is no "POINT" label on real cards; the prototype's label is a stand-in.
 - **The `⋯` menu keeps the propagation guard**: it sits in its own `role="presentation"` wrapper that stops clicks, so opening the menu, `Share` → "Copy link", `Edit` and `Delete` never also navigate.
@@ -91,7 +91,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [ ] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
 - [ ] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
 - [ ] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
-- [ ] On a profile the expander reads `N stories by <first name>` (`N of your stories` on one's own); on feed and stake it reads `N stories`.
+- [ ] On a profile the expander reads `<First name>'s story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
 - [ ] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
 - [ ] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [ ] The point detail page, an embed and live-session cards look as before (screenshot compare).
@@ -103,7 +103,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 
 | Element | Copy | Style |
 |---|---|---|
-| Expander (point) | `N stories` / `1 story`; on a profile `N stories by Maya` / `N of your stories` | solid `bg-blue-600` white, h-10, chevron |
+| Expander (point) | `N stories` / `1 story`; on a profile `Maya's story` / `Your story` (count is 0 or 1) | solid `bg-blue-600` white, h-10, chevron |
 | Expander (story) | `N points` / `1 point` | same |
 | Zero, no slot link | `0 stories` / `0 points` | plain muted text, no button |
 | Viewer slot | `+ Add a story` · `✓ Your story` · `+ Add a point` | blue text link, h-10 hit area |
