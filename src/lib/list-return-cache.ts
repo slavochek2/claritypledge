@@ -1,6 +1,6 @@
 /**
  * @file list-return-cache.ts
- * @description P1364 §5: return to the exact place in /feed and /stake/:tag on Back.
+ * @description P1364 §5: return to the exact place in /feed, /stake/:tag and /p/:id on Back.
  *
  * A module-level Map — no library — holding what a list page last RENDERED: the list and the
  * feed's link maps (the card footers), so card heights on return match the ones the reader
@@ -37,7 +37,7 @@
  */
 import { useEffect, useRef } from 'react';
 
-export type ListSurface = 'feed' | 'stake';
+export type ListSurface = 'feed' | 'stake' | 'profile';
 
 interface Entry<T> {
   surface: ListSurface;

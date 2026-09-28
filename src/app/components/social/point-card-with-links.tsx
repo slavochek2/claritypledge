@@ -294,6 +294,8 @@ export function PointCardWithLinks({
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
       className={`${cardClassName}${isOwnerAgent ? ' agent-card-drained' : ''}`}
       {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
+      /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
+      data-testid={`point-card-with-links-${point.id}`}
       onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={!isDetailView && !disableNavigation ? (e) => {
         // P1212's guard, which this root never carried (the feed cards and the story card

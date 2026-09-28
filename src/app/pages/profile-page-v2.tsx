@@ -8,7 +8,13 @@
  * Access: Public (all users with confirmed emails)
  */
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
+import {
+  listReturnCacheGeneration,
+  listReturnCacheKey,
+  readListReturnCache,
+  writeListReturnCache,
+} from "@/lib/list-return-cache";
 import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profile } from "@/app/data/api";
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { SEO } from "@/app/components/seo";
@@ -156,6 +162,25 @@ const detailRoutes = {
 // Tab types
 type ContentTab = 'stories' | 'points';
 
+/**
+ * P1364 — what /p/:id last rendered, kept for a POP return (see list-return-cache.ts): the
+ * lists the reader scrolls (stories, points and the viewer's link maps, so card heights match)
+ * AND everything rendered above them (profile, agreements, calibration, ears, badges), so the
+ * restored scroll position exists at mount.
+ */
+interface ProfileSnapshot {
+  profile: Profile;
+  stories: StoryWithPoints[];
+  points: PointWithUserPosition[];
+  calibration: UserCalibration | null;
+  sessionsCompleted: number;
+  viewerStoryCountMap: Map<string, number>;
+  viewerStoryIdForPoint: Map<string, string>;
+  agreements: ClarityAgreement[];
+  earsCount: number;
+  badgeCount: number;
+}
+
 /** Map real CalibrationResult → UserCalibration for display component.
  *  Sign convention: real service uses self-actual (positive=overconfident),
  *  display uses actual-self (negative=overconfident). Negate the gap. */
@@ -182,9 +207,20 @@ function toUserCalibration(result: CalibrationResult): UserCalibration | null {
 export function ProfilePageV2() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user: currentUser, session } = useAuth();
-  const [loading, setLoading] = useState(true);
+
+  // P1364 — a POP (Back, browser back/forward) returns to the profile as the reader left it: the
+  // same tab (in `?tab=`), the same lists from the in-memory cache, no spinner, no list refetch.
+  // Keyed on the viewer and the path; the tab is only a view of the same data.
+  const cacheKey = listReturnCacheKey(currentUser?.id, location.pathname);
+  const [restored] = useState<ProfileSnapshot | undefined>(() =>
+    navigationType === 'POP' ? readListReturnCache<ProfileSnapshot>(cacheKey, 'profile') : undefined
+  );
+  const [profile, setProfile] = useState<Profile | null>(() => restored?.profile ?? null);
+  const [loading, setLoading] = useState(() => !restored);
   const hasTrackedPageView = useRef(false);
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -195,25 +231,24 @@ export function ProfilePageV2() {
   // P115: Stories/Points/Calibration state — all from real services
   // Stories lead: a visitor on a profile is asking "who is this person", and the
   // media-carrying stories answer that better than a list of points.
-  const [contentTab, setContentTab] = useState<ContentTab>('stories');
-  const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
-  const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
-  const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
-  const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
-  const [calibrationLoaded, setCalibrationLoaded] = useState(false);
+  const [realStories, setRealStories] = useState<StoryWithPoints[]>(() => restored?.stories ?? []);
+  const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>(() => restored?.points ?? []);
+  const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(() => restored?.calibration ?? null);
+  const [sessionsCompleted, setSessionsCompleted] = useState<number>(() => restored?.sessionsCompleted ?? 0);
+  const [calibrationLoaded, setCalibrationLoaded] = useState(() => !!restored);
 
   // P465: Viewer story count map for other profiles (fetched async)
-  const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
+  const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(() => restored?.viewerStoryCountMap ?? new Map());
   // P470: Viewer story ID map for other profiles — pointId → storyId (first story per point)
-  const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(new Map());
-  const [realEarsCount, setRealEarsCount] = useState<number>(0);
+  const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(() => restored?.viewerStoryIdForPoint ?? new Map());
+  const [realEarsCount, setRealEarsCount] = useState<number>(() => restored?.earsCount ?? 0);
 
   // P422: Agreements state
-  const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
-  const [agreementsLoading, setAgreementsLoading] = useState(true);
+  const [agreements, setAgreements] = useState<ClarityAgreement[]>(() => restored?.agreements ?? []);
+  const [agreementsLoading, setAgreementsLoading] = useState(() => !restored);
 
   // P686: Badge count state
-  const [badgeCount, setBadgeCount] = useState(0);
+  const [badgeCount, setBadgeCount] = useState(() => restored?.badgeCount ?? 0);
 
   // P1104: is this profile a machine's reading of a person, and who is answerable for it?
   const { isAgentAccountId, operatorNameFor, isLoading: identityPending } = useAgentAccountIds();
@@ -221,7 +256,34 @@ export function ProfilePageV2() {
   const operatorName = operatorNameFor(profile?.id);
 
   // Loading state for secondary content (stories, points, calibration)
-  const [contentLoading, setContentLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(() => !restored);
+
+  // P1364 — the tab lives in `?tab=` (replace), so Back from a story or point returns to it.
+  // Stories lead, unless there are none (the same ruling /stake carries: a profile with points
+  // but no stories must not open on an empty tab) — that DEFAULT tab carries no param.
+  const tabParam = searchParams.get('tab');
+  const defaultTab: ContentTab = !contentLoading && realStories.length === 0 && realPoints.length > 0 ? 'points' : 'stories';
+  const contentTab: ContentTab = tabParam === 'stories' || tabParam === 'points' ? tabParam : defaultTab;
+  const setContentTab = useCallback((next: ContentTab) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (next === defaultTab) params.delete('tab');
+      else params.set('tab', next);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams, defaultTab]);
+
+  // P1364 — cache bookkeeping, as on /feed and /stake: the generation the rows on screen belong
+  // to (an own write clears the cache and bumps it; older rows are never written back), which
+  // profile + viewer + PUSH the rows were restored for (the content effect skips it: no list
+  // refresh on POP), and the latest PUSH key (a PUSH to the same URL must fetch fresh).
+  const dataGenerationRef = useRef<number>(listReturnCacheGeneration());
+  const lastPushKeyRef = useRef<string | null>(null);
+  if (navigationType === 'PUSH') lastPushKeyRef.current = location.key;
+  const pushKey = lastPushKeyRef.current;
+  const hydratedForRef = useRef<string | null>(
+    restored ? `${restored.profile.id}|${currentUser?.id ?? ''}|${pushKey}` : null
+  );
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -280,6 +342,29 @@ export function ProfilePageV2() {
   // Load all profile data from real services
   useEffect(() => {
     if (!profile) return;
+
+    // P1364 — restored from the cache on a POP: keep the lists exactly as they were (no refetch,
+    // no reset). What sits ABOVE them — the profile, agreements, calibration — is revalidated
+    // silently, so an edit made elsewhere still shows; it only moves the page if it changed.
+    const trigger = `${profile.id}|${currentUser?.id ?? ''}|${pushKey}`;
+    if (hydratedForRef.current === trigger) {
+      let cancelled = false;
+      const profileId = profile.id;
+      void Promise.all([
+        getProfileBySlug(profile.slug ?? profileId).then(p => p ?? getProfile(profileId)),
+        calibrationService.getCalibration(profileId),
+        agreementsService.getAgreementsForProfile(profileId, currentUser?.id ?? null),
+      ]).then(([freshProfile, calibration, freshAgreements]) => {
+        if (cancelled) return;
+        if (freshProfile && JSON.stringify(freshProfile) !== JSON.stringify(profile)) setProfile(freshProfile);
+        setRealCalibration(toUserCalibration(calibration));
+        setSessionsCompleted(calibration.sessionsCompleted);
+        setAgreements(freshAgreements);
+      }).catch(() => { /* the restored header stays */ });
+      return () => { cancelled = true; };
+    }
+    hydratedForRef.current = null;
+    const requestGeneration = listReturnCacheGeneration();
 
     // Reset all content state when profile changes (e.g. navigating between profiles)
     setContentLoading(true);
@@ -461,23 +546,34 @@ export function ProfilePageV2() {
           setRealPoints(validPoints);
         }
       } // End of else (createdPoints.length > 0)
+      dataGenerationRef.current = requestGeneration;
       setContentLoading(false);
     }).catch(err => {
       console.error('Failed to load profile data:', err);
       setContentLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId is derived from currentUser?.id which is already tracked
-  }, [profile, currentUser?.id]);
+  }, [profile, currentUser?.id, pushKey]);
 
-  /** Stories lead, unless there are none. Same ruling the stake page already
-   *  carries ("a tab is only visible if stories are there", stake-page.tsx):
-   *  a profile with points but no stories must not open on an empty tab.
-   *  Runs once per load — after this the visitor's own tab choice stands. */
+  // P1364 — keep the cache equal to what is on screen, once everything above and in the lists
+  // has loaded, and only for rows of the current generation (never the pre-write rows).
   useEffect(() => {
-    if (contentLoading) return;
-    if (realStories.length === 0 && realPoints.length > 0) setContentTab('points');
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- decide once when the load settles, never override a later click
-  }, [contentLoading]);
+    if (!profile || contentLoading || agreementsLoading || !calibrationLoaded) return;
+    if (dataGenerationRef.current !== listReturnCacheGeneration()) return;
+    writeListReturnCache<ProfileSnapshot>(cacheKey, 'profile', {
+      profile,
+      stories: realStories,
+      points: realPoints,
+      calibration: realCalibration,
+      sessionsCompleted,
+      viewerStoryCountMap,
+      viewerStoryIdForPoint,
+      agreements,
+      earsCount: realEarsCount,
+      badgeCount,
+    });
+  }, [cacheKey, profile, contentLoading, agreementsLoading, calibrationLoaded, realStories, realPoints,
+      realCalibration, sessionsCompleted, viewerStoryCountMap, viewerStoryIdForPoint, agreements, realEarsCount, badgeCount]);
 
   // Load ears count separately
   useEffect(() => {
@@ -1164,7 +1260,7 @@ export function ProfilePageV2() {
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
             {contentLoading ? (
-              <div className="space-y-4 animate-pulse transition-opacity duration-300">
+              <div className="space-y-4 animate-pulse transition-opacity duration-300" data-testid="profile-content-skeleton">
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />
                 <div className="h-24 bg-muted rounded-lg" />
@@ -1477,6 +1573,8 @@ function StoryCardFull({
       role="button"
       tabIndex={0}
       className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
+      /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
+      data-testid={`profile-story-card-${story.id}`}
       {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}
       aria-label={`Story by ${author.name}`}
       onClick={(e) => {
