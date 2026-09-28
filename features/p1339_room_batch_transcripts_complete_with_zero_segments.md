@@ -10,12 +10,13 @@ tags:
   - events
   - silent-failure
 disclosure: public
-delivery_stage: dev
+delivery_stage: ship
 pipeline_ran:
   - create-bug
   - reproduce
   - fix
   - adversarial-review
+  - ship
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -114,9 +115,15 @@ listed on the last try, empty-transcript fallback, recovery runbook. Deferred: s
 ## Acceptance Criteria
 
 - [x] The cause is named, with the read-only evidence that shows it
-- [ ] A new recorded room produces a non-empty after-event transcript on prod
 - [x] A job that cannot transcribe a member says so (failed, or completed with a reason), and a test watches that path fail
+
+## Post-deploy verification
+
+Both need the deploy and the recovery runbook above; neither can be proven from the branch.
+
+- [ ] A new recorded room produces a non-empty after-event transcript on prod
 - [ ] Event #1's rooms: either their after-event transcript is recovered, or it is recorded plainly why it cannot be
+- [ ] Check the job table after the sweep: rooms transcribe, listeners end as `failed: no_audio_chunks`
 
 ## Related
 
