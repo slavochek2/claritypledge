@@ -286,6 +286,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           defaultStoryExpanded={true}
           onPositionSelect={onPositionSelect}
           onClear={onClear}
+          videoMode="player" // P1368: one story at a time — play in place
           className="w-full max-w-2xl mx-auto"
           badgePersonName={badgeProfile?.name}
           badgePersonAvatarUrl={badgeProfile?.avatarUrl}

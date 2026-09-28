@@ -755,6 +755,9 @@ export function LetterFlowContent({
               className="w-full max-w-2xl mx-auto my-auto"
               imageClassName="max-h-[50vh]"
               imageFit="contain"
+              // P1368: a letter shows one story at a time — play in place, never
+              // navigate the reader out of the letter to the story page.
+              videoMode="player"
             />
             {authGateAtStoryRate ?? (
               // P852: story-rate scroll affordance — the story above scrolls behind

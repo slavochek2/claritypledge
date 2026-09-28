@@ -68,6 +68,10 @@ interface LiveStoryCardExpandedProps {
   /** P904: Render extra content inside each point's row (PointRow.children slot).
    * Used by the letter results page to inject the "Explain your position" affordance. */
   renderPointChildren?: (pointId: string) => React.ReactNode;
+  /** P1368: 'player' plays the video in place instead of linking to the story page.
+   * Only for surfaces that show ONE story at a time (letter reading) — feeds and live
+   * sessions keep 'thumbnail' (P1296: no N simultaneous embeds). */
+  videoMode?: 'thumbnail' | 'player';
 }
 
 const STORY_THRESHOLD = 100;
@@ -92,6 +96,7 @@ export function LiveStoryCardExpanded({
   imageClassName,
   imageFit = 'cover',
   renderPointChildren,
+  videoMode = 'thumbnail',
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -251,7 +256,7 @@ export function LiveStoryCardExpanded({
                 <StoryMedia
                   videoUrl={story.videoUrl}
                   durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
-                  mode="thumbnail"
+                  mode={videoMode}
                   storyHref={`/story/${story.id}`}
                   imageProps={story.imageUrl ? {
                     src: story.imageUrl,

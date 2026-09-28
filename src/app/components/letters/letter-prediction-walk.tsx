@@ -156,6 +156,7 @@ export function LetterPredictionWalk({
             revealed={false}
             onPositionSelect={handlePositionSelect}
             onClear={(pointId) => guardedRemovePosition(pointId)}
+            videoMode="player" // P1368: one story at a time — play in place
           />
         </div>
       </div>
