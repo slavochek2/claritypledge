@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
 
 // P1365 — desktop repeats the RSVP after a description taller than the viewport,
@@ -67,5 +67,20 @@ test.describe('P1365 — desktop RSVP repeat', () => {
     await repeat.scrollIntoViewIfNeeded();
     await repeat.click();
     await expect(page).toHaveURL(new RegExp(`/signup\\?redirect=/events/${longEvent.slug}&action=rsvp`));
+  });
+
+  test('logged in: clicking the repeat RSVPs and lands on the confirm page', async ({ page }) => {
+    const { user, email } = await createTestUser({ prefix: 'test-p1365-guest' });
+    try {
+      await setTestSession(page, email);
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto(`/events/${longEvent.slug}`);
+      const repeat = page.getByTestId('rsvp-button-repeat');
+      await repeat.scrollIntoViewIfNeeded();
+      await repeat.click();
+      await expect(page).toHaveURL(new RegExp(`/events/${longEvent.slug}/confirm`), { timeout: 15000 });
+    } finally {
+      await deleteTestUser(user.id);
+    }
   });
 });

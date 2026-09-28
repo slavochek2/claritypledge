@@ -2,22 +2,32 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 
-// Upcoming event in test DB (datetime 2026-05-27, not hosted by test user)
-const TEST_EVENT_SLUG = 'sdfsd-asdf-sad-2026-05-17-wfli';
-const EVENT_URL = `/events/${TEST_EVENT_SLUG}`;
+// Upcoming event, not hosted by the test user. Created per run: a hardcoded test-DB slug
+// silently turned every UAT here into an "Event Ended" page once its date passed (P1365).
+let EVENT_URL = '';
 const EVENTS_LIST_URL = `/events`;
 
 test.describe('P844 — Reduce RSVP Friction', () => {
   let testUserId: string;
   let testUserEmail: string;
+  let fixtureHostId: string;
+  let fixtureEvent: TestEvent;
 
   test.beforeAll(async () => {
     const { user, email } = await createTestUser({ prefix: 'test-p844' });
     testUserId = user.id;
     testUserEmail = email;
+    const host = await createTestUser({ prefix: 'test-p844-host' });
+    fixtureHostId = host.user.id;
+    fixtureEvent = await createTestEvent(fixtureHostId, new Date(Date.now() + 7 * 24 * 3600 * 1000), {
+      title: 'P844 fixture event',
+    });
+    EVENT_URL = `/events/${fixtureEvent.slug}`;
   });
 
   test.afterAll(async () => {
+    await deleteTestEvent(fixtureEvent.id);
+    await deleteTestUser(fixtureHostId);
     await deleteTestUser(testUserId);
   });
 

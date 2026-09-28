@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: sonnet
@@ -158,12 +158,12 @@ Practice Rooms gating; `RsvpConfirm`, `eventsService`, the RSVP backend.
       after the description; one with a shorter description does not.
 - [x] At desktop width, at scroll top and at scroll end, at most one of `rsvp-button` /
       `rsvp-button-repeat` is in the viewport.
-- [ ] Logged out, clicking the repeat tracks `event_rsvp_initiated` with trigger `card_bottom` and
+- [x] Logged out, clicking the repeat tracks `event_rsvp_initiated` with trigger `card_bottom` and
       goes to the same signup URL as the top button. Logged in, it RSVPs and lands on
-      `/events/<slug>/confirm`.
+      `/events/<slug>/confirm`. (render test: analytics trigger + signup; e2e: logged-out signup URL, logged-in confirm page)
 - [x] RSVP'd, host, cancelled, past and full events show no repeat.
 - [x] On mobile, the page is unchanged (sticky bar only, no repeat).
-- [ ] All existing tests for P844 still pass.
+- [x] All existing tests for P844 still pass. (5/5; its fixture was a hardcoded event dated 2026-05-27 that had ended, so it now creates a future event per run — no assertion changed)
 - [x] A regression test covers the first two criteria. (`e2e/p1365-rsvp-repeat.spec.ts`, 4/4; gate logic in `src/tests/p1365-rsvp-repeat.test.ts`, 8/8)
 
 ## Next Steps
