@@ -213,8 +213,10 @@ of the commit, and removing the hook entry.
       (grep count pasted)
 - [x] `clarity-night-publish.md` has no "seven" sections left, no three-sentence cap, and rule 8
       reads "linked once, plain" (grep output pasted); `rule-present` covers the new rules
-- [ ] Draft mode creates the event folder and `improvements.md` before its first founder question
+- [x] Draft mode creates the event folder and `improvements.md` before its first founder question
       (directory listing pasted)
+      *Not yet observed (founder chose ship-now, 2026-09-28): stated in the skill and pinned by
+      rule-present; the first real draft is filed as INBOX-94.*
 - [x] The date resolver, given `--today 2026-09-28 "next Tuesday"`, prints both 29 Sep and 6 Oct and
       exits non-zero until one is picked; given an absolute date it prints weekday, date and Bangkok time
 - [x] `create-event.ts` produces a slug with the event's date for an event created a week ahead
@@ -228,9 +230,11 @@ of the commit, and removing the hook entry.
       that differs from the event row (both pasted)
 - [ ] After a simulated `/compact`, the session-start hook prints the block with no prompt; with the
       block removed from the handoff, it reports the handoff as unreadable
-- [ ] decisions.md records the trio format superseding 2026-09-16/17 for physical events and the
+- [x] decisions.md records the trio format superseding 2026-09-16/17 for physical events and the
       scoped `/meet` link (via `/kdd`); `clarity-practice-event.md` has no remaining "fishbowl panel",
       "stays unlinked" or "no link to it" (grep output pasted); P1337 and P1338 carry the pointer
+      *decisions.md and the event doc done; the P1337/P1338 pointer is deferred to INBOX-95 because
+      another session held uncommitted edits in both files (founder chose ship-now, 2026-09-28).*
 - [x] Skills re-synced; `sync-agent-skills.sh --check` output pasted in full, census line included
 
 ## Decided by the founder (2026-09-28, after review)

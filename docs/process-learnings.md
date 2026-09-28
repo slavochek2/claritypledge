@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 94
+**Next ID:** 96
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1726,3 +1726,26 @@ P1358 shipped with two of three reviewers delivered: Opus and Gemini both report
 Codex review of P1367 (2026-09-28) ran it in a read-only sandbox: mktemp and file writes failed, yet it printed OK and exited 0. Script uses only set -u (line 50) and exits 0 unconditionally at its success line. Not re-run outside the sandbox. Fix: fail closed on mktemp/intermediate failure, add an unwritable-TMPDIR must-fail test.
 
 ---
+
+## Confirm the Clarity Night page corrections log fills during the next draft (P1367)
+
+**ID:** INBOX-94
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+P1367 shipped with this Done-When unobserved: draft mode now creates `.private/events/<run-slug>/improvements.md` before its first founder question and appends every page correction in the same turn. It can only be seen on a real draft. At the next Clarity Night page draft, list the folder before the first question and count lines against corrections given. Droppable once one draft shows the file filled.
+
+---
+
+## Add the trio pointer to P1337 and P1338 once their co-tenant edits are committed (P1367)
+
+**ID:** INBOX-95
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+P1367 S4 asks both specs to carry a one-line pointer: in-person Clarity Nights run trios (6/6/3 minutes, three rounds), superseding pairs (decisions.md 2026-09-28 [product]); observer self-rating before paraphrase is tentative. Not added on 2026-09-28 because another session held uncommitted edits in both files. Add it when `git status` shows them clean, before the 6 Oct deck is built.
+
+---
+
