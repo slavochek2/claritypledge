@@ -165,8 +165,26 @@ function clearedAfter(write: ts.Node, scope: ts.Node): boolean {
     if (!ts.isExpressionStatement(stmt)) return false;
     const block = stmt.parent;
     if (!(ts.isBlock(block) || ts.isSourceFile(block))) return false;
-    return isAncestor(block, write) && c.getStart() >= write.getEnd();
+    return isAncestor(block, write) && c.getStart() >= write.getEnd() && !exitsBetween(scope, write.getEnd(), c.getStart());
   });
+}
+
+/** A `return` or `throw` of this function between the write and the clear skips the clear on
+ *  some path (Codex review, round 4). Conservative: any exit in that span counts; nested
+ *  functions are not this function's exits. */
+function exitsBetween(scope: ts.Node, from: number, to: number): boolean {
+  let found = false;
+  const visit = (n: ts.Node) => {
+    if (found) return;
+    if (n !== scope && ts.isFunctionLike(n)) return;
+    if ((ts.isReturnStatement(n) || ts.isThrowStatement(n)) && n.getStart() >= from && n.getEnd() <= to) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(n, visit);
+  };
+  ts.forEachChild(scope, visit);
+  return found;
 }
 
 function tableOfChain(call: ts.CallExpression): string | null {
@@ -273,6 +291,25 @@ describe('P1364 cache-invalidation drift guard — the detector itself (controls
       await supabase.from('point_positions').delete().eq('id', 1);
       if (x) clearListReturnCache();
     }`)).toHaveLength(1);
+  });
+
+  it('flags a return or throw between the write and the clear (known bad, Codex round 4)', () => {
+    expect(bad(`export async function a(x: boolean) {
+      await supabase.from('stories').update({});
+      if (x) return;
+      clearListReturnCache();
+    }`)).toHaveLength(1);
+    expect(bad(`export async function b(x: boolean) {
+      await supabase.from('point_positions').upsert({});
+      if (x) throw new Error('x');
+      clearListReturnCache();
+    }`)).toHaveLength(1);
+    // A return inside a nested callback is not this function's exit.
+    expect(bad(`export async function c(xs: number[]) {
+      await supabase.from('stories').update({});
+      xs.forEach(x => { if (x) return; });
+      clearListReturnCache();
+    }`)).toEqual([]);
   });
 
   it('passes a clear after the write, in an enclosing block, or in an enclosing finally (known good)', () => {
