@@ -12,7 +12,7 @@
  * the shared test DB, which this spec deliberately does not do; the test DB holds well over 12
  * public stories and points, so the guard is a tripwire for a wiped DB, not an expected branch.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, request as pwRequest, type Page } from '@playwright/test';
 
 // A phone-sized viewport: a list scrolls after a handful of cards.
 test.use({ viewport: { width: 390, height: 700 } });
@@ -247,55 +247,84 @@ test.describe('P1364 — feed URL state', () => {
   });
 });
 
-test.describe('P1364 — profile: Back returns to the same tab and card', () => {
-  const PROFILE_CARD = '[data-testid^="profile-story-card-"], [data-testid^="point-card-with-links-"]';
-
-  /** A public profile from the test DB whose Points tab (the non-default tab) scrolls. */
-  async function findProfileWithManyPoints(page: Page): Promise<string> {
-    // Profile links on public pages are click handlers, not anchors, so the candidates come from
-    // the feed's own REST responses (anonymous reads the page makes anyway): every `slug` field.
-    const slugCounts = new Map<string, number>(); // how often each author appears in the feed
-    const collect = (v: unknown): void => {
-      if (Array.isArray(v)) v.forEach(collect);
-      else if (v && typeof v === 'object') {
-        for (const [k, x] of Object.entries(v)) {
-          if ((k === 'slug' || k === 'author_slug' || k === 'authorSlug') && typeof x === 'string' && x) {
-            slugCounts.set(x, (slugCounts.get(x) ?? 0) + 1);
-          }
-          else collect(x);
-        }
-      }
-    };
-    page.on('response', async (res) => {
-      if (!/\/rest\/v1\//.test(res.url())) return;
-      try { collect(await res.json()); } catch { /* not JSON */ }
-    });
-    await page.goto('/feed?tab=stories');
-    await waitForCards(page);
-    await page.goto('/feed');
-    await waitForCards(page);
-    await page.waitForTimeout(500);
-    const counts: string[] = [];
-    // Most active authors first: deterministic, and the likeliest to have a scrollable Points tab.
-    const candidates = [...slugCounts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([slug]) => slug);
-    for (const slug of candidates.slice(0, 15)) {
-      await page.goto(`/p/${slug}`);
-      const pointsTab = page.getByRole('tab', { name: /^Points/ });
-      if (!(await pointsTab.waitFor({ timeout: 15000 }).then(() => true, () => false))) { counts.push(`${slug}:-`); continue; }
-      await pointsTab.click();
-      // Count only once the content has loaded (the skeleton is gone) — a fixed wait read a
-      // slow 51-point profile as empty under two workers.
-      await page.getByTestId('profile-content-skeleton').waitFor({ state: 'detached', timeout: 20000 }).catch(() => {});
-      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor({ timeout: 3000 }).catch(() => {});
-      const n = await page.locator('[data-testid^="point-card-with-links-"]').count();
-      counts.push(`${slug}:${n}`);
-      if (n >= 8) {
-        console.log(`[p1364 profile e2e] using /p/${slug} (${n} points)`);
-        return slug;
-      }
+/** First card fully in the viewport among `sel`; else the topmost crossing it (`~crossing`). */
+function firstVisible(page: Page, sel: string): Promise<string | null> {
+  return page.evaluate((selector) => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(el => el.getBoundingClientRect().height > 0);
+    for (const el of cards) {
+      const r = el.getBoundingClientRect();
+      if (r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
     }
-    throw new Error(`no public profile in the test DB has >= 8 points to scroll (checked ${counts.join(', ')})`);
+    const crossing = cards.find(el => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < window.innerHeight; });
+    return crossing ? `${crossing.dataset.testid}~crossing` : null;
+  }, sel);
+}
+
+/**
+ * P1364 review — the profile under test is found by querying the test database directly
+ * (anonymous REST reads only; nothing is written), not by scraping whatever the feed happened to
+ * load. Points tab = public points the subject holds a position on; Stories tab = the subject's
+ * public stories. The profile with the most of each (ties by id) is used; if none has enough,
+ * the run fails naming the missing data.
+ */
+const MIN_CARDS = 8;
+interface ProfilePick { slug: string; count: number }
+
+async function discoverProfiles(): Promise<{ points: ProfilePick; stories: ProfilePick }> {
+  const url = process.env.VITE_SUPABASE_URL;
+  const anon = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error('P1364 profile e2e: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY missing from .env.test.local');
+  const api = await pwRequest.newContext({ baseURL: `${url}/rest/v1/`, extraHTTPHeaders: { apikey: anon, Authorization: `Bearer ${anon}` } });
+  const getAll = async <T,>(path: string): Promise<T[]> => {
+    const rows: T[] = [];
+    for (let from = 0; ; from += 1000) {
+      const res = await api.get(path, { headers: { Range: `${from}-${from + 999}`, 'Range-Unit': 'items' } });
+      if (!res.ok()) throw new Error(`P1364 profile e2e: GET ${path} → ${res.status()} ${await res.text()}`);
+      const page = (await res.json()) as T[];
+      rows.push(...page);
+      if (page.length < 1000) return rows;
+    }
+  };
+  const top = (counts: Map<string, number>) =>
+    [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  const slugOf = async (id: string): Promise<string> => {
+    const res = await api.post('rpc/get_profile_by_id', { data: { p_id: id } });
+    const body = (await res.json()) as Array<{ slug?: string | null }> | { slug?: string | null };
+    const row = Array.isArray(body) ? body[0] : body;
+    if (!res.ok() || !row?.slug) throw new Error(`P1364 profile e2e: no public slug for profile ${id} (${res.status()})`);
+    return row.slug;
+  };
+  try {
+    const publicPoints = new Set((await getAll<{ id: string }>('points?select=id&visibility=eq.public')).map(p => p.id));
+    const positions = await getAll<{ user_id: string; point_id: string }>('point_positions?select=user_id,point_id');
+    const perHolder = new Map<string, number>();
+    for (const p of positions) if (publicPoints.has(p.point_id)) perHolder.set(p.user_id, (perHolder.get(p.user_id) ?? 0) + 1);
+    const stories = await getAll<{ author_id: string }>('stories?select=author_id&visibility=eq.public');
+    const perAuthor = new Map<string, number>();
+    for (const st of stories) perAuthor.set(st.author_id, (perAuthor.get(st.author_id) ?? 0) + 1);
+    const bestPoints = top(perHolder);
+    const bestStories = top(perAuthor);
+    if (!bestPoints || bestPoints[1] < MIN_CARDS) {
+      throw new Error(`P1364 profile e2e needs a profile holding positions on >= ${MIN_CARDS} public points; the test DB's best has ${bestPoints?.[1] ?? 0}`);
+    }
+    if (!bestStories || bestStories[1] < MIN_CARDS) {
+      throw new Error(`P1364 profile e2e needs a profile with >= ${MIN_CARDS} public stories; the test DB's best has ${bestStories?.[1] ?? 0}`);
+    }
+    return {
+      points: { slug: await slugOf(bestPoints[0]), count: bestPoints[1] },
+      stories: { slug: await slugOf(bestStories[0]), count: bestStories[1] },
+    };
+  } finally {
+    await api.dispose();
   }
+}
+
+test.describe('P1364 — profile: Back returns to the same tab and card', () => {
+  let picks: { points: ProfilePick; stories: ProfilePick };
+  test.beforeAll(async () => {
+    picks = await discoverProfiles();
+    console.log(`[p1364 profile e2e] Points: /p/${picks.points.slug} (${picks.points.count}); Stories: /p/${picks.stories.slug} (${picks.stories.count})`);
+  });
 
   async function watchForProfileLoaders(page: Page) {
     await page.evaluate(() => {
@@ -307,62 +336,82 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
     });
   }
 
-  let slug = '';
-  test.beforeAll(async ({ browser }) => {
-    test.setTimeout(180000); // the discovery visits several profiles once, for all three cases
-    const page = await browser.newPage();
-    try {
-      slug = await findProfileWithManyPoints(page);
-    } finally {
-      await page.close();
+  const TABS = [
+    { tab: 'Points', param: '?tab=points', card: '[data-testid^="point-card-with-links-"]', detail: 'point', pick: 'points' as const },
+    { tab: 'Stories', param: '', card: '[data-testid^="profile-story-card-"]', detail: 'story', pick: 'stories' as const },
+  ];
+
+  for (const t of TABS) {
+    for (const way of ['top control', 'bottom pill', 'browser back'] as const) {
+      test(`profile ${t.tab} tab${t.param ? '' : ' (default, no param)'}, scrolled → open a ${t.detail} → ${way}: same tab, same first card, no loader`, async ({ page }) => {
+        test.setTimeout(60000);
+        const slug = picks[t.pick].slug;
+        await page.goto('/feed'); // a page before the profile, so Back has somewhere to go
+        await page.goto(`/p/${slug}`);
+        await page.getByTestId('profile-content-skeleton').waitFor({ state: 'detached', timeout: 20000 }).catch(() => {});
+        if (t.param) {
+          await page.getByRole('tab', { name: new RegExp(`^${t.tab}`) }).click();
+          await expect(page).toHaveURL(new RegExp(`[?&]tab=${t.tab.toLowerCase()}`));
+        }
+        await expect(page.getByRole('tab', { name: new RegExp(`^${t.tab}`) })).toHaveAttribute('aria-selected', 'true');
+        const cards = page.locator(t.card);
+        await expect.poll(() => cards.count(), { timeout: 15000 }).toBeGreaterThanOrEqual(MIN_CARDS);
+        await cards.nth(5).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120));
+        await page.waitForTimeout(300);
+        const before = await firstVisible(page, t.card);
+        expect(before).not.toBeNull();
+        const urlBefore = page.url();
+
+        await page.getByTestId(before!.replace(/~crossing$/, '')).dispatchEvent('click');
+        await expect(page).toHaveURL(new RegExp(`/${t.detail}/`));
+        await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
+        if (way === 'bottom pill') await expect(page.getByTestId(`${t.detail}-bottom-back`)).toBeVisible({ timeout: 20000 });
+
+        await watchForProfileLoaders(page);
+        if (way === 'top control') await page.getByRole('button', { name: 'Go back', exact: true }).click();
+        else if (way === 'bottom pill') await page.getByTestId(`${t.detail}-bottom-back`).getByRole('button').click();
+        else await page.goBack();
+
+        await expect(page).toHaveURL(urlBefore);
+        await expect(page.getByRole('tab', { name: new RegExp(`^${t.tab}`) })).toHaveAttribute('aria-selected', 'true');
+        await page.locator(t.card).first().waitFor();
+        await page.waitForTimeout(600);
+        expect(await firstVisible(page, t.card)).toBe(before);
+        // Served from the cache: no page loader and no content skeleton on the way back.
+        expect(await page.evaluate(() => (window as unknown as { __sawLoader: boolean }).__sawLoader)).toBe(false);
+      });
     }
-  });
-
-  for (const way of ['top control', 'bottom pill', 'browser back'] as const) {
-    test(`profile Points tab, scrolled → open a point → ${way}: same tab, same first card, no loader`, async ({ page }) => {
-      test.setTimeout(60000);
-      await page.goto('/feed'); // a page before the profile, so Back has somewhere to go
-      await page.goto(`/p/${slug}`);
-      await page.locator(PROFILE_CARD).first().waitFor({ timeout: 20000 });
-      await page.getByRole('tab', { name: /^Points/ }).click();
-      await expect(page).toHaveURL(/[?&]tab=points/);
-      const cards = page.locator('[data-testid^="point-card-with-links-"]');
-      await cards.nth(6).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120));
-      await page.waitForTimeout(300);
-      const before = await page.evaluate((sel) => {
-        for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
-          const r = el.getBoundingClientRect();
-          if (r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
-        }
-        return null;
-      }, '[data-testid^="point-card-with-links-"]');
-      expect(before).not.toBeNull();
-      const urlBefore = page.url();
-
-      await page.getByTestId(before!).dispatchEvent('click');
-      await expect(page).toHaveURL(/\/point\//);
-      await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
-      if (way === 'bottom pill') await expect(page.getByTestId('point-bottom-back')).toBeVisible({ timeout: 20000 });
-
-      await watchForProfileLoaders(page);
-      if (way === 'top control') await page.getByRole('button', { name: 'Go back', exact: true }).click();
-      else if (way === 'bottom pill') await page.getByTestId('point-bottom-back').getByRole('button').click();
-      else await page.goBack();
-
-      await expect(page).toHaveURL(urlBefore);
-      await expect(page.getByRole('tab', { name: /^Points/ })).toHaveAttribute('aria-selected', 'true');
-      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor();
-      await page.waitForTimeout(600);
-      const after = await page.evaluate((sel) => {
-        for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
-          const r = el.getBoundingClientRect();
-          if (r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
-        }
-        return null;
-      }, '[data-testid^="point-card-with-links-"]');
-      expect(after).toBe(before);
-      expect(await page.evaluate(() => (window as unknown as { __sawLoader: boolean }).__sawLoader)).toBe(false);
-    });
   }
 });
 
+test.describe('P1364 — Back remembers which cards were open', () => {
+  test('feed: expand a point\'s stories, scroll → open a linked story → Back → that card is still expanded and is the first visible card', async ({ page }) => {
+    await page.goto('/feed');
+    await waitForCards(page);
+    // A point card with linked stories, far enough down to need scrolling.
+    const expanders = page.locator('[data-testid^="feed-point-card-"] [data-testid="feed-point-story-expander"]');
+    await expect.poll(() => expanders.count(), { timeout: 15000 }).toBeGreaterThan(0);
+    const count = await expanders.count();
+    const expander = expanders.nth(Math.min(3, count - 1));
+    const cardId = await expander.evaluate(el => el.closest<HTMLElement>('[data-testid^="feed-point-card-"]')!.dataset.testid!);
+    const card = page.getByTestId(cardId);
+    await expander.click();
+    await expect(expander).toHaveAttribute('aria-expanded', 'true');
+    // Its top at the viewport's top: expanded, the card can be taller than the viewport, and any
+    // margin would leave the card above it as the one crossing the top edge.
+    await card.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY));
+    await page.waitForTimeout(300);
+    expect((await firstVisible(page, CARD))?.replace(/~crossing$/, '')).toBe(cardId);
+
+    // The story box inside the quote (the attribution row above it opens the profile instead).
+    await card.getByTestId('quoted-story').first().locator(':scope > div[role="button"]').dispatchEvent('click');
+    await expect(page).toHaveURL(/\/story\//);
+    await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
+    await page.getByRole('button', { name: 'Go back', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/feed(\?|$)/);
+    await expect(page.getByTestId(cardId).getByTestId('feed-point-story-expander')).toHaveAttribute('aria-expanded', 'true');
+    await page.waitForTimeout(600);
+    expect((await firstVisible(page, CARD))?.replace(/~crossing$/, '')).toBe(cardId);
+  });
+});
