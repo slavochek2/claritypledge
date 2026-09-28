@@ -144,7 +144,7 @@ type PageState = 'loading' | 'not-found' | 'ready';
 
 export function LetterResultsPage() {
   const { id: letterId } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const deliveryId = searchParams.get('delivery') ?? undefined;
   const storyId = searchParams.get('story') ?? undefined;
   const navigate = useNavigate();
@@ -369,6 +369,17 @@ export function LetterResultsPage() {
         deliveryId={deliveryId}
         isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
         responsesMode={resultsData.responsesMode}
+        // P1364: the walk position lives in `?story=` (replace), so opening a story from the
+        // walk and coming Back returns to the same story, not the first.
+        onIndexChange={(index) => {
+          const next = storyItems[index]?.storyId;
+          if (!next) return;
+          setSearchParams(prev => {
+            const params = new URLSearchParams(prev);
+            params.set('story', next);
+            return params;
+          }, { replace: true });
+        }}
         endSlot={<BottomBackButton fallback="/letters" testId="letter-results-bottom-back" className="mt-0" />}
         onExplainBackSubmit={handleExplainBackSubmit}
         positionStoriesMap={positionStoriesMap}

@@ -1,10 +1,10 @@
 /**
  * @file p893-history-probe.spec.ts
- * @description P893 regression canary — each tab click on /letters must push
- * exactly ONE history entry. Radix TabsTrigger fires onValueChange twice per
- * click (focus activation + click); before the dedupe guard in
- * letters-page.tsx handleTabChange, this pushed two identical entries and the
- * browser Back button needed two presses to leave a tab.
+ * @description P893 regression canary, revised by P1364 — a tab click on /letters now
+ * REPLACES the history entry (P1364: "letters tab clicks add no Back steps", matching /feed),
+ * so each click adds ZERO entries. P893's original worry — Radix TabsTrigger firing
+ * onValueChange twice per click and pushing two identical entries — is covered a fortiori:
+ * no click adds any entry. Back leaves /letters in one press.
  */
 
 import { test, expect } from '@playwright/test';
@@ -39,14 +39,12 @@ test.describe('P893 probe', () => {
     const len2 = await page.evaluate(() => history.length);
 
     console.log(`[P893 PROBE] history.length: start=${len0} afterPublished=${len1} afterInbox=${len2}`);
-    expect(len1 - len0, 'Published click should push exactly 1 entry').toBe(1);
-    expect(len2 - len1, 'Inbox click should push exactly 1 entry').toBe(1);
+    // P1364: was "exactly 1 entry" per click (a push); tab clicks now replace.
+    expect(len1 - len0, 'Published click adds no history entry').toBe(0);
+    expect(len2 - len1, 'Inbox click adds no history entry').toBe(0);
 
-    // Back then re-click: the dedupe guard must NOT swallow a legitimate
-    // tab change after browser Back resyncs the URL.
-    await page.goBack();
+    // The dedupe guard must not swallow a legitimate change back to a previous tab.
+    await page.getByRole('tab', { name: /Published/i }).click();
     await expect(page).toHaveURL(/[?&]tab=sent/);
-    await page.getByRole('tab', { name: /Inbox/i }).click();
-    await expect(page).toHaveURL(/[?&]tab=inbox/);
   });
 });

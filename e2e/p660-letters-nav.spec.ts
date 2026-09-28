@@ -134,8 +134,12 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     }
   });
 
-  test('browser back/forward navigates between tab states', async ({ page }) => {
+  // P1364 (founder-approved scope): tab clicks REPLACE, as on /feed and /stake, so browser
+  // Back leaves /letters in one step instead of walking back through the tabs. This test used
+  // to assert the opposite (Back → Sent → Drafts); that behaviour was deliberately removed.
+  test('tab clicks add no Back steps: browser back leaves /letters, and forward returns to the last tab', async ({ page }) => {
     await setTestSession(page, user.email);
+    await page.goto('/feed');
     await page.goto('/letters?tab=drafts');
     await page.waitForLoadState('networkidle');
 
@@ -147,16 +151,12 @@ test.describe('P660: Letters Navigation & Tab Switching', () => {
     await page.getByRole('tab', { name: /Inbox/i }).click();
     await expect(page).toHaveURL(/[?&]tab=inbox/);
 
-    // Go back — should return to Sent
+    // One Back leaves the page
     await page.goBack();
-    await expect(page).toHaveURL(/[?&]tab=sent/);
+    await expect(page).toHaveURL(/\/feed(\?|$)/);
 
-    // Go back again — should return to Drafts
-    await page.goBack();
-    await expect(page).toHaveURL(/[?&]tab=drafts/);
-
-    // Go forward — should go to Sent
+    // Forward returns to the tab the reader left on
     await page.goForward();
-    await expect(page).toHaveURL(/[?&]tab=sent/);
+    await expect(page).toHaveURL(/[?&]tab=inbox/);
   });
 });

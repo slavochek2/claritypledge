@@ -14,7 +14,7 @@
  * originally and cut before it reached prod (founder decision, 2026-07-29).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
@@ -60,7 +60,24 @@ export function OrgPage() {
   // P1060 D9: distinct RSVP'd profiles across this org's events. Undefined until
   // loaded and absent for a zero-participant org — both render as no row at all.
   const [participation, setParticipation] = useState<OrgParticipation | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<OrgTab>("about");
+  // P1364: the tab lives in `?tab=` (replace), so Back from a member's profile or an event
+  // returns to the same tab. The DEFAULT tab carries no param, and is still derived as before:
+  // an invite link (?from=) is a pitch and opens About; otherwise Events when the group has any.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const defaultTab: OrgTab = !org || searchParams.has("from") || !org.hasEvents ? "about" : "events";
+  const activeTab: OrgTab =
+    tabParam === "about" || tabParam === "members" || (tabParam === "events" && org?.hasEvents)
+      ? (tabParam as OrgTab)
+      : defaultTab;
+  const setActiveTab = useCallback((next: OrgTab) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (next === defaultTab) params.delete("tab");
+      else params.set("tab", next);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams, defaultTab]);
   // P1076: the post-join nudge — shown once, from either join path (own click via
   // org-join-page, or auto-join via AuthCallbackPage), both of which navigate here
   // with this history state. Read once into local state on mount, THEN clear the
@@ -141,11 +158,8 @@ export function OrgPage() {
           return;
         }
         setOrg(loadedOrg);
-        // An invite link (?from=) is a pitch, not a listings visit: the sender is
-        // asking this person to JOIN, and the case for joining lives in About.
-        // Everyone else still lands on Events when the group has any.
-        const viaInvite = new URLSearchParams(window.location.search).has("from");
-        setActiveTab(viaInvite || !loadedOrg.hasEvents ? "about" : "events");
+        // The opening tab (About for an invite link, else Events when the group has any) is
+        // now derived from the URL at render — see `defaultTab` (P1364).
         // The roster is deliberately NOT awaited here. /events now redirects to
         // a group page, so this page is the app's primary Events surface — and if the
         // roster fetch shared this try/catch, a get_organization_members failure

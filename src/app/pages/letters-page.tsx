@@ -40,18 +40,17 @@ export function LettersPage() {
       ? (tabParam as TabValue)
       : 'inbox';
 
-  // P893: Radix TabsTrigger fires onValueChange twice per click (focus
-  // activation + click) before the URL-driven re-render lands, so an
-  // unguarded push creates TWO identical history entries per tab switch —
-  // the browser Back button then needs two presses to leave a tab. Dedupe
-  // with a ref synced on every render (covers back/forward URL changes too).
+  // P1364: tab switches REPLACE, as on /feed and /stake — Back leaves /letters instead of
+  // stepping through the tabs the reader clicked (supersedes P893's one-entry-per-click).
+  // P893's dedupe stays: Radix TabsTrigger fires onValueChange twice per click (focus
+  // activation + click), and one URL write per click is still the contract.
   const lastPushedTabRef = useRef(activeTab);
   lastPushedTabRef.current = activeTab;
   const handleTabChange = useCallback(
     (value: string) => {
       if (lastPushedTabRef.current === value) return;
       lastPushedTabRef.current = value as TabValue;
-      setSearchParams({ tab: value }, { replace: false });
+      setSearchParams({ tab: value }, { replace: true });
     },
     [setSearchParams]
   );

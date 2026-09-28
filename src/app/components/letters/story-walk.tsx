@@ -62,13 +62,15 @@ interface StoryWalkProps {
   /** P1364: rendered at the end of the scrolling content, above the fixed bar's reserved space
    * (the results page's bottom "Go back" pill — placed after the walk it would sit under the bar). */
   endSlot?: ReactNode;
+  /** P1364: called with the new index on Previous/Next, so the page can keep it in the URL. */
+  onIndexChange?: (index: number) => void;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite', endSlot }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite', endSlot, onIndexChange }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
@@ -83,6 +85,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
   function navigate(direction: 'prev' | 'next') {
     const next = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
     setCurrentIndex(next);
+    onIndexChange?.(next);
     setCaptureOpen(false); // P904: don't carry an open capture panel across stories
     // Scroll to top + move focus to counter for screen reader announcement
     window.scrollTo(0, 0);

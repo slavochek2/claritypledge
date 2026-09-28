@@ -59,14 +59,26 @@ import {
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isEmbed = searchParams.get('embed') === 'true';
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [point, setPoint] = useState<PointWithCounts | null>(null);
   const [positions, setPositions] = useState<PointPositionWithUser[]>([]);
-  const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
+  // P1364: the holders' position filter lives in `?filter=` (replace; 'all' has no param), so
+  // opening a holder's story and coming Back returns to the same filter.
+  const filterParam = searchParams.get('filter');
+  const positionFilter: PositionFilter =
+    filterParam === 'agree' || filterParam === 'disagree' || filterParam === 'unsure' ? filterParam : 'all';
+  const setPositionFilter = useCallback((next: PositionFilter) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (next === 'all') params.delete('filter');
+      else params.set('filter', next);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams]);
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   // P502: Anonymous position state — visual only, no count adjustment
