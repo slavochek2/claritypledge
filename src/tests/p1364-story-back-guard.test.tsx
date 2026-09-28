@@ -151,6 +151,25 @@ describe('P1364 §4 — the unsaved-edits guard', () => {
     expect(path()).toBe('/feed');
   });
 
+  it('review 2, D5: browser back TWICE while the prompt shows, then Leave → the previous page (no stacked duplicates)', async () => {
+    await openDirtyStoryFromFeed();
+    const lengthBefore = window.history.length;
+    await browserBack();
+    expect(prompt()).toBeTruthy();
+    await browserBack(); // again, with the prompt still open
+    expect(prompt()).toBeTruthy();
+    expect(path()).toBe(`/story/${STORY_ID}`);
+    // pushState from an earlier position truncates the forward entries, so the re-pushed
+    // story entries replace each other instead of stacking.
+    expect(window.history.length).toBe(lengthBefore);
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+    await waitFor(() => expect(path()).toBe('/feed'));
+    expect(await screen.findByTestId('feed-page')).toBeTruthy();
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(path()).toBe('/feed');
+    expect(prompt()).toBeNull();
+  });
+
   it('after Leave the guard is gone: browser back from the next page is not intercepted', async () => {
     await openDirtyStoryFromFeed();
     fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
