@@ -276,7 +276,8 @@ test.describe('P427 — Story Edit and Delete', () => {
     await textarea.fill('Unsaved edit that triggers the blocker');
 
     // Click the Back button to trigger SPA navigation — handleBack checks for dirty state
-    await page.getByRole('button', { name: /go back/i }).click();
+    // P1364: exact — the story page now also has the bottom pill ("Go back from the end of the page").
+    await page.getByRole('button', { name: 'Go back', exact: true }).click();
 
     // handleBack intercepts and shows inline confirmation
     await expect(page.getByText(/you have unsaved changes/i)).toBeVisible({ timeout: 5000 });
@@ -292,7 +293,8 @@ test.describe('P427 — Story Edit and Delete', () => {
     await page.getByRole('button', { name: /edit story/i }).click();
     await page.getByRole('textbox').fill('Triggering blocker');
 
-    await page.getByRole('button', { name: /go back/i }).click();
+    // P1364: exact — the story page now also has the bottom pill ("Go back from the end of the page").
+    await page.getByRole('button', { name: 'Go back', exact: true }).click();
     await expect(page.getByText(/you have unsaved changes/i)).toBeVisible({ timeout: 5000 });
 
     await page.getByRole('button', { name: /stay/i }).click();

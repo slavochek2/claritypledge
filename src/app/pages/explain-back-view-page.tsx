@@ -14,6 +14,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
@@ -123,18 +124,16 @@ export function ExplainBackViewPage() {
     };
   }, [id, user, sessionChecked, isLoading, navigate]);
 
-  const handleBack = () => {
-    if (explainBack) {
-      navigate(`/letter/${explainBack.letter_id}/results?delivery=${explainBack.delivery_id}`);
-    } else {
-      navigate('/letters');
-    }
-  };
+  // P1364: Back returns to where the reader came from (a notification, the results walk, a
+  // letter card). Only a cold arrival goes to this explain-back's letter results page.
+  const backFallback = explainBack
+    ? `/letter/${explainBack.letter_id}/results?delivery=${explainBack.delivery_id}`
+    : '/letters';
 
   if (loading || !explainBack) {
     return (
       <div className="px-4 py-6 max-w-lg mx-auto">
-        <FocusHeader onBack={handleBack} label="Back" />
+        <FocusHeader fallback={backFallback} />
         <ClarityPageLoader />
       </div>
     );
@@ -144,7 +143,7 @@ export function ExplainBackViewPage() {
 
   return (
     <div className="px-4 py-6 max-w-lg mx-auto">
-      <FocusHeader onBack={handleBack} label="Back" />
+      <FocusHeader fallback={backFallback} />
 
       <div className="space-y-6">
         <p className="text-sm text-muted-foreground">What {recorderName} understood</p>
@@ -187,6 +186,9 @@ export function ExplainBackViewPage() {
           </div>
         )}
       </div>
+
+      {/* P1364 §3 — the same way out at the end of the page. */}
+      <BottomBackButton fallback={backFallback} testId="explain-back-bottom-back" />
     </div>
   );
 }

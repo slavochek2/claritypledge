@@ -10,7 +10,7 @@
  *
  * Canary tests (FAIL before fix, PASS after):
  *   p888-1: results page shows top nav
- *   p888-2: results page has "Back to Letters" exit on every story (incl. mid-walk)
+ *   p888-2: results page has a Back exit on every story (incl. mid-walk) — P1364: label is "Back"
  *   p888-3: overview page shows top nav (existing FocusHeader retained)
  *
  * Regression guards (PASS before AND after fix — protect intended immersive routes):
@@ -142,16 +142,19 @@ test.describe('P888: Letter results/overview navigation chrome', () => {
     expect(appErrors).toEqual([]);
   });
 
-  test('p888-2: results walk has "Back to Letters" exit on every story', async ({ page }) => {
+  test('p888-2: results walk has a Back exit on every story', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(/story 1 of 2/i)).toBeVisible({ timeout: 10000 });
 
-    // Exit affordance = any element named "Back to Letters" (link or button —
-    // symptom-level, not mechanism-level)
+    // Exit affordance = the top Back control (link or button — symptom-level, not
+    // mechanism-level). P1364 removed its "Back to Letters" label: it now pops history
+    // (useGoBack; a cold arrival still goes to /letters), so a destination label would be false.
+    // It reads "Back" with the accessible name "Go back"; StoryWalk's own last-story
+    // "Back to Letters" link is a real link to /letters and keeps its label.
     const exitAffordance = page
-      .getByRole('button', { name: /back to letters/i })
+      .getByRole('button', { name: 'Go back', exact: true })
       .or(page.getByRole('link', { name: /back to letters/i }))
       .first();
 

@@ -12,7 +12,6 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { LetterPointCard } from '@/app/components/letters/letter-point-card';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
@@ -58,8 +57,13 @@ export interface LetterFlowContentProps {
   // State machine (from useLetterReadingState)
   readingState: UseLetterReadingStateReturn;
   // Variant configuration
-  /** When false, parent already provides a header (e.g. preview amber banner) */
-  showFocusHeader: boolean;
+  /**
+   * P1364: no longer rendered. Every caller passed `false` (the reading page hides the header
+   * on purpose; preview has its own banner), so the FocusHeader it gated was dead and was
+   * deleted rather than migrated. Kept optional so callers — the reading and preview pages,
+   * out of P1364's scope — compile unchanged.
+   */
+  showFocusHeader?: boolean;
   /** Sign-in prompt for authed reading; undefined for others. Replaces Drawer in story-rate. */
   authGateAtStoryRate?: ReactNode;
   // Completion
@@ -142,7 +146,6 @@ export function LetterFlowContent({
   senderProfileOwner,
   readerProfileOwner,
   readingState,
-  showFocusHeader,
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
@@ -521,11 +524,6 @@ export function LetterFlowContent({
         open={isTutorialModalOpen}
         onProceed={handleTutorialProceed}
       />
-
-      {/* "Back", not "Leave letter" (founder, 2026-08-31): the handler is
-          history.back() — it has always BEEN a back button, and the label was
-          the only thing saying otherwise. Nothing is abandoned by pressing it. */}
-      {showFocusHeader && <FocusHeader onBack={() => window.history.back()} />}
 
       {/* P848: position:fixed (not sticky) because [data-letter-scroll]
           (overflow-y-auto from P777) is not always the actually scrolling

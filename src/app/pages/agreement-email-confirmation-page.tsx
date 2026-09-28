@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { MailIcon, RefreshCwIcon, CheckCircle2Icon, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -28,6 +29,8 @@ export function AgreementEmailConfirmationPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as ConfirmationState | null;
+  // P1364: back to where the reader came from; a cold arrival goes to the agreement.
+  const goBack = useGoBack(state?.agreementId ? `/agreements/${state.agreementId}` : '/');
 
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -91,12 +94,12 @@ export function AgreementEmailConfirmationPage() {
   return (
     <main className="container mx-auto px-4 py-8 max-w-2xl">
       <button
-        onClick={() => navigate(-1)}
+        onClick={goBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-11 px-1"
-        aria-label="Go back to agreement"
+        aria-label="Go back"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to agreement
+        Back
       </button>
 
       <div className="text-center">

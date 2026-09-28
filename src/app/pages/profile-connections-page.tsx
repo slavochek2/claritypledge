@@ -7,7 +7,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { getProfileBySlug, getProfile } from '@/app/data/api';
@@ -62,7 +63,9 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
 
 export function ProfileConnectionsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  // P1364: both Back buttons return to where the reader came from; a cold arrival goes to
+  // the profile these connections belong to.
+  const goBack = useGoBack(`/p/${id ?? ''}`);
   const { user: currentUser, isLoading: authLoading } = useAuth();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -129,7 +132,7 @@ export function ProfileConnectionsPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 mt-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
@@ -156,7 +159,7 @@ export function ProfileConnectionsPage() {
     <div className="max-w-2xl mx-auto px-4 mt-3 pb-20">
       {/* Back navigation */}
       <button
-        onClick={() => navigate(`/p/${profile.slug ?? profile.id}`)}
+        onClick={goBack}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4 mr-1" />

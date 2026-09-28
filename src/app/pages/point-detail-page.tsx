@@ -20,6 +20,7 @@ import { toSevenPointCounts, getPositionGroup } from '@/app/utils/position-helpe
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton, CLEAR_BOTTOM_NAV } from '@/app/components/layout/bottom-back-button';
 import { PointSupersedeBanner } from '@/app/components/social/point-supersede-banner';
 import { PointVersionHistory } from '@/app/components/social/point-version-history';
 import { SEO } from '@/app/components/seo';
@@ -272,14 +273,11 @@ export function PointDetailPage() {
     }
   };
 
-  // Helper to navigate back safely
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/feed');
-    }
-  };
+  // P1364: Back returns to wherever the reader came from (useGoBack, via the components'
+  // `fallback`); only a cold arrival goes to the feed. The old `history.length > 1` test
+  // popped out of the site for a reader who arrived from an outside page in a used tab and
+  // never reached the fallback for a cold one whose tab had any history at all.
+  const BACK_FALLBACK = '/feed';
 
   // P621: Unlink point from story handlers
   const handleUnlinkClick = useCallback((storyId: string) => {
@@ -367,7 +365,7 @@ export function PointDetailPage() {
 
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {!isEmbed && <FocusHeader onBack={handleBack} />}
+        {!isEmbed && <FocusHeader fallback={BACK_FALLBACK} />}
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">{errorMessage}</p>
           {isNetworkError && (
@@ -540,7 +538,7 @@ export function PointDetailPage() {
       <RemovePositionDialog {...dialogProps} />
 
       <div className="px-4 py-6">
-      <FocusHeader onBack={handleBack} />
+      <FocusHeader fallback={BACK_FALLBACK} />
 
       {/* P800: supersede banner — shown when this point has been replaced by a newer version */}
       {point.supersededBy && (
@@ -722,6 +720,10 @@ export function PointDetailPage() {
           </div>
         </div>
       )}
+
+      {/* P1364 §3 — the same way out at the end of the page. /point keeps the mobile bottom
+          nav, so the pill carries extra bottom padding to stay clear of it. */}
+      <BottomBackButton fallback={BACK_FALLBACK} testId="point-bottom-back" className={CLEAR_BOTTOM_NAV} />
 
       </div>
 

@@ -12,9 +12,10 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Loader2, LockIcon } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
@@ -428,7 +429,6 @@ function LoadingSkeleton() {
 
 export function AgreementPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -478,9 +478,10 @@ export function AgreementPage() {
     load();
   }, [id, authLoading, user]);
 
-  const handleBack = useCallback(() => {
-    navigate('/me');
-  }, [navigate]);
+  // P1364: Back returns to where the reader came from (a profile, the partners list, an
+  // email link's outside page); only a cold arrival goes to /me. The accept page REPLACES
+  // itself with this one, so Back never re-shows an already-submitted accept form.
+  const BACK_FALLBACK = '/me';
 
   const handleResend = useCallback(async () => {
     if (!agreement || isResending) return;
@@ -533,7 +534,7 @@ export function AgreementPage() {
   if (isPrivate) {
     return (
       <CertificatePageShell className="py-8">
-        <FocusHeader onBack={handleBack} />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div className="text-center py-12 space-y-4">
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground">This agreement is private.</p>
@@ -550,7 +551,7 @@ export function AgreementPage() {
   if (notFound || !agreement) {
     return (
       <CertificatePageShell className="py-8">
-        <FocusHeader onBack={handleBack} />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div className="text-center py-12">
           <p className="text-muted-foreground">Agreement not found.</p>
         </div>
@@ -641,8 +642,10 @@ export function AgreementPage() {
 
   return (
     <CertificatePageShell className="py-6">
-      <FocusHeader onBack={handleBack} />
+      <FocusHeader fallback={BACK_FALLBACK} />
       {content}
+      {/* P1364 §3 — the same way out at the end of the page. */}
+      <BottomBackButton fallback={BACK_FALLBACK} testId="agreement-bottom-back" />
     </CertificatePageShell>
   );
 }

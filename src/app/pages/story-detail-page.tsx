@@ -19,6 +19,8 @@ import { useParams, useNavigate, useLocation, useSearchParams } from 'react-rout
 import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
 import { VisibilityLine } from '@/app/components/shared/visibility-line';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton, CLEAR_BOTTOM_NAV } from '@/app/components/layout/bottom-back-button';
+import { useGoBack } from '@/app/hooks/use-go-back';
 
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/components/shared/prototype-types';
@@ -616,7 +618,7 @@ export function StoryDetailPage() {
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
-  const popstateHandlerRef = useRef<(() => void) | null>(null);
+  const popstateHandlerRef = useRef<((e: PopStateEvent) => void) | null>(null);
   // P591: Hidden file input for image change/add
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -750,19 +752,25 @@ export function StoryDetailPage() {
     loadStory();
   }, [id, retryKey, user?.id, authLoading, navigate]);
 
-  const pendingNavigateRef = useRef<string | null>(null);
+  /**
+   * P1364 (D3, supersedes decisions.md 2026-02-22 for story detail): Back returns to the page the
+   * reader came from — the feed, /stake, a profile, a letter, an outside page — via the shared
+   * useGoBack. Only a cold arrival goes to a fallback: the feed, or, when the story was opened
+   * from a doc (P551), that doc's draft page. The doc target is a FALLBACK now, not a forced
+   * push: doc → story → Back pops to the doc, leaving no extra forward entry.
+   */
+  const goBack = useGoBack(docContext ? `/letters/drafts/${docContext.docId}` : '/feed');
 
+  // The unsaved-edits guard (P427, decisions.md 2026-02-25) wraps Back, so this page is an
+  // allowlisted `onBack` caller in the P1364 drift guard.
   const handleBack = useCallback(() => {
     const isDirty = isEditMode && editContent !== (story?.content ?? '');
-    // P551: If navigated from a doc, go back to that doc
-    const target = docContext ? `/d/${docContext.docId}` : (story?.authorSlug ? `/p/${story.authorSlug}` : '/events');
     if (isDirty) {
-      pendingNavigateRef.current = target;
       setShowUnsavedPrompt(true);
       return;
     }
-    navigate(target);
-  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate, docContext]);
+    goBack();
+  }, [isEditMode, editContent, story?.content, goBack]);
 
   const handleRetry = useCallback(() => {
     setRetryKey(k => k + 1);
@@ -947,22 +955,28 @@ export function StoryDetailPage() {
   useEffect(() => {
     const isDirty = isEditMode && editContent !== (story?.content ?? '');
 
-    // Remove any previously-registered handler
+    // Remove any previously-registered handler. P1364: it was added with `capture: true`, and a
+    // removal must pass the same flag or it silently removes nothing.
     if (popstateHandlerRef.current) {
-      window.removeEventListener('popstate', popstateHandlerRef.current);
+      window.removeEventListener('popstate', popstateHandlerRef.current, { capture: true });
       popstateHandlerRef.current = null;
     }
 
     if (!isDirty) return;
+
+    // This entry's router state ({ usr, key, idx }), captured while the story is current.
+    const storyEntryState: unknown = window.history.state;
+    const storyEntryUrl = window.location.href;
 
     const handler = (e: PopStateEvent) => {
       // stopImmediatePropagation prevents React Router's own popstate listener
       // from processing this navigation (we registered with capture:true, so
       // we run before React Router's bubble-phase listener).
       e.stopImmediatePropagation();
-      // Re-push the current URL to keep the browser on this page
-      window.history.pushState(null, '', window.location.href);
-      pendingNavigateRef.current = null; // will use fallback (profile page)
+      // Re-push the story entry to keep the browser on this page. P1364: with the story's own
+      // router state, so the re-pushed entry sits at the story's history index — "Leave" then
+      // pops ONE step to the page before the story, never onto a duplicate story entry.
+      window.history.pushState(storyEntryState, '', storyEntryUrl);
       setShowUnsavedPrompt(true);
     };
 
@@ -1286,15 +1300,20 @@ export function StoryDetailPage() {
             <Button
               variant="outline"
               onClick={() => {
-                // Remove popstate guard before navigating
+                // Remove the popstate guard BEFORE navigating, with the same `capture` flag it
+                // was added with (P1364 — without it the removal was a no-op and the guard
+                // caught Leave's own pop, re-showing the prompt).
                 if (popstateHandlerRef.current) {
-                  window.removeEventListener('popstate', popstateHandlerRef.current);
+                  window.removeEventListener('popstate', popstateHandlerRef.current, { capture: true });
                   popstateHandlerRef.current = null;
                 }
                 setShowUnsavedPrompt(false);
                 setIsEditMode(false);
                 setEditContent('');
-                navigate(pendingNavigateRef.current ?? (story?.authorSlug ? `/p/${story.authorSlug}` : '/events'));
+                // P1364: Leave goes where Back goes — the previous page — whether the prompt
+                // came from the Back tap or from browser back (whose re-pushed entry carries the
+                // story's history index, so this pops past it to the previous page).
+                goBack();
               }}
             >
               Leave
@@ -1305,7 +1324,7 @@ export function StoryDetailPage() {
 
       {/* Back button */}
       <div className="px-4 py-6">
-      <FocusHeader onBack={handleBack} label={docContext ? 'Back' : undefined} />
+      <FocusHeader onBack={handleBack} />
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
@@ -1398,6 +1417,10 @@ export function StoryDetailPage() {
           />
         </>
       )}
+
+      {/* P1364 §3 — the same way out at the end of the page, through the same unsaved-edits
+          guard. /story keeps the mobile bottom nav, so the pill clears it. */}
+      <BottomBackButton onBack={handleBack} testId="story-bottom-back" className={CLEAR_BOTTOM_NAV} />
       </div>
     </div>
   );

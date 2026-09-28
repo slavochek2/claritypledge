@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, AgreementVisibility, ProfileSearchResult } from '@/app/data/agreements-service';
@@ -79,6 +80,8 @@ function AvatarBadge({ party }: { party: AgreementParty }) {
 
 export function CreateAgreementPage() {
   const navigate = useNavigate();
+  // P1364: back to where the reader came from; a cold arrival goes to /me, never off-site.
+  const goBack = useGoBack('/me');
   const { user, session, isLoading: authLoading } = useAuth();
 
   // Form state
@@ -311,7 +314,7 @@ export function CreateAgreementPage() {
     <CertificatePageShell className="py-8 pb-24 md:py-12 md:pb-12">
       <Button
         variant="ghost"
-        onClick={() => navigate(-1)}
+        onClick={goBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label="Go back"
       >

@@ -10,7 +10,7 @@
  * 5. — cells have sr-only text ("No response")
  * 6. · Waiting cells have sr-only text ("Waiting for response")
  * 7. Hashtags have aria-hidden="true"
- * 8. [← Sent] link has aria-label="Back to Sent tab"
+ * 8. [← Sent] link has aria-label="Go back" (P1364: was "Back to Sent tab"; the control pops history)
  * 9. Person name links are keyboard-reachable via Tab
  * 10. [open results →] links are keyboard-reachable via Tab
  * 11. Tab order within a row: name link first, then results link
@@ -263,18 +263,20 @@ test.describe('P700: Accessibility — Letter Overview', () => {
     expect(hasAriaHiddenHashtag, 'Expected aria-hidden="true" on hashtag elements').toBe(true);
   });
 
-  // ── 8. [← Sent] link has aria-label="Back to Sent tab" ──────────────────
+  // ── 8. [← Sent] link has aria-label="Go back" ───────────────────────────
+  // P1364: was "Back to Sent tab". The control now pops history (a cold arrival still lands on
+  // the Sent tab), so a destination label would be false.
 
-  test('[← Sent] back link has aria-label="Back to Sent tab"', async ({ page }) => {
+  test('[← Sent] back link has aria-label="Go back"', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const backLink = page.locator('[aria-label="Back to Sent tab"]');
+    const backLink = page.locator('[aria-label="Go back"]');
     await expect(backLink).toBeVisible({ timeout: 10000 });
 
     const ariaLabel = await backLink.getAttribute('aria-label');
-    expect(ariaLabel).toBe('Back to Sent tab');
+    expect(ariaLabel).toBe('Go back');
   });
 
   // ── 9. Person name links are keyboard-reachable ───────────────────────────

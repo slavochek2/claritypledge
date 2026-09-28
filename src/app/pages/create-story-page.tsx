@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useGoBack } from '@/app/hooks/use-go-back';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { storiesService } from '@/app/data/stories-service';
@@ -34,6 +35,9 @@ const CHAR_MAX = 10000;
 
 export function CreateStoryPage() {
   const navigate = useNavigate();
+  // P1364: outside a doc, Back returns to where the author came from; a cold arrival goes to
+  // the feed, never off-site. (The doc branch keeps its explicit doc target.)
+  const goBack = useGoBack('/feed');
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, session, isLoading: authLoading } = useAuth();
@@ -292,7 +296,7 @@ export function CreateStoryPage() {
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
       <Button
         variant="ghost"
-        onClick={() => isDocContext ? navigate(backPath) : navigate(-1)}
+        onClick={() => isDocContext ? navigate(backPath) : goBack()}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
         aria-label={isDocContext ? `Back to ${docTitle}` : 'Go back'}
       >

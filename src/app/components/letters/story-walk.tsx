@@ -7,7 +7,7 @@
  * Fixed bottom bar: Previous Story / Next Story or last-story Back to Letters.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { JourneyToUnderstanding } from '@/app/components/partners/live-mode-view';
@@ -59,13 +59,16 @@ interface StoryWalkProps {
   onPositionStorySaved?: () => void;
   /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'invite'. */
   responsesMode?: 'off' | 'invite' | 'push';
+  /** P1364: rendered at the end of the scrolling content, above the fixed bar's reserved space
+   * (the results page's bottom "Go back" pill — placed after the walk it would sit under the bar). */
+  endSlot?: ReactNode;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite' }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite', endSlot }: StoryWalkProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
@@ -309,6 +312,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           }
           renderPointChildren={(pointId) => renderPositionStoryAffordance(pointId)}
         />
+        {endSlot}
       </div>
 
       {/* P904: capture panel replaces the nav bar while recording (both are fixed-bottom) */}

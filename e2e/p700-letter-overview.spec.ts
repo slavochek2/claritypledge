@@ -15,7 +15,8 @@
  * 10. No-position cell: shows — for points without a response
  * 11. Responded recipient: [open results →] link with correct URL
  * 12. Waiting recipient: · Waiting text (no link)
- * 13. Back link: [← Back] — aria-label="Back to Sent tab" (P836: no duplicate arrow)
+ * 13. Back link: [← Back] — aria-label="Go back" (P836: no duplicate arrow; P1364: it pops
+ *     history, so the destination label "Back to Sent tab" was removed)
  * 14. Sent-tab: cards default collapsed on mount
  * 15. Sent-tab: [Open overview] button visible on desktop (1280px)
  * 16. Sent-tab: clicking [Open overview] navigates to /letter/:id/overview
@@ -413,12 +414,13 @@ test.describe('P700: Letter Overview', () => {
 
   // ── 13. Back link ─────────────────────────────────────────────────────────
 
-  test('back link has aria-label="Back to Sent tab"', async ({ page }) => {
+  test('back link has aria-label="Go back"', async ({ page }) => {
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const backLink = page.locator('[aria-label="Back to Sent tab"]');
+    // P1364: was "Back to Sent tab" — false once the control pops history.
+    const backLink = page.locator('[aria-label="Go back"]');
     await expect(backLink).toBeVisible({ timeout: 10000 });
   });
 
@@ -520,7 +522,7 @@ test.describe('P700: Letter Overview', () => {
     await page.goto(`/letter/${letterId}/overview`);
     await page.waitForLoadState('networkidle');
 
-    const backBtn = page.locator('[aria-label="Back to Sent tab"]');
+    const backBtn = page.locator('[aria-label="Go back"]'); // P1364: was "Back to Sent tab"
     await expect(backBtn).toBeVisible({ timeout: 10000 });
 
     const text = await backBtn.textContent();

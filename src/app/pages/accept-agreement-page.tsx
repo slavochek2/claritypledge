@@ -204,7 +204,9 @@ export function AcceptAgreementPage() {
 
       triggerConfetti();
       toast.success(`Agreement Sealed — your Clarity Partner Agreement with ${nameToUse || 'your partner'} is now active.`);
-      navigate(`/agreements/${agreementId}`);
+      // P1364: REPLACE — the accept form is spent. A push left it one Back step behind the
+      // agreement, re-showing a form that had already been submitted.
+      navigate(`/agreements/${agreementId}`, { replace: true });
     } finally {
       setIsAccepting(false);
     }
@@ -412,7 +414,7 @@ export function AcceptAgreementPage() {
         // Agreement is already accepted server-side; navigate to it anyway
         // User may need to log in separately, but the agreement is signed
         toast.success('Agreement sealed! You may need to log in to view it.');
-        navigate(`/agreements/${agreementId}`);
+        navigate(`/agreements/${agreementId}`, { replace: true });
         return;
       }
 
@@ -425,7 +427,7 @@ export function AcceptAgreementPage() {
       window.history.replaceState(null, '', window.location.pathname);
 
       // Do NOT fire invokeAgreementEmails — the edge function already did
-      navigate(`/agreements/${agreementId}`);
+      navigate(`/agreements/${agreementId}`, { replace: true });
     } catch (err) {
       console.error('[P527] Direct sign error:', err);
       analytics.track('agreement_direct_sign_error', { agreement_id: agreementId });

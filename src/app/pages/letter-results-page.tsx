@@ -26,6 +26,7 @@ import { StoryWalk } from '@/app/components/letters/story-walk';
 import type { ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { LetterParticipantRow } from '@/app/components/letters/letter-participant-row';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import type { StoryWalkItem, LetterStorySnapshot, PositionType, ExplainBackRow } from '@/app/types';
 import type { LetterResultsData } from '@/app/data/letters-service';
 
@@ -329,12 +330,9 @@ export function LetterResultsPage() {
     <main aria-label="Letter Results" className="min-h-screen bg-background pt-4">
       <div className="max-w-sm mx-auto px-4 pb-3">
         {/* P888: persistent exit on every story of the walk — StoryWalk's own
-            "Back to Letters" link renders only on the last story */}
-        <FocusHeader
-          onBack={() => navigate('/letters')}
-          label="Back to Letters"
-          aria-label="Back to Letters"
-        />
+            "Back to Letters" link renders only on the last story. P1364: it pops history
+            (useGoBack) and reads "Back"; only a cold arrival goes to /letters. */}
+        <FocusHeader fallback="/letters" />
         {otherParty ? (
           <LetterParticipantRow
             name={otherParty.name}
@@ -363,6 +361,7 @@ export function LetterResultsPage() {
         deliveryId={deliveryId}
         isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
         responsesMode={resultsData.responsesMode}
+        endSlot={<BottomBackButton fallback="/letters" testId="letter-results-bottom-back" className="mt-0" />}
         onExplainBackSubmit={handleExplainBackSubmit}
         positionStoriesMap={positionStoriesMap}
         onPositionStorySaved={fetchData}

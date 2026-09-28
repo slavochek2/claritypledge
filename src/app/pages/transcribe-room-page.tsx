@@ -27,7 +27,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
-import { useGoBack } from '@/app/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
@@ -152,9 +151,10 @@ export function TranscribeRoomPage() {
    * Founder, P1307 testing: every screen here gets "Go back" at the top and the bottom, like
    * /stake, leading to wherever the person came from. Leaving the running room this way does
    * not end capture — the app-level owner keeps it and the bar shows it (P1307 D7). Arrivals
-   * with nothing behind them land on the home page, as before.
+   * with nothing behind them land on the home page, as before. (P1364: the components call
+   * useGoBack themselves from this fallback.)
    */
-  const handleBack = useGoBack('/');
+  const BACK_FALLBACK = '/';
 
   const handleJoin = useCallback(async () => {
     if (!user || !consentGiven) return;
@@ -232,7 +232,7 @@ export function TranscribeRoomPage() {
         data-testid="transcribe-ended-screen"
       >
         <div className="text-left">
-          <FocusHeader onBack={handleBack} />
+          <FocusHeader fallback={BACK_FALLBACK} />
         </div>
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
         <p className="text-sm text-muted-foreground mb-6">
@@ -259,7 +259,7 @@ export function TranscribeRoomPage() {
         <p className="text-xs text-muted-foreground mt-2">
           It appears in Session History once the recording has been processed.
         </p>
-        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" />
+        <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -270,7 +270,7 @@ export function TranscribeRoomPage() {
         className="max-w-md mx-auto px-4 py-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
         data-testid="transcribe-consent-screen"
       >
-        <FocusHeader onBack={handleBack} />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
         <p className="text-sm text-muted-foreground mb-6">
           {/* [FOUNDER DECISION: copy] — P1236 removed a "corrected transcript afterwards" promise
@@ -319,7 +319,7 @@ export function TranscribeRoomPage() {
           and{' '}
           <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
         </p>
-        <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" />
+        <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -386,7 +386,7 @@ export function TranscribeRoomPage() {
         {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken
             from the live transcript. The button itself stays 44 px tall. */}
         <div className="shrink-0 -mt-2 [&>button]:mb-0" data-testid="transcribe-top-back">
-          <FocusHeader onBack={handleBack} />
+          <FocusHeader fallback={BACK_FALLBACK} />
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1" data-testid="transcribe-roster">
           <Users className="w-3.5 h-3.5" />
@@ -474,7 +474,7 @@ export function TranscribeRoomPage() {
             floating pill: the chat scrolls above it and never runs underneath. Same sticky-footer
             treatment /live's rating panel uses (live-content-cards.tsx: bg + safe-area inset). */}
         <div className="shrink-0 -mb-2 border-t border-border bg-background pt-2 pb-[env(safe-area-inset-bottom)]">
-          <BottomBackButton onBack={handleBack} testId="transcribe-bottom-back" className="mt-0" />
+          <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" className="mt-0" />
         </div>
       </div>
     </div>

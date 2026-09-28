@@ -3,9 +3,9 @@
  * @description "Go back" that returns to wherever the person came from — including a page
  * outside this app — and never strands someone who arrived cold.
  *
- * The logic is /stake's (main: src/app/pages/stake-page.tsx, P1296 + P1311), extracted so a
- * second page can share it instead of copying it. /stake still carries its own copy on main;
- * switching it to this hook is a follow-up once both are on main.
+ * The logic is /stake's (P1296 + P1311), extracted so pages share it instead of copying it.
+ * P1364: every Back control uses it — FocusHeader and BottomBackButton call it themselves from
+ * their `fallback` prop, so a page declares where a cold arrival goes and nothing else.
  *
  *   - The cold test reads the HISTORY POSITION (`history.state.idx`), not `location.key`:
  *     react-router mints a new key on every navigation, `replace` included, so a key test goes

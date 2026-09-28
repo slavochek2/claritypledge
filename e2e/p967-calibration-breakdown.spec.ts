@@ -105,9 +105,10 @@ test.describe('P967: Calibration Breakdown Page', () => {
       );
       expect(filteredErrors, `Console errors: ${filteredErrors.join('\n')}`).toHaveLength(0);
 
-      // FocusHeader back button is present (focus-page chrome)
-      // The button navigates to /me
-      await expect(page.getByRole('button', { name: /back/i }).or(
+      // FocusHeader back button is present (focus-page chrome).
+      // P1364: it pops history (cold arrival → /me), and the page now also carries the bottom
+      // "Go back" pill, so the header control is matched exactly.
+      await expect(page.getByRole('button', { name: 'Go back', exact: true }).or(
         page.locator('[data-testid="focus-header-back"]')
       )).toBeVisible();
     });

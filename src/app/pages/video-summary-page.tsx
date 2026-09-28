@@ -8,9 +8,10 @@
  * RLS serves confirmed rows only, so a draft or checked-but-unconfirmed summary 404s here.
  */
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { TimecodePill } from '@/app/components/shared/timecode-pill';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import {
@@ -24,7 +25,6 @@ import { NotFoundPage } from './not-found-page';
 
 export function VideoSummaryPage() {
   const { videoId = '' } = useParams<{ videoId: string }>();
-  const navigate = useNavigate();
   const playerRef = useRef<StoryVideoPlayerHandle>(null);
   const playerBoxRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<
@@ -50,12 +50,9 @@ export function VideoSummaryPage() {
     };
   }, [videoId, attempt]);
 
-  // Same leave-the-page rule as /stake: no in-app history (a cold arrival) goes to the feed.
-  const back = () => {
-    const idx = (window.history.state as { idx?: unknown } | null)?.idx;
-    if (idx === 0 && window.history.length <= 1) navigate('/feed', { replace: true });
-    else navigate(-1);
-  };
+  // P1364: the shared useGoBack rule (via the components' `fallback`) — a cold arrival goes
+  // to the feed; anyone else returns to where they came from, including an outside page.
+  const BACK_FALLBACK = '/feed';
 
   // The video is not pinned, so a timestamp far down the page scrolls back up to it, then seeks.
   const seek = (seconds: number) => {
@@ -79,7 +76,7 @@ export function VideoSummaryPage() {
   if (state.status === 'error') {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" data-testid="video-summary-error">
-        <FocusHeader onBack={back} />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <p role="alert" className="text-base">
           Could not load this video summary. Check your connection and try again.
         </p>
@@ -103,7 +100,7 @@ export function VideoSummaryPage() {
       className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8 [overflow-wrap:anywhere]"
       data-testid="video-summary-page"
     >
-      <FocusHeader onBack={back} />
+      <FocusHeader fallback={BACK_FALLBACK} />
 
       <h1 className="text-xl font-semibold leading-snug sm:text-3xl sm:leading-tight">{s.title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -159,17 +156,11 @@ export function VideoSummaryPage() {
         </section>
       )}
 
-      <div className="mt-10 flex justify-center">
-        <button
-          type="button"
-          onClick={back}
-          aria-label="Go back from the end of the summary"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-blue-200 bg-card px-5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Go back
-        </button>
-      </div>
+      <BottomBackButton
+        fallback={BACK_FALLBACK}
+        className="mt-10"
+        ariaLabel="Go back from the end of the summary"
+      />
     </div>
   );
 }

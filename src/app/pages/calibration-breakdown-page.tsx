@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import {
   useListenerCalibrationDiffs,
@@ -171,13 +172,9 @@ export function CalibrationBreakdownPage() {
     if (!user) navigate('/login?redirect=/me/calibration', { replace: true });
   }, [user, authLoading, sessionChecked, navigate]);
 
-  const handleBack = useCallback(() => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/me');
-    }
-  }, [navigate]);
+  // P1364: Back returns to where the reader came from; a cold arrival (including one bounced
+  // through the login redirect, which replaces) goes to the profile.
+  const BACK_FALLBACK = '/me';
 
   // Narrow screen: ≤320px — abbreviate column headers
   // Use a simple media approach via class (Tailwind xs breakpoint)
@@ -189,7 +186,7 @@ export function CalibrationBreakdownPage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto max-w-2xl px-4 pt-6">
-          <FocusHeader onBack={handleBack} />
+          <FocusHeader fallback={BACK_FALLBACK} />
         </div>
         <ClarityPageLoader />
       </div>
@@ -200,7 +197,7 @@ export function CalibrationBreakdownPage() {
     <TooltipProvider delayDuration={100}>
       <div className="min-h-screen bg-background">
         <div className="container mx-auto max-w-2xl px-4 pt-6 pb-12">
-          <FocusHeader onBack={handleBack} label="Back to profile" aria-label="Back to profile" />
+          <FocusHeader fallback={BACK_FALLBACK} />
 
           <h1 className="text-xl font-semibold text-foreground mb-6">Listening calibration</h1>
 
@@ -325,6 +322,9 @@ export function CalibrationBreakdownPage() {
               </section>
             </div>
           )}
+
+          {/* P1364 §3 — the same way out at the end of the page. */}
+          <BottomBackButton fallback={BACK_FALLBACK} testId="calibration-bottom-back" />
         </div>
       </div>
     </TooltipProvider>

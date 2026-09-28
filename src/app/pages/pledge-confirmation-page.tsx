@@ -5,12 +5,15 @@
  */
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useGoBack } from "@/app/hooks/use-go-back";
 import { MailIcon, RefreshCwIcon, CheckCircle2Icon, ArrowLeft } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 
 export function PledgeConfirmationPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  // P1364: back to where the reader came from; a cold arrival goes home, never off-site.
+  const goBack = useGoBack('/');
   const email = searchParams.get("email");
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -60,7 +63,7 @@ export function PledgeConfirmationPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <button
-        onClick={() => navigate(-1)}
+        onClick={goBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-11 px-1"
         aria-label="Go back"
       >

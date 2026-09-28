@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
 import { CohortTable } from '@/app/components/letters/cohort-table';
 import { getLetterOverview } from '@/app/data/letters-service';
@@ -107,13 +108,14 @@ export function LetterOverviewPage() {
     if (user) fetchData();
   }, [user, fetchData]);
 
-  const handleBack = () => navigate('/letters?tab=sent');
+  // P1364: Back returns to where the reader came from; a cold arrival goes to the Sent tab.
+  const BACK_FALLBACK = '/letters?tab=sent';
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (!sessionChecked || pageState === 'loading') {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <OverviewSkeleton />
       </div>
     );
@@ -123,7 +125,7 @@ export function LetterOverviewPage() {
   if (pageState === 'error') {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">Could not load this letter overview.</p>
           <Button variant="outline" onClick={fetchData}>Retry</Button>
@@ -136,7 +138,7 @@ export function LetterOverviewPage() {
   if (pageState === 'not-authorized') {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div className="text-center py-12">
           <p className="text-muted-foreground">Not authorized.</p>
         </div>
@@ -148,7 +150,7 @@ export function LetterOverviewPage() {
   if (pageState === 'empty' || !payload) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div className="py-12">
           <p className="text-muted-foreground text-sm">No recipients on this letter yet.</p>
         </div>
@@ -165,7 +167,7 @@ export function LetterOverviewPage() {
       <span className="sr-only">No response</span>
       <span className="sr-only">Waiting for response</span>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-10">
-        <FocusHeader onBack={handleBack} label="Back" aria-label="Back to Sent tab" />
+        <FocusHeader fallback={BACK_FALLBACK} />
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Letter Overview</p>
           <h1 className="text-xl font-semibold text-foreground">{letter.title && !/^Untitled Doc\d*$/.test(letter.title) ? letter.title : 'Untitled letter'}</h1>
@@ -213,6 +215,9 @@ export function LetterOverviewPage() {
           </section>
           );
         })}
+
+        {/* P1364 §3 — the same way out at the end of the page. */}
+        <BottomBackButton fallback={BACK_FALLBACK} testId="letter-overview-bottom-back" className="mt-0" />
       </div>
     </div>
   );
