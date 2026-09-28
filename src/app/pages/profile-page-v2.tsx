@@ -1613,8 +1613,9 @@ function StoryCardFull({
     <div
       role="button"
       tabIndex={0}
-      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only. */
-      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
+      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only, and
+         top/right/bottom only — the `border-l-4` marker bar keeps its colour (see feed-point-card). */
+      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`profile-story-card-${story.id}`}
       {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}

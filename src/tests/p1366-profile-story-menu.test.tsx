@@ -207,6 +207,19 @@ describe("P1366 — the owner's story card on their own profile", () => {
     confirm.mockRestore();
   });
 
+  it('the card highlight recolours top/right/bottom only — the blue left marker bar is never repainted', async () => {
+    await renderProfile();
+    const tokens = screen.getByRole('button', { name: 'Story by Owner Person', exact: true }).className.split(/\s+/);
+    expect(tokens).toContain('border-l-blue-500');
+    expect(tokens).not.toContain('hover:border-blue-400');
+    expect(tokens).not.toContain('focus-within:border-blue-400');
+    for (const v of ['hover', 'focus-within']) {
+      for (const side of ['t', 'r', 'b']) expect(tokens).toContain(`${v}:border-${side}-blue-400`);
+      expect(tokens).toContain(`${v}:shadow-md`);
+    }
+    expect(tokens.filter((t) => /^(hover|focus-within):border-(?![trb]-)/.test(t))).toEqual([]);
+  });
+
   it('footer: "+ Add a point" (0 points, so alone) and Details → the story', async () => {
     const user = userEvent.setup();
     await renderProfile();

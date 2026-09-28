@@ -106,6 +106,26 @@ const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =
   render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
 
 /** The solid blue expander of prototype K (STORIES_CLASS.i). */
+/**
+ * The list-card highlight recolours only the TOP, RIGHT and BOTTOM borders. A bare
+ * `hover:border-blue-400` / `focus-within:border-blue-400` also repaints the `border-l-4` bar —
+ * the card's type/visibility marker (amber = private point) — and `focus-within` persists after a
+ * tap on phones, so a private card lost its amber marker (review finding, verified in Chrome).
+ */
+function expectSideHighlight(className: string) {
+  const tokens = className.split(/\s+/);
+  for (const bare of ['hover:border-blue-400', 'focus-within:border-blue-400']) {
+    expect(tokens, `bare ${bare} would repaint the left marker bar`).not.toContain(bare);
+  }
+  for (const v of ['hover', 'focus-within']) {
+    for (const side of ['t', 'r', 'b']) expect(tokens).toContain(`${v}:border-${side}-blue-400`);
+    expect(tokens).toContain(`${v}:shadow-md`);
+  }
+  // no hover / focus-within border colour may reach the left side, in any spelling
+  const leftReaching = tokens.filter((t) => /^(hover|focus-within):border-(?![trb]-)/.test(t));
+  expect(leftReaching).toEqual([]);
+}
+
 function expectSolidExpander(el: HTMLElement) {
   expect(el.tagName).toBe('BUTTON');
   expect(el.className).toContain('bg-blue-600');
@@ -295,6 +315,36 @@ describe('P1366 — feed/stake point card', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  /**
+   * Found by the layout e2e (flaky Escape): the ⋯ trigger's `More` hint is a Radix tooltip, a
+   * separate dismissable layer. With the pointer resting on ⋯ after the click, it opened ON TOP of
+   * the open menu and took the Escape meant for the menu (measured in Chrome: 1 tooltip open with
+   * the menu, at 320 and 1280). The hint is for a closed menu only.
+   */
+  it('control: hovering the CLOSED ⋯ shows the `More` hint', async () => {
+    const user = userEvent.setup();
+    renderPoint(makePoint(), []);
+    await user.hover(screen.getByRole('button', { name: 'More actions for this point' }));
+    expect((await screen.findByRole('tooltip')).textContent).toContain('More');
+  });
+
+  it('the `More` hint never shows while the menu is open, so one Escape closes the menu', async () => {
+    const user = userEvent.setup();
+    renderPoint(makePoint(), []);
+    const trigger = screen.getByRole('button', { name: 'More actions for this point' });
+    // What Chrome does: the menu opens on POINTERDOWN, the modal makes <body> inert, and the
+    // pointerup lands elsewhere — so MobileTooltip's 500ms long-press timer is never cleared and
+    // pops the hint (click-locked for 2s) on top of the open menu.
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    await screen.findByRole('menu');
+    fireEvent.pointerUp(document.body, { button: 0, pointerType: 'mouse' });
+    await new Promise((r) => setTimeout(r, 700));
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    // one Escape closes the MENU (no locked hint layer on top of it)
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
+
   it('an outside click closes the menu', async () => {
     const user = userEvent.setup();
     renderPoint(makePoint(), []);
@@ -306,11 +356,11 @@ describe('P1366 — feed/stake point card', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
-  it('the card highlights its border on hover AND keyboard focus-within', () => {
+  it('the card highlights its border on hover AND keyboard focus-within — top/right/bottom only, never the left marker', () => {
     renderPoint(makePoint(), []);
     const root = screen.getByRole('button', { name: 'Point: A point statement.' });
-    expect(root.className).toContain('hover:border-blue-400');
-    expect(root.className).toContain('focus-within:border-blue-400');
+    expectSideHighlight(root.className);
+    expect(root.className.split(/\s+/)).toContain('border-l-muted-foreground/50');
   });
 });
 
@@ -401,11 +451,11 @@ describe('P1366 — feed/stake story card', () => {
     expect(trigger.closest('[role="presentation"]')!.className).toContain('shrink-0');
   });
 
-  it('the card highlights its border on hover and focus-within', () => {
+  it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {
     renderStory();
     const root = screen.getByRole('button', { name: 'Story by Test Author' });
-    expect(root.className).toContain('hover:border-blue-400');
-    expect(root.className).toContain('focus-within:border-blue-400');
+    expectSideHighlight(root.className);
+    expect(root.className.split(/\s+/)).toContain('border-l-blue-500');
   });
 });
 
@@ -579,11 +629,18 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expect(row.className).toBe('pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border');
   });
 
-  it('the card highlights its border on hover and focus-within', () => {
+  it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {
     const { container } = renderProfile({ linkedStories: [], currentUserId: 'viewer-1' });
     const root = container.querySelector('[role="button"]')!;
-    expect(root.className).toContain('hover:border-blue-400');
-    expect(root.className).toContain('focus-within:border-blue-400');
+    expectSideHighlight(root.className);
+  });
+
+  it('a PRIVATE point card keeps its amber left marker: the highlight cannot repaint it', () => {
+    const privatePoint = { ...protoPoint(), visibility: 'private' } as unknown as Parameters<typeof PointCardWithLinks>[0]['point'];
+    const { container } = renderProfile({ point: privatePoint, linkedStories: [], currentUserId: 'viewer-1' });
+    const root = container.querySelector('[role="button"]')!;
+    expect(root.className.split(/\s+/)).toContain('border-l-amber-400');
+    expectSideHighlight(root.className);
   });
 });
 
@@ -689,7 +746,7 @@ describe('P1366 — surfaces OUT of scope keep main\'s footer', () => {
     expect(screen.queryByRole('button', { name: /Details/ })).toBeNull();
     const root = container.querySelector('[role="button"]')!;
     expect(root.className).toContain('hover:border-slate-300');
-    expect(root.className).not.toContain('focus-within:border-blue-400');
+    expect(root.className).not.toMatch(/focus-within:border-/);
   });
 
   it('embed (?embed=true): still the open button, no ⋯, no Details', () => {

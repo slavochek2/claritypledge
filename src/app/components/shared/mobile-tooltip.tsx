@@ -16,6 +16,12 @@ interface MobileTooltipProps {
   content: string;
   /** Delay before showing on hover (ms) */
   delayDuration?: number;
+  /**
+   * Suppress the hint entirely (hover AND long-press) while true — e.g. while the menu this
+   * trigger opens is open. Clears any pending long-press timer, so a press that opened the menu
+   * cannot pop (and click-lock) the hint on top of it. Omitted everywhere else: behaviour unchanged.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -31,13 +37,23 @@ interface MobileTooltipProps {
 export function MobileTooltip({
   children,
   content,
-  delayDuration = 100
+  delayDuration = 100,
+  disabled = false,
 }: MobileTooltipProps) {
   const [open, setOpen] = useState(false);
   const [clickLocked, setClickLocked] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
+
+  // While disabled: no pending timers, nothing open, nothing locked.
+  useEffect(() => {
+    if (!disabled) return;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+    setOpen(false);
+    setClickLocked(false);
+  }, [disabled]);
 
   // Clean up timeouts on unmount
   useEffect(() => {
@@ -59,12 +75,13 @@ export function MobileTooltip({
 
   // Long-press handlers for mobile tooltip trigger
   const handlePointerDown = useCallback(() => {
+    if (disabled) return;
     longPressTriggered.current = false;
     longPressRef.current = setTimeout(() => {
       longPressTriggered.current = true;
       showTooltip();
     }, LONG_PRESS_MS);
-  }, [showTooltip]);
+  }, [showTooltip, disabled]);
 
   const handlePointerUp = useCallback(() => {
     if (longPressRef.current) clearTimeout(longPressRef.current);
@@ -72,13 +89,14 @@ export function MobileTooltip({
 
   // Handle hover changes, but don't let hover close a long-press-opened tooltip
   const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (disabled && newOpen) return;
     if (clickLocked && !newOpen) return;
     setOpen(newOpen);
-  }, [clickLocked]);
+  }, [clickLocked, disabled]);
 
   return (
     <TooltipProvider delayDuration={delayDuration}>
-      <Tooltip open={open} onOpenChange={handleOpenChange}>
+      <Tooltip open={open && !disabled} onOpenChange={handleOpenChange}>
         <TooltipTrigger asChild>
           <span
             className="inline-flex"

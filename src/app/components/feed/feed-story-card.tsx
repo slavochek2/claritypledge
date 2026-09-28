@@ -143,8 +143,9 @@ export function FeedStoryCard({
     <div
       role="button"
       tabIndex={0}
-      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only. */
-      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
+      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only, and
+         top/right/bottom only — the `border-l-4` marker bar keeps its colour (see feed-point-card). */
+      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1212 — parity with profile-page-v2.tsx's StoryCardFull, in the accessibility layer.
          A role="button" with no accessible name takes it from its SUBTREE, so without this the

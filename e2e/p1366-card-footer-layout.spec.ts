@@ -26,8 +26,12 @@
  *   - the sibling-overlap and no-overflow checks, as for every state.
  * State G (owner's story only, no viewer link) must still be ONE line at 375 AND 320, untruncated.
  *
- * Screenshots: test-results/p1366-visual/<state>-<width>.png (the card), plus the open `⋯` menu
- * for state C. Measurements: test-results/p1366-visual/<state>-<width>.json.
+ * Screenshots: <dir>/<state>-<width>.png (the card), the open `⋯` menu for state C, and the
+ * anonymous feed (Points / Stories tabs, plus one hovered card at 1280). Measurements:
+ * <dir>/<state>-<width>.json. <dir> is $P1366_VISUAL_DIR, else test-results/p1366-visual — which
+ * Playwright wipes at the start of every run, so point the variable elsewhere to keep them.
+ * Every shot disables animations; card shots scroll the card clear of the fixed top header and
+ * hide the fixed bottom nav for the capture only, and fail if the card is not wholly in view.
  *
  * States: A — someone else's profile, owner has a story, viewer holds a position with no story.
  *         B — someone else's profile, viewer has a story on the point.
@@ -48,7 +52,7 @@ import { createTestUser, setTestSession, type TestUser } from './helpers/test-us
 import { createTestPoint, createTestPosition, deleteTestPoint } from './helpers/test-point';
 import { createTestStory, deleteTestStory } from './helpers/test-story';
 
-const OUT_DIR = path.resolve('test-results/p1366-visual');
+const OUT_DIR = path.resolve(process.env.P1366_VISUAL_DIR ?? 'test-results/p1366-visual');
 const CHECK_WIDTHS = [
   { width: 375, height: 800 },
   { width: 320, height: 700 },
@@ -221,10 +225,51 @@ async function checkLayout(t: LayoutTarget, width: number) {
     .toBe(false);
 }
 
-async function shoot(t: LayoutTarget, width: number) {
+/** Bottom of the fixed / sticky full-width bars pinned to the top of the viewport. */
+async function topChromeBottom(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    let bottom = 0;
+    for (const n of Array.from(document.querySelectorAll('body *'))) {
+      const cs = getComputedStyle(n);
+      if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = n.getBoundingClientRect();
+      if (r.height === 0 || r.width < window.innerWidth * 0.9) continue;
+      if (r.top <= 1 && r.bottom < window.innerHeight / 2) bottom = Math.max(bottom, r.bottom);
+    }
+    return bottom;
+  });
+}
+
+/**
+ * Screenshot ONE element, wholly visible: the bottom nav is hidden for the capture only (it covered
+ * the card's bottom row in 9 of 12 crops), the element is scrolled to sit just below the fixed top
+ * header, and animations are disabled. Throws (with the numbers) if the element still is not in view.
+ */
+async function framedShot(page: Page, el: Locator, file: string) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  await t.card.scrollIntoViewIfNeeded();
-  await t.card.screenshot({ path: path.join(OUT_DIR, `${t.state}-${width}.png`) });
+  const hideNav = await page.addStyleTag({ content: '[data-nav="bottom"]{display:none !important}' });
+  try {
+    for (let pass = 0; pass < 2; pass++) {
+      const top = await topChromeBottom(page);
+      await el.evaluate((node, offset) => {
+        window.scrollBy(0, node.getBoundingClientRect().top - offset - 8);
+      }, top);
+    }
+    const top = await topChromeBottom(page);
+    const b = await box(el, 'screenshot target');
+    const vh = page.viewportSize()!.height;
+    if (b.y < top - 1 || b.y + b.height > vh + 1) {
+      throw new Error(`${path.basename(file)}: element not wholly in view — top ${b.y} (header bottom ${top}), bottom ${b.y + b.height} (viewport ${vh})`);
+    }
+    await page.screenshot({ path: file, clip: b, animations: 'disabled' });
+  } finally {
+    await hideNav.evaluate((n) => n.remove());
+  }
+}
+
+async function shoot(t: LayoutTarget, width: number) {
+  await framedShot(t.card.page(), t.card, path.join(OUT_DIR, `${t.state}-${width}.png`));
 }
 
 /** The 375 + 320 checks, and screenshots at 375, 320 and 1280. */
@@ -378,7 +423,9 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
       const menu = page.getByRole('menu');
       await expect(menu).toBeVisible();
       await expect(menu.getByRole('menuitem')).toHaveText(['Share', 'Edit', 'Delete']);
-      await page.screenshot({ path: path.join(OUT_DIR, `C-menu-${vp.width}.png`), fullPage: false });
+      // fully open, not mid fade-in
+      await expect(page.locator('[role="menu"][data-state="open"]')).toBeVisible();
+      await page.screenshot({ path: path.join(OUT_DIR, `C-menu-${vp.width}.png`), fullPage: false, animations: 'disabled' });
       await page.keyboard.press('Escape');
       await expect(menu).toBeHidden();
     }
@@ -451,5 +498,48 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
       expanderName: `${OWNER_FIRST}'s story`,
       nameBox: profilePointCard(page, STMT.G).getByTestId('point-owner-row').getByText(OWNER_NAME, { exact: true }),
     }));
+  });
+});
+
+/**
+ * Screenshots only — the anonymous feed as a first-time reader sees it, for visual QA of the
+ * list cards in place (no assertions beyond "the cards rendered"). Viewport shots, animations off.
+ * The hover shot also records the hovered card's border colours, before and after, in
+ * feed-hover-1280.json: the highlight must leave the left marker bar's colour alone.
+ */
+test.describe('P1366 — anonymous feed screenshots', () => {
+  test.describe.configure({ timeout: 120000 });
+
+  test('feed Points and Stories tabs at 375 / 320 / 1280, and a hovered card at 1280', async ({ page }) => {
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    for (const [tab, url, firstCard] of [
+      ['points', '/feed', '[role="button"][aria-label^="Point: "]'],
+      ['stories', '/feed?tab=stories', '[role="button"][aria-label^="Story by "]'],
+    ] as const) {
+      await page.goto(url);
+      await expect(page.locator(firstCard).first()).toBeVisible({ timeout: 20000 });
+      for (const vp of [...CHECK_WIDTHS, DESKTOP]) {
+        await setWidth(page, vp);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.screenshot({ path: path.join(OUT_DIR, `feed-${tab}-${vp.width}.png`), fullPage: false, animations: 'disabled' });
+      }
+    }
+
+    // one hovered card at 1280
+    await page.goto('/feed');
+    await setWidth(page, DESKTOP);
+    const card = page.locator('[role="button"][aria-label^="Point: "]').first();
+    await expect(card).toBeVisible({ timeout: 20000 });
+    await card.scrollIntoViewIfNeeded();
+    const borders = () => card.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { left: cs.borderLeftColor, top: cs.borderTopColor, right: cs.borderRightColor, bottom: cs.borderBottomColor };
+    });
+    const before = await borders();
+    await card.hover();
+    await expect.poll(async () => (await borders()).top).not.toBe(before.top);
+    const after = await borders();
+    fs.writeFileSync(path.join(OUT_DIR, 'feed-hover-1280.json'), JSON.stringify({ before, after }, null, 2));
+    await page.screenshot({ path: path.join(OUT_DIR, 'feed-hover-1280.png'), fullPage: false, animations: 'disabled' });
   });
 });

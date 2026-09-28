@@ -266,6 +266,8 @@ export function CardMenu({
   className = '',
 }: CardMenuProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  /** Tracked only to silence the `More` hint while the menu is open (see below). */
+  const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   /** The item chosen in the menu, run once the menu has closed (see above). */
   const pendingRef = useRef<'share' | 'edit' | 'delete' | null>(null);
@@ -291,8 +293,12 @@ export function CardMenu({
       className={`shrink-0 ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
-      <DropdownMenu>
-        <MobileTooltip content="More">
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        {/* The hint is for a CLOSED menu. Open, it is a second dismissable layer on top of the
+            menu: the press that opened the menu left MobileTooltip's long-press timer running
+            (the modal made <body> inert, so the pointerup never reached the trigger), the hint
+            popped click-locked for 2s, and it swallowed the Escape meant for the menu. */}
+        <MobileTooltip content="More" disabled={menuOpen || shareOpen}>
           <DropdownMenuTrigger asChild>
             <button
               ref={triggerRef}

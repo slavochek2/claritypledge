@@ -196,9 +196,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     <div
       role="button"
       tabIndex={0}
-      /* P1366 — the whole card's border highlights on hover AND on keyboard focus inside it,
-         confirming the card is clickable. Colour and shadow only: nothing appears or moves. */
-      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      /* P1366 — the card's border highlights on hover AND on keyboard focus inside it,
+         confirming the card is clickable. Colour and shadow only: nothing appears or moves.
+         TOP/RIGHT/BOTTOM only: a bare `hover:border-blue-400` also repaints the `border-l-4`
+         marker bar, and `focus-within` persists after a tap on phones. */
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
