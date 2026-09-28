@@ -14,8 +14,8 @@ tags:
   - rsvp
 created_date: '2026-09-28'
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P1365: Desktop event page repeats the RSVP after the description
