@@ -6,6 +6,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [product]: The speaker/listener role badge is a printed two-sided card whose text instructs the partner, not the wearer
+
+**Context:** At the first Clarity Night, strangers drifted into small talk because nothing made them assign speaker and listener roles (2026-09-21 event reflection). A cheap physical token was chosen over a digital one. It is a clear lanyard holder (54×85 mm insert) with tuck-into-shirt as the closed state.
+**Decision:** It is a double-sided printed card. The front is orange #C2410C "S · SPEAKER": *Explain back what I mean. Ask me open questions.* The back is blue #1864AB "L · LISTENER": *Ask me: how well do I think I understand what you mean, from 0 to 10?* Both sides carry a small reminder: *We may never agree or feel the same. But we can always explain back each other's intended meaning.* No logo or brand name.
+- **First person, because the partner reads it.** The badge hangs on the wearer's chest.
+- **"Explain back", not "paraphrase".** It matches the explain-back protocol in definitions.md and is plain to strangers.
+- **"Think I understand".** The listener's number is a self-estimate that the explain-back tests (self-report sovereignty, definitions.md). "Believe" sounded like conviction, and "assume" sounded accusatory.
+- **Understanding ≠ agreement ≠ feeling the same.** This distinction is spoken at onboarding. The card carries only the one-line reminder, because the three definitions (~40 words) are unreadable at badge size.
+**Alternatives rejected:**
+- Bluetooth/digital amulet: its pairing and battery friction work against attendees' ask for less setup.
+- Laminated card plus sleeve: the holder already covers this.
+- Keeping the original orange #E8590C: white on it measured 3.58:1, below 4.5.
+- A bare "C" logo mark: it doesn't read as the logo without its blue square.
+- "Cognitively" on the card: jargon at a glance.
+**Consequences:** Print-ready source and PDFs live in [docs/events/badges/](events/badges/). `amulet-single.pdf` is one card with 3 mm bleed; `amulet-sheet.pdf` is A4 with 9 cards per side. Before ordering, print one proof card and check the holder's side clips. The layout was reviewed by three independent models (Opus, Gemini 3.8 Flash, Codex Sol, 3 of 3 reported); their shared fixes were applied. Whether the badge actually gets roles assigned is UNTESTED. Falsifier: at event 2, pairs still open with small talk while wearing badges.
+**References:** [docs/events/badges/single.html](events/badges/single.html), [definitions.md](definitions.md)
+
 ## 2026-09-28 [product]: In-person Clarity Nights run trios; online events will run a fishbowl with an observer; /meet is linked once
 
 **Context:** The Clarity Night #2 page (TEST) was rewritten line by line by the founder on 2026-09-28. The room format was recorded five different ways: pairs in 2026-09-16 and 2026-09-17 [product], fishbowl in `docs/events/clarity-practice-event.md`, pairs in the P1337/P1338 specs, trios on the page.

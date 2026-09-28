@@ -1,0 +1,10 @@
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.card{width:54mm;height:85mm;position:relative;overflow:hidden;color:#fff;display:grid;grid-template-rows:30mm 9mm 22mm 1fr auto;justify-items:center;text-align:center;padding:7mm 5mm 7mm}
+.s,.pg.s{background:#C2410C}.l,.pg.l{background:#1864AB}
+.big{font-size:25mm;font-weight:800;line-height:1;align-self:center}
+.l .big{font-size:26.5mm;transform:translateX(1.5mm)}
+.role{font-size:6.6mm;font-weight:800;letter-spacing:.4mm;margin-right:-.4mm;align-self:center}
+.rule{font-size:3.5mm;line-height:1.3;font-weight:600;align-self:center}
+.div{width:10mm;height:.3mm;background:#fff;opacity:.5;align-self:end;margin-bottom:2.5mm}
+.note{font-size:2.3mm;line-height:1.3;font-weight:400;opacity:.8}
