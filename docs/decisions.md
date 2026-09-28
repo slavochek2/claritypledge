@@ -6,6 +6,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [product]: An embedded player's own chrome is a leak, and a still on a card plays where it is
+
+**Context:** ST1 gained a video, and the story surface showed the YouTube embed at rest. That resting state is YouTube's UI: the video title, the channel name, a copy-link button and a "Watch on YouTube" pill. Founder: *"it takes away people from our website."* No player parameter removes any of it, and YouTube's terms require it on an embed. Separately, a still inside a point card linked to the story page — *"I'm here on this point and I click on a video … it just goes to the story, which is weird."*
+**Decision:** The embed is not mounted until the reader presses play. Until then the media slot is our own poster plus our own play control, so YouTube's chrome exists only during playback. On every surface that can host a player (point, feed, profile, a story inside a point) the still now plays in place instead of navigating. Surfaces that cannot host one (letters, off-site cards, the blocked-embed fallback) keep the link into the story.
+**Alternatives rejected:** *Player parameters* — `modestbranding` and `rel=0` do not remove the title bar, the copy-link button or the pill; this was the assumption worth killing first. *Self-hosting the file* — removes YouTube entirely and costs the video's reach and our bandwidth; revisit only if the video should not be public on YouTube at all.
+**Consequences:** A story's video costs one image request before a click instead of the player's scripts and cookies, so cards are cheaper as well as quieter. Any new surface that renders a still must decide which it is: a surface with a player passes the play handler, a surface without one keeps the link. The poster is the story's own image where it has one, otherwise YouTube's 1280x720 still with the 480x360 one as its fallback.
+**References:** [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · `src/app/components/shared/story-video-player.tsx` · `src/tests/p1336-video-facade.test.tsx`
+
+---
+
+## 2026-09-28 [technical]: A fallback that replaces its own container makes the state that produced it terminal
+
+**Context:** A hostile review of the click-to-play facade found three defects in the player, two of which predate it. The blocked-embed fallback replaces the very DOM node the YouTube player was constructed on. A late `onReady` cleared `blocked`, React rendered a fresh empty container, and the only player object stayed attached to a node no longer in the document. A new video id in the same mounted component hit the mirror image: `blocked` was never reset, so the previous video's fallback persisted and no player was built for the new one. An errored player was left running for up to 30 seconds.
+**Decision:** Blocked is terminal for a player instance: the backstop timer and `onError` both destroy the instance, clear the ref and ignore any later readiness. A player is rebuilt only by a new video id, which resets blocked, ready and activation together. Separately, a lazy player is enabled only for a **parseable** URL, so a malformed one keeps its timecodes as links rather than seeking a player that was never built.
+**Alternatives rejected:** *Keeping the container mounted and hidden behind the fallback*, which preserves the instance but leaves two players' worth of state to reason about, and *recreating the player on recovery*, which is more machinery for a case that ends in the fallback anyway.
+**Consequences:** The rule generalises past this component: whenever an error state swaps out the element a third-party library was handed, treat that state as terminal for the instance and key recovery to a prop change. The three cases carry tests rather than comments, so a later refactor that reintroduces any of them fails.
+**References:** `src/app/components/shared/story-video-player.tsx` · `src/app/hooks/use-lazy-story-player.ts` · `src/tests/p1336-video-facade.test.tsx`
+
+---
+
 ## 2026-09-22 [process]: P1355 open questions settled — 100k for every run, 5 minutes on topic, judge before the page
 
 **Context:** P1355 shipped with three founder questions open: whether 100k views is the default for every run (event #1's approved cast would need 2 exceptions of 4), whether the Phase 3 judge must run before any title, banner or page uses the cast, and whether 5 minutes is the right on-topic floor.
