@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [product]: List cards — manage in a top-right "⋯", engage in the bottom row; "Details" always in words; a profile names whose story it shows (P1366). **UNTESTED.**
+
+**Context:** Users did not notice that a point card's stories expand or that the card opens: "N stories" was grey text and the open control an external-link icon whose label lived only in a tooltip. The founder also watched one user fail to realise a card is tappable on mobile. Eleven prototype passes on `/tree/card-actions` (A–K), two blind visual reviews, and two adversarial spec reviews (Gemini 3.8 Flash, Codex GPT-5.6 Sol, Opus) shaped the result.
+
+**Decision:** On every point and story list card (feed, stake, profile):
+- **Bottom row = engage:** a solid blue `N stories` / `N points` expander; one viewer-slot link (`+ Add a story`, `✓ Your story`, or `+ Add a point` for a story's author); an outlined `Details →` button, always visible on every device, never hover-revealed.
+- **Top-right `⋯` = manage this card:** `Share` on every card; `Edit` and `Delete` added on one's own story card on the profile.
+- **A profile shows its owner's story and says so.** One story per person per point (DB unique) makes the count 0 or 1, so the profile expander reads `Maya's story` / `Your story`, not a number that looks like the point's total. The feed keeps `N stories`.
+- `+ Add a story` replaces `+ Add your story` everywhere, from the one shared helper.
+
+**Alternatives rejected:** *Blue `N stories` with blue Add button* (C/F): two competing blues. *Actions moved to the top* (G): splits "what you do" across two rows. *Hover-expanding "See details"* (H–J): hides the affordance the change exists to show, and space is not scarce on desktop. *Whole card tappable, no Details button* (L): relies on the exact behaviour a user was seen failing. *Share icon alone in the corner* (J): with edit/delete it became three look-alike icons with delete next to share.
+
+**Consequences:** Share costs two taps — accepted on prod data: `feed_card_shared` fired 2 times against 8,248 page views in the 90 days to 2026-09-28. A `⋯` holding only `Share` is a one-item menu on most cards, accepted for one consistent corner rule. **UNTESTED:** that users now find stories and details. Falsifier: in the first user sessions after ship, people still ask how to open a point or see its stories.
+
+**References:** [P1366](../features/p1366_card_footer_visible_actions.md); prototype `/tree/card-actions` on branch `proto/card-actions`.
+
+---
+
 ## 2026-09-28 [technical]: A blind second reader cannot see a merged diarization label — the per-window mapping is the check that can (P1358)
 
 **Context:** A quote said by a podcast host was published on a TEST event page under the guest's name.
