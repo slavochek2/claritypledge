@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode } from '@/lib/room-capability';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
@@ -804,6 +805,7 @@ export async function markSelfVerified(): Promise<{ verified: boolean; error: Er
  */
 export async function replayLetterPositions(): Promise<{ replayed: number; error: Error | null }> {
   const { data, error } = await supabase.rpc('replay_letter_positions');
+  clearListReturnCache(); // P1364: staged positions may have gone live — invalidate the Back cache
   if (error) {
     console.error('Error in replay_letter_positions:', error.message);
     return { replayed: 0, error: new Error(error.message) };

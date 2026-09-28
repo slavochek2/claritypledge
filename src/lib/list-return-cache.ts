@@ -16,6 +16,16 @@
  *   - Cleared on any auth change (sign-in, sign-out, user switch) — see `useClearListReturnCacheOnAuthChange`.
  *   - Written through on surgical updates (P543 removals): `updateListReturnCache` rewrites
  *     every stored entry of a surface, so a removed point cannot come back from the cache.
+ *   - CLEARED after every own write that can change a cached row — a position set, changed or
+ *     removed (signed in or anonymous), a story created / edited / deleted, a point created,
+ *     linked or unlinked. One choke point: `withListReturnCacheInvalidation` wraps the points
+ *     and stories services at their export, and the non-service position writers (anon
+ *     positions, the letter RPCs) call `clearListReturnCache` themselves. Without this, Back
+ *     served the list as it was BEFORE the reader's own write (a position they just took,
+ *     shown as not taken).
+ *   - A page may only write rows it fetched (or restored) in the CURRENT generation: a clear
+ *     bumps the generation, so a list still on screen after an own write cannot re-fill the
+ *     cache with the stale rows on its next state change.
  */
 import { useEffect, useRef } from 'react';
 
@@ -29,13 +39,25 @@ interface Entry<T> {
 /** Enough for the handful of feed/stake states one Back chain can reach. */
 const MAX_ENTRIES = 20;
 const cache = new Map<string, Entry<unknown>>();
+let generation = 0;
 
+/**
+ * The key carries the viewer, the pathname, and only the query params the FETCH depends on
+ * (`dataParams`, e.g. the feed's tags and sort). Params that only change the view — a tab, the
+ * search text, the version toggle — are left out, so a search session does not mint a new
+ * entry per keystroke and evict the entries a Back chain needs.
+ */
 export function listReturnCacheKey(
   viewerId: string | null | undefined,
   pathname: string,
-  search: string,
+  dataParams = '',
 ): string {
-  return `${viewerId ?? 'anon'}|${pathname}${search}`;
+  return `${viewerId ?? 'anon'}|${pathname}|${dataParams}`;
+}
+
+/** Bumped by every clear. Rows fetched in an older generation must not be written back. */
+export function listReturnCacheGeneration(): number {
+  return generation;
 }
 
 export function readListReturnCache<T>(key: string, surface: ListSurface): T | undefined {
@@ -63,6 +85,29 @@ export function updateListReturnCache<T>(surface: ListSurface, update: (data: T)
 
 export function clearListReturnCache(): void {
   cache.clear();
+  generation++;
+}
+
+/**
+ * The services-layer choke point: wraps a service so each listed write clears the cache once
+ * it settles (success or failure — a spurious clear only costs one refetch on Back; a missed
+ * one shows the reader a stale row).
+ */
+export function withListReturnCacheInvalidation<T extends object>(service: T, writes: ReadonlyArray<keyof T>): T {
+  const names = new Set<PropertyKey>(writes as ReadonlyArray<PropertyKey>);
+  return new Proxy(service, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (!names.has(prop) || typeof value !== 'function') return value;
+      return async (...args: unknown[]) => {
+        try {
+          return await (value as (...a: unknown[]) => unknown).apply(receiver, args);
+        } finally {
+          clearListReturnCache();
+        }
+      };
+    },
+  });
 }
 
 /** Test-only view of the store's size. */

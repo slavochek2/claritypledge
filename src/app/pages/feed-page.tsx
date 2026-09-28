@@ -25,6 +25,7 @@ import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-cont
 import { groupBySource } from '@/lib/group-by-source';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 import {
+  listReturnCacheGeneration,
   listReturnCacheKey,
   readListReturnCache,
   updateListReturnCache,
@@ -34,9 +35,6 @@ import {
 type FeedTab = 'points' | 'stories';
 
 const FEED_LIMIT = 50;
-
-/** P1364: how long the search box waits before writing `?q=` (a replace, never a fetch). */
-const SEARCH_URL_DEBOUNCE_MS = 300;
 
 /**
  * P1364 §5 — what the feed last rendered, kept for a POP return: the lists AND the link maps,
@@ -75,7 +73,10 @@ function removePointPosition(
       if (removedPosition) updatedCounts[removedPosition] = Math.max(0, (updatedCounts[removedPosition] || 0) - 1);
       const newTotal = Math.max(0, p.totalPositions - 1);
       if (newTotal === 0) return null; // mark for removal
-      return { ...p, positionCounts: updatedCounts, totalPositions: newTotal };
+      // P1364: the viewer's own position is gone too (only the viewer's own withdrawal calls
+      // this) — otherwise a remount, or a Back served from the cache, re-lit the withdrawn
+      // button from the stale `userPosition`. Same rule as /stake's removeStakePosition.
+      return { ...p, positionCounts: updatedCounts, totalPositions: newTotal, userPosition: undefined };
     })
     .filter((p): p is PointWithUserPosition => p !== null);
 }
@@ -103,7 +104,13 @@ export function FeedPage() {
 
   // P1364 §5 — a POP (Back, browser back/forward) returns to the list exactly as the reader left
   // it, from the in-memory cache, with no refetch and no spinner. Any other arrival fetches.
-  const cacheKey = listReturnCacheKey(viewerUserId, location.pathname, location.search);
+  // Keyed on what the FETCH depends on (viewer, tags, sort) — not the tab, the search text or
+  // the version toggle, which only change the view of the same rows.
+  const cacheKey = listReturnCacheKey(
+    viewerUserId,
+    location.pathname,
+    `tag=${tagParamKey}&sort=${ascending ? 'oldest' : 'newest'}`
+  );
   const [restored] = useState<FeedSnapshot | undefined>(() =>
     navigationType === 'POP' ? readListReturnCache<FeedSnapshot>(cacheKey, 'feed') : undefined
   );
@@ -128,19 +135,27 @@ export function FeedPage() {
   // data on screen answers the current URL — never old rows under a new tag's key mid-fetch.
   const fetchKey = `${viewerUserId ?? ''}|${ascending ? 'asc' : 'desc'}|${tagParamKey}`;
   const [dataFetchKey, setDataFetchKey] = useState<string | null>(() => (restored ? fetchKey : null));
-  // The fetch key the current rows were restored for: the fetch effect skips it (no background
-  // refresh on POP). A ref, not a one-shot flag, so StrictMode's double effect skips both runs.
-  const hydratedFetchKeyRef = useRef<string | null>(restored ? fetchKey : null);
+  // The cache generation the rows on screen belong to. An own write (a position, an edit)
+  // clears the cache and bumps the generation; rows from before it are never written back.
+  const dataGenerationRef = useRef<number>(listReturnCacheGeneration());
+  // The location.key of the latest PUSH to this page. A PUSH to the SAME URL (tapping Feed in
+  // the nav while on the feed) changes nothing else the fetch effect depends on, and must still
+  // fetch fresh. A REPLACE (tab, search) leaves it alone, so it still refetches nothing.
+  const lastPushKeyRef = useRef<string | null>(null);
+  if (navigationType === 'PUSH') lastPushKeyRef.current = location.key;
+  const pushKey = lastPushKeyRef.current;
+  // What the current rows were restored for: the fetch effect skips it (no background refresh
+  // on POP). A ref, not a one-shot flag, so StrictMode's double effect skips both runs.
+  const hydratedForRef = useRef<string | null>(restored ? `${fetchKey}|${pushKey}` : null);
   // Link maps that came from the cache — the link effect must not refetch them either.
   const hydratedLinksRef = useRef<Set<string>>(hydratedLinkKeys(restored));
 
-  // P1364 §6 — search text lives in `?q=` so it survives open-item → Back. The input updates
-  // local state at once (the filter is client-side: typing makes no request); the URL follows
-  // after a pause, with `replace`, so typing adds no history and does not move the scroll.
+  // P1364 §6 — search text lives in `?q=` so it survives open-item → Back. Written on every
+  // keystroke with `replace`: the filter is client-side (no request), a same-path replace does
+  // not move the scroll, and there is no pending write for a quick tap on a card to outrun.
   const urlQuery = searchParams.get('q') ?? '';
   const [searchQuery, setSearchQuery] = useState(urlQuery);
   const lastWrittenQueryRef = useRef(urlQuery);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P1075 code review: guards against an older, slower fetchData call resolving
   // after a newer one (e.g. rapid tag-toggle clicks) and overwriting fresher state
@@ -164,6 +179,7 @@ export function FeedPage() {
     const requestId = ++fetchIdRef.current;
     const isStale = () => requestId !== fetchIdRef.current;
     const requestFetchKey = fetchKey;
+    const requestGeneration = listReturnCacheGeneration();
     hydratedLinksRef.current = new Set(); // fresh rows get fresh link maps
     setLoading(true);
     setError(null);
@@ -188,6 +204,7 @@ export function FeedPage() {
         setPoints(pointsData);
         setCloudStories(allStories);
         setCloudPoints(allPoints);
+        dataGenerationRef.current = requestGeneration;
         setDataFetchKey(requestFetchKey);
       } else {
         const [storiesData, pointsData] = await Promise.all([
@@ -199,6 +216,7 @@ export function FeedPage() {
         setPoints(pointsData);
         setCloudStories(storiesData);
         setCloudPoints(pointsData);
+        dataGenerationRef.current = requestGeneration;
         setDataFetchKey(requestFetchKey);
       }
     } catch {
@@ -262,15 +280,17 @@ export function FeedPage() {
   cacheKeyRef.current = cacheKey;
 
   useEffect(() => {
-    // Rows restored for exactly this fetch key: no background refresh (P1364 §5).
-    if (hydratedFetchKeyRef.current === fetchKey) return;
-    hydratedFetchKeyRef.current = null;
+    const trigger = `${fetchKey}|${pushKey}`;
+    // Rows restored for exactly this trigger: no background refresh (P1364 §5).
+    if (hydratedForRef.current === trigger) return;
+    hydratedForRef.current = null;
     // A POP between two feed entries (a tag pushed, then Back) restores that entry too.
     if (navigationTypeRef.current === 'POP') {
       const hit = readListReturnCache<FeedSnapshot>(cacheKeyRef.current, 'feed');
       if (hit) {
         fetchIdRef.current++; // any fetch still in flight is now stale
-        hydratedFetchKeyRef.current = fetchKey;
+        hydratedForRef.current = trigger;
+        dataGenerationRef.current = listReturnCacheGeneration();
         hydratedLinksRef.current = hydratedLinkKeys(hit);
         setStories(hit.stories);
         setPoints(hit.points);
@@ -285,12 +305,13 @@ export function FeedPage() {
       }
     }
     fetchData();
-  }, [fetchData, fetchKey]);
+  }, [fetchData, fetchKey, pushKey]);
 
   // P1364 §5 — keep the cache equal to what is on screen, under the current URL. This is the
   // write-through for tab switches, search, link maps arriving and surgical removals alike.
   useEffect(() => {
     if (loading || error || dataFetchKey !== fetchKey) return;
+    if (dataGenerationRef.current !== listReturnCacheGeneration()) return; // pre-write rows
     writeListReturnCache<FeedSnapshot>(cacheKey, 'feed', {
       stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState,
     });
@@ -318,35 +339,18 @@ export function FeedPage() {
     setSearchQuery(urlQuery);
   }, [urlQuery]);
 
-  // Write `?q=` with REPLACE. Built from the LIVE location, not this render's `searchParams`:
-  // a debounced write must not revert a tab or sort change made while it was pending.
-  const writeSearchToUrl = useCallback((value: string) => {
-    const params = new URLSearchParams(window.location.search);
-    if (value.trim()) params.set('q', value);
-    else params.delete('q');
-    lastWrittenQueryRef.current = params.get('q') ?? '';
-    setSearchParams(params, { replace: true });
-  }, [setSearchParams]);
-
-  const handleSearchChange = (value: string, immediate = false) => {
+  // Write `?q=` with REPLACE, from the ROUTER's current params (functional form), so every
+  // other param — the tab, tags, sort — is carried over untouched.
+  const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = null;
-    if (immediate) {
-      writeSearchToUrl(value);
-      return;
-    }
-    searchTimerRef.current = setTimeout(() => {
-      searchTimerRef.current = null;
-      writeSearchToUrl(value);
-    }, SEARCH_URL_DEBOUNCE_MS);
+    lastWrittenQueryRef.current = value.trim() ? value : '';
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (value.trim()) params.set('q', value);
+      else params.delete('q');
+      return params;
+    }, { replace: true });
   };
-
-  // A pending write must never fire after the reader has left — it would rewrite the NEXT
-  // page's URL.
-  useEffect(() => () => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-  }, []);
 
   // Tag cloud: extract from ALL stories + points (BR-8: computed from all content)
   // P630: tags now includes system tags (merged at data layer). Hide st/v tags from cloud.
@@ -498,7 +502,7 @@ export function FeedPage() {
           />
           {searchQuery && (
             <button
-              onClick={() => handleSearchChange('', true)}
+              onClick={() => handleSearchChange('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Clear search"
             >

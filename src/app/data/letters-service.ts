@@ -22,6 +22,7 @@ import type {
   ExplainBackRow,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { clearListReturnCache } from '@/lib/list-return-cache';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -492,6 +493,7 @@ export async function submitPointResponseByToken(
     p_point_id: pointId,
     p_position: position,
   });
+  clearListReturnCache(); // P1364: a position write — Back must not serve the pre-write list
   if (error) {
     throwDbError('submitPointResponseByToken', error, `Failed to submit point response: ${error.message}`);
   }

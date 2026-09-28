@@ -40,6 +40,7 @@ import { isSafeTag, STANDARD_STAKE_TAGS } from '@/app/data/event-links';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
 import {
+  listReturnCacheGeneration,
   listReturnCacheKey,
   readListReturnCache,
   updateListReturnCache,
@@ -107,7 +108,9 @@ export function StakePage() {
 
   // P1364 §5 — a POP returns to the list as the reader left it: from the cache, no refetch,
   // no skeleton. Any other arrival fetches.
-  const cacheKey = listReturnCacheKey(viewerUserId, location.pathname, location.search);
+  // Keyed on what the fetch depends on — the viewer and the tag (in the pathname). `?tab=` and
+  // `?event=` only change the view of the same rows.
+  const cacheKey = listReturnCacheKey(viewerUserId, location.pathname);
   const [restored] = useState<StakeSnapshot | undefined>(() => {
     if (navigationType !== 'POP') return undefined;
     const hit = readListReturnCache<StakeSnapshot>(cacheKey, 'stake');
@@ -136,9 +139,16 @@ export function StakePage() {
   // they answer the current URL.
   const listFetchKey = `${viewerUserId ?? ''}|${tag ?? ''}`;
   const [dataFetchKey, setDataFetchKey] = useState<string | null>(() => (restored ? listFetchKey : null));
-  // Restored for this key → the fetch effect skips it (no background refresh on POP). A ref,
-  // so StrictMode's double effect skips both runs.
-  const hydratedFetchKeyRef = useRef<string | null>(restored ? listFetchKey : null);
+  // The cache generation the rows on screen belong to — an own write clears the cache and
+  // bumps it, and rows from before that write are never written back (see list-return-cache).
+  const dataGenerationRef = useRef<number>(listReturnCacheGeneration());
+  // A PUSH to the same URL must fetch fresh; a REPLACE (tab switch) must not (see /feed).
+  const lastPushKeyRef = useRef<string | null>(null);
+  if (navigationType === 'PUSH') lastPushKeyRef.current = location.key;
+  const pushKey = lastPushKeyRef.current;
+  // Restored for this trigger → the fetch effect skips it (no background refresh on POP). A
+  // ref, so StrictMode's double effect skips both runs.
+  const hydratedForRef = useRef<string | null>(restored ? `${listFetchKey}|${pushKey}` : null);
 
   // The menu builder only ever hands out a tag that passed isSafeTag — but this
   // route is a GLOBAL param, reachable by anyone typing an arbitrary string
@@ -150,6 +160,7 @@ export function StakePage() {
     if (!tag || !isSafeTag(tag)) return;
     const rid = ++requestIdRef.current;
     const requestFetchKey = `${viewerUserId ?? ''}|${tag}`;
+    const requestGeneration = listReturnCacheGeneration();
     setLoading(true);
     setError(null);
     try {
@@ -163,6 +174,7 @@ export function StakePage() {
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
       setPoints(fetchedPoints);
       setStories(fetchedStories);
+      dataGenerationRef.current = requestGeneration;
       setDataFetchKey(requestFetchKey);
     } catch {
       if (rid !== requestIdRef.current) return;
@@ -181,14 +193,16 @@ export function StakePage() {
   const cacheKeyRef = useRef(cacheKey);
   cacheKeyRef.current = cacheKey;
   useEffect(() => {
-    if (hydratedFetchKeyRef.current === listFetchKey) return; // restored on POP: no refresh
-    hydratedFetchKeyRef.current = null;
+    const trigger = `${listFetchKey}|${pushKey}`;
+    if (hydratedForRef.current === trigger) return; // restored on POP: no refresh
+    hydratedForRef.current = null;
     // A POP between two stake entries (another tag, then Back) restores that entry too.
     if (navigationTypeRef.current === 'POP') {
       const hit = readListReturnCache<StakeSnapshot>(cacheKeyRef.current, 'stake');
       if (hit && hit.tag === tag) {
         requestIdRef.current++; // any fetch still in flight is now stale
-        hydratedFetchKeyRef.current = listFetchKey;
+        hydratedForRef.current = trigger;
+        dataGenerationRef.current = listReturnCacheGeneration();
         fetchedStoryLinksRef.current = hit.fetchedStoryLinks;
         fetchedPointLinksRef.current = hit.fetchedPointLinks;
         setPoints(hit.points);
@@ -203,7 +217,7 @@ export function StakePage() {
     }
     void fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tag` is inside listFetchKey
-  }, [fetchData, listFetchKey]);
+  }, [fetchData, listFetchKey, pushKey]);
 
   /**
    * A withdrawn position lowers the count and nothing else. Unlike /feed, the point STAYS
@@ -305,6 +319,7 @@ export function StakePage() {
   // link maps arriving, removals — all written through here).
   useEffect(() => {
     if (!tag || loading || error || dataFetchKey !== listFetchKey) return;
+    if (dataGenerationRef.current !== listReturnCacheGeneration()) return; // pre-write rows
     writeListReturnCache<StakeSnapshot>(cacheKey, 'stake', {
       tag,
       points,

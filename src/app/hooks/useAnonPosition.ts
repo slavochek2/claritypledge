@@ -7,6 +7,8 @@
  * (Safari ITP in iframe — catches SecurityError, no-ops).
  */
 
+import { clearListReturnCache } from '@/lib/list-return-cache';
+
 const STORAGE_KEY = 'cp-anon-positions';
 
 type AnonPositionValue = string; // PositionType values
@@ -63,6 +65,8 @@ export function setAnonPosition(pointId: string, position: AnonPositionValue | n
   } catch {
     // SecurityError (Safari ITP in iframe) — no-op
   }
+  // P1364: an anonymous position is an own write too — Back must not serve the list from before it.
+  clearListReturnCache();
 }
 
 /**
@@ -96,4 +100,5 @@ export function clearAllAnonPositions(): void {
   } catch {
     // SecurityError — no-op
   }
+  clearListReturnCache(); // P1364
 }
