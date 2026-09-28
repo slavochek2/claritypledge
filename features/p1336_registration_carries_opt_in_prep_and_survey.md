@@ -71,11 +71,18 @@ Onboarding completion and survey answers are stored per person; the flow itself 
 
 1. **Universal onboarding, done once and remembered.** It is never asked again of someone who has
    completed it. It is **letter-like**: the ST1 Clarity Letter, in order:
+   - **Order is explain first, choose last** (founder, 2026-09-28): people keep promises they understand,
+     so the choice comes after the meaning is shared. Choice-first was weighed and rejected: a person who
+     has already answered reads the explanation to defend that answer, and a "no" given first usually
+     skips the explanation. Screen one names where this ends ("at the end you choose whether to opt in"),
+     so nobody spends five minutes not knowing what is being asked.
    - **Why do the homework** (the founder's intention): the presi3 slides on why discussions feel like
      a waste of time (monologues, disagreement that splits instead of teaching, rooms of people who
      already agree) and "built by someone who paid for the lesson". Plus one line naming what the prep buys:
      you arrive understanding the method, with a specific position. One screen.
-   - **The ST1 story as it is on the site**, with no separate onboarding copy. Its video
+   - **The ST1 story as it is on the site**, framed as the method itself: *"This evening is about cognitive
+     understanding. Do we mean the same thing by it? Here is my intended meaning."* The onboarding practises
+     what it teaches. The story is **skippable**; the two 0–10 answers are required. Presented with no separate onboarding copy. Its video
      (https://youtu.be/k4zpMYIKK5A, uploaded 2026-09-22) is embedded from YouTube, thumbnail = the story's current image. The story gets a new version: the video, and a **shorter text that replaces the current one**
      (the video now carries the telling). `[FOUNDER DECISION: confirm draft]`:
      *I had an issue with someone I know well. I paraphrased their position. They said: yes, that's
@@ -96,7 +103,9 @@ Onboarding completion and survey answers are stored per person; the flow itself 
      **disagree** until they have **heard the speaker's number**, and that number is **at least 8**. A
      listener who disagrees without having heard a number is reminded to ask for it. This replaces the
      presi3 wording, where the number is not required to come first.
-   - **The opt-in choice**, which **unlocks only after both 0–10 answers**. Any number unlocks it; the
+   - **The opt-in choice**, with a welcome line on the same screen: both answers are fine, the person is
+     welcome at the evening either way, and can change the answer at any time. `[FOUNDER DECISION: exact
+     wording]`. The choice **unlocks only after both 0–10 answers**. Any number unlocks it; the
      gate is answering, not scoring. The host sees both numbers per person, so a 3 followed by an opt-in
      is visible. The commitment is only to answer "how much do you understand my intended meaning,
      0–10?" when asked. (The below-8 rule for disagreement is how the rounds run; nobody opts into it.)
@@ -136,7 +145,10 @@ of a skip decision for each step:
 The registration choice is the person's current answer. It shows in the room as today (opt-ins visible,
 opt-outs never shown, P1114) and can be changed there at any time. The host reminds people of the choice
 and invites changes. There is one value, and each change is timestamped. No second, separate in-room
-reading.
+reading. In the room the host shows the opt-ins and says the answer can be changed on the phone at any
+time, either way; no show of hands, since in a room of 12 "anyone else?" out loud re-creates the
+pressure registration removed ([facilitator-guide.md](../docs/facilitator-guide.md), "Reminding the room of
+the opt-in").
 
 ## Invariants
 

@@ -465,6 +465,21 @@ an error appears. Silence means *held, not yet written*, not *broken*.
 
 ---
 
+## Reminding the room of the opt-in (2026-09-28, P1336)
+
+From event #2 the opt-in is chosen at registration, at home and alone. In the room:
+
+1. **Show who opted in** (the room screen already does; opt-outs are never shown).
+2. **Say:** *"You can change your answer on your phone at any time, either way."*
+3. **No show of hands, no "anyone else?" out loud.** In a room of 12, the yes list also shows who
+   didn't, and asking aloud brings back the social pressure registration removed.
+
+Make clear that people who opted out are welcome to take part fully. Event #1 went 12 of 12 with the tap
+made in the room; that number cannot separate selection (people who come already like the idea) from
+pressure. A private choice at registration can.
+
+---
+
 ## The comprehension challenge (2026-08-14)
 
 **When:** someone declines the Clarity Meeting Principle, or the room is agreeing too easily.
