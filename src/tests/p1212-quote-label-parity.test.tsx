@@ -158,12 +158,26 @@ describe('P1212 DW-7 — label and bodies are the same condition on every surfac
     expect(shown).toContain('as big as it can do this by itself');
   });
 
-  it('the inverted composition is a no-op — the regression this pins', () => {
-    // Documents the exact failure, so the next author sees why the order is load-bearing
-    // rather than reading `storyTextForDisplay` as a cosmetic wrapper.
+  it('the label is stripped whichever way the two helpers compose (2026-09-28)', () => {
+    // This pinned the opposite until 2026-09-28: `stripHashtags` collapsed EVERY run of
+    // whitespace, newlines included, so running it first flattened the stored shape into one
+    // line and the label regex — which matches a label LINE — could no longer see it. That
+    // collapse also destroyed every paragraph break in every story, so it was removed;
+    // newlines now survive, and the order stops being load-bearing for this case.
+    // `storyTextForDisplay` still composes label-then-hashtags, and remains the only
+    // composition a surface may use.
     const inverted = stripQuoteLabel(stripHashtags(STORED_SHAPE, ['aisafety1']));
-    expect(inverted).toContain(QUOTE_LABEL_PREFIX);
-    expect(inverted).toBe(stripHashtags(STORED_SHAPE, ['aisafety1']));
+    expect(inverted).not.toContain(QUOTE_LABEL_PREFIX);
+    expect(inverted).toContain('The blocker is not size but who holds the data.');
+    expect(inverted).toBe(storyTextForDisplay(STORED_SHAPE, ['aisafety1']));
+  });
+
+  it('a blank line between paragraphs survives hashtag stripping', () => {
+    // The founder saw the live ST1 story render as one run-on block. Its paragraphs were
+    // separated by blank lines in the database; the whitespace collapse ate them.
+    const stored = 'First paragraph.\n\nSecond paragraph.\n\nThird. #st1 #understanding';
+    const shown = storyTextForDisplay(stored, ['st1', 'understanding']);
+    expect(shown).toBe('First paragraph.\n\nSecond paragraph.\n\nThird.');
   });
 
   // The half a policy table cannot state: no surface may print the label out of `content`.

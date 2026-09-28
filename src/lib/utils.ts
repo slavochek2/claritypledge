@@ -214,6 +214,16 @@ export function stripHashtags(content: string, tags?: string[]): string {
     result = result.replace(pattern, '');
   }
 
-  // Collapse multiple spaces into one and trim
-  return result.replace(/\s{2,}/g, ' ').trim();
+  // Tidy the gaps the removed tags leave behind — WITHOUT touching line structure.
+  // `\s{2,}` used to do this, and `\s` includes `\n`: a blank line between two
+  // paragraphs is two whitespace characters, so every paragraph break in every story
+  // collapsed into a single space and the text rendered as one run-on block (founder,
+  // 2026-09-28, on the live ST1 story). Runs of SPACES and TABS collapse; newlines are
+  // structure and survive, capped at one blank line.
+  return result
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
