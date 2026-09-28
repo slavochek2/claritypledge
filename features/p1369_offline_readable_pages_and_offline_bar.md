@@ -67,19 +67,37 @@ Nothing is pre-downloaded.
 | `/meet`, `/ready` (live, multi-person) | App shell + "needs a connection" body; no stale presence shown |
 | Anything that writes (votes, sign-ups, positions, messages) | Blocked with a clear message. No offline write queue |
 
-- **Cached reads show immediately, then refresh in the background** (stale-while-revalidate
-  shape). Offline should never be slower than online, and online reads should not get slower either.
-- **Bounded.** Entry cap and age expiry per cache; exact numbers are for `/architect`.
-- **Deploy safety from P838 stays.** A new deploy must still reach the user on the next online
-  load. How the app shell becomes available offline without reintroducing the stale-shell failure is
-  the central architecture question, owned by `/architect`.
+Two layers, each with its own invariant (direction set by adversarial review, 2026-09-28):
+
+- **Code layer (service worker): the app must boot offline, from ONE build.** Today it can't
+  reliably: the `js-assets` cache keeps 30 entries while a build has 181 chunks (verified), and
+  offline navigation to a URL not among the last 5 visited has no fallback (`navigateFallback: null`).
+  Recommended direction (Fable review; `/architect` confirms): precache `index.html` **with a
+  revision** again, JS chunks `CacheFirst` (hashed, immutable) with a cap sized to a whole build,
+  navigations stay `NetworkFirst` online so a deploy lands on the next online load, and offline falls
+  back to the precached shell. The reviewer argues this is not a P838 revert: `skipWaiting` +
+  `clientsClaim` + `autoUpdate` already fix what P838 fixed. **Treat that as a claim for
+  `/architect` to prove, not a settled fact.**
+- **Data layer (app, not SW): Supabase is NEVER cached in the service worker.** Every REST call
+  carries the user's JWT and possibly a guest room code (`x-clarity-room-code`, P1302); Cache Storage
+  keys by URL and would serve one person's rows to another. Instead: a small IndexedDB read-through
+  cache in the service wrappers (no react-query/SWR exists; pages call services directly), keyed by
+  **auth context + resource**, stamped `storedAt`, capped per resource type.
+- **Read order: network first with a short timeout, cache only when the network fails.** Online
+  reads keep today's behaviour and speed. Offline reads fail fast (immediate fetch error) and answer
+  from IndexedDB. No stale-while-revalidate: it would show cached data online without the strip.
+- **"Offline" means the request failed, not `navigator.onLine`.** Captive portals and venue Wi-Fi
+  report online while nothing reaches Supabase. The strip shows whenever a page rendered from cache.
 
 **2. One offline indicator (variant C).**
-- A thin dark system strip at the very top, above the nav, only while offline:
-  "Offline · showing what you saw {age}". `{age}` is the age of *that page's* data. On pages that
+- A thin dark system strip at the very top, above the nav, whenever the page rendered from cache:
+  "Offline · showing what you saw {age}". `{age}` comes from the IndexedDB entry's `storedAt` for
+  *that page's* data (oldest entry, if the page reads several). Pages report it to the layout
+  through a small context; the strip never infers it. On pages that
   need a connection, it says just "Offline".
 - When a session bar would show (/live or room transcription), it is **replaced** by its offline
-  state, never stacked: grey, no buttons (see UI Contract).
+  state, never stacked: grey, no buttons (see UI Contract). This is a state of the shared `SessionBar`
+  (actions become optional), not a new look-alike component. P1307 D7 requires one bar.
 - The page body for `/meet`/`/ready` offline: headline, one line, "Try again", "Go to home".
 - The strip disappears once back online and the page has refreshed.
 - Replaces the existing yellow `OfflineBanner`.
@@ -89,10 +107,15 @@ Nothing is pre-downloaded.
 - **P838 holds.** After a deploy, an online user gets the new build on the next load. No change
   may bring back a stale app shell or stale asset hashes (blank page).
 - **P864 holds.** No navigation fallback to a non-precached URL.
-- **Cached data is never shown as current.** Whenever a page renders cached data while offline, the
-  strip with its age is visible.
-- **No private data outlives the session on a shared device.** Anything cached that is scoped to
-  the signed-in user is cleared on sign-out.
+- **Cached data is never shown as current.** Whenever a page renders cached data, the strip with its
+  age is visible, whatever `navigator.onLine` says.
+- **Offline, the shell and its chunks come from the same build.** Never a cached `index.html`
+  pointing at chunks that aren't cached (that shows `ChunkErrorBoundary` "Refresh", which loops offline).
+- **The service worker never caches Supabase or other auth-bearing requests** (`NetworkOnly`),
+  enforced by a config test like `p864-sw-navigate-fallback.test.ts`.
+- **Cached data is partitioned by auth context** (user id, anon, room-code capability). One person's
+  cached rows are never readable by another, including after an interrupted or `scope: 'local'`
+  sign-out. Every `signOut` path clears it.
 - **Capture is never silently invisible (P1307 D9).** The offline session-bar state still indicates
   that transcription is running, if it is.
 
@@ -101,10 +124,11 @@ Nothing is pre-downloaded.
 | Risk | Label | Note |
 |---|---|---|
 | SW change reintroduces stale shell / blank page after deploy | MITIGATE | Invariant above; verify with a two-deploy test before ship |
-| Cached authenticated responses leak between accounts on one device | MITIGATE | Clear on sign-out; exclude auth endpoints from caching |
-| Caching Supabase responses serves data that RLS would now deny (revoked access) | ACCEPT | Offline-only, bounded by expiry; online always revalidates |
-| Storage growth on device | MITIGATE | Entry caps + expiry |
-| Offline behaviour of room capture unknown (does recording continue locally?) | MITIGATE | Verify before finalising the transcription offline copy (UI Contract) |
+| Cached rows leak between accounts or guests on one device | MITIGATE | App-layer cache keyed by auth context; SW never caches Supabase; clear on every sign-out path |
+| Cached data RLS would now deny (revoked access) | ACCEPT | Shown only when the network fails, with its age; online is network-first so revocation takes effect |
+| Storage growth / IndexedDB quota / Safari evicting script storage after ~7 days idle | ACCEPT | Caps + expiry; eviction just means "needs a connection" (Safari behaviour UNVERIFIED for this app) |
+| Offline supabase-js token refresh fails and blocks reads (Gemini claim, UNVERIFIED) | MITIGATE | Cache read triggers on any fetch/auth failure, not only a failed REST call; AC below tests it |
+| Room capture offline behaviour unknown | MITIGATE | **Blocking prerequisite:** verify what capture does when the network drops before writing the transcription offline state |
 | decisions.md says "the app has no service worker" — contradicts code and prod | MITIGATE | Correct that entry during `/kdd`; don't design from it |
 
 **Non-Goals**
@@ -130,7 +154,9 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 - Strip (cached): `Offline · showing what you saw {age}` [FOUNDER DECISION: copy — PROPOSED]
 - Strip (needs connection): `Offline` [FOUNDER DECISION: copy — PROPOSED]
 - Live session offline: `Session paused while offline` / `Rejoin comes back when you reconnect.` [FOUNDER DECISION: copy — PROPOSED]
-- Transcription offline: `Live text paused while offline` / `Your words are still recorded and will sync when you reconnect.` [FOUNDER DECISION: copy — PROPOSED, and only true if capture really continues offline; see Risks]
+- Transcription offline: **blocked on verifying capture behaviour.** Write separate copy for each
+  real state (recording locally / stopped). The prototype's "Your words are still recorded and will
+  sync" line must NOT ship unless verified: a false promise here loses someone's words. [FOUNDER DECISION: copy after verification]
 - /ready body: `Check-in needs a connection` / `It loads by itself when you're back online.` / `Try again` / `Go to home` [FOUNDER DECISION: copy — PROPOSED]
 
 ## Acceptance Criteria
@@ -140,15 +166,33 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 - [ ] `/meet` and `/ready` offline show the needs-connection body; no stale presence
 - [ ] A write action offline shows a clear "needs internet" message and does not appear to succeed
 - [ ] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop
-- [ ] Online: story/point/event load no slower than today (measure before and after)
+- [ ] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise
 - [ ] Deploy twice; an installed PWA picks up the second build on the next online load (P838 regression)
-- [ ] Sign out, go offline: the previous user's private cached data is not shown
+- [ ] Deploy A, open a story, deploy B, open only home, go offline, open the story: it reads, or shows needs-connection. Never the "Refresh" chunk error
+- [ ] Open a deep link never visited, offline: the app boots and shows needs-connection (no browser dinosaur page)
+- [ ] Two accounts on one device, same story URL: account B offline never sees A's cached copy; same for a guest with vs without the room code
+- [ ] Sign out (global and `local` scope), go offline: the previous user's cached data is not shown
+- [ ] Captive-portal simulation (`navigator.onLine` true, Supabase unreachable): cached page shows the strip; writes show "needs internet"
+- [ ] Offline for longer than the access-token lifetime: cached pages still open
+- [ ] Config test fails if any `runtimeCaching` rule matches the Supabase host (watched failing once)
 - [ ] The yellow `OfflineBanner` is gone; no yellow in the offline UI
 
 ## Open Questions
 
 1. `/ready` offline: show the last-known list of who's coming (labelled with its age), or only the reconnect screen? The founder was asked and hasn't answered yet; the spec defaults to the reconnect screen.
-2. Does room capture keep recording when the network drops? This decides the transcription offline copy.
+2. Does room capture keep recording when the network drops? Blocking for the transcription offline state.
+
+## Review Log
+
+Adversarial review 2026-09-28, **3 of 3 reported**: Gemini 3.8 Flash (product/scope, REJECTED), Fable
+(SW/cache architecture), Codex gpt-5.6-sol low (implementation facts, REJECT). All three
+independently found the cross-account leak from caching Supabase in the service worker. Load-bearing
+claims re-checked by command: no react-query/SWR in package.json; `x-clarity-room-code` fetch wrapper
+in `src/lib/supabase.ts`; 181 JS chunks in `dist/` vs `js-assets` maxEntries 30; IndexedDB already
+used (`src/lib/chunk-store.ts`); `signOut({scope:'local'})` in settings. UNVERIFIED and forwarded as
+claims: 35-chunk closure for shell+story (Fable), offline token refresh blocking reads (Gemini).
+Applied: data cache moved to app layer, network-first read, reachability from request outcome,
+same-build invariant, SessionBar state not a new component, transcription copy blocked, AC widened.
 
 ## Related
 
