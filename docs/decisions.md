@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [process]: Two agent frictions from the video session (Status: proposed)
+
+**Context:** Meta-reflection on the click-to-play session. Two frictions, both mine, both cheap to prevent.
+**Decision (1) — a chain of text replacements can match its own output.** Editing several React files by sequential `str.replace()` inserted `onActivate={player.onActivate}` three times in one file and imported `useLazyStoryPlayer` twice in another, because each replacement's output still contained the next search string. TypeScript caught neither; the duplicate import surfaced only as a red error overlay in the browser, after a founder-visible click. **Rule:** after any scripted multi-file edit, grep for the inserted token and assert the count per file before moving on, or use the editing tool that fails on an ambiguous match.
+**Decision (2) — coordinates from a screenshot expire when the page does.** A click aimed at a story's expander landed on the point's "Agree" button, because the page had re-rendered taller since the screenshot. The position was not saved (anonymous visitors are asked to sign in) and the test database was the target, but the same habit on a live page would set real state. **Rule:** re-screenshot after any navigation or reload before clicking by coordinate, and prefer clicking by element reference where the page offers one.
+**Consequences:** Both are agent-behaviour rules, not product changes. `(Status: proposed)` — they belong in the session guidance if they recur. **Falsifier:** another session inserts a duplicate identifier by scripted replace, or clicks a stale coordinate, after this entry.
+**References:** `src/app/components/social/story-card-with-links.tsx` · `src/app/components/feed/feed-story-card.tsx`
+
+---
+
 ## 2026-09-28 [product]: An embedded player's own chrome is a leak, and a still on a card plays where it is
 
 **Context:** ST1 gained a video, and the story surface showed the YouTube embed at rest. That resting state is YouTube's UI: the video title, the channel name, a copy-link button and a "Watch on YouTube" pill. Founder: *"it takes away people from our website."* No player parameter removes any of it, and YouTube's terms require it on an embed. Separately, a still inside a point card linked to the story page — *"I'm here on this point and I click on a video … it just goes to the story, which is weird."*
