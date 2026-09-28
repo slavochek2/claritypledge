@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ArrowUpDown } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -24,10 +24,40 @@ import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
+import {
+  listReturnCacheKey,
+  readListReturnCache,
+  updateListReturnCache,
+  writeListReturnCache,
+} from '@/lib/list-return-cache';
 
 type FeedTab = 'points' | 'stories';
 
 const FEED_LIMIT = 50;
+
+/** P1364: how long the search box waits before writing `?q=` (a replace, never a fetch). */
+const SEARCH_URL_DEBOUNCE_MS = 300;
+
+/**
+ * P1364 §5 — what the feed last rendered, kept for a POP return: the lists AND the link maps,
+ * so every card has its footer on the first frame and the restored scroll lands on the card
+ * the reader left.
+ */
+export interface FeedSnapshot {
+  stories: StoryWithAuthor[];
+  points: PointWithUserPosition[];
+  cloudStories: StoryWithAuthor[];
+  cloudPoints: PointWithUserPosition[];
+  storyPointsState?: LinkedContentState<PointSummary>;
+  pointStoriesState?: LinkedContentState<StoryWithAuthor>;
+}
+
+function hydratedLinkKeys(snapshot: FeedSnapshot | undefined): Set<string> {
+  const keys = new Set<string>();
+  if (snapshot?.storyPointsState) keys.add(`stories|${snapshot.storyPointsState.key}`);
+  if (snapshot?.pointStoriesState) keys.add(`points|${snapshot.pointStoriesState.key}`);
+  return keys;
+}
 
 // P543 removal logic, shared by `points` and `cloudPoints` -- both must drop a
 // point once its last position is withdrawn (P1075 code review: cloudPoints was
@@ -53,35 +83,64 @@ function removePointPosition(
 export function FeedPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { session } = useAuth();
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const viewerUserId = session?.user?.id;
 
   // URL-driven state — supports both ?tag=X,Y and ?tag=X&tag=Y
-  const activeTags = useMemo(() => {
-    const allParams = searchParams.getAll('tag');
-    return allParams.flatMap(p => parseTags(p));
-  }, [searchParams]);
+  // P1364 §6: memoised on the tag param STRING, not the whole `searchParams` object — any URL
+  // change (a tab, the search box) used to mint a new array here and refetch the whole list
+  // behind a spinner.
+  const tagParamKey = searchParams.getAll('tag').join('\u0000');
+  const activeTags = useMemo(
+    () => (tagParamKey ? tagParamKey.split('\u0000').flatMap(p => parseTags(p)) : []),
+    [tagParamKey]
+  );
   const tabParam = searchParams.get('tab');
   const activeTab: FeedTab = tabParam === 'stories' ? 'stories' : 'points';
   const ascending = searchParams.get('sort') === 'oldest';
   const versionLatest = searchParams.get('version') === 'latest';
 
+  // P1364 §5 — a POP (Back, browser back/forward) returns to the list exactly as the reader left
+  // it, from the in-memory cache, with no refetch and no spinner. Any other arrival fetches.
+  const cacheKey = listReturnCacheKey(viewerUserId, location.pathname, location.search);
+  const [restored] = useState<FeedSnapshot | undefined>(() =>
+    navigationType === 'POP' ? readListReturnCache<FeedSnapshot>(cacheKey, 'feed') : undefined
+  );
+
   // Data state
-  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
-  const [points, setPoints] = useState<PointWithUserPosition[]>([]);
+  const [stories, setStories] = useState<StoryWithAuthor[]>(() => restored?.stories ?? []);
+  const [points, setPoints] = useState<PointWithUserPosition[]>(() => restored?.points ?? []);
   // P1075: tag cloud must reflect ALL public content (BR-8, P602), independent of
   // the active tag filter -- kept separate from `stories`/`points` above, which are
   // now server-side filtered by the active tag and can't double as the cloud source.
-  const [cloudStories, setCloudStories] = useState<StoryWithAuthor[]>([]);
-  const [cloudPoints, setCloudPoints] = useState<PointWithUserPosition[]>([]);
+  const [cloudStories, setCloudStories] = useState<StoryWithAuthor[]>(() => restored?.cloudStories ?? []);
+  const [cloudPoints, setCloudPoints] = useState<PointWithUserPosition[]>(() => restored?.cloudPoints ?? []);
   // P1212 §5 — each map is stored WITH the id set it was fetched for, so a map left over
   // from a previous fetch cannot be read as an answer about the current one. See
   // `linked-content.ts` for the re-fetch bug that shape exists to make impossible.
-  const [storyPointsState, setStoryPointsState] = useState<LinkedContentState<PointSummary>>();
-  const [pointStoriesState, setPointStoriesState] = useState<LinkedContentState<StoryWithAuthor>>();
-  const [loading, setLoading] = useState(true);
+  const [storyPointsState, setStoryPointsState] = useState<LinkedContentState<PointSummary> | undefined>(() => restored?.storyPointsState);
+  const [pointStoriesState, setPointStoriesState] = useState<LinkedContentState<StoryWithAuthor> | undefined>(() => restored?.pointStoriesState);
+  const [loading, setLoading] = useState(() => !restored);
   const [error, setError] = useState<string | null>(null);
 
-  // Search state (local, not in URL)
-  const [searchQuery, setSearchQuery] = useState('');
+  // What the list's data was fetched FOR (viewer, sort, tags). The cache is written only when the
+  // data on screen answers the current URL — never old rows under a new tag's key mid-fetch.
+  const fetchKey = `${viewerUserId ?? ''}|${ascending ? 'asc' : 'desc'}|${tagParamKey}`;
+  const [dataFetchKey, setDataFetchKey] = useState<string | null>(() => (restored ? fetchKey : null));
+  // The fetch key the current rows were restored for: the fetch effect skips it (no background
+  // refresh on POP). A ref, not a one-shot flag, so StrictMode's double effect skips both runs.
+  const hydratedFetchKeyRef = useRef<string | null>(restored ? fetchKey : null);
+  // Link maps that came from the cache — the link effect must not refetch them either.
+  const hydratedLinksRef = useRef<Set<string>>(hydratedLinkKeys(restored));
+
+  // P1364 §6 — search text lives in `?q=` so it survives open-item → Back. The input updates
+  // local state at once (the filter is client-side: typing makes no request); the URL follows
+  // after a pause, with `replace`, so typing adds no history and does not move the scroll.
+  const urlQuery = searchParams.get('q') ?? '';
+  const [searchQuery, setSearchQuery] = useState(urlQuery);
+  const lastWrittenQueryRef = useRef(urlQuery);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // P1075 code review: guards against an older, slower fetchData call resolving
   // after a newer one (e.g. rapid tag-toggle clicks) and overwriting fresher state
@@ -104,10 +163,11 @@ export function FeedPage() {
   const fetchData = useCallback(async () => {
     const requestId = ++fetchIdRef.current;
     const isStale = () => requestId !== fetchIdRef.current;
+    const requestFetchKey = fetchKey;
+    hydratedLinksRef.current = new Set(); // fresh rows get fresh link maps
     setLoading(true);
     setError(null);
     try {
-      const viewerUserId = session?.user?.id;
       const tagFilter = activeTags.length === 1 ? activeTags[0] : undefined;
 
       // BR-8: tag cloud stays computed from ALL public content. When no tag filter
@@ -128,6 +188,7 @@ export function FeedPage() {
         setPoints(pointsData);
         setCloudStories(allStories);
         setCloudPoints(allPoints);
+        setDataFetchKey(requestFetchKey);
       } else {
         const [storiesData, pointsData] = await Promise.all([
           storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
@@ -138,13 +199,14 @@ export function FeedPage() {
         setPoints(pointsData);
         setCloudStories(storiesData);
         setCloudPoints(pointsData);
+        setDataFetchKey(requestFetchKey);
       }
     } catch {
       if (!isStale()) setError('Could not load feed. Please try again.');
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [session?.user?.id, ascending, activeTags]);
+  }, [viewerUserId, ascending, activeTags, fetchKey]);
 
   // P1212 §5 — point<->story links for the expanders, in ONE query per tab.
   //
@@ -174,12 +236,14 @@ export function FeedPage() {
 
     if (activeTab === 'stories') {
       if (visibleStoryIds.length === 0) return;
+      if (hydratedLinksRef.current.has(`stories|${storyLinkKey}`)) return; // restored on POP
       storiesService
-        .getPointsForStories(visibleStoryIds, session?.user?.id)
+        .getPointsForStories(visibleStoryIds, viewerUserId)
         .then(map => { if (!cancelled) setStoryPointsState({ key: storyLinkKey, map }); })
         .catch(() => { /* expander stays hidden; the feed itself still renders */ });
     } else {
       if (visiblePointIds.length === 0) return;
+      if (hydratedLinksRef.current.has(`points|${pointLinkKey}`)) return; // restored on POP
       storiesService
         .getStoriesForPoints(visiblePointIds)
         .then(map => { if (!cancelled) setPointStoriesState({ key: pointLinkKey, map }); })
@@ -187,19 +251,101 @@ export function FeedPage() {
     }
 
     return () => { cancelled = true; };
-  }, [activeTab, visibleStoryIds, visiblePointIds, storyLinkKey, pointLinkKey, session?.user?.id]);
+  }, [activeTab, visibleStoryIds, visiblePointIds, storyLinkKey, pointLinkKey, viewerUserId]);
 
+
+  // Latest navigation facts for the fetch effect, which must re-run only when WHAT is fetched
+  // changes (viewer, sort, tags) — not on a tab or search change.
+  const navigationTypeRef = useRef(navigationType);
+  navigationTypeRef.current = navigationType;
+  const cacheKeyRef = useRef(cacheKey);
+  cacheKeyRef.current = cacheKey;
 
   useEffect(() => {
+    // Rows restored for exactly this fetch key: no background refresh (P1364 §5).
+    if (hydratedFetchKeyRef.current === fetchKey) return;
+    hydratedFetchKeyRef.current = null;
+    // A POP between two feed entries (a tag pushed, then Back) restores that entry too.
+    if (navigationTypeRef.current === 'POP') {
+      const hit = readListReturnCache<FeedSnapshot>(cacheKeyRef.current, 'feed');
+      if (hit) {
+        fetchIdRef.current++; // any fetch still in flight is now stale
+        hydratedFetchKeyRef.current = fetchKey;
+        hydratedLinksRef.current = hydratedLinkKeys(hit);
+        setStories(hit.stories);
+        setPoints(hit.points);
+        setCloudStories(hit.cloudStories);
+        setCloudPoints(hit.cloudPoints);
+        setStoryPointsState(hit.storyPointsState);
+        setPointStoriesState(hit.pointStoriesState);
+        setDataFetchKey(fetchKey);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+    }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, fetchKey]);
+
+  // P1364 §5 — keep the cache equal to what is on screen, under the current URL. This is the
+  // write-through for tab switches, search, link maps arriving and surgical removals alike.
+  useEffect(() => {
+    if (loading || error || dataFetchKey !== fetchKey) return;
+    writeListReturnCache<FeedSnapshot>(cacheKey, 'feed', {
+      stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState,
+    });
+  }, [cacheKey, fetchKey, dataFetchKey, loading, error, stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState]);
 
   // P543: Surgical callback — avoid full refetch on position removal
   // P1075: also applied to cloudPoints -- a point dropping to zero positions must
   // disappear from the tag cloud too (P543 invariant), not just the rendered list.
+  // P1364: also written through to EVERY cached feed entry (other tags, other sorts), so the
+  // removed point cannot come back from the cache on a later Back.
   const handlePointRemoved = useCallback((pointId: string, removedPosition: PositionType | null) => {
     setPoints(prev => removePointPosition(prev, pointId, removedPosition));
     setCloudPoints(prev => removePointPosition(prev, pointId, removedPosition));
+    updateListReturnCache<FeedSnapshot>('feed', snap => ({
+      ...snap,
+      points: removePointPosition(snap.points, pointId, removedPosition),
+      cloudPoints: removePointPosition(snap.cloudPoints, pointId, removedPosition),
+    }));
+  }, []);
+
+  // P1364 §6 — `?q=` follows the URL when it changes from outside (a POP between feed entries).
+  useEffect(() => {
+    if (urlQuery === lastWrittenQueryRef.current) return;
+    lastWrittenQueryRef.current = urlQuery;
+    setSearchQuery(urlQuery);
+  }, [urlQuery]);
+
+  // Write `?q=` with REPLACE. Built from the LIVE location, not this render's `searchParams`:
+  // a debounced write must not revert a tab or sort change made while it was pending.
+  const writeSearchToUrl = useCallback((value: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value.trim()) params.set('q', value);
+    else params.delete('q');
+    lastWrittenQueryRef.current = params.get('q') ?? '';
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
+
+  const handleSearchChange = (value: string, immediate = false) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = null;
+    if (immediate) {
+      writeSearchToUrl(value);
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => {
+      searchTimerRef.current = null;
+      writeSearchToUrl(value);
+    }, SEARCH_URL_DEBOUNCE_MS);
+  };
+
+  // A pending write must never fire after the reader has left — it would rewrite the NEXT
+  // page's URL.
+  useEffect(() => () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
   }, []);
 
   // Tag cloud: extract from ALL stories + points (BR-8: computed from all content)
@@ -255,7 +401,8 @@ export function FeedPage() {
     } else {
       params.delete('tab');
     }
-    setSearchParams(params, { replace: false });
+    // P1364 §6: REPLACE — Back leaves the feed rather than flipping through old tabs.
+    setSearchParams(params, { replace: true });
   };
 
   // Tag filter dismiss (single tag from multi-tag set)
@@ -281,7 +428,7 @@ export function FeedPage() {
     } else {
       params.set('sort', 'oldest');
     }
-    setSearchParams(params, { replace: false });
+    setSearchParams(params, { replace: true }); // P1364 §6
   };
 
   // Tag cloud chip click — toggle on/off (multi-select)
@@ -310,7 +457,7 @@ export function FeedPage() {
       params.set('version', 'latest');
     }
     analytics.track('feed_version_toggled', { version: versionLatest ? 'all' : 'latest' });
-    setSearchParams(params, { replace: false });
+    setSearchParams(params, { replace: true }); // P1364 §6
   };
 
   // Active content based on tab
@@ -346,12 +493,12 @@ export function FeedPage() {
             type="text"
             placeholder="Search stories and points..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-9 py-2 border border-border rounded-md bg-background text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => handleSearchChange('', true)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Clear search"
             >
@@ -532,7 +679,7 @@ export function FeedPage() {
                         story={story}
                         activeTag={activeTags[0]}
                         linkedPoints={linksFor(storyPointsState, storyLinkKey, story.id)}
-                        currentUserId={session?.user?.id}
+                        currentUserId={viewerUserId}
                         groupPlayer={groupPlayer}
                       />
                     );
