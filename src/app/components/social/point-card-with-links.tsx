@@ -721,6 +721,7 @@ export function PointCardWithLinks({
                     >
                       <QuotedStory
                         story={story}
+                        scopeId={point.id}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onStoryClick) {
@@ -769,12 +770,15 @@ export function PointCardWithLinks({
  */
 export function QuotedStory({
   story,
+  scopeId,
   onClick,
   onAuthorClick,
   getStoryAuthor,
   authorPosition,
 }: {
   story: Story;
+  /** P1364: the point this quote sits under, so the same story under two points keeps separate open state. */
+  scopeId?: string;
   onClick: (e: React.MouseEvent) => void;
   /** Callback when author name/avatar is clicked */
   onAuthorClick?: (e: React.MouseEvent) => void;
@@ -797,8 +801,10 @@ export function QuotedStory({
   const author = getStoryAuthor?.(story.authorId);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
-  const [textExpanded, setTextExpanded] = useState(false);
-  useEffect(() => { setTextExpanded(false); }, [story.id]);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  // Keyed per point AND story; a different story in this slot re-reads its own state (the hook
+  // re-reads on an id change, which replaces the old reset-on-story.id effect).
+  const [textExpanded, setTextExpanded] = useReturnState(`quoted-story-text:${scopeId ?? ''}:${story.id}`, false);
 
   /* P1259 change 1 — this card is the "point card" surface: it is what the feed point card
      and the profile point card render for each linked story. Its timecodes used to be

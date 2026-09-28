@@ -45,6 +45,7 @@ type LinkedStory = Pick<
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged' | 'authorAvatarColor'
 >;
 import { getPositionCTACopy, adjustPositionCounts, getPositionGroup } from '@/app/utils/position-helpers';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 /**
  * Where a profile link goes when the embed context supplies no override.
@@ -156,7 +157,8 @@ export function StoryCardDetail({
   onClear,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
-  const [pointsExpanded, setPointsExpanded] = useState(defaultCollapsed ? false : isDetailView);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [pointsExpanded, setPointsExpanded] = useReturnState(`story-detail-points:${story.id}`, defaultCollapsed ? false : isDetailView);
 
   // Apply custom ordering + filtering (used by doc context)
   // hiddenPointIds filters points for non-owners viewing a shared doc link
@@ -641,7 +643,8 @@ function QuotedPoint({
   const navigate = useNavigate();
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(storyAuthorId);
-  const [storiesExpanded, setStoriesExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`story-detail-point-stories:${storyAuthorId}:${point.id}`, false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);

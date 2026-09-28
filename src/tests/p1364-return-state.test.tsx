@@ -14,6 +14,10 @@ import { useReturnState } from '@/app/hooks/use-return-state';
 import { ScrollToTop } from '@/app/components/scroll-to-top';
 import { __returnStateForTest, readReturnState, writeReturnState } from '@/lib/return-state';
 import { MAX_SAVED_POSITIONS } from '@/lib/scroll-positions';
+import { QuotedStory } from '@/app/components/social/point-card-with-links';
+import type { Story } from '@/app/components/shared/prototype-types';
+
+vi.mock('@/auth', () => ({ useAuth: () => ({ session: null, user: null, isLoading: false }) }));
 
 function Card({ id }: { id: string }) {
   const [open, setOpen] = useReturnState(`test-card:${id}`, false);
@@ -145,3 +149,41 @@ describe('P1364 return-state store', () => {
     expect(readReturnState(`e${MAX_SAVED_POSITIONS + 4}`, 'card')).toBe(MAX_SAVED_POSITIONS + 4);
   });
 });
+
+describe('P1364 useReturnState — a quoted story is keyed per point AND story', () => {
+  const LONG = 'A long story. '.repeat(60); // over the 600-character cut, so "...more" shows
+  const story: Story = {
+    id: 's1', authorId: 'a1', text: LONG, createdAt: '2026-09-01T00:00:00Z',
+    visibility: 'public', linkedPointIds: ['p1', 'p2'], understoodCount: 0,
+  };
+  function TwoPoints() {
+    return (
+      <>
+        <div data-testid="under-p1"><QuotedStory story={story} scopeId="p1" onClick={() => {}} /></div>
+        <div data-testid="under-p2"><QuotedStory story={story} scopeId="p2" onClick={() => {}} /></div>
+      </>
+    );
+  }
+  it('opening the story under one point → PUSH → POP: only that one is open', () => {
+    render(
+      <MemoryRouter initialEntries={['/list']}>
+        <ScrollToTop />
+        <NavGrab />
+        <Routes>
+          <Route path="/list" element={<TwoPoints />} />
+          <Route path="/item/:id" element={<p>an item</p>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const more = (scope: string) => screen.getByTestId(`under-${scope}`).querySelector('[data-testid="more-link"]');
+    expect(more('p1')).not.toBeNull();
+    expect(more('p2')).not.toBeNull();
+    fireEvent.click(more('p1')!);
+    expect(more('p1')).toBeNull();
+    go('/item/s1');
+    go(-1);
+    expect(more('p1')).toBeNull(); // still open
+    expect(more('p2')).not.toBeNull(); // the same story under another point stays closed
+  });
+});
+

@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { stripAgentPrefix } from '@/lib/utils';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 /**
  * P1259 change 2 + 3 — the agent disclosure, once on the profile instead of once per card.
@@ -47,7 +47,8 @@ export function AgentProfileDisclosure({
   name: string;
   className?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [expanded, setExpanded] = useReturnState(`agent-disclosure:${name}`, false);
   const fullName = stripAgentPrefix(name);
 
   return (

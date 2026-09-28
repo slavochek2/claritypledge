@@ -340,6 +340,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
             {linkedStories.map((linked, index) => (
               <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
                 <QuotedStory
+                  scopeId={point.id}
                   // Production -> prototype shape, the same conversion
                   // point-detail-page.tsx performs. `linkedPointIds` is unused by QuotedStory
                   // (it renders author, text and media only) and the feed has not fetched the

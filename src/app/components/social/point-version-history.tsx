@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { getVersionChain } from '@/app/data/points-service-real';
 import type { ChainPoint } from '@/app/data/points-service-real';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 interface PointVersionHistoryProps {
   /** UUID of the current point being viewed */
@@ -23,7 +24,8 @@ export function PointVersionHistory({ pointId }: PointVersionHistoryProps) {
   const navigate = useNavigate();
   const [chain, setChain] = useState<ChainPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [expanded, setExpanded] = useReturnState(`point-versions:${pointId}`, false);
 
   useEffect(() => {
     let cancelled = false;
