@@ -6,6 +6,76 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [technical]: A blind second reader cannot see a merged diarization label — the per-window mapping is the check that can (P1358)
+
+**Context:** A quote said by a podcast host was published on a TEST event page under the guest's name.
+Three things allowed it, and P1358's fix assumed the first was the load-bearing one: `positions.md`
+exempted diarized (`speaker-labelled`) quotes from per-quote speaker confirmation; Step 2c was judged
+per *source*, so one 15-minute window that had merged both speakers onto a single label was invisible;
+and the event page could quote from a plain `grep -F` before any speaker check ran. The spec's risk
+table predicted *"the replay proves 4b/4c catches the real case"*.
+**Decision:** The replay falsified that, and the fix's centre of gravity moved. Run on the stored
+merged window with labels stripped to `A`/`B`, the **blind independent check (Step 4c) reproduced the
+original misattribution** — it assigned the line to the guest from his aphoristic voice and his own
+*"one of my favorite insights"* framing, and answered CONSISTENT when asked directly whether either
+label carried two people. The merge is invisible in text, because two people discussing one idea
+sound compatible. What catches it is mechanical and upstream: the **per-window** oracle plus a
+**per-window label-to-person mapping**, which fails the moment one label speaks both the guest's own
+published aphorism and an interviewer's line *about* the guest. Word share is never admitting
+evidence — the merged label read 78.2%, which looks healthy.
+**Alternatives rejected:** *Capping every diarization window at 5 minutes* — one incident, and 15
+minutes is the measured transport limit, not the cause; the per-window oracle with a short-window
+fallback targets the failure without extra calls on sound windows. *Blocking event-page quotes until
+positions has run* — it undoes the draft mode the founder uses to judge the page early; the page-quote
+predicate requires the same per-quote record for the few page quotes instead.
+**Consequences:** Two independent readings of the same window agree beautifully when the window
+itself is lying, so a second reader is not a substitute for checking the artifact both readers read.
+Generalisable beyond diarization: any review that hands two agents the *same* derived input inherits
+that input's defects, and adding reviewers cannot find them. The per-window rule is now the half that
+must never be relaxed — a future edit keeping 4b/4c while loosening per-window mapping restores the
+defect in full. Also measured this session: a hostile reviewer's *"this is already fixed"* can be
+wrong when the files move under it, so every finding was re-executed rather than trusted, and one of
+the review-driven fixes shipped a bounds check that could never fail (a regex capture-group off-by-one
+made `Number("/")` → `NaN`) — caught only by re-running the reviewer's own fixture.
+**References:** [P1358](../features/done/2026-06-10/p1358_disagreement_pipeline_attribution_summaries_story_models.md) · [P1355](../features/done/2026-06-10/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md) · [epistemic.md](../.claude/rules/epistemic.md) gates 7b, 9
+
+---
+
+## 2026-09-28 [process]: The locked commit path refuses while a raw commit wins — attribution loss lands on the session that follows the rule (P1358)
+
+**Context:** Fourth occurrence of shared-checkout absorption this quarter (see 2026-09-15 below). This
+one has a mechanism the earlier entries do not. `git-ops.sh commit-to-main` was used as
+[git.md](../.claude/rules/git.md) requires, and it **correctly refused twice** — once because a
+directory argument expanded to three files, once because a co-tenant had staged their own work into
+the shared index between the two attempts. While those refusals were being diagnosed, that co-tenant's
+plain `git commit` completed and recorded the entire P1358 change — 18 files — under their own subject
+(*"video: click-to-play facade"*). Content intact, attribution wrong.
+**Decision:** Do not re-stage into a contested index. Treat a `staged set does not match` refusal as
+evidence that **another session is writing**, not as a quoting bug to retry: verify no
+`pre-commit-checks.sh` is running, wait for the index to be empty and HEAD to settle, then stage and
+commit in one uninterrupted call with every path written literally. `HEAD~1` recovery stays banned, and
+history was not rewritten here — the commit that records the work is a co-tenant's, and a later
+`fix(...)` plus `ready for QA` stamp carry the P-number so the closure path and the audit trail still
+resolve.
+**Alternatives rejected:** *Unstage the co-tenant's files and commit immediately* — index-only and
+permitted, but their `pre-commit` hook was mid-run, which is exactly the P1279 window where the commit
+records whatever the index holds when the hook exits; it would have corrupted their commit to rescue
+mine. *Rewrite history to split the commit* — destroys a co-tenant's attribution and their branch
+state to fix a cosmetic loss. *Do the work in a worktree* — unavailable: skill files must be committed
+on `main`, because a skill edited on a branch is not the skill that runs.
+**Consequences:** The protection is **asymmetric, and it penalises compliance**. The lock serialises
+git-ops callers only, so the session that stages, verifies, refuses and re-stages opens a window on
+every cycle, while a raw `git commit` takes the index whole and never fails. Following the rule made
+losing attribution *more* likely here, not less. The real fix is for `commit-to-main` to build its own
+staging state rather than the shared index (P1279's territory, already carrying the hook-window race);
+until then the operational rule is the one above — one call, literal paths, clear index, and never a
+retry loop. Recorded because the class now has four instances and the earlier entries all read as
+"don't leave things staged", which is true and was not the failure here: nothing was left staged, the
+tool staged it and then refused. (Status: proposed — the `commit-to-main` change is not made.)
+**References:** [P1279](../features/done/2026-06-10/p1279_commit_to_main_recorded_a_file_that_was_not_requested.md) · [git.md](../.claude/rules/git.md) · 2026-09-15 [process] below · 2026-09-03 and 2026-08-28 entries
+
+---
+
 ## 2026-09-28 [product]: Desktop event page repeats the RSVP only after a description taller than the viewport (P1365)
 
 **Context:** P844 moved the desktop RSVP above the description and removed the bottom one. Event descriptions have since grown (Clarity Night #2: why now, agenda, preparation, how it differs, sources), so a desktop reader finished a full page below the only button. Mobile never had the problem: its RSVP is a sticky bar.
