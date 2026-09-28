@@ -533,6 +533,7 @@ export function StoryCardDetail({
                   <QuotedPoint
                     point={point}
                     authorName={story.authorName}
+                    storyId={story.id}
                     storyAuthorId={story.authorId}
                     /* P1259 — carries the embed's `routes.profile` override down to the
                        LinkedStoryCard byline route. */
@@ -608,6 +609,7 @@ function QuotedPoint({
   currentUserId,
   hideLinkedStories = false,
   onUnlink,
+  storyId,
   storyAuthorId,
   onClear,
   profileRoute = defaultProfileRoute,
@@ -629,6 +631,8 @@ function QuotedPoint({
   hideLinkedStories?: boolean;
   /** P633: Callback to unlink this point from the story. Author-only. */
   onUnlink?: (pointId: string, statement: string) => void;
+  /** P1364: the quoting story — scopes the remembered expander to this story, not its author. */
+  storyId: string;
   storyAuthorId: string;
   // P847: Wire onClear once at page level. Do not instantiate a per-row guard.
   onClear?: () => void;
@@ -644,7 +648,7 @@ function QuotedPoint({
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(storyAuthorId);
   // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
-  const [storiesExpanded, setStoriesExpanded] = useReturnState(`story-detail-point-stories:${storyAuthorId}:${point.id}`, false);
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`story-detail-point-stories:${storyId}:${point.id}`, false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);

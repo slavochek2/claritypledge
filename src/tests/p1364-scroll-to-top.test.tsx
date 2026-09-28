@@ -68,6 +68,8 @@ beforeEach(() => {
   maxY = 10_000;
   scrollTo.mockClear();
   Object.defineProperty(window, 'scrollY', { configurable: true, get: () => y });
+  // The document grows with its content, as in a browser: height = scrollable range + viewport.
+  Object.defineProperty(document.documentElement, 'scrollHeight', { configurable: true, get: () => maxY + 800 });
   window.scrollTo = scrollTo as unknown as typeof window.scrollTo;
 });
 afterEach(() => {
@@ -244,7 +246,9 @@ function AnchoredCard() {
   const mounted = useRef(false);
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
-    if (open) { y += 300; window.dispatchEvent(new Event('scroll')); }
+    // The card's content grows or shrinks the document (it is what anchoring reacts to).
+    if (open) { maxY += 300; y += 300; window.dispatchEvent(new Event('scroll')); }
+    else maxY -= 300;
   }, [open]);
   return <button type="button" onClick={() => setOpen(o => !o)}>{open ? 'open' : 'closed'}</button>;
 }
@@ -271,3 +275,30 @@ describe('P1364 ScrollToTop — a same-route POP whose cards re-open after the f
   });
 });
 
+
+describe('P1364 ScrollToTop — the restore yields to moves it did not cause (Gemini review)', () => {
+  it('a scrollbar drag (no input event) while the page height is unchanged stops the correction', () => {
+    renderAt();
+    readerScrollsTo(2400);
+    go('/story/1');
+    go(-1);
+    expect(y).toBe(2400);
+    act(() => { vi.advanceTimersByTime(50); });
+    y = 1800; // the reader drags the scrollbar thumb: no wheel/pointer/touch/key event reaches the page
+    act(() => { vi.advanceTimersByTime(50); });
+    expect(y).toBe(1800); // not yanked back
+    act(() => { vi.advanceTimersByTime(RESTORE_WINDOW_MS); });
+    expect(y).toBe(1800);
+  });
+
+  it('the page\'s own scroll (e.g. scrollTo(0,0) on a step change) is not undone', () => {
+    renderAt();
+    readerScrollsTo(2400);
+    go('/story/1');
+    go(-1);
+    act(() => { vi.advanceTimersByTime(50); });
+    y = 0; // the page scrolls itself to the top
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(y).toBe(0);
+  });
+});

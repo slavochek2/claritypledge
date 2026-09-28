@@ -118,14 +118,16 @@ export function ScrollToTop() {
   return null;
 }
 
-/** One animation frame (runs before the next paint); a timer where frames are unavailable. */
-const schedule = (fn: () => void): number =>
+/** One animation frame (runs before the next paint); a timer where frames are unavailable.
+ *  The handle remembers which, so cancelling never hits an unrelated id in the other pool. */
+type Scheduled = { id: number; frame: boolean };
+const schedule = (fn: () => void): Scheduled =>
   typeof window.requestAnimationFrame === "function"
-    ? window.requestAnimationFrame(fn)
-    : (window.setTimeout(fn, RESTORE_RETRY_MS) as unknown as number);
-const unschedule = (id: number) => {
-  if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
-  window.clearTimeout(id);
+    ? { id: window.requestAnimationFrame(fn), frame: true }
+    : { id: window.setTimeout(fn, RESTORE_RETRY_MS) as unknown as number, frame: false };
+const unschedule = (s: Scheduled) => {
+  if (s.frame) window.cancelAnimationFrame(s.id);
+  else window.clearTimeout(s.id);
 };
 
 interface RestoreHandle {
@@ -139,8 +141,13 @@ interface RestoreHandle {
  */
 function restoreScroll(target: number, currentYRef: { current: number }): RestoreHandle {
   const deadline = Date.now() + RESTORE_WINDOW_MS;
-  let timer: number | null = null;
+  let timer: Scheduled | null = null;
   let active = true;
+  // Where the last frame left things. A move off target with the page height unchanged is not
+  // content shifting — it is the reader (a scrollbar drag fires none of READER_INPUT_EVENTS)
+  // or the page's own scroll (an anchor, a walk's scrollTo(0,0)). Either way: stop correcting.
+  let lastY: number | null = null;
+  let lastHeight = -1;
 
   function finish() {
     if (timer !== null) unschedule(timer);
@@ -163,7 +170,14 @@ function restoreScroll(target: number, currentYRef: { current: number }): Restor
   // target only when the position has drifted — a settled page gets no further writes.
   const attempt = () => {
     timer = null;
+    const height = document.documentElement.scrollHeight;
+    if (lastY !== null && Math.abs(window.scrollY - lastY) > 1 && height === lastHeight) {
+      finish();
+      return;
+    }
     if (Math.abs(window.scrollY - target) > 1) window.scrollTo(0, target);
+    lastY = window.scrollY;
+    lastHeight = height;
     if (Date.now() >= deadline) {
       finish();
       return;
