@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [process]: `/view` vs building directly — first head-to-head, direct build judged "a bit better" (P1336)
+
+**Context:** `/view` was retired from routing 2026-08-20 after zero runs, pending "run both on the same feature and compare". P1336 (registration onboarding) needed a clickable `/tree/p1336` prototype, so the comparison was run.
+
+**Method:** two fresh agents, separate worktrees, identical brief (spec, reuse list, 320px constraint, no commits); the only difference was that one invoked `/view` and the other was forbidden to use any build skill. Labels X/Y were sealed before the founder saw them; the founder clicked both and judged blind.
+
+**Result:** the founder picked the direct build: *"5602 seems a bit better?"* Both reached the same key choices on their own: the same 0–10 control as `/meet`, the same reused components, and the same 4px overflow fixed at 320px. Cost was near-identical (~174k vs ~168k tokens, ~6 min each). The `/view` run also wanted `view_locked` and pipeline fields written into the spec and flagged missing Component Strategy/Visual Context sections — process overhead the direct build did not need.
+
+**Decision:** `/view` stays out of routing. The evidence does not show it beats a direct build. It is n=1 with a weak preference, so this is **not** proof the skill is worse; it is the absence of any advantage for its extra artifacts. Falsifier: a future blind comparison where the `/view` output is clearly preferred.
+
+**Consequences:** prototypes keep being built directly on `/tree` (as P1366 was). Deleting the skill is a separate founder call.
+
+---
+
 ## 2026-09-28 [product]: The speaker/listener role badge is a printed two-sided card whose text instructs the partner, not the wearer
 
 **Context:** At the first Clarity Night, strangers drifted into small talk because nothing made them assign speaker and listener roles (2026-09-21 event reflection). A cheap physical token was chosen over a digital one. It is a clear lanyard holder (54×85 mm insert) with tuck-into-shirt as the closed state.
