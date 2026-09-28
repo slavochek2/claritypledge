@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [technical]: Letters play story video in place; a sealed letter does not pick up a video added later (P1368)
+
+**Context:** The st1 story got a video after its letters were sealed. Readers of those letters still saw the image, and once the snapshots were backfilled, pressing play left the letter for `/story/:id` over a blurry 480x360 YouTube thumbnail. P1296 had ruled `LiveStoryCardExpanded` thumbnail-only, to avoid N simultaneous embeds in a scrolling feed or live session.
+**Decision:** `LiveStoryCardExpanded` takes an opt-in `videoMode` (default `'thumbnail'`). The three letter surfaces that show one story at a time (reading, results walk, prediction walk) pass `'player'`: the video plays in the letter, quote timecodes seek that player, and the poster is the story's own image shown whole (`object-contain` on white). P1296's reason (N embeds) does not reach a one-story-at-a-time surface, so this is a carve-out, not a reversal: feeds and live sessions stay thumbnail-only.
+**Alternatives rejected:** Flipping the card to player everywhere (reopens P1296's N-embeds problem). Keeping the thumbnail but pointing it at a sharper image (still navigates the reader out of the letter).
+**Consequences:** Sealed snapshots copy `videoUrl`/`videoQuotes` at seal time and P1141 deliberately did not backfill, so a video added to a story that already sits in sealed letters never reaches those letters on its own. On 2026-09-28 the 8 snapshots of the st1 story were patched by hand on prod (`letter_story_snapshots.point_config`). The same day the public st1-st9 one-to-many letters were set to `responses_mode = 'off'`, which removes explain-back and also the position-story prompts on the results page. A repeatable backfill for later videos is not built; until it is, each new video on an already-lettered story needs the same manual patch.
+**References:** [p1368](../features/done/2026-06-10/p1368_letter_video_plays_inline.md), [p1296](../features/done/2026-06-10/p1296_card_footer_consistency_and_stake_navigation.md)
+
 ## 2026-09-28 [process]: `/view` vs building directly — first head-to-head, direct build judged "a bit better" (P1336)
 
 **Context:** `/view` was retired from routing 2026-08-20 after zero runs, pending "run both on the same feature and compare". P1336 (registration onboarding) needed a clickable `/tree/p1336` prototype, so the comparison was run.

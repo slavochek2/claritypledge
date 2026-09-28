@@ -178,6 +178,7 @@ Last updated: 2026-09-28
 - **P1335** (Sep 26) schema-ready made a required check on main — GH013 refusal names it alone; live test-DB deadlock proof impossible by construction, first real migration push is INBOX-84
 
 ## Letters
+- **P1368** (Sep 28) Letter story video plays in place, sharp poster — sealed snapshots freeze video at seal time; a later video needs a manual snapshot backfill
 
 - **P725** (Apr 17) Letter other-participant identity — shipped with 4 migrations and an E2E suite while its frontmatter still read `backlog`; a spec can be stale in the opposite direction from the usual one.
 - **P1030** (Aug 12) Reverse Story — a story whose experience owner differs from its author; reading strings key off the snapshot marker, not a new column. The align chain that files one had two live contract breaks (`align-create-letter` blocks on "marked approved" and refuses to seal without `PREDICTION`; the writer emitted neither token) — a handoff needs a fixed-key block, and `lead_count: 0` means every point renders AFTER the story, so a context "fact point" would land screens past what it explains
