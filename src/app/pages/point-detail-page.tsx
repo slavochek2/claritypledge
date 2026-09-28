@@ -46,6 +46,7 @@ import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/ap
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { useReturnState } from '@/app/hooks/use-return-state';
 import {
   Dialog,
   DialogContent,
@@ -86,7 +87,8 @@ export function PointDetailPage() {
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
   const [viewerStory, setViewerStory] = useState<AppStory | null>(null);
   // P542: Accordion state — only one story expanded at a time
-  const [expandedHolderId, setExpandedHolderId] = useState<string | null>(null);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [expandedHolderId, setExpandedHolderId] = useReturnState<string | null>('point-holder-expanded', null);
   // P621: Unlink point from story dialog state
   const [unlinkTargetStory, setUnlinkTargetStory] = useState<string | null>(null);
   const [isUnlinking, setIsUnlinking] = useState(false);
@@ -321,7 +323,7 @@ export function PointDetailPage() {
       setIsUnlinking(false);
       setUnlinkTargetStory(null);
     }
-  }, [unlinkTargetStory, point]);
+  }, [unlinkTargetStory, point, setExpandedHolderId]);
 
   // Helper to retry loading
   const handleRetry = useCallback(() => {

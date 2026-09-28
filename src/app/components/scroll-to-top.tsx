@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { forgetPosition, getSavedPosition, rememberPosition, scrollEntryKey } from "@/lib/scroll-positions";
+import { migrateReturnState } from "@/lib/return-state";
 
 /** How long a POP keeps re-applying the saved position while the page's content arrives. */
 export const RESTORE_WINDOW_MS = 1500;
@@ -71,7 +72,11 @@ export function ScrollToTop() {
     // A REPLACE overwrote the previous entry: it can never be returned to, so its saved
     // position goes too — otherwise every search keystroke or tab switch (each a replace with a
     // new key) would take a slot and evict the entries a Back chain needs.
-    if (navigationType === "REPLACE" && prevEntry !== null && prevEntry !== entry) forgetPosition(prevEntry);
+    if (navigationType === "REPLACE" && prevEntry !== null && prevEntry !== entry) {
+      forgetPosition(prevEntry);
+      // …but it is the same VISIT: the cards' open/expanded state moves to the new key.
+      migrateReturnState(prevEntry, entry);
+    }
 
     let restore: RestoreHandle | null = null;
     let restoreTarget: number | null = null;

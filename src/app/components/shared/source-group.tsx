@@ -16,12 +16,13 @@
  * inside it unchanged in shape. A group removes a PLAYER, never a card's controls: every member
  * keeps its full footer, its folded quotes and its points.
  */
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 /** What a member card needs from the group in place of its own player. */
 export interface GroupPlayer {
@@ -43,7 +44,8 @@ export function SourceGroup<T extends { id: string; videoUrl?: string | null; vi
 }: SourceGroupProps<T>) {
   const lead = stories[0];
   const player = useLazyStoryPlayer(!!parseVideoUrl(lead?.videoUrl));
-  const [showAll, setShowAll] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [showAll, setShowAll] = useReturnState(`source-group:${lead?.id ?? ''}`, false);
   const headingId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const focusRevealedRef = useRef(false);

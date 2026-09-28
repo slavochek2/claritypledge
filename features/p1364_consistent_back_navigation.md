@@ -130,6 +130,11 @@ Causes, verified by reading the code (not yet reproduced in a browser):
   - joins the cache on the same terms: served on POP only; key = viewer id + path; cleared on auth change; covered by the own-write invalidation;
   - it caches the lists the reader scrolls (stories, points, the viewer's link maps) **and** what renders above them (profile, agreements, calibration, ears, badges), so the restore target exists at mount;
   - on POP the lists are not refetched. The header data comes from tables the invalidation does not track (profiles, agreements, calibration), so it revalidates silently instead: no spinner and no reset, and the page moves only if that data changed.
+- **What was open** (founder: *"if it comes back, should it remember that a specific point was open, e.g.? or story open?"*): each card's open/expanded state is remembered **per history entry** by `useReturnState(id, default)`:
+  - covers a feed point's linked stories and "show more"; a feed story's linked points and "show more"; the grouped-source fold (P1296); the profile story card's points and text; the shared point and story cards' expanders; and the point page's expanded holder;
+  - kept in memory next to the scroll positions, under the same key (`location.key + pathname + search`) and the same cap. It is not in the URL, so a shared link always opens collapsed, and not in the list cache, because that is per list, not per visit;
+  - restored only on POP. A PUSH (a link, the nav's Feed) starts collapsed. A REPLACE (a tab, the search box) is the same visit, so the state moves with it;
+  - read while the card first renders, so the expanded card is in the DOM before the scroll restore runs and the saved pixel position still lands on it.
 - **Org `/org/:slug`**: no cache. Its tabs list events, members and an About text, not stories or points, and each list is a single fetch, so the retry restore is enough.
 
 ### 6. Feed URL state
@@ -219,6 +224,7 @@ Scroll ACs are asserted in **Playwright against a real layout**, not jsdom: "sam
 - [ ] Org, tab X → open an item → Back: same tab (retry restore for position).
 - [ ] `/letters` tab clicks add no Back steps: one Back leaves the page.
 - [ ] `/point/:id` holders filter and `/letter/:id/results` walk position survive open-item → Back.
+- [ ] Feed: expand a point's stories, scroll → open one of its linked stories → Back: that card is still expanded and is the first visible card. Arriving by a link or the nav (a PUSH) shows every card collapsed.
 - [ ] The drift guard test fails when a new `FocusHeader onBack=` or an executable `navigate(-1)` is added outside the allowlist, and passes on the finished tree.
 - [ ] Existing navigation tests (`p1296-*`, `p1307-go-back`, `p1179-*`, `p1323-*`) pass; any test that asserted a removed destination label is updated with the reason noted in the commit.
 

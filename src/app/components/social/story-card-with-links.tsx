@@ -4,7 +4,7 @@
  * Refactored from prototype to accept explicit props instead of using mock data
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin, Unlink2 } from 'lucide-react';
 import { linkifyText } from '@/app/utils/linkify';
 import { EarBadge } from '@/components/ui/ear-badge';
@@ -35,6 +35,7 @@ import { parseVideoUrl } from '@/lib/video';
 import { stripHashtags } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -115,14 +116,15 @@ export function StoryCardWithLinks({
    */
   const player = useLazyStoryPlayer(!!parseVideoUrl(story.videoUrl));
   // Points collapsed by default — position badge outside quoted box already shows author's stance
-  const [pointsExpanded, setPointsExpanded] = useState(isDetailView || isExpanded);
-  const [textExpanded, setTextExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [pointsExpanded, setPointsExpanded] = useReturnState(`story-card-points:${story.id}`, isDetailView || isExpanded);
+  const [textExpanded, setTextExpanded] = useReturnState(`story-card-text:${story.id}`, false);
 
   // Toggle linked points expansion (works in both embed and regular mode)
   const handlePointsToggle = () => {
     setPointsExpanded(!pointsExpanded);
   };
-  useEffect(() => { setTextExpanded(false); }, [story.id]);
+  // (A different story in this card re-reads its own state — useReturnState keys on story.id.)
   const isAuthor = currentUserId ? story.authorId === currentUserId : false;
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);

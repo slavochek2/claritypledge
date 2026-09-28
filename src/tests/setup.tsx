@@ -2,6 +2,7 @@ import '@testing-library/jest-dom';
 import { afterEach, vi } from 'vitest';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { __savedPositionsForTest } from '@/lib/scroll-positions';
+import { __returnStateForTest } from '@/lib/return-state';
 
 // P1364: the Back caches are module state by design (a module Map, per the spec). A
 // MemoryRouter's first render is a POP — the navigation the list cache serves — so without a
@@ -9,6 +10,7 @@ import { __savedPositionsForTest } from '@/lib/scroll-positions';
 afterEach(() => {
   clearListReturnCache();
   __savedPositionsForTest().clear();
+  __returnStateForTest().clear();
 });
 
 // Mock react-helmet-async to prevent "Cannot read properties of undefined (reading 'add')" errors

@@ -44,6 +44,7 @@ import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
 import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -185,7 +186,8 @@ export function PointCardWithLinks({
     }
     return null;
   });
-  const [storiesExpanded, setStoriesExpanded] = useState(isExpanded);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`point-card-stories:${point.id}`, isExpanded);
 
   const handleStoriesToggle = () => {
     setStoriesExpanded(!storiesExpanded);

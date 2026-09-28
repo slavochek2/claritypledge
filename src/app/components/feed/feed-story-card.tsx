@@ -5,7 +5,7 @@
  * Blue left border. Clickable → navigates to /story/:id.
  */
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +31,7 @@ import type { Position } from '@/app/types';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 interface FeedStoryCardProps {
   story: StoryWithAuthor;
@@ -85,8 +86,9 @@ export function FeedStoryCard({
 }: FeedStoryCardProps) {
   const navigate = useNavigate();
   const textRef = useRef<HTMLParagraphElement>(null);
-  const [textExpanded, setTextExpanded] = useState(false);
-  const [pointsExpanded, setPointsExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [textExpanded, setTextExpanded] = useReturnState(`feed-story-text:${story.id}`, false);
+  const [pointsExpanded, setPointsExpanded] = useReturnState(`feed-story-points:${story.id}`, false);
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
   const isAuthor = !!currentUserId && currentUserId === story.authorId;

@@ -32,6 +32,7 @@ import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/s
 import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
+import { useReturnState } from '@/app/hooks/use-return-state';
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -64,8 +65,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   // P594: Expand/collapse for truncated text. P1296 item 6: measured by the shared hook the
   // story cards use (P1259 change 6), so a resize or a late webfont re-measures too.
   const statementRef = useRef<HTMLParagraphElement>(null);
-  const [statementExpanded, setStatementExpanded] = useState(false);
-  const [storiesExpanded, setStoriesExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [statementExpanded, setStatementExpanded] = useReturnState(`feed-point-text:${point.id}`, false);
+  const [storiesExpanded, setStoriesExpanded] = useReturnState(`feed-point-stories:${point.id}`, false);
   const statementOverflows = useTextOverflow(statementRef, [point.statement]);
 
   // Optimistic position state

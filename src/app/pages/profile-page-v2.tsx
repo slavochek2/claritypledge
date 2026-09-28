@@ -94,6 +94,7 @@ import type { PositionType, PositionButtonGroup, StoryVisibility } from "@/app/t
 import type { Position } from "@/app/components/shared/prototype-types";
 import { toSevenPointCounts, getPositionGroup } from "@/app/utils/position-helpers";
 import { formatTimeAgo } from "@/app/utils/format-time";
+import { useReturnState } from '@/app/hooks/use-return-state';
 // Profile owner context for card components
 interface ProfileOwner {
   id: string;
@@ -1446,8 +1447,9 @@ function StoryCardFull({
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const [pointsExpanded, setPointsExpanded] = useState(false);
-  const [storyExpanded, setStoryExpanded] = useState(false);
+  // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
+  const [pointsExpanded, setPointsExpanded] = useReturnState(`profile-story-points:${story.id}`, false);
+  const [storyExpanded, setStoryExpanded] = useReturnState(`profile-story-text:${story.id}`, false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
