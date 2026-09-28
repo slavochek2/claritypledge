@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 96
+**Next ID:** 100
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1749,3 +1749,46 @@ P1367 S4 asks both specs to carry a one-line pointer: in-person Clarity Nights r
 
 ---
 
+## Check whether share-dropdown's non-modal menu lets a dismissing tap through
+
+**ID:** INBOX-96
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+P1366 proved a non-modal Radix DropdownMenu lets the tap that closes it also fire what is underneath (card navigation, a position write); the card menu was switched to modal with actions deferred to onCloseAutoFocus. src/app/components/shared/share-dropdown.tsx still uses modal={false}. Reproduce with an outside-tap test; fix the same way if it leaks, drop this if nothing under it is clickable.
+
+---
+
+## Own profile Points tab keeps a story after it is edited or deleted in the Stories tab
+
+**ID:** INBOX-97
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+Pre-existing on main, found in P1366 review: StoryCardFull's onDelete and onUpdate change only realStories, so after deleting your story the Points tab still shows the Your story expander (and no + Add a story) until reload; after an edit it shows the old text. Fix by updating the points' linked stories and viewerStoryCountMap too, or refetching. Drop if profile-page-v2 is replaced first.
+
+---
+
+## Triage the 15 e2e tests that already fail on main in the card-footer specs
+
+**ID:** INBOX-98
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** week
+
+Measured in P1366 with a baseline worktree at the base commit: 15 tests fail on main and on the branch alike, across e2e/a11y/p465-accessibility.spec.ts (10), p1296-stake-navigation.spec.ts (2), p456-story-cta-footer.spec.ts, p465-point-card-footer.spec.ts and p699-letter-results-sender.spec.ts. Causes seen: page.waitForLoadState('networkidle') timeouts (p465 uses it 20 times), fetch failed in setup, assertions on the pre-P1366 design (edit/delete icon buttons now inside the card menu). Rewrite, or delete tests the layout spec now covers. Done when the six specs pass twice in a row.
+
+---
+
+## A point listed in the anonymous feed opens Point not found on its page
+
+**ID:** INBOX-99
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** month
+
+Seen on the test DB during P1366 verification, identical on main: a point card in the logged-out /feed opens /point/:id, which renders Point not found. The feed's visibility filter and the point page's disagree for some rows. Find which rows and align the two, or drop if it only affects e2e fixture points.
+
+---
