@@ -516,6 +516,7 @@ export async function submitRatingByToken(
     p_story_id: storyId,
     p_rating: rating,
   });
+  clearListReturnCache(); // P1364: the RPC inserts story_verifications (the cards' understood count)
   if (error) {
     throwDbError('submitRatingByToken', error, `Failed to submit rating: ${error.message}`);
   }
