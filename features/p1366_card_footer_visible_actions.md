@@ -46,7 +46,8 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
 - **Bottom row, right — open the card's page:** an outlined secondary button **`Details →`, always visible on every device**. No hover-reveal. Replaces the external-link icon everywhere on list cards.
 - **Desktop hover:** the whole card's border highlights (also on `:focus-within`), confirming the card is clickable. Nothing appears, grows or moves.
 - **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. A person has at most one story per point (DB unique `story_points` author+point, `20260301120000_story_points_author_unique.sql`), so on a profile the count is only ever 0 or 1: the expander drops the number and reads `Maya's story` (first name), or `Your story` on one's own profile; with 0 it is absent. Feed and stake keep `N stories`. The full set is one tap away via `Details →`.
-- **Zero counts:** the expander renders only when the count is > 0 (no dead button). With 0 and a viewer-slot link, the link alone; with 0 and no link, plain `0 stories` / `0 points` text (today's copy).
+- **Zero counts:** the expander renders only when the count is > 0 (no dead button). With 0 and a viewer-slot link, the link alone; with 0 and no link, plain `0 stories` / `0 points` text (today's copy) — **except on a profile**, where zero with no link shows nothing (only `Details →`): the count there is the owner's, so `0 stories` would contradict the feed's total, the same reason the expander names the owner (founder decision 2026-09-28, resolving the spec's two readings).
+- **On someone else's profile the bottom row sits under the grey quote box, full card width** — the same place as on one's own profile and the feed; inside the box it got 249px at 375 and truncated the owner's name to `May…` at 320 (founder decision 2026-09-28, chosen from a side-by-side `/tree` render at measured widths).
 - **The `⋯` menu joins the top row that exists on each real card** — `FeedPointCard`: the statement row; `PointCardWithLinks`: the profile-owner quote row, or the statement row on one's own profile (no quote row there, `:273`); story cards: the author row. There is no "POINT" label on real cards; the prototype's label is a stand-in.
 - **The `⋯` menu keeps the propagation guard**: it sits in its own `role="presentation"` wrapper that stops clicks, so opening the menu, `Share` → "Copy link", `Edit` and `Delete` never also navigate.
 - **Loading:** while linked stories load, the expander and slot reserve their height (no layout jump).
@@ -60,6 +61,8 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
 
 **Copy change is global:** `getPositionCTACopy` (`position-helpers.ts:44`) changes to `+ Add a story`, so every surface that uses it (list cards, `story-card-with-links.tsx`, `StoryCardDetail.tsx`) says the same thing — founder decision 2026-09-28. `AddPointPill` becomes `+ Add a point`.
 
+**This reverses P579 on other people's profiles** (`features/done/22_mar_22/p579_remove_profile_story_cta.md` removed the story invite there for a broken feedback loop). `✓ Your story` now closes that loop — once written, the invite becomes a route to the story — so the reason P579 gave no longer holds.
+
 These replace today's divergence: the `+ Add your story` pill appears on the profile only when it is the viewer's own profile (`point-card-with-links.tsx:281`), the `✏ your story` link only off it (`:417`), so on one's own profile a written story has no route from the card; the feed point card has its own pill and edit link (`feed-point-card.tsx:310`).
 
 ## Risks / Non-Goals
@@ -68,6 +71,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 |---|---|---|
 | Solid blue expander on every card competes with the page's primary CTA (P955 "one primary per view") | ACCEPT | Founder chose reading as the loud action. The P955 gate only checks `/tree/_gate/` fixtures and full-width primaries, so it will not fire here — its pass is not evidence. Visual QA must judge the Hierarchy item against the feed's top CTA. |
 | At 320px the point card carrying both `N stories` and `+ Add a story` wraps to two lines | ACCEPT | Measured in the prototype; 375px and wider fit on one line. |
+| On someone else's profile, `<First>'s story` plus a viewer link (`+ Add a story` / `✓ Your story`) wraps to two lines at 375 too (~331px of controls, 291px row) | ACCEPT | Founder decision 2026-09-28, measured on a real profile; shortening the owner label was ruled out because it is the fix for the count contradiction. |
 | Share becomes two taps (inside `⋯`), away from where P1296 put it | ACCEPT | Prod Mixpanel, last 90 days to 2026-09-28: `feed_card_shared` fired 2 times against 8,248 page views. |
 | Card roots are `role="button"` containing buttons (nested interactive controls, pre-existing since P1296) | DEFER | Not introduced here; a semantics refactor (root as container, `Details` as the real link) is its own spec. |
 | `⋯` holds only `Share` on most cards (a one-item menu) | ACCEPT | Founder chose one consistent corner rule over showing the share icon directly; share is used ~2×/90 days. |
@@ -96,7 +100,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [ ] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [ ] The point detail page, an embed and live-session cards look as before (screenshot compare).
 - [ ] A story's author sees `+ Add a point` on their story card; other viewers see no extra link.
-- [ ] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card); at 320px nothing overflows the card, including a long author name next to `⋯`.
+- [ ] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card) — except the founder-accepted two-line case on someone else's profile (owner story + viewer link); at 320px nothing overflows the card, no control overlaps another, including a long author name next to `⋯`.
 - [ ] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
 
 ## UI Contract

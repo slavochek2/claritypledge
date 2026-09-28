@@ -19,6 +19,7 @@ import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
+import { pointsService } from '@/app/data/points-service';
 
 const track = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track } }));
@@ -93,6 +94,7 @@ const withPosition = makePoint({ userPosition: { position: 'agree' } } as Partia
 
 beforeEach(() => {
   cleanup();
+  vi.mocked(pointsService.setPosition).mockClear();
   navigate.mockClear();
   track.mockClear();
   session.current = { user: { id: 'viewer-1' } };
@@ -122,6 +124,22 @@ describe('P1366 — feed/stake point card', () => {
     fireEvent.click(expander);
     expect(expander.getAttribute('aria-expanded')).toBe('true');
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('a long label can never overflow the expander: the button shrinks (min-w-0), the label truncates, the chevron does not', () => {
+    renderPoint(makePoint(), stories(2));
+    const expander = screen.getByTestId('feed-point-story-expander');
+    expect(expander.className).toContain('min-w-0');
+    expect(expander.className).toContain('max-w-full');
+    // nowrap lives on the label (via `truncate`), not the button — otherwise it defeats truncation
+    expect(expander.className).not.toContain('whitespace-nowrap');
+    const label = within(expander).getByText('2 stories');
+    expect(label.className).toContain('truncate');
+    expect(expander.querySelector('svg')!.getAttribute('class')).toContain('shrink-0');
+    // the left group yields to Details
+    expect(expander.parentElement!.className).toContain('min-w-0');
+    // the accessible name is still the whole label
+    expect(screen.getByRole('button', { name: '2 stories', exact: true })).toBe(expander);
   });
 
   it('singular and three-digit counts', () => {
@@ -282,7 +300,9 @@ describe('P1366 — feed/stake point card', () => {
     renderPoint(makePoint(), []);
     await user.click(screen.getByRole('button', { name: 'More actions for this point' }));
     await screen.findByRole('menu');
-    await user.click(document.body);
+    // The menu is modal, so <body> is inert (pointer-events: none) while it is open; an outside
+    // tap lands on the page root — that is what dismisses it.
+    await user.pointer({ keys: '[MouseLeft]', target: document.documentElement });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
@@ -309,22 +329,32 @@ describe('P1366 — feed/stake story card', () => {
   it('zero points, not the author: plain "0 points", no link', () => {
     renderStory({ linkedPoints: [], currentUserId: 'viewer-1' });
     expect(screen.getByText('0 points').tagName).toBe('SPAN');
-    expect(screen.queryByRole('button', { name: '+ Add a point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a point to this story' })).toBeNull();
   });
 
   it('zero points, the author: "+ Add a point" alone, to the add-point form', () => {
     renderStory({ linkedPoints: [], currentUserId: 'author-1' });
     expect(screen.queryByText('0 points')).toBeNull();
-    const add = screen.getByRole('button', { name: '+ Add a point' });
+    const add = screen.getByRole('button', { name: 'Add a point to this story' });
+    expect(add.textContent).toBe('+ Add a point');
     expect(add.className).toContain('text-blue-700');
     fireEvent.click(add);
     expect(navigate).toHaveBeenCalledWith('/story/story-1?addPoint=true');
   });
 
+  it('the author\'s "+ Add a point" does not wait for the links: shown while they load (and if their fetch fails)', () => {
+    renderStory({ linkedPoints: undefined, currentUserId: 'author-1' });
+    expect(screen.getByRole('button', { name: 'Add a point to this story' })).toBeTruthy();
+    // the count still waits — "not loaded" must not read as "0 points"
+    expect(screen.queryByText('0 points')).toBeNull();
+    expect(screen.queryByTestId('feed-story-point-expander')).toBeNull();
+    expect(screen.getByTestId('card-footer-loading').className).toContain('h-10');
+  });
+
   it('points + the author: expander and "+ Add a point"', () => {
     renderStory({ linkedPoints: points(2), currentUserId: 'author-1' });
     expect(screen.getByTestId('feed-story-point-expander').textContent).toBe('2 points');
-    expect(screen.getByRole('button', { name: '+ Add a point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a point to this story' })).toBeTruthy();
   });
 
   it('Details → opens the story; no open-in-new icon', () => {
@@ -429,6 +459,17 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expect(screen.getByRole('button', { name: 'Details for this point' })).toBeTruthy();
   });
 
+  it('an owner with no display name: the expander falls back to the count, never "\'s story"', () => {
+    renderProfile({ profileOwner: { ...owner, name: '' }, linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
+    expectSolidExpander(screen.getByRole('button', { name: '1 story' }));
+    expect(screen.queryByText(/^'s story$/)).toBeNull();
+  });
+
+  it('an owner whose name is only whitespace: the same fallback', () => {
+    renderProfile({ profileOwner: { ...owner, name: '   ' }, linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
+    expect(screen.getByRole('button', { name: '1 story' })).toBeTruthy();
+  });
+
   it("someone else's profile, I wrote a story here: ✓ Your story opens it to read", () => {
     renderProfile({
       point: protoPoint({ 'viewer-1': { position: 'agree' } }),
@@ -505,6 +546,39 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expect(screen.queryByRole('button', { name: 'Share point' })).toBeNull();
   });
 
+  /**
+   * FOUNDER DECISION 2026-09-28 (after the /tree placement demo): on someone ELSE's profile the
+   * bottom row leaves the grey quote box and runs the card's full width — the same card-level row
+   * the own-profile card has. Inside the box it had only 249px at 375, and `Maya's story` +
+   * `+ Add a story` + `Details →` needs ~331px.
+   */
+  it("someone else's profile: the footer row is a card-level row, NOT inside the grey quote box", () => {
+    const { container } = renderProfile({ linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
+    const root = container.querySelector('[role="button"]')!;
+    const quoteBox = root.querySelector('.bg-gray-50')!;
+    expect(quoteBox).toBeTruthy(); // the quote pattern is what renders here
+    const details = screen.getByRole('button', { name: 'Details for this point', exact: true });
+    expect(quoteBox.contains(details)).toBe(false);
+    // the row wrapper is a direct child of the card root, with the plain branch's classes
+    const row = details.closest('[role="presentation"]')!;
+    expect(row.parentElement).toBe(root);
+    expect(row.className).toBe('pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border');
+    // exactly one footer
+    expect(screen.getAllByRole('button', { name: 'Details for this point', exact: true })).toHaveLength(1);
+  });
+
+  it("one's own profile (plain branch): the same card-level row", () => {
+    const { container } = renderProfile({
+      point: protoPoint({ 'owner-1': { position: 'agree' } }),
+      linkedStories: [ownerStory('owner-1')],
+      currentUserId: 'owner-1',
+    });
+    const root = container.querySelector('[role="button"]')!;
+    const row = screen.getByRole('button', { name: 'Details for this point', exact: true }).closest('[role="presentation"]')!;
+    expect(row.parentElement).toBe(root);
+    expect(row.className).toBe('pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border');
+  });
+
   it('the card highlights its border on hover and focus-within', () => {
     const { container } = renderProfile({ linkedStories: [], currentUserId: 'viewer-1' });
     const root = container.querySelector('[role="button"]')!;
@@ -514,6 +588,93 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+describe('P1366 — the ⋯ menu is MODAL: a tap outside only dismisses it', () => {
+  /**
+   * Review finding (HIGH). A non-modal menu let the tap that dismisses it ALSO land on whatever
+   * was under it — the card (navigation) or a position button (a data write). A modal Radix menu
+   * makes the rest of the page inert to the pointer while it is open (`pointer-events: none` on
+   * <body>), exactly as a browser hit-tests it; user-event honours that and refuses the click, so
+   * the assertions below are the browser's behaviour, not a jsdom artefact. The dismissing tap
+   * then lands on the page root, which is what closes the menu.
+   */
+  async function openMenu(user: ReturnType<typeof userEvent.setup>, type: 'point' | 'story') {
+    await user.click(screen.getByRole('button', { name: `More actions for this ${type}` }));
+    await screen.findByRole('menu');
+  }
+  async function tapOutside(user: ReturnType<typeof userEvent.setup>) {
+    await user.pointer({ keys: '[MouseLeft]', target: document.documentElement });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  }
+
+  it('point card: tapping the card body to dismiss never navigates', async () => {
+    const user = userEvent.setup();
+    renderPoint(makePoint(), []);
+    await openMenu(user, 'point');
+    expect(document.body.style.pointerEvents).toBe('none');
+    await expect(user.click(screen.getByText('A point statement.'))).rejects.toThrow(/pointer-events/);
+    await tapOutside(user);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(document.body.style.pointerEvents).not.toBe('none');
+  });
+
+  it('point card: tapping a position button to dismiss never writes a position', async () => {
+    const user = userEvent.setup();
+    renderPoint(makePoint(), []);
+    const position = screen.getByTestId('disagree-group');
+    await openMenu(user, 'point');
+    await expect(user.click(position)).rejects.toThrow(/pointer-events/);
+    await tapOutside(user);
+    expect(vi.mocked(pointsService.setPosition)).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    // …and once the menu is gone the page is live again: the same tap now takes a position
+    await user.click(position);
+    await waitFor(() => expect(vi.mocked(pointsService.setPosition)).toHaveBeenCalledTimes(1));
+  });
+
+  it('story card: tapping the card body to dismiss never navigates', async () => {
+    const user = userEvent.setup();
+    renderStory();
+    await openMenu(user, 'story');
+    await expect(user.click(screen.getByText('A story body.'))).rejects.toThrow(/pointer-events/);
+    await tapOutside(user);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('menu → Share → close the sheet, twice: the sheet opens only after the menu closed, and <body> is never left inert', async () => {
+    const user = userEvent.setup();
+    renderPoint(makePoint(), []);
+    const trigger = screen.getByRole('button', { name: 'More actions for this point' });
+    for (let i = 0; i < 2; i++) {
+      await user.click(trigger);
+      await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
+      const sheet = await screen.findByRole('dialog');
+      expect(screen.queryByRole('menu')).toBeNull();
+      await user.click(within(sheet).getByRole('button', { name: /close/i }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe('none'));
+    }
+    expect(track).toHaveBeenCalledTimes(2);
+    expect(navigate).not.toHaveBeenCalled();
+    // the page is usable afterwards
+    await user.click(screen.getByRole('button', { name: 'Details for this point' }));
+    expect(navigate).toHaveBeenCalledWith('/point/point-1');
+  });
+
+  it('menu → Share → Escape: focus returns to the ⋯ and <body> is live', async () => {
+    const user = userEvent.setup();
+    renderStory();
+    const trigger = screen.getByRole('button', { name: 'More actions for this story' });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
+    await screen.findByRole('dialog');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(document.body.style.pointerEvents).not.toBe('none');
+    expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
 describe('P1366 — surfaces OUT of scope keep main\'s footer', () => {
   const protoPoint = () => ({
     id: 'pt-2', text: 'Detail-page point.', createdAt: '2026-09-01T00:00:00Z',
@@ -539,6 +700,24 @@ describe('P1366 — surfaces OUT of scope keep main\'s footer', () => {
     );
     expect(screen.getByRole('button', { name: 'Open point' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /More actions/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Details/ })).toBeNull();
+  });
+
+  it("embed of someone's point (quote pattern, no list surface): main's footer stays INSIDE the quote box", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/point/pt-2?embed=true&from=owner-7']}>
+        <PointCardWithLinks
+          point={protoPoint()}
+          linkedStories={[]}
+          profileOwner={{ id: 'owner-7', name: 'Embed Owner', position: 'agree' }}
+          currentUserId="viewer-7"
+        />
+      </MemoryRouter>,
+    );
+    const quoteBox = container.querySelector('.bg-gray-50')!;
+    expect(quoteBox).toBeTruthy();
+    const open = screen.getByRole('button', { name: 'Open point' });
+    expect(quoteBox.contains(open)).toBe(true);
     expect(screen.queryByRole('button', { name: /Details/ })).toBeNull();
   });
 

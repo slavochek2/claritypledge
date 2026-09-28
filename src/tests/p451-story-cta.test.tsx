@@ -55,20 +55,25 @@ const linkedPointWithPosition: Point = {
 const AGREE_CTA_LINKS = '+ Add a story';
 
 describe('P451/P465: PointCardWithLinks story CTA', () => {
-  // P579: CTA removed from non-own-profile cards (broken feedback loop — result invisible on card)
-  // P560 originally added position-gate-free CTA, but P579 removes it from other profiles
-  it('hides CTA on non-own-profile cards (P579)', () => {
+  // P1366 REVERSES P579 on other people's profiles. P579 removed the CTA from non-own-profile
+  // cards; P1366's spec AC reads "A viewer with a position and no story sees `+ Add a story` … on
+  // the feed, stake pages and other people's profiles". This is the real other-profile list case:
+  // the profile LIST (shareSurface="profile"), an owner who is not the viewer, a viewer who holds
+  // a position on the point and has no story on it.
+  it('shows the CTA on someone else\'s profile to a viewer with a position and no story (P1366 reverses P579)', () => {
     render(
       <BrowserRouter>
         <PointCardWithLinks
-          point={linkedPoint}
+          point={linkedPointWithPosition}
           currentUserId={CURRENT_USER}
-          isDetailView
+          profileOwner={{ id: 'owner-9', name: 'Other Owner', position: 'disagree' }}
+          viewerStoryCount={0}
+          shareSurface="profile"
         />
       </BrowserRouter>
     );
-    // P579: CTA not visible on cards without profileOwner (non-own-profile context)
-    expect(screen.queryByText(AGREE_CTA_LINKS)).toBeNull();
+    expect(screen.getByText(AGREE_CTA_LINKS)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add a story for this point' })).toBeInTheDocument();
   });
 
   it('shows position-aware CTA after staking a position (no P451 blue button)', () => {

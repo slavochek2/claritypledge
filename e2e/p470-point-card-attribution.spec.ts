@@ -71,8 +71,8 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     // This is correct behavior: we assert it explicitly so a change to this policy
     // (e.g. making private stories visible) forces a conscious test update.
     // P1366: zero → no expander; the visitor holds a position, so their link stands alone.
-    await expect(page.getByRole('button', { name: /add a story for this point/i })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: "P470's story" })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Add a story for this point', exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: "P470's story", exact: true })).toHaveCount(0);
   });
 
   test('visitor with position sees "+ Add a story" CTA when owner has private story', async ({ page }) => {
@@ -127,7 +127,7 @@ test.describe('Flow 2 — Visitor sees public owner story attribution correctly'
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('button', { name: "P470's story" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: "P470's story", exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test('visitor without position sees no "+ Add a story" CTA', async ({ page }) => {

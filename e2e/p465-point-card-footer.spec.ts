@@ -56,7 +56,7 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const cta = page.getByRole('button', { name: /add a story for this point/i });
+    const cta = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await expect(cta).toBeVisible();
   });
 
@@ -76,7 +76,7 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('button', { name: /add a story for this point/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add a story for this point', exact: true })).toBeVisible();
     expect(await page.getByText(/0 stories/i).count()).toBe(0);
   });
 
@@ -86,7 +86,7 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const cta = page.getByRole('button', { name: /add a story for this point/i });
+    const cta = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await expect(cta).toBeVisible();
     // left group → the row that also holds `Details →`
     const row = cta.locator('xpath=../..');
@@ -131,7 +131,7 @@ test.describe('Flow 2 — Own profile, story exists: CTA hidden, no count duplic
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add a story for this point/i })
+      page.getByRole('button', { name: 'Add a story for this point', exact: true })
     ).not.toBeVisible();
   });
 
@@ -142,8 +142,8 @@ test.describe('Flow 2 — Own profile, story exists: CTA hidden, no count duplic
     await page.waitForLoadState('networkidle');
 
     // Duplication would show 2 — this is the core regression check for P465
-    await expect(page.getByRole('button', { name: 'Your story' })).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Your story' })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: 'Your story', exact: true })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Your story', exact: true })).toHaveAttribute('aria-expanded', 'false');
   });
 });
 
@@ -187,7 +187,7 @@ test.describe('Flow 3 — Other profile: P1366 invites the viewer too', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add a story for this point/i })
+      page.getByRole('button', { name: 'Add a story for this point', exact: true })
     ).toBeVisible();
   });
 
@@ -198,7 +198,7 @@ test.describe('Flow 3 — Other profile: P1366 invites the viewer too', () => {
     await page.waitForLoadState('networkidle');
 
     // P1366: the expander names the owner by first name ("P465 F3 Owner" → "P465's story").
-    await expect(page.getByRole('button', { name: "P465's story" })).toBeVisible();
+    await expect(page.getByRole('button', { name: "P465's story", exact: true })).toBeVisible();
   });
 });
 
@@ -252,7 +252,7 @@ test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, ✓ Your 
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add a story for this point/i })
+      page.getByRole('button', { name: 'Add a story for this point', exact: true })
     ).not.toBeVisible();
   });
 
@@ -262,7 +262,7 @@ test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, ✓ Your 
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const mine = page.getByRole('button', { name: 'Your story' });
+    const mine = page.getByRole('button', { name: 'Your story', exact: true });
     await expect(mine).toBeVisible();
     await mine.click();
     await expect(page).toHaveURL(new RegExp(`/story/${viewerStoryId}$`));

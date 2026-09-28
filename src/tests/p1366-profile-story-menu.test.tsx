@@ -148,6 +148,10 @@ describe("P1366 — the owner's story card on their own profile", () => {
     await waitFor(() => expect(document.activeElement).toBe(textarea));
     expect(screen.queryByRole('button', { name: 'More actions for this story' })).toBeNull();
     expect(navigate).not.toHaveBeenCalled();
+    // the modal menu's inert <body> is released — the editor is usable
+    expect(document.body.style.pointerEvents).not.toBe('none');
+    await user.type(textarea, ' More.');
+    expect((textarea as HTMLTextAreaElement).value).toBe('The owner wrote this story. More.');
     // Cancel brings the menu back
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(menuTrigger()).toBeTruthy();
@@ -159,8 +163,11 @@ describe("P1366 — the owner's story card on their own profile", () => {
     await renderProfile();
     await user.click(menuTrigger());
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
-    expect(confirm).toHaveBeenCalledWith('Delete this story? This cannot be undone.');
+    // the confirmation is asked once the menu has closed
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith('Delete this story? This cannot be undone.'));
+    expect(screen.queryByRole('menu')).toBeNull();
     expect(deleteStory).not.toHaveBeenCalled();
+    expect(document.body.style.pointerEvents).not.toBe('none');
     expect(navigate).not.toHaveBeenCalled();
     confirm.mockRestore();
   });
@@ -204,7 +211,7 @@ describe("P1366 — the owner's story card on their own profile", () => {
     const user = userEvent.setup();
     await renderProfile();
     expect(screen.queryByText('0 points')).toBeNull();
-    await user.click(screen.getByRole('button', { name: '+ Add a point' }));
+    await user.click(screen.getByRole('button', { name: 'Add a point to this story' }));
     expect(navigate).toHaveBeenLastCalledWith('/story/story-1?addPoint=true');
     await user.click(screen.getByRole('button', { name: 'Details for this story' }));
     expect(navigate).toHaveBeenLastCalledWith('/story/story-1');
@@ -228,7 +235,7 @@ describe("P1366 — someone else's story card on a profile", () => {
 
   it('no + Add a point for a non-author; zero points reads "0 points"', async () => {
     await renderProfile();
-    expect(screen.queryByRole('button', { name: '+ Add a point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a point to this story' })).toBeNull();
     expect(screen.getByText('0 points')).toBeTruthy();
   });
 });

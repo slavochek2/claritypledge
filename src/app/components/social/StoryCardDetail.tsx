@@ -847,7 +847,7 @@ function QuotedPoint({
                     onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
                     className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
                   >
-                    + Add story
+                    + Add a story
                   </button>
                 </div>
               )}

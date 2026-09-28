@@ -178,13 +178,13 @@ describe('P1296 — the story card footer', () => {
 
   it("the story's AUTHOR sees + Add a point, and it goes to the story's add-point form", () => {
     renderStory({ currentUserId: 'author-1' });
-    fireEvent.click(screen.getByRole('button', { name: '+ Add a point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a point to this story' }));
     expect(navigate).toHaveBeenCalledWith('/story/story-1?addPoint=true');
   });
 
   it('anyone else sees no + Add a point', () => {
     renderStory({ currentUserId: 'viewer-1' });
-    expect(screen.queryByRole('button', { name: '+ Add a point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a point to this story' })).toBeNull();
   });
 
   it('the count waits for the links: nothing while not loaded, "0 points" once loaded and empty', () => {

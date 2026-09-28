@@ -57,7 +57,7 @@ const ICON_BUTTON =
 
 /** Prototype K's expander (`STORIES_CLASS.i`): the card's loud, labelled action. */
 const EXPANDER =
-  `inline-flex h-10 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap ${FOCUS_RING}`;
+  `inline-flex h-10 min-w-0 max-w-full items-center gap-1.5 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors ${FOCUS_RING}`;
 
 /** Prototype K's `ADD_LINK`: the viewer's slot, a blue text link with a 40px hit area. */
 const SLOT_LINK =
@@ -73,8 +73,14 @@ type CardType = 'story' | 'point';
 
 /**
  * The bottom row's layout: engagement controls on the left (they wrap below 375px rather than
- * overflow), `Details →` pinned right. While the card's links are still loading, the left side
- * holds an h-10 placeholder so nothing jumps when the count and slot arrive.
+ * overflow), `Details →` pinned right. While the card's links are still loading, an h-10
+ * placeholder holds the EXPANDER's place so nothing jumps when the count arrives.
+ *
+ * `loading` hides nothing: the caller decides which children wait for the links. A control
+ * whose condition depends on them (the count, a point card's `+ Add a story` / `✓ Your story`)
+ * must not render until they load; one that does not (a story author's `+ Add a point`) renders
+ * immediately — otherwise a links fetch that fails, which the feed and stake pages swallow,
+ * would hide it for good (review finding).
  */
 export function CardFooterActions({
   type,
@@ -90,18 +96,23 @@ export function CardFooterActions({
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2">
-        {loading ? (
-          <span aria-hidden="true" className="inline-block h-10" data-testid="card-footer-loading" />
-        ) : (
-          children
-        )}
+        {loading && <span aria-hidden="true" className="inline-block h-10" data-testid="card-footer-loading" />}
+        {children}
       </div>
       <CardDetailsButton type={type} onOpen={onDetails} />
     </div>
   );
 }
 
-/** Expands the card's linked stories / points in place. Callers render it only for a count > 0. */
+/**
+ * Expands the card's linked stories / points in place. Callers render it only for a count > 0.
+ *
+ * It can never overflow its group: the button may shrink (`min-w-0 max-w-full`) and its LABEL
+ * truncates, so a long `<First>'s story` ends in an ellipsis instead of running under
+ * `Details →` (measured: 20px under it at 375, 75px at 320). The no-wrap rule lives on the
+ * label via `truncate` — on the button it would defeat the truncation. The full label stays in
+ * the DOM, so the accessible name is unchanged; `title` shows it on hover.
+ */
 export function CardExpander({
   label,
   expanded,
@@ -124,8 +135,8 @@ export function CardExpander({
       aria-expanded={expanded}
       data-testid={testId}
     >
-      {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-      <span>{label}</span>
+      {expanded ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+      <span className="truncate" title={label}>{label}</span>
     </button>
   );
 }
@@ -145,8 +156,14 @@ type SlotLinkProps =
 
 /** The viewer's one slot in the bottom row. */
 export function CardSlotLink(props: SlotLinkProps) {
+  // add-point: the same accessible name as the story page's `+ Add a point` pills
+  // (story-card-with-links.tsx, StoryCardDetail.tsx).
   const label =
-    props.kind === 'add-story' ? props.copy.ariaLabel : props.kind === 'your-story' ? 'Your story' : undefined;
+    props.kind === 'add-story'
+      ? props.copy.ariaLabel
+      : props.kind === 'your-story'
+        ? 'Your story'
+        : 'Add a point to this story';
   return (
     <button
       type="button"
@@ -222,9 +239,19 @@ interface CardMenuProps {
  * as a SIBLING of the menu, so it survives the menu closing, and inside this component's
  * propagation wrapper, so nothing in it reaches the card root.
  *
- * `modal={false}`: a modal Radix menu that opens a Radix dialog from one of its items leaves
- * `pointer-events: none` stuck on <body> (the same choice as `share-dropdown.tsx`). Keyboard
- * (Enter/Space, arrows, Escape) and outside-click dismissal are unaffected.
+ * MODAL, deliberately (Radix's default). While the menu is open the rest of the page is inert to
+ * the pointer (`pointer-events: none` on <body>), so the tap that dismisses the menu lands on
+ * nothing. A non-modal menu let that same tap ALSO activate whatever was under it — navigate the
+ * card, or take a position (a data write) — review finding, regression-tested in
+ * p1366-card-footer.test.tsx.
+ *
+ * WHY THE CHOSEN ITEM RUNS AFTER THE MENU HAS CLOSED. A modal Radix menu that opens a Radix
+ * dialog from inside an item's `onSelect` overlaps the two layers' <body> pointer-events
+ * bookkeeping and can leave <body> inert after the dialog closes. So `onSelect` only records the
+ * choice; it runs from the content's `onCloseAutoFocus`, which Radix fires once the menu content
+ * has unmounted and released <body>. That is also where focus is decided: the sheet takes focus
+ * (and hands it back to the ⋯ when it closes), Edit puts it in the textarea, and Delete's native
+ * `window.confirm` appears with the menu already gone.
  */
 export function CardMenu({
   type,
@@ -240,8 +267,23 @@ export function CardMenu({
 }: CardMenuProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  /** Set when the chosen item takes focus somewhere else (the sheet, the edit textarea). */
-  const keepFocusAwayRef = useRef(false);
+  /** The item chosen in the menu, run once the menu has closed (see above). */
+  const pendingRef = useRef<'share' | 'edit' | 'delete' | null>(null);
+
+  const runPending = () => {
+    const action = pendingRef.current;
+    pendingRef.current = null;
+    if (action === 'share') {
+      // `profile` is never a card type, and the event documents story | point only.
+      if (surface) analytics.track('feed_card_shared', { type, id, surface });
+      setShareOpen(true);
+    } else if (action === 'edit') {
+      onEdit?.();
+    } else if (action === 'delete') {
+      onDelete?.();
+    }
+    return action;
+  };
 
   return (
     <div
@@ -249,7 +291,7 @@ export function CardMenu({
       className={`shrink-0 ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
-      <DropdownMenu modal={false}>
+      <DropdownMenu>
         <MobileTooltip content="More">
           <DropdownMenuTrigger asChild>
             <button
@@ -266,20 +308,16 @@ export function CardMenu({
           align="end"
           className="w-40"
           onCloseAutoFocus={(e) => {
-            // Default: focus returns to the trigger. Not when the item moved it on purpose.
-            if (keepFocusAwayRef.current) {
-              keepFocusAwayRef.current = false;
-              e.preventDefault();
-            }
+            // Default: focus returns to the trigger. Share and Edit move it elsewhere themselves;
+            // Delete keeps the default so focus is on the ⋯ when the confirmation closes.
+            const action = runPending();
+            if (action === 'share' || action === 'edit') e.preventDefault();
           }}
         >
           <DropdownMenuItem
             className="cursor-pointer"
             onSelect={() => {
-              keepFocusAwayRef.current = true;
-              // `profile` is never a card type, and the event documents story | point only.
-              if (surface) analytics.track('feed_card_shared', { type, id, surface });
-              setShareOpen(true);
+              pendingRef.current = 'share';
             }}
           >
             <Share2 aria-hidden="true" />
@@ -289,8 +327,7 @@ export function CardMenu({
             <DropdownMenuItem
               className="cursor-pointer"
               onSelect={() => {
-                keepFocusAwayRef.current = true;
-                onEdit();
+                pendingRef.current = 'edit';
               }}
             >
               <Pencil aria-hidden="true" />
@@ -301,7 +338,9 @@ export function CardMenu({
             <DropdownMenuItem
               className="cursor-pointer text-red-600 focus:text-red-700"
               disabled={deleting}
-              onSelect={() => onDelete()}
+              onSelect={() => {
+                pendingRef.current = 'delete';
+              }}
             >
               <Trash2 aria-hidden="true" />
               Delete

@@ -296,9 +296,14 @@ export function PointCardWithLinks({
   /* A profile lists the owner's stories only (P470), and a person has at most one story per point
      (unique story_points author+point), so the count there is 0 or 1. Unlabelled, `1 story` reads
      as the point's total and contradicts the feed; so it names whose it is. */
-  const listStoryLabel = profileOwner
-    ? (isOwnProfile ? 'Your story' : `${firstNameOf(profileOwner.name)}'s story`)
-    : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
+  const countLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
+  const ownerFirstName = profileOwner ? firstNameOf(profileOwner.name ?? '') : '';
+  // An owner with no display name falls back to the count — never a bare "'s story".
+  const listStoryLabel = profileOwner && isOwnProfile
+    ? 'Your story'
+    : profileOwner && ownerFirstName
+      ? `${ownerFirstName}'s story`
+      : countLabel;
   const listFooterActions = inListFooter ? (
     <CardFooterActions type="point" onDetails={() => embedNavigate(`/point/${point.id}`)}>
       {filteredStories.length > 0 && (
@@ -443,17 +448,9 @@ export function PointCardWithLinks({
 
 
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap).
-                  P1366 — in a list (the profile) it is the shared footer: expander + viewer slot
-                  left, `Details →` right. Elsewhere (an embed of someone's point) main's footer. */}
-              {inListFooter ? (
-                <div
-                  role="presentation"
-                  className="mt-3 pt-3 border-t border-border pl-4 sm:pl-[44px]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {listFooterActions}
-                </div>
-              ) : (
+                  Non-list only (an embed of someone's point): main's footer. In a LIST the footer
+                  is the card-level row below — FOUNDER DECISION 2026-09-28, see there. */}
+              {!inListFooter && (
               <div
                 role="presentation"
                 className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-4 sm:pl-[44px]"
@@ -601,21 +598,28 @@ export function PointCardWithLinks({
         )}
       </div>
 
+      {/* P1296 item 1, laid out by P1366 — in a LIST (the profile) this is the footer every
+          story and point card shares: theme border, `py-2.5`, the solid expander and the viewer's
+          slot left, `Details →` right. The padding stays this card's avatar column
+          (`sm:pl-[68px]`). `inListFooter`, not `isDetailView`: see its definition.
+
+          It is a CARD-LEVEL row in BOTH branches. FOUNDER DECISION 2026-09-28 (after the /tree
+          placement demo): on someone else's profile it used to sit inside the grey quote box,
+          where it had 249px at 375 — `Maya's story` + `+ Add a story` + `Details →` needs ~331px.
+          Out here it has the own-profile card's full width. Accepted: with the expander AND a
+          viewer link both showing, the row wraps to two lines at 375 and 320. */}
+      {inListFooter && (
+        <div
+          role="presentation"
+          className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {listFooterActions}
+        </div>
+      )}
+
       {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
-      {(!showQuotePattern || liveSessionMode) && (
-        inListFooter ? (
-          /* P1296 item 1, laid out by P1366 — in a LIST (the profile) this is the footer every
-             story and point card shares: theme border, `py-2.5`, the solid expander and the
-             viewer's slot left, `Details →` right. The padding stays this card's avatar column
-             (`sm:pl-[68px]`). `inListFooter`, not `isDetailView`: see its definition. */
-          <div
-            role="presentation"
-            className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {listFooterActions}
-          </div>
-        ) : (
+      {(!showQuotePattern || liveSessionMode) && !inListFooter && (
         <div
           role="presentation"
           /* The point page's embed, the landing demos and live sessions keep main's row. */
@@ -696,7 +700,6 @@ export function PointCardWithLinks({
             </div>
           )}
         </div>
-        )
       )}
 
       {/* Expanded linked stories - in feed view, live session mode, or an embed.

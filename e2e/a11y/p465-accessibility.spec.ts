@@ -77,7 +77,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
     }
 
     // CTA button must be accessible by aria-label containing "agreement" (or equivalent)
-    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
+    const ctaButton = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -93,7 +93,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
+    const ctaButton = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -109,7 +109,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
+    const ctaButton = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 });
@@ -243,7 +243,7 @@ test.describe('P465 Accessibility — keyboard navigation', () => {
     await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
     // Tab to the CTA button
-    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
+    const ctaButton = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await ctaButton.focus();
 
     // Verify it received focus
@@ -302,7 +302,7 @@ test.describe('P465 Accessibility — focus rings on interactive elements', () =
 
     await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
-    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
+    const ctaButton = page.getByRole('button', { name: 'Add a story for this point', exact: true });
     await ctaButton.focus();
 
     // Verify that the button has a focus ring (either via outline or ring class)
@@ -352,7 +352,7 @@ test.describe('P465 Accessibility — stories row screen reader context', () => 
 
       // The expand trigger should have aria-expanded to indicate state to screen readers
       // Spec: aria-expanded={storiesExpanded}. P1366: own profile → the expander reads "Your story".
-      const expandTrigger = page.getByRole('button', { name: 'Your story' });
+      const expandTrigger = page.getByRole('button', { name: 'Your story', exact: true });
       if (await expandTrigger.isVisible({ timeout: 5000 }).catch(() => false)) {
         const ariaExpanded = await expandTrigger.getAttribute('aria-expanded');
         expect(
