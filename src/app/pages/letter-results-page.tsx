@@ -289,7 +289,15 @@ export function LetterResultsPage() {
   );
 
   if (!sessionChecked || pageState === 'loading') {
-    return <ClarityPageLoader />;
+    // P1364 UX Notes — loading: the top Back only (no pill until the content renders).
+    return (
+      <main aria-label="Letter Results" className="min-h-screen bg-background pt-4">
+        <div className="max-w-sm mx-auto px-4">
+          <FocusHeader fallback="/letters" />
+        </div>
+        <ClarityPageLoader />
+      </main>
+    );
   }
 
   if (pageState === 'not-found' || !resultsData) {

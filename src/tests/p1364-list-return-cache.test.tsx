@@ -314,6 +314,14 @@ describe('P1364 /stake — Back returns to the same tab and list', () => {
     expect(getPoints).toHaveBeenCalledTimes(2);
   });
 
+  it('error state: the top Back, but no bottom pill (UX Notes)', async () => {
+    getPoints.mockRejectedValue(new Error('network'));
+    renderApp(['/stake/topic']);
+    await screen.findByText('Could not load this list.');
+    expect(screen.getByRole('button', { name: 'Go back' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Go back from the end of the list' })).toBeNull();
+  });
+
   it('a PUSH to the same stake URL fetches fresh', async () => {
     renderApp(['/stake/topic']);
     await screen.findAllByTestId('point-card');

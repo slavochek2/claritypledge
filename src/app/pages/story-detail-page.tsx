@@ -1068,7 +1068,8 @@ export function StoryDetailPage() {
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
+        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
+        <FocusHeader onBack={handleBack} />
         <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">

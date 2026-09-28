@@ -461,7 +461,8 @@ export function StakePage() {
             still say what they see. Outline, not primary: it is a way out, not the page's
             action. Blue and sized to its label, not full width — founder, UAT: *"make button
             blue and smaller? to be consistent"* (blue is the design system's action colour). */}
-        {!loading && (
+        {/* P1364 UX Notes: no pill while loading, nor in the error state. */}
+        {!loading && !error && (
           <BottomBackButton
             fallback={BACK_FALLBACK}
             testId="stake-bottom-back"

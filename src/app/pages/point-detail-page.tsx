@@ -325,8 +325,8 @@ export function PointDetailPage() {
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Skeleton for back button */}
-        <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
+        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
+        {!isEmbed && <FocusHeader fallback={BACK_FALLBACK} />}
         {/* Skeleton for point card */}
         <div className="bg-card border border-border rounded-lg overflow-hidden mb-4 animate-pulse">
           <div className="border-l-4 border-border p-4">

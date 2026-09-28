@@ -401,10 +401,11 @@ function TerminatedView({ agreement }: { agreement: ClarityAgreement }) {
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ backFallback }: { backFallback: string }) {
   return (
     <CertificatePageShell className="py-8">
-      <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
+      {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
+      <FocusHeader fallback={backFallback} />
       <div className="rounded-lg border border-border overflow-hidden animate-pulse">
         <div className="p-8 space-y-4">
           <div className="h-6 bg-muted rounded w-3/5 mx-auto" />
@@ -526,7 +527,7 @@ export function AgreementPage() {
   // ── Loading ──────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return <LoadingSkeleton />;
+    return <LoadingSkeleton backFallback={BACK_FALLBACK} />;
   }
 
   // ── Private / unauthenticated ────────────────────────────────────────────────

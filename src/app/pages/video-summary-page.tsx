@@ -67,6 +67,8 @@ export function VideoSummaryPage() {
   if (state.status === 'loading') {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" aria-busy="true">
+        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
+        <FocusHeader fallback={BACK_FALLBACK} />
         <p role="status" className="text-sm text-muted-foreground">
           Loading video summary…
         </p>
