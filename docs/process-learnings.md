@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 93
+**Next ID:** 94
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1713,5 +1713,16 @@ P1358 R3 made Gemini 3.8 the default story writer with the threshold pre-registe
 **due:** week
 
 P1358 shipped with two of three reviewers delivered: Opus and Gemini both reported and their findings are fixed, but codex-review exited 1 on its usage limit, which its wrapper flags as a failed run rather than a clean review. Run codex-review over the two commits (the implementation, swept into the video-facade commit, and the fix commit) once the limit resets, and file anything real as a follow-up change rather than reopening the spec. Droppable once a later Codex review covers the same disagreement-pipeline files.
+
+---
+
+## sync-agent-skills.sh --check may report OK after a failed step
+
+**ID:** INBOX-93
+**Date:** 2026-09-28
+**Status:** proposed
+**due:** month
+
+Codex review of P1367 (2026-09-28) ran it in a read-only sandbox: mktemp and file writes failed, yet it printed OK and exited 0. Script uses only set -u (line 50) and exits 0 unconditionally at its success line. Not re-run outside the sandbox. Fix: fail closed on mktemp/intermediate failure, add an unwritable-TMPDIR must-fail test.
 
 ---

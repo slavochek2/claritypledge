@@ -6,6 +6,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [product]: In-person Clarity Nights run trios; online events will run a fishbowl with an observer; /meet is linked once
+
+**Context:** The Clarity Night #2 page (TEST) was rewritten line by line by the founder on 2026-09-28. The room format was recorded five different ways: pairs in 2026-09-16 and 2026-09-17 [product], fishbowl in `docs/events/clarity-practice-event.md`, pairs in the P1337/P1338 specs, trios on the page.
+**Decision:**
+- **In-person Clarity Nights run trios:** three rounds of 15 minutes, six minutes on one person's meaning, six on the other's, three for the observer. Everyone rotates through speaker, listener and observer. This supersedes the pairs format of 2026-09-16/17 for in-person events. The round rule of 2026-09-17 (no disagreeing while the lower number is under 8, numbers only if the listener opted in) stays in force inside each round.
+- **Online events** (not organized yet) will run a fishbowl with an observer and no breakouts.
+- **The observer rates their own understanding before paraphrasing**, for calibration. Tentative; whether the speakers rate the observer's paraphrase is undecided.
+- **The event page does not describe the round mechanics.** It states the social norm (revealing a gap in understanding is rewarded) and links the Clarity Meeting Principle once, as a plain link. This overturns "`/meet` stays unlinked" for Clarity Night pages.
+- **Clarity Night #2 is Tue 2026-10-06, 18:30 Bangkok** (moved from 09-29).
+**Alternatives rejected:** keeping pairs (the founder redesigned the room on 09-28, not from event #1 feedback); stating the 0-10 rule on the page ("maybe we shouldn't talk here about mechanics"); keeping `/meet` unlinked (protocol silence), reversible on evidence.
+**Consequences:** P1367 carries the doc, skill and check changes. P1337 (on-screen journey) and P1338 (deck) must be built for trios. `UNTESTED`: falsified if the first trio night shows observers idle or rounds overrunning 15 minutes.
+**References:** [P1367](../features/p1367_disagreement_pipeline_clarity_night_2_leftovers.md) · [clarity-practice-event.md](events/clarity-practice-event.md)
+
+## 2026-09-28 [process]: A correction that is not saved to a file is lost at the next compaction; pipeline fixes become checks, not prose (Status: proposed)
+
+**Context:** Reviewing the Clarity Night #2 run (16 sessions) found three losses of the same shape. The agent read the event date back correctly ("Tuesday 6 October") and the founder compacted three seconds later, so the date reached no file and surprised him four hours later. About twenty page corrections went into one event and none into the skill, because P1355's `improvements.md` log was never created. The founder asked "what did we do, what now" at least six times after compactions. Meanwhile the skill's prose rules ("short sentences", "no product vocabulary") existed and were broken anyway.
+**Decision:** P1367 replaces each with something that runs: a page check against a snapshot of the corrected page (controls built by mutating the real snapshot), a date resolver that blocks on an ambiguous relative date and saves the choice, a handoff `## Now` block printed by a session-start hook and cross-checked against the database, and the corrections log created at the start of draft mode.
+**Alternatives rejected:** adding more prose rules (already failed); a resume step only in `run-pipeline` (that skill sends resumes elsewhere, and none of the six asks invoked it).
+**Consequences:** Review lesson from the same session: three hostile reviewers (Fable, Codex Sol, Gemini 3.8) all delivered, and each had at least one false claim (a reviewer said five founder quotes did not exist; its search skipped messages that were only pasted text). Every claim was re-run by command before it changed the spec (epistemic gate 9).
+**References:** [P1367](../features/p1367_disagreement_pipeline_clarity_night_2_leftovers.md)
+
+---
+
 ## 2026-09-28 [product]: List cards — manage in a top-right "⋯", engage in the bottom row; "Details" always in words; a profile names whose story it shows (P1366). **UNTESTED.**
 
 **Context:** Users did not notice that a point card's stories expand or that the card opens: "N stories" was grey text and the open control an external-link icon whose label lived only in a tooltip. The founder also watched one user fail to realise a card is tappable on mobile. Eleven prototype passes on `/tree/card-actions` (A–K), two blind visual reviews, and two adversarial spec reviews (Gemini 3.8 Flash, Codex GPT-5.6 Sol, Opus) shaped the result.
