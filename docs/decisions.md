@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-28 [product]: Desktop event page repeats the RSVP only after a description taller than the viewport (P1365)
+
+**Context:** P844 moved the desktop RSVP above the description and removed the bottom one. Event descriptions have since grown (Clarity Night #2: why now, agenda, preparation, how it differs, sources), so a desktop reader finished a full page below the only button. Mobile never had the problem: its RSVP is a sticky bar.
+**Decision:** On desktop only, render a second RSVP ("Reserve your seat", founder's pick) directly after the description, and only when the rendered description is taller than the viewport. The two buttons are then more than a screen apart, so the one-primary-action-per-view rule (P955) holds by geometry, with no scroll tracking. Past, full, RSVP'd, host and cancelled views get no repeat. The repeat has its own accessible name, loading label ("Reserving your seat…"), test id and analytics trigger (`card_bottom`), because the 2026-09-07 entry ruled that two buttons may not share a name even when never co-visible, and Playwright role locators match substrings.
+**Alternatives rejected:** A floating RSVP bar on desktop (covers the text being read for the whole visit; co-visible with the top button on short pages). Showing the repeat "while the top button is scrolled out of view" — the first draft; spec review showed it needed a fixed-header offset, a mount-time initial state, pop-in on medium pages and hiding a still-focusable button, all of which the height rule removes. Repeating on every event regardless of length (two primaries in view on short pages).
+**Consequences:** Short descriptions look exactly as before. A description just under one screen tall ends within about a screen of the top button and gets no repeat — accepted, revisit if measured. `trigger: card_bottom` in `event_rsvp_initiated` makes the new placement measurable separately from `card` and `sticky_bar`.
+**References:** [P1365](../features/done/2026-06-10/p1365_event_page_desktop_rsvp_after_description.md) · [P844](../features/done/2026-04-22/p844_event_signup_flow_friction.md) · `src/app/prototypes/events/rsvp-repeat.ts`
+
+## 2026-09-28 [process]: An e2e fixture pinned to a real event slug rots when the event date passes (P1365)
+
+**Context:** `e2e/p844-verify.spec.ts` targeted a hardcoded test-DB event dated 2026-05-27. Once that date passed, the page rendered "Event Ended" and two UATs failed with "element not found" — a failure that reads as a regression in whatever change is under test. It surfaced while shipping P1365, which touched the same button.
+**Decision:** Event fixtures are created per run with a future date (`createTestEvent(host, now + 7 days)`) and deleted in `afterAll`; no assertion changed. Any date-dependent fixture must be generated relative to now, never pinned to a stored row.
+**Alternatives rejected:** Bumping the stored event's date (rots again silently); ticking the P844 criterion on the argument that the failure pre-existed (true, but the criterion would then claim something no run showed).
+**Consequences:** Other specs that `goto` a literal event slug carry the same time bomb; grep `e2e/` for `/events/` literals when one next fails.
+**References:** `e2e/p844-verify.spec.ts`
+
 ## 2026-09-28 [technical]: The room batch job read an archive path the uploader never writes (P1339)
 
 **Context:** Every after-event room transcript since the P1307 batch pipeline went live had 0 segments while its job reported `completed`, `attempts=1`, `error=NULL` (6 of 6 rooms, incl. event #1). Recorded as cause-unknown on 2026-09-21; confirmed read-only on 2026-09-22.
