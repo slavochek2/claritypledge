@@ -10,6 +10,7 @@ import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
 import { resolveLetterShortcode } from "@/app/data/letters-service";
@@ -177,6 +178,13 @@ function FeedTagRedirect() {
   return <Navigate to={`/feed?tag=${encodeURIComponent(tag || '')}&sort=oldest&version=latest`} replace />;
 }
 
+/** P1364: the feed/stake Back cache must never outlive the viewer it was filled for. */
+function ListReturnCacheAuthReset() {
+  const { session } = useAuth();
+  useClearListReturnCacheOnAuthChange(session?.user?.id);
+  return null;
+}
+
 // P772: resolve shortcodes like /letter/st5 to the latest sealed delivery UUID
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FOUNDER_SLUG = "slava";
@@ -325,6 +333,7 @@ export default function ClarityPledgeApp() {
           test locates it by first occurrence.) */}
       <RoomCaptureProvider>
       <RoomCaptureBarFallback />
+      <ListReturnCacheAuthReset />
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>

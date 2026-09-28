@@ -1,5 +1,15 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
+import { clearListReturnCache } from '@/lib/list-return-cache';
+import { __savedPositionsForTest } from '@/lib/scroll-positions';
+
+// P1364: the Back caches are module state by design (a module Map, per the spec). A
+// MemoryRouter's first render is a POP — the navigation the list cache serves — so without a
+// reset one test's rows would be served to the next test's page. Isolation, not behaviour.
+afterEach(() => {
+  clearListReturnCache();
+  __savedPositionsForTest().clear();
+});
 
 // Mock react-helmet-async to prevent "Cannot read properties of undefined (reading 'add')" errors
 // This happens because Helmet requires HelmetProvider context which isn't present in isolated tests
