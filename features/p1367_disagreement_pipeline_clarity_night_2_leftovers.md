@@ -97,8 +97,8 @@ room format recorded once?
 
 Blast radius: medium. Every future Clarity Night page and pipeline resume; skill text, one doc, two
 small scripts, one change to `scripts/create-event.ts`, one session hook. No app code, no schema.
-Reversibility: git revert. Decision density: three founder calls, below; everything else was said on
-2026-09-28 and is cited.
+Reversibility: git revert. Decision density: none left open; the three founder calls raised by review were answered on
+2026-09-28 (below).
 
 ## Invariants
 
@@ -155,10 +155,12 @@ Reversibility: git revert. Decision density: three founder calls, below; everyth
 
 ### S4. The room format is recorded once (closes 4)
 
-- `/kdd` records that **physical Clarity Nights** now run trios (speaker, listener, observer;
+- `/kdd` records that **in-person Clarity Nights** now run trios (speaker, listener, observer;
   6 / 6 / 3 minutes, three rounds), explicitly superseding the pairs format of decisions.md
   2026-09-16 and 2026-09-17 for physical events. The reason is the founder's 09-28 redesign.
-  The round rule (2026-09-17) stays in force inside each round.
+  The round rule (2026-09-17) stays in force inside each round. The same entry records the online
+  format (fishbowl with an observer, no breakouts) as intended, not yet run, and the observer's
+  self-rating before paraphrasing as tentative.
 - `clarity-practice-event.md` gets the trio block, the recording line reworded (no "fishbowl
   panel"), the `/meet` rule scoped to "linked once on Clarity Night pages", and the stale header
   ("Zero events run") corrected.
@@ -228,16 +230,18 @@ of the commit, and removing the hook entry.
       "stays unlinked" or "no link to it" (grep output pasted); P1337 and P1338 carry the pointer
 - [ ] Skills re-synced; `sync-agent-skills.sh --check` output pasted in full, census line included
 
-## Open Questions
+## Decided by the founder (2026-09-28, after review)
 
-1. **[FOUNDER DECISION: Clarity Night #2 date — Tue 29 Sep (tomorrow, per `docs/goals.md:9` and the
-   slug) or Tue 6 Oct 18:30–20:30 (what TEST now holds)?]** Needed before the PROD promote, not
-   before this spec's implementation.
-2. **[FOUNDER DECISION: trios for online events too, or physical only?]** This spec assumes
-   physical only; the event doc says online and offline share one run-of-show (lines 16–18).
-3. **[FOUNDER DECISION: does the observer give numbers?]** Raised by the founder 09:16 (*"Is the
-   observer getting his own numbers… I'm not sure"*), unanswered. Affects P1337/P1338 more than this
-   spec.
+1. **Clarity Night #2 is Tuesday 6 October 2026, 18:30 Bangkok** (what TEST holds). `docs/goals.md`
+   corrected in the same commit as this answer. The `2026-09-29` in the slug and run-file names is
+   now only a name; S2's resolver and check exist so the next one cannot drift.
+2. **Trios are for in-person Clarity Nights.** Online events are not being organized yet; when they
+   are, the format is a fishbowl with an observer and no breakouts. S4 records both, and the event
+   doc stops claiming one shared run-of-show.
+3. **The observer rates their own understanding before they paraphrase** (calibration), tentative:
+   *"not sure if observer gives understanding scores but if they paraphrase the others then I guess
+   before they do it makes sense for calibration purposes."* This belongs to P1337/P1338; S4's pointer
+   carries it there. Whether the speakers also rate the observer's paraphrase is not decided.
 
 ## Adversarial review record (2026-09-28, draft 1 → this draft)
 
