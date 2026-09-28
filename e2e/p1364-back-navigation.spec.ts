@@ -97,6 +97,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
         await scrollToCard(page, 10);
         const before = await firstFullyVisibleCard(page);
         expect(before).not.toBeNull();
+        await expectScrolledPast(page, CARD, before);
         const urlBefore = page.url();
 
         await openCard(page, before!.replace(/~crossing$/, ''));
@@ -124,6 +125,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
 
     await scrollToCard(page, Math.min(4, count - 1));
     const before = await firstFullyVisibleCard(page);
+    await expectScrolledPast(page, CARD, before);
     const urlBefore = page.url();
     await openCard(page, before!.replace(/~crossing$/, ''));
     await expect(page).toHaveURL(/\/point\//);
@@ -319,6 +321,16 @@ async function discoverProfiles(): Promise<{ points: ProfilePick; stories: Profi
   }
 }
 
+/**
+ * P1364 review — a position test that never scrolled proves nothing: the saved card must sit
+ * below the top of a page that has actually moved.
+ */
+async function expectScrolledPast(page: Page, sel: string, saved: string | null) {
+  expect(await page.evaluate(() => window.scrollY), 'the page must have scrolled before leaving').toBeGreaterThan(0);
+  const firstId = await page.locator(sel).first().getAttribute('data-testid');
+  expect(saved?.replace(/~crossing$/, ''), 'the saved first-visible card must not be the list\'s first card').not.toBe(firstId);
+}
+
 test.describe('P1364 — profile: Back returns to the same tab and card', () => {
   let picks: { points: ProfilePick; stories: ProfilePick };
   test.beforeAll(async () => {
@@ -360,6 +372,7 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
         await page.waitForTimeout(300);
         const before = await firstVisible(page, t.card);
         expect(before).not.toBeNull();
+        await expectScrolledPast(page, t.card, before);
         const urlBefore = page.url();
 
         await page.getByTestId(before!.replace(/~crossing$/, '')).dispatchEvent('click');
@@ -391,10 +404,17 @@ test.describe('P1364 — Back remembers which cards were open', () => {
     // A point card with linked stories, far enough down to need scrolling.
     const expanders = page.locator('[data-testid^="feed-point-card-"] [data-testid="feed-point-story-expander"]');
     await expect.poll(() => expanders.count(), { timeout: 15000 }).toBeGreaterThan(0);
-    const count = await expanders.count();
-    const expander = expanders.nth(Math.min(3, count - 1));
-    const cardId = await expander.evaluate(el => el.closest<HTMLElement>('[data-testid^="feed-point-card-"]')!.dataset.testid!);
-    const card = page.getByTestId(cardId);
+    // A card whose top is BELOW the first screen, so reaching it takes a real scroll.
+    const cardId = await page.evaluate(() => {
+      for (const ex of Array.from(document.querySelectorAll('[data-testid^="feed-point-card-"] [data-testid="feed-point-story-expander"]'))) {
+        const card = ex.closest<HTMLElement>('[data-testid^="feed-point-card-"]')!;
+        if (card.getBoundingClientRect().top + window.scrollY >= window.innerHeight) return card.dataset.testid!;
+      }
+      return null;
+    });
+    expect(cardId, 'the test DB needs a feed point card with linked stories below the first screen (none found in the first page of /feed)').not.toBeNull();
+    const expander = page.getByTestId(cardId!).getByTestId('feed-point-story-expander');
+    const card = page.getByTestId(cardId!);
     await expander.click();
     await expect(expander).toHaveAttribute('aria-expanded', 'true');
     // Its top at the viewport's top: expanded, the card can be taller than the viewport, and any
@@ -402,6 +422,7 @@ test.describe('P1364 — Back remembers which cards were open', () => {
     await card.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY));
     await page.waitForTimeout(300);
     expect((await firstVisible(page, CARD))?.replace(/~crossing$/, '')).toBe(cardId);
+    await expectScrolledPast(page, CARD, cardId);
 
     // The story box inside the quote (the attribution row above it opens the profile instead).
     await card.getByTestId('quoted-story').first().locator(':scope > div[role="button"]').dispatchEvent('click');
@@ -410,7 +431,7 @@ test.describe('P1364 — Back remembers which cards were open', () => {
     await page.getByRole('button', { name: 'Go back', exact: true }).click();
 
     await expect(page).toHaveURL(/\/feed(\?|$)/);
-    await expect(page.getByTestId(cardId).getByTestId('feed-point-story-expander')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId(cardId!).getByTestId('feed-point-story-expander')).toHaveAttribute('aria-expanded', 'true');
     await page.waitForTimeout(600);
     expect((await firstVisible(page, CARD))?.replace(/~crossing$/, '')).toBe(cardId);
   });
