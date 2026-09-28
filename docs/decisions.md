@@ -18,6 +18,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** prototypes keep being built directly on `/tree` (as P1366 was). Deleting the skill is a separate founder call.
 
+**Caveat added same day:** the founder then judged *both* prototypes as not reusing the product: lookalike story and point cards, not step by step. The cause was the brief, not the method: it listed parts (player, point card, rating card) instead of naming the existing letter reading flow (`LetterFlowContent` in preview mode), so both agents assembled copies. Re-briefed with the flow named, the direct build rebuilt on the real letter flow with no stubs. Lesson for any prototype brief: **name the existing flow to reuse, not its components.** This further weakens the comparison as evidence about `/view`.
+
 ---
 
 ## 2026-09-28 [product]: The speaker/listener role badge is a printed two-sided card whose text instructs the partner, not the wearer
