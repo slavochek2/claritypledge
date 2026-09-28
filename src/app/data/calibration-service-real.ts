@@ -14,6 +14,7 @@ import type {
   StoryVerificationWithProfiles,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import { logDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 
@@ -260,6 +261,7 @@ export const realCalibrationService: CalibrationService = {
       })
       .select('*')
       .single();
+    clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list (understoodCount)
 
     if (error || !data) {
       logDbError('recordVerification', error);

@@ -4,7 +4,7 @@
  * own write.
  *
  * Unlike the other P1364 tests, this one does NOT mock `@/app/data/points-service` or
- * `@/app/data/stories-service`: those modules are the choke point under test (they wrap the
+ * `@/app/data/stories-service`: those modules are the wrapper under test (mechanism 1 in list-return-cache.ts; they wrap the
  * implementations so every write clears the cache). Only the implementations underneath —
  * `*-service-real` and `*-service-mock` — are stubbed, identically, so whichever the env flag
  * selects is the stub.

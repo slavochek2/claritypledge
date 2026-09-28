@@ -336,6 +336,7 @@ export async function submitRating(
     // index keys on. This path had never sent it.
     delivery_id: deliveryId,
   });
+  clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list (understoodCount)
 
   if (error) {
     throwDbError('submitRating', error, `Failed to submit rating: ${error.message}`);
@@ -418,6 +419,7 @@ export async function submitPointResponse(
       { point_id: pointId, user_id: session.user.id, position },
       { onConflict: 'point_id,user_id' }
     );
+    clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
     if (posErr) {
       // Non-fatal: unverified users will fail RLS here; their positions land via replay.
       log('submitPointResponse: point_positions upsert skipped (RLS/unverified):', posErr.message);
@@ -1057,6 +1059,7 @@ export async function confirmLetterResponse(
   const { data, error } = await supabase.functions.invoke('confirm-letter-response', {
     body: { letterId },
   });
+  clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list (it writes story_verifications and point_positions)
 
   if (error) {
     // FunctionsHttpError: parse via fnError.context (IS the Response) — not fnError.context.response. See P683 KDD.
@@ -1166,6 +1169,7 @@ export async function submitLetterResponseAuthenticated(
     const { error: ratingsError } = await supabase
       .from('story_verifications')
       .insert(verificationRows);
+    clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list (understoodCount)
 
     if (ratingsError) {
       throwDbError('submitLetterResponseAuthenticated.ratings', ratingsError, `Failed to insert ratings: ${ratingsError.message}`);
@@ -1231,6 +1235,7 @@ export async function submitLetterResponseAuthenticated(
       const { error: ppError } = await supabase
         .from('point_positions')
         .upsert(pointPositionRows, { onConflict: 'point_id,user_id' });
+      clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
 
       if (ppError) {
         logDbError('submitLetterResponseAuthenticated.point_positions', ppError);
@@ -2017,6 +2022,7 @@ export async function createLetterPositionStory(
     })
     .select('id')
     .single();
+  clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
 
   if (storyError || !storyData) {
     logDbError('createLetterPositionStory:story', storyError);
@@ -2026,6 +2032,7 @@ export async function createLetterPositionStory(
   const { error: linkError } = await supabase
     .from('story_points')
     .insert({ story_id: storyData.id, point_id: pointId, author_id: user.id });
+  clearListReturnCache(); // P1364: the link changes the card's linked-content footer
 
   if (linkError && linkError.code !== '23505') {
     // 23505 = already linked (idempotent); other errors are real
@@ -2048,6 +2055,7 @@ export async function updateLetterPositionStory(
     .from('stories')
     .update({ content, tags: extractHashtags(content) })
     .eq('id', storyId);
+  clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
   if (error) {
     logDbError('updateLetterPositionStory', error);
     return false;

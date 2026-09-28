@@ -16,13 +16,21 @@
  *   - Cleared on any auth change (sign-in, sign-out, user switch) — see `useClearListReturnCacheOnAuthChange`.
  *   - Written through on surgical updates (P543 removals): `updateListReturnCache` rewrites
  *     every stored entry of a surface, so a removed point cannot come back from the cache.
- *   - CLEARED after every own write that can change a cached row — a position set, changed or
- *     removed (signed in or anonymous), a story created / edited / deleted, a point created,
- *     linked or unlinked. One choke point: `withListReturnCacheInvalidation` wraps the points
- *     and stories services at their export, and the non-service position writers (anon
- *     positions, the letter RPCs) call `clearListReturnCache` themselves. Without this, Back
- *     served the list as it was BEFORE the reader's own write (a position they just took,
- *     shown as not taken).
+ *   - CLEARED after every own write that can change a cached row or link map — writes to
+ *     point_positions, points, stories, story_points and story_verifications (the cards'
+ *     understood count), directly or through an RPC / edge function that writes them. There is
+ *     NO single choke point; coverage is two mechanisms plus a guard:
+ *       1. `withListReturnCacheInvalidation` wraps pointsService and storiesService at their
+ *          export, so their listed write methods clear on settle;
+ *       2. every other writer calls `clearListReturnCache()` itself — letters-service (point
+ *          responses, letter ratings, position stories, confirm-letter-response), api.ts
+ *          (replay_letter_positions, erase_my_account), calibration-service-real
+ *          (recordVerification), useAnonPosition (anonymous positions);
+ *       3. src/tests/p1364-cache-invalidation-drift-guard fails when a file in src/app or
+ *          src/lib writes one of those tables (or calls a writing RPC / edge function) in a
+ *          function covered by neither, or imports an unwrapped service.
+ *     Without this, Back served the list as it was BEFORE the reader's own write (a position
+ *     they just took, shown as not taken).
  *   - A page may only write rows it fetched (or restored) in the CURRENT generation: a clear
  *     bumps the generation, so a list still on screen after an own write cannot re-fill the
  *     cache with the stale rows on its next state change.
@@ -89,7 +97,7 @@ export function clearListReturnCache(): void {
 }
 
 /**
- * The services-layer choke point: wraps a service so each listed write clears the cache once
+ * Mechanism 1 of the header's three: wraps a service so each listed write clears the cache once
  * it settles (success or failure — a spurious clear only costs one refetch on Back; a missed
  * one shows the reader a stale row).
  */

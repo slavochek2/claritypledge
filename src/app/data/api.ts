@@ -539,6 +539,7 @@ export async function signOut(options: { scope?: 'global' | 'local' } = {}) {
  */
 export async function eraseMyAccount(): Promise<{ counts: Record<string, unknown> | null; error: Error | null }> {
   const { data, error } = await supabase.rpc('erase_my_account');
+  clearListReturnCache(); // P1364: an own write to a cached table — Back must not serve the pre-write list
   if (error) {
     console.error('Error in erase_my_account:', error.message);
     return { counts: null, error: new Error(error.message) };
