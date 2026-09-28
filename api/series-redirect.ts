@@ -13,6 +13,10 @@ const SERIES: Record<string, string> = {
   // AI-safety Clarity Nights. Matches the topic, not the series prefix, because
   // not every Clarity Night is about AI safety.
   'aisafety': '%AI Safety%',
+  // Every Clarity Night, whatever its topic: /night resolves to the nearest
+  // upcoming one. Matches the series prefix because the title convention is
+  // "Clarity Night #N: <topic>" — see docs/events/clarity-practice-event.md.
+  'night': 'Clarity Night%',
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;

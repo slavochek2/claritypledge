@@ -147,6 +147,16 @@
       "permanent": true
     },
     {
+      "source": "/night",
+      "destination": "/api/series-redirect?series=night",
+      "permanent": false
+    },
+    {
+      "source": "/events/night",
+      "destination": "/api/series-redirect?series=night",
+      "permanent": false
+    },
+    {
       "source": "/hike",
       "destination": "/api/series-redirect?series=hike",
       "permanent": false
