@@ -5,6 +5,17 @@
  * Rendered in a real BrowserRouter over jsdom's window.history, because the guard is a
  * `popstate` listener (decisions.md 2026-02-25: no `useBlocker` under BrowserRouter) and only a
  * real history exercises it: the re-pushed entry, the capture-phase listener, its removal.
+ *
+ * What the capture flag on REMOVAL can and cannot show here (review finding 6, measured by
+ * mutation on 2026-09-28):
+ *   - Dropping `{ capture: true }` from the effect CLEANUP's removal fails 4 of these tests
+ *     (the guard outlives Leave and Stay, and re-prompts or re-pushes).
+ *   - Dropping it from the two `popstateHandlerRef` removals (Leave's handler, and the top of
+ *     the effect) fails none, and cannot: both are always followed by that cleanup before the
+ *     next popstate can arrive. Leave's click is a discrete React event, so `setIsEditMode(false)`
+ *     commits — and the cleanup runs — at the end of the click, while the pop that `goBack()`
+ *     starts is delivered as a later task. Those two removals are kept correct (same flag as the
+ *     add) as belt and braces, not because any path depends on them.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';

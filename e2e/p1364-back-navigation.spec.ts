@@ -7,8 +7,10 @@
  * before leaving the list and after coming back.
  *
  * Read-only against the test database: every test browses public content anonymously and
- * writes nothing. Tests that need a long list skip (with the reason) when the database does not
- * hold one, rather than asserting on a list too short to scroll.
+ * writes nothing. Tests that need a long list FAIL (never skip) when the database does not hold
+ * one — a skipped scroll AC reads as a pass in a summary. The e2e guide's seeding path writes to
+ * the shared test DB, which this spec deliberately does not do; the test DB holds well over 12
+ * public stories and points, so the guard is a tripwire for a wiped DB, not an expected branch.
  */
 import { test, expect, type Page } from '@playwright/test';
 
@@ -84,7 +86,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
         await page.goto(listUrl);
         await waitForCards(page);
         const count = await page.locator(CARD).count();
-        test.skip(count < 12, `the test database holds ${count} ${detail} cards on ${listUrl}; this AC needs at least 12`);
+        expect(count, `the test database holds ${count} ${detail} cards on ${listUrl}; this AC needs at least 12 to scroll past 10`).toBeGreaterThanOrEqual(12);
 
         await scrollToCard(page, 10);
         const before = await firstFullyVisibleCard(page);
@@ -112,7 +114,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
     await expect(page.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });
     await waitForCards(page);
     const count = await page.locator('[data-testid^="feed-point-card-"]').count();
-    test.skip(count < 4, `aisafety1 holds ${count} points on the test database; this AC needs a scrollable list`);
+    expect(count, `aisafety1 holds ${count} points on the test database; this AC needs a scrollable list`).toBeGreaterThanOrEqual(4);
 
     await scrollToCard(page, Math.min(4, count - 1));
     const before = await firstFullyVisibleCard(page);
@@ -156,6 +158,24 @@ test.describe('P1364 — cold arrivals and outside pages', () => {
       await expect(fresh).toHaveURL(/\/feed(\?|$)/);
     });
   }
+
+  test('cold /stake/:tag → open a point → browser back → Back still works (goes to /feed, not a dead button)', async ({ page, context, baseURL }) => {
+    // Review finding 2: at index 0 with a FORWARD entry, history.length is 2 and the old test
+    // popped at index 0 — which does nothing.
+    const [fresh] = await Promise.all([
+      context.waitForEvent('page'),
+      page.evaluate((u) => { window.open(u, '_blank', 'noopener'); }, `${baseURL}/stake/aisafety1`),
+    ]);
+    await expect(fresh.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });
+    const first = await fresh.locator('[data-testid^="feed-point-card-"]').first().getAttribute('data-testid');
+    await fresh.getByTestId(first!).dispatchEvent('click');
+    await expect(fresh).toHaveURL(/\/point\//);
+    await fresh.goBack();
+    await expect(fresh).toHaveURL(/\/stake\/aisafety1/);
+    expect(await fresh.evaluate(() => window.history.length)).toBe(2);
+    await fresh.getByRole('button', { name: 'Go back', exact: true }).click();
+    await expect(fresh).toHaveURL(/\/feed(\?|$)/);
+  });
 
   test('arriving at /story/:id from an outside page → Back → that outside page', async ({ page, baseURL }) => {
     const id = await firstCardId(page, '/feed?tab=stories', 'feed-story-card-');
