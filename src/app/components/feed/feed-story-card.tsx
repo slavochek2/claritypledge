@@ -147,6 +147,8 @@ export function FeedStoryCard({
          screen-reader user hears the marker. Stripping it would delete the disclosure from
          the one channel that carries no chip and no drained card. */
       aria-label={`Story by ${story.authorName}`}
+      /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
+      data-testid={`feed-story-card-${story.id}`}
       onClick={handleClick}
       onKeyDown={(e) => {
         // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check

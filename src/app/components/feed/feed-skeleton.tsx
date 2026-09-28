@@ -6,7 +6,7 @@
 
 export function FeedSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="feed-skeleton">
       {[1, 2, 3].map((i) => (
         <div
           key={i}

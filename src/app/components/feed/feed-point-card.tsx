@@ -198,6 +198,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
       aria-label={`Point: ${point.statement}`}
+      /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
+      data-testid={`feed-point-card-${point.id}`}
       onClick={handleClick}
       onKeyDown={(e) => {
         // P1212: only the CARD ITSELF activates. Without the target check this fires for a
