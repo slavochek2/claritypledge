@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: sonnet
@@ -14,13 +14,13 @@ tags:
   - rsvp
 created_date: '2026-09-28'
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-09-28
 ---
 
 # P1365: Desktop event page repeats the RSVP after the description
 
-> **Redesign of:** [P844: Event Signup Flow Friction](done/2026-04-22/p844_event_signup_flow_friction.md)
+> **Redesign of:** [P844: Event Signup Flow Friction](../2026-04-22/p844_event_signup_flow_friction.md)
 > **What was wrong:** P844 moved the desktop RSVP above the description and removed the one at the
 > bottom ("No duplicate RSVP block remains at the bottom of the description column on desktop").
 > That fixed discoverability on arrival, but on a long description the reader finishes — the moment
