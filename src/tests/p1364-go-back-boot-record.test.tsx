@@ -137,7 +137,7 @@ describe('review 3 — every fresh arrival re-records the answer (P1311 after le
     }
   });
 
-  it('a back_forward boot keeps the newest arrival\'s answer (the accepted edge, pinned so a change is deliberate)', () => {
+  it('a reload / back_forward boot reads the newest arrival\'s stored answer (its pop is then watched — p1364-go-back-dead-watch)', () => {
     coldThenBackViaOutsideLink();
     bootAs('reload');
     expect(window.sessionStorage.getItem(TAB_HAD_PREDECESSOR_STORAGE_KEY)).toBe('true');

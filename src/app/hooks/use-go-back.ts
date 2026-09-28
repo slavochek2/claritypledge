@@ -30,10 +30,12 @@
  *        `history.length` counts the app's own earlier entries, reads "true", and made Back at
  *        index 0 pop into nothing (P1364 review 2, D1). Without sessionStorage such a boot
  *        records "no predecessor" — the fallback route, never a dead button.
- *      - ACCEPTED EDGE (spec Risks): a `back_forward` boot into an OLDER app document reuses
- *        the NEWEST arrival's answer, which may differ. Telling documents apart needs an id on
- *        each document's first entry that survives react-router's replace (which rewrites the
- *        state), i.e. patching history.replaceState — not worth it for this path.
+ *      - A `back_forward` (or reload) boot into an OLDER app document reuses the NEWEST
+ *        arrival's stored answer, which may be wrong for it. That case is identifiable — first
+ *        app entry, the answer came from storage, the decision is "pop" — and ONLY there the
+ *        pop is watched (P1364 review 4): if within DEAD_BACK_TIMEOUT_MS no popstate, pagehide
+ *        or beforeunload shows the pop went anywhere, it was a dead button, and the fallback
+ *        route is taken instead. Every other path pops or falls back exactly as before.
  *
  * Robust to a wiped history state (a page that called `replaceState(null, …)` drops the
  * router's `{ key, idx }`): with no index and no Navigation API, `history.length <= 1` is the
@@ -49,6 +51,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 export const TAB_HAD_PREDECESSOR_STORAGE_KEY = 'p1364:tabFirstEntryHadPredecessor';
 
 let bootHadPredecessor: boolean | null = null;
+/** True when this document's answer was READ from storage (a reload / back_forward boot), not measured. */
+let bootAnswerFromStorage = false;
 
 function readStored(): boolean | null {
   try {
@@ -79,9 +83,12 @@ function isFreshArrival(): boolean {
 export function stampHistoryBoot(): void {
   if (!isFreshArrival()) {
     // history.length can no longer tell; the stored answer, else the one that is never dead.
-    bootHadPredecessor = readStored() ?? false;
+    const stored = readStored();
+    bootHadPredecessor = stored ?? false;
+    bootAnswerFromStorage = stored !== null;
     return;
   }
+  bootAnswerFromStorage = false;
   bootHadPredecessor = window.history.length > 1;
   try {
     window.sessionStorage.setItem(TAB_HAD_PREDECESSOR_STORAGE_KEY, String(bootHadPredecessor));
@@ -93,6 +100,7 @@ export function stampHistoryBoot(): void {
 /** Test-only. */
 export function __resetHistoryBootForTest(): void {
   bootHadPredecessor = null;
+  bootAnswerFromStorage = false;
 }
 
 function firstEntryHadPredecessor(): boolean {
@@ -124,7 +132,13 @@ export function isBrowserBacked(routerLocation: { key: string; pathname: string 
 }
 
 /** 'pop' | 'fallback' for a router backed by window.history. Exported for tests. */
-export function decideBrowserBack(): 'pop' | 'fallback' {
+export type BackDecision = 'pop' | 'fallback' | 'pop-watched';
+
+/**
+ * 'pop-watched' = pop, but the pop rests on a stored (possibly stale) answer at the first app
+ * entry, so the caller must watch it and fall back if it goes nowhere.
+ */
+export function decideBrowserBackDetailed(): BackDecision {
   const nav = (window as unknown as { navigation?: NavigationApi }).navigation;
   const idx = (window.history.state as { idx?: unknown } | null)?.idx;
   let atFirstAppEntry: boolean;
@@ -132,7 +146,38 @@ export function decideBrowserBack(): 'pop' | 'fallback' {
   else if (typeof idx === 'number') atFirstAppEntry = idx === 0;
   else return window.history.length <= 1 ? 'fallback' : 'pop'; // state wiped, no Navigation API
   if (!atFirstAppEntry) return 'pop';
-  return firstEntryHadPredecessor() ? 'pop' : 'fallback';
+  if (!firstEntryHadPredecessor()) return 'fallback';
+  return bootAnswerFromStorage ? 'pop-watched' : 'pop';
+}
+
+/** 'pop' | 'fallback' — a watched pop is still a pop. */
+export function decideBrowserBack(): 'pop' | 'fallback' {
+  return decideBrowserBackDetailed() === 'fallback' ? 'fallback' : 'pop';
+}
+
+/** How long a watched pop may take to show any sign of leaving before it is called dead. */
+export const DEAD_BACK_TIMEOUT_MS = 500;
+
+/**
+ * After a watched pop: if neither popstate (a same-document traversal) nor pagehide /
+ * beforeunload (a cross-document one) arrives within DEAD_BACK_TIMEOUT_MS, the pop went
+ * nowhere — call `onDead`. Returns a cancel function.
+ */
+export function watchForDeadBack(onDead: () => void): () => void {
+  const events = ['popstate', 'pagehide', 'beforeunload'] as const;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+    for (const e of events) window.removeEventListener(e, cancel, true);
+  };
+  // Capture phase: a capture listener elsewhere (the story guard) may stop propagation.
+  for (const e of events) window.addEventListener(e, cancel, true);
+  timer = setTimeout(() => {
+    cancel();
+    onDead();
+  }, DEAD_BACK_TIMEOUT_MS);
+  return cancel;
 }
 
 export function useGoBack(fallbackPath: string): () => void {
@@ -145,10 +190,14 @@ export function useGoBack(fallbackPath: string): () => void {
 
   return useCallback(() => {
     const browserBacked = isBrowserBacked(locationRef.current);
-    let decision: 'pop' | 'fallback';
-    if (browserBacked) decision = decideBrowserBack();
+    let decision: BackDecision;
+    if (browserBacked) decision = decideBrowserBackDetailed();
     else decision = arrivedColdRef.current === true && window.history.length <= 1 ? 'fallback' : 'pop';
-    if (decision === 'fallback') navigate(fallbackPath, { replace: true });
-    else navigate(-1);
+    if (decision === 'fallback') {
+      navigate(fallbackPath, { replace: true });
+      return;
+    }
+    if (decision === 'pop-watched') watchForDeadBack(() => navigate(fallbackPath, { replace: true }));
+    navigate(-1);
   }, [navigate, fallbackPath]);
 }
