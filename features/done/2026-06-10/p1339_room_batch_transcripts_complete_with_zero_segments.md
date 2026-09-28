@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 5
 workstream: transcription
@@ -10,7 +10,6 @@ tags:
   - events
   - silent-failure
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, adversarial-review, ship]
 drafted_by: opus
 exec_model: opus
@@ -19,6 +18,7 @@ driver: anomaly
 related:
   - p1307
   - p1152
+completed_at: 2026-09-28
 ---
 
 # P1339: Every room's after-event transcript comes out empty while its job reports "completed"
