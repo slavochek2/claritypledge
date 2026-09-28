@@ -4,7 +4,10 @@
  *
  * jsdom has no layout, so the window here is modelled: `scrollTo` clamps to `maxY` (the
  * document's height minus the viewport), exactly what makes a one-shot restore land on ~0
- * while a list page is still a spinner. `maxY` is raised mid-test to play "the data arrived".
+ * while a list page is still a spinner, and — like a browser — every scrollTo that moves the
+ * window fires a real `scroll` event, asynchronously (next task). So the clamped values a
+ * restore produces DO reach ScrollToTop's scroll tracker, as they would in a browser.
+ * `maxY` is raised mid-test to play "the data arrived".
  * The real-layout ACs (same first card) are asserted in Playwright: e2e/p1364-back-navigation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -22,7 +25,10 @@ import {
 let y = 0;
 let maxY = 10_000;
 const scrollTo = vi.fn((_x: number, top: number) => {
-  y = Math.max(0, Math.min(top, maxY));
+  const next = Math.max(0, Math.min(top, maxY));
+  if (next === y) return;
+  y = next;
+  setTimeout(() => window.dispatchEvent(new Event('scroll')), 0);
 });
 
 let nav: NavigateFunction;
@@ -118,6 +124,30 @@ describe('P1364 ScrollToTop — POP restore', () => {
     expect(y).toBe(600);
   });
 
+  it('a mostly-HORIZONTAL wheel (macOS swipe-back momentum) does not stop it', () => {
+    renderAt();
+    readerScrollsTo(2400);
+    go('/story/1');
+    maxY = 600;
+    go(-1);
+    act(() => { window.dispatchEvent(new WheelEvent('wheel', { deltaX: 40, deltaY: 3 })); });
+    maxY = 5000;
+    act(() => { vi.advanceTimersByTime(50); });
+    expect(y).toBe(2400);
+  });
+
+  it('a mostly-vertical wheel does stop it', () => {
+    renderAt();
+    readerScrollsTo(2400);
+    go('/story/1');
+    maxY = 600;
+    go(-1);
+    act(() => { window.dispatchEvent(new WheelEvent('wheel', { deltaX: 2, deltaY: 30 })); });
+    maxY = 5000;
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(y).toBe(600);
+  });
+
   it('a `scroll` event does NOT stop it — the restore fires those itself', () => {
     renderAt();
     readerScrollsTo(2400);
@@ -136,7 +166,7 @@ describe('P1364 ScrollToTop — POP restore', () => {
     go('/story/1');
     maxY = 600;
     go(-1); // restore in flight, window clamped at 600
-    window.dispatchEvent(new Event('scroll')); // the clamp's own scroll event
+    act(() => { vi.advanceTimersByTime(100); }); // the clamp's own scroll events are delivered
     go(1); // forward to the story before the list arrived
     const calls = scrollTo.mock.calls.length;
     act(() => { vi.advanceTimersByTime(500); });
@@ -162,6 +192,16 @@ describe('P1364 ScrollToTop — PUSH / REPLACE', () => {
     readerScrollsTo(900);
     go('/login?redirect=/me/calibration', { replace: true });
     expect(y).toBe(0);
+  });
+
+  it('a REPLACE drops the replaced entry, so a search session does not fill the position store', () => {
+    renderAt(['/feed']);
+    readerScrollsTo(500);
+    for (let i = 0; i < 80; i++) go(`/feed?q=${'x'.repeat(i + 1)}`, { replace: true });
+    go('/story/1');
+    expect(__savedPositionsForTest().size).toBe(1); // only the live /feed entry
+    go(-1);
+    expect(y).toBe(500);
   });
 
   it('after a same-path REPLACE, leaving and coming back restores the latest position', () => {

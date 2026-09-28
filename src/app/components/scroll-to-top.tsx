@@ -1,15 +1,23 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
-import { getSavedPosition, rememberPosition, scrollEntryKey } from "@/lib/scroll-positions";
+import { forgetPosition, getSavedPosition, rememberPosition, scrollEntryKey } from "@/lib/scroll-positions";
 
 /** How long a POP keeps re-applying the saved position while the page's content arrives. */
 export const RESTORE_WINDOW_MS = 1500;
 const RESTORE_RETRY_MS = 16;
 /**
  * Any of these means the reader has taken over — the restore stops at once. `scroll` is
- * deliberately NOT one of them: the restore's own `scrollTo` fires scroll events.
+ * deliberately NOT one of them: the restore's own `scrollTo` fires scroll events. A wheel event
+ * that is mostly HORIZONTAL is ignored too: a macOS two-finger swipe-back keeps delivering
+ * momentum wheel events into the page it lands on, and those must not cancel its restore.
  */
 const READER_INPUT_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+
+function isReaderInput(e: Event): boolean {
+  if (e.type !== "wheel") return true;
+  const w = e as WheelEvent;
+  return !(Math.abs(w.deltaY) < Math.abs(w.deltaX)); // ignore only |deltaY| < |deltaX|
+}
 
 /**
  * Scroll manager for route changes. Must be placed inside Router context.
@@ -34,9 +42,11 @@ export function ScrollToTop() {
   const entry = scrollEntryKey(location.key, location.pathname, location.search);
 
   const prevPathnameRef = useRef<string | null>(null);
-  /** True while a POP restore is still re-applying its target. */
-  const restoringRef = useRef(false);
-  /** The current entry's last settled scroll position (never a mid-restore value). */
+  const prevEntryRef = useRef<string | null>(null);
+  /**
+   * The current entry's last scroll position. While a restore is in flight it may hold a
+   * clamped value — the cleanup saves the restore's TARGET in that case, never this.
+   */
   const currentYRef = useRef(0);
 
   useLayoutEffect(() => {
@@ -47,7 +57,7 @@ export function ScrollToTop() {
   // not whatever the window reads after the next page's DOM has already replaced this one.
   useEffect(() => {
     const onScroll = () => {
-      if (!restoringRef.current) currentYRef.current = window.scrollY;
+      currentYRef.current = window.scrollY;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -56,6 +66,12 @@ export function ScrollToTop() {
   useLayoutEffect(() => {
     const prevPathname = prevPathnameRef.current;
     prevPathnameRef.current = location.pathname;
+    const prevEntry = prevEntryRef.current;
+    prevEntryRef.current = entry;
+    // A REPLACE overwrote the previous entry: it can never be returned to, so its saved
+    // position goes too — otherwise every search keystroke or tab switch (each a replace with a
+    // new key) would take a slot and evict the entries a Back chain needs.
+    if (navigationType === "REPLACE" && prevEntry !== null && prevEntry !== entry) forgetPosition(prevEntry);
 
     let restore: RestoreHandle | null = null;
     let restoreTarget: number | null = null;
@@ -67,7 +83,7 @@ export function ScrollToTop() {
         const target = getSavedPosition(entry) ?? 0;
         if (target > 0) {
           restoreTarget = target;
-          restore = restoreScroll(target, restoringRef, currentYRef);
+          restore = restoreScroll(target, currentYRef);
         } else {
           window.scrollTo(0, 0);
         }
@@ -104,26 +120,23 @@ interface RestoreHandle {
  * Re-apply `target` until the page is tall enough for it to hold, the window runs out, or the
  * reader takes over. Returns a handle the effect cleanup uses to cancel it.
  */
-function restoreScroll(
-  target: number,
-  restoringRef: { current: boolean },
-  currentYRef: { current: number },
-): RestoreHandle {
+function restoreScroll(target: number, currentYRef: { current: number }): RestoreHandle {
   const deadline = Date.now() + RESTORE_WINDOW_MS;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let active = true;
-  restoringRef.current = true;
 
-  const finish = () => {
+  function finish() {
     if (timer !== null) clearTimeout(timer);
     timer = null;
     if (active) {
       active = false;
-      restoringRef.current = false;
       currentYRef.current = window.scrollY;
     }
-    for (const type of READER_INPUT_EVENTS) window.removeEventListener(type, finish, true);
-  };
+    for (const type of READER_INPUT_EVENTS) window.removeEventListener(type, onInput, true);
+  }
+  function onInput(e: Event) {
+    if (isReaderInput(e)) finish();
+  }
 
   const attempt = () => {
     timer = null;
@@ -136,7 +149,7 @@ function restoreScroll(
   };
 
   for (const type of READER_INPUT_EVENTS) {
-    window.addEventListener(type, finish, { capture: true, passive: true });
+    window.addEventListener(type, onInput, { capture: true, passive: true });
   }
   attempt();
   return { cancel: finish, isActive: () => active };

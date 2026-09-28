@@ -30,6 +30,11 @@ export function rememberPosition(entry: string, y: number): void {
   }
 }
 
+/** Drop an entry that no longer exists in the tab's history (it was replaced). */
+export function forgetPosition(entry: string): void {
+  savedPositions.delete(entry);
+}
+
 /** Test-only. */
 export function __savedPositionsForTest(): Map<string, number> {
   return savedPositions;
