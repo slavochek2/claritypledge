@@ -10,6 +10,7 @@ import {
   IGNORED_ERROR_PATTERNS,
 } from "@/lib/sentry-filters";
 import { installNavTrace } from "@/lib/nav-trace";
+import { stampHistoryBoot } from "@/app/hooks/use-go-back";
 import App from "./App";
 import "./index.css";
 
@@ -77,6 +78,10 @@ function Main() {
 // trace installed after the app mounts arrives too late to record its origin.
 // No-ops and patches nothing when the flag is absent.
 installNavTrace();
+
+// P1364: record, before the router mounts, whether this tab held a page before the app's
+// first entry — the only moment `history.length` means that (see use-go-back.ts).
+stampHistoryBoot();
 
 const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(<Main />);

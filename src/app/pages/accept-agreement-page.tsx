@@ -79,7 +79,8 @@ export function AcceptAgreementPage() {
   // so the page proceeds cleanly to the unauthenticated fallback flow.
   useEffect(() => {
     if (window.location.hash.includes('#error=')) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      // P1364: keep react-router's { key, idx } — a null state left Back with no history index.
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
   }, []);
 
@@ -151,7 +152,8 @@ export function AcceptAgreementPage() {
       setPageState('partner');
 
       // P488: Clean up ?token= from URL now that we're authenticated — prevents token leakage
-      window.history.replaceState(null, '', window.location.pathname);
+      // P1364: keep react-router's { key, idx } — a null state left Back with no history index.
+      window.history.replaceState(window.history.state, '', window.location.pathname);
 
       // P483: use profile name for existing user with valid name
       if (currentUser.name && currentUser.name.trim() && currentUser.name.trim() !== 'Unknown') {
@@ -424,7 +426,8 @@ export function AcceptAgreementPage() {
       toast.success(`Agreement Sealed — your Clarity Partner Agreement is now active.`);
 
       // Clean up token from URL (security: prevent token leakage)
-      window.history.replaceState(null, '', window.location.pathname);
+      // P1364: keep react-router's { key, idx } — a null state left Back with no history index.
+      window.history.replaceState(window.history.state, '', window.location.pathname);
 
       // Do NOT fire invokeAgreementEmails — the edge function already did
       navigate(`/agreements/${agreementId}`, { replace: true });
