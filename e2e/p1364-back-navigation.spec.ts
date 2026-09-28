@@ -240,3 +240,116 @@ test.describe('P1364 — feed URL state', () => {
     await expect(page).toHaveURL(/[?&]q=/);
   });
 });
+
+test.describe('P1364 — profile: Back returns to the same tab and card', () => {
+  const PROFILE_CARD = '[data-testid^="profile-story-card-"], [data-testid^="point-card-with-links-"]';
+
+  /** A public profile from the test DB whose Points tab (the non-default tab) scrolls. */
+  async function findProfileWithManyPoints(page: Page): Promise<string> {
+    // Profile links on public pages are click handlers, not anchors, so the candidates come from
+    // the feed's own REST responses (anonymous reads the page makes anyway): every `slug` field.
+    const slugs = new Set<string>();
+    const collect = (v: unknown): void => {
+      if (Array.isArray(v)) v.forEach(collect);
+      else if (v && typeof v === 'object') {
+        for (const [k, x] of Object.entries(v)) {
+          if ((k === 'slug' || k === 'author_slug' || k === 'authorSlug') && typeof x === 'string' && x) slugs.add(x);
+          else collect(x);
+        }
+      }
+    };
+    page.on('response', async (res) => {
+      if (!/\/rest\/v1\//.test(res.url())) return;
+      try { collect(await res.json()); } catch { /* not JSON */ }
+    });
+    await page.goto('/feed?tab=stories');
+    await waitForCards(page);
+    await page.goto('/feed');
+    await waitForCards(page);
+    await page.waitForTimeout(500);
+    const counts: string[] = [];
+    for (const slug of [...slugs].slice(0, 15)) {
+      await page.goto(`/p/${slug}`);
+      const pointsTab = page.getByRole('tab', { name: /^Points/ });
+      if (!(await pointsTab.waitFor({ timeout: 15000 }).then(() => true, () => false))) { counts.push(`${slug}:-`); continue; }
+      await pointsTab.click();
+      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor({ timeout: 5000 }).catch(() => {});
+      const n = await page.locator('[data-testid^="point-card-with-links-"]').count();
+      counts.push(`${slug}:${n}`);
+      if (n >= 8) {
+        console.log(`[p1364 profile e2e] using /p/${slug} (${n} points)`);
+        return slug;
+      }
+    }
+    throw new Error(`no public profile in the test DB has >= 8 points to scroll (checked ${counts.join(', ')})`);
+  }
+
+  async function watchForProfileLoaders(page: Page) {
+    await page.evaluate(() => {
+      const w = window as unknown as { __sawLoader: boolean };
+      w.__sawLoader = false;
+      new MutationObserver(() => {
+        if (document.querySelector('.clarity-page-loader, [data-testid="profile-content-skeleton"]')) w.__sawLoader = true;
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+  }
+
+  let slug = '';
+  test.beforeAll(async ({ browser }) => {
+    test.setTimeout(180000); // the discovery visits several profiles once, for all three cases
+    const page = await browser.newPage();
+    try {
+      slug = await findProfileWithManyPoints(page);
+    } finally {
+      await page.close();
+    }
+  });
+
+  for (const way of ['top control', 'bottom pill', 'browser back'] as const) {
+    test(`profile Points tab, scrolled → open a point → ${way}: same tab, same first card, no loader`, async ({ page }) => {
+      test.setTimeout(60000);
+      await page.goto('/feed'); // a page before the profile, so Back has somewhere to go
+      await page.goto(`/p/${slug}`);
+      await page.locator(PROFILE_CARD).first().waitFor({ timeout: 20000 });
+      await page.getByRole('tab', { name: /^Points/ }).click();
+      await expect(page).toHaveURL(/[?&]tab=points/);
+      const cards = page.locator('[data-testid^="point-card-with-links-"]');
+      await cards.nth(6).evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120));
+      await page.waitForTimeout(300);
+      const before = await page.evaluate((sel) => {
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+          const r = el.getBoundingClientRect();
+          if (r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
+        }
+        return null;
+      }, '[data-testid^="point-card-with-links-"]');
+      expect(before).not.toBeNull();
+      const urlBefore = page.url();
+
+      await page.getByTestId(before!).dispatchEvent('click');
+      await expect(page).toHaveURL(/\/point\//);
+      await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
+      if (way === 'bottom pill') await expect(page.getByTestId('point-bottom-back')).toBeVisible({ timeout: 20000 });
+
+      await watchForProfileLoaders(page);
+      if (way === 'top control') await page.getByRole('button', { name: 'Go back', exact: true }).click();
+      else if (way === 'bottom pill') await page.getByTestId('point-bottom-back').getByRole('button').click();
+      else await page.goBack();
+
+      await expect(page).toHaveURL(urlBefore);
+      await expect(page.getByRole('tab', { name: /^Points/ })).toHaveAttribute('aria-selected', 'true');
+      await page.locator('[data-testid^="point-card-with-links-"]').first().waitFor();
+      await page.waitForTimeout(600);
+      const after = await page.evaluate((sel) => {
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+          const r = el.getBoundingClientRect();
+          if (r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight) return el.dataset.testid ?? null;
+        }
+        return null;
+      }, '[data-testid^="point-card-with-links-"]');
+      expect(after).toBe(before);
+      expect(await page.evaluate(() => (window as unknown as { __sawLoader: boolean }).__sawLoader)).toBe(false);
+    });
+  }
+});
+

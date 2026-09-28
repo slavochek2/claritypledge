@@ -126,12 +126,31 @@ Causes, verified by reading the code (not yet reproduced in a browser):
   - the position map key is `location.key + pathname + search`, because entries with a null history state all share the key `default`. The map is capped at about 50 entries;
   - a REPLACE that keeps the same pathname (a search-param change) does **not** scroll to the top.
 - Other pages (such as a long story page on return from a point) get best-effort restore from the retry window only.
+- **Profile `/p/:id`** (scope extension, founder: *"if i go from point or story back to profile or feed or stake or wherever, should i not land back where i was, in the right tab at the right place?"*):
+  - joins the cache on the same terms: served on POP only; key = viewer id + path; cleared on auth change; covered by the own-write invalidation;
+  - it caches the lists the reader scrolls (stories, points, the viewer's link maps) **and** what renders above them (profile, agreements, calibration, ears, badges), so the restore target exists at mount;
+  - on POP the lists are not refetched. The header data comes from tables the invalidation does not track (profiles, agreements, calibration), so it revalidates silently instead: no spinner and no reset, and the page moves only if that data changed.
+- **Org `/org/:slug`**: no cache. Its tabs list events, members and an About text, not stories or points, and each list is a single fetch, so the retry restore is enough.
 
 ### 6. Feed URL state
 
 - Tab, sort and version toggles use `replace`. Tag selection keeps pushing (D2).
 - `activeTags` depends on the `tag` param string, not on the whole `searchParams` object, so unrelated param changes do not refetch.
-- Search text moves into `?q=`, written with `replace` and debounced. Typing makes no network request (the filter stays client-side) and does not move the scroll position.
+- Search text moves into `?q=`, written with `replace` on each keystroke (review round 1: a debounce lost the query when a card was opened within it). Typing makes no network request (the filter stays client-side) and does not move the scroll position.
+
+### 6b. Tab and list state on every page a story or point is opened from
+
+The same rule as the feed: the state lives in the URL, is written with `replace`, and the default carries no param.
+
+| Page | State | Param |
+|---|---|---|
+| `/p/:id` | Stories / Points tab (default: Stories, or Points when there are no stories) | `?tab=` |
+| `/org/:slug` | Events / Members / About (default: Events, or About for an invite link or a group without events) | `?tab=` |
+| `/letters` | Inbox / Drafts / Published — already in the URL, now written with `replace` (was one push per click, P893) | `?tab=` |
+| `/point/:id` | the holders' position filter | `?filter=` |
+| `/letter/:id/results` | the story-walk position (Back used to restart at story 1) | `?story=` |
+
+Checked and left as they are: story detail, calibration, explain-back, letter overview and doc detail hold no tab or filter state and fetch as one page, so the retry restore covers them. The expand/collapse state of individual cards stays local.
 
 ### 7. Drift guard
 
@@ -196,6 +215,10 @@ Scroll ACs are asserted in **Playwright against a real layout**, not jsdom: "sam
 - [ ] Typing in feed search makes no network request and does not move the scroll position. The query survives open-item → Back.
 - [ ] Sign out on a cached feed, then open `/feed` → the previous viewer's rows are not shown. Removing a position from the feed, open item, Back → the removed point stays gone.
 - [ ] Tapping Feed in the nav (a PUSH) fetches fresh.
+- [ ] Profile, tab X, scrolled → open a story or point → Back via the top control, the pill, and browser back: same tab, same first-visible card, no spinner.
+- [ ] Org, tab X → open an item → Back: same tab (retry restore for position).
+- [ ] `/letters` tab clicks add no Back steps: one Back leaves the page.
+- [ ] `/point/:id` holders filter and `/letter/:id/results` walk position survive open-item → Back.
 - [ ] The drift guard test fails when a new `FocusHeader onBack=` or an executable `navigate(-1)` is added outside the allowlist, and passes on the finished tree.
 - [ ] Existing navigation tests (`p1296-*`, `p1307-go-back`, `p1179-*`, `p1323-*`) pass; any test that asserted a removed destination label is updated with the reason noted in the commit.
 
