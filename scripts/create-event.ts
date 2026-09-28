@@ -3,7 +3,7 @@
  * Create an event in the production Supabase database.
  *
  * Usage: npx tsx scripts/create-event.ts events/ai-run-2.json
- *        npx tsx scripts/create-event.ts --dry-run events/ai-run-2.json   # validate + print SLUG, no key, no insert
+ *        npx tsx scripts/create-event.ts --dry-run events/ai-run-2.json   # required fields + SLUG only; no org lookup, no key, no insert
  *
  * Reads the prod service key through the per-access lock (scripts/lib/keyring.mjs, P1316):
  * one authorization dialog per run, never a plaintext copy from .env.local.
@@ -67,9 +67,15 @@ for (const field of required) {
 
 // P1367 S2: the slug carries the EVENT's local date, not the day the script ran. It used to be
 // `new Date()`, so a night created a week ahead published under the wrong date.
-const slug = eventSlug(input.title, input.datetime, input.timezone);
+let slug: string;
+try {
+  slug = eventSlug(input.title, input.datetime, input.timezone);
+} catch (e) {
+  console.error(`ERROR: cannot date the slug from datetime "${input.datetime}" in timezone "${input.timezone}" (use an IANA name like Asia/Bangkok): ${(e as Error).message}`);
+  process.exit(1);
+}
 if (dryRun) {
-  console.log(`SLUG=${slug}  # dry run: nothing read from the keychain, nothing inserted`);
+  console.log(`SLUG=${slug}  # dry run: fields and slug only; org not resolved, nothing read from the keychain, nothing inserted`);
   process.exit(0);
 }
 

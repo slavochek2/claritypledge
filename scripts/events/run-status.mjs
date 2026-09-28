@@ -89,7 +89,9 @@ export async function crossCheck(check, { fetchJson = get, vars = env() } = {}) 
 
 export async function status(file, { offline = false, ...deps } = {}) {
   const name = path.basename(file).replace(/\.handoff\.md$|\/?handoff\.md$/, '') || path.basename(path.dirname(file))
-  const p = parseNow(readFileSync(file, 'utf8'))
+  let text
+  try { text = readFileSync(file, 'utf8') } catch (e) { return { code: 2, lines: [`run ${name}: UNREADABLE: ${e.code ?? e.message} (${file})`] } }
+  const p = parseNow(text)
   if (!p.ok) return { code: 2, lines: [`run ${name}: UNREADABLE: ${p.error} (${file})`] }
   const lines = [`run ${name}:`, ...['done', 'next', 'see', 'date', 'not on PROD'].map(k => `  ${k}: ${p.fields[k]}`)]
   if (offline) return { code: 0, lines: [...lines.slice(0, 1).map(l => l + ' (not cross-checked)'), ...lines.slice(1)] }

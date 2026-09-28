@@ -68,8 +68,10 @@ export function readings(input, today) {
   if (wd) {
     const di = DAYS.findIndex(d => d.startsWith(wd[2].slice(0, 3)) && wd[2].length >= 3)
     if (di >= 0) {
-      let ahead = (di - t.getUTCDay() + 7) % 7
-      if (ahead === 0) ahead = 7
+      const ahead = (di - t.getUTCDay() + 7) % 7
+      // The named weekday is TODAY: "Monday" said on a Monday is today or a week out. Both are
+      // printed, whatever the prefix (review, 2026-09-28: it used to answer "next week" silently).
+      if (ahead === 0) return { candidates: [today, ymd(addDays(t, 7))], reason: `"${s}" said on a ${DAYS[di]}: today or in a week` }
       const coming = addDays(t, ahead)
       // "next <weekday>" is read two ways in English: the coming one, or the one in the
       // following week. Both are printed; the founder picks.

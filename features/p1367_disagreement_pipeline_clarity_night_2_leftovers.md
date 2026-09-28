@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 15
 workstream: disagreement-pipeline
 created_date: '2026-09-28'
 tags: [disagreement-pipeline, clarity-night, events, skills]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -204,23 +204,26 @@ of the commit, and removing the hook entry.
 
 ## Done-When
 
-- [ ] The snapshot `.private/points-runs/ai-ikigai-2026-09-29.approved-page.json` matches the sha256
+- [x] The snapshot `.private/points-runs/ai-ikigai-2026-09-29.approved-page.json` matches the sha256
       recorded above, and the page check exits 0 on its description (output pasted)
-- [ ] The page check exits non-zero on each mutation of the **real snapshot**: a sixth heading, a
+- [x] The page check exits non-zero on each mutation of the **real snapshot**: a sixth heading, a
       heading reordered, a 30-word sentence, "we quoted them", a negation opener, a talk video added to
       Sources, `/meet` removed, a name linked, a second pill, "rate you out of 10" (exit codes pasted)
-- [ ] A draft built from event #1's material passes the page check and contains no "ikigai" or "six"
+- [x] A draft built from event #1's material passes the page check and contains no "ikigai" or "six"
       (grep count pasted)
-- [ ] `clarity-night-publish.md` has no "seven" sections left, no three-sentence cap, and rule 8
+- [x] `clarity-night-publish.md` has no "seven" sections left, no three-sentence cap, and rule 8
       reads "linked once, plain" (grep output pasted); `rule-present` covers the new rules
 - [ ] Draft mode creates the event folder and `improvements.md` before its first founder question
       (directory listing pasted)
-- [ ] The date resolver, given `--today 2026-09-28 "next Tuesday"`, prints both 29 Sep and 6 Oct and
+- [x] The date resolver, given `--today 2026-09-28 "next Tuesday"`, prints both 29 Sep and 6 Oct and
       exits non-zero until one is picked; given an absolute date it prints weekday, date and Bangkok time
-- [ ] `create-event.ts` produces a slug with the event's date for an event created a week ahead
+- [x] `create-event.ts` produces a slug with the event's date for an event created a week ahead
       (run on TEST, output pasted); the slug/date check fails on `…-2026-09-29` with `datetime`
       2026-10-06 and passes on the matching pair (both exit codes pasted)
-- [ ] The status script prints the `## Now` block for the ikigai run and for an event-folder run;
+      *Deviation (dev, 2026-09-28): `create-event.ts` is PROD-only (hardcoded URL), so it was run with
+      the new `--dry-run` (no key, no insert) for an event dated 2026-10-05, created 2026-09-28; slug
+      `…-2026-10-05-yjwi`, slug/date check exit 0. Not run against TEST.*
+- [x] The status script prints the `## Now` block for the ikigai run and for an event-folder run;
       it exits non-zero on a block naming a tag with no points on the named environment, and on a date
       that differs from the event row (both pasted)
 - [ ] After a simulated `/compact`, the session-start hook prints the block with no prompt; with the
@@ -228,7 +231,7 @@ of the commit, and removing the hook entry.
 - [ ] decisions.md records the trio format superseding 2026-09-16/17 for physical events and the
       scoped `/meet` link (via `/kdd`); `clarity-practice-event.md` has no remaining "fishbowl panel",
       "stays unlinked" or "no link to it" (grep output pasted); P1337 and P1338 carry the pointer
-- [ ] Skills re-synced; `sync-agent-skills.sh --check` output pasted in full, census line included
+- [x] Skills re-synced; `sync-agent-skills.sh --check` output pasted in full, census line included
 
 ## Decided by the founder (2026-09-28, after review)
 

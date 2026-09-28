@@ -40,7 +40,8 @@ const NEGATION_OPENER = /^(no|not|never|nobody|none|neither|nothing|don't|do not
 const PRODUCT_TERMS = /\b(agents?|calibrat\w*|understanding scores?|clarity pledge)\b/i
 /** The round rule is what the room does, never page copy (decisions.md 2026-09-17; founder
  *  2026-09-28: "maybe we shouldn't talk here about mechanics"). */
-const ROUND_MECHANICS = /\bout of (10|ten)\b|\b0\s*(-|to)\s*10\b|\b8\b|\beight or (more|above)\b|\brates? (you|each other|them)\b/i
+const ROUND_MECHANICS = /\bout of (10|ten)\b|\b0\s*(-|to)\s*10\b|\b(under|below|at least|above|reach(es)?) (8|eight)\b|\b(8|eight) (or (more|above|higher)|\+|out of)|\b8\s*\/\s*10\b|\brates? (you|each other|them)\b/i
+// A bare "8" is not mechanics: "8:30", "Room 8" and "8 people" are ordinary copy (review, 2026-09-28).
 
 const LINK = /\[([^\]]*)\]\(([^)\s]+)\)/g
 const PILL = /\*\*\[([^\]]*)\]\(([^)\s]+)\)\*\*/g
@@ -52,7 +53,10 @@ export function parse(desc) {
   const opening = []
   let cur = null
   for (const line of lines) {
-    const m = line.match(/^#{1,6}\s+(.*?)\s*$/)
+    // Only "## " opens a section. A "### " subheading inside a section is body text (review,
+    // 2026-09-28: a "### Round 1" under Agenda must not read as a sixth section); a level-1
+    // heading is still a heading, and is reported by the heading list check.
+    const m = line.match(/^#{1,2}\s+(.*?)\s*$/)
     if (m) { cur = { heading: m[1], body: [] }; sections.push(cur); continue }
     ;(cur ? cur.body : opening).push(line)
   }
@@ -72,9 +76,23 @@ export function prose(text) {
     .replace(/[*_`>]/g, '')
 }
 
+/** Units of prose: a list item or a paragraph. Hand-wrapped lines inside one paragraph are
+ *  joined first, or a long sentence wrapped across two source lines is counted as two short
+ *  ones (review, 2026-09-28). */
+function units(text) {
+  const out = []
+  let cur = null
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (!line || /^#{1,6}\s/.test(line)) { cur = null; continue }
+    if (/^(\d+\.|[-+])\s+/.test(line) || cur === null) { cur = { t: line }; out.push(cur); continue }
+    cur.t += ' ' + line
+  }
+  return out.map(u => u.t)
+}
+
 export function sentences(text) {
-  return prose(text)
-    .split('\n')
+  return units(prose(text))
     .map(l => l.replace(/^\s*(\d+\.|[-+])\s+/, '').trim())
     .filter(Boolean)
     .flatMap(l => l.split(/(?<=[.!?])\s+(?=[A-Z0-9"“])/))
@@ -143,17 +161,25 @@ export function run(input) {
   if (/\]\(/.test(before)) findings.push('LINK BEFORE THE BUTTON in "Prepare for the event" (names stay unlinked)')
 
   // 10. /meet: exactly one link, plain.
-  const meetLinks = [...desc.matchAll(LINK)].filter(m => /^https?:\/\/[^/]+\/meet\/?$|^\/meet\/?$/.test(m[2]))
+  const MEET = /^(https?:\/\/[^/]+)?\/meet\/?([?#].*)?$/   // query or fragment allowed (utm tags)
+  const meetLinks = [...desc.matchAll(LINK)].filter(m => MEET.test(m[2]))
   if (meetLinks.length !== 1) findings.push(`/MEET: ${meetLinks.length} links, exactly 1 allowed`)
-  if (pills.some(p => /\/meet\/?$/.test(p[2]))) findings.push('/MEET: linked as a pill, must be plain')
+  if (pills.some(p => MEET.test(p[2]))) findings.push('/MEET: linked as a pill, must be plain')
 
   // 11. Sources never duplicate a listed person's talk: no Sources entry names a person
-  //     the page lists as a bold name in Prepare.
+  //     the page lists as a bold name in Prepare. Full name anywhere in the link text, or the
+  //     surname on a video link; a bare surname on an article is a namesake (review,
+  //     2026-09-28: "Mel Brooks" is not Arthur Brooks).
   const people = [...prep.matchAll(/^\s*[-*]\s+\*\*([^*[\]]+)\*\*/gm)].map(m => m[1].trim())
   const sources = byName['Sources'] ?? ''
   for (const person of people) {
     const surname = person.split(/\s+/).pop()
-    const hit = sources.split('\n').find(l => new RegExp(`\\b${surname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(l.replace(/\]\([^)]*\)/g, ']')))  // link text only, never the URL
+    const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const hit = sources.split('\n').find(l => {
+      const text = l.replace(/\]\([^)]*\)/g, ']')   // link text only, never the URL
+      if (new RegExp(`\\b${esc(person)}\\b`, 'i').test(text)) return true
+      return /youtube\.com|youtu\.be|vimeo\.com|ted\.com/i.test(l) && new RegExp(`\\b${esc(surname)}\\b`, 'i').test(text)
+    })
     if (hit) findings.push(`SOURCES duplicates ${person}'s material (their story carries it): "${hit.trim().slice(0, 70)}"`)
   }
 

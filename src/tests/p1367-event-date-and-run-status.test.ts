@@ -10,6 +10,10 @@ describe('event-date', () => {
   it('"next Tuesday" on Monday 2026-09-28 has two readings, 29 Sep and 6 Oct', () => {
     expect(readings('next Tuesday', '2026-09-28').candidates).toEqual(['2026-09-29', '2026-10-06'])
   })
+  it('a weekday named on that same weekday has two readings, today and a week out', () => {
+    expect(readings('Monday', '2026-09-28').candidates).toEqual(['2026-09-28', '2026-10-05'])
+    expect(readings('next Monday', '2026-09-28').candidates).toEqual(['2026-09-28', '2026-10-05'])
+  })
   it('"Tuesday" alone is the coming one', () => {
     expect(readings('Tuesday', '2026-09-28').candidates).toEqual(['2026-09-29'])
   })

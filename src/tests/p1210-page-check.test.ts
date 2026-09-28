@@ -49,3 +49,23 @@ describe('page-check', () => {
     expect(run({ description: approved }).findings.filter(f => f.startsWith('PRODUCT'))).toEqual([])
   })
 })
+
+describe('page-check: review findings of 2026-09-28, each pinned', () => {
+  it('a long sentence hand-wrapped across two lines is still one sentence', () => {
+    const d = approved.replace('## Agenda', 'This sentence is deliberately long and wrapped across two source lines so that\nthe checker sees two short halves and never counts the full thirty words it has.\n\n## Agenda')
+    expect(run({ description: d }).findings.some(f => f.startsWith('SENTENCE'))).toBe(true)
+  })
+  it('a ### subheading inside a section is not a sixth section', () => {
+    expect(run({ description: approved.replace('3. Conversations', '### Round 1\n\n3. Conversations') }).ok).toBe(true)
+  })
+  it('a clock time or room number with 8 is not round mechanics; "under 8" is', () => {
+    expect(run({ description: approved.replace('## Agenda', 'Doors open at 8:30 in Room 8.\n\n## Agenda') }).ok).toBe(true)
+    expect(run({ description: approved.replace('## Agenda', 'Nobody disagrees while a score is under 8.\n\n## Agenda') }).ok).toBe(false)
+  })
+  it('a /meet link with a query string still counts as the one /meet link', () => {
+    expect(run({ description: approved.replace('claritypledge.com/meet)', 'claritypledge.com/meet?utm_source=email)') }).ok).toBe(true)
+  })
+  it('a namesake in Sources is not a duplicate of a listed person', () => {
+    expect(run({ description: approved.replace('3. *[Ken Mogi', '4. *[Mel Brooks on comedy, 2026](https://example.com/y)*\n3. *[Ken Mogi') }).ok).toBe(true)
+  })
+})
