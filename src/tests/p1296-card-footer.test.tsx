@@ -3,6 +3,14 @@
  * @description P1296 item 1 — one footer on every story and point card: count and
  * contribution CTA left; share (the sheet), then open-in-new, right; 44px icons.
  *
+ * P1366 re-laid it out (prototype K): share moved into a 44px `⋯` menu in the card's TOP row,
+ * open-in-new became an outlined `Details →` in the footer, and the CTAs became text links
+ * (`+ Add a story`, `✓ Your story` — which now opens the story to read — and `+ Add a point`).
+ * The assertions below that encoded the P1296 layout were rewritten to that layout; the P1296
+ * behaviours they guard (the sheet, the event and its surface, no navigation from inside the
+ * sheet, the withdrawal fix, the loading state) are unchanged. Full P1366 coverage:
+ * p1366-card-footer.test.tsx.
+ *
  * Asserted on the two feed cards, which render on /feed and /stake. The profile's cards take
  * the same controls from the same shared file (`card-footer-controls.tsx`); their owner flows
  * are covered by the profile suites.
@@ -10,6 +18,7 @@
 import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
@@ -87,6 +96,14 @@ function makePoint(overrides: Partial<PointWithUserPosition> = {}): PointWithUse
 const linkedStory = (id: string, authorId: string) =>
   makeStory({ id, authorId, authorName: `Author ${id}`, authorSlug: `a-${id}` });
 
+/** P1366 — Share lives in the card's `⋯` menu. */
+async function openShare(type: 'story' | 'point') {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: `More actions for this ${type}` }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Share' }));
+  return screen.findByRole('dialog');
+}
+
 beforeEach(() => {
   cleanup();
   navigate.mockClear();
@@ -98,24 +115,22 @@ describe('P1296 — the story card footer', () => {
   const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =>
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
 
-  it('carries share, then open-in-new, both 44px, INSIDE the footer row', () => {
+  it('P1366: the footer carries Details →; share is ONE control, the 44px ⋯ in the top row, before the footer', () => {
     renderStory();
     const footer = screen.getByTestId('story-card-footer');
-    const share = within(footer).getByRole('button', { name: 'Share story' });
-    const open = within(footer).getByRole('button', { name: 'Open story' });
-    for (const el of [share, open]) {
-      expect(el.className).toContain('min-w-11');
-      expect(el.className).toContain('min-h-11');
-    }
-    // share precedes open-in-new in document (and focus) order
-    expect(share.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // and nothing share-like floats in the body above the divider any more
-    expect(screen.getAllByRole('button', { name: 'Share story' })).toHaveLength(1);
+    expect(within(footer).getByRole('button', { name: 'Details for this story' })).toBeTruthy();
+    const menu = screen.getByRole('button', { name: 'More actions for this story' });
+    expect(menu.className).toContain('min-w-11');
+    expect(menu.className).toContain('min-h-11');
+    expect(within(footer).queryByRole('button', { name: 'More actions for this story' })).toBeNull();
+    // the ⋯ precedes the footer in document (and focus) order
+    expect(menu.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'More actions for this story' })).toHaveLength(1);
   });
 
-  it('share opens the SHEET (link + embed) and fires feed_card_shared with its surface — and does not navigate', () => {
+  it('share opens the SHEET (link + embed) and fires feed_card_shared with its surface — and does not navigate', async () => {
     renderStory();
-    fireEvent.click(screen.getByRole('button', { name: 'Share story' }));
+    await openShare('story');
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.getByText('Share story', { selector: 'h2' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy embed code' })).toBeTruthy();
@@ -130,8 +145,7 @@ describe('P1296 — the story card footer', () => {
    */
   it('clicks inside the open sheet (copy link, the embed preset) never open the story', async () => {
     renderStory();
-    fireEvent.click(screen.getByRole('button', { name: 'Share story' }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = await openShare('story');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Expanded' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy embed code' }));
@@ -141,40 +155,43 @@ describe('P1296 — the story card footer', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('the surface defaults to feed', () => {
+  it('the surface defaults to feed', async () => {
     render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Share story' }));
+    await openShare('story');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'story', id: 'story-1', surface: 'feed' });
   });
 
-  it('open-in-new goes to the story', () => {
+  it('Details → goes to the story', () => {
     renderStory();
-    fireEvent.click(screen.getByRole('button', { name: 'Open story' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Details for this story' }));
     expect(navigate).toHaveBeenCalledWith('/story/story-1');
   });
 
-  it('Enter on the share button acts on the button, not on the card (no navigation)', () => {
+  it('Enter on the ⋯ acts on the menu, not on the card (no navigation)', async () => {
     renderStory();
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Share story' }), { key: 'Enter' });
+    const trigger = screen.getByRole('button', { name: 'More actions for this story' });
+    trigger.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    expect(await screen.findByRole('menu')).toBeTruthy();
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it("the story's AUTHOR sees + Add point, and it goes to the story's add-point form", () => {
+  it("the story's AUTHOR sees + Add a point, and it goes to the story's add-point form", () => {
     renderStory({ currentUserId: 'author-1' });
-    fireEvent.click(screen.getByRole('button', { name: '+ Add point' }));
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a point' }));
     expect(navigate).toHaveBeenCalledWith('/story/story-1?addPoint=true');
   });
 
-  it('anyone else sees no + Add point', () => {
+  it('anyone else sees no + Add a point', () => {
     renderStory({ currentUserId: 'viewer-1' });
-    expect(screen.queryByRole('button', { name: '+ Add point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ Add a point' })).toBeNull();
   });
 
   it('the count waits for the links: nothing while not loaded, "0 points" once loaded and empty', () => {
     const { unmount } = renderStory({ linkedPoints: undefined });
     expect(screen.queryByText('0 points')).toBeNull();
     // ...but the row itself, with its controls, is there from the first paint.
-    expect(screen.getByRole('button', { name: 'Share story' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Details for this story' })).toBeTruthy();
     unmount();
     renderStory({ linkedPoints: [] });
     expect(screen.getByText('0 points')).toBeTruthy();
@@ -189,25 +206,28 @@ describe('P1296 — the point card footer', () => {
     return render(<MemoryRouter><FeedPointCard point={point} linkedStories={linkedStories} surface="stake" /></MemoryRouter>);
   };
 
-  it('share and open-in-new sit in a FOOTER row, no longer in the position-buttons row', () => {
+  it('P1366: Details → sits in the FOOTER row; share is the ⋯ in the top row — neither in the position-buttons row', () => {
     renderPoint();
     const footer = screen.getByTestId('point-card-footer');
-    expect(within(footer).getByRole('button', { name: 'Share point' })).toBeTruthy();
-    expect(within(footer).getByRole('button', { name: 'Open point' })).toBeTruthy();
-    expect(screen.getAllByRole('button', { name: 'Share point' })).toHaveLength(1);
+    expect(within(footer).getByRole('button', { name: 'Details for this point' })).toBeTruthy();
+    const menu = screen.getByRole('button', { name: 'More actions for this point' });
+    expect(within(footer).queryByRole('button', { name: 'More actions for this point' })).toBeNull();
+    // the position-buttons row holds the position buttons alone
+    const positionsRow = screen.getByTestId('agree-group').closest('[role="presentation"]')!;
+    expect(positionsRow.contains(menu)).toBe(false);
+    expect(screen.getAllByRole('button', { name: 'More actions for this point' })).toHaveLength(1);
   });
 
-  it('share fires feed_card_shared with type point and its surface', () => {
+  it('share fires feed_card_shared with type point and its surface', async () => {
     renderPoint();
-    fireEvent.click(screen.getByRole('button', { name: 'Share point' }));
+    await openShare('point');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'point-1', surface: 'stake' });
     expect(navigate).not.toHaveBeenCalled();
   });
 
   it('clicks inside the open sheet never open the point', async () => {
     renderPoint();
-    fireEvent.click(screen.getByRole('button', { name: 'Share point' }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = await openShare('point');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Collapsed' }));
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Copied' })).toBeTruthy());
@@ -220,7 +240,7 @@ describe('P1296 — the point card footer', () => {
    * add a story for a stance the viewer had just dropped. The page is what lowers the counts
    * (P543), so the card must not lower them a second time either.
    */
-  it('after the viewer WITHDRAWS their position, "+ Add your story" goes with it — and the count drops once', async () => {
+  it('after the viewer WITHDRAWS their position, "+ Add a story" goes with it — and the count drops once', async () => {
     function Page() {
       const [point, setPoint] = useState(
         makePoint({
@@ -239,14 +259,14 @@ describe('P1296 — the point card footer', () => {
       return <FeedPointCard point={point} linkedStories={[]} onPointRemoved={onPointRemoved} />;
     }
     render(<MemoryRouter><Page /></MemoryRouter>);
-    expect(screen.getByRole('button', { name: 'Add your story for this point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add a story for this point' })).toBeTruthy();
     expect(screen.getByTestId('agree-count-badge').textContent).toBe('2');
 
     fireEvent.click(screen.getByTestId('agree-group')); // the selected group opens its menu
     fireEvent.click(await screen.findByRole('option', { name: /clear position/i }));
 
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull(),
+      expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull(),
     );
     expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
   });
@@ -300,38 +320,38 @@ describe('P1296 — the point card footer', () => {
     expect(screen.getByTestId('agree-count-badge').textContent).toBe('1');
   });
 
-  it('a viewer who HOLDS a position and has no story here sees the position-worded + Add your story', () => {
+  it('a viewer who HOLDS a position and has no story here sees + Add a story', () => {
     renderPoint(makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>));
-    fireEvent.click(screen.getByRole('button', { name: 'Add your story for this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a story for this point' }));
     expect(navigate).toHaveBeenCalledWith('/create?pointId=point-1');
   });
 
-  it('a viewer who already has a story on the point sees ✏ your story instead, going to its editor', () => {
+  it('a viewer who already has a story on the point sees ✓ Your story instead, opening it to READ (P1366: no edit param)', () => {
     renderPoint(
       makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>),
       [linkedStory('s-other', 'someone-else'), linkedStory('s-mine', 'viewer-1')],
     );
-    expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit your story' }));
-    expect(navigate).toHaveBeenCalledWith('/story/s-mine?edit=true');
+    expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Your story' }));
+    expect(navigate).toHaveBeenCalledWith('/story/s-mine');
   });
 
   it('no CTA before the links load — there is no telling yet whether the viewer has a story', () => {
     renderPoint(makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>), undefined);
-    expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull();
     expect(screen.queryByText('0 stories')).toBeNull();
   });
 
-  it('no + Add your story for a viewer who holds no position', () => {
+  it('no + Add a story for a viewer who holds no position', () => {
     renderPoint();
-    expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull();
   });
 
   it('no contribution CTA for an anonymous reader', () => {
     session.current = null;
     renderPoint(makePoint({ userPosition: { position: 'agree' } } as Partial<PointWithUserPosition>));
-    expect(screen.queryByRole('button', { name: 'Add your story for this point' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Edit your story' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a story for this point' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Your story' })).toBeNull();
   });
 
   it('the statement is text-base and clamped at 40 lines', () => {
@@ -367,12 +387,12 @@ describe('P1296 — PointCardWithLinks: the shared footer in the profile LIST on
     expect(track).not.toHaveBeenCalled();
   });
 
-  it('in the profile list: "0 stories", the 44px share, and the event carries surface profile', () => {
+  it('in the profile list: "0 stories", the 44px ⋯ (P1366: share moved into it), and the event carries surface profile', async () => {
     render(<MemoryRouter><PointCardWithLinks point={protoPoint()} linkedStories={[]} shareSurface="profile" /></MemoryRouter>);
     expect(screen.getByText('0 stories')).toBeTruthy();
-    const share = screen.getByRole('button', { name: 'Share point' });
-    expect(share.className).toContain('min-w-11');
-    fireEvent.click(share);
+    const menu = screen.getByRole('button', { name: 'More actions for this point' });
+    expect(menu.className).toContain('min-w-11');
+    await openShare('point');
     expect(track).toHaveBeenCalledWith('feed_card_shared', { type: 'point', id: 'pt-1', surface: 'profile' });
   });
 });

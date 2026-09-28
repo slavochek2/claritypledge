@@ -27,6 +27,13 @@ interface ShareDialogProps {
   description?: string;
   /** Optional user ID to include in embed URL (?from=userId) — shows their position on the point */
   fromUserId?: string;
+  /**
+   * P1366 — where focus goes when the sheet closes. The card `⋯` menu opens this sheet from a
+   * menu item that no longer exists by the time the sheet closes, so Radix's default (the element
+   * focused when the sheet opened) would land on <body>. The menu passes a handler that puts focus
+   * back on its trigger. Absent everywhere else: Radix's default stands.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -45,6 +52,7 @@ export function ShareDialog({
   title,
   description,
   fromUserId,
+  onCloseAutoFocus,
 }: ShareDialogProps) {
   const [linkCopied, setLinkCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
@@ -111,7 +119,7 @@ export function ShareDialog({
         setEmbedPreset('collapsed');
       }
     }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription className="sr-only">

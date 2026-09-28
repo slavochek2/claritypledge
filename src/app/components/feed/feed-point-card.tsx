@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, ChevronRight, ChevronDown } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { toast } from 'sonner';
 import { linkifyText } from '@/app/utils/linkify';
 import { stripHashtags } from '@/lib/utils';
@@ -20,10 +20,11 @@ import { QuotedStory } from '@/app/components/social/point-card-with-links';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
 import { InlineVisibilityIcon } from '@/app/components/shared';
 import {
-  AddStoryPill,
-  CardOpenButton,
-  CardShareButton,
-  EditYourStoryLink,
+  CardCountText,
+  CardExpander,
+  CardFooterActions,
+  CardMenu,
+  CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
@@ -77,7 +78,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   /* P1296 review (MEDIUM) — a CONFIRMED withdrawal must retire the position this card was
      fetched with, not only its local override. Before this, clearing `localPosition` made the card
      fall back to `point.userPosition` from the original fetch: the button stayed lit and the
-     "+ Add your story" pill kept offering a story for a stance the viewer had just dropped.
+     "+ Add a story" link kept offering a story for a stance the viewer had just dropped.
      The page lowers the counts itself (P543) — and its counts contain ONLY the position this
      card was fetched with, so that is the one the withdrawal reports (below), never a local
      change made since. Treating the fetched position as gone afterwards is what keeps
@@ -150,7 +151,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
      has its own CTA below.
 
      Waits for the links: until they load there is no telling whether the viewer already has
-     a story here, and offering "+ Add your story" to someone who has one is the wrong call.
+     a story here, and offering "+ Add a story" to someone who has one is the wrong call.
      The linked set is read through RLS, so it includes the viewer's own private story. */
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
@@ -195,7 +196,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     <div
       role="button"
       tabIndex={0}
-      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-muted-foreground/70 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      /* P1366 — the whole card's border highlights on hover AND on keyboard focus inside it,
+         confirming the card is clickable. Colour and shadow only: nothing appears or moves. */
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
@@ -224,14 +227,26 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
 
           <div className="flex-1 min-w-0">
             {/* Statement with inline visibility icon. P1296 item 6 — `text-base` and 40 lines,
-                the story cards' measure (arbitrary value: see feed-story-card.tsx). */}
-            <p
-              ref={statementRef}
-              className={`text-base font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-[40]'}`}
-            >
-              <InlineVisibilityIcon visibility={point.visibility} />{' '}
-              {linkifyText(stripHashtags(point.statement, point.tags))}
-            </p>
+                the story cards' measure (arbitrary value: see feed-story-card.tsx).
+                P1366 — this is the card's top row, so the `⋯` menu joins it, top-right. Its
+                negative margins let the 44px target sit in the card's padding instead of
+                pushing the statement down. */}
+            <div className="flex items-start justify-between gap-2">
+              <p
+                ref={statementRef}
+                className={`min-w-0 flex-1 text-base font-medium text-foreground break-words ${statementExpanded ? '' : 'line-clamp-[40]'}`}
+              >
+                <InlineVisibilityIcon visibility={point.visibility} />{' '}
+                {linkifyText(stripHashtags(point.statement, point.tags))}
+              </p>
+              <CardMenu
+                type="point"
+                id={point.id}
+                surface={surface}
+                description={point.statement.slice(0, 100)}
+                className="-mt-2 -mr-2"
+              />
+            </div>
             {statementOverflows && !statementExpanded && (
               <button
                 onClick={(e) => { e.stopPropagation(); setStatementExpanded(true); }}
@@ -252,10 +267,10 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
             {/* Tag pills */}
             <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
 
-            {/* Position buttons. P1296: share USED TO sit at the end of this row — the only card
-                whose share was not in a footer. It moved to the footer below; the row is the
-                position buttons alone, so tabbing through it no longer lands on an unrelated
-                control between the last position and the story list. */}
+            {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
+                (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
+                tabbing through it no longer lands on an unrelated control between the last
+                position and the story list. */}
             <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
               <PositionButtons
                 userPosition={effectivePosition}
@@ -279,10 +294,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         </div>
       </div>
 
-      {/* P1296 item 1 — the footer every story and point card carries, on /feed, /stake and
-          the profile: count and contribution CTA left; share, then open-in-new, right. This card
-          had no footer row at all (its story count sat in the body and its share in the
-          position row), so this is a new row, shaped like the story card's. */}
+      {/* P1296 item 1, laid out by P1366 — the footer every story and point card carries, on
+          /feed, /stake and the profile: the solid story expander and the viewer's slot left,
+          `Details →` right (card-footer-controls.tsx). Share lives in the `⋯` up top. */}
       <div
         role="presentation"
         /* From `sm` the row starts at the statement's column (16 padding + 32 pin + 12 gap), as
@@ -291,42 +305,25 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         onClick={(e) => e.stopPropagation()}
         data-testid="point-card-footer"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {linkedStories !== undefined && (
-              linkedStories.length > 0 ? (
-                <button
-                  onClick={() => setStoriesExpanded(!storiesExpanded)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
-                  aria-expanded={storiesExpanded}
-                  data-testid="feed-point-story-expander"
-                >
-                  {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span>
-                    {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
-                  </span>
-                </button>
-              ) : (
-                <span className="text-sm text-muted-foreground">0 stories</span>
-              )
-            )}
-            {viewerStory && (
-              <EditYourStoryLink onClick={() => navigate(`/story/${viewerStory.id}?edit=true`)} />
-            )}
-            {addStoryCopy && (
-              <AddStoryPill copy={addStoryCopy} onClick={() => navigate(`/create?pointId=${point.id}`)} />
-            )}
-          </div>
-          <div className="flex flex-shrink-0 items-center gap-1">
-            <CardShareButton
-              type="point"
-              id={point.id}
-              surface={surface}
-              description={point.statement.slice(0, 100)}
+        <CardFooterActions type="point" onDetails={handleClick} loading={linkedStories === undefined}>
+          {linkedStories && linkedStories.length > 0 && (
+            <CardExpander
+              label={`${linkedStories.length} ${linkedStories.length === 1 ? 'story' : 'stories'}`}
+              expanded={storiesExpanded}
+              onToggle={() => setStoriesExpanded(!storiesExpanded)}
+              testId="feed-point-story-expander"
             />
-            <CardOpenButton type="point" onOpen={handleClick} />
-          </div>
-        </div>
+          )}
+          {/* The viewer's slot: their story on this point, or the invitation to write one. It
+              opens the story to READ — the old `?edit=true` link dropped readers into an editor. */}
+          {viewerStory && (
+            <CardSlotLink kind="your-story" onClick={() => navigate(`/story/${viewerStory.id}`)} />
+          )}
+          {addStoryCopy && (
+            <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={() => navigate(`/create?pointId=${point.id}`)} />
+          )}
+          {linkedStories?.length === 0 && !viewerStory && !addStoryCopy && <CardCountText>0 stories</CardCountText>}
+        </CardFooterActions>
 
         {/* The SAME QuotedStory the profile point card and live sessions render, not a local
             text preview. A second excerpt renderer here would be a ninth surface with its own

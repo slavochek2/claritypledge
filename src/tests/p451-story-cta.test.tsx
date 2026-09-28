@@ -5,7 +5,7 @@
  *
  * P451: showStoryCTA is derived from userPosition, so it persists across refresh.
  * P456: StoryCardDetail uses getPositionCTACopy for CTA copy.
- * P487: Unified ctaText to '+ Add your story' across all positions.
+ * P487: Unified ctaText across all positions ('+ Add a story' since P1366).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -51,8 +51,8 @@ const linkedPointWithPosition: Point = {
 };
 
 // P465: P451's "Tell your story →" blue button is removed from PointCardWithLinks.
-// P487: CTA text unified to "+ Add your story" across all surfaces.
-const AGREE_CTA_LINKS = '+ Add your story';
+// P487: CTA text unified across all surfaces. P1366: "+ Add a story".
+const AGREE_CTA_LINKS = '+ Add a story';
 
 describe('P451/P465: PointCardWithLinks story CTA', () => {
   // P579: CTA removed from non-own-profile cards (broken feedback loop — result invisible on card)
@@ -72,13 +72,15 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
   });
 
   it('shows position-aware CTA after staking a position (no P451 blue button)', () => {
-    // P822: pill lives in feed view (IIFE) + requires isOwnProfile — pass profileOwner
+    // P822: the CTA lives in the own-profile card. P1366: that is the profile LIST footer, which
+    // turns on only when the caller names the list surface — as profile-page-v2 always does.
     render(
       <BrowserRouter>
         <PointCardWithLinks
           point={linkedPoint}
           currentUserId={CURRENT_USER}
           profileOwner={{ id: CURRENT_USER, name: 'Test User' }}
+          shareSurface="profile"
         />
       </BrowserRouter>
     );
@@ -88,13 +90,15 @@ describe('P451/P465: PointCardWithLinks story CTA', () => {
   });
 
   it('shows position-aware CTA on load when position is pre-existing (refresh regression)', () => {
-    // P822: pill lives in feed view (IIFE) + requires isOwnProfile — pass profileOwner
+    // P822: the CTA lives in the own-profile card. P1366: that is the profile LIST footer, which
+    // turns on only when the caller names the list surface — as profile-page-v2 always does.
     render(
       <BrowserRouter>
         <PointCardWithLinks
           point={linkedPointWithPosition}
           currentUserId={CURRENT_USER}
           profileOwner={{ id: CURRENT_USER, name: 'Test User' }}
+          shareSurface="profile"
         />
       </BrowserRouter>
     );
@@ -152,8 +156,8 @@ const preloadedUserPositions = new Map<string, PointPosition>([
   [POINT_ID, { id: 'pos-1', pointId: POINT_ID, userId: CURRENT_USER, position: 'agree' as PositionType, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
 ]);
 
-// P487: StoryCardDetail CTA unified to '+ Add your story'
-const AGREE_CTA = '+ Add your story';
+// P487: StoryCardDetail CTA unified. P1366: '+ Add a story'.
+const AGREE_CTA = '+ Add a story';
 
 describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
   it('does NOT show CTA before staking', () => {

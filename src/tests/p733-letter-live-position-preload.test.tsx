@@ -4,7 +4,7 @@
  *
  * T1: toPositionRecord converts a Map<pointId, PointPosition> into Record<pointId, PositionType>
  * T2: Both creator and joiner position records are correctly shaped for bootstrapState
- * T3: PointRow does NOT render "Add your story" text (CTA removed)
+ * T3: PointRow does NOT render a story CTA ("+ Add a story", formerly "Add your story") — CTA removed
  *
  * T3 is the failing canary — it asserts the CTA is absent, which fails until the CTA block
  * is removed from PointRow. T1/T2 specify the pure helper used in bootstrapLetterSourcedSession.
@@ -74,7 +74,7 @@ const minimalPoint: PointSummary = {
 };
 
 describe('PointRow — story CTA removed (P733)', () => {
-  it('T3: does NOT render "Add your story" text anywhere in PointRow', () => {
+  it('T3: does NOT render the story CTA text anywhere in PointRow', () => {
     render(
       <PointRow
         point={minimalPoint}
@@ -85,7 +85,7 @@ describe('PointRow — story CTA removed (P733)', () => {
 
     // Before fix: "Add your story →" IS rendered → this assertion fails
     // After fix: CTA block removed → this assertion passes
-    expect(screen.queryByText(/Add your story/)).toBeNull();
+    expect(screen.queryByText(/Add (a|your) story/i)).toBeNull();
   });
 
   it('T3b: does NOT render "Available after the session" hint text', () => {

@@ -399,14 +399,14 @@ test.describe('P699: Sender Results — Story Walk', () => {
 
   // ── Canary: Bug A regressions ─────────────────────────────────────────────
 
-  test('canary: "Add your story →" CTA must not appear on letter results page', async ({ page }) => {
+  test('canary: the story CTA ("+ Add a story", formerly "Add your story →") must not appear on letter results page', async ({ page }) => {
     // Bug A: PointRow.letterMode was never threaded from LiveStoryCardExpanded → CTA showed on results
     await setTestSession(page, sender.email);
     await page.goto(`/letter/${letterId}/results`);
     await page.waitForLoadState('networkidle');
 
     // The CTA text must never appear on the results page — it's a post-hoc read-only view
-    const addStoryCTA = page.locator('text="Add your story →"');
+    const addStoryCTA = page.getByText(/Add (a|your) story/i);
     await expect(addStoryCTA).not.toBeVisible({ timeout: 10000 });
   });
 

@@ -7,6 +7,12 @@
  * - Flow 2: Own profile, story exists → CTA hidden, single unified row (no duplication)
  * - Flow 3: Other profile → CTA does NOT render (P579 + P822 isOwnProfile gate)
  * - Flow 4: Other profile, viewer has story → CTA hidden, "✏ your story" visible
+ *
+ * P1366 re-laid the profile list footer (prototype K) and changed three of these rules:
+ * - the CTA is "+ Add a story"; at 0 stories it stands ALONE (no "0 stories" beside it);
+ * - the profile's expander names whose story it is ("Your story" / "<First>'s story"), no count;
+ * - a viewer holding a position on SOMEONE ELSE's profile is now invited too (Flow 3), and a
+ *   viewer who wrote one sees "✓ Your story", which opens it to read — no edit param (Flow 4).
  */
 
 import { test, expect } from '@playwright/test';
@@ -50,7 +56,7 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const cta = page.getByRole('button', { name: /add your story for this point/i });
+    const cta = page.getByRole('button', { name: /add a story for this point/i });
     await expect(cta).toBeVisible();
   });
 
@@ -64,30 +70,28 @@ test.describe('Flow 1 — Own profile, no story: CTA visible, no actor confusion
     await expect(page.getByText(/✓ agree ·/i)).not.toBeVisible();
   });
 
-  test('story count appears exactly once (no duplication)', async ({ page }) => {
+  test('P1366: at 0 stories the link stands alone — no "0 stories" beside it', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    // After P822: "0 stories" appears exactly once inline with the pill
-    const count = await page.getByText(/0 stories/i).count();
-    expect(count).toBe(1);
+    await expect(page.getByRole('button', { name: /add a story for this point/i })).toBeVisible();
+    expect(await page.getByText(/0 stories/i).count()).toBe(0);
   });
 
-  test('CTA pill renders inline with story count (P822 symmetry)', async ({ page }) => {
+  test('P1366: the link sits in the footer row with Details →', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const cta = page.getByRole('button', { name: /add your story for this point/i });
+    const cta = page.getByRole('button', { name: /add a story for this point/i });
     await expect(cta).toBeVisible();
-
-    // Structural: pill and "0 stories" label share the same flex parent
-    const sharedParent = cta.locator('xpath=..');
-    await expect(sharedParent).toContainText(/0 stories/i);
-    await expect(sharedParent).toHaveClass(/flex/);
+    // left group → the row that also holds `Details →`
+    const row = cta.locator('xpath=../..');
+    await expect(row.getByRole('button', { name: 'Details for this point' })).toBeVisible();
+    await expect(row).toHaveClass(/flex/);
   });
 });
 
@@ -127,24 +131,24 @@ test.describe('Flow 2 — Own profile, story exists: CTA hidden, no count duplic
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add your story for this point/i })
+      page.getByRole('button', { name: /add a story for this point/i })
     ).not.toBeVisible();
   });
 
-  test('"1 story" appears exactly once (no P456 duplication bug)', async ({ page }) => {
+  test('P1366: the expander reads "Your story" exactly once (no P456 duplication, no ✓ link on one\'s own profile)', async ({ page }) => {
     await page.goto(`/p/${viewer.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    const count = await page.getByText(/1 story/i).count();
     // Duplication would show 2 — this is the core regression check for P465
-    expect(count).toBe(1);
+    await expect(page.getByRole('button', { name: 'Your story' })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Your story' })).toHaveAttribute('aria-expanded', 'false');
   });
 });
 
 // ── Flow 3: Other profile ─────────────────────────────────────────────────
-test.describe('Flow 3 — Other profile: CTA absent (P579 + P822 isOwnProfile gate)', () => {
+test.describe('Flow 3 — Other profile: P1366 invites the viewer too', () => {
   let owner: TestUser;
   let viewer: TestUser;
   let pointId: string;
@@ -176,15 +180,15 @@ test.describe('Flow 3 — Other profile: CTA absent (P579 + P822 isOwnProfile ga
     if (viewer?.user?.id) await supabaseAdmin.auth.admin.deleteUser(viewer.user.id);
   });
 
-  test('Add-your-story CTA does not render on other profiles (P579 + P822)', async ({ page }) => {
+  test('P1366: a viewer holding a position on someone else\'s profile sees + Add a story', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add your story for this point/i })
-    ).not.toBeVisible();
+      page.getByRole('button', { name: /add a story for this point/i })
+    ).toBeVisible();
   });
 
   test('stories row attributes to profile owner, not viewer', async ({ page }) => {
@@ -193,13 +197,13 @@ test.describe('Flow 3 — Other profile: CTA absent (P579 + P822 isOwnProfile ga
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    // "by [owner name]" should appear — owner attribution, not viewer's
-    await expect(page.getByText(/by p465 f3 owner/i)).toBeVisible();
+    // P1366: the expander names the owner by first name ("P465 F3 Owner" → "P465's story").
+    await expect(page.getByRole('button', { name: "P465's story" })).toBeVisible();
   });
 });
 
 // ── Flow 4: Other profile, viewer HAS a story ─────────────────────────────
-test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, edit link visible', () => {
+test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, ✓ Your story visible', () => {
   let owner: TestUser;
   let viewer: TestUser;
   let pointId: string;
@@ -248,16 +252,19 @@ test.describe('Flow 4 — Other profile, viewer has story: CTA hidden, edit link
     await page.waitForLoadState('networkidle');
 
     await expect(
-      page.getByRole('button', { name: /add your story for this point/i })
+      page.getByRole('button', { name: /add a story for this point/i })
     ).not.toBeVisible();
   });
 
-  test('"✏ your story" edit link visible in stories row when viewer has a story', async ({ page }) => {
+  test('P1366: "✓ Your story" is visible and opens the story to READ (no edit param)', async ({ page }) => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/✏ your story/i)).toBeVisible();
+    const mine = page.getByRole('button', { name: 'Your story' });
+    await expect(mine).toBeVisible();
+    await mine.click();
+    await expect(page).toHaveURL(new RegExp(`/story/${viewerStoryId}$`));
   });
 });

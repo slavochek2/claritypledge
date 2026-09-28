@@ -195,7 +195,9 @@ function renderProfile() {
 }
 
 async function expandLinkedStories() {
-  const trigger = await screen.findByRole('button', { name: /expand linked stories/i });
+  // P1366: on a profile the expander is labelled by whose story it is — this is the viewer's own
+  // profile, so it reads "Your story" (it was an unlabelled count named "Expand linked stories").
+  const trigger = await screen.findByRole('button', { name: 'Your story' });
   fireEvent.click(trigger);
 }
 

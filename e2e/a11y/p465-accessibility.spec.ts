@@ -3,11 +3,13 @@
  * @description Accessibility tests for P465: Point card footer redesign.
  *
  * P465 changes the footer ARIA contract from P456:
- *   - CTA button: no "✓ Agree ·" prefix → aria-label unchanged ("Add your story for this point")
+ *   - CTA button: no "✓ Agree ·" prefix → aria-label "Add a story for this point" (P1366; was
+ *     "Add your story for this point")
  *   - CTA position: before stories row → verify keyboard Tab order matches visual order
  *   - Edit icon: new button → must have aria-label="Edit your story for this point"
  *   - Delete icon: new button → must have aria-label="Delete your story for this point"
- *   - Stories expand trigger: unchanged ARIA — aria-expanded + aria-label="Expand linked stories"
+ *   - Stories expand trigger: aria-expanded. P1366: on the profile LIST its accessible name is its
+ *     visible label ("Your story" / "<First>'s story"), not "Expand linked stories"
  *   - No position prefix symbols (✓ ✗ ~) in footer — actor confusion fix also removes
  *     the symbol-label pair entirely from the CTA row (only ctaText remains)
  *
@@ -75,7 +77,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
     }
 
     // CTA button must be accessible by aria-label containing "agreement" (or equivalent)
-    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
+    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -91,7 +93,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
+    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 
@@ -107,7 +109,7 @@ test.describe('P465 Accessibility — CTA button aria-label', () => {
       await pointsTab.click();
     }
 
-    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
+    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
     await expect(ctaButton).toBeVisible({ timeout: 10000 });
   });
 });
@@ -129,13 +131,13 @@ test.describe('P465 Accessibility — no prefix symbols in CTA footer row', () =
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
-    // The CTA row must not contain position symbols (no "✓ Agree · Add your story")
+    // The CTA row must not contain position symbols (no "✓ Agree · Add a story")
     // P465 removes the symbol-label prefix — ctaText only
     const hasPrefixSymbol = await page.evaluate(() => {
       const ctaEl = Array.from(document.querySelectorAll('*')).find(el =>
-        el.textContent?.includes('Add your story') && el.children.length === 0
+        el.textContent?.includes('Add a story') && el.children.length === 0
       );
       if (!ctaEl) return false;
 
@@ -238,10 +240,10 @@ test.describe('P465 Accessibility — keyboard navigation', () => {
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
     // Tab to the CTA button
-    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
+    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
     await ctaButton.focus();
 
     // Verify it received focus
@@ -267,7 +269,7 @@ test.describe('P465 Accessibility — keyboard navigation', () => {
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
     const nestedButtonCount = await page.evaluate(() => {
       const allButtons = Array.from(document.querySelectorAll('button'));
@@ -298,9 +300,9 @@ test.describe('P465 Accessibility — focus rings on interactive elements', () =
       await pointsTab.click();
     }
 
-    await expect(page.getByText(/Add your story/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Add a story/)).toBeVisible({ timeout: 10000 });
 
-    const ctaButton = page.getByRole('button', { name: /add your story for this point/i });
+    const ctaButton = page.getByRole('button', { name: /add a story for this point/i });
     await ctaButton.focus();
 
     // Verify that the button has a focus ring (either via outline or ring class)
@@ -349,8 +351,8 @@ test.describe('P465 Accessibility — stories row screen reader context', () => 
       await expect(page.getByText(/stor(y|ies)/i)).toBeVisible({ timeout: 10000 });
 
       // The expand trigger should have aria-expanded to indicate state to screen readers
-      // Spec: aria-expanded={storiesExpanded}, aria-label="Expand linked stories"
-      const expandTrigger = page.getByRole('button', { name: /expand.*storie|storie.*expand/i });
+      // Spec: aria-expanded={storiesExpanded}. P1366: own profile → the expander reads "Your story".
+      const expandTrigger = page.getByRole('button', { name: 'Your story' });
       if (await expandTrigger.isVisible({ timeout: 5000 }).catch(() => false)) {
         const ariaExpanded = await expandTrigger.getAttribute('aria-expanded');
         expect(

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * P824 Canary: "+ Add your story" pill hidden on own profile when viewer has a private story
+ * P824 Canary: the "+ Add a story" link (P1366; formerly the "+ Add your story" pill) hidden on
+ * own profile when viewer has a private story
  *
  * BUG: viewerStoriesForPoint useMemo (profile-page-v2.tsx:202) counts from realStories,
  * which is populated by getStoriesByAuthorWithPoints (visibility='public' filter only).
@@ -205,7 +206,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
     });
   });
 
-  it('"+ Add your story" pill is absent when viewer has a private story linked to the point', async () => {
+  it('"+ Add a story" is absent when viewer has a private story linked to the point', async () => {
     // Setup:
     //   - Viewer (user-1) is on their own profile
     //   - They have taken an 'agree' position on point-1 (required for pill to fire)
@@ -244,11 +245,11 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
     // FAILS before fix: pill is shown (viewerStoryCount=0 from public-only realStories)
     // PASSES after fix: pill hidden (viewerStoryCount=1 counted via linksByPoint)
     expect(
-      screen.queryByRole('button', { name: /add your story/i })
+      screen.queryByRole('button', { name: /add (a|your) story/i })
     ).not.toBeInTheDocument();
   });
 
-  it('"+ Add your story" pill is absent when viewer has a PUBLIC story linked to the point (regression)', async () => {
+  it('"+ Add a story" is absent when viewer has a PUBLIC story linked to the point (regression)', async () => {
     // AC 2 regression: same fix path handles public stories too — linksByPoint is visibility-agnostic
     mockFrom.mockImplementation((table: string) => {
       if (table === 'story_points') {
@@ -289,7 +290,7 @@ describe('P824: own-profile CTA pill hidden when viewer has private story', () =
     await new Promise(r => setTimeout(r, 50));
 
     expect(
-      screen.queryByRole('button', { name: /add your story/i })
+      screen.queryByRole('button', { name: /add (a|your) story/i })
     ).not.toBeInTheDocument();
   });
 

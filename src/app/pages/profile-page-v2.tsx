@@ -32,10 +32,6 @@ import {
   Globe,
   ExternalLink,
   Pin,
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  Trash2,
   ScrollText,
   Loader2,
   ImagePlus,
@@ -82,7 +78,13 @@ import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { stripAgentPrefix } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
-import { AddPointPill, CardOpenButton, CardShareButton } from '@/app/components/shared/card-footer-controls';
+import {
+  CardCountText,
+  CardExpander,
+  CardFooterActions,
+  CardMenu,
+  CardSlotLink,
+} from '@/app/components/shared/card-footer-controls';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 import { groupBySource } from '@/lib/group-by-source';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -521,7 +523,7 @@ export function ProfilePageV2() {
 
           // P465: Fetch viewer's own story links for other profiles
           // Must complete BEFORE setRealPoints to avoid race condition where
-          // cards render with empty viewerStoryCountMap showing false "Add your story" CTA
+          // cards render with empty viewerStoryCountMap showing a false "+ Add a story" link
           if (currentUserId && profile && currentUserId !== profile.id) {
             const pointIds = adaptedPoints.map(p => p.id);
             if (pointIds.length > 0) {
@@ -1515,6 +1517,21 @@ function StoryCardFull({
     }
   };
 
+  /* Owner only, from the card's `⋯` menu (P1366 moved it there from a trash icon). The
+     confirmation, the disabled-while-deleting state and both toasts are unchanged. */
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this story? This cannot be undone.')) return;
+    setIsDeleting(true);
+    const success = await storiesService.deleteStory(story.id);
+    if (success) {
+      toast.success('Story deleted');
+      onDelete?.(story.id);
+    } else {
+      toast.error('Failed to delete story');
+      setIsDeleting(false);
+    }
+  };
+
   // P591: Image handlers (author only) — immediate operations, not part of text draft
   const handleChangeImage = useCallback(() => {
     imageInputRef.current?.click();
@@ -1569,6 +1586,7 @@ function StoryCardFull({
   };
 
   const linkedPoints = story.points || [];
+  const isOwnStory = currentUserId === story.authorId;
   // P1212 §1 — the label belongs to StoryVideoQuotes' own <h3>, never to the prose. Strip
   // it from `content` so the heading renders once, from the component that owns it.
   // (This comment said "renders no quote block" until 2026-09-04, when §4 gave this surface
@@ -1595,7 +1613,8 @@ function StoryCardFull({
     <div
       role="button"
       tabIndex={0}
-      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
+      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only. */
+      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`profile-story-card-${story.id}`}
       {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}
@@ -1648,49 +1667,68 @@ function StoryCardFull({
               content column and greyed the video, the quote pills and the viewer's own
               controls. See src/index.css. */}
           <div className="flex-1 min-w-0">
-            {/* Author info row */}
-            <div className="mb-2">
-              {/* `min-w-0` added with AgentByline: without it this row does not shrink and the
-                  chip spills past the card at 320px, the defect measured on the other three
-                  surfaces (chip right=308 vs card right=289). */}
-              <div className="flex min-w-0 items-center gap-1.5">
-                {/* P1141: this surface rendered the raw `Agent · {Name}` while the feed and
-                    the story page rendered the byline component — the same story read two
-                    different ways depending on where you found it. */}
-                {storyIsAgent && !storyIdentityPending ? (
-                  <AgentByline
-                    name={author.name}
-                    onNameClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/p/${story.authorSlug || author.id}`);
-                    }}
-                  />
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/p/${story.authorSlug || author.id}`);
-                    }}
-                    className="font-semibold text-foreground hover:underline text-sm"
-                  >
-                    {author.name}
-                  </button>
-                )}
-                {/* P1104: an agent holds no reputation. Hand-rolled pill, not <EarBadge>,
-                    so it needs BOTH the gate and the testid the page-wide sweep keys on. */}
-                {!storyIsAgent && !storyIdentityPending && (
-                <MobileTooltip content={earTooltip(credibilityStats.ear, author.name)}>
-                  <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
-                    <Ear size={12} />
-                    {credibilityStats.ear}
-                  </span>
-                </MobileTooltip>
-                )}
+            {/* Author info row. P1366 — it is the card's top row, so the `⋯` menu joins it on
+                the right: Share for everyone, Edit and a red Delete on one's own story (they used
+                to be pencil and trash icons in the footer). The name truncates and the menu never
+                shrinks, so at 320px the name ends in an ellipsis rather than running under it.
+                Hidden while editing inline: focus stays in the textarea. */}
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                {/* `min-w-0` added with AgentByline: without it this row does not shrink and the
+                    chip spills past the card at 320px, the defect measured on the other three
+                    surfaces (chip right=308 vs card right=289). */}
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {/* P1141: this surface rendered the raw `Agent · {Name}` while the feed and
+                      the story page rendered the byline component — the same story read two
+                      different ways depending on where you found it. */}
+                  {storyIsAgent && !storyIdentityPending ? (
+                    <AgentByline
+                      name={author.name}
+                      onNameClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/p/${story.authorSlug || author.id}`);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/p/${story.authorSlug || author.id}`);
+                      }}
+                      className="min-w-0 truncate font-semibold text-foreground hover:underline text-sm"
+                    >
+                      {author.name}
+                    </button>
+                  )}
+                  {/* P1104: an agent holds no reputation. Hand-rolled pill, not <EarBadge>,
+                      so it needs BOTH the gate and the testid the page-wide sweep keys on. */}
+                  {!storyIsAgent && !storyIdentityPending && (
+                  <MobileTooltip content={earTooltip(credibilityStats.ear, author.name)}>
+                    <span data-testid="ear-badge" className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
+                      <Ear size={12} />
+                      {credibilityStats.ear}
+                    </span>
+                  </MobileTooltip>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                  <InlineVisibilityIcon visibility={story.visibility} />
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                <InlineVisibilityIcon visibility={story.visibility} />
-              </div>
+              {!isEditing && (
+                <CardMenu
+                  type="story"
+                  id={story.id}
+                  surface="profile"
+                  title={`${author.name}'s story`}
+                  description={story.content.slice(0, 100)}
+                  onEdit={isOwnStory ? handleEditStart : undefined}
+                  onDelete={isOwnStory ? handleDelete : undefined}
+                  deleting={isDeleting}
+                  className="-mt-2 -mr-2"
+                />
+              )}
             </div>
 
             {/* Story text / inline edit */}
@@ -1837,82 +1875,28 @@ function StoryCardFull({
         </div>
       </div>
 
-      {/* Footer row with linked points and action icons */}
+      {/* P1296 item 1, laid out by P1366 — the footer every story and point card shares; `py-2.5`
+          like the feed's. The padding stays this card's avatar column (`sm:pl-[68px]`). Left:
+          the solid point expander and the author's `+ Add a point` (P580). Right: `Details →`.
+          Share, Edit and Delete live in the `⋯` up top. */}
       <div
         role="presentation"
-        /* P1296 item 1 — the footer every story and point card shares; `py-2.5` like the
-           feed's. The padding stays this card's avatar column (`sm:pl-[68px]`). */
-        className="flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+        className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Point count + author CTA (P580: always show count, author gets "+ add a point") */}
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {linkedPoints.length > 0 ? (
-            <button
-              onClick={() => setPointsExpanded(!pointsExpanded)}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
-              aria-expanded={pointsExpanded}
-            >
-              {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <span>
-                {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-              </span>
-            </button>
-          ) : (
-            <span className="text-sm text-muted-foreground">0 points</span>
+        <CardFooterActions type="story" onDetails={() => navigate(detailRoutes.story(story.id))}>
+          {linkedPoints.length > 0 && (
+            <CardExpander
+              label={`${linkedPoints.length} ${linkedPoints.length === 1 ? 'point' : 'points'}`}
+              expanded={pointsExpanded}
+              onToggle={() => setPointsExpanded(!pointsExpanded)}
+            />
           )}
-          {currentUserId === story.authorId && (
-            <AddPointPill onClick={() => navigate(`/story/${story.id}?addPoint=true`)} />
+          {isOwnStory && (
+            <CardSlotLink kind="add-point" onClick={() => navigate(`/story/${story.id}?addPoint=true`)} />
           )}
-        </div>
-
-        {/* Action icons */}
-        <div className="flex flex-shrink-0 items-center gap-1">
-          {/* Edit/Delete — owner only */}
-          {currentUserId === story.authorId && (
-            <>
-              <MobileTooltip content="Edit story">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleEditStart(); }}
-                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                  aria-label="Edit story"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </MobileTooltip>
-              <MobileTooltip content="Delete story">
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (!window.confirm('Delete this story? This cannot be undone.')) return;
-                    setIsDeleting(true);
-                    const success = await storiesService.deleteStory(story.id);
-                    if (success) {
-                      toast.success('Story deleted');
-                      onDelete?.(story.id);
-                    } else {
-                      toast.error('Failed to delete story');
-                      setIsDeleting(false);
-                    }
-                  }}
-                  disabled={isDeleting}
-                  className="min-w-11 min-h-11 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-muted rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Delete story"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </MobileTooltip>
-            </>
-          )}
-          <CardShareButton
-            type="story"
-            id={story.id}
-            surface="profile"
-            title={`${author.name}'s story`}
-            description={story.content.slice(0, 100)}
-          />
-          <CardOpenButton type="story" onOpen={() => navigate(detailRoutes.story(story.id))} />
-        </div>
+          {linkedPoints.length === 0 && !isOwnStory && <CardCountText>0 points</CardCountText>}
+        </CardFooterActions>
       </div>
 
       {/* Linked points - expanded content */}

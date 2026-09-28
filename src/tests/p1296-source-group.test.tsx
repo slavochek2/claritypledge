@@ -104,8 +104,9 @@ describe('P1296 — what a group looks like', () => {
     renderGroup([story('a'), story('b')]);
     for (const card of memberCards()) {
       const footer = within(card).getByTestId('story-card-footer');
-      expect(within(footer).getByRole('button', { name: 'Share story' })).toBeTruthy();
-      expect(within(footer).getByRole('button', { name: 'Open story' })).toBeTruthy();
+      // P1366: share moved into the card's ⋯ menu (top row); open-in-new became `Details →`.
+      expect(within(card).getByRole('button', { name: 'More actions for this story' })).toBeTruthy();
+      expect(within(footer).getByRole('button', { name: 'Details for this story' })).toBeTruthy();
       expect(within(card).getByTestId('story-video-quotes-heading').textContent).toBe('1 supporting quote');
     }
   });

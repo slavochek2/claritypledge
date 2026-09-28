@@ -89,27 +89,32 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     expect(cta!.y).toBeGreaterThan(list!.y + list!.height - 1);
   });
 
-  test('both tabs carry the footer — count, share, open-in-new', async ({ page }) => {
+  // P1366: share moved into the card's top-right `⋯`; open-in-new became `Details →`.
+  test('both tabs carry the footer — count and Details →; the ⋯ menu up top', async ({ page }) => {
     await page.goto('/stake/aisafety1');
     await waitForList(page);
     const pointFooter = page.getByTestId('point-card-footer').first();
     await expect(pointFooter).toBeVisible();
-    await expect(pointFooter.getByRole('button', { name: 'Share point' })).toBeVisible();
-    await expect(pointFooter.getByRole('button', { name: 'Open point' })).toBeVisible();
+    await expect(pointFooter.getByRole('button', { name: 'Details for this point' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'More actions for this point' }).first()).toBeVisible();
+    await expect(pointFooter.getByRole('button', { name: 'Open point' })).toHaveCount(0);
     await expect(pointFooter.getByText(/^\d+ (story|stories)$/)).toBeVisible({ timeout: 15000 });
 
     await page.getByTestId('stake-tab-stories').click();
     const storyFooter = page.getByTestId('story-card-footer').first();
     await expect(storyFooter).toBeVisible();
-    await expect(storyFooter.getByRole('button', { name: 'Share story' })).toBeVisible();
-    await expect(storyFooter.getByRole('button', { name: 'Open story' })).toBeVisible();
+    await expect(storyFooter.getByRole('button', { name: 'Details for this story' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'More actions for this story' }).first()).toBeVisible();
+    await expect(storyFooter.getByRole('button', { name: 'Open story' })).toHaveCount(0);
     await expect(storyFooter.getByText(/^\d+ points?$/)).toBeVisible({ timeout: 15000 });
   });
 
   test('share opens the sheet with a link and an embed code', async ({ page }) => {
     await page.goto(EVENT_LINK);
     await waitForList(page);
-    await page.getByTestId('story-card-footer').first().getByRole('button', { name: 'Share story' }).click();
+    // P1366: Share is an item in the card's `⋯` menu.
+    await page.getByRole('button', { name: 'More actions for this story' }).first().click();
+    await page.getByRole('menuitem', { name: 'Share' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Copy link' })).toBeVisible();

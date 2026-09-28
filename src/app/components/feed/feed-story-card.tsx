@@ -7,7 +7,6 @@
 
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
@@ -24,7 +23,13 @@ import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { ThreadLineGroup, ThreadLineItem } from '@/app/components/shared';
-import { AddPointPill, CardOpenButton, CardShareButton } from '@/app/components/shared/card-footer-controls';
+import {
+  CardCountText,
+  CardExpander,
+  CardFooterActions,
+  CardMenu,
+  CardSlotLink,
+} from '@/app/components/shared/card-footer-controls';
 import type { GroupPlayer } from '@/app/components/shared/source-group';
 import { pointsService } from '@/app/data/points-service';
 import type { Position } from '@/app/types';
@@ -48,7 +53,7 @@ interface FeedStoryCardProps {
   linkedPoints?: PointSummary[];
   /**
    * The signed-in viewer. Forwarded to `QuotedPointCard`, which renders its position
-   * controls only for a known viewer, and decides whether the author's `+ Add point` shows.
+   * controls only for a known viewer, and decides whether the author's `+ Add a point` shows.
    * Omitting it is why the feed rendered a read-only slab where the profile rendered an
    * interactive card, from the same component (adversarial review, 2026-09-04) — and why
    * `/stake` did the same until P1296.
@@ -138,7 +143,8 @@ export function FeedStoryCard({
     <div
       role="button"
       tabIndex={0}
-      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
+      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only. */
+      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1212 — parity with profile-page-v2.tsx's StoryCardFull, in the accessibility layer.
          A role="button" with no accessible name takes it from its SUBTREE, so without this the
@@ -194,36 +200,50 @@ export function FeedStoryCard({
               content column and greyed the video, the quote pills and the viewer's own
               controls. See src/index.css. */}
           <div className="flex-1 min-w-0">
-            <div className="mb-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                {/* P1141: `[MACHINE] reading of {Full Name}`, NAME is the only link.
-                    AgentByline owns its own button — never wrap it in one. */}
-                {isAgent && !identityPending ? (
-                  <AgentByline
-                    name={story.authorName}
-                    onNameClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/p/${story.authorSlug}`);
-                    }}
-                  />
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/p/${story.authorSlug}`);
-                    }}
-                    className="font-semibold text-foreground hover:underline text-sm min-w-0"
-                  >
-                    {story.authorName}
-                  </button>
-                )}
-                {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
+            {/* P1366 — the author block is the card's top row, so the `⋯` menu joins it on the
+                right. The name truncates (`min-w-0 truncate`) and the menu never shrinks, so a
+                long name at 320px ends in an ellipsis instead of running under the menu. */}
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  {/* P1141: `[MACHINE] reading of {Full Name}`, NAME is the only link.
+                      AgentByline owns its own button — never wrap it in one. */}
+                  {isAgent && !identityPending ? (
+                    <AgentByline
+                      name={story.authorName}
+                      onNameClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/p/${story.authorSlug}`);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/p/${story.authorSlug}`);
+                      }}
+                      className="font-semibold text-foreground hover:underline text-sm min-w-0 truncate"
+                    >
+                      {story.authorName}
+                    </button>
+                  )}
+                  {!isAgent && !identityPending && <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />}
+                </div>
+                <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  {story.authorRole && <span>{story.authorRole} · </span>}
+                  <span>{formatTimeAgo(story.createdAt)}</span>
+                  <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                {story.authorRole && <span>{story.authorRole} · </span>}
-                <span>{formatTimeAgo(story.createdAt)}</span>
-                <InlineVisibilityIcon visibility={story.visibility ?? 'public'} />
-              </div>
+              {/* Share only, the author included: the feed has no edit/delete (the profile does). */}
+              <CardMenu
+                type="story"
+                id={story.id}
+                surface={surface}
+                title={`${story.authorName}'s story`}
+                description={story.content.slice(0, 100)}
+                className="-mt-2 -mr-2"
+              />
             </div>
 
             {/* Supporting media. P1141: video wins when present; the image path is untouched.
@@ -325,8 +345,9 @@ export function FeedStoryCard({
 
             {/* P1141: gated on identityPending too — the registry fails closed, and reading
                 isAgent while it loads renders an agent story as a human one.
-                `empty:hidden` — the share control used to share this row; with it moved to the
-                footer, an agent story leaves the row empty and must not keep its margin. */}
+                `empty:hidden` — the share control used to share this row; with it moved out (the
+                `⋯` menu since P1366), an agent story leaves the row empty and must not keep its
+                margin. */}
             <div className="mt-2 flex items-center gap-2 empty:hidden">
               {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} size="xs" />}
             </div>
@@ -334,14 +355,13 @@ export function FeedStoryCard({
         </div>
       </div>
 
-      {/* P1296 item 1 — the footer, the same controls in the same order on /feed, /stake and
-          the profile. Left: the point count (expands in place) and the author's `+ Add point`.
-          Right: share, then open-in-new.
+      {/* P1296 item 1, laid out by P1366 — the footer, the same controls in the same order on
+          /feed, /stake and the profile. Left: the solid point expander and the author's
+          `+ Add a point`. Right: `Details →`. Share lives in the `⋯` up top.
 
-          It used to render only once the linked points had loaded, and `/stake` never loaded
-          them, so a stake card had no footer at all and its share control floated above the
-          divider in the body. The row now always renders; only the COUNT waits for the
-          links, because `undefined` (not loaded) and `[]` (none linked) must not read alike. */}
+          The row always renders — `/stake` once never loaded the links and so had no footer at
+          all. Only the COUNT waits for the links, because `undefined` (not loaded) and `[]`
+          (none linked) must not read alike; meanwhile a placeholder holds the row's height. */}
       <div
         role="presentation"
         /* From `sm` the row starts at the body's column (16 padding + 40 avatar + 12 gap), the
@@ -351,40 +371,23 @@ export function FeedStoryCard({
         onClick={(e) => e.stopPropagation()}
         data-testid="story-card-footer"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {linkedPoints !== undefined && (
-              linkedPoints.length > 0 ? (
-                <button
-                  onClick={() => setPointsExpanded(!pointsExpanded)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors min-h-[40px]"
-                  aria-expanded={pointsExpanded}
-                  data-testid="feed-story-point-expander"
-                >
-                  {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span>
-                    {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-                  </span>
-                </button>
-              ) : (
-                <span className="text-sm text-muted-foreground">0 points</span>
-              )
-            )}
-            {/* P580, on every surface now — founder 2026-09-11: *"footer probably needs the
-                'add point' and 'add your story' when needed — same logic as in profile"*. */}
-            {isAuthor && <AddPointPill onClick={() => navigate(`/story/${story.id}?addPoint=true`)} />}
-          </div>
-          <div className="flex flex-shrink-0 items-center gap-1">
-            <CardShareButton
-              type="story"
-              id={story.id}
-              surface={surface}
-              title={`${story.authorName}'s story`}
-              description={story.content.slice(0, 100)}
+        <CardFooterActions type="story" onDetails={handleClick} loading={linkedPoints === undefined}>
+          {linkedPoints && linkedPoints.length > 0 && (
+            <CardExpander
+              label={`${linkedPoints.length} ${linkedPoints.length === 1 ? 'point' : 'points'}`}
+              expanded={pointsExpanded}
+              onToggle={() => setPointsExpanded(!pointsExpanded)}
+              testId="feed-story-point-expander"
             />
-            <CardOpenButton type="story" onOpen={handleClick} />
-          </div>
-        </div>
+          )}
+          {/* P580, on every surface — founder 2026-09-11: *"footer probably needs the 'add point'
+              and 'add your story' when needed — same logic as in profile"*. Nobody else gets a
+              slot on a story card: there is no "your point". */}
+          {isAuthor && (
+            <CardSlotLink kind="add-point" onClick={() => navigate(`/story/${story.id}?addPoint=true`)} />
+          )}
+          {linkedPoints?.length === 0 && !isAuthor && <CardCountText>0 points</CardCountText>}
+        </CardFooterActions>
 
         {/* The expanded content renders through the SAME shared component the profile
             uses (extracted from `profile-page-v2.tsx` for exactly this). The first P1212 §5

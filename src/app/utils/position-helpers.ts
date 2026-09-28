@@ -32,7 +32,7 @@ export function getPositionGroup(position: PositionType): PositionButtonGroup {
   }
 }
 
-/** Map position button group to story CTA copy (P456, unified in P487) */
+/** Map position button group to story CTA copy (P456, unified in P487; P1366: "+ Add a story" on every surface) */
 export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy {
   const symbols: Record<PositionButtonGroup, { symbol: string; label: string }> = {
     agree: { symbol: '\u2713', label: 'Agree' },
@@ -41,8 +41,8 @@ export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy 
   };
   return {
     ...symbols[group],
-    ctaText: '+ Add your story',
-    ariaLabel: 'Add your story for this point',
+    ctaText: '+ Add a story',
+    ariaLabel: 'Add a story for this point',
   };
 }
 

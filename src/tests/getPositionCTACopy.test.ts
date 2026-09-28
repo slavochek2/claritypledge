@@ -3,7 +3,8 @@
  * @description Unit tests for the `getPositionCTACopy` utility function.
  *
  * P456: introduced position-aware CTA copy.
- * P487: unified ctaText to "+ Add your story" across all positions.
+ * P487: unified ctaText across all positions.
+ * P1366: the unified copy is "+ Add a story" (was "+ Add your story") on every surface.
  *
  * The function maps a PositionButtonGroup ('agree' | 'disagree' | 'unsure') to:
  *   { symbol, label, ctaText, ariaLabel }
@@ -33,14 +34,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Agree');
     });
 
-    it("returns unified ctaText '+ Add your story'", () => {
+    it("returns unified ctaText '+ Add a story'", () => {
       const copy = getPositionCTACopy('agree');
-      expect(copy.ctaText).toBe('+ Add your story');
+      expect(copy.ctaText).toBe('+ Add a story');
     });
 
     it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('agree');
-      expect(copy.ariaLabel).toBe('Add your story for this point');
+      expect(copy.ariaLabel).toBe('Add a story for this point');
     });
   });
 
@@ -57,14 +58,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Disagree');
     });
 
-    it("returns unified ctaText '+ Add your story'", () => {
+    it("returns unified ctaText '+ Add a story'", () => {
       const copy = getPositionCTACopy('disagree');
-      expect(copy.ctaText).toBe('+ Add your story');
+      expect(copy.ctaText).toBe('+ Add a story');
     });
 
     it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('disagree');
-      expect(copy.ariaLabel).toBe('Add your story for this point');
+      expect(copy.ariaLabel).toBe('Add a story for this point');
     });
   });
 
@@ -81,14 +82,14 @@ describe('getPositionCTACopy — copy variants', () => {
       expect(copy.label).toBe('Unsure');
     });
 
-    it("returns unified ctaText '+ Add your story'", () => {
+    it("returns unified ctaText '+ Add a story'", () => {
       const copy = getPositionCTACopy('unsure');
-      expect(copy.ctaText).toBe('+ Add your story');
+      expect(copy.ctaText).toBe('+ Add a story');
     });
 
     it('returns generic aria-label for screen readers', () => {
       const copy = getPositionCTACopy('unsure');
-      expect(copy.ariaLabel).toBe('Add your story for this point');
+      expect(copy.ariaLabel).toBe('Add a story for this point');
     });
   });
 
@@ -127,7 +128,7 @@ describe('getPositionCTACopy — copy variants', () => {
         .map(g => getPositionCTACopy(g).ctaText);
       const unique = new Set(texts);
       expect(unique.size).toBe(1);
-      expect(texts[0]).toBe('+ Add your story');
+      expect(texts[0]).toBe('+ Add a story');
     });
 
     it('symbols remain position-specific (distinct across groups)', () => {
@@ -146,7 +147,7 @@ describe('getPositionCTACopy — copy variants', () => {
   // ── footer label line contract ────────────────────────────────────────────
   //
   // The rendered footer line is: "{symbol} {label} · {ctaText}"
-  // e.g. "✓ Agree · + Add your story"
+  // e.g. "✓ Agree · + Add a story"
 
   describe('footer label line construction', () => {
     it("agree: '{symbol} {label}' forms '✓ Agree'", () => {

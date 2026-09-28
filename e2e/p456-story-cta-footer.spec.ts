@@ -7,8 +7,8 @@
  * `superseded_by: p470`) designed a "split footer" that showed the viewer's position
  * symbol inline (a check symbol, "Agree", then "Why do you agree?"), navigated to
  * /chat?from=position, and rendered a disabled CTA with the hint "Available after the
- * session" inside /live. All three are gone: the CTA is now the P822 inline pill
- * (`renderAddStoryPill`, point-card-with-links.tsx) which renders only `ctaCopy.ctaText`
+ * session" inside /live. All three are gone: the CTA is now the list footer's slot link
+ * (`CardSlotLink kind="add-story"`, card-footer-controls.tsx, since P1366) which renders only `ctaCopy.ctaText`
  * and navigates to /create?pointId=, no position symbol is rendered anywhere in
  * point-card-with-links.tsx, and src/tests/p733-letter-live-position-preload.test.tsx
  * asserts the /live hint does NOT render. Surfaces A, E and G were deleted.

@@ -15,6 +15,8 @@ interface PointHeaderProps {
   compact?: boolean;
   /** Show "Point" label (default true for full card, false for quoted) */
   showLabel?: boolean;
+  /** Extra classes on the row — P1366's list card passes `flex-wrap` so the row wraps beside its `⋯`. */
+  className?: string;
 }
 
 /**
@@ -28,12 +30,13 @@ export function PointHeader({
   authorEarCount,
   compact = false,
   showLabel = false,
+  className,
 }: PointHeaderProps) {
   const iconSize = compact ? 10 : 12;
   const textClass = compact ? 'text-[11px]' : 'text-xs';
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className={className ? `flex items-center gap-1.5 ${className}` : 'flex items-center gap-1.5'}>
       {compact && <Pin size={iconSize} className="text-slate-400" />}
       {showLabel && <span className={`${textClass} text-gray-500`}>Point</span>}
       {authorPosition && (

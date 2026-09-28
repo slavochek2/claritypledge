@@ -26,17 +26,18 @@ import {
 } from '@/app/components/shared';
 import { linkifyText } from '@/app/utils/linkify';
 import type { PositionType } from '@/app/types';
-import { getPositionGroup, getPositionCTACopy, adjustPositionCounts, type PositionCTACopy } from '@/app/utils/position-helpers';
+import { getPositionGroup, getPositionCTACopy, adjustPositionCounts } from '@/app/utils/position-helpers';
 import type { Point, Position, Story } from '@/app/components/shared/prototype-types';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import {
-  AddStoryPill,
-  CardOpenButton,
-  CardShareButton,
-  EditYourStoryLink,
+  CardCountText,
+  CardExpander,
+  CardFooterActions,
+  CardMenu,
+  CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
@@ -99,7 +100,7 @@ interface PointCardWithLinksProps {
   /** Callback when user clicks on a story */
   onStoryClick?: (storyId: string) => void;
 
-  /** P470: Viewer's story ID for this point on another profile — used to render edit link */
+  /** P470: Viewer's story ID for this point on another profile — the list footer's `✓ Your story` link */
   viewerStoryId?: string;
   /** P491: Tags for tag pill display (prototype Point type lacks tags) */
   tags?: string[];
@@ -114,18 +115,14 @@ interface PointCardWithLinksProps {
   shareSurface?: ShareSurface;
 }
 
-// P822: Module-level helper — inline "+ Add your story" pill used across feed-view
-// footer + quote-pattern footer. Hoisted out of the component so all four call sites
-// share one definition (DRY) and the function has no implicit closures.
-function renderAddStoryPill(
-  show: boolean,
-  ctaCopy: PositionCTACopy | null,
-  pointId: string,
-  navigate: (path: string) => void,
-) {
-  if (!show || !ctaCopy) return null;
-  // P1296: the pill itself is shared with the feed and stake point cards.
-  return <AddStoryPill copy={ctaCopy} onClick={() => navigate(`/create?pointId=${pointId}`)} />;
+/**
+ * P1366 — the first word of a display name, for the profile's `Maya's story`. An agent account's
+ * stored `Agent · {Name}` prefix is dropped first, so the label names the person, not the marker
+ * (the owner row above it still carries the agent byline).
+ */
+function firstNameOf(name: string): string {
+  const bare = (stripAgentPrefix(name) ?? name).trim();
+  return bare.split(/\s+/)[0] || bare;
 }
 
 /**
@@ -265,29 +262,72 @@ export function PointCardWithLinks({
   const borderColor = isPrivate ? 'border-l-amber-400' : 'border-l-slate-400';
   const bgTint = isPrivate ? 'bg-amber-50/50' : 'bg-white';
 
+  /* P1366 — in a LIST the whole card's border highlights on hover and on keyboard focus inside
+     it (colour and shadow only). The point page, embeds and demos keep main's hover. */
+  const cardHover = inListFooter
+    ? 'hover:border-blue-400 hover:shadow-md focus-within:border-blue-400 focus-within:shadow-md'
+    : 'hover:border-slate-300 hover:shadow-md';
   const cardClassName = isDetailView
     ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer ${cardHover} transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
 
   // Quote pattern: reserved for the other person's position. Hidden when viewer === profile owner
   // (the viewer's own stance is already expressed by the highlighted position button inside the point).
   const showQuotePattern =
     profileOwner && profileOwner.position && !isOwnProfile;
 
-  // P822: viewer-story gate for inline "+ Add your story" pill in feed-view footer
-  // (replaces the standalone CTA row that lived below the count row)
+  // P822: viewer-story gate for the list footer's "+ Add a story" link.
   const effectiveViewerStoryCount =
     viewerStoryCount ?? filteredStories.filter(s => s.authorId === currentUserId).length;
   const positionGroup = userPosition ? getPositionGroup(userPosition as PositionType) : null;
   const ctaCopy = positionGroup ? getPositionCTACopy(positionGroup) : null;
-  const showInlineAddStoryPill =
-    !!userPosition &&
-    !isEmbed &&
-    !liveSessionMode &&
-    !hideActions &&
-    isOwnProfile &&
-    effectiveViewerStoryCount === 0 &&
-    !!ctaCopy;
+
+  /* P1366 — the list footer (the profile). ONE slot for the viewer, the same rule as the feed:
+     their story on this point (`✓ Your story`, someone else's profile only — on one's own profile
+     the expander already reads `Your story`), else `+ Add a story` when they hold a position and
+     have no story here. The old pill showed on one's own profile only and the old edit link only
+     off it, so a reader on someone else's profile was never invited to write one. */
+  const listSlot: 'your-story' | 'add-story' | null =
+    !isOwnProfile && viewerStoryId
+      ? 'your-story'
+      : currentUserId && userPosition && effectiveViewerStoryCount === 0 && ctaCopy
+        ? 'add-story'
+        : null;
+  /* A profile lists the owner's stories only (P470), and a person has at most one story per point
+     (unique story_points author+point), so the count there is 0 or 1. Unlabelled, `1 story` reads
+     as the point's total and contradicts the feed; so it names whose it is. */
+  const listStoryLabel = profileOwner
+    ? (isOwnProfile ? 'Your story' : `${firstNameOf(profileOwner.name)}'s story`)
+    : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
+  const listFooterActions = inListFooter ? (
+    <CardFooterActions type="point" onDetails={() => embedNavigate(`/point/${point.id}`)}>
+      {filteredStories.length > 0 && (
+        <CardExpander label={listStoryLabel} expanded={storiesExpanded} onToggle={handleStoriesToggle} />
+      )}
+      {listSlot === 'your-story' && viewerStoryId && (
+        <CardSlotLink kind="your-story" onClick={() => embedNavigate(`/story/${viewerStoryId}`)} />
+      )}
+      {listSlot === 'add-story' && ctaCopy && (
+        <CardSlotLink kind="add-story" copy={ctaCopy} onClick={() => embedNavigate(`/create?pointId=${point.id}`)} />
+      )}
+      {/* On a profile the count is the owner's, so `0 stories` would read as the point's total
+          (the same contradiction the labelled expander fixes): there, zero shows nothing. */}
+      {filteredStories.length === 0 && !listSlot && !profileOwner && <CardCountText>0 stories</CardCountText>}
+    </CardFooterActions>
+  ) : null;
+  /* P1366 — the `⋯` joins the card's top row: the owner's quote row, or on one's own profile the
+     header row above the statement. `-my-3` lets the 44px target overhang a 20px row rather than
+     grow it. */
+  const listMenu = inListFooter && !isEmbed && !hideActions && !liveSessionMode ? (
+    <CardMenu
+      type="point"
+      id={point.id}
+      surface={shareSurface}
+      description={point.text.slice(0, 100)}
+      fromUserId={profileOwner?.id}
+      className="-my-3 -mr-2"
+    />
+  ) : null;
 
   return (
     <>
@@ -317,8 +357,15 @@ export function PointCardWithLinks({
         {showQuotePattern && profileOwner && profileOwner.position ? (
           // Quote pattern: "{Name} {verb}:" outside, Point content in quoted box
           <>
-            {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped */}
-            <div className={`flex items-center gap-1.5 mb-2 text-sm text-gray-700${isOwnerAgent ? ' agent-card-drained' : ''}`} {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}>
+            {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped.
+                P1366 — in a list this is the card's top row, so the `⋯` joins it on the right; the
+                name truncates and the menu never shrinks, so nothing overlaps at 320px. */}
+            <div
+              className={`${inListFooter ? 'flex items-center justify-between gap-2' : 'flex items-center gap-1.5'} mb-2 text-sm text-gray-700${isOwnerAgent ? ' agent-card-drained' : ''}`}
+              {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
+              {...(inListFooter ? { 'data-testid': 'point-owner-row' } : {})}
+            >
+              <div className={inListFooter ? 'flex min-w-0 items-center gap-1.5' : 'contents'}>
               <GravatarAvatar
                 name={profileOwner.name}
                 photoUrl={profileOwner.avatarUrl}
@@ -329,17 +376,19 @@ export function PointCardWithLinks({
                 identityPending={identityPending}
                 className="!w-5 !h-5 !text-[10px]"
               />
-              <span className={"inline-flex items-center gap-1.5"}>
+              <span className={inListFooter ? 'inline-flex min-w-0 items-center gap-1.5' : 'inline-flex items-center gap-1.5'}>
               {/* P1141 amendment: an agent account is named the same way on every surface;
                   the raw stored `Agent · {Name}` used to leak through here. */}
               {isOwnerAgent ? (
                 <AgentByline name={profileOwner.name} />
               ) : (
-                <span className="font-medium">{profileOwner.name}</span>
+                <span className={inListFooter ? 'min-w-0 truncate font-medium' : 'font-medium'}>{profileOwner.name}</span>
               )}
               {!isOwnerAgent && !identityPending && <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />}
               <PositionBadge position={profileOwner.position} />
               </span>
+              </div>
+              {listMenu}
             </div>
 
             {/* Quoted Point box */}
@@ -393,7 +442,18 @@ export function PointCardWithLinks({
               </div>
 
 
-              {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
+              {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap).
+                  P1366 — in a list (the profile) it is the shared footer: expander + viewer slot
+                  left, `Details →` right. Elsewhere (an embed of someone's point) main's footer. */}
+              {inListFooter ? (
+                <div
+                  role="presentation"
+                  className="mt-3 pt-3 border-t border-border pl-4 sm:pl-[44px]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {listFooterActions}
+                </div>
+              ) : (
               <div
                 role="presentation"
                 className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-4 sm:pl-[44px]"
@@ -417,33 +477,6 @@ export function PointCardWithLinks({
                           {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           <span>{storyLabel}</span>
                         </button>
-                        {/* Case E: viewer has a story on another profile's point */}
-                        {!isEmbed && !liveSessionMode && !isOwnProfile && viewerStoryId && (
-                          <EditYourStoryLink onClick={() => embedNavigate(`/story/${viewerStoryId}?edit=true`)} />
-                        )}
-                        {/* P822: inline pill (own profile, no viewer story) */}
-                        {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
-                      </div>
-                    );
-                  }
-
-                  if (showInlineAddStoryPill) {
-                    // Case B/F: 0 stories, viewer has position — show 0-stories label + Add CTA
-                    return (
-                      <div className="flex items-center gap-2">
-                        <ChevronRight size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-600">{storyLabel}</span>
-                        {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
-                      </div>
-                    );
-                  }
-
-                  if (profileOwner && filteredStories.length > 0) {
-                    // Case G / no-position view: show story count without CTA
-                    return (
-                      <div className="flex items-center gap-2">
-                        <ChevronRight size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-600">{storyLabel}</span>
                       </div>
                     );
                   }
@@ -461,36 +494,21 @@ export function PointCardWithLinks({
                     );
                   }
 
-                  // P1296 — in a list, a point with no stories says so rather than leaving a blank
-                  // row (the feed and stake cards render `0 stories`; this is the same footer).
-                  return inListFooter ? <span className="text-sm text-muted-foreground">0 stories</span> : <span />;
+                  return <span />;
                 })()}
 
                 {/* Action icons - hidden in live session mode; embed: open button only (no share) */}
                 {!hideActions && !liveSessionMode && (
                   <div className="flex items-center gap-1">
                     {!isEmbed && (
-                      inListFooter ? (
-                        <CardShareButton
-                          type="point"
-                          id={point.id}
-                          surface={shareSurface}
-                          description={point.text.slice(0, 100)}
-                          fromUserId={profileOwner?.id}
-                        />
-                      ) : (
-                        <ShareButton
-                          type="point"
-                          id={point.id}
-                          description={point.text.slice(0, 100)}
-                          fromUserId={profileOwner?.id}
-                        />
-                      )
+                      <ShareButton
+                        type="point"
+                        id={point.id}
+                        description={point.text.slice(0, 100)}
+                        fromUserId={profileOwner?.id}
+                      />
                     )}
                     {(isEmbed || (!isDetailView && !disableNavigation)) && (
-                      inListFooter ? (
-                        <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
-                      ) : (
                       <MobileTooltip content="Open point">
                         <button
                           onClick={() => embedNavigate(`/point/${point.id}`)}
@@ -500,11 +518,11 @@ export function PointCardWithLinks({
                           <ExternalLink className="w-4 h-4" />
                         </button>
                       </MobileTooltip>
-                      )
                     )}
                   </div>
                 )}
               </div>
+              )}
             </div>
           </>
         ) : (
@@ -517,7 +535,22 @@ export function PointCardWithLinks({
 
             {/* Content column - aligned with StoryCard */}
             <div className="flex-1 min-w-0">
-              {/* Header row - matches StoryCard's author info structure */}
+              {/* Header row - matches StoryCard's author info structure.
+                  P1366 — in a list (one's own profile: no quote row) this is the card's top row,
+                  so the `⋯` joins it on the right; the header wraps rather than run under it. */}
+              {inListFooter ? (
+                <div className="mb-2 flex items-center justify-between gap-2" data-testid="point-owner-row">
+                  <div className="min-w-0">
+                    <PointHeader
+                      authorPosition={profileOwner?.position}
+                      authorName={profileOwner?.name}
+                      authorEarCount={profileOwner?.ear}
+                      className="flex-wrap"
+                    />
+                  </div>
+                  {listMenu}
+                </div>
+              ) : (
               <div className="mb-2">
                 <PointHeader
                   authorPosition={profileOwner?.position}
@@ -525,6 +558,7 @@ export function PointCardWithLinks({
                   authorEarCount={profileOwner?.ear}
                 />
               </div>
+              )}
 
               {/* Point text with inline visibility icon */}
               <p className={`text-gray-900 break-words ${compact ? 'text-sm' : 'text-base'}`}>
@@ -569,18 +603,23 @@ export function PointCardWithLinks({
 
       {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
       {(!showQuotePattern || liveSessionMode) && (
-        <>
+        inListFooter ? (
+          /* P1296 item 1, laid out by P1366 — in a LIST (the profile) this is the footer every
+             story and point card shares: theme border, `py-2.5`, the solid expander and the
+             viewer's slot left, `Details →` right. The padding stays this card's avatar column
+             (`sm:pl-[68px]`). `inListFooter`, not `isDetailView`: see its definition. */
+          <div
+            role="presentation"
+            className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {listFooterActions}
+          </div>
+        ) : (
         <div
           role="presentation"
-          /* P1296 item 1 — in a LIST (the profile) this is the footer every story and point card
-             shares: theme border, `py-2.5`. The point page's own detail card keeps its row. The
-             padding stays this card's avatar column (`sm:pl-[68px]`), as the spec requires.
-             `inListFooter`, not `isDetailView`: see its definition. */
-          className={
-            inListFooter
-              ? 'flex items-center justify-between gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border'
-              : 'flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100'
-          }
+          /* The point page's embed, the landing demos and live sessions keep main's row. */
+          className="flex items-center justify-between pl-4 sm:pl-[68px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
@@ -613,12 +652,6 @@ export function PointCardWithLinks({
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>{storyLabel}</span>
                   </button>
-                  {/* Case E: viewer has a story on another profile's point */}
-                  {!isEmbed && !isOwnProfile && viewerStoryId && (
-                    <EditYourStoryLink onClick={() => embedNavigate(`/story/${viewerStoryId}?edit=true`)} />
-                  )}
-                  {/* P822: inline + Add your story pill for own profile with no story */}
-                  {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
                 </div>
               );
             }
@@ -637,18 +670,7 @@ export function PointCardWithLinks({
               );
             }
 
-            // P822: 0 stories + inline pill (own profile, viewer has position, no story)
-            if (showInlineAddStoryPill) {
-              return (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-gray-600">0 stories</span>
-                  {renderAddStoryPill(showInlineAddStoryPill, ctaCopy, point.id, embedNavigate)}
-                </div>
-              );
-            }
-
-            // P1296 — in a list, `0 stories`, not a blank row: the count every card's footer carries.
-            return inListFooter ? <span className="text-sm text-muted-foreground">0 stories</span> : <span />;
+            return <span />;
           })() : (
             <span /> /* Empty span for flexbox spacing */
           )}
@@ -657,23 +679,10 @@ export function PointCardWithLinks({
           {!hideActions && !liveSessionMode && (
             <div className="flex items-center gap-1">
               {!isEmbed && (
-                inListFooter ? (
-                  <CardShareButton
-                    type="point"
-                    id={point.id}
-                    surface={shareSurface}
-                    description={point.text.slice(0, 100)}
-                    fromUserId={profileOwner?.id}
-                  />
-                ) : (
-                  <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
-                )
+                <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} fromUserId={profileOwner?.id} />
               )}
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && !disableNavigation && (
-                inListFooter ? (
-                  <CardOpenButton type="point" onOpen={() => embedNavigate(`/point/${point.id}`)} />
-                ) : (
                 <MobileTooltip content="Open point">
                   <button
                     onClick={() => embedNavigate(`/point/${point.id}`)}
@@ -683,12 +692,11 @@ export function PointCardWithLinks({
                     <ExternalLink className="w-4 h-4" />
                   </button>
                 </MobileTooltip>
-                )
               )}
             </div>
           )}
         </div>
-        </>
+        )
       )}
 
       {/* Expanded linked stories - in feed view, live session mode, or an embed.

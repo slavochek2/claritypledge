@@ -81,7 +81,7 @@ describe('P494: "Tell your story" visibility gate', () => {
 
       // Neither the old "Tell your story" nor the position-aware CTA should show
       expect(screen.queryByText('Tell your story →')).not.toBeInTheDocument();
-      expect(screen.queryByText('Add your story →')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Add (a|your) story/i)).not.toBeInTheDocument();
     });
   });
 });

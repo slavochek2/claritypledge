@@ -9,8 +9,11 @@
  * Tests:
  * - Visitor sees "N stories" in point card footer (private stories visible via RLS-gated batch query)
  * - Owner sees own point cards without edit/delete icon buttons
- * - Visitor with no position: no "Add your story" CTA
- * - Visitor with position but no story: "Add your story" CTA appears alongside owner attribution
+ * - Visitor with no position: no "+ Add a story" CTA
+ * - Visitor with position but no story: "+ Add a story" CTA appears
+ *
+ * P1366: on a profile the count names whose story it is — the expander reads "<First>'s story"
+ * (no number), and at zero stories a viewer's "+ Add a story" link stands alone.
  */
 
 import { test, expect } from '@playwright/test';
@@ -57,7 +60,7 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     if (visitor?.user?.id) await supabaseAdmin.auth.admin.deleteUser(visitor.user.id);
   });
 
-  test('visitor sees "0 stories" when story is private (RLS correctly restricts)', async ({ page }) => {
+  test('visitor sees no owner story when it is private (RLS correctly restricts)', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
@@ -67,10 +70,12 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     // Private stories are not accessible to visitors — count is 0
     // This is correct behavior: we assert it explicitly so a change to this policy
     // (e.g. making private stories visible) forces a conscious test update.
-    await expect(page.getByText(/0 stories/i)).toBeVisible({ timeout: 10000 });
+    // P1366: zero → no expander; the visitor holds a position, so their link stands alone.
+    await expect(page.getByRole('button', { name: /add a story for this point/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: "P470's story" })).toHaveCount(0);
   });
 
-  test('visitor with position sees "Add your story" CTA when owner has private story', async ({ page }) => {
+  test('visitor with position sees "+ Add a story" CTA when owner has private story', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
@@ -79,7 +84,7 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
 
     // Visitor has a position but no story → CTA should appear
     // This was the P465 regression: CTA was suppressed when story count = 0
-    await expect(page.getByText(/add your story/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/add a story/i)).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -115,17 +120,17 @@ test.describe('Flow 2 — Visitor sees public owner story attribution correctly'
     if (visitor?.user?.id) await supabaseAdmin.auth.admin.deleteUser(visitor.user.id);
   });
 
-  test('visitor sees "1 story" when owner story is public', async ({ page }) => {
+  test('visitor sees the owner\'s story (P1366: "P470\'s story") when it is public', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/1 story/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: "P470's story" })).toBeVisible({ timeout: 10000 });
   });
 
-  test('visitor without position sees no "Add your story" CTA', async ({ page }) => {
+  test('visitor without position sees no "+ Add a story" CTA', async ({ page }) => {
     // visitor has no position on this point
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
@@ -133,7 +138,7 @@ test.describe('Flow 2 — Visitor sees public owner story attribution correctly'
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText(/add your story/i)).not.toBeVisible();
+    await expect(page.getByText(/add (a|your) story/i)).not.toBeVisible();
   });
 });
 

@@ -854,7 +854,7 @@ function PositionHolderCard({
           <PositionBadge position={holder.position} />
         </span>
 
-        {/* Chevron + "story" toggle — or "Add your story" CTA */}
+        {/* Chevron + "story" toggle — or "Add a story" CTA */}
         {hasStory && onToggle && (
           <button
             ref={toggleRef}
