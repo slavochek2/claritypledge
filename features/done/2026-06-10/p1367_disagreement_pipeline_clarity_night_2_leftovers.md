@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 15
 workstream: disagreement-pipeline
 created_date: '2026-09-28'
 tags: [disagreement-pipeline, clarity-night, events, skills]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-28
 ---
 
 # P1367: Disagreement pipeline: what Clarity Night #2 still teaches after P1355 and P1358
@@ -277,9 +277,9 @@ stores, not named run files.
 
 ## Related
 
-- [P1355](done/2026-06-10/p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md),
-  [P1358](done/2026-06-10/p1358_disagreement_pipeline_attribution_summaries_story_models.md)
-- [P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md),
-  [P1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md): must follow the trio supersession
+- [P1355](p1355_disagreement_pipeline_standing_rules_from_clarity_night_2.md),
+  [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md)
+- [P1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md),
+  [P1338](../../p1338_clarity_night_deck_cut_theory_and_run_rounds.md): must follow the trio supersession
 - decisions.md 2026-09-16 and 2026-09-17 [product]: pairs rounds and the round rule
 - `3221b4910`: `/night` shortlink
