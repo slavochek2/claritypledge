@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [position-buttons, intensity, destructive-action]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1372-same-row-intensity-pick.test.tsx
   root_cause: "PositionButtons.handleIntensityClick forwards the already-selected level to onPositionClick; consumers toggle a repeated value to null"
@@ -74,9 +74,9 @@ Tapping the already-selected level closes the menu and leaves the position uncha
 
 - [x] Picking the currently selected level from the menu closes the menu and leaves the position unchanged (unit test on `PositionButtons`).
 - [x] Picking a different level still changes the position; the "Clear position" row still removes it.
-- [ ] Points expanded under a story on the profile page show a "Clear position" row that removes the position through the existing guarded path (consumer test on `QuotedPointCard` covers the card; the profile-page wiring needs browser UAT).
+- [x] Points expanded under a story on the profile page show a "Clear position" row that removes the position through the existing guarded path (consumer test on `QuotedPointCard` covers the card; profile-page wiring: founder browser UAT on the w2 build against the test DB, 2026-09-29, "works well").
 - [x] Existing position-button, letter and tutorial tests still pass.
-- [ ] No console errors during the affected flow.
+- [x] No console errors during the affected flow — founder UAT 2026-09-29 reported no problems; console output was not captured by the agent.
 
 ## Resolution
 
