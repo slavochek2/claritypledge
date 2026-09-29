@@ -99,16 +99,17 @@ Onboarding completion and survey answers are stored per person; the flow itself 
    - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
      meaning of this story?"**
    - **The Clarity Meeting Principle** (the thing opted into; a point, not a new story) + its own 0–10.
-   - **The roles, stated exactly:** the listener *can* speak (ask, explain back). The listener may not
-     **disagree** until they have **heard the speaker's number**, and that number is **at least 8**. A
-     listener who disagrees without having heard a number is reminded to ask for it. This replaces the
-     presi3 wording, where the number is not required to come first.
+   - **The roles, stated exactly** (revised 2026-09-29, decisions.md): the listener *can* speak (ask,
+     explain back). A listener who **opted in** may not **disagree** until they have **heard the
+     speaker's number**; the number does **not** have to reach 8. A listener who disagrees without
+     having heard a number is reminded to ask for it. Opted-out listeners are not bound by it. This
+     replaces the presi3 wording and the earlier below-8 prohibition.
    - **The opt-in choice**, with a welcome line on the same screen: both answers are fine, the person is
      welcome at the evening either way, and can change the answer at any time. `[FOUNDER DECISION: exact
      wording]`. The choice **unlocks only after both 0–10 answers**. Any number unlocks it; the
      gate is answering, not scoring. The host sees both numbers per person, so a 3 followed by an opt-in
      is visible. The commitment is only to answer "how much do you understand my intended meaning,
-     0–10?" when asked. (The below-8 rule for disagreement is how the rounds run; nobody opts into it.)
+     0–10?" when asked. (The hear-the-number rule binds only listeners who opted in; there is no below-8 prohibition, decisions.md 2026-09-29.)
 2. **Per-event part, every event.** Positions on the current night's statements (the disagreement
    survey). The statements are written per event by a separate session and swapped each week; this spec
    only needs a slot for them. **When the night came through the disagreement pipeline, that separate

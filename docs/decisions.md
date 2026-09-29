@@ -6,6 +6,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-29 [product]: The round rule is "hear the number before you disagree", for opted-in listeners only; the below-8 prohibition is overruled
+
+**Context:** Overrules the rule in 2026-09-17 [product] ("no disagreeing while the lower number is under 8") and its restatement in 2026-09-28 [product] (trios) and P1336. Surfaced while writing the Clarity Night #2 promo copy, where the rule had been paraphrased three different ways.
+**Decision:**
+- **A listener who opted in may not disagree until they have heard the speaker's number** (0-10, how well the speaker thinks they were understood). **The number does not have to reach 8.** "You gave me a 5, and I disagree with what I understood so far" is allowed.
+- **The rule applies only to listeners who opted in.** The numbers exist only for them; opted-out groups just talk on the same clock.
+**Alternatives rejected:** the below-8 prohibition. Founder: prohibiting disagreement is "very radical", it slows rounds a lot, and it hands the speaker control ("oh, you disagree, you cannot speak"): a speaker who keeps saying 5 silences the listener indefinitely. Consistent with the earlier framing that CP asks you to reveal the gap in your own understanding, not to withhold disagreement.
+**Consequences:** P1336 roles text updated. Round flow (P1337) and deck (P1338) wording must follow when next touched. **UNTESTED.** Falsifier: at Clarity Night #2, groups skip the number and argue anyway, or a number under 8 routinely turns the exchange into a fight rather than a clarification.
+**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · decisions.md 2026-09-17 [product], 2026-09-28 [product]
+
+---
+
 ## 2026-09-29 [process]: Accuracy evidence is written by a tool from checker verdicts; transcripts are identified by seal, never re-fetched (P1370)
 
 **Context:** The ikigai1 prod promotion needed a hand-written `accuracy-check` ledger line, bound to a transcript re-fetch that returned a machine-translated track. Re-checked by command: the yt-store and the transcript seal had held every source intact the whole time; only the redacted drafting copies were in scratch.
