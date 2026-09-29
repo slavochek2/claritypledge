@@ -2,7 +2,7 @@
  * @file p1366-card-footer.test.tsx
  * @description P1366 — list-card footers show their actions (prototype K).
  *
- * Bottom row: a SOLID blue expander (`N stories` / `N points`; on a profile `<First>'s story` /
+ * Bottom row: a SOLID blue expander (`N stories` / `N points`; on a profile `Their story` /
  * `Your story`), the viewer's one slot link (`+ Add a story` · `✓ Your story` · `+ Add a point`),
  * and an outlined `Details →` on the right. Top-right: a `⋯` menu holding `Share` (and, on the
  * profile's own story card, `Edit` / `Delete` — covered in p1366-profile-story-menu.test.tsx).
@@ -356,6 +356,17 @@ describe('P1366 — feed/stake point card', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
+  it('the footer row starts at the card\'s left edge (px-4, no text-column indent); the expanded story list keeps its indent', () => {
+    renderPoint(makePoint(), stories(2));
+    const footer = screen.getByTestId('point-card-footer');
+    const tokens = footer.className.split(/\s+/);
+    expect(tokens).toContain('px-4');
+    expect(tokens.filter((t) => /^(sm:)?p[lr]-/.test(t))).toEqual([]);
+    fireEvent.click(screen.getByTestId('feed-point-story-expander'));
+    const list = screen.getAllByTestId('quoted-story')[0]!.closest('[class*="sm:pl-[44px]"]');
+    expect(list, 'expanded stories keep the statement-column indent (60px = 16 + 44)').toBeTruthy();
+  });
+
   it('the card highlights its border on hover AND keyboard focus-within — top/right/bottom only, never the left marker', () => {
     renderPoint(makePoint(), []);
     const root = screen.getByRole('button', { name: 'Point: A point statement.' });
@@ -451,6 +462,14 @@ describe('P1366 — feed/stake story card', () => {
     expect(trigger.closest('[role="presentation"]')!.className).toContain('shrink-0');
   });
 
+  it('the footer row starts at the card\'s left edge (px-4, no text-column indent)', () => {
+    renderStory({ linkedPoints: points(2) });
+    const footer = screen.getByTestId('story-card-footer');
+    const tokens = footer.className.split(/\s+/);
+    expect(tokens).toContain('px-4');
+    expect(tokens.filter((t) => /^(sm:)?p[lr]-/.test(t))).toEqual([]);
+  });
+
   it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {
     renderStory();
     const root = screen.getByRole('button', { name: 'Story by Test Author' });
@@ -479,9 +498,12 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
   const renderProfile = (props: Props) =>
     render(<MemoryRouter><PointCardWithLinks point={protoPoint()} shareSurface="profile" profileOwner={owner} {...props} /></MemoryRouter>);
 
-  it("someone else's profile: the expander names the owner by FIRST name, no count", () => {
+  // FOUNDER DECISION 2026-09-29: `Their story` (was `<First>'s story`); own profile keeps `Your story`.
+  it("someone else's profile: the expander reads 'Their story' — whose, without the name, no count", () => {
     renderProfile({ linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
-    const expander = screen.getByRole('button', { name: "Maya's story" });
+    const expander = screen.getByRole('button', { name: 'Their story', exact: true });
+    expect(screen.queryByText(/Maya/)).not.toBeNull(); // the owner's name is still on the card, in the owner row
+    expect(screen.queryByRole('button', { name: "Maya's story" })).toBeNull();
     expectSolidExpander(expander);
     expect(expander.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByText(/1 story/)).toBeNull();
@@ -504,20 +526,17 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
 
   it('the owner has no story here: no expander and no count — `0 stories` would read as the point\'s total', () => {
     renderProfile({ linkedStories: [], currentUserId: 'viewer-1' });
-    expect(screen.queryByRole('button', { name: "Maya's story" })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Their story', exact: true })).toBeNull();
     expect(screen.queryByText('0 stories')).toBeNull();
     expect(screen.getByRole('button', { name: 'Details for this point' })).toBeTruthy();
   });
 
-  it('an owner with no display name: the expander falls back to the count, never "\'s story"', () => {
-    renderProfile({ profileOwner: { ...owner, name: '' }, linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
-    expectSolidExpander(screen.getByRole('button', { name: '1 story' }));
-    expect(screen.queryByText(/^'s story$/)).toBeNull();
-  });
-
-  it('an owner whose name is only whitespace: the same fallback', () => {
-    renderProfile({ profileOwner: { ...owner, name: '   ' }, linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
-    expect(screen.getByRole('button', { name: '1 story' })).toBeTruthy();
+  it('the label never depends on the name: an empty or very long owner name still reads "Their story"', () => {
+    for (const name of ['', '   ', 'Maximiliana Konstantinopoulou-Vandenberghe']) {
+      const { unmount } = renderProfile({ profileOwner: { ...owner, name }, linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
+      expectSolidExpander(screen.getByRole('button', { name: 'Their story', exact: true }));
+      unmount();
+    }
   });
 
   it("someone else's profile, I wrote a story here: ✓ Your story opens it to read", () => {
@@ -612,7 +631,9 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     // the row wrapper is a direct child of the card root, with the plain branch's classes
     const row = details.closest('[role="presentation"]')!;
     expect(row.parentElement).toBe(root);
-    expect(row.className).toBe('pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border');
+    // FOUNDER DECISION 2026-09-29: the row starts at the card's left edge (in line with the
+    // avatar), mirroring Details → flush right — `px-4`, no text-column indent.
+    expect(row.className).toBe('px-4 py-2.5 border-t border-border');
     // exactly one footer
     expect(screen.getAllByRole('button', { name: 'Details for this point', exact: true })).toHaveLength(1);
   });
@@ -626,7 +647,9 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     const root = container.querySelector('[role="button"]')!;
     const row = screen.getByRole('button', { name: 'Details for this point', exact: true }).closest('[role="presentation"]')!;
     expect(row.parentElement).toBe(root);
-    expect(row.className).toBe('pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border');
+    // FOUNDER DECISION 2026-09-29: the row starts at the card's left edge (in line with the
+    // avatar), mirroring Details → flush right — `px-4`, no text-column indent.
+    expect(row.className).toBe('px-4 py-2.5 border-t border-border');
   });
 
   it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {

@@ -4,6 +4,7 @@ import type { EventWithHost, PersonRef } from '@/app/types';
 import { formatDateShort, formatTime } from '../utils';
 import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { displayGoingCount } from '@/app/utils/event-going';
 
 interface EventCardProps {
   event: EventWithHost;
@@ -129,8 +130,9 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
                 )}
               </div>
             )}
+            {/* The host counts as going (founder, 2026-09-29) — display only; see event-going.ts. */}
             <span className="text-sm text-muted-foreground">
-              {event.attendeeCount ?? event.attendees?.length ?? 0} {
+              {displayGoingCount(event)} {
                 event.status === 'completed' || new Date(event.datetime) < new Date() ? 'attended' :
                 event.status === 'cancelled' ? 'were going' : 'going'
               }

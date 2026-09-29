@@ -10,7 +10,8 @@
  *
  * P1366 re-laid the profile list footer (prototype K) and changed three of these rules:
  * - the CTA is "+ Add a story"; at 0 stories it stands ALONE (no "0 stories" beside it);
- * - the profile's expander names whose story it is ("Your story" / "<First>'s story"), no count;
+ * - the profile's expander says whose story it is ("Your story" / "Their story" — founder,
+ *   2026-09-29; it read "<First>'s story"), no count;
  * - a viewer holding a position on SOMEONE ELSE's profile is now invited too (Flow 3), and a
  *   viewer who wrote one sees "✓ Your story", which opens it to read — no edit param (Flow 4).
  */
@@ -197,8 +198,8 @@ test.describe('Flow 3 — Other profile: P1366 invites the viewer too', () => {
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    // P1366: the expander names the owner by first name ("P465 F3 Owner" → "P465's story").
-    await expect(page.getByRole('button', { name: "P465's story", exact: true })).toBeVisible();
+    // P1366 (founder, 2026-09-29): on someone else's profile the expander reads "Their story".
+    await expect(page.getByRole('button', { name: 'Their story', exact: true })).toBeVisible();
   });
 });
 

@@ -48,8 +48,9 @@ import { analytics } from '@/lib/mixpanel';
 import { MobileTooltip } from './mobile-tooltip';
 import { ShareDialog, type ShareSurface } from './ShareDialog';
 import type { PositionCTACopy } from '@/app/utils/position-helpers';
+import { CARD_FOCUS_RING, DETAILS_BUTTON_CLASS } from './card-action-classes';
 
-const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1';
+const FOCUS_RING = CARD_FOCUS_RING;
 
 /** 44px — the profile's icon size since P1296. */
 const ICON_BUTTON =
@@ -64,8 +65,7 @@ const SLOT_LINK =
   `inline-flex h-10 items-center text-sm font-medium text-blue-700 hover:underline whitespace-nowrap rounded-sm ${FOCUS_RING}`;
 
 /** Prototype K's outlined `Details` button. */
-const DETAILS_BUTTON =
-  `inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted ${FOCUS_RING}`;
+const DETAILS_BUTTON = DETAILS_BUTTON_CLASS;
 
 type CardType = 'story' | 'point';
 

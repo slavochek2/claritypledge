@@ -9,7 +9,7 @@
  *   - Edit icon: new button → must have aria-label="Edit your story for this point"
  *   - Delete icon: new button → must have aria-label="Delete your story for this point"
  *   - Stories expand trigger: aria-expanded. P1366: on the profile LIST its accessible name is its
- *     visible label ("Your story" / "<First>'s story"), not "Expand linked stories"
+ *     visible label ("Your story" / "Their story"), not "Expand linked stories"
  *   - No position prefix symbols (✓ ✗ ~) in footer — actor confusion fix also removes
  *     the symbol-label pair entirely from the CTA row (only ctaText remains)
  *

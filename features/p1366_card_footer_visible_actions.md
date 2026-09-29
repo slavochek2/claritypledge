@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: story
 rank: 14
 workstream: product
@@ -45,7 +45,7 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
   - story card, viewer is the author → `+ Add a point`; nobody else sees anything (there is no "your point")
 - **Bottom row, right — open the card's page:** an outlined secondary button **`Details →`, always visible on every device**. No hover-reveal. Replaces the external-link icon everywhere on list cards.
 - **Desktop hover:** the whole card's border highlights (also on `:focus-within`), confirming the card is clickable. Nothing appears, grows or moves. The card's `border-l-4` accent bar keeps its colour (amber marks a private point), so the highlight colours the top, right and bottom borders (2026-09-28, found in review: focus persists after a tap on phones).
-- **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. A person has at most one story per point (DB unique `story_points` author+point, `20260301120000_story_points_author_unique.sql`), so on a profile the count is only ever 0 or 1: the expander drops the number and reads `Maya's story` (first name), or `Your story` on one's own profile; with 0 it is absent. Feed and stake keep `N stories`. The full set is one tap away via `Details →`.
+- **Profile counts say whose they are.** A profile lists the owner's stories only (P470). Unlabelled, `2 stories` there reads as the point's total and contradicts the feed's number for the same point. A person has at most one story per point (DB unique `story_points` author+point, `20260301120000_story_points_author_unique.sql`), so on a profile the count is only ever 0 or 1: the expander drops the number and reads `Their story` on someone else's profile (founder 2026-09-29, replacing the first name: the owner's name is already in the card's top row, and a name truncates on phones), or `Your story` on one's own profile; with 0 it is absent. Feed and stake keep `N stories`. The full set is one tap away via `Details →`.
 - **Zero counts:** the expander renders only when the count is > 0 (no dead button). With 0 and a viewer-slot link, the link alone; with 0 and no link, plain `0 stories` / `0 points` text (today's copy) — **except on a profile**, where zero with no link shows nothing (only `Details →`): the count there is the owner's, so `0 stories` would contradict the feed's total, the same reason the expander names the owner (founder decision 2026-09-28, resolving the spec's two readings).
 - **On someone else's profile the bottom row sits under the grey quote box, full card width** — the same place as on one's own profile and the feed; inside the box it got 249px at 375 and truncated the owner's name to `May…` at 320 (founder decision 2026-09-28, chosen from a side-by-side `/tree` render at measured widths).
 - **The `⋯` menu joins the top row that exists on each real card** — `FeedPointCard`: the statement row; `PointCardWithLinks`: the profile-owner quote row, or the statement row on one's own profile (no quote row there, `:273`); story cards: the author row. There is no "POINT" label on real cards; the prototype's label is a stand-in.
@@ -65,13 +65,18 @@ The approved reference is **variant K** in `src/app/pages/prototypes/card-action
 
 These replace today's divergence: the `+ Add your story` pill appears on the profile only when it is the viewer's own profile (`point-card-with-links.tsx:281`), the `✏ your story` link only off it (`:417`), so on one's own profile a written story has no route from the card; the feed point card has its own pill and edit link (`feed-point-card.tsx:310`).
 
+**Folded in on 2026-09-29 (founder: "this seems small why not do it here"):**
+- **The bottom row starts at the card's left edge**, in line with the avatar, mirroring `Details →` flush right (it had started at the text column, which read as indented).
+- **`/groups` directory card:** `Open →` keeps its divider and takes the same outlined look as `Details →`. It stays decorative (`aria-hidden`), because the whole card is the link (P1204).
+- **Event cards never show `0 going` for a hosted event:** the displayed count includes the host when the host has not RSVP'd. Display only; room statistics keep excluding the host (decisions.md 2026-09-21).
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
 | Solid blue expander on every card competes with the page's primary CTA (P955 "one primary per view") | ACCEPT | Founder chose reading as the loud action. The P955 gate only checks `/tree/_gate/` fixtures and full-width primaries, so it will not fire here — its pass is not evidence. Visual QA must judge the Hierarchy item against the feed's top CTA. |
 | At 320px the point card carrying both `N stories` and `+ Add a story` wraps to two lines | ACCEPT | Measured in the prototype; 375px and wider fit on one line. |
-| On someone else's profile, `<First>'s story` plus a viewer link (`+ Add a story` / `✓ Your story`) wraps to two lines at 375 too (~331px of controls, 291px row) | ACCEPT | Founder decision 2026-09-28, measured on a real profile; shortening the owner label was ruled out because it is the fix for the count contradiction. |
+| On someone else's profile, `Their story` plus a viewer link (`+ Add a story` / `✓ Your story`) wraps to two lines at 375 too (~331px of controls, 291px row) | ACCEPT | Founder decision 2026-09-28, measured on a real profile; shortening the owner label was ruled out because it is the fix for the count contradiction. |
 | Share becomes two taps (inside `⋯`), away from where P1296 put it | ACCEPT | Prod Mixpanel, last 90 days to 2026-09-28: `feed_card_shared` fired 2 times against 8,248 page views. |
 | Card roots are `role="button"` containing buttons (nested interactive controls, pre-existing since P1296) | DEFER | Not introduced here; a semantics refactor (root as container, `Details` as the real link) is its own spec. |
 | `⋯` holds only `Share` on most cards (a one-item menu) | ACCEPT | Founder chose one consistent corner rule over showing the share icon directly; share is used ~2×/90 days. |
@@ -95,7 +100,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [x] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
 - [x] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
 - [x] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
-- [x] On a profile the expander reads `<First name>'s story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
+- [ ] On a profile the expander reads `Their story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
 - [x] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
 - [x] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [x] The point detail page, an embed and live-session cards look as before (screenshot compare).
@@ -103,11 +108,15 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [x] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card) — except the founder-accepted two-line case on someone else's profile (owner story + viewer link); at 320px nothing overflows the card, no control overlaps another, including a long author name next to `⋯`.
 - [x] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
 
+- [ ] Every list card's bottom row starts at the card's left content edge (the avatar's left edge) at 375, 320 and desktop.
+- [ ] A `/groups` card shows `Open →` as the outlined secondary button, still decorative and not a second interactive target.
+- [ ] A hosted event with no RSVPs shows `1 going`, not `0 going`; capacity, spots left and statistics are unchanged.
+
 ## UI Contract
 
 | Element | Copy | Style |
 |---|---|---|
-| Expander (point) | `N stories` / `1 story`; on a profile `Maya's story` / `Your story` (count is 0 or 1) | solid `bg-blue-600` white, h-10, chevron |
+| Expander (point) | `N stories` / `1 story`; on a profile `Their story` / `Your story` (count is 0 or 1) | solid `bg-blue-600` white, h-10, chevron |
 | Expander (story) | `N points` / `1 point` | same |
 | Zero, no slot link | `0 stories` / `0 points` | plain muted text, no button |
 | Viewer slot | `+ Add a story` · `✓ Your story` · `+ Add a point` | blue text link, h-10 hit area |

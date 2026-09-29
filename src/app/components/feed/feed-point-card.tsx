@@ -301,9 +301,10 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           `Details →` right (card-footer-controls.tsx). Share lives in the `⋯` up top. */}
       <div
         role="presentation"
-        /* From `sm` the row starts at the statement's column (16 padding + 32 pin + 12 gap), as
-           the story card's footer starts at its body's. */
-        className="flex flex-col gap-2 pl-4 sm:pl-[60px] pr-4 py-2.5 border-t border-border"
+        /* FOUNDER DECISION 2026-09-29: the row starts at the card's left edge, in line with the
+           pin, mirroring `Details →` flush right — `px-4`, no statement-column indent. The
+           expanded story list below keeps that indent (16 + 44 = the old 60px). */
+        className="flex flex-col gap-2 px-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
         data-testid="point-card-footer"
       >
@@ -335,6 +336,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
              universal "belongs to" pattern (decisions.md 2026-03-17): "All stories get
              ThreadLine — even single items need the connecting line to visually anchor them
              to the parent card." */
+          <div className="sm:pl-[44px]">
           <ThreadLineGroup>
             {linkedStories.map((linked, index) => (
               <ThreadLineItem key={linked.id} isLast={index === linkedStories.length - 1}>
@@ -386,6 +388,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
               </ThreadLineItem>
             ))}
           </ThreadLineGroup>
+          </div>
         )}
       </div>
     </div>

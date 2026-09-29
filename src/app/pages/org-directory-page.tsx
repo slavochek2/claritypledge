@@ -23,6 +23,7 @@ import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { OrgParticipantRow } from "@/app/components/organizations/org-participant-row";
 import { organizationsService } from "@/app/data/organizations-service";
+import { DETAILS_BUTTON_CLASS } from "@/app/components/shared/card-action-classes";
 import type {
   Organization,
   OrgEventSummary,
@@ -243,10 +244,13 @@ function OrgCard({
             click target (stretched link above) — an interactive element here
             would be a second, nested interactive target inside the stretched
             link, which is invalid. tabIndex/aria-hidden already made it
-            non-reachable; dropping the <Link> wrapper makes that literal. */}
+            non-reachable; dropping the <Link> wrapper makes that literal.
+            P1366 (founder, 2026-09-29): it LOOKS like the list cards' outlined `Details →`
+            button — the same shared classes — and reads as hovered when the card is hovered.
+            It stays a span: still decorative, still aria-hidden, still not a tab stop. */}
         <span
           aria-hidden="true"
-          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground"
+          className={`${DETAILS_BUTTON_CLASS} group-hover:bg-muted`}
         >
           Open
           <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />

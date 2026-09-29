@@ -220,6 +220,12 @@ describe("P1366 — the owner's story card on their own profile", () => {
     expect(tokens.filter((t) => /^(hover|focus-within):border-(?![trb]-)/.test(t))).toEqual([]);
   });
 
+  it("the footer row starts at the card's left edge (px-4), mirroring Details → on the right", async () => {
+    await renderProfile();
+    const row = screen.getByRole('button', { name: 'Details for this story' }).closest('[role="presentation"]')!;
+    expect(row.className).toBe('px-4 py-2.5 border-t border-border');
+  });
+
   it('footer: "+ Add a point" (0 points, so alone) and Details → the story', async () => {
     const user = userEvent.setup();
     await renderProfile();

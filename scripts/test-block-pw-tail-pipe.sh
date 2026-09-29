@@ -19,9 +19,12 @@ HOOK="${1:-$ROOT/.claude/hooks/block-pw-tail-pipe.sh}"
 FAILURES=0
 
 check() { # $1=expected(BLOCK|PASS) $2=command
-  local out got
-  out=$(printf '%s' "$2" | jq -Rs '{tool_input:{command:.}}' | bash "$HOOK")
-  got=$(echo "$out" | grep -q '"deny"' && echo BLOCK || echo PASS)
+  local out rc got
+  # BLOCK = deny JSON on stdout OR exit 2. Exit 2 is Claude Code's blocking error: a hook
+  # that dies with a bash syntax error exits 2 and blocks EVERY Bash call, which a
+  # stdout-only "deny" check would score as PASS.
+  out=$(printf '%s' "$2" | jq -Rs '{tool_input:{command:.}}' | bash "$HOOK" 2>/dev/null); rc=$?
+  if [[ "$out" == *'"deny"'* || $rc -eq 2 ]]; then got=BLOCK; else got=PASS; fi
   if [ "$got" = "$1" ]; then
     echo "  ok   $got  | $2"
   else
@@ -45,6 +48,11 @@ check BLOCK 'PLAYWRIGHT TEST | tail'                 # case (run word)
 check BLOCK 'npm run test:e2e |& tail'               # bash stderr-merge pipe
 check BLOCK 'cd e2e && playwright test | tail'       # compound
 
+echo "== SHOULD BLOCK: grouped runs piped as a unit (2026-09-29 statement-split rewrite) =="
+check BLOCK '{ npx playwright test; } | tail -5'     # brace group output is the live reporter
+check BLOCK '(npx playwright test) | tail'           # subshell, same
+check BLOCK 'out=$(npx playwright test | tail)'      # inside command substitution
+
 echo "== SHOULD PASS: mentions / log-file / vitest / canonical pattern =="
 check PASS 'cat playwright.config.ts | head -60'
 check PASS 'ls -d node_modules/playwright node_modules/@playwright/test | head'
@@ -54,9 +62,22 @@ check PASS 'npx playwright test e2e/foo.spec.ts > /tmp/pw.log 2>&1'
 check PASS 'playwright test > /tmp/pw.log 2>&1 ; grep -E "passed" /tmp/pw.log'
 check PASS 'tail /tmp/pw.log'
 check PASS 'npm test | tail'                         # vitest, not playwright
+check PASS 'ls'                                      # plain command: catches a hook that blocks everything
 
-echo "== KNOWN RESIDUAL (acknowledged): literal trigger inside a quoted arg still blocks =="
-check BLOCK "echo 'playwright test | tail' | cat"
+echo "== SHOULD PASS: measured false positives of the old whole-string AND (2026-09-29) =="
+check PASS "pgrep -fl \"playwright test\" | cut -d' ' -f1; lsof -i:9323 | head -1"
+check PASS 'npx playwright test e2e/x.spec.ts > /tmp/l.txt 2>&1; grep -n FAIL /tmp/l.txt | head -5'
+check PASS 'npx playwright test --reporter=json > r.json; jq .stats r.json | head'   # the repo's own JSON remedy
+check PASS $'npx playwright test > /tmp/l.txt 2>&1\ntail -40 /tmp/l.txt'          # newline-separated
+check PASS 'npx playwright test > /tmp/l.txt 2>&1 & tail -f /tmp/l.txt'           # & separates statements
+check PASS $'cat <<\'EOF\' > notes.md\nnpx playwright test | tail\nEOF'           # heredoc body is text, not a run
+check BLOCK $'cat <<EOF > notes.md\nx\nEOF\nnpx playwright test | tail'           # ...but a real run after it is not
+
+echo "== FORMER RESIDUAL, flipped deliberately: trigger text only inside a quoted arg =="
+# Pre-2026-09-29 this row was pinned as BLOCK ("known residual" of the whole-string grep).
+# Quoted strings are now blanked before matching, so text that merely CONTAINS the run is
+# not a run. Trade-off accepted: `bash -c "playwright test | tail"` also passes now.
+check PASS "echo 'playwright test | tail' | cat"
 
 echo "---"
 if [ "$FAILURES" -eq 0 ]; then

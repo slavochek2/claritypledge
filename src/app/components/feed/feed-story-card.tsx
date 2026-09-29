@@ -365,10 +365,10 @@ export function FeedStoryCard({
           (none linked) must not read alike; meanwhile a placeholder holds the row's height. */}
       <div
         role="presentation"
-        /* From `sm` the row starts at the body's column (16 padding + 40 avatar + 12 gap), the
-           profile card's `sm:pl-[68px]` — founder, UAT: *"move in a bit? to be consistent on all
-           surfaces"*. Below `sm` it stays at the edge, as the profile's does. */
-        className="flex flex-col gap-2 pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+        /* FOUNDER DECISION 2026-09-29: the row starts at the card's left edge, in line with the
+           avatar, mirroring `Details →` flush right — `px-4`. (It used to indent to the body
+           column from `sm`, P1296.) Same on every list card. */
+        className="flex flex-col gap-2 px-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
         data-testid="story-card-footer"
       >
@@ -395,6 +395,8 @@ export function FeedStoryCard({
             pass matched only the TRIGGER and rendered the points as bare `<button>` text
             here; founder, from a screenshot: "weird this is not consistent with rest?". */}
         {pointsExpanded && linkedPoints && linkedPoints.length > 0 && (
+          /* The expanded points keep the body-column indent (16 + 52 = the old 68px). */
+          <div className="sm:pl-[52px]">
           <ThreadLineGroup>
             {linkedPoints.map((point, index) => (
               <ThreadLineItem key={point.id} isLast={index === linkedPoints.length - 1}>
@@ -419,6 +421,7 @@ export function FeedStoryCard({
               </ThreadLineItem>
             ))}
           </ThreadLineGroup>
+          </div>
         )}
       </div>
     </div>

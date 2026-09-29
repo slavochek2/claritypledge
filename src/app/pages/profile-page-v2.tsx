@@ -1877,12 +1877,13 @@ function StoryCardFull({
       </div>
 
       {/* P1296 item 1, laid out by P1366 — the footer every story and point card shares; `py-2.5`
-          like the feed's. The padding stays this card's avatar column (`sm:pl-[68px]`). Left:
+          like the feed's; `px-4`, so it starts at the card's left edge in line with the avatar
+          (founder, 2026-09-29), mirroring `Details →` flush right. Left:
           the solid point expander and the author's `+ Add a point` (P580). Right: `Details →`.
           Share, Edit and Delete live in the `⋯` up top. */}
       <div
         role="presentation"
-        className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+        className="px-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
         <CardFooterActions type="story" onDetails={() => navigate(detailRoutes.story(story.id))}>

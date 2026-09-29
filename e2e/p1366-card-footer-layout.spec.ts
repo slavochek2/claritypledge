@@ -12,19 +12,24 @@
  *   (The no-overflow check also runs at 375 — a stronger check, never a looser one.)
  *   Both — no control in the left group reaches under `Details →`: each one's right edge is at or
  *         before Details' left edge (1px tolerance). Ending inside the CARD is not enough — a long
- *         `<First>'s story` once ran 20px (375) / 75px (320) under Details while doing so.
+ *         `<First>'s story` label once ran 20px (375) / 75px (320) under Details while doing so.
+ *   375, 320 AND 1280 — the first footer control starts at the card's content left edge (the
+ *         avatar / pin column), ±2px: FOUNDER DECISION 2026-09-29, the bottom row mirrors
+ *         `Details →` flush right instead of indenting to the text column.
  *
  * FOUNDER DECISION 2026-09-28 (after the /tree footer-placement demo): on someone ELSE's profile
  * the bottom row sits OUTSIDE the grey quote box, at card level, like the own-profile card. Inside
- * the box it had 249px at 375 and `Maya's story` + `+ Add a story` + `Details →` needs ~331px.
+ * the box it had 249px at 375 and the owner's-story expander + `+ Add a story` + `Details →` needed ~331px.
  * ACCEPTED by the founder: with the expander AND a viewer link both showing (states A and B), the
  * row wraps to two lines at 375 and 320. So for A and B only, the one-line check is replaced by:
  *   - the row is outside the quote box, a card-level row, as wide as the plain-branch row
  *     (291px at 375, ±2);
- *   - `<First>'s story` is NOT truncated (label scrollWidth ≤ clientWidth) at 375 and 320;
+ *   - `Their story` is NOT truncated (label scrollWidth ≤ clientWidth) at 375 and 320;
  *   - `Details →` stays right-aligned (its right edge = the row's content right, ±2);
  *   - the sibling-overlap and no-overflow checks, as for every state.
  * State G (owner's story only, no viewer link) must still be ONE line at 375 AND 320, untruncated.
+ * FOUNDER DECISION 2026-09-29: the expander reads `Their story` on someone else's profile (it read
+ * `<First>'s story`), `Your story` on one's own.
  *
  * Screenshots: <dir>/<state>-<width>.png (the card), the open `⋯` menu for state C, and the
  * anonymous feed (Points / Stories tabs, plus one hovered card at 1280). Measurements:
@@ -60,10 +65,8 @@ const CHECK_WIDTHS = [
 const DESKTOP = { width: 1280, height: 900 } as const;
 
 const OWNER_NAME = 'Maya P1366owner';
-const OWNER_FIRST = 'Maya';
 const VIEWER_NAME = 'Pia P1366viewer';
 const LONG_NAME = 'Maximiliana Konstantinopoulou-Vandenberghe';
-const LONG_FIRST = 'Maximiliana';
 
 const RUN = Date.now();
 const STMT = {
@@ -129,8 +132,31 @@ interface LayoutTarget {
   expanderName?: string;
 }
 
-/** The plain-branch (own profile) footer row width at 375 — measured in state D. */
+/**
+ * The plain-branch (own profile) footer row width at 375 — measured in state D. Unchanged by the
+ * 2026-09-29 `px-4` change: below Tailwind's `sm` (640px) the row was already `pl-4`.
+ */
 const PLAIN_ROW_WIDTH_375 = 291;
+
+/** The card's content left edge: its first block (the `p-4` body holding the avatar / pin). */
+async function contentLeft(card: Locator): Promise<number> {
+  return card.evaluate((el) => {
+    const body = el.firstElementChild as HTMLElement;
+    return body.getBoundingClientRect().left + parseFloat(getComputedStyle(body).paddingLeft);
+  });
+}
+
+/** FOUNDER DECISION 2026-09-29 — the first footer control starts at the card's content left edge. */
+async function checkLeftEdge(t: LayoutTarget, width: number) {
+  const details = t.card.getByRole('button', { name: `Details for this ${t.type}`, exact: true });
+  const first = details.locator('xpath=..').locator(':scope > div').first().locator(':scope > *').first();
+  const firstBox = await box(first, 'first footer control');
+  const left = await contentLeft(t.card);
+  const where = `${t.state} @${width}`;
+  expect(Math.abs(firstBox.x - left), `${where}: first footer control left ${firstBox.x} vs card content left ${left}`)
+    .toBeLessThanOrEqual(2);
+  return { firstControlLeft: firstBox.x, contentLeft: left };
+}
 
 /**
  * Measures the footer and ⋯ at the current width and asserts:
@@ -156,8 +182,10 @@ async function checkLayout(t: LayoutTarget, width: number) {
     children.push({ text: ((await k.textContent()) ?? '').trim(), box: await box(k, 'footer child') });
   }
 
+  const leftEdge = await checkLeftEdge(t, width);
   writeMeasurements(`${t.state}-${width}`, {
     width,
+    leftEdge,
     cardInnerWidth: cardBox.width,
     card: cardBox,
     row: rowBox,
@@ -282,7 +310,10 @@ async function runAllWidths(page: Page, target: () => LayoutTarget) {
     await shoot(t, vp.width);
   }
   await setWidth(page, DESKTOP);
-  await shoot(target(), DESKTOP.width);
+  const desktop = target();
+  await desktop.card.scrollIntoViewIfNeeded();
+  writeMeasurements(`${desktop.state}-${DESKTOP.width}`, { width: DESKTOP.width, leftEdge: await checkLeftEdge(desktop, DESKTOP.width) });
+  await shoot(desktop, DESKTOP.width);
 }
 
 /** A profile point card (PointCardWithLinks): its root is the role=button holding the statement. */
@@ -371,34 +402,34 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
     await setTestSession(page, viewer.email);
   });
 
-  test("A — someone else's profile: <First>'s story + + Add a story + Details", async ({ page }) => {
+  test("A — someone else's profile: Their story + + Add a story + Details", async ({ page }) => {
     await openProfileTab(page, owner.slug, 'Points');
     const card = profilePointCard(page, STMT.A);
     await expect(card).toBeVisible({ timeout: 20000 });
-    await expect(card.getByRole('button', { name: `${OWNER_FIRST}'s story`, exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Their story', exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Add a story for this point', exact: true })).toBeVisible();
     await runAllWidths(page, () => ({
       state: 'A',
       card: profilePointCard(page, STMT.A),
       type: 'point',
       wrapAccepted: true,
-      expanderName: `${OWNER_FIRST}'s story`,
+      expanderName: 'Their story',
       nameBox: profilePointCard(page, STMT.A).getByTestId('point-owner-row').getByText(OWNER_NAME, { exact: true }),
     }));
   });
 
-  test("B — someone else's profile, I wrote one: <First>'s story + ✓ Your story + Details", async ({ page }) => {
+  test("B — someone else's profile, I wrote one: Their story + ✓ Your story + Details", async ({ page }) => {
     await openProfileTab(page, owner.slug, 'Points');
     const card = profilePointCard(page, STMT.B);
     await expect(card).toBeVisible({ timeout: 20000 });
-    await expect(card.getByRole('button', { name: `${OWNER_FIRST}'s story`, exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Their story', exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Your story', exact: true })).toBeVisible();
     await runAllWidths(page, () => ({
       state: 'B',
       card: profilePointCard(page, STMT.B),
       type: 'point',
       wrapAccepted: true,
-      expanderName: `${OWNER_FIRST}'s story`,
+      expanderName: 'Their story',
       nameBox: profilePointCard(page, STMT.B).getByTestId('point-owner-row').getByText(OWNER_NAME, { exact: true }),
     }));
   });
@@ -459,7 +490,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
     await page.getByRole('tab', { name: /^Points/ }).click();
     const pointCard = () => profilePointCard(page, STMT.E);
     await expect(pointCard()).toBeVisible({ timeout: 20000 });
-    await expect(pointCard().getByRole('button', { name: `${LONG_FIRST}'s story`, exact: true })).toBeVisible();
+    await expect(pointCard().getByRole('button', { name: 'Their story', exact: true })).toBeVisible();
     await runAllWidths(page, () => ({
       state: 'E-point',
       card: pointCard(),
@@ -483,11 +514,11 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
     }));
   });
 
-  test("G — someone else's profile, owner's story only: <First>'s story + Details, ONE line at 375 and 320", async ({ page }) => {
+  test("G — someone else's profile, owner's story only: Their story + Details, ONE line at 375 and 320", async ({ page }) => {
     await openProfileTab(page, owner.slug, 'Points');
     const card = profilePointCard(page, STMT.G);
     await expect(card).toBeVisible({ timeout: 20000 });
-    await expect(card.getByRole('button', { name: `${OWNER_FIRST}'s story`, exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Their story', exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Add a story for this point', exact: true })).toHaveCount(0);
     await expect(card.getByRole('button', { name: 'Your story', exact: true })).toHaveCount(0);
     await runAllWidths(page, () => ({
@@ -495,7 +526,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
       card: profilePointCard(page, STMT.G),
       type: 'point',
       oneLineAt320: true,
-      expanderName: `${OWNER_FIRST}'s story`,
+      expanderName: 'Their story',
       nameBox: profilePointCard(page, STMT.G).getByTestId('point-owner-row').getByText(OWNER_NAME, { exact: true }),
     }));
   });

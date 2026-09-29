@@ -115,15 +115,6 @@ interface PointCardWithLinksProps {
   shareSurface?: ShareSurface;
 }
 
-/**
- * P1366 — the first word of a display name, for the profile's `Maya's story`. An agent account's
- * stored `Agent · {Name}` prefix is dropped first, so the label names the person, not the marker
- * (the owner row above it still carries the agent byline).
- */
-function firstNameOf(name: string): string {
-  const bare = (stripAgentPrefix(name) ?? name).trim();
-  return bare.split(/\s+/)[0] || bare;
-}
 
 /**
  * PointCardWithLinks - displays a claim about reality (Point)
@@ -297,15 +288,13 @@ export function PointCardWithLinks({
         : null;
   /* A profile lists the owner's stories only (P470), and a person has at most one story per point
      (unique story_points author+point), so the count there is 0 or 1. Unlabelled, `1 story` reads
-     as the point's total and contradicts the feed; so it names whose it is. */
-  const countLabel = `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
-  const ownerFirstName = profileOwner ? firstNameOf(profileOwner.name ?? '') : '';
-  // An owner with no display name falls back to the count — never a bare "'s story".
-  const listStoryLabel = profileOwner && isOwnProfile
-    ? 'Your story'
-    : profileOwner && ownerFirstName
-      ? `${ownerFirstName}'s story`
-      : countLabel;
+     as the point's total and contradicts the feed; so it says whose it is. FOUNDER DECISION
+     2026-09-29: `Their story` on someone else's profile (was `<First>'s story` — the owner row
+     above already names them, and a name-built label needed a truncation and an empty-name
+     fallback); `Your story` on one's own. */
+  const listStoryLabel = profileOwner
+    ? (isOwnProfile ? 'Your story' : 'Their story')
+    : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
   const listFooterActions = inListFooter ? (
     <CardFooterActions type="point" onDetails={() => embedNavigate(`/point/${point.id}`)}>
       {filteredStories.length > 0 && (
@@ -602,18 +591,20 @@ export function PointCardWithLinks({
 
       {/* P1296 item 1, laid out by P1366 — in a LIST (the profile) this is the footer every
           story and point card shares: theme border, `py-2.5`, the solid expander and the viewer's
-          slot left, `Details →` right. The padding stays this card's avatar column
-          (`sm:pl-[68px]`). `inListFooter`, not `isDetailView`: see its definition.
+          slot left, `Details →` right. `px-4`: the row starts at the card's left edge, in line
+          with the avatar (founder, 2026-09-29). `inListFooter`, not `isDetailView`: see its
+          definition.
 
           It is a CARD-LEVEL row in BOTH branches. FOUNDER DECISION 2026-09-28 (after the /tree
           placement demo): on someone else's profile it used to sit inside the grey quote box,
-          where it had 249px at 375 — `Maya's story` + `+ Add a story` + `Details →` needs ~331px.
+          where it had 249px at 375 — the owner's-story expander + `+ Add a story` + `Details →`
+          needed ~331px.
           Out here it has the own-profile card's full width. Accepted: with the expander AND a
           viewer link both showing, the row wraps to two lines at 375 and 320. */}
       {inListFooter && (
         <div
           role="presentation"
-          className="pl-4 sm:pl-[68px] pr-4 py-2.5 border-t border-border"
+          className="px-4 py-2.5 border-t border-border"
           onClick={(e) => e.stopPropagation()}
         >
           {listFooterActions}

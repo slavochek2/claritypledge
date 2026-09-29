@@ -12,7 +12,8 @@
  * - Visitor with no position: no "+ Add a story" CTA
  * - Visitor with position but no story: "+ Add a story" CTA appears
  *
- * P1366: on a profile the count names whose story it is — the expander reads "<First>'s story"
+ * P1366: on a profile the count says whose story it is — the expander reads "Their story"
+ * (founder, 2026-09-29; it read "<First>'s story")
  * (no number), and at zero stories a viewer's "+ Add a story" link stands alone.
  */
 
@@ -72,7 +73,7 @@ test.describe('Flow 1 — Visitor sees private owner story via RLS-gated batch q
     // (e.g. making private stories visible) forces a conscious test update.
     // P1366: zero → no expander; the visitor holds a position, so their link stands alone.
     await expect(page.getByRole('button', { name: 'Add a story for this point', exact: true })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: "P470's story", exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Their story', exact: true })).toHaveCount(0);
   });
 
   test('visitor with position sees "+ Add a story" CTA when owner has private story', async ({ page }) => {
@@ -120,14 +121,14 @@ test.describe('Flow 2 — Visitor sees public owner story attribution correctly'
     if (visitor?.user?.id) await supabaseAdmin.auth.admin.deleteUser(visitor.user.id);
   });
 
-  test('visitor sees the owner\'s story (P1366: "P470\'s story") when it is public', async ({ page }) => {
+  test('visitor sees the owner\'s story (P1366: "Their story") when it is public', async ({ page }) => {
     await setTestSession(page, visitor.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('button', { name: "P470's story", exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: 'Their story', exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test('visitor without position sees no "+ Add a story" CTA', async ({ page }) => {
