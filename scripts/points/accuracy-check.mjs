@@ -12,6 +12,7 @@
  *   node scripts/points/accuracy-check.mjs hash   --env test|prod --tag <tag>
  *   node scripts/points/accuracy-check.mjs verify --env test --tag <tag>
  *       exit 0 MATCH · 3 MISSING (no line) · 4 STALE (line's hash is not the current bytes)
+ *       · 5 NOT TOOL-WRITTEN (a hand-written or non-clean line never counts)
  *   node scripts/points/accuracy-check.mjs record --env test|prod --tag <tag> --run <slug>
  *       --checked-by "<model + who>" [--method "<how>"] [--dry-run]
  *       exit 0 line appended · 1 REFUSED (reason printed, nothing written)
@@ -51,7 +52,7 @@ export function contentSha256(rows) {
 export function parseDrafts(md) {
   const start = md.search(/^## Story Drafts\s*$/m)
   if (start < 0) return []
-  const rest = md.slice(start).split('\n').slice(1)
+  const rest = md.replace(/\r\n?/g, '\n').slice(start).split('\n').slice(1)
   const end = rest.findIndex(l => /^## /.test(l))
   const lines = end < 0 ? rest : rest.slice(0, end)
   const drafts = []
@@ -62,8 +63,16 @@ export function parseDrafts(md) {
     if (h) { cur = { arguer: h[1], point: h[2], writer: null, checker: null, content: [] }; drafts.push(cur); inContent = false; continue }
     if (!cur) continue
     if (/^### /.test(line)) { cur = null; continue }
-    const meta = line.match(/^writer:\s*([^|]+?)\s*\|.*\bchecker:\s*([A-Z]+)/)
-    if (meta && !inContent) { cur.writer = meta[1]; cur.checker = meta[2]; continue }
+    const meta = line.match(/^writer:\s*([^|]+?)\s*\|/)
+    if (meta && !inContent) {
+      if (cur.content.length) { cur.checker = 'AMBIGUOUS'; continue }   // a verdict line after the content block
+      const v = line.match(/\bchecker:\s*(\S+)\s*(\||$)/)
+      // Clean PASS only: exactly the token PASS, and no STATUS / PENDING qualifier anywhere on the line.
+      cur.writer = meta[1]
+      const qualified = /STATUS|PENDING|→|\//i.test(line.replace(/^writer:[^|]*\|/, '').replace(/\bchecker:\s*PASS\b/, ''))
+      cur.checker = !v ? 'NONE' : v[1] !== 'PASS' ? v[1] : qualified ? 'PASS-QUALIFIED' : 'PASS'
+      continue
+    }
     if (/^content:\s*\|\s*$/.test(line)) { inContent = true; continue }
     if (inContent) {
       if (line === '' || line.startsWith('  ')) cur.content.push(line.slice(2))
@@ -84,7 +93,16 @@ export function parseSeal(text) {
 export const charCount = s => [...s].length
 
 /** Find each sealed transcript in the store by its bytes. Never fetches. */
-export function verifySeal(entries, storeDir) {
+/** Re-run the sealed vtt-clean version on the served track. Version drift is a refusal, not a pass. */
+export function vttReclean(file, sealedVersion) {
+  try {
+    const v = execFileSync('vtt-clean', ['--version'], { encoding: 'utf8' }).trim()
+    if (v !== sealedVersion) return { skipped: `installed ${v}, sealed ${sealedVersion}` }
+    return { out: execFileSync('vtt-clean', [file], { maxBuffer: 1 << 28 }) }
+  } catch (e) { return { skipped: `vtt-clean unavailable: ${e.message.split('\n')[0]}` } }
+}
+
+export function verifySeal(entries, storeDir, reclean = vttReclean) {
   const problems = []
   const found = new Map()
   for (const e of entries) {
@@ -97,6 +115,11 @@ export function verifySeal(entries, storeDir) {
     if (!rawMatches.length) problems.push(`${e.source}: no stored .vtt matches the sealed raw_sha256 — the track changed or was replaced`)
     if (!cleanFile) { problems.push(`${e.source}: no stored clean transcript matches the sealed clean_sha256`); continue }
     if (e.servedTrack && !rawMatches.includes(e.servedTrack)) problems.push(`${e.source}: sealed served_track ${e.servedTrack} does not hold the sealed raw bytes (matches: ${rawMatches.join(', ') || 'none'})`)
+    if (e.servedTrack && rawMatches.includes(e.servedTrack) && reclean) {
+      const r = reclean(path.join(dir, e.servedTrack), e.vttClean)
+      if (r.skipped) problems.push(`${e.source}: cannot re-derive the clean text (${r.skipped}) — refusing rather than trusting an unlinked clean file`)
+      else if (sha256(r.out) !== e.clean) problems.push(`${e.source}: the sealed clean text is NOT vtt-clean(${e.servedTrack}) — clean and raw are from different tracks`)
+    }
     const text = readFileSync(path.join(dir, cleanFile), 'utf8')
     if (e.cleanChars != null && charCount(text) !== e.cleanChars) problems.push(`${e.source}: clean transcript is ${charCount(text)} chars, seal says ${e.cleanChars}`)
     found.set(e.source, { file: cleanFile, text, rawMatches })
@@ -121,7 +144,9 @@ export function matchRows(rows, drafts, tag) {
     if (body == null) { problems.push(`${r.id}: content does not end with "\\n\\n#${tag}"`); continue }
     const hits = drafts.map((d, i) => [d, i]).filter(([d]) => d.content === body)
     if (!hits.length) { problems.push(`${r.id}: no draft in the run file equals this row — the text moved after the check; it needs a fresh check`); continue }
-    const pass = hits.filter(([d, i]) => d.checker === 'PASS' && !used.has(i))
+    const notClean = hits.filter(([d]) => d.checker !== 'PASS')
+    if (notClean.length) { problems.push(`${r.id}: a draft with this exact text is "${notClean[0][0].checker}", not a clean PASS (${notClean[0][0].arguer} ${notClean[0][0].point}) — pending, failed or re-rounded text is not checked text`); continue }
+    const pass = hits.filter(([d, i]) => !used.has(i))
     if (!pass.length) { problems.push(`${r.id}: its draft (${hits[0][0].arguer} ${hits[0][0].point}) is not checker: PASS`); continue }
     used.add(pass[0][1])
     matched.push({ row: r, draft: pass[0][0] })
@@ -133,6 +158,7 @@ export function checkQuotes(rows, found) {
   const problems = []
   let n = 0
   for (const r of rows) {
+    if (r.video_quotes != null && !Array.isArray(r.video_quotes?.quotes)) { problems.push(`${r.id}: video_quotes has no quotes array — cannot check`); continue }
     const quotes = r.video_quotes?.quotes ?? []
     if (!quotes.length) continue
     const id = videoId(r.video_url)
@@ -140,6 +166,7 @@ export function checkQuotes(rows, found) {
     if (!tx) { problems.push(`${r.id}: video ${id ?? r.video_url} has no sealed transcript`); continue }
     for (const q of quotes) {
       n++
+      if (typeof q.text !== 'string' || q.text.trim().length < 3) { problems.push(`${r.id}: empty or non-text quote`); continue }
       if (!tx.text.includes(q.text)) problems.push(`${r.id}: quote not verbatim in ${id}/${tx.file}: "${q.text}"`)
     }
   }
@@ -163,9 +190,12 @@ export function writerOverlap(checkedBy, matched) {
   return { ok: problems.length === 0, problems }
 }
 
+/** Every line this tool writes starts its method with this; a hand-written line does not. */
+export const TOOL_MARK = 'accuracy-check.mjs v1:'
+
 export function buildLine({ iso, env, tag, n, hash, method, checkedBy, findings = 'none' }) {
   for (const [k, v] of Object.entries({ method, checkedBy, findings })) if (/[|\n]/.test(v)) throw new Error(`${k} may not contain "|" or a newline`)
-  return `${iso} | disagreement:accuracy-check | env:${env} | tag:${tag} | stories:${n} | content_sha256:${hash} | verdict:${n}/${n} clean | method:${method} | checked_by:${checkedBy} | findings:${findings}`
+  return `${iso} | disagreement:accuracy-check | env:${env} | tag:${tag} | stories:${n} | content_sha256:${hash} | verdict:${n}/${n} clean | method:${TOOL_MARK} ${method} | checked_by:${checkedBy} | findings:${findings}`
 }
 
 /** The newest accuracy line for this env + tag. */
@@ -173,7 +203,10 @@ export function latestLine(ledger, env, tag) {
   const lines = ledger.split('\n').filter(l => l.includes('| disagreement:accuracy-check |') && l.includes(`| env:${env} |`) && l.includes(`| tag:${tag} |`))
   const last = lines.at(-1)
   if (!last) return null
-  return { line: last, hash: last.match(/content_sha256:([0-9a-f]{64})/)?.[1] ?? null, stories: Number(last.match(/\| stories:(\d+) \|/)?.[1]) }
+  const stories = Number(last.match(/\| stories:(\d+) \|/)?.[1])
+  const clean = last.includes(`| verdict:${stories}/${stories} clean |`) && /\| findings:none$/.test(last)
+  const tool = last.includes(`| method:${TOOL_MARK}`)
+  return { line: last, hash: last.match(/content_sha256:([0-9a-f]{64})/)?.[1] ?? null, stories, clean, tool }
 }
 
 export const id = 'accuracy-check'
@@ -227,10 +260,11 @@ export function target(env, root = mainRoot()) {
 export async function fetchRows(env, tag) {
   if (!/^[a-z0-9]+$/.test(tag)) throw new Error(`tag "${tag}" is not [a-z0-9]+`)
   const { url, key } = target(env)
-  const r = await fetch(`${url}/rest/v1/stories?select=id,content,video_url,video_quotes,tags&tags=cs.%7B${tag}%7D&limit=1000`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
+  const r = await fetch(`${url}/rest/v1/stories?select=id,content,video_url,video_quotes,tags&tags=cs.%7B${tag}%7D&order=id`, { headers: { apikey: key, Authorization: `Bearer ${key}`, Prefer: 'count=exact' } })
   if (!r.ok) throw new Error(`read ${env} stories: HTTP ${r.status}`)
   const rows = await r.json()
-  if (rows.length >= 1000) throw new Error('1000+ rows: pagination not exhausted')
+  const total = Number(r.headers.get('content-range')?.split('/')[1])
+  if (!Number.isFinite(total) || total !== rows.length) throw new Error(`read ${rows.length} of ${total} rows: pagination not exhausted`)
   return rows
 }
 
@@ -272,11 +306,13 @@ async function main(argv) {
   const hash = contentSha256(rows)
   console.log(`rows: ${rows.length} stories on ${env} under #${tag}`)
   console.log(`content_sha256: ${hash}`)
+  console.log(`ids_sha256: ${sha256(rows.map(x => x.id).sort().join('\n'))}`)
   if (cmd === 'hash') return 0
 
   if (cmd === 'verify') {
     const last = latestLine(existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '', env, tag)
     if (!last) { console.log(`accuracy evidence: MISSING (no accuracy-check line for env:${env} tag:${tag})`); return 3 }
+    if (!last.tool || !last.clean) { console.log(`accuracy evidence: NOT TOOL-WRITTEN or not clean. The newest line was not written by accuracy-check.mjs record, or does not say n/n clean with findings:none. Record a fresh check.\n  ${last.line}`); return 5 }
     if (last.hash !== hash || last.stories !== rows.length) { console.log(`accuracy evidence: STALE (line has ${last.hash} over ${last.stories} stories; current bytes ${hash} over ${rows.length})`); return 4 }
     console.log(`accuracy evidence: MATCH sha ${hash}`)
     console.log(`  ${last.line}`)

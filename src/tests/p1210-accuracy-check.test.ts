@@ -6,7 +6,7 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import {
   contentSha256, parseDrafts, parseSeal, verifySeal, matchRows, checkQuotes, writerOverlap,
-  buildLine, latestLine, videoId, charCount,
+  buildLine, latestLine, videoId, charCount, TOOL_MARK,
 } from '../../scripts/points/accuracy-check.mjs'
 import { readings } from '../../scripts/events/event-date.mjs'
 
@@ -49,6 +49,7 @@ const row = (content: string, quotes = ['The difficulty just collapsed.']) => ({
   id: 'r1', content, video_url: `https://www.youtube.com/watch?v=${ID}`,
   video_quotes: { quotes: quotes.map(text => ({ text, seconds: 1 })) },
 })
+const RECLEAN = (_f: string) => ({ out: CLEAN })   // stands in for vtt-clean on the served track
 const GOOD = 'Tan says the difficulty is gone.\n\nSupporting quotes from Garry Tan\n\n#ikigai1'
 
 describe('content hash — the recipe promote-to-prod reads', () => {
@@ -79,7 +80,19 @@ describe('run-file drafts', () => {
   })
   it('refuses a row whose draft is not checker: PASS', () => {
     const r = matchRows([row('Tan held this one.\n\n#ikigai1')], parseDrafts(RUN), 'ikigai1')
-    expect(r.problems[0]).toContain('not checker: PASS')
+    expect(r.problems[0]).toContain('not a clean PASS')
+  })
+  it('refuses a PASS draft marked pending founder acceptance (review finding 2)', () => {
+    const md = RUN.replace('checker: PASS | content_chars: 40', 'checker: PASS | content_chars: 40 | STATUS: PENDING FOUNDER ACCEPTANCE')
+    expect(matchRows([row(GOOD)], parseDrafts(md), 'ikigai1').ok).toBe(false)
+  })
+  it('refuses when a later draft with the same text FAILED, and on PASS? / PASS→FAIL tokens', () => {
+    const later = RUN.replace('## Next Section', '### Story — Garry Tan — P1\nwriter: gemini-3.8-flash | rounds: 2 | checker: FAIL\ncontent: |\n  Tan says the difficulty is gone.\n\n  Supporting quotes from Garry Tan\n\n## Next Section')
+    expect(matchRows([row(GOOD)], parseDrafts(later), 'ikigai1').ok).toBe(false)
+    for (const tok of ['PASS?', 'PASS→FAIL', 'PASS/FAIL']) expect(parseDrafts(RUN.replace('checker: PASS', `checker: ${tok}`))[0].checker).not.toBe('PASS')
+  })
+  it('a CRLF run file parses the same as LF', () => {
+    expect(matchRows([row(GOOD)], parseDrafts(RUN.replace(/\n/g, '\r\n')), 'ikigai1').ok).toBe(true)
   })
   it('refuses two rows claiming one draft', () => {
     expect(matchRows([row(GOOD), { ...row(GOOD), id: 'r2' }], parseDrafts(RUN), 'ikigai1').ok).toBe(false)
@@ -88,7 +101,7 @@ describe('run-file drafts', () => {
 
 describe('transcripts are identified by their sealed bytes, never re-fetched', () => {
   it('MUST-PASS: the sealed files are found; en-orig counts as the raw track', () => {
-    const r = verifySeal(parseSeal(sealLine(` | served_track: en-orig.vtt | clean_chars: ${charCount(CLEAN)}`)), store())
+    const r = verifySeal(parseSeal(sealLine(` | served_track: en-orig.vtt | clean_chars: ${charCount(CLEAN)}`)), store(), RECLEAN)
     expect(r.problems).toEqual([])
     expect(r.found.get(ID).rawMatches).toEqual(['en-orig.vtt'])
   })
@@ -98,9 +111,16 @@ describe('transcripts are identified by their sealed bytes, never re-fetched', (
   })
   it('refuses on a char-count mismatch and on a served_track that holds other bytes', () => {
     const dir = store({ 'en.vtt': 'WEBVTT\ntranslated\n' })
-    const p = verifySeal(parseSeal(sealLine(' | served_track: en.vtt | clean_chars: 36420')), dir).problems.join('\n')
+    const p = verifySeal(parseSeal(sealLine(' | served_track: en.vtt | clean_chars: 36420')), dir, RECLEAN).problems.join('\n')
     expect(p).toContain('served_track en.vtt')
     expect(p).toContain('36420')
+  })
+  it('refuses a clean file that was not derived from the served track (review finding 6)', () => {
+    const r = verifySeal(parseSeal(sealLine(' | served_track: en-orig.vtt')), store(), () => ({ out: 'translated text' }))
+    expect(r.problems.join()).toContain('different tracks')
+  })
+  it('refuses when the sealed cleaner version cannot be re-run, instead of trusting the clean file', () => {
+    expect(verifySeal(parseSeal(sealLine(' | served_track: en-orig.vtt')), store(), () => ({ skipped: 'installed 1.1.0' })).ok).toBe(false)
   })
   it('refuses a source absent from the store instead of fetching it', () => {
     expect(verifySeal(parseSeal(sealLine().replace(ID, 'AAAAAAAAAAA')), store()).problems[0]).toContain('does not re-fetch')
@@ -109,6 +129,11 @@ describe('transcripts are identified by their sealed bytes, never re-fetched', (
     const { found } = verifySeal(parseSeal(sealLine()), store())
     expect(checkQuotes([row(GOOD)], found)).toMatchObject({ ok: true, n: 1 })
     expect(checkQuotes([row(GOOD, ['The difficulty has collapsed.'])], found).ok).toBe(false)
+  })
+  it('refuses an empty quote and a video_quotes with no quotes array (review finding 9)', () => {
+    const { found } = verifySeal(parseSeal(sealLine()), store())
+    expect(checkQuotes([row(GOOD, [''])], found).ok).toBe(false)
+    expect(checkQuotes([{ ...row(GOOD), video_quotes: [{ text: 'x' }] }], found).ok).toBe(false)
   })
   it('reads video ids from watch, youtu.be and embed links', () => {
     for (const u of [`https://www.youtube.com/watch?v=${ID}&t=3`, `https://youtu.be/${ID}`, `https://www.youtube.com/embed/${ID}`]) expect(videoId(u)).toBe(ID)
@@ -129,10 +154,16 @@ describe('the checker is not the writer', () => {
 describe('ledger line', () => {
   const line = buildLine({ iso: '2026-09-29T00:00:00Z', env: 'test', tag: 'ikigai1', n: 21, hash: 'f'.repeat(64), method: 'm', checkedBy: 'Claude Sonnet' })
   it('has the exact format promote-to-prod reads, and latestLine reads it back', () => {
-    expect(line).toBe(`2026-09-29T00:00:00Z | disagreement:accuracy-check | env:test | tag:ikigai1 | stories:21 | content_sha256:${'f'.repeat(64)} | verdict:21/21 clean | method:m | checked_by:Claude Sonnet | findings:none`)
-    expect(latestLine(`x\n${line}\n`, 'test', 'ikigai1')).toMatchObject({ hash: 'f'.repeat(64), stories: 21 })
+    expect(line).toBe(`2026-09-29T00:00:00Z | disagreement:accuracy-check | env:test | tag:ikigai1 | stories:21 | content_sha256:${'f'.repeat(64)} | verdict:21/21 clean | method:${TOOL_MARK} m | checked_by:Claude Sonnet | findings:none`)
+    expect(latestLine(`x\n${line}\n`, 'test', 'ikigai1')).toMatchObject({ hash: 'f'.repeat(64), stories: 21, tool: true, clean: true })
     expect(latestLine(line, 'prod', 'ikigai1')).toBeNull()
     expect(latestLine(line, 'test', 'ikigai')).toBeNull()
+  })
+  it('a hand-written or non-clean line is read as not counting (review finding 1)', () => {
+    const hand = `t | disagreement:accuracy-check | env:test | tag:ikigai1 | stories:1 | content_sha256:${'a'.repeat(64)} | verdict:1/1 clean | method:re-fetched | checked_by:x | findings:none`
+    expect(latestLine(hand, 'test', 'ikigai1')).toMatchObject({ tool: false })
+    expect(latestLine(line.replace('findings:none', 'findings:FABRICATION'), 'test', 'ikigai1')).toMatchObject({ clean: false })
+    expect(latestLine(line.replace('verdict:21/21', 'verdict:0/21'), 'test', 'ikigai1')).toMatchObject({ clean: false })
   })
   it('refuses a free-text field that would break the pipe format', () => {
     expect(() => buildLine({ iso: 'x', env: 'test', tag: 't', n: 1, hash: 'h', method: 'a | b', checkedBy: 'c' })).toThrow()

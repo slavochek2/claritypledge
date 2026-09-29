@@ -153,13 +153,14 @@ machine-translated English rendering, and every verified quote failed against it
 original-language auto track. A manual (uploader) `en` with no `en-orig` twin is fine as it is.
 
 ```bash
-T=<served-track-file>        # the .vtt you cleaned: en-orig.vtt, or en.vtt when there is no en-orig twin
+T=<served-track-file>        # en-orig.vtt, or en.vtt when there is no en-orig twin
+vtt-clean "$YT_STORE"/<id>/"$T" -o "$YT_STORE"/<id>/<lang>.clean.txt   # the clean text MUST come from $T; seal-verify re-derives it and refuses otherwise
 printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: %s | served_track: %s | clean_chars: %s\n' \
   "<video-id>" "<lang>" \
   "$(shasum -a 256 "$YT_STORE"/<id>/"$T" | cut -d' ' -f1)" \
   "$(shasum -a 256 "$YT_STORE"/<id>/<lang>.clean.txt | cut -d' ' -f1)" \
   "$(vtt-clean --version)" "$T" \
-  "$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding="utf-8").read()))' "$YT_STORE"/<id>/<lang>.clean.txt)" \
+  "$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding="utf-8",newline="").read()))' "$YT_STORE"/<id>/<lang>.clean.txt)" \
   >> .points-run-seals/<slug>.transcripts.sha256
 node scripts/points/accuracy-check.mjs seal-verify --run <slug>   # must print seal-verify: OK — paste it
 ```

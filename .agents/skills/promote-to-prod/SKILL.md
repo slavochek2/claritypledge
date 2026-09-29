@@ -90,8 +90,10 @@ method:<how> | checked_by:<who> | findings:<none|summary>
 **Compute and compare with the tool, never by hand** (P1370). It uses the same recipe and the same anonymous read that wrote the line:
 
 ```bash
-node scripts/points/accuracy-check.mjs verify --env test --tag <tag-src>   # 0 MATCH · 3 MISSING · 4 STALE
+node scripts/points/accuracy-check.mjs verify --env test --tag <tag-src>   # 0 MATCH · 3 MISSING · 4 STALE · 5 NOT TOOL-WRITTEN
 ```
+
+A line only counts if `accuracy-check.mjs record` wrote it (its `method:` starts `accuracy-check.mjs v1:`) and it says `n/n clean` with `findings:none`. The hand-written 2026-09-28 ikigai1 line reads as exit 5.
 
 The recipe, for the record: sha256 over the tag's story `content` values, sorted by code point and concatenated with no separator. It reproduces the ikigai1 line (`fc7b8fee…`).
 
@@ -105,7 +107,9 @@ Every claim traced to the transcript **by command**, not by reading the story an
 
 **Recording a fresh check** (the normal case after review on test, because the reviewed text no longer equals the story-draft drafts). The independent checker reads each current story against its **sealed** transcript. The tool finds the transcript in the yt-store by hash and refuses on any mismatch, so the check never touches a new fetch. Then:
 1. Replace each `content: |` block in the run file's `## Story Drafts` with the current test text.
-2. On each replaced story, set `writer:` to whoever edited it and `checker: PASS` for each story that passed.
+2. On each replaced story, set `writer:` to whoever edited it. **Only the checker's own returned verdict may set `checker: PASS`.** Paste the checker subagent's per-story verdict beside it; the orchestrator never types PASS. A story still awaiting founder acceptance keeps its `STATUS:` qualifier, and the tool refuses it until the qualifier is removed with the acceptance cited.
+
+> **Limit, stated so nobody reads more into it:** the run file is editable markdown, and `record` proves only that a PASS sits next to byte-identical text, that every quote is verbatim in the sealed transcript, and that the writer's and checker's model labels differ. It cannot prove who typed the PASS. The procedure above binds that; the tool does not.
 3. Run:
 
 ```bash
@@ -142,7 +146,7 @@ Every one is a STOP. Most are inherited from `/slava:disagreement:publish`; **re
 | Target | Ref from | Service key | Anon key |
 |---|---|---|---|
 | **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local: VITE_SUPABASE_ANON_KEY` |
-| **prod** | `.env.prod: VITE_SUPABASE_URL` | not read by this skill — prod writes go through the Management API token on the per-access lock (P1239/P1316); never a plaintext copy | `.env.local: PROD_SUPABASE_ANON_KEY` |
+| **prod** | `.env.prod: VITE_SUPABASE_URL` | row writes go through the Management API token on the per-access lock (P1239/P1316). The service key is read only at Stage 5a, for the avatar upload and the GoTrue mint, through the same lock. Never a plaintext copy | `.env.local: PROD_SUPABASE_ANON_KEY` |
 
 **The ledger's `env:` field is DERIVED from the ref actually used, never typed.**
 
@@ -175,7 +179,7 @@ PROMOTE — <slug>: test(<tag-src>) -> prod(<tag-dst>)   ref <prod ref>
 
 ### Stage 1 — Read the source
 
-Pull points, stories, `story_points` and `point_positions` for the tag from **test**, by the environment row. Capture **ids**, not just counts: a co-tenant writing under the same tag makes a correct run report a wrong delta.
+Pull points, stories, `story_points` and `point_positions` for the tag from **test**, by the environment row. **Then bind the source to the verified bytes:** run `accuracy-check.mjs hash --env test --tag <tag-src>` again and assert that its `content_sha256` equals the Stage 0 MATCH, and that its `ids_sha256` equals the hash of the story ids you just pulled (sorted, joined with `\n`). A story visible to the service key but not to anon, or one edited since Stage 0, fails this, so STOP. Capture **ids**, not just counts: a co-tenant writing under the same tag makes a correct run report a wrong delta.
 
 ### Stage 2 — Plan the missing prod agents. WRITE NOTHING.
 
@@ -254,7 +258,7 @@ Re-hash the envelope immediately before the first write and assert it equals the
 
 For each agent in `envelope.agents`, in order:
 1. Upload the staged avatar to its planned prod key (`upsert:false`). Assert `200` **and** `content-type: image/*`, and that the downloaded bytes hash to the planned sha256.
-2. Invoke `/slava:content:provision-agent` with the **pre-assigned id**. Its Step 5 asserts the mint and the RPC both return that id.
+2. Run `/slava:content:provision-agent` **Step 5 and Step 5b only** (mint and register, then bio and links from the plan), with the pre-assigned id and the avatar URL from step 1. **Do not run its Steps 2–4.** Step 2 would regenerate the avatar that was carried. Step 3 would upload a second time to the key step 1 already filled. Step 4 is a per-account gate, and the one Stage 4 gate already covered it, with every identity disclosed by name (§1). The prod service key for the mint is read through the per-access lock at this moment, with one dialog: answer **Allow**, never "Always Allow".
 3. Re-resolve from prod by `subject_key`, and assert the result equals the pre-assigned id.
 
 **Any mismatch ⟹ STOP before 5b.** The envelope's author ids would then point at the wrong account. Report which identities now exist on prod (they are permanent; see the gate text) and write no rows. **Assert the positive only for avatars, never "not 404"**: a missing object on this host returns `HTTP/2 400`, `content-type: application/json`, `"code":"NoSuchKey"`.

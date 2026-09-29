@@ -172,6 +172,7 @@ Two writes, in this order. The reference implementation is `e2e/helpers/test-age
    assert the returned `user.id` **equals** it, and assert the RPC below returns that same id. A
    different id means reuse (see below) or a collision. **STOP and hand the mismatch back to the
    caller**, whose envelope is now wrong. Never substitute the new id.
+   **promote-to-prod calls only Step 5 and 5b.** It has already carried the avatar and passed one gate that disclosed every identity, so Steps 2–4 do not run again for it. Every other caller runs the full skill.
 2. **Call `create_or_reuse_agent_account`** with that id. Profile row and registry row commit **together**, so "the pipeline forgot to register the account" is not a reachable state.
 
 The display name **must** be `Agent · <Subject Name>`. It is no longer a convention: `IF NOT is_reserved_agent_name(p_name) THEN RAISE` (`20260819160000:264`), hardened across three later migrations against zero-width, variation-selector and combining-diacritic lookalikes. The name is the only marker channel that reaches off-platform surfaces and the only one that survives a pending or failed registry read.
