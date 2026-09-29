@@ -324,6 +324,7 @@ export default defineConfig({
       '**/src/tests/integration/**',
       '**/.claude/**',
       '**/.local/**',
+      '**/.private/**', // gitignored scratch (benchmarks, held-out Playwright specs) — never unit tests
       '**/tools/**', // Exclude tools (kanban has its own test suite)
       '**/supabase/functions/**', // Deno modules — not compatible with vitest/Node
     ],
