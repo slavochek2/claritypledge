@@ -5,8 +5,8 @@ rank: 13
 created_date: '2026-09-28'
 tags: [navigation, back-button, scroll-restoration, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -206,27 +206,27 @@ Checked and left as they are: story detail, calibration, explain-back, letter ov
 
 Scroll ACs are asserted in **Playwright against a real layout**, not jsdom: "same position" means the `data-testid` of the first card fully in view is the same before and after.
 
-- [ ] Feed, scrolled past at least 10 cards → open a story → Back via the top control, the bottom pill, **and** browser back: same tab, same filters, same first-visible card, no spinner first.
-- [ ] Same for feed → point → Back.
-- [ ] `/stake/:tag`, scrolled → open a point → Back: same stake tab, same first-visible card.
-- [ ] Every page in §3 shows the top "Back" and the bottom "Go back" pill, both performing the same action. On `/story` and `/point` the pill is not covered by the bottom nav.
-- [ ] Cold `/story/:id` or `/point/:id` in a fresh tab → Back → `/feed`, still inside the site.
-- [ ] Cold `/me/calibration` → login redirect → Back → `/me`, still inside the site.
-- [ ] Arriving at `/story/:id` from an outside page → Back → that outside page.
-- [ ] Doc draft → story → Back → the doc draft, with no extra forward entry (browser back from the story does not return to the story).
-- [ ] Accept an agreement → `/agreements/:id` → Back does not show the accept form.
-- [ ] Story with unsaved edits → Back tap → prompt; "Leave" → previous page. Same via browser back: prompt, then "Leave" → previous page. The prompt does not reappear after Leave. "Stay" keeps editing.
-- [ ] Feed tab or sort change, then Back → leaves the feed and does not flip the tab back. Tab changes do not show a spinner or refetch the list when only the tab changed.
-- [ ] Typing in feed search makes no network request and does not move the scroll position. The query survives open-item → Back.
-- [ ] Sign out on a cached feed, then open `/feed` → the previous viewer's rows are not shown. Removing a position from the feed, open item, Back → the removed point stays gone.
-- [ ] Tapping Feed in the nav (a PUSH) fetches fresh.
-- [ ] Profile, tab X, scrolled → open a story or point → Back via the top control, the pill, and browser back: same tab, same first-visible card, no spinner.
-- [ ] Org, tab X → open an item → Back: same tab (retry restore for position).
-- [ ] `/letters` tab clicks add no Back steps: one Back leaves the page.
-- [ ] `/point/:id` holders filter and `/letter/:id/results` walk position survive open-item → Back.
-- [ ] Feed: expand a point's stories, scroll → open one of its linked stories → Back: that card is still expanded and is the first visible card. Arriving by a link or the nav (a PUSH) shows every card collapsed.
-- [ ] The drift guard test fails when a new `FocusHeader onBack=` or an executable `navigate(-1)` is added outside the allowlist, and passes on the finished tree.
-- [ ] Existing navigation tests (`p1296-*`, `p1307-go-back`, `p1179-*`, `p1323-*`) pass; any test that asserted a removed destination label is updated with the reason noted in the commit.
+- [x] Feed, scrolled past at least 10 cards → open a story → Back via the top control, the bottom pill, **and** browser back: same tab, same filters, same first-visible card, no spinner first. — Playwright `e2e/p1364-back-navigation.spec.ts` (3 feed-story cases: top control, pill, browser back; first-visible card id, no skeleton; asserts the page actually scrolled).
+- [x] Same for feed → point → Back. — Playwright `e2e/p1364-back-navigation.spec.ts` (3 feed-point cases).
+- [x] `/stake/:tag`, scrolled → open a point → Back: same stake tab, same first-visible card. — Playwright `e2e/p1364-back-navigation.spec.ts` (stake case, top control).
+- [x] Every page in §3 shows the top "Back" and the bottom "Go back" pill, both performing the same action. On `/story` and `/point` the pill is not covered by the bottom nav. — Unit `p1364-back-components`, `p1364-loading-back` (all §3 pages, same handler both controls); e2e clicks the pill on story and point. Pill clearance above the signed-in bottom nav: padding verified in code only — `[post-deploy]` founder checks /story and /point signed in.
+- [x] Cold `/story/:id` or `/point/:id` in a fresh tab → Back → `/feed`, still inside the site. — Playwright `e2e/p1364-back-navigation.spec.ts` (fresh tab, history length 1) + unit `p1364-go-back-boot-record`.
+- [x] Cold `/me/calibration` → login redirect → Back → `/me`, still inside the site. — Unit `p1364-go-back-hardening` (wiped/replaced state, length 1 → fallback). Not run in a browser (needs auth) — `[post-deploy]` founder check.
+- [x] Arriving at `/story/:id` from an outside page → Back → that outside page. — Playwright `e2e/p1364-back-navigation.spec.ts` + unit `p1364-go-back-boot-record` (with and without the Navigation API).
+- [x] Doc draft → story → Back → the doc draft, with no extra forward entry (browser back from the story does not return to the story). — Code path: create-story replaces itself with the story, Back pops. Not run in a browser (needs auth and a doc) — `[post-deploy]` founder check.
+- [x] Accept an agreement → `/agreements/:id` → Back does not show the accept form. — All three accept-success navigations use replace, and history state is preserved (unit `p1364-go-back-hardening`). Not run in a browser (needs auth) — `[post-deploy]` founder check.
+- [x] Story with unsaved edits → Back tap → prompt; "Leave" → previous page. Same via browser back: prompt, then "Leave" → previous page. The prompt does not reappear after Leave. "Stay" keeps editing. — Unit `p1364-story-back-guard` with real jsdom history (tap and browser back, Leave, Stay, double back, no re-prompt); fails on the pre-P1364 page.
+- [x] Feed tab or sort change, then Back → leaves the feed and does not flip the tab back. Tab changes do not show a spinner or refetch the list when only the tab changed. — Playwright `e2e/p1364-back-navigation.spec.ts` + unit `p1364-tab-state` (fetch counted).
+- [x] Typing in feed search makes no network request and does not move the scroll position. The query survives open-item → Back. — Playwright `e2e/p1364-back-navigation.spec.ts` (network watched) + unit.
+- [x] Sign out on a cached feed, then open `/feed` → the previous viewer's rows are not shown. Removing a position from the feed, open item, Back → the removed point stays gone. — Unit `p1364-list-return-cache`, `p1364-own-write-invalidation` (viewer-keyed, cleared on auth change, write-through; cache drift guard).
+- [x] Tapping Feed in the nav (a PUSH) fetches fresh. — Unit `p1364-list-return-cache` (feed and stake PUSH refetch).
+- [x] Profile, tab X, scrolled → open a story or point → Back via the top control, the pill, and browser back: same tab, same first-visible card, no spinner. — Playwright `e2e/p1364-back-navigation.spec.ts` (Points and Stories tabs × top control, pill, browser back on a queried public profile) + unit `p1364-profile-return` (incl. the A→B load race).
+- [x] Org, tab X → open an item → Back: same tab (retry restore for position). — Unit `p1364-tab-state` (fails on the pre-P1364 page).
+- [x] `/letters` tab clicks add no Back steps: one Back leaves the page. — Unit `p1364-tab-state`. Letters e2e specs updated, not run (they seed the DB).
+- [x] `/point/:id` holders filter and `/letter/:id/results` walk position survive open-item → Back. — Unit `p1364-point-filter`, results-walk unit tests (fail on pre-P1364 code).
+- [x] Feed: expand a point's stories, scroll → open one of its linked stories → Back: that card is still expanded and is the first visible card. Arriving by a link or the nav (a PUSH) shows every card collapsed. — Playwright `e2e/p1364-back-navigation.spec.ts` (expander below the fold) + unit `p1364-return-state` (PUSH collapses).
+- [x] The drift guard test fails when a new `FocusHeader onBack=` or an executable `navigate(-1)` is added outside the allowlist, and passes on the finished tree. — Unit `p1364-back-drift-guard` with built-in known-bad/known-good samples.
+- [x] Existing navigation tests (`p1296-*`, `p1307-go-back`, `p1179-*`, `p1323-*`) pass; any test that asserted a removed destination label is updated with the reason noted in the commit. — Full `npx vitest run`: 4859 passed. The p1296 e2e has 2 cold-arrival failures that also fail on main (Playwright tabs start on about:blank).
 
 ## UX Notes
 
