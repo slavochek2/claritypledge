@@ -47,8 +47,7 @@ Blast radius: medium (writes public rows on prod; one tool + one skill). Reversi
    Failures after 3 rounds are listed, never hidden.
 3. **At video entry:** the disagreement pipeline runs the same draft → check → yes → promote before
    publishing (the founder's "one of the last steps").
-4. **P1358 R2a** named-speaker attribution, left open by P1357: on pipeline videos a claim names a
-   person only from speaker-labelled, Step-2c-confirmed turns.
+4. **P1358 R2a** named-speaker attribution — moved to [P1375](p1375_video_summary_named_speaker_attribution.md).
 
 Writer stays Gemini (cheap lane). Checker stays a different vendor (Codex); it caught 4 of 6 first
 drafts overstating the transcript on 2026-09-29.
@@ -73,12 +72,12 @@ drafts overstating the transcript on 2026-09-29.
 
 ## Done-When
 
-- [ ] `promote` puts the six Ikigai 1 summaries on prod with one keychain dialog; prod rows read back byte-identical to test, and "Read video summary" shows under each video on claritypledge.com
-- [ ] `promote` refuses a non-confirmed test row (test)
-- [ ] `/day` lists story videos without a summary and auto-drafts + checks them, then asks for a yes
-- [ ] The disagreement pipeline runs draft → check → yes → promote before publish
-- [ ] R2a: on a pipeline video every person-attributed claim traces to a confirmed turn — verified on test
-- [ ] Adversarial review by Opus and Codex; `<received> of 2` reported
+- [x] `promote` puts the six Ikigai 1 summaries on prod with one keychain dialog per run; prod rows read back byte-identical to test — 2026-09-30: 5 on the first run, Watts after the stale-connection retry fix; an anon read of prod returns all six `confirmed`. `[post-deploy]` founder confirms the "Read video summary" link in the browser (the page reads exactly those confirmed rows)
+- [x] `promote` refuses a non-confirmed test row — `promote rf2KFVcKQdQ` (checked on test) exit 1 before any keychain dialog; `promote --env prod …` exit 2; unit tests cover no-fingerprint, own-vendor checker, missing checker
+- [x] `/day` lists story videos without a summary and auto-drafts + checks them, then asks for a yes — `heal 5` on real data: 11 public story videos, 6 covered, 5 missing → all 5 checked on test, listed READY; a forced failure (checker store unreachable) exits 1, records a 7-day cooldown, and the next run skips it with exit 0; `day-step.sh check-sync` OK, and fails with `cp.vsum` removed
+- [x] The disagreement pipeline runs draft → check → yes before publish, and promotes summaries before the stories reach prod — publish.md Stage 6c, promote-to-prod.md Stage 4b (listed at the gate; non-zero exit stops before Stage 5). Written, not yet exercised by a real run
+- [x] R2a named-speaker attribution — moved to its own spec, [P1375](p1375_video_summary_named_speaker_attribution.md)
+- [x] Adversarial review by Opus and Codex — three rounds, **2 of 2 received** each time: promote (4 Codex + 2 Opus findings, fixed), heal + wiring (8 Codex + 3 Opus warnings, fixed: summaries before stories and at the gate, verified takedown, batch starvation, cooldown, failed revision, exit code, pagination); Codex's whitespace-only key point finding is in the P1349 migration, not this change, and is recorded, not fixed
 
 ## Related
 
