@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 13
 severity: medium
@@ -10,7 +10,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [position-buttons, intensity, destructive-action]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1372-same-row-intensity-pick.test.tsx
@@ -19,6 +18,7 @@ reproduce_artifact:
   surfaces_in_scope: [position-buttons-menu, quoted-point-card]
   surfaces_deferred: []
   reproduced_at: 2026-09-29
+completed_at: 2026-09-29
 ---
 
 # P1372: Picking the already-selected level in the intensity menu removes the position
