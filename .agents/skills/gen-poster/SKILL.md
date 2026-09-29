@@ -84,13 +84,13 @@ curl -s -X POST \
 - "Professional, high quality, photorealistic or abstract digital art"
 - Vibe keywords from user or derived from event topic
 
-Save heroes to `.private/` as base64-decoded JPGs.
+Save heroes to `.private/posters/work/` (never the `.private/` root) as base64-decoded JPGs.
 
 **Fallback chain**: Nano Banana Pro → Nano Banana 2 (`gemini-3.1-flash-image-preview`) → Imagen 4
 
 ### Step 4 — Build HTML Templates
 
-Generate 5 HTML files in `.private/`, each with base64-embedded hero + QR.
+Generate 5 HTML files in `.private/posters/work/`, each with base64-embedded hero + QR.
 
 **Three layout patterns:**
 
@@ -133,7 +133,7 @@ Generate 5 HTML files in `.private/`, each with base64-embedded hero + QR.
 Start local server, then use Playwright with `deviceScaleFactor: 2`:
 
 ```bash
-cd .private && python3 -m http.server 8765 &
+mkdir -p .private/posters/work && cd .private/posters/work && python3 -m http.server 8765 &
 
 node << 'EOF'
 const { chromium } = require('playwright');
