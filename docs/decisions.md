@@ -6,6 +6,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-29 [product]: Every YouTube video gets a summary when it enters the system; no times in the reading text; label is just "AI-generated summary" (P1357)
+
+**Context:** The Ikigai 1 run published 21 stories on 6 videos with no summary pages. P1349 (page + link) and P1357 (generator) existed, but no step called the generator, so nothing was produced. Founder review of the first six on test flagged a timestamp inside summary prose ("... lose fear" [16:38]) and a long label ("AI summary of the full video. Video by X; not endorsed by the creator.").
+**Decision:** (1) Founder: a summary is produced the moment a video enters the system as part of any story, not left to memory. The draft and the independent check run automatically. Confirming still needs the founder's yes in chat, because a reader may only see a confirmed summary. (2) Times never appear in the TL;DR, summary or key points; they live only in the Moments list. The mechanical check rejects `[mm:ss]` always, and a bare `3:16`/`9:30` unless those exact characters were spoken. (3) The page label is "AI-generated summary". The not-endorsed notice stays in the Terms of Service.
+**Alternatives rejected:** A database trigger at story insert (it cannot run the writer and checker, and could only create drafts nobody sees). A separate review page (the founder wants to review in the real place, under the player).
+**Consequences:** P1357 shipped with its P1358 R2a checkbox still open: attributing claims to named people only from diarized, Step-2c-confirmed turns is NOT implemented. Today's writer only refuses to guess a speaker, and the Codex checker catches misattribution. The entry-time trigger and the R2a attribution are follow-up work (Status: proposed). Measured on 6 videos: Gemini overstated the transcript on 4 of 6 first drafts ("millions" for "one million", "expensive" ER visit, "lasting" peace, a moment 52s early); the checker caught all 4. The checker's evidence may cite several times, and each must sit near a caption (an in-range but invented time used to pass).
+**References:** [p1357](../features/done/2026-06-10/p1357_video_summary_generator_pipeline.md), [p1349](../features/done/2026-06-10/p1349_full_video_summary_page.md)
+
+## 2026-09-29 [process]: Vitest excludes gitignored `.private/`
+
+**Context:** A co-tenant's held-out Playwright spec in `.private/bench-p1369/` was collected by the unit run and blocked every pre-commit on main, including a ship.
+**Decision:** `vite.config.ts` excludes `**/.private/**`, like `.claude/` and `.local/`. Gitignored scratch space is never part of the unit suite.
+**Alternatives rejected:** Moving or deleting the other session's file.
+**Consequences:** None for tracked tests.
+
 ## 2026-09-29 [product]: Re-picking the level you already hold is a no-op; the Clear row is the only way to remove a position (P1372)
 
 **Context:** Founder asked whether tapping the already-selected position should remove it: *"i guess it remains because 'remove position' is another button in same menu … i guess this is the bug."* It was. The intensity menu forwarded a pick of the already-held level to consumers, and 8+ consumers toggle a repeated value to `null`. So the natural "close the menu" tap removed the reader's position. P847 Decision A had deliberately kept that toggle as the removal path for any consumer without `onClear`. Found by adversarial review of P1371, confirmed by a failing test.
