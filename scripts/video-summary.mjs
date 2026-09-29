@@ -427,6 +427,19 @@ async function cmdList(client) {
  * P1373: the founder reviews once, on test; prod gets exactly that text. Every test row is validated
  * before the prod credential is read, so a refusal costs no keychain dialog.
  */
+/** Fail safe: a confirmed row is public, so anything unverified is taken down — and the takedown is itself verified. */
+async function takeDown(prod, id) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const { error } = await prod.from('video_summaries').update({ status: 'draft', checked_by: null, checked_at: null, confirmed_at: null }).eq('provider', 'youtube').eq('video_id', id);
+      if (error) continue;
+      const { data, error: e2 } = await prod.from('video_summaries').select('status').eq('provider', 'youtube').eq('video_id', id).maybeSingle();
+      if (!e2 && (!data || data.status !== 'confirmed')) return 'taken down (not public)';
+    } catch { /* retried once, then reported */ }
+  }
+  return 'TAKEDOWN NOT VERIFIED — the row may still be public; run: demote ' + id + ' --env prod';
+}
+
 async function cmdPromote(ids) {
   const test = (await db('test')).client;
   const rows = [];
@@ -466,18 +479,21 @@ async function cmdPromote(ids) {
       const back = await read(prod, id);
       const diff = promoteDiff(row, back);
       if (diff.length || back?.status !== 'confirmed') {
-        // Fail safe: a confirmed row is public, so a mismatch is taken down, not just reported.
-        await prod.from('video_summaries').update({ status: 'draft', checked_by: null, checked_at: null, confirmed_at: null }).eq('provider', 'youtube').eq('video_id', id);
-        bad.push(`${id}: prod differs from the approved test row (${[...diff, back?.status !== 'confirmed' ? `status ${back?.status}` : ''].filter(Boolean).join(', ')}); demoted to draft`);
+        const why = [...diff, back?.status !== 'confirmed' ? `status ${back?.status}` : ''].filter(Boolean).join(', ');
+        bad.push(`${id}: prod differs from the approved test row (${why}); ${await takeDown(prod, id)}`);
       } else console.log(`${id}  confirmed on prod, identical to test  ${row.title.slice(0, 50)}`);
     } catch (e) {
-      bad.push(`${id}: ${e.message}; if a prod row existed it may now be hidden (draft/checked) — rerun promote`);
+      // Any failure after the first prod write may have left a row public that was never verified.
+      bad.push(`${id}: ${e.message}; ${await takeDown(prod, id)}`);
     }
   }
   if (bad.length) die(`promote finished with failures:\n  - ${bad.join('\n  - ')}`);
 }
 
-/** Story video ids on prod and the ones with a public (confirmed) summary — anon reads, no keychain. */
+/**
+ * Story video ids on prod and the ones with a public (confirmed) summary — anon reads, no keychain.
+ * Coverage is PUBLIC stories only: anon cannot see shared-link or author-only stories (P424 RLS).
+ */
 async function prodCoverage() {
   // .env.prod is gitignored and lives in the main checkout; a worktree run reads it from there.
   const { stdout } = await execFileP('git', ['rev-parse', '--path-format=absolute', '--git-common-dir']);
@@ -485,16 +501,20 @@ async function prodCoverage() {
   const key = readEnvFile('.env.prod').VITE_SUPABASE_ANON_KEY || readEnvFile(join(mainRoot, '.env.prod')).VITE_SUPABASE_ANON_KEY;
   if (!key) die('heal needs VITE_SUPABASE_ANON_KEY in .env.prod (the public key; reads only)');
   const anon = createClient(PROD_URL, key, { auth: { persistSession: false } });
-  const videos = new Set();
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await anon.from('stories').select('video_url').not('video_url', 'is', null).range(from, from + 999);
-    if (error) die(`reading prod stories failed: ${error.message}`);
-    for (const r of data) { const id = parseVideoId(r.video_url); if (id) videos.add(id); }
-    if (data.length < 1000) break;
-  }
-  const { data: sums, error } = await anon.from('video_summaries').select('video_id');
-  if (error) die(`reading prod summaries failed: ${error.message}`);
-  return { videos, covered: new Set(sums.map((r) => r.video_id)) };
+  const all = async (table, col, filter) => {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      let q = anon.from(table).select(col).order(col).range(from, from + 999);
+      if (filter) q = filter(q);
+      const { data, error } = await q;
+      if (error) die(`reading prod ${table} failed: ${error.message}`);
+      out.push(...data);
+      if (data.length < 1000) return out;
+    }
+  };
+  const videos = new Set((await all('stories', 'video_url', (q) => q.not('video_url', 'is', null))).map((r) => parseVideoId(r.video_url)).filter(Boolean));
+  const covered = new Set((await all('video_summaries', 'video_id')).map((r) => r.video_id));
+  return { videos, covered };
 }
 
 /** Runs this tool as a child for one step, so a step's die() ends that step, not the heal. */
@@ -508,40 +528,60 @@ async function step(args) {
 }
 
 /** Checks made before this instant predate the no-times-in-text and evidence-near-caption rules (P1357, 2026-09-29). */
-const RULES_SINCE = '2026-09-29T16:00:00';
+const RULES_SINCE = '2026-09-29T16:00:00Z';
+/** A video that failed heal is not retried for this long, so one bad video cannot eat the daily budget. */
+const HEAL_COOLDOWN_MS = 7 * 24 * 3600_000;
+const healMark = (id) => join(STORE, 'test', id, 'heal-failed.json');
 
 async function cmdHeal(max) {
   const { videos, covered } = await prodCoverage();
-  const missing = [...videos].filter((v) => !covered.has(v));
-  console.log(`prod: ${videos.size} story videos, ${videos.size - missing.length} with a public summary, ${missing.length} missing`);
+  const missing = [...videos].filter((v) => !covered.has(v)).sort();
+  console.log(`prod: ${videos.size} public story videos, ${videos.size - missing.length} with a public summary, ${missing.length} missing`);
   const test = (await db('test')).client;
-  const ready = [], promotable = [], failed = [];
-  for (const id of missing.slice(0, max)) {
+  const ready = [], promotable = [], failed = [], cooling = [];
+  let worked = 0;
+  for (const id of missing) {
     let row = await getRow(test, id);
     if (row?.status === 'confirmed') { promotable.push(id); continue; }
-    if (row?.status === 'checked' && row.checked_at >= RULES_SINCE) { ready.push(`${id}  ${row.title.slice(0, 60)}`); continue; }
-    {
-      // A row checked before RULES_SINCE is re-checked under today's rules, never trusted.
-      let passed = false;
-      const first = row?.status === 'checked' ? await step(['demote', id]) : row?.status === 'draft' ? { ok: true } : await step(['draft', id]);
-      if (!first.ok) { failed.push(`${id}: could not start — ${first.out.trim().split('\n').pop()}`); continue; }
-      for (let round = 1; round <= 3 && !passed; round++) {
-        const c = await step(['check', id]);
-        if (c.ok) passed = true;
-        else if (round < 3) await step(['draft', id, '--revise']);
-        else failed.push(`${id}: still failing the checker after 3 rounds — ${c.out.trim().split('\n').slice(-2).join(' | ')}`);
-      }
-      if (!passed) continue;
-      row = await getRow(test, id);
+    if (row?.status === 'checked' && Date.parse(row.checked_at) >= Date.parse(RULES_SINCE)) { ready.push(`${id}  ${row.title.slice(0, 60)}`); continue; }
+    try {
+      const last = JSON.parse(readFileSync(healMark(id), 'utf8'));
+      if (Date.now() - Date.parse(last.at) < HEAL_COOLDOWN_MS) { cooling.push(`${id} (failed ${last.at.slice(0, 10)}: ${last.why})`); continue; }
+    } catch { /* no mark */ }
+    // Only videos actually worked on count against the batch, so waiting rows never starve the rest.
+    if (worked >= max) continue;
+    worked++;
+    const fail = (why) => {
+      failed.push(`${id}: ${why}`);
+      mkdirSync(join(STORE, 'test', id), { recursive: true });
+      writeFileSync(healMark(id), JSON.stringify({ at: new Date().toISOString(), why: why.slice(0, 200) }));
+    };
+    // A row checked before RULES_SINCE is re-checked under today's rules, never trusted.
+    const first = row?.status === 'checked' ? await step(['demote', id]) : row?.status === 'draft' ? { ok: true } : await step(['draft', id]);
+    if (!first.ok) { fail(`could not start — ${first.out.trim().split('\n').pop()}`); continue; }
+    let passed = false;
+    for (let round = 1; round <= 3 && !passed; round++) {
+      const c = await step(['check', id]);
+      if (c.ok) { passed = true; break; }
+      if (round === 3) { fail(`still failing the checker after 3 rounds — ${c.out.trim().split('\n').slice(-2).join(' | ')}`); break; }
+      const r = await step(['draft', id, '--revise']);
+      if (!r.ok) { fail(`revision failed — ${r.out.trim().split('\n').pop()}`); break; }
     }
+    if (!passed) continue;
+    row = await getRow(test, id);
+    rmSync(healMark(id), { force: true });
     ready.push(`${id}  ${row.title.slice(0, 60)}`);
   }
-  if (missing.length > max) console.log(`(${missing.length - max} more left for the next run; batch size ${max})`);
+  const left = missing.length - ready.length - promotable.length - failed.length - cooling.length;
+  if (left > 0) console.log(`(${left} more left for the next run; batch size ${max})`);
   console.log(`\nREADY FOR YOUR YES (${ready.length}): read on test, then confirm --approved-in-chat + promote`);
   for (const r of ready) console.log(`  ${r}`);
-  console.log(`\nCONFIRMED ON TEST, NOT ON PROD (${promotable.length}): promote ${promotable.join(' ')}`);
+  console.log(`\nCONFIRMED ON TEST, NOT ON PROD (${promotable.length})${promotable.length ? `: promote ${promotable.join(' ')}` : ''}`);
+  console.log(`\nCOOLING DOWN after a failure, retried after 7 days (${cooling.length})`);
+  for (const c of cooling) console.log(`  ${c}`);
   console.log(`\nFAILED (${failed.length})`);
   for (const f of failed) console.log(`  ${f}`);
+  if (failed.length) process.exit(1);
 }
 
 async function main() {

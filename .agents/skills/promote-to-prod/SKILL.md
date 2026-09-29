@@ -248,6 +248,22 @@ Confirm to write.
 
 **Silence, ambiguity, or any non-affirmative ⟹ refuse and exit WITHOUT writing.**
 
+### Stage 4b — Video summaries go FIRST, and are part of the gate (P1373)
+
+A story is never public without its video's summary, so summaries are promoted **before** Stage 5
+writes any story. At the Stage 4 gate, list every run video with its test status and title — the
+operator's yes covers them too:
+
+```bash
+node scripts/video-summary.mjs list              # every run video must be `confirmed` on test
+node scripts/video-summary.mjs promote <id> [<id>…]    # one keychain dialog; announce it first
+```
+
+Anything not `confirmed` on test is a STOP: go back to `/disagreement:publish` Stage 6c. `promote`
+reads back each row and takes down any it cannot verify. **A non-zero exit is a STOP before Stage 5**
+— the stories wait; nothing is half-published. A summary alone on prod is harmless: its page is
+reachable only from a story's link.
+
 ### Stage 5 — Write
 
 **Write the ledger line BEFORE any write, carrying the envelope hash**, so a run that wrote without a recorded gate is visible afterwards.
@@ -300,18 +316,6 @@ Nine asserts against a **fresh** read. Asserts 1–5 are the set a wrong author 
 > **Assert 6 covers a factorial space.** At N arguers there are `N!−1` wrong assignments — at N=4 that is **23**, not 1. Every one yields correct visibility, versions, tags, points, positions, counts and registered authors, while each person's verbatim quotes publish under **another person's** machine identity. The ids are opaque UUIDs the operator cannot eyeball at the gate.
 >
 > **Write the check so it reads the WHOLE content**, not an opening substring. Measured 2026-09-09: a probe matching the speaker's surname in the first 60 characters reported `7/8` on a fully correct set, because one story names its subject in the second sentence. A false FAIL on a correct run teaches the operator to wave the assert through.
-
-### Stage 6b — Video summaries go with the stories (P1373)
-
-After Stage 6 passes, put each run video's summary on prod — the exact text the founder approved on
-test at `/disagreement:publish` Stage 6c:
-
-```bash
-node scripts/video-summary.mjs promote <id> [<id>…]    # one keychain dialog; announce it first
-```
-
-It refuses any video not `confirmed` on test (go back to publish Stage 6c), writes nothing it did not
-read back identical, and takes a mismatched row down rather than leave it public. Paste its output.
 
 ### Stage 7 — Write the published text BACK into the run file
 

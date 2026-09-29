@@ -527,7 +527,9 @@ Founder, 2026-09-29: every story video gets a summary the moment it enters the s
 of the last steps before the run reaches readers. For each distinct `video_id` in the run:
 
 ```bash
-node scripts/video-summary.mjs draft <id>        # Gemini writes (test)
+node scripts/video-summary.mjs list              # a video /day or an earlier run already covered is reused:
+                                                 # confirmed → nothing to do; checked → go straight to the yes
+node scripts/video-summary.mjs draft <id>        # otherwise: Gemini writes (test)
 node scripts/video-summary.mjs check <id>        # Codex checks against the kept transcript
 # on a checker failure: draft <id> --revise, then check again — at most 3 rounds, then report it
 ```

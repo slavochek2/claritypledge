@@ -831,21 +831,24 @@ The backlog is `.private/function-grant-baseline.json` (gitignored — it names 
 **b) Read goals** (1 Read call):
 - `docs/goals.md`
 
-**c) Video summaries — auto-heal** (1 bash call, P1373). Every prod story video must have a summary
-(founder, 2026-09-29). This drafts and checks the missing ones on test (Gemini writes, Codex checks,
+**c) Video summaries — auto-heal** (1 bash call, P1373). Every public prod story video must have a
+summary (founder, 2026-09-29; anon reads cannot see shared-link or author-only stories). This drafts and checks the missing ones on test (Gemini writes, Codex checks,
 ≤3 revise rounds, 5 per run) and never confirms or publishes — that needs the founder's yes:
 
 ```bash
 "$DAY_STEP" run cp.vsum <<'STEP'
 cd "$(git rev-parse --show-toplevel)"
-node scripts/video-summary.mjs heal 5 || echo "VIDEO-SUMMARY-HEAL-FAILED (exit $?)"
+node scripts/video-summary.mjs heal 5; rc=$?
+[ $rc -ne 0 ] && echo "VIDEO-SUMMARY-HEAL-FAILED (exit $rc)"
+exit $rc
 STEP
 ```
 
 Report the three counts. Put `READY FOR YOUR YES` under `QUESTIONS FOR THE FOUNDER`: *"N video
 summaries are written and checked — review them on localhost (feed → Read video summary) and say yes
 to publish."* On the yes, in the main session: `confirm <id> --approved-in-chat` for each, then one
-`promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` are findings — never render them as clean.
+`promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` (the step exits non-zero) are findings — never render
+them as clean. `COOLING DOWN` rows failed within 7 days and are not retried until then; list them.
 
 #### HEALTH rows this sub-day returns
 
