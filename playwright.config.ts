@@ -158,7 +158,8 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: '**/integration/**',
+      // P1369: e2e/offline/ needs a production build (service worker) and has its own config.
+      testIgnore: ['**/integration/**', '**/offline/**'],
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {
