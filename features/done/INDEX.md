@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 ---
 
@@ -207,6 +207,7 @@ Last updated: 2026-09-28
 - **P968** (Jun 28) Prepare-letter prediction walk reuses reading components (finishes P665) — Radix `DialogOverlay` is null under `modal={false}` so a dimmed scrim needs `modal` (reverses P688 for the recipient dialog, which now overlays the draft page via compose's `location.state` contract instead of a blank `/compose` page); one primary action per view → Seal in `FixedBottomBar`, Preview demoted to outline; renaming a CTA label ("Next Story"→"Continue") breaks `getByRole` selectors — sweep E2E specs
 
 ## Navigation & Routing
+- **P1364** (Sep 29) Consistent back navigation — one `useGoBack` declared by `fallback`; Back to feed/stake/profile restores tab, card and open state — a one-shot scroll restore clamps to ~0 while the list is a spinner; own writes must clear the POP cache (drift guard derives writers from migrations).
 - **P1351** (Sep 22) Header main button follows context: tinted "Tools" button, "Tonight's event" on event days — a pure-overlap check passed a button touching the logo; a 4px-gap check caught it.
 - **P1329** (Sep 17) Signed-in phone menu ran under the bottom tab bar — P1310's viewport cap subtracted only the top header; a same-z fixed bar later in the DOM wins. Cap keyed on `body:has([data-nav="bottom"])`, so focus routes and signed-out keep full height.
 - **P1323** (Sep 16) Links menu becomes the product index on every product surface (Points / Letters / Tools, per-event group retired, icon trigger, /stake focused on phones), one End Session treatment — enforce a required prop via the CI typecheck gate plus canaries; `npx tsc --noEmit` checks zero files here
