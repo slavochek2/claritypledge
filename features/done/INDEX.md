@@ -75,6 +75,7 @@ Last updated: 2026-09-29
 
 ## Points & Stories
 
+- **P1372** (Sep 26) Same-row intensity pick removed the position — guard the shared choke point, not 12 consumer toggles; Clear row is the only removal
 - **P1348** (Sep 22) Supporting quotes never folded; agent stories 1–2 sentences — confirm WHICH collapse from a screenshot before editing: "quotes" meant the StoryVideoQuotes block, not linked points.
 - **P1349** (Sep 26) One summary page per source video (`/video/:id`), linked under every player — confirmed-only RLS; errors retry instead of 404; the id list pages past 1000 rows; the generator is not built yet
 - **P1358** (Sep 28) Speaker confirmation before any page quote; summaries and story models in the pipeline — a BLIND second reader cannot see a merged diarization label (it reproduced the original misattribution and reported CONSISTENT); the per-window oracle + per-window label mapping is the check that can, and word share reads healthy at 78% on a merged label; two hostile reviewers found 15 real defects in the fix itself, incl. `basis: "single-speaker"` self-asserted past the run-file cross-check and a bounds check that could never fail (regex capture-group off-by-one → `Number("/")` = NaN)

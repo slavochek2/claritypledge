@@ -6,6 +6,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-29 [product]: Re-picking the level you already hold is a no-op; the Clear row is the only way to remove a position (P1372)
+
+**Context:** Founder asked whether tapping the already-selected position should remove it: *"i guess it remains because 'remove position' is another button in same menu … i guess this is the bug."* It was. The intensity menu forwarded a pick of the already-held level to consumers, and 8+ consumers toggle a repeated value to `null`. So the natural "close the menu" tap removed the reader's position. P847 Decision A had deliberately kept that toggle as the removal path for any consumer without `onClear`. Found by adversarial review of P1371, confirmed by a failing test.
+**Decision:** Guard at the single choke point. `PositionButtons.handleIntensityClick` only calls `onPositionClick` when the level differs from `userPosition`, then closes the menu. `QuotedPointCard` gains an opt-in `onPositionClear`, wired only where removal works (profile page). Consumer toggle code is left in place.
+**Alternatives rejected:** (a) Edit each consumer's toggle: 12 call sites, and each new consumer would need to remember it. (b) Always-on Clear row on `QuotedPointCard`: the feed story expansion's handler ignores `null`, so the row would do nothing there.
+**Consequences:** Supersedes P847 Decision A's "same-row toggle is the removal path when `onClear` is absent". The story composer (`story-detail-page` ~:285) has no Clear row and no same-row removal. That is accepted because it requires a position to submit. Pre-existing and unchanged: points under a feed story have no working removal at all. Known cleanup: `QuotedPointCard`'s toggle branch is now unreachable, and `PointCardFull` in `profile-page-v2` has no call sites.
+**References:** [p1372](../features/done/2026-06-10/p1372_same_row_intensity_pick_removes_position.md), `src/tests/p1372-same-row-intensity-pick.test.tsx`, 2026-05-20 [product] "Destructive UI actions must be explicit affordances"
+
+## 2026-09-29 [product]: The forced intensity tutorial did not raise intensity use; the next step is rewording the existing hint, not a smarter pop-up (Status: proposed)
+
+**Context:** Founder: *"some people never discover the double click on buttons.. some people see animation but dont pay attention."* Baseline from prod `point_positions`, read via the public REST API (letter responses are RLS-blocked, so this is points only). 23 of 55 positioned people (42%) have ever used Somewhat/Strongly. Share of agree/disagree positions using a level: 52% (44/85) before the P852 tutorial (31 May), 19% (41/218) after. Excluding the 3 heaviest users: 33% → 19%. Mixpanel cannot answer this: it records only `intensity_tutorial_shown`/`_dismissed`, never a level pick. Adversarial review (Opus + Codex Sol) also found that letters already show a post-selection hint ("Double-click to adjust position level", 12px, 55% opacity). So "hint at the moment of need" already exists and also failed.
+**Decision:** Proposed order in P1371:
+1. Reword and raise the salience of the existing hint, e.g. "Tap Disagree again to choose Somewhat or Strongly", matching the menu's own labels. Instrument a real learning signal (picked any menu row, never from the controlled demo).
+2. Only if that fails, a contextual nudge: it appears after the first plain tap, is non-blocking, is capped at 3 impressions and stops once a level has been used.
+3. The structural fix, if hints keep failing: make the levels visible after selection instead of hidden.
+
+No "don't show again" checkbox: it hands the stop decision to the reader and keeps nagging until they tick it.
+**Alternatives rejected:** A smarter re-shown pop-up as the first move (the data says the pop-up is not what teaches). "Tap twice" / "double-click" copy (reads as a rapid double tap, and mis-counts the real select → again → pick sequence, per the P867 ruling).
+**Consequences:** Removing the forced modal supersedes P867 and needs an explicit founder call. The before/after is confounded by cohort and content, and n is small, so treat any re-measure as directional. Founder decisions pending: hint copy, success thresholds, scope beyond letters.
+**References:** [p1371](../features/p1371_intensity_hint_behavior_triggered.md), P852, P867, P1372
+
 ## 2026-09-29 [product]: The round rule is "hear the number before you disagree", for opted-in listeners only; the below-8 prohibition is overruled
 
 **Context:** Overrules the rule in 2026-09-17 [product] ("no disagreeing while the lower number is under 8") and its restatement in 2026-09-28 [product] (trios) and P1336. Surfaced while writing the Clarity Night #2 promo copy, where the rule had been paraphrased three different ways.
