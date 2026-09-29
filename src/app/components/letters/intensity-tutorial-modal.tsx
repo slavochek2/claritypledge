@@ -115,12 +115,12 @@ export function IntensityTutorialModal({ open, onProceed }: IntensityTutorialMod
         </span>
         <DialogHeader className="items-center text-center sm:items-center pt-1.5">
           {/* P867: single directive line (no separate subtitle) — the looping demo
-             below shows the gesture. "Double-click" is accurate here: the first two
-             clicks land on the SAME position button (click selects it, click again
-             opens the intensity menu), then you pick a level from the menu. Centered
+             below shows the gesture: click selects Disagree, the SAME button again opens
+             the intensity menu, then a level is picked. P1374: same sentence as the
+             engage-phase tip line, so the modal and the tip never disagree. Centered
              alignment overrides DialogHeader's default left/start. */}
           <DialogTitle className="text-3xl font-bold text-center leading-tight">
-            Double-click to pick &ldquo;somewhat disagree&rdquo;
+            Tap again if you disagree only Somewhat, or Strongly
           </DialogTitle>
           {/* sr-only description satisfies Radix aria-describedby a11y wiring
               without showing redundant prose to sighted users. */}

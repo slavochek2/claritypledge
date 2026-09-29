@@ -29,7 +29,7 @@ import { createFullTestLetter, deleteTestLetter, type TestDelivery } from './hel
 import { clearTutorialSeen } from './helpers/storage-state';
 
 /** The modal's DialogTitle — intensity-tutorial-modal.tsx:122-124. */
-const TUTORIAL_TITLE = /Double-click to pick/i;
+const TUTORIAL_TITLE = /Tap again if you disagree only Somewhat, or Strongly/i;
 
 interface Fixture {
   delivery: TestDelivery;

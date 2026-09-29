@@ -25,6 +25,7 @@ import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { IntensityTutorialModal } from '@/app/components/letters/intensity-tutorial-modal';
 import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
+import { useIntensityLearned, isIntensityLevel } from '@/hooks/use-intensity-learned';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
@@ -143,9 +144,11 @@ function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: nu
 
 /** P1371 Phase 1: engage-phase tip copy. Names the real gesture (tap the selected button
  * again, then pick) in the menu's own words — "double-click" was the string P867 rejected.
- * Unsure has no intensity levels, so it gets no text. Before a selection the row is hidden
- * (opacity 0) but still renders the Disagree copy so its reserved height matches. */
-function intensityTip(position: PositionType | null): string | null {
+ * Unsure has no intensity levels, so it gets no text; neither does a reader who has already
+ * picked a level (P1374). Before a selection the row is hidden (opacity 0) but still renders
+ * the Disagree copy so its reserved height matches. */
+function intensityTip(position: PositionType | null, isLearned: boolean): string | null {
+  if (isLearned) return null;
   const group = position ? getPositionGroup(position) : 'disagree';
   if (group === 'unsure') return null;
   return `Tap again if you ${group} only Somewhat, or Strongly`;
@@ -228,15 +231,26 @@ export function LetterFlowContent({
    */
   const { isSeen: isIntensityPreviewSeen, markSeen: markIntensityPreviewSeen } = useIntensityPreviewSeen();
 
+  /** P1374: one "has picked a level" flag governs both hints — once set, the modal no
+   * longer auto-opens and the tip text stops. The "?" replay stays available. */
+  const { isLearned: isIntensityLearned, markLearned: markIntensityLearned } = useIntensityLearned();
+
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
 
   useEffect(() => {
     const isEngagePhaseEntry =
       currentPhase === 'point-engage' || currentPhase === 'remaining-point-engage';
-    if (isEngagePhaseEntry && !isIntensityPreviewSeen) {
+    if (isEngagePhaseEntry && !isIntensityPreviewSeen && !isIntensityLearned) {
       setIsTutorialModalOpen(true);
     }
-  }, [currentPhase, isIntensityPreviewSeen]);
+  }, [currentPhase, isIntensityPreviewSeen, isIntensityLearned]);
+
+  /** Engage-phase selection. A Somewhat/Strongly pick is the reader's own proof they
+   * found the gesture (P1374). */
+  const handleEngagePositionClick = useCallback((position: PositionType) => {
+    setSelectedPosition(position);
+    if (isIntensityLevel(position)) markIntensityLearned();
+  }, [markIntensityLearned]);
 
   const handleTutorialProceed = useCallback(() => {
     setIsTutorialModalOpen(false);
@@ -614,7 +628,7 @@ export function LetterFlowContent({
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
-                onPositionClick={(p) => setSelectedPosition(p)}
+                onPositionClick={handleEngagePositionClick}
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
@@ -641,7 +655,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                {intensityTip(selectedPosition) && <span>{intensityTip(selectedPosition)}</span>}
+                {intensityTip(selectedPosition, isIntensityLearned) && <span>{intensityTip(selectedPosition, isIntensityLearned)}</span>}
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>
@@ -1005,7 +1019,7 @@ export function LetterFlowContent({
               <PositionButtons
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
-                onPositionClick={(p) => setSelectedPosition(p)}
+                onPositionClick={handleEngagePositionClick}
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
@@ -1032,7 +1046,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                {intensityTip(selectedPosition) && <span>{intensityTip(selectedPosition)}</span>}
+                {intensityTip(selectedPosition, isIntensityLearned) && <span>{intensityTip(selectedPosition, isIntensityLearned)}</span>}
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>

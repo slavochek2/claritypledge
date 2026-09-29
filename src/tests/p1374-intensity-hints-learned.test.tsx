@@ -1,30 +1,15 @@
 /**
- * @file p862-engage-tip-inert.test.tsx
- * @description Regression test: P862 — the post-selection intensity tip row in the
- * letter engage phases must gate its focusable replay button with `inert`, never
- * `aria-hidden`.
- *
- * Bug: letter-flow-content.tsx wrapped the tip row (which contains the focusable
- * "Show the intensity tutorial again" button) in `aria-hidden={selectedPosition === null}`.
- * When the row was hidden while the button still held focus, Chrome emitted:
- * "Blocked aria-hidden on an element because its descendant retained focus."
- *
- * Fix: replace `aria-hidden` with the `inert` attribute, which hides from AT AND
- * blocks focus/interaction without the focused-descendant conflict.
- *
- * Two surfaces (Surface Lens): point-engage AND remaining-point-engage — identical
- * pattern. Both are covered below.
- *
- * Canary: before fix the row carries aria-hidden="true" and no inert; after fix it
- * carries inert and no aria-hidden.
+ * @file p1374-intensity-hints-learned.test.tsx
+ * @description P1374: one "has picked a level" flag governs both letter intensity hints.
+ * Not learned + tutorial unseen → modal auto-opens. Not learned + seen → tip text after an
+ * Agree/Disagree pick (none after Unsure). Learned → no tip text, no auto-open; "?" replay
+ * still works.
  */
-
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
 
-// ── Mocks for heavy sub-components (mirrors p712 harness) ────────────────────
 vi.mock('@/auth', () => ({
   useAuth: () => ({ session: null, user: null }),
 }));
@@ -34,9 +19,11 @@ vi.mock('@/auth', () => ({
 vi.mock('@/app/components/shared/PositionButton', async (importActual) => ({
   ...(await importActual<typeof import('@/app/components/shared/PositionButton')>()),
   PositionButtons: ({ onPositionClick }: { onPositionClick: (p: string) => void }) => (
-    <button data-testid="cp-pick-agree" onClick={() => onPositionClick('agree')}>
-      pick agree
-    </button>
+    <div>
+      <button data-testid="cp-pick-agree" onClick={() => onPositionClick('agree')}>pick agree</button>
+      <button data-testid="cp-pick-unsure" onClick={() => onPositionClick('unsure')}>pick unsure</button>
+      <button data-testid="cp-pick-somewhat" onClick={() => onPositionClick('somewhat_disagree')}>pick somewhat</button>
+    </div>
   ),
 }));
 vi.mock('@/app/components/shared/remove-position-dialog', () => ({
@@ -114,50 +101,72 @@ function makeReadingState(phase: 'point-engage' | 'remaining-point-engage'): Use
 }
 
 const SENDER_PROFILE = { avatarColor: '#000', avatarUrl: null, hasPledged: false, ear: 0 };
+const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
+const LEARNED_KEY = 'letter_intensity_learned_at_v1';
+const TITLE = 'Tap again if you disagree only Somewhat, or Strongly';
 
-function renderPhase(phase: 'point-engage' | 'remaining-point-engage') {
+function renderEngage() {
   render(
     <BrowserRouter>
       <LetterFlowContent
         snapshots={[makeSnapshot()]}
         senderName="Alice"
         senderProfileOwner={SENDER_PROFILE}
-        readingState={makeReadingState(phase)}
+        readingState={makeReadingState('point-engage')}
         showFocusHeader={false}
         renderCompletion={() => <div data-testid="completion" />}
       />
     </BrowserRouter>
   );
-  // The tip row holds the focusable replay button; grab its container via that button.
-  // (P1374: the tip text now matches the tutorial modal's title, so text is ambiguous.)
-  const replay = screen.getByLabelText('Show the intensity tutorial again');
-  return replay.parentElement as HTMLElement;
+  return screen.getByLabelText('Show the intensity tutorial again').parentElement as HTMLElement;
 }
 
-describe('P862: engage-phase intensity tip row uses inert, not aria-hidden', () => {
-  afterEach(() => vi.clearAllMocks());
-
-  it('point-engage: hidden → inert (not aria-hidden); selected → neither', () => {
-    const row = renderPhase('point-engage');
-    // The row contains a focusable <button> — gate it via inert, never aria-hidden.
-    expect(row.querySelector('button')).not.toBeNull();
-    // Hidden state (no position): RED before fix (no inert / had aria-hidden), GREEN after.
-    expect(row).toHaveAttribute('inert');
-    expect(row).not.toHaveAttribute('aria-hidden');
-    // Selected state: inert must clear so the replay button is interactive.
-    // Guards against a logic inversion (inert={selectedPosition !== null}).
-    fireEvent.click(screen.getAllByTestId('cp-pick-agree')[0]);
-    expect(row).not.toHaveAttribute('inert');
-    expect(row).not.toHaveAttribute('aria-hidden');
+describe('P1374: letter intensity hints stop once learned', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
   });
 
-  it('remaining-point-engage: hidden → inert (not aria-hidden); selected → neither (second surface)', () => {
-    const row = renderPhase('remaining-point-engage');
-    expect(row.querySelector('button')).not.toBeNull();
-    expect(row).toHaveAttribute('inert');
-    expect(row).not.toHaveAttribute('aria-hidden');
-    fireEvent.click(screen.getAllByTestId('cp-pick-agree')[0]);
-    expect(row).not.toHaveAttribute('inert');
-    expect(row).not.toHaveAttribute('aria-hidden');
+  it('no stored state: the tutorial modal auto-opens with the shared sentence', () => {
+    renderEngage();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: TITLE })).toBeInTheDocument();
+  });
+
+  it('seen, not learned: Agree shows the agree tip; Unsure shows no tip text', () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    const row = renderEngage();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByTestId('cp-pick-agree'));
+    expect(row).toHaveTextContent('Tap again if you agree only Somewhat, or Strongly');
+    fireEvent.click(screen.getByTestId('cp-pick-unsure'));
+    expect(row).not.toHaveTextContent(/Tap again/);
+  });
+
+  it('picking a Somewhat level hides the tip immediately and persists the learned flag', () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    const row = renderEngage();
+    fireEvent.click(screen.getByTestId('cp-pick-agree'));
+    expect(row).toHaveTextContent(/Tap again/);
+    fireEvent.click(screen.getByTestId('cp-pick-somewhat'));
+    expect(row).not.toHaveTextContent(/Tap again/);
+    expect(localStorage.getItem(LEARNED_KEY)).not.toBeNull();
+  });
+
+  it('a plain Agree pick does not set the learned flag', () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    renderEngage();
+    fireEvent.click(screen.getByTestId('cp-pick-agree'));
+    expect(localStorage.getItem(LEARNED_KEY)).toBeNull();
+  });
+
+  it('learned (tutorial never seen): no auto-open, no tip text; "?" still opens the modal', () => {
+    localStorage.setItem(LEARNED_KEY, '1');
+    const row = renderEngage();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByTestId('cp-pick-agree'));
+    expect(row).not.toHaveTextContent(/Tap again/);
+    fireEvent.click(screen.getByLabelText('Show the intensity tutorial again'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
