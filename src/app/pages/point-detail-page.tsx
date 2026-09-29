@@ -57,6 +57,11 @@ import {
 } from '@/components/ui/dialog';
 
 
+/** P1364: the `?filter=` values; `satisfies` ties the list to PositionFilter so a new value is a type error here. */
+const POSITION_FILTER_PARAMS = ['agree', 'disagree', 'unsure'] as const satisfies readonly PositionFilter[];
+const isPositionFilterParam = (v: string | null): v is (typeof POSITION_FILTER_PARAMS)[number] =>
+  (POSITION_FILTER_PARAMS as readonly string[]).includes(v ?? '');
+
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,7 +76,7 @@ export function PointDetailPage() {
   // opening a holder's story and coming Back returns to the same filter.
   const filterParam = searchParams.get('filter');
   const positionFilter: PositionFilter =
-    filterParam === 'agree' || filterParam === 'disagree' || filterParam === 'unsure' ? filterParam : 'all';
+    isPositionFilterParam(filterParam) ? filterParam : 'all';
   const setPositionFilter = useCallback((next: PositionFilter) => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev);

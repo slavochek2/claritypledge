@@ -335,7 +335,6 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
   let picks: { points: ProfilePick; stories: ProfilePick };
   test.beforeAll(async () => {
     picks = await discoverProfiles();
-    console.log(`[p1364 profile e2e] Points: /p/${picks.points.slug} (${picks.points.count}); Stories: /p/${picks.stories.slug} (${picks.stories.count})`);
   });
 
   async function watchForProfileLoaders(page: Page) {
