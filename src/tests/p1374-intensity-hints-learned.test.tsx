@@ -105,14 +105,14 @@ const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
 const LEARNED_KEY = 'letter_intensity_learned_at_v1';
 const TITLE = 'Tap again if you disagree only Somewhat, or Strongly';
 
-function renderEngage() {
+function renderEngage(phase: 'point-engage' | 'remaining-point-engage') {
   render(
     <BrowserRouter>
       <LetterFlowContent
         snapshots={[makeSnapshot()]}
         senderName="Alice"
         senderProfileOwner={SENDER_PROFILE}
-        readingState={makeReadingState('point-engage')}
+        readingState={makeReadingState(phase)}
         showFocusHeader={false}
         renderCompletion={() => <div data-testid="completion" />}
       />
@@ -121,21 +121,22 @@ function renderEngage() {
   return screen.getByLabelText('Show the intensity tutorial again').parentElement as HTMLElement;
 }
 
-describe('P1374: letter intensity hints stop once learned', () => {
+// Both engage surfaces carry their own tip row and PositionButtons call site.
+describe.each(['point-engage', 'remaining-point-engage'] as const)('P1374 (%s): letter intensity hints stop once learned', (phase) => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
   });
 
   it('no stored state: the tutorial modal auto-opens with the shared sentence', () => {
-    renderEngage();
+    renderEngage(phase);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: TITLE })).toBeInTheDocument();
   });
 
   it('seen, not learned: Agree shows the agree tip; Unsure shows no tip text', () => {
     localStorage.setItem(SEEN_KEY, '1');
-    const row = renderEngage();
+    const row = renderEngage(phase);
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByTestId('cp-pick-agree'));
     expect(row).toHaveTextContent('Tap again if you agree only Somewhat, or Strongly');
@@ -145,7 +146,7 @@ describe('P1374: letter intensity hints stop once learned', () => {
 
   it('picking a Somewhat level hides the tip immediately and persists the learned flag', () => {
     localStorage.setItem(SEEN_KEY, '1');
-    const row = renderEngage();
+    const row = renderEngage(phase);
     fireEvent.click(screen.getByTestId('cp-pick-agree'));
     expect(row).toHaveTextContent(/Tap again/);
     fireEvent.click(screen.getByTestId('cp-pick-somewhat'));
@@ -155,14 +156,14 @@ describe('P1374: letter intensity hints stop once learned', () => {
 
   it('a plain Agree pick does not set the learned flag', () => {
     localStorage.setItem(SEEN_KEY, '1');
-    renderEngage();
+    renderEngage(phase);
     fireEvent.click(screen.getByTestId('cp-pick-agree'));
     expect(localStorage.getItem(LEARNED_KEY)).toBeNull();
   });
 
   it('learned (tutorial never seen): no auto-open, no tip text; "?" still opens the modal', () => {
     localStorage.setItem(LEARNED_KEY, '1');
-    const row = renderEngage();
+    const row = renderEngage(phase);
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByTestId('cp-pick-agree'));
     expect(row).not.toHaveTextContent(/Tap again/);

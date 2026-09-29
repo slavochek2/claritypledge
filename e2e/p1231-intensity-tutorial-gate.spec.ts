@@ -118,7 +118,9 @@ test.describe('P1231: E2E first-run tutorial seed', () => {
       // The engage phase is reached and its own controls are hit-testable — which they
       // are not while a Radix dialog is open, because it makes the rest of the page inert.
       await expect(page.getByRole('button', { name: TUTORIAL_TITLE })).toHaveCount(0);
-      await expect(page.getByText(TUTORIAL_TITLE)).toHaveCount(0);
+      // P1374: the engage tip line now carries the same sentence as the title, so the
+      // title is only meaningful inside the dialog.
+      await expect(page.getByRole('dialog')).toHaveCount(0);
       await expect(page.getByRole('button', { name: /^agree$/i }).first()).toBeVisible();
     } finally {
       await fixture.cleanup();
@@ -138,7 +140,7 @@ test.describe('P1231: E2E first-run tutorial seed', () => {
       await walkToPointEngage(page, receiverEmail, fixture.delivery);
 
       await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.getByText(TUTORIAL_TITLE)).toBeVisible();
+      await expect(page.getByRole('dialog').getByText(TUTORIAL_TITLE)).toBeVisible();
     } finally {
       await fixture.cleanup();
     }
