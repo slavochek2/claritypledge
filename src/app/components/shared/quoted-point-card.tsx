@@ -78,6 +78,12 @@ export interface QuotedPointCardProps {
   fromProfileId?: string;
   currentUserId?: string;
   onPositionSelect?: (position: Position) => void;
+  /**
+   * P1372: explicit "Clear position" row in the intensity menu (P847 Model C′). Opt-in per
+   * caller: pass it only where removal is actually wired — the feed's handler ignores null,
+   * so a Clear row there would do nothing.
+   */
+  onPositionClear?: () => void;
 }
 
 export function QuotedPointCard({
@@ -91,6 +97,7 @@ export function QuotedPointCard({
   fromProfileId,
   currentUserId,
   onPositionSelect,
+  onPositionClear,
 }: QuotedPointCardProps) {
   const { isAgentAccountId: isAgentQuoted, isLoading: quotedIdentityPending } = useAgentAccountIds();
   const quotedIsAgent = isAgentQuoted(authorId);
@@ -214,6 +221,7 @@ export function QuotedPointCard({
                   userPosition={userPosition}
                   counts={counts}
                   onPositionClick={handlePositionClick}
+                  onClear={onPositionClear}
                   narrow
                 />
               </div>

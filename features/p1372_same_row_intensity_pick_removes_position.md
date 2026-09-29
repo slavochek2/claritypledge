@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 13
 severity: medium
@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [position-buttons, intensity, destructive-action]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1372-same-row-intensity-pick.test.tsx
   root_cause: "PositionButtons.handleIntensityClick forwards the already-selected level to onPositionClick; consumers toggle a repeated value to null"
@@ -72,8 +72,15 @@ Tapping the already-selected level closes the menu and leaves the position uncha
 
 ## Acceptance Criteria
 
-- [ ] Picking the currently selected level from the menu closes the menu and leaves the position unchanged (unit test on `PositionButtons`).
-- [ ] Picking a different level still changes the position; the "Clear position" row still removes it.
-- [ ] Points expanded under a story on the profile page show a "Clear position" row that removes the position through the existing guarded path (consumer test on `QuotedPointCard`).
-- [ ] Existing position-button, letter and tutorial tests still pass.
+- [x] Picking the currently selected level from the menu closes the menu and leaves the position unchanged (unit test on `PositionButtons`).
+- [x] Picking a different level still changes the position; the "Clear position" row still removes it.
+- [ ] Points expanded under a story on the profile page show a "Clear position" row that removes the position through the existing guarded path (consumer test on `QuotedPointCard` covers the card; the profile-page wiring needs browser UAT).
+- [x] Existing position-button, letter and tutorial tests still pass.
 - [ ] No console errors during the affected flow.
+
+## Resolution
+
+- `PositionButton.tsx` `handleIntensityClick`: a pick equal to `userPosition` closes the menu without calling `onPositionClick`. One choke point for every consumer; consumer toggle logic unchanged.
+- `QuotedPointCard` gains opt-in `onPositionClear` → `PositionButtons onClear`. The profile page wires it to its existing guarded removal (`onPointPositionSelect(id, null)` → `guardedRemovePosition`). The feed's story expansion does not opt in: its handler ignores `null`, so removal there was already a no-op and a Clear row would do nothing.
+- No longer a removal path after this fix (no `onClear`): the story composer in `story-detail-page.tsx` (position is required to submit) and the controlled tutorial demo (clicks blocked).
+- Regression test: `src/tests/p1372-same-row-intensity-pick.test.tsx` (4 of 7 red before the fix, 7 of 7 green after).

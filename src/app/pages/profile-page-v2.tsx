@@ -1920,6 +1920,7 @@ function StoryCardFull({
                     authorHasPledged={author.hasPledged}
                     currentUserId={currentUserId}
                     onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
+                    onPositionClear={() => onPointPositionSelect?.(point.id, null)}
                   />
                 </ThreadLineItem>
               );

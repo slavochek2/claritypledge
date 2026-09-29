@@ -321,9 +321,11 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);
-    onPositionClick(position);
+    // P1372: picking the level already held only closes the menu. Consumers toggle a
+    // repeated value to null, and P847 Model C′ makes the Clear row the only removal path.
+    if (position !== userPosition) onPositionClick(position);
     setOpenDropdown(null);
-  }, [onPositionClick, setOpenDropdown]);
+  }, [userPosition, onPositionClick, setOpenDropdown]);
 
   return (
     <div className={`relative w-full ${isLg ? '' : 'sm:w-auto'}${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
