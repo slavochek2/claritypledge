@@ -6,8 +6,8 @@ workstream: disagreement-pipeline
 created_date: '2026-09-29'
 tags: [video, summary, pipeline, day]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
