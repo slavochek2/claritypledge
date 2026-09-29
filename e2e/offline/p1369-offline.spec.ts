@@ -25,9 +25,12 @@ import {
   authStorageKey,
   cachedUrls,
   deploy,
+  goOffline,
   gotoOffline,
   newAppContext,
   runningBuild,
+  setServerDown,
+  settleServiceWorker,
   signIn,
   signOutViaUi,
   visitOnline,
@@ -60,7 +63,10 @@ test.afterAll(async () => {
   for (const u of [author, userA, userB]) if (u?.user?.id) await deleteTestUser(u.user.id);
 });
 
-test.beforeEach(() => deploy('a'));
+test.beforeEach(() => {
+  deploy('a');
+  setServerDown(false);
+});
 
 async function freshPage(browser: Browser) {
   const context = await newAppContext(browser);
@@ -75,7 +81,7 @@ test('AC1: a visited story, point and event reopen offline with their content an
   await visitOnline(page, `/point/${point.id}`, point.statement);
   await visitOnline(page, `/events/${event.slug}`, event.title);
 
-  await context.setOffline(true);
+  await goOffline(context);
   for (const [url, text] of [
     [`/story/${story.id}`, story.content],
     [`/point/${point.id}`, point.statement],
@@ -91,7 +97,7 @@ test('AC1: a visited story, point and event reopen offline with their content an
 
 test('AC2/AC9: a never-visited story deep link offline boots the app and shows needs-connection', async ({ browser }) => {
   const { context, page } = await freshPage(browser);
-  await context.setOffline(true);
+  await goOffline(context);
   await gotoOffline(page, `/story/00000000-0000-4000-8000-${String(RUN).slice(-12).padStart(12, '0')}`);
   await expect(page.getByText(NEEDS_CONNECTION).first()).toBeVisible();
   await expect(page.getByText(CHUNK_ERROR)).toHaveCount(0);
@@ -104,7 +110,7 @@ test('AC3: /meet and /ready offline show needs-connection', async ({ browser }) 
   await page.waitForLoadState('networkidle');
   await page.goto('/meet');
   await page.waitForLoadState('networkidle');
-  await context.setOffline(true);
+  await goOffline(context);
   for (const url of ['/ready', '/meet']) {
     await gotoOffline(page, url);
     await expect(page.getByText(NEEDS_CONNECTION).first(), url).toBeVisible();
@@ -118,8 +124,14 @@ test('AC7 (P838): after a deploy, an installed PWA runs the new build on the nex
   expect(await runningBuild(page)).toBe('a');
   deploy('b');
   await page.goto('/');
-  await page.waitForLoadState('domcontentloaded');
-  expect(await runningBuild(page), 'first online load after deploy must be build B').toBe('b');
+  // "Next online load" includes the service worker update it triggers and any automatic reload
+  // that update performs (vite-plugin-pwa autoUpdate reloads on takeover). What must never
+  // happen is the page settling on build A — the P838 stale-shell failure.
+  await page.waitForLoadState('networkidle');
+  await settleServiceWorker(page);
+  await page.waitForTimeout(2_000);
+  await page.waitForLoadState('networkidle');
+  expect(await runningBuild(page), 'after the first online load settles, the page runs build B').toBe('b');
   await context.close();
 });
 
@@ -131,12 +143,9 @@ test('AC8: shell and chunks come from one build — story opened under A, only h
   await page.waitForLoadState('networkidle');
   // Let build B's service worker install and take control.
   await page.waitForTimeout(3_000);
-  await page.waitForFunction(async () => {
-    const reg = await navigator.serviceWorker.getRegistration();
-    return !!reg?.active && !reg.installing && !reg.waiting;
-  }, null, { timeout: 45_000, polling: 500 });
+  await settleServiceWorker(page);
 
-  await context.setOffline(true);
+  await goOffline(context);
   await gotoOffline(page, `/story/${story.id}`);
   await expect(
     page.getByText(story.content).or(page.getByText(NEEDS_CONNECTION)).first(),
@@ -155,7 +164,7 @@ test('AC10: two accounts on one device — B offline never sees what A had cache
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 
-  await context.setOffline(true);
+  await goOffline(context);
   await gotoOffline(page, `/story/${story.id}`);
   await expect(page.getByText(NEEDS_CONNECTION).first()).toBeVisible();
   await expect(page.getByText(story.content)).toHaveCount(0);
@@ -168,7 +177,7 @@ test('AC11: after sign-out, the previous user’s cached data is not shown offli
   await visitOnline(page, `/point/${point.id}`, point.statement);
   await signOutViaUi(page);
 
-  await context.setOffline(true);
+  await goOffline(context);
   await gotoOffline(page, `/point/${point.id}`);
   await expect(page.getByText(NEEDS_CONNECTION).first()).toBeVisible();
   await expect(page.getByText(point.statement)).toHaveCount(0);
@@ -190,7 +199,7 @@ test('AC13: offline past the access-token lifetime, cached pages still open', as
   const { context, page } = await freshPage(browser);
   await signIn(page, userA.email);
   await visitOnline(page, `/story/${story.id}`, story.content);
-  await context.setOffline(true);
+  await goOffline(context);
   // Age the stored session so the client considers the access token expired.
   await page.evaluate((k) => {
     const raw = localStorage.getItem(k);

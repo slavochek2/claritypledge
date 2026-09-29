@@ -27,3 +27,11 @@ export function deploy(which: 'a' | 'b') {
   fs.writeFileSync(path.join(BUILD_ROOT, 'current'), which);
 }
 
+
+/** Cut (or restore) the app server for every client, service worker included. */
+export function setServerDown(down: boolean) {
+  fs.mkdirSync(BUILD_ROOT, { recursive: true });
+  const f = path.join(BUILD_ROOT, 'down');
+  if (down) fs.writeFileSync(f, '1');
+  else if (fs.existsSync(f)) fs.unlinkSync(f);
+}

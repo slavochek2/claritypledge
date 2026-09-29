@@ -72,6 +72,13 @@ const server = http.createServer((req, res) => {
     res.end('ok');
     return;
   }
+  // "Network down": the harness's offline switch. Destroying the socket makes every request —
+  // including ones the service worker makes itself, which Playwright's setOffline does not block —
+  // fail as a network error.
+  if (fs.existsSync(path.join(ROOT, 'down'))) {
+    req.socket.destroy();
+    return;
+  }
   const dir = currentDir();
   const indexFile = path.join(dir, 'index.html');
   if (!fs.existsSync(indexFile)) {

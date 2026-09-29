@@ -9,8 +9,8 @@ import { createClient } from '@supabase/supabase-js';
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { TEST_PASSWORD } from '../helpers/test-user';
 
-export { REPO_ROOT, OFFLINE_PORT, BUILD_ROOT, BASE_URL, deploy } from './paths';
-import { BASE_URL } from './paths';
+export { REPO_ROOT, OFFLINE_PORT, BUILD_ROOT, BASE_URL, deploy, setServerDown } from './paths';
+import { BASE_URL, setServerDown } from './paths';
 
 export async function newAppContext(browser: Browser): Promise<BrowserContext> {
   return browser.newContext({ baseURL: BASE_URL, serviceWorkers: 'allow' });
@@ -22,11 +22,44 @@ export async function newAppContext(browser: Browser): Promise<BrowserContext> {
  */
 export async function warmServiceWorker(page: Page) {
   await page.goto('/');
+  await settleServiceWorker(page);
+  // Self-check: a navigation must actually be answered by the service worker's fetch handler.
+  // Without this, the first navigations after activation can bypass it and every offline or
+  // deploy assertion silently tests the network instead (found while validating the oracle).
+  for (let i = 0; i < 10; i++) {
+    const res = await page.goto('/');
+    if (res?.fromServiceWorker()) return;
+    await page.waitForTimeout(500);
+  }
+  throw new Error('offline harness: the service worker never answered a navigation');
+}
+
+const SUPABASE = /\.supabase\.co\//;
+
+/**
+ * Go offline for real. Playwright's context.setOffline() blocks the page's requests and flips
+ * navigator.onLine, but NOT requests the service worker makes itself (measured while validating
+ * this oracle: an "offline" page loaded uncached chunks through the service worker). So also cut
+ * the app server and abort Supabase at the context level (which does see service-worker requests).
+ */
+export async function goOffline(context: BrowserContext) {
+  await context.setOffline(true);
+  setServerDown(true);
+  await context.route(SUPABASE, (route) => route.abort('internetdisconnected'));
+}
+
+export async function goOnline(context: BrowserContext) {
+  await context.unroute(SUPABASE);
+  setServerDown(false);
+  await context.setOffline(false);
+}
+
+/** Wait until no service worker is installing or waiting (an update, if any, has finished). */
+export async function settleServiceWorker(page: Page) {
   await page.waitForFunction(
     async () => {
-      if (!('serviceWorker' in navigator)) return false;
       const reg = await navigator.serviceWorker.getRegistration();
-      return !!reg?.active && !reg.installing && !reg.waiting && !!navigator.serviceWorker.controller;
+      return reg?.active?.state === 'activated' && !reg.installing && !reg.waiting && !!navigator.serviceWorker.controller;
     },
     null,
     { timeout: 45_000, polling: 500 },
