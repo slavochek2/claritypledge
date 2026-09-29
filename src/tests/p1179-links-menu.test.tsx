@@ -139,11 +139,12 @@ describe('P1323 AC-3/AC-4/AC-5 — three tabs, exact contents', () => {
     }
   });
 
-  it('AC-4: the Points tab is exactly the six standing collections, including aisafety1', async () => {
+  it('AC-4: the Points tab is exactly the seven standing collections, including aisafety1 and ikigai1', async () => {
     renderAt('/events/cm-1/room');
     await openAtPoints();
     expect(visibleEntries()).toEqual(POINTS);
     expect(POINTS).toContain('aisafety1');
+    expect(POINTS).toContain('ikigai1');
     // Labels are the tags VERBATIM — P1179 Resolved Decision 1 survives P1323: the spoken
     // word and the rendered label are the same token, `aisafety1` included (founder,
     // 2026-09-16: "leave it as aisafety1").

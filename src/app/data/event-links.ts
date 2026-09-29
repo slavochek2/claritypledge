@@ -105,6 +105,9 @@ export function isSafeTag(tag: unknown): tag is string {
  * `^st\d+$`, `^v\d+$`, `understanding` and `misunderstanding` — so the stake surface's
  * existing branch already queries the right column and no third code path is needed.
  *
+ * `ikigai1` was added 2026-09-29 as the seventh (founder request). Prod carries 6 points and
+ * 21 stories under the user `tags` column, the same branch `aisafety1` uses.
+ *
  * NOTHING CAPS THIS LIST, and the thing that used to be cited as the cap is now gone
  * anyway. The auto-hide probe's PROBE_CAP was scoped to the `event` group (the
  * per-event extras) and never saw these tags; P1323 retired that group, so the probe
@@ -131,6 +134,7 @@ export const STANDARD_STAKE_TAGS = [
   'understanding',
   'misunderstanding',
   'aisafety1',
+  'ikigai1',
 ] as const;
 
 /**
