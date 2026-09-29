@@ -1,24 +1,24 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 10
 workstream: disagreement-pipeline
 created_date: '2026-09-22'
 tags: [video, summary, pipeline, disagreement-pipeline]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-09-29
 ---
 
 # P1357: Generate, check and confirm video summaries (the writer for P1349)
 
 ## Problem
 
-**Situation:** [P1349](done/2026-06-10/p1349_full_video_summary_page.md) shipped the `video_summaries`
+**Situation:** [P1349](p1349_full_video_summary_page.md) shipped the `video_summaries`
 table, the `/video/:id` page and the "Read video summary" link. The link appears only for a row with
 `status = 'confirmed'`, and only the service role can write rows.
 
@@ -137,5 +137,5 @@ takedown requests; P1349's rule: "Corrected or removed promptly when the creator
 
 ## Related
 
-- [P1349](done/2026-06-10/p1349_full_video_summary_page.md) — the table, page and link this feeds
-- [P1140](done/2026-06-10/p1140_transcript_retention_for_quote_reverification.md) · [P1187](done/2026-06-10/p1187_transcript_reuse_is_unenforced.md) — the caption store the checker relies on
+- [P1349](p1349_full_video_summary_page.md) — the table, page and link this feeds
+- [P1140](p1140_transcript_retention_for_quote_reverification.md) · [P1187](p1187_transcript_reuse_is_unenforced.md) — the caption store the checker relies on
