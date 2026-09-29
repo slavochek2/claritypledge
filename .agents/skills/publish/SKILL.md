@@ -521,6 +521,22 @@ Paste its output. **REFUSED is not a failed publish.** The rows are written and 
 the evidence could not be bound, and promote-to-prod will refuse until a fresh check is recorded.
 Say which rows it named. Never hand-write the line to get past it.
 
+### Stage 6c — A summary for every video in this run (P1373)
+
+Founder, 2026-09-29: every story video gets a summary the moment it enters the system; this is one
+of the last steps before the run reaches readers. For each distinct `video_id` in the run:
+
+```bash
+node scripts/video-summary.mjs draft <id>        # Gemini writes (test)
+node scripts/video-summary.mjs check <id>        # Codex checks against the kept transcript
+# on a checker failure: draft <id> --revise, then check again — at most 3 rounds, then report it
+```
+
+Then show the founder each summary **in full, in chat** (tldr, key points, summary, moments) and ask
+once for a yes. On the yes, and only then: `confirm <id> --approved-in-chat`. A video still failing
+after 3 rounds is listed by name — never dropped. `/disagreement:promote-to-prod` copies the
+confirmed rows to prod with `promote`; nothing is regenerated there.
+
 ## Stage 7 — Return
 
 ```

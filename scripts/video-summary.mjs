@@ -14,6 +14,9 @@
  *                                          an explicit yes (the disagreement-pipeline gate)
  *   node scripts/video-summary.mjs demote  <video id|url>             back to draft (corrections, takedowns)
  *   node scripts/video-summary.mjs list
+ *   node scripts/video-summary.mjs heal [N]                P1373 (/day): every prod story video without a
+ *                                          confirmed summary is drafted + checked on test (≤3 revise rounds);
+ *                                          prints what is ready for the founder's yes. Never confirms or promotes.
  *   node scripts/video-summary.mjs promote <id> [<id>…]     P1373: copy founder-confirmed TEST rows to PROD
  *                                          byte-identical, one keychain read, nothing regenerated
  *
@@ -474,8 +477,75 @@ async function cmdPromote(ids) {
   if (bad.length) die(`promote finished with failures:\n  - ${bad.join('\n  - ')}`);
 }
 
+/** Story video ids on prod and the ones with a public (confirmed) summary — anon reads, no keychain. */
+async function prodCoverage() {
+  // .env.prod is gitignored and lives in the main checkout; a worktree run reads it from there.
+  const { stdout } = await execFileP('git', ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  const mainRoot = resolve(stdout.trim(), '..');
+  const key = readEnvFile('.env.prod').VITE_SUPABASE_ANON_KEY || readEnvFile(join(mainRoot, '.env.prod')).VITE_SUPABASE_ANON_KEY;
+  if (!key) die('heal needs VITE_SUPABASE_ANON_KEY in .env.prod (the public key; reads only)');
+  const anon = createClient(PROD_URL, key, { auth: { persistSession: false } });
+  const videos = new Set();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await anon.from('stories').select('video_url').not('video_url', 'is', null).range(from, from + 999);
+    if (error) die(`reading prod stories failed: ${error.message}`);
+    for (const r of data) { const id = parseVideoId(r.video_url); if (id) videos.add(id); }
+    if (data.length < 1000) break;
+  }
+  const { data: sums, error } = await anon.from('video_summaries').select('video_id');
+  if (error) die(`reading prod summaries failed: ${error.message}`);
+  return { videos, covered: new Set(sums.map((r) => r.video_id)) };
+}
+
+/** Runs this tool as a child for one step, so a step's die() ends that step, not the heal. */
+async function step(args) {
+  try {
+    const { stdout } = await execFileP(process.execPath, [process.argv[1], ...args], { maxBuffer: 16 << 20, timeout: 20 * 60_000 });
+    return { ok: true, out: stdout };
+  } catch (e) {
+    return { ok: false, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+  }
+}
+
+/** Checks made before this instant predate the no-times-in-text and evidence-near-caption rules (P1357, 2026-09-29). */
+const RULES_SINCE = '2026-09-29T16:00:00';
+
+async function cmdHeal(max) {
+  const { videos, covered } = await prodCoverage();
+  const missing = [...videos].filter((v) => !covered.has(v));
+  console.log(`prod: ${videos.size} story videos, ${videos.size - missing.length} with a public summary, ${missing.length} missing`);
+  const test = (await db('test')).client;
+  const ready = [], promotable = [], failed = [];
+  for (const id of missing.slice(0, max)) {
+    let row = await getRow(test, id);
+    if (row?.status === 'confirmed') { promotable.push(id); continue; }
+    if (row?.status === 'checked' && row.checked_at >= RULES_SINCE) { ready.push(`${id}  ${row.title.slice(0, 60)}`); continue; }
+    {
+      // A row checked before RULES_SINCE is re-checked under today's rules, never trusted.
+      let passed = false;
+      const first = row?.status === 'checked' ? await step(['demote', id]) : row?.status === 'draft' ? { ok: true } : await step(['draft', id]);
+      if (!first.ok) { failed.push(`${id}: could not start — ${first.out.trim().split('\n').pop()}`); continue; }
+      for (let round = 1; round <= 3 && !passed; round++) {
+        const c = await step(['check', id]);
+        if (c.ok) passed = true;
+        else if (round < 3) await step(['draft', id, '--revise']);
+        else failed.push(`${id}: still failing the checker after 3 rounds — ${c.out.trim().split('\n').slice(-2).join(' | ')}`);
+      }
+      if (!passed) continue;
+      row = await getRow(test, id);
+    }
+    ready.push(`${id}  ${row.title.slice(0, 60)}`);
+  }
+  if (missing.length > max) console.log(`(${missing.length - max} more left for the next run; batch size ${max})`);
+  console.log(`\nREADY FOR YOUR YES (${ready.length}): read on test, then confirm --approved-in-chat + promote`);
+  for (const r of ready) console.log(`  ${r}`);
+  console.log(`\nCONFIRMED ON TEST, NOT ON PROD (${promotable.length}): promote ${promotable.join(' ')}`);
+  console.log(`\nFAILED (${failed.length})`);
+  for (const f of failed) console.log(`  ${f}`);
+}
+
 async function main() {
-  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list|promote> [video id|url] [--env test|prod] [--force] [--revise] [--approved-in-chat]';
+  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list|promote|heal> [video id|url] [--env test|prod] [--force] [--revise] [--approved-in-chat]';
   const flags = { env: null, force: false, revise: false, 'approved-in-chat': false };
   const positional = [];
   const argv = process.argv.slice(2);
@@ -492,7 +562,14 @@ async function main() {
     else positional.push(a);
   }
   const [command, target, ...extra] = positional;
-  const commands = ['draft', 'check', 'confirm', 'demote', 'list', 'promote'];
+  const commands = ['draft', 'check', 'confirm', 'demote', 'list', 'promote', 'heal'];
+  if (command === 'heal') {
+    if (flags.env !== null || flags.force || flags.revise || flags['approved-in-chat']) die('heal takes only a batch size: it reads prod and writes test', 2);
+    if (extra.length) die(`unexpected arguments: ${extra.join(' ')}`, 2);
+    const max = target === undefined ? 5 : Number(target);
+    if (!Number.isInteger(max) || max < 1) die('heal: the batch size must be a positive integer', 2);
+    return cmdHeal(max);
+  }
   if (command === 'promote') {
     if (flags.env !== null || flags.force || flags.revise || flags['approved-in-chat']) die('promote takes only video ids: it always reads test and writes prod', 2);
     const ids = [target, ...extra].map(parseVideoId);

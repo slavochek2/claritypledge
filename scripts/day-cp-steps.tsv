@@ -29,6 +29,7 @@ cp.w2s	attest	hard	Wave 2 — Sentry issues since last run
 cp.w2b	attest	hard	Wave 2b — Mixpanel user intelligence
 cp.w2c	attest	skippable	Wave 2c — signup intel (only when Wave 2 found new real-user signups)
 cp.w3	cmd	hard	Wave 3 — repo health, RLS drift, function grants, privilege floor, lint
+cp.vsum	cmd	hard	Video summaries — auto-heal: draft + check every prod story video without one (P1373)
 cp.health	attest	hard	HEALTH rows returned to the dispatcher
 cp.reflect	attest	hard	Reflection since last /day
 cp.goals	attest	hard	Goals and milestone

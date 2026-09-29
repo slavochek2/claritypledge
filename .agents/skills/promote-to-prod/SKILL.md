@@ -301,6 +301,18 @@ Nine asserts against a **fresh** read. Asserts 1–5 are the set a wrong author 
 >
 > **Write the check so it reads the WHOLE content**, not an opening substring. Measured 2026-09-09: a probe matching the speaker's surname in the first 60 characters reported `7/8` on a fully correct set, because one story names its subject in the second sentence. A false FAIL on a correct run teaches the operator to wave the assert through.
 
+### Stage 6b — Video summaries go with the stories (P1373)
+
+After Stage 6 passes, put each run video's summary on prod — the exact text the founder approved on
+test at `/disagreement:publish` Stage 6c:
+
+```bash
+node scripts/video-summary.mjs promote <id> [<id>…]    # one keychain dialog; announce it first
+```
+
+It refuses any video not `confirmed` on test (go back to publish Stage 6c), writes nothing it did not
+read back identical, and takes a mismatched row down rather than leave it public. Paste its output.
+
 ### Stage 7 — Write the published text BACK into the run file
 
 **This is what stops the divergence recurring**, and it is the step whose absence created the problem this skill exists for.
