@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 13
 workstream: disagreement-pipeline
 created_date: '2026-09-29'
 tags: [video, summary, pipeline, day]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-29
 ---
 
 # P1373: Every story video gets a summary: promote to prod, `/day` auto-heal, generate at video entry
@@ -47,7 +47,7 @@ Blast radius: medium (writes public rows on prod; one tool + one skill). Reversi
    Failures after 3 rounds are listed, never hidden.
 3. **At video entry:** the disagreement pipeline runs the same draft → check → yes → promote before
    publishing (the founder's "one of the last steps").
-4. **P1358 R2a** named-speaker attribution — moved to [P1375](p1375_video_summary_named_speaker_attribution.md).
+4. **P1358 R2a** named-speaker attribution — moved to [P1375](../../p1375_video_summary_named_speaker_attribution.md).
 
 Writer stays Gemini (cheap lane). Checker stays a different vendor (Codex); it caught 4 of 6 first
 drafts overstating the transcript on 2026-09-29.
@@ -76,9 +76,9 @@ drafts overstating the transcript on 2026-09-29.
 - [x] `promote` refuses a non-confirmed test row — `promote rf2KFVcKQdQ` (checked on test) exit 1 before any keychain dialog; `promote --env prod …` exit 2; unit tests cover no-fingerprint, own-vendor checker, missing checker
 - [x] `/day` lists story videos without a summary and auto-drafts + checks them, then asks for a yes — `heal 5` on real data: 11 public story videos, 6 covered, 5 missing → all 5 checked on test, listed READY; a forced failure (checker store unreachable) exits 1, records a 7-day cooldown, and the next run skips it with exit 0; `day-step.sh check-sync` OK, and fails with `cp.vsum` removed
 - [x] The disagreement pipeline's skills carry the step: publish.md Stage 6c (draft → check → yes, reusing existing rows), promote-to-prod.md Stage 5-pre (after the ledger line, before any story row; listed at the Stage 4 gate; non-zero exit stops before 5a), commands checked against the tool. `[post-run]` exercised end to end by the next pipeline run
-- [x] R2a named-speaker attribution — moved to its own spec, [P1375](p1375_video_summary_named_speaker_attribution.md)
+- [x] R2a named-speaker attribution — moved to its own spec, [P1375](../../p1375_video_summary_named_speaker_attribution.md)
 - [x] Adversarial review by Opus and Codex — three rounds, **2 of 2 received** each time: promote (4 Codex + 2 Opus findings, fixed), heal + wiring (8 Codex + 3 Opus warnings, fixed: summaries before stories and at the gate, verified takedown, batch starvation, cooldown, failed revision, exit code, pagination); Codex's whitespace-only key point finding is in the P1349 migration (`20260922140000`, CHECK compares to `''` without `btrim`), not this change: recorded here, not fixed
 
 ## Related
 
-- [P1357](done/2026-06-10/p1357_video_summary_generator_pipeline.md) · [P1349](done/2026-06-10/p1349_full_video_summary_page.md)
+- [P1357](p1357_video_summary_generator_pipeline.md) · [P1349](p1349_full_video_summary_page.md)
