@@ -30,7 +30,7 @@ import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLet
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
 import { getEffectiveLeadCount, isReverseStorySnapshot } from '@/app/utils/letter-reading-utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
-import { ZERO_COUNTS, explainWhyLabel } from '@/app/utils/position-helpers';
+import { ZERO_COUNTS, explainWhyLabel, getPositionGroup } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
 import type { LetterStorySnapshot, PositionType } from '@/app/types';
@@ -139,6 +139,17 @@ function getCommittedSteps(phase: StoryPhase, pointIndex: number, pointCount: nu
 // ============================================================================
 // COMPONENT
 // ============================================================================
+
+
+/** P1371 Phase 1: engage-phase tip copy. Names the real gesture (tap the selected button
+ * again, then pick) in the menu's own words — "double-click" was the string P867 rejected.
+ * Unsure has no intensity levels, so it gets no text. Before a selection the row is hidden
+ * (opacity 0) but still renders the Disagree copy so its reserved height matches. */
+function intensityTip(position: PositionType | null): string | null {
+  const group = position ? getPositionGroup(position) : 'disagree';
+  if (group === 'unsure') return null;
+  return `Tap again if you ${group} only Somewhat, or Strongly`;
+}
 
 export function LetterFlowContent({
   snapshots,
@@ -630,7 +641,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                <span>Double-click to adjust position level</span>
+                {intensityTip(selectedPosition) && <span>{intensityTip(selectedPosition)}</span>}
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>
@@ -1021,7 +1032,7 @@ export function LetterFlowContent({
                 >
                   <HelpCircle className="w-4 h-4" aria-hidden="true" />
                 </button>
-                <span>Double-click to adjust position level</span>
+                {intensityTip(selectedPosition) && <span>{intensityTip(selectedPosition)}</span>}
               </div>
             </LetterPointCard>
             <FixedBottomBar ref={setDrawerRef}>

@@ -57,6 +57,8 @@ Phases in strict order. Each phase's evidence decides whether the next runs.
 
 ### Phase 1 — Cheapest intervention: fix the tip that already exists (letters only)
 
+**Copy shipped to main 2026-09-29 (founder-approved):** *"Tap again if you disagree only Somewhat, or Strongly"* (Agree variant swaps the verb; no text after Unsure). Salience and the learning-signal instrumentation below are still open.
+
 - Replace the inline tip copy with wording that names the real sequence without the rejected "double-click" string, e.g. *"Tap Disagree again for Somewhat or Strongly"* [FOUNDER DECISION: copy], and raise its salience.
 - Instrument learning with one signal, used both for measurement and any later stop rule: **picked a row in the intensity menu (any row)**, emitted from `handleIntensityClick` only. It fires only for groups with more than one level (not the Unsure clear-only menu) and never when `isControlled`, so the tutorial demo's puppet cannot emit it.
 - Re-measure against the Phase 0 baseline on the same window definition. If non-default use moves past the pre-registered threshold (below), stop here; Phases 2–3 are unnecessary.
