@@ -30,7 +30,9 @@ tags, cover) in the founder's Chrome, minutes after the Playwright path had open
 The May failures were most likely the extension's per-site permission for `app.sola.day` not yet
 being granted. The Playwright profile is abandoned; do not revive it.
 
-**The host is `app.sola.day`, not `sola.day`.** They are separate permission grants.
+**Update 2026-09-29: `app.sola.day` now redirects to `sola.day`; use `sola.day` (`sola.day/event/<group>/create`, form appears after ~5s).** To find a created event, open the profile → Events → **Hosting** (`sola.day/profile/<handle>?list=created`); the group page and `/my-events` do not list it reliably.
+
+~~**The host is `app.sola.day`, not `sola.day`.**~~ (superseded, kept for history)
 `sola.day/event/<group>/create` renders a **blank page with no console error**, which reads exactly
 like a broken app rather than a wrong host (2026-09-07). When a Sola page is blank and the console
 is clean, check the hostname first.

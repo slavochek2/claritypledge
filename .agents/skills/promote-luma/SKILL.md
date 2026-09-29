@@ -86,6 +86,11 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 
 ### 5. Stop — user verifies dates explicitly, then publishes
 
+**After publish, read the date back from the live event — always.** 2026-09-29 (Clarity Night #2): the
+form still held the default date (today) and went live as an event *tonight*. Fetch
+`curl -sL https://luma.com/<event-id> | grep -o '"start_at":"[^"]*"'` and compare to the event's UTC
+datetime; a mismatch is an urgent report to the founder, first line of the reply.
+
 **If invoked with `batched: true` (the orchestrated fan-out — `promote-all` step 4 Phase A):**
 do everything above exactly as written, including every field verification, then **return
 instead of stopping here**. Leave this tab open with the form filled and nothing submitted.

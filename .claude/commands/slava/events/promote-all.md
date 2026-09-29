@@ -257,7 +257,7 @@ filling it reported *"Not published"* — the mechanism was never pinned down. S
    todo.today My Events, Luma calendar, Sola group events). If the event or post already exists,
    Phase B says so plainly — *"already LIVE, not a draft"* — rather than asking for a click that no
    longer gates anything.
-3. **If the fill is delegated to subagents, use one agent per platform.** A single agent filling
+3. **If the fill is delegated to subagents, use one agent per platform — and run them one after another, never in parallel.** Parallel agents in one Chrome window mis-land clicks on each other's tabs (2026-09-29: a stray click set Luma's time; Luma then went live with the wrong date). A single agent filling
    four platforms hit its 200-turn limit on 2026-09-14 and had to be resumed mid-form.
 
 **Facebook groups is a platform here, not a separate errand.** It was absent from this list until

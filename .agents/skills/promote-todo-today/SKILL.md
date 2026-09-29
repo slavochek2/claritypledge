@@ -15,6 +15,12 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 
 ---
 
+## Limits (measured 2026-09-29)
+
+**Title ≤ 80 characters, description ≤ 1000.** The form does not truncate: it shows a red counter and refuses
+to submit. Long series copy (e.g. Clarity Night) needs a short cut ≤ 1000 that keeps both
+registration links — shorten names ("and" → "&") before cutting content; never let the cut drop the closing link.
+
 ## Steps
 
 ### 1. Get event data from prod
@@ -24,7 +30,7 @@ Event slug or "latest". If not provided, use the most recent upcoming event from
 ```bash
 # Public anon key — safe to publish (it ships in the site's JS bundle).
 # Rotated? Current value: VITE_SUPABASE_ANON_KEY in .env.prod.
-ANON_KEY="${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTgyNTQsImV4cCI6MjA4MDE3NDI1NH0.Z0Ap-VDprOzBRVEWF1wOXwVnNlCaqvv8i9JCCgiPsFY}"
+ANON_KEY=$(grep -E '^VITE_SUPABASE_ANON_KEY=' .env.prod | cut -d= -f2- | tr -d "\"'")  # never hardcode — the legacy key was disabled 2026-08-28
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/events?order=datetime.asc&status=eq.upcoming&limit=1" \
   -H "apikey: $ANON_KEY" \
   -H "Authorization: Bearer $ANON_KEY"

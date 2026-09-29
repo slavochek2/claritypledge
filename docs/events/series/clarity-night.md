@@ -133,3 +133,49 @@ founder expects that breadth by default.
 Record what was sent, skipped and left open in the campaign folder
 (`.private/campaigns/<city>-<topic>-<date>/`) and the sheet, so the next Clarity Night reuses the
 list instead of re-deriving it.
+
+## Platform copy — pattern (founder-approved for #2, 2026-09-29)
+
+Rewrite per night from the event description; keep this shape: **change-first question** (not the
+topic word), who disagrees and **how their positions were derived** (stories from their own talks,
+predicted positions), the aim (honesty despite differences, a revealed gap is rewarded), the research
+framing (open, independent, applied cognitive science; format improved from audience feedback), who is
+welcome, why register. **Never state the round mechanics** (decisions.md 2026-09-28). Two cuts:
+long (Facebook, Luma, Social Layer, Facebook groups) and ≤ 1000 characters (todo.today, title ≤ 80).
+
+Long cut:
+
+```
+AI is changing work faster than most of us can adjust. Does it help you do what you love, earn from it, and find more meaning? Or does it take that away?
+Details & registration: claritypledge.com/night?d=261006
+
+People who have thought hard about this disagree. Simon Sinek fears our humanity will suffer. Garry Tan sees one person building alone, no permission needed. Naval Ravikant, Alan Watts and Arthur Brooks each land somewhere else. From their own talks on YouTube we extracted the stories that explain their reasoning and experience, and predicted which position each would take on six contested points.
+
+How the night works: take your position, then talk it through in groups of three. The aim is an environment where we can be honest with each other despite differences in opinions, interests and values, so that we learn from each other instead. Admitting a gap in your understanding is rewarded here.
+
+Clarity Nights are part of an open, independent research project in applied cognitive science. We improve the format every time based on critical feedback from the audience.
+
+Free. You don't need to be technical or have any particular skill to take part. Everyone is welcome. Please register so you can take positions on the six contested points beforehand.
+
+Tue 6 Oct, 18:30 · Zuzalu Library, 4Seas Nimman, Chiang Mai
+Register: claritypledge.com/night?d=261006
+```
+
+Short cut (todo.today):
+
+```
+AI is changing work faster than most of us can adjust. Does it help you do what you love, earn from it, and find more meaning? Or does it take that away?
+Details & registration: claritypledge.com/night?d=261006
+
+Simon Sinek, Garry Tan, Naval Ravikant, Alan Watts and Arthur Brooks disagree. From their own talks on YouTube we extracted their stories and predicted where each stands on six contested points.
+
+Take your position, then talk it through in groups of three. The aim: be honest with each other despite different opinions, interests and values, and learn from each other. Admitting a gap in your understanding is rewarded here.
+
+Part of an open, independent research project in applied cognitive science. We improve the format every time based on audience feedback.
+
+Free. No particular skill needed. Everyone is welcome.
+
+Tue 6 Oct, 18:30 · Zuzalu Library, 4Seas Nimman, Chiang Mai
+Register: claritypledge.com/night?d=261006
+```
+
