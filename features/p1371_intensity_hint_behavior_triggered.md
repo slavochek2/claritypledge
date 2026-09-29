@@ -52,6 +52,7 @@ Phases in strict order. Each phase's evidence decides whether the next runs.
 ### Phase 0 — Prerequisites (no teaching changes)
 
 1. **Fix the same-row removal bug** on every consumer that toggles on `position === current` (at least feed and point detail; enumerate all by grep). Picking the current level from the menu must be a no-op. File it as its own bug spec; it is live today independent of this spec.
+   Filed as [P1372](p1372_same_row_intensity_pick_removes_position.md).
 2. **Baseline, SQL only, no code.** For signed-in people whose first stored position falls after 2026-04-09 (earlier history is undercounted per the P677 trigger fix), compute the share who store a non-default intensity **within their first N positions** (fixed exposure window, the same for every cohort). Stratify by surface (letter via `letter_point_responses` joined through `letter_deliveries.receiver_profile_id`, vs `point_positions`) and by letter. Record the query and numbers in this spec. Call the outcome **"non-default use"**, not "learning": a person who opens the menu and keeps the default is invisible to it.
 
 ### Phase 1 — Cheapest intervention: fix the tip that already exists (letters only)
