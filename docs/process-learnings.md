@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 101
+**Next ID:** 102
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1801,5 +1801,16 @@ Seen on the test DB during P1366 verification, identical on main: a point card i
 **due:** month
 
 Found in the P1366 review: rsvpToEvent has no host check and the post-signup auto-RSVP (AuthCallbackPage) can RSVP a host who was logged out on their own event page; RLS only checks the caller's own profile. The event card display now tolerates such a row (hostHasRsvp), and prod had 0 host RSVP rows on 2026-09-29. Add the guard in the service and the auto-RSVP path; drop if P844's hidden button is judged enough.
+
+---
+
+## p887-reproduce test breaks when scripts/lib has a __pycache__ folder
+
+**ID:** INBOX-101
+**Date:** 2026-09-29
+**Status:** proposed
+**due:** week
+
+Hit while shipping P1366: src/tests/p887-reproduce.test.ts buildSandbox copies every entry of scripts/lib with copyFileSync, so a gitignored __pycache__ directory (created by any python import of scripts/lib/keyring.py) fails the whole pre-commit test step with ENOTSUP. Skip directories (or copy only tracked files) in buildSandbox. Drop if scripts/lib stops holding python modules.
 
 ---
