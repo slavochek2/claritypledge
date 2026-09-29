@@ -14,6 +14,8 @@
  *                                          an explicit yes (the disagreement-pipeline gate)
  *   node scripts/video-summary.mjs demote  <video id|url>             back to draft (corrections, takedowns)
  *   node scripts/video-summary.mjs list
+ *   node scripts/video-summary.mjs promote <id> [<id>…]     P1373: copy founder-confirmed TEST rows to PROD
+ *                                          byte-identical, one keychain read, nothing regenerated
  *
  * Target: the TEST database by default. `--env prod` writes prod, with the service key read through
  * the per-access keyring lock (one dialog; never "Always Allow").
@@ -41,6 +43,9 @@ import {
   mmss,
   parseCheckerVerdict,
   parseVideoId,
+  PROMOTE_FIELDS,
+  promoteDiff,
+  promoteRefusal,
   parseVtt,
   sameVendor,
   transitionError,
@@ -415,8 +420,59 @@ async function cmdList(client) {
   if (!data?.length) console.log('(no rows)');
 }
 
+/**
+ * P1373: the founder reviews once, on test; prod gets exactly that text. Every test row is validated
+ * before the prod credential is read, so a refusal costs no keychain dialog.
+ */
+async function cmdPromote(ids) {
+  const test = (await db('test')).client;
+  const rows = [];
+  for (const id of ids) {
+    const row = await getRow(test, id);
+    const why = promoteRefusal(row);
+    if (why) die(`${id}: ${why}; nothing was promoted`);
+    rows.push(row);
+  }
+  const prod = (await db('prod')).client;
+  console.log(`[PROD] promote ${ids.join(' ')}`);
+  const bad = [];
+  const read = async (client, id) => {
+    const { data, error } = await client.from('video_summaries').select('*').eq('provider', 'youtube').eq('video_id', id).maybeSingle();
+    if (error) throw new Error(`reading ${id} failed: ${error.message}`);
+    return data;
+  };
+  for (const approved of rows) {
+    const id = approved.video_id;
+    try {
+      // Re-read test right before writing: a summary demoted or edited since validation is not published.
+      const row = await read(test, id);
+      if (promoteRefusal(row) || promoteDiff(approved, row).length) { bad.push(`${id}: test row changed since validation; skipped`); continue; }
+      const fields = Object.fromEntries(PROMOTE_FIELDS.map((f) => [f, row[f]]));
+      // Content first: on an existing row the content lock resets changed content to draft and clears the
+      // check, so status goes in separate writes, each guarded on the approved content.
+      const guard = (q) => q.eq('provider', 'youtube').eq('video_id', id).eq('transcript_sha256', row.transcript_sha256).eq('summary', row.summary).eq('tldr', row.tldr);
+      const { error: e1 } = await prod.from('video_summaries').upsert({ ...fields, status: 'checked', confirmed_at: null }, { onConflict: 'provider,video_id' });
+      if (e1) throw new Error(`write failed: ${e1.message}`);
+      const { error: e2 } = await guard(prod.from('video_summaries').update({ status: 'checked', checked_by: row.checked_by, checked_at: row.checked_at }));
+      if (e2) throw new Error(`check stamp failed: ${e2.message}`);
+      const { error: e3 } = await guard(prod.from('video_summaries').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }));
+      if (e3) throw new Error(`confirm failed: ${e3.message}`);
+      const back = await read(prod, id);
+      const diff = promoteDiff(row, back);
+      if (diff.length || back?.status !== 'confirmed') {
+        // Fail safe: a confirmed row is public, so a mismatch is taken down, not just reported.
+        await prod.from('video_summaries').update({ status: 'draft', checked_by: null, checked_at: null, confirmed_at: null }).eq('provider', 'youtube').eq('video_id', id);
+        bad.push(`${id}: prod differs from the approved test row (${[...diff, back?.status !== 'confirmed' ? `status ${back?.status}` : ''].filter(Boolean).join(', ')}); demoted to draft`);
+      } else console.log(`${id}  confirmed on prod, identical to test  ${row.title.slice(0, 50)}`);
+    } catch (e) {
+      bad.push(`${id}: ${e.message}; if a prod row existed it may now be hidden (draft/checked) — rerun promote`);
+    }
+  }
+  if (bad.length) die(`promote finished with failures:\n  - ${bad.join('\n  - ')}`);
+}
+
 async function main() {
-  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list> [video id|url] [--env test|prod] [--force] [--revise] [--approved-in-chat]';
+  const usage = 'usage: video-summary.mjs <draft|check|confirm|demote|list|promote> [video id|url] [--env test|prod] [--force] [--revise] [--approved-in-chat]';
   const flags = { env: null, force: false, revise: false, 'approved-in-chat': false };
   const positional = [];
   const argv = process.argv.slice(2);
@@ -433,7 +489,13 @@ async function main() {
     else positional.push(a);
   }
   const [command, target, ...extra] = positional;
-  const commands = ['draft', 'check', 'confirm', 'demote', 'list'];
+  const commands = ['draft', 'check', 'confirm', 'demote', 'list', 'promote'];
+  if (command === 'promote') {
+    if (flags.env !== null || flags.force || flags.revise || flags['approved-in-chat']) die('promote takes only video ids: it always reads test and writes prod', 2);
+    const ids = [target, ...extra].map(parseVideoId);
+    if (!target || ids.some((x) => !x)) die(`promote needs one or more YouTube ids\n${usage}`, 2);
+    return cmdPromote([...new Set(ids)]);
+  }
   if (!commands.includes(command)) die(usage, 2);
   if (extra.length) die(`unexpected arguments: ${extra.join(' ')}\n${usage}`, 2);
   if ((flags.force || flags.revise) && command !== 'draft') die('--force and --revise apply only to draft', 2);

@@ -363,3 +363,22 @@ export function contentSha(createHash, row) {
   const pick = { title: row.title, channel: row.channel, duration_seconds: row.duration_seconds, tldr: row.tldr ?? '', summary: row.summary, key_points: row.key_points, moments: row.moments };
   return createHash('sha256').update(JSON.stringify(pick)).digest('hex');
 }
+
+/** P1373: the published fields `promote` copies test → prod, and compares on read-back. */
+export const PROMOTE_FIELDS = ['provider', 'video_id', 'title', 'channel', 'duration_seconds', 'tldr', 'summary', 'key_points', 'moments', 'transcript_sha256', 'written_by', 'checked_by', 'checked_at'];
+
+/** Why a test row may not be promoted, or null. Only a founder-confirmed row with a writer and a different checker. */
+export function promoteRefusal(row) {
+  if (!row) return 'no row on test';
+  if (row.status !== 'confirmed') return `test row is ${row.status}, not confirmed — the founder has not approved it`;
+  if (!row.written_by || !row.checked_by || !row.checked_at) return 'test row lacks a writer, checker or check time';
+  if (!row.transcript_sha256) return 'test row carries no transcript fingerprint, so nothing binds its check to the captions';
+  if (sameVendor(row.checked_by, row.written_by)) return 'test row was checked by the writer\'s own vendor';
+  return null;
+}
+
+/** Fields that differ between the approved test row and what prod now holds (empty = byte-identical). */
+export function promoteDiff(testRow, prodRow) {
+  if (!prodRow) return ['(missing on prod)'];
+  return PROMOTE_FIELDS.filter((f) => JSON.stringify(testRow[f] ?? null) !== JSON.stringify(prodRow[f] ?? null));
+}

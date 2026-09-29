@@ -21,6 +21,9 @@ import {
   transitionError,
   validateDraft,
   writerPrompt,
+  PROMOTE_FIELDS,
+  promoteDiff,
+  promoteRefusal,
 } from '../../scripts/lib/video-summary-core.mjs';
 
 const VTT = `WEBVTT
@@ -314,5 +317,31 @@ describe('P1357 — transitions: nothing skips a step', () => {
     expect(transitionError('confirm', 'checked')).toBeNull();
     expect(transitionError('demote', 'confirmed')).toBeNull();
     expect(transitionError('demote', undefined)).toMatch(/no row/);
+  });
+});
+
+describe('P1373 — promote copies only a founder-confirmed row, and proves prod matches it', () => {
+  const approved = {
+    provider: 'youtube', video_id: 'abcdefghijk', title: 'T', channel: 'C', duration_seconds: 600, tldr: 'x', summary: 'y',
+    key_points: ['a', 'b', 'c'], moments: [{ t: 5, note: 'n' }], transcript_sha256: 'f'.repeat(64),
+    status: 'confirmed', written_by: 'gemini:gemini-3.8-flash', checked_by: 'codex:gpt-5.6-sol', checked_at: '2026-09-29T00:00:00Z',
+  };
+  it('accepts a confirmed row with a writer and a different-vendor checker', () => {
+    expect(promoteRefusal(approved)).toBeNull();
+  });
+  it('refuses anything the founder has not confirmed, or that lacks an independent check', () => {
+    expect(promoteRefusal(null)).toMatch(/no row/);
+    expect(promoteRefusal({ ...approved, status: 'checked' })).toMatch(/not confirmed/);
+    expect(promoteRefusal({ ...approved, status: 'draft' })).toMatch(/not confirmed/);
+    expect(promoteRefusal({ ...approved, checked_by: null })).toMatch(/lacks/);
+    expect(promoteRefusal({ ...approved, transcript_sha256: null })).toMatch(/fingerprint/);
+    expect(promoteRefusal({ ...approved, checked_by: 'gemini:gemini-3.5-pro' })).toMatch(/own vendor/);
+  });
+  it('an identical prod row has no diff; any changed published field is named', () => {
+    expect(promoteDiff(approved, { ...approved, status: 'confirmed', updated_at: 'later' })).toEqual([]);
+    expect(promoteDiff(approved, { ...approved, summary: 'y.' })).toEqual(['summary']);
+    expect(promoteDiff(approved, { ...approved, key_points: ['a', 'c', 'b'] })).toEqual(['key_points']);
+    expect(promoteDiff(approved, null)).toEqual(['(missing on prod)']);
+    expect(PROMOTE_FIELDS).toContain('transcript_sha256');
   });
 });
