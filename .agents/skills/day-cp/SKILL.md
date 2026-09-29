@@ -846,7 +846,8 @@ STEP
 
 Report the three counts. Put `READY FOR YOUR YES` under `QUESTIONS FOR THE FOUNDER`: *"N video
 summaries are written and checked — review them on localhost (feed → Read video summary) and say yes
-to publish."* On the yes, in the main session: `confirm <id> --approved-in-chat` for each, then one
+to publish."* **This step stops at the question — it never confirms or promotes.** On the yes, in the
+main session: `confirm <id> --approved-in-chat` for each, then one
 `promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` (the step exits non-zero) are findings — never render
 them as clean. `COOLING DOWN` rows failed within 7 days and are not retried until then; list them.
 

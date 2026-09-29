@@ -15,7 +15,7 @@
  *   node scripts/video-summary.mjs demote  <video id|url>             back to draft (corrections, takedowns)
  *   node scripts/video-summary.mjs list
  *   node scripts/video-summary.mjs heal [N]                P1373 (/day): every prod story video without a
- *                                          confirmed summary is drafted + checked on test (≤3 revise rounds);
+ *                                          confirmed summary is drafted + checked on test (3 checks, at most 2 revisions);
  *                                          prints what is ready for the founder's yes. Never confirms or promotes.
  *   node scripts/video-summary.mjs promote <id> [<id>…]     P1373: copy founder-confirmed TEST rows to PROD
  *                                          byte-identical, one keychain read, nothing regenerated
@@ -469,7 +469,10 @@ async function cmdPromote(ids) {
       const fields = Object.fromEntries(PROMOTE_FIELDS.map((f) => [f, row[f]]));
       // Content first: on an existing row the content lock resets changed content to draft and clears the
       // check, so status goes in separate writes, each guarded on the approved content.
-      const guard = (q) => q.eq('provider', 'youtube').eq('video_id', id).eq('transcript_sha256', row.transcript_sha256).eq('summary', row.summary).eq('tldr', row.tldr);
+      const guard = (q) => {
+        const g = q.eq('provider', 'youtube').eq('video_id', id).eq('transcript_sha256', row.transcript_sha256).eq('summary', row.summary);
+        return row.tldr === null ? g.is('tldr', null) : g.eq('tldr', row.tldr); // .eq(null) matches nothing in PostgREST
+      };
       const { error: e1 } = await prod.from('video_summaries').upsert({ ...fields, status: 'checked', confirmed_at: null }, { onConflict: 'provider,video_id' });
       if (e1) throw new Error(`write failed: ${e1.message}`);
       const { error: e2 } = await guard(prod.from('video_summaries').update({ status: 'checked', checked_by: row.checked_by, checked_at: row.checked_at }));
@@ -520,10 +523,11 @@ async function prodCoverage() {
 /** Runs this tool as a child for one step, so a step's die() ends that step, not the heal. */
 async function step(args) {
   try {
-    const { stdout } = await execFileP(process.execPath, [process.argv[1], ...args], { maxBuffer: 16 << 20, timeout: 20 * 60_000 });
-    return { ok: true, out: stdout };
+    // Above the checker's own 30-minute ceiling, so heal never kills a legitimate slow check.
+    const { stdout } = await execFileP(process.execPath, [process.argv[1], ...args], { maxBuffer: 16 << 20, timeout: 35 * 60_000 });
+    return { ok: true, code: 0, out: stdout };
   } catch (e) {
-    return { ok: false, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+    return { ok: false, code: e.code, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
   }
 }
 
@@ -557,8 +561,11 @@ async function cmdHeal(max) {
       writeFileSync(healMark(id), JSON.stringify({ at: new Date().toISOString(), why: why.slice(0, 200) }));
     };
     // A row checked before RULES_SINCE is re-checked under today's rules, never trusted.
-    const first = row?.status === 'checked' ? await step(['demote', id]) : row?.status === 'draft' ? { ok: true } : await step(['draft', id]);
-    if (!first.ok) { fail(`could not start — ${first.out.trim().split('\n').pop()}`); continue; }
+    // A draft is re-drafted, not just checked: its kept transcript may be missing on this machine.
+    const first = row?.status === 'checked' ? await step(['demote', id]) : { ok: true };
+    const drafted = first.ok ? await step(['draft', id, ...(row ? ['--force'] : [])]) : first;
+    if (drafted.code === 7) { failed.push(`${id}: yt exit 7 — every caption route walled and the proxy quota is spent; heal stopped, ask the founder (never buy a top-up)`); break; }
+    if (!drafted.ok) { fail(`could not start — ${drafted.out.trim().split('\n').pop()}`); continue; }
     let passed = false;
     for (let round = 1; round <= 3 && !passed; round++) {
       const c = await step(['check', id]);

@@ -528,16 +528,18 @@ of the last steps before the run reaches readers. For each distinct `video_id` i
 
 ```bash
 node scripts/video-summary.mjs list              # a video /day or an earlier run already covered is reused:
-                                                 # confirmed → nothing to do; checked → go straight to the yes
+                                                 # confirmed → nothing to do; checked on/after 2026-09-29 16:00Z
+                                                 # → go straight to the yes; checked earlier → demote <id>, then check
 node scripts/video-summary.mjs draft <id>        # otherwise: Gemini writes (test)
 node scripts/video-summary.mjs check <id>        # Codex checks against the kept transcript
 # on a checker failure: draft <id> --revise, then check again — at most 3 rounds, then report it
 ```
 
 Then show the founder each summary **in full, in chat** (tldr, key points, summary, moments) and ask
-once for a yes. On the yes, and only then: `confirm <id> --approved-in-chat`. A video still failing
+once for a yes. On the yes, and only then: `confirm <id> --approved-in-chat`. On a no or a requested
+change: `demote <id>` if it was checked, then `draft <id> --force` (or edit per the founder) and check again. A video still failing
 after 3 rounds is listed by name — never dropped. `/disagreement:promote-to-prod` copies the
-confirmed rows to prod with `promote`; nothing is regenerated there.
+confirmed rows to prod with `promote` (its Stage 5-pre, before any story row); nothing is regenerated there.
 
 ## Stage 7 — Return
 

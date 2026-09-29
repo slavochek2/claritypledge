@@ -139,6 +139,7 @@ Every one is a STOP. Most are inherited from `/slava:disagreement:publish`; **re
 | **Predicted tag set equals `{<tag>}`** | run the trigger's own expression read-only before writing — set equality, never containment |
 | **`#` and `](` neutralised across the WHOLE body** | quotes, statements, summaries — a `#` anywhere publishes that story into a tag nobody chose; a markdown link renders an anchor whose label is independent of its href |
 | **`PROD_SUPABASE_ACCESS_TOKEN` enrolled in the keyring** | `./scripts/keyring.sh status` shows `enrolled` (never prompts) — read through the per-access lock at Stage 5, never from `.env.prod` plaintext (P1239/P1214); no fallback path exists |
+| **`PROD_SUPABASE_SERVICE_ROLE_KEY` enrolled in the keyring** (P1373) | `./scripts/keyring.sh status` shows `enrolled` — `video-summary.mjs promote` reads it at Stage 5-pre, one more dialog |
 | **The target ref matches the target row** | prod ⟹ `.env.prod: VITE_SUPABASE_URL`; test ⟹ `.env.local`. Credentials from `.env.local` by variable name. Never merge the files |
 
 **Environment table** — identical to `/slava:disagreement:publish`'s, restated because a table held by reference is a table that drifts:
@@ -238,6 +239,7 @@ PROMOTE TO PROD — irreversible once public.
     <n> points     — <each statement in full>
     <n> stories    — <author + first line of each>
     <n> positions  — <point × agent × stance>
+    <n> video summaries — <video id + title of each; every one `confirmed` on test>  (P1373)
   Accuracy evidence : <n>/<n> clean, sha <hash>, checked_by <who>
   envelope sha256   : <hash>   (env: <env>, url read from the envelope)
 
@@ -248,27 +250,27 @@ Confirm to write.
 
 **Silence, ambiguity, or any non-affirmative ⟹ refuse and exit WITHOUT writing.**
 
-### Stage 4b — Video summaries go FIRST, and are part of the gate (P1373)
-
-A story is never public without its video's summary, so summaries are promoted **before** Stage 5
-writes any story. At the Stage 4 gate, list every run video with its test status and title — the
-operator's yes covers them too:
-
-```bash
-node scripts/video-summary.mjs list              # every run video must be `confirmed` on test
-node scripts/video-summary.mjs promote <id> [<id>…]    # one keychain dialog; announce it first
-```
-
-Anything not `confirmed` on test is a STOP: go back to `/disagreement:publish` Stage 6c. `promote`
-reads back each row and takes down any it cannot verify. **A non-zero exit is a STOP before Stage 5**
-— the stories wait; nothing is half-published. A summary alone on prod is harmless: its page is
-reachable only from a story's link.
-
 ### Stage 5 — Write
 
 **Write the ledger line BEFORE any write, carrying the envelope hash**, so a run that wrote without a recorded gate is visible afterwards.
 
 Re-hash the envelope immediately before the first write and assert it equals the printed hash. A mismatch is a stop, not a warning.
+
+#### 5-pre — Video summaries, before any story row (P1373)
+
+After the ledger line and the re-hash, before 5a: put every run video's summary on prod, so no story
+is ever public without its video's summary. The gate's `video summaries` line is what the operator
+approved; the text is what they approved on test at `/disagreement:publish` Stage 6c.
+
+```bash
+node scripts/video-summary.mjs list                   # every run video must be `confirmed` on test
+node scripts/video-summary.mjs promote <id> [<id>…]   # its own keychain dialog (prod service key): Allow, never Always Allow
+```
+
+Anything not `confirmed` on test is a STOP before any write. `promote` reads each row back and takes
+down any it cannot verify; **a non-zero exit is a STOP before 5a** — report which summaries are now
+on prod (a summary alone is harmless: its page is reached only from a story's link) and write no
+story rows.
 
 #### 5a — Provision, with the ids the gate approved
 
