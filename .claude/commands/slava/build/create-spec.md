@@ -293,6 +293,7 @@ Before structuring, scan the preceding conversation for:
 - **Named constraints** ("don't touch the gate", "must still work offline") → `## Invariants` or Non-Goals, whichever they actually are.
 - **Decisions already made** — do not re-ask. Record them.
 - **Anything the founder was uncertain about** → `## Open Questions`, in their words.
+- **A universal quantifier over places in the founder's framing** ("everywhere", "anywhere", "every page", "all the X pages" — not over time or people: "every single time", "all users") → name the set it ranges over; if the sentence admits more than one (the pages Back appears on *and* the pages Back returns you to), list each. The Solution covers every member by name. A member the founder did not exclude in the conversation may be dropped only as `[FOUNDER DECISION: scope]` — never as a Non-Goal or a "best-effort" sub-bullet. Check each set against every surface or entry point the spec itself names. (P1364: "people can go back from everywhere, anywhere" — Back went on every detail page, but return-to-position covered only feed and `/stake` ("other pages get best-effort") while the spec's Alternatives named five entry points.)
 
 If the conversation is empty (a cold `/create-spec "…"`), say so in one clause and work from the description. Do not invent context. `/change-request` Step 3 is the working precedent.
 

@@ -144,6 +144,12 @@ P1324 (2026-09-16): `day-step.sh check-sync` passed with a required step deleted
 controls (`scripts/test-p1324-day-ledger.sh`, synthetic one-line docs with no examples) all
 passed. Found by a manual deletion experiment outside the suite, not by the suite.
 
+## 7e. A coverage guard derives its members; a hand-kept list needs a divergence check
+
+A gate or test that asserts every member of a set is covered (writers of a table, modules a sweep loads, required checks) derives the members at run time from where they are defined — migrations, the file tree, the live config. The *scope seed* may be hand-typed, because it is the spec (which tables are cached, which directory counts); everything that follows from the seed is derived. A list that must stay hand-kept because it carries a classification the source cannot (`PREDICATE_MODULES`/`HARNESS_MODULES`) fails the run when list and source disagree. Assert at least one known member **per derivation path**, so a parser that returns nothing, or skips one source kind, cannot pass green.
+
+Why: a hand list is blind to exactly the member nobody remembered. A P1364 draft guard missed `submit_rating_by_token` (caught in review 4); decisions.md 2026-09-04 (`PREDICATE_MODULES`); 2026-09-09 (hardcoded required-check name).
+
 ## 8. Record under uncertainty — never withhold on "wait until validated" grounds
 
 Recording a decision, bet, or learning is never deferred because it is unvalidated, unproven, or "wait until the test / the interviews / it's confirmed." Record it NOW with an honest `UNTESTED` label + a one-line falsifier — that axis is retired ([docs/decisions.md](../../docs/decisions.md) 2026-07-03 [process]). Routing (which doc it belongs in) is advisory, never a block. Applies **in open conversation too**, before `/docs-strategy-update` or `/kdd` is entered — the recommendation to "hold off recording for now" is itself the failure this gate names.
