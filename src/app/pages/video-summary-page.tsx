@@ -114,7 +114,7 @@ export function VideoSummaryPage() {
       </div>
       <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
         <Sparkles className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>AI summary of the full video. Video by {s.channel}; not endorsed by the creator.</span>
+        <span>AI-generated summary</span>
       </p>
 
       {s.keyPoints.length > 0 && (

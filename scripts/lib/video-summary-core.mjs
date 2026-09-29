@@ -124,7 +124,7 @@ Video: "${meta.title}" — channel: ${meta.channel} — length ${mmss(meta.durat
 
 Rules (all mandatory):
 - Neutral and whole-video: cover every speaker and every major part, in order. Do not take sides, rate the video, or judge any speaker.
-- Our own words, never a transcript. A direct quote only where it supports a point: at most one line, in quotation marks, with its [mm:ss].
+- Our own words, never a transcript. A direct quote only where it supports a point: at most one line, in quotation marks. Never write a time ([mm:ss] or 16:38) anywhere in the tldr, summary or key points: times live only in "moments".
 - No claims the speakers did not make. Name a person only when the transcript makes clear who is speaking or who is meant; the captions carry no speaker labels, so never guess who said something.
 - "tldr": 1–2 sentences.
 - "summary": prose paragraphs separated by a blank line, scaled to the video's substance.
@@ -198,11 +198,9 @@ export function mechanicalCheck(draft, segs, durationSeconds) {
   }
   if (draft.key_points.length !== KEY_POINTS) failures.push(`expected ${KEY_POINTS} key points`);
   const prose = [draft.tldr, draft.summary, ...draft.key_points].join('\n');
-  for (const m of prose.matchAll(/\[(\d{1,2}(?::\d{2}){1,2})\]/g)) {
-    const t = toSeconds(m[1]);
-    if (!Number.isInteger(t) || t > durationSeconds) failures.push(`time marker [${m[1]}] is outside the video`);
-    else if (!segs.some((c) => Math.abs(c.t - t) <= CUE_TOLERANCE_S)) failures.push(`time marker [${m[1]}] has no caption within ${CUE_TOLERANCE_S}s`);
-  }
+  // Founder 2026-09-29: a time never appears in reading text; the moments list carries times.
+  for (const m of prose.matchAll(/\[?\b\d{1,2}(?::\d{2}){1,2}\b\]?/g))
+    failures.push(`time marker ${m[0]} in the text; times belong only in moments`);
   for (const q of quotedSpans(prose)) {
     const near = q.t === null ? segs : segs.filter((c) => Math.abs(c.t - q.t) <= QUOTE_TOLERANCE_S);
     const hay = normalizeWords(near.map((c) => c.text).join(' '));

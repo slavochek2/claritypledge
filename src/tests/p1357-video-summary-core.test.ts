@@ -219,22 +219,21 @@ describe('P1357 — adversarial review fixes', () => {
     expect(checkerPrompt(META, segs, draft, NONCE)).toContain('<<<TRANSCRIPT');
   });
 
-  it('M3: a direct quote must be in the captions near its time; scare quotes are ignored', () => {
-    expect(quotedSpans('He said "the second part starts here" [1:05] and called it "fine".')).toEqual([{ text: 'the second part starts here', t: 65 }]);
-    const ok = { ...draft, summary: 'He says "the second part starts here" [1:05].' };
+  it('M3: a direct quote must be somewhere in the captions; scare quotes are ignored', () => {
+    expect(quotedSpans('He said "the second part starts here" and called it "fine".')).toEqual([{ text: 'the second part starts here', t: null }]);
+    const ok = { ...draft, summary: 'He says "the second part starts here".' };
     expect(mechanicalCheck(ok, segs, 600)).toEqual([]);
-    const invented = { ...draft, summary: 'He says "we will win this war easily" [1:05].' };
-    expect(mechanicalCheck(invented, segs, 600)).toEqual([expect.stringMatching(/quote "we will win this war easily" is not in the captions within 60s of 1:05/)]);
-    const wrongTime = { ...draft, summary: 'He says "hello and welcome to the talk" [9:00].' };
-    expect(mechanicalCheck(wrongTime, segs, 600)).toEqual(expect.arrayContaining([expect.stringMatching(/not in the captions within 60s of 9:00/)]));
+    const invented = { ...draft, summary: 'He says "we will win this war easily".' };
+    expect(mechanicalCheck(invented, segs, 600)).toEqual([expect.stringMatching(/quote "we will win this war easily" is not in the captions/)]);
   });
 
-  it('M4: every [mm:ss] in the prose must be inside the video and near a caption', () => {
-    const bad = { ...draft, summary: 'Later [55:00] and also [6:40].' };
+  it('M4: no time appears in the reading text (founder 2026-09-29); times live only in moments', () => {
+    const bad = { ...draft, summary: 'He says "the second part starts here" [1:05]. Later, at 6:40, more.' };
     expect(mechanicalCheck(bad, segs, 600)).toEqual([
-      'time marker [55:00] is outside the video',
-      'time marker [6:40] has no caption within 20s',
+      'time marker [1:05] in the text; times belong only in moments',
+      'time marker 6:40 in the text; times belong only in moments',
     ]);
+    expect(writerPrompt(META, segs)).toMatch(/Never write a time/);
   });
 
   it('#12: moment count must be 3–10, matching the prompt', () => {

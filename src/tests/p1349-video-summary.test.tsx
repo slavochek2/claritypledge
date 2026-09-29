@@ -177,23 +177,21 @@ describe('P1349 — the summary page', () => {
     renderPage();
     const page = await screen.findByTestId('video-summary-page');
     const text = page.textContent ?? '';
-    const order = ['A talk', 'Some Channel · 10-min video', 'AI summary of the full video', 'Key points', 'Summary', 'Timestamps', 'Go back'];
+    const order = ['A talk', 'Some Channel · 10-min video', 'AI-generated summary', 'Key points', 'Summary', 'Timestamps', 'Go back'];
     const positions = order.map((s) => text.indexOf(s));
     positions.forEach((p, i) => expect(p, `missing: ${order[i]}`).toBeGreaterThanOrEqual(0));
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
     // Player sits between the channel line and the AI label.
     const player = screen.getByTestId('player');
-    const label = screen.getByText(/AI summary of the full video/);
+    const label = screen.getByText(/AI-generated summary/);
     expect(player.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByRole('listitem').slice(0, 3).map((li) => li.textContent)).toEqual(['1One.', '2Two.', '3Three.']);
   });
 
-  it('says it is AI-written, not endorsed by the creator, and credits the channel', async () => {
+  it('says it is AI-generated (founder 2026-09-29: just "AI-generated summary")', async () => {
     rows = [ROW];
     renderPage();
-    const label = await screen.findByText(/AI summary of the full video/);
-    expect(label.textContent).toMatch(/not endorsed by\s+the creator/);
-    expect(label.textContent).toContain('Video by Some Channel');
+    expect((await screen.findByText(/AI-generated summary/)).textContent).toBe('AI-generated summary');
   });
 
   it('timestamps are ordered, and clicking one seeks the player', async () => {
