@@ -338,7 +338,7 @@ async function cmdCheck(client, id) {
   if (sameVendor(checker, row.written_by)) die(`checker ${checker} is the same vendor as writer ${row.written_by}`);
   writeFileSync(join(storeDir(id), 'check.raw.txt'), text, { mode: 0o600 });
   chmodSync(join(storeDir(id), 'check.raw.txt'), 0o600);
-  const verdict = parseCheckerVerdict(text, draft, nonce, row.duration_seconds);
+  const verdict = parseCheckerVerdict(text, draft, nonce, row.duration_seconds, segs);
   writeFileSync(join(storeDir(id), 'check.json'), JSON.stringify({ checker, ...verdict, ...bound, at: new Date().toISOString() }, null, 2));
   if (!verdict.pass) die(`checker ${checker} failed the summary, row stays draft:\n  - ${verdict.failures.join('\n  - ')}`);
 

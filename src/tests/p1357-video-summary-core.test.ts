@@ -236,6 +236,14 @@ describe('P1357 — adversarial review fixes', () => {
     expect(writerPrompt(META, segs)).toMatch(/Never write a time/);
   });
 
+  it('M4b: a time-like token that was actually spoken is content, not a marker (gate 7c control)', () => {
+    const spokenSegs = parseVtt(`WEBVTT\n\n00:00:05.000 --> 00:00:08.000\nturn to John 3:16 before 9:30 tonight\n`);
+    const d = { ...draft, moments: [{ t: 5, note: 'n' }], summary: 'He reads John 3:16 and asks them to meet at 9:30.' };
+    expect(mechanicalCheck(d, spokenSegs, 600).filter((f) => f.includes('time marker'))).toEqual([]);
+    const bracketed = { ...d, summary: 'He reads John [3:16].' };
+    expect(mechanicalCheck(bracketed, spokenSegs, 600).filter((f) => f.includes('time marker'))).toHaveLength(1);
+  });
+
   it('#12: moment count must be 3–10, matching the prompt', () => {
     expect(validateDraft({ ...good, moments: good.moments.slice(0, 2) }, 600).errors).toContain('expected 3–10 moments, got 2');
     const eleven = Array.from({ length: 11 }, (_, i) => ({ t: `0:${String(i + 10)}`, note: 'x' }));
@@ -277,6 +285,11 @@ more spoken words
     expect(parseCheckerVerdict(withEvidence(''), draft, NONCE, 600).failures).toEqual(['tldr: pass without usable evidence ("")']);
     expect(parseCheckerVerdict(withEvidence('99:00'), draft, NONCE, 600).pass).toBe(false);
     expect(parseCheckerVerdict(withEvidence('[1:05]'), draft, NONCE, 600).pass).toBe(true);
+    // Review 2026-09-29: a list of times is real evidence (the Naval run failed 11 passes on this).
+    expect(parseCheckerVerdict(withEvidence('0:05; 1:05'), draft, NONCE, 600, segs).pass).toBe(true);
+    // In range but no caption near it: invented evidence.
+    expect(parseCheckerVerdict(withEvidence('5:00'), draft, NONCE, 600, segs).pass).toBe(false);
+    expect(parseCheckerVerdict(withEvidence('0:05; 5:00'), draft, NONCE, 600, segs).pass).toBe(false);
   });
 
   it('H2: the content hash changes with any published field, and only with those', () => {

@@ -199,8 +199,12 @@ export function mechanicalCheck(draft, segs, durationSeconds) {
   if (draft.key_points.length !== KEY_POINTS) failures.push(`expected ${KEY_POINTS} key points`);
   const prose = [draft.tldr, draft.summary, ...draft.key_points].join('\n');
   // Founder 2026-09-29: a time never appears in reading text; the moments list carries times.
-  for (const m of prose.matchAll(/\[?\b\d{1,2}(?::\d{2}){1,2}\b\]?/g))
-    failures.push(`time marker ${m[0]} in the text; times belong only in moments`);
+  // A bracketed [mm:ss] is always a marker. A bare "3:16" / "9:30" passes only when those exact
+  // characters were spoken (a verse, a clock time): it is then content, not a pointer into the video.
+  const spoken = segs.map((c) => c.text).join(' ');
+  for (const m of prose.matchAll(/\[\d{1,3}(?::\d{2}){1,2}\]|\b\d{1,3}(?::\d{2}){1,2}\b/g))
+    if (m[0].startsWith('[') || !spoken.includes(m[0]))
+      failures.push(`time marker ${m[0]} in the text; times belong only in moments`);
   for (const q of quotedSpans(prose)) {
     const near = q.t === null ? segs : segs.filter((c) => Math.abs(c.t - q.t) <= QUOTE_TOLERANCE_S);
     const hay = normalizeWords(near.map((c) => c.text).join(' '));
@@ -304,7 +308,7 @@ export function lastItemsObject(text) {
  * Parses the checker's reply. Anything malformed, without this run's nonce, missing an id, repeating
  * an id, or with an unknown verdict counts as a failure — the check fails closed.
  */
-export function parseCheckerVerdict(text, draft, nonce, durationSeconds) {
+export function parseCheckerVerdict(text, draft, nonce, durationSeconds, segs) {
   const expected = checkItems(draft).map((i) => i.id);
   const found = lastItemsObject(String(text ?? ''));
   if (found === undefined && !String(text ?? '').includes('{')) return { pass: false, failures: ['checker returned no JSON'], results: [] };
@@ -325,8 +329,11 @@ export function parseCheckerVerdict(text, draft, nonce, durationSeconds) {
     else if (r.verdict === 'fail') failures.push(`${id}: ${r.reason || 'failed'}${r.evidence ? ` (${r.evidence})` : ''}`);
     else if (r.verdict !== 'pass') failures.push(`${id}: unknown verdict "${r.verdict}"`);
     else if (durationSeconds !== undefined) {
-      const t = toSeconds(String(r.evidence ?? '').replace(/^\[|\]$/g, ''));
-      if (!Number.isInteger(t) || t > durationSeconds) failures.push(`${id}: pass without usable evidence ("${r.evidence ?? ''}")`);
+      // Evidence may list several times ("0:35; 7:48"). Every one must be inside the video and, when
+      // captions are given, near a caption: a hallucinated time points at nothing and is not evidence.
+      const ts = [...String(r.evidence ?? '').matchAll(/\d{1,3}(?::\d{2}){1,2}/g)].map((m) => toSeconds(m[0]));
+      const usable = (t) => Number.isInteger(t) && t <= durationSeconds && (!segs || segs.some((c) => Math.abs(c.t - t) <= CUE_TOLERANCE_S));
+      if (ts.length === 0 || !ts.every(usable)) failures.push(`${id}: pass without usable evidence ("${r.evidence ?? ''}")`);
     }
   }
   for (const r of results) if (r?.id && !expected.includes(r.id)) failures.push(`${r.id}: unexpected id from checker`);

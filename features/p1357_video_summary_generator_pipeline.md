@@ -53,7 +53,7 @@ the writer, an independent checker and the operator each doing their own step?
 - **Test is the default target; prod only when named explicitly** with the prod service key via the
   per-access lock (never a plaintext copy).
 - **P1349's copyright rule binds the writer prompt:** own words, never a transcript; quotes at most one
-  line, credited and timestamped; no claims the speaker did not make.
+  line, credited but never timestamped (times live only in moments; founder 2026-09-29); no claims the speaker did not make.
 - **A summary attributes a claim to a named person ONLY from speaker-labelled turns that passed their
   window's Step 2c oracle** (amended by [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) R2a).
   Otherwise it says "the host" or "a speaker", or drops the claim. On a pipeline video those turns
