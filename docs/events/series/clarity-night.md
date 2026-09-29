@@ -6,9 +6,10 @@ cadence: on-demand
 timezone: Asia/Bangkok
 default_location: "Zuzalu Library, 4Seas Nimman, Chiang Mai"
 sola_group: 4seas
-# Per-topic short link (e.g. /aisafety), created by /slava:disagreement:clarity-night-publish step 7.
+# Series short link: /night resolves to the nearest upcoming Clarity Night (api/series-redirect.ts).
 # Always posted with the ?d=<YYMMDD> cache-buster (promote-all.md § "Short-link cache-buster").
-short_link: per-topic
+# Per-topic links (e.g. /aisafety) are optional extras, never required.
+short_link: night
 # Narrows the operator's platform list (promote-all step 0). Eventbrite is off for all events.
 platforms: ["todo-today", "facebook-personal", "facebook-groups", "luma", "sola"]
 ---
@@ -30,6 +31,23 @@ chat IDs, the organisers to ask, the working sheet. This public file names roles
 Codified from event #1 (AI safety, 2026-09-18), promoted 2026-09-14 and 2026-09-15. Run the steps
 in this order. Steps 4 to 6 are **part of the run, not the optional DM stage** hikes have.
 
+**Two phases, always (founder, 2026-09-29).** Phase 1 = steps 1 and 2: publish on every platform,
+Social Layer included, as soon as the event is on prod. Phase 2 = steps 3 to 6 (groups, organiser
+asks, DMs, email) — **always last**, after the audience reflection below. Track every step in the
+state cache (`~/.private/event-state/<slug>.json`) as done or skipped-with-reason; event #1 ended
+with Luma and Facebook groups still `pending` and nobody noticed.
+
+**Audience reflection (start of phase 2, every night).** Before drafting a single message:
+1. Refresh the Beeper mirror, then re-sweep 1:1 chats for people the founder discussed Clarity
+   Nights with since the last night — they may be missing from the list.
+2. From the previous night's campaign folder: who replied, who registered, who came, who ignored.
+   Decide per person: stay on personal invites, move to email only, or drop.
+3. Sync ClarityPledge users into the newsletter audience before the email step.
+4. Carry-over items from `.private/event-channels.json` → `carry_over_for_next_night`.
+
+**Copy per night:** the long group copy and the short platform blurb are derived from **this
+event's description**, never reused from the last night (the saved blurbs are event #1's pattern).
+
 ### 0. Kickoff checks
 
 - **Beeper must be loaded** (the `cf` launch alias). Steps 3 to 5 are Beeper sends. Check before
@@ -41,8 +59,9 @@ in this order. Steps 4 to 6 are **part of the run, not the optional DM stage** h
 ### 1. Platforms — `/slava:events:promote-all`
 
 todo.today, Facebook personal, Luma, Social Layer (group `4seas`). Eventbrite is off.
-Facebook groups: no eligible Chiang Mai group is recorded for this series yet. Discover once from the
-founder's joined groups and record eligibility in `.private/event-operator.json`, same as hikes.
+Facebook groups: discover suitable Chiang Mai groups (expats, digital nomads, AI, self-development)
+from the founder's joined groups and record per-group eligibility **with the event types it fits**
+in `.private/event-operator.json` — the existing list was built for hikes.
 
 ### 2. Community calendar
 

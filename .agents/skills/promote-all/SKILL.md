@@ -338,6 +338,10 @@ For each platform:
 
 ### 5. WhatsApp blurb (always last — after the full platform fan-out)
 
+**Clarity Night: skip this step.** Its group copy is the long per-event version and belongs to the
+recipe's phase 2 (`docs/events/series/clarity-night.md` § Promotion recipe), which runs after the
+audience reflection. End the run by listing the phase-2 steps as next, never by offering a short blurb.
+
 **If invoked by the events orchestrator (`slava:events:run`) with `promote_groups` in scope for this run, verified the same way as step 3b above (read `~/.private/event-state/<slug>.run.json`, confirm `updated_at` is from this session and `"promote_groups"` is in `stages_in_scope`):** skip this step entirely. The orchestrator's step 5 already resolved the group copy, and its own Stage 7 posts it under one combined confirmation covering Facebook groups and chat groups — stopping here for a separate WhatsApp blurb would be an extra approval turn covering ground Stage 7 already covers. (If `promote_groups` was explicitly excluded from this run's scope at Gate 1, or the run-record check fails, run this step as normal — the orchestrator made no verified promise to handle groups for that run.)
 
 **Otherwise (standalone invocation, or orchestrated with groups out of scope), once all platforms are `done` or `skipped`:**
