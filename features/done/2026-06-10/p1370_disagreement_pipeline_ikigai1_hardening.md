@@ -1,24 +1,24 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 13
 workstream: disagreement-pipeline
 created_date: '2026-09-29'
 tags: [disagreement-pipeline, promote-to-prod, transcripts, agent-avatars]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-09-29
 ---
 
 # P1370: Disagreement pipeline hardening after the ikigai1 prod promotion
 
 ## Problem
 
-**Situation:** On 2026-09-28/29 run `ai-ikigai-2026-09-29` (tag `ikigai1`) was promoted to prod. `/slava:disagreement:promote-to-prod` refused at first, and correctly: no `disagreement:accuracy-check` ledger line was bound to the story bytes. The check was then redone by hand. See [decisions.md](../docs/decisions.md) 2026-09-29 [process].
+**Situation:** On 2026-09-28/29 run `ai-ikigai-2026-09-29` (tag `ikigai1`) was promoted to prod. `/slava:disagreement:promote-to-prod` refused at first, and correctly: no `disagreement:accuracy-check` ledger line was bound to the story bytes. The check was then redone by hand. See [decisions.md](../../../docs/decisions.md) 2026-09-29 [process].
 
 **Complication:** Five gaps showed up. Each was re-diagnosed by command in this session:
 
@@ -92,6 +92,6 @@ driver: anomaly
 
 ## Related
 
-- [decisions.md](../docs/decisions.md) 2026-09-29 [process]
+- [decisions.md](../../../docs/decisions.md) 2026-09-29 [process]
 - decisions.md 2026-09-?? (line ~13791): `source .env.local` echoed credentials. Do not add that pattern.
 - P1140, P1187 (transcript store), P1135 (agent avatars), P1367 (event-date)
