@@ -9,7 +9,7 @@
  *     `Delete` on the viewer's own story card on the profile. It joins whatever top row the card
  *     already has (a statement, an author row, a profile owner's quote row).
  *   - Bottom row, via `CardFooterActions`: left a SOLID blue `CardExpander` (`N stories` /
- *     `N points`, or the profile's `Maya's story` / `Your story`), rendered only for a count
+ *     `N points`, or the profile's `Their story` / `Your story`), rendered only for a count
  *     above zero; then the viewer's one `CardSlotLink` (`+ Add a story` · `✓ Your story` ·
  *     `+ Add a point`); `CardCountText` (`0 stories`) only when there is neither. Right: an
  *     outlined `Details →` that is always visible — it replaced the external-link icon, which
@@ -108,7 +108,7 @@ export function CardFooterActions({
  * Expands the card's linked stories / points in place. Callers render it only for a count > 0.
  *
  * It can never overflow its group: the button may shrink (`min-w-0 max-w-full`) and its LABEL
- * truncates, so a long `<First>'s story` ends in an ellipsis instead of running under
+ * truncates, so a long label ends in an ellipsis instead of running under
  * `Details →` (measured: 20px under it at 375, 75px at 320). The no-wrap rule lives on the
  * label via `truncate` — on the button it would defeat the truncation. The full label stays in
  * the DOM, so the accessible name is unchanged; `title` shows it on hover.

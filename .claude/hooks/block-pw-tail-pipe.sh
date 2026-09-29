@@ -14,7 +14,8 @@
 # blocked. Match the run, not the word.
 #
 # RUN forms covered:
-#   - direct:  `playwright test ...`  (also `npx playwright test`, `.bin/playwright test`)
+#   - direct:  `playwright test ...`  (also `npx playwright test`, `.bin/playwright test`;
+#     NOT `playwright tests` — word boundary after `test`)
 #   - wrapped: `npm run test:e2e*`, `npm run smoke*`  (package.json scripts that exec
 #     `playwright test`; `npm test` is vitest, intentionally NOT matched)
 #
@@ -22,7 +23,11 @@
 # `pgrep -fl "playwright test" | cut ...; lsof ... | head -1`, the redirect-then-grep
 # pattern `npx playwright test > l.txt; grep FAIL l.txt | head`, and the repo's own JSON
 # remedy `... > r.json; jq .stats r.json | head` were all denied):
-#   1. blank quoted strings, drop comments and heredoc bodies;
+#   1. scan the command like the shell does: quoted TEXT is blanked, comments and heredoc
+#      bodies dropped, arithmetic `$((…))` / `((…))` consumed whole — but command
+#      substitution `$(…)` and backticks stay CODE, including inside double quotes
+#      (`echo "$(npx playwright test | tail)"` runs the pipeline) and including any
+#      heredoc inside them (the `git commit -m "$(cat <<'EOF' … EOF)"` form);
 #   2. split into statements at brace/paren depth 0 on ; && || & newline;
 #   3. split each statement into pipeline stages at depth-0 `|` / `|&`;
 #   4. deny when a stage contains the RUN and a LATER stage of the same pipeline starts
@@ -33,8 +38,9 @@
 #
 # Known residuals (the rule's prose layer covers them): other truncators (`sed -n`,
 # `awk 'NR<'`, `grep -m`, `less`/`more`) are NOT matched — flag-dependent, and the
-# canonical recommended pattern itself pipes to `grep`. A run hidden inside a quoted
-# string (`bash -c "playwright test | tail"`) is not matched either.
+# canonical recommended pattern itself pipes to `grep`. A run that is only TEXT to this
+# shell — `bash -c "playwright test | tail"`, or `$(…)` inside an unquoted-delimiter
+# heredoc body — is not matched either.
 #
 # FAILS OPEN: parse error, missing python3, or unexpected input => allow. A broken
 # PreToolUse Bash hook blocks every shell command. Self-contained by design (committed to
@@ -43,18 +49,82 @@
 
 INPUT=$(cat)
 
+# Fast path: no Playwright-run text anywhere in the raw payload => allow without starting
+# python. The words below are a strict superset of RUN_RE (every RUN_RE match contains
+# one of them verbatim), so this can only skip commands python would also allow.
+# Here-string, not a pipe: `producer | grep -q` can exit 141 on a MATCH (epistemic gate 7).
+grep -qiE 'playwright|test:e2e|smoke' <<<"$INPUT" || exit 0
+
 # read -d '' rather than SCRIPT=$(cat <<'PY' ...): macOS /bin/bash 3.2 cannot parse a
 # heredoc with unbalanced quotes inside $( ), which turns the hook into a syntax error —
 # bash exits 2, and exit 2 from a PreToolUse hook BLOCKS every Bash call.
 IFS= read -r -d '' SCRIPT <<'PY'
 import sys, json, re
 
-def strip_shell(s):
-    """Blank quoted strings (-> '_'), drop comments and heredoc bodies."""
+
+def skip_arith(s, j):
+    """j is just past an opening `((` (or `$((`). Return the index after its `))`."""
+    depth, n = 2, len(s)
+    while j < n:
+        c = s[j]
+        if c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    return n
+
+
+def backtick_end(s, j):
+    """j is just past an opening backtick. Return the index of the closing one."""
+    n = len(s)
+    while j < n:
+        if s[j] == '\\':
+            j += 2
+            continue
+        if s[j] == '`':
+            return j
+        j += 1
+    return n
+
+
+def scan_dq(s, j):
+    """j is just past an opening double quote. The quoted TEXT becomes '_'; any command
+    substitution inside it is kept as code, because bash runs it. Returns (out, end)."""
+    n, subs = len(s), []
+    while j < n:
+        c = s[j]
+        if c == '\\':
+            j += 2
+            continue
+        if c == '"':
+            return '_' + ''.join(subs), j + 1
+        if s.startswith('$((', j):
+            j = skip_arith(s, j + 3)
+            continue
+        if s.startswith('$(', j):
+            inner, j = scan(s, j + 2, True)
+            subs.append('$(' + inner + ')')
+            continue
+        if c == '`':
+            k = backtick_end(s, j + 1)
+            subs.append('$(' + scan(s[j + 1:k])[0] + ')')
+            j = k + 1
+            continue
+        j += 1
+    return '_' + ''.join(subs), n
+
+
+def scan(s, i=0, sub=False):
+    """Shell-aware strip. Returns (out, end). sub=True: s[i:] is the body of a `$(`;
+    stop after its closing `)` and return the index past it."""
     out = []
-    i, n = 0, len(s)
-    pending = []
+    n = len(s)
+    pending = []            # heredocs opened on the current line: (delim, strip_tabs)
     prev = ''
+    depth = 0               # plain ( ) nesting inside a $( body
     while i < n:
         c = s[i]
         if c == '\\':
@@ -75,13 +145,29 @@ def strip_shell(s):
             i = j + 1
             continue
         if c == '"':
-            j = i + 1
-            while j < n and s[j] != '"':
-                j += 2 if s[j] == '\\' else 1
-            out.append('_'); prev = '_'
-            i = j + 1
+            text, i = scan_dq(s, i + 1)
+            out.append(text); prev = '_'
             continue
-        if c == '#' and (not out or prev in ' \t\n;&|(){}'):
+        if c == '`':
+            k = backtick_end(s, i + 1)
+            out.append('$(' + scan(s[i + 1:k])[0] + ')'); prev = ')'
+            i = k + 1
+            continue
+        if s.startswith('$((', i):
+            i = skip_arith(s, i + 3)
+            out.append('_'); prev = '_'
+            continue
+        if s.startswith('((', i) and prev in ('', ' ', '\t', '\n', ';', '&', '|'):
+            i = skip_arith(s, i + 2)          # arithmetic command: `<<` in it is a shift
+            out.append('_'); prev = '_'
+            continue
+        if s.startswith('$(', i):
+            inner, i = scan(s, i + 2, True)
+            out.append('$(' + inner + ')'); prev = ')'
+            continue
+        # `#` starts a comment only at a word start. NOT after `{` — `${#arr[@]}` is a
+        # length expansion, and treating it as a comment hid the rest of the line.
+        if c == '#' and (not out or prev in ' \t\n;&|()'):
             while i < n and s[i] != '\n':
                 i += 1
             continue
@@ -120,9 +206,17 @@ def strip_shell(s):
                         break
             pending = []
             continue
+        if sub:
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                if depth == 0:
+                    return ''.join(out), i + 1
+                depth -= 1
         out.append(c); prev = c
         i += 1
-    return ''.join(out)
+    return ''.join(out), n
+
 
 OPEN, CLOSE = '({', ')}'
 
@@ -174,10 +268,11 @@ def groups(s):
         res.append(s[start:])
     return res
 
-RUN_RE = re.compile(r'(playwright\s+test|npm\s+run\s+(test:e2e|smoke))', re.I)
+# Keep the bash fast-path word list above a superset of this pattern.
+RUN_RE = re.compile(r'(playwright\s+test(?![A-Za-z0-9_])|npm\s+run\s+(test:e2e|smoke))', re.I)
 TRUNC_RE = re.compile(r'\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:\S*/)?(?:tail|head)(?![A-Za-z0-9_-])', re.I)
 
-def offends(s, budget=[200]):
+def offends(s, budget):
     budget[0] -= 1
     if budget[0] < 0:
         return False
@@ -202,7 +297,7 @@ def main():
         return
     if not isinstance(cmd, str) or not RUN_RE.search(cmd):
         return
-    if not offends(strip_shell(cmd)):
+    if not offends(scan(cmd)[0], [200]):
         return
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",

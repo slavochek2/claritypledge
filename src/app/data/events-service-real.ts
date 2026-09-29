@@ -235,9 +235,11 @@ export const realEventsService: EventsService = {
     // Get attendee counts in batch
     const eventIds = events.map(e => e.id);
     if (eventIds.length > 0) {
+      // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
+      // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
       const { data: rsvpCounts } = await supabase
         .from('event_rsvps')
-        .select('event_id')
+        .select('event_id, profile_id')
         .in('event_id', eventIds);
 
       if (rsvpCounts) {
@@ -248,6 +250,9 @@ export const realEventsService: EventsService = {
 
         events.forEach(event => {
           event.attendeeCount = countMap[event.id] || 0;
+          event.hostHasRsvp = rsvpCounts.some(
+            (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
+          );
         });
       }
     }
@@ -294,9 +299,11 @@ export const realEventsService: EventsService = {
     // Fetch attendee counts in batch (same as getUpcomingEvents)
     const eventIds = events.map(e => e.id);
     if (eventIds.length > 0) {
+      // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
+      // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
       const { data: rsvpCounts } = await supabase
         .from('event_rsvps')
-        .select('event_id')
+        .select('event_id, profile_id')
         .in('event_id', eventIds);
 
       if (rsvpCounts) {
@@ -307,6 +314,9 @@ export const realEventsService: EventsService = {
 
         events.forEach(event => {
           event.attendeeCount = countMap[event.id] || 0;
+          event.hostHasRsvp = rsvpCounts.some(
+            (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
+          );
         });
       }
     }

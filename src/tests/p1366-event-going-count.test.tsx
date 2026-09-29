@@ -5,12 +5,38 @@
  * excluding the host (decisions.md 2026-09-21 [product]), and nothing that decides capacity
  * (`isEventFull`, spots left, `maxAttendees`) or feeds analytics reads this helper.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { displayGoingCount } from '@/app/utils/event-going';
 import { EventCard } from '@/app/prototypes/events/components/EventCard';
 import type { EventAttendee, EventWithHost } from '@/app/types';
+
+// ── Supabase mock for the list queries (getUpcomingEvents / getPastEvents) ──
+const tables = vi.hoisted(() => ({ events: [] as unknown[], rsvps: [] as unknown[] }));
+vi.mock('@/app/prototypes/events/banner-utils', () => ({
+  extractBannerKeywords: vi.fn().mockReturnValue(null),
+  fetchUnsplashBanner: vi.fn().mockResolvedValue(null),
+  generateAIBanner: vi.fn().mockResolvedValue(null),
+}));
+vi.mock('@/lib/event-emails', () => ({ invokeEventEmails: vi.fn() }));
+vi.mock('@/lib/supabase', () => {
+  const chain = (result: () => unknown) => {
+    const c: Record<string, unknown> = {};
+    for (const m of ['select', 'gte', 'in', 'order', 'eq', 'or']) c[m] = () => c;
+    c.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(result()).then(res, rej);
+    return c;
+  };
+  return {
+    supabase: {
+      from: (table: string) =>
+        table === 'event_rsvps'
+          ? chain(() => ({ data: tables.rsvps, error: null }))
+          : chain(() => ({ data: tables.events, error: null })),
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+    },
+  };
+});
 
 const attendee = (profileId: string): EventAttendee => ({
   profileId, name: `Person ${profileId}`, slug: `p-${profileId}`, hasPledged: false, earCount: 0,
@@ -48,12 +74,26 @@ describe('displayGoingCount', () => {
     expect(displayGoingCount(makeEvent({ attendees: [attendee('a'), attendee('host-1')], attendeeCount: 2 }))).toBe(2);
   });
 
-  it('a list surface that only has the count (no attendee rows): count + 1 — the RSVP control is hidden from hosts (P844)', () => {
-    expect(displayGoingCount(makeEvent({ attendeeCount: 4, attendees: undefined }))).toBe(5);
+  // List pages carry `attendees: []` (mapEventFromDb) plus the batch count, and — since the review
+  // fix — whether the host's own profile has an RSVP row (`hostHasRsvp`).
+  it('list shape, host has NO RSVP row: count + 1', () => {
+    expect(displayGoingCount(makeEvent({ attendeeCount: 4, attendees: [], hostHasRsvp: false }))).toBe(5);
+  });
+
+  it('list shape, host HAS an RSVP row: the count as is — equal to the detail page for the same event', () => {
+    const list = makeEvent({ attendeeCount: 3, attendees: [], hostHasRsvp: true });
+    const detail = makeEvent({ attendeeCount: 3, attendees: [attendee('host-1'), attendee('a'), attendee('b')] });
+    expect(displayGoingCount(list)).toBe(3);
+    expect(displayGoingCount(list)).toBe(displayGoingCount(detail));
   });
 
   it('no count and no rows at all: still 1 for a hosted event', () => {
-    expect(displayGoingCount(makeEvent({ attendeeCount: undefined, attendees: undefined }))).toBe(1);
+    expect(displayGoingCount(makeEvent({ attendeeCount: undefined, attendees: [] }))).toBe(1);
+  });
+
+  it('a CANCELLED event never adds the host — it never ran', () => {
+    expect(displayGoingCount(makeEvent({ status: 'cancelled', attendeeCount: 0, attendees: [] }))).toBe(0);
+    expect(displayGoingCount(makeEvent({ status: 'cancelled', attendeeCount: 2, attendees: [] }))).toBe(2);
   });
 
   it('an event with no host user (external / imported) is unchanged', () => {
@@ -87,5 +127,56 @@ describe('EventCard renders the display count', () => {
     const { container } = renderCard(makeEvent({ attendees: [attendee('a'), attendee('b')], attendeeCount: 2 }));
     expect(screen.getByText('3 going')).toBeTruthy();
     expect(container.querySelectorAll('.-space-x-2 > div')).toHaveLength(2);
+  });
+});
+
+describe('the list queries record whether the host has an RSVP row (review finding)', () => {
+  const eventRow = (id: string, hostId: string) => ({
+    id, slug: id, title: `Event ${id}`, description: '', datetime: '2999-01-01T18:00:00Z',
+    duration_minutes: 90, timezone: 'UTC', location: 'Somewhere', host_id: hostId,
+    created_at: '2026-09-01T00:00:00Z', status: 'upcoming', links: [],
+    host: { id: hostId, full_name: 'Host', slug: 'host', headline: null, avatar_color: null, avatar_url: null, has_pledged: false, ears_count: 0 },
+  });
+
+  beforeEach(() => {
+    tables.events = [eventRow('ev-host-rsvpd', 'host-1'), eventRow('ev-host-not', 'host-2')];
+    tables.rsvps = [
+      { event_id: 'ev-host-rsvpd', profile_id: 'host-1' }, // the host's own RSVP row (auto-RSVP after signup)
+      { event_id: 'ev-host-rsvpd', profile_id: 'a' },
+      { event_id: 'ev-host-rsvpd', profile_id: 'b' },
+      { event_id: 'ev-host-not', profile_id: 'c' },
+    ];
+  });
+
+  for (const method of ['getUpcomingEvents', 'getPastEvents'] as const) {
+    it(`${method}: a host with an RSVP row is counted once — the card equals the detail page`, async () => {
+      const { realEventsService } = await import('@/app/data/events-service-real');
+      const events = await realEventsService[method]();
+      const rsvpd = events.find((e) => e.id === 'ev-host-rsvpd')!;
+      const not = events.find((e) => e.id === 'ev-host-not')!;
+      // attendeeCount — what capacity and statistics read — is untouched
+      expect(rsvpd.attendeeCount).toBe(3);
+      expect(not.attendeeCount).toBe(1);
+      expect(rsvpd.attendees).toEqual([]); // list-shaped
+      // the display count: the detail page (host among 3 attendees) would show 3
+      expect(displayGoingCount(rsvpd)).toBe(3);
+      expect(displayGoingCount(not)).toBe(2);
+    });
+  }
+});
+
+describe('EventCard wording for cancelled events', () => {
+  const renderCard = (event: EventWithHost) =>
+    render(<MemoryRouter><EventCard event={event} /></MemoryRouter>);
+
+  it('a cancelled PAST event with 0 RSVPs reads "0 were going" — not "attended", no host added', () => {
+    renderCard(makeEvent({ status: 'cancelled', datetime: '2020-01-01T18:00:00Z', attendeeCount: 0, attendees: [] }));
+    expect(screen.getByText('0 were going')).toBeTruthy();
+    expect(screen.queryByText(/attended/)).toBeNull();
+  });
+
+  it('a cancelled FUTURE event with 0 RSVPs reads "0 were going"', () => {
+    renderCard(makeEvent({ status: 'cancelled', attendeeCount: 0, attendees: [] }));
+    expect(screen.getByText('0 were going')).toBeTruthy();
   });
 });

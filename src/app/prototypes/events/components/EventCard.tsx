@@ -133,8 +133,10 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
             {/* The host counts as going (founder, 2026-09-29) — display only; see event-going.ts. */}
             <span className="text-sm text-muted-foreground">
               {displayGoingCount(event)} {
-                event.status === 'completed' || new Date(event.datetime) < new Date() ? 'attended' :
-                event.status === 'cancelled' ? 'were going' : 'going'
+                /* Cancelled first: a cancelled event never ran, past or not — it reads "were
+                   going", never "attended" (and adds no host; see event-going.ts). */
+                event.status === 'cancelled' ? 'were going' :
+                event.status === 'completed' || new Date(event.datetime) < new Date() ? 'attended' : 'going'
               }
             </span>
           </div>

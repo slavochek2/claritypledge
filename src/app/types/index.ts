@@ -958,6 +958,13 @@ export interface EventWithHost extends Event {
   // Components should handle these being undefined when using real API.
   attendees?: EventAttendee[];
   attendeeCount?: number;
+  /**
+   * P1366 — DISPLAY INPUT ONLY: whether the host's own profile has an RSVP row. Set by the list
+   * queries, which carry only a count (`attendees: []`), so `displayGoingCount` can add the host
+   * without counting a host who RSVP'd twice. Never read by capacity or statistics — those read
+   * `attendeeCount`, which is unchanged.
+   */
+  hostHasRsvp?: boolean;
 }
 
 export interface EventAttendee {

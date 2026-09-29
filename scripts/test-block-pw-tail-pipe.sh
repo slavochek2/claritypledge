@@ -53,6 +53,18 @@ check BLOCK '{ npx playwright test; } | tail -5'     # brace group output is the
 check BLOCK '(npx playwright test) | tail'           # subshell, same
 check BLOCK 'out=$(npx playwright test | tail)'      # inside command substitution
 
+echo "== SHOULD BLOCK: code inside double quotes / expansions (2026-09-29 review regressions) =="
+# Each of these was allowed by the first statement-split version: "…" was blanked whole,
+# although bash RUNS a $(…) or backticks inside double quotes.
+check BLOCK 'echo "$(npx playwright test 2>&1 | tail -20)"'
+check BLOCK 'r="$(npx playwright test 2>&1 | tail -20)"; echo "$r"'
+check BLOCK 'echo "Result: $(npx playwright test | head -5)"'
+check BLOCK 'echo "`npx playwright test | tail`"'                              # backticks in quotes
+check BLOCK $'git commit -m "$(cat <<\'EOF\'\nfix 6" screen\nEOF\n)" && npx playwright test | tail'   # odd `"` in a commit heredoc
+check BLOCK 'n=${#arr[@]}; npx playwright test | tail'                        # ${# is a length, not a comment
+check BLOCK $'echo $((1<<2))\nnpx playwright test | tail'                      # arithmetic << is not a heredoc
+check BLOCK $'(( n = 1<<2 ))\nnpx playwright test | tail'                      # same, arithmetic command
+
 echo "== SHOULD PASS: mentions / log-file / vitest / canonical pattern =="
 check PASS 'cat playwright.config.ts | head -60'
 check PASS 'ls -d node_modules/playwright node_modules/@playwright/test | head'
@@ -72,6 +84,9 @@ check PASS $'npx playwright test > /tmp/l.txt 2>&1\ntail -40 /tmp/l.txt'        
 check PASS 'npx playwright test > /tmp/l.txt 2>&1 & tail -f /tmp/l.txt'           # & separates statements
 check PASS $'cat <<\'EOF\' > notes.md\nnpx playwright test | tail\nEOF'           # heredoc body is text, not a run
 check BLOCK $'cat <<EOF > notes.md\nx\nEOF\nnpx playwright test | tail'           # ...but a real run after it is not
+check PASS 'grep -rln playwright tests | head'                                 # `tests` is not `test`
+check PASS $'git commit -m "$(cat <<\'EOF\'\nnote: npx playwright test | tail is banned\nEOF\n)"'   # commit message TEXT
+check PASS 'echo "Ran at $(date)"; grep -c passed /tmp/pw.log | head -1'        # $(…) kept as code, but no run in it
 
 echo "== FORMER RESIDUAL, flipped deliberately: trigger text only inside a quoted arg =="
 # Pre-2026-09-29 this row was pinned as BLOCK ("known residual" of the whole-string grep).

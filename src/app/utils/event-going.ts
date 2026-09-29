@@ -14,15 +14,20 @@ import type { EventWithHost } from '@/app/types';
 /**
  * RSVPs, plus the host when the event has a host user who is not already among the RSVPs.
  *
- * Where the attendee rows are loaded (detail page, next-event), membership is checked directly.
- * List surfaces load only the count; there the host is taken as NOT among the RSVPs, because the
- * RSVP control is hidden from an event's host (P844). An event with no host user is unchanged.
+ * Whether the host is among the RSVPs: on the detail page and next-event the attendee rows are
+ * loaded, so it is read from them; on list pages (`attendees: []`, count only) the list query
+ * records `hostHasRsvp`. A host CAN have an RSVP row — the signup flow auto-RSVPs and the RSVP
+ * write has no host check — so assuming "never" double-counted them (review finding).
+ *
+ * Unchanged: an event with no host user, and a CANCELLED event (it never ran, so nobody —
+ * the host included — "went"; EventCard reads it as "were going").
  */
 export function displayGoingCount(
-  event: Pick<EventWithHost, 'hostId' | 'attendeeCount' | 'attendees'>,
+  event: Pick<EventWithHost, 'hostId' | 'attendeeCount' | 'attendees' | 'hostHasRsvp' | 'status'>,
 ): number {
   const rsvps = event.attendeeCount ?? event.attendees?.length ?? 0;
-  if (!event.hostId) return rsvps;
-  const hostAmongRsvps = event.attendees?.some((a) => a.profileId === event.hostId) ?? false;
+  if (!event.hostId || event.status === 'cancelled') return rsvps;
+  const hostAmongRsvps =
+    event.hostHasRsvp === true || (event.attendees?.some((a) => a.profileId === event.hostId) ?? false);
   return hostAmongRsvps ? rsvps : rsvps + 1;
 }

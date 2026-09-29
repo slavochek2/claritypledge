@@ -6,6 +6,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-29 [product]: Card rows start at the card edge; profiles say "Their story"; a hosted event never shows 0 going (P1366 follow-ups)
+
+**Context:** Reviewing P1366 on localhost, the founder marked the story card's `1 point` button as indented (it started at the text column while `Details →` sat flush right), asked whether a name or "their" should label the owner's story, flagged `/groups` "Open →" as unlike the new list cards, and asked why an event can read `0 going` when the host is going. Asked to spec the follow-ups separately, the founder answered: "this seems small why not do it here".
+**Decision:**
+- Every list card's bottom row starts at the card's left content edge (in line with the avatar), mirroring `Details →` on the right. Expanded story/point lists keep their indent.
+- On someone else's profile the expander reads `Their story` (own profile `Your story`): the owner's name is already in the card's top row, and a name truncates on phones.
+- `/groups` cards keep the divider and render `Open →` in the `Details →` outlined style, still decorative because the whole card is the link (P1204).
+- An event card's displayed count includes the host when the host has no RSVP row, and never for a cancelled event (a cancelled event reads "were going", never "attended"). Display only: `attendeeCount`, capacity, spots left and room statistics are unchanged, so the 2026-09-21 rule that statistics exclude the host stands.
+**Alternatives rejected:** A first name on profiles (truncates). A filled blue `Open` on `/groups` (every card would compete with the page's own call to action). Hiding the count at zero instead of counting the host (the host is really going).
+**Consequences:** The event detail page's `Participants (N/max)` still counts RSVPs only, so a card can read `3 going` while its detail page says `Participants (2/max)` — left for a founder call. A host can still create an RSVP row on their own event through the post-signup auto-RSVP; the display handles it, the data path is filed as a follow-up.
+**References:** [P1366](../features/p1366_card_footer_visible_actions.md); `src/app/utils/event-going.ts`; `src/app/pages/org-directory-page.tsx`.
+
 ## 2026-09-29 [process]: A founder's "everywhere" is a set to enumerate; a coverage guard derives its members (P1364 retrospective)
 
 **Context:** Two frictions in the P1364 session. (1) The founder asked for Back that works "everywhere, anywhere"; the spec put Back on every detail page, but return-to-position covered only feed and `/stake` ("other pages get best-effort", a Solution sub-bullet) although its own Alternatives named five entry points, so the founder had to ask for profile/tabs. (2) A draft cache-invalidation guard hand-listed its writing RPCs and missed `submit_rating_by_token` — the fourth recorded instance of a hand-kept list blinding a guard (2026-09-04 `PREDICATE_MODULES`, 2026-09-09 required-check name), each recorded here and none in a loaded rule.

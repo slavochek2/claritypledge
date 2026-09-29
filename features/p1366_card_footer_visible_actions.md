@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 14
 workstream: product
@@ -76,7 +76,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 |---|---|---|
 | Solid blue expander on every card competes with the page's primary CTA (P955 "one primary per view") | ACCEPT | Founder chose reading as the loud action. The P955 gate only checks `/tree/_gate/` fixtures and full-width primaries, so it will not fire here — its pass is not evidence. Visual QA must judge the Hierarchy item against the feed's top CTA. |
 | At 320px the point card carrying both `N stories` and `+ Add a story` wraps to two lines | ACCEPT | Measured in the prototype; 375px and wider fit on one line. |
-| On someone else's profile, `Their story` plus a viewer link (`+ Add a story` / `✓ Your story`) wraps to two lines at 375 too (~331px of controls, 291px row) | ACCEPT | Founder decision 2026-09-28, measured on a real profile; shortening the owner label was ruled out because it is the fix for the count contradiction. |
+| On someone else's profile, `Their story` plus a viewer link (`+ Add a story` / `✓ Your story`) wraps to two lines at 375 too (~331px of controls, 291px row) | ACCEPT | Founder decision 2026-09-28, measured on a real profile. The label became `Their story` on 2026-09-29 (shorter than a name, never truncates), and the row still wraps at 375 when a viewer link also shows. |
 | Share becomes two taps (inside `⋯`), away from where P1296 put it | ACCEPT | Prod Mixpanel, last 90 days to 2026-09-28: `feed_card_shared` fired 2 times against 8,248 page views. |
 | Card roots are `role="button"` containing buttons (nested interactive controls, pre-existing since P1296) | DEFER | Not introduced here; a semantics refactor (root as container, `Details` as the real link) is its own spec. |
 | `⋯` holds only `Share` on most cards (a one-item menu) | ACCEPT | Founder chose one consistent corner rule over showing the share icon directly; share is used ~2×/90 days. |
@@ -100,7 +100,7 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [x] On phone and desktop, each card shows an outlined `Details →` button that opens the point / story page; no external-link icon remains on list cards.
 - [x] On desktop, hovering or keyboard-focusing a card highlights its border; no control appears or moves (measured before/after).
 - [x] A viewer with a position and no story sees `+ Add a story`; after writing one, sees `✓ Your story`, which opens `/story/:id` with no `edit` param — on the feed, stake pages and other people's profiles.
-- [ ] On a profile the expander reads `Their story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
+- [x] On a profile the expander reads `Their story` (`Your story` on one's own) and is absent when that person has none; on feed and stake it reads `N stories`.
 - [x] `+ Add your story` no longer appears anywhere in the app; every surface says `+ Add a story`.
 - [x] Opening `⋯`, choosing any item by mouse or Enter, and clicking inside the share sheet or the delete confirmation never also navigates to the card's page.
 - [x] The point detail page, an embed and live-session cards look as before (screenshot compare).
@@ -108,9 +108,9 @@ These replace today's divergence: the `+ Add your story` pill appears on the pro
 - [x] At 375px every footer row fits on one line (screenshot per card state, including a 3-digit count and the own-story card) — except the founder-accepted two-line case on someone else's profile (owner story + viewer link); at 320px nothing overflows the card, no control overlaps another, including a long author name next to `⋯`.
 - [x] Visual QA per `.claude/rules/visual-qa.md` by a separate subagent at 320 / 375 / desktop.
 
-- [ ] Every list card's bottom row starts at the card's left content edge (the avatar's left edge) at 375, 320 and desktop.
-- [ ] A `/groups` card shows `Open →` as the outlined secondary button, still decorative and not a second interactive target.
-- [ ] A hosted event with no RSVPs shows `1 going`, not `0 going`; capacity, spots left and statistics are unchanged.
+- [x] Every list card's bottom row starts at the card's left content edge (the avatar's left edge) at 375, 320 and desktop.
+- [x] A `/groups` card shows `Open →` as the outlined secondary button, still decorative and not a second interactive target.
+- [x] A hosted event with no RSVPs shows `1 going`, not `0 going`; capacity, spots left and statistics are unchanged.
 
 ## UI Contract
 
