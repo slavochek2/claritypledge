@@ -61,7 +61,7 @@ driver: anomaly
      - runs `grep -F` on every `video_quotes` quote in the sealed clean transcript for that row's video;
      - refuses on any miss or a writer/checker overlap;
      - appends the exact ledger line.
-   - `verify` prints MATCH, MISSING or STALE against the latest line.
+   - `verify` prints MATCH, MISSING, STALE, or NOT TOOL-WRITTEN (exit 5: a hand-written or non-clean line never counts) against the latest line.
 
    publish Stage 6 calls `record`. promote-to-prod Stage 0 calls `verify`.
 2. **Seal line** gains `served_track` (the store file whose bytes match `raw_sha256`) and `clean_chars`. The prepare skill prefers `en-orig` when it differs from `en`. Re-verification goes through the tool, which reads the store only.

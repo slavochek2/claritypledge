@@ -36,6 +36,8 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync, existsSync, appendFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+import { realpathSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 
@@ -64,7 +66,8 @@ export function parseDrafts(md) {
     if (!cur) continue
     if (/^### /.test(line)) { cur = null; continue }
     const meta = line.match(/^writer:\s*([^|]+?)\s*\|/)
-    if (meta && !inContent) {
+    if (meta) inContent = false
+    if (meta) {
       if (cur.content.length) { cur.checker = 'AMBIGUOUS'; continue }   // a verdict line after the content block
       const v = line.match(/\bchecker:\s*(\S+)\s*(\||$)/)
       // Clean PASS only: exactly the token PASS, and no STATUS / PENDING qualifier anywhere on the line.
@@ -115,10 +118,16 @@ export function verifySeal(entries, storeDir, reclean = vttReclean) {
     if (!rawMatches.length) problems.push(`${e.source}: no stored .vtt matches the sealed raw_sha256 — the track changed or was replaced`)
     if (!cleanFile) { problems.push(`${e.source}: no stored clean transcript matches the sealed clean_sha256`); continue }
     if (e.servedTrack && !rawMatches.includes(e.servedTrack)) problems.push(`${e.source}: sealed served_track ${e.servedTrack} does not hold the sealed raw bytes (matches: ${rawMatches.join(', ') || 'none'})`)
-    if (e.servedTrack && rawMatches.includes(e.servedTrack) && reclean) {
-      const r = reclean(path.join(dir, e.servedTrack), e.vttClean)
-      if (r.skipped) problems.push(`${e.source}: cannot re-derive the clean text (${r.skipped}) — refusing rather than trusting an unlinked clean file`)
-      else if (sha256(r.out) !== e.clean) problems.push(`${e.source}: the sealed clean text is NOT vtt-clean(${e.servedTrack}) — clean and raw are from different tracks`)
+    // Link the clean text to the raw track: re-run the sealed cleaner. A legacy seal (no served_track)
+    // must be reproduced by at least one stored track that holds the sealed raw bytes.
+    const candidates = e.servedTrack ? (rawMatches.includes(e.servedTrack) ? [e.servedTrack] : []) : rawMatches
+    if (reclean && candidates.length) {
+      const results = candidates.map(f => ({ f, r: reclean(path.join(dir, f), e.vttClean) }))
+      const skipped = results.find(x => x.r.skipped)
+      if (!results.some(x => !x.r.skipped && sha256(x.r.out) === e.clean)) {
+        problems.push(skipped ? `${e.source}: cannot re-derive the clean text (${skipped.r.skipped}) — refusing rather than trusting an unlinked clean file`
+          : `${e.source}: the sealed clean text is NOT vtt-clean(${candidates.join(' or ')}) — clean and raw are from different tracks`)
+      }
     }
     const text = readFileSync(path.join(dir, cleanFile), 'utf8')
     if (e.cleanChars != null && charCount(text) !== e.cleanChars) problems.push(`${e.source}: clean transcript is ${charCount(text)} chars, seal says ${e.cleanChars}`)
@@ -146,6 +155,7 @@ export function matchRows(rows, drafts, tag) {
     if (!hits.length) { problems.push(`${r.id}: no draft in the run file equals this row — the text moved after the check; it needs a fresh check`); continue }
     const notClean = hits.filter(([d]) => d.checker !== 'PASS')
     if (notClean.length) { problems.push(`${r.id}: a draft with this exact text is "${notClean[0][0].checker}", not a clean PASS (${notClean[0][0].arguer} ${notClean[0][0].point}) — pending, failed or re-rounded text is not checked text`); continue }
+    if (hits.length > 1) { problems.push(`${r.id}: ${hits.length} drafts carry this exact text — cannot tell which writer and verdict apply`); continue }
     const pass = hits.filter(([d, i]) => !used.has(i))
     if (!pass.length) { problems.push(`${r.id}: its draft (${hits[0][0].arguer} ${hits[0][0].point}) is not checker: PASS`); continue }
     used.add(pass[0][1])
@@ -166,10 +176,11 @@ export function checkQuotes(rows, found) {
     if (!tx) { problems.push(`${r.id}: video ${id ?? r.video_url} has no sealed transcript`); continue }
     for (const q of quotes) {
       n++
-      if (typeof q.text !== 'string' || q.text.trim().length < 3) { problems.push(`${r.id}: empty or non-text quote`); continue }
+      if (typeof q.text !== 'string' || q.text.trim().split(/\s+/).length < 3) { problems.push(`${r.id}: empty or non-text quote`); continue }
       if (!tx.text.includes(q.text)) problems.push(`${r.id}: quote not verbatim in ${id}/${tx.file}: "${q.text}"`)
     }
   }
+  if (n === 0 && rows.some(r => r.video_url)) problems.push('0 quotes checked across rows that carry a video: nothing grounded the stories in a transcript')
   return { ok: problems.length === 0, problems, n }
 }
 
@@ -293,7 +304,7 @@ async function main(argv) {
     if (!sp) return refuse([`no transcripts seal .points-run-seals/${slug}.transcripts.sha256`])
     const entries = parseSeal(readFileSync(sp, 'utf8'))
     seal = verifySeal(entries, storeDir())
-    console.log(`transcripts: ${entries.length - seal.problems.length >= 0 ? seal.found.size : 0} of ${entries.length} found in the store by sealed hash`)
+    console.log(`transcripts: ${seal.found.size} of ${entries.length} found in the store by sealed hash`)
     if (!seal.ok) return refuse(seal.problems)
     if (cmd === 'seal-verify') { console.log('seal-verify: OK'); return 0 }
   }
@@ -333,11 +344,14 @@ async function main(argv) {
   const method = opt('--method') ?? `run-file checker verdicts (story-draft) + accuracy-check.mjs: ${m.matched.length}/${rows.length} rows equal a PASS draft; ${q.n}/${q.n} quotes grep -F in sealed clean transcripts (store hashes verified; no re-fetch)`
   const line = buildLine({ iso: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), env, tag, n: rows.length, hash, method, checkedBy })
   if (rest.includes('--dry-run')) { console.log(`DRY RUN, not written:\n${line}`); return 0 }
-  appendFileSync(ledgerPath, line + '\n')
+  const prev = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : ''
+  appendFileSync(ledgerPath, (prev && !prev.endsWith('\n') ? '\n' : '') + line + '\n')
   console.log(`written to ${ledgerPath}:\n${line}`)
   return 0
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare real paths: a symlinked or space-containing checkout otherwise skips main() and exits 0 silently.
+const entry = (() => { try { return pathToFileURL(realpathSync(process.argv[1])).href } catch { return null } })()
+if (entry && entry === pathToFileURL(realpathSync(new URL(import.meta.url))).href) {
   main(process.argv.slice(2)).then(c => process.exit(c), e => { console.error(`accuracy-check: ERROR: ${e.message}`); process.exit(1) })
 }

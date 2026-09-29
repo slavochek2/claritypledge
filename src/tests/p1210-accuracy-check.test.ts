@@ -1,6 +1,7 @@
 /** P1370 (named p1210-* so two-callers.mjs counts it as the predicate test) — accuracy evidence written by the stage that earned it; transcripts identified by seal. */
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
@@ -91,6 +92,14 @@ describe('run-file drafts', () => {
     expect(matchRows([row(GOOD)], parseDrafts(later), 'ikigai1').ok).toBe(false)
     for (const tok of ['PASS?', 'PASS→FAIL', 'PASS/FAIL']) expect(parseDrafts(RUN.replace('checker: PASS', `checker: ${tok}`))[0].checker).not.toBe('PASS')
   })
+  it('a verdict line after the content block ends it and counts (review L1)', () => {
+    const md = '## Story Drafts\n### Story — A — P1\nwriter: gemini | checker: PASS\ncontent: |\n  a\nwriter: opus | checker: FAIL\n'
+    expect(parseDrafts(md)[0].checker).not.toBe('PASS')
+  })
+  it('refuses when two drafts carry the same text (review L3)', () => {
+    const dup = RUN.replace('## Next Section', '### Story — Garry Tan — P1b\nwriter: opus | rounds: 1 | checker: PASS\ncontent: |\n  Tan says the difficulty is gone.\n\n  Supporting quotes from Garry Tan\n\n## Next Section')
+    expect(matchRows([row(GOOD)], parseDrafts(dup), 'ikigai1').problems[0]).toContain('2 drafts')
+  })
   it('a CRLF run file parses the same as LF', () => {
     expect(matchRows([row(GOOD)], parseDrafts(RUN.replace(/\n/g, '\r\n')), 'ikigai1').ok).toBe(true)
   })
@@ -122,6 +131,10 @@ describe('transcripts are identified by their sealed bytes, never re-fetched', (
   it('refuses when the sealed cleaner version cannot be re-run, instead of trusting the clean file', () => {
     expect(verifySeal(parseSeal(sealLine(' | served_track: en-orig.vtt')), store(), () => ({ skipped: 'installed 1.1.0' })).ok).toBe(false)
   })
+  it('a legacy seal (no served_track) must still be reproduced from a stored raw track (review M2)', () => {
+    expect(verifySeal(parseSeal(sealLine()), store(), RECLEAN).ok).toBe(true)
+    expect(verifySeal(parseSeal(sealLine()), store(), () => ({ out: 'other' })).problems.join()).toContain('different tracks')
+  })
   it('refuses a source absent from the store instead of fetching it', () => {
     expect(verifySeal(parseSeal(sealLine().replace(ID, 'AAAAAAAAAAA')), store()).problems[0]).toContain('does not re-fetch')
   })
@@ -134,6 +147,11 @@ describe('transcripts are identified by their sealed bytes, never re-fetched', (
     const { found } = verifySeal(parseSeal(sealLine()), store())
     expect(checkQuotes([row(GOOD, [''])], found).ok).toBe(false)
     expect(checkQuotes([{ ...row(GOOD), video_quotes: [{ text: 'x' }] }], found).ok).toBe(false)
+  })
+  it('refuses zero checked quotes across rows that carry a video, and a two-word quote (review L2)', () => {
+    const { found } = verifySeal(parseSeal(sealLine()), store())
+    expect(checkQuotes([row(GOOD, [])], found).ok).toBe(false)
+    expect(checkQuotes([row(GOOD, ['difficulty just'])], found).ok).toBe(false)
   })
   it('reads video ids from watch, youtu.be and embed links', () => {
     for (const u of [`https://www.youtube.com/watch?v=${ID}&t=3`, `https://youtu.be/${ID}`, `https://www.youtube.com/embed/${ID}`]) expect(videoId(u)).toBe(ID)
@@ -176,5 +194,15 @@ describe('event-date: "next week <weekday>" has both readings (P1370)', () => {
   })
   it('CONTROL: a non-weekday after "next week" is still unreadable, not guessed', () => {
     expect(readings('next week sometime', '2026-09-28').candidates).toEqual([])
+  })
+})
+
+describe('CLI entry point (review M1)', () => {
+  it('run through a symlinked path it still executes, never a silent exit 0', () => {
+    const link = path.join(mkdtempSync(path.join(tmpdir(), 'p1370-ln-')), 'repo')
+    symlinkSync(path.resolve(__dirname, '../..'), link)
+    const r = spawnSync('node', [path.join(link, 'scripts/points/accuracy-check.mjs'), 'bogus'], { encoding: 'utf8' })
+    expect(r.status).toBe(2)
+    expect(r.stderr).toContain('usage')
   })
 })
