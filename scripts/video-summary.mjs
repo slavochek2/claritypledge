@@ -436,8 +436,11 @@ async function cmdPromote(ids) {
   const prod = (await db('prod')).client;
   console.log(`[PROD] promote ${ids.join(' ')}`);
   const bad = [];
-  const read = async (client, id) => {
+  // One retry: the test connection opened before the keychain dialog can go stale while the dialog
+  // waits for the operator, so the first read after it fails with "fetch failed" (seen twice, 2026-09-30).
+  const read = async (client, id, retry = true) => {
     const { data, error } = await client.from('video_summaries').select('*').eq('provider', 'youtube').eq('video_id', id).maybeSingle();
+    if (error && retry && /fetch failed/i.test(error.message)) return read(client, id, false);
     if (error) throw new Error(`reading ${id} failed: ${error.message}`);
     return data;
   };
