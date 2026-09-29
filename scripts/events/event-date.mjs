@@ -64,6 +64,11 @@ export function readings(input, today) {
       return { candidates: [ymd(c)], reason: 'absolute date' }
     }
   }
+  // "next week tuesday", "tuesday next week", "tuesday of next week", "next week's tuesday": the
+  // same ambiguity as "next tuesday" (P1370 — it used to fall through to "cannot read", exit 2,
+  // on the exact phrase the founder used for Clarity Night #2). Read as "next <weekday>".
+  const nw = s.match(/^next week'?s? (?:on )?([a-z]+)$/) ?? s.match(/^(?:on )?([a-z]+),? (?:of )?next week$/)
+  if (nw && DAYS.some(d => d.startsWith(nw[1].slice(0, 3)) && nw[1].length >= 3)) return readings(`next ${nw[1]}`, today)
   const wd = s.match(/^(next |this |coming )?([a-z]+)$/)
   if (wd) {
     const di = DAYS.findIndex(d => d.startsWith(wd[2].slice(0, 3)) && wd[2].length >= 3)

@@ -234,7 +234,7 @@ The points pipeline turns public video into a published disagreement a room can 
    and the campaign folder. Existing events are not migrated (P1355 D3).
 2. **Tracked Seals Directory (Public repo, commit timestamped):**
    - `.points-run-seals/<slug>.approvals.sha256` — Hash of the approvals block, sealed by `disagreement:select` at Gate 2.
-   - `.points-run-seals/<slug>.transcripts.sha256` — Hash of raw/clean transcripts and `vtt-clean` version, sealed by `disagreement:prepare` Stage 1.
+   - `.points-run-seals/<slug>.transcripts.sha256` — Hash of raw/clean transcripts and `vtt-clean` version, sealed by `disagreement:prepare` Stage 1 Since P1370 each line also records `served_track` (the stored file whose bytes were hashed; `en-orig.vtt` when it differs from `en.vtt`) and `clean_chars`. Every re-verification goes through `scripts/points/accuracy-check.mjs`, which finds each transcript in the yt-store by hash, refuses on any mismatch, and never re-fetches. The same script writes the `disagreement:accuracy-check` ledger line at publish Stage 6b, and promote-to-prod checks it with `verify`.
    - `.points-run-seals/<slug>.sha256` — Hash of the named prediction block, sealed by `disagreement:prepare` Stage 7. **This filename is fixed** — `/slava:disagreement:publish`'s precondition checks exactly this path.
 
 ### Sealed blocks carry literal end-markers

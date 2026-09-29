@@ -175,8 +175,16 @@ Note the SSIM output goes to **stderr** and the `All:` token only appears with t
 **Corrected under P1135.** This step previously said to write a static file under `public/` (a per-subject filename beneath an `agents` subfolder) and to register it beside the account id in a source constant that does not exist in `src/` — see `features/p1135_agent_avatars_in_storage.md` for the exact grep that established that. Its stated rationale ("no column that can return `undefined`") was also false: `p_avatar_url` is a free-text RPC parameter landing in `profiles.avatar_url`. This skill does not touch storage or the database — it emits a file and hands it back.
 
 ```bash
-sips -Z 512 agent-robot.png --out /tmp/agent-avatar-{slug}.png
+sips -s format png -Z 512 agent-robot.png --out /tmp/agent-avatar-{slug}.png
+file -b /tmp/agent-avatar-{slug}.png | grep -q '^PNG image data' || { echo "STOP: not PNG bytes"; exit 1; }
 ```
+
+**`-s format png` is not optional (P1370).** The image model returns **JPEG** bytes, which
+`robotify()` writes to `agent-robot.png` as they come. `sips -Z` keeps the *source* format whatever
+the output suffix says, so the old line produced JPEG bytes named `.png`. provision-agent then
+uploaded them as `image/png`. Measured 2026-09-29 on TEST: 7 of 11 real agent avatars were JPEG
+served as `image/png`, and a scratch JPEG named `.png` reproduced it (without the flag: JPEG; with
+it: PNG). The `file -b` line is the check: it reads the magic bytes, not the name.
 
 - `{slug}` — lowercase, hyphenated subject name (`donald-trump`, `slava-ladischenski`)
 - 512px is enough for every render site (largest current avatar is 96px, `xl`)

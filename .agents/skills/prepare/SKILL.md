@@ -146,13 +146,29 @@ quote is checked against — changing the cleaner changes what `grep -F` matches
 per source to `.points-run-seals/<slug>.transcripts.sha256` (hashes and filenames only, no
 transcript content — safe for a public repo):
 
+**Clean `en-orig.vtt` whenever it exists and differs from `en.vtt`.** `en` is the track YouTube
+*chooses* to serve under that label, and the choice changes. Measured 2026-09-28 on `eRrc1pUY5oU`:
+on 09-22, `en` and `en-orig` were byte-identical; six days later a fetch of `en` returned a
+machine-translated English rendering, and every verified quote failed against it. `en-orig` is the
+original-language auto track. A manual (uploader) `en` with no `en-orig` twin is fine as it is.
+
 ```bash
-printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: %s\n' \
+T=<served-track-file>        # the .vtt you cleaned: en-orig.vtt, or en.vtt when there is no en-orig twin
+printf 'source: %s | track: %s | raw_sha256: %s | clean_sha256: %s | vtt-clean: %s | served_track: %s | clean_chars: %s\n' \
   "<video-id>" "<lang>" \
-  "$(shasum -a 256 "$YT_STORE"/<id>/<lang>.vtt | cut -d' ' -f1)" \
+  "$(shasum -a 256 "$YT_STORE"/<id>/"$T" | cut -d' ' -f1)" \
   "$(shasum -a 256 "$YT_STORE"/<id>/<lang>.clean.txt | cut -d' ' -f1)" \
-  "$(vtt-clean --version)" >> .points-run-seals/<slug>.transcripts.sha256
+  "$(vtt-clean --version)" "$T" \
+  "$(python3 -c 'import sys;print(len(open(sys.argv[1],encoding="utf-8").read()))' "$YT_STORE"/<id>/<lang>.clean.txt)" \
+  >> .points-run-seals/<slug>.transcripts.sha256
+node scripts/points/accuracy-check.mjs seal-verify --run <slug>   # must print seal-verify: OK — paste it
 ```
+
+`track` is the language you asked for. `served_track` names the file whose bytes the seal hashed.
+`clean_chars` counts characters, not bytes. **Every later re-verification reads the store through
+`accuracy-check.mjs`, which finds each transcript by its sealed hashes and refuses on a hash,
+`served_track` or `clean_chars` mismatch. It never fetches.** If the store has lost a transcript,
+the run stops. A fresh fetch is a different artifact, not the one the quotes were checked against.
 
 **Report audience size before extracting.** A video with no viewers has no audience to split and no opposing camp to read (a 53-minute podcast with 86 views produced zero usable counter-quotes — the run that motivated this skill). Under a few thousand views, say so and ask whether to continue.
 

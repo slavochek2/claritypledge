@@ -112,6 +112,8 @@ On this branch:
 
 `/slava:content:gen-agent-avatar` Step 4 emits a 512px square PNG at a scratch path and hands it to this skill. Upload it to the **`agent-avatars`** storage bucket (P1135), object key `<subject-slug>/<uuid>.png`, `upsert: false`.
 
+**Before uploading, assert the bytes are PNG:** `file -b <scratch-path>.png | grep -q '^PNG image data'`. If not, STOP. The upload below declares `Content-Type: image/png`, and storage serves whatever it is told. Until P1370, the generator handed over JPEG bytes named `.png`, and they went out labelled `image/png`.
+
 **Credential and ref pair, by environment** (same variable-name discipline as `/slava:disagreement:publish`'s environment table — never merge the two files):
 
 | Target | URL from | Service key from |
@@ -164,6 +166,12 @@ Confirm to create.
 Two writes, in this order. The reference implementation is `e2e/helpers/test-agent-account.ts` — follow its shape.
 
 1. **Mint the `auth.users` row** with the admin API and keep the id (`supabaseAdmin.auth.admin.createUser`). Postgres cannot create a GoTrue user, which is why the RPC takes an id rather than making one.
+   **A caller may pre-assign the id** (P1370). GoTrue admin create accepts `id`; verified on the
+   ikigai1 prod promotion, 2026-09-29. `/slava:disagreement:promote-to-prod` does this so it can
+   hash the complete envelope before its single gate. When a caller passes one: send it as `id`,
+   assert the returned `user.id` **equals** it, and assert the RPC below returns that same id. A
+   different id means reuse (see below) or a collision. **STOP and hand the mismatch back to the
+   caller**, whose envelope is now wrong. Never substitute the new id.
 2. **Call `create_or_reuse_agent_account`** with that id. Profile row and registry row commit **together**, so "the pipeline forgot to register the account" is not a reachable state.
 
 The display name **must** be `Agent · <Subject Name>`. It is no longer a convention: `IF NOT is_reserved_agent_name(p_name) THEN RAISE` (`20260819160000:264`), hardened across three later migrations against zero-width, variation-selector and combining-diacritic lookalikes. The name is the only marker channel that reaches off-platform surfaces and the only one that survives a pending or failed registry read.

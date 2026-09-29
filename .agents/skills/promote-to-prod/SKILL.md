@@ -7,7 +7,7 @@ version: 1.0.0
 
 # /slava:disagreement:promote-to-prod
 
-**Announce at start:** "Running /slava:disagreement:promote-to-prod. One gate, at the end, covering every identity created and everything published. Nothing is written until you confirm."
+**Announce at start:** "Running /slava:disagreement:promote-to-prod. One gate, covering every identity it will create and everything it will publish. Nothing is written to prod, not accounts, not avatars, not rows, until you confirm."
 
 Promote a **reviewed** disagreement run from test to production.
 
@@ -87,6 +87,14 @@ content_sha256:<hash of the sorted concatenation> | verdict:<n>/<n> clean |
 method:<how> | checked_by:<who> | findings:<none|summary>
 ```
 
+**Compute and compare with the tool, never by hand** (P1370). It uses the same recipe and the same anonymous read that wrote the line:
+
+```bash
+node scripts/points/accuracy-check.mjs verify --env test --tag <tag-src>   # 0 MATCH · 3 MISSING · 4 STALE
+```
+
+The recipe, for the record: sha256 over the tag's story `content` values, sorted by code point and concatenated with no separator. It reproduces the ikigai1 line (`fc7b8fee…`).
+
 **No matching line ⟹ STOP**, and say plainly which text is unverified. **A hash mismatch ⟹ STOP** — the text moved after it was checked, which is exactly the case a "we already reviewed this" memory cannot distinguish.
 
 ### What counts as a check
@@ -94,6 +102,17 @@ method:<how> | checked_by:<who> | findings:<none|summary>
 Every claim traced to the transcript **by command**, not by reading the story and finding it plausible. The 2026-09-09 pass is the reference shape: `grep`/`python` locate each load-bearing assertion in the cleaned transcript and the surrounding passage is read to confirm the story's rendering of it. Verdicts recorded per story.
 
 > **Do not score the new text against the old text.** The old text is the thing under replacement; agreement with it measures nothing and disagreement with it is often the improvement. The oracle is the **transcript**, which is independent of both.
+
+**Recording a fresh check** (the normal case after review on test, because the reviewed text no longer equals the story-draft drafts). The independent checker reads each current story against its **sealed** transcript. The tool finds the transcript in the yt-store by hash and refuses on any mismatch, so the check never touches a new fetch. Then:
+1. Replace each `content: |` block in the run file's `## Story Drafts` with the current test text.
+2. On each replaced story, set `writer:` to whoever edited it and `checker: PASS` for each story that passed.
+3. Run:
+
+```bash
+node scripts/points/accuracy-check.mjs record --env test --tag <tag-src> --run <slug> --checked-by "<model> (<session>)"
+```
+
+It refuses when a row matches no PASS draft, when a quote is not verbatim in the sealed transcript, or when the checker's model wrote any matched story. **Never write the line by hand.** The 2026-09-28 line was hand-written, after a re-fetch that returned a translated track.
 
 > **The check may be run in the same session that promotes, but not by the agent that wrote the text** — that is the failure the ledger line above names. If this session did the rewriting, the check is a fresh read against the transcript with the writing context set aside, and `checked_by` says so.
 
@@ -145,7 +164,7 @@ PROMOTE — <slug>: test(<tag-src>) -> prod(<tag-dst>)   ref <prod ref>
   filing identity   : <name> (<slug>) — asserted not an agent
   registry (anon)   : HTTP <code>
   client deployed   : agent_accounts <n> · controls <n>/<n>
-  agents on prod    : <e> existing, <p> MISSING -> will be created
+  agents on prod    : <e> existing, <p> MISSING -> will be created AFTER the gate, with pre-assigned ids
   story lengths     : max <n> / 10000
   predicted tags    : <set> (must equal {<tag-dst>})
   where you view it : <URL>
@@ -158,31 +177,33 @@ PROMOTE — <slug>: test(<tag-src>) -> prod(<tag-dst>)   ref <prod ref>
 
 Pull points, stories, `story_points` and `point_positions` for the tag from **test**, by the environment row. Capture **ids**, not just counts: a co-tenant writing under the same tag makes a correct run report a wrong delta.
 
-### Stage 2 — Provision missing prod agents
+### Stage 2 — Plan the missing prod agents. WRITE NOTHING.
 
-Per arguer with no prod `agent_accounts` row. **This skill contains no account-creation logic and none may be added** — it invokes `/slava:content:provision-agent`, whose Step 5 mint-then-register is the only path.
+**Order, codified from the ikigai1 promotion (2026-09-29).** This stage used to *provision* here, before the Stage 4 gate. That wrote permanent public identities before consent and contradicted the announce line. The order that satisfies both:
 
-**Carry the test assets rather than regenerating.** Download each avatar from test storage, upload to prod `agent-avatars` under a **new** object key (`<subject-slug>/<uuid>.png`, `upsert:false`), and assert `200` **and** `content-type: image/*` on the prod URL.
+> pre-assign ids → build and hash the full envelope → one gate → provision **with those ids** → write
 
-> **Assert the positive only — never "not 404".** Measured on this host: a missing object returns **`HTTP/2 400`** with `content-type: application/json` and `"code":"NoSuchKey"`; only the JSON body says 404. A "not 404" check passes on every missing avatar.
+For each arguer with no prod `agent_accounts` row:
 
-Regenerating instead would produce a *different* portrait for the same person across environments, from the same frozen prompt — two art styles for one subject, which is the thing the frozen prompt exists to prevent. Byte-identical carry is the correct default.
+1. **Pre-assign the profile id**: `uuidgen | tr A-Z a-z`. GoTrue admin create accepts `id`, and `/slava:content:provision-agent` Step 5 takes a caller-assigned id and asserts it comes back unchanged.
+2. **Stage the avatar locally.** Download it from test storage into `$RUN_DIR`. Assert PNG magic with `file -b` (P1370: `gen-agent-avatar` shipped JPEG bytes as `.png` before its fix; a JPEG carried as-is keeps that defect). Record its sha256, byte count and the planned prod object key `<subject-slug>/<uuid>.png`.
+3. **Carry `bio` and `links`** from test into the plan. **Links are personal-only**: the person's own presence, never the organisation they run. That rule and its evidence live in `/slava:content:provision-agent` §5b.
 
-Carry `bio` and `links` across too. **Links are personal-only** — the person's own presence, never the organisation they run; that rule and its evidence live in `/slava:content:provision-agent` §5b.
+**Carry the test assets rather than regenerating.** Regenerating would give the same person a *different* portrait in each environment, from the same frozen prompt: two art styles for one subject, which is what the frozen prompt exists to prevent. Byte-identical carry is the default.
 
-Then **re-resolve every subject from the prod database by `subject_key`** before building the payload. Never carry a `profile_id` forward from the provisioning call in memory.
+Existing prod agents are resolved **from the prod database by `subject_key`** now. New ones use their pre-assigned ids. Never a `profile_id` carried in memory from anywhere else.
 
 ### Stage 3 — Build the envelope
 
-Remap `author_id` and `user_id` from test agent ids to prod agent ids. Mint fresh UUIDs for points and stories. Set `first_validator_id` to the filing identity. Rewrite `#<tag-src>` to `#<tag-dst>` in every story body and assert the resulting hashtag set is **exactly** `{<tag-dst>}` per story.
+Remap `author_id` and `user_id` from test agent ids to prod agent ids: resolved ids for existing agents, **pre-assigned ids for the ones Stage 5a will create**. Put the provisioning plan inside the envelope too, so the hash covers the identities: `{subject_key, pre-assigned id, name, bio, links, avatar key, avatar sha256}` per new agent. Mint fresh UUIDs for points and stories. Set `first_validator_id` to the filing identity. Rewrite `#<tag-src>` to `#<tag-dst>` in every story body and assert the resulting hashtag set is **exactly** `{<tag-dst>}` per story.
 
 Dollar-quote every interpolated text field with a **collision-checked** tag (`grep -F` the tag against every string first). Build the JSON with a real encoder; never concatenate into a `{"query": "…"}` template; send with `--data-binary @file` so no shell quoting layer touches it.
 
 **The URL and the environment name go INSIDE the hashed envelope**, and the URL is read back out of it at write time:
 
 ```bash
-jq -n --arg url "$TARGET_URL" --arg env "$ENV_NAME" --arg q "$SQL" \
-   '{url:$url, env:$env, body:{query:$q}}' > "$RUN_DIR/request-envelope.json"
+jq -n --arg url "$TARGET_URL" --arg env "$ENV_NAME" --arg q "$SQL" --slurpfile agents "$RUN_DIR/agent-plan.json" \
+   '{url:$url, env:$env, agents:$agents[0], body:{query:$q}}' > "$RUN_DIR/request-envelope.json"
 ```
 
 Hashing only the body leaves the destination outside everything the operator approved.
@@ -206,8 +227,8 @@ printf '%s' "$SKEL" | grep -coE 'INSERT INTO (stories|points|story_points|point_
 PROMOTE TO PROD — irreversible once public.
   Ref             : <project ref>          Tag: <tag-dst>
   Filing identity : <name> (<slug>)
-  CREATING <p> PERMANENT PUBLIC IDENTITIES:
-    <name> — <subject_key> — avatar <n> bytes, <licence>
+  CREATING <p> PERMANENT PUBLIC IDENTITIES (after this confirmation, ids fixed now):
+    <name> — <subject_key> — id <pre-assigned uuid> — avatar <n> bytes PNG sha <8>, <licence>
     …                                        (every one, by name)
   PUBLISHING:
     <n> points     — <each statement in full>
@@ -225,9 +246,22 @@ Confirm to write.
 
 ### Stage 5 — Write
 
-**Write the ledger line BEFORE the write, carrying the envelope hash**, so a run that wrote without a recorded gate is visible afterwards.
+**Write the ledger line BEFORE any write, carrying the envelope hash**, so a run that wrote without a recorded gate is visible afterwards.
 
-Re-hash the envelope immediately before the call and assert it equals the printed hash — a mismatch is a stop, not a warning. Then send it, taking **both** body and URL out of the envelope. The token is read from the locked keyring at this moment — one dialog, answered **Allow**, never "Always Allow" — and the envelope's `env` must say `prod`:
+Re-hash the envelope immediately before the first write and assert it equals the printed hash. A mismatch is a stop, not a warning.
+
+#### 5a — Provision, with the ids the gate approved
+
+For each agent in `envelope.agents`, in order:
+1. Upload the staged avatar to its planned prod key (`upsert:false`). Assert `200` **and** `content-type: image/*`, and that the downloaded bytes hash to the planned sha256.
+2. Invoke `/slava:content:provision-agent` with the **pre-assigned id**. Its Step 5 asserts the mint and the RPC both return that id.
+3. Re-resolve from prod by `subject_key`, and assert the result equals the pre-assigned id.
+
+**Any mismatch ⟹ STOP before 5b.** The envelope's author ids would then point at the wrong account. Report which identities now exist on prod (they are permanent; see the gate text) and write no rows. **Assert the positive only for avatars, never "not 404"**: a missing object on this host returns `HTTP/2 400`, `content-type: application/json`, `"code":"NoSuchKey"`.
+
+#### 5b — Send the envelope
+
+Re-hash once more, since provisioning ran in between. Then send it, taking **both** body and URL out of the envelope. The token is read from the locked keyring at this moment — one dialog, answered **Allow**, never "Always Allow" — and the envelope's `env` must say `prod`:
 
 ```bash
 [ "$(jq -r .env "$RUN_DIR/request-envelope.json")" = "prod" ] || { echo "STOP: envelope env is not prod — nothing written"; exit 1; }
@@ -318,7 +352,8 @@ A gate never seen to fail is unproven, and one that refuses everything is equall
 - [ ] **The gate printed every identity and every story by name** — no summarised count standing in for the disclosure.
 - [ ] **The gate received an explicit affirmative**; silence treated as refusal. No flag bypassed it.
 - [ ] **Target ref came from the row matching this run's target**, credentials by variable name, the two env files never merged.
-- [ ] **Avatars were carried byte-identical and asserted `200` + `image/*`** — never "not 404".
+- [ ] **No prod write (account, avatar, row) happened before the gate.** Agents were provisioned in 5a with the pre-assigned ids the envelope hashed, and each id was asserted back.
+- [ ] **Avatars were carried byte-identical, PNG by magic bytes, and asserted `200` + `image/*`**, never "not 404".
 - [ ] **Every subject was re-resolved from the target DB by `subject_key`** after provisioning.
 - [ ] **`subject_key` was re-read from the registry file**, not held in memory.
 - [ ] **Raw SQL and the literal-stripped skeleton were both printed**, both asserts pasted, run on the skeleton.

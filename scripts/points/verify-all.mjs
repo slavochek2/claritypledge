@@ -42,6 +42,7 @@ export const PREDICATE_MODULES = [
   'on-topic-minutes.mjs', 'run-file-check.mjs',   // P1355 C3, C4
   'page-quote-check.mjs',   // P1358 R1c
   'page-check.mjs',   // P1367 S1
+  'accuracy-check.mjs',   // P1370 — row/quote/checker decision behind the accuracy ledger line
 ]
 
 /** Modules that are harness, not predicates — the ONLY sanctioned reason for a

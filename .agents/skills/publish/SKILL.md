@@ -500,6 +500,27 @@ assignment survives** — see the warning under assert 6, which is what catches 
 
 **On any failed assert:** print the failure, print what was written, state plainly what is public right now, and **do not print the feed URL as though the run succeeded.**
 
+### Stage 6b — Write the accuracy evidence (P1370)
+
+`/slava:disagreement:promote-to-prod` §2 refuses without a `disagreement:accuracy-check` line whose
+hash equals the current story bytes. story-draft's checkers earned that evidence; this step records
+it, **after all eight asserts pass**, bound to the rows just read back:
+
+```bash
+node scripts/points/accuracy-check.mjs record --env <test|prod> --tag <event-tag> --run <slug> \
+  --checked-by "<checker model> checker subagents (story-draft)"
+```
+
+It reads the stories anonymously from the target and writes the line only if all four hold:
+- every row, minus `\n\n#<tag>`, equals a `checker: PASS` draft in the run file;
+- every quote is verbatim in the sealed clean transcript, found in the yt-store by hash with no re-fetch;
+- every transcript seal matches;
+- `--checked-by` names a model that wrote none of the stories.
+
+Paste its output. **REFUSED is not a failed publish.** The rows are written and correct. It means
+the evidence could not be bound, and promote-to-prod will refuse until a fresh check is recorded.
+Say which rows it named. Never hand-write the line to get past it.
+
 ## Stage 7 — Return
 
 ```
