@@ -386,6 +386,7 @@ Last updated: 2026-09-29
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1370** (Sep 26) Disagreement pipeline hardening after ikigai1 — evidence a gate reads must be tool-written; a caption label is not a track identity
 
 - **P1263** (Sep 26) Canary `git init --bare` flipped core.bare on the real repo — canaries must work in a scratch clone, never the checkout.
 - **P1184** (Sep 26) align-detect chain moved to `understanding/` — a mid-session rename orphans specs filed before it; grep referrers.

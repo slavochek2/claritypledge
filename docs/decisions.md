@@ -6,12 +6,33 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-29 [process]: Accuracy evidence is written by a tool from checker verdicts; transcripts are identified by seal, never re-fetched (P1370)
+
+**Context:** The ikigai1 prod promotion needed a hand-written `accuracy-check` ledger line, bound to a transcript re-fetch that returned a machine-translated track. Re-checked by command: the yt-store and the transcript seal had held every source intact the whole time; only the redacted drafting copies were in scratch.
+**Decision:**
+1. `scripts/points/accuracy-check.mjs record` writes the line at publish Stage 6b. It writes only if all of these hold:
+   - every row read back anonymously equals a clean `checker: PASS` draft;
+   - every quote is verbatim in the sealed transcript;
+   - the checker's model differs from the writer's.
+2. `verify` counts only lines the tool wrote that say `n/n clean` (exit 5 otherwise).
+3. A transcript is found in the store by its sealed hashes, and its clean text is re-derived from the raw track. A mismatch refuses; the check never re-fetches.
+4. promote-to-prod pre-assigns agent ids, hashes an envelope that includes the new identities, and makes no prod write of any kind before its single gate.
+**Alternatives rejected:**
+- A hand-written ledger line: it can bind to a translated track.
+- Re-verifying against a fresh fetch: YouTube's `en` label changed which track it served within six days.
+- Provisioning agents before the gate: that writes permanent identities before consent.
+**Consequences:**
+- A story edited on test after its check cannot be promoted until a fresh check is recorded.
+- The tool cannot prove who typed PASS in the run file. That stays procedural and is stated in promote-to-prod §2.
+- Existing JPEG-as-png agent avatars on test and prod were not re-encoded (open founder decision).
+**References:** [promote-to-prod](../.claude/commands/slava/disagreement/promote-to-prod.md), [accuracy-check.mjs](../scripts/points/accuracy-check.mjs), [P1370](../features/done/2026-06-10/p1370_disagreement_pipeline_ikigai1_hardening.md)
+
 ## 2026-09-29 [process]: Clarity Night #2 is Tue 2026-10-06; ikigai1 promoted to prod with fixed agent ids so one gate covers the exact write
 
 **Context:** Clarity Night #2 (tag `ikigai1`, six arguers, 6 points, 21 stories) had been on TEST only. The date recorded below on 2026-09-22 ("event #2, Tue 2026-09-29") is wrong: the event is **Tue 2026-10-06, 18:30 Bangkok**, which the TEST row already held while the slug and this log still said 09-29. `/slava:disagreement:promote-to-prod` refused, correctly, because no `accuracy-check` ledger line existed: story-draft's checkers had passed all 21 stories but wrote no record bound to the story bytes. The source transcripts lived only in an expired session scratch. *[Corrected 2026-09-29, P1370, by command: false. All six raw and clean transcripts were in the yt-store, and every hash in `.points-run-seals/ai-ikigai-2026-09-29.transcripts.sha256` still matched. Only the redacted story-draft copies were scratch-only. The check re-fetched instead of reading the sealed store, and the seal recorded the requested language `en` rather than the served track, so nothing pointed it there.]* On re-fetch, YouTube's default `en` track for one source (Garry Tan) was a machine-translated English rendering; every verified quote failed against it and all matched against `en-orig`, whose cleaned length equalled the run file's recorded count exactly.
 **Decision:** (1) The accuracy check was redone by command: 26 of 26 shipped quotes found verbatim (a one-word-changed control found 0), all 21 story paraphrases read against their transcript context, and the ledger line was bound to the sha256 of the live TEST bytes. (2) Prod agent profile ids were assigned before the gate (GoTrue admin create accepts `id`), so the full envelope could be built and hashed before the single confirmation; the mint then had to return exactly those ids or the write would stop. The skill says both "provision in Stage 2" and "nothing is written until you confirm"; this ordering satisfies both. (3) The event went to prod with a slug derived from the real date, and its images were copied to prod storage.
 **Alternatives rejected:** Provisioning agents before the gate (writes permanent identities before consent). Re-verifying quotes against whatever caption track the fetch returned (turns a garbled track into "corrections" of true quotes).
-**Consequences:** (Status: proposed) Follow-up work: story-draft (or the test publish) should write the `accuracy-check` line itself; cleaned transcripts should be stored durably at select/positions time with track id and char count, and any re-verification should refuse on a mismatch; promote-to-prod should codify the fixed-id ordering; `event-date.mjs resolve` exits 2 on "next week tuesday" instead of offering both readings; avatars from gen-agent-avatar are JPEG bytes stored as `.png`/`image/png`.
+**Consequences:** *(Resolved 2026-09-29 by P1370, see the entry above.)* Follow-up work: story-draft (or the test publish) should write the `accuracy-check` line itself; cleaned transcripts should be stored durably at select/positions time with track id and char count, and any re-verification should refuse on a mismatch; promote-to-prod should codify the fixed-id ordering; `event-date.mjs resolve` exits 2 on "next week tuesday" instead of offering both readings; avatars from gen-agent-avatar are JPEG bytes stored as `.png`/`image/png`.
 **References:** [promote-to-prod](../.claude/commands/slava/disagreement/promote-to-prod.md), [clarity-night-publish](../.claude/commands/slava/disagreement/clarity-night-publish.md)
 
 ## 2026-09-29 [product]: Card rows start at the card edge; profiles say "Their story"; a hosted event never shows 0 going (P1366 follow-ups)
