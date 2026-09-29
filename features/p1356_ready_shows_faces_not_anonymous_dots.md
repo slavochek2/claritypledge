@@ -16,6 +16,7 @@ related:
   - p1083
   - p1114
   - p1336
+rank: 1000094.0
 ---
 
 # P1356: /ready shows who is how ready, with faces instead of anonymous dots

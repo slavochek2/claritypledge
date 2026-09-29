@@ -62,8 +62,17 @@ One journey, shown on each phone and mirrored on the projector:
 3. **Rotate** — when the timer ends, everyone is told their next partner, rotating in one direction.
    `[FOUNDER DECISION: rotation rule — one-direction shift vs. pairing from the survey (P1336)]`
 4. **End** — the evening closes with: (a) a topic suggestion or vote for next week, (b) the invitation to
-   stake a position on cmp10, and (c) the date of the next Clarity Night.
-   `[FOUNDER DECISION: which of a/b/c, and their order]`
+   stake a position on cmp10, (c) the date of the next Clarity Night, and (d) feedback, asked in-room
+   on-screen instead of by a delayed post-event email.
+   `[FOUNDER DECISION: which of a/b/c/d, and their order]`
+   Feedback replaces the current Tally-via-email flow, which never actually fired for event #1 (13 RSVPs,
+   zero rows in `email_send_log` — the "always scheduled" fix from P509 never ran, and nothing alerted
+   because monitoring was explicitly rejected as over-engineering; see decisions.md 2026-09-22
+   [technical]). Port the existing Tally question set into this step rather than redesigning from
+   scratch. `[FOUNDER DECISION: who can see feedback stats — founder only, every organizer, or DB-only
+   retrieved by a terminal command — and whether that's a dashboard or a script]`
+   Once this ships and is verified working for one event, disable the Tally send path
+   (`scripts/resend-feedback.sh` and the feedback branch in `send-event-emails`) rather than running both.
 5. **Introductions (founder direction 2026-09-22, moved here from P1336).** An optional ask at the end:
    connect with the host on LinkedIn, and *"may I look through your connections and suggest a few people
    who might benefit, people in organizations where hard conversations have stopped?"* On a yes the host
@@ -103,6 +112,8 @@ One journey, shown on each phone and mirrored on the projector:
 - [ ] At every round end, each attendee sees their new partner and role, and nobody keeps the same partner twice in a row
 - [ ] The projector alone shows the current step, the roles and the timer
 - [ ] The evening ends with the chosen next-step items and no follow-up or purchase ask
+- [ ] Feedback is captured in-room during the End step for every attendee still present, using the
+      existing Tally question set
 
 ## Open Questions
 
@@ -110,6 +121,10 @@ One journey, shown on each phone and mirrored on the projector:
    Links menu)? Read P1114, P1179 and P1323 before designing a new state. UNVERIFIED.
 2. Should the topic vote for next week feed the weekly event page automatically? Founder wants weekly
    events automated; not decided.
+3. Feedback stats access: founder-only, every organizer, or DB-only retrieved by a terminal command
+   (query, no UI)? Not decided.
+4. Tally disable timing: keep both paths running in parallel for one event as a fallback, or cut over
+   immediately once this ships? Not decided.
 
 ## Related
 

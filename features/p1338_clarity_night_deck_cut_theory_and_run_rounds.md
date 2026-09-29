@@ -1,5 +1,5 @@
 ---
-status: today
+status: blocked
 type: task
 rank: 2
 workstream: events
@@ -10,6 +10,7 @@ tags:
   - presi3
   - run-of-show
 disclosure: public
+blocked_by: [p1336, p1337]
 delivery_stage: create-spec
 pipeline_ran:
   - create-spec
@@ -33,6 +34,26 @@ events then run weekly, so the deck needs to be reusable with only the topic swa
 
 > Founder, 2026-09-21: *"this is presi3 improvement — yes another spec."*
 
+**Blocked 2026-09-28 (founder: *"dont you think better after p1336? i guess it will change a lot?
+maybe even after p1337?"*).** Both neighbours take over most of this spec's content: P1336 moves the
+theory into registration onboarding, and P1337 puts partner, role, countdown and rotation on each
+phone and mirrors them on the projector — which is what "round slides with a countdown" meant here.
+Planning this first would build a timer and round slides that P1337 replaces. **What remains for
+P1338 once they land:** (a) the short opening spoken to a room that has already onboarded, (b) the
+topic slot, (c) a fallback deck that can carry the rounds if the phone flow fails on the night.
+
+**What the event-1 recording actually shows** (`~/video-library/clarity-night-1-ai-safety-sep-2026/
+transcripts/20260918_180542.txt`, 48 min, local-only): at minute 48 the room had **still not started a
+pair round** — the two stage volunteers were only just being seated. Roughly **15 of those minutes
+were in-room logistics, not theory**: register/scan the QR, "click join now, set your slider,
+continue, stay on that page", and sorting out USB-C microphones. Late arrivals interrupted four
+separate times, each restarting the explanation. So cutting slides to ~5 min recovers ~15 min, and
+moving setup out of the room (P1336) recovers about as much again — **the deck is the smaller half of
+this problem**, which is why it is not the first spec to run.
+
+**Topic is no longer an open question here.** The event-2 topic (meaning) is settled in its own
+session; this deck takes the topic as an input.
+
 ## Appetite
 
 Blast radius: one event's run of show. Reversibility: high — a static page in git. Decision density: a
@@ -55,7 +76,6 @@ few founder calls on content.
 - **On-time start** — the first slide states that the start is fixed and late arrivals join at the next
   round.
 
-`[FOUNDER DECISION: event #2 topic — ikigai, a polarizing topic, or pick-from-3]`
 `[FOUNDER DECISION: which theory slides survive the cut]`
 
 ## Risks / Non-Goals
@@ -64,6 +84,8 @@ few founder calls on content.
 |---|---|---|
 | Deck is public; event-1 speaker notes may carry private material | MITIGATE | Delete, don't hide (decisions.md 2026-09-16 [process]) |
 | Timer drifts from the room's timer once P1337 ships | DEFER | P1337 takes over timing; the deck then shows the room's state |
+| P1337 does not land before an event night, leaving no round timing at all | MITIGATE | The fallback deck (rounds + countdown) is this spec's insurance; build it only if P1337 slips |
+| Blocking this slips past an event night | ACCEPT | The deck already ran event #1; running it again unchanged is survivable, a half-built duplicate of P1337 is not |
 
 **Non-Goals**
 - Do NOT build room features here; this is the deck only.
@@ -71,7 +93,9 @@ few founder calls on content.
 
 ## Done-When
 
-- [ ] Theory takes about 5 minutes when rehearsed aloud
+- [ ] P1336 and P1337 have shipped, and this spec has been re-scoped against what they actually built
+- [ ] The spoken opening takes about 3 minutes when rehearsed aloud to a room that has onboarded
 - [ ] Each round slide shows the countdown, the rotation instruction and the roles
 - [ ] Changing the topic means editing one place, shown by producing the event-2 version from it
-- [ ] The founder has run the deck through once and signed it off before 2026-09-29
+- [ ] A fallback path exists for a night when the phone flow fails
+- [ ] The founder has run the deck through once and signed it off before the event night it first serves

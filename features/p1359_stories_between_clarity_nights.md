@@ -13,6 +13,7 @@ driver: founder
 related:
   - p1336
   - p784
+rank: 1000095.0
 ---
 
 # P1359: Between Clarity Nights, regulars can read the next story
