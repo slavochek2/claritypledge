@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 100
+**Next ID:** 101
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1790,5 +1790,16 @@ Measured in P1366 with a baseline worktree at the base commit: 15 tests fail on 
 **due:** month
 
 Seen on the test DB during P1366 verification, identical on main: a point card in the logged-out /feed opens /point/:id, which renders Point not found. The feed's visibility filter and the point page's disagree for some rows. Find which rows and align the two, or drop if it only affects e2e fixture points.
+
+---
+
+## Stop a host from creating an RSVP row on their own event
+
+**ID:** INBOX-100
+**Date:** 2026-09-29
+**Status:** proposed
+**due:** month
+
+Found in the P1366 review: rsvpToEvent has no host check and the post-signup auto-RSVP (AuthCallbackPage) can RSVP a host who was logged out on their own event page; RLS only checks the caller's own profile. The event card display now tolerates such a row (hostHasRsvp), and prod had 0 host RSVP rows on 2026-09-29. Add the guard in the service and the auto-RSVP path; drop if P844's hidden button is judged enough.
 
 ---
