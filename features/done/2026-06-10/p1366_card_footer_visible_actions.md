@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 14
 workstream: product
 created_date: '2026-09-28'
 tags: [cards, feed, profile, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-09-29
 ---
 
 # P1366: Card footers show their actions — stories as a button, details in words, card menu in the corner
