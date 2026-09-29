@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 13
 created_date: '2026-09-28'
 tags: [navigation, back-button, scroll-restoration, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-09-29
 ---
 
 # P1364: Consistent back navigation — every page goes back to where you were
