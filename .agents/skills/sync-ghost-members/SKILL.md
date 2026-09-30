@@ -56,7 +56,7 @@ Prod Supabase ref: `besjtuodziykmjidubzw`
 ```bash
 source .env.local
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="sync-ghost-members: sync app users to Ghost" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+KEYRING_REASON="sync-ghost-members: sync app users to Ghost" keyring_require GHOST_ADMIN_API_KEY || exit 1   # locked half (P1318): keychain only, one dialog; keyring_require only RETURNS non-zero, so the exit is what halts
 ```
 
 ### Step 2: Run the sync

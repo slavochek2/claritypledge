@@ -44,7 +44,7 @@ Fetch the post via Ghost Admin API. Halt if:
 ```bash
 source .env.local
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="prep-email: fetch the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+KEYRING_REASON="prep-email: fetch the Ghost post" keyring_require GHOST_ADMIN_API_KEY || exit 1   # locked half (P1318): keychain only, one dialog; keyring_require only RETURNS non-zero, so the exit is what halts
 # GHOST_ADMIN_API_KEY format: id:secret
 # Verify: node -e "..." (see Ghost API Auth section below)
 ```

@@ -45,7 +45,7 @@ Fetch the post via Ghost Admin API. Halt if:
 # Ghost Admin API auth pattern — GHOST_ADMIN_API_KEY comes from the keychain, not .env.local
 source .env.local
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="enhance-blog: fetch and update the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+KEYRING_REASON="enhance-blog: fetch and update the Ghost post" keyring_require GHOST_ADMIN_API_KEY || exit 1   # locked half (P1318): keychain only, one dialog; keyring_require only RETURNS non-zero, so the exit is what halts
 # JWT sign → fetch post → extract lexical
 ```
 

@@ -44,8 +44,9 @@ Usage
   scripts/rls-drift-check.py --dump-prod out.json   # capture a snapshot, no diff
 
 Credentials (first hit wins per environment):
-  prod: $SUPABASE_ACCESS_TOKEN_PROD, else SUPABASE_ACCESS_TOKEN in .env.prod
-  test: $SUPABASE_ACCESS_TOKEN_TEST, else SUPABASE_ACCESS_TOKEN in .env.local
+  both: SUPABASE_READONLY_TOKEN (scoped Database:Read) from the env file, preferred
+  prod: else $SUPABASE_ACCESS_TOKEN_PROD (the env files no longer hold an account-wide token, P1318)
+  test: else $SUPABASE_ACCESS_TOKEN_TEST, else SUPABASE_TEST_WRITE_TOKEN in .env.local (test-scoped)
 Project refs are derived from VITE_SUPABASE_URL in the same file, or from
 $SUPABASE_PROJECT_REF_PROD / $SUPABASE_PROJECT_REF_TEST.
 

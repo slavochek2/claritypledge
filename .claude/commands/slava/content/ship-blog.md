@@ -133,7 +133,7 @@ Next: run /slava:promote-blog to post to LinkedIn
 JWT from `GHOST_ADMIN_API_KEY`, read from the keychain (locked half, P1318 — not in `.env.local`):
 ```bash
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="ship-blog: publish the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+KEYRING_REASON="ship-blog: publish the Ghost post" keyring_require GHOST_ADMIN_API_KEY || exit 1   # locked half (P1318): keychain only, one dialog; keyring_require only RETURNS non-zero, so the exit is what halts
 ```
 ```js
 const [id, secret] = key.split(':');

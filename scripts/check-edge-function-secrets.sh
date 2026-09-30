@@ -270,6 +270,10 @@ if [ -n "$ENV_NAME" ] && [ -z "$PROJECT_REF" ]; then
     export SUPABASE_ACCESS_TOKEN="$PROD_SUPABASE_ACCESS_TOKEN"
   else
     export SUPABASE_ACCESS_TOKEN="$(grep "^SUPABASE_TEST_FUNCTIONS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)"
+    if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+      _safe_echo "ERROR: SUPABASE_TEST_FUNCTIONS_TOKEN is empty in $ENV_FILE — secrets were NOT checked." >&2
+      exit 2
+    fi
   fi
 fi
 

@@ -39,7 +39,7 @@ Send to Slava's personal Gmail (personal email from global CLAUDE.md) with first
 
 ```bash
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="promote-email: send test email" keyring_require MAILGUN_API_KEY   # locked half (P1318): keychain only; halt if declined
+KEYRING_REASON="promote-email: send test email" keyring_require MAILGUN_API_KEY || exit 1   # locked half (P1318): keychain only; keyring_require only RETURNS non-zero, so the exit is what halts
 # Auth header goes over stdin (curl -K -), never argv — argv is visible in ps.
 printf 'header = "Authorization: Basic %s"\n' "$(printf 'api:%s' "$MAILGUN_API_KEY" | base64)" | curl -s -K - \
   https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages \
@@ -61,7 +61,7 @@ For each active contact with an email:
 ```bash
 # Load once per bulk run — one dialog, then reuse $MAILGUN_API_KEY for every contact.
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-[ -n "$MAILGUN_API_KEY" ] || KEYRING_REASON="promote-email: bulk send" keyring_require MAILGUN_API_KEY   # halt if declined
+[ -n "$MAILGUN_API_KEY" ] || KEYRING_REASON="promote-email: bulk send" keyring_require MAILGUN_API_KEY || exit 1   # keyring_require only RETURNS non-zero, so the exit is what halts
 printf 'header = "Authorization: Basic %s"\n' "$(printf 'api:%s' "$MAILGUN_API_KEY" | base64)" | curl -s -K - \
   https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages \
   -F from="Slava <slava@claritypledge.com>" \

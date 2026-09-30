@@ -45,6 +45,24 @@ driver: heuristic
    - only after verify passes does it tell the founder to revoke the old one, and records
      `Last rotated`. Verify failing leaves the old key live and untouched.
 
+**Kept from the superseded design (2026-09-30 adversarial review — Opus, Gemini — found the first
+reshape dropped them):**
+- **Locked-tier keys have no plaintext Location.** `rotate.sh` refuses to write a locked-tier key to
+  any env file, even if a registry row still lists one; the row is corrected instead.
+- **Identity is name + place + value fingerprint, never name alone** — one variable name has held
+  different live credentials in different env files. The run records the old value's fingerprint per
+  location and writes only where it matches.
+- **Verify must be seen to fail against the old value** (or a deliberately wrong one) before its pass
+  on the new value counts — a check that picks its token up from the environment passes with the old
+  key and proves nothing.
+- **Provider errors are scrubbed** before printing (a 401 body can echo the submitted token); the temp
+  file lives in a `700` directory and is removed on every exit path.
+- **Keys without a provider expiry** are warned by `Interval` + `Last rotated`, not only by `Expires`.
+- **Revocation is checked, not trusted:** after the founder revokes, the old value is probed once and
+  must be refused before `Last rotated` is written.
+- **This spec still owns every deletion/revocation** — including the full-access legacy Supabase tokens
+  P1318 left for the founder to delete, and the old prod one once the scoped prod token replaces it.
+
 **Non-goals:** automatic minting through provider APIs, per-provider plugin files, a vault, batch
 rotation. Revisit only if manual rotations exceed a handful per quarter.
 
@@ -57,7 +75,9 @@ rotation. Revisit only if manual rotations exceed a handful per quarter.
       value — proven by reading each location back (for the keychain: one dialog)
 - [ ] A verify failure leaves the old key live and prints no revoke instruction — demonstrated
 - [ ] No secret value in argv, the terminal, shell history, the transcript or any commit
-- [ ] A locked-tier key is written to the keychain, never only to a plaintext file — demonstrated by
+- [ ] Verify fails against the old value before it passes on the new one — demonstrated
+- [ ] A revoked old value is probed and refused before `Last rotated` is written — demonstrated
+- [ ] A locked-tier key is written to the keychain and **never** to a plaintext file (not merely "not only") — demonstrated by
       attempting a plaintext-only write and seeing it refused
 
 ---

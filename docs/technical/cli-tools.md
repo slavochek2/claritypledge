@@ -60,7 +60,7 @@ Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple fi
 - DB password in `SUPABASE_DB_URL` in `.env.local` (see prod section in `.env.example` for format)
 - `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections from localhost (known Supabase constraint)
 - Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
-- `SUPABASE_ACCESS_TOKEN` in `.env.local` is the agent-friendly PAT — add yours from the Supabase Dashboard if agents need to apply migrations autonomously
+- Test-side agent tokens in `.env.local` are **project-scoped**, never account-wide (P1318): `SUPABASE_TEST_WRITE_TOKEN` (test DB query — migrate, drift, /publish) and `SUPABASE_TEST_FUNCTIONS_TOKEN` (test edge-function deploy + secrets read). Create them under Dashboard → Account → Access Tokens with "Project" scope. **Never put an account-wide (LEGACY) token in an env file** — it reaches prod. Prod tokens live in the keychain only (`scripts/keyring.sh`).
 
 **Session pooler URL — always copy from the Connect dialog:**
 When setting up a new CI job or script that needs a direct Postgres connection (e.g., `pg_dump`, backup workflows), copy the session pooler URL from: Supabase Dashboard → project → **Connect** button → Method: "Session pooler". Do NOT construct it manually.

@@ -83,7 +83,7 @@ Postiz uses cookie-based auth (no Bearer token from CLI). Auth flow:
 # 1. Login — sets postiz.sid cookie
 source .env.local
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
-KEYRING_REASON="promote-blog: log in to Postiz" keyring_require POSTIZ_PASSWORD   # locked half (P1318): keychain only; halt if declined
+KEYRING_REASON="promote-blog: log in to Postiz" keyring_require POSTIZ_PASSWORD || exit 1   # locked half (P1318): keychain only; keyring_require only RETURNS non-zero, so the exit is what halts
 # Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
 printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
   | curl -s -c /tmp/postiz-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @-
