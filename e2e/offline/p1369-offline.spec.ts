@@ -104,17 +104,23 @@ test('AC2/AC9: a never-visited story deep link offline boots the app and shows n
   await context.close();
 });
 
-test('AC3: /meet and /ready offline show needs-connection', async ({ browser }) => {
+// AC3 changed by founder decision 2026-09-30: standalone /ready and /meet work offline (no backend
+// needed to use them); only the event-room /events/:slug/ready is live and needs a connection.
+test('AC3: /ready and /meet open offline and /ready leads into /meet', async ({ browser }) => {
   const { context, page } = await freshPage(browser);
   await page.goto('/ready');
   await page.waitForLoadState('networkidle');
   await page.goto('/meet');
   await page.waitForLoadState('networkidle');
   await goOffline(context);
-  for (const url of ['/ready', '/meet']) {
-    await gotoOffline(page, url);
-    await expect(page.getByText(NEEDS_CONNECTION).first(), url).toBeVisible();
-  }
+  await gotoOffline(page, '/ready');
+  await expect(page.getByRole('button', { name: /continue/i }).first()).toBeVisible();
+  await expect(page.getByText(NEEDS_CONNECTION)).toHaveCount(0);
+  await page.getByRole('button', { name: /continue/i }).first().click();
+  await expect(page).toHaveURL(/\/meet/);
+  await expect(page.getByText(NEEDS_CONNECTION)).toHaveCount(0);
+  await gotoOffline(page, '/meet');
+  await expect(page.getByText(NEEDS_CONNECTION)).toHaveCount(0);
   await context.close();
 });
 

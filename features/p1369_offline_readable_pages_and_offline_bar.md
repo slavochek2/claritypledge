@@ -64,7 +64,8 @@ Nothing is pre-downloaded.
 | Surface | Offline behaviour |
 |---|---|
 | Story, point, event (incl. current/upcoming, past if visited) | Cached read-only copy of what was last seen |
-| `/meet`, `/ready` (live, multi-person) | App shell + "needs a connection" body; no stale presence shown |
+| `/ready`, `/meet` (standalone) | Work offline (founder, 2026-09-30): `/ready` hides the live "others" distribution and still leads into `/meet`; an answer given offline is not saved (no write queue). `/meet` has no backend |
+| `/events/<slug>/ready` (event room) | Live presence: needs-connection body |
 | Anything that writes (votes, sign-ups, positions, messages) | Blocked with a clear message. No offline write queue |
 
 Two layers, each with its own invariant (direction set by adversarial review, 2026-09-28):
@@ -102,9 +103,27 @@ Two layers, each with its own invariant (direction set by adversarial review, 20
   (`room-capture-context.tsx`), so it works offline, and hiding it would leave a running microphone
   with no way to stop it from the bar (adversarial review 2026-09-30, finding A1). This is a state of
   the shared `SessionBar` (actions become optional), not a new look-alike component. P1307 D7 requires one bar.
-- The page body for `/meet`/`/ready` offline: headline, one line, "Try again", "Go to home".
+- The needs-connection page body (never-visited pages, event-room `/ready`): headline, one line, "Try again", "Go to home".
 - The strip disappears once back online and the page has refreshed.
 - Replaces the existing yellow `OfflineBanner`.
+
+## Scope v2 (founder, 2026-09-30, after the phone test)
+
+Principle, verbatim intent: *"If possible, I just access my data that I have stored."* Every page shows what it
+last showed, with the strip; "needs a connection" only when nothing is stored; **nothing ever spins forever**.
+
+1. **Instant strip.** Show "Offline" the moment the browser reports no network (`offline` event /
+   `navigator.onLine === false`); keep the request-failure signal for Wi-Fi-without-internet.
+2. **No endless loading anywhere.** Any page whose load fails or hangs offline switches to the
+   needs-connection body within a few seconds (e.g. the Clarity Letter from the tools menu hung forever).
+3. **More pages readable offline:** the links-menu point lists (`/stake/<tag>`), the approved letters,
+   the feed's first page, groups, and the slides (`/presi*`).
+4. **Offline pack pre-load.** When online and idle, pre-load exactly the links-menu entries
+   (`buildLinksMenu` in `src/app/data/event-links.ts`: point lists, letters, tools/slides), the feed's
+   first page and the user's groups — text data, no images/video, refreshed at most every few hours,
+   skipped on Save-Data. Pledgers not included.
+5. **Event room.** Shows the last-seen state with the strip rather than blocking; its live check-in
+   (`/events/<slug>/ready`) shows needs-connection only when nothing was stored.
 
 ## Invariants
 
@@ -139,8 +158,8 @@ Two layers, each with its own invariant (direction set by adversarial review, 20
 
 **Non-Goals**
 - Do NOT add an offline write queue or background sync.
-- Do NOT pre-download pages the user never opened.
-- Do NOT make `/meet` or `/ready` show live presence offline.
+- ~~Do NOT pre-download pages the user never opened.~~ Reversed 2026-09-30 (founder): a fixed **offline pack** is pre-loaded (see Scope v2). Nothing outside the pack is pre-downloaded.
+- Do NOT show live presence offline (the `/ready` distribution, event-room presence).
 - Do NOT wrap the app as a native/F-Droid app. That was considered and rejected: a wrapper changes where the code comes from, not where the data comes from.
 - Do NOT change session/transcription logic. Only the bar's offline *presentation* changes.
 
@@ -165,13 +184,13 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
   guaranteed to be kept. Copy: `● Transcribing, but offline` / `Words said while offline may not be
   saved.` + one button `Stop microphone`. The prototype's "will sync" line must NOT ship.
   [FOUNDER DECISION: copy — PROPOSED]
-- /ready body: `Check-in needs a connection` / `It loads by itself when you're back online.` / `Try again` / `Go to home` [FOUNDER DECISION: copy — PROPOSED]
+- Event-room /ready body: `Check-in needs a connection` / `It loads by itself when you're back online.` / `Try again` / `Go to home` [FOUNDER DECISION: copy — PROPOSED]
 
 ## Acceptance Criteria
 
 - [ ] Open a story, a point and an event online; go offline (DevTools offline + airplane mode on a phone); all three reopen with their content and the strip shows their age
 - [x] A never-visited story offline shows the needs-connection body, not a blank page or spinner
-- [x] `/meet` and `/ready` offline show the needs-connection body; no stale presence
+- [ ] Standalone `/ready` and `/meet` work offline (slider + Continue into `/meet`), `/ready` shows no stale distribution; event-room `/events/<slug>/ready` shows the needs-connection body (founder decision 2026-09-30)
 - [ ] A write action offline shows a clear "needs internet" message and does not appear to succeed
 - [ ] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop
 - [ ] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise
@@ -187,7 +206,7 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 
 ## Open Questions
 
-1. `/ready` offline: show the last-known list of who's coming (labelled with its age), or only the reconnect screen? The founder was asked and hasn't answered yet; the spec defaults to the reconnect screen.
+1. ~~`/ready` offline~~ — ANSWERED 2026-09-30 (founder): standalone `/ready` and `/meet` work offline; only the event-room `/ready` needs a connection.
 2. Does room capture keep recording when the network drops? Blocking for the transcription offline state.
 
 ## Review Log

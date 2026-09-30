@@ -31,6 +31,8 @@ import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useAuth } from '@/auth';
 import { cn } from '@/lib/utils';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 
@@ -49,6 +51,9 @@ export function EventRoomReady() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const capture = useRoomCapture();
+  // P1369 (founder, 2026-09-30): the event-room check-in is live presence, so offline it shows the
+  // needs-connection body. The standalone /ready works offline.
+  const { offline } = useConnectivity();
 
   // P1307 D12: the switch starts OFF — tapping it on is the consent (a pre-ticked switch
   // followed by Continue is not valid consent: Planet49, C-673/17; GDPR Recital 32). If this
@@ -131,6 +136,7 @@ export function EventRoomReady() {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, transcriptionFailed } });
   }, [starting, self, value, refresh, transcribeOn, event, beingTranscribed, capture, user, navigate, slug]);
 
+  if (offline) return <NeedsConnection title="Check-in needs a connection" />;
   if (loading || (granted && selfLoading)) return null;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
