@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 15
 created_date: '2026-09-30'
 tags: [letters, one-to-many, predictions, calibration]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, hostile-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, hostile-review, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
