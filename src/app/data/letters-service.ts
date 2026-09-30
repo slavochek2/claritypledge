@@ -96,8 +96,8 @@ export async function sealLetter(
   // P878: a delivery may carry receiver_profile_id INSTEAD of receiver_email
   // (picker-selected recipient) — the RPC resolves the email in-DB (AD-6).
   deliveries: Array<{ receiver_email?: string; receiver_name?: string; receiver_profile_id?: string }> = [],
-  // P952: author-chosen response intensity; defaults to 'invite' if not passed
-  responsesMode: 'off' | 'invite' | 'push' = 'invite'
+  // P952: author-chosen response intensity; defaults to 'off' if not passed
+  responsesMode: 'off' | 'invite' | 'push' = 'off'
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
   log('sealLetter:', { letterId, predictions, deliveries, responsesMode });

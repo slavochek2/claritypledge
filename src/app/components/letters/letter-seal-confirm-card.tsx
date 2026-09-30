@@ -26,13 +26,13 @@ export function LetterSealConfirmCard({
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-foreground">Ready to send?</h2>
         <p className="text-sm text-muted-foreground">
-          Choose how readers can respond to your letter.
+          Do you want to know what readers understood?
         </p>
       </div>
 
       {/* Responses control */}
       <fieldset className="w-full space-y-2">
-        <legend className="text-sm font-medium text-foreground mb-2">Responses</legend>
+        <legend className="text-sm font-medium text-foreground mb-2">After reading</legend>
 
         <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-transparent hover:bg-muted/50 transition-colors">
           <input
@@ -44,9 +44,9 @@ export function LetterSealConfirmCard({
             className="mt-0.5 accent-[#0044CC]"
           />
           <div>
-            <div className="text-sm font-medium text-foreground">Invite</div>
+            <div className="text-sm font-medium text-foreground">Ask what they understood</div>
             <div className="text-xs text-muted-foreground">
-              Readers can explain back what they understood and add stories. Responses go to your results.
+              Readers explain it back and can add stories. You see answers in your results.
             </div>
           </div>
         </label>
@@ -61,9 +61,9 @@ export function LetterSealConfirmCard({
             className="mt-0.5 accent-[#0044CC]"
           />
           <div>
-            <div className="text-sm font-medium text-foreground">Off</div>
+            <div className="text-sm font-medium text-foreground">Just read</div>
             <div className="text-xs text-muted-foreground">
-              Read-only letter. No response affordances shown.
+              Readers read your letter. No questions, and you get nothing back.
             </div>
           </div>
         </label>
@@ -77,9 +77,9 @@ export function LetterSealConfirmCard({
             className="mt-0.5"
           />
           <div>
-            <div className="text-sm font-medium text-foreground">Push <span className="text-xs font-normal text-muted-foreground">— coming with P948</span></div>
+            <div className="text-sm font-medium text-foreground">More prompts <span className="text-xs font-normal text-muted-foreground">(coming soon)</span></div>
             <div className="text-xs text-muted-foreground">
-              Both explain-back and story are primary CTAs at each reveal.
+              Readers are prompted to respond at every story.
             </div>
           </div>
         </div>

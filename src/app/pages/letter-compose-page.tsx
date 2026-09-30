@@ -58,8 +58,8 @@ export function LetterComposePage() {
   const [sealing, setSealing] = useState(false);
   const [sealedLetterId, setSealedLetterId] = useState<string | null>(null);
   const sealingRef = useRef(false);
-  // P952: author-chosen response intensity; default 'invite'
-  const [responsesMode, setResponsesMode] = useState<'off' | 'invite'>('invite');
+  // P952: author-chosen response intensity; default 'off'
+  const [responsesMode, setResponsesMode] = useState<'off' | 'invite'>('off');
 
   const isPrivateDoc = doc?.visibility === 'private';
 

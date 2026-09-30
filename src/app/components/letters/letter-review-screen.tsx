@@ -34,7 +34,7 @@ export function LetterReviewScreen({
   sealing,
   onSeal,
   onBack,
-  responsesMode = 'invite',
+  responsesMode = 'off',
   onResponsesModeChange,
 }: LetterReviewScreenProps) {
   const displayName = mode === 'one-to-one' && receiverName
@@ -89,33 +89,33 @@ export function LetterReviewScreen({
       {/* P952: Responses control */}
       {onResponsesModeChange && (
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-foreground">Responses</legend>
+          <legend className="text-sm font-medium text-foreground">After reading</legend>
           <div className="flex flex-col gap-1 mt-2">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="radio"
                 name="review-responses-mode"
                 value="invite"
                 checked={responsesMode === 'invite'}
                 onChange={() => onResponsesModeChange('invite')}
-                className="accent-[#0044CC]"
+                className="mt-0.5 accent-[#0044CC]"
               />
-              <span className="text-sm text-foreground">Invite — readers can explain back &amp; add stories</span>
+              <span><span className="block text-sm text-foreground">Ask what they understood</span><span className="block text-xs text-muted-foreground">Readers explain it back and can add stories. You see answers in your results.</span></span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="radio"
                 name="review-responses-mode"
                 value="off"
                 checked={responsesMode === 'off'}
                 onChange={() => onResponsesModeChange('off')}
-                className="accent-[#0044CC]"
+                className="mt-0.5 accent-[#0044CC]"
               />
-              <span className="text-sm text-foreground">Off — read-only letter</span>
+              <span><span className="block text-sm text-foreground">Just read</span><span className="block text-xs text-muted-foreground">Readers read your letter. No questions, and you get nothing back.</span></span>
             </label>
             <div className="flex items-center gap-2 opacity-40 cursor-not-allowed">
               <input type="radio" name="review-responses-mode" value="push" disabled />
-              <span className="text-sm text-foreground">Push <span className="text-xs text-muted-foreground">— coming with P948</span></span>
+              <span className="text-sm text-foreground">More prompts <span className="text-xs text-muted-foreground">(coming soon)</span></span>
             </div>
           </div>
         </fieldset>
