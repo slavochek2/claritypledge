@@ -84,6 +84,7 @@ Look at the spec, conversation, and code. Name 1-3 concrete risks — not catego
   triggers here are countable, and this one has to produce an artifact instead.
 - "DB schema changes or new data model" → `/architect` (structure review) + `/generate-tests` (lock behavior)
 - "Auth, RLS, or permissions logic" → `/architect` (security review) + `/generate-tests`
+- **Both lines above: if the spec already carries an adversarial review, `/architect` is opt-in** — see "Measured, conditionally demoted" below.
 - "Multiple viable approaches, trade-offs unclear" → research the options before `/architect`
 - "PRD assumptions haven't been stress-tested" → `/challenge-prd`
 - "Spec is stale (>14 days) or is a change-request" → `/spec-review` before `/dev`
@@ -164,6 +165,21 @@ about risk, so every named risk produced a step and nothing ever argued the othe
   routing. The skill file is kept, not deleted, because retiring costs nothing to reverse and the
   open question is whether a design-artifact pass beats it. **What would settle it:** run both on
   the same feature and compare. Until someone does, do not put it back in a recommended flow.
+
+### Measured, conditionally demoted
+
+- **`/architect` after an adversarial spec review.** Blind A/B on P1369 (2026-09-30; full record
+  `.private/docs/bench-p1369-architect-ab.md`): one spec already reviewed by three models, one
+  pre-validated test oracle, two arms differing only in `/architect`. Tests tied (16/16 each,
+  including held-out); confirmed HIGH/MED defects 9 vs 8 — no gain; cost **+93%**. Six of the
+  `/architect` arm's seven unique defects trace to its written plan, including the worst one in the
+  run (a blank app offline): the plan overrode the reviewed spec's direction and the implementer
+  followed it faithfully. It prevented one defect (an explicit spec instruction the other arm
+  ignored). **Rule:** when the spec carries an adversarial review (a Review Log or equivalent),
+  `/architect` is opt-in — include it only for a structural question that review left open, written
+  as a sentence in the Risks line. **Without** a prior adversarial review the triggers above apply
+  unchanged: that path was not measured. n=1 spec, n=1 model. **Falsifier:** a blind A/B where the
+  `/architect` arm has ≥2 fewer confirmed defects.
 
 ## Step 2: Output
 
