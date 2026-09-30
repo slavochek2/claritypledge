@@ -174,7 +174,7 @@ export function StakePage() {
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
       const r = stakeRead(tag, viewerUserId);
-      const read = await readThrough(r.type, r.id, r.fetch);
+      const read = await readThrough(r.type, r.id, r.fetch, r.options);
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
       const rows = applyRead(read);
       if (!rows) return; // offline, nothing stored: the needs-connection body

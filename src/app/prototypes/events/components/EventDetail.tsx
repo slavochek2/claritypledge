@@ -119,9 +119,9 @@ export function EventDetail() {
       }
       try {
         // P1369: network first; the offline read cache answers only when the network did not.
-        // The viewer is part of the resource: the bundle carries their RSVP state.
+        // The bundle carries the viewer's RSVP state: stored only when fetched as the cache owner.
         const viewerId = isLoggedIn && user ? user.id : null;
-        const read = await readThrough('event', `${slug}:${viewerId ?? '-'}`, async () => {
+        const read = await readThrough('event', slug, async () => {
           const eventData = await eventsService.getEventBySlug(slug);
           if (!eventData) return null;
           let rsvpd = false;
@@ -134,7 +134,7 @@ export function EventDetail() {
             }
           }
           return { eventData, rsvpd };
-        });
+        }, { viewerId });
         if (cancelled) return;
         setOfflineMiss(read.source === 'offline');
         setCachedAt(read.source === 'cache' ? read.storedAt : null);

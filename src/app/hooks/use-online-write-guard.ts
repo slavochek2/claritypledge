@@ -40,6 +40,8 @@ export function useOnlineWriteGuard(showingCachedCopy = false): () => boolean {
 export function isNetworkWriteFailure(err: unknown, since?: number): boolean {
   // throwDbError's verdict for a fetch that never reached the server (lib/network-blip.ts).
   if (err && typeof err === 'object' && (err as { name?: string }).name === 'NetworkBlipError') return true;
+  // A save that never answered (saveWithin below): the connection is the likely cause.
+  if (err instanceof WriteTimeoutError) return true;
   if (since !== undefined && networkFailedSince(since)) return true;
   return typeof navigator !== 'undefined' && navigator.onLine === false;
 }
@@ -47,4 +49,33 @@ export function isNetworkWriteFailure(err: unknown, since?: number): boolean {
 /** The toast for a failed write: the needs-internet message when the network was the cause. */
 export function writeFailureMessage(err: unknown, fallback: string, since?: number): string {
   return isNetworkWriteFailure(err, since) ? NEEDS_INTERNET_MESSAGE : fallback;
+}
+
+/**
+ * How long a vote's save may stay unanswered before it counts as not saved. A captive portal can
+ * swallow the request without ever answering it; without a bound the optimistic vote looked saved
+ * for as long as the page stayed open.
+ */
+export const WRITE_TIMEOUT_MS = 12_000;
+
+export class WriteTimeoutError extends Error {
+  constructor() {
+    super('The save did not get an answer in time');
+    this.name = 'WriteTimeoutError';
+  }
+}
+
+/**
+ * Await a write, but reject with WriteTimeoutError after `ms`. The request itself is not
+ * cancelled: if it lands late, the next read shows it — the page never claims a save it did not
+ * see confirmed.
+ */
+export function saveWithin<T>(write: Promise<T>, ms = WRITE_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    write,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new WriteTimeoutError()), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }

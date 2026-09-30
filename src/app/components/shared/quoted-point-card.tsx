@@ -77,7 +77,12 @@ export interface QuotedPointCardProps {
    */
   fromProfileId?: string;
   currentUserId?: string;
-  onPositionSelect?: (position: Position) => void;
+  /**
+   * Record the position. May report the outcome: resolving `false` means the write did not land
+   * (blocked offline, failed, timed out) and the optimistic selection is taken back (P1369).
+   * Returning nothing keeps the old contract — the selection stays.
+   */
+  onPositionSelect?: (position: Position) => unknown; // resolving to `false` takes the vote back
   /**
    * P1372: explicit "Clear position" row in the intensity menu (P847 Model C′). Opt-in per
    * caller: pass it only where removal is actually wired — the feed's handler ignores null,
@@ -124,13 +129,15 @@ export function QuotedPointCard({
     [baseCounts, initialPosition, userPosition],
   );
 
-  const handlePositionClick = (position: Position) => {
+  const handlePositionClick = async (position: Position) => {
+    const previous = userPosition;
     const newPosition = userPosition === position ? null : position;
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
     }
-    onPositionSelect?.(newPosition);
+    const landed = await onPositionSelect?.(newPosition);
+    if (landed === false && newPosition !== null) setUserPosition(previous);
   };
 
   return (

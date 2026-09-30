@@ -166,9 +166,11 @@ export function PointDetailPage() {
 
       try {
         // P1369: network first; the offline read cache answers only when the network did not.
-        // The viewer is part of the resource: the bundle carries their own position.
+        // The bundle carries the viewer's own position: stored only when fetched as the cache
+        // owner (viewerId), never keyed by `user` — null until the profile loads, so an offline
+        // reload (profile never loads) would look under another key and miss.
         const resolvedId = pointId;
-        const read = await readThrough('point', `${resolvedId}:${user?.id ?? '-'}`, async () => {
+        const read = await readThrough('point', resolvedId, async () => {
           const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
             user?.id
               ? pointsService.getPointWithUserPosition(resolvedId, user.id)
@@ -180,7 +182,7 @@ export function PointDetailPage() {
               : Promise.resolve(null),
           ]);
           return pointData ? { pointData, positionData, storiesData, viewerStoryData } : null;
-        });
+        }, { viewerId: user?.id ?? null });
         if (cancelled) return;
 
         if (read.source === 'offline') {

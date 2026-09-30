@@ -6,8 +6,9 @@
  * `navigator.onLine` is not that answer. Captive portals and venue Wi-Fi report online while
  * nothing reaches Supabase, and supabase-js turns a failed fetch into a `{ data: null }` result
  * that every service then maps to "not found". So the Supabase client's fetch is wrapped here and
- * each request's OUTCOME is recorded: a response of any status means the server was reached; a
- * rejected fetch (other than a deliberate abort) means it was not.
+ * each request's OUTCOME is recorded: a response means the server was reached; a rejected fetch
+ * (other than a deliberate abort) means it was not. A 5xx / 429 / status-0 response is a third
+ * outcome, server trouble (`serverTroubleSince`): reached, but its answer is not the truth.
  *
  * Ordering uses a monotonic SEQUENCE, never timestamps: two outcomes in the same millisecond
  * must still have an order, or a failure right after a success is lost.
@@ -31,6 +32,8 @@ let lastFailureSeq = 0;
 let lastSuccessSeq = 0;
 /** Start numbers of recent requests that never reached the server (bounded). */
 let failedStarts: number[] = [];
+/** Start numbers of recent requests the server answered with trouble (5xx, 429, status 0). */
+let troubleStarts: number[] = [];
 const MAX_FAILED_STARTS = 500;
 const listeners = new Set<Listener>();
 
@@ -102,6 +105,34 @@ export function networkFailedSince(mark: number): boolean {
   return false;
 }
 
+/**
+ * The server was reached but answered with trouble — a 5xx, a 429, or status 0 (an opaque or
+ * aborted-by-proxy answer). The services swallow those into "not found" / empty lists just as
+ * they swallow a failed fetch, so a read must not treat its result as the truth (readThrough:
+ * never delete or overwrite a cached copy with it, never cache it). Kept apart from network
+ * failures on purpose: it does not make the app "offline" (no offline bars, and a write that
+ * gets a 500 is not told it needs internet).
+ */
+export function recordServerTrouble(startedAt?: number): void {
+  const started = startedAt ?? ++seq;
+  troubleStarts.push(started);
+  if (troubleStarts.length > MAX_FAILED_STARTS) troubleStarts = troubleStarts.slice(-MAX_FAILED_STARTS);
+}
+
+/** Did a request that started after `mark` get a server-trouble answer (5xx, 429, status 0)? */
+export function serverTroubleSince(mark: number): boolean {
+  for (let i = troubleStarts.length - 1; i >= 0; i--) {
+    const started = troubleStarts[i];
+    if (started !== undefined && started > mark) return true;
+  }
+  return false;
+}
+
+/** A response status that means the server did not really answer the request. */
+export function isServerTroubleStatus(status: number): boolean {
+  return status === 0 || status === 429 || status >= 500;
+}
+
 /** Monotonic count of requests that never reached the server. */
 export function networkFailureCount(): number {
   return failureCount;
@@ -123,7 +154,11 @@ export function withNetworkOutcome(baseFetch: typeof fetch): typeof fetch {
     const startedAt = networkMark();
     try {
       const res = await baseFetch(input, init);
-      recordNetworkSuccess(startedAt);
+      // A troubled answer is not a success either: counting it as one would make it the
+      // "reconnect" that re-reads a page showing its cached copy, which gets the same 5xx, falls
+      // back to the cache again — a loop paced only by the round trip.
+      if (isServerTroubleStatus(res.status)) recordServerTrouble(startedAt);
+      else recordNetworkSuccess(startedAt);
       return res;
     } catch (err) {
       if (!isAbort(err)) recordNetworkFailure(startedAt);
@@ -139,5 +174,6 @@ export function _resetNetworkOutcomeForTesting(): void {
   lastFailureSeq = 0;
   lastSuccessSeq = 0;
   failedStarts = [];
+  troubleStarts = [];
   listeners.clear();
 }

@@ -34,6 +34,8 @@ import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { saveWithin, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -85,6 +87,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
      `adjustPositionCounts` from lowering it a second time. A fresh fetch (a new `userPosition`
      object) is the only thing that brings it back. */
   const [withdrawn, setWithdrawn] = useState(false);
+  // P1369: /feed and /stake render cached cards offline — a vote there must never look saved.
+  const canWrite = useOnlineWriteGuard();
   useEffect(() => { setWithdrawn(false); }, [point.userPosition]);
   const serverPosition = withdrawn ? null : (point.userPosition?.position ?? null);
 
@@ -169,6 +173,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       return;
     }
 
+    if (!canWrite()) return;
+
     const newPosition = effectivePosition === position ? null : position;
 
     if (newPosition === null) {
@@ -177,16 +183,20 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       return;
     }
 
+    const previousLocal = localPosition;
     setLocalPosition(newPosition);
 
+    const sentAt = networkMark();
     try {
-      await pointsService.setPosition(point.id, session.user.id, newPosition);
+      // Bounded: a captive portal can leave the request unanswered for good.
+      await saveWithin(pointsService.setPosition(point.id, session.user.id, newPosition));
       // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
       // the visual update — no parent callback needed for set-position path
-    } catch {
-      // Revert on error
-      setLocalPosition(null);
-      toast.error('Failed to save position.');
+    } catch (err) {
+      // Revert to exactly what was shown before this click (not to the fetched position: an
+      // earlier, saved change on this card is still the viewer's position).
+      setLocalPosition(previousLocal);
+      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
     }
   };
 
@@ -284,6 +294,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                     setAnonPosition(point.id, null);
                     return;
                   }
+                  if (!canWrite()) return;
                   await guardedRemovePosition(point.id);
                 }}
               />

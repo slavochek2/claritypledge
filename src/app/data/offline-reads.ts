@@ -12,7 +12,7 @@ import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { organizationsService } from '@/app/data/organizations-service';
 import { STANDARD_STAKE_TAGS } from '@/app/data/event-links';
-import type { OfflineResourceType } from '@/lib/offline-read-cache';
+import type { OfflineResourceType, ReadOptions } from '@/lib/offline-read-cache';
 import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 import type { Organization, OrgEventSummary, OrgParticipation } from '@/app/data/organizations-service.interface';
 
@@ -20,6 +20,13 @@ export interface OfflineRead<T> {
   type: OfflineResourceType;
   id: string;
   fetch: () => Promise<T | null>;
+  /**
+   * For a fetch whose result depends on the React auth user (their own positions): who it was
+   * fetched for. Pass to readThrough / prefetchThrough. The id never contains the viewer — the
+   * cache owner (the stored session) already partitions it, and the React user is null until the
+   * profile loads (never, offline), which made the offline read miss (P1369 review R5).
+   */
+  options?: Pick<ReadOptions, 'viewerId'>;
 }
 
 // ─── /stake/:tag ─────────────────────────────────────────────────────────────
@@ -37,7 +44,8 @@ export interface StakeRows {
 export function stakeRead(tag: string, viewerUserId: string | undefined): OfflineRead<StakeRows> {
   return {
     type: 'stake',
-    id: `${tag}:${viewerUserId ?? '-'}`,
+    id: tag,
+    options: { viewerId: viewerUserId ?? null },
     fetch: async () => {
       // ascending = true — oldest-first from the DB (stake-page.tsx ORDERING).
       const [points, stories] = await Promise.all([
@@ -68,7 +76,8 @@ export function feedRead(
 ): OfflineRead<FeedRows> {
   return {
     type: 'feed',
-    id: `${viewerUserId ?? '-'}:${ascending ? 'asc' : 'desc'}:${tagFilter ?? ''}`,
+    id: `${ascending ? 'asc' : 'desc'}:${tagFilter ?? ''}`,
+    options: { viewerId: viewerUserId ?? null },
     fetch: async () => {
       if (tagFilter) {
         const [stories, points, cloudStories, cloudPoints] = await Promise.all([

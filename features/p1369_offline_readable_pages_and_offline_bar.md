@@ -65,7 +65,7 @@ Nothing is pre-downloaded.
 |---|---|
 | Story, point, event (incl. current/upcoming, past if visited) | Cached read-only copy of what was last seen |
 | `/ready`, `/meet` (standalone) | Work offline (founder, 2026-09-30): `/ready` hides the live "others" distribution and still leads into `/meet`; an answer given offline is not saved (no write queue). `/meet` has no backend |
-| `/events/<slug>/ready` (event room) | Live presence: needs-connection body |
+| `/events/<slug>/ready` (event room) | Stored check-in state renders offline with the strip; an uncached room shows the nothing-stored body (Scope v2 item 5) |
 | Anything that writes (votes, sign-ups, positions, messages) | Blocked with a clear message. No offline write queue |
 
 Two layers, each with its own invariant (direction set by adversarial review, 2026-09-28):
@@ -190,7 +190,7 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 
 - [ ] Open a story, a point and an event online; go offline (DevTools offline + airplane mode on a phone); all three reopen with their content and the strip shows their age
 - [x] A never-visited story offline shows the needs-connection body, not a blank page or spinner
-- [ ] Standalone `/ready` and `/meet` work offline (slider + Continue into `/meet`), `/ready` shows no stale distribution; event-room `/events/<slug>/ready` shows the needs-connection body (founder decision 2026-09-30)
+- [ ] Standalone `/ready` and `/meet` work offline (slider + Continue into `/meet`), `/ready` shows no stale distribution; event-room `/events/<slug>/ready`: stored check-in state renders offline with the strip, an uncached room shows the nothing-stored body (Scope v2 item 5, supersedes "needs-connection" here)
 - [ ] A write action offline shows a clear "needs internet" message and does not appear to succeed
 - [ ] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop
 - [ ] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise
@@ -206,7 +206,7 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 
 ## Open Questions
 
-1. ~~`/ready` offline~~ — ANSWERED 2026-09-30 (founder): standalone `/ready` and `/meet` work offline; only the event-room `/ready` needs a connection.
+1. ~~`/ready` offline~~ — ANSWERED 2026-09-30 (founder): standalone `/ready` and `/meet` work offline. Event-room `/ready` (Scope v2 item 5): stored check-in state renders offline with the strip; an uncached room shows the nothing-stored body.
 2. Does room capture keep recording when the network drops? Blocking for the transcription offline state.
 
 ## Review Log
