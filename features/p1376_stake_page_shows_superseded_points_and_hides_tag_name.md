@@ -99,7 +99,15 @@ Tension for the founder: P800's scoped-visibility rule named search, direct link
 - [x] `/stake/misunderstanding` on a dataset with a superseded v1 and its v2 head renders only the head
 - [x] Every stake tag (standard and user tags) lists heads only; the query, not the client, drops superseded rows
 - [x] `/feed` still lists superseded points unless `?version=latest`
-- [ ] The tag name is visible as a heading below the Back button, verbatim (`misunderstanding`, `ikigai1`), at 320px, 375px and desktop
+- [x] The tag name is visible as a heading below the Back button, verbatim (`misunderstanding`, `ikigai1`), at 320px, 375px and desktop — dev server on test DB: 320px (agent), 375px (scrollWidth 375 = innerWidth), 1440px (no overflow); request carries `superseded_by=is.null`, old st1/st5 v1 absent, 9 heads shown
 - [x] FocusHeader still reads "Back"
 - [x] Regression test `src/tests/p1376-reproduce.test.tsx` passes
-- [ ] No console errors on `/stake/misunderstanding`
+- [x] No console errors on `/stake/misunderstanding` — chrome-devtools, 375px and 1440px, zero errors
+- [x] `/live` selects current versions only (founder 2026-09-30) — **already true, no change**: the room's selectable content is stories, whose points are head-filtered in `getStoriesByAuthorWithPoints` (`stories-service-real.ts:479`, P800). The IdleScreen `points` list is used only for `hasContent` and analytics counts, never rendered. A client filter there was tried and reverted after Opus review: it would drop topics for 13 prod users (28 positions) who hold only a superseded version, for no visible gain
+
+## Review (2026-09-30)
+
+3 of 3 reviewers reported: Opus (code-reviewer), Codex gpt-5.6-sol (full suite 5020 pass, no defects), Gemini 3.8 Flash (served-verified, no blocking defects).
+- Opus: the `/live` picker filter would drop topics for 13 prod users holding only a superseded version → change reverted (see AC above).
+- Gemini: superseded heads sort by their own `created_at`, not the replaced slot → pre-existing, tracked in P1069 (points have no explicit display order). ACCEPT.
+- Gemini: seven positional args on `getPublicPointsFeed` is brittle → ACCEPT (style; typed booleans, one new caller).
