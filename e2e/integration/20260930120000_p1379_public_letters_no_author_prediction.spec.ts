@@ -121,6 +121,9 @@ test.describe('P1379 — one-to-many letters never disclose the author predictio
     await createTestStorySnapshot(manyLetterId, manyStoryId, await getTestStoryVersionId(manyStoryId), { position: 0 });
     manyDelivery = await createTestDelivery(manyLetterId, { receiverProfileId: readerId, status: 'in_progress' });
     await createTestPrediction(manyLetterId, manyStoryId, MANY_PREDICTION, null);
+    // "Just read" — the UAT bug: public reading omitted responses_mode and the client
+    // fell back to 'invite'.
+    await supabaseAdmin.from('clarity_letters').update({ responses_mode: 'off' }).eq('id', manyLetterId);
     await sealTestLetter(manyLetterId);
 
     // ONE — the control: one-to-one, delivery-specific prediction.
@@ -160,7 +163,9 @@ test.describe('P1379 — one-to-many letters never disclose the author predictio
       p_letter_id: manyLetterId,
     });
     expect(error, error?.message).toBeNull();
-    const payload = data as { letter: { mode: string }; snapshots: unknown[]; predictions: unknown[] };
+    const payload = data as { letter: { mode: string; responses_mode?: string }; snapshots: unknown[]; predictions: unknown[] };
+    // UAT fix: the author's response intensity is part of the public payload.
+    expect(payload.letter.responses_mode).toBe('off');
     // Shape control: the RPC still serves the letter (a broken RPC returning NULL would also be "no predictions").
     expect(payload.letter.mode).toBe('one-to-many');
     expect(payload.snapshots).toHaveLength(1);

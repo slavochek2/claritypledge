@@ -58,7 +58,7 @@ interface StoryWalkProps {
   positionStoriesMap?: Map<string, LetterPositionStory>;
   /** P904 plan: Called after a position story is saved so the parent can refetch. */
   onPositionStorySaved?: () => void;
-  /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'invite'. */
+  /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'off' (fail closed — P1379 UAT). */
   responsesMode?: 'off' | 'invite' | 'push';
   /** P1364: rendered at the end of the scrolling content, above the fixed bar's reserved space
    * (the results page's bottom "Go back" pill — placed after the walk it would sit under the bar). */
@@ -75,7 +75,7 @@ interface StoryWalkProps {
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite', endSlot, onIndexChange, letterMode }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'off', endSlot, onIndexChange, letterMode }: StoryWalkProps) {
   const showsAuthorPrediction = letterUsesPredictions(letterMode);
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);

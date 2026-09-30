@@ -101,6 +101,8 @@ function renderReveal(opts: {
   rating: number;
   prediction: number | null;
   reverseStory?: boolean;
+  responsesMode?: 'off' | 'invite';
+  isAuthenticatedReceiver?: boolean;
 }) {
   return render(
     <BrowserRouter>
@@ -110,6 +112,8 @@ function renderReveal(opts: {
         senderProfileOwner={SENDER_PROFILE}
         readingState={makeRevealedState(opts.rating, opts.prediction)}
         {...(opts.mode ? { letterMode: opts.mode } : {})}
+        responsesMode={opts.responsesMode}
+        isAuthenticatedReceiver={opts.isAuthenticatedReceiver}
         renderCompletion={() => <div data-testid="completion" />}
       />
     </BrowserRouter>
@@ -171,5 +175,18 @@ describe('P1379: public letter story reveal has no author number', () => {
     const { container } = renderReveal({ rating: 6, prediction: 6 });
     expect(screen.queryByTestId('letter-reveal-reader-only')).not.toBeInTheDocument();
     expect(container.textContent).toMatch(/Alice 6/);
+  });
+
+  // P1379 UAT: a signed-in reader of a public letter sealed "Just read" (responses_mode
+  // 'off') must see no explain-back. The page now receives responses_mode from the
+  // public RPC and fails closed to 'off' when it is missing.
+  it('signed-in public reader, responses_mode off: no explain-back CTA', () => {
+    renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'off', isAuthenticatedReceiver: true });
+    expect(screen.queryByRole('button', { name: /explain back what you understood/i })).not.toBeInTheDocument();
+  });
+
+  it('CONTROL signed-in public reader, responses_mode invite: explain-back CTA shown', () => {
+    renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'invite', isAuthenticatedReceiver: true });
+    expect(screen.getByRole('button', { name: /explain back what you understood/i })).toBeInTheDocument();
   });
 });

@@ -14,6 +14,8 @@
 --                                  receiver branch additionally requires mode = 'one-to-one';
 --                                  sender branch unchanged
 --
+-- Also (UAT fix): get_letter_for_public_reading now returns letter.responses_mode.
+--
 -- get_letter_overview is deliberately NOT changed (author-only; the UI drops the column).
 -- seal_and_send_letter is NOT changed (already accepts an empty p_predictions array).
 --
@@ -62,6 +64,9 @@ BEGIN
     'sender_avatar_color',  p.avatar_color,
     'sender_has_pledged',   COALESCE(p.has_pledged, false),
     'mode',                 cl.mode,
+    -- P1379 UAT: the reading page needs the author's response intensity; without it
+    -- the client fell back to 'invite' and showed explain-back on "Just read" letters.
+    'responses_mode',       cl.responses_mode,
     'status',               cl.status,
     'sealed_at',            cl.sealed_at,
     'created_at',           cl.created_at

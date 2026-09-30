@@ -1288,7 +1288,7 @@ function LetterReadingFlow({
               renderCompletion={() => null}
               onStoryRated={onStoryRated}
               onLivePositionChange={handleLivePositionChange}
-              responsesMode={letter.responses_mode ?? 'invite'}
+              responsesMode={letter.responses_mode ?? 'off'} // fail closed: unknown → no explain-back (P1379 UAT)
               isAuthenticatedReceiver={isAuthenticatedReceiver}
               onExplainBackSubmit={handleExplainBackSubmit}
               positionStoriesMap={positionStoriesMap}

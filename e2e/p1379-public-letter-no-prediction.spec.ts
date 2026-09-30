@@ -218,10 +218,11 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await expectPublicReveal(page, 5);
   });
 
-  test('signed-in public link: own rating only', async ({ page }) => {
+  test('signed-in public link: own rating only, and "Just read" (off) shows no explain-back', async ({ page }) => {
     const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
     letters.push(letterId);
     await createTestPrediction(letterId, storyId, LEGACY_PREDICTION, null);
+    await supabaseAdmin.from('clarity_letters').update({ responses_mode: 'off' }).eq('id', letterId);
     await sealTestLetter(letterId);
 
     await setTestSession(page, reader.user.email!);
@@ -229,6 +230,7 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await openCover(page);
     await rateStory(page, 6);
     await expectPublicReveal(page, 6);
+    await expect(page.getByRole('button', { name: /explain back what you understood/i })).toHaveCount(0);
   });
 
   // Opening the cover as an anonymous token reader starts an account-creation step that
