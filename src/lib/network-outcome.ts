@@ -96,7 +96,8 @@ export function recordNetworkTrouble(): void {
 /** Did a request that started after `mark` fail at the network? */
 export function networkFailedSince(mark: number): boolean {
   for (let i = failedStarts.length - 1; i >= 0; i--) {
-    if (failedStarts[i] > mark) return true;
+    const started = failedStarts[i];
+    if (started !== undefined && started > mark) return true;
   }
   return false;
 }

@@ -27,7 +27,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { storiesService } from '@/app/data/stories-service';
-import { pointsService } from '@/app/data/points-service';
+import { keepsUnstaked, stakeRead } from '@/app/data/offline-reads';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useOfflineReadState } from '@/app/hooks/use-offline-read-state';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { useAuth } from '@/auth';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
@@ -36,7 +39,7 @@ import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-gr
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
-import { isSafeTag, STANDARD_STAKE_TAGS } from '@/app/data/event-links';
+import { isSafeTag } from '@/app/data/event-links';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
 import {
@@ -48,16 +51,15 @@ import {
 } from '@/lib/list-return-cache';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 
-/**
- * Zero-position points stay listed only on the standing instruments (cmp7 is seven
- * points; a point nobody has staked yet is still one of the seven). Verified on prod
+/*
+ * `keepsUnstaked`: zero-position points stay listed only on the standing instruments (cmp7 is
+ * seven points; a point nobody has staked yet is still one of the seven). Verified on prod
  * 2026-09-18 before shipping: every zero-position point under these six tags is a real
- * instrument statement (cmp7 1 of 7, cmp10 1 of 10, understanding 2 of 18), none is
- * junk. Any other /stake/<tag> keeps P543, like /feed.
+ * instrument statement (cmp7 1 of 7, cmp10 1 of 10, understanding 2 of 18), none is junk. Any
+ * other /stake/<tag> keeps P543, like /feed. It and the list read itself live in
+ * offline-reads.ts (P1369 Scope v2), shared with the offline pack so a pre-loaded list is found
+ * by exactly this page's read.
  */
-const keepsUnstaked = (t: string) => (STANDARD_STAKE_TAGS as readonly string[]).includes(t);
-
-const STAKE_LIMIT = 50;
 
 type StakeTab = 'points' | 'stories';
 
@@ -121,6 +123,10 @@ export function StakePage() {
   const [stories, setStories] = useState<StoryWithAuthor[]>(() => restored?.stories ?? []);
   const [loading, setLoading] = useState(() => !restored);
   const [error, setError] = useState<string | null>(null);
+  // P1369 Scope v2: the list reads through the offline cache — cached copy with the strip, or
+  // needs-connection, never an endless skeleton.
+  const offlineRead = useOfflineReadState();
+  const { apply: applyRead, reconnectKey } = offlineRead;
   // P1212 §5 / P1296 item 2 — the footer counts, batch-fetched per tab exactly as /feed does
   // it. Each map is stored WITH the id set it answers, so a stale map reads as "not loaded"
   // rather than as "none linked" (see linked-content.ts).
@@ -148,7 +154,7 @@ export function StakePage() {
   const pushKey = lastPushKeyRef.current;
   // Restored for this trigger → the fetch effect skips it (no background refresh on POP). A
   // ref, so StrictMode's double effect skips both runs.
-  const hydratedForRef = useRef<string | null>(restored ? `${listFetchKey}|${pushKey}` : null);
+  const hydratedForRef = useRef<string | null>(restored ? `${listFetchKey}|${pushKey}|0` : null);
 
   // The menu builder only ever hands out a tag that passed isSafeTag — but this
   // route is a GLOBAL param, reachable by anyone typing an arbitrary string
@@ -167,13 +173,13 @@ export function StakePage() {
       // ascending = true — oldest-first from the DB, the P1075 server-side
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
-      const [fetchedPoints, fetchedStories] = await Promise.all([
-        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag), true),
-        storiesService.getPublicStoriesFeed(STAKE_LIMIT, 0, tag, true),
-      ]);
+      const r = stakeRead(tag, viewerUserId);
+      const read = await readThrough(r.type, r.id, r.fetch);
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
-      setPoints(fetchedPoints);
-      setStories(fetchedStories);
+      const rows = applyRead(read);
+      if (!rows) return; // offline, nothing stored: the needs-connection body
+      setPoints(rows.points);
+      setStories(rows.stories);
       dataGenerationRef.current = requestGeneration;
       setDataFetchKey(requestFetchKey);
     } catch {
@@ -182,7 +188,7 @@ export function StakePage() {
     } finally {
       if (rid === requestIdRef.current) setLoading(false);
     }
-  }, [tag, viewerUserId]);
+  }, [tag, viewerUserId, applyRead]);
 
   // AC-9: the ONLY things that refetch are the tag and the viewer. A position
   // change deliberately does NOT appear in any dependency array and no refetch
@@ -193,7 +199,7 @@ export function StakePage() {
   const cacheKeyRef = useRef(cacheKey);
   cacheKeyRef.current = cacheKey;
   useEffect(() => {
-    const trigger = `${listFetchKey}|${pushKey}`;
+    const trigger = `${listFetchKey}|${pushKey}|${reconnectKey}`;
     if (hydratedForRef.current === trigger) return; // restored on POP: no refresh
     hydratedForRef.current = null;
     // A POP between two stake entries (another tag, then Back) restores that entry too.
@@ -217,7 +223,7 @@ export function StakePage() {
     }
     void fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tag` is inside listFetchKey
-  }, [fetchData, listFetchKey, pushKey]);
+  }, [fetchData, listFetchKey, pushKey, reconnectKey]);
 
   /**
    * A withdrawn position lowers the count and nothing else. Unlike /feed, the point STAYS
@@ -319,6 +325,8 @@ export function StakePage() {
   // link maps arriving, removals — all written through here).
   useEffect(() => {
     if (!tag || loading || error || dataFetchKey !== listFetchKey) return;
+    // An offline copy is not what the Back cache restores as live rows (no strip there).
+    if (offlineRead.cachedAt !== null) return;
     if (dataGenerationRef.current !== listReturnCacheGeneration()) return; // pre-write rows
     writeListReturnCache<StakeSnapshot>(cacheKey, 'stake', {
       tag,
@@ -329,7 +337,7 @@ export function StakePage() {
       fetchedStoryLinks: fetchedStoryLinksRef.current,
       fetchedPointLinks: fetchedPointLinksRef.current,
     });
-  }, [tag, cacheKey, listFetchKey, dataFetchKey, loading, error, points, stories, storyPointsState, pointStoriesState]);
+  }, [tag, cacheKey, listFetchKey, dataFetchKey, loading, error, points, stories, storyPointsState, pointStoriesState, offlineRead.cachedAt]);
 
   // P1296 item 7 — stories built on one video gather under one player.
   const storyEntries = useMemo(() => groupBySource(stories), [stories]);
@@ -416,6 +424,8 @@ export function StakePage() {
 
         {loading ? (
           <FeedSkeleton />
+        ) : offlineRead.offlineMiss ? (
+          <NeedsConnection title="This list needs a connection" onRetry={() => void fetchData()} />
         ) : error ? (
           <div className="py-12 text-center">
             <p className="mb-4 text-muted-foreground">{error}</p>

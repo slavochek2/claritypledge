@@ -12,12 +12,13 @@ import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-ba
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
-import { OfflineStatusProvider } from "@/app/contexts/offline-status-context";
+import { OfflineStatusProvider, useConnectivity } from "@/app/contexts/offline-status-context";
+import { letterCodeRead } from "@/app/data/offline-reads-letters";
+import { OfflinePackPreloader } from "@/app/components/offline/offline-pack-preloader";
+import { readThrough } from "@/lib/offline-read-cache";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
-import { resolveLetterShortcode } from "@/app/data/letters-service";
-import { letterShortCodes } from "@/app/data/short-links";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -190,28 +191,44 @@ function ListReturnCacheAuthReset() {
 
 // P772: resolve shortcodes like /letter/st5 to the latest sealed delivery UUID
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FOUNDER_SLUG = "slava";
 
 export function LetterRoute() {
   const { id = "" } = useParams<{ id: string }>();
   const [resolved, setResolved] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // P1369 Scope v2: offline and never resolved on this device — needs-connection, not a spinner.
+  const [offlineMiss, setOfflineMiss] = useState(false);
+  const { reconnectTick } = useConnectivity();
+  const reconnectKey = offlineMiss ? reconnectTick : 0;
   const isUUID = UUID_RE.test(id);
 
   useEffect(() => {
     if (isUUID) return;
-    // P856: local aliases first (e.g. /letter/ck) — the RPC matches full doc titles only
-    const aliased = letterShortCodes[id.toLowerCase()];
-    if (aliased) {
-      setResolved(aliased);
-      return;
-    }
-    resolveLetterShortcode(id, FOUNDER_SLUG).then((uuid) => {
-      if (uuid) setResolved(uuid);
-      else setNotFound(true);
-    });
-  }, [id, isUUID]);
+    let cancelled = false;
+    // P856 local aliases first (e.g. /letter/ck), then the RPC (full doc titles only) — both in
+    // letterCodeRead, read through the offline cache so a resolved code works offline (P1369).
+    const r = letterCodeRead(id);
+    readThrough(r.type, r.id, r.fetch).then(
+      (read) => {
+        if (cancelled) return;
+        if (read.source === 'offline') setOfflineMiss(true);
+        else if (read.data) setResolved(read.data);
+        else setNotFound(true);
+      },
+      () => {
+        if (!cancelled) setNotFound(true);
+      },
+    );
+    return () => { cancelled = true; };
+  }, [id, isUUID, reconnectKey]);
 
+  if (!isUUID && !resolved && offlineMiss) {
+    return (
+      <ClarityLandingLayout surface="product" compact>
+        <NeedsConnection title="This letter needs a connection" />
+      </ClarityLandingLayout>
+    );
+  }
   if (!isUUID && resolved) return <Navigate to={`/letter/${resolved}`} replace />;
   if (!isUUID && !notFound) return <ClarityPageLoader />;
   return (
@@ -364,6 +381,7 @@ export default function ClarityPledgeApp() {
       <RoomCaptureProvider>
       <RoomCaptureBarFallback />
       <ListReturnCacheAuthReset />
+      <OfflinePackPreloader />
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>

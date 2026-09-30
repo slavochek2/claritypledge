@@ -20,8 +20,10 @@
  *     be shown later. Genuine means THIS read reached the server — no request it started failed —
  *     judged per read, never from the app-wide last outcome (a sibling's success proves nothing).
  *   - Nothing hangs forever: with no cached copy, a network that hangs without failing ends in
- *     `offline` (needs-connection) after UNCACHED_DEADLINE_MS.
- *   - Capped per resource type and aged out after 30 days. Nothing is ever pre-downloaded.
+ *     `offline` (needs-connection) after UNCACHED_DEADLINE_MS (Scope v2: "within a few seconds").
+ *   - Capped per resource type and aged out after 30 days. The only pre-download is the fixed
+ *     offline pack (offline-pack.ts, Scope v2), written through `prefetchThrough` under the same
+ *     keys the pages read.
  *
  * The service worker never caches Supabase (Cache Storage keys by URL and would hand one
  * person's rows to another) — that is why this lives in the app, not in the SW.
@@ -29,7 +31,21 @@
 import { heldRoomCodes } from './room-capability';
 import { isSupabaseUnreachable, networkFailedSince, networkMark, recordNetworkTrouble } from './network-outcome';
 
-export type OfflineResourceType = 'story' | 'story-extras' | 'story-slug' | 'point' | 'point-slug' | 'event';
+export type OfflineResourceType =
+  | 'story'
+  | 'story-extras'
+  | 'story-slug'
+  | 'point'
+  | 'point-slug'
+  | 'event'
+  // Scope v2 (2026-09-30): the links-menu destinations, the feed's first page, groups, event room.
+  | 'stake'
+  | 'letter'
+  | 'letter-code'
+  | 'feed'
+  | 'groups'
+  | 'event-access'
+  | 'event-self';
 
 /** Entries kept per resource type; the oldest are evicted first. */
 export const OFFLINE_CACHE_CAPS: Record<OfflineResourceType, number> = {
@@ -39,6 +55,13 @@ export const OFFLINE_CACHE_CAPS: Record<OfflineResourceType, number> = {
   point: 150,
   'point-slug': 100,
   event: 50,
+  stake: 30,
+  letter: 30,
+  'letter-code': 30,
+  feed: 10,
+  groups: 5,
+  'event-access': 30,
+  'event-self': 30,
 };
 
 /** Older entries are treated as absent (and removed on the next write of their type). */
@@ -56,7 +79,7 @@ export const NETWORK_DEADLINE_MS = 4_000;
  * failing (no error ever arrives). It then resolves to the needs-connection state; if the answer
  * comes later, that success is a reconnect and the page re-reads.
  */
-export const UNCACHED_DEADLINE_MS = 10_000;
+export const UNCACHED_DEADLINE_MS = 4_500;
 
 export type ReadResult<T> =
   | { source: 'network'; data: T | null }
@@ -228,9 +251,27 @@ export async function offlineCacheOwner(): Promise<string | null> {
 
 let generation = 0;
 
+/** localStorage keys that belong to the offline cache (the offline pack's per-owner stamps). */
+export const OFFLINE_PACK_STAMP_PREFIX = 'clarity-offline-pack:';
+
+function clearPackStamps(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(OFFLINE_PACK_STAMP_PREFIX) && k !== `${OFFLINE_PACK_STAMP_PREFIX}disabled`) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {
+    /* storage unavailable: nothing to clear */
+  }
+}
+
 /** Remove every cached read, for every owner. Called on every sign-out path. */
 export async function clearOfflineReadCache(): Promise<void> {
   generation += 1;
+  // The pack's "already pre-loaded" stamps describe rows that are gone now.
+  clearPackStamps();
   try {
     await store.clear();
   } catch (err) {
@@ -403,4 +444,67 @@ export async function readThrough<T>(
   if (cached) return fromCache(cached); // a complete copy beats a partial live one
   if (outcome.ok && outcome.data != null) return { source: 'network', data: outcome.data };
   return offline();
+}
+
+/**
+ * The offline pack's write path (Scope v2): fetch `type:id` now and store it under exactly the key
+ * a page's readThrough would use, so a pre-loaded page opens offline. Never answers from the
+ * cache, never marks the app unreachable (a failed pre-load is not "offline" — nobody is looking
+ * at it), never retries. Stores only a complete, clean answer: nothing failed during the fetch,
+ * the data is not null, and no sign-out happened meanwhile. Bounded by `timeoutMs`.
+ */
+export async function prefetchThrough<T>(
+  type: OfflineResourceType,
+  id: string,
+  fetcher: () => Promise<T | null>,
+  timeoutMs = 15_000,
+): Promise<{ stored: boolean; data: T | null }> {
+  const skipped = { stored: false, data: null };
+  const gen = generation;
+  const mark = networkMark();
+  const owner = await offlineCacheOwner();
+  if (owner === null) return skipped;
+  const key = `${owner}|${type}|${id}`;
+  const outcome = await within<Outcome<T> | 'deadline'>(
+    fetcher().then(
+      (data) => ({ ok: true as const, data }),
+      (error) => ({ ok: false as const, error }),
+    ),
+    timeoutMs,
+    'deadline',
+  );
+  if (outcome === 'deadline' || !outcome.ok || outcome.data == null || networkFailedSince(mark)) return skipped;
+  // The owner may have changed while the fetch ran (sign-in/out): never file rows under another key.
+  if ((await offlineCacheOwner()) !== owner) return skipped;
+  await write(key, type, outcome.data, gen);
+  return { stored: gen === generation, data: outcome.data };
+}
+
+/**
+ * The cached copy of `type:id` for the current owner, without touching the network. For a page
+ * whose own load path cannot be wrapped in one readThrough (the letter page's auth branches) and
+ * that must still never spin: after its own deadline it shows this, or needs-connection.
+ */
+export async function peekOfflineCache<T>(type: OfflineResourceType, id: string): Promise<{ data: T; storedAt: number } | null> {
+  try {
+    const owner = await offlineCacheOwner();
+    if (owner === null) return null;
+    const e = await within(store.get(`${owner}|${type}|${id}`), CACHE_LOOKUP_TIMEOUT_MS, undefined);
+    return isFresh(e) ? { data: e.data as T, storedAt: e.storedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Store data a page already loaded live, under the current owner — for a page whose load path
+ * has several branches (the letter page) and whose live answer arrived through one that is not a
+ * single readThrough. The same rules as a readThrough write: current owner's partition, fenced
+ * by the sign-out generation, capped.
+ */
+export async function rememberOffline(type: OfflineResourceType, id: string, data: unknown): Promise<void> {
+  const gen = generation;
+  const owner = await offlineCacheOwner();
+  if (owner === null || data == null) return;
+  await write(`${owner}|${type}|${id}`, type, data, gen);
 }

@@ -40,10 +40,10 @@ describe('a success counts as a reconnect only if it was sent after the failure'
     const { calls, fetch } = controlledFetch();
     const failing = fetch('https://x/rest/v1/points').catch(() => undefined);
     const sibling = fetch('https://x/rest/v1/point_positions');
-    calls[0].reject();
+    calls[0]!.reject();
     await failing;
     expect(isSupabaseUnreachable()).toBe(true);
-    calls[1].resolve();
+    calls[1]!.resolve();
     await sibling;
     expect(isSupabaseUnreachable()).toBe(true);
   });
@@ -51,10 +51,10 @@ describe('a success counts as a reconnect only if it was sent after the failure'
   it('control: a request sent after the failure succeeds: reachable again', async () => {
     const { calls, fetch } = controlledFetch();
     const failing = fetch('https://x/rest/v1/points').catch(() => undefined);
-    calls[0].reject();
+    calls[0]!.reject();
     await failing;
     const later = fetch('https://x/auth/v1/health');
-    calls[1].resolve();
+    calls[1]!.resolve();
     await later;
     expect(isSupabaseUnreachable()).toBe(false);
   });

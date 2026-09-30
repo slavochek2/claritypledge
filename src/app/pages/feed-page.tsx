@@ -12,7 +12,10 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ArrowUpDown } from 'lucide-react';
 import { storiesService } from '@/app/data/stories-service';
-import { pointsService } from '@/app/data/points-service';
+import { feedRead } from '@/app/data/offline-reads';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useOfflineReadState } from '@/app/hooks/use-offline-read-state';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { useAuth } from '@/auth';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
@@ -34,7 +37,6 @@ import {
 
 type FeedTab = 'points' | 'stories';
 
-const FEED_LIMIT = 50;
 
 /**
  * P1364 §5 — what the feed last rendered, kept for a POP return: the lists AND the link maps,
@@ -130,6 +132,10 @@ export function FeedPage() {
   const [pointStoriesState, setPointStoriesState] = useState<LinkedContentState<StoryWithAuthor> | undefined>(() => restored?.pointStoriesState);
   const [loading, setLoading] = useState(() => !restored);
   const [error, setError] = useState<string | null>(null);
+  // P1369 Scope v2: the first page reads through the offline cache (strip + cached copy, or
+  // needs-connection — never an endless skeleton).
+  const offlineRead = useOfflineReadState();
+  const { apply: applyRead, reconnectKey } = offlineRead;
 
   // What the list's data was fetched FOR (viewer, sort, tags). The cache is written only when the
   // data on screen answers the current URL — never old rows under a new tag's key mid-fetch.
@@ -146,7 +152,7 @@ export function FeedPage() {
   const pushKey = lastPushKeyRef.current;
   // What the current rows were restored for: the fetch effect skips it (no background refresh
   // on POP). A ref, not a one-shot flag, so StrictMode's double effect skips both runs.
-  const hydratedForRef = useRef<string | null>(restored ? `${fetchKey}|${pushKey}` : null);
+  const hydratedForRef = useRef<string | null>(restored ? `${fetchKey}|${pushKey}|0` : null);
   // Link maps that came from the cache — the link effect must not refetch them either.
   const hydratedLinksRef = useRef<Set<string>>(hydratedLinkKeys(restored));
 
@@ -186,45 +192,25 @@ export function FeedPage() {
     try {
       const tagFilter = activeTags.length === 1 ? activeTags[0] : undefined;
 
-      // BR-8: tag cloud stays computed from ALL public content. When no tag filter
-      // is active the list fetch below already is the unfiltered set -- reuse it
-      // instead of a redundant extra round-trip. When a tag IS active, the two
-      // extra cloud calls fire concurrently with the list calls (single Promise.all)
-      // rather than after them -- sequential awaits would double the round-trip
-      // latency of every filtered page load.
-      if (tagFilter) {
-        const [storiesData, pointsData, allStories, allPoints] = await Promise.all([
-          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, tagFilter, ascending),
-          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, tagFilter, viewerUserId, ascending),
-          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
-          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
-        ]);
-        if (isStale()) return;
-        setStories(storiesData);
-        setPoints(pointsData);
-        setCloudStories(allStories);
-        setCloudPoints(allPoints);
-        dataGenerationRef.current = requestGeneration;
-        setDataFetchKey(requestFetchKey);
-      } else {
-        const [storiesData, pointsData] = await Promise.all([
-          storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
-          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
-        ]);
-        if (isStale()) return;
-        setStories(storiesData);
-        setPoints(pointsData);
-        setCloudStories(storiesData);
-        setCloudPoints(pointsData);
-        dataGenerationRef.current = requestGeneration;
-        setDataFetchKey(requestFetchKey);
-      }
+      // BR-8: tag cloud stays computed from ALL public content — with a tag filter active, the
+      // read (offline-reads.ts feedRead) fetches the unfiltered set alongside, concurrently.
+      const r = feedRead(viewerUserId, ascending, tagFilter);
+      const read = await readThrough(r.type, r.id, r.fetch);
+      if (isStale()) return;
+      const rows = applyRead(read);
+      if (!rows) return; // offline, nothing stored: the needs-connection body
+      setStories(rows.stories);
+      setPoints(rows.points);
+      setCloudStories(rows.cloudStories);
+      setCloudPoints(rows.cloudPoints);
+      dataGenerationRef.current = requestGeneration;
+      setDataFetchKey(requestFetchKey);
     } catch {
       if (!isStale()) setError('Could not load feed. Please try again.');
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [viewerUserId, ascending, activeTags, fetchKey]);
+  }, [viewerUserId, ascending, activeTags, fetchKey, applyRead]);
 
   // P1212 §5 — point<->story links for the expanders, in ONE query per tab.
   //
@@ -280,7 +266,7 @@ export function FeedPage() {
   cacheKeyRef.current = cacheKey;
 
   useEffect(() => {
-    const trigger = `${fetchKey}|${pushKey}`;
+    const trigger = `${fetchKey}|${pushKey}|${reconnectKey}`;
     // Rows restored for exactly this trigger: no background refresh (P1364 §5).
     if (hydratedForRef.current === trigger) return;
     hydratedForRef.current = null;
@@ -305,17 +291,18 @@ export function FeedPage() {
       }
     }
     fetchData();
-  }, [fetchData, fetchKey, pushKey]);
+  }, [fetchData, fetchKey, pushKey, reconnectKey]);
 
   // P1364 §5 — keep the cache equal to what is on screen, under the current URL. This is the
   // write-through for tab switches, search, link maps arriving and surgical removals alike.
   useEffect(() => {
     if (loading || error || dataFetchKey !== fetchKey) return;
+    if (offlineRead.cachedAt !== null) return; // an offline copy is not a live Back restore
     if (dataGenerationRef.current !== listReturnCacheGeneration()) return; // pre-write rows
     writeListReturnCache<FeedSnapshot>(cacheKey, 'feed', {
       stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState,
     });
-  }, [cacheKey, fetchKey, dataFetchKey, loading, error, stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState]);
+  }, [cacheKey, fetchKey, dataFetchKey, loading, error, stories, points, cloudStories, cloudPoints, storyPointsState, pointStoriesState, offlineRead.cachedAt]);
 
   // P543: Surgical callback — avoid full refetch on position removal
   // P1075: also applied to cloudPoints -- a point dropping to zero positions must
@@ -620,6 +607,8 @@ export function FeedPage() {
         <div role="tabpanel" aria-live="polite">
           {loading ? (
             <FeedSkeleton />
+          ) : offlineRead.offlineMiss ? (
+            <NeedsConnection title="The feed needs a connection" onRetry={() => void fetchData()} />
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">{error}</p>

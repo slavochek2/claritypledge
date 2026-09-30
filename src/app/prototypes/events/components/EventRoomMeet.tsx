@@ -93,6 +93,7 @@ import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster } f
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
@@ -212,7 +213,7 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
 }
 
 export function EventRoomMeet() {
-  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
+  const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -365,6 +366,7 @@ export function EventRoomMeet() {
   useEffect(() => { setWriteFailed(false); }, [stepKey]);
 
   if (loading || (granted && selfLoading)) return null;
+  if (accessOffline) return <NeedsConnection title="The event room needs a connection" />;
   if (!granted) {
     return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
   }

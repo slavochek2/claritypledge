@@ -22,7 +22,10 @@ import { ArrowRightIcon, CalendarDaysIcon, UsersIcon } from "lucide-react";
 import { SEO } from "@/app/components/seo";
 import { ClarityLoader } from "@/components/ui/clarity-loader";
 import { OrgParticipantRow } from "@/app/components/organizations/org-participant-row";
-import { organizationsService } from "@/app/data/organizations-service";
+import { groupsRead } from "@/app/data/offline-reads";
+import { readThrough } from "@/lib/offline-read-cache";
+import { useOfflineReadState } from "@/app/hooks/use-offline-read-state";
+import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { DETAILS_BUTTON_CLASS } from "@/app/components/shared/card-action-classes";
 import type {
   Organization,
@@ -42,31 +45,27 @@ export function OrgDirectoryPage() {
   const [myOrgIds, setMyOrgIds] = useState<Set<string>>(new Set());
   const [eventSummaries, setEventSummaries] = useState<Record<string, OrgEventSummary>>({});
 
+  // P1369 Scope v2: read through the offline cache — the directory as last seen, with the strip,
+  // or needs-connection; never an endless loader. The cache partition is the viewer's own.
+  const offlineRead = useOfflineReadState();
+  const { apply: applyRead, reconnectKey } = offlineRead;
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const list = await organizationsService.listPublicOrganizations();
+        const r = groupsRead();
+        const read = await readThrough(r.type, r.id, r.fetch);
         if (cancelled) return;
-        setOrgs(list);
-
-        const ids = list.map((o) => o.id);
-        // Counts and memberships are NOT awaited together with the list on purpose:
-        // a card with a name and a link is already useful, and a failed count must
-        // never take the directory down with it. Each degrades to absent — which is
-        // also the honest rendering (no row, no "0").
-        const [counts, part, mine, summaries] = await Promise.all([
-          organizationsService.getMemberCounts(ids).catch(() => null),
-          organizationsService.getParticipation(ids).catch(() => ({})),
-          organizationsService.getMyMembershipOrgIds().catch(() => [] as string[]),
-          organizationsService.getEventSummaries(ids).catch(() => ({})),
-        ]);
-        if (cancelled) return;
-        setMemberCounts(counts);
-        setParticipation(part);
-        setMyOrgIds(new Set(mine));
-        setEventSummaries(summaries);
+        const dir = applyRead(read);
+        if (!dir) return;
+        setLoadError(false);
+        setOrgs(dir.orgs);
+        setMemberCounts(dir.memberCounts);
+        setParticipation(dir.participation);
+        setMyOrgIds(new Set(dir.myOrgIds));
+        setEventSummaries(dir.eventSummaries);
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to load organizations", err);
@@ -79,7 +78,11 @@ export function OrgDirectoryPage() {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [reconnectKey, applyRead]);
+
+  if (!loading && offlineRead.offlineMiss) {
+    return <NeedsConnection title="This page needs a connection" />;
+  }
 
   if (loading) {
     return (

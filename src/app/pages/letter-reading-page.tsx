@@ -49,6 +49,18 @@ import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay'
 import { analytics } from '@/lib/mixpanel';
 import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
+import { publicLetterRead, type PublicLetter } from '@/app/data/offline-reads-letters';
+import { peekOfflineCache, readThrough, rememberOffline } from '@/lib/offline-read-cache';
+import { networkFailedSince, networkMark, recordNetworkTrouble } from '@/lib/network-outcome';
+import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
+
+/**
+ * P1369 Scope v2 ("nothing ever spins forever"): if the letter has not loaded after this long —
+ * the network hangs, or auth is stuck refreshing a token offline — the page shows the copy it
+ * last showed (with the strip) or the needs-connection body.
+ */
+const LETTER_OFFLINE_DEADLINE_MS = 5_000;
 
 // ============================================================================
 // TYPES
@@ -93,6 +105,16 @@ export function LetterReadingPage() {
   const pageStateRef = useRef<PageState>('loading');
   useEffect(() => { pageStateRef.current = pageState; }, [pageState]);
 
+  // P1369 Scope v2: offline reading. A one-to-many letter that was shown here before is kept in
+  // the offline read cache (partitioned by auth context); offline it reopens read-only from there.
+  const [offlineCachedAt, setOfflineCachedAt] = useState<number | null>(null);
+  const [offlineMiss, setOfflineMiss] = useState(false);
+  const offlineCachedAtRef = useRef<number | null>(null);
+  useEffect(() => { offlineCachedAtRef.current = offlineCachedAt; }, [offlineCachedAt]);
+  useOfflinePageReport(offlineCachedAt === null ? null : { kind: 'cached', storedAt: offlineCachedAt });
+  const { reconnectTick } = useConnectivity();
+  const offlineReconnectKey = offlineCachedAt !== null || offlineMiss ? reconnectTick : 0;
+
   const [letter, setLetter] = useState<ClarityLetter | null>(null);
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
   const [delivery, setDelivery] = useState<LetterDelivery | null>(null);
@@ -121,6 +143,35 @@ export function LetterReadingPage() {
   const [consentError, setConsentError] = useState<string | null>(null);
   const [showStaleTerms, setShowStaleTerms] = useState(false);
   const [staleTermsResolved, setStaleTermsResolved] = useState(false);
+
+  /** Show the stored copy of this letter (read-only public reading), or needs-connection. */
+  const showOfflineCopy = useCallback(async (): Promise<void> => {
+    if (!deliveryId) return;
+    recordNetworkTrouble(); // the next successful request is a reconnect → the page re-reads
+    const hit = await peekOfflineCache<PublicLetter>('letter', deliveryId);
+    if (!hit) {
+      setOfflineMiss(true);
+      return;
+    }
+    const letterObj = hit.data.letter;
+    setLetter(letterObj as unknown as ClarityLetter);
+    setSnapshots(hit.data.snapshots);
+    setDelivery(null);
+    setSenderName((letterObj.sender_display_name as string) ?? 'Someone');
+    setPublicPredictions(new Map((hit.data.predictions ?? []).map(p => [p.story_id, p.prediction])));
+    setOfflineMiss(false);
+    setOfflineCachedAt(hit.storedAt);
+    setPageState('ready_public');
+  }, [deliveryId]);
+
+  // Nothing spins forever: after the deadline, a page still loading shows the stored copy.
+  useEffect(() => {
+    if (pageState !== 'loading' || offlineMiss) return;
+    const t = setTimeout(() => {
+      if (pageStateRef.current === 'loading') void showOfflineCopy();
+    }, LETTER_OFFLINE_DEADLINE_MS);
+    return () => clearTimeout(t);
+  }, [pageState, offlineMiss, showOfflineCopy, offlineReconnectKey]);
 
   // P710: PKCE client does not extract implicit-flow hash tokens automatically.
   // If a magic-link CTA brought the user here, the session is in the URL hash.
@@ -161,10 +212,33 @@ export function LetterReadingPage() {
   useEffect(() => {
     if (!sessionChecked || authLoading || !deliveryId || magicLinkProcessing) return;
     if (viewState !== 'cover') return;
-    if (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public' || pageStateRef.current === 'own_letter') return; // already loaded
+    const showingOfflineCopy = offlineCachedAtRef.current !== null;
+    if (!showingOfflineCopy && (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public' || pageStateRef.current === 'own_letter')) return; // already loaded
 
     let cancelled = false;
-    const setSafe = (s: PageState) => { if (!cancelled) setPageState(s); };
+    // P1369: requests this load sends that never reach the server make its failures "offline".
+    const mark = networkMark();
+    const setSafe = (s: PageState) => {
+      if (cancelled) return;
+      if (s === 'loading' && showingOfflineCopy) return; // keep the stored copy up while re-reading
+      setPageState(s);
+      if (s !== 'loading') {
+        // A live answer: whatever it is, it is not the offline copy.
+        setOfflineCachedAt(null);
+        setOfflineMiss(false);
+      }
+    };
+    /** A failure state — unless this load could not reach the server, then the offline copy. */
+    const setFailed = (s: PageState) => {
+      if (cancelled) return;
+      if (networkFailedSince(mark)) void showOfflineCopy();
+      else setSafe(s);
+    };
+    /** The one-to-many public read, through the offline cache. */
+    const readPublic = async () => {
+      const r = publicLetterRead(deliveryId);
+      return readThrough(r.type, r.id, r.fetch);
+    };
     const setLetterSafe = (l: ClarityLetter | null) => { if (!cancelled) setLetter(l); };
     const setSnapshotsSafe = (s: LetterStorySnapshot[]) => { if (!cancelled) setSnapshots(s); };
     const setDeliverySafe = (d: LetterDelivery | null) => { if (!cancelled) setDelivery(d); };
@@ -234,6 +308,11 @@ export function LetterReadingPage() {
                 return;
               }
 
+              // P1369: a one-to-many letter is kept for offline reading (read-only, public form).
+              if ((readData.letter as { mode?: string }).mode === 'one-to-many') {
+                void rememberOffline('letter', deliveryId, { letter: readData.letter, snapshots: readData.snapshots, predictions: [] });
+              }
+
               // P768: rehydrate prior point responses BEFORE flipping to 'ready'
               // so the reading-flow hook mounts with full state on first render.
               if (readData.delivery?.id) {
@@ -251,8 +330,25 @@ export function LetterReadingPage() {
           // P684: Also try public reading for authenticated one-to-many readers
           if (!token) {
             try {
-              const publicData = await getLetterForPublicReading(deliveryId);
+              const read = await readPublic();
               if (cancelled) return;
+              if (read.source === 'offline') {
+                await showOfflineCopy();
+                return;
+              }
+              const publicData = read.data;
+              if (read.source === 'cache' && publicData?.letter) {
+                // P1369: offline — the stored copy, read-only; no delivery row can be created now.
+                const letterObj = publicData.letter;
+                setLetterSafe(letterObj as unknown as ClarityLetter);
+                setSnapshotsSafe(publicData.snapshots);
+                setDeliverySafe(null);
+                setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
+                setPublicPredictionsSafe(publicData.predictions);
+                setSafe('ready_public');
+                if (!cancelled) setOfflineCachedAt(read.storedAt);
+                return;
+              }
               if (publicData?.letter && publicData.letter.mode === 'one-to-many') {
                 const letterObj = publicData.letter;
 
@@ -277,7 +373,7 @@ export function LetterReadingPage() {
                 const deliveryRow = (deliveryRows as unknown[])?.[0] as LetterDelivery | undefined;
                 if (rpcErr || !deliveryRow) {
                   console.error('[letter-reading] create_letter_delivery_on_open failed:', rpcErr);
-                  setSafe('invalid');
+                  setFailed('invalid');
                   return;
                 }
                 setLetterSafe(letterObj as unknown as ClarityLetter);
@@ -299,7 +395,7 @@ export function LetterReadingPage() {
               }
             } catch { /* fall through */ }
             // Authenticated user but letter not accessible — show invalid
-            setSafe('invalid');
+            setFailed('invalid');
             return;
           }
         }
@@ -420,10 +516,15 @@ export function LetterReadingPage() {
           // No currentUser AND no token — try one-to-many public reading
           // deliveryId param doubles as letterId for one-to-many public letters
           try {
-            const publicData = await getLetterForPublicReading(deliveryId);
+            const read = await readPublic();
             if (cancelled) return;
+            if (read.source === 'offline') {
+              await showOfflineCopy();
+              return;
+            }
+            const publicData = read.data;
             if (!publicData || !publicData.letter) {
-              setSafe('unauthenticated');
+              setFailed('unauthenticated');
               return;
             }
             const letterObj = publicData.letter;
@@ -438,12 +539,17 @@ export function LetterReadingPage() {
             setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
             setPublicPredictionsSafe(publicData.predictions);
             setSafe('ready_public');
+            if (read.source === 'cache' && !cancelled) setOfflineCachedAt(read.storedAt);
           } catch {
-            setSafe('unauthenticated');
+            setFailed('unauthenticated');
           }
         }
       } catch (err) {
         if (cancelled) return;
+        if (networkFailedSince(mark)) {
+          await showOfflineCopy();
+          return;
+        }
         console.error('[letter-reading] Load error:', err);
         toast.error('Failed to load letter. Please check your connection and try again.');
         setSafe('invalid');
@@ -452,7 +558,7 @@ export function LetterReadingPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id, magicLinkProcessing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id, magicLinkProcessing, offlineReconnectKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup auth delay timer
   useEffect(() => {
@@ -644,6 +750,8 @@ export function LetterReadingPage() {
   // ---- Error states ----
 
   if (pageState === 'loading') {
+    // P1369: offline and never read here — needs-connection, never an endless spinner.
+    if (offlineMiss) return <NeedsConnection title="This letter needs a connection" />;
     return <ClarityPageLoader />;
   }
 

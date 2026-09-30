@@ -52,6 +52,38 @@ export const NAVIGATION_NETWORK_TIMEOUT_MS = 4000;
  * self-contained (no references to anything outside their own body).
  */
 export const runtimeCaching: RuntimeCachingRule[] = [
+  // Slides (P1369 Scope v2): the static decks under public/presiN/ (vercel.json redirects /presiN
+  // to /presiN/). They are not part of the build — no hashed chunks, no app shell — so caching
+  // them per URL cannot bring back a stale shell (P838), and keeping them OUT of the precache
+  // keeps a large deck from blocking a new worker's install. NetworkFirst: online always
+  // fresh; offline the copy from the last fetch (a visit, or the offline pack's prefetch).
+  // Images in a deck go through the images rule; its fonts are in the precache already.
+  {
+    urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
+      sameOrigin && /^\/presi\d*\/(?:index\.html|[^/]+\.js)?$/.test(url.pathname),
+    handler: 'NetworkFirst',
+    options: {
+      cacheName: 'static-decks',
+      networkTimeoutSeconds: 4,
+      cacheableResponse: { statuses: [200] },
+      expiration: { maxEntries: 20, maxAgeSeconds: 30 * 24 * 60 * 60 },
+    },
+  },
+  // The bare /presiN link (the links menu's "Slides"): online the network answers with Vercel's
+  // redirect; offline the redirect is recreated here so the deck's relative paths still resolve.
+  {
+    urlPattern: ({ url, sameOrigin, request }: { url: URL; sameOrigin: boolean; request: Request }) =>
+      sameOrigin && request.mode === 'navigate' && /^\/presi\d*$/.test(url.pathname),
+    handler: 'NetworkOnly',
+    options: {
+      plugins: [
+        {
+          handlerDidError: async ({ request }: { request: Request }) =>
+            Response.redirect(new URL(`${new URL(request.url).pathname}/`, request.url).href, 302),
+        },
+      ],
+    },
+  },
   // Navigations: network, else the precached shell of THIS worker's build (invariants 1–3).
   // workbox-build allows networkTimeoutSeconds only on NetworkFirst, and NetworkFirst would store
   // shells per URL — so the timeout is a plugin that gives the network request an abort signal.

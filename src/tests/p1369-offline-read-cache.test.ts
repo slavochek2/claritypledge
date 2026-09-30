@@ -121,7 +121,7 @@ describe('deadline (offline auth refresh can block a read ~25 s)', () => {
   });
 
   it('a slow read with no copy and no failure keeps waiting for the network', async () => {
-    const r = await readThrough('story', 's1', () => new Promise((res) => setTimeout(() => res({ v: 1 }), 80)), { deadlineMs: 20 });
+    const r = await readThrough('story', 's1', () => new Promise<{ v: number }>((res) => setTimeout(() => res({ v: 1 }), 80)), { deadlineMs: 20 });
     expect(r).toEqual({ source: 'network', data: { v: 1 } });
   });
 });
@@ -167,7 +167,7 @@ describe('cleared on sign-out', () => {
   it('a read in flight during sign-out never writes its rows back', async () => {
     signInAs('user-a');
     let release!: (v: { x: number }) => void;
-    const pending = readThrough('point', 'p1', () => new Promise((res) => { release = res; }), { deadlineMs: 10_000 });
+    const pending = readThrough('point', 'p1', () => new Promise<{ x: number }>((res) => { release = res; }), { deadlineMs: 10_000 });
     await clearOfflineReadCache();
     release({ x: 1 });
     await pending;

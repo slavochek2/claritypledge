@@ -46,13 +46,13 @@ const POLE_LABELS = { low: 'Stay on the surface', high: 'Go deep' };
 const DISTRIBUTION_LABEL = 'How up for thinking others in this room are right now';
 
 export function EventRoomReady() {
-  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
+  const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const navigate = useNavigate();
   const { user } = useAuth();
   const capture = useRoomCapture();
-  // P1369 (founder, 2026-09-30): the event-room check-in is live presence, so offline it shows the
-  // needs-connection body. The standalone /ready works offline.
+  // P1369 (founder, 2026-09-30): the event-room check-in is live presence — offline it shows the
+  // last-seen state with the strip, or needs-connection when nothing was stored.
   const { offline } = useConnectivity();
 
   // P1307 D12: the switch starts OFF — tapping it on is the consent (a pre-ticked switch
@@ -136,8 +136,11 @@ export function EventRoomReady() {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, transcriptionFailed } });
   }, [starting, self, value, refresh, transcribeOn, event, beingTranscribed, capture, user, navigate, slug]);
 
-  if (offline) return <NeedsConnection title="Check-in needs a connection" />;
   if (loading || (granted && selfLoading)) return null;
+  if (accessOffline) return <NeedsConnection title="The event room needs a connection" />;
+  // P1369 Scope v2: the check-in shows its last-seen state with the strip; needs-connection only
+  // when nothing was stored.
+  if (offline && !self) return <NeedsConnection title="Check-in needs a connection" />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   const isFrozen = event

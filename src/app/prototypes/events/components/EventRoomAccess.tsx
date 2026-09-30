@@ -19,6 +19,8 @@ import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { getMyRoomStatus, joinEventRoom } from '@/app/data/event-room-service';
 import type { EventRoomSelf, EventWithHost } from '@/app/types';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 
 export interface EventRoomAccess {
   slug: string | undefined;
@@ -31,16 +33,28 @@ export interface EventRoomAccess {
   /** true once the event has loaded, the caller is signed in, AND (registered —
    * event_rsvps holds a row for them — OR is the event's host). */
   granted: boolean;
+  /** P1369 Scope v2: the access check could not reach the server and nothing is stored — the
+   * room shows needs-connection, never the register wall (which would be a false statement). */
+  offline: boolean;
 }
 
 export function useEventRoomAccess(): EventRoomAccess {
   const { slug } = useParams<{ slug: string }>();
   const { user, session } = useAuth();
   const isLoggedIn = !!session;
+  // The signed-in id comes from the session, not the profile: offline the profile read fails and
+  // `user` stays null, while the session (and so the viewer's cached access) is still there.
+  const viewerId = session?.user?.id ?? user?.id ?? null;
 
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRegistered, setIsRegistered] = useState(false);
+  // P1369 Scope v2: the last-seen access (event + registration) is kept offline, per viewer.
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [offline, setOffline] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const { reconnectTick } = useConnectivity();
+  const reconnectKey = cachedAt !== null || offline ? reconnectTick : 0;
 
   useEffect(() => {
     if (!slug) {
@@ -50,30 +64,40 @@ export function useEventRoomAccess(): EventRoomAccess {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const found = await eventsService.getEventBySlug(slug);
-      if (cancelled) return;
-      setEvent(found);
-
-      let registered = false;
-      if (found && isLoggedIn && user) {
-        try {
-          registered = await eventsService.isUserRsvpd(found.id, user.id);
-        } catch {
-          // Registration check failed — degrade to not-registered (gate shows),
-          // same pattern EventDetail.tsx already uses for this same call.
-          registered = false;
+      const userId = isLoggedIn ? viewerId : null;
+      const read = await readThrough('event-access', `${slug}:${userId ?? '-'}`, async () => {
+        const found = await eventsService.getEventBySlug(slug);
+        if (!found) return null;
+        let registered = false;
+        if (userId) {
+          try {
+            registered = await eventsService.isUserRsvpd(found.id, userId);
+          } catch {
+            // Registration check failed — degrade to not-registered (gate shows),
+            // same pattern EventDetail.tsx already uses for this same call.
+            registered = false;
+          }
         }
-      }
-      if (!cancelled) {
-        setIsRegistered(registered);
+        return { event: found, registered };
+      });
+      if (cancelled) return;
+      if (read.source === 'offline') {
+        setOffline(true);
+        setCachedAt(null);
         setLoading(false);
+        return;
       }
+      setOffline(false);
+      setCachedAt(read.source === 'cache' ? read.storedAt : null);
+      setEvent(read.data?.event ?? null);
+      setIsRegistered(read.data?.registered ?? false);
+      setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [slug, isLoggedIn, user?.id]);
+  }, [slug, isLoggedIn, viewerId, reconnectKey]);
 
-  const isHost = !!(event && user && event.hostId === user.id);
-  return { slug, event, loading, isLoggedIn, granted: isLoggedIn && (isRegistered || isHost) };
+  const isHost = !!(event && viewerId && event.hostId === viewerId);
+  return { slug, event, loading, isLoggedIn, granted: isLoggedIn && (isRegistered || isHost), offline };
 }
 
 export interface EventRoomSelfState {
@@ -104,7 +128,8 @@ export interface EventRoomSelfState {
  * visitor who set readiness, left, and came back to /room was redirected to /ready
  * again instead of /meet, even though readiness_value was correctly persisted. */
 export function useEventRoomSelf(event: EventWithHost | null, granted: boolean): EventRoomSelfState {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const viewerId = session?.user?.id ?? user?.id ?? '-';
   const [self, setSelf] = useState<EventRoomSelf | null>(null);
   const [loading, setLoading] = useState(true);
   // The (event, granted) pair the effect below has actually STARTED processing —
@@ -115,6 +140,9 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   // false->true transition, which is the render this hook's `loading` return value
   // must not lie on.
   const startedKeyRef = useRef<string | null>(null);
+  // P1369: storedAt of a last-seen row on screen (null = live), reported to the strip.
+  const [selfCachedAt, setSelfCachedAt] = useState<number | null>(null);
+  useOfflinePageReport(selfCachedAt === null ? null : { kind: 'cached', storedAt: selfCachedAt });
 
   /**
    * Ordering of `self` (2026-09-18 adversarial review, three rounds). The room page refreshes
@@ -149,7 +177,16 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   const load = useCallback(async (): Promise<boolean> => {
     if (!event || !granted) return false;
     const ticket = ++issuedRef.current;
-    const status = await getMyRoomStatus(event.id);
+    // P1369 Scope v2: the last-seen row is kept offline; offline, no join is attempted.
+    const read = await readThrough('event-self', `${event.id}:${viewerId}`, () => getMyRoomStatus(event.id));
+    if (read.source === 'offline') return false;
+    if (read.source === 'cache') {
+      offer(ticket, read.data);
+      setSelfCachedAt(read.storedAt);
+      return false; // not reconciled with the server
+    }
+    setSelfCachedAt(null);
+    const status = read.data;
     if (status) {
       offer(ticket, status);
       return true;
@@ -164,7 +201,7 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       // Room closed/full, or unreachable — leave self as it is; callers degrade.
       return false;
     }
-  }, [event, granted, user?.name, offer]);
+  }, [event, granted, user?.name, viewerId, offer]);
 
   const currentKey = granted && event ? event.id : null;
 

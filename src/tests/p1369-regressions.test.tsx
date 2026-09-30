@@ -233,7 +233,7 @@ describe('defect 6: offline transcription bar keeps a local "Stop microphone"', 
     expect(screen.getByText('Words said while offline may not be saved.')).toBeTruthy();
     const buttons = screen.getAllByRole('button');
     expect(buttons.map((b) => b.textContent)).toEqual(['Stop microphone']);
-    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[0]!);
     expect(endMyCapture).toHaveBeenCalledWith('r1');
     // The End RPC is still in flight (offline): the button says so instead of inviting a second tap.
     expect(screen.getByRole('button').textContent).toBe('Stopping…');
