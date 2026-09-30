@@ -48,11 +48,11 @@ One question governs both hints: **has this reader ever picked Somewhat or Stron
 2. Not learned and tutorial seen → the tip line shows after an Agree or Disagree selection.
 3. Learned → neither shows. The "?" replay stays available after any selection.
 
-"Learned" is set the moment a reader's own selection in an engage phase is a `somewhat_*` or `strongly_*` position. The tutorial demo's buttons cannot set it: its `onPositionClick` is a no-op.
+"Learned" is set the moment a reader picks **any row from the level menu** (the default level included: opening the menu and choosing proves they found the gesture), on any page, or when a `somewhat_*`/`strongly_*` position arrives in a letter. The tutorial demo's buttons cannot set it: its `onPositionClick` is a no-op.
 
 The modal title uses the same sentence as the tip: *"Tap again if you disagree only Somewhat, or Strongly"*.
 
-**Every other page:** the shared `PositionButtons` shows the same one-line hint under the buttons, only on the instance just tapped, right after a plain Agree/Disagree pick. It also shows in icon-only mode on phones. It disappears when the menu opens. A reader's own Somewhat/Strongly pick on any page sets the same site-wide flag (`intensity_learned_at_v1`), and it is never set from the controlled tutorial demo. Letter engage phases pass `intensityHint={false}`, because they keep their own tip row with the "?" replay. The hint line is left-aligned with the card's other helper lines and starts with a "?" that plays the tutorial pop-up. The pop-up does not auto-open on first contact outside letters, because on /stake people are browsing. Instead it opens **once** after 5 plain Agree/Disagree picks (counted across letters and every other page) with no level ever chosen. It never opens if the pop-up was already seen anywhere, since there is one seen flag for both triggers (founder, 2026-09-30).
+**Every other page:** the shared `PositionButtons` shows the same one-line hint under the buttons, only on the instance just tapped, right after a plain Agree/Disagree pick. It also shows in icon-only mode on phones. It disappears when the menu opens. A reader's own Somewhat/Strongly pick on any page sets the same site-wide flag (`intensity_learned_at_v1`), and it is never set from the controlled tutorial demo. Letter engage phases pass `intensityHint={false}`, because they keep their own tip row with the "?" replay. The hint line is left-aligned with the card's other helper lines and starts with a "?" that plays the tutorial pop-up. The pop-up does not auto-open on first contact outside letters, because on /stake people are browsing. Instead it opens **once** after 5 plain Agree/Disagree picks (counted across letters and every other page) with no level ever chosen. It never opens if the pop-up was already seen anywhere, since there is one seen flag for both triggers (founder, 2026-09-30). Outside letters the pop-up has a close X and honours ESC or an outside click, because it interrupts browsing. Letters keep the forced form. Only one hint shows on a page at a time, and a pick anywhere hides every hint at once. Analytics: `intensity_tutorial_shown`/`_dismissed` carry a `trigger` (`letter-first-run`, `letter-replay`, `hint-help`, `plain-picks`), and `intensity_level_picked_first` fires on a reader's first menu pick. The story composer opts out of the hint (`intensityHint={false}`).
 
 ## Risks / Non-Goals
 
@@ -63,7 +63,7 @@ The modal title uses the same sentence as the tip: *"Tap again if you disagree o
 
 **Non-Goals**
 - Do NOT auto-open the tutorial pop-up on first contact outside letters. Its only triggers there are the hint's "?" and the one-time 5-plain-picks rule.
-- Do NOT add counters, schedules or re-show logic (P1371 Phase 3).
+- Do NOT add re-show schedules beyond the one plain-picks counter (P1371 Phase 3).
 - Do NOT change `counts={ZERO_COUNTS}` on engage-phase calls.
 
 ## Invariants

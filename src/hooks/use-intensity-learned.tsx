@@ -8,7 +8,7 @@
  * `use-intensity-preview-seen.tsx` (same storage pattern). Set only from a reader's own
  * pick — never from the tutorial demo (controlled PositionButtons, no-op click handler).
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { PositionType } from '@/app/types';
 
 const LEARNED_KEY = 'intensity_learned_at_v1';
@@ -33,12 +33,21 @@ export function isIntensityLevel(position: PositionType | null): boolean {
   return !!position && (position.startsWith('somewhat_') || position.startsWith('strongly_'));
 }
 
+/** Fired on `window` when the learned flag is set, so every mounted hint and hook stops at
+ *  once (not only the component that saw the pick). */
+export const INTENSITY_LEARNED_EVENT = 'cp:intensity-learned';
+
+/** Fired on `window` with the id of the PositionButtons instance now showing its hint, so
+ *  every other instance hides — one hint on the page at a time. */
+export const INTENSITY_HINT_SHOWN_EVENT = 'cp:intensity-hint-shown';
+
 export function writeIntensityLearned(): void {
   try {
     localStorage.setItem(LEARNED_KEY, String(Date.now()));
   } catch {
-    // Storage write failed — callers still stop hinting in memory for this session.
+    // Storage write failed — the event below still stops hinting for this session.
   }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(INTENSITY_LEARNED_EVENT));
 }
 
 /** Count one plain (default-level) Agree/Disagree pick; returns the new total. */
@@ -58,6 +67,13 @@ export function useIntensityLearned() {
   const markLearned = useCallback(() => {
     writeIntensityLearned();
     setIsLearned(true);
+  }, []);
+
+  // A pick in any other component on the page (e.g. the shared buttons' menu) counts too.
+  useEffect(() => {
+    const onLearned = () => setIsLearned(true);
+    window.addEventListener(INTENSITY_LEARNED_EVENT, onLearned);
+    return () => window.removeEventListener(INTENSITY_LEARNED_EVENT, onLearned);
   }, []);
 
   return { isLearned, markLearned } as const;

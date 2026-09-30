@@ -5,7 +5,8 @@
  * Agree/Disagree pick (none after Unsure). Learned → no tip text, no auto-open; "?" replay
  * still works.
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { writeIntensityLearned } from '@/hooks/use-intensity-learned';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
@@ -152,6 +153,15 @@ describe.each(['point-engage', 'remaining-point-engage'] as const)('P1374 (%s): 
     fireEvent.click(screen.getByTestId('cp-pick-somewhat'));
     expect(row).not.toHaveTextContent(/Tap again/);
     expect(localStorage.getItem(LEARNED_KEY)).not.toBeNull();
+  });
+
+  it('learning elsewhere on the page (shared buttons) hides the letter tip at once', () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    const row = renderEngage(phase);
+    fireEvent.click(screen.getByTestId('cp-pick-agree'));
+    expect(row).toHaveTextContent(/Tap again/);
+    act(() => writeIntensityLearned());
+    expect(row).not.toHaveTextContent(/Tap again/);
   });
 
   it('a plain Agree pick does not set the learned flag', () => {

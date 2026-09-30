@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, useId, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
@@ -8,7 +8,10 @@ import {
   writeIntensityLearned,
   bumpIntensityPlainPicks,
   PLAIN_PICKS_BEFORE_TUTORIAL,
+  INTENSITY_LEARNED_EVENT,
+  INTENSITY_HINT_SHOWN_EVENT,
 } from '@/hooks/use-intensity-learned';
+import { analytics } from '@/lib/mixpanel';
 import { readIntensityPreviewSeen, writeIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
 
 // Lazy: the tutorial's demo renders PositionButtons itself, so a static import would be a
@@ -318,11 +321,27 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   const [hintGroup, setHintGroup] = useState<PositionButtonGroup | null>(null);
   // P1374: the tutorial pop-up, opened from the hint's "?" or once after
   // PLAIN_PICKS_BEFORE_TUTORIAL plain picks with no level ever chosen.
-  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState<null | 'hint-help' | 'plain-picks'>(null);
   const closeTutorial = useCallback(() => {
     writeIntensityPreviewSeen();
-    setTutorialOpen(false);
+    setTutorialOpen(null);
   }, []);
+
+  // One hint on the page at a time, and none once the reader has learned — whichever
+  // instance saw the pick.
+  const instanceId = useId();
+  useEffect(() => {
+    const onShown = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== instanceId) setHintGroup(null);
+    };
+    const onLearned = () => setHintGroup(null);
+    window.addEventListener(INTENSITY_HINT_SHOWN_EVENT, onShown);
+    window.addEventListener(INTENSITY_LEARNED_EVENT, onLearned);
+    return () => {
+      window.removeEventListener(INTENSITY_HINT_SHOWN_EVENT, onShown);
+      window.removeEventListener(INTENSITY_LEARNED_EVENT, onLearned);
+    };
+  }, [instanceId]);
 
   // Drop the hint if the position moves away underneath it (cleared, reverted by a guard).
   useEffect(() => {
@@ -344,8 +363,11 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       const hasLevels = config.positions.length > 1;
       const teach = intensityHint && !isControlled && hasLevels && !readIntensityLearned();
       setHintGroup(teach ? group : null);
-      if (teach && bumpIntensityPlainPicks() >= PLAIN_PICKS_BEFORE_TUTORIAL && !readIntensityPreviewSeen()) {
-        setTutorialOpen(true);
+      if (teach) {
+        window.dispatchEvent(new CustomEvent(INTENSITY_HINT_SHOWN_EVENT, { detail: instanceId }));
+        if (!readIntensityPreviewSeen() && bumpIntensityPlainPicks() >= PLAIN_PICKS_BEFORE_TUTORIAL) {
+          setTutorialOpen('plain-picks');
+        }
       }
       return;
     }
@@ -359,7 +381,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
 
     // P852 Round-F: position is set by the [openDropdown] effect above.
     setOpenDropdown(prev => (prev === group ? null : group));
-  }, [userPosition, onPositionClick, onClear, setOpenDropdown, intensityHint, isControlled]);
+  }, [userPosition, onPositionClick, onClear, setOpenDropdown, intensityHint, isControlled, instanceId]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);
@@ -368,8 +390,12 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     if (position !== userPosition) onPositionClick(position);
     setOpenDropdown(null);
     setHintGroup(null);
-    // P1374: a reader's own level pick, on any page, ends every intensity hint.
-    if (intensity !== 'default' && !isControlled) writeIntensityLearned();
+    // P1374: picking any row from the menu — the default included — proves the reader found
+    // the gesture, so every hint on every page stops. Never from the controlled demo.
+    if (!isControlled) {
+      if (!readIntensityLearned()) analytics.track('intensity_level_picked_first', { group, intensity });
+      writeIntensityLearned();
+    }
   }, [userPosition, onPositionClick, setOpenDropdown, isControlled]);
 
   return (
@@ -468,21 +494,21 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
          tapped, which is highlighted — no label needed. Left-aligned to sit with the card's
          other helper lines ("Sign up or log in…"). "?" replays the tutorial, as in letters. */}
       {hintGroup && (
-        <div role="status" className="mt-1 flex items-center gap-1 text-xs text-[#1A1A1A]/60">
+        <div className="mt-1 flex items-center gap-1 text-xs text-[#1A1A1A]/60">
           <button
             type="button"
-            onClick={() => setTutorialOpen(true)}
+            onClick={() => setTutorialOpen('hint-help')}
             className="-ml-2 min-w-8 min-h-8 flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             aria-label="Show the intensity tutorial"
           >
             <HelpCircle className="w-4 h-4" aria-hidden="true" />
           </button>
-          <span>Tap again if you {hintGroup} only Somewhat, or Strongly</span>
+          <span role="status">Tap again if you {hintGroup} only Somewhat, or Strongly</span>
         </div>
       )}
       {tutorialOpen && (
         <Suspense fallback={null}>
-          <IntensityTutorialModal open onProceed={closeTutorial} />
+          <IntensityTutorialModal open dismissible trigger={tutorialOpen} onProceed={closeTutorial} />
         </Suspense>
       )}
 

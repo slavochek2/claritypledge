@@ -236,17 +236,20 @@ export function LetterFlowContent({
   const { isLearned: isIntensityLearned, markLearned: markIntensityLearned } = useIntensityLearned();
 
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
+  const [tutorialTrigger, setTutorialTrigger] = useState<'letter-first-run' | 'letter-replay'>('letter-first-run');
 
   useEffect(() => {
     const isEngagePhaseEntry =
       currentPhase === 'point-engage' || currentPhase === 'remaining-point-engage';
     if (isEngagePhaseEntry && !isIntensityPreviewSeen && !isIntensityLearned) {
+      setTutorialTrigger('letter-first-run');
       setIsTutorialModalOpen(true);
     }
   }, [currentPhase, isIntensityPreviewSeen, isIntensityLearned]);
 
-  /** Engage-phase selection. A Somewhat/Strongly pick is the reader's own proof they
-   * found the gesture (P1374). */
+  /** Engage-phase selection. Counts plain picks toward the shared 5-pick pop-up rule. The
+   * learned flag itself is set by PositionButtons on any menu-row pick (P1374); the
+   * Somewhat/Strongly check here also covers a level arriving by another path. */
   const handleEngagePositionClick = useCallback((position: PositionType) => {
     setSelectedPosition(position);
     if (isIntensityLevel(position)) markIntensityLearned();
@@ -261,6 +264,7 @@ export function LetterFlowContent({
   // Engage-phase "?" affordance reopens the same tutorial modal for users who
   // already dismissed it. Modal state is the same surface — only `open` toggles.
   const handleIntensityReplay = useCallback(() => {
+    setTutorialTrigger('letter-replay');
     setIsTutorialModalOpen(true);
   }, []);
 
@@ -549,6 +553,7 @@ export function LetterFlowContent({
       <IntensityTutorialModal
         open={isTutorialModalOpen}
         onProceed={handleTutorialProceed}
+        trigger={tutorialTrigger}
       />
 
       {/* P848: position:fixed (not sticky) because [data-letter-scroll]

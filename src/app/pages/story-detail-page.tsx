@@ -287,6 +287,7 @@ function AddPointForm({
             counts={EMPTY_COUNTS}
             onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
             compact
+            intensityHint={false}
           />
           <div className="flex items-center gap-2 ml-auto">
             {showCancel && onCancel && (

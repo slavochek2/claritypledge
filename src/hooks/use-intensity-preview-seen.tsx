@@ -23,7 +23,7 @@ export function readIntensityPreviewSeen(): boolean {
 }
 
 /** P1374: the tutorial pop-up is shown at most once per browser, whether it opened in a
- *  letter or from the shared buttons' 10-plain-picks trigger — one flag for both. */
+ *  letter or from the shared buttons' 5-plain-picks trigger — one flag for both. */
 export function writeIntensityPreviewSeen(): void {
   try {
     localStorage.setItem(SEEN_KEY, String(Date.now()));

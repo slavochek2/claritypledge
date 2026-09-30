@@ -5,8 +5,8 @@
  * plain Agree/Disagree pick, until the reader has picked a level anywhere. The site-wide
  * flag is the same one letters read.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/PositionButton';
@@ -37,6 +37,12 @@ const segment = (name: RegExp) => screen.getAllByRole('button').find((b) => name
 const hint = () => screen.queryByText(/Tap again if you/);
 
 describe('P1374: shared intensity hint', () => {
+  // The pop-up is lazy-loaded; preload it so "no pop-up" assertions are not vacuously true
+  // on a cold module (review finding: absence was only proven because an earlier test
+  // happened to load the chunk).
+  beforeAll(async () => {
+    await import('@/app/components/letters/intensity-tutorial-modal');
+  });
   beforeEach(() => localStorage.clear());
 
   it('plain Disagree pick shows the disagree hint; Agree swaps the verb', async () => {
@@ -66,13 +72,50 @@ describe('P1374: shared intensity hint', () => {
     expect(localStorage.getItem(LEARNED_KEY)).not.toBeNull();
   });
 
-  it('picking the default level from the menu does NOT set the learned flag', async () => {
+  it('picking the default level from the menu also counts as learned (they found the gesture)', async () => {
     const user = userEvent.setup();
     render(<Harness />);
     await user.click(segment(/^Disagree/));
     await user.click(segment(/^Disagree/));
     await user.click(screen.getByRole('option', { name: /^Disagree$/ }));
+    expect(localStorage.getItem(LEARNED_KEY)).not.toBeNull();
+  });
+
+  it('two cards: only the card just tapped shows the hint; a level on either stops both', async () => {
+    const user = userEvent.setup();
+    render(<><div data-testid="a"><Harness /></div><div data-testid="b"><Harness /></div></>);
+    const a = within(screen.getByTestId('a'));
+    const b = within(screen.getByTestId('b'));
+    await user.click(a.getAllByRole('button').find((x) => /^Disagree/.test(x.textContent ?? ''))!);
+    expect(a.queryByText(/Tap again if you/)).not.toBeNull();
+    await user.click(b.getAllByRole('button').find((x) => /^Agree/.test(x.textContent ?? ''))!);
+    expect(a.queryByText(/Tap again if you/)).toBeNull();
+    expect(b.queryByText(/Tap again if you/)).not.toBeNull();
+    await user.click(b.getAllByRole('button').find((x) => /^Agree/.test(x.textContent ?? ''))!);
+    await user.click(screen.getByRole('option', { name: /^Strongly Agree$/ }));
+    expect(screen.queryAllByText(/Tap again if you/)).toHaveLength(0);
+    await user.click(a.getAllByRole('button').find((x) => /^Agree/.test(x.textContent ?? ''))!);
+    expect(screen.queryAllByText(/Tap again if you/)).toHaveLength(0);
+  });
+
+  it('the controlled tutorial demo never sets the learned flag or bumps the counter', () => {
+    render(
+      <PositionButtons userPosition="disagree" counts={zero} onPositionClick={() => {}} controlledOpenGroup="disagree" />
+    );
+    fireEvent.click(screen.getByRole('option', { name: /^Somewhat Disagree$/, hidden: true }));
     expect(localStorage.getItem(LEARNED_KEY)).toBeNull();
+    expect(localStorage.getItem('intensity_plain_picks_v1')).toBeNull();
+  });
+
+  it('outside letters the pop-up is dismissible (ESC closes it and marks it seen)', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(segment(/^Disagree/));
+    await user.click(screen.getByRole('button', { name: 'Show the intensity tutorial' }));
+    expect(await screen.findByRole('dialog', {}, { timeout: 5000 })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(localStorage.getItem(SEEN_KEY)).not.toBeNull();
   });
 
   it('already learned (e.g. in a letter): no hint', async () => {

@@ -51,9 +51,15 @@ interface IntensityTutorialModalProps {
   /** Continue clicked — parent closes modal AND marks the one-time gate as seen
    * (idempotent — safe to call on every dismissal including replays). */
   onProceed: () => void;
+  /** P1374: outside letters the pop-up interrupts browsing, so it gets a close X and honours
+   *  ESC / outside click (all of which count as dismissal). Letters keep the forced form. */
+  dismissible?: boolean;
+  /** P1374: what opened it — lets analytics tell the letter first-run, the "?" replays and
+   *  the 5-plain-picks rule apart. */
+  trigger?: 'letter-first-run' | 'letter-replay' | 'hint-help' | 'plain-picks';
 }
 
-export function IntensityTutorialModal({ open, onProceed }: IntensityTutorialModalProps) {
+export function IntensityTutorialModal({ open, onProceed, dismissible = false, trigger }: IntensityTutorialModalProps) {
   // Doubles as the pictogram's React `key` — bumping it forces a clean
   // unmount/remount so the next iteration starts from a fresh state with
   // no leaked timers or transition mid-states.
@@ -83,26 +89,26 @@ export function IntensityTutorialModal({ open, onProceed }: IntensityTutorialMod
   }, []);
 
   const handleProceed = useCallback(() => {
-    analytics.track('intensity_tutorial_dismissed', { loop_count: loopKey });
+    analytics.track('intensity_tutorial_dismissed', { loop_count: loopKey, trigger });
     onProceed();
-  }, [onProceed, loopKey]);
+  }, [onProceed, loopKey, trigger]);
 
   // Open-transition guard: fires once each time the modal goes closed → open.
   // Cannot use a mount-time effect because H3 places the modal always-mounted.
   // Also resets the loop counter so replays start fresh from iteration 0.
   useEffect(() => {
     if (open) {
-      analytics.track('intensity_tutorial_shown', {});
+      analytics.track('intensity_tutorial_shown', { trigger });
       setLoopKey(0);
     }
-  }, [open]);
+  }, [open, trigger]);
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={dismissible ? (next) => { if (!next) handleProceed(); } : undefined}>
       <DialogContent
-        hideCloseButton
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        hideCloseButton={!dismissible}
+        onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
+        onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
         className="max-w-md"
       >
         {/* P852: "Quick tip" as a tab straddling the top edge so it reads as a
