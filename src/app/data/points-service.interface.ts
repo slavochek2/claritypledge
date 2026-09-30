@@ -189,6 +189,8 @@ export interface PointsService {
    * Optionally filters by tag using Supabase .contains() on the tags TEXT[] column.
    * P543 hides zero-position points; `includeUnstaked` keeps them, for /stake/:tag, whose
    * list is a fixed instrument (cmp7 is seven points) rather than a feed of engagement.
+   * P1376: `headsOnly` drops superseded versions (`superseded_by IS NOT NULL`) in the query;
+   * off by default so /feed keeps returning them.
    */
   getPublicPointsFeed(
     limit: number,
@@ -196,7 +198,8 @@ export interface PointsService {
     tag?: string,
     viewerUserId?: string,
     ascending?: boolean,
-    includeUnstaked?: boolean
+    includeUnstaked?: boolean,
+    headsOnly?: boolean
   ): Promise<PointWithUserPosition[]>;
 
   // ============================================================================

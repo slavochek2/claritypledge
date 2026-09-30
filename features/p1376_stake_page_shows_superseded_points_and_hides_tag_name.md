@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 15
 severity: medium
@@ -11,8 +11,15 @@ exec_model: sonnet
 exec_effort: medium
 tags: [stake, points, superseded, ux]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: src/tests/p1376-reproduce.test.tsx
+  root_cause: "getPublicPointsFeed has no superseded_by predicate and the stake page passes no opt-in; the h1 is sr-only"
+  confidence: high
+  surfaces_in_scope: [stake-points-list, stake-tag-heading]
+  surfaces_deferred: []
+  reproduced_at: 2026-09-30
 ---
 
 # P1376: /stake/:tag lists superseded point versions next to their heads and hides the tag name
@@ -72,14 +79,27 @@ Add an opt-in `headsOnly?: boolean` 7th argument to `getPublicPointsFeed` that a
 
 ### Audit of other point-listing surfaces (part of /reproduce; listed for the founder, not fixed here)
 
-See the audit table in the P1376 reproduce report; each row carries evidence.
+| Surface | Leaks superseded? | Intended? | Evidence |
+|---|---|---|---|
+| `/stake/:tag` (`getPublicPointsFeed`) | yes | no, fixed here | prod: 2 of 11 `misunderstanding` points superseded |
+| `/feed` default (`feed-page.tsx` L198-200) | yes, unless `?version=latest` | yes, deliberate all/latest toggle (P602/P630) | `feed-page.tsx` L103, L390; P800 lists feed as "leave alone" |
+| Profile (`getPointsForProfileDisplay`, `profile-page-v2.tsx` L397) | yes | yes, endorser history is kept | P800 spec scoped-visibility rule + AC "Endorser profile shows their position on superseded v1"; prod: 53 positions sit on superseded points |
+| /live content picker (`live-mode-view.tsx` L1236, same method) | yes | UNDECIDED: P800 filtered the picker's story list, not its points list | founder call |
+| `usePointsForDisplay` / `getPointsForFeedDisplay` / `getPointsFeed` | would leak | no live consumer (hook imported only by its own test) | grep src and e2e |
+| `getPointsWithUserPositions`, `getPointsByValidator` | would leak | no live consumer (mocked only in tests) | grep src and e2e |
+| Badge page (`badge-service-real.ts`) | no | collapses to highest version per st-group, `badge-page.tsx` L71-75 | prod: 0 `badge_points` rows on superseded points |
+| Story-linked lists, docs | no | already filter | `stories-service-real.ts` L324/L479/L916, `docs-service.ts` L150 |
+| Sealed letters | frozen | yes | `letter-snapshot-mapper.ts` L180, P843 |
+| Point detail | shows banner | yes | `point-detail-page.tsx` L563 |
+
+Tension for the founder: P800's scoped-visibility rule named search, direct links, endorser history and sealed letters as full-discourse surfaces. /stake postdates it (P1179) and is a stakeable instrument, so heads-only is applied here on the founder's call.
 
 ## Acceptance Criteria
 
-- [ ] `/stake/misunderstanding` on a dataset with a superseded v1 and its v2 head renders only the head
-- [ ] Every stake tag (standard and user tags) lists heads only; the query, not the client, drops superseded rows
-- [ ] `/feed` still lists superseded points unless `?version=latest`
+- [x] `/stake/misunderstanding` on a dataset with a superseded v1 and its v2 head renders only the head
+- [x] Every stake tag (standard and user tags) lists heads only; the query, not the client, drops superseded rows
+- [x] `/feed` still lists superseded points unless `?version=latest`
 - [ ] The tag name is visible as a heading below the Back button, verbatim (`misunderstanding`, `ikigai1`), at 320px, 375px and desktop
-- [ ] FocusHeader still reads "Back"
-- [ ] Regression test `src/tests/p1376-reproduce.test.tsx` passes
+- [x] FocusHeader still reads "Back"
+- [x] Regression test `src/tests/p1376-reproduce.test.tsx` passes
 - [ ] No console errors on `/stake/misunderstanding`

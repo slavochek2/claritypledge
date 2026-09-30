@@ -168,7 +168,7 @@ export function StakePage() {
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
       const [fetchedPoints, fetchedStories] = await Promise.all([
-        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag)),
+        pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag), true),
         storiesService.getPublicStoriesFeed(STAKE_LIMIT, 0, tag, true),
       ]);
       if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
@@ -385,9 +385,12 @@ export function StakePage() {
             nav; this page also had `pt-20`, so the offset was applied TWICE and
             the first card sat ~5rem below where it belonged, at every width
             (founder screenshot 2026-08-31: "why so much whitespace? cut?"). */}
-        <h1 className="sr-only">{tag}</h1>
-
         <FocusHeader fallback={BACK_FALLBACK} />
+
+        {/* P1376 — the tag is the page's name: shown verbatim under Back, not screen-reader
+            only. Same heading weight as /feed's "Home". `break-words`: a user tag has no
+            length cap short of isSafeTag, and must not push past 320px. */}
+        <h1 className="mb-4 text-2xl font-bold text-foreground break-words">{tag}</h1>
 
         {showTabs && (
           <div className="mb-4 flex gap-2" role="tablist" data-testid="stake-tabs">

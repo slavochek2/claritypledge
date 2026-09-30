@@ -754,9 +754,10 @@ export const realPointsService: PointsService = {
     tag?: string,
     viewerUserId?: string,
     ascending?: boolean,
-    includeUnstaked?: boolean
+    includeUnstaked?: boolean,
+    headsOnly?: boolean
   ): Promise<PointWithUserPosition[]> {
-    log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId, includeUnstaked });
+    log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId, includeUnstaked, headsOnly });
 
     let query = supabase
       .from('points')
@@ -771,6 +772,10 @@ export const realPointsService: PointsService = {
         )
       `)
       .eq('visibility', 'public');  // P634: never leak private points into feed
+
+    // P1376: heads only, IN the query. Superseded rows are the oldest, so filtering after
+    // `.range()` would let them fill the window before a head is ever reached.
+    if (headsOnly) query = query.is('superseded_by', null);
 
     if (tag) {
       // P630: Route system tag filters to system_tags column, user tags to tags

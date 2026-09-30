@@ -357,9 +357,10 @@ export const mockPointsService: PointsService = {
     tag?: string,
     viewerUserId?: string,
     ascending?: boolean,
-    _includeUnstaked?: boolean
+    _includeUnstaked?: boolean,
+    headsOnly?: boolean
   ): Promise<PointWithUserPosition[]> {
-    let sorted = [...mockPoints].sort((a, b) => {
+    let sorted = [...mockPoints].filter(p => !headsOnly || !p.supersededBy).sort((a, b) => {
       const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       return ascending ? diff : -diff;
     });
