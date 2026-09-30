@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 15
 severity: medium
@@ -11,7 +11,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [stake, points, superseded, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1376-reproduce.test.tsx
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [stake-points-list, stake-tag-heading]
   surfaces_deferred: []
   reproduced_at: 2026-09-30
+completed_at: 2026-09-30
 ---
 
 # P1376: /stake/:tag lists superseded point versions next to their heads and hides the tag name
