@@ -48,7 +48,7 @@ export function LetterSealConfirmCard({
             onChange={() => onResponsesModeChange('invite')}
             className="accent-[#0044CC]"
           />
-          <span className="text-sm font-medium text-foreground">Ask them to explain back your stories</span>
+          <span className="text-sm font-medium text-foreground">Ask them to explain your stories back (voice or text)</span>
         </label>
       </fieldset>
 
