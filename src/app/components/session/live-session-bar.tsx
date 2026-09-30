@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLiveSession } from '@/app/contexts/live-session-context';
 import { clearSessionJoiner, getClaritySession } from '@/app/data/api';
 import { useTerminateSession } from '@/hooks/use-terminate-session';
-import { SessionBar, SessionBarOffline } from './session-bar';
+import { SessionBar } from './session-bar';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 /** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
@@ -28,7 +28,7 @@ export function LiveSessionBar() {
 
   // P1369: offline, Rejoin / End cannot work — the bar turns into its grey offline state.
   if (offline) {
-    return <SessionBarOffline ariaLabel="Active session notification" text={OFFLINE_TITLE} detail={OFFLINE_DETAIL} />;
+    return <SessionBar tone="offline" ariaLabel="Active session notification" text={OFFLINE_TITLE} detail={OFFLINE_DETAIL} />;
   }
 
   const hasPartner = !!activeSessionPartnerName;

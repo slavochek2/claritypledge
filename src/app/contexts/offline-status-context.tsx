@@ -55,6 +55,11 @@ export const STRIP_OFFLINE_TEXT = 'Offline';
 export const stripCachedText = (age: string) => `Offline · showing what you saw ${age}`;
 
 const PROBE_INTERVAL_MS = 20_000;
+/** A reconnect within this long of the previous one means the refresh it caused failed again. */
+const RECONNECT_RECOVERY_WINDOW_MS = 30_000;
+/** Refresh delay after such a repeat: doubles from the base up to the max; resets once stable. */
+const RECONNECT_BACKOFF_BASE_MS = 2_000;
+const RECONNECT_BACKOFF_MAX_MS = 60_000;
 
 function useNavigatorOnline(): boolean {
   return useSyncExternalStore(
@@ -75,15 +80,24 @@ function useSupabaseUnreachable(): boolean {
   return useSyncExternalStore(subscribeNetworkOutcome, isSupabaseUnreachable, () => false);
 }
 
-/** One request that answers "can Supabase be reached?"; any HTTP response means yes. */
+const PROBE_TIMEOUT_MS = 8_000;
+
+/**
+ * One request that answers "can Supabase be reached?"; any HTTP response means yes. Bounded: on a
+ * network that hangs instead of failing, no answer in time is a "no" (and the next probe asks again).
+ */
 async function probeSupabase(): Promise<void> {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   if (!url) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
-    await fetch(`${url.replace(/\/$/, '')}/auth/v1/health`, { cache: 'no-store' });
+    await fetch(`${url.replace(/\/$/, '')}/auth/v1/health`, { cache: 'no-store', signal: controller.signal });
     recordNetworkSuccess();
   } catch {
     recordNetworkFailure();
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -94,12 +108,36 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
   const offline = !navigatorOnline || supabaseUnreachable;
   const [reconnectTick, setReconnectTick] = useState(0);
 
-  // Reconnect: offline → online, by either signal.
+  // Reconnect: offline → online, by either signal. Edge-triggered, and backed off while the
+  // connection keeps dropping again right after a reconnect (the re-read it caused failed again):
+  // a persistently failing request must not turn every reconnect into an immediate re-read.
   const wasOffline = useRef(offline);
+  const lastTickAt = useRef(0);
+  const backoffMs = useRef(0);
+  const pendingTick = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (wasOffline.current && !offline) setReconnectTick((t) => t + 1);
+    if (offline && pendingTick.current) {
+      // Dropped again before the refresh was due: the next reconnect schedules a new one.
+      clearTimeout(pendingTick.current);
+      pendingTick.current = null;
+    }
+    if (wasOffline.current && !offline && !pendingTick.current) {
+      const now = Date.now();
+      backoffMs.current =
+        lastTickAt.current && now - lastTickAt.current < RECONNECT_RECOVERY_WINDOW_MS
+          ? Math.min(Math.max(backoffMs.current * 2, RECONNECT_BACKOFF_BASE_MS), RECONNECT_BACKOFF_MAX_MS)
+          : 0;
+      pendingTick.current = setTimeout(() => {
+        pendingTick.current = null;
+        lastTickAt.current = Date.now();
+        setReconnectTick((t) => t + 1);
+      }, backoffMs.current);
+    }
     wasOffline.current = offline;
   }, [offline]);
+  useEffect(() => () => {
+    if (pendingTick.current) clearTimeout(pendingTick.current);
+  }, []);
 
   // The browser says we are back: check Supabase right away rather than waiting for a page.
   useEffect(() => {

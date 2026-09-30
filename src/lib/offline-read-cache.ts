@@ -16,15 +16,18 @@
  *     person's rows are never readable under another person's key.
  *   - CLEARED on every sign-out path (api.ts signOut, AuthContext, any SIGNED_OUT event). A read
  *     that was in flight when the cache was cleared never writes its rows back (generation check).
- *   - A genuine "not found" from the network deletes the entry: revoked or deleted content is not
- *     kept around to be shown later.
+ *   - A genuine "not found" deletes the entry: revoked or deleted content is not kept around to
+ *     be shown later. Genuine means THIS read reached the server — no request it started failed —
+ *     judged per read, never from the app-wide last outcome (a sibling's success proves nothing).
+ *   - Nothing hangs forever: with no cached copy, a network that hangs without failing ends in
+ *     `offline` (needs-connection) after UNCACHED_DEADLINE_MS.
  *   - Capped per resource type and aged out after 30 days. Nothing is ever pre-downloaded.
  *
  * The service worker never caches Supabase (Cache Storage keys by URL and would hand one
  * person's rows to another) — that is why this lives in the app, not in the SW.
  */
 import { heldRoomCodes } from './room-capability';
-import { isSupabaseUnreachable, networkFailureCount } from './network-outcome';
+import { isSupabaseUnreachable, networkFailedSince, networkMark, recordNetworkTrouble } from './network-outcome';
 
 export type OfflineResourceType = 'story' | 'story-extras' | 'story-slug' | 'point' | 'point-slug' | 'event';
 
@@ -47,6 +50,13 @@ export const OFFLINE_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * cases where the network hangs instead of failing.
  */
 export const NETWORK_DEADLINE_MS = 4_000;
+
+/**
+ * With nothing cached, how long a read waits before giving up on a network that hangs without
+ * failing (no error ever arrives). It then resolves to the needs-connection state; if the answer
+ * comes later, that success is a reconnect and the page re-reads.
+ */
+export const UNCACHED_DEADLINE_MS = 10_000;
 
 export type ReadResult<T> =
   | { source: 'network'; data: T | null }
@@ -171,23 +181,31 @@ function authStorageKey(): string | null {
   }
 }
 
-/** FNV-1a — the key only needs to partition, but a raw room code is a capability and stays out of storage. */
-function fnv1a(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
+/**
+ * The room-code part of the owner: a SHA-256 of the held codes. Collision-resistant, so two codes
+ * never share a partition (a 32-bit hash did: A9GZ2X and 29ONUL collided), and the raw code — a
+ * capability — stays out of storage. Null when no digest is available (crypto.subtle needs a
+ * secure context): the read then skips the cache rather than share a partition.
+ */
+async function roomCodeDigest(codes: readonly string[]): Promise<string | null> {
+  try {
+    if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+    const bytes = new TextEncoder().encode(`clarity-offline-read-cache|${codes.join(',')}`);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return null;
   }
-  return (h >>> 0).toString(36);
 }
 
 /**
- * Whose cache this is, read synchronously from the session supabase-js has stored — the identity
- * the next request will be sent as. Synchronous on purpose: offline with an expired token,
- * `supabase.auth.getSession()` blocks for ~25 s retrying the refresh, and the cache must answer
- * before that.
+ * Whose cache this is: the signed-in user id from the session supabase-js has stored (or `anon`),
+ * plus the room codes this tab presents. The session and the codes are read SYNCHRONOUSLY, at the
+ * call — the identity the next request will be sent as; only the code digest is awaited. Not
+ * `supabase.auth.getSession()`: offline with an expired token it blocks for ~25 s retrying the
+ * refresh, and the cache must answer before that. Null means "no safe partition" (see above).
  */
-export function offlineCacheOwner(): string {
+export async function offlineCacheOwner(): Promise<string | null> {
   let owner = 'anon';
   const key = authStorageKey();
   try {
@@ -201,7 +219,9 @@ export function offlineCacheOwner(): string {
     owner = 'unknown';
   }
   const codes = [...heldRoomCodes()].sort();
-  return codes.length ? `${owner}|rc:${fnv1a(codes.join(','))}` : owner;
+  if (!codes.length) return owner;
+  const digest = await roomCodeDigest(codes);
+  return digest ? `${owner}|rc:${digest}` : null;
 }
 
 // ─── Clearing ────────────────────────────────────────────────────────────────
@@ -216,6 +236,24 @@ export async function clearOfflineReadCache(): Promise<void> {
   } catch (err) {
     console.error('[offline-read-cache] clear failed:', err);
   }
+}
+
+/**
+ * Clear, but never wait longer than `ms` for it: a wedged IndexedDB open must not hold a
+ * sign-out. The clear keeps running if it overruns (and in-flight reads are already fenced off by
+ * the generation bump, which happens at once). Resolves true when the clear finished in time.
+ */
+export async function clearOfflineReadCacheWithin(ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const finished = await Promise.race([
+    clearOfflineReadCache().then(() => true),
+    new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), ms);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (!finished) console.warn(`[offline-read-cache] clear still running after ${ms} ms; not waiting for it`);
+  return finished;
 }
 
 // ─── Read-through ────────────────────────────────────────────────────────────
@@ -257,71 +295,112 @@ async function write(key: string, type: OfflineResourceType, data: unknown, gen:
 
 type Outcome<T> = { ok: true; data: T | null } | { ok: false; error: unknown };
 
+/** A lookup in a wedged IndexedDB must not hold the read: after this long it counts as a miss. */
+const CACHE_LOOKUP_TIMEOUT_MS = 2_000;
+
+function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Read `type:id` through the cache. `fetcher` is the page's existing service call; it may return
- * null for "not found" (the services swallow errors, which is why the failure is learned from
- * network-outcome instead).
+ * null for "not found". The services swallow network errors (a failed fetch comes back as null
+ * or an empty list), so whether THIS read reached the server is learned from network-outcome:
+ * did a request that started during this read fail? Never from the app-wide last outcome — a
+ * sibling request succeeding afterwards does not make this read's null a real "not found".
+ *
+ * Only a read that reached the server without a network failure may delete the cached copy or
+ * report "not found" (`{ source: 'network', data: null }`). Whenever the answer comes from the
+ * cache, or is `offline`, the app is marked unreachable (recordNetworkTrouble) so that the next
+ * successful request is a reconnect and the page refreshes itself.
  */
 export async function readThrough<T>(
   type: OfflineResourceType,
   id: string,
   fetcher: () => Promise<T | null>,
-  options: { deadlineMs?: number } = {},
+  options: { deadlineMs?: number; uncachedDeadlineMs?: number } = {},
 ): Promise<ReadResult<T>> {
   const deadlineMs = options.deadlineMs ?? NETWORK_DEADLINE_MS;
-  const key = `${offlineCacheOwner()}|${type}|${id}`;
+  const uncachedDeadlineMs = Math.max(options.uncachedDeadlineMs ?? UNCACHED_DEADLINE_MS, deadlineMs);
   const gen = generation;
-  const failuresBefore = networkFailureCount();
-
-  const cachedP: Promise<Entry | undefined> = store
-    .get(key)
-    .then((e) => (isFresh(e) ? e : undefined))
-    .catch(() => undefined);
+  const mark = networkMark();
+  // The owner is read synchronously here (the identity this read is sent as); only the room-code
+  // digest is awaited, and the network request does not wait for it.
+  const keyP: Promise<string | null> = offlineCacheOwner().then((owner) => (owner === null ? null : `${owner}|${type}|${id}`));
 
   const fetchP: Promise<Outcome<T>> = fetcher().then(
     (data) => ({ ok: true as const, data }),
     (error) => ({ ok: false as const, error }),
   );
 
-  // A request failed during this read AND the most recent outcome is still a failure. The second
-  // half matters because the counter is app-wide: an unrelated request failing alongside this one
-  // must not turn a read that then succeeded into "offline" (a stale copy shown online).
-  const networkTrouble = () => networkFailureCount() > failuresBefore && isSupabaseUnreachable();
+  const cachedP: Promise<Entry | undefined> = keyP
+    .then((key) => (key ? within(store.get(key), CACHE_LOOKUP_TIMEOUT_MS, undefined) : undefined))
+    .then((e) => (isFresh(e) ? e : undefined))
+    .catch(() => undefined);
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const raced = await Promise.race([
-    fetchP,
-    new Promise<'deadline'>((resolve) => {
-      timer = setTimeout(() => resolve('deadline'), deadlineMs);
-    }),
-  ]);
-  clearTimeout(timer);
+  /** A request that started during this read never reached the server. */
+  const failed = () => networkFailedSince(mark);
 
-  if (raced === 'deadline') {
+  const storeLate = () => {
+    // A late answer, if it ever arrives complete and clean, still refreshes the cache.
+    void fetchP.then(async (o) => {
+      if (!o.ok || o.data == null || failed()) return;
+      const key = await keyP;
+      if (key) void write(key, type, o.data, gen);
+    });
+  };
+
+  const fromCache = (cached: Entry): ReadResult<T> => {
+    recordNetworkTrouble();
+    return { source: 'cache', data: cached.data as T, storedAt: cached.storedAt };
+  };
+  const offline = (): ReadResult<T> => {
+    recordNetworkTrouble();
+    return { source: 'offline' };
+  };
+
+  let outcome = await within<Outcome<T> | 'deadline'>(fetchP, deadlineMs, 'deadline');
+
+  if (outcome === 'deadline') {
     const cached = await cachedP;
     if (cached) {
-      // The late answer, if it ever arrives complete, still refreshes the cache.
-      void fetchP.then((o) => {
-        if (o.ok && o.data != null && !networkTrouble()) void write(key, type, o.data, gen);
-      });
-      return { source: 'cache', data: cached.data as T, storedAt: cached.storedAt };
+      storeLate();
+      return fromCache(cached);
     }
-    if (networkTrouble()) return { source: 'offline' };
+    if (failed()) return offline();
+    // Nothing to show instead: give the network longer, but not forever — a network that hangs
+    // without failing must still end in the needs-connection state.
+    outcome = await within<Outcome<T> | 'deadline'>(fetchP, uncachedDeadlineMs - deadlineMs, 'deadline');
+    if (outcome === 'deadline') {
+      storeLate();
+      return offline();
+    }
   }
 
-  const outcome = raced === 'deadline' ? await fetchP : raced;
-  const trouble = networkTrouble();
-
-  if (!trouble) {
+  if (!failed()) {
     if (!outcome.ok) throw outcome.error; // a real error, not connectivity
-    if (outcome.data != null) void write(key, type, outcome.data, gen);
-    else void store.delete(key).catch(() => undefined);
+    const key = await keyP;
+    if (key) {
+      if (outcome.data != null) void write(key, type, outcome.data, gen);
+      else void store.delete(key).catch(() => undefined); // a real not-found: don't keep it around
+    }
     return { source: 'network', data: outcome.data };
   }
 
-  // The network failed somewhere in this read. A complete cached copy beats a partial live one.
+  // Part of this read never reached the server, so its result may be partial (or a false null).
+  // It is never stored, and a null is never "not found".
+  if (outcome.ok && outcome.data != null && !isSupabaseUnreachable()) {
+    // The main answer arrived and the network is answering again: show it live, like before P1369.
+    return { source: 'network', data: outcome.data };
+  }
   const cached = await cachedP;
-  if (cached) return { source: 'cache', data: cached.data as T, storedAt: cached.storedAt };
+  if (cached) return fromCache(cached); // a complete copy beats a partial live one
   if (outcome.ok && outcome.data != null) return { source: 'network', data: outcome.data };
-  return { source: 'offline' };
+  return offline();
 }

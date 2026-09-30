@@ -127,12 +127,12 @@ describe('deadline (offline auth refresh can block a read ~25 s)', () => {
 });
 
 describe('partitioned by auth context', () => {
-  it('owner comes from the stored session', () => {
-    expect(offlineCacheOwner()).toBe('anon');
+  it('owner comes from the stored session', async () => {
+    expect(await offlineCacheOwner()).toBe('anon');
     signInAs('user-a');
-    expect(offlineCacheOwner()).toBe('u:user-a');
+    expect(await offlineCacheOwner()).toBe('u:user-a');
     localStorage.setItem(AUTH_KEY, '{not json');
-    expect(offlineCacheOwner()).toBe('unknown'); // never falls back to the anonymous cache
+    expect(await offlineCacheOwner()).toBe('unknown'); // never falls back to the anonymous cache
   });
 
   it("account B never reads account A's cached copy of the same story", async () => {
@@ -149,7 +149,7 @@ describe('partitioned by auth context', () => {
     holdRoomCode('ABC123');
     await readThrough('story', 's1', async () => ({ roomOnly: true }));
     await vi.waitFor(async () => expect((await store.listType('story')).length).toBe(1));
-    expect(offlineCacheOwner()).not.toContain('ABC123'); // the capability itself is not stored
+    expect(await offlineCacheOwner()).not.toContain('ABC123'); // the capability itself is not stored
     _resetHeldRoomCodesForTesting();
     expect(await readThrough('story', 's1', offlineFetch)).toEqual({ source: 'offline' });
   });

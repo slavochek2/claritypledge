@@ -41,7 +41,13 @@ import { analytics } from '@/lib/mixpanel';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { useOnlineWriteGuard } from '@/app/hooks/use-online-write-guard';
+import {
+  useOnlineWriteGuard,
+  writeFailureMessage,
+  isNetworkWriteFailure,
+  NEEDS_INTERNET_MESSAGE,
+} from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 
 /** P1272: how long before an event starts the room row switches from naming the
  * destination ("Event Room") to inviting entry ("Join now"). Founder call,
@@ -357,13 +363,15 @@ export function EventDetail() {
     if (!canWrite()) return;
 
     setIsActionLoading(true);
+    const sentAt = networkMark();
     const success = await eventsService.rsvpToEvent(event.id, user.id);
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`);
     } else {
-      toast.error('Couldn\'t sign you up. The event may be full or no longer available.');
+      // P1369: the service returns false for "full" AND for a request that never got through.
+      toast.error(writeFailureMessage(null, 'Couldn\'t sign you up. The event may be full or no longer available.', sentAt));
     }
   };
 
@@ -375,10 +383,14 @@ export function EventDetail() {
     if (!event || !user) return;
     if (!canWrite()) return;
     setIsActionLoading(true);
+    const sentAt = networkMark();
     const success = await eventsService.cancelRsvp(event.id, user.id);
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(false);
+    } else if (isNetworkWriteFailure(null, sentAt)) {
+      // P1369: the RSVP is still there — say why, rather than closing the dialog silently.
+      toast.error(NEEDS_INTERNET_MESSAGE);
     }
     setShowCancelRsvpDialog(false);
   };

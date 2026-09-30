@@ -49,7 +49,8 @@ import { uploadStoryImage } from '@/app/data/story-image-service';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { useOnlineWriteGuard } from '@/app/hooks/use-online-write-guard';
+import { useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, ContentVisibility } from '@/app/types';
@@ -1079,7 +1080,10 @@ export function StoryDetailPage() {
       return;
     }
 
-    // Optimistic update for setting a new position
+    // Optimistic update for setting a new position. P1369: remember what it replaces, so a write
+    // that never reached the server can put it back without another request (offline, a
+    // re-fetch fails too and would leave the optimistic vote on screen as if it were saved).
+    const previous = userPositions.get(pointId);
     setUserPositions(prev => {
       const updated = new Map(prev);
       const current = updated.get(pointId);
@@ -1094,6 +1098,7 @@ export function StoryDetailPage() {
       return updated;
     });
 
+    const sentAt = networkMark();
     try {
       await pointsService.setPosition(pointId, user.id, position);
 
@@ -1109,22 +1114,15 @@ export function StoryDetailPage() {
     } catch (error) {
       console.error('Failed to save position:', error);
 
-      // Revert optimistic update by re-fetching the correct state
-      if (user?.id) {
-        try {
-          const positions = await pointsService.getMyPositionsForPoints([pointId], user.id);
-          setUserPositions(prev => new Map([...prev, ...positions]));
-        } catch (fetchError) {
-          console.error('Failed to revert position:', fetchError);
-          setUserPositions(prev => {
-            const updated = new Map(prev);
-            updated.delete(pointId);
-            return updated;
-          });
-        }
-      }
+      // Revert the optimistic update to what was there before the write.
+      setUserPositions(prev => {
+        const updated = new Map(prev);
+        if (previous) updated.set(pointId, previous);
+        else updated.delete(pointId);
+        return updated;
+      });
 
-      toast.error('Failed to save position. Please try again.');
+      toast.error(writeFailureMessage(error, 'Failed to save position. Please try again.', sentAt));
     }
   }, [user?.id, checkVerified, story?.id, userPositions, guardedRemovePosition, canWrite]);
 

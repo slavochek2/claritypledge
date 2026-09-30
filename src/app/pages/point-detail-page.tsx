@@ -50,7 +50,8 @@ import { useReturnState } from '@/app/hooks/use-return-state';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { useOnlineWriteGuard } from '@/app/hooks/use-online-write-guard';
+import { useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 import {
   Dialog,
   DialogContent,
@@ -308,6 +309,7 @@ export function PointDetailPage() {
     setUserPosition(newPosition);
 
     // Persist to database
+    const sentAt = networkMark();
     try {
       if (newPosition === null) {
         // P401: Use guarded removal — shows dialog if linked stories exist
@@ -332,7 +334,9 @@ export function PointDetailPage() {
       console.error('Failed to update position:', err);
       // Revert optimistic update on error
       setUserPosition(userPosition);
-      toast.error('Failed to save position.');
+      // P1369: a write that never reached the server says so (a captive portal's first write is
+      // the first request to fail, so the guard above could not know).
+      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
     }
   };
 

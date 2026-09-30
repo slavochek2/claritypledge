@@ -10,7 +10,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
-import { isSupabaseUnreachable } from '@/lib/network-outcome';
+import { isSupabaseUnreachable, networkFailedSince } from '@/lib/network-outcome';
 
 /** [FOUNDER DECISION: copy — PROPOSED; the spec asks for "a clear 'needs internet' message"] */
 export const NEEDS_INTERNET_MESSAGE = "You're offline. This needs internet, so nothing was saved.";
@@ -29,4 +29,22 @@ export function useOnlineWriteGuard(showingCachedCopy = false): () => boolean {
     }
     return true;
   }, [offline, showingCachedCopy]);
+}
+
+/**
+ * Classify a write that failed: did it fail because the network / Supabase was unreachable?
+ * The guard above only knows what failed BEFORE the write; a captive portal's first write is
+ * the first request to fail, so the write's own catch must ask too. `since` is a
+ * `networkMark()` taken just before the write was sent.
+ */
+export function isNetworkWriteFailure(err: unknown, since?: number): boolean {
+  // throwDbError's verdict for a fetch that never reached the server (lib/network-blip.ts).
+  if (err && typeof err === 'object' && (err as { name?: string }).name === 'NetworkBlipError') return true;
+  if (since !== undefined && networkFailedSince(since)) return true;
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/** The toast for a failed write: the needs-internet message when the network was the cause. */
+export function writeFailureMessage(err: unknown, fallback: string, since?: number): string {
+  return isNetworkWriteFailure(err, since) ? NEEDS_INTERNET_MESSAGE : fallback;
 }

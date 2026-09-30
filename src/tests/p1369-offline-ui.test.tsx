@@ -10,7 +10,7 @@ import { resolve } from 'node:path';
 import { OfflineStatusProvider, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { OfflineStrip } from '@/app/components/offline/offline-strip';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { SessionBarOffline } from '@/app/components/session/session-bar';
+import { SessionBar } from '@/app/components/session/session-bar';
 import { formatSeenAge } from '@/lib/format-seen-age';
 import { recordNetworkFailure, recordNetworkSuccess, _resetNetworkOutcomeForTesting } from '@/lib/network-outcome';
 
@@ -86,7 +86,7 @@ describe('offline strip', () => {
 
 describe('session bar offline state', () => {
   it('grey, title + one line, and NO buttons', () => {
-    render(<SessionBarOffline ariaLabel="Active session" text="Session paused while offline" detail="Rejoin comes back when you reconnect." />);
+    render(<SessionBar tone="offline" ariaLabel="Active session" text="Session paused while offline" detail="Rejoin comes back when you reconnect." />);
     const bar = screen.getByRole('status', { name: 'Active session' });
     expect(bar.className).toContain('bg-slate-100');
     expect(bar.className).toContain('border-slate-200');
