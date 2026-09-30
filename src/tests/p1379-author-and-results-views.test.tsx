@@ -108,9 +108,10 @@ describe('P1379 A4: CohortTable', () => {
     expect(within(row).getByText(/6\s*→\s*9/)).toBeInTheDocument();
   });
 
-  it('letterMode omitted: one-to-one rendering (unchanged)', () => {
-    renderCohort(undefined);
-    expect(screen.getByText('You → Them')).toBeInTheDocument();
+  it('letterMode unknown (failed mode read): fails closed — no prediction column', () => {
+    const { container } = renderCohort(undefined);
+    expect(screen.queryByText('You → Them')).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\b8\b/);
   });
 });
 
@@ -143,7 +144,7 @@ function walkItem(prediction: number | undefined, rating: number): StoryWalkItem
 
 const PROFILE = { id: 'sender-1', name: 'Alice', slug: null, hasPledged: false, earsCount: 0 };
 
-function renderWalk(letterMode: 'one-to-one' | 'one-to-many', perspective: 'sender' | 'receiver', item: StoryWalkItem) {
+function renderWalk(letterMode: 'one-to-one' | 'one-to-many' | null, perspective: 'sender' | 'receiver', item: StoryWalkItem) {
   return render(
     <BrowserRouter>
       <StoryWalk
@@ -172,6 +173,12 @@ describe('P1379 A2/A4: StoryWalk (results page)', () => {
     const { container } = renderWalk('one-to-many', 'sender', walkItem(8, 4));
     expect(screen.getByTestId('story-walk-rating-only')).toHaveTextContent('Bob said 4 out of 10.');
     expect(container.textContent).not.toMatch(/You think|You believe/);
+  });
+
+  it('unknown mode (failed read): fails closed — rating only, no belief row', () => {
+    renderWalk(null, 'receiver', walkItem(8, 4));
+    expect(screen.getByTestId('story-walk-rating-only')).toHaveTextContent('You said 4 out of 10.');
+    expect(screen.queryByTestId('journey')).not.toBeInTheDocument();
   });
 
   it('CONTROL one-to-one reader: belief row + gap line unchanged', () => {

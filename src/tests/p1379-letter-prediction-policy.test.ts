@@ -21,9 +21,9 @@ describe('letterUsesPredictions', () => {
     expect(letterUsesPredictions('one-to-one')).toBe(true);
     expect(letterUsesPredictions('one-to-many')).toBe(false);
   });
-  it('unknown mode keeps the historical (one-to-one) behaviour', () => {
-    expect(letterUsesPredictions(null)).toBe(true);
-    expect(letterUsesPredictions(undefined)).toBe(true);
+  it('unknown mode FAILS CLOSED — no prediction shown', () => {
+    expect(letterUsesPredictions(null)).toBe(false);
+    expect(letterUsesPredictions(undefined)).toBe(false);
   });
 });
 
@@ -53,9 +53,10 @@ describe('predictionsForMode (defence in depth)', () => {
   it('drops stored predictions for one-to-many (old public letter)', () => {
     expect(predictionsForMode('one-to-many', rows)).toEqual([]);
   });
-  it('keeps them for one-to-one and unknown mode', () => {
+  it('keeps them for one-to-one only; unknown mode drops them (fail closed)', () => {
     expect(predictionsForMode('one-to-one', rows)).toEqual(rows);
-    expect(predictionsForMode(null, rows)).toEqual(rows);
+    expect(predictionsForMode(null, rows)).toEqual([]);
+    expect(predictionsForMode(undefined, rows)).toEqual([]);
   });
 });
 
@@ -73,6 +74,9 @@ describe('author aggregate (A4) — UI Contract strings', () => {
   it('even count → mean of the two middle values', () => {
     expect(summarizeRatings([2, 4, 6, 9]).median).toBe(5);
     expect(formatRatingSummary(summarizeRatings([3, 4]))).toBe('2 readers · median 3.5 · range 3–4');
+  });
+  it('count > 1 with identical ratings → "{count} readers · all rated {n}" (no "range 7–7")', () => {
+    expect(formatRatingSummary(summarizeRatings([7, 7, 7]))).toBe('3 readers · all rated 7');
   });
   it('ignores readers who have not rated', () => {
     expect(summarizeRatings([undefined, 4, null, 8]).count).toBe(2);

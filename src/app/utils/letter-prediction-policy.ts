@@ -20,11 +20,14 @@
 
 import type { LetterMode } from '@/app/types';
 
-/** True when a letter of this mode shows/collects the author's per-story prediction. */
+/**
+ * True when a letter of this mode shows/collects the author's per-story prediction.
+ * FAILS CLOSED: only an explicit 'one-to-one' shows one. An unknown mode (a failed
+ * metadata read, a missing field) shows no prediction — a hidden one-to-one number
+ * is a cosmetic loss; a leaked public one breaks the sealed-bid guarantee.
+ */
 export function letterUsesPredictions(mode: LetterMode | null | undefined): boolean {
-  // Unknown mode → the historical behaviour (one-to-one). Only an explicit
-  // 'one-to-many' switches predictions off.
-  return mode !== 'one-to-many';
+  return mode === 'one-to-one';
 }
 
 /** Compose phase right after the mode/recipients are known. */
@@ -93,6 +96,7 @@ export function formatRatingSummary(summary: RatingSummary): string {
     return 'No ratings yet';
   }
   if (summary.count === 1) return `1 reader · ${formatNumber(summary.median)}`;
+  if (summary.min === summary.max) return `${summary.count} readers · all rated ${summary.min}`;
   return `${summary.count} readers · median ${formatNumber(summary.median)} · range ${summary.min}–${summary.max}`;
 }
 

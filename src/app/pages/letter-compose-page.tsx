@@ -264,13 +264,15 @@ export function LetterComposePage() {
   }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories, responsesMode]);
 
   const handlePredictionComplete = useCallback(() => {
-    if (doc?.visibility === 'public') {
+    // P1379: route on MODE. Only one-to-one reaches the walk now; a one-to-one letter
+    // from a PUBLIC doc still gets the seal-confirm card (P952 AD-5), private → review.
+    if (mode === 'one-to-many' || doc?.visibility === 'public') {
       // P952 AD-5: show seal-confirm card so author can set responses_mode before sending
       setPhase('seal-confirm');
     } else {
       setPhase('review');
     }
-  }, [doc?.visibility]);
+  }, [mode, doc?.visibility]);
 
   // Loading / not-found
   if (fetchState === 'loading') {

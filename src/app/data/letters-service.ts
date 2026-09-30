@@ -1441,7 +1441,11 @@ export async function getLetterResults(
   if (letterMetaError && letterMetaError.code !== 'PGRST116') {
     logDbError('getLetterResults.letterMeta', letterMetaError);
   }
-  const letterMode = ((letterMeta as { mode?: string } | null)?.mode ?? null) as LetterMode | null;
+  // P1379: null when the read failed — every consumer treats null as "no prediction"
+  // (letterUsesPredictions fails closed), so a failed read hides, never leaks.
+  const letterMode = letterMetaError
+    ? null
+    : (((letterMeta as { mode?: string } | null)?.mode ?? null) as LetterMode | null);
 
   return {
     perspective: row['perspective'] as 'sender' | 'receiver',
@@ -1524,7 +1528,7 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
 
   // P1379: get_letter_overview does not return the letter's mode (and is deliberately
   // left unchanged), so read it from the row — the author can always SELECT their own
-  // letter. Unreadable → null, which keeps the historical one-to-one rendering.
+  // letter. Unreadable → null, which fails closed (no prediction column).
   const { data: modeRow, error: modeError } = await supabase
     .from('clarity_letters')
     .select('mode')

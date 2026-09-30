@@ -66,7 +66,8 @@ interface StoryWalkProps {
   /** P1364: called with the new index on Previous/Next, so the page can keep it in the URL. */
   onIndexChange?: (index: number) => void;
   /** P1379: 'one-to-many' hides the author's belief row and every gap line — the
-   *  rating alone is shown. Omitted → 'one-to-one' (unchanged behaviour). */
+   *  rating alone is shown. Only an explicit 'one-to-one' shows the belief row;
+   *  omitted/null fails closed (rating only). */
   letterMode?: LetterMode | null;
 }
 

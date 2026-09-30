@@ -30,7 +30,7 @@ interface CohortTableProps {
   predictions: OverviewPrediction[];
   responses: OverviewPointResponse[];
   letterId: string;
-  /** P1379: omitted/null → one-to-one rendering (unchanged). */
+  /** P1379: only 'one-to-one' shows predictions; omitted/null fails closed. */
   letterMode?: LetterMode | null;
 }
 

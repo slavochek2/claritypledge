@@ -4506,6 +4506,9 @@ export async function getLetterBaselineRatings(
       .limit(1),
   ]);
 
+  // P1379: fail closed — use the prediction only when the mode read succeeded AND
+  // the letter is one-to-one. A failed read must not seed a public letter's number.
+  if (letterResult.error) return null;
   const letterMode = (letterResult.data?.[0] as { mode?: LetterMode } | undefined)?.mode;
   if (!letterUsesPredictions(letterMode)) return null;
 
