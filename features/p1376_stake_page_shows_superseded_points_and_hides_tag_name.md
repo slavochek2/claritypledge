@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [stake, points, superseded, ux]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1376-reproduce.test.tsx
   root_cause: "getPublicPointsFeed has no superseded_by predicate and the stake page passes no opt-in; the h1 is sr-only"
