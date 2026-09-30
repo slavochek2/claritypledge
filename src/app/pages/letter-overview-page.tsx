@@ -211,6 +211,7 @@ export function LetterOverviewPage() {
               predictions={predictions}
               responses={pointResponses}
               letterId={letterId ?? ''}
+              letterMode={letter.mode}
             />
           </section>
           );

@@ -22,6 +22,7 @@ import type {
   ExplainBackRow,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { predictionsForMode } from '@/app/utils/letter-prediction-policy';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 
 // Debug logging - only in development
@@ -1370,6 +1371,8 @@ export interface LetterResultsData {
   ratings: Array<{ story_id: string; listener_rating: number }>;
   pointResponses: Array<{ point_id: string; delivery_id: string; position: PositionType }>;
   responsesMode: 'off' | 'invite' | 'push';
+  /** P1379: the letter's mode; null when the letter row could not be read. */
+  mode: LetterMode | null;
 }
 
 /**
@@ -1432,12 +1435,13 @@ export async function getLetterResults(
 
   const { data: letterMeta, error: letterMetaError } = await supabase
     .from('clarity_letters')
-    .select('responses_mode')
+    .select('responses_mode, mode')
     .eq('id', letterId)
     .single();
   if (letterMetaError && letterMetaError.code !== 'PGRST116') {
     logDbError('getLetterResults.letterMeta', letterMetaError);
   }
+  const letterMode = ((letterMeta as { mode?: string } | null)?.mode ?? null) as LetterMode | null;
 
   return {
     perspective: row['perspective'] as 'sender' | 'receiver',
@@ -1446,6 +1450,7 @@ export async function getLetterResults(
     senderProfile,
     receiverProfile,
     responsesMode: ((letterMeta as { responses_mode?: string } | null)?.responses_mode ?? 'off') as 'off' | 'invite' | 'push',
+    mode: letterMode,
     snapshots: snapshotRows.map(s => ({
       letter_id: letterId,
       story_id: s['story_id'] as string,
@@ -1454,10 +1459,11 @@ export async function getLetterResults(
       point_config: s['point_config'] as Record<string, unknown>,
       visibility: s['visibility'] as string,
     })),
-    predictions: predictionRows.map(p => ({
+    // P1379: the server already returns [] for one-to-many; dropped here as well.
+    predictions: predictionsForMode(letterMode, predictionRows.map(p => ({
       story_id: p['story_id'] as string,
       prediction: p['prediction'] as number,
-    })),
+    }))),
     ratings: ratingRows.map(r => ({
       story_id: r['story_id'] as string,
       listener_rating: r['listener_rating'] as number,
@@ -1516,6 +1522,17 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
 
   if (!letterRaw) return null;
 
+  // P1379: get_letter_overview does not return the letter's mode (and is deliberately
+  // left unchanged), so read it from the row — the author can always SELECT their own
+  // letter. Unreadable → null, which keeps the historical one-to-one rendering.
+  const { data: modeRow, error: modeError } = await supabase
+    .from('clarity_letters')
+    .select('mode')
+    .eq('id', letterId)
+    .maybeSingle();
+  if (modeError) logDbError('getLetterOverview.mode', modeError);
+  const letterMode = ((modeRow as { mode?: string } | null)?.mode ?? null) as LetterMode | null;
+
   return {
     letter: (() => {
       const senderRaw = (letterRaw['sender'] as Record<string, unknown> | null) ?? {};
@@ -1524,6 +1541,7 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
         title: (letterRaw['title'] as string) ?? '',
         status: (letterRaw['status'] as string) ?? '',
         sender_id: (letterRaw['sender_id'] as string) ?? '',
+        mode: letterMode,
         sender: {
           profile_id: (senderRaw['profile_id'] as string | null) ?? null,
           name: (senderRaw['name'] as string) ?? 'Author',
@@ -1557,11 +1575,12 @@ export async function getLetterOverview(letterId: string): Promise<import('@/app
       has_responded: (d['has_responded'] as boolean) ?? false,
       completed_at: (d['completed_at'] as string | null) ?? null,
     })),
-    predictions: predictionsRaw.map(p => ({
+    // P1379: an old one-to-many letter may still store predictions — never surfaced.
+    predictions: predictionsForMode(letterMode, predictionsRaw.map(p => ({
       delivery_id: (p['delivery_id'] as string | null) ?? null,
       story_id: (p['story_id'] as string) ?? '',
       prediction: (p['prediction'] as number) ?? 0,
-    })),
+    }))),
     ratings: ratingsRaw.map(r => ({
       delivery_id: (r['delivery_id'] as string) ?? '',
       story_id: (r['story_id'] as string) ?? '',

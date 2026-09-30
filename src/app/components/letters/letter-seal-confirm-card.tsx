@@ -1,7 +1,7 @@
 /**
  * @file letter-seal-confirm-card.tsx
- * @description P952 AD-5: Lightweight public-path seal step shown between prediction
- * walk and sealing. Replaces the silent auto-seal for one-to-many docs so authors
+ * @description P952 AD-5: Lightweight public-path seal step shown before sealing
+ * (P1379: public letters have no prediction walk, so compose opens straight here). Replaces the silent auto-seal for one-to-many docs so authors
  * can choose the response intensity before sending.
  */
 

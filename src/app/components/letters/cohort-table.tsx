@@ -2,11 +2,15 @@
  * @file cohort-table.tsx
  * @description P700: Per-story cohort table for the letter overview page.
  * Shows one row per delivery: Person · You → Them · per-point position · status link.
+ * P1379: a one-to-many letter drops the "You → Them" prediction column. Above the rows
+ * it shows a per-story summary (count · median · range), and each row shows the
+ * reader's own rating under "Their rating". No gap anywhere.
  */
 
 import { Link } from 'react-router-dom';
 import type { OverviewStory, OverviewDelivery, OverviewPrediction, OverviewRating, OverviewPointResponse } from '@/app/types';
-import type { PositionType } from '@/app/types';
+import type { LetterMode, PositionType } from '@/app/types';
+import { formatRatingSummary, letterUsesPredictions, summarizeRatings } from '@/app/utils/letter-prediction-policy';
 import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
@@ -26,13 +30,17 @@ interface CohortTableProps {
   predictions: OverviewPrediction[];
   responses: OverviewPointResponse[];
   letterId: string;
+  /** P1379: omitted/null → one-to-one rendering (unchanged). */
+  letterMode?: LetterMode | null;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function CohortTable({ story, deliveries, ratings, predictions, responses, letterId }: CohortTableProps) {
+export function CohortTable({ story, deliveries, ratings, predictions, responses, letterId, letterMode }: CohortTableProps) {
+  const showsPredictions = letterUsesPredictions(letterMode);
+
   // Build per-delivery lookup maps
   const ratingMap = new Map<string, number>();
   for (const r of ratings) {
@@ -41,9 +49,10 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
     }
   }
 
-  // predictions may be delivery-specific (one-to-one) or null delivery_id (one-to-many shared)
+  // predictions may be delivery-specific (one-to-one) or null delivery_id (one-to-many shared).
+  // P1379: never read for one-to-many, even when an old letter still stores them.
   const predictionMap = new Map<string | null, number>();
-  for (const p of predictions) {
+  for (const p of showsPredictions ? predictions : []) {
     if (p.story_id === story.story_id) {
       predictionMap.set(p.delivery_id, p.prediction);
     }
@@ -68,8 +77,18 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
     return responseMap.get(`${deliveryId}:${pointId}`);
   }
 
+  // P1379: per-story aggregate over the rows this table renders.
+  const summaryLine = showsPredictions
+    ? null
+    : formatRatingSummary(summarizeRatings(deliveries.map((d) => ratingMap.get(d.delivery_id))));
+
   return (
     <div className="overflow-x-auto">
+      {summaryLine !== null && (
+        <p className="text-sm text-muted-foreground mb-2" data-testid="cohort-rating-summary">
+          {summaryLine}
+        </p>
+      )}
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border">
@@ -77,7 +96,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
               Recipient
             </th>
             <th scope="col" className="py-3 pr-4 text-left font-medium text-muted-foreground">
-              You → Them
+              {showsPredictions ? 'You → Them' : 'Their rating'}
             </th>
             {story.points.map((p) => (
               <th
@@ -143,15 +162,21 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                   </div>
                 </td>
 
-                {/* You → Them */}
-                <td className="py-3 pr-4 sm:table-cell block" data-label="You → Them">
-                  {prediction !== undefined ? prediction : '?'}{' '}→{' '}
-                  {rating !== undefined ? (
-                    rating
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
+                {/* You → Them (one-to-one) / Their rating (one-to-many, P1379) */}
+                {showsPredictions ? (
+                  <td className="py-3 pr-4 sm:table-cell block" data-label="You → Them">
+                    {prediction !== undefined ? prediction : '?'}{' '}→{' '}
+                    {rating !== undefined ? (
+                      rating
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                ) : (
+                  <td className="py-3 pr-4 sm:table-cell block" data-label="Their rating" data-testid="cohort-rating-cell">
+                    {rating !== undefined ? rating : <span className="text-muted-foreground">—</span>}
+                  </td>
+                )}
 
                 {/* Per-point positions */}
                 {story.points.map((p) => {

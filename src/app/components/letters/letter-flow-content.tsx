@@ -19,6 +19,8 @@ import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
 import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
 import { CalibrationVerdict } from '@/app/components/letters/calibration-verdict';
+import { LetterRevealReaderOnly } from '@/app/components/letters/letter-reveal-reader-only';
+import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
@@ -34,7 +36,7 @@ import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { ZERO_COUNTS, explainWhyLabel, getPositionGroup } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
-import type { LetterStorySnapshot, PositionType } from '@/app/types';
+import type { LetterMode, LetterStorySnapshot, PositionType } from '@/app/types';
 import { POSITION_VALUES } from '@/app/types';
 import { ExplainBackCapture, type ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
@@ -57,6 +59,12 @@ export interface LetterFlowContentProps {
   readerProfileOwner?: PointProfileOwner;
   // State machine (from useLetterReadingState)
   readingState: UseLetterReadingStateReturn;
+  /**
+   * P1379: the letter's mode. 'one-to-many' renders the reader-only reveal (no author
+   * number, no gap, no "{Author} thinks…"). Omitted → 'one-to-one' (historical
+   * behaviour); every production caller passes it explicitly.
+   */
+  letterMode?: LetterMode;
   // Variant configuration
   /**
    * P1364: no longer rendered. Every caller passed `false` (the reading page hides the header
@@ -160,6 +168,7 @@ export function LetterFlowContent({
   senderProfileOwner,
   readerProfileOwner,
   readingState,
+  letterMode = 'one-to-one',
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
@@ -438,8 +447,12 @@ export function LetterFlowContent({
   const visiblePoints = storyWithPoints?.points ?? [];
   const currentPoint = currentStory ? visiblePoints[currentStory.currentPointIndex] : undefined;
 
+  // P1379: keyed on MODE, not on prediction === null — a one-to-one letter with a
+  // missing prediction must still surface "Calibration data unavailable.".
+  const showsAuthorPrediction = letterUsesPredictions(letterMode);
+
   const gap =
-    currentStory && currentStory.rating !== null && currentStory.prediction !== null
+    showsAuthorPrediction && currentStory && currentStory.rating !== null && currentStory.prediction !== null
       ? Math.abs(currentStory.rating - currentStory.prediction)
       : null;
 
@@ -482,7 +495,7 @@ export function LetterFlowContent({
   const revealGap: number | null = (() => {
     if (!currentStory) return null;
     if (currentPhase === 'story-revealed') {
-      if (currentStory.rating !== null && currentStory.prediction !== null) {
+      if (showsAuthorPrediction && currentStory.rating !== null && currentStory.prediction !== null) {
         return currentStory.rating - currentStory.prediction;
       }
       return null;
@@ -845,7 +858,17 @@ export function LetterFlowContent({
         {currentPhase === 'story-revealed' && (
           <>
             <LetterRevealCard>
-              {currentStory.rating !== null && currentStory.prediction !== null ? (
+              {!showsAuthorPrediction ? (
+                // P1379: one-to-many — the reader's own rating only.
+                currentStory.rating !== null ? (
+                  <LetterRevealReaderOnly
+                    readerRating={currentStory.rating}
+                    readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
+                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                    readerHasPledged={readerProfileOwner?.hasPledged ?? false}
+                  />
+                ) : null
+              ) : currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
                   {/* P915: letter calibration verdict — extracted to CalibrationVerdict so both
                       states (calibrated/gap) are unit-tested. gap-banner.tsx stays for /live. */}

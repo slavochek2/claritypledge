@@ -630,7 +630,10 @@ test.describe('Prediction reveal — one-to-many canary', () => {
     await deleteTestUser(canaryUser.user.id);
   });
 
-  test('canary: one-to-many prediction reveals after rating (not Pending...)', async ({ page }) => {
+  // P1379 (2026-09-30): a one-to-many letter no longer reveals the author's prediction.
+  // This canary used to assert the gap ("2 points gap"); it now asserts the public reveal,
+  // on an OLD letter that still stores a shared prediction (the known-bad input).
+  test('canary: one-to-many reveal shows the reader rating only (P1379), never Pending...', async ({ page }) => {
     // D36 story (1 visible point) → story-rate before point-engage → story-revealed shows prediction
     const publicLetter = await createTestLetter(canaryUser.user.id, canaryDocId, {
       mode: 'one-to-many',
@@ -666,7 +669,7 @@ test.describe('Prediction reveal — one-to-many canary', () => {
       await rating5.click();
 
       // Submit rating
-      const submitBtn = page.getByRole('button', { name: /^submit$/i });
+      const submitBtn = page.getByRole('button', { name: /^(submit|continue)$/i });
       await expect(submitBtn).toBeEnabled({ timeout: 3000 });
       await submitBtn.click();
 
@@ -675,10 +678,11 @@ test.describe('Prediction reveal — one-to-many canary', () => {
       const bodyText = await page.locator('body').textContent({ timeout: 5000 });
       expect(bodyText).not.toMatch(/Pending\.\.\./);
 
-      // GapBanner: gap=2 → "2 points gap" (NOT "Perfectly calibrated")
-      // Bug: gap defaults to 0 when prediction null → shows "Perfectly calibrated"
-      await expect(page.locator('body')).not.toContainText('Perfectly calibrated', { timeout: 3000 });
-      await expect(page.locator('body')).toContainText('2 points gap', { timeout: 3000 });
+      // P1379: own rating only — no gap, no calibration verdict, no author number.
+      await expect(page.locator('body')).toContainText('You said 5 out of 10.', { timeout: 5000 });
+      await expect(page.locator('body')).not.toContainText('Perfectly calibrated');
+      await expect(page.locator('body')).not.toContainText(/point gap|points gap/);
+      await expect(page.locator('body')).not.toContainText('Calibration data unavailable.');
     } finally {
       await deleteTestLetter(publicLetter.id);
     }
