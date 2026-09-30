@@ -40,10 +40,10 @@ describe('offline strip', () => {
     expect(screen.queryByTestId('offline-strip')).toBeNull();
   });
 
-  it('a page rendered from cache: "Offline · showing what you saw {age}", dark, 28px', () => {
+  it('a page rendered from cache: "Offline · saved copy from {age}", dark, 28px', () => {
     ui(<CachedPage storedAt={Date.now() - 2 * 3600_000} />);
     const strip = screen.getByTestId('offline-strip');
-    expect(strip.textContent).toBe('Offline · showing what you saw 2h ago');
+    expect(strip.textContent).toBe('Offline · saved copy from 2h ago');
     expect(strip.className).toContain('bg-slate-800');
     expect(strip.className).toContain('text-white');
     expect(strip.innerHTML).toContain('h-7');
@@ -57,20 +57,20 @@ describe('offline strip', () => {
         <CachedPage storedAt={Date.now() - 3 * 86400_000} />
       </>,
     );
-    expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · showing what you saw 3 days ago');
+    expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 3 days ago');
   });
 
   it('shows even when navigator says online (captive portal): the page report decides', () => {
     expect(navigator.onLine).toBe(true);
     ui(<CachedPage storedAt={Date.now()} />);
-    expect(screen.getByTestId('offline-strip').textContent).toMatch(/showing what you saw/);
+    expect(screen.getByTestId('offline-strip').textContent).toMatch(/saved copy/);
   });
 
   it('needs-connection body: strip says just "Offline"', () => {
     ui(<NeedsConnection />);
     expect(screen.getByTestId('offline-strip').textContent).toBe('Offline');
-    expect(screen.getByText('This page needs a connection')).toBeTruthy();
-    expect(screen.getByText("It loads by itself when you're back online.")).toBeTruthy();
+    expect(screen.getByText("You're offline")).toBeTruthy();
+    expect(screen.getByText("This page hasn't been saved yet.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Go to home' }).getAttribute('href')).toBe('/');
   });

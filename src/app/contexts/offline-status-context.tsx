@@ -52,7 +52,8 @@ const OfflineStatusContext = createContext<OfflineStatusValue | null>(null);
 
 /** Copy — UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
 export const STRIP_OFFLINE_TEXT = 'Offline';
-export const stripCachedText = (age: string) => `Offline · showing what you saw ${age}`;
+/** [FOUNDER DECISION 2026-09-30] "Offline · saved copy from {age}"; under a minute: "Offline · saved copy". */
+export const stripCachedText = (age: string) => (age === 'just now' ? 'Offline · saved copy' : `Offline · saved copy from ${age}`);
 
 const PROBE_INTERVAL_MS = 20_000;
 /** A reconnect within this long of the previous one means the refresh it caused failed again. */

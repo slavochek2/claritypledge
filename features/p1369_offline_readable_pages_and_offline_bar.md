@@ -176,15 +176,15 @@ last showed, with the strip; "needs a connection" only when nothing is stored; *
 Colours from prototype variant C: strip `bg-slate-800 text-white text-xs`, height 28px; session
 offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, line `text-xs text-slate-600`.
 
-- Strip (cached): `Offline · showing what you saw {age}` [FOUNDER DECISION: copy — PROPOSED]
-- Strip (needs connection): `Offline` [FOUNDER DECISION: copy — PROPOSED]
+- Strip (cached): `Offline · saved copy from {age}`; under a minute `Offline · saved copy` — founder decision 2026-09-30 (was "showing what you saw {age}")
+- Strip (needs connection / network down): `Offline`
 - Live session offline: `Session paused while offline` / `Rejoin comes back when you reconnect.` [FOUNDER DECISION: copy — PROPOSED]
 - Transcription offline: capture behaviour verified from code (2026-09-30): the microphone keeps
   running, and each audio chunk is retried briefly and then dropped, so nothing said offline is
   guaranteed to be kept. Copy: `● Transcribing, but offline` / `Words said while offline may not be
   saved.` + one button `Stop microphone`. The prototype's "will sync" line must NOT ship.
   [FOUNDER DECISION: copy — PROPOSED]
-- Event-room /ready body: `Check-in needs a connection` / `It loads by itself when you're back online.` / `Try again` / `Go to home` [FOUNDER DECISION: copy — PROPOSED]
+- Nothing-stored body (every page, incl. event-room /ready): `You're offline` / `This page hasn't been saved yet.` / `Try again` / `Go to home` — founder decision 2026-09-30
 
 ## Acceptance Criteria
 

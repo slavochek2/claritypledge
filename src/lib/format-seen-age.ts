@@ -1,5 +1,5 @@
 /**
- * P1369: "{age}" in the offline strip — "Offline · showing what you saw {age}".
+ * P1369: "{age}" in the offline strip — "Offline · saved copy from {age}".
  * Coarse on purpose: the reader needs "how stale", not a timestamp.
  */
 export function formatSeenAge(storedAt: number, now: number = Date.now()): string {

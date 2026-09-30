@@ -366,7 +366,7 @@ export function EventRoomMeet() {
   useEffect(() => { setWriteFailed(false); }, [stepKey]);
 
   if (loading || (granted && selfLoading)) return null;
-  if (accessOffline) return <NeedsConnection title="The event room needs a connection" />;
+  if (accessOffline) return <NeedsConnection />;
   if (!granted) {
     return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
   }

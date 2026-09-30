@@ -72,7 +72,7 @@ export function EventRoomGate() {
 
   if (loading || (granted && selfLoading)) return null;
   // P1369 Scope v2: never visited here and no network — not the register wall.
-  if (offline) return <NeedsConnection title="The event room needs a connection" />;
+  if (offline) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   // P1307 D10: everyone passes the ready screen, so everyone is offered the transcription

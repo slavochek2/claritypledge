@@ -137,10 +137,10 @@ export function EventRoomReady() {
   }, [starting, self, value, refresh, transcribeOn, event, beingTranscribed, capture, user, navigate, slug]);
 
   if (loading || (granted && selfLoading)) return null;
-  if (accessOffline) return <NeedsConnection title="The event room needs a connection" />;
+  if (accessOffline) return <NeedsConnection />;
   // P1369 Scope v2: the check-in shows its last-seen state with the strip; needs-connection only
   // when nothing was stored.
-  if (offline && !self) return <NeedsConnection title="Check-in needs a connection" />;
+  if (offline && !self) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   const isFrozen = event

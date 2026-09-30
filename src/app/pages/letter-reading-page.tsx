@@ -751,7 +751,7 @@ export function LetterReadingPage() {
 
   if (pageState === 'loading') {
     // P1369: offline and never read here — needs-connection, never an endless spinner.
-    if (offlineMiss) return <NeedsConnection title="This letter needs a connection" />;
+    if (offlineMiss) return <NeedsConnection />;
     return <ClarityPageLoader />;
   }
 

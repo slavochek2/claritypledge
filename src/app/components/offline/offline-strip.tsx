@@ -5,7 +5,7 @@
  * broke the design system and stacked as a second heavy bar under a session bar.
  *
  * It says what the page reported (offline-status-context.tsx):
- *   - "Offline · showing what you saw {age}" when the page rendered cached data;
+ *   - "Offline · saved copy from {age}" ("Offline · saved copy" under a minute) when the page rendered cached data;
  *   - "Offline" when the page needs a connection, or the connection is simply down.
  *
  * Layout: in flow and sticky at the top, carrying the iOS status-bar inset itself. The layout

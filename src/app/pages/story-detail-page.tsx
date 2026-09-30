@@ -1158,7 +1158,7 @@ export function StoryDetailPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <FocusHeader onBack={handleBack} />
-        <NeedsConnection title="This story needs a connection" onRetry={handleRetry} />
+        <NeedsConnection onRetry={handleRetry} />
       </div>
     );
   }

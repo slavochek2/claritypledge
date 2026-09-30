@@ -81,7 +81,7 @@ export function OrgDirectoryPage() {
   }, [reconnectKey, applyRead]);
 
   if (!loading && offlineRead.offlineMiss) {
-    return <NeedsConnection title="This page needs a connection" />;
+    return <NeedsConnection />;
   }
 
   if (loading) {

@@ -425,7 +425,7 @@ export function StakePage() {
         {loading ? (
           <FeedSkeleton />
         ) : offlineRead.offlineMiss ? (
-          <NeedsConnection title="This list needs a connection" onRetry={() => void fetchData()} />
+          <NeedsConnection onRetry={() => void fetchData()} />
         ) : error ? (
           <div className="py-12 text-center">
             <p className="mb-4 text-muted-foreground">{error}</p>

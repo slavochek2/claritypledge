@@ -83,8 +83,9 @@ export async function gotoOffline(page: Page, url: string) {
   }
 }
 
-export const STRIP_CACHED = /showing what you saw/i;
-export const NEEDS_CONNECTION = /needs a connection/i;
+// Copy per founder decision 2026-09-30 (was "showing what you saw" / "needs a connection").
+export const STRIP_CACHED = /saved copy/i;
+export const NEEDS_CONNECTION = /hasn't been saved yet/i;
 export const CHUNK_ERROR = /New version available|Module load failed/i;
 
 /** The build a page is running, read from its module entry script. */

@@ -12,8 +12,9 @@ import { WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOfflinePageReport } from '@/app/contexts/offline-status-context';
 
-export const NEEDS_CONNECTION_DEFAULT_TITLE = 'This page needs a connection';
-export const NEEDS_CONNECTION_LINE = "It loads by itself when you're back online.";
+/** [FOUNDER DECISION 2026-09-30] one title and line for every page with nothing stored. */
+export const NEEDS_CONNECTION_DEFAULT_TITLE = "You're offline";
+export const NEEDS_CONNECTION_LINE = "This page hasn't been saved yet.";
 
 interface NeedsConnectionProps {
   title?: string;

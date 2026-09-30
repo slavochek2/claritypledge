@@ -294,7 +294,7 @@ export function EventDetail() {
   }
 
   if (!event && offlineMiss) {
-    return <NeedsConnection title="This event needs a connection" />;
+    return <NeedsConnection />;
   }
 
   if (!event) {

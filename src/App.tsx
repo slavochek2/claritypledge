@@ -225,7 +225,7 @@ export function LetterRoute() {
   if (!isUUID && !resolved && offlineMiss) {
     return (
       <ClarityLandingLayout surface="product" compact>
-        <NeedsConnection title="This letter needs a connection" />
+        <NeedsConnection />
       </ClarityLandingLayout>
     );
   }

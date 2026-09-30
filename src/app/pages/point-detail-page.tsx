@@ -430,7 +430,7 @@ export function PointDetailPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         {!isEmbed && <FocusHeader fallback={BACK_FALLBACK} />}
-        <NeedsConnection title="This point needs a connection" onRetry={handleRetry} />
+        <NeedsConnection onRetry={handleRetry} />
       </div>
     );
   }

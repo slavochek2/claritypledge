@@ -608,7 +608,7 @@ export function FeedPage() {
           {loading ? (
             <FeedSkeleton />
           ) : offlineRead.offlineMiss ? (
-            <NeedsConnection title="The feed needs a connection" onRetry={() => void fetchData()} />
+            <NeedsConnection onRetry={() => void fetchData()} />
           ) : error ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">{error}</p>
