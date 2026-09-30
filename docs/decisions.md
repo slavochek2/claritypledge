@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-30 [technical]: System identities are never pledgers — every machine profile sets `has_pledged = false` explicitly (P1378)
+
+**Context:** The P1030 "Clarity Agent" system profile showed on prod `/pledgers` as a signatory. It must be `is_verified = true` (story INSERT RLS), and `profiles.has_pledged` defaults to `true` at the table, so it passed every pledger filter (list, total, featured, social-proof count). P1104 persona agents had already hit this default and set the flag explicitly; the older bootstrap never did.
+**Decision:** Any script that creates or adopts a machine/system profile writes `has_pledged: false` on both create and adopt paths, and fails loudly if the repair write fails. The pledger RPCs stay as they are: the column is the single signal that every surface already reads.
+**Alternatives rejected:** (1) Filter `agent_accounts` ids in `get_pledgers_page`: the Clarity Agent is not in that registry, so it would not have caught this row, and it only patches one of four surfaces. (2) Flag it `is_test_account`: semantically false, and it also tags the agent as internal in analytics.
+**Consequences:** New system identities must set the flag at creation. `scripts/test-p1378-clarity-agent-not-pledger.sh` checks the bootstrap statically and prod `/pledgers` live, paging to exhaustion.
+**References:** [P1378](../features/done/2026-06-10/p1378_clarity_agent_listed_as_pledger.md)
+
 ## 2026-09-30 [technical]: Which point lists hide superseded versions — `/stake` now does, in the query; profile, `/feed` and letters still keep them (P1376)
 
 **Context:** Founder saw old wordings on `/stake/misunderstanding` ("it should use only the superseded versions, I believe" — meaning the current heads). Prod had 2 of 11 `misunderstanding` points superseded (st1 v1, st5 v1) rendering beside their v2 heads. `getPublicPointsFeed` has never filtered `superseded_by`; `/stake` (P1179) was built on it after P800 scoped the head filter to story-linked lists.
