@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-30 [product]: New letters default to "Just read"; explain-back is opt-in, asked as one plain question
+
+**Context:** At the last step before sending, letters defaulted to inviting readers to explain back. Authors sent without noticing the setting, and the labels ("Invite", "Off", "Responses") did not say what readers would experience.
+**Decision:** Default `responses_mode` to `off` for newly composed letters (compose page state, review-screen prop default, `sealLetter` param default). The control is a single question, "Should readers explain your stories back to you?", with two options and no descriptions: "Just read the letter" (first, default) and "Ask them to explain your stories back (voice or text)". The disabled "Push (coming soon)" option was removed from the author UI.
+**Alternatives rejected:** Changing the database column and `seal_and_send_letter` RPC defaults to `off` too. The app always passes the mode explicitly, so only stale cached clients or direct RPC callers would still get `invite`; not worth a prod migration now. Saying "in audio" in the label was rejected because explain-back also offers a text fallback.
+**Consequences:** Existing letters keep their stored mode. The DB default still says `invite`; revisit if a non-app caller appears. Regression test: `src/tests/responses-mode-default-off.test.tsx`.
+**References:** `src/app/components/letters/letter-seal-confirm-card.tsx`, `src/app/components/letters/letter-review-screen.tsx`
+
 ## 2026-09-30 [product]: One intensity-hint rule on every page: a "tap again" line until the reader picks a level, the pop-up at most once (P1374)
 
 **Context:** Supersedes the 2026-09-29 [product] proposal "The forced intensity tutorial did not raise intensity use; the next step is rewording the existing hint". That proposal said to reword first and escalate later. The founder instead asked for the whole system at once:
