@@ -19,7 +19,7 @@ describe('responses mode default', () => {
         onResponsesModeChange={() => {}}
       />
     );
-    expect((screen.getByRole('radio', { name: /Just read/ }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole('radio', { name: /Ask what they understood/ }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('radio', { name: /Just read the letter/ }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('radio', { name: /explain back/ }) as HTMLInputElement).checked).toBe(false);
   });
 });

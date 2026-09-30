@@ -23,66 +23,33 @@ export function LetterSealConfirmCard({
 }: LetterSealConfirmCardProps) {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-sm mx-auto px-4 py-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-xl font-semibold text-foreground">Ready to send?</h2>
-        <p className="text-sm text-muted-foreground">
-          Do you want to know what readers understood?
-        </p>
-      </div>
-
-      {/* Responses control */}
+      {/* Responses control — the question is the heading */}
       <fieldset className="w-full space-y-2">
-        <legend className="text-sm font-medium text-foreground mb-2">After reading</legend>
+        <legend className="text-xl font-semibold text-foreground text-center w-full mb-4">Should readers explain your stories back to you?</legend>
 
-        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-transparent hover:bg-muted/50 transition-colors">
-          <input
-            type="radio"
-            name="responses-mode"
-            value="invite"
-            checked={responsesMode === 'invite'}
-            onChange={() => onResponsesModeChange('invite')}
-            className="mt-0.5 accent-[#0044CC]"
-          />
-          <div>
-            <div className="text-sm font-medium text-foreground">Ask what they understood</div>
-            <div className="text-xs text-muted-foreground">
-              Readers explain it back and can add stories. You see answers in your results.
-            </div>
-          </div>
-        </label>
-
-        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-transparent hover:bg-muted/50 transition-colors">
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-transparent hover:bg-muted/50 transition-colors">
           <input
             type="radio"
             name="responses-mode"
             value="off"
             checked={responsesMode === 'off'}
             onChange={() => onResponsesModeChange('off')}
-            className="mt-0.5 accent-[#0044CC]"
+            className="accent-[#0044CC]"
           />
-          <div>
-            <div className="text-sm font-medium text-foreground">Just read</div>
-            <div className="text-xs text-muted-foreground">
-              Readers read your letter. No questions, and you get nothing back.
-            </div>
-          </div>
+          <span className="text-sm font-medium text-foreground">Just read the letter</span>
         </label>
 
-        <div className="flex items-start gap-3 p-3 rounded-lg border border-dashed border-muted opacity-40 cursor-not-allowed">
+        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-transparent hover:bg-muted/50 transition-colors">
           <input
             type="radio"
             name="responses-mode"
-            value="push"
-            disabled
-            className="mt-0.5"
+            value="invite"
+            checked={responsesMode === 'invite'}
+            onChange={() => onResponsesModeChange('invite')}
+            className="accent-[#0044CC]"
           />
-          <div>
-            <div className="text-sm font-medium text-foreground">More prompts <span className="text-xs font-normal text-muted-foreground">(coming soon)</span></div>
-            <div className="text-xs text-muted-foreground">
-              Readers are prompted to respond at every story.
-            </div>
-          </div>
-        </div>
+          <span className="text-sm font-medium text-foreground">Ask them to explain back your stories</span>
+        </label>
       </fieldset>
 
       <Button
