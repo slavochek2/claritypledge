@@ -5,6 +5,11 @@
  *
  * This migration extends the SECURITY DEFINER RPC to include shared predictions
  * so that one-to-many readers can see the sender's prediction after rating.
+ *
+ * P1379 (2026-09-30) REVERSES the display half of this: a one-to-many letter never
+ * discloses the author's prediction. The `predictions` key stays (shape unchanged),
+ * but is always '[]' — even for an old letter that still stores a shared prediction.
+ * See 20260930120000_p1379_public_letters_no_author_prediction.sql.
  */
 
 import { test, expect } from '@playwright/test';
@@ -69,13 +74,15 @@ test.describe('Migration: get_letter_for_public_reading returns predictions', ()
     await sealTestLetter(letter.id);
 
     // Insert a shared prediction (delivery_id IS NULL)
-    await supabaseAdmin.from('letter_predictions').insert({
+    // P1379: `sender_id` is not a letter_predictions column — the insert used to fail
+    // silently (unchecked), so no shared prediction was ever seeded. Checked now.
+    const { error: predErr } = await supabaseAdmin.from('letter_predictions').insert({
       letter_id: letterId,
       story_id: storyId,
-      sender_id: sender.user.id,
       prediction: 7,
       delivery_id: null,
     });
+    if (predErr) throw new Error(`shared prediction seed failed: ${predErr.message}`);
   });
 
   test.afterAll(async () => {
@@ -91,7 +98,7 @@ test.describe('Migration: get_letter_for_public_reading returns predictions', ()
     if (sender) await deleteTestUser(sender.user.id);
   });
 
-  test('RPC returns predictions array with shared prediction', async () => {
+  test('P1379: RPC returns an EMPTY predictions array even when a shared prediction is stored', async () => {
     const { data, error } = await supabaseAdmin.rpc('get_letter_for_public_reading', {
       p_letter_id: letterId,
     });
@@ -106,11 +113,15 @@ test.describe('Migration: get_letter_for_public_reading returns predictions', ()
 
     const predictions = result.predictions as Array<{ story_id: string; prediction: number }>;
     expect(Array.isArray(predictions)).toBe(true);
-    expect(predictions.length).toBeGreaterThan(0);
+    expect(predictions, 'P1379: a one-to-many letter must not disclose the author prediction').toEqual([]);
 
-    const pred = predictions.find((p) => p.story_id === storyId);
-    expect(pred, 'Shared prediction not found in RPC result').toBeDefined();
-    expect(pred!.prediction).toBe(7);
+    // Known-bad input control: the shared prediction IS still stored (no data deleted).
+    const { data: stored } = await supabaseAdmin
+      .from('letter_predictions')
+      .select('prediction')
+      .eq('letter_id', letterId)
+      .eq('story_id', storyId);
+    expect(stored).toEqual([{ prediction: 7 }]);
   });
 
   test('RPC returns empty predictions array when no shared predictions exist', async () => {

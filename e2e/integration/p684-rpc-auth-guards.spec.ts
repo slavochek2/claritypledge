@@ -238,7 +238,7 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     expect(data).toBeNull();
   });
 
-  test('reveal_prediction_by_token: authenticated caller succeeds', async () => {
+  test('reveal_prediction_by_token: authenticated caller succeeds (no prediction for one-to-many — P1379)', async () => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL!;
     const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
     const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -258,8 +258,10 @@ test.describe('P684: RPC auth guards — anonymous callers must be rejected', ()
     });
 
     expect(error, `Authenticated caller should not error: ${error?.message}`).toBeNull();
-    // Returns JSONB with prediction field
-    expect(data).not.toBeNull();
+    // P1379: this fixture is a one-to-many letter, which never discloses the author's
+    // prediction — the authenticated call succeeds (the P684 guard lets it through) and
+    // returns NULL. The one-to-one reveal is covered by P1067 L3 and P1379 L2.
+    expect(data).toBeNull();
   });
 
   // ==========================================================================
