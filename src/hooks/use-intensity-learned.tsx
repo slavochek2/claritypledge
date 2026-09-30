@@ -15,9 +15,9 @@ const LEARNED_KEY = 'intensity_learned_at_v1';
 const PLAIN_PICKS_STORAGE_NAME = 'intensity_plain_picks_v1';
 
 /** After this many plain Agree/Disagree picks with no level ever chosen, the shared buttons
- *  open the tutorial pop-up once (founder, 2026-09-30: "if they do something like 10 more
- *  without adjusting … should we show that?"). */
-export const PLAIN_PICKS_BEFORE_TUTORIAL = 10;
+ *  open the tutorial pop-up once (founder, 2026-09-30: first proposed 10, then "maybe lets
+ *  say after 5? 10 too much?"). */
+export const PLAIN_PICKS_BEFORE_TUTORIAL = 5;
 
 export function readIntensityLearned(): boolean {
   try {

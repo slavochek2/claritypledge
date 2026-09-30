@@ -94,23 +94,23 @@ describe('P1374: shared intensity hint', () => {
     expect(localStorage.getItem(SEEN_KEY)).not.toBeNull();
   });
 
-  it('10 plain picks with no level: the pop-up opens once (not on the 9th)', async () => {
+  it('5 plain picks with no level: the pop-up opens once (not on the 4th)', async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    for (let i = 1; i <= 9; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
+    for (let i = 1; i <= 4; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
     expect(screen.queryByRole('dialog')).toBeNull();
-    await user.click(segment(/^Agree/)); // 10th: currently Disagree after 9 odd picks
+    await user.click(segment(/^Disagree/)); // 5th: currently Agree after 4 picks
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^continue$/i }));
-    await user.click(segment(/^Disagree/)); // 11th: already seen → no second pop-up
+    await user.click(segment(/^Agree/)); // 6th: already seen → no second pop-up
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('10 plain picks after the pop-up was already seen (e.g. in a letter): no pop-up', async () => {
+  it('5 plain picks after the pop-up was already seen (e.g. in a letter): no pop-up', async () => {
     localStorage.setItem(SEEN_KEY, '1');
     const user = userEvent.setup();
     render(<Harness />);
-    for (let i = 1; i <= 10; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
+    for (let i = 1; i <= 5; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
