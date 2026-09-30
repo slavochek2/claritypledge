@@ -8,7 +8,7 @@ env = load_env(".env.local")
 url = env["VITE_SUPABASE_URL"]
 assert TEST_REF in url, f"REFUSING: not test ({url})"
 ref = TEST_REF
-token = env["SUPABASE_ACCESS_TOKEN"]
+token = env["SUPABASE_TEST_WRITE_TOKEN"]  # test-project scoped; never the account-wide token (P1318)
 
 def q(sql):
     s = sql.strip()

@@ -108,6 +108,7 @@ build() {
     printf 'SUPABASE_DB_URL=postgres'; printf 'ql://postgres:%s@%s\n' "canary-not-a-credential" "db.invalid.example:5432/postgres"
     printf 'VITE_SUPABASE_URL=https://fakeprojectref.supabase.co\n'
     printf 'SUPABASE_ACCESS_TOKEN=%s\n' "sbp-canary-not-a-token"
+    printf 'SUPABASE_TEST_WRITE_TOKEN=%s\n' "sbp-canary-not-a-token"  # P1318: test migrate reads the scoped token
   } > "$P/$EF"
   printf '%s' '[{"version":"20260101000000","name":"old"}]' > "$P/ledger.json"
 }

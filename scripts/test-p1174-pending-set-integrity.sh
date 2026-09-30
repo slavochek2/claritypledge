@@ -130,6 +130,7 @@ STUB
     printf 'ql://postgres:%s@%s\n' "canary-not-a-credential" "$FAKE_HOST"
     printf 'VITE_SUPABASE_URL=https://fakeprojectref.supabase.co\n'
     printf 'SUPABASE_ACCESS_TOKEN=%s\n' "sbp-canary-not-a-token"
+    printf 'SUPABASE_TEST_WRITE_TOKEN=%s\n' "sbp-canary-not-a-token"  # P1318: test migrate reads the scoped token
   } > "$PDIR/$ENV_FILE_NAME"
   printf '%s' "$LEDGER_JSON" > "$PDIR/ledger.json"
 }

@@ -170,9 +170,13 @@ def resolve_credentials(env_name, prefer_readonly=True):
     # so the daily path keeps working until the scoped token is issued.
     ro_var = "SUPABASE_READONLY_TOKEN_PROD" if env_name == "prod" else "SUPABASE_READONLY_TOKEN_TEST"
     ro_token = (os.environ.get(ro_var) or read_env_value(env_file, "SUPABASE_READONLY_TOKEN")) if prefer_readonly else None
+    # Test never falls back to the account-wide token (it reaches prod, P1318): the
+    # test-project-scoped query token covers this SELECT and is refused by prod.
+    scoped_test = read_env_value(env_file, "SUPABASE_TEST_WRITE_TOKEN") if env_name != "prod" else None
     token = (ro_token
              or os.environ.get(token_var)
-             or read_env_value(env_file, "SUPABASE_ACCESS_TOKEN"))
+             or scoped_test
+             or (read_env_value(env_file, "SUPABASE_ACCESS_TOKEN") if env_name == "prod" else None))
     ref = os.environ.get(ref_var)
     if not ref:
         url = read_env_value(env_file, "VITE_SUPABASE_URL") or ""
@@ -183,6 +187,8 @@ def resolve_credentials(env_name, prefer_readonly=True):
         source = f"${ro_var}" if os.environ.get(ro_var) else f"{env_file} (SUPABASE_READONLY_TOKEN)"
     elif os.environ.get(token_var):
         source = f"${token_var} (account-wide management token)"
+    elif scoped_test:
+        source = f"{env_file} (SUPABASE_TEST_WRITE_TOKEN — test-project scoped)"
     else:
         source = (f"{env_file} (SUPABASE_ACCESS_TOKEN — account-wide management token)"
                   if env_file else f"<{env_file_name} not found>")

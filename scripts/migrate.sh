@@ -155,7 +155,9 @@ PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
 #   run, answered by a human. Never .env.prod's plaintext copy and never the Supabase CLI's saved
 #   login — both are readable by any process with no prompt, which is exactly what the lock stops.
 #   A declined or unenrolled read exits here, before anything is applied.
-# test/local — .env.local's SUPABASE_ACCESS_TOKEN.
+# test/local — .env.local's SUPABASE_TEST_WRITE_TOKEN: scoped to the test project, database
+#   query only, refused by prod (P1318, measured 403). Never the account-wide token, which
+#   reaches prod — every call this path makes is /database/query, which the scoped token covers.
 # The Supabase CLI's saved login ("Supabase CLI" keychain item) is no longer consulted on EITHER
 # path. It used to be read FIRST, so a stale saved login silently shadowed a fresh env token
 # (the P877 trap), and its access list trusts /usr/bin/security — any command can read it.
@@ -170,7 +172,7 @@ if [ "$ENV_NAME" = "prod" ]; then
   fi
   SUPABASE_PAT="$PROD_SUPABASE_ACCESS_TOKEN"
 else
-  SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
+  SUPABASE_PAT=$(grep "^SUPABASE_TEST_WRITE_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
 fi
 
 # --- Helper: validate Supabase Management API response body ---
@@ -432,7 +434,7 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
   [ "$ENV_NAME" = "prod" ] && echo ">>> Applying migrations via Management API..." || echo ">>> Primary push failed — falling back to Management API..."
 
   if [ -z "$SUPABASE_PAT" ]; then
-    echo "ERROR: Supabase PAT not found. Add SUPABASE_ACCESS_TOKEN to $ENV_FILE (test), or enroll PROD_SUPABASE_ACCESS_TOKEN in the keyring (prod)."
+    echo "ERROR: Supabase PAT not found. Add SUPABASE_TEST_WRITE_TOKEN to $ENV_FILE (test), or enroll PROD_SUPABASE_ACCESS_TOKEN in the keyring (prod)."
     exit 1
   fi
 
@@ -458,7 +460,7 @@ if [ "$NEEDS_FALLBACK" = "true" ]; then
       echo "  Item lost: re-enroll it from the password-manager copy (P1322), never from a plaintext copy:"
       echo "    see docs/technical/credential-keyring.md, Recovery section"
     else
-      echo "  The test token comes from SUPABASE_ACCESS_TOKEN in $ENV_FILE — refresh it there."
+      echo "  The test token comes from SUPABASE_TEST_WRITE_TOKEN in $ENV_FILE (test-project scoped) — refresh it there."
     fi
     exit 1
   fi
