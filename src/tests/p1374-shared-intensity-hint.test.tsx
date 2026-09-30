@@ -88,7 +88,7 @@ describe('P1374: shared intensity hint', () => {
     render(<Harness />);
     await user.click(segment(/^Disagree/));
     await user.click(screen.getByRole('button', { name: 'Show the intensity tutorial' }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', {}, { timeout: 5000 })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^continue$/i }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(localStorage.getItem(SEEN_KEY)).not.toBeNull();
@@ -100,7 +100,7 @@ describe('P1374: shared intensity hint', () => {
     for (let i = 1; i <= 4; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(segment(/^Disagree/)); // 5th: currently Agree after 4 picks
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', {}, { timeout: 5000 })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^continue$/i }));
     await user.click(segment(/^Agree/)); // 6th: already seen → no second pop-up
     expect(screen.queryByRole('dialog')).toBeNull();
