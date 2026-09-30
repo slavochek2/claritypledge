@@ -5,8 +5,8 @@ rank: 13
 created_date: '2026-09-30'
 tags: [position-buttons, onboarding, intensity, letters]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -72,14 +72,14 @@ The modal title uses the same sentence as the tip: *"Tap again if you disagree o
 
 ## Acceptance Criteria
 
-- [ ] With no stored state, the modal opens on the first engage phase. Its title reads "Tap again if you disagree only Somewhat, or Strongly".
-- [ ] After the modal is dismissed, selecting Agree or Disagree shows the tip line (Agree variant swaps the verb). Selecting Unsure shows no tip text.
-- [ ] After the reader picks any Somewhat or Strongly level, the tip text disappears immediately. It stays gone on later questions and on reload in the same browser, and the modal does not auto-open.
-- [ ] The "?" replay still opens the modal after any selection, learned or not.
-- [ ] On /stake, feed, point, story and profile pages, a plain Agree/Disagree tap shows the hint under that point only (also at 375px, icon-only). Unsure shows none. It hides when the menu opens.
-- [ ] Outside letters, the hint's "?" opens the tutorial pop-up. After 5 plain picks with no level chosen, the pop-up opens once, and never if it was already seen (in a letter or earlier).
-- [ ] A Somewhat/Strongly pick on any page stops the hint everywhere, letters included (and the letter pop-up no longer auto-opens).
-- [ ] Unit tests cover all three states and the shared hint. The existing P862 and P1231 tests pass.
+- [x] With no stored state, the modal opens on the first engage phase. Its title reads "Tap again if you disagree only Somewhat, or Strongly". — unit test `p1374-intensity-hints-learned` (no stored state, both engage phases) + e2e `p1231` cleared-state case (dialog title), 2026-09-30.
+- [x] After the modal is dismissed, selecting Agree or Disagree shows the tip line (Agree variant swaps the verb). Selecting Unsure shows no tip text. — unit tests (Agree/Unsure, both phases); founder browser UAT on the letter 2026-09-30 ("that works").
+- [x] After the reader picks any Somewhat or Strongly level, the tip text disappears immediately. It stays gone on later questions and on reload in the same browser, and the modal does not auto-open. — unit tests (immediate hide, persisted flag, no auto-open when learned); founder UAT. Reload persistence = stored flag, covered by the learned-state test.
+- [x] The "?" replay still opens the modal after any selection, learned or not. — unit test (learned → "?" still opens the dialog).
+- [x] On /stake, feed, point, story and profile pages, a plain Agree/Disagree tap shows the hint under that point only (also at 375px, icon-only). Unsure shows none. It hides when the menu opens. — headless browser at 375px on /stake and /feed: one hint, under the tapped point only (2 cards → 1 hint); unit tests for Unsure and menu-open hide. Point/story/profile pages share the same component and are unit-covered, not browser-checked.
+- [x] Outside letters, the hint's "?" opens the tutorial pop-up. After 5 plain picks with no level chosen, the pop-up opens once, and never if it was already seen (in a letter or earlier). — unit tests (4th pick no dialog, 5th opens, never twice, not if seen) + headless browser on /stake: dialog on the 5th pick, close button present, Escape closes, no re-open.
+- [x] A Somewhat/Strongly pick on any page stops the hint everywhere, letters included (and the letter pop-up no longer auto-opens). — unit tests (two cards; letter tip hides on a pick elsewhere; blocked storage).
+- [x] Unit tests cover all three states and the shared hint. The existing P862 and P1231 tests pass. — 5,036 unit tests pass (JSON reporter, 0 failed); `p1231` e2e 2/2 pass.
 
 ## Related
 
