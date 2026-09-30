@@ -75,6 +75,7 @@ Last updated: 2026-09-30
 
 ## Points & Stories
 
+- **P1374** (Sep 26) One intensity-hint rule site-wide — a flag set by any menu pick stops every hint; broadcast it, one hint per page, pop-up once, never in live
 - **P1376** (Sep 26) /stake lists heads only; tag heading visible — head filter must sit inside the query, before `.range()`; /live was already heads-only via stories
 - **P1372** (Sep 26) Same-row intensity pick removed the position — guard the shared choke point, not 12 consumer toggles; Clear row is the only removal
 - **P1348** (Sep 22) Supporting quotes never folded; agent stories 1–2 sentences — confirm WHICH collapse from a screenshot before editing: "quotes" meant the StoryVideoQuotes block, not linked points.

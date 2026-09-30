@@ -6,6 +6,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-09-30 [product]: One intensity-hint rule on every page: a "tap again" line until the reader picks a level, the pop-up at most once (P1374)
+
+**Context:** Supersedes the 2026-09-29 [product] proposal "The forced intensity tutorial did not raise intensity use; the next step is rewording the existing hint". That proposal said to reword first and escalate later. The founder instead asked for the whole system at once:
+
+> "we need to look at it as a whole, holistically. When do we show this text? When do we show the pop-up?"
+
+They also pointed out that most people meet points on /stake, the feed or profiles, where nothing taught the gesture at all. Three adversarial reviews (Opus, Codex Sol, Gemini 3.8) of the first build found the following, and all were fixed before ship:
+- stale hints on several cards at once;
+- choosing the default level from the menu not counting as learned;
+- a non-dismissable pop-up in live sessions;
+- storage failure re-arming the hints.
+
+**Decision:** One browser-level "learned" flag. It is set by the reader's first pick of *any* row in the level menu, on any page, and never by the tutorial demo.
+- **Everywhere the shared buttons render** (feed, /stake, point, story and profile pages; onboarding inherits it): after a plain Agree/Disagree tap, one line appears under that point only: *"Tap again if you disagree only Somewhat, or Strongly"*, with a "?" that plays the tutorial. Only one hint shows on a page at a time, and every hint stops the moment the flag is set.
+- **Letters:** the forced first-run pop-up is unchanged. The inline tip row now uses the same sentence and disappears once learned.
+- **The pop-up is shown at most once per browser.** Outside letters it opens on its own only after 5 plain picks with no level chosen (founder: 10 → *"maybe lets say after 5? 10 too much?"*). There it is dismissible (close X, ESC).
+- **Excluded:** live sessions, round summaries and letter walks (the live-session card), and the story composer. A pop-up mid-conversation seizes the room, and P1371 keeps live out until two-party E2E covers it.
+
+**Alternatives rejected:**
+- A "Don't show again" checkbox: it hands the stop decision to the reader, and the hint nags until it is ticked.
+- A re-show schedule with caps (P1371 Phase 3): more machinery than "stop once learned" and "show the pop-up once".
+- Letters-only scope: that misses where people actually meet points.
+- A blocking pop-up outside letters: rejected in review; it interrupts browsing.
+
+**Consequences:**
+- **Success metric:** the Phase 0 query in P1371. Take the share of agree/disagree positions using a level among people whose first position is after this ship, over their first N positions, against the 19% baseline recorded 2026-09-29. Supporting evidence: `intensity_level_picked_first`, and `intensity_tutorial_shown`/`_dismissed`, which now carry a `trigger`.
+- **Rollback:** pass `intensityHint={false}` at the shared default. That is a one-line revert of the site-wide hint, and letters are untouched.
+- **Open:** the pop-up title says "Tap again" even when the letter pop-up opens before any tap. Codex flagged this against the P867 click-for-click invariant; the founder has approved this copy, so it is open for their call.
+- **Accepted limits:**
+  - The flag is per browser, not per account.
+  - The pop-up title always says "disagree", because the demo shows Disagree.
+  - The counter counts taps before a consumer accepts them.
+  - Point, story and profile pages are unit-covered but were not browser-checked.
+
+**References:** [p1374](../features/done/2026-06-10/p1374_intensity_hints_stop_once_learned.md), [p1371](../features/p1371_intensity_hint_behavior_triggered.md), P1372, P867, P852
+
 ## 2026-09-30 [technical]: System identities are never pledgers — every machine profile sets `has_pledged = false` explicitly (P1378)
 
 **Context:** The P1030 "Clarity Agent" system profile showed on prod `/pledgers` as a signatory. It must be `is_verified = true` (story INSERT RLS), and `profiles.has_pledged` defaults to `true` at the table, so it passed every pledger filter (list, total, featured, social-proof count). P1104 persona agents had already hit this default and set the flag explicitly; the older bootstrap never did.
@@ -63,7 +99,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Supersedes P847 Decision A's "same-row toggle is the removal path when `onClear` is absent". The story composer (`story-detail-page` ~:285) has no Clear row and no same-row removal. That is accepted because it requires a position to submit. Pre-existing and unchanged: points under a feed story have no working removal at all. Known cleanup: `QuotedPointCard`'s toggle branch is now unreachable, and `PointCardFull` in `profile-page-v2` has no call sites.
 **References:** [p1372](../features/done/2026-06-10/p1372_same_row_intensity_pick_removes_position.md), `src/tests/p1372-same-row-intensity-pick.test.tsx`, 2026-05-20 [product] "Destructive UI actions must be explicit affordances"
 
-## 2026-09-29 [product]: The forced intensity tutorial did not raise intensity use; the next step is rewording the existing hint, not a smarter pop-up (Status: proposed)
+## 2026-09-29 [product]: The forced intensity tutorial did not raise intensity use; the next step is rewording the existing hint, not a smarter pop-up #superseded
+
+**Superseded by 2026-09-30 [product] "One intensity-hint rule on every page" (P1374).** The baseline numbers below still stand.
 
 **Context:** Founder: *"some people never discover the double click on buttons.. some people see animation but dont pay attention."* Baseline from prod `point_positions`, read via the public REST API (letter responses are RLS-blocked, so this is points only). 23 of 55 positioned people (42%) have ever used Somewhat/Strongly. Share of agree/disagree positions using a level: 52% (44/85) before the P852 tutorial (31 May), 19% (41/218) after. Excluding the 3 heaviest users: 33% → 19%. Mixpanel cannot answer this: it records only `intensity_tutorial_shown`/`_dismissed`, never a level pick. Adversarial review (Opus + Codex Sol) also found that letters already show a post-selection hint ("Double-click to adjust position level", 12px, 55% opacity). So "hint at the moment of need" already exists and also failed.
 **Decision:** Proposed order in P1371:
