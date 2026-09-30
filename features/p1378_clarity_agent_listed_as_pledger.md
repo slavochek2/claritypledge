@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 15
 severity: medium
@@ -10,8 +10,15 @@ exec_model: sonnet
 exec_effort: medium
 tags: [pledgers, agent-accounts, profiles]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p1378-clarity-agent-not-pledger.sh
+  root_cause: "bootstrap-align-agent.mjs creates/adopts the Clarity Agent profile without has_pledged, which defaults true; get_pledgers_page lists verified+pledged+non-test profiles"
+  confidence: high
+  surfaces_in_scope: [pledgers-list, pledgers-total, bootstrap-script]
+  surfaces_deferred: []
+  reproduced_at: 2026-09-30
 ---
 
 # P1378: "Clarity Agent" is listed as a pledger on /pledgers
@@ -28,7 +35,7 @@ The system identity "Clarity Agent" (slug `clarity-agent`, profile `10e8f204-447
 - It never sets `has_pledged`. The column is `boolean not null default true` (`supabase/migrations/20250101_initial_schema.sql:16`), so the agent counts as a pledger.
 - P1104 persona agents (`agent-*`) hit the same default and set it explicitly (`supabase/migrations/20260819120000_p1104_agent_accounts.sql:84`). The P1030 Clarity Agent bootstrap predates P1104 and never got the same treatment.
 
-UNVERIFIED: the prod value of `has_pledged` on this row. The inference comes from the default plus the fact that the row passes the RPC filter. `is_test_account` must also be false or null.
+CONFIRMED 2026-09-30 (prod, read-only SQL): `is_verified=true, has_pledged=true, is_test_account=false`, not in `agent_accounts`. `guard_profile_trust_columns` blocks anon/authenticated from changing `has_pledged`; service role may. All pledger surfaces read `has_pledged`, so fixing the row fixes the list, the total and the social-proof count.
 
 ## Invariants
 
