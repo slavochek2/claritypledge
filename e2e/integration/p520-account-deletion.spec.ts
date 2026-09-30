@@ -120,13 +120,9 @@ function readEnvLocal(name: string): string {
 function managementToken(): { token: string; readOnly: boolean } {
   const scoped = readEnvLocal('SUPABASE_READONLY_TOKEN') || process.env.SUPABASE_READONLY_TOKEN || '';
   if (scoped) return { token: scoped, readOnly: true };
-  const wide = readEnvLocal('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN || '';
-  if (wide) {
-    console.warn('[P520] no SUPABASE_READONLY_TOKEN — catalogue census is using the ACCOUNT-WIDE token (P1214 fallback)');
-    return { token: wide, readOnly: false };
-  }
+  // P1318: no fallback to the account-wide token — it reaches prod.
   throw new Error(
-    'Neither SUPABASE_READONLY_TOKEN nor SUPABASE_ACCESS_TOKEN is set in .env.local or the environment. The P520 census ' +
+    'SUPABASE_READONLY_TOKEN is not set in .env.local or the environment. The P520 census ' +
     'tests need catalogue access; without it the census is unproven, so this fails rather than skips.',
   );
 }

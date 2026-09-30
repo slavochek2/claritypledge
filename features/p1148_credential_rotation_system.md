@@ -55,6 +55,10 @@ reshape dropped them):**
 - **Verify must be seen to fail against the old value** (or a deliberately wrong one) before its pass
   on the new value counts — a check that picks its token up from the environment passes with the old
   key and proves nothing.
+- **Rollback is escrowed before any write** (Codex): the old value at every location is saved (locked
+  temp, never the transcript) before the first write, so a failed verify restores each location —
+  hosted stores cannot return a prior value, so without the escrow "old key stays live" leaves every
+  consumer holding the broken new one.
 - **Provider errors are scrubbed** before printing (a 401 body can echo the submitted token); the temp
   file lives in a `700` directory and is removed on every exit path.
 - **Keys without a provider expiry** are warned by `Interval` + `Last rotated`, not only by `Expires`.

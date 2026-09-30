@@ -91,7 +91,7 @@ curl -s "https://api.unsplash.com/search/photos?query={KEYWORDS}&per_page=1&orie
 
 ## Step 2 — Upload to Postiz
 
-Postiz auth uses cookies. If `/tmp/postiz-cookies.txt` already exists (from this session), skip login.
+Postiz auth uses cookies. If `"${TMPDIR:-/tmp}"/postiz-cookies.txt` already exists (from this session), skip login.
 
 **Login (if needed):**
 ```bash
@@ -100,13 +100,13 @@ source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
 KEYRING_REASON="gen-image: log in to Postiz" keyring_require POSTIZ_PASSWORD || exit 1   # locked half (P1318): keychain only; keyring_require only RETURNS non-zero, so the exit is what halts
 # Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
 printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
-  | curl -s -c /tmp/postiz-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @-
+  | curl -s -c "${TMPDIR:-/tmp}"/postiz-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @-
 # → {"login":true}
 ```
 
 **Upload:**
 ```bash
-curl -s -b /tmp/postiz-cookies.txt \
+curl -s -b "${TMPDIR:-/tmp}"/postiz-cookies.txt \
   -X POST "$POSTIZ_URL/api/media/upload-simple" \
   -H "organization: {ORG_ID}" \
   -F "file=@/tmp/post-image.png;type=image/png"
@@ -115,7 +115,7 @@ curl -s -b /tmp/postiz-cookies.txt \
 
 Get `ORG_ID` if unknown:
 ```bash
-curl -s -b /tmp/postiz-cookies.txt "$POSTIZ_URL/api/user/organizations" | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])"
+curl -s -b "${TMPDIR:-/tmp}"/postiz-cookies.txt "$POSTIZ_URL/api/user/organizations" | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])"
 ```
 
 ## Output
@@ -145,5 +145,5 @@ Use in post payload:
 - Auth header is `x-goog-api-key` (not `key=` query param) for `generateContent` endpoint
 - `responseModalities: ["IMAGE"]` for image-only output; use `["TEXT", "IMAGE"]` to get both
 - Preview models (`-preview` suffix) may change — check [Google AI docs](https://ai.google.dev/gemini-api/docs/image-generation) if errors occur
-- Cookie file `/tmp/postiz-cookies.txt` is reused across calls in the same session — no need to re-login
+- Cookie file `"${TMPDIR:-/tmp}"/postiz-cookies.txt` is reused across calls in the same session — no need to re-login
 - Images land at `$POSTIZ_URL/uploads/YYYY/MM/DD/{hash}.png`

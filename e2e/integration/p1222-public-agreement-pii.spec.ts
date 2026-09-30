@@ -76,11 +76,8 @@ async function managementQuery(sql: string): Promise<Record<string, unknown>[] |
   }
   const fromFile = (name: string) =>
     envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
-  let token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
-  if (!token) {
-    token = fromFile('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN;
-    if (token) console.warn('[P1222] no SUPABASE_TEST_WRITE_TOKEN — using the ACCOUNT-WIDE token on test (P1214 fallback)');
-  }
+  const token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
+  // P1318: no fallback to the account-wide token — it reaches prod.
   if (!token || !ref) return null;
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',

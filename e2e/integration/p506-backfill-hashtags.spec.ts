@@ -118,13 +118,8 @@ test.describe('P506: Hashtag backfill migration', () => {
     }
     const fromFile = (name: string) =>
       envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
-    let token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
-    if (!token) {
-      token = fromFile('SUPABASE_ACCESS_TOKEN') || process.env.SUPABASE_ACCESS_TOKEN;
-      if (token) {
-        console.warn('[P506] no SUPABASE_TEST_WRITE_TOKEN — backfill is using the ACCOUNT-WIDE token (P1214 fallback)');
-      }
-    }
+    const token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
+    // P1318: no fallback to the account-wide token — it reaches prod.
     const projectRef = process.env.VITE_SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1];
     if (token && projectRef) {
       const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {

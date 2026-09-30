@@ -35,7 +35,7 @@ npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/ty
 
 **`scripts/migrate.sh` does:**
 1. Extracts DB password and project ref from env file (`.env.local` by default, `.env.prod` with `--env prod`)
-2. Resolves Supabase PAT: macOS keychain first, then `SUPABASE_ACCESS_TOKEN` in the env file (agent-friendly fallback)
+2. Resolves the Supabase PAT: prod — the locked keychain item only; test — `SUPABASE_TEST_WRITE_TOKEN` (test-project scoped) from `.env.local` (P1318)
 3. Runs `supabase migration list` (shows current state — non-fatal if pooler fails)
 4. Runs `supabase db push` (primary path)
 5. **Management API fallback**: if `db push` fails (pooler auth, history mismatch), falls back to `POST /v1/projects/{ref}/database/query` per migration file, skipping already-applied versions. Also records each applied version into `supabase_migrations.schema_migrations` so future CLI runs stay in sync.
@@ -50,7 +50,7 @@ npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/ty
 # 3. Promote to prod
 ./scripts/migrate.sh --env prod
 ```
-`.env.prod` must exist (see prod section in `.env.example`). It needs `VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, and `SUPABASE_ACCESS_TOKEN` for the prod project.
+`.env.prod` must exist with `VITE_SUPABASE_URL` (and the public anon key). The prod management token and DB URL are **not** in it — the token comes from the keychain (one dialog per run), and prod migrations do not use the DB URL (P1318).
 
 **Migration file naming rule — CRITICAL:**
 Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.

@@ -51,7 +51,7 @@ LINKEDIN_CLIENT_ID=<see .env on clarity-agent VM>
 LINKEDIN_CLIENT_SECRET=<see .env on clarity-agent VM>
 ```
 
-## Automation Credentials (in `.env.local`)
+## Automation Credentials (`.env.local`, except `POSTIZ_PASSWORD` / `POSTIZ_API_TOKEN` — macOS keychain only, P1318)
 
 | Variable | Purpose |
 |----------|---------|

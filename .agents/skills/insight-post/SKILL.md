@@ -172,10 +172,10 @@ source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
 KEYRING_REASON="insight-post: log in to Postiz" keyring_require POSTIZ_PASSWORD || exit 1   # locked half (P1318): keychain only; keyring_require only RETURNS non-zero, so the exit is what halts
 # Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
 printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
-  | curl -s -c /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @- > /dev/null
+  | curl -s -c "${TMPDIR:-/tmp}"/postiz-insight-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @- > /dev/null
 
 # Schedule
-RESULT=$(curl -s -b /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL/api/posts" \
+RESULT=$(curl -s -b "${TMPDIR:-/tmp}"/postiz-insight-cookies.txt -X POST "$POSTIZ_URL/api/posts" \
   -H "Content-Type: application/json" \
   -d "{
     \"type\": \"schedule\",
@@ -188,7 +188,7 @@ RESULT=$(curl -s -b /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL/api/pos
     }]
   }")
 
-rm -f /tmp/postiz-insight-cookies.txt /tmp/insight-post-approved.txt
+rm -f "${TMPDIR:-/tmp}"/postiz-insight-cookies.txt /tmp/insight-post-approved.txt
 echo "$RESULT"
 ```
 
