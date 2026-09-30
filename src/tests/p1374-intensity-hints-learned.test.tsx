@@ -6,7 +6,8 @@
  * still works.
  */
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { writeIntensityLearned } from '@/hooks/use-intensity-learned';
+import { writeIntensityLearned, resetIntensityLearnedMemory } from '@/hooks/use-intensity-learned';
+import { resetIntensityPreviewSeenMemory } from '@/hooks/use-intensity-preview-seen';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
@@ -126,6 +127,8 @@ function renderEngage(phase: 'point-engage' | 'remaining-point-engage') {
 describe.each(['point-engage', 'remaining-point-engage'] as const)('P1374 (%s): letter intensity hints stop once learned', (phase) => {
   beforeEach(() => {
     localStorage.clear();
+    resetIntensityLearnedMemory();
+    resetIntensityPreviewSeenMemory();
     vi.clearAllMocks();
   });
 

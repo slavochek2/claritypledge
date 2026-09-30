@@ -19,7 +19,17 @@ const PLAIN_PICKS_STORAGE_NAME = 'intensity_plain_picks_v1';
  *  say after 5? 10 too much?"). */
 export const PLAIN_PICKS_BEFORE_TUTORIAL = 5;
 
+// Session memory: storage persists the flag, but is not the only truth — with storage blocked
+// or full, a reader who picked a level must still stop seeing hints for the rest of the visit.
+let learnedThisSession = false;
+
+/** Tests only: forget the session memory (storage is cleared separately). */
+export function resetIntensityLearnedMemory(): void {
+  learnedThisSession = false;
+}
+
 export function readIntensityLearned(): boolean {
+  if (learnedThisSession) return true;
   try {
     return !!localStorage.getItem(LEARNED_KEY);
   } catch {
@@ -42,6 +52,7 @@ export const INTENSITY_LEARNED_EVENT = 'cp:intensity-learned';
 export const INTENSITY_HINT_SHOWN_EVENT = 'cp:intensity-hint-shown';
 
 export function writeIntensityLearned(): void {
+  learnedThisSession = true;
   try {
     localStorage.setItem(LEARNED_KEY, String(Date.now()));
   } catch {

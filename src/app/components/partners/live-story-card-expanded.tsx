@@ -523,6 +523,10 @@ export function PointRow({
           narrow
           disabled={readOnly || disablePositionButtons}
           onClear={onClear}
+          // P1374: no intensity hint or auto pop-up inside live sessions, round summaries or
+          // letter walks — a pop-up mid-conversation seizes the room (P1371: live stays out
+          // until two-party E2E covers it); letters carry their own tip row.
+          intensityHint={false}
         />
 
         {/* P490: Guest hint — positions are ephemeral, prompt to sign up */}

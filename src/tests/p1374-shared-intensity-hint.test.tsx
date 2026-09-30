@@ -5,12 +5,14 @@
  * plain Agree/Disagree pick, until the reader has picked a level anywhere. The site-wide
  * flag is the same one letters read.
  */
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/PositionButton';
 import type { PositionType } from '@/app/types';
+import { resetIntensityLearnedMemory } from '@/hooks/use-intensity-learned';
+import { resetIntensityPreviewSeenMemory } from '@/hooks/use-intensity-preview-seen';
 
 const LEARNED_KEY = 'intensity_learned_at_v1';
 const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
@@ -43,7 +45,11 @@ describe('P1374: shared intensity hint', () => {
   beforeAll(async () => {
     await import('@/app/components/letters/intensity-tutorial-modal');
   });
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    resetIntensityLearnedMemory();
+    resetIntensityPreviewSeenMemory();
+  });
 
   it('plain Disagree pick shows the disagree hint; Agree swaps the verb', async () => {
     const user = userEvent.setup();
@@ -155,6 +161,21 @@ describe('P1374: shared intensity hint', () => {
     render(<Harness />);
     for (let i = 1; i <= 5; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('storage blocked: after a level pick, hints stay off for the rest of the visit', async () => {
+    const user = userEvent.setup();
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    try {
+      render(<Harness />);
+      await user.click(segment(/^Disagree/));
+      await user.click(segment(/^Disagree/));
+      await user.click(screen.getByRole('option', { name: /^Strongly Disagree$/ }));
+      await user.click(segment(/^Agree/));
+      expect(hint()).toBeNull();
+    } finally {
+      setItem.mockRestore();
+    }
   });
 
   it('intensityHint={false} (letter engage phases): no hint', async () => {

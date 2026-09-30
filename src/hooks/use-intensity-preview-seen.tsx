@@ -13,7 +13,17 @@ import { useState, useCallback } from 'react';
 
 const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
 
+// Session memory (P1374): a failed storage write must not let the 5-plain-picks rule reopen
+// the pop-up on every later pick.
+let seenThisSession = false;
+
+/** Tests only: forget the session memory (storage is cleared separately). */
+export function resetIntensityPreviewSeenMemory(): void {
+  seenThisSession = false;
+}
+
 export function readIntensityPreviewSeen(): boolean {
+  if (seenThisSession) return true;
   try {
     return !!localStorage.getItem(SEEN_KEY);
   } catch {
@@ -25,6 +35,7 @@ export function readIntensityPreviewSeen(): boolean {
 /** P1374: the tutorial pop-up is shown at most once per browser, whether it opened in a
  *  letter or from the shared buttons' 5-plain-picks trigger — one flag for both. */
 export function writeIntensityPreviewSeen(): void {
+  seenThisSession = true;
   try {
     localStorage.setItem(SEEN_KEY, String(Date.now()));
   } catch {
