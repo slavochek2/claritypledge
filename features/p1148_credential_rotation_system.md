@@ -17,7 +17,53 @@ pipeline_ran:
 driver: heuristic
 ---
 
-# P1148: Credential rotation system — plugin rotators, driver, vault
+# P1148: Know where every key lives and when it expires, and replace one in a single guided step
+
+> **Reshaped 2026-09-30 (founder).** The plugin-rotator / driver / vault design below is **superseded**
+> and kept only for its hard-won invariants. Founder challenge, verbatim: *"practically its opening all
+> webistes in browser and i clikc but why we do that if this is maual anyway.. then no need for spec or
+> skill?"* Answer: the dashboard click stays manual and is not worth automating. What P1318 showed is
+> that the cost lives on both sides of the click — **finding every place a key is stored and read**
+> (one account-wide token sat in two env files and the keychain, read by nine skills and scripts
+> straight from the file), and **knowing a key is about to expire** (four scoped Supabase tokens now
+> carry test migrate, drift checks and deploys, and three expire on the same days in December with
+> nothing to warn).
+
+## Scope now (replaces Solution and Done-When below)
+
+1. **The registry is the list.** `.private/docs/accounts.md` already carries Location, Consumers and
+   Interval per credential. Add one machine-readable `Expires` column (ISO date or `never`) and fill
+   it for every dashboard-issued token. No new store.
+2. **Expiry warning in `/weekly`.** A row expiring within 21 days, or already expired, prints with its
+   consumers. A `never` on a full-access provider token prints as a standing warning.
+3. **One guided replace step** (`scripts/rotate.sh <NAME>`), for keys the founder re-issues by hand:
+   - prints the dashboard URL and the scope to pick, then waits;
+   - the founder pastes the new value into one placeholder line of a `600` temp file — never the
+     clipboard-to-shell path, never the transcript;
+   - the script writes it to **every** Location in the registry row (env file, keychain item, GitHub
+     secret, edge-function secret), then runs the row's verify against the NEW value;
+   - only after verify passes does it tell the founder to revoke the old one, and records
+     `Last rotated`. Verify failing leaves the old key live and untouched.
+
+**Non-goals:** automatic minting through provider APIs, per-provider plugin files, a vault, batch
+rotation. Revisit only if manual rotations exceed a handful per quarter.
+
+### Done-When (new)
+
+- [ ] Every dashboard-issued token row in the registry has an `Expires` value
+- [ ] `/weekly` prints a row expiring within 21 days — proven by a fixture row dated inside the window,
+      and silent for one outside it (control)
+- [ ] `rotate.sh` on one real key updates every Location in its row, and verify runs against the new
+      value — proven by reading each location back (for the keychain: one dialog)
+- [ ] A verify failure leaves the old key live and prints no revoke instruction — demonstrated
+- [ ] No secret value in argv, the terminal, shell history, the transcript or any commit
+- [ ] A locked-tier key is written to the keychain, never only to a plaintext file — demonstrated by
+      attempting a plaintext-only write and seeing it refused
+
+---
+
+## Superseded design (2026-08-21 → 2026-09-30) — reference only
+
 
 **P1147 is met; P1214 is a peer, not a blocker.** P1147 shipped 2026-06-10 and its audit ran
 2026-09-01 with the full argument set, exit 0 — meaning only that no registry row held an inline
