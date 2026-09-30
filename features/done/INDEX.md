@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 ---
 
@@ -75,6 +75,7 @@ Last updated: 2026-09-29
 
 ## Points & Stories
 
+- **P1376** (Sep 26) /stake lists heads only; tag heading visible — head filter must sit inside the query, before `.range()`; /live was already heads-only via stories
 - **P1372** (Sep 26) Same-row intensity pick removed the position — guard the shared choke point, not 12 consumer toggles; Clear row is the only removal
 - **P1348** (Sep 22) Supporting quotes never folded; agent stories 1–2 sentences — confirm WHICH collapse from a screenshot before editing: "quotes" meant the StoryVideoQuotes block, not linked points.
 - **P1349** (Sep 26) One summary page per source video (`/video/:id`), linked under every player — confirmed-only RLS; errors retry instead of 404; the id list pages past 1000 rows; the generator is not built yet
