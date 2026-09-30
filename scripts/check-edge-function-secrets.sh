@@ -255,7 +255,7 @@ if [ -n "$ENV_NAME" ] && [ -z "$PROJECT_REF" ]; then
   #      raises one dialog. An ambient SUPABASE_ACCESS_TOKEN without the matching marker is
   #      NOT reused: nobody resolved it for this project.
   #   2. prod — the locked keyring item only.
-  #   3. test — .env.local's SUPABASE_ACCESS_TOKEN.
+  #   3. test — .env.local's SUPABASE_TEST_FUNCTIONS_TOKEN (test-project scoped, P1318).
   # The Supabase CLI's saved login is no longer consulted: it reads with no prompt.
   if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] && [ "${CP_SUPABASE_TOKEN_REF:-}" = "$PROJECT_REF" ]; then
     :
@@ -269,7 +269,7 @@ if [ -n "$ENV_NAME" ] && [ -z "$PROJECT_REF" ]; then
     fi
     export SUPABASE_ACCESS_TOKEN="$PROD_SUPABASE_ACCESS_TOKEN"
   else
-    export SUPABASE_ACCESS_TOKEN="$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)"
+    export SUPABASE_ACCESS_TOKEN="$(grep "^SUPABASE_TEST_FUNCTIONS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)"
   fi
 fi
 

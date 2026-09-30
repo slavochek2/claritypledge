@@ -93,7 +93,7 @@ STUB
   : > "$root/supabase/functions/alpha-fn/index.ts"
   : > "$root/supabase/functions/create-and-sign/index.ts"
 
-  printf 'VITE_SUPABASE_URL=https://stub.supabase.co\nSUPABASE_ACCESS_TOKEN=sbp_stub\n' \
+  printf 'VITE_SUPABASE_URL=https://stub.supabase.co\nSUPABASE_ACCESS_TOKEN=sbp_stub\nSUPABASE_TEST_FUNCTIONS_TOKEN=sbp_stub\n' \
     > "$root/.env.prod"
   cp "$root/.env.prod" "$root/.env.local"
 

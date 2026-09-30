@@ -55,7 +55,9 @@ PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
 # Get PAT for deployment (P1214 / P1239).
 # prod — ONLY the locked keyring item: one authorization dialog per deploy. Not .env.prod's
 #   plaintext copy and not the Supabase CLI's saved login, both readable with no prompt.
-# test/local — .env.local's SUPABASE_ACCESS_TOKEN. The CLI's saved login is no longer a fallback.
+# test/local — .env.local's SUPABASE_TEST_FUNCTIONS_TOKEN: scoped to the test project (edge functions
+#   read-write, function secrets read), refused by prod (P1318). Never the account-wide token, which
+#   reaches prod. The CLI's saved login is no longer a fallback.
 if [ "$ENV_NAME" = "prod" ]; then
   # shellcheck source=keyring.sh
   source "$SCRIPT_DIR/keyring.sh"
@@ -66,7 +68,11 @@ if [ "$ENV_NAME" = "prod" ]; then
   fi
   SUPABASE_PAT="$PROD_SUPABASE_ACCESS_TOKEN"
 else
-  SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
+  SUPABASE_PAT=$(grep "^SUPABASE_TEST_FUNCTIONS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
+  if [ -z "$SUPABASE_PAT" ]; then
+    echo "ERROR: SUPABASE_TEST_FUNCTIONS_TOKEN is empty in $ENV_FILE — nothing was deployed."
+    exit 1
+  fi
 fi
 
 export SUPABASE_ACCESS_TOKEN="$SUPABASE_PAT"
