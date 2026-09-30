@@ -32,7 +32,7 @@
 --
 -- Grants restated exactly as in each latest definition (no widening, no narrowing).
 --
--- requires-frontend: ba7277abd
+-- requires-frontend: 7bebb3514
 --   Deployed clients before P1379 render "Calibration data unavailable." when a
 --   one-to-many reveal returns no prediction. The frontend commit that adds the
 --   public reveal must be live first; migrate.sh --env prod enforces this marker.
