@@ -81,9 +81,12 @@ Postiz uses cookie-based auth (no Bearer token from CLI). Auth flow:
 
 ```bash
 # 1. Login — sets postiz.sid cookie
-curl -c /tmp/postiz-cookies.txt -X POST {POSTIZ_URL}/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"{POSTIZ_EMAIL}","password":"{POSTIZ_PASSWORD}","provider":"LOCAL"}'
+source .env.local
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="promote-blog: log in to Postiz" keyring_require POSTIZ_PASSWORD   # locked half (P1318): keychain only; halt if declined
+# Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
+printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
+  | curl -s -c /tmp/postiz-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @-
 # → {"login":true}
 
 # 2. Schedule post
@@ -127,18 +130,18 @@ If media upload fails, post text-only (`image: []`).
   View in Postiz: https://postiz.claritypledge.com/launches
 ```
 
-## Credentials (all in `.env.local`)
+## Credentials (`.env.local`, except `POSTIZ_PASSWORD` — keychain only, P1318)
 
 | Variable | Value |
 |----------|-------|
 | `POSTIZ_URL` | `https://postiz.claritypledge.com` |
 | `POSTIZ_EMAIL` | `ops@claritypledge.com` |
-| `POSTIZ_PASSWORD` | Postiz account password |
+| `POSTIZ_PASSWORD` | Postiz account password — **keychain**, via `keyring_require` |
 | `POSTIZ_LINKEDIN_CHANNEL_ID` | `cmlzashw80001t86nxnlk6pi2` (Vyacheslav Ladischenski) |
 | `GEMINI_API_KEY` | Imagen 4 image generation (via `/slava:gen-image`) |
 | `UNSPLASH_ACCESS_KEY` | Client-ID for Unsplash fallback photos |
 
-Note: `POSTIZ_API_TOKEN` in `.env.local` is stored for reference but Postiz uses cookie-based session auth for API calls — Bearer token auth returns 401 from CLI.
+Note: `POSTIZ_API_TOKEN` is kept in the keychain for reference only (no longer in `.env.local`); Postiz uses cookie-based session auth for API calls — Bearer token auth returns 401 from CLI.
 
 ## Troubleshooting
 

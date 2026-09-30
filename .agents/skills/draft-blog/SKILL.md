@@ -188,7 +188,11 @@ Auto-populate from the post content:
 
 ### Step 4: Create/Update Ghost Draft
 
-**Auth:** Generate JWT from `GHOST_ADMIN_API_KEY` in `.env.local`:
+**Auth:** Generate JWT from `GHOST_ADMIN_API_KEY`, read from the keychain (locked half, P1318 — not in `.env.local`):
+```bash
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="draft-blog: create/update the Ghost draft" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+```
 ```js
 const [id, secret] = key.split(':');
 // header: { alg: 'HS256', typ: 'JWT', kid: id }

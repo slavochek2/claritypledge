@@ -43,7 +43,9 @@ Fetch the post via Ghost Admin API. Halt if:
 
 ```bash
 source .env.local
-# Requires: GHOST_ADMIN_API_KEY in format id:secret
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="prep-email: fetch the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+# GHOST_ADMIN_API_KEY format: id:secret
 # Verify: node -e "..." (see Ghost API Auth section below)
 ```
 
@@ -239,7 +241,7 @@ Next: /ship-blog to publish and send newsletter
 ## Ghost API Auth
 
 ```javascript
-// From .env.local: GHOST_ADMIN_API_KEY (format: id:secret)
+// From the keychain via keyring_require (see Step 0) — never .env.local: GHOST_ADMIN_API_KEY (format: id:secret)
 const [id, secret] = GHOST_ADMIN_API_KEY.split(':');
 // JWT header: { alg: 'HS256', typ: 'JWT', kid: id }
 // JWT payload: { iat: now, exp: now + 300, aud: '/admin/' }

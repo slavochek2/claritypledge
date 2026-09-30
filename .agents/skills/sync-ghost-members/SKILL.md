@@ -40,8 +40,8 @@ Sync verified Supabase users to Ghost as named newsletter subscribers.
 
 ## Prerequisites
 
-These must exist in `.env.local`:
-- `GHOST_ADMIN_API_KEY` — format `{id}:{secret}`
+Required:
+- `GHOST_ADMIN_API_KEY` — format `{id}:{secret}`. **Keychain only** (locked half, P1318) — it is no longer in `.env.local`.
 - `SUPABASE_READONLY_TOKEN` — the scoped `Database: Read` token. Profiles are read through `scripts/supabase-readonly-sql.py`, which bypasses RLS (asserted on every call) and holds no write authority. The prod master key is **not** needed and must not be reintroduced for this read (P1214); the anon key cannot see profiles at all.
 
 Ghost blog URL: `https://blog.claritypledge.com`
@@ -55,9 +55,9 @@ Prod Supabase ref: `besjtuodziykmjidubzw`
 
 ```bash
 source .env.local
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="sync-ghost-members: sync app users to Ghost" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
 ```
-
-Read `GHOST_ADMIN_API_KEY` from `.env.local`.
 
 ### Step 2: Run the sync
 

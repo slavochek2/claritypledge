@@ -168,9 +168,11 @@ print(local_tomorrow_9am.strftime('%Y-%m-%dT%H:%M:%S.000Z'))
 POST_JSON=$(python3 -c "import sys, json; print(json.dumps(open('/tmp/insight-post-approved.txt').read()))")
 
 # Login
-curl -s -c /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$POSTIZ_EMAIL\",\"password\":\"$POSTIZ_PASSWORD\",\"provider\":\"LOCAL\"}" > /dev/null
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="insight-post: log in to Postiz" keyring_require POSTIZ_PASSWORD   # locked half (P1318): keychain only; halt if declined
+# Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
+printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
+  | curl -s -c /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @- > /dev/null
 
 # Schedule
 RESULT=$(curl -s -b /tmp/postiz-insight-cookies.txt -X POST "$POSTIZ_URL/api/posts" \
@@ -202,13 +204,13 @@ Confirm success:
 
 ---
 
-## Credentials (all in `.env.local`)
+## Credentials (`.env.local`, except `POSTIZ_PASSWORD` — keychain only, P1318)
 
 | Variable | Value |
 |----------|-------|
 | `POSTIZ_URL` | `https://postiz.claritypledge.com` |
 | `POSTIZ_EMAIL` | `ops@claritypledge.com` |
-| `POSTIZ_PASSWORD` | Postiz account password |
+| `POSTIZ_PASSWORD` | Postiz account password — **keychain**, via `keyring_require` |
 | `POSTIZ_LINKEDIN_CHANNEL_ID` | `cmlzashw80001t86nxnlk6pi2` |
 
 ## Troubleshooting

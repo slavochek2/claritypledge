@@ -38,9 +38,10 @@ Ask: "Good to send, or any changes?"
 Send to Slava's personal Gmail (personal email from global CLAUDE.md) with firstname = "Slava".
 
 ```bash
-MAILGUN_KEY=$(grep MAILGUN_API_KEY .env.local | cut -d= -f2)
-curl -s \
-  -H "Authorization: Basic $(printf 'api:%s' "$MAILGUN_KEY" | base64)" \
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="promote-email: send test email" keyring_require MAILGUN_API_KEY   # locked half (P1318): keychain only; halt if declined
+# Auth header goes over stdin (curl -K -), never argv — argv is visible in ps.
+printf 'header = "Authorization: Basic %s"\n' "$(printf 'api:%s' "$MAILGUN_API_KEY" | base64)" | curl -s -K - \
   https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages \
   -F from="Slava <slava@claritypledge.com>" \
   -F to="[personal-gmail]" \
@@ -58,9 +59,10 @@ For each active contact with an email:
 2. Load key once, then send per contact:
 
 ```bash
-MAILGUN_KEY=$(grep MAILGUN_API_KEY .env.local | cut -d= -f2)
-curl -s \
-  -H "Authorization: Basic $(printf 'api:%s' "$MAILGUN_KEY" | base64)" \
+# Load once per bulk run — one dialog, then reuse $MAILGUN_API_KEY for every contact.
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+[ -n "$MAILGUN_API_KEY" ] || KEYRING_REASON="promote-email: bulk send" keyring_require MAILGUN_API_KEY   # halt if declined
+printf 'header = "Authorization: Basic %s"\n' "$(printf 'api:%s' "$MAILGUN_API_KEY" | base64)" | curl -s -K - \
   https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages \
   -F from="Slava <slava@claritypledge.com>" \
   -F to="[email]" \
@@ -87,7 +89,7 @@ Update `campaign_path/audience.md` header: add `email_sent_at: YYYY-MM-DD`.
 
 ## Conventions
 
-- **Credentials**: `MAILGUN_API_KEY`, `MAILGUN_DOMAIN=mg.claritypledge.com`, `MAILGUN_REGION=eu` from `.env.local`
+- **Credentials**: `MAILGUN_API_KEY` from the keychain (locked half, P1318 — not in `.env.local`); `MAILGUN_DOMAIN=mg.claritypledge.com`, `MAILGUN_REGION=eu` from `.env.local`
 - **From**: always `Slava <slava@claritypledge.com>`
 - **Never batch-write status** — write per row immediately after send
 - **Declined contacts are never sent to** — hard skip

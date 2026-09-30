@@ -42,8 +42,10 @@ Fetch the post via Ghost Admin API. Halt if:
 - Post has no text content → "Post is empty. Write content first, then enhance."
 
 ```bash
-# Ghost Admin API auth pattern (from .env.local GHOST_ADMIN_API_KEY)
+# Ghost Admin API auth pattern — GHOST_ADMIN_API_KEY comes from the keychain, not .env.local
 source .env.local
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="enhance-blog: fetch and update the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
 # JWT sign → fetch post → extract lexical
 ```
 

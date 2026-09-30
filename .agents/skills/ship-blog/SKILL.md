@@ -130,7 +130,11 @@ Next: run /slava:promote-blog to post to LinkedIn
 
 ## Ghost API Auth
 
-JWT from `GHOST_ADMIN_API_KEY` in `.env.local`:
+JWT from `GHOST_ADMIN_API_KEY`, read from the keychain (locked half, P1318 — not in `.env.local`):
+```bash
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="ship-blog: publish the Ghost post" keyring_require GHOST_ADMIN_API_KEY   # locked half (P1318): keychain only, one dialog; halt if declined
+```
 ```js
 const [id, secret] = key.split(':');
 // header: { alg: 'HS256', typ: 'JWT', kid: id }

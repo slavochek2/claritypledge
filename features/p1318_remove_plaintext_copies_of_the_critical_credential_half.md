@@ -129,6 +129,30 @@ founder-attested and was not drilled (P1322 Done-When 1). Recovery steps:
 - Do NOT change which credentials are in the locked half.
 - Do NOT re-migrate consumers P1316 already moved; a newly found consumer is a P1316-style census entry.
 
+### Progress — 2026-09-29/30 (partial removal, founder-approved in session)
+
+**The measured week, read from `.private/logs/keyring-requests.log` rather than re-run:** 22 locked
+reads 2026-09-21 → 09-29 (~20/week), including prod access-token reads (migrate/deploy) on 09-22 and
+09-28 and prod master-key reads (publish) on 09-22/28/29 — the locked path works in real use. The count
+is **above the ~10 stop-number**; the driver is the event/promotion sessions re-reading the same key
+(11 reads across two sessions on 09-28/29). Founder decision: proceed with removal anyway and treat the
+count as a comfort problem, not a safety one. The log cannot see reads that bypassed the keychain via
+`.env.local`, so consumer coverage was established by grep instead (below).
+
+**Removed from `.env.local` (names verified gone, values never printed; the per-key record is in
+`.private/docs/security-log.md` 2026-09-30 — public files name no credentials):**
+- 2026-09-29: five locked keys, the prod master key among them, whose consumers were already
+  keychain-only; smoke-tested with one locked read.
+- 2026-09-30: five more (the blog-admin, social-scheduler, mail-account and bot credentials) after
+  moving their file-readers to `keyring_require` — six blog skills incl. `/weekly`, three social
+  skills, `promote-email`, `scripts/resend-feedback.sh`. The same pass moved two of those values off
+  curl/python **argv** onto stdin/env (both were visible in `ps`). The bot handler reads its token
+  from the VM's shell env, not `.env.local`.
+
+**Still in plaintext:** the Supabase management token and DB URL — the test pair in `.env.local`, the
+prod pair in `.env.prod`. Test migrate, the read-only SQL tool, drift checks and three e2e specs read
+them from the files. Open question below.
+
 ## Done-When
 
 - [x] P1322's escrow Done-When holds (recovery drill passed on a clean keychain; `/weekly` runs
@@ -153,6 +177,8 @@ founder-attested and was not drilled (P1322 Done-When 1). Recovery steps:
 - [ ] Nothing was revoked at any provider by this spec
 
 ## Open Questions
+
+- **Supabase tokens (2026-09-30):** is the test-side management token account-wide (reaches prod)? If yes, locking it adds a dialog to every test migrate; prefer a token that cannot reach prod, if Supabase offers one, over locking.
 
 1. **The two in-process Python consumers the drift audit cannot see** (filed in the private inbox
    2026-09-15) — fix the audit's matcher before removal, or accept the blind spot for two known files?

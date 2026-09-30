@@ -122,12 +122,14 @@ METRICS:  Signups: N this week (total pledgers: M) | Live sessions: N
 
 The blog newsletter runs on Ghost (`blog.claritypledge.com`), separate from Supabase. Report new **blog-origin** subscribers since `$SINCE`.
 
-`/sync-ghost-members` also creates Ghost members from verified app users — those carry a recent `created_at`, so a raw "new members" count is inflated. Exclude any Ghost member whose email exists in Supabase `profiles` to isolate true blog signups — applied to BOTH the delta and the total. JWT auth pattern: see `/sync-ghost-members`. Requires `GHOST_ADMIN_API_KEY` in `.env.local`; the app-user emails come from the read-only helper (`SUPABASE_READONLY_TOKEN`), not the prod master key (P1214).
+`/sync-ghost-members` also creates Ghost members from verified app users — those carry a recent `created_at`, so a raw "new members" count is inflated. Exclude any Ghost member whose email exists in Supabase `profiles` to isolate true blog signups — applied to BOTH the delta and the total. JWT auth pattern: see `/sync-ghost-members`. Requires `GHOST_ADMIN_API_KEY` from the keychain (locked half, P1318: one dialog; declined → this step reports `skipped`); the app-user emails come from the read-only helper (`SUPABASE_READONLY_TOKEN`), not the prod master key (P1214).
 
 One Ghost fetch (`limit=all`) + one Supabase fetch; the delta and total are both derived in-memory. Ghost's API returns transient 502s / HTML error pages under load, so `getJSON` retries 5xx/429 with backoff and the whole step degrades to `skipped` rather than crashing the review.
 
 ```bash
 set -a; source .env.local 2>/dev/null; set +a
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+if ! KEYRING_REASON="weekly: count new blog subscribers" keyring_require GHOST_ADMIN_API_KEY; then echo "blog subscribers: skipped (Ghost key not unlocked)"; else
 SINCE_DATE=$(date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || date -d "${DAYS} days ago" +%F)
 node -e '
 const crypto=require("crypto");
@@ -161,6 +163,7 @@ const since=process.argv[1];
   console.log("BLOG SUBS: +"+newBlog.length+" blog-origin since "+since+" (total blog-origin audience: "+blog.length+"; "+(members.length-blog.length)+" synced app users excluded)");
 })().catch(e=>console.log("BLOG SUBS: skipped (Ghost API error: "+e.message+")"));
 ' "$SINCE_DATE"
+fi
 ```
 
 Surface in the Evidence Picture as:

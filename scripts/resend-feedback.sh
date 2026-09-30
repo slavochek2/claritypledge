@@ -41,7 +41,11 @@ fi
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 
-: "${MAILGUN_API_KEY:?MAILGUN_API_KEY not set in .env.local}"
+# MAILGUN_API_KEY is in the locked half (P1239/P1318): keychain only, one dialog per run.
+# shellcheck source=keyring.sh
+source "$SCRIPT_DIR/keyring.sh"
+KEYRING_REASON="${KEYRING_REASON:-resend-feedback.sh: send missing feedback emails}" \
+  keyring_require MAILGUN_API_KEY || { echo "Error: MAILGUN_API_KEY was not unlocked — nothing sent." >&2; exit 1; }
 : "${MAILGUN_DOMAIN:?MAILGUN_DOMAIN not set in .env.local}"
 : "${TALLY_FORM_ID:=QKDN91}"
 
@@ -96,8 +100,9 @@ SENT_JSON=$(curl -sf \
 # ── Compute missing and send ───────────────────────────────────────────────────
 
 python3 - "$EVENT_ID" "$EVENT_JSON" "$RSVP_JSON" "$SENT_JSON" \
-         "$MAILGUN_BASE" "$MAILGUN_DOMAIN" "$FROM" "$MAILGUN_API_KEY" \
+         "$MAILGUN_BASE" "$MAILGUN_DOMAIN" "$FROM" "" \
          "$TALLY_FORM_ID" <<'PYEOF'
+import os
 import sys
 import json
 import urllib.request
@@ -110,7 +115,7 @@ sent_data  = json.loads(sys.argv[4])
 mg_base    = sys.argv[5]
 mg_domain  = sys.argv[6]
 from_addr  = sys.argv[7]
-mg_api_key = sys.argv[8]
+mg_api_key = os.environ["MAILGUN_API_KEY"]  # via env, never argv (visible in ps)
 tally_id   = sys.argv[9]
 
 event = event_data[0]

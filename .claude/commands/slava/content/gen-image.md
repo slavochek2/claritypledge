@@ -96,9 +96,11 @@ Postiz auth uses cookies. If `/tmp/postiz-cookies.txt` already exists (from this
 **Login (if needed):**
 ```bash
 source .env.local
-curl -s -c /tmp/postiz-cookies.txt -X POST "$POSTIZ_URL/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"'"$POSTIZ_EMAIL"'","password":"'"$POSTIZ_PASSWORD"'","provider":"LOCAL"}'
+source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
+KEYRING_REASON="gen-image: log in to Postiz" keyring_require POSTIZ_PASSWORD   # locked half (P1318): keychain only; halt if declined
+# Body goes over stdin (printf is a shell builtin), never a curl argument — argv is visible in ps.
+printf '{"email":"%s","password":"%s","provider":"LOCAL"}' "$POSTIZ_EMAIL" "$POSTIZ_PASSWORD" \
+  | curl -s -c /tmp/postiz-cookies.txt -X POST "$POSTIZ_URL"/api/auth/login -H "Content-Type: application/json" -d @-
 # → {"login":true}
 ```
 
@@ -135,7 +137,7 @@ Use in post payload:
 | `GEMINI_API_KEY` | Gemini native image gen + Imagen fallback |
 | `UNSPLASH_ACCESS_KEY` | Fallback stock photos |
 | `POSTIZ_URL` | `https://postiz.claritypledge.com` |
-| `POSTIZ_EMAIL` / `POSTIZ_PASSWORD` | Cookie-based session auth |
+| `POSTIZ_EMAIL` / `POSTIZ_PASSWORD` | Cookie-based session auth — the password is **keychain only** (P1318) |
 
 ## Notes
 
