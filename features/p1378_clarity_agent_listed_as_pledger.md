@@ -13,8 +13,8 @@ disclosure: public
 date_resolved: 2026-09-30
 root_cause: "bootstrap-align-agent.mjs never set has_pledged, which defaults true, so the verified Clarity Agent passed the pledger filter"
 resolution: "prod row set has_pledged=false (is_verified kept); bootstrap sets has_pledged:false on create and on adopt"
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1378-clarity-agent-not-pledger.sh
   root_cause: "bootstrap-align-agent.mjs creates/adopts the Clarity Agent profile without has_pledged, which defaults true; get_pledgers_page lists verified+pledged+non-test profiles"
