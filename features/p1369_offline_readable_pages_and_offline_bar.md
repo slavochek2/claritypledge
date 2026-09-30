@@ -6,8 +6,8 @@ workstream: platform
 created_date: '2026-09-28'
 tags: [pwa, offline, service-worker, session-bar]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -188,18 +188,18 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 
 ## Acceptance Criteria
 
-- [ ] Open a story, a point and an event online; go offline (DevTools offline + airplane mode on a phone); all three reopen with their content and the strip shows their age
+- [x] Open a story, a point and an event online; go offline (DevTools offline + airplane mode on a phone); all three reopen with their content and the strip shows their age — e2e AC1 (real network cut incl. SW requests), 40/40 clean run 2026-10-01; founder phone test over USB (airplane mode) 2026-09-30 saw content + strip. `[post-deploy]` re-check on the installed prod PWA.
 - [x] A never-visited story offline shows the needs-connection body, not a blank page or spinner
-- [ ] Standalone `/ready` and `/meet` work offline (slider + Continue into `/meet`), `/ready` shows no stale distribution; event-room `/events/<slug>/ready`: stored check-in state renders offline with the strip, an uncached room shows the nothing-stored body (Scope v2 item 5, supersedes "needs-connection" here)
-- [ ] A write action offline shows a clear "needs internet" message and does not appear to succeed
-- [ ] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop
-- [ ] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise
+- [x] Standalone `/ready` and `/meet` work offline (slider + Continue into `/meet`), `/ready` shows no stale distribution; event-room `/events/<slug>/ready`: stored check-in state renders offline with the strip, an uncached room shows the nothing-stored body (Scope v2 item 5, supersedes "needs-connection" here) — e2e AC3 + R8 (stored and cold cases).
+- [x] A write action offline shows a clear "needs internet" message and does not appear to succeed — e2e regressions (story/point/feed/stake votes, removal dialog; offline + captive + hanging save), unit p1369-review-fixes; orchestrator probe: message shown, vote not left pressed.
+- [x] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop — /live offline bar screenshotted at 375/320/1280 + independent visual QA (arm B /dev); both bars are one `SessionBar` state (unit p1369-offline-ui); transcription bar keeps the spec'd single local "Stop microphone" (spec change A1; unit p1369-offline-stop-mic). Transcription bar render verified in unit tests only. `[post-deploy]` screenshot with a live capture running.
+- [x] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise — measured 2026-10-01 with Playwright's largest-contentful-paint entry (not Lighthouse) on local production builds, warm `/story/<id>`, 2 interleaved rounds × 8 loads: base median 1496/1504 ms, branch 1532/1520 ms (+~2%, inside base's own 1472–2004 ms spread).
 - [x] Deploy twice; an installed PWA picks up the second build on the next online load (P838 regression)
 - [x] Deploy A, open a story, deploy B, open only home, go offline, open the story: it reads, or shows needs-connection. Never the "Refresh" chunk error
 - [x] Open a deep link never visited, offline: the app boots and shows needs-connection (no browser dinosaur page)
-- [ ] Two accounts on one device, same story URL: account B offline never sees A's cached copy; same for a guest with vs without the room code
-- [ ] Sign out (global and `local` scope), go offline: the previous user's cached data is not shown
-- [ ] Captive-portal simulation (`navigator.onLine` true, Supabase unreachable): cached page shows the strip; writes show "needs internet"
+- [x] Two accounts on one device, same story URL: account B offline never sees A's cached copy; same for a guest with vs without the room code — e2e AC10; guest room-code partition by unit tests (SHA-256 partition, collision regression).
+- [x] Sign out (global and `local` scope), go offline: the previous user's cached data is not shown — e2e AC11 (global, via the UI); `local` scope and interrupted sign-out share the same clear path, covered by unit tests (honest-clear fallback + clear-pending flag).
+- [x] Captive-portal simulation (`navigator.onLine` true, Supabase unreachable): cached page shows the strip; writes show "needs internet" — e2e AC12 + captive-portal write regressions; orchestrator probe captive-after-load shows the needs-internet message.
 - [x] Offline for longer than the access-token lifetime: cached pages still open
 - [x] Config test fails if any `runtimeCaching` rule matches the Supabase host (watched failing once)
 - [x] The yellow `OfflineBanner` is gone; no yellow in the offline UI
