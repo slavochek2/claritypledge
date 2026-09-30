@@ -328,7 +328,7 @@ Run on test with a public doc (one with points, one without) and a private doc.
 **2. Preparing a public letter**
 - [ ] Public doc → Compose → no recipient modal, **no prediction screen** → seal-confirm question,
       "Just read the letter" selected by default → Seal → confirmation with share link
-- [ ] Repeat, choosing "Ask them to explain your stories back" → seals with explain-back on
+- [ ] Repeat, choosing "Ask them to explain your stories back (voice or text)" → seals with explain-back on
 - [ ] After sealing, Sent tab → Preview on the public letter → reveal shows "You said N out of 10."
       with no author number and no "Calibration data unavailable."
 - [ ] Browser back from the seal-confirm card lands on the doc page, not an empty prediction walk
