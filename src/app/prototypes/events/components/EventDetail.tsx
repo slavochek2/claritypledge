@@ -38,6 +38,10 @@ import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
+import { useOnlineWriteGuard } from '@/app/hooks/use-online-write-guard';
 
 /** P1272: how long before an event starts the room row switches from naming the
  * destination ("Event Room") to inviting entry ("Join now"). Founder call,
@@ -73,6 +77,15 @@ export function EventDetail() {
   // reading it must not itself trigger a render, and it is only ever compared.
   const loadedSlugRef = useRef<string | undefined>(undefined);
 
+  // P1369: the offline copy on screen (storedAt, null = live), or `offlineMiss` when the event
+  // was never read on this device and the network is unreachable.
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [offlineMiss, setOfflineMiss] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const canWrite = useOnlineWriteGuard(cachedAt !== null);
+  const { reconnectTick } = useConnectivity();
+  const reconnectKey = cachedAt !== null || offlineMiss ? reconnectTick : 0;
+
   // Fetch event and RSVP status
   useEffect(() => {
     // P1264 follow-up: a slug change means `event` still holds the PREVIOUS event,
@@ -99,17 +112,28 @@ export function EventDetail() {
         return;
       }
       try {
-        const eventData = await eventsService.getEventBySlug(slug);
-        let rsvpd = false;
-        if (eventData && isLoggedIn && user) {
-          try {
-            rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
-          } catch (rsvpError) {
-            // RSVP check failed — degrade to not-RSVPed (gate shows) but don't discard the event.
-            console.error('[EventDetail] Failed to check RSVP status:', rsvpError);
+        // P1369: network first; the offline read cache answers only when the network did not.
+        // The viewer is part of the resource: the bundle carries their RSVP state.
+        const viewerId = isLoggedIn && user ? user.id : null;
+        const read = await readThrough('event', `${slug}:${viewerId ?? '-'}`, async () => {
+          const eventData = await eventsService.getEventBySlug(slug);
+          if (!eventData) return null;
+          let rsvpd = false;
+          if (viewerId) {
+            try {
+              rsvpd = await eventsService.isUserRsvpd(eventData.id, viewerId);
+            } catch (rsvpError) {
+              // RSVP check failed — degrade to not-RSVPed (gate shows) but don't discard the event.
+              console.error('[EventDetail] Failed to check RSVP status:', rsvpError);
+            }
           }
-        }
+          return { eventData, rsvpd };
+        });
         if (cancelled) return;
+        setOfflineMiss(read.source === 'offline');
+        setCachedAt(read.source === 'cache' ? read.storedAt : null);
+        const eventData = read.source === 'offline' ? null : (read.data?.eventData ?? null);
+        const rsvpd = read.source === 'offline' ? false : (read.data?.rsvpd ?? false);
         // Batch both updates: avoids a flash where RSVPed users on online events
         // see the gated prompt between setEvent and setIsRsvpd resolving (P941).
         setEvent(eventData);
@@ -121,7 +145,7 @@ export function EventDetail() {
     }
     fetchEvent();
     return () => { cancelled = true; };
-  }, [slug, isLoggedIn, user?.id]);
+  }, [slug, isLoggedIn, user?.id, reconnectKey]);
 
   // P1194: group chat link. Separate effect (not folded into fetchEvent) so it
   // re-runs when RSVP state changes — a visitor who registers and comes back
@@ -208,8 +232,9 @@ export function EventDetail() {
   // Banner state — delegated to shared useBanner hook
   const saveBanner = useCallback(async (newUrl: string | null) => {
     if (!event) return;
+    if (!canWrite()) throw new Error('offline');
     await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
-  }, [event]);
+  }, [event, canWrite]);
 
   const banner = useBanner({
     entityType: 'event',
@@ -260,6 +285,10 @@ export function EventDetail() {
         <div className="text-muted-foreground">Loading...</div>
       </div>
     );
+  }
+
+  if (!event && offlineMiss) {
+    return <NeedsConnection title="This event needs a connection" />;
   }
 
   if (!event) {
@@ -325,6 +354,7 @@ export function EventDetail() {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
+    if (!canWrite()) return;
 
     setIsActionLoading(true);
     const success = await eventsService.rsvpToEvent(event.id, user.id);
@@ -343,6 +373,7 @@ export function EventDetail() {
 
   const confirmCancelRsvp = async () => {
     if (!event || !user) return;
+    if (!canWrite()) return;
     setIsActionLoading(true);
     const success = await eventsService.cancelRsvp(event.id, user.id);
     setIsActionLoading(false);
@@ -358,6 +389,7 @@ export function EventDetail() {
 
   const confirmCancelEvent = async () => {
     if (!event) return;
+    if (!canWrite()) return;
     setIsActionLoading(true);
     const success = await eventsService.cancelEvent(event.id);
     setIsActionLoading(false);
@@ -370,6 +402,7 @@ export function EventDetail() {
 
   const confirmUncancelEvent = async () => {
     if (!event) return;
+    if (!canWrite()) return;
     setIsActionLoading(true);
     const success = await eventsService.uncancelEvent(event.id);
     setIsActionLoading(false);

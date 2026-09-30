@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'node:fs'
+import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -41,6 +42,9 @@ function getCacheDir(): string {
   const slot = getWorktreeSlot()
   return slot ? `node_modules/.vite-${slot}` : 'node_modules/.vite'
 }
+
+// P1369: records the shell's JS chunks at bundle time for the service worker's precache.
+const shellPrecache = createShellPrecache()
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -140,6 +144,7 @@ export default defineConfig({
       },
     },
     react(),
+    shellPrecache.plugin,
     // Sentry plugin uploads source maps during build
     // Only runs when SENTRY_AUTH_TOKEN is available (production builds)
     sentryVitePlugin({
@@ -195,94 +200,29 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // Precache fonts/CSS/SVG only — JS excluded so a 503 during Vercel CDN
-        // propagation doesn't fail SW install and leave the old SW serving stale
-        // asset hashes (blank page). JS is handled via runtime NetworkFirst below.
-        globPatterns: ['**/*.{css,svg,woff,woff2}'],
-        // P864: index.html is intentionally NOT precached (P838 above), so disable the
-        // navigation fallback. vite-plugin-pwa otherwise defaults navigateFallback to
-        // 'index.html' and emits a NavigationRoute → createHandlerBoundToURL('index.html'),
-        // which throws `non-precached-url` at runtime — fresh visitors then get
-        // "Page not found" on deep links (e.g. /letter/<uuid>). Navigation is already
-        // served by the NetworkFirst 'app-shell' route below, so no precache fallback
-        // is needed. (Re-adding html to globPatterns would also fix it but reverts P838.)
+        // P1369: the precache is the offline app shell — index.html (revisioned) plus exactly the
+        // JS the shell statically imports (filtered by shellPrecache.manifestTransform; lazy route
+        // chunks are cached as they are used), with CSS/SVG/fonts as before. One service-worker
+        // version = one build's shell and chunks, installed atomically, so offline the shell never
+        // points at chunks that aren't there. P838 still holds: navigations are NetworkOnly online
+        // (see src/pwa/workbox-config.ts), so a deploy lands on the next online load; the precached
+        // shell answers only when the network fails. A failed install (e.g. a 503 during Vercel CDN
+        // propagation) leaves the previous worker and its own consistent shell in place.
+        globPatterns: ['**/*.{css,svg,woff,woff2}', 'index.html', 'assets/**/*.js'],
+        manifestTransforms: [shellPrecache.manifestTransform],
+        // P838 with index.html precached: Workbox's precache route is registered FIRST and, by
+        // default, maps a navigation to "/" onto the precached index.html — cache-first, so the
+        // home page would keep serving the previous build after a deploy. null turns that
+        // mapping off; the navigation rule decides (network, precached shell only offline).
+        directoryIndex: null,
+        // P864: no NavigationRoute. The offline fallback is the navigation rule's
+        // precacheFallback to 'index.html' — a precached URL — in src/pwa/workbox-config.ts.
+        // (vite-plugin-pwa's default navigateFallback would serve the precached shell for EVERY
+        // navigation, online too, which would revert P838.)
         navigateFallback: null,
-        // Runtime caching strategies
-        runtimeCaching: [
-          // JS bundles — NetworkFirst so a failed SW install (e.g. 503 during Vercel CDN
-          // propagation) doesn't block the new SW from activating. Content-hashed filenames
-          // mean the cached version is always valid once successfully fetched.
-          {
-            urlPattern: /\/assets\/.*\.js$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'js-assets',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 7 * 24 * 60 * 60,
-              },
-            },
-          },
-          // Navigation requests — NetworkFirst so fresh index.html is always fetched on deploy (P838)
-          {
-            urlPattern: ({ request }: { request: Request }) => request.mode === 'navigate',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'app-shell',
-              networkTimeoutSeconds: 3,
-              expiration: {
-                maxEntries: 5,
-                maxAgeSeconds: 24 * 60 * 60, // 1 day
-              },
-            },
-          },
-          // Images - cache first
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|webp|gif)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-              },
-            },
-          },
-          // Google Fonts stylesheets
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-stylesheets',
-              expiration: {
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-          // Google Fonts webfonts
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-            },
-          },
-          // Supabase API - Network only (never cache auth/data)
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/,
-            handler: 'NetworkOnly',
-          },
-          // Third-party scripts (Sentry, Mixpanel) - Network only
-          {
-            urlPattern: /^https:\/\/(cdn\.mxpnl\.com|api-eu\.mixpanel\.com|.*\.sentry\.io)\/.*/,
-            handler: 'NetworkOnly',
-          },
-        ],
+        // Runtime caching rules — and the rule that none of them may touch Supabase — live in
+        // src/pwa/workbox-config.ts, where src/tests/p1369-sw-config.test.ts checks them.
+        runtimeCaching,
       },
       devOptions: {
         enabled: false, // Don't run SW in dev

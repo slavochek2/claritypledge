@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
+import { clearOfflineReadCache } from '@/lib/offline-read-cache';
 import type { Profile } from '@/app/types';
 
 interface AuthState {
@@ -130,6 +131,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
               path: typeof window !== 'undefined' ? window.location.pathname : null,
             });
           }
+        }
+        // P1369: every way a session ENDS — our signOut, a sign-out in another tab, supabase-js
+        // dropping a revoked session — clears the offline read cache. api.ts signOut already
+        // cleared it for the deliberate path; this covers the rest. Not on INITIAL_SESSION with
+        // no session: that is an anonymous boot, and its cached reads are the anonymous reader's.
+        if (event === 'SIGNED_OUT' || (hadSessionRef.current && !newSession)) {
+          void clearOfflineReadCache();
         }
         hadSessionRef.current = !!newSession;
 

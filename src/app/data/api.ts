@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode } from '@/lib/room-capability';
+import { clearOfflineReadCache } from '@/lib/offline-read-cache';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
@@ -522,6 +523,9 @@ export async function getCurrentUser(): Promise<Profile | null> {
  * @returns {Promise<void>}
  */
 export async function signOut(options: { scope?: 'global' | 'local' } = {}) {
+  // P1369: the offline read cache goes FIRST — before the network sign-out, which can hang or
+  // fail offline — so no path out of here leaves the previous person's rows readable.
+  await clearOfflineReadCache();
   await supabase.auth.signOut(options.scope ? { scope: options.scope } : undefined);
 }
 

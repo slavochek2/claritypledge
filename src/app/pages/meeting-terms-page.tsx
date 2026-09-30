@@ -29,6 +29,8 @@
  * agreement is witnessed in the room, not recorded.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useConnectivity } from "@/app/contexts/offline-status-context";
+import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -244,6 +246,16 @@ export function MeetingTermsPage() {
   // Restore in an effect rather than a lazy initializer so the first paint matches
   // the prerendered HTML.
   const [restored, setRestored] = useState(false);
+  // P1369: /meet is one of the live, multi-person pages, so OPENED offline it shows the
+  // needs-connection body. Deliberately narrower than "whenever offline": the page itself is
+  // stored locally, so a meeting already under way (an answer given) keeps its page when the
+  // connection drops — pulling the principle away from two people mid-meeting would be worse
+  // than showing it. Cleared once the connection is back.
+  const { offline } = useConnectivity();
+  const [openedOffline, setOpenedOffline] = useState(offline);
+  useEffect(() => {
+    if (!offline) setOpenedOffline(false);
+  }, [offline]);
 
   useEffect(() => {
     const stored = readStored();
@@ -328,6 +340,10 @@ export function MeetingTermsPage() {
   // number; `in meeting` is P1016's accepted state, unchanged.
   const step: "choosing" | "rating" | "meeting" =
     accepted ? "meeting" : answer === null ? "choosing" : "rating";
+
+  if (openedOffline && restored && step === "choosing") {
+    return <NeedsConnection title="The meeting page needs a connection" />;
+  }
 
   return (
     <div

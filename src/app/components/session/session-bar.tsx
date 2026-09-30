@@ -29,6 +29,37 @@ export interface SessionBarProps {
   showDot?: boolean;
 }
 
+export interface SessionBarOfflineProps {
+  /** Title line, e.g. "Session paused while offline". */
+  text: ReactNode;
+  /** One explanatory line under the title. */
+  detail: ReactNode;
+  ariaLabel: string;
+  testId?: string;
+}
+
+/**
+ * P1369 (variant C): the SAME bar's offline state — grey, no buttons. It REPLACES the normal bar
+ * while offline (never stacked under it; P1307 D7 requires one bar), and the offline strip sits
+ * above the nav. No actions, because Rejoin / Open / End cannot work without a connection.
+ */
+export function SessionBarOffline({ text, detail, ariaLabel, testId }: SessionBarOfflineProps) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={ariaLabel}
+      data-testid={testId ? `${testId}-offline` : 'session-bar-offline'}
+      className="relative z-40 bg-slate-100 border-b border-slate-200 px-4 py-2"
+    >
+      <div className="max-w-4xl mx-auto">
+        <div className="text-sm font-medium text-slate-800">{text}</div>
+        <div className="text-xs text-slate-600">{detail}</div>
+      </div>
+    </div>
+  );
+}
+
 export function SessionBar({ text, primary, secondary, ariaLabel, testId, showDot = true }: SessionBarProps) {
   return (
     <div

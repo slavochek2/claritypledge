@@ -12,7 +12,8 @@
  */
 import { useLayoutEffect } from 'react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
-import { SessionBar } from './session-bar';
+import { SessionBar, SessionBarOffline } from './session-bar';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing']);
 
@@ -22,10 +23,36 @@ const RUNNING_TEXT = '● Transcribing for AI insights';
  *  with it and confirm at /verify. */
 const STALLED_TEXT = '● Live text has stalled — your words are still being recorded.';
 
+/**
+ * P1369 — the offline state. Capture behaviour when the network drops was VERIFIED by reading
+ * room-capture-context.tsx before writing this copy (the spec's blocking prerequisite): the
+ * microphone keeps running (nothing stops capture on a network error), live-text slices fail and
+ * the phase goes to `stalled`, and each 30 s archive chunk is retried 3 times (at 0 s, +2 s, +4 s)
+ * and then DROPPED ("archive chunk dropped after retries"); the upload queue holds at most 10.
+ * There is no local persistence of those chunks. So words said while offline for longer than a
+ * few seconds are NOT saved and will NOT sync — the prototype's "still recorded and will sync"
+ * line would be false. The bar must still say transcription is running (P1307 D9).
+ * [FOUNDER DECISION: copy after verification — PROPOSED, not in the spec]
+ */
+const OFFLINE_TEXT = '● Transcribing, but offline';
+const OFFLINE_DETAIL = "Words said while offline may not be saved. Open and End come back when you reconnect.";
+
 export function RoomCaptureBar() {
   const { phase, roomId, open, endMyCapture } = useRoomCapture();
+  const { offline } = useConnectivity();
 
   if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
+
+  if (offline) {
+    return (
+      <SessionBarOffline
+        testId="room-capture-bar"
+        ariaLabel="Room transcription active"
+        text={OFFLINE_TEXT}
+        detail={OFFLINE_DETAIL}
+      />
+    );
+  }
 
   return (
     <SessionBar

@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 307
 workstream: platform
 created_date: '2026-09-28'
 tags: [pwa, offline, service-worker, session-bar]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -96,8 +96,12 @@ Two layers, each with its own invariant (direction set by adversarial review, 20
   through a small context; the strip never infers it. On pages that
   need a connection, it says just "Offline".
 - When a session bar would show (/live or room transcription), it is **replaced** by its offline
-  state, never stacked: grey, no buttons (see UI Contract). This is a state of the shared `SessionBar`
-  (actions become optional), not a new look-alike component. P1307 D7 requires one bar.
+  state, never stacked: grey (see UI Contract). The /live offline state has no buttons (Rejoin and
+  End both need the server). The transcription offline state keeps **one** control, a local
+  "Stop microphone": stopping releases the microphone before any server call
+  (`room-capture-context.tsx`), so it works offline, and hiding it would leave a running microphone
+  with no way to stop it from the bar (adversarial review 2026-09-30, finding A1). This is a state of
+  the shared `SessionBar` (actions become optional), not a new look-alike component. P1307 D7 requires one bar.
 - The page body for `/meet`/`/ready` offline: headline, one line, "Try again", "Go to home".
 - The strip disappears once back online and the page has refreshed.
 - Replaces the existing yellow `OfflineBanner`.
@@ -118,6 +122,8 @@ Two layers, each with its own invariant (direction set by adversarial review, 20
   sign-out. Every `signOut` path clears it.
 - **Capture is never silently invisible (P1307 D9).** The offline session-bar state still indicates
   that transcription is running, if it is.
+- **The microphone can always be stopped from the bar.** Offline, the capture bar keeps a local stop
+  control, and stopping never waits on the network.
 
 ## Risks / Non-Goals
 
@@ -154,28 +160,30 @@ offline state `bg-slate-100 border-slate-200`, title `text-sm text-slate-800`, l
 - Strip (cached): `Offline · showing what you saw {age}` [FOUNDER DECISION: copy — PROPOSED]
 - Strip (needs connection): `Offline` [FOUNDER DECISION: copy — PROPOSED]
 - Live session offline: `Session paused while offline` / `Rejoin comes back when you reconnect.` [FOUNDER DECISION: copy — PROPOSED]
-- Transcription offline: **blocked on verifying capture behaviour.** Write separate copy for each
-  real state (recording locally / stopped). The prototype's "Your words are still recorded and will
-  sync" line must NOT ship unless verified: a false promise here loses someone's words. [FOUNDER DECISION: copy after verification]
+- Transcription offline: capture behaviour verified from code (2026-09-30): the microphone keeps
+  running, and each audio chunk is retried briefly and then dropped, so nothing said offline is
+  guaranteed to be kept. Copy: `● Transcribing, but offline` / `Words said while offline may not be
+  saved.` + one button `Stop microphone`. The prototype's "will sync" line must NOT ship.
+  [FOUNDER DECISION: copy — PROPOSED]
 - /ready body: `Check-in needs a connection` / `It loads by itself when you're back online.` / `Try again` / `Go to home` [FOUNDER DECISION: copy — PROPOSED]
 
 ## Acceptance Criteria
 
 - [ ] Open a story, a point and an event online; go offline (DevTools offline + airplane mode on a phone); all three reopen with their content and the strip shows their age
-- [ ] A never-visited story offline shows the needs-connection body, not a blank page or spinner
-- [ ] `/meet` and `/ready` offline show the needs-connection body; no stale presence
+- [x] A never-visited story offline shows the needs-connection body, not a blank page or spinner
+- [x] `/meet` and `/ready` offline show the needs-connection body; no stale presence
 - [ ] A write action offline shows a clear "needs internet" message and does not appear to succeed
 - [ ] Offline with a /live session or transcription running: one merged grey bar, no Rejoin/Open/End buttons, strip on top; screenshots at 375, 320 and desktop
 - [ ] Online speed unchanged: Lighthouse LCP on a warm `/story/<id>`, median of 3, before vs after, within noise
-- [ ] Deploy twice; an installed PWA picks up the second build on the next online load (P838 regression)
-- [ ] Deploy A, open a story, deploy B, open only home, go offline, open the story: it reads, or shows needs-connection. Never the "Refresh" chunk error
-- [ ] Open a deep link never visited, offline: the app boots and shows needs-connection (no browser dinosaur page)
+- [x] Deploy twice; an installed PWA picks up the second build on the next online load (P838 regression)
+- [x] Deploy A, open a story, deploy B, open only home, go offline, open the story: it reads, or shows needs-connection. Never the "Refresh" chunk error
+- [x] Open a deep link never visited, offline: the app boots and shows needs-connection (no browser dinosaur page)
 - [ ] Two accounts on one device, same story URL: account B offline never sees A's cached copy; same for a guest with vs without the room code
 - [ ] Sign out (global and `local` scope), go offline: the previous user's cached data is not shown
 - [ ] Captive-portal simulation (`navigator.onLine` true, Supabase unreachable): cached page shows the strip; writes show "needs internet"
-- [ ] Offline for longer than the access-token lifetime: cached pages still open
-- [ ] Config test fails if any `runtimeCaching` rule matches the Supabase host (watched failing once)
-- [ ] The yellow `OfflineBanner` is gone; no yellow in the offline UI
+- [x] Offline for longer than the access-token lifetime: cached pages still open
+- [x] Config test fails if any `runtimeCaching` rule matches the Supabase host (watched failing once)
+- [x] The yellow `OfflineBanner` is gone; no yellow in the offline UI
 
 ## Open Questions
 

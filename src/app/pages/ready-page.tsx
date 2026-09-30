@@ -45,6 +45,8 @@ import { SliderTrack } from "@/app/components/partners/slider-track";
 import { PRIMARY_BUTTON_CLASS } from "@/app/pages/meeting-terms-page";
 import { getReadyDistribution, submitReadyValue } from "@/app/data/ready-service";
 import { cn } from "@/lib/utils";
+import { useConnectivity } from "@/app/contexts/offline-status-context";
+import { NeedsConnection } from "@/app/components/offline/needs-connection";
 
 const PAGE_TITLE = "Before you meet";
 const QUESTION = "How up for thinking are you right now?";
@@ -52,6 +54,8 @@ const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: "Stay on the surface", high: "Go deep" };
 const DISTRIBUTION_LABEL = "How up for thinking others are right now";
+/** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
+const OFFLINE_TITLE = "Check-in needs a connection";
 
 export function ReadyPage() {
   const navigate = useNavigate();
@@ -65,6 +69,10 @@ export function ReadyPage() {
   // requires (P1083). Starts empty and stays empty on a fetch failure, which reads
   // identically to the N=0 empty state rather than as an error.
   const [others, setOthers] = useState<number[]>([]);
+  // P1369: /ready shows who else is here right now — live presence. Offline there is nothing
+  // current to show, and a stale distribution would pass as current, so the page is replaced by
+  // the needs-connection body; the distribution is re-read when the connection comes back.
+  const { offline, reconnectTick } = useConnectivity();
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +89,7 @@ export function ReadyPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reconnectTick]);
 
   const handleChange = useCallback((next: number) => {
     setValue(next);
@@ -96,6 +104,10 @@ export function ReadyPage() {
     // reversal of P1077's "do NOT modify /meet" non-goal.
     navigate("/meet", { state: { fromReady: true } });
   }, [value, navigate]);
+
+  if (offline) {
+    return <NeedsConnection title={OFFLINE_TITLE} />;
+  }
 
   return (
     <div
