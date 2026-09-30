@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 15
 severity: medium
@@ -13,7 +13,6 @@ disclosure: public
 date_resolved: 2026-09-30
 root_cause: "bootstrap-align-agent.mjs never set has_pledged, which defaults true, so the verified Clarity Agent passed the pledger filter"
 resolution: "prod row set has_pledged=false (is_verified kept); bootstrap sets has_pledged:false on create and on adopt"
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1378-clarity-agent-not-pledger.sh
@@ -22,6 +21,7 @@ reproduce_artifact:
   surfaces_in_scope: [pledgers-list, pledgers-total, bootstrap-script]
   surfaces_deferred: []
   reproduced_at: 2026-09-30
+completed_at: 2026-09-30
 ---
 
 # P1378: "Clarity Agent" is listed as a pledger on /pledgers
