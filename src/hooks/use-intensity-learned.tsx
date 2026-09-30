@@ -12,6 +12,12 @@ import { useState, useCallback } from 'react';
 import type { PositionType } from '@/app/types';
 
 const LEARNED_KEY = 'intensity_learned_at_v1';
+const PLAIN_PICKS_STORAGE_NAME = 'intensity_plain_picks_v1';
+
+/** After this many plain Agree/Disagree picks with no level ever chosen, the shared buttons
+ *  open the tutorial pop-up once (founder, 2026-09-30: "if they do something like 10 more
+ *  without adjusting … should we show that?"). */
+export const PLAIN_PICKS_BEFORE_TUTORIAL = 10;
 
 export function readIntensityLearned(): boolean {
   try {
@@ -32,6 +38,17 @@ export function writeIntensityLearned(): void {
     localStorage.setItem(LEARNED_KEY, String(Date.now()));
   } catch {
     // Storage write failed — callers still stop hinting in memory for this session.
+  }
+}
+
+/** Count one plain (default-level) Agree/Disagree pick; returns the new total. */
+export function bumpIntensityPlainPicks(): number {
+  try {
+    const n = (parseInt(localStorage.getItem(PLAIN_PICKS_STORAGE_NAME) ?? '0', 10) || 0) + 1;
+    localStorage.setItem(PLAIN_PICKS_STORAGE_NAME, String(n));
+    return n;
+  } catch {
+    return 0; // Storage unavailable — never trigger the pop-up from a count we can't keep.
   }
 }
 

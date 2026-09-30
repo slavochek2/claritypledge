@@ -1,9 +1,22 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
-import { readIntensityLearned, writeIntensityLearned } from '@/hooks/use-intensity-learned';
+import {
+  readIntensityLearned,
+  writeIntensityLearned,
+  bumpIntensityPlainPicks,
+  PLAIN_PICKS_BEFORE_TUTORIAL,
+} from '@/hooks/use-intensity-learned';
+import { readIntensityPreviewSeen, writeIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
+
+// Lazy: the tutorial's demo renders PositionButtons itself, so a static import would be a
+// module cycle (PositionButton → modal → pictogram → PositionButton). It also keeps the
+// modal out of every page's initial bundle.
+const IntensityTutorialModal = lazy(() =>
+  import('@/app/components/letters/intensity-tutorial-modal').then((m) => ({ default: m.IntensityTutorialModal }))
+);
 import { Button } from '@/components/ui/button';
 import { Check, X, HelpCircle, Trash2 } from 'lucide-react';
 import {
@@ -303,6 +316,13 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
   // P1374: the group whose "tap again" hint is showing — only on the instance just tapped,
   // so a feed of already-positioned cards never lights up all at once.
   const [hintGroup, setHintGroup] = useState<PositionButtonGroup | null>(null);
+  // P1374: the tutorial pop-up, opened from the hint's "?" or once after
+  // PLAIN_PICKS_BEFORE_TUTORIAL plain picks with no level ever chosen.
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const closeTutorial = useCallback(() => {
+    writeIntensityPreviewSeen();
+    setTutorialOpen(false);
+  }, []);
 
   // Drop the hint if the position moves away underneath it (cleared, reverted by a guard).
   useEffect(() => {
@@ -322,7 +342,11 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
       onPositionClick(config.defaultPosition);
       setOpenDropdown(null);
       const hasLevels = config.positions.length > 1;
-      setHintGroup(intensityHint && !isControlled && hasLevels && !readIntensityLearned() ? group : null);
+      const teach = intensityHint && !isControlled && hasLevels && !readIntensityLearned();
+      setHintGroup(teach ? group : null);
+      if (teach && bumpIntensityPlainPicks() >= PLAIN_PICKS_BEFORE_TUTORIAL && !readIntensityPreviewSeen()) {
+        setTutorialOpen(true);
+      }
       return;
     }
     setHintGroup(null);
@@ -441,11 +465,25 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
         })}
       </div>
       {/* Shown in icon-only mode too (phones): "tap again" points at the segment just
-         tapped, which is highlighted — no label needed. */}
+         tapped, which is highlighted — no label needed. Left-aligned to sit with the card's
+         other helper lines ("Sign up or log in…"). "?" replays the tutorial, as in letters. */}
       {hintGroup && (
-        <p role="status" className="mt-1.5 text-xs text-[#1A1A1A]/60 text-center">
-          Tap again if you {hintGroup} only Somewhat, or Strongly
-        </p>
+        <div role="status" className="mt-1 flex items-center gap-1 text-xs text-[#1A1A1A]/60">
+          <button
+            type="button"
+            onClick={() => setTutorialOpen(true)}
+            className="-ml-2 min-w-8 min-h-8 flex items-center justify-center rounded-full text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            aria-label="Show the intensity tutorial"
+          >
+            <HelpCircle className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <span>Tap again if you {hintGroup} only Somewhat, or Strongly</span>
+        </div>
+      )}
+      {tutorialOpen && (
+        <Suspense fallback={null}>
+          <IntensityTutorialModal open onProceed={closeTutorial} />
+        </Suspense>
       )}
 
       {/* Menu — rendered via portal to escape overflow:hidden containers.

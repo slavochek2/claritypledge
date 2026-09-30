@@ -25,7 +25,7 @@ import { PositionButtons } from '@/app/components/shared/PositionButton';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { IntensityTutorialModal } from '@/app/components/letters/intensity-tutorial-modal';
 import { useIntensityPreviewSeen } from '@/hooks/use-intensity-preview-seen';
-import { useIntensityLearned, isIntensityLevel } from '@/hooks/use-intensity-learned';
+import { useIntensityLearned, isIntensityLevel, bumpIntensityPlainPicks } from '@/hooks/use-intensity-learned';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
 import type { UseLetterReadingStateReturn, StoryPhase } from '@/app/hooks/useLetterReadingState';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
@@ -250,7 +250,8 @@ export function LetterFlowContent({
   const handleEngagePositionClick = useCallback((position: PositionType) => {
     setSelectedPosition(position);
     if (isIntensityLevel(position)) markIntensityLearned();
-  }, [markIntensityLearned]);
+    else if (position !== 'unsure' && !isIntensityLearned) bumpIntensityPlainPicks();
+  }, [markIntensityLearned, isIntensityLearned]);
 
   const handleTutorialProceed = useCallback(() => {
     setIsTutorialModalOpen(false);

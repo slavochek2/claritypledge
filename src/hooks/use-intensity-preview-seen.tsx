@@ -13,7 +13,7 @@ import { useState, useCallback } from 'react';
 
 const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
 
-function readIsSeen(): boolean {
+export function readIntensityPreviewSeen(): boolean {
   try {
     return !!localStorage.getItem(SEEN_KEY);
   } catch {
@@ -22,15 +22,21 @@ function readIsSeen(): boolean {
   }
 }
 
+/** P1374: the tutorial pop-up is shown at most once per browser, whether it opened in a
+ *  letter or from the shared buttons' 10-plain-picks trigger — one flag for both. */
+export function writeIntensityPreviewSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, String(Date.now()));
+  } catch {
+    // Storage write failed — callers close the pop-up in memory regardless.
+  }
+}
+
 export function useIntensityPreviewSeen() {
-  const [isSeen, setIsSeen] = useState<boolean>(readIsSeen);
+  const [isSeen, setIsSeen] = useState<boolean>(readIntensityPreviewSeen);
 
   const markSeen = useCallback(() => {
-    try {
-      localStorage.setItem(SEEN_KEY, String(Date.now()));
-    } catch {
-      // Storage write failed — still mark in-memory so this session doesn't replay.
-    }
+    writeIntensityPreviewSeen();
     setIsSeen(true);
   }, []);
 

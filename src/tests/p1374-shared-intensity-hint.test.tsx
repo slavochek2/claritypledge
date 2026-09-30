@@ -13,6 +13,7 @@ import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/
 import type { PositionType } from '@/app/types';
 
 const LEARNED_KEY = 'intensity_learned_at_v1';
+const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
 const zero: SevenPointCounts = {
   strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0,
   somewhat_disagree: 0, disagree: 0, strongly_disagree: 0,
@@ -80,6 +81,37 @@ describe('P1374: shared intensity hint', () => {
     render(<Harness />);
     await user.click(segment(/^Disagree/));
     expect(hint()).toBeNull();
+  });
+
+  it('the hint\'s "?" opens the tutorial pop-up; Continue marks it seen', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(segment(/^Disagree/));
+    await user.click(screen.getByRole('button', { name: 'Show the intensity tutorial' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(localStorage.getItem(SEEN_KEY)).not.toBeNull();
+  });
+
+  it('10 plain picks with no level: the pop-up opens once (not on the 9th)', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    for (let i = 1; i <= 9; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(segment(/^Agree/)); // 10th: currently Disagree after 9 odd picks
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^continue$/i }));
+    await user.click(segment(/^Disagree/)); // 11th: already seen → no second pop-up
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('10 plain picks after the pop-up was already seen (e.g. in a letter): no pop-up', async () => {
+    localStorage.setItem(SEEN_KEY, '1');
+    const user = userEvent.setup();
+    render(<Harness />);
+    for (let i = 1; i <= 10; i++) await user.click(segment(i % 2 ? /^Disagree/ : /^Agree/));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('intensityHint={false} (letter engage phases): no hint', async () => {
