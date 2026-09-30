@@ -232,7 +232,9 @@ def main():
     env = {}
     for cand in candidates:
         env = load_env(cand)
-        if env.get("SUPABASE_ACCESS_TOKEN") and env.get("VITE_SUPABASE_URL"):
+        # P1318: the account-wide token is gone from the env files; the scoped read-only token
+        # is enough to identify the right file.
+        if (env.get("SUPABASE_READONLY_TOKEN") or env.get("SUPABASE_ACCESS_TOKEN")) and env.get("VITE_SUPABASE_URL"):
             env_file = cand
             break
 
@@ -250,7 +252,7 @@ def main():
     url = env.get("VITE_SUPABASE_URL", "")
     ref = url.replace("https://", "").split(".")[0]
     if not token or not ref:
-        print(f"ERROR: need SUPABASE_ACCESS_TOKEN (or SUPABASE_READONLY_TOKEN) and "
+        print(f"ERROR: need SUPABASE_READONLY_TOKEN and "
               f"VITE_SUPABASE_URL in {env_file}")
         return 2
     print(f"credential: {token_kind}")

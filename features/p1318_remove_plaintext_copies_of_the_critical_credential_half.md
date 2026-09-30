@@ -149,9 +149,16 @@ count as a comfort problem, not a safety one. The log cannot see reads that bypa
   curl/python **argv** onto stdin/env (both were visible in `ps`). The bot handler reads its token
   from the VM's shell env, not `.env.local`.
 
-**Still in plaintext:** the Supabase management token and DB URL — the test pair in `.env.local`, the
-prod pair in `.env.prod`. Test migrate, the read-only SQL tool, drift checks and three e2e specs read
-them from the files. Open question below.
+**Supabase management tokens (2026-09-30, later):** the account-wide token in `.env.local` was
+measured reaching prod (200; bogus-token control 401), so it was replaced rather than locked. Test
+paths now use two test-project-scoped tokens — database query (existing) and a new edge-functions
+read-write + function-secrets read token — each measured 200 on test and 403 on prod. Switched:
+test migrate, test deploy, the test secrets check, the RLS drift check's test fallback, the p1207
+audit helper, `/publish` on test (no dialog now), and the p1207 privilege check's env-file selection.
+The account-wide token is then removed from `.env.local`, and the prod management token and DB URL
+from `.env.prod` — prod paths already read the locked keychain items only. Canary fixtures that fake
+the env files carry the new variables (p890, p1042, p1168, p1173, p1174, p1211; each failed before).
+Not exercised: a real test function deploy (it would overwrite a co-tenant's test deploy).
 
 ## Done-When
 
@@ -178,7 +185,7 @@ them from the files. Open question below.
 
 ## Open Questions
 
-- **Supabase tokens (2026-09-30):** is the test-side management token account-wide (reaches prod)? If yes, locking it adds a dialog to every test migrate; prefer a token that cannot reach prod, if Supabase offers one, over locking.
+- ~~**Supabase tokens (2026-09-30):** is the test-side management token account-wide?~~ Yes — replaced by test-scoped tokens (see Progress).
 
 1. **The two in-process Python consumers the drift audit cannot see** (filed in the private inbox
    2026-09-15) — fix the audit's matcher before removal, or accept the blind spot for two known files?
