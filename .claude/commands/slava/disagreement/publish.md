@@ -434,15 +434,16 @@ Confirm to write.
 
 **Re-hash `request-envelope.json` immediately before the call and assert it equals the printed hash.** A mismatch is a stop, not a warning. Then send it, taking **both** the body and the URL out of the envelope so the ref the operator approved is mechanically the ref used:
 
-The token comes from the locked keyring **at this moment** (P1239): one authorization dialog, and the founder answers **Allow** — never "Always Allow". Which key is **derived from the envelope's own `env`**, never typed, so the credential cannot disagree with the ref the operator approved:
+For **prod**, the token comes from the locked keyring **at this moment** (P1239): one authorization dialog, and the founder answers **Allow** — never "Always Allow". For **test**, it is the test-project scoped token from `.env.local`, which prod refuses (P1318). Which key is **derived from the envelope's own `env`**, never typed, so the credential cannot disagree with the ref the operator approved:
 
 ```bash
 source "$(git rev-parse --show-toplevel)/scripts/keyring.sh"
 case "$(jq -r .env "$RUN_DIR/request-envelope.json")" in
   prod) KEYRING_REASON="publish: write the approved envelope to prod" keyring_require PROD_SUPABASE_ACCESS_TOKEN || exit 1
         MGMT_TOKEN="$PROD_SUPABASE_ACCESS_TOKEN" ;;
-  test) KEYRING_REASON="publish: write the approved envelope to test" keyring_require SUPABASE_ACCESS_TOKEN || exit 1
-        MGMT_TOKEN="$SUPABASE_ACCESS_TOKEN" ;;
+  test) # Test-project scoped query token (P1318): refused by prod, so no dialog is needed on test.
+        MGMT_TOKEN="$(grep '^SUPABASE_TEST_WRITE_TOKEN=' "$(git rev-parse --show-toplevel)/.env.local" | cut -d= -f2-)"
+        [ -n "$MGMT_TOKEN" ] || { echo "STOP: SUPABASE_TEST_WRITE_TOKEN missing from .env.local — nothing written"; exit 1; } ;;
   *)    echo "STOP: the envelope's env is neither prod nor test — nothing written"; exit 1 ;;
 esac
 # Headers come from a process substitution, so the token never appears in argv (ps).
