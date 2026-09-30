@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 15
 severity: medium
@@ -10,8 +10,11 @@ exec_model: sonnet
 exec_effort: medium
 tags: [pledgers, agent-accounts, profiles]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+date_resolved: 2026-09-30
+root_cause: "bootstrap-align-agent.mjs never set has_pledged, which defaults true, so the verified Clarity Agent passed the pledger filter"
+resolution: "prod row set has_pledged=false (is_verified kept); bootstrap sets has_pledged:false on create and on adopt"
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1378-clarity-agent-not-pledger.sh
   root_cause: "bootstrap-align-agent.mjs creates/adopts the Clarity Agent profile without has_pledged, which defaults true; get_pledgers_page lists verified+pledged+non-test profiles"
@@ -75,7 +78,11 @@ Clarity Agent appears as a pledger and is included in the total.
 
 ## Acceptance Criteria
 
-- [ ] Prod /pledgers does not show "Clarity Agent", and the total drops by one
-- [ ] The Clarity Agent can still publish a story on prod (its verified status is unchanged)
-- [ ] Re-running `bootstrap-align-agent.mjs` in adopt mode leaves `has_pledged = false`
-- [ ] Landing social-proof count and featured profiles also exclude it
+- [x] Prod /pledgers does not show "Clarity Agent", and the total drops by one. Evidence: prod `get_pledgers_page` total went from 16 to 15; the canary's live check passes.
+- [x] The Clarity Agent can still publish a story on prod (its verified status is unchanged). Evidence: the PATCH response reads `is_verified: True`; story INSERT RLS gates only on `is_verified`.
+- [x] Re-running `bootstrap-align-agent.mjs` in adopt mode leaves `has_pledged = false`. Evidence: the adopt path now PATCHes `has_pledged:false` whenever it isn't already false, and the create path inserts it. The canary's static check passes, and it fails against the pre-fix script (control, exit 1).
+- [x] Landing social-proof count and featured profiles also exclude it. Evidence: `getVerifiedProfileCount` filters `.eq('has_pledged', true)` (`src/app/data/api.ts:276`), and prod `get_featured_profiles` returns 0 matches for `clarity-agent`.
+
+## Resolution
+
+Two changes. The prod row was set to `has_pledged=false` through the service key (one row, keyring-gated). `scripts/bootstrap-align-agent.mjs` now sets `has_pledged:false` on both create and adopt. Canary: `scripts/test-p1378-clarity-agent-not-pledger.sh`.

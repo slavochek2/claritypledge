@@ -190,7 +190,7 @@ if (DRY_RUN) {
   console.log('2. Profile         : skipped (dry run)');
 } else {
   const profRes = await fetch(
-    `${PROD_URL}/rest/v1/profiles?id=eq.${userId}&select=id,name,slug,is_verified`,
+    `${PROD_URL}/rest/v1/profiles?id=eq.${userId}&select=id,name,slug,is_verified,has_pledged`,
     { headers: svc }
   );
   const rows = await profRes.json();
@@ -208,6 +208,16 @@ if (DRY_RUN) {
       });
       console.log('   is_verified     :', patch.ok ? 'set to true' : `FAILED ${patch.status}`);
     }
+    // P1378: a system identity is not a pledger. has_pledged defaults to true at the table,
+    // so an adopted row must be switched off explicitly or it lists on /pledgers.
+    if (p.has_pledged !== false) {
+      const patch = await fetch(`${PROD_URL}/rest/v1/profiles?id=eq.${userId}`, {
+        method: 'PATCH', headers: { ...svc, Prefer: 'return=representation' },
+        body: JSON.stringify({ has_pledged: false }),
+      });
+      if (!patch.ok) die(`has_pledged repair failed: ${patch.status} — the agent would list on /pledgers`);
+      console.log('   has_pledged     : set to false');
+    }
     // Deliberately does NOT rename an adopted profile — if this address already
     // belongs to something else, silently relabelling it is the wrong repair.
     if (p.name !== AGENT_NAME) {
@@ -220,7 +230,7 @@ if (DRY_RUN) {
       headers: { ...svc, Prefer: 'return=representation' },
       body: JSON.stringify({
         id: userId, email: AGENT_EMAIL, name: AGENT_NAME,
-        slug: AGENT_SLUG, is_verified: true, avatar_color: '#0044CC',
+        slug: AGENT_SLUG, is_verified: true, has_pledged: false, avatar_color: '#0044CC', // P1378
       }),
     });
     const ins = await insRes.json();
