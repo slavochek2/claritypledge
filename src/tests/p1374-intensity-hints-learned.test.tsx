@@ -102,7 +102,7 @@ function makeReadingState(phase: 'point-engage' | 'remaining-point-engage'): Use
 
 const SENDER_PROFILE = { avatarColor: '#000', avatarUrl: null, hasPledged: false, ear: 0 };
 const SEEN_KEY = 'letter_intensity_preview_seen_at_v2';
-const LEARNED_KEY = 'letter_intensity_learned_at_v1';
+const LEARNED_KEY = 'intensity_learned_at_v1';
 const TITLE = 'Tap again if you disagree only Somewhat, or Strongly';
 
 function renderEngage(phase: 'point-engage' | 'remaining-point-engage') {

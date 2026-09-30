@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
+import { readIntensityLearned, writeIntensityLearned } from '@/hooks/use-intensity-learned';
 import { Button } from '@/components/ui/button';
 import { Check, X, HelpCircle, Trash2 } from 'lucide-react';
 import {
@@ -193,12 +194,17 @@ interface PositionButtonsProps {
    *  and tab order skip the demo. Existing call sites pass nothing → undefined
    *  → uncontrolled path is exercised exactly as before. */
   controlledOpenGroup?: PositionButtonGroup | null;
+  /** P1374: show the one-line "Tap again if you disagree only Somewhat, or Strongly" hint
+   *  under the buttons right after a plain Agree/Disagree pick, until the reader has picked
+   *  a level anywhere. Default on; letter engage phases pass false (they render their own
+   *  tip row with the tutorial replay). */
+  intensityHint?: boolean;
 }
 
 // Width threshold for icon-only mode
 const ICON_ONLY_THRESHOLD = 270;
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear, size = 'default', controlledOpenGroup }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false, disabled = false, onClear, size = 'default', controlledOpenGroup, intensityHint = true }: PositionButtonsProps) {
   const isLg = size === 'lg';
   const isControlled = controlledOpenGroup !== undefined;
   const [internalOpen, setInternalOpen] = useState<PositionButtonGroup | null>(null);
@@ -294,6 +300,15 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     return () => cancelAnimationFrame(id);
   }, [openDropdown, isControlled]);
 
+  // P1374: the group whose "tap again" hint is showing — only on the instance just tapped,
+  // so a feed of already-positioned cards never lights up all at once.
+  const [hintGroup, setHintGroup] = useState<PositionButtonGroup | null>(null);
+
+  // Drop the hint if the position moves away underneath it (cleared, reverted by a guard).
+  useEffect(() => {
+    if (hintGroup && (!userPosition || getPositionGroup(userPosition) !== hintGroup)) setHintGroup(null);
+  }, [userPosition, hintGroup]);
+
   const handleGroupClick = useCallback((group: PositionButtonGroup) => {
     const config = BUTTON_GROUPS[group];
     const isSelectedGroup = !!userPosition && getPositionGroup(userPosition) === group;
@@ -306,8 +321,11 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     if (!isSelectedGroup) {
       onPositionClick(config.defaultPosition);
       setOpenDropdown(null);
+      const hasLevels = config.positions.length > 1;
+      setHintGroup(intensityHint && !isControlled && hasLevels && !readIntensityLearned() ? group : null);
       return;
     }
+    setHintGroup(null);
 
     // Already-selected: only open the menu when it would have content to show.
     // Without intensity options (Unsure) AND without onClear, the menu would be empty.
@@ -317,7 +335,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
 
     // P852 Round-F: position is set by the [openDropdown] effect above.
     setOpenDropdown(prev => (prev === group ? null : group));
-  }, [userPosition, onPositionClick, onClear, setOpenDropdown]);
+  }, [userPosition, onPositionClick, onClear, setOpenDropdown, intensityHint, isControlled]);
 
   const handleIntensityClick = useCallback((group: PositionButtonGroup, intensity: 'somewhat' | 'default' | 'strongly') => {
     const position = intensityToPosition(group, intensity);
@@ -325,7 +343,10 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     // repeated value to null, and P847 Model C′ makes the Clear row the only removal path.
     if (position !== userPosition) onPositionClick(position);
     setOpenDropdown(null);
-  }, [userPosition, onPositionClick, setOpenDropdown]);
+    setHintGroup(null);
+    // P1374: a reader's own level pick, on any page, ends every intensity hint.
+    if (intensity !== 'default' && !isControlled) writeIntensityLearned();
+  }, [userPosition, onPositionClick, setOpenDropdown, isControlled]);
 
   return (
     <div className={`relative w-full ${isLg ? '' : 'sm:w-auto'}${disabled ? ' opacity-50 pointer-events-none' : ''}`} ref={containerRef}>
@@ -419,6 +440,13 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
           );
         })}
       </div>
+      {/* Shown in icon-only mode too (phones): "tap again" points at the segment just
+         tapped, which is highlighted — no label needed. */}
+      {hintGroup && (
+        <p role="status" className="mt-1.5 text-xs text-[#1A1A1A]/60 text-center">
+          Tap again if you {hintGroup} only Somewhat, or Strongly
+        </p>
+      )}
 
       {/* Menu — rendered via portal to escape overflow:hidden containers.
          P847 Model C′: opens when openDropdown !== null. For Unsure (1-intensity),

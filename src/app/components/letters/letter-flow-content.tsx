@@ -629,6 +629,7 @@ export function LetterFlowContent({
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
                 onPositionClick={handleEngagePositionClick}
+                intensityHint={false}
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
@@ -1020,6 +1021,7 @@ export function LetterFlowContent({
                 userPosition={selectedPosition}
                 counts={ZERO_COUNTS} // priming gate: never pass real counts pre-commit (Locked Decision 5)
                 onPositionClick={handleEngagePositionClick}
+                intensityHint={false}
                 onClear={() => setSelectedPosition(null)}
                 size="lg"
               />
