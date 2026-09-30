@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 13
 created_date: '2026-09-30'
 tags: [position-buttons, onboarding, intensity, letters]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-09-30
 ---
 
 # P1374: Intensity hints follow one rule on every page and stop once the reader has learned
