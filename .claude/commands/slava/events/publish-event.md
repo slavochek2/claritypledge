@@ -2,7 +2,7 @@
 name: publish-event
 description: "Publish an event on claritypledge.com by driving the /events/new form in the operator's browser — fresh or cloned from a past event"
 when_to_use: "When an event needs to exist on claritypledge.com, before any promotion. Operator-safe: own account, own browser, zero secrets. NOT /re-create-event (founder-only DB series automation) and NOT /publish-run (AllTrails trail-run flow)."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Publish Event on claritypledge.com
@@ -83,7 +83,7 @@ Read the page (`read_page` with `filter: "interactive"`) and fill:
 | Date / time | date + time inputs | `form_input`; if a custom picker ignores it, hand to the user (note it in Known limitations) |
 | Timezone | select | pick the event's local timezone |
 | Duration | select | closest option to intended duration |
-| Location | text input | place name or meeting URL |
+| Location | text input | place name or meeting URL. In person: write it as **"Venue name, address"** ("Zuzalu library, 4Seas Nimman, Building F, …") — the event-day email (P1380) asks "Have you arrived at {first part}?", so the part before the first comma must read as a place a person would say. If the given location starts with a street number or has no comma, suggest the reshaped version to the user before filling. |
 | Description | textarea | `form_input`, markdown supported |
 | Group chat link | text input (placeholder `https://chat.whatsapp.com/...`) | the event's WhatsApp/Telegram invite. Ask if not given — registrants see it as a button on their confirmation and the event box; without it there is no group button. Never put it in the description. |
 | Preparation | checkbox | P1336. Auto-ticked when the title contains "Clarity Night"; confirm it is ticked for a Clarity Night and unticked for a hike or social event. It turns on the attendee preparation, the room gate and (P1380) the preparation emails. |
