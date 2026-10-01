@@ -128,6 +128,6 @@ One journey, shown on each phone and mirrored on the projector:
 
 ## Related
 
-- [p1336](p1336_registration_carries_opt_in_prep_and_survey.md) — registration, prep and survey
+- [p1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) — registration, prep and survey
 - [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md) — the deck for event #2
 - P1114, P1179, P1323 — the event room, its opt-in and the Links menu

@@ -43,5 +43,5 @@ Only after weekly regulars exist (people who attend two or more nights). Before 
 
 ## Related
 
-- [p1336](p1336_registration_carries_opt_in_prep_and_survey.md): onboarding with ST1
+- [p1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md): onboarding with ST1
 - [p784](p784_st1_st6_restructure_two_needs.md): story content updates

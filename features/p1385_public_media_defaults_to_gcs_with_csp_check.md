@@ -83,5 +83,5 @@ Reversibility: plain revert. Decision density: zero — the GCS convention and C
 
 ## Related
 
-[P1336](p1336_registration_carries_opt_in_prep_and_survey.md) (the incident) · P1005 (founder clip on
+[P1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) (the incident) · P1005 (founder clip on
 GCS + `media-src`) · P906 (missing-directive class, decisions.md 2026-06-06)

@@ -364,6 +364,7 @@ Last updated: 2026-10-01
 
 ## Events & Content
 
+- **P1336** (Oct 26) Registering for a Clarity Night carries the preparation, opt-in and survey — prod CSP allows media only from GCS; dev sends no CSP, so test URLs against vercel.json
 - **P1161** (Aug 26) The first physical Clarity event in Chiang Mai — end to end — closed on preparation, not the run; the six unticked items were all *executing* and moved to the results doc rather than holding a prepared board open.
 - **P953** (Jun 19) Virtual events show time in visitor's local timezone — `classifyLocation().type === 'virtual'` branches to `Intl.DateTimeFormat().resolvedOptions().timeZone`; in-person keeps organizer's stored timezone; label "X time" appended to disambiguate
 - **P937** (Jun 16) Webinar-funnel landing + /offers pricing page — price ACs must check the rendered code constant, not just spec text; fetch before building in multi-clone workflows, not only at /ship

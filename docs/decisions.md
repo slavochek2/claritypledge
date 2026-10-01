@@ -5,6 +5,19 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [technical]: Public media must be on an origin the production CSP allows — the dev server sends no CSP, so only a test against vercel.json catches it (P1336, P1385)
+
+**Context:** P1336's four preparation videos were served from a new Supabase Storage bucket. Every local unit, integration and browser test passed; on claritypledge.com every video would have been blocked, because production's `media-src` allows only `'self' https://storage.googleapis.com` and the Vite dev server sends no CSP at all. Found by hand the day before the push, when the founder asked why the clips were not on Google storage. A history pass counted it as the 7th prod-only CSP block (P805, P863, P865, P906, P1005, P1285, P1336) and the 4th Supabase bucket created without a reason to prefer it over GCS.
+**Decision:** The clips live with the site's other public media in `gs://claritypledge-story-images/event-prep/` (beside the landing page's `founder/` clip), versioned filenames, one-year cache. A unit test parses `vercel.json`'s CSP and asserts every clip and poster URL is allowed by `media-src` / `img-src`, with a must-fail control on a Supabase URL. The general fix — one helper for public media URLs plus a repo-wide check — is P1385. Local master copies sit in `.private/media/` (restic covers it).
+**Alternatives rejected:** adding `*.supabase.co` to `media-src` (widens the policy to every Supabase project's storage to keep one mistake); a prod-like CSP server in e2e (real runtime cost; P1385 non-goal unless a block slips past the test).
+**Consequences:** P1336's first migration still creates an unused, empty `p1336-clips` Supabase bucket on prod; harmless, not dropped (destructive, separate decision).
+
+## 2026-10-01 [process]: A branch that merged in a prototype branch ships as one squashed commit (P1336)
+
+**Context:** `/ship p1336` cherry-picks commit by commit. The branch carried ~30 prototype work-in-progress commits merged in from the approved prototype branch; the very first one conflicted with main's later P1369 offline work in three files, and the same files would have conflicted again at later WIP commits — each resolution on the shared main checkout, holding the main lock.
+**Decision:** Abort the zero-landed pick (founder-authorised; nothing had landed, so it reverted nothing), tag the old tip (`p1336-pre-squash`), squash the branch onto main inside its own worktree, resolve the conflicts once, rerun the suites, and ship the single commit. Verified afterwards that every P1336 file is byte-identical to the old tip and every other difference is main's own newer work.
+**Consequences:** Next time a prototype branch is merged into a feature branch, expect to squash before `/ship` — or merge the prototype as one squashed commit in the first place.
+
 ## 2026-10-01 [product]: Clarity Night preparation after founder UAT — past room opt-ins count, "prepared" lives on the room roster, the end of preparation is a destination (P1336)
 
 **Context:** Two founder UAT rounds on P1336's preparation flow. Clarity Night #1 ran the event room before preparation existed, so every opt-in it produced (11, host excluded) sits in the room roster, not in `event_preparations` — the series social proof read 0 at the very event it exists for. The "Prepared ✓" pill floated under the room's Back button, the end screen had no menus and no way back, and "1 person prepared for Clarity Nights · 1 for this one" read as two people.
@@ -16,7 +29,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - Event emails (P1380) are proposed to apply only to events with Preparation on — open for the founder to confirm at its /dev.
 **Alternatives rejected:** counting prep rows only (0 at Night #2); a Prepared line or pill in the room (floats, and duplicates what the roster can carry); merging main to "update the cards" — the step embeds the live `/stake` page, so it is never behind.
 **Consequences:** `get_event_prep_social_proof` reads room history; new `get_event_room_prepared` (room members who finished preparing; readable only by people registered for the event, or its host). Still open for the founder: a preparation opt-out becomes public when that person enters the room, because the P1114 roster is public (2026-08-21) — this conflicts with the P1336 invariant "opt-outs are never shown to other attendees".
-**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md), [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
+**References:** [P1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md), [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
 
 ## 2026-10-01 [technical]: `/events/:slug/prepare` joins the immersive-route matcher, so room capture pauses there (P1336)
 
@@ -105,7 +118,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - Room gate skip has no dialog, just one muted consequence line.
 **Alternatives rejected:** variant C (prep question before registering): a double question with no context. Per-host videos: no second host yet.
 **Consequences:** spec updated with per-event setup and confirmation states. **UNTESTED.** Falsifier: at Clarity Night #2 most registrants skip prep, or a second host asks for own videos.
-**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
+**References:** [P1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) · [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
 
 ---
 
@@ -267,7 +280,7 @@ No "don't show again" checkbox: it hands the stop decision to the reader and kee
 - **The rule applies only to listeners who opted in.** The numbers exist only for them; opted-out groups just talk on the same clock.
 **Alternatives rejected:** the below-8 prohibition. Founder: prohibiting disagreement is "very radical", it slows rounds a lot, and it hands the speaker control ("oh, you disagree, you cannot speak"): a speaker who keeps saying 5 silences the listener indefinitely. Consistent with the earlier framing that CP asks you to reveal the gap in your own understanding, not to withhold disagreement.
 **Consequences:** P1336 roles text updated. Round flow (P1337) and deck (P1338) wording must follow when next touched. **UNTESTED.** Falsifier: at Clarity Night #2, groups skip the number and argue anyway, or a number under 8 routinely turns the exchange into a fight rather than a clarification.
-**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · decisions.md 2026-09-17 [product], 2026-09-28 [product]
+**References:** [P1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) · decisions.md 2026-09-17 [product], 2026-09-28 [product]
 
 ---
 
@@ -557,7 +570,7 @@ tool staged it and then refused. (Status: proposed — the `commit-to-main` chan
 **Decision:** The embed is not mounted until the reader presses play. Until then the media slot is our own poster plus our own play control, so YouTube's chrome exists only during playback. On every surface that can host a player (point, feed, profile, a story inside a point) the still now plays in place instead of navigating. Surfaces that cannot host one (letters, off-site cards, the blocked-embed fallback) keep the link into the story.
 **Alternatives rejected:** *Player parameters* — `modestbranding` and `rel=0` do not remove the title bar, the copy-link button or the pill; this was the assumption worth killing first. *Self-hosting the file* — removes YouTube entirely and costs the video's reach and our bandwidth; revisit only if the video should not be public on YouTube at all.
 **Consequences:** A story's video costs one image request before a click instead of the player's scripts and cookies, so cards are cheaper as well as quieter. Any new surface that renders a still must decide which it is: a surface with a player passes the play handler, a surface without one keeps the link. The poster is the story's own image where it has one, otherwise YouTube's 1280x720 still with the 480x360 one as its fallback.
-**References:** [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · `src/app/components/shared/story-video-player.tsx` · `src/tests/p1336-video-facade.test.tsx`
+**References:** [p1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) · `src/app/components/shared/story-video-player.tsx` · `src/tests/p1336-video-facade.test.tsx`
 
 ---
 
@@ -650,7 +663,7 @@ Supplied floors, recency lines and minute floors may only be stricter than the J
 **Context:** P1336 (registration onboarding) and article draft a73 justified moving the opt-in to registration by saying it would make the pre-registered "in-room opt-in predicts paid membership" prediction readable. The founder: *"there is no hypothesis whatsoever that opting in predicts who pays. That makes no sense at all."* The prediction was registered 2026-08-10, when a €295 membership was the first paid rung and free events fed it. On 2026-09-21 the active focus moved to champion-hosted pilots, and physical events stopped being a revenue path. The prediction's premise died that day, but its text in hypotheses.md was never marked. The agent read it as current because it was labelled "pre-registered" and cited in three places.
 **Decision:** The prediction is retired in hypotheses.md and lean-canvas.md. P1336 is rewritten around its three real problems (setup eats practice, the opt-in is uninformed, pairs don't disagree), and a73 drops the argument.
 **Consequences:** When a focus change retires a premise (a paid rung, a channel), the predictions that depend on it must be marked retired in the same change. Before citing any hypothesis as a spec's motivation, check its date against the latest active-focus entry in decisions.md and against goals.md. If it predates the focus change and depends on the retired channel, it is not a reason. **Falsifier:** another spec cites a prediction whose premise a later focus entry removed.
-**References:** [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · [hypotheses.md](hypotheses.md) H-ChampionYield · 2026-09-21 [product] (focus change) · 2026-08-10 [product] (membership ladder)
+**References:** [p1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) · [hypotheses.md](hypotheses.md) H-ChampionYield · 2026-09-21 [product] (focus change) · 2026-08-10 [product] (membership ladder)
 
 ## 2026-09-22 [product]: Supporting quotes are never folded; agent stories are one sentence, two at most (P1348)
 
@@ -709,7 +722,7 @@ Supplied floors, recency lines and minute floors may only be stricter than the J
 **Also found:** every after-event room transcript since the P1307 batch pipeline went live (6 of 6 rooms, including event #1's three) has 0 segments, while its jobs report `completed` with no error. The live `/transcribe` capture works: 572 raw messages sit in event #1's main room. Filed as [P1339](../features/p1339_room_batch_transcripts_complete_with_zero_segments.md); cause unknown.
 **Alternatives rejected:** Keeping 12 with a footnote. The host's taps are test activity, not attendee behaviour, and the 9 toggles would otherwise read as a finding about the opt-in.
 **Consequences:** Any query over an event's room must filter out the host's profile first. The opt-in instrument P1336 builds should make the host invisible to its own counts. **Falsifier for "the room data is now clean":** a second non-attendee account (a test or demo profile) turns up in an event room.
-**References:** [goals.md](goals.md) "Event #1 ran 2026-09-18" · [p1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · a73
+**References:** [goals.md](goals.md) "Event #1 ran 2026-09-18" · [p1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) · a73
 
 ## 2026-09-21 [process]: The board was refitted around event #2. Kanban moves stamp a manual lock, and feature branches cannot be backed up to the only remote
 

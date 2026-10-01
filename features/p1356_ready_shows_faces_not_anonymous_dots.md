@@ -79,4 +79,4 @@ Night #1 nobody objected to their state being visible.
 ## Related
 
 - P1083 (the /ready distribution), P1114 (the event room),
-  [p1336](p1336_registration_carries_opt_in_prep_and_survey.md) (registration; /ready stays at the door)
+  [p1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) (registration; /ready stays at the door)
