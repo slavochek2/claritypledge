@@ -5,6 +5,15 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [process]: Ship cleans up after itself: bytecode is not work, and merged idle agent worktrees are swept
+
+**Context:** After shipping P1381, `/ship` kept its `w3` worktree with an empty "RETAINED" list, and a fully merged agent worktree (`agent-a12…`, on the P1379 branch) sat untouched. Two causes. (1) `worktree_has_user_changes` counted ignored `scripts/__pycache__/` (written whenever a repo Python helper runs in a slot) as user work, so any slot where a session ran a Python script was kept forever; the message read plain `git status` while the decision read `--ignored`, so it named nothing. (2) Ship tears down only the worktree checked out on the shipped branch. Claude Code subagent worktrees sit on `worktree-agent-*` branches with no slot lock, so nothing ever removed them (found by an Opus adversarial review of the first fix).
+**Decision:** `__pycache__` at any depth is exempt like `dist/`. The RETAINED message and the decision share one walk (`worktree_user_change_lines`), and the message says "...and N more" past 10. Ship also sweeps `.claude/worktrees/agent-*` worktrees that are (a) merged into main, (b) clean, and (c) idle: no write to their git index/HEAD/reflog for 6 hours (`AGENT_WT_IDLE_MIN`). Their merged branch is deleted with `git branch -d`.
+**Alternatives rejected:** "Merged and clean" alone, because a just-started subagent's worktree is merged and clean by definition, so that rule would delete a live workspace (the canary's mutation control proves the idle test is what prevents it). This partly reverses the earlier rejection of pruning agent worktrees automatically (the kanban `prunable` entry): that rejection was about `git worktree prune` with no guard. This sweep goes through the same fail-toward-dirty check as slot teardown and never runs `prune`.
+**Consequences:** An agent worktree with commits not on main, uncommitted edits, or recent activity is never touched. Still not covered: a new untracked folder containing only `__pycache__` reports collapsed (`!! tools/`) and still reads as dirty, which fails safe. The P1326 canary's index-leak assertion can false-fail when another session stages files during the run (seen once in review).
+**References:** `scripts/lib/worktree-changes.sh`, `scripts/git-ops.sh` (`sweep_merged_agent_worktrees`), `scripts/test-p1381-agent-worktree-sweep.sh`, `scripts/test-p1326-worktree-liveness.sh` (3j, 3l), 2026-09-17 [technical] (P1326)
+
+---
 ## 2026-10-01 [technical]: Admin-only surfaces are gated by one DB function, `assert_admin()`, never by the client (P1381)
 
 **Context:** The founder needed to look up any user (name, email, LinkedIn, last login) at `/admin/users`, and more founder-only features will follow. The repo and bundle are public, so any client-side check is readable and skippable.
