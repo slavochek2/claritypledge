@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1
 workstream: events
@@ -10,7 +10,6 @@ tags:
   - opt-in
   - survey
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -23,6 +22,7 @@ related:
   - p1256
   - p1337
   - p1380
+completed_at: 2026-10-01
 ---
 
 # P1336: Registering for a Clarity Night carries the preparation, the opt-in and the survey
@@ -30,7 +30,7 @@ related:
 ## Problem
 
 Clarity Night #1 (2026-09-18) spent its practice time on setup: theory, repeats for latecomers,
-people unsure what to click ([goals.md](../docs/goals.md)). The opt-in to the meeting principle was a
+people unsure what to click ([goals.md](../../../docs/goals.md)). The opt-in to the meeting principle was a
 tap made seconds after first hearing the idea. Events now run weekly. Three problems:
 
 | | Problem | Fix |
@@ -40,8 +40,8 @@ tap made seconds after first hearing the idea. Events now run weekly. Three prob
 | C | Pairs don't disagree | Per-event positions the host pairs from |
 
 Physical events are not a revenue path; no hypothesis links opt-in to payment (correction
-2026-09-22, [hypotheses.md](../docs/hypotheses.md) H-ChampionYield retired). Workplace/champion
-questions live in [P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md).
+2026-09-22, [hypotheses.md](../../../docs/hypotheses.md) H-ChampionYield retired). Workplace/champion
+questions live in [P1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md).
 
 ## Appetite
 
@@ -195,7 +195,7 @@ Architect confirms remaining column shape; the facts to persist:
 
 RLS: as in Storage above. No capacity lock and no waitlist: Yes always confirms (overbooking
 accepted, decided 2026-10-01). **Pairing takes volunteering into account** (a volunteer's partner is
-recorded too); recording pause/resume in the room belongs to [P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md), not this spec.
+recorded too); recording pause/resume in the room belongs to [P1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md), not this spec.
 
 **Research transcript access (requirement).** Volunteers' recording transcripts are readable for
 research by the company (Clarity Pledge research programme) via a service/research-role path, not
@@ -234,7 +234,7 @@ their own phone in the room, so the host can check it.
 Unchanged in this spec. **Remind me by email** relies on the existing 24h reminder ("Tomorrow"),
 which links to the event page; prep is reached from there after normal sign-in.
 
-**Moved to [P1380](p1380_event_starting_soon_email_with_signin.md)** (decided 2026-10-01, by
+**Moved to [P1380](../../p1380_event_starting_soon_email_with_signin.md)** (decided 2026-10-01, by
 dependency): the starting-in-15-minutes email, the click-time sign-in redirect endpoint, and the
 confirmation **Prepare now** / 24h **Finish preparing** buttons. Those two buttons exist to open prep
 signed-in in one click, so they depend on the redirect endpoint and ship with it, not here.
@@ -327,5 +327,5 @@ blur (consent obtained); research link stays GitHub; room-opened prep ends with
 
 ## Related
 
-- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) room journey · [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md) deck
-- [p1055](p1055_norm_measurement_instrument.md), P1114, P1179 opt-in · [p784](p784_st1_st6_restructure_two_needs.md) ST1 · P1256 event email cron · [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) statements slot
+- [p1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md) room journey · [p1338](../../p1338_clarity_night_deck_cut_theory_and_run_rounds.md) deck
+- [p1055](../../p1055_norm_measurement_instrument.md), P1114, P1179 opt-in · [p784](../../p784_st1_st6_restructure_two_needs.md) ST1 · P1256 event email cron · [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) statements slot
