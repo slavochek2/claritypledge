@@ -3,7 +3,7 @@
  * tap (not only hover) explains each mark. Plus the source guards: the event page no longer has
  * the separate Preparation card, and the room reads the marks only through the host view.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -75,5 +75,19 @@ describe('source guards', () => {
     const room = src('app/prototypes/events/components/EventRoomMeet.tsx');
     expect(room).not.toMatch(/get_event_room_prepared|getRoomPrepared/);
     expect(room).toMatch(/useHostPrepMarks\(event\?\.id, isHost &&/);
+  });
+});
+
+describe('useHostPrepMarks', () => {
+  it('clears the marks when the viewer stops being the host', async () => {
+    const { renderHook, waitFor } = await import('@testing-library/react');
+    const svc = await import('@/app/data/event-prep-service');
+    const spy = vi.spyOn(svc, 'getPrepHostView').mockResolvedValue([row({ profileId: 'a', completedAt: 'x' })]);
+    const { useHostPrepMarks } = await import('@/app/prototypes/events/prep/PrepMarks');
+    const { result, rerender } = renderHook(({ on }) => useHostPrepMarks('ev', on), { initialProps: { on: true } });
+    await waitFor(() => expect(result.current.has('a')).toBe(true));
+    rerender({ on: false });
+    expect(result.current.size).toBe(0);
+    spy.mockRestore();
   });
 });

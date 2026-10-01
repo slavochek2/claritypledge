@@ -53,6 +53,9 @@ export function useHostPrepMarks(
   { refreshKey, poll = false }: { refreshKey?: unknown; poll?: boolean } = {},
 ): ReadonlyMap<string, PrepMarkState> {
   const [marks, setMarks] = useState<ReadonlyMap<string, PrepMarkState>>(new Map());
+  // Another event's (or a no-longer-host's) marks must never stay on screen. Cleared only when the
+  // event or host status changes, not on every re-read, so the room's marks do not flicker.
+  useEffect(() => { setMarks(new Map()); }, [eventId, enabled]);
   useEffect(() => {
     if (!eventId || !enabled) return;
     let cancelled = false;
