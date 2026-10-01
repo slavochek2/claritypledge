@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 107
+**Next ID:** 108
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1867,5 +1867,17 @@ Idea: a subtle pulsating play button on every video facade to signal it is playa
 **due:** month
 
 The research-programme link points at the GitHub doc. A readable product page with a "Copy for AI" action is a later separate task (out of P1336).
+
+---
+
+## Mechanical guard: 'tsc --noEmit -p .' typechecks nothing (tsconfig.json has files: [])
+
+**ID:** INBOX-107
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+`npx tsc --noEmit -p .` exits 0 with zero errors in this repo because the root tsconfig.json is a references-only file (`files: []`). The real check is `-p tsconfig.app.json` (baseline ~1100 errors). Agents have reported "tsc clean" from the wrong command 5 times (decisions.md 2026-10-01 [process], item 4); during P1369 it hid 8 real type errors.
+Candidate guards: a PreToolUse hook that rejects `tsc ... -p .` / bare `tsc --noEmit` in cp, or an npm script `typecheck` that is the only documented path plus a baseline-count comparison. Fail-first: run the hook against `npx tsc --noEmit -p .` (must block) and `-p tsconfig.app.json` (must pass).
 
 ---
