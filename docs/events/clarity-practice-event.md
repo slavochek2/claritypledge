@@ -141,9 +141,10 @@ thing*): [decisions.md](../decisions.md) 2026-08-10. **That is now the online co
 [decisions.md](../decisions.md) 2026-09-16 and 2026-09-17 for physical events). Three rounds of
 15 minutes. In each round two people discuss a point they disagree on: **six minutes** to understand
 one, then they swap and spend **six** on the other; the **observer** then takes **three** minutes to
-say back what they heard. Everyone rotates through speaker, listener and observer. The round rule of
-2026-09-17 stays in force inside each round: no disagreeing while the lower of the two numbers is
-under 8, numbers only if the listener opted in. The observer rating their own understanding before
+say back what they heard. Everyone rotates through speaker, listener and observer. The round rule
+inside each round, as revised 2026-09-29: **a listener who opted in may not disagree until they have
+heard the speaker's number — the number does not have to reach 8.** Opted-out listeners are not bound
+by it. This supersedes the below-8 prohibition of 2026-09-17. The observer rating their own understanding before
 they say it back is **tentative** (founder, 2026-09-28), and whether the speakers rate the observer
 is not decided; both belong to P1337 and P1338.
 
