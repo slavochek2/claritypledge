@@ -27,7 +27,7 @@ import type { PointProfileOwner } from '@/app/components/social/point-card-with-
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { useLetterReadingState, loadState as loadReadingState, loadLocalState } from '@/app/hooks/useLetterReadingState';
 import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
-import { letterUsesPredictions, predictionsForMode } from '@/app/utils/letter-prediction-policy';
+import { letterUsesPredictions, predictionsForMode, resolveResponsesMode } from '@/app/utils/letter-prediction-policy';
 import {
   getLetterForReading,
   getLetterForReadingByToken,
@@ -1096,7 +1096,7 @@ function LetterReadingFlow({
     priorPositions,
   });
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
-  const { user } = useAuth();
+  const { user, sessionChecked, isLoading: authLoading } = useAuth();
 
   // P711: Post-reveal position edits — writes directly to point_positions (does not transition phase).
   // Mirrors handleResultsPositionChange in letter-results-page.tsx. Auth-only; anon path no-ops.
@@ -1120,17 +1120,23 @@ function LetterReadingFlow({
   const explainBackSubmitting = useRef(false);
   // P952: derive isAuthenticatedReceiver strictly — must be the delivery's receiver
   const isAuthenticatedReceiver = !!user && !!delivery.receiver_profile_id && user.id === delivery.receiver_profile_id;
+  // P1379 (review B): every reading source now returns responses_mode; if one ever
+  // does not, fall back by mode — public letters fail closed ('off', "Just read" is the
+  // default), one-to-one keeps its historical 'invite' so explain-back is not lost.
+  const resolvedResponsesMode = resolveResponsesMode(letter);
+  // P1379 (review #2): the public reveal-skip waits until the session is resolved.
+  const identitySettled = sessionChecked && !authLoading;
 
   // Fetch position stories + explain-backs when receiver is authenticated and responses enabled.
   useEffect(() => {
-    if (!isAuthenticatedReceiver || letter.responses_mode === 'off' || !user) return;
+    if (!isAuthenticatedReceiver || resolvedResponsesMode === 'off' || !user) return;
     getLetterPositionStories(delivery.id, user.id, letter.sender_id).then((map) => {
       if (map) setPositionStoriesMap(map);
     });
     getExplainBacksForDelivery(delivery.id).then((rows) => {
       setExplainedBackMap(new Map(rows.map((r) => [r.story_id, r.id])));
     });
-  }, [isAuthenticatedReceiver, delivery.id, letter.responses_mode, letter.sender_id, user]);
+  }, [isAuthenticatedReceiver, delivery.id, resolvedResponsesMode, letter.sender_id, user]);
 
   // H2: optimistic update before auto-advance; background refetch keeps the map fresh.
   const handleExplainBackSaved = useCallback((storyId: string, explainBackId: string) => {
@@ -1288,7 +1294,8 @@ function LetterReadingFlow({
               renderCompletion={() => null}
               onStoryRated={onStoryRated}
               onLivePositionChange={handleLivePositionChange}
-              responsesMode={letter.responses_mode ?? 'off'} // fail closed: unknown → no explain-back (P1379 UAT)
+              responsesMode={resolvedResponsesMode}
+              identitySettled={identitySettled}
               isAuthenticatedReceiver={isAuthenticatedReceiver}
               onExplainBackSubmit={handleExplainBackSubmit}
               positionStoriesMap={positionStoriesMap}

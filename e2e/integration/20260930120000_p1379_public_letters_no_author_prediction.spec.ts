@@ -173,6 +173,16 @@ test.describe('P1379 — one-to-many letters never disclose the author predictio
     expect(JSON.stringify(payload)).not.toContain(`"prediction":${MANY_PREDICTION}`);
   });
 
+  test('L1b: get_letter_for_reading (token path) returns responses_mode', async () => {
+    const { data: row } = await supabaseAdmin.from('clarity_letters').select('responses_mode').eq('id', oneLetterId).single();
+    const { data, error } = await makeAnonClient().rpc('get_letter_for_reading', { p_token: oneDelivery.invitationToken });
+    expect(error, error?.message).toBeNull();
+    const letter = (data as { letter: { mode: string; responses_mode?: string } }).letter;
+    expect(letter.mode).toBe('one-to-one');
+    expect(letter.responses_mode).toBeDefined();
+    expect(letter.responses_mode).toBe(row!.responses_mode);
+  });
+
   test('L2: reveal_prediction_by_token — null for one-to-many, value for one-to-one', async () => {
     const reader = await makeUserClient(readerEmail);
     const many = await reader.rpc('reveal_prediction_by_token', {

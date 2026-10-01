@@ -63,7 +63,13 @@ export interface LetterFlowContentProps {
    * number, no gap, no "{Author} thinks…"). Omitted → 'one-to-one' (historical
    * behaviour); every production caller passes it explicitly.
    */
-  letterMode?: LetterMode;
+  letterMode?: LetterMode | null;
+  /**
+   * P1379: false while the reader's auth/delivery identity is still resolving. The
+   * public story-reveal skip waits for it, so a signed-in 'invite' receiver is never
+   * auto-advanced past explain-back during load. Omitted → settled.
+   */
+  identitySettled?: boolean;
   // Variant configuration
   /**
    * P1364: no longer rendered. Every caller passed `false` (the reading page hides the header
@@ -167,7 +173,8 @@ export function LetterFlowContent({
   senderProfileOwner,
   readerProfileOwner,
   readingState,
-  letterMode = 'one-to-one',
+  letterMode,
+  identitySettled = true,
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
@@ -448,6 +455,12 @@ export function LetterFlowContent({
 
   // P1379: keyed on MODE, not on prediction === null — a one-to-one letter with a
   // missing prediction must still surface "Calibration data unavailable.".
+  // LAYOUT vs NUMBER are separate decisions (review F/#4):
+  //  - layout: only an explicit 'one-to-many' gets the public flow; unknown/null keeps
+  //    the one-to-one reveal step (never silently skipped).
+  //  - number: the author's prediction is shown only for an explicit 'one-to-one'
+  //    (letterUsesPredictions fails closed), so an unknown mode never leaks one.
+  const isPublicLetter = letterMode === 'one-to-many';
   const showsAuthorPrediction = letterUsesPredictions(letterMode);
 
   const gap =
@@ -536,8 +549,10 @@ export function LetterFlowContent({
   // number. With nothing to prompt (responses 'off', or a reader who cannot explain
   // back), story-revealed is skipped: the rating advances straight on. With 'invite'
   // for a signed-in receiver, the step stays, but only as the explain-back prompt.
+  // 'push' and 'invite' both mean responses are enabled (review C).
+  const responsesEnabled = responsesMode !== undefined && responsesMode !== 'off';
   const skipPublicStoryReveal =
-    !showsAuthorPrediction && !(isAuthenticatedReceiver && responsesMode === 'invite');
+    isPublicLetter && identitySettled && !(isAuthenticatedReceiver && responsesEnabled);
   const autoAdvancedStageRef = useRef<string | null>(null);
   useEffect(() => {
     if (currentPhase !== 'story-revealed' || !skipPublicStoryReveal || state.isComplete) return;
@@ -871,9 +886,9 @@ export function LetterFlowContent({
         {currentPhase === 'story-revealed' && (
           <>
             {/* P1379 UAT: one-to-many shows no reveal card at all (no "You said N", no scale). */}
-            {showsAuthorPrediction && (
+            {!isPublicLetter && (
             <LetterRevealCard>
-              {currentStory.rating !== null && currentStory.prediction !== null ? (
+              {showsAuthorPrediction && currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
                   {/* P915: letter calibration verdict — extracted to CalibrationVerdict so both
                       states (calibrated/gap) are unit-tested. gap-banner.tsx stays for /live. */}
@@ -898,6 +913,14 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
+            )}
+            {/* P1379: while a public reveal is being skipped, keep a way forward — the
+                auto-advance normally fires within a frame; if it ever does not (re-entry,
+                no-op advance) the reader is not stranded on a blank screen (review #3). */}
+            {skipPublicStoryReveal && (
+              <FixedBottomBar ref={setDrawerRef}>
+                <LetterPrimaryCta label="Continue" onClick={advanceFromStoryReveal} icon="arrow" />
+              </FixedBottomBar>
             )}
             {!skipPublicStoryReveal && (() => {
               // P898: points remaining after story-revealed.

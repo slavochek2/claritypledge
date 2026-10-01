@@ -14,7 +14,8 @@
 --                                  receiver branch additionally requires mode = 'one-to-one';
 --                                  sender branch unchanged
 --
--- Also (UAT fix): get_letter_for_public_reading now returns letter.responses_mode.
+-- Also (UAT fix): get_letter_for_public_reading and get_letter_for_reading now return
+-- letter.responses_mode.
 --
 -- get_letter_overview is deliberately NOT changed (author-only; the UI drops the column).
 -- seal_and_send_letter is NOT changed (already accepts an empty p_predictions array).
@@ -518,5 +519,130 @@ CREATE POLICY "Predictions readable with sealed-bid"
       )
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- 6. get_letter_for_reading(uuid) — add letter.responses_mode
+-- ---------------------------------------------------------------------------
+-- diffed against: 20260818134500_p1071_redact_reading_rpc_response.sql (body verbatim,
+-- confirmed on the test catalog by its is_intended_recipient marker); only the
+-- responses_mode line is added. Grants restated as in the latest GRANT
+-- (20260417100300_p725_reading_rpc_sender_slug.sql). jsonb return: no DROP.
+
+CREATE OR REPLACE FUNCTION public.get_letter_for_reading(p_token uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_letter_id    UUID;
+  v_delivery_id  UUID;
+  v_letter       JSONB;
+  v_snapshots    JSONB;
+  v_delivery     JSONB;
+  v_caller_email TEXT;
+BEGIN
+  SELECT cl.id, ld.id
+  INTO v_letter_id, v_delivery_id
+  FROM letter_deliveries ld
+  JOIN clarity_letters cl ON cl.id = ld.letter_id
+  WHERE ld.invitation_token = p_token
+    AND cl.status = 'sealed'
+  LIMIT 1;
+
+  IF v_letter_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- P1071: the caller's own address, for the wrong-user comparison below.
+  -- Read from auth.users rather than auth.jwt() -- the JWT copy goes stale
+  -- after an email change, and this decides a security guard.
+  -- Stays NULL for an anonymous caller (no auth.uid() -> no row).
+  SELECT u.email INTO v_caller_email
+  FROM auth.users u
+  WHERE u.id = auth.uid();
+
+  -- Letter + sender profile fields (P697: avatar, P717: parent guards, P725: slug)
+  SELECT jsonb_build_object(
+    'id',                   cl.id,
+    'source_doc_id',        cl.source_doc_id,
+    'sender_id',            cl.sender_id,
+    'sender_display_name',  COALESCE(p.name, 'Someone'),
+    'sender_slug',          p.slug,
+    'sender_avatar_url',    p.avatar_url,
+    'sender_avatar_color',  p.avatar_color,
+    'sender_has_pledged',   COALESCE(p.has_pledged, false),
+    'mode',                 cl.mode,
+    -- P1379: the reading page needs the author's response intensity; without it
+    -- the client's fail-closed fallback ('off') hid explain-back on 'invite' letters.
+    'responses_mode',       cl.responses_mode,
+    'status',               cl.status,
+    'sealed_at',            cl.sealed_at,
+    'created_at',           cl.created_at
+  ) INTO v_letter
+  FROM clarity_letters cl
+  LEFT JOIN profiles p ON p.id = cl.sender_id
+  WHERE cl.id = v_letter_id;
+
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'letter_id',    lss.letter_id,
+      'story_id',     lss.story_id,
+      'version_id',   lss.version_id,
+      'position',     lss.position,
+      'point_config', lss.point_config,
+      'visibility',   lss.visibility
+    ) ORDER BY lss.position
+  ), '[]'::jsonb) INTO v_snapshots
+  FROM letter_story_snapshots lss
+  WHERE lss.letter_id = v_letter_id;
+
+  SELECT jsonb_build_object(
+    'id',                       ld.id,
+    'letter_id',                ld.letter_id,
+    -- P1071: receiver_email and invitation_token are deliberately absent.
+    -- If a future guard needs the address, add another verdict field -- do not
+    -- restore the column. Note here what any omission would break, so the next
+    -- reader does not rediscover it by watching a guard fail silently (P717).
+    'is_intended_recipient',    CASE
+                                  -- No signed-in caller: guard does not apply.
+                                  -- Anonymous reading through an invitation link
+                                  -- is the intended product behaviour and the
+                                  -- reason this function is anon-executable.
+                                  WHEN v_caller_email IS NULL THEN NULL
+                                  -- Nothing to compare (one-to-many link
+                                  -- deliveries carry no receiver_email).
+                                  -- Not a failed match.
+                                  WHEN ld.receiver_email IS NULL THEN NULL
+                                  ELSE lower(v_caller_email) = lower(ld.receiver_email)
+                                END,
+    'receiver_profile_id',      ld.receiver_profile_id,
+    'receiver_name',            ld.receiver_name,
+    'invitation_expires_at',    ld.invitation_expires_at,
+    'access_token_expires_at',  ld.access_token_expires_at,
+    'status',                   ld.status,
+    'stories_rated',            ld.stories_rated,
+    'opened_at',                ld.opened_at,
+    'completed_at',             ld.completed_at,
+    'created_at',               ld.created_at
+  ) INTO v_delivery
+  FROM letter_deliveries ld
+  WHERE ld.id = v_delivery_id;
+
+  RETURN jsonb_build_object(
+    'letter',    v_letter,
+    'snapshots', v_snapshots,
+    'delivery',  v_delivery
+  );
+END;
+$function$;
+
+COMMENT ON FUNCTION public.get_letter_for_reading(uuid) IS
+  'P1071: anon-executable letter read by invitation token. Returns no '
+  'receiver_email and no invitation_token; is_intended_recipient carries the '
+  'wrong-user comparison (NULL = guard does not apply).';
+
+GRANT EXECUTE ON FUNCTION get_letter_for_reading(UUID) TO anon;
+GRANT EXECUTE ON FUNCTION get_letter_for_reading(UUID) TO authenticated;
 
 COMMIT;

@@ -12,6 +12,7 @@ import {
   predictionsForMode,
   previewPredictionsKey,
   publicRatingLine,
+  resolveResponsesMode,
   sealGuardError,
   summarizeRatings,
 } from '@/app/utils/letter-prediction-policy';
@@ -92,5 +93,24 @@ describe('reader line', () => {
 describe('preview key', () => {
   it('matches the key the compose page has always written', () => {
     expect(previewPredictionsKey('doc-1')).toBe('clarity-preview-predictions-doc-1');
+  });
+});
+
+describe('resolveResponsesMode (reading page)', () => {
+  it('uses the stored value whenever the RPC returns it', () => {
+    expect(resolveResponsesMode({ mode: 'one-to-one', responses_mode: 'off' })).toBe('off');
+    expect(resolveResponsesMode({ mode: 'one-to-many', responses_mode: 'invite' })).toBe('invite');
+  });
+  it('missing on a one-to-one letter (token path before P1379): keeps explain-back (invite)', () => {
+    expect(resolveResponsesMode({ mode: 'one-to-one' })).toBe('invite');
+  });
+  it('missing on a public letter: fails closed (off)', () => {
+    expect(resolveResponsesMode({ mode: 'one-to-many' })).toBe('off');
+  });
+});
+
+describe('single-reader summary', () => {
+  it('"1 reader · {n}"', () => {
+    expect(formatRatingSummary(summarizeRatings([undefined, 8, null]))).toBe('1 reader · 8');
   });
 });

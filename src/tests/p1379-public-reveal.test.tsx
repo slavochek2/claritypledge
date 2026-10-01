@@ -101,8 +101,9 @@ function renderReveal(opts: {
   rating: number;
   prediction: number | null;
   reverseStory?: boolean;
-  responsesMode?: 'off' | 'invite';
+  responsesMode?: 'off' | 'invite' | 'push';
   isAuthenticatedReceiver?: boolean;
+  identitySettled?: boolean;
 }) {
   const readingState = makeRevealedState(opts.rating, opts.prediction);
   const view = render(
@@ -115,6 +116,7 @@ function renderReveal(opts: {
         {...(opts.mode ? { letterMode: opts.mode } : {})}
         responsesMode={opts.responsesMode}
         isAuthenticatedReceiver={opts.isAuthenticatedReceiver}
+        identitySettled={opts.identitySettled}
         renderCompletion={() => <div data-testid="completion" />}
       />
     </BrowserRouter>
@@ -175,8 +177,22 @@ describe('P1379: public letter story reveal', () => {
     expect(screen.getByText('Calibration data unavailable.')).toBeInTheDocument();
   });
 
-  it('letterMode omitted: historical one-to-one behaviour', () => {
-    const { container } = renderReveal({ rating: 6, prediction: 6 });
-    expect(container.textContent).toMatch(/Alice 6/);
+  // Review F/#4: unknown mode keeps the one-to-one reveal LAYOUT (never skipped) but
+  // the author's number is shown only for an explicit 'one-to-one' (fail closed).
+  it('letterMode omitted (unknown): reveal step kept, but no author number', () => {
+    const { container, readingState } = renderReveal({ rating: 6, prediction: 6 });
+    expect(readingState.advanceFromStoryReveal).not.toHaveBeenCalled();
+    expect(screen.getByText('Calibration data unavailable.')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Alice 6/);
+  });
+
+  it('push responses on a public letter count as enabled (signed-in receiver): not skipped', () => {
+    const { readingState } = renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'push', isAuthenticatedReceiver: true });
+    expect(readingState.advanceFromStoryReveal).not.toHaveBeenCalled();
+  });
+
+  it('identity still resolving: a public reveal is NOT auto-skipped yet', () => {
+    const { readingState } = renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'off', identitySettled: false });
+    expect(readingState.advanceFromStoryReveal).not.toHaveBeenCalled();
   });
 });

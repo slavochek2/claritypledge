@@ -104,3 +104,16 @@ export function formatRatingSummary(summary: RatingSummary): string {
 export function publicRatingLine(rating: number): string {
   return `You said ${rating} out of 10.`;
 }
+
+/**
+ * P1379 (review B): the reading page's responses_mode. Every reading RPC now returns it;
+ * if one ever does not, fall back BY MODE: a public letter fails closed ('off', the
+ * "Just read" default), a one-to-one letter keeps its historical 'invite' so a claimed
+ * receiver never silently loses explain-back.
+ */
+export function resolveResponsesMode(letter: {
+  responses_mode?: 'off' | 'invite' | 'push' | null;
+  mode?: LetterMode | null;
+}): 'off' | 'invite' | 'push' {
+  return letter.responses_mode ?? (letter.mode === 'one-to-many' ? 'off' : 'invite');
+}
