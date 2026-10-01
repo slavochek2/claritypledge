@@ -7,8 +7,10 @@
  * "Join the room without preparing" enters directly — no confirmation dialog — and is
  * remembered for this browser session, so the gate does not reappear on every visit to /room.
  */
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import type { EventWithHost } from '@/app/types';
 import { PrepStatus } from './PrepPieces';
@@ -28,23 +30,43 @@ function rememberBypass(eventId: string, viewerId: string) {
   } catch { /* storage unavailable: the gate shows again next visit */ }
 }
 
-/** Whether the room should stop this viewer at the preparation gate. `null` while unknown. */
+/** The signed-in id from the SESSION, not the profile — the same rule as EventRoomAccess (P1369):
+ *  offline, or while the profile read is still out, `user` is null but the session is not. */
+function useViewerId(): string | null {
+  const { user, session } = useAuth();
+  return session?.user?.id ?? user?.id ?? null;
+}
+
+/** How long an unanswered preparation read may hold the room before the gate steps aside — the
+ *  room's own promise (P1369) is a cached copy or needs-connection within about 5 seconds. */
+const GATE_READ_DEADLINE_MS = 5000;
+
+/** Whether the room should stop this viewer at the preparation gate. `null` while unknown.
+ *  It never traps anyone outside the room: offline, no viewer id, a failed read or a read that
+ *  outlives the deadline all mean "no gate". */
 export function useRoomPrepGate(event: EventWithHost | null, granted: boolean): { gate: boolean | null } {
-  const { user } = useAuth();
-  const isHost = !!(event && user && event.hostId === user.id);
-  const applies = !!(granted && event?.preparationEnabled && !isHost);
-  const state = usePrepState(applies ? event : null, user?.id);
-  if (!applies) return { gate: false };
-  if (state.loading) return { gate: null };
-  // A failed read never traps someone outside the room.
+  const viewerId = useViewerId();
+  const { offline } = useConnectivity();
+  const isHost = !!(event && viewerId && event.hostId === viewerId);
+  const applies = !!(granted && event?.preparationEnabled && !isHost && viewerId && !offline);
+  const state = usePrepState(applies ? event : null, viewerId ?? undefined);
+  const [timedOut, setTimedOut] = useState(false);
+  const pending = applies && state.loading;
+  useEffect(() => {
+    if (!pending) return;
+    const t = setTimeout(() => setTimedOut(true), GATE_READ_DEADLINE_MS);
+    return () => clearTimeout(t);
+  }, [pending]);
+  if (!applies || !viewerId || !event) return { gate: false };
+  if (state.loading) return { gate: timedOut ? false : null };
   if (state.error) return { gate: false };
   if (state.progress.complete) return { gate: false };
-  return { gate: !hasBypassedPrep(event!.id, user!.id) };
+  return { gate: !hasBypassedPrep(event.id, viewerId) };
 }
 
 export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: () => void }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const viewerId = useViewerId();
   return (
     <section
       className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-sm flex-col items-center justify-center space-y-6 px-4 py-10 text-center lg:min-h-[calc(100vh-5rem)]"
@@ -60,7 +82,7 @@ export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: 
         <LetterPrimaryCta
           label="Join the room without preparing"
           onClick={() => {
-            if (user) rememberBypass(event.id, user.id);
+            if (viewerId) rememberBypass(event.id, viewerId);
             onJoin();
           }}
           variant="secondary"
@@ -81,11 +103,14 @@ export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: 
  * preparation then ends on its own end screen rather than "Join the room".
  */
 export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHost | null; source?: 'room' | 'event' }) {
-  const { user } = useAuth();
+  const viewerId = useViewerId();
+  const { offline } = useConnectivity();
   const navigate = useNavigate();
-  const isHost = !!(event && user && event.hostId === user.id);
-  const applies = !!(event?.preparationEnabled && !isHost);
-  const state = usePrepState(applies ? event : null, user?.id);
+  const isHost = !!(event && viewerId && event.hostId === viewerId);
+  // Offline the preparation cannot be read: show nothing rather than "not started" to someone who
+  // prepared (review 2026-10-01).
+  const applies = !!(event?.preparationEnabled && !isHost && viewerId && !offline);
+  const state = usePrepState(applies ? event : null, viewerId ?? undefined);
   if (!applies || !event || state.loading || state.error) return null;
   const { progress } = state;
   const started = !!state.prep?.startedAt;

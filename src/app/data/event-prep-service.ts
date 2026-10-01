@@ -4,8 +4,9 @@
  * once-per-person parts (person_prep_parts) and the three read-only RPCs around them.
  *
  * Privacy is the database's: event_preparations is owner + host only (RLS), and the public
- * numbers come only from get_event_prep_social_proof, which never returns an opt-out, a
- * score or volunteer data. Nothing here uses a service-role client.
+ * numbers come only from get_event_prep_social_proof, which never returns a score, an answer or
+ * volunteer data (its "prepared" faces include people who opted out — founder 2026-10-01; the
+ * "opted in" faces never do). Nothing here uses a service-role client.
  */
 import { supabase } from '@/lib/supabase';
 import type { EventAttendee } from '@/app/types';

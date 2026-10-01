@@ -3,7 +3,8 @@
  * @description P270 canary + RLS proof for P1336 (20261001120000_p1336_event_preparations.sql),
  * run live against the test DB with real user JWTs:
  *   - anon and another attendee read 0 event_preparations rows; the host reads their event's rows
- *   - the public aggregate returns counts/avatars only — no opt-out, score or volunteer data
+ *   - the public aggregate returns counts/avatars only — no score, answer or volunteer data; the
+ *     "prepared" faces include people who opted out (founder 2026-10-01), the "opted in" faces never do
  *   - places-left is floored at 1 (overbooking accepted)
  *   - opt-in chosen in prep seeds the room on entry; a room change writes back with a new timestamp
  *   - research consent is stored with its policy version
@@ -232,6 +233,7 @@ test.describe('P1336: event_preparations + per-event setup', () => {
     const proofOf = async () =>
       (await anon().rpc('get_event_prep_social_proof', { p_event_id: eventId })).data as {
         optedInSeries: number; optedInPrevious: number; optedInThis: number; optedInPeople: { profileId: string }[];
+        preparedPrevious: number; preparedThis: number;
       };
     const before = await proofOf();
     const carol = await createTestUser({ name: 'P1336 Carol' });
@@ -255,6 +257,9 @@ test.describe('P1336: event_preparations + per-event setup', () => {
         { event_id: pastCn, profile_id: bob.user.id, display_name: 'P1336 Bob', opted_in: false },
         { event_id: hike, profile_id: null, display_name: 'P1336 Hiker', opted_in: true },
       ]);
+      // Carol also prepared for the past night: one "previously prepared" person, not this event's.
+      await supabaseAdmin.from('event_rsvps').insert({ event_id: pastCn, profile_id: carol.user.id });
+      await supabaseAdmin.from('event_preparations').insert({ event_id: pastCn, profile_id: carol.user.id, completed_at: past });
       const after = await proofOf();
       // Carol (once) + the walk-in; the host, the opt-out and the other series never count.
       expect(after.optedInSeries - before.optedInSeries).toBe(2);
@@ -262,6 +267,8 @@ test.describe('P1336: event_preparations + per-event setup', () => {
       // "previous Clarity Nights": earlier events only — Carol and the walk-in, both at the past night.
       expect(after.optedInPrevious - before.optedInPrevious).toBe(2);
       expect(before.optedInPrevious).toBe(0); // no earlier night before this test's past event
+      expect(after.preparedPrevious - before.preparedPrevious).toBe(1);
+      expect(after.preparedThis).toBe(before.preparedThis);
       const ids = after.optedInPeople.map((p) => p.profileId);
       expect(ids).toContain(carol.user.id);
       expect(ids).not.toContain(host.user.id);
