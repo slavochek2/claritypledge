@@ -26,11 +26,12 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** The helper's name still says "Letter" while it now covers the preparation too; rename when it gains a third route.
 **References:** `src/app/layouts/immersive-letter-route.ts`, [2026-06-12 P932 ?done=1 entry]
 
-## 2026-10-01 [process]: Check ancestry before merging main into a feature branch "to pick up" a change; the cross-feature canary guard blocks merges (Status: proposed)
+## 2026-10-01 [process]: Check ancestry before reaching for main's changes; merging main into a feature branch is already ruled out (P1336)
 
 **Context:** UAT reported "the cards are not the latest version". The agent assumed the branch was behind and merged main into `feature/p1336-*` — six conflicts resolved — then `pre-commit-checks.sh`'s cross-feature canary guard refused the merge commit, because main's own `src/tests/p1379-*` files (P1379 still `in-progress`) were staged by the merge. The card commits (P1366, P1376) were already ancestors of the branch; the "0 stories" label was the current card's own copy for a point with no stories and no position. Merge aborted, nothing kept.
-**Decision:** Before merging main to pick up a change, run `git merge-base --is-ancestor <commit> HEAD` on the commit that carries it. The guard has no merge exemption: a staged canary file whose blob equals `MERGE_HEAD`'s is a merge, not an edit — proposed fix, not built.
-**Consequences:** Follow-up: teach the guard to skip staged paths identical to `MERGE_HEAD` during a merge (with a must-fail control for a real cross-feature edit during a merge).
+**Decision:** Before reaching for a change on main, run `git merge-base --is-ancestor <commit> HEAD` on the commit that carries it — here the answer was "already in the branch". And do not merge main into a feature branch at all: the 2026-09-08 [process] entry ("A merge commit stages all of main…") already rules it out, since `/ship` cherry-picks; when one file is needed, take that file. The guard refusing the merge is that ruling working, not a defect.
+**Alternatives rejected:** a merge exemption in the canary guard (`MERGE_HEAD` blob match) — it would reopen the workflow the 2026-09-08 ruling closed. Not filed.
+**Consequences:** None to build. The miss was not finding the 2026-09-08 entry before merging.
 
 ## 2026-10-01 [product]: An organizer's Host event lives in the group header, on every tab (P1383)
 
