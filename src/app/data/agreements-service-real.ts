@@ -726,6 +726,15 @@ export const realAgreementsService: AgreementsService = {
       }
       rows = data as DbAgreementRow[];
     } else if (rpcError) {
+      // P1382: the RPC is revoked from anon (P1222). A 42501 with NO client session
+      // is the badge refetching after the session dropped on tab resume
+      // (JAVASCRIPT-REACT-3K) — not a DB fault. With a session present, a 42501 is a
+      // real grant regression for signed-in users and must still report. The session
+      // read runs only on this error path, so a successful poll pays nothing.
+      if (rpcError.code === '42501') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return [];
+      }
       logDbError('getIncomingInvitations', rpcError);
       return [];
     } else {

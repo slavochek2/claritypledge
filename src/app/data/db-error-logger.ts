@@ -70,13 +70,9 @@ export function logDbError(
   // grant is verified present on prod. The caller already degrades gracefully
   // (returns 0, 0 users impacted), so this is pure noise. Scoped to the helper
   // functions only — a genuine "permission denied for table X" still reports.
-  // P1382: get_my_pending_invitations (revoked from anon by P1222) hits the same
-  // artifact when the Partners badge refetches on tab resume after the client
-  // dropped its session (JAVASCRIPT-REACT-3K). getIncomingInvitations returns [].
   const isExpiredSessionRpcDenied =
     error.code === '42501' &&
-    (msg.includes('permission denied for function _is_letter_') ||
-      msg.includes('permission denied for function get_my_pending_invitations'));
+    msg.includes('permission denied for function _is_letter_');
   if (isExpiredSessionRpcDenied) return;
 
   // P1011: PGRST303 "JWT expired" — the same expired-token artifact as the 42501

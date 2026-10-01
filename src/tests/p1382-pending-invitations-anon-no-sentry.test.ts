@@ -1,50 +1,60 @@
 /**
  * @file p1382-pending-invitations-anon-no-sentry.test.ts
- * @description Canary for P1382 (INBOX-P44, JAVASCRIPT-REACT-3K): the P913
- * expired-session-as-anon artifact on get_my_pending_invitations must not hit Sentry.
+ * @description Canary for P1382 (INBOX-P44, JAVASCRIPT-REACT-3K).
  *
  * get_my_pending_invitations is revoked from anon on purpose (P1222). When the
- * Supabase client loses its session on tab resume but React still holds a `user`,
- * the Partners badge refetch runs as anon and gets 42501. The caller already
- * degrades to an empty list, so this is noise; a 42501 on any other function or
- * a table must still report.
+ * Supabase client has lost its session but React still holds a `user`, the
+ * Partners badge refetch runs as anon and gets 42501. That must not be logged.
+ * A 42501 while a session IS present means signed-in users lost EXECUTE — a real
+ * regression that must still reach logDbError (and Sentry).
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@sentry/react', () => ({
-  captureException: vi.fn(),
+const rpc = vi.fn();
+const getSession = vi.fn();
+const logDbError = vi.fn();
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: { rpc: (...a: unknown[]) => rpc(...a), auth: { getSession: () => getSession() } },
+}));
+vi.mock('@/lib/agreement-emails', () => ({ invokeAgreementEmails: vi.fn() }));
+vi.mock('../app/data/db-error-logger', () => ({
+  logDbError: (...a: unknown[]) => logDbError(...a),
+  throwDbError: vi.fn(),
 }));
 
-import * as Sentry from '@sentry/react';
+const denied = { code: '42501', message: 'permission denied for function get_my_pending_invitations', details: null, hint: null };
 
-function err(message: string) {
-  return { message, code: '42501', details: '', hint: '' };
+async function call() {
+  const { realAgreementsService } = await import('../app/data/agreements-service-real');
+  return realAgreementsService.getIncomingInvitations('owner@example.com', null);
 }
 
-describe('P1382: logDbError — anon 42501 on get_my_pending_invitations', () => {
+describe('P1382: getIncomingInvitations — anon 42501 after session loss', () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('DEV', false);
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  it('does not log the 42501 when the client has no session', async () => {
+    rpc.mockResolvedValue({ data: null, error: denied });
+    getSession.mockResolvedValue({ data: { session: null } });
+    expect(await call()).toEqual([]);
+    expect(logDbError).not.toHaveBeenCalled();
   });
 
-  it('skips Sentry for the badge refetch running as anon', async () => {
-    const { logDbError } = await import('../app/data/db-error-logger');
-    logDbError('getIncomingInvitations', err('permission denied for function get_my_pending_invitations'));
-    expect(Sentry.captureException).not.toHaveBeenCalled();
+  it('STILL logs the 42501 when a session is present (grant regression)', async () => {
+    rpc.mockResolvedValue({ data: null, error: denied });
+    getSession.mockResolvedValue({ data: { session: { access_token: 't' } } });
+    expect(await call()).toEqual([]);
+    expect(logDbError).toHaveBeenCalledWith('getIncomingInvitations', denied);
   });
 
-  it.each([
-    'permission denied for table clarity_agreements',
-    'permission denied for function some_other_fn',
-  ])('STILL reports 42501 "%s"', async (message) => {
-    const { logDbError } = await import('../app/data/db-error-logger');
-    logDbError('getIncomingInvitations', err(message));
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  it('STILL logs a non-42501 error without a session', async () => {
+    const other = { ...denied, code: 'XX000', message: 'internal error' };
+    rpc.mockResolvedValue({ data: null, error: other });
+    getSession.mockResolvedValue({ data: { session: null } });
+    await call();
+    expect(logDbError).toHaveBeenCalledWith('getIncomingInvitations', other);
   });
 });

@@ -48,7 +48,7 @@ Confidence: medium (survived one disproof; the session-loss mechanism inside aut
 3. Return to the tab. `visibilitychange` fires `fetchCount` with the stale `user`.
 4. The RPC goes out as `anon` → `42501 permission denied for function get_my_pending_invitations` → Sentry.
 
-**Reproduction rate:** intermittent (1 event in prod). The deterministic repro is at unit level: `logDbError` given that error object.
+**Reproduction rate:** intermittent (1 event in prod). Deterministic at unit level: the RPC mocked to return 42501 with `getSession()` returning no session.
 
 ## Expected Behavior
 
@@ -60,7 +60,7 @@ The Sentry error `DB error in getIncomingInvitations: permission denied for func
 
 ## Affected Files
 
-- `src/app/data/db-error-logger.ts` L62-76: the `isExpiredSessionRpcDenied` predicate covers `_is_letter_*` only.
+- `src/app/data/db-error-logger.ts` L62-76: P913's `isExpiredSessionRpcDenied` covers `_is_letter_*` only (left unchanged, see Fix Approach).
 - `src/app/hooks/usePendingPartnerInvitationCount.ts`: the caller (refetch on `visibilitychange`).
 - `src/app/data/agreements-service-real.ts` L713: the RPC call site.
 
@@ -70,11 +70,13 @@ The Sentry error `DB error in getIncomingInvitations: permission denied for func
 
 ## Fix Approach
 
-Extend P913's `isExpiredSessionRpcDenied` predicate to also match `permission denied for function get_my_pending_invitations`, keeping the function-name scoping. This follows the P913 decision (suppress the expired-session-as-anon artifact in the logger, caller already degrades) rather than adding a session probe to every caller. A session check in each caller would add an auth round-trip per poll and still race the SIGNED_OUT event.
+In `getIncomingInvitations`'s RPC error branch: on `42501`, read `supabase.auth.getSession()` (local storage, error path only, so a successful poll pays nothing). With no session, return `[]` without logging. With a session present, log as before, because that means signed-in users lost EXECUTE.
+
+**Rejected: extending P913's function-name predicate in `logDbError`** (first draft of this fix). Review (Opus, Codex, Gemini, 2026-10-01) found three problems. It cannot tell an anon artifact from a real grant regression, and the only test covering this RPC's grant (`e2e/integration/p1222-public-agreement-pii.spec.ts:326`) runs in no CI job, so a regression would be silent in prod. Its `includes` match also swallows any prefixed function name. And that branch drops errors without a `noteSuppression` breadcrumb. P913's `_is_letter_*` suppression has the same blind spot. That is out of scope here and filed as a follow-up.
 
 ## Acceptance Criteria
 
-- [ ] `logDbError('getIncomingInvitations', {code:'42501', message:'permission denied for function get_my_pending_invitations'})` sends nothing to Sentry. Regression test in `src/tests/p1382-*.test.ts`.
-- [ ] `42501 permission denied for table clarity_agreements` still reports.
-- [ ] `42501 permission denied for function some_other_fn` still reports.
+- [ ] A 42501 from `get_my_pending_invitations` with no client session is not logged, and the badge gets `[]`. Covered by `src/tests/p1382-pending-invitations-anon-no-sentry.test.ts`.
+- [ ] The same 42501 with a session present still reaches `logDbError` (grant regression stays visible).
+- [ ] A non-42501 error with no session still reaches `logDbError`.
 - [ ] No change to the function's grants (prod `proacl` unchanged).
