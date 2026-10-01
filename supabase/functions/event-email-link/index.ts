@@ -11,15 +11,18 @@
  * with no session. The ticket is the only credential, so:
  *   - only sha256(ticket) is stored, and only service_role can read the table;
  *   - the destination comes from the ticket's purpose, never from the request;
- *   - the ticket dies with the event (expires_at), with the RSVP (ON DELETE CASCADE) and when
- *     the event is cancelled;
+ *   - the ticket dies with the event (expires_at, re-checked against the event's CURRENT time),
+ *     with the RSVP (ON DELETE CASCADE) and when the event is cancelled;
+ *   - the event's host and admin accounts are never signed in this way (normal sign-in instead);
+ *   - KNOWN, open for a founder decision: within its lifetime a ticket can be reused, and every
+ *     use mints a full-account session — a forwarded email signs the reader in as the owner;
  *   - nothing is written on behalf of the person here. "I'm here" is recorded by the app,
  *     after sign-in, in the person's own browser — a mail scanner that pre-fetches this URL
  *     mints an unused link and changes nothing (a later mint replaces it).
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { hashTicket, isLinkPurpose, purposePath } from '../_shared/event-links.ts';
+import { hashTicket, isLinkPurpose, purposePath, ticketExpiry } from '../_shared/event-links.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -58,7 +61,7 @@ serve(async (req: Request) => {
       .from('event_email_links')
       .select(`
         token_hash, purpose, expires_at,
-        event_rsvps!inner(id, profile_id, events!inner(slug, status))
+        event_rsvps!inner(id, profile_id, events!inner(slug, status, datetime, duration_minutes, host_id))
       `)
       .eq('token_hash', await hashTicket(ticket))
       .maybeSingle();
@@ -67,7 +70,11 @@ serve(async (req: Request) => {
       token_hash: string;
       purpose: string;
       expires_at: string;
-      event_rsvps: { id: string; profile_id: string | null; events: { slug: string | null; status: string } | null } | null;
+      event_rsvps: {
+        id: string;
+        profile_id: string | null;
+        events: { slug: string | null; status: string; datetime: string; duration_minutes: number | null; host_id: string | null } | null;
+      } | null;
     } | null;
     const rsvp = row?.event_rsvps;
     const event = rsvp?.events;
@@ -75,7 +82,15 @@ serve(async (req: Request) => {
 
     const target = purposePath(row.purpose, event.slug);
     if (event.status === 'cancelled') return redirect(`/events/${event.slug}`);
-    if (new Date(row.expires_at).getTime() <= Date.now() || !rsvp?.profile_id) return toLogin(target);
+    // Expiry is re-derived from the event as it is NOW (the stored expires_at was computed at
+    // send time): a moved event takes its tickets with it. The earlier of the two wins.
+    const expiresAt = Math.min(new Date(row.expires_at).getTime(), ticketExpiry(event).getTime());
+    if (expiresAt <= Date.now() || !rsvp?.profile_id) return toLogin(target);
+    // Never mint a session for the event's host from an email button: a forwarded copy would
+    // hand over the account that runs the event. They sign in normally (security review).
+    if (rsvp.profile_id === event.host_id) return toLogin(target);
+    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', rsvp.profile_id).maybeSingle();
+    if (prof?.is_admin) return toLogin(target);
 
     const { data: user, error: userErr } = await supabase.auth.admin.getUserById(rsvp.profile_id);
     const email = user?.user?.email;

@@ -414,12 +414,15 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
     }
   }));
 
-  const soon = await runStartingSoon(supabase, now);
-  return { dispatched: dispatched + soon.dispatched, errors: errors + soon.errors };
+  return { dispatched, errors };
 }
 
 /**
- * P1380: the starting-soon pass. Its own query, not a branch of the one above: that query
+ * P1380: the starting-soon pass. Run by the handler BESIDE runDispatch, never from inside it:
+ * runDispatch returns early when no reminder/feedback row is due, which is the normal state
+ * 45 minutes before an event (its reminder went out a day earlier) — nesting this pass inside
+ * it meant the email almost never went (code review, 2026-10-01). Its own query, not a branch
+ * of the one above: that query
  * selects on *_scheduled_at columns, and this email is keyed on the event's start instead —
  * nothing needs storing at RSVP time, so an event moved by the host is followed automatically.
  */
@@ -538,8 +541,11 @@ serve(async (req: Request) => {
       });
     }
 
-    const result = await runDispatch(supabase);
-    console.log(`dispatch complete: ${result.dispatched} dispatched, ${result.errors} errors`);
+    // Two independent passes: a failure or an empty result in one never skips the other.
+    const main = await runDispatch(supabase);
+    const soon = await runStartingSoon(supabase, new Date());
+    const result = { dispatched: main.dispatched + soon.dispatched, errors: main.errors + soon.errors };
+    console.log(`dispatch complete: ${result.dispatched} dispatched, ${result.errors} errors (starting-soon: ${soon.dispatched}/${soon.errors})`);
     return new Response(JSON.stringify({ ok: true, mode: 'cron', ...result }), {
       headers: { 'Content-Type': 'application/json' },
     });

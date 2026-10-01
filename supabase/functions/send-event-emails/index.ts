@@ -184,12 +184,23 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
 
   const { data: rsvps } = await supabase
     .from('event_rsvps')
-    .select('id, profile_id, profiles(email, name)')
+    .select('id, profile_id, mailgun_message_ids, profiles(email, name)')
     .eq('event_id', eventId);
 
   if (!rsvps) return;
 
   await Promise.all(rsvps.map(async (rsvp) => {
+    // P1380: handleCancel withdrew the scheduled starting-soon email at Mailgun but its id is
+    // still stored, which would block a new one forever. Back on → let the cron schedule again.
+    const ids = (rsvp.mailgun_message_ids as Record<string, string> | null) ?? {};
+    if (ids.starting_soon != null) {
+      const { starting_soon: _s, starting_soon_for: _f, ...rest } = ids;
+      await supabase
+        .from('event_rsvps')
+        .update({ mailgun_message_ids: rest, starting_soon_attempted_at: null })
+        .eq('id', rsvp.id);
+    }
+
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
@@ -239,11 +250,14 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // Bound to locals so the type guard narrows without a non-null assertion.
     const reminderId = ids?.reminder;
     const feedbackId = ids?.feedback;
-    // P1380: the starting-soon email sits at Mailgun for up to 45 min before delivery.
+    // P1380: a starting-soon email scheduled for THIS start survives an edit that left the
+    // start alone (a typo fix must not send "starting in 15 minutes" twice). Only a moved start
+    // withdraws it and lets the cron schedule a new one.
     const startingSoonId = ids?.starting_soon;
+    const keepStartingSoon = !!startingSoonId && ids?.starting_soon_for === event.datetime;
     if (isCancellableId(reminderId)) await cancelScheduledEmail(reminderId);
     if (isCancellableId(feedbackId)) await cancelScheduledEmail(feedbackId);
-    if (isCancellableId(startingSoonId)) await cancelScheduledEmail(startingSoonId);
+    if (!keepStartingSoon && isCancellableId(startingSoonId)) await cancelScheduledEmail(startingSoonId);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -266,11 +280,13 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
     // Null out mailgun_message_ids keys and reset attempted_at — cron re-dispatches with new times
     const updatePayload: Record<string, unknown> = {
-      mailgun_message_ids: {},
+      mailgun_message_ids: keepStartingSoon
+        ? { starting_soon: startingSoonId, starting_soon_for: ids?.starting_soon_for }
+        : {},
       reminder_attempted_at: null,
       feedback_attempted_at: null,
-      starting_soon_attempted_at: null,
     };
+    if (!keepStartingSoon) updatePayload.starting_soon_attempted_at = null;
 
     if (reminderScheduledAt > now) {
       updatePayload.reminder_scheduled_at = reminderScheduledAt.toISOString();

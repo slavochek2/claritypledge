@@ -84,6 +84,8 @@ Deno.test('purposePath: destination fixed by purpose', () => {
   assertEquals(purposePath('room', 's'), '/events/s/room');
   assertEquals(purposePath('arrived', 's'), '/events/s/room?arrived=1');
   assertEquals(purposePath('not_yet', 's'), '/events/s/arriving');
+  // A slug cannot reshape the path (security review 2026-10-01).
+  assertEquals(purposePath('room', 'a?b#c/../d'), '/events/a%3Fb%23c%2F..%2Fd/room');
 });
 
 // ── email content ────────────────────────────────────────────────────────────

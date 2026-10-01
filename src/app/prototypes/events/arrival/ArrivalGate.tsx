@@ -49,6 +49,8 @@ export function useArrivalGate(event: EventWithHost | null, granted: boolean): {
   const [state, setState] = useState<'unknown' | 'arrived' | 'not-arrived' | 'error'>('unknown');
   const [timedOut, setTimedOut] = useState(false);
   const handledEmail = useRef(false);
+  // Once the deadline has let the person in, a late answer must not pull them back out.
+  const gaveUp = useRef(false);
 
   // **I'm here** from the email: record it in the person's own browser (a mail scanner never
   // gets this far), then drop the flag so a reload or a shared URL does not repeat it.
@@ -72,9 +74,13 @@ export function useArrivalGate(event: EventWithHost | null, granted: boolean): {
     if (!applies || fromEmail || !event || !viewerId || state !== 'unknown') return;
     let cancelled = false;
     getMyArrival(event.id, viewerId)
-      .then((at) => !cancelled && setState(at ? 'arrived' : 'not-arrived'))
+      .then((at) => !cancelled && !gaveUp.current && setState(at ? 'arrived' : 'not-arrived'))
       .catch(() => !cancelled && setState('error'));
-    const t = setTimeout(() => !cancelled && setTimedOut(true), READ_DEADLINE_MS);
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      gaveUp.current = true;
+      setTimedOut(true);
+    }, READ_DEADLINE_MS);
     return () => { cancelled = true; clearTimeout(t); };
   }, [applies, fromEmail, event, viewerId, state]);
 
@@ -82,7 +88,7 @@ export function useArrivalGate(event: EventWithHost | null, granted: boolean): {
 
   if (fromEmail && granted) return { gate: state === 'unknown' ? null : false, answered };
   if (!applies) return { gate: false, answered };
-  if (state === 'unknown') return { gate: timedOut ? false : null, answered };
+  if (state === 'unknown' || timedOut) return { gate: timedOut ? false : null, answered };
   return { gate: state === 'not-arrived', answered };
 }
 

@@ -124,7 +124,15 @@ export async function dispatchStartingSoon(
   // the next tick retries while the event is still ahead.
   await supabase
     .from('event_rsvps')
-    .update({ mailgun_message_ids: { ...claimIds, starting_soon: messageId ?? null } })
+    // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
+    // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
+    .update({
+      mailgun_message_ids: {
+        ...claimIds,
+        starting_soon: messageId ?? null,
+        starting_soon_for: messageId ? event.datetime : null,
+      },
+    })
     .eq('id', rsvp.id)
     .filter('mailgun_message_ids->>starting_soon', 'eq', 'PENDING');
 

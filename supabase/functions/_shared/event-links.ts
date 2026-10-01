@@ -15,7 +15,9 @@ import type { SupabaseClient } from './email-helpers.ts';
 export type LinkPurpose = 'prepare' | 'room' | 'arrived' | 'not_yet';
 
 /** The page each purpose opens. The only mapping from a ticket to a destination. */
-export function purposePath(purpose: LinkPurpose, slug: string): string {
+export function purposePath(purpose: LinkPurpose, rawSlug: string): string {
+  // Encoded: a slug carrying ?, # or / must not reshape the path the ticket opens.
+  const slug = encodeURIComponent(rawSlug);
   switch (purpose) {
     case 'prepare': return `/events/${slug}/prepare`;
     case 'room': return `/events/${slug}/room`;

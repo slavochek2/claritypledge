@@ -97,6 +97,17 @@ describe('useArrivalGate', () => {
     expect(result.current.gate).toBe(false);
   });
 
+  it('an answer arriving after the deadline does not pull the person back out of the room', async () => {
+    vi.useFakeTimers();
+    let resolve!: (v: string | null) => void;
+    svc.getMyArrival.mockReturnValue(new Promise((r) => { resolve = r; }));
+    const { result } = renderHook(() => useArrivalGate(event, true), { wrapper: wrapperAt('/events/cn/room') });
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(result.current.gate).toBe(false);
+    await act(async () => { resolve(null); });
+    expect(result.current.gate).toBe(false);
+  });
+
   it('offline, not granted, or the host: never asks', () => {
     conn.value = { offline: true, reconnectTick: 0 };
     expect(renderHook(() => useArrivalGate(event, true), { wrapper: wrapperAt('/r') }).result.current.gate).toBe(false);
