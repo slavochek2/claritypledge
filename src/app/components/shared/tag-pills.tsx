@@ -43,7 +43,9 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
   // P630: Merge user tags + system tags for display, deduplicated
   // P1336: inside an embedding flow, a tag opens the feed in a new tab. Default: this tab.
   const newTab = useLinksInNewTab();
-  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])];
+  // Version tags (v1, v2…) are hidden: readers only ever see the current wording, so the label
+  // says nothing, and /feed?tag=v2 is a meaningless cross-set list (founder, 2026-10-02).
+  const allTags = [...new Set([...(tags || []), ...(systemTags || [])])].filter(t => !/^v\d+$/i.test(t));
   if (allTags.length === 0) return null;
 
   const isInteractive = context !== 'live';
