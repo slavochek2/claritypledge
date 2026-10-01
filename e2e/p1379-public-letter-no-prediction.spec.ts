@@ -192,8 +192,12 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await expect(page.getByLabel('Just read the letter')).toBeChecked();
     expect(await page.evaluate((k) => localStorage.getItem(k), staleKey)).toBeNull();
 
-    await page.getByRole('button', { name: /send letter/i }).click();
-    await expect(page.locator('h2:has-text("Letter Sealed")')).toBeVisible({ timeout: 20000 });
+    // handleSeal no-ops until the auth user has loaded (existing behaviour), so a click
+    // landing before that is silently dropped — retry the click until the seal lands.
+    await expect(async () => {
+      await page.getByRole('button', { name: /send letter/i }).click({ timeout: 2000 });
+      await expect(page.locator('h2:has-text("Letter Sealed")')).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 40000 });
 
     const { data: sealed } = await supabaseAdmin
       .from('clarity_letters')
@@ -317,8 +321,10 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
 
     await setTestSession(page, sender.user.email!);
     await page.goto(`/letter/${letterId}/overview`);
-    await expect(page.getByTestId('cohort-rating-summary')).toHaveText('2 readers · median 5.5 · range 3–8', { timeout: 20000 });
-    await expect(page.getByText('Their rating')).toBeVisible();
+    // Two stories in the fixture → one summary per story; only story 1 has ratings.
+    await expect(page.getByTestId('cohort-rating-summary').first()).toHaveText('2 readers · median 5.5 · range 3–8', { timeout: 20000 });
+    await expect(page.getByTestId('cohort-rating-summary').nth(1)).toHaveText('No ratings yet');
+    await expect(page.getByText('Their rating').first()).toBeVisible();
     await expect(page.getByText('You → Them')).toHaveCount(0);
     await expect(page.locator('body')).not.toContainText(`${LEGACY_PREDICTION} →`);
   });
