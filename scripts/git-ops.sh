@@ -699,6 +699,36 @@ cmd_release() {
   echo "git-ops: released $slot (lockfile removed, worktree/branch preserved)" >&2
 }
 
+# P1381: Claude Code subagent worktrees (.claude/worktrees/agent-*) carry no slot lock
+# and sit on `worktree-agent-*` branches, so ship's branch-matched teardown never
+# reaches them; merged ones accumulated until a human noticed. Sweep each that is:
+#   (1) fully merged: its HEAD is an ancestor of main (nothing unique to lose),
+#   (2) clean per worktree_has_user_changes (fails toward dirty), and
+#   (3) idle: no write to its index/HEAD/reflog for AGENT_WT_IDLE_MIN minutes.
+# (3) is load-bearing: a subagent that has only just started has a worktree that is
+# merged AND clean by definition (HEAD == main, no edits yet). Without the idle test
+# this sweep would delete a live agent's workspace mid-task.
+# Age uses `find -mmin`, portable across BSD and GNU (unlike `stat -f %m`, see adopt).
+AGENT_WT_IDLE_MIN="${AGENT_WT_IDLE_MIN:-360}"
+sweep_merged_agent_worktrees() {
+  local who="$1" wt br gd fresh
+  while IFS= read -r wt; do
+    [[ -n "$wt" && -d "$wt" ]] || continue
+    case "$(basename "$wt")" in agent-*) ;; *) continue ;; esac
+    git -C "$wt" merge-base --is-ancestor HEAD main 2>/dev/null || continue
+    gd="$(git -C "$wt" rev-parse --absolute-git-dir 2>/dev/null)" || continue
+    fresh="$(find "$gd/index" "$gd/HEAD" "$gd/logs/HEAD" -mmin "-$AGENT_WT_IDLE_MIN" 2>/dev/null | head -n1)"
+    [[ -z "$fresh" ]] || continue
+    br="$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    if teardown_worktree_if_clean "$wt" "$who"; then
+      echo "$who: removed merged, idle agent worktree $(basename "$wt")${br:+ ($br)}" >&2
+      if [[ -n "$br" && "$br" != "main" ]]; then
+        ( cd "$REPO_ROOT" && git branch -d "$br" ) >/dev/null 2>&1 || true
+      fi
+    fi
+  done < <( cd "$REPO_ROOT" && git worktree list --porcelain | awk '/^worktree /{ print substr($0, 10) }' )
+}
+
 # ----------------------------------------------------------------------------
 # Subcommand: heartbeat (P1268)
 # ----------------------------------------------------------------------------
@@ -715,7 +745,7 @@ teardown_worktree_if_clean() {
   if worktree_has_user_changes "$wt_path"; then
     {
       echo "$who: worktree RETAINED — it holds uncommitted changes that are not on main:"
-      worktree_user_change_lines "$wt_path" | awk 'n++ < 10' | sed 's/^/    /'
+      worktree_user_change_lines "$wt_path" | awk 'n < 10 { print "    " $0 } { n++ } END { if (n > 10) print "    ...and " (n - 10) " more" }'
       echo "  path: $wt_path"
       echo "  Commit and ship them, or discard them deliberately, then remove the worktree."
     } >&2
@@ -4388,6 +4418,8 @@ The branch is authoritative for shipped migrations. Compare each file with
       ship_set_journal_flag "$pn" "branch_deleted"
     fi
   fi
+
+  sweep_merged_agent_worktrees "ship"
 
   # Capture the snapshot BEFORE releasing the lock — see the no-branch path above.
   local _hop_sha
