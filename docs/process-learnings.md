@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 108
+**Next ID:** 109
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1879,5 +1879,25 @@ The research-programme link points at the GitHub doc. A readable product page wi
 
 `npx tsc --noEmit -p .` exits 0 with zero errors in this repo because the root tsconfig.json is a references-only file (`files: []`). The real check is `-p tsconfig.app.json` (baseline ~1100 errors). Agents have reported "tsc clean" from the wrong command 5 times (decisions.md 2026-10-01 [process], item 4); during P1369 it hid 8 real type errors.
 Candidate guards: a PreToolUse hook that rejects `tsc ... -p .` / bare `tsc --noEmit` in cp, or an npm script `typecheck` that is the only documented path plus a baseline-count comparison. Fail-first: run the hook against `npx tsc --noEmit -p .` (must block) and `-p tsconfig.app.json` (must pass).
+
+---
+
+## P1369 follow-ups: post-deploy rechecks + accepted LOW review items
+
+**ID:** INBOX-108
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** week
+
+After the P1369 push reaches prod:
+- Installed prod PWA: open a visited point/story/stake list offline; strip reads "Offline · saved copy from {age}".
+- Screenshot the live transcription bar together with the offline strip.
+- Letters offline: the test DB has no letters, so the letter path is only unit-tested; check one real letter on prod.
+Accepted, not fixed (decide fix vs. keep):
+- A 5xx/429 on an unrelated request during a page read shows the stored copy + Offline strip until the next request succeeds (decisions.md 2026-10-01 [technical] P1369).
+- Point, story, profile and letter vote paths do not use saveInOrder (no ordering across surfaces).
+- Sign-out cache delete waits while an old-build tab holds the database open.
+- /finish LOWs: letter instant read does not kick in behind a captive portal; currentBuildId returns '' silently; removal dialog repeats the offline check instead of the shared guard; viewerId: undefined semantics.
+- Earlier known gaps: embedded point card vote revert outside the feed; use-active-session uses the app-wide failure signal; edit/delete/image writes show generic errors offline.
 
 ---
