@@ -104,13 +104,14 @@ function renderReveal(opts: {
   responsesMode?: 'off' | 'invite';
   isAuthenticatedReceiver?: boolean;
 }) {
-  return render(
+  const readingState = makeRevealedState(opts.rating, opts.prediction);
+  const view = render(
     <BrowserRouter>
       <LetterFlowContent
         snapshots={[makeSnapshot(opts.reverseStory)]}
         senderName="Alice Author"
         senderProfileOwner={SENDER_PROFILE}
-        readingState={makeRevealedState(opts.rating, opts.prediction)}
+        readingState={readingState}
         {...(opts.mode ? { letterMode: opts.mode } : {})}
         responsesMode={opts.responsesMode}
         isAuthenticatedReceiver={opts.isAuthenticatedReceiver}
@@ -118,6 +119,7 @@ function renderReveal(opts: {
       />
     </BrowserRouter>
   );
+  return { ...view, readingState };
 }
 
 function assertNoAuthorFraming(container: HTMLElement) {
@@ -129,64 +131,52 @@ function assertNoAuthorFraming(container: HTMLElement) {
   expect(text).not.toMatch(/Alice \d/); // author value label on the scale
 }
 
-describe('P1379: public letter story reveal has no author number', () => {
+describe('P1379: public letter story reveal', () => {
   afterEach(() => vi.clearAllMocks());
 
-  it('one-to-many with a stored prediction (old public letter): reader-only reveal, no author number', () => {
-    const { container } = renderReveal({ mode: 'one-to-many', rating: 4, prediction: 8 });
-    expect(screen.getByTestId('letter-reveal-reader-only')).toBeInTheDocument();
-    expect(screen.getByText('You said 4 out of 10.')).toBeInTheDocument();
-    // single marker, no author marker
-    expect(screen.getAllByTestId('reader-marker')).toHaveLength(1);
-    expect(container.textContent).not.toMatch(/\b8\b/);
+  // UAT 2026-10-01: the reader just chose the number — a "You said N" screen is pointless.
+  it('one-to-many, responses off, OLD letter with a stored prediction: no reveal screen; advances at once', () => {
+    const { container, readingState } = renderReveal({ mode: 'one-to-many', rating: 4, prediction: 8, responsesMode: 'off' });
+    expect(readingState.advanceFromStoryReveal).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toMatch(/You said|\b8\b/);
     assertNoAuthorFraming(container);
   });
 
-  it('one-to-many with no prediction (new public letter): does NOT fall into "Calibration data unavailable."', () => {
-    const { container } = renderReveal({ mode: 'one-to-many', rating: 7, prediction: null });
-    expect(screen.getByText('You said 7 out of 10.')).toBeInTheDocument();
+  it('one-to-many, new letter (no prediction): advances at once, never "Calibration data unavailable."', () => {
+    const { container, readingState } = renderReveal({ mode: 'one-to-many', rating: 7, prediction: null, responsesMode: 'off' });
+    expect(readingState.advanceFromStoryReveal).toHaveBeenCalledTimes(1);
     assertNoAuthorFraming(container);
   });
 
-  it('one-to-many reverse story: same string, no author framing', () => {
-    const { container } = renderReveal({ mode: 'one-to-many', rating: 3, prediction: 9, reverseStory: true });
-    expect(screen.getByText('You said 3 out of 10.')).toBeInTheDocument();
+  it('one-to-many, invite, but reader is not a signed-in receiver (anon): nothing to prompt → advances', () => {
+    const { readingState } = renderReveal({ mode: 'one-to-many', rating: 3, prediction: 9, responsesMode: 'invite', isAuthenticatedReceiver: false });
+    expect(readingState.advanceFromStoryReveal).toHaveBeenCalledTimes(1);
+  });
+
+  it('one-to-many, invite, signed-in receiver: step kept as the explain-back prompt only (no headline, no scale)', () => {
+    const { container, readingState } = renderReveal({ mode: 'one-to-many', rating: 5, prediction: 9, responsesMode: 'invite', isAuthenticatedReceiver: true, reverseStory: true });
+    expect(readingState.advanceFromStoryReveal).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /explain back what you understood/i })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/You said/);
+    expect(screen.queryByRole('img', { name: /Understanding scale/ })).not.toBeInTheDocument();
     assertNoAuthorFraming(container);
   });
 
-  it('CONTROL one-to-one with a prediction: verdict, two markers and "{Author} thinks…" unchanged', () => {
-    const { container } = renderReveal({ mode: 'one-to-one', rating: 7, prediction: 4 });
-    expect(screen.queryByTestId('letter-reveal-reader-only')).not.toBeInTheDocument();
-    // LetterRevealNumeric (compact) labels both markers
+  it('CONTROL one-to-one with a prediction: verdict, two markers and "{Author} thinks…" unchanged; no auto-advance', () => {
+    const { container, readingState } = renderReveal({ mode: 'one-to-one', rating: 7, prediction: 4 });
+    expect(readingState.advanceFromStoryReveal).not.toHaveBeenCalled();
     expect(container.textContent).toMatch(/You 7/);
     expect(container.textContent).toMatch(/Alice 4/);
-    // CalibrationVerdict states the gap
-    expect(container.textContent).toMatch(/3-point gap|3 point/i);
-    expect(container.textContent).not.toMatch(/You said 7 out of 10\./);
+    expect(container.textContent).toMatch(/3-point gap/);
   });
 
   it('CONTROL one-to-one with a missing prediction: still "Calibration data unavailable." (bug stays visible)', () => {
     renderReveal({ mode: 'one-to-one', rating: 7, prediction: null });
     expect(screen.getByText('Calibration data unavailable.')).toBeInTheDocument();
-    expect(screen.queryByTestId('letter-reveal-reader-only')).not.toBeInTheDocument();
   });
 
   it('letterMode omitted: historical one-to-one behaviour', () => {
     const { container } = renderReveal({ rating: 6, prediction: 6 });
-    expect(screen.queryByTestId('letter-reveal-reader-only')).not.toBeInTheDocument();
     expect(container.textContent).toMatch(/Alice 6/);
-  });
-
-  // P1379 UAT: a signed-in reader of a public letter sealed "Just read" (responses_mode
-  // 'off') must see no explain-back. The page now receives responses_mode from the
-  // public RPC and fails closed to 'off' when it is missing.
-  it('signed-in public reader, responses_mode off: no explain-back CTA', () => {
-    renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'off', isAuthenticatedReceiver: true });
-    expect(screen.queryByRole('button', { name: /explain back what you understood/i })).not.toBeInTheDocument();
-  });
-
-  it('CONTROL signed-in public reader, responses_mode invite: explain-back CTA shown', () => {
-    renderReveal({ mode: 'one-to-many', rating: 5, prediction: null, responsesMode: 'invite', isAuthenticatedReceiver: true });
-    expect(screen.getByRole('button', { name: /explain back what you understood/i })).toBeInTheDocument();
   });
 });

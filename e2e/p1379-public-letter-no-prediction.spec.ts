@@ -106,13 +106,24 @@ async function rateStory(page: Page, value: number) {
   await cont.click();
 }
 
-async function expectPublicReveal(page: Page, value: number) {
-  await expect(page.getByTestId('letter-reveal-reader-only')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText(`You said ${value} out of 10.`)).toBeVisible();
+/** No author framing anywhere on the page. */
+async function expectNoAuthorFraming(page: Page) {
   const body = page.locator('body');
   await expect(body).not.toContainText('Calibration data unavailable.');
   await expect(body).not.toContainText(/thinks you understand/);
   await expect(body).not.toContainText(/point gap|Perfectly calibrated/);
+  await expect(body).not.toContainText(/You said \d+ out of 10/);
+}
+
+/**
+ * UAT 2026-10-01: a one-to-many letter has NO reveal screen when there is nothing to
+ * prompt — the rating advances straight to the next chapter. Proven by the next
+ * story's rating scale appearing (fixtures carry two stories) with no reveal between.
+ */
+async function expectAdvancedToNextStory(page: Page) {
+  await expect(page.getByRole('button', { name: 'Rate 5' })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('button', { name: /next chapter|next story/i })).toHaveCount(0);
+  await expectNoAuthorFraming(page);
 }
 
 // ─── Suite ───────────────────────────────────────────────────────────────────
@@ -215,11 +226,11 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
 
     await openCover(page);
     await rateStory(page, 5);
-    await expectPublicReveal(page, 5);
+    await expectAdvancedToNextStory(page);
   });
 
   test('signed-in public link: own rating only, and "Just read" (off) shows no explain-back', async ({ page }) => {
-    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
+    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, secondStoryId: story2Id, mode: 'one-to-many' });
     letters.push(letterId);
     await createTestPrediction(letterId, storyId, LEGACY_PREDICTION, null);
     await supabaseAdmin.from('clarity_letters').update({ responses_mode: 'off' }).eq('id', letterId);
@@ -229,7 +240,7 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await page.goto(`/letter/${letterId}`);
     await openCover(page);
     await rateStory(page, 6);
-    await expectPublicReveal(page, 6);
+    await expectAdvancedToNextStory(page);
     await expect(page.getByRole('button', { name: /explain back what you understood/i })).toHaveCount(0);
   });
 
@@ -238,7 +249,7 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
   // path can prove here: nothing on it mentions a prediction, before or after Open.
   // The server half (one-to-many reveal refused/NULL) is integration L2/L8.
   test('anon token invitee of a public letter: no prediction wording on the path', async ({ page }) => {
-    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
+    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, secondStoryId: story2Id, mode: 'one-to-many' });
     letters.push(letterId);
     const delivery = await createTestDelivery(letterId, { receiverEmail: 'p1379-invitee@example.com' });
     await createTestPrediction(letterId, storyId, LEGACY_PREDICTION, null);
@@ -254,25 +265,28 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await expect(bodyLoc).not.toContainText(String(LEGACY_PREDICTION) + ' ');
   });
 
-  test('signed-in email invitee of a public letter: own rating only', async ({ page }) => {
-    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
+  test('signed-in email invitee, responses invite: explain-back prompt only — no "You said", no scale', async ({ page }) => {
+    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, secondStoryId: story2Id, mode: 'one-to-many' });
     letters.push(letterId);
     const delivery = await createTestDelivery(letterId, {
       receiverEmail: reader.user.email!,
       receiverProfileId: reader.user.id,
     });
     await createTestPrediction(letterId, storyId, LEGACY_PREDICTION, null);
+    await supabaseAdmin.from('clarity_letters').update({ responses_mode: 'invite' }).eq('id', letterId);
     await sealTestLetter(letterId);
 
     await setTestSession(page, reader.user.email!);
     await page.goto(`/letter/${delivery.id}`);
     await openCover(page);
     await rateStory(page, 3);
-    await expectPublicReveal(page, 3);
+    await expect(page.getByRole('button', { name: /explain back what you understood/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('img', { name: /Understanding scale/ })).toHaveCount(0);
+    await expectNoAuthorFraming(page);
   });
 
   test('reader results page of a public letter: "You said N out of 10.", no belief row', async ({ page }) => {
-    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
+    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, secondStoryId: story2Id, mode: 'one-to-many' });
     letters.push(letterId);
     const delivery = await createTestDelivery(letterId, {
       receiverEmail: reader.user.email!,
@@ -292,7 +306,7 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
   });
 
   test('author overview of a public letter: summary line, "Their rating", no "You → Them" (A4)', async ({ page }) => {
-    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, mode: 'one-to-many' });
+    const letterId = await makeSealedLetter({ senderId: sender.user.id, docId: publicDocId, storyId, secondStoryId: story2Id, mode: 'one-to-many' });
     letters.push(letterId);
     const d1 = await createTestDelivery(letterId, { receiverEmail: reader.user.email!, receiverProfileId: reader.user.id, status: 'completed' });
     const d2 = await createTestDelivery(letterId, { receiverEmail: reader2.user.email!, receiverProfileId: reader2.user.id, status: 'completed' });
@@ -309,14 +323,16 @@ test.describe('P1379: public letters — no author prediction anywhere', () => {
     await expect(page.locator('body')).not.toContainText(`${LEGACY_PREDICTION} →`);
   });
 
-  test('author preview of a public doc: public reveal even with a stale stored prediction (A1)', async ({ page }) => {
+  test('author preview of a public doc: no reveal, no stale stored prediction (A1)', async ({ page }) => {
     const key = `clarity-preview-predictions-${publicDocId}`;
     await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [key, JSON.stringify([[storyId, LEGACY_PREDICTION]])]);
     await setTestSession(page, sender.user.email!);
     await page.goto(`/letter/${publicDocId}/preview`);
     await openCover(page);
     await rateStory(page, 5);
-    await expectPublicReveal(page, 5);
+    // Single-story doc: the rating goes straight to the end of the preview.
+    await expect(page.getByText(/End of preview/)).toBeVisible({ timeout: 15000 });
+    await expectNoAuthorFraming(page);
   });
 
   test('CONTROL one-to-one: the reader still sees the verdict, the gap and "{Author} thinks…"', async ({ page }) => {
