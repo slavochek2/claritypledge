@@ -116,8 +116,14 @@ contrast is the point: that service allocates a GPU, and **this one allocates no
   0–5 instances, concurrency 5, timeout 3600 s. Env `GCS_BUCKET=claritypledge-ml-training`,
   `SUPABASE_URL`; secrets `SUPABASE_SERVICE_ROLE_KEY` ← `supabase-service-role-key`,
   `GEMINI_BATCH_API_KEY` ← `gemini-batch-api-key` (created from the `cp-batch` key). Queue
-  `transcribe-room-jobs` (max 5 concurrent). Scheduler `transcribe-room-sweep`, every 10 min,
-  OIDC `tx-task-invoker`. Prod function secret `TRANSCRIBE_ROOM_BATCH_URL` points at the service.
+  `transcribe-room-jobs` (max 5 concurrent). Scheduler `transcribe-room-sweep`, **hourly** (`0 * * * *`),
+  OIDC `tx-task-invoker`. It was every 10 min until 2026-10-01: inside Cloud Run's ~15-min idle window, so
+  with `--no-cpu-throttling` the service billed 24 h/day (16 days, 8 jobs). Do not set it more often than every 30 min;
+  CPU throttling cannot be turned on either, because `/process` keeps working after it returns 202.
+  Cost of hourly recovery (happy path unchanged, Cloud Tasks → `/process` directly): a lost trigger waits
+  up to ~60 min; a crashed claim ~30 min stale threshold + up to 60 min per attempt, worst case ~4.5 h
+  across 3 attempts before `failed` (was ~2 h). Verified 2026-10-01: no other traffic hits the service
+  (6 requests/h = the old schedule) and there is no uptime check. Prod function secret `TRANSCRIBE_ROOM_BATCH_URL` points at the service.
   There is no test GCP project: every change here is a prod change.
 
 The saved transcript for a transcribe room. Separate from `transcribe-session` on purpose: the device

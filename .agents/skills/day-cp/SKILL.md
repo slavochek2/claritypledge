@@ -197,11 +197,15 @@ for REGION in us-east4 us-central1 us-east5 europe-west1; do
     { [ -n "$MIN" ] && [ "$MIN" != "0" ]; } && echo "ALWAYS_ON: $SVC ($REGION) minScale=$MIN (never scales to zero)"
   done
 done
-# Enabled schedulers that target Cloud Run (the keep-warm trap)
+# Enabled schedulers that target Cloud Run (the keep-warm trap) — selected by target URI and
+# shortest gap between runs; rules in scripts/scheduler-warm-check.py (cp INBOX-P50).
 for REGION in us-east4 us-central1; do
-  gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
-    --filter="state=ENABLED" --format="value(name)" 2>/dev/null | grep -iE "run\.app|cloud-?run|poll|warm|transcribe|janitor|sweep" | grep -vx "tx-job-janitor" \
-    && echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"
+  SCHED_OUT=$(gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
+    --filter="state=ENABLED" --format="value(name,schedule,httpTarget.uri)" 2>/dev/null \
+    | ./scripts/scheduler-warm-check.py); SCHED_RC=$?
+  [ -n "$SCHED_OUT" ] && echo "$SCHED_OUT"
+  if [ "$SCHED_RC" -ne 0 ]; then echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (exit $SCHED_RC) — do not report clean"
+  elif [ -n "$SCHED_OUT" ]; then echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"; fi
 done
 # €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
 # Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
@@ -273,7 +277,7 @@ against a real refusal before treating it as proven.
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
 - `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
-- `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted: `tx-job-janitor` (P858/P902 sweeper, ~2h interval ≫ the ~15-min idle window — intentionally excluded in the grep above; any OTHER scheduler hitting transcribe-session is a leak).
+- `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted, by name AND interval: `tx-job-janitor` (P858/P902, every 2 h) and `transcribe-room-sweep` (P1307, hourly since 2026-10-01). Either one firing more often than every 30 min is flagged even though it is listed, because a ping inside the ~15-min idle window keeps a `--no-cpu-throttling` service warm 24/7. Any other scheduler whose target is a `run.app` URL is a leak until shown otherwise. Jobs are selected by target URI, not by name.
 
 **Always output a cost block, even when clean** (silence = "did it leak?" uncertainty, the exact problem this prevents):
 - **Verdict line:**
