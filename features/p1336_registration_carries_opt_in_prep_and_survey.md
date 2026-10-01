@@ -22,189 +22,267 @@ related:
   - p1114
   - p1179
   - p1256
+  - p1337
+  - p1380
 ---
 
-# P1336: Registering for a Clarity Night carries the onboarding, the opt-in and the disagreement survey
+# P1336: Registering for a Clarity Night carries the preparation, the opt-in and the survey
 
 ## Problem
 
-**Situation:** Clarity Night #1 ran 2026-09-18. Setup took up the practice time: too much theory
-(feedback: the product was over-demonstrated, though people were excited to see it), late arrivals
-forcing repeats, pairs stuck together, and people unsure what to click
-([goals.md](../docs/goals.md), "Event #1 ran 2026-09-18"). The opt-in to the meeting principle was a
-tap inside the room, made by people who had just heard the idea for the first time.
+Clarity Night #1 (2026-09-18) spent its practice time on setup: theory, repeats for latecomers,
+people unsure what to click ([goals.md](../docs/goals.md)). The opt-in to the meeting principle was a
+tap made seconds after first hearing the idea. Events now run weekly. Three problems:
 
-**Complication:** Events now run **weekly** from **event #2 on Tuesday 2026-09-29**. Every minute of
-explanation in the room is lost practice, and every latecomer restarts it. An opt-in is only a real
-choice if the person knows what they are opting into, and that means knowing what *cognitive
-understanding* is.
-
-**Question:** What does a person do before arriving so that the room starts with practice, latecomers
-catch up without stopping it, and each opt-in is an informed choice?
-
-Three problems, and nothing else:
-
-| | Problem | What fixes it |
+| | Problem | Fix |
 |---|---|---|
-| A | The room spends its time on setup | Onboarding moves into registration |
-| B | The opt-in is uninformed | Onboarding explains cognitive understanding before the choice |
-| C | Pairs don't disagree and stay stuck together | A per-event disagreement survey the host pairs from |
+| A | The room spends its time on setup | Preparation moves into registration |
+| B | The opt-in is uninformed | Preparation explains cognitive understanding before the choice |
+| C | Pairs don't disagree | Per-event positions the host pairs from |
 
-> Founder, 2026-09-21: *"registration opt-in — let's file spec!"* · 2026-09-22: *"if we offload the
-> onboarding into registration process of the event, that's good."*
-
-**Correction 2026-09-22.** An earlier draft said this spec made an opt-in-predicts-payment test readable.
-Wrong. Physical events are not a revenue path, and no current hypothesis links opt-in to payment
-(founder: *"there is no hypothesis whatsoever that opting in predicts who pays"*). That prediction was
-registered 2026-08-10 for the membership ladder and is retired
-([hypotheses.md](../docs/hypotheses.md) H-ChampionYield). The workplace/champion question also left
-this spec; the end of the evening handles it ([P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md)).
+Physical events are not a revenue path; no hypothesis links opt-in to payment (correction
+2026-09-22, [hypotheses.md](../docs/hypotheses.md) H-ChampionYield retired). Workplace/champion
+questions live in [P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md).
 
 ## Appetite
 
-Blast radius: one flow, event registration, plus what the room reads from it. Reversibility: medium.
-Onboarding completion and survey answers are stored per person; the flow itself is a code revert.
+One flow (post-RSVP preparation) plus what the host list, the room gate and the event emails read
+from it. Reversibility: medium — prep answers persist per person/event; the flow is a code revert.
 
-## Solution
+## Source of truth
 
-### Two parts: once per person, once per event
+The approved prototype `/tree/p1336-d` (founder approved 2026-10-01: "looks good i approve 1336-d") —
+`src/app/pages/prototypes/p1336-onboarding-prototype.tsx`
+(lives on branch `worktree-agent-afbfbff22be9a62f1`, not yet on main — /dev starts from that branch; round briefs `tmp-journey/round8…18-brief.md` are local only).
+Where this spec and the prototype disagree, **the spec wins on state, data, routing and copy**;
+the prototype wins only on visual details this spec does not state.
+Copy marked **DRAFT** is not founder-final.
 
-1. **Universal onboarding, done once and remembered.** It is never asked again of someone who has
-   completed it. It is **letter-like**: the ST1 Clarity Letter, in order:
-   - **Order is explain first, choose last** (founder, 2026-09-28): people keep promises they understand,
-     so the choice comes after the meaning is shared. Choice-first was weighed and rejected: a person who
-     has already answered reads the explanation to defend that answer, and a "no" given first usually
-     skips the explanation. Screen one names where this ends ("at the end you choose whether to opt in"),
-     so nobody spends five minutes not knowing what is being asked.
-   - **Why do the homework** (the founder's intention): the presi3 slides on why discussions feel like
-     a waste of time (monologues, disagreement that splits instead of teaching, rooms of people who
-     already agree) and "built by someone who paid for the lesson". Plus one line naming what the prep buys:
-     you arrive understanding the method, with a specific position. One screen.
-   - **The ST1 story as it is on the site**, framed as the method itself: *"This evening is about cognitive
-     understanding. Do we mean the same thing by it? Here is my intended meaning."* The onboarding practises
-     what it teaches. The story is **skippable**; the two 0–10 answers are required. Presented with no separate onboarding copy. Its video
-     (https://youtu.be/k4zpMYIKK5A, uploaded 2026-09-22) is embedded from YouTube, thumbnail = the story's current image. The story gets a new version: the video, and a **shorter text that replaces the current one**
-     (the video now carries the telling). `[FOUNDER DECISION: confirm draft]`:
-     *I had an issue with someone I know well. I paraphrased their position. They said: yes, that's
-     what I mean. Days later, they said they didn't feel understood. Did they forget? Was it a lie? Then
-     I saw it could be a misunderstanding, because the word "understand" has at least three meanings.
-     Agreement: some people insist you don't understand them until you agree. Emotional understanding:
-     you feel what I feel. Cognitive understanding: we both know what I mean. You explain back my
-     intended meaning, and we both say it is 10 out of 10. They confirmed I cognitively understood
-     them, but they needed me to emotionally understand them.* (Founder wording 2026-09-24, after a
-     Codex and Opus critique pass.) The point is unchanged. The play button pulses gently
-     until the first play, wherever ST1 shows. (Not built: the facade landed 2026-09-28 without it,
-     because a pulse on every video on every surface is not what was asked for. It gets wired when
-     the onboarding surface exists and can ask for it.) Every reader of ST1 gets the upgrade, and nothing is written twice.
-   - **ST1 point + anti-point** with positions, then **0–10: "how much do you understand the intended
-     meaning of this story?"**
-   - **The Clarity Meeting Principle** (the thing opted into; a point, not a new story) + its own 0–10.
-   - **The roles, stated exactly** (revised 2026-09-29, decisions.md): the listener *can* speak (ask,
-     explain back). A listener who **opted in** may not **disagree** until they have **heard the
-     speaker's number**; the number does **not** have to reach 8. A listener who disagrees without
-     having heard a number is reminded to ask for it. Opted-out listeners are not bound by it. This
-     replaces the presi3 wording and the earlier below-8 prohibition.
-   - **The opt-in choice**, with a welcome line on the same screen: both answers are fine, the person is
-     welcome at the evening either way, and can change the answer at any time. `[FOUNDER DECISION: exact
-     wording]`. The choice **unlocks only after both 0–10 answers**. Any number unlocks it; the
-     gate is answering, not scoring. The host sees both numbers per person, so a 3 followed by an opt-in
-     is visible. The commitment is only to answer "how much do you understand my intended meaning,
-     0–10?" when asked. (The hear-the-number rule binds only listeners who opted in; there is no below-8 prohibition, decisions.md 2026-09-29.)
-2. **Per-event part, every event.** Positions on the current night's statements (the disagreement
-   survey). The statements are written per event by a separate session and swapped each week; this spec
-   only needs a slot for them. **When the night came through the disagreement pipeline, that separate
-   session's statements ARE the run's approved point statements** — the set the founder approved at
-   select's Gate 2, written into this slot unchanged, so the survey and the room's points cannot drift
-   apart ([P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) R5, which waits on
-   this slot existing). Also here: the optional **R&D recording volunteer** yes/no. Consent is per
-   pair, and volunteers pair only with each other (decisions.md 2026-09-16).
+## HARD RULE — reuse, never rewrite
 
-A returning attendee who completed onboarding sees only the per-event part.
+Every screen is assembled from existing product components. **No component is copied, forked or
+restyled for this flow.** A shared component may only gain an **opt-in prop whose default is the
+current behaviour**; every existing call site renders byte-identically. This branch already added
+such props (they ship with this spec and each needs a default-behaviour test):
 
-### Nothing is hard-blocked; the room is the gate
+| Screen part | Existing component (path) | Opt-in props used |
+|---|---|---|
+| Step header | letter header pattern + `LetterProgressBar` (`components/letters/letter-progress-bar.tsx`) | `tone="subtle"` (statement counter) |
+| Bottom actions | `FixedBottomBar` (`components/shared/fixed-bottom-bar.tsx`) + `LetterPrimaryCta` (primary / `variant="secondary"`) | — |
+| Videos | `Mp4VideoFacade` (`components/shared/mp4-video-facade.tsx`), `look="story"`, `PosterPlayButton` | `pulse`, `onPlay`, `playbackRate`, `durationSeconds` |
+| Transcript link | `StoryMedia`'s "Read video summary" pattern (P1349): icon + label, right-aligned under the video | — |
+| ST1 story (if rendered as letter) | `LetterFlowContent` + `useLetterReadingState` (preview, reveals off) | reveals-off flag |
+| Principle | `MeetingPrincipleView` (`components/agreements/meeting-principle-view.tsx`, extracted from `/meet`), level 3 = `/meet` `DEFAULT_LEVEL` | `header`, `aboveChoice`, `aboveRating`, `question`, `submitLabel`, `ratingBarClassName` |
+| 0–10 | `MeetingPrincipleView`'s rating bar (same card as `ComprehensionRatingCard`) | — |
+| Statements | `StakePage` (`pages/stake-page.tsx`) | `embedded`, `pointsOnly`, `onlyIds`, `onlyUnstaked`, `linksInNewTab` |
+| Registered / end box | `RsvpConfirm` success card, `AddToCalendarMenu`, `GroupChatBlock` line + glyphs, `AttendeeAvatarStack` (EventCard) | — |
+| Opted-in avatars | `AttendeeAvatarStack`; room roster stays `RosterGroup` (EventRoomMeet) | — |
+| Host line | `GravatarAvatar` | — |
+| Research Q&A | product `Dialog` (`components/ui/dialog`) | — |
 
-Registration recommends each part and says why, with nothing enforced step by step. That is one rule instead
-of a skip decision for each step:
-- The host list shows each person's status: onboarded or not, survey done or not.
-- At the door the host asks. Someone not onboarded sits and does it on their phone before joining a pair,
-  while the discussion goes on. Latecomers are handled the same way, so no repeats.
-- Forcing every step was rejected because people click through anyway, and it is a stack of decisions
-  before the first version ships.
+The prototype's local `EventBox`, `SocialProof`, `Clip`, `Transcript`, `useMeasuredHeight` are
+compositions of the above; /dev may keep them as page-local compositions or lift them, but may
+not re-implement any listed component.
 
-### Reaching people who don't have time, and getting them into the room
+## Once per person vs every event
 
-- The **confirmation email** carries the onboarding link.
-- The **reminder** before the event links it again if onboarding or the survey is not done.
-- **Join email at start time**: "Clarity Night is starting, join here." One click signs them in and
-  opens the event room. The link works for about 3 hours. The host tells the room "open the email and
-  click join" instead of walking people through logging in.
-- **In the room**, the event page shows "Onboarding not done: do it now" at the top for anyone not
-  onboarded (the arrive step in P1337).
+| Part | Frequency |
+|---|---|
+| Step 1 video (how this event is different), step 2 (cognitive understanding), step 3 principle **video screen**, step 4 cmp7 statements | **Once per person.** Never shown again after completion. |
+| Step 3 **decision** (opt in/out → try-it or ask → 0–10), step 5 event positions, step 6 research | **Every event.** |
+| Statements already answered (any tag) | Skipped **on later visits only**. Within one session, Back shows the same cards (answered ones included). |
 
-### The opt-in stays changeable
+A returning person's plan lists only what is left; their minutes are computed from it, and the
+header re-indexes to the remaining steps (**Step k of {remaining}**, not of 6).
 
-The registration choice is the person's current answer. It shows in the room as today (opt-ins visible,
-opt-outs never shown, P1114) and can be changed there at any time. The host reminds people of the choice
-and invites changes. There is one value, and each change is timestamped. No second, separate in-room
-reading. In the room the host shows the opt-ins and says the answer can be changed on the phone at any
-time, either way; no show of hands, since in a room of 12 "anyone else?" out loud re-creates the
-pressure registration removed ([facilitator-guide.md](../docs/facilitator-guide.md), "Reminding the room of
-the opt-in").
+Once-per-person completion is tracked **per part** — intro video, cognitive video, principle intro,
+cmp7 — each with a completed_at and the **content version** it was completed against. Bumping a
+part's version re-shows that part. Skipped is recorded separately and is **not** completed.
+
+## Flow (screen by screen, final copy verbatim)
+
+Header on steps 1–6: back arrow + step name + `Step N of M` progress (M = steps this person has; 6 for a new registrant). The plan screen has no header.
+Video steps' bar: **Play the video** / secondary **Continue without video** → after first play,
+**Continue**. Every clip has **Read the transcript** / **Hide the transcript** (inline expand).
+
+**0. Registered** (after RSVP)
+- Box: ✓ **You're Registered!** + event details, **Add to calendar**, **Join WhatsApp group**,
+  line *"WhatsApp group: last-minute changes, questions, and getting there. If you need a lift, ask in the group."*,
+  **Share** row (LINE, WhatsApp, Telegram, Facebook, **Copy link** / **Copied!**) sharing the event page.
+- **Do you have {N} minutes to prepare for the event?** (N computed, see Minutes; renders at once with 10 until points load)
+- *Your short preparation will make the event discussions more meaningful.*
+- Avatars + *"{X} prepared for the last event · {Y} for this event"* (real counts, host excluded). No previous event → only *"{Y} for this event"*; line hidden when the shown count is 0.
+- Primary **Prepare now** (or **Continue where you left off** when progress exists); secondary
+  **Remind me by email** → *"✓ We'll email you a reminder"* (the existing 24h reminder; no extra email).
+- Registration is immediate (one tap RSVP; the pre-commit question variant C is rejected). Above the
+  prep question, a short why (DRAFT): *"Our events are different… we ask every participant to prepare."*
+  No "how did you hear about us" question. Prototype: `/tree/p1336-d`.
+- Once prep has started, the box shows the person's status: **Prepared ✓** or **{k} of 6 steps**
+  (k of M for a returning person) so the host can check it on their phone at the door.
+
+**Plan** — **Your preparation · 6 steps** (DRAFT); numbered timeline with per-row minutes; done rows ticked. CTA **Start now**.
+1. See how this event is different
+2. Learn the definition of cognitive understanding
+3. Decide about your participation in a new social norm
+4. Share your view on the expected benefits
+5. Set your positions on {N} points about "{event topic}"
+6. Decide if you'd like to volunteer in R&D
+
+**Step 1** — **How this event is different** · *In our events, we reward revealing gaps in cognitive understanding.* · clip `why-clarity-night` (pulses until played).
+
+**Step 2** — **What is cognitive understanding?** · *I explain back your intended meaning, and you rate me 10 out of 10: verified cognitive understanding. It's not agreement, and it's not feeling what you feel.* · clip `cognitive-understanding` (ST1 video, pulses).
+
+**Step 3a** — **Introducing the Clarity Meeting Principle** · (DRAFT) *It makes the conversations at the event more meaningful. Every attendee can opt in or opt out, both are completely fine. Watch the video, then decide.* · clip `principle`.
+
+**Step 3b** — `MeetingPrincipleView` level 3 with header **Do you want to follow this principle with the attendees at the event?**; above the Opt in / Opt out choice: avatars + *"{X} opted in at the last event · {Y} for this event"*. The full certificate (through THE EXCEPTION) must scroll clear of the bar.
+
+**Step 3c** — host photo, **Slava · event host**, then
+- opted in: *"Thank you for opting in. You promised that anybody at the event can ask you a specific question, right? Let's try it now, to show how it works."* → **Try it now**
+- opted out: *"Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?"* → **Yes** / secondary **No, continue** (skips the 0–10)
+
+**Step 3d** — rating bar slides up; host line + *"Thanks for trying it. Here is the question:"* / *"Thanks for letting me ask. Here is the question:"*; question **How much do you think you understand Slava's intended meaning behind this principle?** 0–10, **Confirm**.
+
+**Step 4** — **What is your value perception of the Clarity Meeting Principle?** · `StakePage` cmp7 cards.
+**Step 5** — **Set your positions on {N} points about "{topic}"** · (DRAFT) *Your positions help us pair you with someone who sees it differently at the event.* · `StakePage` event-tag cards.
+Statement bar (4, 5): counter *"{a} of {n} answered"* (subtle progress, zooms on change; hidden until loaded), **Continue** (enabled when all answered), secondary **Skip and proceed**. Cards open `/point/:id` in a new tab.
+
+**Step 6a** — **Are you open to be one of six volunteers who record their conversations at the event, to contribute to our R&D?** · *We provide you with a USB-C lavalier microphone, or you can bring your own mic.* · clip `research-recording`. Bar: *"{left} of 6 volunteer places left"*, link **Learn how we use your data** (Dialog), **Yes, sure** (primary) | **No, thanks** (outline), side by side. The places-left count is floored at 1 and **Yes, sure** always stays available: overbooking is accepted and the host handles extra volunteers at the event. No waitlist (a possible later upgrade).
+Dialog **How we use your data**: the 3 Q&A in the prototype's `RESEARCH_QA`, with the access answer stating that **Clarity Pledge (as a research programme)** reads volunteers' transcripts for research, and event organisers/hosts do not. Then **Terms · Privacy · Read more about our research program** (link stays the GitHub research-programme doc; a readable product page is a later separate task).
+
+**Step 6b** (after Yes) — **Does your phone have a USB-C port?** · *iPhone 15 and newer, and most Android phones, do.* · **Yes, USB-C** / **No, I'll bring my own microphone** / **No, and I don't have a microphone** → the last shows *"Thanks. You can still take part in the discussion without recording."* + **Continue** and records the person as not a volunteer.
+
+**End** — box **Thank you for preparing** (same box as screen 0); volunteers see *"You're a recording volunteer. We'll bring a USB-C mic for you."* / *"…Please bring your own microphone."* Below: **Interested in enriching your perspective before the event?** · *Our AI agents predicted how {experts} would answer the {N} points {you took a position on | we'll discuss}. Each position comes with a story that explains it.* · **Read their stories** → `/stake/{event tag}?tab=stories`. Experts = agents with stories on the event tag, read from data, not hardcoded; no stories → this block and its CTA are hidden. When prep was opened from the room gate, the end CTA is **Join the room** instead.
+
+**Zero event points** → step 5 is dropped from the plan and minutes are recomputed.
+
+**Minutes.** Per step: clip seconds (each clip's `durationSeconds` constant) ÷ 1.15; principle adds level-3 words at 200 wpm + 2×20 s; statements 20 s each; research clip + 20 s. Rows round to whole minutes (min 1); the question's N = sum of the rows the person still has. New registrant: every card counted (stable across reloads).
+
+## Data (per registration unless stated)
+
+**Storage (decided):** prep data does **not** live on `event_rsvps` — its policy is `SELECT USING (true)`
+(`supabase/migrations/20260118_create_events.sql:70-71`), so any column added there is world-readable.
+New table **`event_preparations`**, one row per (profile, event), linked to the rsvp. RLS: owner
+reads/writes own row; the event host reads rows of their event; no anon, no other-attendee access.
+Public counts/avatars come only from a `SECURITY DEFINER` aggregate function returning counts and
+avatars of **opted-in / prepared** people only — never opt-outs, 0–10 scores or volunteer data.
+
+Architect confirms remaining column shape; the facts to persist:
+
+| Fact | Scope | Notes |
+|---|---|---|
+| prep choice: `now` / `remind` / none | registration | `remind` feeds the reminder email |
+| progress: current step, furthest step, started_at, completed_at | registration | replaces the prototype's localStorage resume; survives device switch |
+| per-part completed_at + content_version (intro video, cognitive video, principle intro, cmp7); skipped flag separate | **person** | drives "once per person"; version bump re-shows |
+| opt-in answer + timestamp | registration | **canonical owner = the prep row.** `event_room_members.opted_in` (P1114) is seeded from it on room entry; a change in the room writes back to the prep row with a new timestamp. Walk-ins without a prep row use the room's existing flow. Opt-outs never shown to attendees |
+| principle 0–10 (nullable: opted-out "No, continue") | registration | host-only |
+| statement positions | existing positions tables | no new storage |
+| research volunteer state `eligible`/`confirmed` + `mic_setup` (`usbc`/`own`/`none`) | registration | places-left = max(1, 6 − confirmed); confirmed may exceed 6 |
+| research consent: consented_at + policy_version | registration | written when the person says Yes; the Dialog's policy text carries that version |
+
+RLS: as in Storage above. No capacity lock and no waitlist: Yes always confirms (overbooking
+accepted, decided 2026-10-01). **Pairing takes volunteering into account** (a volunteer's partner is
+recorded too); recording pause/resume in the room belongs to [P1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md), not this spec.
+
+**Research transcript access (requirement).** Volunteers' recording transcripts are readable for
+research by the company (Clarity Pledge research programme) via a service/research-role path, not
+by event organisers or hosts. RLS today lets only recorded participants read a transcript
+(recording-qa Q1); /architect adds the research path (service role or dedicated research role) and
+a test that a host account cannot read another person's transcript.
+
+## Host view
+
+On the host's attendee list, per person: prepared (done / in progress step N / not started / chose remind),
+opted in/out + 0–10, positions done (a/n), recording volunteer + mic need (USB-C to bring / own mic).
+A summary line: "{v} volunteers · {k} USB-C mics needed" (v above 6 signals overbooking / buying more mics). Host's own account excluded from all counts.
+
+## Video hosting
+
+- Four clips + posters live in a **public Supabase Storage bucket** (placeholder name `p1336-clips`; not git, not the site deploy).
+- Each clip has a `durationSeconds` constant in page data; minutes and the facade read it, never the loaded media.
+  `public/p1336-clips/` is local-only and is not committed.
+- MP4 re-muxed **faststart** (`ffmpeg -movflags +faststart -c copy`), played at **1.15x** via `playbackRate`.
+- Transcripts ship as page data next to each clip (the prototype's `TRANSCRIPTS`).
+- Cache-busting by versioned filename, not `Date.now()`.
+- Night #1 clips show attendees; participant consent obtained, no face blur needed.
+
+## Event room
+
+`/events/:slug/room` (`EventRoomGate`): a registrant whose per-event prep is not complete (or whose
+once-per-person intro is not done) sees a gate with two choices: **Prepare now** (prep at their
+resume step, with a return target; finishing, or the flow's skip paths, returns them to the room)
+and **Join the room without preparing** (enters directly). A bypassed attendee can return to prep
+anytime from the room. Their preparation status (**Prepared ✓** or **{k} of 6 steps**) is visible on
+their own phone in the room, so the host can check it.
+
+## Emails
+
+Unchanged in this spec. **Remind me by email** relies on the existing 24h reminder ("Tomorrow"),
+which links to the event page; prep is reached from there after normal sign-in.
+
+**Moved to [P1380](p1380_event_starting_soon_email_with_signin.md)** (decided 2026-10-01, by
+dependency): the starting-in-15-minutes email, the click-time sign-in redirect endpoint, and the
+confirmation **Prepare now** / 24h **Finish preparing** buttons. Those two buttons exist to open prep
+signed-in in one click, so they depend on the redirect endpoint and ship with it, not here.
 
 ## Invariants
 
-- A completed universal onboarding is never shown again as required to that person.
+- A completed once-per-person part is never shown again to that person.
 - Opt-outs are never shown to other attendees (P1114).
-- The host's own account is excluded from every count ([decisions.md](../docs/decisions.md) 2026-09-21).
+- The host's account is excluded from every count (decisions.md 2026-09-21).
+- Every existing call site of a shared component renders as before.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| People skip onboarding | ACCEPT | The door check catches them; they onboard in the room |
-| Confirmation and reminder emails silently lost (fire-and-forget, decisions.md 2026-09-07, P1256) | MITIGATE | Verify both send for every registration on event #2's list |
-| Not ready by 2026-09-29 | MITIGATE | Fallback for event #2 only: the video and the questions as a plain page linked from the RSVP confirmation |
-| Video shows attendees who never agreed to publication | MITIGATE | Use founder-only footage; check every frame before publishing |
+| People skip prep | ACCEPT | Room gate offers prep, status visible on phone + host list |
+| Volunteers exceed 6 mics | ACCEPT | Overbooking accepted; host handles extras; waitlist is a later upgrade |
+| Clips expose attendees' faces | ACCEPT | Night #1 participant consent obtained |
+| Hosts read volunteers' transcripts | MITIGATE | Research access is company-only; host-denied test |
+| Two opt-in values drift (prep vs room) | MITIGATE | One value, invariant test |
 
-**Non-Goals**
-- Do NOT build automatic matching; the survey feeds manual pairing.
-- Do NOT change the round flow (P1337) or the deck (P1338).
-- Do NOT write the per-event statements here.
-- Do NOT touch online or pilot events.
+Non-goals: waitlist; event emails + sign-in links (P1380); recording pause/resume (P1337); automatic matching; round flow (P1337); deck (P1338); writing per-event statements; online/pilot events.
 
 ## Acceptance Criteria
 
-- [ ] A new registrant can finish onboarding (video, point, 0–10, roles, opt-in) and the survey on a phone, without help
-- [ ] A returning registrant who already onboarded sees only the current event's survey
-- [ ] The host list shows, per person: onboarded, survey done, opt-in, survey answers
-- [ ] The confirmation email and the reminder carry the onboarding link, verified on event #2's list
-- [ ] A person not onboarded sees the onboarding prompt at the top of the event page in the room
-- [ ] An opt-in chosen at registration shows in the room and can be changed there
-- [ ] The opt-in choice is unavailable until both 0–10 answers are given
-- [ ] At start time every registrant gets a join email, and one click signs them into the event room; the link still works 2h later
+- [ ] New registrant at 320px completes screens 0 → End without help; every screen's copy matches this spec verbatim
+- [ ] Returning person (intro done) sees plan rows 3 (decision only), 5, 6; steps 1, 2, 3a, 4 never render
+- [ ] On a later visit, already-answered statements are not shown; within one session Back shows the same cards
+- [ ] Reload / other device mid-flow → "Continue where you left off" resumes the same step (DB-backed, not localStorage)
+- [ ] Minutes on screen 0 equal the sum of the plan's rows for that person; header shows `Step k of {remaining}` for a returning person
+- [ ] Anon and another attendee querying `event_preparations` get 0 rows; the host gets their event's rows; the aggregate function returns no opt-out, score or volunteer data
+- [ ] Per-part completion: bumping one part's content version re-shows only that part; a skipped part is not marked completed
+- [ ] Event with 0 points: step 5 absent, minutes recomputed; no stories: End CTA hidden; no previous event: social-proof line shows this event only, hidden at 0
+- [ ] Research Yes stores consented_at + policy_version
+- [ ] Opt-in chosen in prep seeds the room on entry (P1114); a change in the room writes back to the prep row with a new timestamp; a walk-in without prep uses the room's existing flow
+- [ ] Opted-out "No, continue" stores no 0–10; "Yes" stores one
+- [ ] Volunteer + mic answers persist; places-left decrements; `none` stores not-a-volunteer
+- [ ] With 6+ confirmed volunteers the bar still reads "1 of 6 volunteer places left" and **Yes, sure** still confirms; host view shows the volunteer total
+- [ ] "How we use your data" says the company (research programme) reads volunteers' transcripts and organisers/hosts do not; a host account cannot read a volunteer's transcript, the research path can
+- [ ] Host list shows per person: prep state, opt-in + 0–10, positions a/n, volunteer + mic; USB-C total; host excluded
+- [ ] Non-prepared registrant opening `/events/:slug/room` sees **Prepare now** and **Join the room without preparing**; Prepare now lands on prep at their resume step and the End CTA **Join the room** returns them; Join without preparing enters the room, and prep stays reachable from the room
+- [ ] Registered box and room show **Prepared ✓** or **{k} of 6 steps** on the attendee's phone
+- [ ] Screen 0 shows the why line before **Prepare now / Remind me by email**; no how-heard question; "Remind me" triggers no extra email
+- [ ] Clips load from the storage bucket, start playing before full download (faststart), play at 1.15x; transcript toggles
+- [ ] Existing-behaviour tests for every opt-in prop pass (StakePage, MeetingPrincipleView, Mp4VideoFacade, LetterProgressBar, LetterFlowContent) and `/meet`, `/stake`, letters render unchanged
 
-## Open Questions
+## Pre-deploy Checklist
 
-1. Which of this belongs to P1055 (the opt-in point set)? Read it and amend it rather than build a
-   second opt-in.
-2. Reuse the existing Clarity Letter flow (P581) with ST1, anti-point included, or build a page? Prefer
-   reuse; build only what the letter lacks (the intention screen, the principle 0–10, the opt-in).
-3. **Video:** produced in a separate session from the Zuzalu co-founder talk (June 2026), 12:40–15:20:
-   the ST1 story as told live, the short definitions, the 0–10 question. Uploaded to the ClarityPledge
-   YouTube channel, thumbnail = the ST1 story image, then embedded here and on the ST1 story. Consent held.
-4. **ST1 upgrade, not a fork.** The video becomes ST1's video, and the one-line definitions sit under it.
-   Record the change through P784.
-5. **Join link lifetime.** Supabase magic links expire according to the project's OTP setting, which is one
-   setting for all sign-ins. A ~3-hour link may need its own signed token instead of the shared setting.
-   Check before building.
-6. **/ready stays at the door** (founder-confirmed 2026-09-22). The topic wording and faces instead of
-   dots are [P1356](p1356_ready_shows_faces_not_anonymous_dots.md).
-7. More stories between events moved to [p1359](p1359_stories_between_clarity_nights.md).
+- [ ] Create public storage bucket; upload faststart clips + posters
+
+## Founder decisions
+
+Decided 2026-10-01: P1336 = core prep flow; emails + sign-in redirect split to P1380. No research
+waitlist (places-left floored at 1, overbooking accepted; waitlist a possible later upgrade).
+Pairing takes volunteering into account; recording pause/resume is P1337. Late arrivals may join
+without preparing and return to prep anytime; status visible on their phone. Immediate registration
+(variant C rejected), short why on confirmation, no how-heard (prototype `/tree/p1336-d`).
+
+Decided 2026-09-30: emails + magic-link sign-in; company-only research transcript access; no face
+blur (consent obtained); research link stays GitHub; room-opened prep ends with
+**Join the room**; copy suggestions not applied (current wording kept, DRAFT labels remain).
 
 ## Related
 
-- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md): the room journey and the ending
-- [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md): the deck; theory it cuts lands here
-- [p1055](p1055_norm_measurement_instrument.md), P1114, P1179: opt-in point set, event room, opt-in tap
-- [p784](p784_st1_st6_restructure_two_needs.md): ST1 content updates
-- decisions.md 2026-09-16 [product] ×2 (pair consent; minimum before the opt-in), 2026-09-07 [technical] (P1256)
+- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) room journey · [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md) deck
+- [p1055](p1055_norm_measurement_instrument.md), P1114, P1179 opt-in · [p784](p784_st1_st6_restructure_two_needs.md) ST1 · P1256 event email cron · [P1358](p1358_disagreement_pipeline_attribution_summaries_story_models.md) statements slot
