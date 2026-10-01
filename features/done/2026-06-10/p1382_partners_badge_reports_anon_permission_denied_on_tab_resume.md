@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 16
 severity: low
@@ -10,7 +10,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry-noise, auth, partners, rpc-grants]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1382-pending-invitations-anon-no-sentry.test.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
   confidence: medium
   surfaces_in_scope: [partners-badge, partners-page-incoming]
   reproduced_at: 2026-10-01
+completed_at: 2026-10-01
 ---
 
 # P1382: Partners badge reports "permission denied for get_my_pending_invitations" when the session drops on tab resume
