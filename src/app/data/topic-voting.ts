@@ -11,25 +11,36 @@
  */
 import { supabase } from '@/lib/supabase';
 
+export interface TopicVoter {
+  name: string;
+  slug: string | null;
+  avatarUrl: string | null;
+  avatarColor: string | null;
+  hasPledged: boolean;
+}
+
 export interface OpenTopic {
   id: string;
   title: string;
   /** 'community' = added by an attendee; always listed above the host's ('host'). */
   source: 'host' | 'community';
-  ratingAvg: number | null;
-  ratingCount: number;
-  score: number;
   myRating: number | null;
+  myIsPublic: boolean | null;
+  /** The next three are NULL from the server unless the caller voted on this topic. */
+  ratingAvg: number | null;
+  ratingCount: number | null;
+  voters: TopicVoter[] | null;
 }
 
 interface OpenTopicRow {
   id: string;
   title: string;
   source: 'host' | 'community';
-  rating_avg: number | string | null;
-  rating_count: number;
-  score: number | string | null;
   my_rating: number | null;
+  my_is_public: boolean | null;
+  rating_avg: number | string | null;
+  rating_count: number | null;
+  voters: TopicVoter[] | null;
 }
 
 const num = (v: number | string | null): number | null => (v === null ? null : Number(v));
@@ -39,41 +50,19 @@ function mapOpenTopic(r: OpenTopicRow): OpenTopic {
     id: r.id,
     title: r.title,
     source: r.source,
+    myRating: r.my_rating,
+    myIsPublic: r.my_is_public,
     ratingAvg: num(r.rating_avg),
     ratingCount: r.rating_count,
-    score: num(r.score) ?? 0,
-    myRating: r.my_rating,
+    voters: r.voters,
   };
-}
-
-// ─── Per-device voter token ────────────────────────────────────────────────
-
-const VOTER_KEY = 'cp.topicVoterToken';
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * One device = one voter. If storage is blocked (private mode), the token lives for
- * this page load only: the person can still rate, they just cannot see their own
- * earlier ratings after a reload.
- */
-let memoryToken: string | null = null;
-export function getVoterToken(): string {
-  try {
-    const stored = localStorage.getItem(VOTER_KEY);
-    if (stored && UUID_RE.test(stored)) return stored;
-    const fresh = crypto.randomUUID();
-    localStorage.setItem(VOTER_KEY, fresh);
-    return fresh;
-  } catch {
-    memoryToken ??= crypto.randomUUID();
-    return memoryToken;
-  }
 }
 
 // ─── Public ────────────────────────────────────────────────────────────────
 
-export async function getOpenTopics(voterToken: string): Promise<OpenTopic[] | null> {
-  const { data, error } = await supabase.rpc('get_open_topics', { p_voter_token: voterToken });
+/** Anyone can read the list; averages and voters come back only for topics the caller voted on. */
+export async function getOpenTopics(): Promise<OpenTopic[] | null> {
+  const { data, error } = await supabase.rpc('get_open_topics');
   if (error) {
     console.error('[topics] get_open_topics failed:', error.code, error.message);
     return null;
@@ -81,33 +70,26 @@ export async function getOpenTopics(voterToken: string): Promise<OpenTopic[] | n
   return ((data ?? []) as OpenTopicRow[]).map(mapOpenTopic);
 }
 
-export async function rateTopic(topicId: string, voterToken: string, rating: number): Promise<boolean> {
-  const { error } = await supabase.rpc('rate_topic', {
-    p_topic_id: topicId,
-    p_voter_token: voterToken,
-    p_rating: rating,
-  });
+/** Signed-in only: only people's votes count. */
+export async function rateTopic(topicId: string, rating: number, isPublic: boolean): Promise<boolean> {
+  const { error } = await supabase.rpc('rate_topic', { p_topic_id: topicId, p_rating: rating, p_is_public: isPublic });
   if (error) console.error('[topics] rate_topic failed:', error.code, error.message);
+  return !error;
+}
+
+/** Applies "show my photo" to every vote this person has cast. */
+export async function setMyVotesPublic(isPublic: boolean): Promise<boolean> {
+  const { error } = await supabase.rpc('set_my_topic_votes_public', { p_is_public: isPublic });
+  if (error) console.error('[topics] set_my_topic_votes_public failed:', error.code);
   return !error;
 }
 
 /**
  * Attendee topics first (founder rule: "suggestion by our people goes above mine"),
- * then most wanted by the same score the founder sees; ties keep the server order.
- * The server already returns this order; re-applied here so an optimistic tap and a
- * just-added topic sit where the next fetch will put them.
+ * otherwise the server's order (most wanted first). Stable.
  */
 export function rankTopics(topics: OpenTopic[]): OpenTopic[] {
-  return topics
-    .map((t, i) => ({ t, i }))
-    .sort(
-      (a, b) =>
-        Number(b.t.source === 'community') - Number(a.t.source === 'community') ||
-        b.t.score - a.t.score ||
-        b.t.ratingCount - a.t.ratingCount ||
-        a.i - b.i,
-    )
-    .map(({ t }) => t);
+  return [...topics.filter((t) => t.source === 'community'), ...topics.filter((t) => t.source !== 'community')];
 }
 
 /** Signed-in only. Title goes public at once; note and link go to the host only. */

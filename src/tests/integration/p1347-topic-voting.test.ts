@@ -4,7 +4,7 @@
  *
  * Every client is the anon key, exactly as anyone who has read this public repo would hold it:
  *   - anon reads only published topics, and only the four published fields plus aggregates;
- *   - anon can rate 0–5, once per device token (a second rating replaces the first);
+ *   - only signed-in people vote (1–5); results show only on topics you voted on;
  *   - suggestions need sign-in and never come back out to a non-admin;
  *   - the tables themselves are unreadable; admin RPCs refuse anon and non-admins.
  *
@@ -32,16 +32,18 @@ async function signedIn(user: TestUser): Promise<SupabaseClient> {
 }
 
 // Redesign: only the title (plus source and aggregates) is public. No video, no "why".
-const PUBLIC_COLUMNS = ['id', 'title', 'source', 'rating_avg', 'rating_count', 'score', 'my_rating'].sort();
+const PUBLIC_COLUMNS = ['id', 'title', 'source', 'my_rating', 'my_is_public', 'rating_avg', 'rating_count', 'voters'].sort();
 
 describe('P1347: topic voting is gated in the database', () => {
   let plain: TestUser;
+  let other: TestUser;
   let openId: string;
   let hiddenId: string;
   const tag = `p1347-${randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
     plain = await createTestUser({ name: 'P1347 Plain' });
+    other = await createTestUser({ name: 'P1347 Other' });
     const { data, error } = await supabaseAdmin
       .from('topic_candidates')
       .insert([
@@ -59,15 +61,18 @@ describe('P1347: topic voting is gated in the database', () => {
     await supabaseAdmin.from('topic_candidates').delete().eq('created_by', plain.user.id);
     await supabaseAdmin.from('topic_suggestions').delete().eq('user_id', plain.user.id);
     await deleteTestUser(plain.user.id);
+    await deleteTestUser(other.user.id);
   });
 
-  it('anon sees published topics only, with exactly the published fields plus aggregates', async () => {
-    const { data, error } = await anon().rpc('get_open_topics', { p_voter_token: null });
+  it('anon sees published titles only, and no results', async () => {
+    const { data, error } = await anon().rpc('get_open_topics');
     expect(error).toBeNull();
     const ids = (data ?? []).map((r: { id: string }) => r.id);
     expect(ids).toContain(openId);
     expect(ids).not.toContain(hiddenId);
     expect(Object.keys(data![0]).sort()).toEqual(PUBLIC_COLUMNS);
+    const row = data!.find((r: { id: string }) => r.id === openId);
+    expect([row.rating_avg, row.rating_count, row.voters]).toEqual([null, null, null]);
   });
 
   it('anon cannot read any of the three tables directly', async () => {
@@ -78,32 +83,38 @@ describe('P1347: topic voting is gated in the database', () => {
     }
   });
 
-  it('anon can rate, and a second rating from the same device replaces the first', async () => {
-    const token = randomUUID();
-    const c = anon();
-    expect((await c.rpc('rate_topic', { p_topic_id: openId, p_voter_token: token, p_rating: 2 })).error).toBeNull();
-    expect((await c.rpc('rate_topic', { p_topic_id: openId, p_voter_token: token, p_rating: 5 })).error).toBeNull();
-    const { data } = await c.rpc('get_open_topics', { p_voter_token: token });
-    const row = data!.find((r: { id: string }) => r.id === openId);
-    expect(row.my_rating).toBe(5);
-    expect(row.rating_count).toBe(1);
-    expect(Number(row.rating_avg)).toBe(5);
+  it('only signed-in people can vote', async () => {
+    const r = await anon().rpc('rate_topic', { p_topic_id: openId, p_rating: 4, p_is_public: true });
+    expect(r.error).not.toBeNull();
   });
 
-  it('a 0 rating counts as a rater but drags the score down', async () => {
-    const c = anon();
-    await c.rpc('rate_topic', { p_topic_id: openId, p_voter_token: randomUUID(), p_rating: 0 });
-    const { data } = await c.rpc('get_open_topics', { p_voter_token: null });
-    const row = data!.find((r: { id: string }) => r.id === openId);
+  it('results come back only for a topic you voted on; public voters show, anonymous ones only count', async () => {
+    const a = await signedIn(plain);
+    const b = await signedIn(other);
+    // Before voting, even signed in: no result.
+    const pre = (await a.rpc('get_open_topics')).data!.find((r: { id: string }) => r.id === openId);
+    expect(pre.rating_avg).toBeNull();
+
+    expect((await b.rpc('rate_topic', { p_topic_id: openId, p_rating: 2, p_is_public: true })).error).toBeNull();
+    expect((await a.rpc('rate_topic', { p_topic_id: openId, p_rating: 3, p_is_public: false })).error).toBeNull();
+    expect((await a.rpc('rate_topic', { p_topic_id: openId, p_rating: 4, p_is_public: false })).error).toBeNull(); // re-vote replaces
+
+    const row = (await a.rpc('get_open_topics')).data!.find((r: { id: string }) => r.id === openId);
+    expect(row.my_rating).toBe(4);
     expect(row.rating_count).toBe(2);
-    // avg 2.5 × keen share 0.5
-    expect(Number(row.score)).toBeCloseTo(1.25, 2);
+    expect(Number(row.rating_avg)).toBe(3);
+    expect(row.voters.map((v: { name: string }) => v.name)).toEqual(['P1347 Other']);
+
+    // Switching to "show my photo" applies to existing votes.
+    expect((await a.rpc('set_my_topic_votes_public', { p_is_public: true })).error).toBeNull();
+    const after = (await b.rpc('get_open_topics')).data!.find((r: { id: string }) => r.id === openId);
+    expect(after.voters.map((v: { name: string }) => v.name).sort()).toEqual(['P1347 Other', 'P1347 Plain']);
   });
 
   it('out-of-range ratings and unpublished topics are refused', async () => {
-    const c = anon();
-    expect((await c.rpc('rate_topic', { p_topic_id: openId, p_voter_token: randomUUID(), p_rating: 6 })).error?.code).toBe('22023');
-    expect((await c.rpc('rate_topic', { p_topic_id: hiddenId, p_voter_token: randomUUID(), p_rating: 3 })).error?.code).toBe('P0002');
+    const c = await signedIn(plain);
+    expect((await c.rpc('rate_topic', { p_topic_id: openId, p_rating: 0, p_is_public: true })).error?.code).toBe('22023');
+    expect((await c.rpc('rate_topic', { p_topic_id: hiddenId, p_rating: 3, p_is_public: true })).error?.code).toBe('P0002');
   });
 
   it('anon cannot suggest; a signed-in user can, and cannot read suggestions back', async () => {
@@ -127,7 +138,7 @@ describe('P1347: topic voting is gated in the database', () => {
     const added = await c.rpc('add_topic', { p_title: `${tag} community`, p_note: 'secret note', p_link: 'https://youtu.be/x' });
     expect(added.error).toBeNull();
 
-    const { data } = await anon().rpc('get_open_topics', { p_voter_token: null });
+    const { data } = await anon().rpc('get_open_topics');
     const ids = data!.map((r: { id: string }) => r.id);
     const row = data!.find((r: { id: string }) => r.id === added.data);
     expect(row.source).toBe('community');

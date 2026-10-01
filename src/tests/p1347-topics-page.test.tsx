@@ -12,13 +12,16 @@ vi.mock('@/app/data/topic-voting', async (orig) => {
   const real = await orig<typeof import('@/app/data/topic-voting')>();
   return {
     ...real,
-    getVoterToken: () => '00000000-0000-4000-8000-000000000001',
     getOpenTopics: vi.fn(async () => db.rows.map((r) => ({ ...r }))),
-    rateTopic: vi.fn(async (id: string, _t: string, rating: number) => {
+    rateTopic: vi.fn(async (id: string, rating: number, isPublic: boolean) => {
       const row = db.rows.find((r) => r.id === id)!;
-      Object.assign(row, { myRating: rating, ratingCount: 1, ratingAvg: rating, score: rating >= 3 ? rating : 0 });
+      Object.assign(row, {
+        myRating: rating, myIsPublic: isPublic, ratingCount: 1, ratingAvg: rating,
+        voters: isPublic ? [{ name: 'Test Voter', slug: 'test-voter', avatarUrl: null, avatarColor: null, hasPledged: false }] : [],
+      });
       return true;
     }),
+    setMyVotesPublic: vi.fn(async () => true),
     addTopic: vi.fn(async ({ title }: { title: string }) => {
       db.rows.push(topic('new', title, 'community'));
       return 'ok';
@@ -33,7 +36,7 @@ import { TopicsPage } from '@/app/pages/topics-page';
 import { rankTopics, isValidOptionalLink, type OpenTopic } from '@/app/data/topic-voting';
 
 function topic(id: string, title: string, source: 'host' | 'community' = 'host'): Record<string, unknown> {
-  return { id, title, source, ratingAvg: null, ratingCount: 0, score: 0, myRating: null };
+  return { id, title, source, myRating: null, myIsPublic: null, ratingAvg: null, ratingCount: null, voters: null };
 }
 
 const renderPage = () => render(<MemoryRouter><TopicsPage /></MemoryRouter>);
@@ -41,7 +44,7 @@ const titles = () => screen.getAllByTestId('topic-row').map((r) => r.querySelect
 
 describe('P1347 /topics', () => {
   beforeEach(() => {
-    db.user = null;
+    db.user = { id: 'user-id-1234' };
     db.rows = [topic('a', 'Free will'), topic('b', 'Loneliness'), topic('c', 'Quit a job?', 'community')];
   });
 
@@ -62,13 +65,36 @@ describe('P1347 /topics', () => {
     expect(screen.queryByText(/ideas/i)).toBeNull();
   });
 
-  it('averages stay hidden until this phone votes, then show for every topic', async () => {
+  it('the result shows only on the topic you voted on, with your photo when you chose to show it', async () => {
     renderPage();
     const rows = await screen.findAllByTestId('topic-row');
     expect(screen.queryByTestId('topic-average')).toBeNull();
     fireEvent.click(within(rows[1]).getByRole('radio', { name: '4 stars' }));
-    await waitFor(() => expect(screen.getAllByTestId('topic-average')).toHaveLength(3));
-    expect(screen.getByText('4.0 from 1 vote')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId('topic-average')).toHaveLength(1));
+    expect(within(rows[1]).getByText('4.0 from 1 vote')).toBeInTheDocument();
+    expect(within(rows[1]).getByTestId('topic-voters')).toBeInTheDocument();
+    expect(within(rows[0]).queryByTestId('topic-average')).toBeNull();
+  });
+
+  it('unticking "Show my photo" votes anonymously', async () => {
+    const mod = await import('@/app/data/topic-voting');
+    renderPage();
+    const rows = await screen.findAllByTestId('topic-row');
+    fireEvent.click(screen.getByLabelText('Show my photo next to my votes'));
+    await waitFor(() => expect(mod.setMyVotesPublic).toHaveBeenCalledWith(false));
+    fireEvent.click(within(rows[0]).getByRole('radio', { name: '5 stars' }));
+    await waitFor(() => expect(mod.rateTopic).toHaveBeenLastCalledWith(expect.any(String), 5, false));
+    await waitFor(() => expect(within(rows[0]).getByTestId('topic-average')).toBeInTheDocument());
+    expect(within(rows[0]).queryByTestId('topic-voters')).toBeNull();
+  });
+
+  it('signed out: no stars, one sign-in prompt to vote or add', async () => {
+    db.user = null;
+    renderPage();
+    await screen.findAllByTestId('topic-row');
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getByTestId('sign-in-to-vote')).toHaveTextContent('Sign in to vote or add a topic.');
+    expect(screen.queryByRole('button', { name: /add your own/i })).toBeNull();
   });
 
   it('rows keep their place while you vote (no jumping under the finger)', async () => {
@@ -90,15 +116,7 @@ describe('P1347 /topics', () => {
     expect(within(rows[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('signed out: adding asks to sign in', async () => {
-    renderPage();
-    await screen.findAllByTestId('topic-row');
-    fireEvent.click(screen.getByRole('button', { name: /add your own/i }));
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?redirect=%2Ftopics');
-  });
-
   it('signed in: an added topic appears above the host topics', async () => {
-    db.user = { id: 'user-id-1234' };
     renderPage();
     await screen.findAllByTestId('topic-row');
     fireEvent.click(screen.getByRole('button', { name: /add your own/i }));
@@ -111,13 +129,12 @@ describe('P1347 /topics', () => {
 });
 
 describe('P1347 helpers', () => {
-  const t = (id: string, score: number, ratingCount: number, source: 'host' | 'community' = 'host') =>
-    ({ id, score, ratingCount, source }) as OpenTopic;
+  const t = (id: string, source: 'host' | 'community' = 'host') => ({ id, source }) as OpenTopic;
 
-  it('attendee topics first, then score, then raters, then published order', () => {
-    expect(
-      rankTopics([t('a', 1, 5), t('b', 3, 1), t('c', 0, 0, 'community'), t('d', 1, 9), t('e', 0, 0)]).map((x) => x.id),
-    ).toEqual(['c', 'b', 'd', 'a', 'e']);
+  it('attendee topics first, otherwise the server order', () => {
+    expect(rankTopics([t('a'), t('b'), t('c', 'community'), t('d'), t('e', 'community')]).map((x) => x.id)).toEqual([
+      'c', 'e', 'a', 'b', 'd',
+    ]);
   });
 
   it('accepts only https links, and blank', () => {

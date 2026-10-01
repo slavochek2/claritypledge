@@ -6,9 +6,10 @@
  * and ONE "Add your own" at the top — no second ideas button per topic. A topic an
  * attendee adds joins the list at once and always sits above the host's topics.
  *
- * Rating is 1–5 stars with no sign-in (one vote per phone). Adding a topic needs sign-in;
- * only its title is public, a comment or link goes to the host. Averages appear once this
- * phone has a saved vote, so the first vote is not anchored by the crowd.
+ * Voting needs sign-in: only people's votes count. Each voter chooses to show their photo
+ * on their votes or vote anonymously. A topic's average and voters show ONLY on topics you
+ * voted on (enforced in Postgres), so the crowd never anchors a first vote. Adding a topic
+ * needs sign-in; only its title is public, a comment or link goes to the host.
  *
  * Votes are advisory. Nothing on this page picks the topic.
  */
@@ -20,13 +21,14 @@ import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { getUpcomingEvents } from '@/app/data/api';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   addTopic,
   getOpenTopics,
-  getVoterToken,
   isValidOptionalLink,
   rankTopics,
   rateTopic,
+  setMyVotesPublic,
   type OpenTopic,
 } from '@/app/data/topic-voting';
 import { cn } from '@/lib/utils';
@@ -41,7 +43,8 @@ function formatEventDate(iso: string): string {
 }
 
 export function TopicsPage() {
-  const voterToken = useMemo(() => getVoterToken(), []);
+  const { user, isLoading: authLoading } = useAuth();
+  const [showPhoto, setShowPhoto] = useState(true);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [nextEventDate, setNextEventDate] = useState<string | null>(null);
   // Taps not yet confirmed by the server, laid OVER fetched data: a refetch that left
@@ -51,14 +54,18 @@ export function TopicsPage() {
 
   const load = useCallback(async () => {
     const seq = ++loadSeq.current;
-    const topics = await getOpenTopics(voterToken).catch(() => null);
+    const topics = await getOpenTopics().catch(() => null);
     if (seq !== loadSeq.current) return;
     // A failed REFRESH keeps what is on screen; only a failed first load shows the error.
     setState((s) => (topics ? { kind: 'ready', topics } : s.kind === 'ready' ? s : { kind: 'error' }));
-  }, [voterToken]);
+  }, []);
+
+  // Reload when sign-in state settles: what comes back depends on who is asking.
+  useEffect(() => {
+    if (!authLoading) load();
+  }, [authLoading, user?.id, load]);
 
   useEffect(() => {
-    load();
     getUpcomingEvents()
       .then((events) => {
         const now = Date.now();
@@ -71,7 +78,7 @@ export function TopicsPage() {
   const handleRate = useCallback(
     async (topicId: string, rating: number) => {
       setPending((p) => ({ ...p, [topicId]: rating }));
-      const ok = await rateTopic(topicId, voterToken, rating).catch(() => false);
+      const ok = await rateTopic(topicId, rating, showPhoto).catch(() => false);
       if (ok) await load();
       setPending((p) => {
         if (p[topicId] !== rating) return p; // a later tap on this topic owns the slot
@@ -80,8 +87,20 @@ export function TopicsPage() {
       });
       return ok;
     },
-    [voterToken, load],
+    [showPhoto, load],
   );
+
+  // The photo choice follows the person's existing votes, if any.
+  const knownPublic = state.kind === 'ready' ? state.topics.find((t) => t.myIsPublic !== null)?.myIsPublic : undefined;
+  useEffect(() => {
+    if (knownPublic !== undefined && knownPublic !== null) setShowPhoto(knownPublic);
+  }, [knownPublic]);
+
+  const togglePhoto = async (next: boolean) => {
+    setShowPhoto(next);
+    if (await setMyVotesPublic(next)) await load();
+    else setShowPhoto(!next);
+  };
 
   // The order is fixed for the visit: ranked once on first load, so a row never jumps
   // under the finger as votes arrive. A topic added later goes to the top (it is an
@@ -96,7 +115,6 @@ export function TopicsPage() {
     orderRef.current = [...fresh, ...orderRef.current.filter((id) => byId.has(id))];
     return orderRef.current.flatMap((id) => byId.get(id) ?? []);
   }, [state]);
-  const showAverages = topics.some((t) => t.myRating !== null);
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-6 sm:pt-10">
@@ -118,7 +136,29 @@ export function TopicsPage() {
         )}
       </header>
 
-      {state.kind === 'ready' && <AddYourOwn onAdded={load} />}
+      {state.kind === 'ready' && !authLoading && !user && (
+        <div className="rounded-xl border border-border p-4 text-base text-foreground" data-testid="sign-in-to-vote">
+          <Link to={SIGN_IN_HREF} className="font-medium text-blue-700 underline underline-offset-2">
+            Sign in
+          </Link>{' '}
+          to vote or add a topic.
+        </div>
+      )}
+
+      {state.kind === 'ready' && user && (
+        <>
+          <AddYourOwn onAdded={load} />
+          <label className="mt-3 flex min-h-11 items-center gap-3 text-base text-foreground">
+            <input
+              type="checkbox"
+              checked={showPhoto}
+              onChange={(e) => togglePhoto(e.target.checked)}
+              className="h-5 w-5 accent-blue-600"
+            />
+            Show my photo next to my votes
+          </label>
+        </>
+      )}
 
       {state.kind === 'loading' && <ClarityPageLoader />}
 
@@ -151,12 +191,14 @@ export function TopicsPage() {
                 key={t.id}
                 topic={t}
                 shownRating={pending[t.id] ?? t.myRating}
-                showAverage={showAverages}
+                canVote={!!user}
                 onRate={handleRate}
               />
             ))}
           </ul>
-          <p className="mt-2 text-sm text-muted-foreground">One vote per phone. You can change it any time.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You see the result of a topic after you vote on it. You can change your vote any time.
+          </p>
         </>
       )}
     </div>
@@ -168,12 +210,12 @@ export function TopicsPage() {
 function TopicRow({
   topic,
   shownRating,
-  showAverage,
+  canVote,
   onRate,
 }: {
   topic: OpenTopic;
   shownRating: number | null;
-  showAverage: boolean;
+  canVote: boolean;
   onRate: (topicId: string, rating: number) => Promise<boolean>;
 }) {
   const [failed, setFailed] = useState(false);
@@ -183,44 +225,63 @@ function TopicRow({
     if (!(await onRate(topic.id, r))) setFailed(true);
   };
 
+  const voters = topic.voters ?? [];
+
   return (
     <li className="p-3 sm:p-4" data-testid="topic-row">
       <p className="text-base font-medium leading-snug text-foreground">{topic.title}</p>
       {topic.source === 'community' && <p className="mt-0.5 text-xs text-muted-foreground">Added by an attendee</p>}
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="-ml-2 flex" role="radiogroup" aria-label={`Stars for: ${topic.title}`}>
-          {STARS.map((r) => {
-            const filled = shownRating !== null && r <= shownRating;
-            return (
-              <button
-                key={r}
-                type="button"
-                role="radio"
-                aria-checked={shownRating === r}
-                aria-label={`${r} ${r === 1 ? 'star' : 'stars'}`}
-                onClick={() => rate(r)}
-                className="flex h-11 w-11 items-center justify-center rounded-md"
-              >
-                <Star aria-hidden className={cn('h-7 w-7', filled ? 'fill-blue-600 text-blue-600' : 'text-slate-300')} />
-              </button>
-            );
-          })}
-        </div>
-        {failed ? (
-          <span className="text-sm text-red-600" role="alert">
-            Not saved. Tap again.
-          </span>
-        ) : (
-          showAverage && (
-            <span className="text-sm text-muted-foreground" data-testid="topic-average">
-              {topic.ratingCount === 0
-                ? 'No votes yet'
-                : `${topic.ratingAvg?.toFixed(1)} from ${topic.ratingCount} ${topic.ratingCount === 1 ? 'vote' : 'votes'}`}
+      {/* Signed out, the list is read-only: one sign-in prompt at the top, no dead stars here. */}
+      {canVote && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="-ml-2 flex" role="radiogroup" aria-label={`Stars for: ${topic.title}`}>
+            {STARS.map((r) => {
+              const filled = shownRating !== null && r <= shownRating;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  role="radio"
+                  aria-checked={shownRating === r}
+                  aria-label={`${r} ${r === 1 ? 'star' : 'stars'}`}
+                  onClick={() => rate(r)}
+                  className="flex h-11 w-11 items-center justify-center rounded-md"
+                >
+                  <Star aria-hidden className={cn('h-7 w-7', filled ? 'fill-blue-600 text-blue-600' : 'text-slate-300')} />
+                </button>
+              );
+            })}
+          </div>
+          {failed && (
+            <span className="text-sm text-red-600" role="alert">
+              Not saved. Tap again.
             </span>
-          )
-        )}
-      </div>
+          )}
+          {!failed && topic.ratingCount !== null && (
+            <span className="text-sm text-muted-foreground" data-testid="topic-average">
+              {topic.ratingAvg?.toFixed(1)} from {topic.ratingCount} {topic.ratingCount === 1 ? 'vote' : 'votes'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {voters.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1" aria-label="Voted" data-testid="topic-voters">
+          {voters.slice(0, 12).map((v, i) => (
+            <li key={`${v.slug ?? v.name}-${i}`} title={v.name}>
+              {v.slug ? (
+                <Link to={`/p/${v.slug}`} aria-label={v.name}>
+                  <GravatarAvatar name={v.name} photoUrl={v.avatarUrl ?? undefined} avatarColor={v.avatarColor ?? undefined} isPledger={v.hasPledged} size="sm" showRing={false} />
+                </Link>
+              ) : (
+                <GravatarAvatar name={v.name} photoUrl={v.avatarUrl ?? undefined} avatarColor={v.avatarColor ?? undefined} isPledger={v.hasPledged} size="sm" showRing={false} />
+              )}
+            </li>
+          ))}
+          {voters.length > 12 && <li className="self-center text-sm text-muted-foreground">+{voters.length - 12}</li>}
+        </ul>
+      )}
     </li>
   );
 }

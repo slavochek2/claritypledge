@@ -63,6 +63,12 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1347 (20261001220000_p1347_signed_in_votes.sql), founder 2026-10-01: "it should be only
+  // possible to vote for people". rate_topic now requires auth.uid() and keeps one row per
+  // (topic, user), so writes are bounded by accounts, not by a script minting device tokens.
+  // The global new-rater cap existed only for the retired anonymous path (P1278 ruling).
+  'rate_topic:rate limit',
+
   // P1114 (20260918120000_p1114_opt_in_before_rating.sql), founder 2026-09-18: the room
   // answer is written on the tap and the rating attaches in a second call, so a null rating
   // is now a valid input. This was a product rule ("answer only with a number"), not an
