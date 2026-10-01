@@ -216,6 +216,8 @@ export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; n
   { label: 'Ready', to: '/ready' },
   { label: 'Clarity meeting principle', to: '/meet' },
   { label: 'Transcribe', to: '/transcribe' },
+  // P1347: rate next week's topics. Same tab is fine: /topics is not immersive.
+  { label: 'Pick next topic', to: '/topics' },
   { label: 'Slides', to: '/presi', newTab: true },
   // New tab: /cm is a chrome-free Google Calendar embed with no header, so a same-tab visit
   // would leave the user with no Tools button to come back through.

@@ -106,6 +106,8 @@ const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m =
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
 const VideoSummaryPage = lazy(() => import("@/app/pages/video-summary-page").then(m => ({ default: m.VideoSummaryPage })));
 const AdminUsersPage = lazy(() => import("@/app/pages/admin-users-page").then(m => ({ default: m.AdminUsersPage })));
+const AdminTopicsPage = lazy(() => import("@/app/pages/admin-topics-page").then(m => ({ default: m.AdminTopicsPage })));
+const TopicsPage = lazy(() => import("@/app/pages/topics-page").then(m => ({ default: m.TopicsPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
@@ -680,6 +682,26 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout surface="product">
               <LazyRoute><AdminUsersPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1347: founder-only topic publishing + suggestions. Gated in Postgres (assert_admin). */}
+        <Route
+          path="/admin/topics"
+          element={
+            <ClarityLandingLayout surface="product">
+              <LazyRoute><AdminTopicsPage /></LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1347: attendees rate next Clarity Night topics. Public; rating needs no sign-in. */}
+        <Route
+          path="/topics"
+          element={
+            <ClarityLandingLayout surface="product">
+              <LazyRoute><TopicsPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
