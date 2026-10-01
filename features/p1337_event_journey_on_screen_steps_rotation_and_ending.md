@@ -65,6 +65,7 @@ One journey, shown on each phone and mirrored on the projector:
    stake a position on cmp10, (c) the date of the next Clarity Night, and (d) feedback, asked in-room
    on-screen instead of by a delayed post-event email.
    `[FOUNDER DECISION: which of a/b/c/d, and their order]`
+   Item (a) links to `/topics` (P1347, built): rating is one tap with no sign-in, so the ending step only needs the link.
    Feedback replaces the current Tally-via-email flow, which never actually fired for event #1 (13 RSVPs,
    zero rows in `email_send_log` — the "always scheduled" fix from P509 never ran, and nothing alerted
    because monitoring was explicitly rejected as over-engineering; see decisions.md 2026-09-22

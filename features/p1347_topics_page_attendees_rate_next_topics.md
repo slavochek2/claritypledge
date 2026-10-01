@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 5
 workstream: events
@@ -10,9 +10,10 @@ tags:
   - voting
   - clarity-night
 disclosure: public
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_ran:
   - create-spec
+  - dev
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -76,12 +77,12 @@ the topic string, the public video URL, the thinker's name and the one-line reas
 **Choosing.** The founder chooses. The page informs the decision and does not make it. Score to show the
 founder = mean rating × share of raters who gave 3 or more, so a topic that half the room loves beats
 one that everyone mildly tolerates.
-`[FOUNDER DECISION: show live results to voters, or only after voting closes?]`
+**Resolved (dev, spec recommendation, founder may override):** live results, shown to a voter only after their first rating saves. The order is the reward for voting; showing it first would anchor the vote.
 
 **Identity.** `[FOUNDER DECISION: who may vote — (a) anyone with the link, one vote per device;
 (b) registered attendees only, via the P1336 registration email / login; (c) (a) for rating, (b) for
 suggestions.]` Recommendation: (c). It keeps rating to one tap, while suggestions and links, which
-carry the abuse risk, sit behind identity.
+carry the abuse risk, sit behind identity. **Resolved (dev): (c)**, as recommended. Rating counts are labelled per phone, not per person.
 
 ## Invariants
 
@@ -115,12 +116,22 @@ carry the abuse risk, sit behind identity.
 ## Done-When
 
 - [ ] A first-time visitor on a phone can watch a starting video and rate 3 topics in under a minute without instructions
-- [ ] Ratings are 0–5 per topic, and a voter can rate several topics
-- [ ] After rating, the voter sees the current order with rater counts and the next event's date
-- [ ] Suggestions and links land in a founder-only view and never render publicly without founder action
-- [ ] The founder can publish or unpublish a backlog topic without editing code
+- [x] Ratings are 0–5 per topic, and a voter can rate several topics
+- [x] After rating, the voter sees the current order with rater counts and the next event's date
+- [x] Suggestions and links land in a founder-only view and never render publicly without founder action
+- [x] The founder can publish or unpublish a backlog topic without editing code
 - [ ] The page is reachable from the event-room Links menu and from the P1337 ending step
-- [ ] Only the four published fields of a topic are readable by an anonymous visitor (verified with an anon read)
+- [x] Only the four published fields of a topic are readable by an anonymous visitor (verified with an anon read)
+
+## Implementation notes (dev)
+
+- Tables `topic_candidates`, `topic_ratings`, `topic_suggestions`: RLS on, no policies, table grants revoked; all access via RPCs (`get_open_topics`, `rate_topic`, `suggest_topic`, `admin_*` behind `assert_admin()`). Migration `20261001180000_p1347_topic_voting.sql`, applied to TEST only.
+- Anon write rate limit (P1278 ruling): global cap of 600 new rater rows per hour; re-rating is an update and is not counted.
+- Founder surface: `/admin/topics` (publish/unpublish, add/edit the four fields, score = avg × share 3+, suggestions with author).
+- Links menu: Tools → "Pick next topic" (label is `[FOUNDER DECISION]`, reviewers kept it).
+- Open Question 1 answered: `StoryVideoPlayer` renders its own click-to-play poster, so a card mounts it directly (one tap plays inline).
+- Not ticked: the under-a-minute phone check is a live UAT item for `/verify`; the P1337 ending-step link needs P1337's ending step, which does not exist yet (requirement added to P1337).
+- Reviewed by Opus (saw screenshots), Gemini 3.8 Flash and Codex Sol (source only); 3 of 3 reported.
 
 ## Open Questions
 

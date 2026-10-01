@@ -225,6 +225,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** `scripts/lib/worktree-changes.sh`, `scripts/git-ops.sh` (`sweep_merged_agent_worktrees`), `scripts/test-p1381-agent-worktree-sweep.sh`, `scripts/test-p1326-worktree-liveness.sh` (3j, 3l), 2026-09-17 [technical] (P1326)
 
 ---
+## 2026-10-01 [technical]: Topic voting is anonymous to rate, signed-in to suggest, and RPC-only on all three tables (P1347)
+
+**Context:** P1347 lets Clarity Night attendees rate upcoming topics at `/topics`. The spec left two founder calls open (who may vote, when results show), and an anonymous write path needs a rate limit (2026-09-09, P1278). P1166 allows only four fields of a backlog topic to become public.
+
+**Decision:**
+- **Identity, option (c):** rating is one tap with no sign-in, keyed on a random per-device token, so counts are labelled "per phone", not per person. Typed suggestions and links need sign-in and are readable only through `assert_admin()` RPCs.
+- **Results show only after this device's first confirmed save.** The order rewards voting and does not anchor the first vote.
+- **Schema enforces the four-field invariant.** `topic_candidates`, `topic_ratings` and `topic_suggestions` have RLS on, no policies, and table grants revoked from anon and authenticated. Every read and write is a SECURITY DEFINER RPC, whose `RETURNS TABLE` list is the public column contract.
+- **Anonymous rate limit:** a global cap of 600 new rater rows per hour. A re-rating is an update and does not count toward it.
+- **One score definition:** `topic_score()` in SQL (mean × share who gave 3+) orders both the public results and the founder view.
+- **The UI never shows a rating as saved when it was not.** Optimistic taps sit in a pending overlay on top of fetched data and roll back on failure. A stale refresh can't overwrite a newer tap.
+
+**Alternatives rejected:** (a) A rating that needs sign-in. It adds friction to the one-tap vote, and the abuse risk sits in free text, not in numbers. (b) A public SELECT policy on `topic_candidates`. It would let a future column leak by default. (c) A per-IP limit. Postgres does not see the client IP behind PostgREST.
+
+**Consequences:** Ballot stuffing by a script minting tokens stays possible up to the global cap. That is accepted because votes are advisory and the founder sees rater counts. Embedding `StoryVideoPlayer` behind `VideoThumbnailCard onActivate` gives a two-tap video, because the player draws its own poster. Mount the player directly. The P1337 ending step must link to `/topics` (requirement added there).
+
+**References:** [p1347](../features/p1347_topics_page_attendees_rate_next_topics.md), `supabase/migrations/20261001180000_p1347_topic_voting.sql`
+
+---
+
 ## 2026-10-01 [technical]: Admin-only surfaces are gated by one DB function, `assert_admin()`, never by the client (P1381)
 
 **Context:** The founder needed to look up any user (name, email, LinkedIn, last login) at `/admin/users`, and more founder-only features will follow. The repo and bundle are public, so any client-side check is readable and skippable.
