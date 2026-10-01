@@ -5,6 +5,15 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [technical]: Admin-only surfaces are gated by one DB function, `assert_admin()`, never by the client (P1381)
+
+**Context:** The founder needed to look up any user (name, email, LinkedIn, last login) at `/admin/users`, and more founder-only features will follow. The repo and bundle are public, so any client-side check is readable and skippable.
+**Decision:** Every admin-only RPC is `SECURITY DEFINER`, `SET search_path = ''`, and calls `PERFORM public.assert_admin()` as its first statement. That function checks `profiles.is_admin` for `auth.uid()`; clients can neither read nor write that column, and the `unique_admin` index allows one admin row. EXECUTE is revoked from PUBLIC and from `anon` by name. Pages render `NotFoundPage` on any RPC error. Admin lists return `auth.users.email`, never `profiles.email` (client-written). Admin routes stop Mixpanel session recording. Lists are fetched in `.range()` pages under a unique ORDER BY tiebreak, deduped by id, and rendered with a cap (search covers everyone). The pattern checklist lives in `docs/technical/database.md` § Admin-only RPCs.
+**Alternatives rejected:** A client-side admin check (bypassable by anyone reading the source). Inline `is_admin` checks per function (each copy can drift; one gate is one place to fix). Treating route obscurity as protection: the route and RPC name are public, so only content is concealed. Reading `profiles.email` (spoofable via `upsert_my_profile`; 15 test rows already disagreed with auth).
+**Consequences:** A second admin needs a deliberate change to `unique_admin`. Admin access is single-factor today: one leaked sign-in link exposes the list. Requiring MFA (AAL2) in `assert_admin()` is the open follow-up (Status: proposed). A three-model adversarial review (Codex, Opus, Gemini 3.8; 3 of 3 reported) found the Mixpanel recording, the email spoof, missing profile-less sign-ups, unordered pagination and a non-LinkedIn LinkedIn link; all fixed before ship.
+**References:** [p1381 spec](../features/done/2026-06-10/p1381_admin_users_lookup.md), [database.md](technical/database.md), `supabase/migrations/20261001153000_p1381_admin_list_users.sql`
+
+---
 ## 2026-10-01 [technical]: Anon 42501 on an authenticated-only RPC is suppressed at the caller, only when the client has no session (P1382)
 
 **Context:** Sentry JAVASCRIPT-REACT-3K. The Partners badge refetched on tab focus after the Supabase client had dropped its session while React still held `user`, so `get_my_pending_invitations` (revoked from anon on purpose, P1222) returned 42501. The first draft extended P913's function-name predicate in `logDbError`. Review (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) rejected it.
