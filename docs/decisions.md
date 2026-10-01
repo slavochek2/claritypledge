@@ -5,6 +5,15 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [technical]: One builder for public media URLs, and a src/ scan that refuses any other — the CSP rule now fires where the mistake is made (P1385)
+
+**Context:** The entry below fixed P1336's clips one at a time and named the general fix. The only written rule ("Prefer GCS over Supabase Storage", `docs/technical/infrastructure.md`) loaded at no point where a bucket or a `<video>` is written, which is how four Supabase buckets and seven prod-only CSP blocks happened.
+**Decision:** `publicMediaUrl()` in `src/lib/public-media.ts` is the only place a public media URL is built (`gs://claritypledge-story-images`). `src/tests/p1385-public-media.test.ts` (a) asserts the helper's origin is in `vercel.json`'s `media-src` and `img-src`, and (b) scans every ts/tsx/js/jsx/css/html/md file under `src/` (tests excluded) for hand-built GCS URLs, Supabase public-object URLs and `getPublicUrl(`, failing with a message that states the rule. Exceptions live in an allowlist with one reason per entry — today only `markdown.ts`, which *matches* user-uploaded event-banner image URLs for P1352 and builds none. Rule lines sit in the path-triggered `.claude/rules/src.md` and `database.md`, so they load when `src/` or a migration is written.
+**Alternatives rejected:** checking every URL in `src/` against the CSP (also flags non-media hosts and URL fragments; any-host media such as a new CDN stays with the post-deploy `csp-smoke` gate, a spec ACCEPT); scanning `.ts/.tsx` only (review showed `getPublicUrl()` and CSS `url()` bypass it — both closed, red then green on real files).
+**Consequences:** Adding public media is "upload to the bucket, call the helper"; any other path is red locally. An allowlist entry is a decision, not a fix for a red test. Known gaps, accepted: a URL assembled from split string fragments, and the matcher reads CSP wildcards as one label deep (stricter than browsers).
+**References:** [p1385 spec](../features/p1385_public_media_defaults_to_gcs_with_csp_check.md) · [public-media.ts](../src/lib/public-media.ts)
+
+---
 ## 2026-10-01 [technical]: Public media must be on an origin the production CSP allows — the dev server sends no CSP, so only a test against vercel.json catches it (P1336, P1385)
 
 **Context:** P1336's four preparation videos were served from a new Supabase Storage bucket. Every local unit, integration and browser test passed; on claritypledge.com every video would have been blocked, because production's `media-src` allows only `'self' https://storage.googleapis.com` and the Vite dev server sends no CSP at all. Found by hand the day before the push, when the founder asked why the clips were not on Google storage. A history pass counted it as the 7th prod-only CSP block (P805, P863, P865, P906, P1005, P1285, P1336) and the 4th Supabase bucket created without a reason to prefer it over GCS.
