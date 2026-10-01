@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 16
 created_date: 2026-10-01
@@ -9,6 +9,7 @@ exec_effort: high
 tags: [groups, events, organizer, discoverability]
 disclosure: public
 pipeline_ran: [dev]
+completed_at: 2026-10-01
 ---
 
 # P1383: Organizer Host event in the group header, on every tab
