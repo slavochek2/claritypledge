@@ -85,6 +85,7 @@ if [[ -f "$REPO_ROOT/scripts/lib/worktree-changes.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/worktree-changes.sh"
 else
   worktree_has_user_changes() { return 0; }
+  worktree_user_change_lines() { echo "(scripts/lib/worktree-changes.sh missing: treating as changed)"; }
 fi
 if [[ -f "$REPO_ROOT/scripts/lib/gate-override.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/gate-override.sh"
@@ -714,7 +715,7 @@ teardown_worktree_if_clean() {
   if worktree_has_user_changes "$wt_path"; then
     {
       echo "$who: worktree RETAINED — it holds uncommitted changes that are not on main:"
-      git -C "$wt_path" status --porcelain 2>/dev/null | awk '!/^\?\? (\.lock|\.activity|node_modules)$/ && n++ < 10' | sed 's/^/    /'
+      worktree_user_change_lines "$wt_path" | awk 'n++ < 10' | sed 's/^/    /'
       echo "  path: $wt_path"
       echo "  Commit and ship them, or discard them deliberately, then remove the worktree."
     } >&2
