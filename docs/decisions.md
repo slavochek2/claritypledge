@@ -6,6 +6,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-01 [product]: P1336 preparation — activation, scope, and what stays fixed
+
+**Context:** Closing the P1336 prototype rounds; settles what is per-event and what stays fixed.
+**Decision:**
+- Core first: the starting-soon email and sign-in redirect split to P1380. Registration stays immediate.
+- Preparation is a per-event on/off switch, defaulted by series (Clarity Night on, hikes off). The event's statement tag drives only the positions step; expert names derive from the tag's story authors.
+- Social-proof counts sum across the series' past events + this one. Any host may enable prep, reusing the founder's videos.
+- No waitlist: volunteer places floored at 1, overbooking accepted. Research transcript access is company-only, never hosts.
+- Room gate skip has no dialog, just one muted consequence line.
+**Alternatives rejected:** variant C (prep question before registering): a double question with no context. Per-host videos: no second host yet.
+**Consequences:** spec updated with per-event setup and confirmation states. **UNTESTED.** Falsifier: at Clarity Night #2 most registrants skip prep, or a second host asks for own videos.
+**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
+
+---
+
 ## 2026-10-01 [process]: P1369 fix phase — a request storm no test caught, a ship gate that read the wrong branch, and the `tsc -p .` trap a fifth time
 
 **Context:** Hardening P1369 (offline pages) after the `/architect` A/B: three fix passes, a 3-model pre-ship review, `/finish`, then `/ship`.

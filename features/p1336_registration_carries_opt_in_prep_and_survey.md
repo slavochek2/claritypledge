@@ -157,6 +157,21 @@ Dialog **How we use your data**: the 3 Q&A in the prototype's `RESEARCH_QA`, wit
 
 **Minutes.** Per step: clip seconds (each clip's `durationSeconds` constant) ÷ 1.15; principle adds level-3 words at 200 wpm + 2×20 s; statements 20 s each; research clip + 20 s. Rows round to whole minutes (min 1); the question's N = sum of the rows the person still has. New registrant: every card counted (stable across reloads).
 
+## Per-event setup
+
+- **Preparation switch:** an on/off **Preparation** setting on event create/edit, defaulted from the series (Clarity Night on, hikes off). Any host may switch it on; it uses the founder's Clarity Night intro videos (no per-host videos now; revisit when a second host asks).
+- **Statement tag** drives only the positions step: no tag → step 5 hidden, minutes recomputed.
+- **Expert names** derived from the tag's story authors; none → the experts block is hidden.
+- **Host photo/name** from the event's host profile, labelled *"Your event host"*.
+- **Volunteer places:** per-event value, default 6; the founder changes it via terminal/SQL (no UI yet).
+- **Social proof counts** are summed across all past events of the series + this event: *"{X} people prepared for Clarity Nights · {Y} for this one"*; same shape for opted in. Each part hidden when 0.
+
+## Confirmation prep block (variant D, round E)
+
+The why line is always shown. States: **0 done** → the question + **Prepare now** / **Remind me by email**; **1–5 done** → *"{k} of 6 steps done"* + **Continue your preparation**; **done** → **Prepared ✓**. Never "0 of 6". Rendered inline under the card; pinned to the bottom bar only when inline it would end below the fold.
+
+Copy suggestions from review r20 are not applied; current wording stands.
+
 ## Data (per registration unless stated)
 
 **Storage (decided):** prep data does **not** live on `event_rsvps` — its policy is `SELECT USING (true)`
@@ -210,7 +225,8 @@ A summary line: "{v} volunteers · {k} USB-C mics needed" (v above 6 signals ove
 `/events/:slug/room` (`EventRoomGate`): a registrant whose per-event prep is not complete (or whose
 once-per-person intro is not done) sees a gate with two choices: **Prepare now** (prep at their
 resume step, with a return target; finishing, or the flow's skip paths, returns them to the room)
-and **Join the room without preparing** (enters directly). A bypassed attendee can return to prep
+and **Join the room without preparing** (enters directly, no confirmation dialog), with the muted line
+*(DRAFT) "You'll miss the shared definitions and the meeting principle. You can catch up any time."* under it. The room banner reads **Start your preparation** (0 done) or **Finish your preparation** (in progress). A bypassed attendee can return to prep
 anytime from the room. Their preparation status (**Prepared ✓** or **{k} of 6 steps**) is visible on
 their own phone in the room, so the host can check it.
 
@@ -265,6 +281,14 @@ Non-goals: waitlist; event emails + sign-in links (P1380); recording pause/resum
 - [ ] Screen 0 shows the why line before **Prepare now / Remind me by email**; no how-heard question; "Remind me" triggers no extra email
 - [ ] Clips load from the storage bucket, start playing before full download (faststart), play at 1.15x; transcript toggles
 - [ ] Existing-behaviour tests for every opt-in prop pass (StakePage, MeetingPrincipleView, Mp4VideoFacade, LetterProgressBar, LetterFlowContent) and `/meet`, `/stake`, letters render unchanged
+
+- [ ] Event create/edit has a **Preparation** on/off setting defaulted by series (Clarity Night on, hikes off); off → no prep block or room gate for that event
+- [ ] Event without a statement tag: positions step hidden, minutes recomputed; tag with no story authors: experts block hidden; expert names come from story authors, not hardcoded
+- [ ] Host photo/name come from the event's host profile under "Your event host"; a non-founder host's event plays the founder's intro videos
+- [ ] Volunteer places read from a per-event value (default 6) changed via SQL
+- [ ] Social proof sums prepared/opted-in across past series events + this event; each count hidden at 0
+- [ ] Confirmation block: 0 done shows question + Prepare now / Remind me by email; 1–5 shows "{k} of 6 steps done" + Continue your preparation; done shows Prepared ✓; "0 of 6" never renders; pinned to the bottom bar only when inline it would end below the fold
+- [ ] Room gate skip opens no dialog and shows the consequence line; room banner reads Start / Finish your preparation by state
 
 ## Pre-deploy Checklist
 
