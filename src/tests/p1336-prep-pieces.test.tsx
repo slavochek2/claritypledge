@@ -7,10 +7,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { PrepBlock, PrepStatus, socialProofLine } from '@/app/prototypes/events/prep/PrepPieces';
-import { hostSummary, prepStateLabel } from '@/app/prototypes/events/prep/PrepHostList';
 import { defaultPreparation, validateStatementTag } from '@/app/prototypes/events/prep/PrepSettingsFields';
 import { RESEARCH_QA, clipUrl } from '@/app/prototypes/events/prep/prep-content';
-import type { HostPrepRow } from '@/app/data/event-prep-service';
 
 const noProof = { line: null, people: [] };
 const renderBlock = (done: number, total: number, complete = false, reminded = false) =>
@@ -75,31 +73,6 @@ describe('socialProofLine', () => {
     expect(socialProofLine('opted in at', 0, 2, 'Clarity Nights')).toBe('2 people opted in for this event');
     expect(socialProofLine('prepared for', 4, 2, 'our events')).toBe('4 people prepared for our previous events, and 2 for this event');
     expect(socialProofLine('prepared for', 0, 0, 'Clarity Nights')).toBeNull();
-  });
-});
-
-const row = (over: Partial<HostPrepRow>): HostPrepRow => ({
-  profileId: 'user-id-1', name: 'Test', slug: 'test', hasPledged: false, prepChoice: null, stepsDone: [],
-  startedAt: null, completedAt: null, optedIn: null, principleRating: null, researchState: null, micSetup: null,
-  positionsDone: 0, positionsTotal: 0, ...over,
-});
-
-describe('host view', () => {
-  it('prep state labels', () => {
-    expect(prepStateLabel(row({ completedAt: 'x' }))).toBe('Prepared');
-    expect(prepStateLabel(row({ startedAt: 'x', stepsDone: ['welcome', 'story'] }))).toBe('In progress, step 3');
-    expect(prepStateLabel(row({ prepChoice: 'remind' }))).toBe('Chose remind');
-    expect(prepStateLabel(row({}))).toBe('Not started');
-  });
-
-  it('summary counts confirmed volunteers and USB-C mics only', () => {
-    const rows = [
-      row({ researchState: 'confirmed', micSetup: 'usbc' }),
-      row({ researchState: 'confirmed', micSetup: 'own' }),
-      row({ researchState: 'declined', micSetup: 'none' }),
-      row({ researchState: 'eligible' }),
-    ];
-    expect(hostSummary(rows)).toBe('2 volunteers · 1 USB-C mic needed');
   });
 });
 

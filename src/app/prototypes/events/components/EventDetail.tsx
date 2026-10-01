@@ -34,7 +34,7 @@ import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
-import { PrepHostList } from '../prep/PrepHostList';
+import { PrepMarks, micLine, useHostPrepMarks } from '../prep/PrepMarks';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
@@ -258,6 +258,10 @@ export function EventDetail() {
 
   // Check if current user is the host
   const isHost = isLoggedIn && user && event?.hostId === user.id;
+
+  // P1386: the host's ✓ prepared / 🎙 mic marks in Participants (replaces P1336's Preparation card).
+  const hostPrepMarks = useHostPrepMarks(event?.id, !!isHost && !!event?.preparationEnabled);
+  const hostMicLine = micLine(hostPrepMarks);
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -963,6 +967,10 @@ export function EventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
+              {/* P1386: host only — how many USB-C mics to bring, shown only when one is needed. */}
+              {hostMicLine && (
+                <p className="text-sm text-foreground -mt-2 mb-3" data-testid="prep-mic-line">{hostMicLine}</p>
+              )}
               <div className="space-y-2">
                 {(event.attendees ?? []).map(attendee => (
                   <PersonRow
@@ -974,13 +982,11 @@ export function EventDetail() {
                     avatarUrl={attendee.avatarUrl}
                     isPledger={attendee.hasPledged}
                     earCount={attendee.earCount}
+                    trailing={hostPrepMarks.has(attendee.profileId) ? <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} /> : undefined}
                   />
                 ))}
               </div>
             </div>
-
-            {/* P1336: host-only — who prepared, opted in, positions, recording volunteers. */}
-            {isHost && event.preparationEnabled && <PrepHostList event={event} />}
           </div>
         </div>
 

@@ -220,14 +220,6 @@ export async function getPrepSocialProof(eventId: string): Promise<PrepSocialPro
   return { ...EMPTY_PROOF, ...(data as Partial<PrepSocialProof>) };
 }
 
-/** The room members of this event who finished preparing (the roster's check mark). null on a
- *  failed read, so the caller keeps what it already shows. */
-export async function getRoomPrepared(eventId: string): Promise<ReadonlySet<string> | null> {
-  const { data, error } = await supabase.rpc('get_event_room_prepared', { p_event_id: eventId });
-  if (error || !Array.isArray(data)) return null;
-  return new Set(data as string[]);
-}
-
 export async function getResearchPlacesLeft(eventId: string): Promise<number | null> {
   const { data, error } = await supabase.rpc('get_event_research_places_left', { p_event_id: eventId });
   if (error || typeof data !== 'number') return null;

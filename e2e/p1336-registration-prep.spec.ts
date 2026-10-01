@@ -320,13 +320,18 @@ test.describe('P1336 registration preparation', () => {
     await page.getByRole('button', { name: 'Join the room' }).click();
     // Prepared → the gate does not stop them.
     await expect(page).toHaveURL(new RegExp(`/events/${ev.slug}/(ready|meet)`));
-    // UAT 2026-10-01: in the room, "prepared" is the roster row's check mark, not a line under Back.
+    // In the room, "prepared" is not a line under Back; and since P1386 the roster's check mark is
+    // the host's only — this registrant prepared and still sees no mark.
     await page.goto(`/events/${ev.slug}/meet`);
-    await expect(page.getByTestId('room-roster-prepared').first()).toBeVisible();
+    await expect(page.getByTestId('room-roster-item').first()).toBeVisible();
     await expect(page.getByTestId('prep-room-banner')).toHaveCount(0);
-    // A tap (not a long-press) explains the check.
-    await page.getByTestId('room-roster-prepared').first().click();
-    await expect(page.getByTestId('room-roster-prepared-note')).toHaveText('Prepared for the event');
+    await expect(page.getByTestId('prep-mark-prepared')).toHaveCount(0);
+    // P1386: the host, in the same room, sees the ✓; a tap (not a long-press) explains it.
+    await setTestSession(page, host.email);
+    await page.goto(`/events/${ev.slug}/meet`);
+    await expect(page.getByTestId('prep-mark-prepared').first()).toBeVisible();
+    await page.getByTestId('prep-mark-prepared').first().click();
+    await expect(page.getByTestId('prep-mark-note')).toHaveText('Prepared for the event');
   });
 
   test('plan: the back arrow leaves the preparation (opened directly → the event page)', async ({ page }) => {
@@ -368,17 +373,22 @@ test.describe('P1336 registration preparation', () => {
     await expect(box).toHaveAttribute('data-state', 'checked'); // touched: no longer follows the title
   });
 
-  test('host list: per-person prep state, opt-in + score, volunteer; host excluded', async ({ page }) => {
+  test('P1386 host marks: ✓ / 🎙 in Participants with hints, mic line, no Preparation card; non-host sees none', async ({ page }) => {
     const ev = events[0]!;
     await setTestSession(page, host.email);
     await page.goto(`/events/${ev.slug}`);
-    const list = page.getByTestId('prep-host-list');
-    await expect(list).toBeVisible();
-    await expect(page.getByTestId('prep-host-summary')).toContainText('1 volunteer · 1 USB-C mic needed');
-    await expect(list).toContainText('P1336 Walker');
-    await expect(list).toContainText('Opted in · understood at 7/10');
-    await expect(list).toContainText('Volunteer · USB-C mic to bring');
-    await expect(list).toContainText('Chose remind');
-    await expect(list).not.toContainText('P1336 E2E Host');
+    await expect(page.getByTestId('prep-host-list')).toHaveCount(0);
+    await expect(page.getByTestId('prep-mic-line')).toHaveText('Bring 1 USB-C mic');
+    const mic = page.getByTestId('prep-mark-mic-usbc');
+    await expect(mic).toHaveCount(1);
+    await mic.click();
+    await expect(page.getByTestId('prep-mark-note')).toHaveText('Needs a USB-C mic');
+
+    const other = await registrant('P1386 Onlooker', ev);
+    await setTestSession(page, other.email);
+    await page.goto(`/events/${ev.slug}`);
+    await expect(page.getByText('P1386 Onlooker').first()).toBeVisible();
+    await expect(page.getByTestId('prep-marks')).toHaveCount(0);
+    await expect(page.getByTestId('prep-mic-line')).toHaveCount(0);
   });
 });

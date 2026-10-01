@@ -281,7 +281,7 @@ test.describe('P1336: event_preparations + per-event setup', () => {
     }
   });
 
-  test('UAT: the room roster can see who prepared — completed prep, registered, in the room; callers must be registered or the host', async () => {
+  test('UAT: who prepared — completed prep, registered, in the room; the host only (P1386)', async () => {
     // Alice prepared and joined the room (earlier tests); Bob completed prep but never joined.
     const erin = await createTestUser({ name: 'P1336 Erin' }); // registered, in the room, prep NOT complete
     const finn = await createTestUser({ name: 'P1336 Finn' }); // completed prep, in the room, RSVP cancelled
@@ -302,8 +302,14 @@ test.describe('P1336: event_preparations + per-event setup', () => {
       ]);
       await supabaseAdmin.from('event_rsvps').delete().eq('event_id', eventId).eq('profile_id', finn.user.id);
 
+      // P1386: a registrant (Bob) no longer reads who prepared — the host only.
       const b = await clientFor(bob);
-      const { data, error } = await b.rpc('get_event_room_prepared', { p_event_id: eventId });
+      const { data: bobIds, error: bobErr } = await b.rpc('get_event_room_prepared', { p_event_id: eventId });
+      expect(bobErr).toBeNull();
+      expect(bobIds as string[]).toEqual([]);
+
+      const h = await clientFor(host);
+      const { data, error } = await h.rpc('get_event_room_prepared', { p_event_id: eventId });
       expect(error).toBeNull();
       const ids = data as string[];
       expect(ids).toContain(alice.user.id);
@@ -311,10 +317,6 @@ test.describe('P1336: event_preparations + per-event setup', () => {
       expect(ids).not.toContain(erin.user.id); // preparation not complete
       expect(ids).not.toContain(finn.user.id); // no longer registered
       expect(ids.every((id) => id !== null)).toBe(true); // walk-ins never appear
-
-      const h = await clientFor(host);
-      const { data: hostIds } = await h.rpc('get_event_room_prepared', { p_event_id: eventId });
-      expect(hostIds as string[]).toContain(alice.user.id);
 
       const st = await clientFor(stranger);
       const { data: strangerIds, error: strangerErr } = await st.rpc('get_event_room_prepared', { p_event_id: eventId });

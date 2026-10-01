@@ -95,9 +95,7 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
-import { getRoomPrepared } from '@/app/data/event-prep-service';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check } from 'lucide-react';
+import { PrepMarks, useHostPrepMarks, type PrepMarkState } from '../prep/PrepMarks';
 import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
@@ -147,39 +145,12 @@ const THREE_COLUMN =
  * reading as a narrow margin card. */
 const ROSTER_COLUMN_CLASS = 'min-[1600px]:max-w-[22rem]';
 
-/** P1336 (founder, UAT 2026-10-01): a small blue check after the answer marks someone who prepared
- *  for the event; hover (desktop) or a tap (phone) says so. Not green and not a badge: it is a quiet
- *  fact about the row, read off a wall. A Popover, not MobileTooltip — that one opens on hover and
- *  long-press only, so a tap on a phone explained nothing (review 2026-10-01). */
-function PreparedMark() {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          aria-label="Prepared for the event"
-          className="-m-2 inline-flex shrink-0 items-center justify-center p-2 text-blue-600 dark:text-blue-400"
-          data-testid="room-roster-prepared"
-        >
-          <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" className="w-auto px-3 py-1.5 text-sm" data-testid="room-roster-prepared-note">
-        Prepared for the event
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /** One roster row: PersonRow plus what that person answered, spelled out rather than
  * abbreviated — founder, 2026-08-21: "put here what they answered e.g. 'understood at
  * 4/10'". Undecided members never carry a rating. Since 2026-09-18 an opted-in / opted-out
  * row can be briefly without one too — the answer is written on the tap, the number when
  * submitted — and then shows no trailing text until it arrives. */
-function RosterRow({ member, showEarBadge = true, prepared = false }: { member: EventRoomMember; showEarBadge?: boolean; prepared?: boolean }) {
+function RosterRow({ member, showEarBadge = true, marks }: { member: EventRoomMember; showEarBadge?: boolean; marks?: PrepMarkState }) {
   return (
     <PersonRow
       profileId={member.profileId ?? member.id}
@@ -196,7 +167,7 @@ function RosterRow({ member, showEarBadge = true, prepared = false }: { member: 
       // floating in the gutter (visual QA, 2026-08-21). PersonRow's name column is
       // `flex-1 min-w-0`, so it yields to this rather than pushing it off-screen.
       trailing={
-        member.comprehensionRating != null || prepared ? (
+        member.comprehensionRating != null || marks ? (
           <span className="inline-flex shrink-0 items-center gap-0.5">
           {member.comprehensionRating != null && (
           <span
@@ -216,7 +187,7 @@ function RosterRow({ member, showEarBadge = true, prepared = false }: { member: 
             {member.comprehensionRating}/10
           </span>
           )}
-          {prepared && <PreparedMark />}
+          <PrepMarks marks={marks} />
           </span>
         ) : undefined
       }
@@ -240,15 +211,15 @@ export function RosterGroup({
   testId,
   members,
   showEarBadge = true,
-  preparedIds,
+  prepMarks,
 }: {
   title: string;
   testId: string;
   members: EventRoomMember[];
   /** P1336: false hides each row's ear badge (registration roster). Default true: the room. */
   showEarBadge?: boolean;
-  /** P1336: profiles who prepared for the event get the check mark. Default: none. */
-  preparedIds?: ReadonlySet<string>;
+  /** P1386: the host's ✓ / 🎙 marks by profile id. Only the host's view passes any. */
+  prepMarks?: ReadonlyMap<string, PrepMarkState>;
 }) {
   if (members.length === 0) return null;
   return (
@@ -260,7 +231,7 @@ export function RosterGroup({
             <RosterRow
               member={member}
               showEarBadge={showEarBadge}
-              prepared={!!member.profileId && !!preparedIds?.has(member.profileId)}
+              marks={member.profileId ? prepMarks?.get(member.profileId) : undefined}
             />
           </div>
         ))}
@@ -344,19 +315,11 @@ export function EventRoomMeet() {
     });
   }, [event?.id]);
 
-  // P1336: who prepared, for the roster's check marks. Re-read (debounced) when someone joins — a
-  // newcomer may have prepared — and once a minute, because someone in the room can still finish
-  // preparing from the Back-line link. A failed read keeps the marks already shown.
-  const [preparedIds, setPreparedIds] = useState<ReadonlySet<string>>(new Set());
-  const preparationEnabled = !!event?.preparationEnabled;
-  useEffect(() => {
-    if (!event?.id || !preparationEnabled) return;
-    let cancelled = false;
-    const read = () => getRoomPrepared(event.id).then((ids) => { if (!cancelled && ids) setPreparedIds(ids); });
-    const soon = setTimeout(read, 1000);
-    const every = setInterval(read, 60_000);
-    return () => { cancelled = true; clearTimeout(soon); clearInterval(every); };
-  }, [event?.id, preparationEnabled, roster.length]);
+  // P1386: the host's ✓ prepared / 🎙 mic marks on the roster — host only (founder, 2026-10-01).
+  // Re-read when someone joins (a newcomer may have prepared) and once a minute (people can
+  // finish preparing from the room). Everyone else gets an empty map and sees no marks.
+  const isHost = !!user && !!event && event.hostId === user.id;
+  const prepMarks = useHostPrepMarks(event?.id, isHost && !!event?.preparationEnabled, { refreshKey: roster.length, poll: true });
 
   /**
    * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read
@@ -553,9 +516,9 @@ export function EventRoomMeet() {
               <p className="text-sm text-muted-foreground">Loading who is here…</p>
             ) : (
               <>
-                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} preparedIds={preparedIds} />
-                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} preparedIds={preparedIds} />
-                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} preparedIds={preparedIds} />
+                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} prepMarks={prepMarks} />
+                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} prepMarks={prepMarks} />
+                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} prepMarks={prepMarks} />
                 {undecidedMembers.length === 0 && (
                   /* Empty-Undecided is the payoff of this whole feature, not a nothing —
                      it is the moment the facilitator's "move yourself out of undecided" has
