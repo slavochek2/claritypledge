@@ -5,8 +5,8 @@ rank: 15
 created_date: '2026-10-01'
 tags: [admin, profiles, search, privacy]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
