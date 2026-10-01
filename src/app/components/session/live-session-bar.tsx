@@ -10,6 +10,11 @@ import { useLiveSession } from '@/app/contexts/live-session-context';
 import { clearSessionJoiner, getClaritySession } from '@/app/data/api';
 import { useTerminateSession } from '@/hooks/use-terminate-session';
 import { SessionBar } from './session-bar';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
+
+/** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
+const OFFLINE_TITLE = 'Session paused while offline';
+const OFFLINE_DETAIL = 'Rejoin comes back when you reconnect.';
 
 export function LiveSessionBar() {
   const navigate = useNavigate();
@@ -17,8 +22,14 @@ export function LiveSessionBar() {
     useLiveSession();
   const terminate = useTerminateSession();
   const [isEnding, setIsEnding] = useState(false);
+  const { offline } = useConnectivity();
 
   if (!activeSessionCode) return null;
+
+  // P1369: offline, Rejoin / End cannot work — the bar turns into its grey offline state.
+  if (offline) {
+    return <SessionBar tone="offline" ariaLabel="Active session notification" text={OFFLINE_TITLE} detail={OFFLINE_DETAIL} />;
+  }
 
   const hasPartner = !!activeSessionPartnerName;
 

@@ -45,6 +45,7 @@ import { SliderTrack } from "@/app/components/partners/slider-track";
 import { PRIMARY_BUTTON_CLASS } from "@/app/pages/meeting-terms-page";
 import { getReadyDistribution, submitReadyValue } from "@/app/data/ready-service";
 import { cn } from "@/lib/utils";
+import { useConnectivity } from "@/app/contexts/offline-status-context";
 
 const PAGE_TITLE = "Before you meet";
 const QUESTION = "How up for thinking are you right now?";
@@ -52,6 +53,7 @@ const MIDPOINT_LABEL = "Neutral";
 const MIDPOINT_VALUE = 5;
 const POLE_LABELS = { low: "Stay on the surface", high: "Go deep" };
 const DISTRIBUTION_LABEL = "How up for thinking others are right now";
+/** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
 
 export function ReadyPage() {
   const navigate = useNavigate();
@@ -65,6 +67,12 @@ export function ReadyPage() {
   // requires (P1083). Starts empty and stays empty on a fetch failure, which reads
   // identically to the N=0 empty state rather than as an error.
   const [others, setOthers] = useState<number[]>([]);
+  // P1369 (founder, 2026-09-30): /ready works offline — it is a slider and a Continue into /meet.
+  // Only the "others" distribution is live presence: offline it is hidden rather than shown stale,
+  // and it is re-read when the connection comes back. An answer given offline is not saved (no
+  // offline write queue); Continue still proceeds. The event-room /events/:slug/ready keeps its
+  // needs-connection gate — that one is live.
+  const { offline, reconnectTick } = useConnectivity();
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +89,7 @@ export function ReadyPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reconnectTick]);
 
   const handleChange = useCallback((next: number) => {
     setValue(next);
@@ -96,6 +104,7 @@ export function ReadyPage() {
     // reversal of P1077's "do NOT modify /meet" non-goal.
     navigate("/meet", { state: { fromReady: true } });
   }, [value, navigate]);
+
 
   return (
     <div
@@ -137,7 +146,7 @@ export function ReadyPage() {
             muted={!touched}
             bipolarFill
             expandedHitArea
-            others={others}
+            others={offline ? [] : others}
             othersLabel={DISTRIBUTION_LABEL}
           />
         </div>

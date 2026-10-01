@@ -47,6 +47,11 @@ import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
+import { useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 import {
   Dialog,
   DialogContent,
@@ -87,6 +92,11 @@ export function PointDetailPage() {
   }, [setSearchParams]);
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  // P1369: storedAt of the offline copy on screen (null = live data), reported to the strip.
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const canWrite = useOnlineWriteGuard(cachedAt !== null);
+  const { reconnectTick } = useConnectivity();
   // P502: Anonymous position state — visual only, no count adjustment
   const [anonPosition, setAnonPositionState] = useState<PositionType | null>(null);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
@@ -116,7 +126,11 @@ export function PointDetailPage() {
     },
   });
 
+  // Re-read on reconnect only when what is on screen is not live.
+  const reconnectKey = cachedAt !== null || error === 'offline' ? reconnectTick : 0;
+
   useEffect(() => {
+    let cancelled = false;
     async function loadData() {
       if (!id) {
         setError('not_found');
@@ -126,7 +140,17 @@ export function PointDetailPage() {
 
       // Resolve slug (e.g. "st1", "st3-a") to UUID, or use id directly
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      const pointId = isUuid ? id : await resolvePointSlug(id);
+      let pointId: string | null = id;
+      if (!isUuid) {
+        const slug = await readThrough('point-slug', id, () => resolvePointSlug(id));
+        if (cancelled) return;
+        if (slug.source === 'offline') {
+          setError('offline');
+          setLoading(false);
+          return;
+        }
+        pointId = slug.data;
+      }
 
       if (!pointId) {
         setError('not_found');
@@ -141,22 +165,37 @@ export function PointDetailPage() {
       }
 
       try {
-        const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
-          user?.id
-            ? pointsService.getPointWithUserPosition(pointId, user.id)
-            : pointsService.getPointWithCounts(pointId),
-          pointsService.getPositionsForPoint(pointId),
-          storiesService.getStoriesForPoints([pointId]).catch(() => new Map<string, StoryWithAuthor[]>()),
-          user?.id
-            ? storiesService.getStoryByUserAndPoint(user.id, pointId).catch(() => null)
-            : Promise.resolve(null),
-        ]);
+        // P1369: network first; the offline read cache answers only when the network did not.
+        // The viewer is part of the resource: the bundle carries their own position.
+        const resolvedId = pointId;
+        const read = await readThrough('point', `${resolvedId}:${user?.id ?? '-'}`, async () => {
+          const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
+            user?.id
+              ? pointsService.getPointWithUserPosition(resolvedId, user.id)
+              : pointsService.getPointWithCounts(resolvedId),
+            pointsService.getPositionsForPoint(resolvedId),
+            storiesService.getStoriesForPoints([resolvedId]).catch(() => new Map<string, StoryWithAuthor[]>()),
+            user?.id
+              ? storiesService.getStoryByUserAndPoint(user.id, resolvedId).catch(() => null)
+              : Promise.resolve(null),
+          ]);
+          return pointData ? { pointData, positionData, storiesData, viewerStoryData } : null;
+        });
+        if (cancelled) return;
 
-        if (!pointData) {
+        if (read.source === 'offline') {
+          setError('offline');
+          setLoading(false);
+          return;
+        }
+        if (!read.data) {
           setError('not_found');
           setLoading(false);
           return;
         }
+        const { pointData, positionData, storiesData, viewerStoryData } = read.data;
+        setError(null);
+        setCachedAt(read.source === 'cache' ? read.storedAt : null);
 
         setPoint(pointData);
         setPositions(positionData);
@@ -168,6 +207,7 @@ export function PointDetailPage() {
         }
         setLoading(false);
       } catch (err) {
+        if (cancelled) return;
         console.error('Error loading point:', err);
         setError('network_error');
         setLoading(false);
@@ -175,7 +215,10 @@ export function PointDetailPage() {
     }
 
     loadData();
-  }, [id, user?.id, retryKey, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user?.id, retryKey, reconnectKey, navigate]);
 
   // P502: Load anon position from localStorage on mount
   useEffect(() => {
@@ -257,6 +300,8 @@ export function PointDetailPage() {
       return;
     }
 
+    if (!canWrite()) return;
+
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
 
@@ -264,6 +309,7 @@ export function PointDetailPage() {
     setUserPosition(newPosition);
 
     // Persist to database
+    const sentAt = networkMark();
     try {
       if (newPosition === null) {
         // P401: Use guarded removal — shows dialog if linked stories exist
@@ -288,7 +334,9 @@ export function PointDetailPage() {
       console.error('Failed to update position:', err);
       // Revert optimistic update on error
       setUserPosition(userPosition);
-      toast.error('Failed to save position.');
+      // P1369: a write that never reached the server says so (a captive portal's first write is
+      // the first request to fail, so the guard above could not know).
+      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
     }
   };
 
@@ -305,6 +353,7 @@ export function PointDetailPage() {
 
   const handleUnlinkConfirm = useCallback(async () => {
     if (!unlinkTargetStory || !point) return;
+    if (!canWrite()) return;
     setIsUnlinking(true);
     try {
       const ok = await storiesService.unlinkPointFromStory(unlinkTargetStory, point.id);
@@ -328,7 +377,7 @@ export function PointDetailPage() {
       setIsUnlinking(false);
       setUnlinkTargetStory(null);
     }
-  }, [unlinkTargetStory, point, setExpandedHolderId]);
+  }, [unlinkTargetStory, point, setExpandedHolderId, canWrite]);
 
   // Helper to retry loading
   const handleRetry = useCallback(() => {
@@ -372,6 +421,16 @@ export function PointDetailPage() {
             <div className="h-16 bg-muted rounded" />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // P1369: offline and never read on this device — the needs-connection body, not "not found".
+  if (error === 'offline') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        {!isEmbed && <FocusHeader fallback={BACK_FALLBACK} />}
+        <NeedsConnection onRetry={handleRetry} />
       </div>
     );
   }
@@ -493,7 +552,7 @@ export function PointDetailPage() {
           tags={point.tags}
           onPositionSelect={(pos) => {
             if (pos === null) {
-              if (id) guardedRemovePosition(id);
+              if (id && canWrite()) guardedRemovePosition(id);
             } else {
               handlePositionClick(pos as PositionType);
             }
@@ -599,6 +658,7 @@ export function PointDetailPage() {
                     setAnonPositionStorage(id, null);
                     return;
                   }
+                  if (!canWrite()) return;
                   await guardedRemovePosition(id);
                 }}
               />

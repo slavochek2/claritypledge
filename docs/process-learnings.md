@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 102
+**Next ID:** 107
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1812,5 +1812,60 @@ Found in the P1366 review: rsvpToEvent has no host check and the post-signup aut
 **due:** week
 
 Hit while shipping P1366: src/tests/p887-reproduce.test.ts buildSandbox copies every entry of scripts/lib with copyFileSync, so a gitignored __pycache__ directory (created by any python import of scripts/lib/keyring.py) fails the whole pre-commit test step with ENOTSUP. Skip directories (or copy only tracked files) in buildSandbox. Drop if scripts/lib stops holding python modules.
+
+---
+
+## "Show less" on fully visible stories is confusing (product-wide) (due: month)
+
+**ID:** INBOX-102
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+A story card that is already fully visible still offers "Show less". Hide the toggle when there is nothing collapsed. Product-wide, surfaced in the P1336 review.
+
+---
+
+## 0–10 rating buttons too small on phones (letter drawer) (due: month)
+
+**ID:** INBOX-103
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+The 0–10 rating buttons in the letter drawer are below a comfortable touch target at phone width. Surfaced in the P1336 review.
+
+---
+
+## Feed VideoThumbnailCard uses 480px thumbnails (due: month)
+
+**ID:** INBOX-104
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+The feed's VideoThumbnailCard loads 480px thumbnails, which look soft on high-density screens. Surfaced in the P1336 review.
+
+---
+
+## Pulsating play button on all videos (idea) (due: month)
+
+**ID:** INBOX-105
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+Idea: a subtle pulsating play button on every video facade to signal it is playable. Surfaced in the P1336 review; validate before building.
+
+---
+
+## Readable research-programme page with "Copy for AI" (later task) (due: month)
+
+**ID:** INBOX-106
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+The research-programme link points at the GitHub doc. A readable product page with a "Copy for AI" action is a later separate task (out of P1336).
 
 ---

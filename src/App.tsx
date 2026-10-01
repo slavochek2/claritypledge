@@ -12,9 +12,13 @@ import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-ba
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
+import { OfflineStatusProvider, useConnectivity } from "@/app/contexts/offline-status-context";
+import { letterCodeRead } from "@/app/data/offline-reads-letters";
+import { OfflinePackPreloader } from "@/app/components/offline/offline-pack-preloader";
+import { readThrough } from "@/lib/offline-read-cache";
+import { NeedsConnection } from "@/app/components/offline/needs-connection";
+import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
-import { resolveLetterShortcode } from "@/app/data/letters-service";
-import { letterShortCodes } from "@/app/data/short-links";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
 const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
@@ -187,28 +191,44 @@ function ListReturnCacheAuthReset() {
 
 // P772: resolve shortcodes like /letter/st5 to the latest sealed delivery UUID
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FOUNDER_SLUG = "slava";
 
 export function LetterRoute() {
   const { id = "" } = useParams<{ id: string }>();
   const [resolved, setResolved] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // P1369 Scope v2: offline and never resolved on this device — needs-connection, not a spinner.
+  const [offlineMiss, setOfflineMiss] = useState(false);
+  const { reconnectTick } = useConnectivity();
+  const reconnectKey = offlineMiss ? reconnectTick : 0;
   const isUUID = UUID_RE.test(id);
 
   useEffect(() => {
     if (isUUID) return;
-    // P856: local aliases first (e.g. /letter/ck) — the RPC matches full doc titles only
-    const aliased = letterShortCodes[id.toLowerCase()];
-    if (aliased) {
-      setResolved(aliased);
-      return;
-    }
-    resolveLetterShortcode(id, FOUNDER_SLUG).then((uuid) => {
-      if (uuid) setResolved(uuid);
-      else setNotFound(true);
-    });
-  }, [id, isUUID]);
+    let cancelled = false;
+    // P856 local aliases first (e.g. /letter/ck), then the RPC (full doc titles only) — both in
+    // letterCodeRead, read through the offline cache so a resolved code works offline (P1369).
+    const r = letterCodeRead(id);
+    readThrough(r.type, r.id, r.fetch).then(
+      (read) => {
+        if (cancelled) return;
+        if (read.source === 'offline') setOfflineMiss(true);
+        else if (read.data) setResolved(read.data);
+        else setNotFound(true);
+      },
+      () => {
+        if (!cancelled) setNotFound(true);
+      },
+    );
+    return () => { cancelled = true; };
+  }, [id, isUUID, reconnectKey]);
 
+  if (!isUUID && !resolved && offlineMiss) {
+    return (
+      <ClarityLandingLayout surface="product" compact>
+        <NeedsConnection />
+      </ClarityLandingLayout>
+    );
+  }
   if (!isUUID && resolved) return <Navigate to={`/letter/${resolved}`} replace />;
   if (!isUUID && !notFound) return <ClarityPageLoader />;
   return (
@@ -252,25 +272,7 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBo
 
   render() {
     if (this.state.hasError && this.state.isChunkError) {
-      const isDev = import.meta.env.DEV;
-      return (
-        <div className="min-h-[50vh] flex flex-col items-center justify-center px-4 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            {isDev ? 'Module load failed' : 'New version available'}
-          </h2>
-          <p className="text-gray-600 mb-4">
-            {isDev
-              ? 'A dynamic import failed — check your dev server terminal for errors.'
-              : 'Please refresh to get the latest version.'}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Refresh Page
-          </button>
-        </div>
-      );
+      return <ChunkErrorFallback />;
     }
     // Re-throw original error to parent boundary, preserving stack trace for Sentry
     if (this.state.hasError && this.originalError) {
@@ -278,6 +280,50 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBo
     }
     return this.props.children;
   }
+}
+
+/**
+ * P1369: a failed code-split import has two causes, and they need opposite answers.
+ * A stale deploy (server reachable, the old chunk is gone) → "New version available", reload.
+ * No connection (a page whose code was never downloaded, opened offline) → the needs-connection
+ * body; "Refresh" would only loop offline, which is exactly what the offline invariant forbids.
+ */
+function ChunkErrorFallback() {
+  const [reachable, setReachable] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void isAppServerReachable().then((ok) => {
+      if (!cancelled) setReachable(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (reachable === null) return <PageLoader />;
+  if (!reachable) return <NeedsConnection />;
+  return <StaleChunkPrompt />;
+}
+
+function StaleChunkPrompt() {
+  const isDev = import.meta.env.DEV;
+  return (
+    <div className="min-h-[50vh] flex flex-col items-center justify-center px-4 text-center">
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        {isDev ? 'Module load failed' : 'New version available'}
+      </h2>
+      <p className="text-gray-600 mb-4">
+        {isDev
+          ? 'A dynamic import failed — check your dev server terminal for errors.'
+          : 'Please refresh to get the latest version.'}
+      </p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+      >
+        Refresh Page
+      </button>
+    </div>
+  );
 }
 
 // Helper component for lazy routes with chunk error handling.
@@ -325,6 +371,7 @@ export default function ClarityPledgeApp() {
     <Router>
       <ScrollToTop />
       <PwaInstallProvider>
+      <OfflineStatusProvider>
       <AuthProvider>
       {/* P1307 Decision 7: the single owner of room transcription capture, above the route
           table so no route change tears it down; inside auth (it stops on any auth change)
@@ -334,6 +381,7 @@ export default function ClarityPledgeApp() {
       <RoomCaptureProvider>
       <RoomCaptureBarFallback />
       <ListReturnCacheAuthReset />
+      <OfflinePackPreloader />
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>
@@ -1057,6 +1105,7 @@ export default function ClarityPledgeApp() {
       </AgentAccountsProvider>
       </RoomCaptureProvider>
       </AuthProvider>
+      </OfflineStatusProvider>
       </PwaInstallProvider>
     </Router>
     </Sentry.ErrorBoundary>

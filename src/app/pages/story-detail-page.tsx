@@ -46,6 +46,11 @@ import {
 } from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
 import { uploadStoryImage } from '@/app/data/story-image-service';
+import { readThrough } from '@/lib/offline-read-cache';
+import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
+import { useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, ContentVisibility } from '@/app/types';
@@ -104,6 +109,7 @@ function AddPointForm({
   const [isAdding, setIsAdding] = useState(false);
   const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; tags: string[]; visibility?: ContentVisibility } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const canWrite = useOnlineWriteGuard();
 
   useEffect(() => {
     if (autoFocus && textareaRef.current) {
@@ -120,6 +126,7 @@ function AddPointForm({
 
   const handleRetryLink = async () => {
     if (!orphanPoint) return;
+    if (!canWrite()) return;
 
     setIsAdding(true);
     try {
@@ -163,6 +170,7 @@ function AddPointForm({
   const handleAdd = async () => {
     const trimmed = statement.trim();
     if (!trimmed || isAdding) return;
+    if (!canWrite()) return;
 
     setIsAdding(true);
     try {
@@ -594,9 +602,26 @@ export function StoryDetailPage() {
   const [addPointTrigger, setAddPointTrigger] = useState(0);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<'not_found' | 'private' | 'network_error' | null>(null);
+  const [error, setError] = useState<'not_found' | 'private' | 'network_error' | 'offline' | null>(null);
   const [story, setStory] = useState<StoryWithPoints | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  // P1369: when the story (or its position data) came from the offline read cache, its storedAt —
+  // reported to the offline strip, which shows the OLDEST age on the page.
+  const [storyCachedAt, setStoryCachedAt] = useState<number | null>(null);
+  const [extrasCachedAt, setExtrasCachedAt] = useState<number | null>(null);
+  const { offline, reconnectTick } = useConnectivity();
+  const pageCachedAt =
+    storyCachedAt === null && extrasCachedAt === null
+      ? null
+      : Math.min(storyCachedAt ?? Infinity, extrasCachedAt ?? Infinity);
+  useOfflinePageReport(pageCachedAt === null ? null : { kind: 'cached', storedAt: pageCachedAt });
+  const canWrite = useOnlineWriteGuard(pageCachedAt !== null);
+  // Waiting for auth is how the page knows the viewer before it reads. Offline with an expired
+  // token, auth sits ~25 s retrying the refresh — so once a request has failed, read without it
+  // (the cache is keyed by the stored session, not by this context).
+  const authGateOpen = !authLoading || offline;
+  // Re-read on reconnect only when what is on screen is not live.
+  const reconnectKey = pageCachedAt !== null || error === 'offline' ? reconnectTick : 0;
   const hasTrackedView = useRef(false);
 
   // P132: Position data state
@@ -663,6 +688,7 @@ export function StoryDetailPage() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     async function loadStory() {
       if (!id) {
         setError('not_found');
@@ -672,7 +698,17 @@ export function StoryDetailPage() {
 
       // Resolve slug (e.g. "st1", "st7") to UUID, or use id directly
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      const storyId = isUuid ? id : await resolveStorySlug(id);
+      let storyId: string | null = id;
+      if (!isUuid) {
+        const slug = await readThrough('story-slug', id, () => resolveStorySlug(id));
+        if (cancelled) return;
+        if (slug.source === 'offline') {
+          setError('offline');
+          setLoading(false);
+          return;
+        }
+        storyId = slug.data;
+      }
 
       if (!storyId) {
         setError('not_found');
@@ -686,17 +722,27 @@ export function StoryDetailPage() {
         return;
       }
 
-      // Wait for auth to settle before checking visibility
-      if (authLoading) return;
+      // Wait for auth to settle before checking visibility (see authGateOpen)
+      if (!authGateOpen) return;
 
       // Reset state for re-fetches (e.g., when user?.id changes)
       setError(null);
       setLoading(true);
       setStory(null);
+      setStoryCachedAt(null);
+      setExtrasCachedAt(null);
 
       try {
-        const data = await storiesService.getStoryWithPoints(storyId);
+        // P1369: network first; the offline read cache answers only when the network did not.
+        const read = await readThrough('story', storyId, () => storiesService.getStoryWithPoints(storyId));
+        if (cancelled) return;
 
+        if (read.source === 'offline') {
+          setError('offline');
+          setLoading(false);
+          return;
+        }
+        const data = read.data;
         if (!data) {
           setError('not_found');
           setLoading(false);
@@ -704,10 +750,11 @@ export function StoryDetailPage() {
         }
 
         setStory(data);
+        setStoryCachedAt(read.source === 'cache' ? read.storedAt : null);
         setLoading(false);
 
         // Track view
-        if (!hasTrackedView.current) {
+        if (read.source === 'network' && !hasTrackedView.current) {
           hasTrackedView.current = true;
           analytics.track('story_viewed', {
             story_id: data.id,
@@ -723,15 +770,22 @@ export function StoryDetailPage() {
             const pointIds = data.points.map(p => p.id);
             const viewerIsAuthor = user?.id === data.authorId;
 
-            // Batch fetch position data + other stories for each point
-            const [counts, positions, authorPositions, linkedStories] = await Promise.all([
-              pointsService.getPositionCountsForPoints(pointIds),
-              user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map()),
-              // Always fetch story author's positions for display badges (independent of viewer)
-              pointsService.getMyPositionsForPoints(pointIds, data.authorId),
-              // Fetch other public stories these points appear in (exclude current story)
-              storiesService.getStoriesForPoints(pointIds, data.id),
-            ]);
+            // Batch fetch position data + other stories for each point. P1369: read through the
+            // offline cache too, so an offline copy shows the counts that were last seen.
+            const extras = await readThrough('story-extras', `${data.id}:${user?.id ?? '-'}`, async () => {
+              const [counts, positions, authorPositions, linkedStories] = await Promise.all([
+                pointsService.getPositionCountsForPoints(pointIds),
+                user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map<string, PointPosition>()),
+                // Always fetch story author's positions for display badges (independent of viewer)
+                pointsService.getMyPositionsForPoints(pointIds, data.authorId),
+                // Fetch other public stories these points appear in (exclude current story)
+                storiesService.getStoriesForPoints(pointIds, data.id),
+              ]);
+              return { counts, positions, authorPositions, linkedStories };
+            });
+            if (cancelled || extras.source === 'offline' || !extras.data) return;
+            const { counts, positions, authorPositions, linkedStories } = extras.data;
+            setExtrasCachedAt(extras.source === 'cache' ? extras.storedAt : null);
 
             setPositionCounts(counts);
             setUserPositions(positions);
@@ -744,6 +798,7 @@ export function StoryDetailPage() {
           }
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Error loading story:', err);
         setError('network_error');
         setLoading(false);
@@ -751,7 +806,10 @@ export function StoryDetailPage() {
     }
 
     loadStory();
-  }, [id, retryKey, user?.id, authLoading, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, retryKey, user?.id, authGateOpen, reconnectKey, navigate]);
 
   /**
    * P1364 (D3, supersedes decisions.md 2026-02-22 for story detail): Back returns to the page the
@@ -810,6 +868,7 @@ export function StoryDetailPage() {
   // P616: Unlink point confirm handler
   const handleUnlinkConfirm = useCallback(async () => {
     if (!story || !unlinkTargetPoint) return;
+    if (!canWrite()) return;
     setIsUnlinking(true);
     try {
       const ok = await storiesService.unlinkPointFromStory(story.id, unlinkTargetPoint.id);
@@ -835,7 +894,7 @@ export function StoryDetailPage() {
       setIsUnlinking(false);
       setUnlinkTargetPoint(null);
     }
-  }, [story, unlinkTargetPoint]);
+  }, [story, unlinkTargetPoint, canWrite]);
 
   // P427: Edit handlers
   const handleEditStart = useCallback(() => {
@@ -851,6 +910,7 @@ export function StoryDetailPage() {
 
   const handleSave = useCallback(async () => {
     if (!story || !editContent.trim()) return;
+    if (!canWrite()) return;
     setIsSaving(true);
     try {
       const updated = await storiesService.updateStory(story.id, { content: editContent, tags: extractHashtags(editContent) });
@@ -869,7 +929,7 @@ export function StoryDetailPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [story, editContent]);
+  }, [story, editContent, canWrite]);
 
   // P427: Delete handlers
   const handleDeleteCancel = useCallback(() => {
@@ -879,6 +939,7 @@ export function StoryDetailPage() {
 
   const handleDelete = useCallback(async () => {
     if (!story) return;
+    if (!canWrite()) return;
     setIsDeleting(true);
     const authorSlug = story.authorSlug;
     try {
@@ -896,7 +957,7 @@ export function StoryDetailPage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [story, navigate]);
+  }, [story, navigate, canWrite]);
 
   // P591: Image handlers (author only)
   const handleChangeImage = useCallback(() => {
@@ -905,6 +966,7 @@ export function StoryDetailPage() {
 
   const handleRemoveImage = useCallback(async () => {
     if (!story) return;
+    if (!canWrite()) return;
     const previousUrl = story.imageUrl;
     // Optimistic update
     setStory(prev => prev ? { ...prev, imageUrl: undefined } : prev);
@@ -927,13 +989,14 @@ export function StoryDetailPage() {
       setStory(prev => prev ? { ...prev, imageUrl: previousUrl } : prev);
       toast.error('Failed to remove image. Please try again.');
     }
-  }, [story]);
+  }, [story, canWrite]);
 
   const handleImageFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset input so the same file can be re-selected
     if (imageInputRef.current) imageInputRef.current.value = '';
     if (!file || !story || !session?.access_token) return;
+    if (!canWrite()) return;
 
     try {
       const publicUrl = await uploadStoryImage(story.id, file, session.access_token);
@@ -949,7 +1012,7 @@ export function StoryDetailPage() {
         toast.error('Failed to upload image. Please try again.');
       }
     }
-  }, [story, session?.access_token]);
+  }, [story, session?.access_token, canWrite]);
 
   // P427: Navigation guard — intercept browser back when edit mode is dirty.
   // BrowserRouter doesn't support useBlocker; use popstate + history.pushState instead.
@@ -1007,6 +1070,7 @@ export function StoryDetailPage() {
     // P396: checkVerified handles both unauthenticated (toast) and authenticated paths
     if (!checkVerified('set a position on this point')) return;
     if (!user?.id) return;
+    if (!canWrite()) return;
 
     const isTogglingOff = userPositions.get(pointId)?.position === position;
 
@@ -1016,7 +1080,10 @@ export function StoryDetailPage() {
       return;
     }
 
-    // Optimistic update for setting a new position
+    // Optimistic update for setting a new position. P1369: remember what it replaces, so a write
+    // that never reached the server can put it back without another request (offline, a
+    // re-fetch fails too and would leave the optimistic vote on screen as if it were saved).
+    const previous = userPositions.get(pointId);
     setUserPositions(prev => {
       const updated = new Map(prev);
       const current = updated.get(pointId);
@@ -1031,6 +1098,7 @@ export function StoryDetailPage() {
       return updated;
     });
 
+    const sentAt = networkMark();
     try {
       await pointsService.setPosition(pointId, user.id, position);
 
@@ -1046,24 +1114,17 @@ export function StoryDetailPage() {
     } catch (error) {
       console.error('Failed to save position:', error);
 
-      // Revert optimistic update by re-fetching the correct state
-      if (user?.id) {
-        try {
-          const positions = await pointsService.getMyPositionsForPoints([pointId], user.id);
-          setUserPositions(prev => new Map([...prev, ...positions]));
-        } catch (fetchError) {
-          console.error('Failed to revert position:', fetchError);
-          setUserPositions(prev => {
-            const updated = new Map(prev);
-            updated.delete(pointId);
-            return updated;
-          });
-        }
-      }
+      // Revert the optimistic update to what was there before the write.
+      setUserPositions(prev => {
+        const updated = new Map(prev);
+        if (previous) updated.set(pointId, previous);
+        else updated.delete(pointId);
+        return updated;
+      });
 
-      toast.error('Failed to save position. Please try again.');
+      toast.error(writeFailureMessage(error, 'Failed to save position. Please try again.', sentAt));
     }
-  }, [user?.id, checkVerified, story?.id, userPositions, guardedRemovePosition]);
+  }, [user?.id, checkVerified, story?.id, userPositions, guardedRemovePosition, canWrite]);
 
   // Loading skeleton
   if (loading) {
@@ -1088,6 +1149,16 @@ export function StoryDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // P1369: offline and never read on this device — the needs-connection body, not "not found".
+  if (error === 'offline') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <FocusHeader onBack={handleBack} />
+        <NeedsConnection onRetry={handleRetry} />
       </div>
     );
   }

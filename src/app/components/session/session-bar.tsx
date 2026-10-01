@@ -1,6 +1,7 @@
 /**
  * @file session-bar.tsx
- * @description P1307 D7: the ONE cross-page session bar, presentational. Props only — no
+ * @description P1307 D7: the ONE cross-page session bar, presentational. P1369 adds its offline
+ * state as a `tone`, not as a second component (the spec: "actions become optional"). Props only — no
  * context, no data fetching — so the /live session and room transcription render the same
  * bar from two thin wrappers (live-session-bar.tsx, room-capture-bar.tsx) instead of two
  * look-alike components drifting apart.
@@ -19,66 +20,106 @@ export interface SessionBarAction {
 
 export interface SessionBarProps {
   text: ReactNode;
-  /** The primary (blue) action — Rejoin / Open. */
-  primary: SessionBarAction;
-  /** The secondary (destructive text) action — End session. */
-  secondary: SessionBarAction;
+  /** The primary (blue) action — Rejoin / Open. Optional: the offline state may have none. */
+  primary?: SessionBarAction;
+  /** The secondary (destructive text) action — End session / Stop microphone. Optional. */
+  secondary?: SessionBarAction;
   ariaLabel: string;
   testId?: string;
   /** The pulsing dot before the text. Off when the text carries its own "●" (UI Contract). */
   showDot?: boolean;
+  /**
+   * P1369 (variant C): `offline` is this SAME bar's offline state — grey, a title plus one line
+   * (`detail`), and only the actions that still work without a connection. It REPLACES the
+   * normal bar while offline (never stacked; P1307 D7 requires one bar).
+   */
+  tone?: 'live' | 'offline';
+  /** The offline state's second line, under the text. */
+  detail?: ReactNode;
 }
 
-export function SessionBar({ text, primary, secondary, ariaLabel, testId, showDot = true }: SessionBarProps) {
+const END_BUTTON_CLASS =
+  'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg h-9 px-3 transition-colors disabled:opacity-50 sm:ml-0 ml-auto';
+
+export function SessionBar({
+  text,
+  primary,
+  secondary,
+  ariaLabel,
+  testId,
+  showDot = true,
+  tone = 'live',
+  detail,
+}: SessionBarProps) {
+  const offline = tone === 'offline';
+  const hasActions = !!primary || !!secondary;
   return (
     <div
       role="status"
       aria-live="polite"
       aria-label={ariaLabel}
-      data-testid={testId}
-      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2"
+      // Offline keeps the ids the offline state has always had, so tests and callers can tell the two apart.
+      data-testid={offline ? (testId ? `${testId}-offline` : 'session-bar-offline') : testId}
+      className={
+        offline
+          ? 'relative z-40 bg-slate-100 border-b border-slate-200 px-4 py-2'
+          : 'relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2'
+      }
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-        <div className="flex items-center gap-2">
-          {showDot && (
-            <span
-              aria-hidden="true"
-              className="inline-block h-2 w-2 rounded-full bg-blue-500 motion-safe:animate-pulse motion-reduce:animate-none"
-            />
-          )}
-          <span className="text-sm font-medium text-blue-900">{text}</span>
-        </div>
+        {offline ? (
+          <div>
+            <div className="text-sm font-medium text-slate-800">{text}</div>
+            {detail && <div className="text-xs text-slate-600">{detail}</div>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            {showDot && (
+              <span
+                aria-hidden="true"
+                className="inline-block h-2 w-2 rounded-full bg-blue-500 motion-safe:animate-pulse motion-reduce:animate-none"
+              />
+            )}
+            <span className="text-sm font-medium text-blue-900">{text}</span>
+          </div>
+        )}
 
-        <div className="flex items-center gap-4 sm:flex-row">
-          <button
-            type="button"
-            onClick={primary.onClick}
-            disabled={primary.disabled}
-            data-testid={primary.testId}
-            className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
-            {primary.label}
-          </button>
-          {/* P1323 R7: ONE End treatment across all four controls. This was the only one
-              red AT REST, and it is the one that persists on every page for the whole
-              session, immediately beside a blue primary — which is where destructive-red is
-              wrong. Red at the MOMENT OF ACTION is right, so it moves to hover and focus.
-              The other three (/live's in-session banner, /transcribe's header) already
-              shared exactly this: neutral at rest, destructive on hover, LogOut icon, h-9.
-              This reaches BOTH SessionBar consumers on purpose — the room-capture bar and
-              ActiveSessionBanner (the cross-page /live bar). Parameterising so only one
-              changed would invent the fourth treatment this requirement exists to remove. */}
-          <button
-            type="button"
-            onClick={secondary.onClick}
-            disabled={secondary.disabled}
-            data-testid={secondary.testId}
-            className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg h-9 px-3 transition-colors disabled:opacity-50 sm:ml-0 ml-auto"
-          >
-            <LogOut className="h-4 w-4" />
-            {secondary.label}
-          </button>
-        </div>
+        {hasActions && (
+          <div className="flex items-center gap-4 sm:flex-row">
+            {primary && (
+              <button
+                type="button"
+                onClick={primary.onClick}
+                disabled={primary.disabled}
+                data-testid={primary.testId}
+                className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors disabled:opacity-50"
+              >
+                {primary.label}
+              </button>
+            )}
+            {/* P1323 R7: ONE End treatment across all four controls. This was the only one
+                red AT REST, and it is the one that persists on every page for the whole
+                session, immediately beside a blue primary — which is where destructive-red is
+                wrong. Red at the MOMENT OF ACTION is right, so it moves to hover and focus.
+                The other three (/live's in-session banner, /transcribe's header) already
+                shared exactly this: neutral at rest, destructive on hover, LogOut icon, h-9.
+                This reaches BOTH SessionBar consumers on purpose — the room-capture bar and
+                ActiveSessionBanner (the cross-page /live bar). Parameterising so only one
+                changed would invent the fourth treatment this requirement exists to remove. */}
+            {secondary && (
+              <button
+                type="button"
+                onClick={secondary.onClick}
+                disabled={secondary.disabled}
+                data-testid={secondary.testId}
+                className={END_BUTTON_CLASS}
+              >
+                <LogOut className="h-4 w-4" />
+                {secondary.label}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

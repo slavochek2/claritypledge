@@ -31,6 +31,8 @@ import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useAuth } from '@/auth';
 import { cn } from '@/lib/utils';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 
@@ -44,11 +46,14 @@ const POLE_LABELS = { low: 'Stay on the surface', high: 'Go deep' };
 const DISTRIBUTION_LABEL = 'How up for thinking others in this room are right now';
 
 export function EventRoomReady() {
-  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
+  const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const navigate = useNavigate();
   const { user } = useAuth();
   const capture = useRoomCapture();
+  // P1369 (founder, 2026-09-30): the event-room check-in is live presence — offline it shows the
+  // last-seen state with the strip, or needs-connection when nothing was stored.
+  const { offline } = useConnectivity();
 
   // P1307 D12: the switch starts OFF — tapping it on is the consent (a pre-ticked switch
   // followed by Continue is not valid consent: Planet49, C-673/17; GDPR Recital 32). If this
@@ -132,6 +137,10 @@ export function EventRoomReady() {
   }, [starting, self, value, refresh, transcribeOn, event, beingTranscribed, capture, user, navigate, slug]);
 
   if (loading || (granted && selfLoading)) return null;
+  if (accessOffline) return <NeedsConnection />;
+  // P1369 Scope v2: the check-in shows its last-seen state with the strip; needs-connection only
+  // when nothing was stored.
+  if (offline && !self) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   const isFrozen = event

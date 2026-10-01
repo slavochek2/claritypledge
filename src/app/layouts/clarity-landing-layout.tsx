@@ -5,7 +5,8 @@ import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
-import { OfflineBanner } from "@/app/components/offline-banner";
+import { OfflineStrip } from "@/app/components/offline/offline-strip";
+import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
 import { ActiveSessionBanner } from "@/app/components/session/active-session-banner";
 import { RoomCaptureBarSlot } from "@/app/components/session/room-capture-bar";
 import { Toaster } from "@/components/ui/sonner";
@@ -70,7 +71,7 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
   if (chromeFree) {
     return (
       <LiveSessionProvider>
-        <OfflineBanner />
+        <OfflineStrip />
         <main className="min-h-screen bg-background text-foreground">
           {children}
         </main>
@@ -99,6 +100,9 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const { hasActiveSession } = useActiveSession();
   // P1307 D9: the room transcription bar takes the same in-flow slot as the /live bar.
   const { barVisible: roomBarVisible } = useRoomCapture();
+  // P1369: the strip is in flow above the fixed nav and carries the status-bar inset, so
+  // while it shows <main> only has to clear the nav row itself.
+  const offlineStripShown = useOfflineStripShown();
 
   const isLandingPage = location.pathname === "/";
   // P987: routes whose hero carries its OWN nav offset (pt-24 lg:pt-28) and sizes itself
@@ -188,14 +192,14 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
      */
     <EventLinksMenu enabled={surface === 'product' || showUserMenu}>
     <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
-      <OfflineBanner />
+      <OfflineStrip />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
           on Android/desktop where the inset is 0. */}
-      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+      <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe

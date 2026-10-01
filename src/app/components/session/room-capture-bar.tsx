@@ -10,9 +10,10 @@
  * and idle render nothing: during a pause nothing is captured, so the absence of a bar is the
  * truth, and D3/D13 ask for no "paused" message.
  */
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing']);
 
@@ -22,10 +23,55 @@ const RUNNING_TEXT = '● Transcribing for AI insights';
  *  with it and confirm at /verify. */
 const STALLED_TEXT = '● Live text has stalled — your words are still being recorded.';
 
+/**
+ * P1369 — the offline state. Capture behaviour when the network drops was VERIFIED by reading
+ * room-capture-context.tsx before writing this copy (the spec's blocking prerequisite): the
+ * microphone keeps running (nothing stops capture on a network error), live-text slices fail and
+ * the phase goes to `stalled`, and each 30 s archive chunk is retried 3 times (at 0 s, +2 s, +4 s)
+ * and then DROPPED; there is no local persistence of those chunks. So words said while offline
+ * may not be saved — the prototype's "will sync" line would be false. The bar must still say
+ * transcription is running (P1307 D9).
+ *
+ * It keeps ONE control, a local "Stop microphone" (spec 2026-09-30, review A1): endMyCapture
+ * releases the microphone before any server call (stopMedia runs first, synchronously; the tail
+ * upload and the End RPC come after), so it works offline — pinned by
+ * p1369-offline-stop-mic.test.tsx. Open needs the server and is not offered.
+ * [FOUNDER DECISION: copy — PROPOSED, spec UI Contract]
+ */
+const OFFLINE_TEXT = '● Transcribing, but offline';
+const OFFLINE_DETAIL = 'Words said while offline may not be saved.';
+const OFFLINE_STOP = 'Stop microphone';
+const OFFLINE_STOPPING = 'Stopping…';
+
 export function RoomCaptureBar() {
   const { phase, roomId, open, endMyCapture } = useRoomCapture();
+  const { offline } = useConnectivity();
+  // Offline, the End RPC fails or hangs after the microphone is already off; until it settles the
+  // phase does not change, so the button says the stop is under way instead of inviting a retap.
+  const [stopping, setStopping] = useState(false);
 
   if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
+
+  if (offline) {
+    return (
+      <SessionBar
+        tone="offline"
+        testId="room-capture-bar"
+        ariaLabel="Room transcription active"
+        text={OFFLINE_TEXT}
+        detail={OFFLINE_DETAIL}
+        secondary={{
+          label: stopping ? OFFLINE_STOPPING : OFFLINE_STOP,
+          disabled: stopping,
+          testId: 'room-capture-bar-stop',
+          onClick: () => {
+            setStopping(true);
+            void Promise.resolve(endMyCapture(roomId)).finally(() => setStopping(false));
+          },
+        }}
+      />
+    );
+  }
 
   return (
     <SessionBar

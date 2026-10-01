@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
+import { NeedsConnection } from '@/app/components/offline/needs-connection';
 
 const GATE_HEADING = 'This is for people coming to the event';
 const GATE_BODY =
@@ -65,11 +66,13 @@ export function EventRoomGateScreen({
 }
 
 export function EventRoomGate() {
-  const { slug, event, loading, granted, isLoggedIn } = useEventRoomAccess();
+  const { slug, event, loading, granted, isLoggedIn, offline } = useEventRoomAccess();
   const { loading: selfLoading } = useEventRoomSelf(event, granted);
   const { isCapturingForEvent } = useRoomCapture();
 
   if (loading || (granted && selfLoading)) return null;
+  // P1369 Scope v2: never visited here and no network — not the register wall.
+  if (offline) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
   // P1307 D10: everyone passes the ready screen, so everyone is offered the transcription

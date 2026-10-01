@@ -244,6 +244,7 @@ export function MeetingTermsPage() {
   // Restore in an effect rather than a lazy initializer so the first paint matches
   // the prerendered HTML.
   const [restored, setRestored] = useState(false);
+  // P1369 (founder, 2026-09-30): /meet has no backend and works fully offline — no gate.
 
   useEffect(() => {
     const stored = readStored();
@@ -328,6 +329,7 @@ export function MeetingTermsPage() {
   // number; `in meeting` is P1016's accepted state, unchanged.
   const step: "choosing" | "rating" | "meeting" =
     accepted ? "meeting" : answer === null ? "choosing" : "rating";
+
 
   return (
     <div

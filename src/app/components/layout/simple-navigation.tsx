@@ -32,6 +32,7 @@ import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 import { useTonightsEvent } from "@/app/hooks/useTonightsEvent";
+import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -225,6 +226,12 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // P1369: the offline strip sits above the nav and carries the iOS status-bar inset itself,
+  // so while it shows the fixed nav starts below it instead of at the top.
+  const offlineStripShown = useOfflineStripShown();
+  const navTopClass = offlineStripShown
+    ? "top-[calc(1.75rem+env(safe-area-inset-top))]"
+    : "top-0 pt-[env(safe-area-inset-top)]";
 
   // KISS: Only two states - verified user or everyone else
   // Note: showPublicCTAs, slug, hasPledged handled by NavigationMenuItems (shared component)
@@ -406,7 +413,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   if (logoOnly) {
     return (
       <nav
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm pt-[env(safe-area-inset-top)]"
+        className={`fixed ${navTopClass} left-0 right-0 z-50 bg-background/80 backdrop-blur-sm`}
       >
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center h-16 lg:h-20">
@@ -441,7 +448,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
     // buttons render null with no context, exactly as they did off a Links route before.
     <nav
       data-nav="main"
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 pt-[env(safe-area-inset-top)] ${
+      className={`fixed ${navTopClass} left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
           ? "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
           : "bg-background/80 backdrop-blur-sm"

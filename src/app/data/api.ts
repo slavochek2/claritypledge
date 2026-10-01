@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { holdRoomCode } from '@/lib/room-capability';
+import { clearOfflineReadCacheWithin } from '@/lib/offline-read-cache';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
 import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
@@ -519,11 +520,19 @@ export async function getCurrentUser(): Promise<Profile | null> {
   return getProfile(user.id);
 }
 
+/** P1369: longest a sign-out waits for the offline read cache to clear. */
+const SIGN_OUT_CACHE_CLEAR_BOUND_MS = 2_000;
+
 /**
  * Signs the current user out of the application.
  * @returns {Promise<void>}
  */
 export async function signOut(options: { scope?: 'global' | 'local' } = {}) {
+  // P1369: the offline read cache goes FIRST — before the network sign-out, which can hang or
+  // fail offline — so no path out of here leaves the previous person's rows readable. Bounded:
+  // a wedged IndexedDB must not hold the sign-out (the clear keeps running, and the next person's
+  // reads are keyed by their own owner either way).
+  await clearOfflineReadCacheWithin(SIGN_OUT_CACHE_CLEAR_BOUND_MS);
   await supabase.auth.signOut(options.scope ? { scope: options.scope } : undefined);
 }
 

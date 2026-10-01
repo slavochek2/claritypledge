@@ -692,6 +692,11 @@ function QuotedPoint({
     setLocalPosition(newPosition);
     if (onPositionClick) {
       await onPositionClick(point.id, position);
+      // P1369: the parent owns the truth. Once its handler has settled, its userPositions says
+      // what was saved (updated on success, restored on failure, untouched when a guard blocked
+      // the write — offline, not signed in). Keeping the override past that point left a vote
+      // that never reached the server looking selected.
+      setLocalPosition(null);
     }
   };
 

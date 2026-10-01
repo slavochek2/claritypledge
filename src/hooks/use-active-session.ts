@@ -6,6 +6,7 @@ import {
 } from '@/app/contexts/live-session-context';
 import { getActiveSessionByCode, subscribeToClaritySession } from '@/app/data/api';
 import type { ClaritySession } from '@/app/types';
+import { isSupabaseUnreachable, networkFailureCount } from '@/lib/network-outcome';
 
 /** Poll interval for checking if session is still active (30s) */
 const POLL_INTERVAL_MS = 30 * 1000;
@@ -54,7 +55,18 @@ export function useActiveSession() {
     try {
       // getActiveSessionByCode checks live_state.sessionEnded and grace period.
       // Returns null when session is ended, expired, or not found.
+      const failuresBefore = networkFailureCount();
       const session = await getActiveSessionByCode(stored.code);
+
+      // P1369: getActiveSessionByCode also returns null when the request never reached the
+      // server, so the catch below ("assume still active on network failure") could not fire
+      // and every offline load deleted the rejoin pointer. A null that came with a failed
+      // request is the network, not the session: keep the pointer and show the bar (which
+      // renders its offline state).
+      if (!session && networkFailureCount() > failuresBefore && isSupabaseUnreachable()) {
+        setActiveSession(stored.code, stored.partnerName, stored.role, stored.guestDisplayName);
+        return true;
+      }
 
       if (session) {
         // Session is still active — restore/keep context and capture ID for Realtime

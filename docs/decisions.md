@@ -6,6 +6,35 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-01 [product]: P1336 preparation — activation, scope, and what stays fixed
+
+**Context:** Closing the P1336 prototype rounds; settles what is per-event and what stays fixed.
+**Decision:**
+- Core first: the starting-soon email and sign-in redirect split to P1380. Registration stays immediate.
+- Preparation is a per-event on/off switch, defaulted by series (Clarity Night on, hikes off). The event's statement tag drives only the positions step; expert names derive from the tag's story authors.
+- Social-proof counts sum across the series' past events + this one. Any host may enable prep, reusing the founder's videos.
+- No waitlist: volunteer places floored at 1, overbooking accepted. Research transcript access is company-only, never hosts.
+- Room gate skip has no dialog, just one muted consequence line.
+**Alternatives rejected:** variant C (prep question before registering): a double question with no context. Per-host videos: no second host yet.
+**Consequences:** spec updated with per-event setup and confirmation states. **UNTESTED.** Falsifier: at Clarity Night #2 most registrants skip prep, or a second host asks for own videos.
+**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md) · [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
+
+---
+
+## 2026-10-01 [process]: P1369 fix phase — a request storm no test caught, a ship gate that read the wrong branch, and the `tsc -p .` trap a fifth time
+
+**Context:** Hardening P1369 (offline pages) after the `/architect` A/B: three fix passes, a 3-model pre-ship review, `/finish`, then `/ship`.
+**Decision:** Four rules, each from a failure observed this session:
+1. **Retry/reconnect/pre-load code needs a request-VOLUME assertion, not only behaviour assertions.** A fix pass turned a partial failure (one request failing, siblings succeeding) into ~250 Supabase requests/s; all 23 behaviour tests stayed green. It was seen only because a probe happened to print an abort count. Now a regression test asserts ≤20 requests in 15s for that scenario.
+2. **Never leave two `feature/pN-*` branches alive.** `ship-gates.sh` resolved P1369 to the benchmark's losing arm and reported its 15 unticked boxes. Benchmark arms are now renamed to `bench/*` (non-destructive) so the ship lookup sees one branch.
+3. **A "stalled" agent may still be running — check the worktree before launching a replacement.** A watchdog reported a fixer stalled; a replacement was started; both ran full Playwright suites in the same worktree (shared port, build pointer, `test-results/`) and corrupted each other's runs. Check `ps` for test processes in that worktree first; prefer resuming the original (SendMessage) over a second agent.
+4. **`tsc --noEmit -p .` checks nothing here (root `tsconfig.json` has `files: []`) — fifth recorded occurrence.** The benchmark's landability row reported "tsc 0 errors" for both arms from that command; the real check (`-p tsconfig.app.json`, baseline 1091) later showed the branch had added 8 errors, now fixed. The rule exists four times in this log and was still not applied — a mechanical guard (e.g. make `tsc -p .` fail loudly, or alias the script) would beat a fifth entry.
+**Alternatives rejected:** Treating the storm as a one-off (it came from a correct-looking fix for a confirmed defect — the most likely place for it to recur).
+**Consequences:** `.private/docs/bench-p1369-architect-ab.md` landability row corrected in its post-benchmark section; P1369 regression suite carries the volume assertion. Item 4's mechanical guard is unfiled follow-up work. (Status: proposed)
+**References:** this log 2026-06-22 [technical] "Real typecheck is `tsc -p tsconfig.app.json`" · 2026-09-30 [process] P1369 /architect A/B · `e2e/offline/p1369-regressions.spec.ts` (no request storm)
+
+---
+
 ## 2026-09-30 [technical]: Env files hold no credential that can change prod — test tokens are project-scoped, prod tokens live only in the keychain, and account-wide Supabase tokens are retired (P1318)
 
 **Context:** P1318's measured week, read from the keychain request log rather than re-run: 22 locked reads in ~8 days (~20/week, twice the pre-registered stop-number of ~10) — the locked path works in real use, and the count is driven by event sessions re-reading the same key. Meanwhile a session read a critical key straight from `.env.local`, which nothing prevented because every locked key still had a plaintext copy. A read-only probe then showed the "test" management token in `.env.local` was account-wide: it returned 200 on the prod project (bogus-token control: 401).
