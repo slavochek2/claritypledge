@@ -94,6 +94,7 @@ const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => (
 const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/EventRoomGate").then(m => ({ default: m.EventRoomGate })));
 const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
 const EventPrepPage = lazy(() => import("@/app/prototypes/events/prep/EventPrepPage").then(m => ({ default: m.EventPrepPage })));
+const EventArrivingPage = lazy(() => import("@/app/prototypes/events/arrival/EventArrivingPage").then(m => ({ default: m.EventArrivingPage })));
 const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
 const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
@@ -1098,6 +1099,8 @@ export default function ClarityPledgeApp() {
         {/* P1336: the preparation carries its own header and bars, like a letter: immersive while
             in progress (immersive-letter-route.ts), app menus back on the end screen (?done=1). */}
         <Route path="/events/:slug/prepare" element={<ClarityLandingLayout surface="product"><LazyRoute><EventPrepPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1380: "See you soon" — behind Not yet in the starting-soon email and the room's arrival question. */}
+        <Route path="/events/:slug/arriving" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventArrivingPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
         <Route path="/events/*" element={<ClarityLandingLayout surface="product"><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />

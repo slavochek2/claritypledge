@@ -84,6 +84,14 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 401, expectCors: false },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1380: deployed --no-verify-jwt (opened from an inbox; the hashed ticket is the
+  // credential). GET/HEAD only — OPTIONS and POST hit the handler's own method guard, which
+  // is both the boot proof and the refusal. Recorded from the handler code, not yet from a
+  // prod response: confirm on the first post-deploy smoke.
+  'event-email-link': {
+    options: { status: 405, expectCors: false },
+    deny: { status: 405, bodyIncludes: 'Method not allowed' },
+  },
   // No OPTIONS branch either: the handler's method guard answers 405 first.
   //
   // ⚠ The deny status below records a state that looks WRONG for this function's real

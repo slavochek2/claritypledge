@@ -17,6 +17,7 @@ import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/components/agre
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomGate, useRoomPrepGate } from '../prep/PrepRoom';
+import { ArrivalQuestion, useArrivalGate } from '../arrival/ArrivalGate';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 
 const GATE_HEADING = 'This is for people coming to the event';
@@ -73,8 +74,12 @@ export function EventRoomGate() {
   // gate is decided BEFORE useEventRoomSelf runs, because that hook joins the room (a public
   // roster row) — someone who chooses "Prepare now" must not be on the roster yet.
   const { gate: prepGate } = useRoomPrepGate(event, granted);
+  // P1380: "Have you arrived?" comes first — I'm here, then the preparation gate, then the room.
+  // Decided before useEventRoomSelf for the same reason as the prep gate: answering Not yet
+  // must not put the person on the room roster.
+  const { gate: arrivalGate, answered: arrivalAnswered } = useArrivalGate(event, granted);
   const [joinedWithoutPrep, setJoinedWithoutPrep] = useState(false);
-  const enterRoom = granted && (prepGate === false || joinedWithoutPrep);
+  const enterRoom = granted && arrivalGate === false && (prepGate === false || joinedWithoutPrep);
   const { loading: selfLoading } = useEventRoomSelf(event, enterRoom);
   const { isCapturingForEvent } = useRoomCapture();
 
@@ -82,6 +87,8 @@ export function EventRoomGate() {
   // P1369 Scope v2: never visited here and no network — not the register wall.
   if (offline) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
+  if (arrivalGate === null) return null;
+  if (arrivalGate && event) return <ArrivalQuestion event={event} onHere={arrivalAnswered} />;
   if (prepGate === null) return null;
   if (prepGate && !joinedWithoutPrep && event) {
     return <PrepRoomGate event={event} onJoin={() => setJoinedWithoutPrep(true)} />;

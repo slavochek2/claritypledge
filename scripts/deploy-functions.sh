@@ -138,8 +138,10 @@ for fn in "${FUNCTIONS[@]}"; do
   # create-and-sign handles the invitation flow: anonymous callers exchange a
   # signed invite token for a session JWT before they have a Supabase account.
   # --no-verify-jwt lets those unauthenticated requests through the gateway.
+  # P1380: event-email-link is opened from an inbox with no session; its ticket is the
+  # credential (hashed, scoped to one page of one event, dies with the event).
   # All other functions require a valid JWT and must NOT use this flag.
-  if [ "$fn" = "create-and-sign" ]; then
+  if [ "$fn" = "create-and-sign" ] || [ "$fn" = "event-email-link" ]; then
     DEPLOY_FLAGS="--no-verify-jwt"
   else
     DEPLOY_FLAGS=""

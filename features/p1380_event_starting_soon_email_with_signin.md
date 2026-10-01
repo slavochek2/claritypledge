@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 1
 workstream: events
@@ -9,9 +9,8 @@ tags:
   - email
   - auth
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 driver: anomaly
 blocked_by:
@@ -72,7 +71,7 @@ not on the title, means a host who turns Preparation on for another format gets 
 | Starting in 15 minutes | **Join the room** | `/events/:slug/room` → prepared: straight to the room; not prepared: the P1336 gate (**Prepare now** / **Join the room without preparing**); a preparation opened there ends on **Join the room** |
 
 The starting-soon email goes to every registrant of such an event, prepared or not: its job is
-"it is starting, here is the room". Subject and body copy: [FOUNDER DECISION: copy].
+"it is starting, here is the room". Subject and body copy: the draft below, approved by the founder 2026-10-01.
 
 ### Arrival check-in — we know who was actually there (founder idea 2026-10-01; proposal, confirm at /dev)
 
@@ -100,8 +99,9 @@ The starting-soon email goes to every registrant of such an event, prepared or n
 - **Arriving on time (founder, 2026-10-01: "we start the event at time, don't wait for people").**
   State the consequence, once, where people plan their evening — no countdowns or nagging:
   - 24h reminder and the preparation's end screen: *"We start at {time} sharp. Round 1 pairs whoever
-    is in the room at {time}; later arrivals join from round 2."* [FOUNDER DECISION: copy, and
-    whether to say "doors open {time − 15 min}"]
+    is in the room at {time}; later arrivals join from round 2."* **Approved (founder, 2026-10-01),
+    with "doors open {time − 15 min}" added:** *"We start at 18:30 sharp (doors open 18:15). Round 1
+    pairs whoever is in the room at 18:30; later arrivals join from round 2."*
   - Starting-soon email: the same line above the buttons. Its timing (15 minutes before) already
     lands while people can still leave on time.
   - The "join from round 2" mechanics belong to P1337 (rounds on a timer); this spec only says it.
@@ -109,8 +109,28 @@ The starting-soon email goes to every registrant of such an event, prepared or n
   room is not proof of presence; the answer is.
 - Attendance = registrations stamped *arrived* (self-reported), shown to the host. Not GPS: asking
   for location to prove presence is out of proportion for a meetup.
-- [FOUNDER DECISION: is "I can't make it" from this page allowed 15 minutes before start, or does it
-  only say "Message the host"?]
+- **Decided (founder, 2026-10-01): "I can't make it" is allowed up to the start** and releases the
+  place. The page asks once before cancelling (inline, no browser dialog), as the event page does.
+
+## Implementation notes (/dev, 2026-10-01)
+
+- **Flow chosen:** no `/architect` (founder, 2026-10-01: the P1369 benchmark showed no gain); the
+  sign-in links get `/slava:think:adversarial-review` on the built code instead.
+- **One deviation from the email table:** the 24h reminder's subject is *"A few minutes to prepare
+  before tomorrow: {title}"*, not *"{N} minutes"*. N comes from the app's per-person plan
+  (`minutesFor` over the cards and the once-per-person parts); computing it in the email function
+  would mean a second copy of that logic. Revisit if the exact number matters.
+- **Where things live:** tickets `event_email_links` (sha256 only, service_role only), redeemed by
+  the `event-email-link` function → `/auth/verify` (P1257 token_hash) → the page fixed by the
+  ticket's purpose. Arrivals `event_arrivals` (owner + host, written only by `mark_event_arrival`);
+  not a column on the world-readable `event_rsvps`. Starting-soon claim in
+  `mailgun_message_ids.starting_soon` + `starting_soon_attempted_at`, 10-min stuck reset.
+- **Arrival question at the room:** in-person Preparation-on events, from 1h before the start to
+  the end; before the preparation gate; never blocks entry (failed read/write, 5s deadline).
+- **Known gaps, accepted:** someone who cancels between the claim (≤45 min before) and delivery
+  (15 min before) still receives the starting-soon email, and its buttons then lead to sign-in
+  (the ticket is deleted with the RSVP). An event cancelled and then un-cancelled does not resend
+  a starting-soon email that was already scheduled.
 
 ## Risks / Non-Goals
 

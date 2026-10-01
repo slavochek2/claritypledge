@@ -13,6 +13,13 @@ import {
   SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
+import { mintEmailLink } from '../_shared/event-links.ts';
+import {
+  dispatchStartingSoon,
+  STARTING_SOON_SELECT,
+  startingSoonEligible,
+  type StartingSoonRsvp,
+} from '../_shared/starting-soon.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -35,7 +42,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled')
     .eq('id', eventId)
     .single();
 
@@ -56,8 +63,22 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
   const eventInPast = eventDatetime <= now;
 
   if (!eventInPast) {
-    // 1. Confirmation — immediate (only for future events)
-    const confirmation = buildConfirmation(event, profileName);
+    // 1. Confirmation — immediate (only for future events). P1380: a Preparation-on event's
+    // confirmation carries **Prepare now**, a ticket redeemed at click (signed in, opens the
+    // preparation). No ticket (RSVP row unreadable, insert failed) → no button, still sent.
+    let prepareUrl: string | null = null;
+    let rsvpId: string | null = null;
+    if (event.preparation_enabled) {
+      const { data: rsvpRow } = await supabase
+        .from('event_rsvps')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('profile_id', userId)
+        .maybeSingle();
+      rsvpId = (rsvpRow?.id as string | undefined) ?? null;
+      if (rsvpId) prepareUrl = await mintEmailLink(supabase, rsvpId, 'prepare', event);
+    }
+    const confirmation = buildConfirmation(event, profileName, prepareUrl);
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
       eventId,
@@ -75,6 +96,20 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
         .update({ reminder_scheduled_at: reminderScheduledAt.toISOString() })
         .eq('event_id', eventId)
         .eq('profile_id', userId);
+    }
+
+    // P1380: registered less than 45 min before start — the next cron tick may be after the
+    // start, so this RSVP's starting-soon email is dispatched now (same claim, same builder).
+    if (rsvpId && startingSoonEligible(event, now)) {
+      const { data: row } = await supabase
+        .from('event_rsvps')
+        .select(STARTING_SOON_SELECT)
+        .eq('id', rsvpId)
+        .maybeSingle();
+      if (row) {
+        const outcome = await dispatchStartingSoon(supabase, row as unknown as StartingSoonRsvp, now);
+        console.log(`starting-soon on rsvp ${rsvpId}: ${outcome}`);
+      }
     }
   }
 
@@ -116,8 +151,11 @@ async function handleCancel(supabase: SupabaseClient, eventId: string) {
     // Bound to locals so the type guard narrows without a non-null assertion.
     const reminderId = ids?.reminder;
     const feedbackId = ids?.feedback;
+    // P1380: the starting-soon email sits at Mailgun for up to 45 min before delivery.
+    const startingSoonId = ids?.starting_soon;
     if (isCancellableId(reminderId)) await cancelScheduledEmail(reminderId);
     if (isCancellableId(feedbackId)) await cancelScheduledEmail(feedbackId);
+    if (isCancellableId(startingSoonId)) await cancelScheduledEmail(startingSoonId);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -201,8 +239,11 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // Bound to locals so the type guard narrows without a non-null assertion.
     const reminderId = ids?.reminder;
     const feedbackId = ids?.feedback;
+    // P1380: the starting-soon email sits at Mailgun for up to 45 min before delivery.
+    const startingSoonId = ids?.starting_soon;
     if (isCancellableId(reminderId)) await cancelScheduledEmail(reminderId);
     if (isCancellableId(feedbackId)) await cancelScheduledEmail(feedbackId);
+    if (isCancellableId(startingSoonId)) await cancelScheduledEmail(startingSoonId);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -228,6 +269,7 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
       mailgun_message_ids: {},
       reminder_attempted_at: null,
       feedback_attempted_at: null,
+      starting_soon_attempted_at: null,
     };
 
     if (reminderScheduledAt > now) {

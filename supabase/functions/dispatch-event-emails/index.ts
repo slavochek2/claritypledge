@@ -18,8 +18,17 @@ import {
   logEmailSend,
   sendEmail,
   type EventRow,
+  type ReminderPrep,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
+import { mintEmailLink } from '../_shared/event-links.ts';
+import {
+  dispatchStartingSoon,
+  STARTING_SOON_SELECT,
+  STARTING_SOON_STUCK_MS,
+  STARTING_SOON_WINDOW_MS,
+  type StartingSoonRsvp,
+} from '../_shared/starting-soon.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -125,7 +134,25 @@ async function dispatchReminder(
   }
 
   const deliverAt = new Date(rsvp.reminder_scheduled_at);
-  const reminder = buildReminder(event, profileData?.name);
+  // P1380: on a Preparation-on event the reminder is about the preparation if it is not done.
+  // A failed read degrades to today's reminder rather than skipping the send.
+  let prep: ReminderPrep | null = null;
+  let prepareUrl: string | null = null;
+  if (event.preparation_enabled && profileId) {
+    const { data: prepRow, error: prepErr } = await supabase
+      .from('event_preparations')
+      .select('started_at, completed_at')
+      .eq('event_id', rsvp.event_id)
+      .eq('profile_id', profileId)
+      .maybeSingle();
+    if (prepErr) {
+      console.warn(`reminder prep read failed for rsvp ${rsvp.id}: ${prepErr.message}`);
+    } else {
+      prep = prepRow?.completed_at ? 'complete' : prepRow?.started_at ? 'started' : 'not_started';
+      if (prep !== 'complete') prepareUrl = await mintEmailLink(supabase, rsvp.id, 'prepare', event);
+    }
+  }
+  const reminder = buildReminder(event, profileData?.name, { prep, prepareUrl });
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
   // Write real ID back — conditional on PENDING to handle handleUpdate race.
@@ -276,7 +303,7 @@ async function runFeedbackBackfill(
       reminder_attempted_at, feedback_attempted_at,
       mailgun_message_ids,
       profiles(email, name),
-      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status)
+      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled)
     `)
     .eq('event_id', eventId)
     .neq('events.status', 'cancelled')
@@ -340,7 +367,7 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
       reminder_attempted_at, feedback_attempted_at,
       mailgun_message_ids,
       profiles(email, name),
-      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status)
+      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled)
     `)
     .neq('events.status', 'cancelled')
     .or(
@@ -387,6 +414,50 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
     }
   }));
 
+  const soon = await runStartingSoon(supabase, now);
+  return { dispatched: dispatched + soon.dispatched, errors: errors + soon.errors };
+}
+
+/**
+ * P1380: the starting-soon pass. Its own query, not a branch of the one above: that query
+ * selects on *_scheduled_at columns, and this email is keyed on the event's start instead —
+ * nothing needs storing at RSVP time, so an event moved by the host is followed automatically.
+ */
+async function runStartingSoon(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<{ dispatched: number; errors: number }> {
+  const windowEnd = new Date(now.getTime() + STARTING_SOON_WINDOW_MS);
+  const stuckBefore = new Date(now.getTime() - STARTING_SOON_STUCK_MS);
+  const { data: rows, error } = await supabase
+    .from('event_rsvps')
+    .select(STARTING_SOON_SELECT)
+    .eq('events.preparation_enabled', true)
+    .neq('events.status', 'cancelled')
+    .gt('events.datetime', now.toISOString())
+    .lte('events.datetime', windowEnd.toISOString())
+    .or(
+      `mailgun_message_ids->>starting_soon.is.null,` +
+      `and(mailgun_message_ids->>starting_soon.eq.PENDING,starting_soon_attempted_at.lt.${stuckBefore.toISOString()})`,
+    );
+
+  if (error) {
+    console.error('starting-soon query error:', error.message);
+    return { dispatched: 0, errors: 1 };
+  }
+  let dispatched = 0;
+  let errors = 0;
+  for (const rsvp of (rows ?? []) as unknown as StartingSoonRsvp[]) {
+    try {
+      const outcome = await dispatchStartingSoon(supabase, rsvp, now);
+      if (outcome === 'sent') dispatched++;
+      else if (outcome === 'failed:mailgun') errors++;
+      console.log(`starting-soon rsvp ${rsvp.id}: ${outcome}`);
+    } catch (err) {
+      console.error(`starting-soon error for rsvp ${rsvp.id}:`, err);
+      errors++;
+    }
+  }
   return { dispatched, errors };
 }
 

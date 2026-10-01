@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
 
 // ── Environment (callers pass these in via module-level constants) ─────────────
 // Callers must set these before calling any helper that uses Mailgun.
@@ -47,12 +48,14 @@ export interface EventRow {
   description: string | null;
   slug: string | null;
   host_id: string | null;
+  /** P1336/P1380: preparation flow + room gate on. Absent on older selects = off. */
+  preparation_enabled?: boolean | null;
 }
 
 export interface LogEmailSendOpts {
   eventId: string;
   profileId: string | null;
-  emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel';
+  emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel' | 'starting_soon';
   messageId: string | null;
   errorMessage?: string;
 }
@@ -214,15 +217,35 @@ function greeting(name: string | null | undefined): string {
   return first ? `Hi ${escapeHtml(first)},` : 'Hi,';
 }
 
+/** P1380: a full-width-ish email button. `secondary` is the outlined twin. */
+function emailButton(label: string, href: string, secondary = false): string {
+  const style = secondary
+    ? 'display:inline-block;padding:12px 22px;border:2px solid #2563eb;border-radius:6px;color:#2563eb;background:#ffffff;font-size:16px;font-weight:600;text-decoration:none;'
+    : 'display:inline-block;padding:12px 22px;border:2px solid #2563eb;border-radius:6px;color:#ffffff;background:#2563eb;font-size:16px;font-weight:600;text-decoration:none;';
+  return `<a href="${escapeHtml(href)}" style="${style}">${escapeHtml(label)}</a>`;
+}
+
+/** P1380: preparation state of one registrant, as the 24h reminder needs it. */
+export type ReminderPrep = 'not_started' | 'started' | 'complete';
+
 // ── Email builders ────────────────────────────────────────────────────────────
 
-export function buildConfirmation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
+export function buildConfirmation(
+  event: EventRow,
+  name?: string | null,
+  /** P1380: set only for a Preparation-on event; the button opens the preparation signed in. */
+  prepareUrl?: string | null,
+): { subject: string; html: string; text: string } {
   const subject = `You're in: ${event.title}`;
+  const prepareBlock = prepareUrl
+    ? `<p style="margin:20px 0 8px;">${emailButton('Prepare now', prepareUrl)}</p>`
+    : '';
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">We're looking forward to seeing you.</p>
+    ${prepareBlock}
     ${eventCard(event)}
     ${eventLink}
     ${calendarLinks(event)}
@@ -231,17 +254,46 @@ export function buildConfirmation(event: EventRow, name?: string | null): { subj
     </p>
   `);
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},\n\n` : ''}You're going to: ${event.title}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
+  const prepareText = prepareUrl ? `\n\nPrepare now: ${prepareUrl}` : '';
+  const text = `${first ? `Hi ${first},\n\n` : ''}You're going to: ${event.title}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}${prepareText}\n\nSee you there!\nClarity Pledge`;
   return { subject, html, text };
 }
 
-export function buildReminder(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
-  const subject = `Tomorrow: ${event.title}`;
+/**
+ * The 24h reminder. Preparation off (or unknown) → today's reminder, unchanged.
+ * P1380, Preparation on:
+ *   - not prepared → the reminder is ABOUT preparing: subject + first line, then
+ *     **Prepare now** (never started) / **Finish preparing** (started), signed in.
+ *   - prepared → today's reminder plus "You're prepared ✓".
+ *   - both get the "we start sharp" line.
+ * No button without a link: if the ticket could not be minted, the prep variant still
+ * sends, pointing at the event page.
+ */
+export function buildReminder(
+  event: EventRow,
+  name?: string | null,
+  opts: { prep?: ReminderPrep | null; prepareUrl?: string | null } = {},
+): { subject: string; html: string; text: string } {
+  const prepOn = !!event.preparation_enabled && !!opts.prep;
+  const needsPrep = prepOn && opts.prep !== 'complete';
+  const subject = needsPrep ? `A few minutes to prepare before tomorrow: ${event.title}` : `Tomorrow: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const prepLabel = opts.prep === 'started' ? 'Finish preparing' : 'Prepare now';
+  const prepTarget = opts.prepareUrl ?? (event.slug ? eventPageUrl(event.slug) : null);
+  const heading = needsPrep
+    ? `<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">A few minutes to prepare before tomorrow</h1>
+    <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">The discussion uses a special structure. Preparing lets you take part fully.</p>
+    ${prepTarget ? `<p style="margin:20px 0 8px;">${emailButton(prepLabel, prepTarget)}</p>` : ''}`
+    : `<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
+    <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">Just a reminder about tomorrow's event.</p>
+    ${prepOn ? `<p style="margin:8px 0 0;font-size:16px;color:#15803d;" data-p1380="prepared">You're prepared ✓</p>` : ''}`;
+  const onTime = prepOn
+    ? `<p style="margin:16px 0 0;font-size:15px;color:#111827;">${escapeHtml(onTimeLine(event))}</p>`
+    : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
-    <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">Just a reminder about tomorrow's event.</p>
+    ${heading}
+    ${onTime}
     ${eventCard(event)}
     ${eventLink}
     ${calendarLinks(event)}
@@ -250,7 +302,57 @@ export function buildReminder(event: EventRow, name?: string | null): { subject:
     </p>
   `);
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},\n\n` : ''}Reminder: ${event.title} is tomorrow.\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
+  const hi = first ? `Hi ${first},\n\n` : '';
+  const details = `${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}`;
+  const onTimeText = prepOn ? `\n\n${onTimeLine(event)}` : '';
+  const text = needsPrep
+    ? `${hi}A few minutes to prepare before tomorrow: ${event.title}.${prepTarget ? `\n\n${prepLabel}: ${prepTarget}` : ''}${onTimeText}\n\n${details}\n\nSee you there!\nClarity Pledge`
+    : `${hi}Reminder: ${event.title} is tomorrow.${prepOn ? "\n\nYou're prepared ✓" : ''}${onTimeText}\n\n${details}\n\nSee you there!\nClarity Pledge`;
+  return { subject, html, text };
+}
+
+/**
+ * P1380: "Starting in 15 minutes". Why first (founder-approved copy 2026-10-01), the
+ * "we start sharp" line, then the arrival question as two buttons. Online event (location is
+ * a link): no arrival question, one **Join now** button.
+ */
+export function buildStartingSoon(
+  event: EventRow,
+  name: string | null | undefined,
+  links: { arrivedUrl: string | null; notYetUrl: string | null; roomUrl: string | null },
+): { subject: string; html: string; text: string } {
+  const subject = `Starting in 15 minutes: ${event.title}`;
+  const online = isOnlineLocation(event.location);
+  const venue = venueName(event.location);
+  const why = `${event.title} starts in 15 minutes. We use our app to guide you through the evening — your conversation partners, the rounds, your positions — so when you've arrived, it opens with one tap.`;
+  const fallback = event.slug ? eventPageUrl(event.slug) : 'https://claritypledge.com/events';
+
+  let question: string;
+  let questionText: string;
+  if (online) {
+    const join = links.roomUrl ?? fallback;
+    question = `<p style="margin:20px 0 8px;">${emailButton('Join now', join)}</p>`;
+    questionText = `Join now: ${join}`;
+  } else {
+    const ask = venue ? `Have you arrived at ${venue}?` : 'Have you arrived?';
+    const address = venue ? '' : (event.location ? `<p style="margin:0 0 8px;font-size:14px;color:#4b5563;">📍 ${escapeHtml(event.location)}</p>` : '');
+    const here = links.arrivedUrl ?? fallback;
+    const notYet = links.notYetUrl ?? fallback;
+    question = `<p style="margin:24px 0 8px;font-size:18px;font-weight:600;color:#111827;" data-p1380="arrival-question">${escapeHtml(ask)}</p>
+    ${address}
+    <p style="margin:8px 0;">${emailButton("I'm here", here)}&nbsp;&nbsp;${emailButton('Not yet', notYet, true)}</p>`;
+    questionText = `${ask}${!venue && event.location ? `\n${event.location}` : ''}\n\nI'm here: ${here}\nNot yet: ${notYet}`;
+  }
+
+  const html = htmlEmail(subject, `
+    <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
+    <p style="margin:0 0 12px;font-size:16px;color:#111827;">${escapeHtml(why)}</p>
+    <p style="margin:0;font-size:15px;color:#111827;">${escapeHtml(onTimeLine(event))}</p>
+    ${question}
+    ${eventCard(event)}
+  `);
+  const first = firstName(name);
+  const text = `${first ? `Hi ${first},\n\n` : ''}${why}\n\n${onTimeLine(event)}\n\n${questionText}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nClarity Pledge`;
   return { subject, html, text };
 }
 

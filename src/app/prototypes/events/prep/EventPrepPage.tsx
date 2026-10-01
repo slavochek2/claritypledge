@@ -22,6 +22,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
+import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { BAR_INNER_CLASS, MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
@@ -1053,6 +1054,10 @@ function PrepFlow({
               <section className="space-y-8 pt-4">
                 <div className="space-y-2 text-center">
                   <Title>Thank you for preparing</Title>
+                  {/* P1380: said once, where people plan their evening (founder-approved copy). */}
+                  {!isOnlineLocation(event.location) && (
+                    <p className="text-sm text-foreground" data-testid="end-on-time">{onTimeLine(event)}</p>
+                  )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
                     <p className="text-sm text-muted-foreground" data-testid="volunteer-note">
                       {micSetup === 'usbc'

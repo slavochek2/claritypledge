@@ -10,9 +10,11 @@
  * and long-press only, so a tap on a phone explained nothing (P1336 review 2026-10-01).
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, Mic } from 'lucide-react';
+import { Check, MapPin, Mic } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getPrepHostView, type HostPrepRow } from '@/app/data/event-prep-service';
+import { getEventArrivals } from '@/app/data/event-arrival-service';
+import { arrivedLabel } from '../arrival/arrival-text';
 
 export type MarkMic = 'own' | 'usbc' | 'lightning' | 'other';
 
@@ -20,6 +22,8 @@ export interface PrepMarkState {
   prepared: boolean;
   /** The volunteer's mic: 'own' = brings their own; the rest = needs one, by connector ('other' = not USB-C or Lightning, or unsure). */
   mic: MarkMic | null;
+  /** P1380: when they tapped "I'm here" (self-reported arrival), or null. */
+  arrivedAt?: string | null;
 }
 
 export const PREPARED_HINT = 'Prepared for the event';
@@ -43,6 +47,18 @@ export function prepMarksByProfile(rows: HostPrepRow[]): Map<string, PrepMarkSta
     const mic = volunteer && isMarkMic(r.micSetup) ? r.micSetup : null;
     const prepared = !!r.completedAt;
     if (prepared || mic) marks.set(r.profileId, { prepared, mic });
+  }
+  return marks;
+}
+
+/** P1380: add each arrival to the marks (a person who only arrived still gets a row of marks). */
+export function withArrivals(
+  marks: Map<string, PrepMarkState>,
+  arrivals: { profileId: string; arrivedAt: string }[] | null,
+): Map<string, PrepMarkState> {
+  for (const a of arrivals ?? []) {
+    const m = marks.get(a.profileId) ?? { prepared: false, mic: null };
+    marks.set(a.profileId, { ...m, arrivedAt: a.arrivedAt });
   }
   return marks;
 }
@@ -80,9 +96,10 @@ export function useHostPrepMarks(
   useEffect(() => {
     if (!eventId || !enabled) return;
     let cancelled = false;
+    // P1380: arrivals ride the same read. A failed arrivals read shows the prep marks alone.
     const read = () =>
-      getPrepHostView(eventId)
-        .then((rows) => { if (!cancelled) setMarks(prepMarksByProfile(rows)); })
+      Promise.all([getPrepHostView(eventId), getEventArrivals(eventId).catch(() => null)])
+        .then(([rows, arrivals]) => { if (!cancelled) setMarks(withArrivals(prepMarksByProfile(rows), arrivals)); })
         .catch(() => { /* keep what is shown */ });
     void read();
     const every = poll ? setInterval(read, 60_000) : undefined;
@@ -116,7 +133,7 @@ function HintMark({ label, testId, className, children }: { label: string; testI
 }
 
 export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
-  if (!marks || (!marks.prepared && !marks.mic)) return null;
+  if (!marks || (!marks.prepared && !marks.mic && !marks.arrivedAt)) return null;
   return (
     <span className="inline-flex shrink-0 items-center gap-1" data-testid="prep-marks">
       {/* From sm up, keeps every row's mic in the same column whether or not the row has a check. On a phone
@@ -145,6 +162,12 @@ export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
               <span className="ml-0.5 text-[10px] font-bold leading-none" data-testid="prep-mark-letter">{MIC_LETTER[marks.mic]}</span>
             </span>
           )}
+        </HintMark>
+      )}
+      {marks.arrivedAt && (
+        // P1380: here in person (they tapped "I'm here"); the time is in the hint.
+        <HintMark label={arrivedLabel(marks.arrivedAt)} testId="prep-mark-arrived" className="text-foreground">
+          <MapPin className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
         </HintMark>
       )}
     </span>
