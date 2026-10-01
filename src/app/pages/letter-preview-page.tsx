@@ -3,6 +3,8 @@
  * @description P665/P673: Preview route — /letter/:docId/preview
  * Composes the same /live components as the reading page with previewMode.
  * Ratings are interactive but write to local state only (no DB calls).
+ * P1379: a public doc previews as a one-to-many letter — the reader-only reveal,
+ * never an author number (stored predictions for that doc are ignored).
  */
 
 import { useState, useEffect } from 'react';
@@ -20,7 +22,8 @@ import { docStoryToSnapshot } from '@/app/utils/letter-snapshot-mapper';
 import { docsService } from '@/app/data/docs-service';
 import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
-import type { LetterStorySnapshot } from '@/app/types';
+import { letterUsesPredictions, previewPredictionsKey } from '@/app/utils/letter-prediction-policy';
+import type { LetterMode, LetterStorySnapshot } from '@/app/types';
 
 function closePreview(navigate: NavigateFunction): void {
   if (window.history.length <= 1) window.close();
@@ -35,6 +38,9 @@ export function LetterPreviewPage() {
   const [snapshots, setSnapshots] = useState<LetterStorySnapshot[]>([]);
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
   const [viewState, setViewState] = useState<'cover' | 'reading'>('cover');
+  // P1379: the preview has no letter row, so the mode is derived from the doc —
+  // public docs are always sealed as one-to-many (compose auto-selects it).
+  const [letterMode, setLetterMode] = useState<LetterMode>('one-to-one');
 
   // Purge any legacy preview reading state on every preview load (pre-fix hygiene).
   // Preview is ephemeral — stale entries from prior sessions must never resurface.
@@ -79,6 +85,7 @@ export function LetterPreviewPage() {
         }));
 
         setSnapshots(enrichedStories.map(docStoryToSnapshot));
+        setLetterMode(result.doc.visibility === 'public' ? 'one-to-many' : 'one-to-one');
         setFetchState('done');
       } catch {
         setFetchState('not-found');
@@ -140,6 +147,7 @@ export function LetterPreviewPage() {
             <LetterPreviewFlow
               docId={docId ?? ''}
               snapshots={snapshots}
+              letterMode={letterMode}
             />
           </div>
         </div>
@@ -157,7 +165,7 @@ export function LetterPreviewPage() {
           storyCount={snapshots.length}
           pointCount={countTotalPoints(snapshots)}
           estimatedMinutes={estimateReadingMinutes(snapshots.length, countTotalPoints(snapshots))}
-          mode="one-to-one"
+          mode={letterMode}
           isAuthenticated
           microcopy="A perspective they believe you deserve to hear."
           onOpen={() => setViewState('reading')}
@@ -174,16 +182,20 @@ export function LetterPreviewPage() {
 function LetterPreviewFlow({
   docId,
   snapshots,
+  letterMode,
 }: {
   docId: string;
   snapshots: LetterStorySnapshot[];
+  letterMode: LetterMode;
 }) {
   const navigate = useNavigate();
 
-  // Read author's predictions from localStorage (written by compose page during prediction walk)
+  // Read author's predictions from localStorage (written by compose page during prediction walk).
+  // P1379: a one-to-many preview ignores them — a stale key must never surface an author number.
   const [previewPredictions] = useState<Map<string, number> | undefined>(() => {
+    if (!letterUsesPredictions(letterMode)) return undefined;
     try {
-      const raw = localStorage.getItem(`clarity-preview-predictions-${docId}`);
+      const raw = localStorage.getItem(previewPredictionsKey(docId));
       if (!raw) return undefined;
       return new Map(JSON.parse(raw) as [string, number][]);
     } catch {
@@ -213,7 +225,7 @@ function LetterPreviewFlow({
   // Clean up localStorage predictions when preview completes
   useEffect(() => {
     if (state.isComplete) {
-      localStorage.removeItem(`clarity-preview-predictions-${docId}`);
+      localStorage.removeItem(previewPredictionsKey(docId));
     }
   }, [state.isComplete, docId]);
 
@@ -253,6 +265,7 @@ function LetterPreviewFlow({
       senderName={senderName}
       senderProfileOwner={senderProfileOwner}
       readingState={readingState}
+      letterMode={letterMode}
       showFocusHeader={false}
       renderCompletion={() => null}
     />

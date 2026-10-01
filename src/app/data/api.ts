@@ -12,6 +12,8 @@ import { holdRoomCode } from '@/lib/room-capability';
 import { clearOfflineReadCacheWithin } from '@/lib/offline-read-cache';
 import { boundedInList } from './query-limits';
 import { earCountOf } from './ear-count';
+import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
+import type { LetterMode } from '@/app/types';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
@@ -4479,6 +4481,11 @@ export async function getOpenLiveInviteForUser(
  *
  * speakerRating ← letter_predictions.prediction
  * listenerRating ← story_verifications.listener_rating (source='letter')
+ *
+ * P1379: a one-to-many (public) letter has no author prediction to seed from, so
+ * this returns null for it regardless of any stored row — /live then starts
+ * without a letter baseline, exactly as it does when a row is missing. (RLS also
+ * hides one-to-many predictions from receivers; this is the client-side half.)
  */
 export async function getLetterBaselineRatings(
   sourceLetterId: string,
@@ -4486,7 +4493,12 @@ export async function getLetterBaselineRatings(
   senderId: string,
   receiverId: string
 ): Promise<BaselineRatings | null> {
-  const [predictionsResult, verificationsResult] = await Promise.all([
+  const [letterResult, predictionsResult, verificationsResult] = await Promise.all([
+    supabase
+      .from('clarity_letters')
+      .select('mode')
+      .eq('id', sourceLetterId)
+      .limit(1),
     supabase
       .from('letter_predictions')
       .select('prediction')
@@ -4502,6 +4514,12 @@ export async function getLetterBaselineRatings(
       .eq('listener_id', receiverId)
       .limit(1),
   ]);
+
+  // P1379: fail closed — use the prediction only when the mode read succeeded AND
+  // the letter is one-to-one. A failed read must not seed a public letter's number.
+  if (letterResult.error) return null;
+  const letterMode = (letterResult.data?.[0] as { mode?: LetterMode } | undefined)?.mode;
+  if (!letterUsesPredictions(letterMode)) return null;
 
   const predictionRow = predictionsResult.data?.[0];
   const verificationRow = verificationsResult.data?.[0];

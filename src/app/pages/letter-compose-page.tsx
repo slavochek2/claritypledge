@@ -2,6 +2,8 @@
  * @file letter-compose-page.tsx
  * @description P661: Letter composition orchestrator — replaces the 4-step wizard.
  * Flow: receiver modal → prediction walk → review → seal → confirmation.
+ * P1379: a one-to-many (public) letter skips the prediction walk entirely:
+ * compose → seal-confirm → seal (predictions = []) → confirmation.
  * Route: /letter/:docId/compose
  */
 
@@ -23,6 +25,12 @@ import { LetterSealConfirmCard } from '@/app/components/letters/letter-seal-conf
 import { LetterSealConfirmation } from '@/app/components/letters/letter-seal-confirmation';
 import { pointsService } from '@/app/data/points-service';
 import { computeDefaultPointOrderUpdates } from '@/app/utils/compose-default-point-order';
+import {
+  composePhaseAfterSetup,
+  letterUsesPredictions,
+  previewPredictionsKey,
+  sealGuardError,
+} from '@/app/utils/letter-prediction-policy';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'seal-confirm' | 'sealing' | 'confirmation';
@@ -47,7 +55,9 @@ export function LetterComposePage() {
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'not-found'>('loading');
 
   // Orchestrator state — skip modal if route state provided
-  const [phase, setPhase] = useState<ComposePhase>(routeState?.mode ? 'predict' : 'modal');
+  const [phase, setPhase] = useState<ComposePhase>(
+    routeState?.mode ? composePhaseAfterSetup(routeState.mode) : 'modal'
+  );
   const [mode, setMode] = useState<LetterMode | null>(routeState?.mode ?? null);
   const [emails, setEmails] = useState<string[]>(routeState?.emails ?? []);
   const [receiverName, setReceiverName] = useState(routeState?.receiverName ?? '');
@@ -119,15 +129,28 @@ export function LetterComposePage() {
     }
   }, [fetchState, doc, stories.length, docId, navigate]);
 
-  // Public docs: skip the mode picker modal — go straight to prediction
+  // Public docs: skip the mode picker modal. P1379: one-to-many also skips the
+  // prediction walk and goes straight to the seal-confirm card.
   useEffect(() => {
     if (fetchState !== 'done' || !doc) return;
     if (phase !== 'modal') return; // already past modal
     if (doc.visibility === 'public') {
       setMode('one-to-many');
-      setPhase('predict');
+      setPhase(composePhaseAfterSetup('one-to-many'));
     }
   }, [fetchState, doc, phase]);
+
+  // P1379: a one-to-many letter has no author predictions. Drop any stale preview
+  // key left by an earlier compose of this doc so the preview never shows an old
+  // author number.
+  useEffect(() => {
+    if (!docId || !mode || letterUsesPredictions(mode)) return;
+    try {
+      localStorage.removeItem(previewPredictionsKey(docId));
+    } catch {
+      // storage unavailable (private mode) — nothing stored to clear
+    }
+  }, [docId, mode]);
 
   const handleReceiverSubmit = useCallback((result: ReceiverSetupResult) => {
     setMode(result.mode);
@@ -136,7 +159,7 @@ export function LetterComposePage() {
     // For prediction walk: single recipient → their name, 2+ → empty (triggers "readers" fallback)
     const derivedName = result.recipients.length === 1 ? result.recipients[0].name : '';
     setReceiverName(derivedName);
-    setPhase('predict');
+    setPhase(composePhaseAfterSetup(result.mode));
   }, []);
 
   const handlePredict = useCallback((storyId: string, value: number) => {
@@ -147,11 +170,11 @@ export function LetterComposePage() {
     });
   }, []);
 
-  // Persist predictions to sessionStorage so preview page can show author's numbers
+  // Persist predictions to localStorage so preview page can show author's numbers
   useEffect(() => {
     if (!docId || predictions.size === 0) return;
     localStorage.setItem(
-      `clarity-preview-predictions-${docId}`,
+      previewPredictionsKey(docId),
       JSON.stringify([...predictions])
     );
   }, [docId, predictions]);
@@ -160,9 +183,10 @@ export function LetterComposePage() {
     if (!docId || !user?.id || !mode) return;
     if (sealingRef.current) return;
 
-    // Guard: all stories must have predictions
-    if (predictions.size < stories.length) {
-      toast.error(`Please predict all ${stories.length} stories before sealing`);
+    // Guard: all stories must have predictions (one-to-one only — P1379)
+    const guardError = sealGuardError(mode, predictions.size, stories.length);
+    if (guardError) {
+      toast.error(guardError);
       return;
     }
 
@@ -186,11 +210,13 @@ export function LetterComposePage() {
       // 1. Create draft letter
       const letter = await lettersService.createLetter(docId, user.id, mode);
 
-      // 2. Build predictions array for RPC
-      const predictionsArray = Array.from(predictions.entries()).map(([story_id, prediction]) => ({
-        story_id,
-        prediction,
-      }));
+      // 2. Build predictions array for RPC (always [] for one-to-many — P1379)
+      const predictionsArray = letterUsesPredictions(mode)
+        ? Array.from(predictions.entries()).map(([story_id, prediction]) => ({
+            story_id,
+            prediction,
+          }))
+        : [];
 
       // 3. Build deliveries array for 1-to-1 — each recipient gets their own name
       const deliveriesArray = mode === 'one-to-one'
@@ -223,7 +249,7 @@ export function LetterComposePage() {
         mode,
         recipient_count: mode === 'one-to-one' ? emails.length : 0,
         story_count: stories.length,
-        prediction_count: predictions.size,
+        prediction_count: predictionsArray.length,
       });
 
       setSealedLetterId(letter.id);
@@ -238,13 +264,15 @@ export function LetterComposePage() {
   }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories, responsesMode]);
 
   const handlePredictionComplete = useCallback(() => {
-    if (doc?.visibility === 'public') {
+    // P1379: route on MODE. Only one-to-one reaches the walk now; a one-to-one letter
+    // from a PUBLIC doc still gets the seal-confirm card (P952 AD-5), private → review.
+    if (mode === 'one-to-many' || doc?.visibility === 'public') {
       // P952 AD-5: show seal-confirm card so author can set responses_mode before sending
       setPhase('seal-confirm');
     } else {
       setPhase('review');
     }
-  }, [doc?.visibility]);
+  }, [mode, doc?.visibility]);
 
   // Loading / not-found
   if (fetchState === 'loading') {

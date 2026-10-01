@@ -341,6 +341,11 @@ export async function completeTestDelivery(deliveryId: string, storiesRated: num
  * Creates a full test letter with snapshots, predictions, and a delivery.
  * Convenience wrapper for the common test setup pattern.
  * Returns the letter + delivery for further assertions.
+ *
+ * P1379: a one-to-many letter is sealed with NO predictions (public letters skip the
+ * author prediction step), so none are seeded for it by default. Pass
+ * `legacyPredictions: true` to reproduce an OLD public letter sealed before P1379 that
+ * still stores a shared prediction — the server must withhold it on every read path.
  */
 export async function createFullTestLetter(
   senderId: string,
@@ -353,6 +358,8 @@ export async function createFullTestLetter(
   options: {
     mode?: 'one-to-one' | 'one-to-many';
     seal?: boolean;
+    /** P1379: seed shared predictions on a one-to-many letter (pre-P1379 data). */
+    legacyPredictions?: boolean;
   } = {}
 ): Promise<{ letter: TestLetter; delivery: TestDelivery; predictions: TestPrediction[] }> {
   const mode = options.mode ?? 'one-to-one';
@@ -415,9 +422,10 @@ export async function createFullTestLetter(
     receiverProfileId: receiver.profileId,
   });
 
-  // 4. Create predictions
+  // 4. Create predictions (one-to-one always; one-to-many only as legacy data — P1379)
   const predictions: TestPrediction[] = [];
-  for (const s of stories) {
+  const seedPredictions = mode === 'one-to-one' || options.legacyPredictions === true;
+  for (const s of seedPredictions ? stories : []) {
     const pred = await createTestPrediction(
       letter.id,
       s.storyId,

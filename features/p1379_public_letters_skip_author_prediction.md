@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 15
 created_date: '2026-09-30'
 tags: [letters, one-to-many, predictions, calibration]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, hostile-review]
+delivery_stage: dev
+pipeline_ran: [create-spec, hostile-review, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -249,9 +249,12 @@ Slice A:
       your stories back to you?" card. No 0–10 prediction screen appears, and sealing succeeds.
 - [ ] Preparing a private (one-to-one) letter still shows the prediction screen for every story and
       the review screen with "Your prediction: N". Sealing still requires all predictions.
-- [ ] A reader of a public letter (anonymous link) rates a story and sees their own rating with no
-      author number, no "gap", and no "{Author} thinks…" sentence. "Calibration data unavailable."
-      never appears.
+- [ ] A reader of a public letter (anonymous link) rates a story and sees no author number, no
+      "gap", and no "{Author} thinks…" sentence. "Calibration data unavailable." never appears.
+      (UAT 2026-10-01) There is **no reveal screen**: with "Just read" (`responses_mode = 'off'`),
+      or for any reader who cannot explain back, submitting the rating goes straight to the next
+      chapter (or the end). With explain-back on, a signed-in receiver gets the step only as the
+      explain-back / add-story prompt, with no "You said N" headline and no scale.
 - [ ] The same holds for a signed-in reader on the public link, for an anonymous email invitee of a
       public letter, and for a signed-in email invitee.
 - [ ] After completing a public letter, the reader's results page shows their own ratings with no
@@ -268,8 +271,8 @@ Slice A:
       range) above the per-reader rows; rows show each reader's own rating and no "You → Them"
       column or gap. Same for an old public letter that has stored predictions. The author's
       overview and results for a private letter are unchanged.
-- [ ] The author's preview (`/letter/:docId/preview`, from the Sent tab) of a public doc shows the
-      public reveal, never an author number or "Calibration data unavailable."
+- [ ] The author's preview (`/letter/:docId/preview`, from the Sent tab) of a public doc skips the
+      reveal (no screen after rating), never an author number or "Calibration data unavailable."
 - [ ] Starting a /live session from a public letter (old one with predictions, and new one without)
       works and seeds no letter baseline.
 
@@ -294,8 +297,10 @@ identifiers or single ratings).
 
 ## UX Notes
 
-- Public reveal state: the reader's rating is shown as a single marker on the 0–10 scale. The
-  author's avatar does not appear on the scale. Loading and error states are unchanged.
+- Public reveal state (UAT 2026-10-01, supersedes the single-marker reveal): **none**. The reader
+  just chose the number, so repeating it is pointless. "Just read" → the rating advances directly;
+  explain-back on → only the explain-back / add-story prompt, no headline, no scale. The results page
+  keeps "You said N out of 10." as a recap. One-to-one is unchanged.
 - Author compose on a public doc: one step fewer. Nothing may route back to a prediction walk for a
   one-to-many letter (A1).
 - Empty state for the author's aggregate: "No ratings yet" when count = 0.
@@ -306,8 +311,8 @@ RESOLVED 2026-09-30 (founder: short and plain, no author number). Final strings:
 
 | Surface | One-to-many string |
 |---|---|
-| Reader reveal (story-revealed), replaces verdict + numeric line | **"You said {n} out of 10."** — no sub-line; single marker on the 0–10 scale, no author avatar |
-| Reverse story variant (`isReverseStory`) | same string — no author framing either way |
+| Reader reveal (story-revealed) | **No reveal** (UAT 2026-10-01). "Just read": rating advances straight on. Explain-back on: the explain-back / add-story prompt only — no headline, no scale |
+| Reverse story variant (`isReverseStory`) | same — no reveal, no author framing |
 | Story-rate auth gate (`letter-reading-page.tsx` L1227) | **"Sign in to rate how well you understood this story."** |
 | Reader results page, per story | **"You said {n} out of 10."** (no "{Author}'s belief" row) |
 | Author overview summary line, per story | **"{count} readers · median {m} · range {min}–{max}"**; count = 1 → "1 reader · {n}"; count = 0 → **"No ratings yet"** |
@@ -328,9 +333,9 @@ Run on test with a public doc (one with points, one without) and a private doc.
 **2. Preparing a public letter**
 - [ ] Public doc → Compose → no recipient modal, **no prediction screen** → seal-confirm question,
       "Just read the letter" selected by default → Seal → confirmation with share link
-- [ ] Repeat, choosing "Ask them to explain your stories back" → seals with explain-back on
-- [ ] After sealing, Sent tab → Preview on the public letter → reveal shows "You said N out of 10."
-      with no author number and no "Calibration data unavailable."
+- [ ] Repeat, choosing "Ask them to explain your stories back (voice or text)" → seals with explain-back on
+- [ ] After sealing, Sent tab → Preview on the public letter → rating goes straight on (no reveal
+      screen), no author number and no "Calibration data unavailable."
 - [ ] Browser back from the seal-confirm card lands on the doc page, not an empty prediction walk
 
 **3. Receiving a private letter**
@@ -342,8 +347,10 @@ Run on test with a public doc (one with points, one without) and a private doc.
 - [ ] Author overview + author results of the private letter still show the "You → Them" column/gap
 
 **4. Receiving a public letter**
-- [ ] Anonymous, incognito, public link → rate → own rating only, no author number or gap, no
-      "Calibration data unavailable." → position reveals still show author vs reader positions
+- [ ] Anonymous, incognito, public link → rate → **no reveal screen**: straight to the next chapter
+      (or the end), no author number or gap, no "Calibration data unavailable." → position reveals
+      still show author vs reader positions
+- [ ] Explain-back letter, signed in → rate → only the explain-back prompt (no "You said N", no scale)
 - [ ] Signed in, public link → same
 - [ ] Invited by email to a public letter (add recipient after sealing), opened **signed out** → same
 - [ ] Same invite opened **signed in** → same

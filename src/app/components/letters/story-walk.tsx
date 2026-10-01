@@ -15,7 +15,8 @@ import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Button } from '@/components/ui/button';
 import { snapshotToStoryWithPoints, injectReceiverPositions, injectUserPositions } from '@/app/utils/letter-snapshot-mapper';
-import type { StoryWalkItem, PositionType } from '@/app/types';
+import type { LetterMode, StoryWalkItem, PositionType } from '@/app/types';
+import { letterUsesPredictions, publicRatingLine } from '@/app/utils/letter-prediction-policy';
 import { explainWhyLabel } from '@/app/utils/position-helpers';
 import type { ResultsProfileData, LetterPositionStory } from '@/app/data/letters-service';
 import { StartClaritySessionButton } from './start-clarity-session-button';
@@ -57,20 +58,25 @@ interface StoryWalkProps {
   positionStoriesMap?: Map<string, LetterPositionStory>;
   /** P904 plan: Called after a position story is saved so the parent can refetch. */
   onPositionStorySaved?: () => void;
-  /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'invite'. */
+  /** P952: 'off' removes all response affordances; 'invite' shows them; defaults to 'off' (fail closed — P1379 UAT). */
   responsesMode?: 'off' | 'invite' | 'push';
   /** P1364: rendered at the end of the scrolling content, above the fixed bar's reserved space
    * (the results page's bottom "Go back" pill — placed after the walk it would sit under the bar). */
   endSlot?: ReactNode;
   /** P1364: called with the new index on Previous/Next, so the page can keep it in the URL. */
   onIndexChange?: (index: number) => void;
+  /** P1379: 'one-to-many' hides the author's belief row and every gap line — the
+   *  rating alone is shown. Only an explicit 'one-to-one' shows the belief row;
+   *  omitted/null fails closed (rating only). */
+  letterMode?: LetterMode | null;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'invite', endSlot, onIndexChange }: StoryWalkProps) {
+export function StoryWalk({ stories, perspective, senderProfile, receiverProfile, senderName, receiverName, onPositionSelect, senderId, receiverId, deliveryId, initialIndex, onClear, isAuthenticatedReceiver, onExplainBackSubmit, positionStoriesMap, onPositionStorySaved, responsesMode = 'off', endSlot, onIndexChange, letterMode }: StoryWalkProps) {
+  const showsAuthorPrediction = letterUsesPredictions(letterMode);
   const [currentIndex, setCurrentIndex] = useState(initialIndex ?? 0);
   const counterRef = useRef<HTMLParagraphElement>(null);
   // P904: explain-back capture panel open state (per-story; reset on navigation).
@@ -241,19 +247,30 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
           Story {currentIndex + 1} of {stories.length}
         </p>
 
-        {/* Journey */}
-        <JourneyToUnderstanding
-          {...journeyProps}
-          explainBackRatings={[]}
-          compact
-          className="w-full max-w-sm mx-auto"
-        />
+        {/* Journey — P1379: one-to-many letters show the rating alone, no belief row */}
+        {showsAuthorPrediction ? (
+          <JourneyToUnderstanding
+            {...journeyProps}
+            explainBackRatings={[]}
+            compact
+            className="w-full max-w-sm mx-auto"
+          />
+        ) : current.rating != null ? (
+          <p
+            className="text-base font-semibold text-foreground text-center w-full max-w-sm mx-auto"
+            data-testid="story-walk-rating-only"
+          >
+            {perspective === 'receiver'
+              ? publicRatingLine(current.rating)
+              : `${receiverName ?? 'They'} said ${current.rating} out of 10.`}
+          </p>
+        ) : null}
 
         {/* P904 R10: gap insight as a one-line caption under the numbers, not a
             boxed banner. The JourneyToUnderstanding dots already show the gap
             magnitude; only the directional read ("more/less than you think") is
             non-redundant, so we keep that and drop the quantified badge + box. */}
-        {current.rating != null && current.gap !== undefined && (
+        {showsAuthorPrediction && current.rating != null && current.gap !== undefined && (
           <p className="text-sm text-muted-foreground text-center w-full max-w-sm mx-auto -mt-4">
             {perspective === 'sender' ? (
               // Author viewing their own letter: the partner is the receiver.

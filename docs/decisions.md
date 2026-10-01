@@ -18,6 +18,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** [P1369](../features/done/2026-06-10/p1369_offline_readable_pages_and_offline_bar.md), `src/app/hooks/use-online-write-guard.ts`, `src/app/components/feed/feed-point-card.tsx`, `src/app/pages/point-detail-page.tsx`
 
 
+## 2026-10-01 [product]: Public letters drop the author's understanding guess; readers rate only, authors see aggregates (P1379)
+
+**Context:** On one-to-many (public) letters the author predicted how well "the reader" would understand each story, and each reader's reveal then said e.g. "Slava thinks you understand less than you think." Strangers repeatedly asked where that number came from: a guess about an average reader was presented as a judgment of them. The follow-up screen "You said 4 out of 10." also told readers nothing they had not just chosen.
+**Decision:** Public letters skip the prediction step in compose. No path shows an author prediction to a public reader. Old stored predictions are withheld server-side (public reading, both reveal RPCs, `get_letter_results`, and the `letter_predictions` receiver RLS branch now require one-to-one) and are not deleted. After rating, a public reader goes straight on; the step remains only for a signed-in receiver when explain-back is enabled, and then shows only the prompts. Authors see "{n} readers · median {m} · range {a}–{b}" (or "all rated {x}") plus a per-reader "Their rating" column. Unknown letter mode fails closed for the author number. `responses_mode` is now returned by every reading source, with a mode-aware fallback ('off' public, 'invite' one-to-one). One-to-one letters are unchanged.
+**Alternatives rejected:** Keeping the guess reframed as author confidence (still an extra step, still a number with no reader-meaningful basis). Comparing a reader with other readers is deferred as slice C (N=5, only after the reader's own rating is saved) because it needs several readers per letter first. Returning `mode` from `get_letter_results` was rejected for now because it requires a DROP FUNCTION; the client fails closed instead.
+**Consequences:** Deploy order is frontend first, then the migration (`20260930120000_p1379_…`, marked `requires-frontend`). The `/letter/ck` demo loses its story-level gap; point-level reveals stay. Public-link (non-delivery) readers still cannot explain back, which was true before. Pre-existing bug found in UAT and left for its own task: the author overview matches a reader's ratings by reader, not delivery, so a reader who rated the same story in two letters shows their latest rating in both.
+**References:** [features/p1379_public_letters_skip_author_prediction.md](../features/p1379_public_letters_skip_author_prediction.md)
+
 ## 2026-10-01 [product]: P1336 preparation — activation, scope, and what stays fixed
 
 **Context:** Closing the P1336 prototype rounds; settles what is per-event and what stays fixed.

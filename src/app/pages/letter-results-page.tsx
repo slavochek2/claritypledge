@@ -369,6 +369,7 @@ export function LetterResultsPage() {
         deliveryId={deliveryId}
         isAuthenticatedReceiver={!!user && resultsData.perspective === 'receiver'}
         responsesMode={resultsData.responsesMode}
+        letterMode={resultsData.mode}
         // P1364: the walk position lives in `?story=` (replace), so opening a story from the
         // walk and coming Back returns to the same story, not the first.
         onIndexChange={(index) => {

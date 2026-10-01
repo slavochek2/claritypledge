@@ -19,6 +19,7 @@ import { LetterRevealCard } from '@/app/components/letters/letter-reveal-card';
 import { LetterRevealOrdinal } from '@/app/components/letters/letter-reveal-ordinal';
 import { LetterRevealNumeric } from '@/app/components/letters/letter-reveal-numeric';
 import { CalibrationVerdict } from '@/app/components/letters/calibration-verdict';
+import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
 import { LiveStoryCardExpanded } from '@/app/components/partners/live-story-card-expanded';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { PositionButtons } from '@/app/components/shared/PositionButton';
@@ -34,7 +35,7 @@ import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { ZERO_COUNTS, explainWhyLabel, getPositionGroup } from '@/app/utils/position-helpers';
 import { useAuth } from '@/auth';
 import { analytics } from '@/lib/mixpanel';
-import type { LetterStorySnapshot, PositionType } from '@/app/types';
+import type { LetterMode, LetterStorySnapshot, PositionType } from '@/app/types';
 import { POSITION_VALUES } from '@/app/types';
 import { ExplainBackCapture, type ExplainBackSubmitPayload } from '@/app/components/letters/explain-back-capture';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
@@ -57,6 +58,18 @@ export interface LetterFlowContentProps {
   readerProfileOwner?: PointProfileOwner;
   // State machine (from useLetterReadingState)
   readingState: UseLetterReadingStateReturn;
+  /**
+   * P1379: the letter's mode. 'one-to-many' renders the reader-only reveal (no author
+   * number, no gap, no "{Author} thinks…"). Omitted → 'one-to-one' (historical
+   * behaviour); every production caller passes it explicitly.
+   */
+  letterMode?: LetterMode | null;
+  /**
+   * P1379: false while the reader's auth/delivery identity is still resolving. The
+   * public story-reveal skip waits for it, so a signed-in 'invite' receiver is never
+   * auto-advanced past explain-back during load. Omitted → settled.
+   */
+  identitySettled?: boolean;
   // Variant configuration
   /**
    * P1364: no longer rendered. Every caller passed `false` (the reading page hides the header
@@ -160,6 +173,8 @@ export function LetterFlowContent({
   senderProfileOwner,
   readerProfileOwner,
   readingState,
+  letterMode,
+  identitySettled = true,
   authGateAtStoryRate,
   renderCompletion,
   onStoryRated,
@@ -438,8 +453,18 @@ export function LetterFlowContent({
   const visiblePoints = storyWithPoints?.points ?? [];
   const currentPoint = currentStory ? visiblePoints[currentStory.currentPointIndex] : undefined;
 
+  // P1379: keyed on MODE, not on prediction === null — a one-to-one letter with a
+  // missing prediction must still surface "Calibration data unavailable.".
+  // LAYOUT vs NUMBER are separate decisions (review F/#4):
+  //  - layout: only an explicit 'one-to-many' gets the public flow; unknown/null keeps
+  //    the one-to-one reveal step (never silently skipped).
+  //  - number: the author's prediction is shown only for an explicit 'one-to-one'
+  //    (letterUsesPredictions fails closed), so an unknown mode never leaks one.
+  const isPublicLetter = letterMode === 'one-to-many';
+  const showsAuthorPrediction = letterUsesPredictions(letterMode);
+
   const gap =
-    currentStory && currentStory.rating !== null && currentStory.prediction !== null
+    showsAuthorPrediction && currentStory && currentStory.rating !== null && currentStory.prediction !== null
       ? Math.abs(currentStory.rating - currentStory.prediction)
       : null;
 
@@ -482,7 +507,7 @@ export function LetterFlowContent({
   const revealGap: number | null = (() => {
     if (!currentStory) return null;
     if (currentPhase === 'story-revealed') {
-      if (currentStory.rating !== null && currentStory.prediction !== null) {
+      if (showsAuthorPrediction && currentStory.rating !== null && currentStory.prediction !== null) {
         return currentStory.rating - currentStory.prediction;
       }
       return null;
@@ -519,6 +544,22 @@ export function LetterFlowContent({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- closure values are stable per stage; stageKey is the reset trigger
   }, [revealStageKey]);
+
+  // P1379 UAT: a one-to-many letter has no reveal to show — the reader just chose the
+  // number. With nothing to prompt (responses 'off', or a reader who cannot explain
+  // back), story-revealed is skipped: the rating advances straight on. With 'invite'
+  // for a signed-in receiver, the step stays, but only as the explain-back prompt.
+  // 'push' and 'invite' both mean responses are enabled (review C).
+  const responsesEnabled = responsesMode !== undefined && responsesMode !== 'off';
+  const skipPublicStoryReveal =
+    isPublicLetter && identitySettled && !(isAuthenticatedReceiver && responsesEnabled);
+  const autoAdvancedStageRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentPhase !== 'story-revealed' || !skipPublicStoryReveal || state.isComplete) return;
+    if (autoAdvancedStageRef.current === revealStageKey) return; // once per stage (StrictMode-safe)
+    autoAdvancedStageRef.current = revealStageKey;
+    advanceFromStoryReveal();
+  }, [currentPhase, skipPublicStoryReveal, state.isComplete, revealStageKey, advanceFromStoryReveal]);
 
   // Guard narrows storyWithPoints too — null only when currentSnapshot is falsy,
   // but TS can't propagate that narrowing across sibling variables.
@@ -844,8 +885,10 @@ export function LetterFlowContent({
         {/* ── PHASE: story-revealed ───────────────────────────────────────── */}
         {currentPhase === 'story-revealed' && (
           <>
+            {/* P1379 UAT: one-to-many shows no reveal card at all (no "You said N", no scale). */}
+            {!isPublicLetter && (
             <LetterRevealCard>
-              {currentStory.rating !== null && currentStory.prediction !== null ? (
+              {showsAuthorPrediction && currentStory.rating !== null && currentStory.prediction !== null ? (
                 <div className="flex flex-col items-center gap-5 w-full">
                   {/* P915: letter calibration verdict — extracted to CalibrationVerdict so both
                       states (calibrated/gap) are unit-tested. gap-banner.tsx stays for /live. */}
@@ -870,7 +913,16 @@ export function LetterFlowContent({
                 </p>
               )}
             </LetterRevealCard>
-            {(() => {
+            )}
+            {/* P1379: while a public reveal is being skipped, keep a way forward — the
+                auto-advance normally fires within a frame; if it ever does not (re-entry,
+                no-op advance) the reader is not stranded on a blank screen (review #3). */}
+            {skipPublicStoryReveal && (
+              <FixedBottomBar ref={setDrawerRef}>
+                <LetterPrimaryCta label="Continue" onClick={advanceFromStoryReveal} icon="arrow" />
+              </FixedBottomBar>
+            )}
+            {!skipPublicStoryReveal && (() => {
               // P898: points remaining after story-revealed.
               const hasRemainingPoints =
                 visiblePoints.length === 1 && effectiveLeadCount >= 1

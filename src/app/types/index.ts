@@ -1733,6 +1733,8 @@ export interface LetterOverviewPayload {
     title: string;
     status: string;
     sender_id: string;
+    /** P1379: letter mode; null when unreadable (fails closed: no prediction shown). */
+    mode: LetterMode | null;
     sender: {                  // P843: author avatar + full name for overview header
       profile_id: string | null;
       name: string;

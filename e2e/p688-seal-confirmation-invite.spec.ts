@@ -12,8 +12,8 @@
  * 7. Private doc regression guard: no "+ Also invite" affordance and no shareable link card
  *
  * NOTE: The seal-confirmation screen is reached via the real compose flow:
- *   navigate /letter/:docId/compose → rate story → click "Seal & Get Link" → confirmation phase
- * Public docs auto-skip the receiver modal (doc.visibility === 'public' → setPhase('predict')).
+ *   navigate /letter/:docId/compose → seal-confirm card → "Send letter →" → confirmation phase
+ * Public docs auto-skip the receiver modal AND (P1379) the prediction walk.
  *
  * The Dialog is MODAL with a dimmed scrim (overlayClassName="bg-black/50";
  * onInteractOutside prevented so backdrop clicks don't dismiss). P968 UAT reversed
@@ -68,49 +68,10 @@ async function gotoSealConfirmationPublic(
 ): Promise<string> {
   await page.goto(`/letter/${docId}/compose`);
 
-  // Wait for prediction walk to appear (public doc skips modal)
-  await page.waitForSelector('[aria-label="Rating scale from 0 to 10"]', { timeout: 15000 });
-
-  // Rate every story by clicking "Rate 5" until "Seal & Get Link" button appears and is enabled
-  // Stories are shown one at a time; each "Continue" / "Seal & Get Link" advances to next
-  while (true) {
-    // Rate current story with value 5
-    const rateBtn = page.getByRole('button', { name: 'Rate 5' });
-    await rateBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await rateBtn.click();
-
-    // After rating, check whether we're on the last story ("Seal & Get Link")
-    // or still navigating ("Continue")
-    const sealBtn = page.getByRole('button', { name: 'Seal & Get Link' });
-    const nextBtn = page.getByRole('button', { name: 'Continue' });
-
-    // Wait for one of them to become enabled
-    await page.waitForFunction(
-      () => {
-        const seal = document.querySelector('button[class*="bg-\\[\\#0044CC\\]"]:not([disabled])');
-        return seal !== null;
-      },
-      { timeout: 5000 }
-    ).catch(() => null); // tolerate if already enabled
-
-    const isSealVisible = await sealBtn.isVisible().catch(() => false);
-    if (isSealVisible) {
-      // Last story — click "Seal & Get Link"
-      await sealBtn.click();
-      break;
-    }
-
-    const isNextVisible = await nextBtn.isVisible().catch(() => false);
-    if (isNextVisible) {
-      await nextBtn.click();
-      // Wait for next story card to load
-      await page.waitForSelector('[aria-label="Rating scale from 0 to 10"]', { timeout: 10000 });
-    } else {
-      // Neither button found — click seal if it exists anyway
-      await sealBtn.click();
-      break;
-    }
-  }
+  // P1379: a public doc has NO prediction walk — compose opens straight on the
+  // seal-confirm card (P952 AD-5), where the author picks the response mode and sends.
+  await expect(page.getByText('Should readers explain your stories back to you?')).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: /send letter/i }).click();
 
   // Wait for confirmation screen: "Letter Sealed" heading
   await page.waitForSelector('h2:has-text("Letter Sealed")', { timeout: 20000 });

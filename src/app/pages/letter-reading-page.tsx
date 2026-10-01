@@ -27,10 +27,10 @@ import type { PointProfileOwner } from '@/app/components/social/point-card-with-
 import { CURRENT_TERMS_VERSION, ACCEPTED_TERMS_VERSIONS } from '@/lib/constants';
 import { useLetterReadingState, loadState as loadReadingState, loadLocalState } from '@/app/hooks/useLetterReadingState';
 import { countTotalPoints, estimateReadingMinutes } from '@/app/utils/letter-reading-utils';
+import { letterUsesPredictions, predictionsForMode, resolveResponsesMode } from '@/app/utils/letter-prediction-policy';
 import {
   getLetterForReading,
   getLetterForReadingByToken,
-  getLetterForPublicReading,
   getLetterPointResponses,
   getLetterPointResponsesByToken,
   claimLetterDelivery,
@@ -47,7 +47,7 @@ import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { LetterLiveBanner } from '@/app/components/letters/letter-live-banner';
 import { LetterLiveOverlay } from '@/app/components/letters/letter-live-overlay';
 import { analytics } from '@/lib/mixpanel';
-import type { ClarityLetter, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
+import type { ClarityLetter, LetterMode, LetterStorySnapshot, LetterDelivery, PositionType } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
 import { publicLetterRead, type PublicLetter } from '@/app/data/offline-reads-letters';
 import { peekOfflineCache, readThrough, rememberOffline } from '@/lib/offline-read-cache';
@@ -247,8 +247,15 @@ export function LetterReadingPage() {
     const setDeliverySafe = (d: LetterDelivery | null) => { if (!cancelled) setDelivery(d); };
     const setSenderNameSafe = (n: string) => { if (!cancelled) setSenderName(n); };
     const setReceiverDisplayNameSafe = (n: string) => { if (!cancelled) setReceiverDisplayName(n); };
-    const setPublicPredictionsSafe = (preds: Array<{ story_id: string; prediction: number }>) => {
-      if (!cancelled) setPublicPredictions(new Map(preds.map(p => [p.story_id, p.prediction])));
+    // P1379: every caller below is a one-to-many letter, which never shows an author
+    // prediction. predictionsForMode drops any the server still returned (old
+    // letters sealed before P1379), so publicPredictions is never built for them.
+    const setPublicPredictionsSafe = (
+      mode: LetterMode | undefined,
+      preds: Array<{ story_id: string; prediction: number }> | undefined,
+    ) => {
+      const kept = predictionsForMode(mode, preds ?? []);
+      if (!cancelled) setPublicPredictions(new Map(kept.map(p => [p.story_id, p.prediction])));
     };
 
     const load = async () => {
@@ -362,7 +369,7 @@ export function LetterReadingPage() {
                   setSnapshotsSafe(publicData.snapshots);
                   setDeliverySafe(null);
                   setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
-                  setPublicPredictionsSafe(publicData.predictions);
+                  setPublicPredictionsSafe(letterObj.mode as LetterMode, publicData.predictions);
                   if (!cancelled) setPreviewState('ready_public');
                   setSafe('own_letter');
                   return;
@@ -383,7 +390,7 @@ export function LetterReadingPage() {
                 setSnapshotsSafe(publicData.snapshots);
                 setDeliverySafe(deliveryRow);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
-                setPublicPredictionsSafe(publicData.predictions);
+                setPublicPredictionsSafe(letterObj.mode as LetterMode, publicData.predictions);
                 if (currentUser.name) setReceiverDisplayNameSafe(currentUser.name.split(' ')[0]);
                 if (deliveryRow.completed_at) {
                   setSafe('ready');
@@ -497,15 +504,9 @@ export function LetterReadingPage() {
             return;
           }
 
-          // P705: fetch shared predictions for anon one-to-many token path
-          if (readData.letter.mode === 'one-to-many' && !currentUser) {
-            try {
-              const publicData = await getLetterForPublicReading(readData.letter.id as string);
-              if (!cancelled && publicData?.predictions) {
-                setPublicPredictionsSafe(publicData.predictions);
-              }
-            } catch { /* non-fatal */ }
-          }
+          // P705 fetched the shared predictions here for the anon one-to-many token
+          // path. P1379: one-to-many letters show no author prediction, so there is
+          // nothing to fetch.
 
           // P768: rehydrate prior point responses BEFORE flipping to 'ready'.
           // Token path: use the SECURITY DEFINER RPC so anon callers can read
@@ -540,7 +541,7 @@ export function LetterReadingPage() {
             // No delivery for public one-to-many reading
             setDeliverySafe(null);
             setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
-            setPublicPredictionsSafe(publicData.predictions);
+            setPublicPredictionsSafe(letterObj.mode as LetterMode, publicData.predictions);
             setSafe('ready_public');
             if (read.source === 'cache' && !cancelled) setOfflineCachedAt(read.storedAt);
           } catch {
@@ -1205,7 +1206,7 @@ function LetterReadingFlow({
     priorPositions,
   });
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
-  const { user } = useAuth();
+  const { user, sessionChecked, isLoading: authLoading } = useAuth();
 
   // P711: Post-reveal position edits — writes directly to point_positions (does not transition phase).
   // Mirrors handleResultsPositionChange in letter-results-page.tsx. Auth-only; anon path no-ops.
@@ -1229,17 +1230,23 @@ function LetterReadingFlow({
   const explainBackSubmitting = useRef(false);
   // P952: derive isAuthenticatedReceiver strictly — must be the delivery's receiver
   const isAuthenticatedReceiver = !!user && !!delivery.receiver_profile_id && user.id === delivery.receiver_profile_id;
+  // P1379 (review B): every reading source now returns responses_mode; if one ever
+  // does not, fall back by mode — public letters fail closed ('off', "Just read" is the
+  // default), one-to-one keeps its historical 'invite' so explain-back is not lost.
+  const resolvedResponsesMode = resolveResponsesMode(letter);
+  // P1379 (review #2): the public reveal-skip waits until the session is resolved.
+  const identitySettled = sessionChecked && !authLoading;
 
   // Fetch position stories + explain-backs when receiver is authenticated and responses enabled.
   useEffect(() => {
-    if (!isAuthenticatedReceiver || letter.responses_mode === 'off' || !user) return;
+    if (!isAuthenticatedReceiver || resolvedResponsesMode === 'off' || !user) return;
     getLetterPositionStories(delivery.id, user.id, letter.sender_id).then((map) => {
       if (map) setPositionStoriesMap(map);
     });
     getExplainBacksForDelivery(delivery.id).then((rows) => {
       setExplainedBackMap(new Map(rows.map((r) => [r.story_id, r.id])));
     });
-  }, [isAuthenticatedReceiver, delivery.id, letter.responses_mode, letter.sender_id, user]);
+  }, [isAuthenticatedReceiver, delivery.id, resolvedResponsesMode, letter.sender_id, user]);
 
   // H2: optimistic update before auto-advance; background refetch keeps the map fresh.
   const handleExplainBackSaved = useCallback((storyId: string, explainBackId: string) => {
@@ -1335,7 +1342,9 @@ function LetterReadingFlow({
   const authGateNode: ReactNode = !isAuthenticated ? (
     <div className="space-y-4 text-center py-4">
       <p className="text-sm text-[#1A1A1A]/70">
-        Sign in to rate how well you understood this story and see {senderName}&apos;s prediction.
+        {letterUsesPredictions(letter.mode)
+          ? <>Sign in to rate how well you understood this story and see {senderName}&apos;s prediction.</>
+          : 'Sign in to rate how well you understood this story.'}
       </p>
       <Link
         to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
@@ -1389,12 +1398,14 @@ function LetterReadingFlow({
               senderProfileOwner={senderProfileOwner}
               readerProfileOwner={readerProfileOwner}
               readingState={readingState}
+              letterMode={letter.mode}
               showFocusHeader={false}
               authGateAtStoryRate={authGateNode}
               renderCompletion={() => null}
               onStoryRated={onStoryRated}
               onLivePositionChange={handleLivePositionChange}
-              responsesMode={letter.responses_mode ?? 'invite'}
+              responsesMode={resolvedResponsesMode}
+              identitySettled={identitySettled}
               isAuthenticatedReceiver={isAuthenticatedReceiver}
               onExplainBackSubmit={handleExplainBackSubmit}
               positionStoriesMap={positionStoriesMap}
@@ -1526,6 +1537,7 @@ function LetterReadingFlowPublic({
             senderProfileOwner={senderProfileOwner}
             readerProfileOwner={readerProfileOwner}
             readingState={readingState}
+            letterMode={letter.mode}
             showFocusHeader={false}
             renderCompletion={() => null}
             onStoryRated={onStoryRated}

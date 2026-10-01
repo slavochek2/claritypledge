@@ -106,3 +106,20 @@ Decision density: low now, since both founder calls are already made.
 - [ ] Design flag triaged: allowlist scoped, or acceptance documented with its reason
 - [ ] Verified against live behaviour after deploy, not a green migration run
 - [ ] `.private/docs/security-log.md` updated with the design, the fix and its verification
+
+## 2026-09-30 — P1379 A3 outcome (annotation, not a closure)
+
+P1379 slice A means one-to-many letters carry no author prediction on any read path
+(migration `20260930120000_p1379_public_letters_no_author_prediction.sql`):
+`get_letter_for_public_reading` always returns `predictions: []`, both reveal RPCs return
+NULL for one-to-many, `get_letter_results` returns `[]`, and the receiver branch of the
+`letter_predictions` RLS policy requires `mode = 'one-to-one'`. Old rows are kept.
+
+Evidence (TEST DB only): `e2e/integration/20260930120000_p1379_public_letters_no_author_prediction.spec.ts`
+L1: an anonymous caller gets `predictions: []` for a one-to-many letter that still stores a
+shared prediction. All 9 layers pass, and the one-to-one controls still return their value.
+
+Status: this leak is **dissolved on test** for public letters. It is not yet verified on prod.
+After P1379 ships, re-check `/letter/ck`'s public reading response on prod. If it carries no
+predictions, close P1092 via `/ship` with that evidence. The anonymous-gating question in
+P1379 slice C (deferred) inherits this spec's constraint.
