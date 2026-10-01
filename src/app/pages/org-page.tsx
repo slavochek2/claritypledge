@@ -193,7 +193,12 @@ export function OrgPage() {
     let cancelled = false;
     async function loadMine() {
       if (!orgId) return;
-      if (!userId) { setMyRole(null); return; }
+      // P1383: clear the previous group's role first. The page is reused across
+      // /groups/A → /groups/B, and myRole now drives the header's Host event link —
+      // keeping A's "organizer" until B's lookup returns showed B a Host event the
+      // caller may not hold (and the create form would silently file it under no group).
+      setMyRole(null);
+      if (!userId) return;
       try {
         const mine = await organizationsService.getMyMembership(orgId);
         if (!cancelled) setMyRole(mine?.role ?? null);
@@ -388,6 +393,7 @@ export function OrgPage() {
                 orgSlug={org.slug}
                 orgName={org.name}
                 canHost={canHost}
+                isMember={isMember}
               />
             </TabsContent>
           )}

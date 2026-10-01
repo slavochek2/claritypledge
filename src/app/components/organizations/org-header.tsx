@@ -8,7 +8,8 @@
  * sole organizer of a group.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDownIcon, Share2Icon, UsersIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronDownIcon, PlusIcon, Share2Icon, UsersIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -112,6 +113,8 @@ export function OrgHeader({
     }
   }, [onLeave]);
 
+  const isOrganizer = myRole === "organizer";
+
   const memberLabel =
     memberCount === null
       ? null
@@ -204,13 +207,28 @@ export function OrgHeader({
       {/* The member/non-member swap is announced via the accessible name
           ("Join as member" vs "Manage membership"), never color alone (WCAG 1.4.1). */}
       {isMember ? (
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          {/* A member never sees "Join as member" (P955: one primary action per
-              view) — so a primary-blue Invite here costs nothing, and "Manage
-              membership" stays outline as it always has. */}
+        <div className={`grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-row ${isOrganizer ? "min-[400px]:grid-cols-2" : ""}`}>
+          {/* P1383: an organizer's Host event lives HERE, on every tab, instead of
+              only inside the Events tab where organizers did not find it (founder,
+              2026-10-01). It carries ?org= so the event is filed under this group.
+              P955: one primary per view — for an organizer Host event is the
+              primary and Invite drops to outline; a plain member keeps a blue
+              Invite (they never see Join or Host). On mobile Host event spans the
+              row and the two secondary actions share the row below — from 400px
+              only; at 320 "Manage membership" overflowed a half-width cell, so
+              narrower screens stack all three. */}
+          {isOrganizer && (
+            <Button asChild className="col-span-full min-h-11 w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto">
+              <Link to={`/events/new?org=${encodeURIComponent(org.slug)}`} data-testid="org-host-event">
+                <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                Host event
+              </Link>
+            </Button>
+          )}
           <Button
             onClick={() => setInviteDialogOpen(true)}
-            className="min-h-11 w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+            variant={isOrganizer ? "outline" : "default"}
+            className={`min-h-11 w-full gap-2 sm:w-auto ${isOrganizer ? "" : "bg-blue-500 text-white hover:bg-blue-600"}`}
           >
             <Share2Icon className="h-4 w-4" aria-hidden="true" />
             Invite

@@ -5,6 +5,14 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [product]: An organizer's Host event lives in the group header, on every tab (P1383)
+
+**Context:** The founder, an organizer of both prod groups, reported that organizers "can't host an event" from a group, then hosted a standalone /events event that belonged to no group. A prod check showed the button existed, but only inside the group's Events tab (P1060 D4). It was invisible from About and Members, and below the fold on mobile. So the problem was discoverability, not a missing capability.
+**Decision:** For `role = organizer`, the group header shows **Host event** (`/events/new?org=<slug>`) beside Invite and Manage membership, on every tab. It is the one primary, and Invite drops to outline for organizers only (P955). The embedded group EventsList no longer renders host actions, so one action has one place. Empty-state copy is per audience: organizers get "No events yet / Use Host event above", members are no longer told to "Join", visitors are unchanged. The three header actions stack full-width under 400px. `org-page` clears `myRole` when the group changes, so a role from group A never shows group B a Host event.
+**Alternatives rejected:** Keeping the button in the Events tab as well (two controls for one action). Leaving it as it was (the founder had already made the call that organizers need it visible).
+**Consequences:** Hosting from a group no longer depends on which tab you open. Review (Opus visual, Codex gpt-5.6-sol high, Gemini 3.8 flash; 3 of 3 reported) also surfaced pre-existing EventsList defects outside this change, deferred and not fixed here: a fetch rejection leaves "Loading events…" forever; the fetch has no cancellation on orgId/user change; RSVP state is not cleared on logout; `inviteUrl` doesn't encode the slug; the blocked-Leave menu has no menu item.
+**References:** `src/app/components/organizations/org-header.tsx`, `src/app/prototypes/events/components/EventsList.tsx`, `e2e/p1383-org-host-event-header.spec.ts`
+
 ## 2026-10-01 [process]: Ship cleans up after itself: bytecode is not work, and merged idle agent worktrees are swept
 
 **Context:** After shipping P1381, `/ship` kept its `w3` worktree with an empty "RETAINED" list, and a fully merged agent worktree (`agent-a12…`, on the P1379 branch) sat untouched. Two causes. (1) `worktree_has_user_changes` counted ignored `scripts/__pycache__/` (written whenever a repo Python helper runs in a slot) as user work, so any slot where a session ran a Python script was kept forever; the message read plain `git status` while the decision read `--ignored`, so it named nothing. (2) Ship tears down only the worktree checked out on the shipped branch. Claude Code subagent worktrees sit on `worktree-agent-*` branches with no slot lock, so nothing ever removed them (found by an Opus adversarial review of the first fix).

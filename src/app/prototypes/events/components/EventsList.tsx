@@ -28,6 +28,8 @@ interface EventsListProps {
    *  logged-in user. `membership_insert` lets any authenticated user join a public
    *  org in one click, so "any member" would be close to "anyone" — hence organizer. */
   canHost?: boolean;
+  /** P1383: the caller already belongs to this group — never tell them to join it. */
+  isMember?: boolean;
 }
 
 export function EventsList({
@@ -36,6 +38,7 @@ export function EventsList({
   orgSlug,
   orgName,
   canHost = false,
+  isMember = false,
 }: EventsListProps = {}) {
   const { user } = useAuth();
   const isLoggedIn = !!user;
@@ -113,8 +116,12 @@ export function EventsList({
   // ORGANIZERS. Before this, the org page offered "Host Event" to any logged-in
   // visitor and filed an event that belonged to nothing — inviting a stranger to
   // host into a community they may not be part of. The standalone list is unchanged.
+  // P1383: in org context the actions moved to the group HEADER (org-header.tsx),
+  // visible on every tab — organizers did not find Host Event inside this tab. The
+  // list no longer renders them there, so one action has one place. `canHost` now
+  // only picks the organizer's empty-state copy below.
   const showActions = isOrgScoped
-    ? canHost && !loading
+    ? false
     : isLoggedIn && !isSeriesFiltered && !loading;
 
   // Host / Co-create. Two positions, one definition:
@@ -257,11 +264,25 @@ export function EventsList({
           <div className="rounded-lg border border-dashed border-border px-6 py-14 text-center">
             {upcomingEvents.length === 0 && pastEvents.length === 0 ? (
               <>
-                <h3 className="text-lg font-semibold">The first event is being planned</h3>
-                <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                  This group hasn&apos;t hosted an event yet. Join to hear when the
-                  first one is scheduled.
-                </p>
+                {/* P1383: an organizer was told to "Join to hear" about a group they
+                    run. They get their own line, pointing at the header's Host event. */}
+                {canHost ? (
+                  <>
+                    <h3 className="text-lg font-semibold">No events yet</h3>
+                    <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                      Use Host event above to schedule this group&apos;s first one.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold">The first event is being planned</h3>
+                    <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                      {isMember
+                        ? "This group hasn't hosted an event yet. It will appear here once it is scheduled."
+                        : "This group hasn't hosted an event yet. Join to hear when the first one is scheduled."}
+                    </p>
+                  </>
+                )}
               </>
             ) : (
               <>
