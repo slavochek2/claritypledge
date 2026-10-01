@@ -5,6 +5,33 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [product]: Clarity Night preparation after founder UAT — past room opt-ins count, "prepared" lives on the room roster, the end of preparation is a destination (P1336)
+
+**Context:** Two founder UAT rounds on P1336's preparation flow. Clarity Night #1 ran the event room before preparation existed, so every opt-in it produced (11, host excluded) sits in the room roster, not in `event_preparations` — the series social proof read 0 at the very event it exists for. The "Prepared ✓" pill floated under the room's Back button, the end screen had no menus and no way back, and "1 person prepared for Clarity Nights · 1 for this one" read as two people.
+**Decision:**
+- The series opt-in count is prep answers **or** room answers, in distinct people; for a Clarity Night the series is every Clarity Night by that host (by title, the same rule as the "Clarity Nights" label), with or without preparation. The line never reads as a sum: "N people opted in at Clarity Nights, including M for this event" / "M people prepared for this event".
+- Faces in the social proof come only from people who prepared **and** opted in, so a missing face never reveals an opt-out. Plain faces (no pledge ring) — they say "real people did this", not who has pledged.
+- In the room, "prepared" is a small blue check after the roster row's answer ("8/10 ✓", tooltip on hover/tap), visible to everyone in the room; an unfinished preparation is a link on the Back line. No standalone status line in the room.
+- The end of preparation is a destination: it leaves immersive mode (`?done=1`, the P932 letter pattern), puts the next action first (stories, or Join the room), and always offers Back to the event.
+- Event emails (P1380) are proposed to apply only to events with Preparation on — open for the founder to confirm at its /dev.
+**Alternatives rejected:** counting prep rows only (0 at Night #2); a Prepared line or pill in the room (floats, and duplicates what the roster can carry); merging main to "update the cards" — the step embeds the live `/stake` page, so it is never behind.
+**Consequences:** `get_event_prep_social_proof` reads room history; new `get_event_room_prepared` (room members who finished preparing; readable only by people registered for the event, or its host). Still open for the founder: a preparation opt-out becomes public when that person enters the room, because the P1114 roster is public (2026-08-21) — this conflicts with the P1336 invariant "opt-outs are never shown to other attendees".
+**References:** [P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md), [P1380](../features/p1380_event_starting_soon_email_with_signin.md)
+
+## 2026-10-01 [technical]: `/events/:slug/prepare` joins the immersive-route matcher, so room capture pauses there (P1336)
+
+**Context:** The preparation route was `chromeFree`. That hid every app bar, including the room-capture bar, while capture itself kept running — a recording volunteer who opened preparation from the room would keep recording on a screen with no indicator (P1307 D13 says capture never runs where its bar is hidden). The founder also wanted the app menus back on the end screen.
+**Decision:** The route uses the normal product layout and is matched by `immersive-letter-route.ts` (one definition, two readers: the layout hides chrome, room capture pauses), exiting immersive mode on `?done=1` for a signed-in viewer exactly as a completed letter does; `BottomNav` returns on the same condition.
+**Alternatives rejected:** a second "focus route" helper (two definitions that can drift); keeping `chromeFree` and rendering a nav inside the page (duplicates the layout).
+**Consequences:** The helper's name still says "Letter" while it now covers the preparation too; rename when it gains a third route.
+**References:** `src/app/layouts/immersive-letter-route.ts`, [2026-06-12 P932 ?done=1 entry]
+
+## 2026-10-01 [process]: Check ancestry before merging main into a feature branch "to pick up" a change; the cross-feature canary guard blocks merges (Status: proposed)
+
+**Context:** UAT reported "the cards are not the latest version". The agent assumed the branch was behind and merged main into `feature/p1336-*` — six conflicts resolved — then `pre-commit-checks.sh`'s cross-feature canary guard refused the merge commit, because main's own `src/tests/p1379-*` files (P1379 still `in-progress`) were staged by the merge. The card commits (P1366, P1376) were already ancestors of the branch; the "0 stories" label was the current card's own copy for a point with no stories and no position. Merge aborted, nothing kept.
+**Decision:** Before merging main to pick up a change, run `git merge-base --is-ancestor <commit> HEAD` on the commit that carries it. The guard has no merge exemption: a staged canary file whose blob equals `MERGE_HEAD`'s is a merge, not an edit — proposed fix, not built.
+**Consequences:** Follow-up: teach the guard to skip staged paths identical to `MERGE_HEAD` during a merge (with a must-fail control for a real cross-feature edit during a merge).
+
 ## 2026-10-01 [product]: An organizer's Host event lives in the group header, on every tab (P1383)
 
 **Context:** The founder, an organizer of both prod groups, reported that organizers "can't host an event" from a group, then hosted a standalone /events event that belonged to no group. A prod check showed the button existed, but only inside the group's Events tab (P1060 D4). It was invisible from About and Members, and below the fold on mobile. So the problem was discoverability, not a missing capability.
