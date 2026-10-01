@@ -83,14 +83,24 @@ export function matchesQuery(user: AdminUser, query: string): boolean {
   return [user.name, user.email, user.slug ?? ''].some((v) => v.toLowerCase().includes(q));
 }
 
-/** Returns the list, or null on ANY error (non-admin, signed out, network). */
+// PostgREST caps every response at max_rows (1000 on this project) WITHOUT erroring,
+// so a single call silently truncates. Page until a short page comes back.
+const PAGE = 1000;
+
+/** Returns the full list, or null on ANY error (non-admin, signed out, network). */
 export async function getAdminUsers(): Promise<AdminUser[] | null> {
-  const { data, error } = await supabase.rpc('admin_list_users') as
-    { data: AdminUserRow[] | null; error: { code?: string } | null };
-  if (error || !data) {
-    // Code only: never the payload.
-    if (error) console.warn('admin_list_users failed', error.code);
-    return null;
+  const data: AdminUserRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await supabase
+      .rpc('admin_list_users')
+      .range(from, from + PAGE - 1) as { data: AdminUserRow[] | null; error: { code?: string } | null };
+    if (error || !page) {
+      // Code only: never the payload.
+      if (error) console.warn('admin_list_users failed', error.code);
+      return null;
+    }
+    data.push(...page);
+    if (page.length < PAGE) break;
   }
   return data
     .map((r) => ({

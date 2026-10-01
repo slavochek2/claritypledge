@@ -9,8 +9,11 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 const authState = { user: { id: 'user-id-1234' } as { id: string } | null, isLoading: false };
 vi.mock('@/auth', () => ({ useAuth: () => authState }));
 
+// rpc(...).range(from, to) — the mock resolves per page so pagination is testable.
 const rpc = vi.fn();
-vi.mock('@/lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
+vi.mock('@/lib/supabase', () => ({
+  supabase: { rpc: (name: string) => ({ range: (from: number, to: number) => rpc(name, from, to) }) },
+}));
 
 vi.mock('@/app/pages/not-found-page', () => ({ NotFoundPage: () => <div>NOT FOUND</div> }));
 vi.mock('@/components/ui/clarity-loader', () => ({ ClarityPageLoader: () => <div>LOADING</div> }));
@@ -125,6 +128,15 @@ describe('P1381 /admin/users page', () => {
 
     fireEvent.click(screen.getByLabelText('Clear search'));
     expect(screen.getAllByTestId('admin-user-row')).toHaveLength(4);
+  });
+
+  it('pages past the 1000-row PostgREST cap instead of truncating', async () => {
+    const many = Array.from({ length: 1500 }, (_, i) => row({ id: `u${i}`, name: `User ${i}` }));
+    rpc.mockImplementation((_n: string, from: number, to: number) =>
+      Promise.resolve({ data: many.slice(from, to + 1), error: null }));
+    render(<AdminUsersPage />);
+    expect(await screen.findByRole('button', { name: /All 1500/ })).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
   it('filter chips filter the list', async () => {
