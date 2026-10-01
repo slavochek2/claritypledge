@@ -123,6 +123,20 @@ carry the abuse risk, sit behind identity. **Resolved (dev): (c)**, as recommend
 - [ ] The page is reachable from the event-room Links menu and from the P1337 ending step
 - [x] Only the four published fields of a topic are readable by an anonymous visitor (verified with an anon read)
 
+## Founder redesign (2026-10-01, supersedes the card design in Solution)
+
+> Founder: *"just the topics … a small star … has to be a list … stars everybody understand"*;
+> *"add your own … any comment or a youtube link … suggestion by our people … goes above mine"*;
+> *"we don't need to put YouTube video"*; *"ideas for the topic is one button, like no redundancies."*
+
+- A plain list of topic titles, 1–5 stars each. No videos, no "why" line, no per-topic ideas button.
+- One "Add your own topic" button at the top. Signed-in only. The topic title goes public at once,
+  and attendee topics always sit above the host's. The comment and link go to the host only.
+- **Invariant change:** "suggestions never appear on the page automatically" is replaced for topic
+  TITLES by the founder's call. The host can unpublish any topic from `/admin/topics`; comments and links stay private.
+- The order is fixed for the visit, so rows never jump while someone votes.
+- Host topics are seeded from the private backlog as titles only (8 on TEST, reworded as questions; the founder edits them in `/admin/topics`).
+
 ## Implementation notes (dev)
 
 - Tables `topic_candidates`, `topic_ratings`, `topic_suggestions`: RLS on, no policies, table grants revoked; all access via RPCs (`get_open_topics`, `rate_topic`, `suggest_topic`, `admin_*` behind `assert_admin()`). Migration `20261001180000_p1347_topic_voting.sql`, applied to TEST only.

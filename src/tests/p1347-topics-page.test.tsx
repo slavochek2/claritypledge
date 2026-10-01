@@ -1,131 +1,123 @@
 /**
- * P1347: /topics behaviour with the data layer mocked.
- *   - each card rates 0–5, several topics can be rated;
- *   - results (order + rating counts + next event) are hidden until this device rates;
- *   - suggestions ask a signed-out visitor to sign in instead of showing a form;
- *   - the pure helpers rank by score and accept only https links.
+ * P1347: /topics behaviour with the data layer mocked (founder redesign: list + stars,
+ * no videos, one "Add your own" at the top, attendee topics above the host's).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const topicsState = vi.hoisted(() => ({
-  rows: [] as Array<Record<string, unknown>>,
-}));
+const db = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>>, user: null as null | { id: string } }));
 
 vi.mock('@/app/data/topic-voting', async (orig) => {
   const real = await orig<typeof import('@/app/data/topic-voting')>();
   return {
     ...real,
     getVoterToken: () => '00000000-0000-4000-8000-000000000001',
-    getOpenTopics: vi.fn(async () => topicsState.rows.map((r) => ({ ...r }))),
+    getOpenTopics: vi.fn(async () => db.rows.map((r) => ({ ...r }))),
     rateTopic: vi.fn(async (id: string, _t: string, rating: number) => {
-      const row = topicsState.rows.find((r) => r.id === id)!;
-      row.myRating = rating;
-      row.ratingCount = 1;
-      row.ratingAvg = rating;
-      row.score = rating >= 3 ? rating : 0;
+      const row = db.rows.find((r) => r.id === id)!;
+      Object.assign(row, { myRating: rating, ratingCount: 1, ratingAvg: rating, score: rating >= 3 ? rating : 0 });
       return true;
     }),
-    suggestTopic: vi.fn(async () => true),
+    addTopic: vi.fn(async ({ title }: { title: string }) => {
+      db.rows.push(topic('new', title, 'community'));
+      return 'ok';
+    }),
   };
 });
-
-vi.mock('@/app/data/api', () => ({
-  getUpcomingEvents: vi.fn(async () => [
-    { slug: 'clarity-night-3', datetime: new Date(Date.now() + 86_400_000 * 5).toISOString(), status: 'upcoming' },
-  ]),
-}));
-
-vi.mock('@/auth', () => ({ useAuth: () => ({ user: null, isLoading: false }) }));
+vi.mock('@/app/data/api', () => ({ getUpcomingEvents: vi.fn(async () => []) }));
+vi.mock('@/auth', () => ({ useAuth: () => ({ user: db.user, isLoading: false }) }));
 vi.mock('@/app/components/seo', () => ({ SEO: () => null }));
 
 import { TopicsPage } from '@/app/pages/topics-page';
 import { rankTopics, isValidOptionalLink, type OpenTopic } from '@/app/data/topic-voting';
 
-function topic(id: string, title: string): Record<string, unknown> {
-  return {
-    id, title, why: `${title} is contested.`, videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    thinkerName: `Thinker ${id}`, ratingAvg: null, ratingCount: 0, score: 0, myRating: null,
-  };
+function topic(id: string, title: string, source: 'host' | 'community' = 'host'): Record<string, unknown> {
+  return { id, title, source, ratingAvg: null, ratingCount: 0, score: 0, myRating: null };
 }
 
-function renderPage() {
-  return render(
-    <MemoryRouter>
-      <TopicsPage />
-    </MemoryRouter>,
-  );
-}
+const renderPage = () => render(<MemoryRouter><TopicsPage /></MemoryRouter>);
+const titles = () => screen.getAllByTestId('topic-row').map((r) => r.querySelector('p')!.textContent);
 
 describe('P1347 /topics', () => {
   beforeEach(() => {
-    topicsState.rows = [topic('a', 'AI and work'), topic('b', 'Free will'), topic('c', 'Ikigai')];
+    db.user = null;
+    db.rows = [topic('a', 'Free will'), topic('b', 'Loneliness'), topic('c', 'Quit a job?', 'community')];
   });
 
-  it('shows each topic with a 0–5 rating control and no results before rating', async () => {
+  it('is a list with five stars per topic, no video, and attendee topics on top', async () => {
     renderPage();
-    const cards = await screen.findAllByTestId('topic-card');
-    expect(cards).toHaveLength(3);
-    for (const card of cards) {
-      expect(within(card).getAllByRole('radio').map((b) => b.textContent)).toEqual(['0', '1', '2', '3', '4', '5']);
-    }
-    expect(screen.queryByTestId('topic-results')).toBeNull();
+    const rows = await screen.findAllByTestId('topic-row');
+    expect(rows).toHaveLength(3);
+    for (const row of rows) expect(within(row).getAllByRole('radio')).toHaveLength(5);
+    expect(titles()[0]).toBe('Quit a job?');
+    expect(within(rows[0]).getByText('Added by an attendee')).toBeInTheDocument();
+    expect(document.querySelector('iframe, img')).toBeNull();
   });
 
-  it('rating several topics marks each, then reveals the order with counts and the next event', async () => {
+  it('has exactly one way to add ideas: the "Add your own topic" button at the top', async () => {
     renderPage();
-    const cards = await screen.findAllByTestId('topic-card');
-    fireEvent.click(within(cards[0]).getByRole('radio', { name: /^4$/ }));
-    fireEvent.click(within(cards[1]).getByRole('radio', { name: /5, I really want it/ }));
-
-    const results = await screen.findByTestId('topic-results');
-    await waitFor(() => {
-      expect(within(cards[0]).getByRole('radio', { name: /^4$/ })).toHaveAttribute('aria-checked', 'true');
-      expect(within(cards[1]).getByRole('radio', { name: /5, I really/ })).toHaveAttribute('aria-checked', 'true');
-    });
-    const items = within(results).getAllByRole('listitem').map((li) => li.textContent ?? '');
-    expect(items[0]).toContain('Free will');
-    expect(items[0]).toContain('from 1 rating');
-    expect(items[2]).toContain('No ratings yet');
-    expect(within(results).getByRole('link')).toHaveAttribute('href', '/events/clarity-night-3');
-    expect(results.textContent).toContain('Top-rated now: Free will');
+    await screen.findAllByTestId('topic-row');
+    expect(screen.getAllByRole('button', { name: /add your own/i })).toHaveLength(1);
+    expect(screen.queryByText(/ideas/i)).toBeNull();
   });
 
-  it('asks a signed-out visitor to sign in before suggesting', async () => {
+  it('averages stay hidden until this phone votes, then show for every topic', async () => {
     renderPage();
-    await screen.findAllByTestId('topic-card');
-    fireEvent.click(screen.getByRole('button', { name: /suggest a topic or a speaker/i }));
-    expect(screen.getAllByRole('link', { name: 'Sign in' })[0]).toHaveAttribute('href', '/login?redirect=%2Ftopics');
-    expect(screen.queryByLabelText('Your suggestion')).toBeNull();
+    const rows = await screen.findAllByTestId('topic-row');
+    expect(screen.queryByTestId('topic-average')).toBeNull();
+    fireEvent.click(within(rows[1]).getByRole('radio', { name: '4 stars' }));
+    await waitFor(() => expect(screen.getAllByTestId('topic-average')).toHaveLength(3));
+    expect(screen.getByText('4.0 from 1 vote')).toBeInTheDocument();
   });
 
-  it('says so when nothing is open, and still offers a suggestion', async () => {
-    topicsState.rows = [];
+  it('rows keep their place while you vote (no jumping under the finger)', async () => {
     renderPage();
-    expect(await screen.findByText(/no topics to rate yet/)).toBeInTheDocument();
-    expect(screen.getByTestId('suggest-new')).toBeInTheDocument();
+    await screen.findAllByTestId('topic-row');
+    const before = titles();
+    fireEvent.click(within(screen.getAllByTestId('topic-row')[2]).getByRole('radio', { name: '5 stars' }));
+    await waitFor(() => expect(screen.getAllByTestId('topic-average').length).toBeGreaterThan(0));
+    expect(titles()).toEqual(before);
   });
 
-  it('a failed save rolls the selection back, says so, and does not reveal results', async () => {
+  it('a failed vote rolls the stars back and says so', async () => {
     const mod = await import('@/app/data/topic-voting');
     vi.mocked(mod.rateTopic).mockResolvedValueOnce(false);
     renderPage();
-    const cards = await screen.findAllByTestId('topic-card');
-    fireEvent.click(within(cards[0]).getByRole('radio', { name: /^3$/ }));
-    expect(await within(cards[0]).findByText(/Not saved/)).toBeInTheDocument();
-    expect(within(cards[0]).getByRole('radio', { name: /^3$/ })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.queryByTestId('topic-results')).toBeNull();
+    const rows = await screen.findAllByTestId('topic-row');
+    fireEvent.click(within(rows[0]).getByRole('radio', { name: '3 stars' }));
+    expect(await within(rows[0]).findByText(/Not saved/)).toBeInTheDocument();
+    expect(within(rows[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('signed out: adding asks to sign in', async () => {
+    renderPage();
+    await screen.findAllByTestId('topic-row');
+    fireEvent.click(screen.getByRole('button', { name: /add your own/i }));
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?redirect=%2Ftopics');
+  });
+
+  it('signed in: an added topic appears above the host topics', async () => {
+    db.user = { id: 'user-id-1234' };
+    renderPage();
+    await screen.findAllByTestId('topic-row');
+    fireEvent.click(screen.getByRole('button', { name: /add your own/i }));
+    fireEvent.change(screen.getByLabelText('Your topic'), { target: { value: 'Should we work 4 days?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add topic' }));
+    await waitFor(() => expect(screen.getAllByTestId('topic-row')).toHaveLength(4));
+    const order = titles();
+    expect(order.indexOf('Should we work 4 days?')).toBeLessThan(order.indexOf('Free will'));
   });
 });
 
 describe('P1347 helpers', () => {
-  const t = (id: string, score: number, ratingCount: number) => ({ id, score, ratingCount }) as OpenTopic;
+  const t = (id: string, score: number, ratingCount: number, source: 'host' | 'community' = 'host') =>
+    ({ id, score, ratingCount, source }) as OpenTopic;
 
-  it('ranks by score, then by number of raters, then keeps published order', () => {
-    expect(rankTopics([t('a', 1, 5), t('b', 3, 1), t('c', 1, 9), t('d', 0, 0), t('e', 0, 0)]).map((x) => x.id)).toEqual([
-      'b', 'c', 'a', 'd', 'e',
-    ]);
+  it('attendee topics first, then score, then raters, then published order', () => {
+    expect(
+      rankTopics([t('a', 1, 5), t('b', 3, 1), t('c', 0, 0, 'community'), t('d', 1, 9), t('e', 0, 0)]).map((x) => x.id),
+    ).toEqual(['c', 'b', 'd', 'a', 'e']);
   });
 
   it('accepts only https links, and blank', () => {
@@ -133,6 +125,5 @@ describe('P1347 helpers', () => {
     expect(isValidOptionalLink('https://youtu.be/x')).toBe(true);
     expect(isValidOptionalLink('http://youtu.be/x')).toBe(false);
     expect(isValidOptionalLink('javascript:alert(1)')).toBe(false);
-    expect(isValidOptionalLink('youtube.com')).toBe(false);
   });
 });

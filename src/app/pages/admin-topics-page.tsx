@@ -81,7 +81,7 @@ export function AdminTopicsPage() {
     e.preventDefault();
     if (!draft) return;
     setError(null);
-    if (!getThumbnailUrl(draft.videoUrl)) {
+    if (draft.videoUrl.trim() && !getThumbnailUrl(draft.videoUrl)) {
       setError('Video link must be a YouTube link starting with https://');
       return;
     }
@@ -129,7 +129,9 @@ export function AdminTopicsPage() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-foreground">{t.title}</p>
               <p className="text-sm text-muted-foreground">
-                {t.thinkerName} · {t.why}
+                {t.source === 'community' ? `Added by ${t.authorName ?? 'an attendee'}` : 'Host topic'}
+                {t.thinkerName && ` · ${t.thinkerName}`}
+                {t.why && ` · ${t.why}`}
               </p>
               <p className="mt-1 text-sm text-foreground">
                 {t.ratingCount === 0
@@ -144,7 +146,7 @@ export function AdminTopicsPage() {
                 variant="outline"
                 className="min-h-10"
                 onClick={() =>
-                  setDraft({ id: t.id, title: t.title, why: t.why, videoUrl: t.videoUrl, thinkerName: t.thinkerName, sortOrder: t.sortOrder })
+                  setDraft({ id: t.id, title: t.title, why: t.why ?? '', videoUrl: t.videoUrl ?? '', thinkerName: t.thinkerName ?? '', sortOrder: t.sortOrder })
                 }
               >
                 Edit
@@ -210,23 +212,23 @@ function TopicForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
       <p className="text-sm text-muted-foreground">
-        Only these four fields become public. Nothing else from the backlog goes here.
+        Only the topic title is shown on /topics. The other fields are for you (optional).
       </p>
       <label className="text-sm font-medium">
         Topic
         <input className={field} maxLength={140} required value={draft.title} onChange={(e) => onChange({ ...draft, title: e.target.value })} />
       </label>
       <label className="text-sm font-medium">
-        Why it's contested (one line)
-        <input className={field} maxLength={240} required value={draft.why} onChange={(e) => onChange({ ...draft, why: e.target.value })} />
+        Why it's contested (one line) (optional)
+        <input className={field} maxLength={240} value={draft.why} onChange={(e) => onChange({ ...draft, why: e.target.value })} />
       </label>
       <label className="text-sm font-medium">
-        Thinker
-        <input className={field} maxLength={80} required value={draft.thinkerName} onChange={(e) => onChange({ ...draft, thinkerName: e.target.value })} />
+        Thinker (optional)
+        <input className={field} maxLength={80} value={draft.thinkerName} onChange={(e) => onChange({ ...draft, thinkerName: e.target.value })} />
       </label>
       <label className="text-sm font-medium">
-        Video link (YouTube)
-        <input className={field} type="url" maxLength={500} required value={draft.videoUrl} onChange={(e) => onChange({ ...draft, videoUrl: e.target.value })} />
+        Video link (YouTube) (optional)
+        <input className={field} type="url" maxLength={500} value={draft.videoUrl} onChange={(e) => onChange({ ...draft, videoUrl: e.target.value })} />
       </label>
       <label className="text-sm font-medium">
         Order on the page (lower first)

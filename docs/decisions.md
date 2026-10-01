@@ -225,6 +225,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** `scripts/lib/worktree-changes.sh`, `scripts/git-ops.sh` (`sweep_merged_agent_worktrees`), `scripts/test-p1381-agent-worktree-sweep.sh`, `scripts/test-p1326-worktree-liveness.sh` (3j, 3l), 2026-09-17 [technical] (P1326)
 
 ---
+## 2026-10-01 [product]: /topics is a star list; attendee-added topics go public at once and rank above the host's (P1347)
+
+**Context:** The first build (cards with the starting video, a 0–5 scale, a per-topic ideas box and a separate suggest box) passed a three-model review. The founder then redirected: "just the topics … a small star … has to be a list", "we don't need to put YouTube video", "ideas for the topic is one button, like no redundancies", and attendee suggestions "go above mine".
+
+**Decision:** The page shows titles only, with 1–5 stars. "Add your own topic" is the single input, at the top. It needs sign-in, the title goes public at once, and attendee topics always sort above host topics. A comment or link is private to the host. The list order is frozen for the visit. This supersedes the earlier entry's "suggestions are never shown publicly" for titles only.
+
+**Alternatives rejected:** (a) Review attendee topics before they publish. Rejected by the founder ("it just adds"); the mitigation is unpublishing after the fact. (b) Anonymous adding. Every public line now has a signed-in owner and a limit of 5 a day. (c) A live re-sort on each vote. Rows jumped under the finger in testing.
+
+**Consequences:** Unmoderated public text is now possible on `/topics`. The host must watch `/admin/topics`, since an off-limits topic (Thailand politics) stays visible until unpublished. The video and "why" columns stay as optional, host-only fields.
+
+**References:** [p1347](../features/p1347_topics_page_attendees_rate_next_topics.md), `supabase/migrations/20261001200000_p1347_community_topics.sql`
+
+---
+
 ## 2026-10-01 [technical]: Topic voting is anonymous to rate, signed-in to suggest, and RPC-only on all three tables (P1347)
 
 **Context:** P1347 lets Clarity Night attendees rate upcoming topics at `/topics`. The spec left two founder calls open (who may vote, when results show), and an anonymous write path needs a rate limit (2026-09-09, P1278). P1166 allows only four fields of a backlog topic to become public.

@@ -31,10 +31,8 @@ async function signedIn(user: TestUser): Promise<SupabaseClient> {
   return c;
 }
 
-const PUBLIC_COLUMNS = [
-  'id', 'title', 'why', 'video_url', 'thinker_name',
-  'rating_avg', 'rating_count', 'score', 'my_rating',
-].sort();
+// Redesign: only the title (plus source and aggregates) is public. No video, no "why".
+const PUBLIC_COLUMNS = ['id', 'title', 'source', 'rating_avg', 'rating_count', 'score', 'my_rating'].sort();
 
 describe('P1347: topic voting is gated in the database', () => {
   let plain: TestUser;
@@ -58,6 +56,7 @@ describe('P1347: topic voting is gated in the database', () => {
 
   afterAll(async () => {
     await supabaseAdmin.from('topic_candidates').delete().in('id', [openId, hiddenId]);
+    await supabaseAdmin.from('topic_candidates').delete().eq('created_by', plain.user.id);
     await supabaseAdmin.from('topic_suggestions').delete().eq('user_id', plain.user.id);
     await deleteTestUser(plain.user.id);
   });
@@ -119,6 +118,24 @@ describe('P1347: topic voting is gated in the database', () => {
 
     const read = await c.from('topic_suggestions').select('*');
     expect(read.data).toBeNull();
+  });
+
+  it('add_topic: anon refused; signed-in adds a public topic listed above host topics, note kept private', async () => {
+    expect((await anon().rpc('add_topic', { p_title: `${tag} anon`, p_note: null, p_link: null })).error).not.toBeNull();
+
+    const c = await signedIn(plain);
+    const added = await c.rpc('add_topic', { p_title: `${tag} community`, p_note: 'secret note', p_link: 'https://youtu.be/x' });
+    expect(added.error).toBeNull();
+
+    const { data } = await anon().rpc('get_open_topics', { p_voter_token: null });
+    const ids = data!.map((r: { id: string }) => r.id);
+    const row = data!.find((r: { id: string }) => r.id === added.data);
+    expect(row.source).toBe('community');
+    expect(ids.indexOf(added.data)).toBeLessThan(ids.indexOf(openId));
+    expect(JSON.stringify(data)).not.toContain('secret note');
+
+    const bad = await c.rpc('add_topic', { p_title: `${tag} bad link`, p_note: null, p_link: 'javascript:alert(1)' });
+    expect(bad.error?.code).toBe('22023');
   });
 
   it('admin RPCs refuse anon and a signed-in non-admin', async () => {

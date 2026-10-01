@@ -14,9 +14,8 @@ import { supabase } from '@/lib/supabase';
 export interface OpenTopic {
   id: string;
   title: string;
-  why: string;
-  videoUrl: string;
-  thinkerName: string;
+  /** 'community' = added by an attendee; always listed above the host's ('host'). */
+  source: 'host' | 'community';
   ratingAvg: number | null;
   ratingCount: number;
   score: number;
@@ -26,9 +25,7 @@ export interface OpenTopic {
 interface OpenTopicRow {
   id: string;
   title: string;
-  why: string;
-  video_url: string;
-  thinker_name: string;
+  source: 'host' | 'community';
   rating_avg: number | string | null;
   rating_count: number;
   score: number | string | null;
@@ -41,9 +38,7 @@ function mapOpenTopic(r: OpenTopicRow): OpenTopic {
   return {
     id: r.id,
     title: r.title,
-    why: r.why,
-    videoUrl: r.video_url,
-    thinkerName: r.thinker_name,
+    source: r.source,
     ratingAvg: num(r.rating_avg),
     ratingCount: r.rating_count,
     score: num(r.score) ?? 0,
@@ -96,22 +91,35 @@ export async function rateTopic(topicId: string, voterToken: string, rating: num
   return !error;
 }
 
-export async function suggestTopic(input: { topicId: string | null; body: string; link?: string }): Promise<boolean> {
-  const { error } = await supabase.rpc('suggest_topic', {
-    p_topic_id: input.topicId,
-    p_body: input.body,
-    p_link: input.link?.trim() || null,
-  });
-  if (error) console.error('[topics] suggest_topic failed:', error.code, error.message);
-  return !error;
-}
-
-/** Most-wanted first. Same score the founder sees; ties keep the published order. */
+/**
+ * Attendee topics first (founder rule: "suggestion by our people goes above mine"),
+ * then most wanted by the same score the founder sees; ties keep the server order.
+ * The server already returns this order; re-applied here so an optimistic tap and a
+ * just-added topic sit where the next fetch will put them.
+ */
 export function rankTopics(topics: OpenTopic[]): OpenTopic[] {
   return topics
     .map((t, i) => ({ t, i }))
-    .sort((a, b) => b.t.score - a.t.score || b.t.ratingCount - a.t.ratingCount || a.i - b.i)
+    .sort(
+      (a, b) =>
+        Number(b.t.source === 'community') - Number(a.t.source === 'community') ||
+        b.t.score - a.t.score ||
+        b.t.ratingCount - a.t.ratingCount ||
+        a.i - b.i,
+    )
     .map(({ t }) => t);
+}
+
+/** Signed-in only. Title goes public at once; note and link go to the host only. */
+export async function addTopic(input: { title: string; note?: string; link?: string }): Promise<'ok' | 'limit' | 'error'> {
+  const { error } = await supabase.rpc('add_topic', {
+    p_title: input.title,
+    p_note: input.note?.trim() || null,
+    p_link: input.link?.trim() || null,
+  });
+  if (!error) return 'ok';
+  console.error('[topics] add_topic failed:', error.code, error.message);
+  return error.code === '54000' ? 'limit' : 'error';
 }
 
 /** A link field accepts only https URLs; blank is fine (it is optional). */
@@ -130,9 +138,11 @@ export function isValidOptionalLink(raw: string): boolean {
 export interface AdminTopic {
   id: string;
   title: string;
-  why: string;
-  videoUrl: string;
-  thinkerName: string;
+  source: 'host' | 'community';
+  authorName: string | null;
+  why: string | null;
+  videoUrl: string | null;
+  thinkerName: string | null;
   isPublished: boolean;
   sortOrder: number;
   ratingAvg: number | null;
@@ -163,9 +173,11 @@ export async function getAdminTopics(): Promise<AdminTopic[] | null> {
   return (data ?? []).map((r: Record<string, unknown>) => ({
     id: r.id as string,
     title: r.title as string,
-    why: r.why as string,
-    videoUrl: r.video_url as string,
-    thinkerName: r.thinker_name as string,
+    source: r.source as 'host' | 'community',
+    authorName: (r.author_name as string | null) ?? null,
+    why: (r.why as string | null) ?? null,
+    videoUrl: (r.video_url as string | null) ?? null,
+    thinkerName: (r.thinker_name as string | null) ?? null,
     isPublished: r.is_published as boolean,
     sortOrder: r.sort_order as number,
     ratingAvg: num(r.rating_avg as number | null),
@@ -206,9 +218,10 @@ export async function saveAdminTopic(t: {
   const { data, error } = await supabase.rpc('admin_save_topic', {
     p_id: t.id,
     p_title: t.title,
-    p_why: t.why,
-    p_video_url: t.videoUrl,
-    p_thinker_name: t.thinkerName,
+    // Optional fields: blank → NULL (the table CHECKs reject an empty string).
+    p_why: t.why.trim() || null,
+    p_video_url: t.videoUrl.trim() || null,
+    p_thinker_name: t.thinkerName.trim() || null,
     p_sort_order: t.sortOrder,
   });
   if (error) {
