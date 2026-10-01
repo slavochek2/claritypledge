@@ -22,6 +22,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { getUpcomingEvents } from '@/app/data/api';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import {
   addTopic,
   getOpenTopics,
@@ -267,18 +268,26 @@ function TopicRow({
       )}
 
       {voters.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-1" aria-label="Voted" data-testid="topic-voters">
-          {voters.slice(0, 12).map((v, i) => (
-            <li key={`${v.slug ?? v.name}-${i}`} title={v.name}>
-              {v.slug ? (
-                <Link to={`/p/${v.slug}`} aria-label={v.name}>
-                  <GravatarAvatar name={v.name} photoUrl={v.avatarUrl ?? undefined} avatarColor={v.avatarColor ?? undefined} isPledger={v.hasPledged} size="sm" showRing={false} />
-                </Link>
-              ) : (
-                <GravatarAvatar name={v.name} photoUrl={v.avatarUrl ?? undefined} avatarColor={v.avatarColor ?? undefined} isPledger={v.hasPledged} size="sm" showRing={false} />
-              )}
-            </li>
-          ))}
+        <ul className="mt-2 flex flex-wrap gap-1.5 p-0.5" aria-label="Voted" data-testid="topic-voters">
+          {voters.slice(0, 12).map((v, i) => {
+            // Round, with the blue pledger ring for pledgers, like every other person on the site.
+            const face = (
+              <GravatarAvatar name={v.name} photoUrl={v.avatarUrl ?? undefined} avatarColor={v.avatarColor ?? undefined} isPledger={v.hasPledged} size="sm" />
+            );
+            return (
+              <li key={`${v.slug ?? v.name}-${i}`}>
+                <MobileTooltip content={v.name}>
+                  {v.slug ? (
+                    <Link to={`/p/${v.slug}`} aria-label={v.name} className="inline-block">
+                      {face}
+                    </Link>
+                  ) : (
+                    <span aria-label={v.name} className="inline-block">{face}</span>
+                  )}
+                </MobileTooltip>
+              </li>
+            );
+          })}
           {voters.length > 12 && <li className="self-center text-sm text-muted-foreground">+{voters.length - 12}</li>}
         </ul>
       )}

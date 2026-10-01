@@ -11,6 +11,9 @@ test.describe('P1347 /topics', () => {
 
   test.beforeAll(async () => {
     voter = await createTestUser({ name: 'P1347 E2E Voter' });
+    // Pledger, so the ring is checkable.
+    const { supabaseAdmin } = await import('./helpers/supabase-admin');
+    await supabaseAdmin.from('profiles').update({ has_pledged: true, is_verified: true }).eq('id', voter.user.id);
   });
   test.afterAll(async () => {
     await deleteTestUser(voter.user.id);
@@ -43,5 +46,12 @@ test.describe('P1347 /topics', () => {
     const again = page.getByTestId('topic-row').filter({ hasText: title });
     await expect(again.getByRole('radio', { name: '4 stars' })).toHaveAttribute('aria-checked', 'true');
     await expect(again.getByTestId('topic-voters')).toBeVisible();
+
+    // Faces: round with the pledger ring for a pledger, and the name on hover.
+    const face = again.getByTestId('topic-voters').getByTestId('gravatar-avatar').first();
+    await expect(face).toHaveAttribute('data-pledger', 'true');
+    await face.hover();
+    await expect(page.getByRole('tooltip').filter({ hasText: 'P1347 E2E Voter' }).first()).toBeVisible();
+    await again.screenshot({ path: 'test-results/p1347-voter-face.png' });
   });
 });
