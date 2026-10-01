@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry-noise, auth, partners, rpc-grants]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1382-pending-invitations-anon-no-sentry.test.ts
   root_cause: "Badge refetch on tab resume runs get_my_pending_invitations as anon after the client drops its session; P913's 42501 suppression covers only _is_letter_* so it reaches Sentry"
@@ -76,7 +76,7 @@ In `getIncomingInvitations`'s RPC error branch: on `42501`, read `supabase.auth.
 
 ## Acceptance Criteria
 
-- [ ] A 42501 from `get_my_pending_invitations` with no client session is not logged, and the badge gets `[]`. Covered by `src/tests/p1382-pending-invitations-anon-no-sentry.test.ts`.
-- [ ] The same 42501 with a session present still reaches `logDbError` (grant regression stays visible).
-- [ ] A non-42501 error with no session still reaches `logDbError`.
-- [ ] No change to the function's grants (prod `proacl` unchanged).
+- [x] A 42501 from `get_my_pending_invitations` with no client session is not logged, and the badge gets `[]`. Covered by `src/tests/p1382-pending-invitations-anon-no-sentry.test.ts`.
+- [x] The same 42501 with a session present still reaches `logDbError` (grant regression stays visible).
+- [x] A non-42501 error with no session still reaches `logDbError`.
+- [x] No change to the function's grants: the branch diff touches no `supabase/migrations` file (0 matches, 2026-10-01).
