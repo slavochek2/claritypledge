@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 15
 created_date: '2026-10-01'
 tags: [admin, profiles, search, privacy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-01
 ---
 
 # P1381: Founder-only user lookup (/admin/users)
@@ -88,6 +88,6 @@ Build the approved prototype `/tree/admin-users` (`src/app/pages/prototypes/admi
 ## Related
 
 - Prototype: `/tree/admin-users` (approved 2026-10-01)
-- [P878](done/2026-04-22/p878_relationship_scoped_people_picker.md): added `is_admin` and the no-directory decision
-- [P877](done/2026-04-22/p877_profiles_directory_pii_exposure_anon_key.md): PII column lockdown
+- [P878](../2026-04-22/p878_relationship_scoped_people_picker.md): added `is_admin` and the no-directory decision
+- [P877](../2026-04-22/p877_profiles_directory_pii_exposure_anon_key.md): PII column lockdown
 - `/pledgers` (`src/app/pages/clarity-pledgers-page.tsx`): public, unchanged
