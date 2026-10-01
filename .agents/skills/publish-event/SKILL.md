@@ -2,7 +2,7 @@
 name: publish-event
 description: "Publish an event on claritypledge.com by driving the /events/new form in the operator's browser — fresh or cloned from a past event"
 when_to_use: "When an event needs to exist on claritypledge.com, before any promotion. Operator-safe: own account, own browser, zero secrets. NOT /re-create-event (founder-only DB series automation) and NOT /publish-run (AllTrails trail-run flow)."
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Publish Event on claritypledge.com
@@ -85,6 +85,9 @@ Read the page (`read_page` with `filter: "interactive"`) and fill:
 | Duration | select | closest option to intended duration |
 | Location | text input | place name or meeting URL |
 | Description | textarea | `form_input`, markdown supported |
+| Group chat link | text input (placeholder `https://chat.whatsapp.com/...`) | the event's WhatsApp/Telegram invite. Ask if not given — registrants see it as a button on their confirmation and the event box; without it there is no group button. Never put it in the description. |
+| Preparation | checkbox | P1336. Auto-ticked when the title contains "Clarity Night"; confirm it is ticked for a Clarity Night and unticked for a hike or social event. It turns on the attendee preparation, the room gate and (P1380) the preparation emails. |
+| Statement tag | text input (placeholder `e.g., ikigai1`) | P1336, shown only when Preparation is on. The tag of the debate pipeline run that produced this event's points (the run's `/stake/<tag>` page, e.g. `ikigai1`). Empty → the preparation has no "set your positions" step and the end screen no stories. Ask if unknown — never guess a tag. |
 
 ### 4. Date gate — confirm machine values, not the screenshot
 
