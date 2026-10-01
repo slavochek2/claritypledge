@@ -40,6 +40,7 @@ const MEDIA_URL_PATTERNS: { re: RegExp; what: string }[] = [
   { re: /storage\.googleapis\.com/, what: 'a hand-built Google Cloud Storage URL' },
   { re: /storage\/v1\/object\/public/, what: 'a Supabase Storage public-object URL' },
   { re: /\.supabase\.co\/storage/, what: 'a Supabase Storage URL' },
+  { re: /getPublicUrl\s*\(/, what: 'a Supabase Storage public URL from the SDK (getPublicUrl)' },
 ];
 
 /**
@@ -56,7 +57,7 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return name === 'tests' ? [] : sourceFiles(path);
-    return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+    return /\.(ts|tsx|js|jsx|css|html|md)$/.test(name) && !/\.test\.[jt]sx?$/.test(name) ? [path] : [];
   });
 }
 
