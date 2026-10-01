@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 307
 workstream: platform
 created_date: '2026-09-28'
 tags: [pwa, offline, service-worker, session-bar]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-01
 ---
 
 # P1369: Offline-readable pages and one offline bar that fits the session bars
