@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 110
+**Next ID:** 111
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1910,5 +1910,16 @@ Accepted, not fixed (decide fix vs. keep):
 **due:** month
 
 From the P1382 review (Opus, 2026-10-01): P913 suppresses 42501 on _is_letter_* by function name in logDbError. That cannot tell an anon artifact from a signed-in user losing EXECUTE, and the branch drops errors without a noteSuppression breadcrumb. Apply the P1382 shape (suppress only when the client has no session) to the letter helpers. Related: e2e/integration (incl. p1222 grant test) runs in no CI job.
+
+---
+
+## transcribe-room-batch: unbounded background concurrency and stale-claim reclaim of running jobs
+
+**ID:** INBOX-110
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+Found by the room-sweep cost-leak review 2026-10-01 (Codex Sol executed it; Gemini concurred). Both predate the hourly change. (1) /process starts an unbounded background task per request and returns 202, so Cloud Tasks max 5 / Cloud Run concurrency 5 do not bound work: 20 requests ran 20 jobs at once on one instance. (2) STALE_PROCESSING_MINUTES=30 with no heartbeat, but a 180-min member recording is ~36 sequential 5-min Gemini calls, so /sweep can reset a job that is still running and a second worker re-processes it (double Gemini spend, racing transcript writes, can burn all 3 attempts). Low live risk today (8 jobs ever). Fix needs a service redeploy: semaphore around background work + heartbeat claimed_at (or stale threshold above the service 3600 s timeout).
 
 ---
