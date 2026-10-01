@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: qa
 type: story
 rank: 311
 workstream: events
 created_date: '2026-10-01'
 tags: [events, host, preparation]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -56,6 +56,6 @@ event page (the room shows them); handing out mics on the night is P1337.
 
 ## Acceptance Criteria
 
-- [ ] Host on the event page: one Participants list with ✓ / 🎙 icons and their hints; no separate Preparation card; the mic line appears only when a USB-C mic is needed
-- [ ] Non-host on the event page sees no ✓ / 🎙 and cannot read who prepared (DB check)
-- [ ] Room (/meet): ✓ / 🎙 shown to the host only; a non-host in the room sees neither
+- [x] Host on the event page: one Participants list with ✓ / 🎙 icons and their hints; no separate Preparation card; the mic line appears only when a USB-C mic is needed
+- [x] Non-host on the event page sees no ✓ / 🎙 and cannot read who prepared (DB check)
+- [x] Room (/meet): ✓ / 🎙 shown to the host only; a non-host in the room sees neither
