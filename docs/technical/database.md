@@ -579,6 +579,14 @@ checker. The known-open backlog lives in `.private/function-grant-baseline.json`
 - `lookup_party_by_email(text)` — resolve an invitee to a party (no email out); authenticated only
 - `email_exists(text)` — login email check (boolean only)
 - `upsert_my_profile(jsonb)` — own-row write (forces `id = auth.uid()`); needed because `.upsert()` reads `EXCLUDED.email` which requires the revoked SELECT privilege
+- `admin_list_users()` — every non-test profile with `email`, `linkedin_url` and `auth.users.last_sign_in_at`, for `/admin/users` (P1381). Admin-only via `assert_admin()`.
+
+**Admin-only RPCs (P1381) — the pattern for every founder/admin surface.** The repo is public, so the gate can never be a client check. It is `profiles.is_admin`, which clients can neither read (not in any column GRANT) nor write (pinned by `guard_profile_trust_columns` for anon/authenticated). `unique_admin` (P878) allows **one** `is_admin = true` row; granting a second admin means relaxing that index deliberately. Every admin-only function must:
+1. be `SECURITY DEFINER`, `SET search_path = ''`, and call `PERFORM public.assert_admin();` as its **first statement** (RAISEs `42501` unless `is_admin` for `auth.uid()`; NULL uid = not admin);
+2. `RETURNS TABLE` with an explicit column list, never `SETOF profiles` / `auth.users`;
+3. `REVOKE EXECUTE ... FROM PUBLIC` **and `FROM anon` by name**, then `GRANT ... TO authenticated`;
+4. ship an integration test in `src/tests/integration/` asserting anon and a signed-in non-admin get `42501` (template: `p1381-admin-list-users.test.ts`).
+The page renders `NotFoundPage` on any RPC error, so a non-admin cannot tell the route exists. `assert_admin()` itself is not client-executable.
 
 A **new** profiles column is not readable by anon/authenticated until added to the column GRANT in `20260602160000_p877_profiles_pii_column_grants.sql` (intentional default-deny). See decisions.md 2026-06-04 [technical].
 

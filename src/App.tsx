@@ -102,6 +102,7 @@ const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m =>
 const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
 const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
 const VideoSummaryPage = lazy(() => import("@/app/pages/video-summary-page").then(m => ({ default: m.VideoSummaryPage })));
+const AdminUsersPage = lazy(() => import("@/app/pages/admin-users-page").then(m => ({ default: m.AdminUsersPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
@@ -665,6 +666,16 @@ export default function ClarityPledgeApp() {
               <LazyRoute>
                 <PointDetailPage />
               </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P1381: founder-only. Gated in Postgres (admin_list_users → assert_admin); non-admins get NotFound. Not linked anywhere. */}
+        <Route
+          path="/admin/users"
+          element={
+            <ClarityLandingLayout surface="product">
+              <LazyRoute><AdminUsersPage /></LazyRoute>
             </ClarityLandingLayout>
           }
         />
