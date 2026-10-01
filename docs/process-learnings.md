@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 109
+**Next ID:** 110
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1899,5 +1899,16 @@ Accepted, not fixed (decide fix vs. keep):
 - Sign-out cache delete waits while an old-build tab holds the database open.
 - /finish LOWs: letter instant read does not kick in behind a captive portal; currentBuildId returns '' silently; removal dialog repeats the offline check instead of the shared guard; viewerId: undefined semantics.
 - Earlier known gaps: embedded point card vote revert outside the feed; use-active-session uses the app-wide failure signal; edit/delete/image writes show generic errors offline.
+
+---
+
+## P913 suppression hides real grant regressions on _is_letter_* (follow-up to P1382)
+
+**ID:** INBOX-109
+**Date:** 2026-10-01
+**Status:** proposed
+**due:** month
+
+From the P1382 review (Opus, 2026-10-01): P913 suppresses 42501 on _is_letter_* by function name in logDbError. That cannot tell an anon artifact from a signed-in user losing EXECUTE, and the branch drops errors without a noteSuppression breadcrumb. Apply the P1382 shape (suppress only when the client has no session) to the letter helpers. Related: e2e/integration (incl. p1222 grant test) runs in no CI job.
 
 ---

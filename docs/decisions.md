@@ -5,6 +5,20 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [technical]: Anon 42501 on an authenticated-only RPC is suppressed at the caller, only when the client has no session (P1382)
+
+**Context:** Sentry JAVASCRIPT-REACT-3K. The Partners badge refetched on tab focus after the Supabase client had dropped its session while React still held `user`, so `get_my_pending_invitations` (revoked from anon on purpose, P1222) returned 42501. The first draft extended P913's function-name predicate in `logDbError`. Review (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) rejected it.
+**Decision:** On a 42501, the caller reads `supabase.auth.getSession()` (on the error path only, so a successful poll pays nothing). With no session it returns `[]` without logging. With a session it logs as before.
+**Alternatives rejected:** The name predicate in `logDbError`. It cannot tell an anon artifact from a signed-in user losing EXECUTE, and the only grant test for this RPC (`e2e/integration/p1222-public-agreement-pii.spec.ts:326`) runs in no CI job, so a regression would be silent in prod. It also over-matches prefixes via `includes()`, and drops errors without a `noteSuppression` breadcrumb.
+**Consequences:** P913's `_is_letter_*` suppression has the same blind spot and is left as is, follow-up INBOX-109. "0 users impacted" in this repo's Sentry is not evidence of an anonymous caller: `Sentry.setUser` is never called.
+**References:** [P1382](../features/done/2026-06-10/p1382_partners_badge_reports_anon_permission_denied_on_tab_resume.md), `src/app/data/agreements-service-real.ts`
+
+## 2026-10-01 [process]: /day RLS drift that is test-only is an in-flight migration, not prod drift
+
+**Context:** INBOX-P43 flagged 7 NEW policies (P1336 tables). The question was whether prod had unapproved policies.
+**Decision:** Settle the side with one read-only query per env: `pg_policies` plus `to_regclass` on the tables, with a prod control (total policy count) so an empty result is not blindness. Then read `supabase/deploy-manifest.json` `prod.migrations` against `test.migrations`. Here prod had neither table and an empty prod list; test held `20261001120000`.
+**Consequences:** No prod action. Drift from a test-applied migration whose feature is still unshipped is expected until its `/push`.
+
 ## 2026-10-01 [technical]: P1369 offline writes — bounded per-key ordering, revert to the last saved vote, "signed in" offline is the session not the profile
 
 **Context:** The last review round on P1369 (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) found defects in the vote-write paths, including one introduced by the previous fix.
