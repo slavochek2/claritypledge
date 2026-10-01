@@ -85,14 +85,15 @@ export function EventArrivingPage() {
       </div>
       <p className="text-sm text-foreground" data-testid="arriving-on-time">{onTimeLine(event)}</p>
       <div className="flex w-full flex-col items-center gap-1">
-        <LetterPrimaryCta label="I'm here now" onClick={hereNow} disabled={busy} />
+        {/* While confirming a release, the safe answer is the one primary on the page. */}
+        {!confirmingCancel && <LetterPrimaryCta label="I'm here now" onClick={hereNow} disabled={busy} />}
         {!confirmingCancel ? (
           <LetterPrimaryCta label="I can't make it" variant="secondary" onClick={() => setConfirmingCancel(true)} />
         ) : (
           <div className="flex w-full flex-col items-center gap-1 pt-2" data-testid="arriving-cancel-confirm">
             <p className="text-sm text-foreground">Release your place? The host&apos;s count updates and someone else can come.</p>
+            <LetterPrimaryCta label="Keep my place" onClick={() => setConfirmingCancel(false)} />
             <LetterPrimaryCta label="Yes, release my place" variant="secondary" onClick={cantMakeIt} disabled={busy} />
-            <LetterPrimaryCta label="Keep my place" variant="secondary" onClick={() => setConfirmingCancel(false)} />
           </div>
         )}
         {cancelFailed && (
