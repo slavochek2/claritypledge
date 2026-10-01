@@ -13,6 +13,7 @@
  * Public search stays out entirely (decisions.md 2026-06-06, P878).
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Linkedin, Search, X } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { PersonAvatar } from '@/components/ui/person-avatar';
@@ -22,10 +23,11 @@ import {
   getAdminUsers,
   formatLastLogin,
   matchesQuery,
-  safeHttpsHref,
+  safeLinkedInHref,
   type AdminUser,
   type AdminUserStatus,
 } from '@/app/data/admin-users';
+import { analytics } from '@/lib/mixpanel';
 import { cn } from '@/lib/utils';
 
 type Filter = 'all' | AdminUserStatus;
@@ -43,6 +45,10 @@ const STATUS_LABEL: Record<AdminUserStatus, string> = {
   unverified: 'Unverified',
 };
 
+// Search and counts cover everyone; only the rendered rows are capped, so a large
+// user base never mounts thousands of rows. The founder narrows by typing.
+const RENDER_CAP = 200;
+
 type LoadState = { kind: 'loading' } | { kind: 'denied' } | { kind: 'ready'; users: AdminUser[] };
 
 export function AdminUsersPage() {
@@ -50,6 +56,12 @@ export function AdminUsersPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+
+  // Mixpanel records 100% of sessions; this page is a PII directory. index.html keeps
+  // recording off on a direct load of /admin/*; this covers in-app navigation here.
+  useEffect(() => {
+    analytics.stopSessionRecording();
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -132,8 +144,8 @@ export function AdminUsersPage() {
       </div>
 
       <ul className="mt-6 divide-y divide-border rounded-lg border border-border">
-        {rows.map((u) => {
-          const linkedin = safeHttpsHref(u.linkedinUrl);
+        {rows.slice(0, RENDER_CAP).map((u) => {
+          const linkedin = safeLinkedInHref(u.linkedinUrl);
           const body = (
             <>
               <PersonAvatar
@@ -161,9 +173,9 @@ export function AdminUsersPage() {
           return (
             <li key={u.id} className="flex items-center" data-testid="admin-user-row">
               {u.slug ? (
-                <a href={`/p/${encodeURIComponent(u.slug)}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
+                <Link to={`/p/${encodeURIComponent(u.slug)}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
                   {body}
-                </a>
+                </Link>
               ) : (
                 <div className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2" title="No public profile yet">
                   {body}
@@ -188,10 +200,19 @@ export function AdminUsersPage() {
         })}
         {rows.length === 0 && (
           <li className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {query.trim() ? `No one matches “${query.trim()}”.` : 'No users in this filter.'}
+            {!query.trim()
+              ? 'No users in this filter.'
+              : filter !== 'all' && users.some((u) => matchesQuery(u, query))
+                ? `No ${STATUS_LABEL[filter as AdminUserStatus].toLowerCase()} users match “${query.trim()}”. Try All.`
+                : `No one matches “${query.trim()}”.`}
           </li>
         )}
       </ul>
+      {rows.length > RENDER_CAP && (
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          Showing {RENDER_CAP} of {rows.length}. Search to narrow.
+        </p>
+      )}
     </main>
   );
 }

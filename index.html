@@ -121,7 +121,9 @@
            raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
            src/lib/sentry-filters.ts; a test asserts the two stay identical. */
         var p1325SignInParam = /((?:[?&#]|%3F|%26|%23)(?:token_hash|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
-        var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname);
+        var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname)
+        /* P1381: /admin/* renders founder-only PII (every user's email); never record it. */
+        p1325NoRecord = p1325NoRecord || /^\/admin(?:\/|$)/i.test(window.location.pathname);
         function p1325Redact(value) {
           if (typeof value === 'string') return p1304Redact(value).replace(p1325SignInParam, '$1[redacted]');
           if (Array.isArray(value)) return value.map(p1325Redact);

@@ -102,6 +102,31 @@ describe('P1381: admin_list_users is gated in the database', () => {
     expect(row).not.toHaveProperty('is_admin');
   });
 
+  it('email comes from auth.users, so a spoofed profiles.email never shows', async () => {
+    const p = await signedIn(plain);
+    await p.rpc('upsert_my_profile', { p_data: { id: plain.user.id, name: plain.name, slug: plain.slug, email: 'spoofed-founder@example.com' } });
+    const c = await signedIn(admin);
+    const { data } = await c.rpc('admin_list_users');
+    const rows = data as Array<{ id: string; email: string }>;
+    expect(rows.find((r) => r.id === plain.user.id)!.email).toBe(plain.email);
+    expect(rows.some((r) => r.email === 'spoofed-founder@example.com')).toBe(false);
+  });
+
+  it('paging past the 1000-row cap returns every user exactly once', async () => {
+    const c = await signedIn(admin);
+    const ids: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await c.rpc('admin_list_users').range(from, from + 999);
+      expect(error).toBeNull();
+      const page = data as Array<{ id: string }>;
+      ids.push(...page.map((r) => r.id));
+      if (page.length < 1000) break;
+    }
+    // TEST holds far more than one page, so this exercises the boundary for real.
+    expect(ids.length).toBeGreaterThan(1000);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it('no client write path lets a non-admin grant itself is_admin', async () => {
     const c = await signedIn(plain);
     const id = plain.user.id;

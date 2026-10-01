@@ -586,7 +586,7 @@ checker. The known-open backlog lives in `.private/function-grant-baseline.json`
 2. `RETURNS TABLE` with an explicit column list, never `SETOF profiles` / `auth.users`;
 3. `REVOKE EXECUTE ... FROM PUBLIC` **and `FROM anon` by name**, then `GRANT ... TO authenticated`;
 4. ship an integration test in `src/tests/integration/` asserting anon and a signed-in non-admin get `42501` (template: `p1381-admin-list-users.test.ts`).
-The page renders `NotFoundPage` on any RPC error, so a non-admin cannot tell the route exists. `assert_admin()` itself is not client-executable.
+The page renders `NotFoundPage` on any RPC error. That conceals **content only**: the route and RPC name are in the public source and bundle, so never treat route obscurity as a security property. `assert_admin()` itself is not client-executable. Return the auth email (`auth.users.email`), never `profiles.email` (client-written via `upsert_my_profile`). Admin pages also stop Mixpanel session recording (`analytics.stopSessionRecording()` on mount, plus the `/admin` clause in `index.html`).
 
 A **new** profiles column is not readable by anon/authenticated until added to the column GRANT in `20260602160000_p877_profiles_pii_column_grants.sql` (intentional default-deny). See decisions.md 2026-06-04 [technical].
 

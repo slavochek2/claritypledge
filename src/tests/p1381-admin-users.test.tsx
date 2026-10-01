@@ -4,7 +4,12 @@
  * The database gate itself is proven in src/tests/integration/p1381-admin-list-users.test.ts.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { readFileSync } from 'fs';
+import type { ReactElement } from 'react';
+
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 const authState = { user: { id: 'user-id-1234' } as { id: string } | null, isLoading: false };
 vi.mock('@/auth', () => ({ useAuth: () => authState }));
@@ -16,10 +21,12 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/app/pages/not-found-page', () => ({ NotFoundPage: () => <div>NOT FOUND</div> }));
+const stopSessionRecording = vi.fn();
+vi.mock('@/lib/mixpanel', () => ({ analytics: { stopSessionRecording: () => stopSessionRecording() } }));
 vi.mock('@/components/ui/clarity-loader', () => ({ ClarityPageLoader: () => <div>LOADING</div> }));
 
 import { AdminUsersPage } from '@/app/pages/admin-users-page';
-import { safeHttpsHref, statusOf, byRecentLogin, formatLastLogin, type AdminUser } from '@/app/data/admin-users';
+import { safeLinkedInHref, statusOf, byRecentLogin, formatLastLogin, type AdminUser } from '@/app/data/admin-users';
 
 function row(o: Partial<Record<string, unknown>>) {
   return {
@@ -37,14 +44,26 @@ const ROWS = [
 ];
 
 describe('P1381 helpers', () => {
-  it('safeHttpsHref allows only https', () => {
-    expect(safeHttpsHref('https://linkedin.com/in/a')).toBe('https://linkedin.com/in/a');
-    expect(safeHttpsHref('javascript:alert(1)')).toBeUndefined();
-    expect(safeHttpsHref('JavaScript:https://x')).toBeUndefined();
-    expect(safeHttpsHref('data:text/html,<script>')).toBeUndefined();
-    expect(safeHttpsHref('http://linkedin.com/in/a')).toBeUndefined();
-    expect(safeHttpsHref('linkedin.com/in/a')).toBeUndefined();
-    expect(safeHttpsHref(null)).toBeUndefined();
+  it('safeLinkedInHref allows only https on linkedin.com', () => {
+    expect(safeLinkedInHref('https://linkedin.com/in/a')).toBe('https://linkedin.com/in/a');
+    expect(safeLinkedInHref('https://www.LinkedIn.com/in/a')).toBe('https://www.linkedin.com/in/a');
+    expect(safeLinkedInHref('javascript:alert(1)')).toBeUndefined();
+    expect(safeLinkedInHref('JavaScript:https://x')).toBeUndefined();
+    expect(safeLinkedInHref('data:text/html,<script>')).toBeUndefined();
+    expect(safeLinkedInHref('http://linkedin.com/in/a')).toBeUndefined();
+    expect(safeLinkedInHref('linkedin.com/in/a')).toBeUndefined();
+    expect(safeLinkedInHref(null)).toBeUndefined();
+    // Phishing hosts wearing the LinkedIn icon.
+    expect(safeLinkedInHref('https://evil.example/linkedin.com')).toBeUndefined();
+    expect(safeLinkedInHref('https://linkedin.com.evil.example/in/a')).toBeUndefined();
+    expect(safeLinkedInHref('https://evillinkedin.com/in/a')).toBeUndefined();
+    // userinfo trick: host is evil.example (split so it doesn't read as an email address)
+    expect(safeLinkedInHref('https://linkedin.com' + '@' + 'evil.example/in/a')).toBeUndefined();
+  });
+
+  it('index.html never records /admin/* in Mixpanel on a direct load', () => {
+    const html = readFileSync('index.html', 'utf8');
+    expect(html).toMatch(/p1325NoRecord = p1325NoRecord \|\| \/\^\\\/admin\(\?:\\\/\|\$\)\/i\.test\(window\.location\.pathname\)/);
   });
 
   it('statusOf ignores has_pledged until verified (it defaults true)', () => {
@@ -71,6 +90,7 @@ describe('P1381 helpers', () => {
 describe('P1381 /admin/users page', () => {
   beforeEach(() => {
     rpc.mockReset();
+    stopSessionRecording.mockReset();
     authState.user = { id: 'user-id-1234' };
     authState.isLoading = false;
   });
@@ -137,6 +157,43 @@ describe('P1381 /admin/users page', () => {
     render(<AdminUsersPage />);
     expect(await screen.findByRole('button', { name: /All 1500/ })).toBeInTheDocument();
     expect(rpc).toHaveBeenCalledTimes(2);
+    // Rendering is capped; search still reaches row 1499.
+    expect(screen.getAllByTestId('admin-user-row')).toHaveLength(200);
+    expect(screen.getByText('Showing 200 of 1500. Search to narrow.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'User 1499' } });
+    expect(screen.getAllByTestId('admin-user-row')).toHaveLength(1);
+  });
+
+  it('stops Mixpanel session recording on mount', async () => {
+    rpc.mockResolvedValue({ data: ROWS, error: null });
+    render(<AdminUsersPage />);
+    await screen.findAllByTestId('admin-user-row');
+    expect(stopSessionRecording).toHaveBeenCalled();
+  });
+
+  it('dedupes a user that appears on two pages', async () => {
+    const page1 = Array.from({ length: 1000 }, (_, i) => row({ id: `u${i}`, name: `User ${i}` }));
+    const page2 = [row({ id: 'u999', name: 'User 999' }), row({ id: 'u1000', name: 'User 1000' })];
+    rpc.mockImplementation((_n: string, from: number) => Promise.resolve({ data: from === 0 ? page1 : page2, error: null }));
+    render(<AdminUsersPage />);
+    expect(await screen.findByRole('button', { name: /All 1001/ })).toBeInTheDocument();
+  });
+
+  it('a sign-up with no profile row is listed by email, unlinked', async () => {
+    rpc.mockResolvedValue({ data: [row({ id: 'np', name: null, email: 'noprofile@example.com', is_verified: false })], error: null });
+    render(<AdminUsersPage />);
+    const [r] = await screen.findAllByTestId('admin-user-row');
+    expect(within(r).getAllByText('noprofile@example.com').length).toBeGreaterThan(0);
+    expect(within(r).queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('empty state points to All when the query matches under another chip', async () => {
+    rpc.mockResolvedValue({ data: ROWS, error: null });
+    render(<AdminUsersPage />);
+    await screen.findAllByTestId('admin-user-row');
+    fireEvent.click(screen.getByRole('button', { name: /Pledged 1/ }));
+    fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'rita' } });
+    expect(screen.getByText('No pledged users match “rita”. Try All.')).toBeInTheDocument();
   });
 
   it('filter chips filter the list', async () => {

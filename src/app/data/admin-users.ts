@@ -47,15 +47,17 @@ export function statusOf(isVerified: boolean, hasPledged: boolean): AdminUserSta
 }
 
 /**
- * LinkedIn is user-typed and clicked from an admin session, so only a URL that
- * parses with the https: scheme becomes a link. Stricter than safeLinkHref
- * (which also allows http:), on purpose.
+ * LinkedIn is user-typed and clicked from an admin session under a LinkedIn icon,
+ * so it becomes a link only if it parses as https: AND the host is linkedin.com
+ * or a subdomain. Otherwise any https phishing page could wear the LinkedIn icon.
  */
-export function safeHttpsHref(raw: string | null | undefined): string | undefined {
+export function safeLinkedInHref(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw.trim());
-    return url.protocol === 'https:' ? url.href : undefined;
+    if (url.protocol !== 'https:') return undefined;
+    const host = url.hostname.toLowerCase();
+    return host === 'linkedin.com' || host.endsWith('.linkedin.com') ? url.href : undefined;
   } catch {
     return undefined;
   }
@@ -63,17 +65,21 @@ export function safeHttpsHref(raw: string | null | undefined): string | undefine
 
 /** Most recent login first; never-logged-in last, newest sign-up first among them. */
 export function byRecentLogin(a: AdminUser, b: AdminUser): number {
-  if (a.lastSignInAt && b.lastSignInAt) return b.lastSignInAt.localeCompare(a.lastSignInAt);
-  if (a.lastSignInAt || b.lastSignInAt) return a.lastSignInAt ? -1 : 1;
-  return b.createdAt.localeCompare(a.createdAt);
+  if (a.lastSignInAt && b.lastSignInAt) {
+    const c = b.lastSignInAt.localeCompare(a.lastSignInAt);
+    if (c !== 0) return c;
+  } else if (a.lastSignInAt || b.lastSignInAt) {
+    return a.lastSignInAt ? -1 : 1;
+  }
+  return b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
 }
 
 export function formatLastLogin(iso: string | null, now: number = Date.now()): string {
   if (!iso) return 'Never logged in';
-  const mins = Math.round((now - new Date(iso).getTime()) / 60000);
+  const mins = Math.floor((now - new Date(iso).getTime()) / 60000);
   if (mins < 60) return `${Math.max(mins, 1)}m ago`;
-  if (mins < 60 * 24) return `${Math.round(mins / 60)}h ago`;
-  if (mins < 60 * 24 * 7) return `${Math.round(mins / 1440)}d ago`;
+  if (mins < 60 * 24) return `${Math.floor(mins / 60)}h ago`;
+  if (mins < 60 * 24 * 7) return `${Math.floor(mins / 1440)}d ago`;
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -90,6 +96,9 @@ const PAGE = 1000;
 /** Returns the full list, or null on ANY error (non-admin, signed out, network). */
 export async function getAdminUsers(): Promise<AdminUser[] | null> {
   const data: AdminUserRow[] = [];
+  // The SQL orders by a unique final key, but pages are separate queries: a sign-in
+  // between two calls shifts offsets. Dedupe by id so nobody renders twice.
+  const seen = new Set<string>();
   for (let from = 0; ; from += PAGE) {
     const { data: page, error } = await supabase
       .rpc('admin_list_users')
@@ -99,14 +108,20 @@ export async function getAdminUsers(): Promise<AdminUser[] | null> {
       if (error) console.warn('admin_list_users failed', error.code);
       return null;
     }
-    data.push(...page);
+    for (const r of page) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        data.push(r);
+      }
+    }
     if (page.length < PAGE) break;
   }
   return data
     .map((r) => ({
       id: r.id,
       slug: r.slug,
-      name: r.name || '(no name)',
+      // No profile row yet (auth sign-up only): show the email as the name.
+      name: r.name || r.email || '(no name)',
       email: r.email ?? '',
       linkedinUrl: r.linkedin_url,
       avatarUrl: r.avatar_url,
