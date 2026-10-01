@@ -393,6 +393,7 @@ Last updated: 2026-10-01
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1385** (Oct 01) Public media defaults to GCS with a CSP check — `publicMediaUrl()` is the only builder; a src/ scan bans hand-built GCS/Supabase-storage URLs and `getPublicUrl(`, since dev sends no CSP
 - **P1369** (Oct 26) Offline-readable pages + offline strip: app-layer IndexedDB read-through (SW never caches Supabase); ordered write queues need a bounded wait
 - **P1370** (Sep 26) Disagreement pipeline hardening after ikigai1 — evidence a gate reads must be tool-written; a caption label is not a track identity
 
