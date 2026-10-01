@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 310
 workstream: infrastructure
 created_date: '2026-10-01'
 tags: [csp, storage, media, guard]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -16,6 +15,7 @@ related:
   - p1336
   - p1005
   - p906
+completed_at: 2026-10-01
 ---
 
 # P1385: Public media goes to Google Cloud Storage by default, and a test proves the live site can load it
@@ -83,5 +83,5 @@ Reversibility: plain revert. Decision density: zero — the GCS convention and C
 
 ## Related
 
-[P1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) (the incident) · P1005 (founder clip on
+[P1336](p1336_registration_carries_opt_in_prep_and_survey.md) (the incident) · P1005 (founder clip on
 GCS + `media-src`) · P906 (missing-directive class, decisions.md 2026-06-06)
