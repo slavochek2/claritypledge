@@ -133,19 +133,29 @@ class IndexedDbEntryStore implements OfflineEntryStore {
 
   private open(): Promise<IDBDatabase> {
     if (!this.db) {
-      this.db = new Promise<IDBDatabase>((resolve, reject) => {
+      const opening: Promise<IDBDatabase> = new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, 1);
         req.onupgradeneeded = () => {
           const store = req.result.createObjectStore(STORE, { keyPath: 'key' });
           store.createIndex('type', 'type');
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+          const db = req.result;
+          // Another tab deleting the cache (sign-out clear fallback) must never be blocked by
+          // this connection: close it and reopen lazily on the next read (/finish review, P1369).
+          db.onversionchange = () => {
+            db.close();
+            if (this.db === opening) this.db = null; // never drop a newer connection
+          };
+          resolve(db);
+        };
         req.onerror = () => reject(req.error);
         req.onblocked = () => reject(new Error('offline-read-cache: open blocked'));
       });
+      this.db = opening;
       // A failed open is retried on the next call rather than cached forever.
-      this.db.catch(() => {
-        this.db = null;
+      opening.catch(() => {
+        if (this.db === opening) this.db = null;
       });
     }
     return this.db;
@@ -192,7 +202,8 @@ class IndexedDbEntryStore implements OfflineEntryStore {
       const req = indexedDB.deleteDatabase(DB_NAME);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
-      // onblocked: another tab holds the database open; the delete completes when it closes.
+      // onblocked: only a connection without the versionchange close (an old build) can block;
+      // the delete then completes when that tab closes, and clear-pending keeps reads off meanwhile.
     });
   }
 }

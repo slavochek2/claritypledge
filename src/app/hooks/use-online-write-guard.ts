@@ -70,6 +70,28 @@ export class WriteTimeoutError extends Error {
  * cancelled: if it lands late, the next read shows it — the page never claims a save it did not
  * see confirmed.
  */
+const inFlightByKey = new Map<string, Promise<unknown>>();
+
+/**
+ * Like `saveWithin`, but writes for the same `key` (e.g. one point) are sent in click order: a
+ * new write is sent only after the previous one for that key has settled. A save that timed out
+ * on a captive portal can still land later — without ordering it could land AFTER a newer click and
+ * overwrite it (/finish review, P1369). The services take no abort signal, so order is the fix.
+ */
+export function saveInOrder<T>(key: string, write: () => Promise<T>, ms = WRITE_TIMEOUT_MS): Promise<T> {
+  const previous = inFlightByKey.get(key) ?? Promise.resolve();
+  // The bound covers the wait for the previous write too: a write that never answers must not
+  // hold every later write for this key forever. Past the bound, order is no longer guaranteed —
+  // that write has already been reported as not saved.
+  const bounded = saveWithin(previous.then(write), ms);
+  const settled = bounded.then(() => undefined, () => undefined);
+  inFlightByKey.set(key, settled);
+  void settled.finally(() => {
+    if (inFlightByKey.get(key) === settled) inFlightByKey.delete(key);
+  });
+  return bounded;
+}
+
 export function saveWithin<T>(write: Promise<T>, ms = WRITE_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([

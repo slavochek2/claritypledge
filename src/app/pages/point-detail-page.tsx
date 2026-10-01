@@ -72,7 +72,7 @@ export function PointDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isEmbed = searchParams.get('embed') === 'true';
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [point, setPoint] = useState<PointWithCounts | null>(null);
@@ -293,8 +293,9 @@ export function PointDetailPage() {
   const handlePositionClick = async (position: PositionType) => {
     if (!id) return;
 
-    // P502: Anonymous user → optimistic local position, no redirect
-    if (!user) {
+    // P502: Anonymous user → optimistic local position, no redirect. P1369: a stored session
+    // without a profile (offline reload: the profile never loads) is a signed-in reader, not anon.
+    if (!user && !session?.user) {
       const currentAnon = anonPosition;
       const newPosition = currentAnon === position ? null : position;
       setAnonPositionState(newPosition);
@@ -303,6 +304,7 @@ export function PointDetailPage() {
     }
 
     if (!canWrite()) return;
+    if (!user) return; // signed in, profile still loading: nothing to write as yet
 
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;

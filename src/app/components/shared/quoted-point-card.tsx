@@ -16,7 +16,7 @@
  * finds the statement text on screen cannot — the bare-button version passed exactly that.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Ear } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -112,8 +112,13 @@ export function QuotedPointCard({
   );
 
   // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
+  // P1369 review: a failed save reverts only if it was the latest click, and to the last SAVED
+  // position — not to what showed before that click, which may have been an unsaved click too.
+  const clickSeq = useRef(0);
+  const savedPosition = useRef<Position>((point.userPosition as Position) ?? null);
   useEffect(() => {
     setUserPosition((point.userPosition as Position) ?? null);
+    savedPosition.current = (point.userPosition as Position) ?? null;
   }, [point.userPosition]);
 
   const baseCounts = useMemo(
@@ -130,14 +135,16 @@ export function QuotedPointCard({
   );
 
   const handlePositionClick = async (position: Position) => {
-    const previous = userPosition;
+    const seq = ++clickSeq.current;
     const newPosition = userPosition === position ? null : position;
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
     }
     const landed = await onPositionSelect?.(newPosition);
-    if (landed === false && newPosition !== null) setUserPosition(previous);
+    if (newPosition === null) return;
+    if (landed !== false) savedPosition.current = newPosition;
+    else if (seq === clickSeq.current) setUserPosition(savedPosition.current);
   };
 
   return (

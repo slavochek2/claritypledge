@@ -91,6 +91,7 @@ function renderFeedPointCard() {
   );
 }
 const agree = () => screen.getAllByTestId('agree-group')[0]!;
+const disagree = () => screen.getAllByTestId('disagree-group')[0]!;
 
 describe('R1: feed/stake point card votes', () => {
   it('captive portal: the write never reaches the server → needs-internet message, vote not left selected', async () => {
@@ -124,6 +125,19 @@ describe('R1: feed/stake point card votes', () => {
     expect(toastMock.error).toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
   });
 
+  it('two clicks that both fail leave no vote showing (reverts do not restore an unsaved vote)', async () => {
+    const pending: Array<(e: Error) => void> = [];
+    pointsMock.setPosition.mockImplementation(() => new Promise((_, reject) => { pending.push(reject); }));
+    renderFeedPointCard();
+    await act(async () => { fireEvent.click(agree()); });
+    await act(async () => { fireEvent.click(disagree()); });
+    await act(async () => { pending[0]!(new Error('boom')); });
+    await act(async () => { await Promise.resolve(); pending[1]?.(new Error('boom')); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(agree()).toHaveAttribute('aria-pressed', 'false');
+    expect(disagree()).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('control: a save that lands keeps the vote and shows no error', async () => {
     pointsMock.setPosition.mockResolvedValue(undefined);
     renderFeedPointCard();
@@ -153,6 +167,17 @@ describe("R1: a story card's nested point (QuotedPointCard) reverts when the wri
     renderQuoted(async () => false);
     await act(async () => { fireEvent.click(agree()); });
     expect(agree()).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('two clicks that both fail, failures arriving in click order: no vote left showing', async () => {
+    const results: Array<(v: boolean) => void> = [];
+    renderQuoted(() => new Promise<boolean>((r) => { results.push(r); }));
+    await act(async () => { fireEvent.click(agree()); });
+    await act(async () => { fireEvent.click(disagree()); });
+    await act(async () => { results[0]!(false); });
+    await act(async () => { results[1]!(false); });
+    expect(agree()).toHaveAttribute('aria-pressed', 'false');
+    expect(disagree()).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('control: the handler reports nothing (the profile caller): the vote stays', async () => {

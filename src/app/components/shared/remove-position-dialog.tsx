@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { pointsService } from '@/app/data/points-service';
-import { NEEDS_INTERNET_MESSAGE, saveWithin, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { NEEDS_INTERNET_MESSAGE, saveInOrder, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
 import { isSupabaseUnreachable, networkMark } from '@/lib/network-outcome';
 
 // ============================================================================
@@ -113,7 +113,7 @@ export function useRemovePositionGuard({
     const sentAt = networkMark();
     try {
       // Bounded: a captive portal can leave the request unanswered for good.
-      await saveWithin(pointsService.removePosition(pendingPointId, userId));
+      await saveInOrder(`position:${pendingPointId}`, () => pointsService.removePosition(pendingPointId, userId));
       setIsRemoving(false);
       setDialogOpen(false);
       const resolvedPointId = pendingPointId;

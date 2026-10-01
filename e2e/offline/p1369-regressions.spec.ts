@@ -383,6 +383,23 @@ test('R5: signed in, a visited point reopens offline even though the profile nev
   await context.close();
 });
 
+test('R5: signed in, offline on a stored point page, a vote is the needs-internet message (not an anonymous vote)', async ({ browser }) => {
+  const point = await createTestPoint(author.user.id, { statement: `P1369 reg offline point vote ${RUN}` });
+  points.push(point);
+  const { context, page } = await freshPage(browser);
+  await signIn(page, voter.email);
+  await visitInApp(page, `/point/${point.id}`, point.statement);
+  await goOffline(context);
+  await gotoOffline(page, `/point/${point.id}`);
+  await expect(page.getByText(point.statement).first()).toBeVisible({ timeout: 10_000 });
+  const toasts = await collectToasts(page);
+  const agree = page.getByTestId('agree-group').first();
+  await agree.click();
+  await expect.poll(toasts, { timeout: 10_000 }).toEqual(expect.arrayContaining([expect.stringMatching(NEEDS_INTERNET)]));
+  await expect(agree).toHaveAttribute('aria-pressed', 'false');
+  await context.close();
+});
+
 test('R5: signed in, a visited /stake list reopens offline', async ({ browser }) => {
   const { tag, point } = await stakedPoint('stakeoff');
   const { context, page } = await freshPage(browser);
@@ -507,5 +524,30 @@ test('R2: after a deploy, the offline pack runs again for the new build (within 
   await gotoOffline(page, '/stake/cmp7');
   await expect(page.getByRole('heading', { name: 'cmp7' }).or(page.getByText(NEEDS_CONNECTION)).first()).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(CHUNK_ERROR)).toHaveCount(0);
+  await context.close();
+});
+
+// /finish review (P1369): a cache delete from another tab (sign-out clear fallback) must never be
+// blocked by this tab's open connection — connections close themselves on versionchange.
+test('cache delete from another tab is not blocked by an open connection', async ({ browser }) => {
+  deploy('a');
+  setServerDown(false);
+  const context = await newAppContext(browser);
+  const holder = await context.newPage();
+  await warmServiceWorker(holder);
+  await holder.goto('/stake/cmp7');
+  await holder.waitForLoadState('networkidle');
+  // Make sure this tab really holds a connection to the offline cache.
+  const opened = await holder.evaluate(async () => (await indexedDB.databases()).some((d) => d.name === 'clarity-offline-reads'));
+  expect(opened, 'probe sanity: the app opened its offline cache').toBe(true);
+  const other = await context.newPage();
+  await other.goto('/__bench/health');
+  const outcome = await other.evaluate(() => new Promise<string>((resolve) => {
+    const req = indexedDB.deleteDatabase('clarity-offline-reads');
+    req.onsuccess = () => resolve('deleted');
+    req.onerror = () => resolve('error');
+    req.onblocked = () => setTimeout(() => resolve('blocked'), 1500);
+  }));
+  expect(outcome).toBe('deleted');
   await context.close();
 });

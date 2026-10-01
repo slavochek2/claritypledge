@@ -31,7 +31,7 @@ import {
   CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { GroupPlayer } from '@/app/components/shared/source-group';
-import { saveWithin, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { saveInOrder, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
 import { networkMark } from '@/lib/network-outcome';
 import { pointsService } from '@/app/data/points-service';
 import type { Position } from '@/app/types';
@@ -142,7 +142,7 @@ export function FeedStoryCard({
     const sentAt = networkMark();
     try {
       // Bounded: a captive portal can leave the request unanswered for good.
-      await saveWithin(pointsService.setPosition(pointId, currentUserId, position));
+      await saveInOrder(`position:${pointId}`, () => pointsService.setPosition(pointId, currentUserId, position));
       return true;
     } catch (err) {
       toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
