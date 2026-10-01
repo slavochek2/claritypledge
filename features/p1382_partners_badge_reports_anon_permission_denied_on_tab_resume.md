@@ -10,8 +10,14 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry-noise, auth, partners, rpc-grants]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: src/tests/p1382-pending-invitations-anon-no-sentry.test.ts
+  root_cause: "Badge refetch on tab resume runs get_my_pending_invitations as anon after the client drops its session; P913's 42501 suppression covers only _is_letter_* so it reaches Sentry"
+  confidence: medium
+  surfaces_in_scope: [partners-badge, partners-page-incoming]
+  reproduced_at: 2026-10-01
 ---
 
 # P1382: Partners badge reports "permission denied for get_my_pending_invitations" when the session drops on tab resume
