@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ---
 
@@ -391,6 +391,7 @@ Last updated: 2026-09-30
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1369** (Oct 26) Offline-readable pages + offline strip: app-layer IndexedDB read-through (SW never caches Supabase); ordered write queues need a bounded wait
 - **P1370** (Sep 26) Disagreement pipeline hardening after ikigai1 — evidence a gate reads must be tool-written; a caption label is not a track identity
 
 - **P1263** (Sep 26) Canary `git init --bare` flipped core.bare on the real repo — canaries must work in a scratch clone, never the checkout.

@@ -5,6 +5,18 @@
 Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
+## 2026-10-01 [technical]: P1369 offline writes — bounded per-key ordering, revert to the last saved vote, "signed in" offline is the session not the profile
+
+**Context:** The last review round on P1369 (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) found defects in the vote-write paths, including one introduced by the previous fix.
+**Decision:**
+1. **Ordering a write queue needs a bounded wait.** `saveInOrder` sends writes for one key (one point) in click order, but a write waits for the one before it only up to the write timeout. Chaining on the raw request let one request that never answered (captive portal) block every later vote on that point until reload. The existing suite caught it because its tests reuse one point id.
+2. **A failed optimistic write reverts only from the latest click, and to the last SAVED value.** Restoring "what showed before this click" breaks on two failing clicks: the second revert restores the first, unsaved vote.
+3. **Offline, "is the reader signed in" is the stored session, not the profile.** The profile never loads offline, so `user` stays null and a signed-in reader fell into the anonymous-vote branch, a vote that looked saved and was not. Use `session?.user` to decide signed-in vs anonymous; write paths still need the profile and are blocked by the online guard first.
+4. **An IndexedDB `onversionchange` close must only clear its own connection** (compare the stored open promise), so it never drops a newer one.
+**Alternatives rejected:** Unbounded ordering (strict click order). It needs abort signals the services do not take, and without them it blocks forever. Accepted: a write that hangs past its window may still land after a newer one; a request held by a captive portal almost never reaches the server.
+**Consequences:** Accepted, not fixed: a 5xx/429 on an unrelated request during a page read shows the stored copy and the Offline strip until the next request succeeds (cost of "server trouble never overwrites a stored copy"). Point detail, story detail, profile and letter vote paths do not use `saveInOrder` (pre-existing, no regression).
+**References:** [P1369](../features/done/2026-06-10/p1369_offline_readable_pages_and_offline_bar.md), `src/app/hooks/use-online-write-guard.ts`, `src/app/components/feed/feed-point-card.tsx`, `src/app/pages/point-detail-page.tsx`
+
 
 ## 2026-10-01 [product]: P1336 preparation — activation, scope, and what stays fixed
 
