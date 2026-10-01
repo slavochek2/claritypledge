@@ -77,33 +77,45 @@ describe('P1347 /topics', () => {
     renderPage();
     const cards = await screen.findAllByTestId('topic-card');
     fireEvent.click(within(cards[0]).getByRole('radio', { name: /^4$/ }));
-    fireEvent.click(within(cards[1]).getByRole('radio', { name: /5, really want it/ }));
+    fireEvent.click(within(cards[1]).getByRole('radio', { name: /5, I really want it/ }));
 
     const results = await screen.findByTestId('topic-results');
     await waitFor(() => {
       expect(within(cards[0]).getByRole('radio', { name: /^4$/ })).toHaveAttribute('aria-checked', 'true');
-      expect(within(cards[1]).getByRole('radio', { name: /5, really/ })).toHaveAttribute('aria-checked', 'true');
+      expect(within(cards[1]).getByRole('radio', { name: /5, I really/ })).toHaveAttribute('aria-checked', 'true');
     });
     const items = within(results).getAllByRole('listitem').map((li) => li.textContent ?? '');
     expect(items[0]).toContain('Free will');
-    expect(items[0]).toContain('1 rating');
+    expect(items[0]).toContain('from 1 rating');
     expect(items[2]).toContain('No ratings yet');
     expect(within(results).getByRole('link')).toHaveAttribute('href', '/events/clarity-night-3');
-    expect(results.textContent).toContain('Leading now: Free will');
+    expect(results.textContent).toContain('Top-rated now: Free will');
   });
 
   it('asks a signed-out visitor to sign in before suggesting', async () => {
     renderPage();
     await screen.findAllByTestId('topic-card');
-    fireEvent.click(screen.getByRole('button', { name: /suggest a topic or a thinker/i }));
+    fireEvent.click(screen.getByRole('button', { name: /suggest a topic or a speaker/i }));
     expect(screen.getAllByRole('link', { name: 'Sign in' })[0]).toHaveAttribute('href', '/login?redirect=%2Ftopics');
     expect(screen.queryByLabelText('Your suggestion')).toBeNull();
   });
 
-  it('says so when nothing is open', async () => {
+  it('says so when nothing is open, and still offers a suggestion', async () => {
     topicsState.rows = [];
     renderPage();
-    expect(await screen.findByText(/No topics are open for rating right now/)).toBeInTheDocument();
+    expect(await screen.findByText(/no topics to rate yet/)).toBeInTheDocument();
+    expect(screen.getByTestId('suggest-new')).toBeInTheDocument();
+  });
+
+  it('a failed save rolls the selection back, says so, and does not reveal results', async () => {
+    const mod = await import('@/app/data/topic-voting');
+    vi.mocked(mod.rateTopic).mockResolvedValueOnce(false);
+    renderPage();
+    const cards = await screen.findAllByTestId('topic-card');
+    fireEvent.click(within(cards[0]).getByRole('radio', { name: /^3$/ }));
+    expect(await within(cards[0]).findByText(/Not saved/)).toBeInTheDocument();
+    expect(within(cards[0]).getByRole('radio', { name: /^3$/ })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByTestId('topic-results')).toBeNull();
   });
 });
 
