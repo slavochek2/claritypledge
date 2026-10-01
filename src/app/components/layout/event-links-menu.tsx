@@ -72,7 +72,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutGrid as ToolsIcon } from 'lucide-react';
-import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { cn } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
 import { buildLinksMenu, eventSlugFromLocation, type LinksMenuEntry } from '@/app/data/event-links';

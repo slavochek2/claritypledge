@@ -78,6 +78,21 @@ export interface LetterFlowContentProps {
    * out of P1364's scope — compile unchanged.
    */
   showFocusHeader?: boolean;
+  /** P1336: when false, the letter's own fixed progress bar (and its spacer) is not
+   *  rendered — for hosts that drive one overall progress bar themselves. Default true. */
+  showProgressBar?: boolean;
+  /** P1336: when set, story-rate first shows the host's own actions inside the letter's
+   *  bottom bar; the rating drawer appears only after the host calls `confirm()`. `play()`
+   *  starts the story video as a tap on its poster does; `played` is true once it started.
+   *  Default undefined: the rating drawer shows at once, as today. */
+  renderStoryConfirm?: (api: StoryConfirmApi) => ReactNode;
+  /** P1336: pulse the story video's play button until it is played. Default false. */
+  pulseStoryPlay?: boolean;
+  /** P1336: at story-rate, the card sits at the top instead of being centred between the
+   *  bars — for hosts with their own taller header. Default false (centred, P860). */
+  topAlignStory?: boolean;
+  /** P1336: show the story video's duration on its poster at story-rate. Default false. */
+  showStoryVideoDuration?: boolean;
   /** Sign-in prompt for authed reading; undefined for others. Replaces Drawer in story-rate. */
   authGateAtStoryRate?: ReactNode;
   // Completion
@@ -102,6 +117,16 @@ export interface LetterFlowContentProps {
   explainedBackMap?: Map<string, string>;
   /** P952 H2: called with (storyId, explainBackId) for optimistic update before auto-advance. */
   onExplainBackSaved?: (storyId: string, explainBackId: string) => void;
+}
+
+/** P1336: what `renderStoryConfirm` is handed. */
+export interface StoryConfirmApi {
+  /** Show the rating drawer (the story is done). */
+  confirm: () => void;
+  /** Start the story video, as a tap on its poster does. */
+  play: () => void;
+  /** True once the story video has started playing. */
+  played: boolean;
 }
 
 // ============================================================================
@@ -173,6 +198,11 @@ export function LetterFlowContent({
   senderProfileOwner,
   readerProfileOwner,
   readingState,
+  showProgressBar = true,
+  renderStoryConfirm,
+  pulseStoryPlay = false,
+  topAlignStory = false,
+  showStoryVideoDuration = false,
   letterMode,
   identitySettled = true,
   authGateAtStoryRate,
@@ -252,6 +282,20 @@ export function LetterFlowContent({
 
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState(false);
   const [tutorialTrigger, setTutorialTrigger] = useState<'letter-first-run' | 'letter-replay'>('letter-first-run');
+  // P1336: story confirmed (only consulted when renderStoryConfirm is set). Resets per story.
+  const [storyConfirmedIndex, setStoryConfirmedIndex] = useState<number | null>(null);
+  const storyConfirmed = !renderStoryConfirm || storyConfirmedIndex === state.currentStoryIndex;
+  // P1336: the story video's play cue — played per story, and a nonce the host's "Play" bumps.
+  const [storyPlayedIndex, setStoryPlayedIndex] = useState<number | null>(null);
+  const [storyPlayRequest, setStoryPlayRequest] = useState(0);
+  const storyPlayed = storyPlayedIndex === state.currentStoryIndex;
+  const storyPlayCue = renderStoryConfirm || pulseStoryPlay
+    ? {
+        pulse: pulseStoryPlay,
+        request: storyPlayRequest,
+        onPlay: () => setStoryPlayedIndex(state.currentStoryIndex),
+      }
+    : undefined;
 
   useEffect(() => {
     const isEngagePhaseEntry =
@@ -606,6 +650,7 @@ export function LetterFlowContent({
           letter routes in clarity-landing-layout.tsx). Browser back is the
           exit affordance — no in-bar Leave button (matches Kindle/Pocket pattern). */}
       {/* P956: immersive reading bar — pt-[env(safe-area-inset-top)] keeps it below the iOS status bar (viewport-fit=cover); 0 elsewhere. */}
+      {showProgressBar && (<>
       <div className="fixed top-0 left-0 right-0 z-40 bg-background pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-foreground/5">
         <div className="max-w-2xl mx-auto w-full px-4">
           <LetterProgressBar
@@ -622,6 +667,7 @@ export function LetterFlowContent({
           py-3 (24px) + items-center row (max of text-sm label 20px, h-2.5 bar 10px = 20px)
           + border-b (1px) = 45px. h-14 (56px) for safety + breathing room below the bar. */}
       <div className="h-14" aria-hidden />
+      </>)}
 
       {/* Vertical alignment per phase:
           - Short phases (point-engage, point-revealed, remaining-point-*,
@@ -656,7 +702,8 @@ export function LetterFlowContent({
         const wrapperClass = isShortPhase
           ? 'max-w-2xl mx-auto w-full space-y-6 min-h-[calc(100dvh-200px)] flex flex-col justify-center'
           : isStoryRate
-          ? 'max-w-2xl mx-auto w-full flex flex-col min-h-[calc(100dvh-56px)]'
+          // P1336 topAlignStory: no min-height, so the card's my-auto has no space to split.
+          ? (topAlignStory ? 'max-w-2xl mx-auto w-full flex flex-col' : 'max-w-2xl mx-auto w-full flex flex-col min-h-[calc(100dvh-56px)]')
           : 'max-w-2xl mx-auto w-full space-y-6 mt-4';
         // rev4.12: phase-aware bottom padding — measured drawer height + 8px
         // buffer. Replaces the static 280px pb that lived in letter-reading-page
@@ -829,8 +876,22 @@ export function LetterFlowContent({
               // P1368: a letter shows one story at a time — play in place, never
               // navigate the reader out of the letter to the story page.
               videoMode="player"
+              showVideoDuration={showStoryVideoDuration}
+              videoPlayCue={storyPlayCue}
             />
-            {authGateAtStoryRate ?? (
+            {authGateAtStoryRate ?? (!storyConfirmed ? (
+              // P1336: one primary action first; the rating drawer follows the tap.
+              <FixedBottomBar
+                ref={setDrawerRef}
+                className="shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] before:content-[''] before:absolute before:inset-x-0 before:-top-16 before:h-16 before:bg-gradient-to-t before:from-background before:to-transparent before:pointer-events-none"
+              >
+                {renderStoryConfirm?.({
+                  confirm: () => setStoryConfirmedIndex(state.currentStoryIndex),
+                  play: () => setStoryPlayRequest((n) => n + 1),
+                  played: storyPlayed,
+                })}
+              </FixedBottomBar>
+            ) : (
               // P852: story-rate scroll affordance — the story above scrolls behind
               // the rating drawer with no native scroll cue. Three cues, layered:
               //   (a) gradient fade above the drawer (signals "content continues above"),
@@ -878,7 +939,7 @@ export function LetterFlowContent({
                   ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
                 />
               </FixedBottomBar>
-            )}
+            ))}
           </>
         )}
 

@@ -14,6 +14,7 @@ import { eventsService } from '@/app/data/events-service';
 import { organizationsService } from '@/app/data/organizations-service';
 import type { Organization } from '@/app/data/organizations-service.interface';
 import { DURATIONS, TIMEZONES } from '../utils';
+import { PrepSettingsFields, defaultPreparation, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
 
 export function CreateEvent() {
   const navigate = useNavigate();
@@ -35,6 +36,13 @@ export function CreateEvent() {
   const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours default
   const [location, setLocation] = useState('');
   const [groupChatUrl, setGroupChatUrl] = useState('');
+  // P1336: defaulted from the series (Clarity Night on, hikes off) until the host touches it.
+  const [preparationEnabled, setPreparationEnabled] = useState(false);
+  const [preparationTouched, setPreparationTouched] = useState(false);
+  const [statementTag, setStatementTag] = useState('');
+  useEffect(() => {
+    if (!preparationTouched) setPreparationEnabled(defaultPreparation(title));
+  }, [title, preparationTouched]);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -129,6 +137,10 @@ export function CreateEvent() {
     if (groupChatError) {
       newErrors.groupChatUrl = groupChatError;
     }
+    const statementTagError = validateStatementTag(statementTag);
+    if (statementTagError) {
+      newErrors.statementTag = statementTagError;
+    }
     if (!description.trim() || description.length < 20) {
       newErrors.description = 'Description must be at least 20 characters';
     }
@@ -158,6 +170,8 @@ export function CreateEvent() {
       // null unless the caller is a verified organizer of a real org (see above).
       orgId: hostingOrg?.id ?? null,
       groupChatUrl: groupChatUrl.trim(),
+      preparationEnabled: preparationTouched ? preparationEnabled : defaultPreparation(title),
+      statementTag: normalizeStatementTag(statementTag),
     });
 
     setIsSubmitting(false);
@@ -335,6 +349,15 @@ export function CreateEvent() {
                 </p>
             }
           </div>
+
+          {/* P1336: per-event preparation */}
+          <PrepSettingsFields
+            enabled={preparationEnabled}
+            onEnabledChange={(on) => { setPreparationTouched(true); setPreparationEnabled(on); }}
+            tag={statementTag}
+            onTagChange={setStatementTag}
+            tagError={errors.statementTag}
+          />
 
           {/* Description */}
           <div>

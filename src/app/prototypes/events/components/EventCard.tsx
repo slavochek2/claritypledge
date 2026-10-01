@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Video, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
-import type { EventWithHost, PersonRef } from '@/app/types';
+import type { EventWithHost } from '@/app/types';
 import { formatDateShort, formatTime } from '../utils';
 import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
-import { PersonAvatar } from '@/components/ui/person-avatar';
+import { AttendeeAvatarStack } from './AttendeeAvatarStack';
 import { displayGoingCount } from '@/app/utils/event-going';
 
 interface EventCardProps {
@@ -107,28 +107,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
           {/* Attendee avatars */}
           <div className="flex items-center gap-2">
             {event.attendees && event.attendees.length > 0 && (
-              <div className="flex -space-x-2">
-                {event.attendees.slice(0, 4).map((attendee, i) => (
-                  <div key={attendee.profileId} style={{ zIndex: 4 - i }} className="relative">
-                    <PersonAvatar
-                      person={{
-                        name: attendee.name,
-                        slug: attendee.slug,
-                        avatarColor: attendee.avatarColor,
-                        avatarUrl: attendee.avatarUrl,
-                        hasPledged: attendee.hasPledged,
-                      } satisfies PersonRef}
-                      size="sm"
-                      className="w-7 h-7 border-2 border-white"
-                    />
-                  </div>
-                ))}
-                {event.attendees.length > 4 && (
-                  <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                    +{event.attendees.length - 4}
-                  </div>
-                )}
-              </div>
+              <AttendeeAvatarStack attendees={event.attendees} />
             )}
             {/* The host counts as going (founder, 2026-09-29) — display only; see event-going.ts. */}
             <span className="text-sm text-muted-foreground">

@@ -82,6 +82,10 @@ export interface CreateEventInput {
   orgId?: string | null;
   /** P1194: optional group chat invite, stored privately and shown only to registered attendees. */
   groupChatUrl?: string | null;
+  /** P1336: preparation flow + room gate on/off. */
+  preparationEnabled?: boolean;
+  /** P1336: point tag for the positions step; '' clears it. */
+  statementTag?: string;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> {

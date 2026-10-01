@@ -27,19 +27,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { storiesService } from '@/app/data/stories-service';
-import { keepsUnstaked, stakeRead } from '@/app/data/offline-reads';
+import { keepsUnstaked, STAKE_LIMIT as STAKE_READ_LIMIT, stakeRead } from '@/app/data/offline-reads';
+import { pointsService } from '@/app/data/points-service';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useOfflineReadState } from '@/app/hooks/use-offline-read-state';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { useAuth } from '@/auth';
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
+import { LinksInNewTabContext } from '@/app/components/shared/links-in-new-tab';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SourceGroup, type GroupPlayer } from '@/app/components/shared/source-group';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { isSafeTag } from '@/app/data/event-links';
+import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
 import {
@@ -99,8 +102,30 @@ function removeStakePosition(
     .filter(p => keepsUnstaked(tag) || p.totalPositions > 0);
 }
 
-export function StakePage() {
-  const { tag } = useParams<{ tag: string }>();
+interface StakePageProps {
+  /** P1336: render a given tag instead of the route's `:tag`. Default: the route param. */
+  tag?: string;
+  /** P1336: hosted inside another flow (event onboarding). Drops the page chrome that
+   *  would leave that flow: SEO, both "Go back" buttons and the full-height wrapper.
+   *  Default false — /stake/:tag is unchanged. */
+  embedded?: boolean;
+  /** P1336: points only — stories are not fetched, so there is no Stories tab. Default false. */
+  pointsOnly?: boolean;
+  /** P1336: list only points the viewer has no position on yet (signed-in or anonymous),
+   *  decided at load. Default false. */
+  onlyUnstaked?: boolean;
+  /** P1336: every link on a card (Details, the card itself, tags, stories, authors, video
+   *  summaries) opens a new tab instead of leaving the hosting flow. Default false. */
+  linksInNewTab?: boolean;
+  /** P1336: list exactly these point ids (the hosting flow's snapshot of what it first showed),
+   *  answered or not. Overrides onlyUnstaked. Default: not set. */
+  onlyIds?: string[];
+}
+
+export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, onlyUnstaked = false, linksInNewTab = false, onlyIds }: StakePageProps = {}) {
+  const onlyIdsKey = onlyIds ? onlyIds.join(',') : null;
+  const params = useParams<{ tag: string }>();
+  const tag = tagProp ?? params.tag;
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigationType = useNavigationType();
@@ -173,12 +198,29 @@ export function StakePage() {
       // ascending = true — oldest-first from the DB, the P1075 server-side
       // single-tag path (exactly one tag is always active here, so this never
       // falls back to the client-side multi-tag filter).
-      const r = stakeRead(tag, viewerUserId);
-      const read = await readThrough(r.type, r.id, r.fetch, r.options);
-      if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
-      const rows = applyRead(read);
+      // P1336: pointsOnly (the preparation's embedded step) reads the points directly — it never
+      // asks for stories, and its filtered list never touches /stake's own offline copy.
+      let rows: { points: PointWithUserPosition[]; stories: StoryWithAuthor[] } | null;
+      if (pointsOnly) {
+        const points = await pointsService.getPublicPointsFeed(STAKE_READ_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag), true);
+        if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
+        rows = { points, stories: [] };
+      } else {
+        const r = stakeRead(tag, viewerUserId);
+        const read = await readThrough(r.type, r.id, r.fetch, r.options);
+        if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
+        rows = applyRead(read);
+      }
       if (!rows) return; // offline, nothing stored: the needs-connection body
-      setPoints(rows.points);
+      // P1336: onlyIds lists exactly the session's snapshot of cards; onlyUnstaked keeps the
+      // points the viewer has not taken yet — decided once, at load, so a card does not vanish
+      // the moment it is answered. The cached read stays unfiltered (it is /stake's own copy).
+      const onlySet = onlyIdsKey !== null ? new Set(onlyIdsKey.split(',').filter(Boolean)) : null;
+      setPoints(onlySet
+        ? rows.points.filter(p => onlySet.has(p.id))
+        : onlyUnstaked
+        ? rows.points.filter(p => !p.userPosition && !getAnonPosition(p.id))
+        : rows.points);
       setStories(rows.stories);
       dataGenerationRef.current = requestGeneration;
       setDataFetchKey(requestFetchKey);
@@ -188,7 +230,7 @@ export function StakePage() {
     } finally {
       if (rid === requestIdRef.current) setLoading(false);
     }
-  }, [tag, viewerUserId, applyRead]);
+  }, [tag, viewerUserId, applyRead, pointsOnly, onlyUnstaked, onlyIdsKey]);
 
   // AC-9: the ONLY things that refetch are the tag and the viewer. A position
   // change deliberately does NOT appear in any dependency array and no refetch
@@ -382,9 +424,10 @@ export function StakePage() {
   );
 
   return (
-    <div className="min-h-screen bg-background pt-4 pb-8">
-      <SEO title={`${tag} — Clarity Pledge`} description={`Take a position on ${tag}.`} />
-      <div className="mx-auto w-full max-w-2xl px-4">
+    <LinksInNewTabContext.Provider value={linksInNewTab}>
+    <div className={embedded ? 'bg-background' : 'min-h-screen bg-background pt-4 pb-8'}>
+      {!embedded && <SEO title={`${tag} — Clarity Pledge`} description={`Take a position on ${tag}.`} />}
+      <div className={embedded ? 'w-full' : 'mx-auto w-full max-w-2xl px-4'}>
         {/* No "Home" title, no search box, no tag cloud, no sort toggle, no
             Share a Story button — every one of those is removed on purpose.
 
@@ -393,12 +436,13 @@ export function StakePage() {
             nav; this page also had `pt-20`, so the offset was applied TWICE and
             the first card sat ~5rem below where it belonged, at every width
             (founder screenshot 2026-08-31: "why so much whitespace? cut?"). */}
-        <FocusHeader fallback={BACK_FALLBACK} />
+        {/* Embedded: the host flow owns the heading and the back control. */}
+        {!embedded && <FocusHeader fallback={BACK_FALLBACK} />}
 
         {/* P1376 — the tag is the page's name: shown verbatim under Back, not screen-reader
             only. Same heading weight as /feed's "Home". `break-words`: a user tag has no
             length cap short of isSafeTag, and must not push past 320px. */}
-        <h1 className="mb-4 text-2xl font-bold text-foreground break-words">{tag}</h1>
+        {!embedded && <h1 className="mb-4 text-2xl font-bold text-foreground break-words">{tag}</h1>}
 
         {showTabs && (
           <div className="mb-4 flex gap-2" role="tablist" data-testid="stake-tabs">
@@ -452,6 +496,7 @@ export function StakePage() {
                     onPointRemoved={handlePointRemoved}
                     linkedStories={linksFor(pointStoriesState, pointLinkKey, point.id)}
                     surface="stake"
+                    hideAnonSignupCta={embedded}
                   />
                 ))
               : storyEntries.map(entry => (
@@ -475,7 +520,7 @@ export function StakePage() {
             action. Blue and sized to its label, not full width — founder, UAT: *"make button
             blue and smaller? to be consistent"* (blue is the design system's action colour). */}
         {/* P1364 UX Notes: no pill while loading, nor in the error state. */}
-        {!loading && !error && (
+        {!loading && !error && !embedded && (
           <BottomBackButton
             fallback={BACK_FALLBACK}
             testId="stake-bottom-back"
@@ -487,5 +532,6 @@ export function StakePage() {
           destinations; the surface itself renders identically with or without it. */}
       <span className="hidden" data-testid="stake-event-slug">{eventSlug ?? ''}</span>
     </div>
+    </LinksInNewTabContext.Provider>
   );
 }

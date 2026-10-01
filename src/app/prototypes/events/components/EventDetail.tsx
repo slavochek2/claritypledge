@@ -33,6 +33,8 @@ import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOf
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
+import { PrepRoomBanner } from '../prep/PrepRoom';
+import { PrepHostList } from '../prep/PrepHostList';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
@@ -903,6 +905,12 @@ export function EventDetail() {
                   {renderRsvpGreenCard()}
                 </div>
               )}
+              {/* P1336: where the 24h reminder lands — the preparation is reached from here. */}
+              {!isHost && !isCancelled && isRsvpd && !hasEnded && event.preparationEnabled && (
+                <div className="mt-3 empty:hidden" data-testid="event-prep-entry">
+                  <PrepRoomBanner event={event} source="event" />
+                </div>
+              )}
             </div>
 
             {/* P1264: the organiser's standing note — its own block BELOW the event
@@ -970,6 +978,9 @@ export function EventDetail() {
                 ))}
               </div>
             </div>
+
+            {/* P1336: host-only — who prepared, opted in, positions, recording volunteers. */}
+            {isHost && event.preparationEnabled && <PrepHostList event={event} />}
           </div>
         </div>
 

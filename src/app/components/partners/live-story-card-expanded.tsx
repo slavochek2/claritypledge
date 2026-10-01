@@ -16,7 +16,7 @@ import {
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import type { StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
+import type { PlayCue, StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import { AgentByline } from '@/app/components/shared/agent-byline';
 import { AgentStoryFooter } from '@/app/components/shared/agent-story-footer';
@@ -73,6 +73,10 @@ interface LiveStoryCardExpandedProps {
    * Only for surfaces that show ONE story at a time (letter reading) — feeds and live
    * sessions keep 'thumbnail' (P1296: no N simultaneous embeds). */
   videoMode?: 'thumbnail' | 'player';
+  /** P1336: show the duration badge on the player's click-to-play poster. Default false. */
+  showVideoDuration?: boolean;
+  /** P1336: the onboarding play cue, passed to the player (videoMode 'player'). Default none. */
+  videoPlayCue?: PlayCue;
 }
 
 const STORY_THRESHOLD = 100;
@@ -98,6 +102,8 @@ export function LiveStoryCardExpanded({
   imageFit = 'cover',
   renderPointChildren,
   videoMode = 'thumbnail',
+  showVideoDuration = false,
+  videoPlayCue,
 }: LiveStoryCardExpandedProps) {
   // defaultStoryExpanded falls back to readOnly for backward compat (readOnly=true → story shown in full)
   const initialStoryExpanded = defaultStoryExpanded ?? readOnly;
@@ -261,6 +267,8 @@ export function LiveStoryCardExpanded({
                   videoUrl={story.videoUrl}
                   durationSeconds={normalizeVideoQuotes(story.videoQuotes).durationSeconds}
                   mode={videoMode}
+                  showDurationOnPoster={showVideoDuration}
+                  playCue={videoPlayCue}
                   storyHref={`/story/${story.id}`}
                   imageProps={story.imageUrl ? {
                     src: story.imageUrl,

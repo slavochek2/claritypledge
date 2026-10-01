@@ -14,9 +14,10 @@
  * play. The "Watch the full talk on YouTube" link-out sits under the clip.
  */
 import { useRef, useState, useEffect } from "react";
-import { CheckIcon, PlayIcon, Youtube } from "lucide-react";
+import { CheckIcon, Youtube } from "lucide-react";
 import { motion, useReducedMotion, useInView, animate } from "framer-motion";
 import { analytics } from "@/lib/mixpanel";
+import { Mp4VideoFacade } from "@/app/components/shared/mp4-video-facade";
 
 /** The full (unlisted) talk on YouTube — the link-out target under the clip. */
 export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
@@ -99,52 +100,18 @@ function FullTalkLink({ className }: { className?: string }) {
   );
 }
 
-/** Click-to-play facade: poster + centered play button; the <video> loads only on click. */
+/** Click-to-play facade (the shared Mp4VideoFacade, landing look) + the full-talk link. */
 function VideoFacade() {
-  const [playing, setPlaying] = useState(false);
-  const firedRef = useRef(false);
-
-  const handlePlay = () => {
-    if (!firedRef.current) {
-      firedRef.current = true;
-      analytics.track("founder_clip_play", { location: "founder_credibility" });
-    }
-    setPlaying(true);
-  };
-
   return (
     <div>
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl shadow-md ring-1 ring-border bg-black">
-        {playing ? (
-          <video
-            src={FOUNDER_CLIP.src}
-            poster={FOUNDER_CLIP.poster}
-            controls
-            autoPlay
-            playsInline
-            className="absolute inset-0 h-full w-full object-cover"
-          >
-            <track kind="captions" src={FOUNDER_CLIP.captions} srcLang="en" label="English" default />
-          </video>
-        ) : (
-          <button
-            type="button"
-            onClick={handlePlay}
-            aria-label="Play the founder talk clip"
-            className="group absolute inset-0 h-full w-full cursor-pointer"
-          >
-            <img
-              src={FOUNDER_CLIP.poster}
-              alt="Vyacheslav Ladischenski on stage, presenting the method"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <span className="absolute inset-0 bg-black/20 transition-colors group-hover:bg-black/30" />
-            <span className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-105">
-              <PlayIcon className="h-7 w-7 translate-x-0.5 fill-blue-600 text-blue-600" />
-            </span>
-          </button>
-        )}
-      </div>
+      <Mp4VideoFacade
+        src={FOUNDER_CLIP.src}
+        poster={FOUNDER_CLIP.poster}
+        captions={FOUNDER_CLIP.captions}
+        posterAlt="Vyacheslav Ladischenski on stage, presenting the method"
+        playLabel="Play the founder talk clip"
+        onPlay={() => analytics.track("founder_clip_play", { location: "founder_credibility" })}
+      />
       <FullTalkLink className="mt-3" />
     </div>
   );

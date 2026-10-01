@@ -88,12 +88,16 @@ import {
   BAR_FADE_CLASS,
   BAR_INNER_CLASS,
   UNDERSTANDING_QUESTION,
-} from '@/app/pages/meeting-terms-page';
+} from '@/app/components/agreements/meeting-principle-view';
 import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
+import { PrepRoomBanner } from '../prep/PrepRoom';
+import { getRoomPrepared } from '@/app/data/event-prep-service';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Check } from 'lucide-react';
 import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
@@ -143,12 +147,39 @@ const THREE_COLUMN =
  * reading as a narrow margin card. */
 const ROSTER_COLUMN_CLASS = 'min-[1600px]:max-w-[22rem]';
 
+/** P1336 (founder, UAT 2026-10-01): a small blue check after the answer marks someone who prepared
+ *  for the event; hover (desktop) or a tap (phone) says so. Not green and not a badge: it is a quiet
+ *  fact about the row, read off a wall. A Popover, not MobileTooltip — that one opens on hover and
+ *  long-press only, so a tap on a phone explained nothing (review 2026-10-01). */
+function PreparedMark() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          aria-label="Prepared for the event"
+          className="-m-2 inline-flex shrink-0 items-center justify-center p-2 text-blue-600 dark:text-blue-400"
+          data-testid="room-roster-prepared"
+        >
+          <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="w-auto px-3 py-1.5 text-sm" data-testid="room-roster-prepared-note">
+        Prepared for the event
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** One roster row: PersonRow plus what that person answered, spelled out rather than
  * abbreviated — founder, 2026-08-21: "put here what they answered e.g. 'understood at
  * 4/10'". Undecided members never carry a rating. Since 2026-09-18 an opted-in / opted-out
  * row can be briefly without one too — the answer is written on the tap, the number when
  * submitted — and then shows no trailing text until it arrives. */
-function RosterRow({ member }: { member: EventRoomMember }) {
+function RosterRow({ member, showEarBadge = true, prepared = false }: { member: EventRoomMember; showEarBadge?: boolean; prepared?: boolean }) {
   return (
     <PersonRow
       profileId={member.profileId ?? member.id}
@@ -158,13 +189,16 @@ function RosterRow({ member }: { member: EventRoomMember }) {
       avatarUrl={member.profileAvatarUrl}
       isPledger={member.profileHasPledged}
       earCount={member.profileEarCount}
+      showEarBadge={showEarBadge}
       linkToProfile={!!member.profileId}
       // Through PersonRow's own trailing slot, NOT as a sibling beside it: rendered
       // alongside, the text landed outside the row card's border and read as a stray label
       // floating in the gutter (visual QA, 2026-08-21). PersonRow's name column is
       // `flex-1 min-w-0`, so it yields to this rather than pushing it off-screen.
       trailing={
-        member.comprehensionRating != null ? (
+        member.comprehensionRating != null || prepared ? (
+          <span className="inline-flex shrink-0 items-center gap-0.5">
+          {member.comprehensionRating != null && (
           <span
             data-testid="room-roster-rating"
             // whitespace-nowrap: letting "understood at" wrap above the number would turn
@@ -181,6 +215,9 @@ function RosterRow({ member }: { member: EventRoomMember }) {
             <span className="hidden sm:inline">understood at </span>
             {member.comprehensionRating}/10
           </span>
+          )}
+          {prepared && <PreparedMark />}
+          </span>
         ) : undefined
       }
     />
@@ -195,8 +232,24 @@ function RosterRow({ member }: { member: EventRoomMember }) {
  *
  * The blank-roster case this could produce is covered one level up, NOT here: a group that
  * knows only about itself cannot tell "nobody is undecided" (worth saying) from "the whole
- * roster failed to load" (must never render as silence). See the caller. */
-function RosterGroup({ title, testId, members }: { title: string; testId: string; members: EventRoomMember[] }) {
+ * roster failed to load" (must never render as silence). See the caller.
+ *
+ * Exported unchanged for P1336's registration onboarding, which shows the same roster. */
+export function RosterGroup({
+  title,
+  testId,
+  members,
+  showEarBadge = true,
+  preparedIds,
+}: {
+  title: string;
+  testId: string;
+  members: EventRoomMember[];
+  /** P1336: false hides each row's ear badge (registration roster). Default true: the room. */
+  showEarBadge?: boolean;
+  /** P1336: profiles who prepared for the event get the check mark. Default: none. */
+  preparedIds?: ReadonlySet<string>;
+}) {
   if (members.length === 0) return null;
   return (
     <div data-testid={testId} className="space-y-2">
@@ -204,7 +257,11 @@ function RosterGroup({ title, testId, members }: { title: string; testId: string
       <div className="space-y-2">
         {members.map((member) => (
           <div key={member.id} data-testid="room-roster-item">
-            <RosterRow member={member} />
+            <RosterRow
+              member={member}
+              showEarBadge={showEarBadge}
+              prepared={!!member.profileId && !!preparedIds?.has(member.profileId)}
+            />
           </div>
         ))}
       </div>
@@ -286,6 +343,20 @@ export function EventRoomMeet() {
       void refreshRef.current();
     });
   }, [event?.id]);
+
+  // P1336: who prepared, for the roster's check marks. Re-read (debounced) when someone joins — a
+  // newcomer may have prepared — and once a minute, because someone in the room can still finish
+  // preparing from the Back-line link. A failed read keeps the marks already shown.
+  const [preparedIds, setPreparedIds] = useState<ReadonlySet<string>>(new Set());
+  const preparationEnabled = !!event?.preparationEnabled;
+  useEffect(() => {
+    if (!event?.id || !preparationEnabled) return;
+    let cancelled = false;
+    const read = () => getRoomPrepared(event.id).then((ids) => { if (!cancelled && ids) setPreparedIds(ids); });
+    const soon = setTimeout(read, 1000);
+    const every = setInterval(read, 60_000);
+    return () => { cancelled = true; clearTimeout(soon); clearInterval(every); };
+  }, [event?.id, preparationEnabled, roster.length]);
 
   /**
    * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read
@@ -418,11 +489,16 @@ export function EventRoomMeet() {
           inside the certificate column — so it does not shift sideways when the layout
           splits into three at min-[1600px]. */}
       <div className={cn(PAGE_CONTAINER, 'pt-4')}>
-        <FocusHeader
-          onBack={() => navigate(`/events/${slug}/ready`)}
-          label="Back"
-          aria-label="Back to readiness"
-        />
+        {/* P1336: the preparation stays one tap away for someone who joined without it — on the
+            Back line (UAT 2026-10-01), not as a box under it. */}
+        <div className="flex items-start justify-between gap-3">
+          <FocusHeader
+            onBack={() => navigate(`/events/${slug}/ready`)}
+            label="Back"
+            aria-label="Back to readiness"
+          />
+          <PrepRoomBanner event={event} />
+        </div>
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build
@@ -477,9 +553,9 @@ export function EventRoomMeet() {
               <p className="text-sm text-muted-foreground">Loading who is here…</p>
             ) : (
               <>
-                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
-                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} />
-                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} />
+                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} preparedIds={preparedIds} />
+                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} preparedIds={preparedIds} />
+                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} preparedIds={preparedIds} />
                 {undecidedMembers.length === 0 && (
                   /* Empty-Undecided is the payoff of this whole feature, not a nothing —
                      it is the moment the facilitator's "move yourself out of undecided" has

@@ -26,7 +26,7 @@
  */
 import { useState } from 'react';
 import { ChevronRight, ExternalLink, LogOut } from 'lucide-react';
-import { ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { cn } from '@/lib/utils';
 
 type Variant = 'current' | 'c' | 'b';

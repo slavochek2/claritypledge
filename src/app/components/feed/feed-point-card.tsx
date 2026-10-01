@@ -5,8 +5,8 @@
  * Slate left border. Clickable → navigates to /point/:id.
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef, type MouseEvent } from 'react';
+import { useLinksInNewTab, useOpenPath } from '@/app/components/shared/links-in-new-tab';
 import { Pin } from 'lucide-react';
 import { toast } from 'sonner';
 import { linkifyText } from '@/app/utils/linkify';
@@ -58,10 +58,14 @@ interface FeedPointCardProps {
   linkedStories?: StoryWithAuthor[];
   /** Which list the card sits on — carried on `feed_card_shared`. */
   surface?: 'feed' | 'stake';
+  /** P1336: hide the anonymous "Sign up or log in to save your position" nudge — for embeds
+   *  where the visitor already has an identity (a registrant in onboarding). Default false. */
+  hideAnonSignupCta?: boolean;
 }
 
-export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed' }: FeedPointCardProps) {
-  const navigate = useNavigate();
+export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false }: FeedPointCardProps) {
+  const openPath = useOpenPath();
+  const linksInNewTab = useLinksInNewTab();
   const { session } = useAuth();
   const viewerId = session?.user?.id;
 
@@ -116,8 +120,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     },
   });
 
-  const handleClick = () => {
-    navigate(`/point/${point.id}`);
+  const handleClick = (e?: MouseEvent) => {
+    // P1336 linksInNewTab: a link inside the statement opens its own new tab; the card must
+    // not also navigate this tab. Default mode is unchanged.
+    if (linksInNewTab && e && (e.target as HTMLElement).closest('a')) return;
+    openPath(`/point/${point.id}`);
   };
   const effectivePosition = session?.user
     ? (localPosition ?? serverPosition)
@@ -307,7 +314,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
               />
             </div>
             {/* P502: Anonymous position CTA */}
-            {!session?.user && anonPosition && (
+            {!hideAnonSignupCta && !session?.user && anonPosition && (
               <AnonPositionCTA pointId={point.id} position={anonPosition} />
             )}
           </div>
@@ -338,10 +345,10 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           {/* The viewer's slot: their story on this point, or the invitation to write one. It
               opens the story to READ — the old `?edit=true` link dropped readers into an editor. */}
           {viewerStory && (
-            <CardSlotLink kind="your-story" onClick={() => navigate(`/story/${viewerStory.id}`)} />
+            <CardSlotLink kind="your-story" onClick={() => openPath(`/story/${viewerStory.id}`)} />
           )}
           {addStoryCopy && (
-            <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={() => navigate(`/create?pointId=${point.id}`)} />
+            <CardSlotLink kind="add-story" copy={addStoryCopy} onClick={() => openPath(`/create?pointId=${point.id}`)} />
           )}
           {linkedStories?.length === 0 && !viewerStory && !addStoryCopy && <CardCountText>0 stories</CardCountText>}
         </CardFooterActions>
@@ -379,11 +386,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/story/${linked.id}`);
+                    openPath(`/story/${linked.id}`);
                   }}
                   onAuthorClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/p/${linked.authorSlug || linked.authorId}`);
+                    openPath(`/p/${linked.authorSlug || linked.authorId}`);
                   }}
                   getStoryAuthor={() => ({
                     id: linked.authorId,

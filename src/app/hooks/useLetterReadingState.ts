@@ -16,7 +16,7 @@
  * In local mode: no RPC calls, state mirrored to localStorage, hydrated on mount.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import type { LetterStorySnapshot } from '@/app/types';
 import { snapshotToStoryWithPoints } from '@/app/utils/letter-snapshot-mapper';
@@ -313,6 +313,14 @@ export interface UseLetterReadingStateParams {
    * that already have a response (which would 409 on Submit). Never set in preview mode.
    */
   priorPositions?: Record<string, string>;
+  /**
+   * P1336: when false, the reveal phases ('point-revealed', 'story-revealed',
+   * 'remaining-point-revealed') are skipped: each advances as soon as it is entered,
+   * through the same advance functions the reveal screens call. The sender's position,
+   * the prediction and the calibration verdict (reveal-only UI) are never shown.
+   * Default true: every existing letter is unchanged.
+   */
+  reveals?: boolean;
 }
 
 // ============================================================================
@@ -386,6 +394,10 @@ export function useLetterReadingState(
   const priorPositions: Record<string, string> | undefined = isParamsObject
     ? deliveryIdOrParams.priorPositions
     : undefined;
+
+  const reveals: boolean = isParamsObject
+    ? (deliveryIdOrParams.reveals ?? true)
+    : true;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const initRef = useRef(false);
@@ -770,6 +782,16 @@ export function useLetterReadingState(
       };
     });
   }, [currentSnapshot, updateCurrentStory]);
+
+  // P1336: reveals off — step straight through each reveal phase. Layout effect, so
+  // the reveal screen never paints for a frame.
+  const phaseForReveals = currentStory?.phase;
+  useLayoutEffect(() => {
+    if (reveals) return;
+    if (phaseForReveals === 'point-revealed') advanceFromPointReveal();
+    else if (phaseForReveals === 'story-revealed') advanceFromStoryReveal();
+    else if (phaseForReveals === 'remaining-point-revealed') advanceFromRemainingPointReveal();
+  }, [reveals, phaseForReveals, advanceFromPointReveal, advanceFromStoryReveal, advanceFromRemainingPointReveal]);
 
   // Move to next story
   const nextStory = useCallback(() => {

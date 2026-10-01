@@ -17,8 +17,9 @@ const SRC = readFileSync(
 );
 
 describe('P1179 UI-1 — built from the existing design system', () => {
-  it('takes the room\'s existing navy/44px treatment from meeting-terms-page, not a local copy', () => {
-    expect(SRC).toMatch(/import\s*\{[^}]*ANSWER_BUTTON_CLASS[^}]*\}\s*from\s*['"]@\/app\/pages\/meeting-terms-page['"]/);
+  it('takes the room\'s existing navy/44px treatment from the shared /meet module, not a local copy', () => {
+    // P1336 moved the /meet constants into meeting-principle-view (shared with the onboarding).
+    expect(SRC).toMatch(/import\s*\{[^}]*ANSWER_BUTTON_CLASS[^}]*\}\s*from\s*['"]@\/app\/components\/agreements\/meeting-principle-view['"]/);
   });
 
   it('uses the existing ui/drawer sheet primitive rather than a new overlay', () => {

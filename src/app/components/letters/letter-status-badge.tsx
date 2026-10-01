@@ -8,6 +8,8 @@ import type { DeliveryStatus } from '@/app/types';
 
 interface LetterStatusBadgeProps {
   status: DeliveryStatus;
+  /** Optional label override (P1336 prototype "Prepared ✓"); colors still follow status. */
+  label?: string;
 }
 
 const statusConfig: Record<DeliveryStatus, { label: string; className: string }> = {
@@ -29,14 +31,14 @@ const statusConfig: Record<DeliveryStatus, { label: string; className: string }>
   },
 };
 
-export function LetterStatusBadge({ status }: LetterStatusBadgeProps) {
+export function LetterStatusBadge({ status, label }: LetterStatusBadgeProps) {
   const config = statusConfig[status] ?? statusConfig.sent;
 
   return (
     <span
       className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${config.className}`}
     >
-      {config.label}
+      {label ?? config.label}
     </span>
   );
 }

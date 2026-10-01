@@ -64,6 +64,10 @@ interface DbEventWithHost {
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
+  /** P1336 */
+  preparation_enabled?: boolean | null;
+  statement_tag?: string | null;
+  research_places?: number | null;
   host: {
     id: string;
     full_name: string | null;
@@ -159,6 +163,9 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     // standard entries rather than crash the room's menu.
     links: Array.isArray(row.links) ? row.links : [],
     hasGroupChat: row.has_group_chat ?? false, // P1194
+    preparationEnabled: row.preparation_enabled ?? false, // P1336
+    statementTag: row.statement_tag ?? undefined,
+    researchPlaces: row.research_places ?? 6,
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
@@ -507,6 +514,9 @@ export const realEventsService: EventsService = {
         // NULL, but writing it makes the standalone case visible at the call site.
         // The DB trigger rejects a non-null org_id the host does not organize.
         org_id: data.orgId ?? null,
+        // P1336: the series default is decided by the form; absent = the column default (off).
+        ...(data.preparationEnabled !== undefined ? { preparation_enabled: data.preparationEnabled } : {}),
+        ...(data.statementTag !== undefined ? { statement_tag: data.statementTag || null } : {}),
       })
       .select(`
         *,
@@ -595,6 +605,8 @@ export const realEventsService: EventsService = {
     if (data.location !== undefined) updateData.location = data.location;
     if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
     if ('bannerUrl' in data) updateData.banner_url = data.bannerUrl ?? null;
+    if (data.preparationEnabled !== undefined) updateData.preparation_enabled = data.preparationEnabled; // P1336
+    if (data.statementTag !== undefined) updateData.statement_tag = data.statementTag || null; // P1336
 
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase
@@ -629,7 +641,9 @@ export const realEventsService: EventsService = {
     }
 
     // Fire-and-forget: send update emails — skip for banner-only changes
-    const isBannerOnly = Object.keys(updateData).length === 1 && 'banner_url' in updateData;
+    // P1336: preparation settings change nothing an attendee was told, so they mail nobody either.
+    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag'];
+    const isBannerOnly = Object.keys(updateData).length > 0 && Object.keys(updateData).every(k => SILENT_KEYS.includes(k));
     if (!isBannerOnly) {
       invokeEventEmails('update', eventId);
     }

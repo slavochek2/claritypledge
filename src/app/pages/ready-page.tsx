@@ -42,7 +42,7 @@ import { useNavigate } from "react-router-dom";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { SliderTrack } from "@/app/components/partners/slider-track";
-import { PRIMARY_BUTTON_CLASS } from "@/app/pages/meeting-terms-page";
+import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { getReadyDistribution, submitReadyValue } from "@/app/data/ready-service";
 import { cn } from "@/lib/utils";
 import { useConnectivity } from "@/app/contexts/offline-status-context";

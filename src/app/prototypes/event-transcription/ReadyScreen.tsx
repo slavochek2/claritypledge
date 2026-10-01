@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
-import { PRIMARY_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { cn } from '@/lib/utils';
 
 const QUESTION = 'How up for thinking are you right now?';

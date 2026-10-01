@@ -25,7 +25,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
-import { PRIMARY_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { getRoomReadinessDistribution, setRoomReadiness } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
@@ -35,6 +35,7 @@ import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
+import { PrepRoomBanner } from '../prep/PrepRoom';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
@@ -166,7 +167,9 @@ export function EventRoomReady() {
           its back link, so walking /ready → /meet no longer jumps the link sideways —
           which is the concrete "consistent" the question was asking about. The question
           group below stays max-w-sm and stays vertically centred; only the chrome moves. */}
-      <div className="mx-auto w-full max-w-2xl">
+      {/* P1336: the preparation stays one tap away for someone who joined without it — on the
+          Back line (UAT 2026-10-01). */}
+      <div className="mx-auto flex w-full max-w-2xl items-start justify-between gap-3">
         <FocusHeader
           onBack={() => navigate(`/events/${slug}`)}
           /* Visible label is bare "Back" everywhere in the room, on the founder's
@@ -176,6 +179,7 @@ export function EventRoomReady() {
           label="Back"
           aria-label="Back to event"
         />
+        <PrepRoomBanner event={event} />
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center">

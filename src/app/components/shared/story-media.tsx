@@ -2,9 +2,10 @@ import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { parseVideoUrl } from '@/lib/video';
+import { useLinksInNewTab } from './links-in-new-tab';
 import { useHasVideoSummary, videoSummaryPath } from '@/app/data/video-summaries-service';
 import { StoryImage } from './story-image';
-import { StoryVideoPlayer, type StoryVideoPlayerHandle } from './story-video-player';
+import { StoryVideoPlayer, type PlayCue, type StoryVideoPlayerHandle } from './story-video-player';
 import { VideoThumbnailCard } from './video-thumbnail-card';
 
 type StoryImageProps = React.ComponentProps<typeof StoryImage>;
@@ -17,6 +18,10 @@ interface StoryMediaProps {
    * that. Every card, feed and preview surface passes `thumbnail`.
    */
   mode?: 'player' | 'thumbnail';
+  /** P1336: in `player` mode, show the duration badge on the click-to-play poster. Default false. */
+  showDurationOnPoster?: boolean;
+  /** P1336: in `player` mode, the onboarding play cue (see StoryVideoPlayer). Default none. */
+  playCue?: PlayCue;
   /** Where a thumbnail card links. The story page, never the video source. */
   storyHref?: string;
   /**
@@ -45,11 +50,13 @@ interface StoryMediaProps {
  */
 function VideoSummaryLink({ videoId }: { videoId: string }) {
   const href = videoSummaryPath(videoId);
+  // P1336: a flow that hosts these cards (event onboarding) asks for new tabs too.
+  const newTab = useLinksInNewTab();
   const className = 'ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400';
   const content = <><FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Read video summary</>;
   // Inside an embed (iframe on someone else's page), open a new tab: navigating the iframe would
   // squeeze the summary into the embed box, and "back" could not return the reader.
-  if (window.self !== window.top) {
+  if (window.self !== window.top || newTab) {
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={className}>
         {content}
@@ -79,7 +86,7 @@ function MediaWithSummaryLink({ className, link, children }: { className?: strin
 
 export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
   function StoryMedia(
-    { videoUrl, durationSeconds, mode = 'thumbnail', storyHref, onBlockedChange, className, imageProps, onActivate },
+    { videoUrl, durationSeconds, mode = 'thumbnail', showDurationOnPoster = false, playCue, storyHref, onBlockedChange, className, imageProps, onActivate },
     ref
   ) {
     const video = parseVideoUrl(videoUrl);
@@ -100,6 +107,8 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
             videoUrl={videoUrl as string}
             durationSeconds={durationSeconds}
             posterUrl={imageProps?.src}
+            showDurationOnPoster={showDurationOnPoster}
+            playCue={playCue}
             onBlockedChange={onBlockedChange}
             className={summaryLink ? undefined : className}
           />

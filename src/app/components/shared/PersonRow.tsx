@@ -18,6 +18,11 @@ export interface PersonRowProps {
   isPledger?: boolean;
   /** Number of confirmed understanding events */
   earCount?: number;
+  /**
+   * P1336: false hides the ear badge. Default true — every existing caller renders it. The
+   * registration roster lists people before any evening, where a row of "0" ears says nothing.
+   */
+  showEarBadge?: boolean;
   /** Show status label or nothing */
   action?: "going" | "attended" | "none";
   /**
@@ -55,6 +60,7 @@ export function PersonRow({
   avatarUrl,
   isPledger,
   earCount = 0,
+  showEarBadge = true,
   action = "none",
   // P1114: room walk-ins have no profile, so there is nothing to link to. Defaults to
   // true so every pre-existing caller keeps its current behaviour unchanged.
@@ -86,7 +92,9 @@ export function PersonRow({
         ) : (
           <span className={`font-medium truncate ${size === "lg" ? "text-lg" : ""}`}>{name}</span>
         )}
-        <EarBadge count={earCount} name={name} size={size === "lg" ? 16 : 12} className="flex-shrink-0" />
+        {showEarBadge && (
+          <EarBadge count={earCount} name={name} size={size === "lg" ? 16 : 12} className="flex-shrink-0" />
+        )}
       </div>
       {trailing}
       {action === "going" && (

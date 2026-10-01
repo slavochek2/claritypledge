@@ -13,6 +13,7 @@
  */
 
 import { Link } from 'react-router-dom';
+import { useLinksInNewTab } from './links-in-new-tab';
 
 export type TagPillsContext = 'feed' | 'live' | 'profile' | 'detail';
 
@@ -40,6 +41,8 @@ const MAX_TAG_LENGTH = 20;
  */
 export function TagPills({ tags, systemTags, context, activeTag, className = '' }: TagPillsProps) {
   // P630: Merge user tags + system tags for display, deduplicated
+  // P1336: inside an embedding flow, a tag opens the feed in a new tab. Default: this tab.
+  const newTab = useLinksInNewTab();
   const allTags = [...new Set([...(tags || []), ...(systemTags || [])])];
   if (allTags.length === 0) return null;
 
@@ -89,6 +92,7 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
             title={tag.length > MAX_TAG_LENGTH ? tag : undefined}
             aria-label={`Filter feed by tag: ${tag}`}
             onClick={(e) => e.stopPropagation()}
+            {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
           >
             #{displayTag}
           </Link>

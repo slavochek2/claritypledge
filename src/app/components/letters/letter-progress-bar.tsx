@@ -17,6 +17,13 @@ interface LetterProgressBarProps {
   isEngagePhase?: boolean;
   /** @deprecated Use stepCount/committedSteps. Kept for backward-compat; unused when stepCount provided. */
   storyProgress?: number;
+  /** P1336: replaces the "Chapter N of M" text (and the bar's accessible name) for hosts
+   *  whose units are not chapters (e.g. "Step 2 of 5"). Default: the chapter label. */
+  label?: string;
+  /** P1336: 'subtle' draws the fill in a lighter blue (blue-400) on a lighter track, for a
+   *  second bar on a screen that already shows the main one (the statements counter under
+   *  the step header). Default 'default': the letter's own blue — unchanged. */
+  tone?: 'default' | 'subtle';
 }
 
 export function LetterProgressBar({
@@ -25,25 +32,28 @@ export function LetterProgressBar({
   stepCount,
   committedSteps = 0,
   isEngagePhase = false,
+  label,
+  tone = 'default',
 }: LetterProgressBarProps) {
+  const fill = tone === 'subtle' ? 'bg-blue-400' : 'bg-[#0044CC]';
+  const track = tone === 'subtle' ? 'bg-gray-200' : 'bg-gray-300';
+  const text =
+    label ??
+    (totalChapters === 1
+      ? `Chapter ${currentChapter + 1}`
+      : `Chapter ${currentChapter + 1} of ${totalChapters}`);
   return (
     <div
       className="flex flex-row items-center gap-3 w-full"
       role="progressbar"
-      aria-label={
-        totalChapters === 1
-          ? `Chapter ${currentChapter + 1}`
-          : `Chapter ${currentChapter + 1} of ${totalChapters}`
-      }
+      aria-label={text}
       aria-valuenow={currentChapter + 1}
       aria-valuemin={1}
       aria-valuemax={totalChapters}
     >
       {/* P852: Label inline with segments — single-chapter letters drop "of 1". */}
       <p className="text-sm text-[#1A1A1A]/60 tabular-nums whitespace-nowrap flex-shrink-0">
-        {totalChapters === 1
-          ? `Chapter ${currentChapter + 1}`
-          : `Chapter ${currentChapter + 1} of ${totalChapters}`}
+        {text}
       </p>
 
       {/* Segments — one per chapter */}
@@ -51,7 +61,7 @@ export function LetterProgressBar({
         {Array.from({ length: totalChapters }, (_, i) => {
           if (i < currentChapter) {
             // Completed chapter — fully filled
-            return <div key={i} className="h-2.5 flex-1 rounded-full bg-[#0044CC]" />;
+            return <div key={i} className={cn('h-2.5 flex-1 rounded-full', fill)} />;
           }
           if (i === currentChapter) {
             // Current chapter — step-tick sub-segments when stepCount provided
@@ -67,10 +77,10 @@ export function LetterProgressBar({
                         className={cn(
                           'flex-1 h-2.5 rounded-full transition-colors duration-300',
                           isFilled
-                            ? 'bg-[#0044CC]'
+                            ? fill
                             : isActive
-                              ? 'bg-gray-300 ring-1 ring-inset ring-[#0044CC]/60'
-                              : 'bg-gray-300'
+                              ? cn(track, 'ring-1 ring-inset ring-[#0044CC]/60')
+                              : track
                         )}
                       />
                     );
@@ -80,10 +90,11 @@ export function LetterProgressBar({
             }
             // Single-step chapter or legacy mode — continuous fill
             return (
-              <div key={i} className="h-2.5 flex-1 rounded-full bg-gray-300 relative overflow-hidden">
+              <div key={i} className={cn('h-2.5 flex-1 rounded-full relative overflow-hidden', track)}>
                 <div
                   className={cn(
-                    'absolute inset-y-0 left-0 bg-[#0044CC] rounded-full transition-[width] duration-300',
+                    'absolute inset-y-0 left-0 rounded-full transition-[width] duration-300',
+                    fill,
                     isEngagePhase ? 'ring-1 ring-inset ring-[#0044CC]/60' : ''
                   )}
                   style={{ width: committedSteps > 0 ? '100%' : '5%' }}
@@ -92,7 +103,7 @@ export function LetterProgressBar({
             );
           }
           // Future chapter — empty
-          return <div key={i} className="h-2.5 flex-1 rounded-full bg-gray-300" />;
+          return <div key={i} className={cn('h-2.5 flex-1 rounded-full', track)} />;
         })}
       </div>
     </div>

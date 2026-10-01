@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
+  formatTimecode,
   getEmbedUrl,
   getPosterUrl,
   getThumbnailUrl,
@@ -21,8 +22,51 @@ interface StoryVideoPlayerProps {
   durationSeconds?: number | null;
   /** Poster for the click-to-play facade; falls back to the video's own thumbnail. */
   posterUrl?: string | null;
+  /** P1336: show `durationSeconds` as a badge on the click-to-play poster. Default false. */
+  showDurationOnPoster?: boolean;
+  /** P1336: onboarding's play cue. Default undefined: the facade behaves as it always has. */
+  playCue?: PlayCue;
   onBlockedChange?: (blocked: boolean) => void;
   className?: string;
+}
+
+/**
+ * P1336 — lets a host (event onboarding) draw attention to the poster and drive it from its
+ * own bar. Every field is optional; an absent cue changes nothing.
+ */
+export interface PlayCue {
+  /** A pulsing ring behind the play button while the poster is showing. */
+  pulse?: boolean;
+  /** Bump to start playback from outside (e.g. a "Play video" button in the host's bar). */
+  request?: number;
+  /** Called once when playback is requested, from the poster or through `request`. */
+  onPlay?: () => void;
+}
+
+/**
+ * The click-to-play disc on the poster. Exported so a host that has no video yet (the
+ * onboarding's welcome slot) shows the same button rather than a lookalike.
+ * `pulse` (P1336, default false) adds Tailwind's animate-ping ring behind it.
+ */
+export function PosterPlayButton({ pulse = false }: { pulse?: boolean }) {
+  return (
+    <span className="relative flex h-16 w-16 items-center justify-center">
+      {pulse && (
+        <span
+          className="absolute inset-0 rounded-full bg-black/50 animate-ping"
+          aria-hidden="true"
+          data-testid="play-pulse"
+        />
+      )}
+      <span
+        className={`relative flex h-16 w-16 items-center justify-center rounded-full bg-black/75 text-white ring-2 ring-white/80 shadow-lg shadow-black/40 transition group-hover:bg-black`}
+      >
+        <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7 fill-current" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </span>
+    </span>
+  );
 }
 
 /**
@@ -43,7 +87,7 @@ interface StoryVideoPlayerProps {
  * surface already uses.
  */
 export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPlayerProps>(
-  function StoryVideoPlayer({ videoUrl, durationSeconds, posterUrl, onBlockedChange, className = '' }, ref) {
+  function StoryVideoPlayer({ videoUrl, durationSeconds, posterUrl, showDurationOnPoster = false, playCue, onBlockedChange, className = '' }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<{ seekTo?: (s: number, allowSeekAhead: boolean) => void; playVideo?: () => void; destroy?: () => void } | null>(null);
     const readyRef = useRef(false);
@@ -74,6 +118,23 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
      * is one image request rather than the player's scripts, cookies and chrome.
      */
     const [activated, setActivated] = useState(false);
+
+    /**
+     * P1336 play cue: a bumped `request` starts playback exactly as a click on the poster does,
+     * and `onPlay` hears about either. A ref holds the callback so a new function each render
+     * does not re-fire it. Without a cue neither effect does anything.
+     */
+    const playRequest = playCue?.request ?? 0;
+    useEffect(() => {
+      if (playRequest > 0) setActivated(true);
+    }, [playRequest]);
+    const onPlayRef = useRef(playCue?.onPlay);
+    useEffect(() => {
+      onPlayRef.current = playCue?.onPlay;
+    });
+    useEffect(() => {
+      if (activated) onPlayRef.current?.();
+    }, [activated]);
 
     const video = parseVideoUrl(videoUrl);
     const embedUrl = getEmbedUrl(videoUrl);
@@ -260,14 +321,17 @@ export const StoryVideoPlayer = forwardRef<StoryVideoPlayerHandle, StoryVideoPla
             />
           )}
           <span className="absolute inset-0 flex items-center justify-center">
-            <span
-              className={`flex h-16 w-16 items-center justify-center rounded-full bg-black/75 text-white ring-2 ring-white/80 shadow-lg shadow-black/40 transition group-hover:bg-black`}
-            >
-              <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7 fill-current" aria-hidden="true">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
+            <PosterPlayButton pulse={playCue?.pulse} />
           </span>
+          {showDurationOnPoster && typeof durationSeconds === 'number' && durationSeconds > 0 && (
+            // Same badge as VideoThumbnailCard.
+            <span
+              className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-medium text-white"
+              data-testid="video-duration-badge"
+            >
+              {formatTimecode(durationSeconds)}
+            </span>
+          )}
         </button>
       );
     }

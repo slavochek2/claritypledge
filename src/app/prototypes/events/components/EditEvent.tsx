@@ -14,6 +14,7 @@ import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
+import { PrepSettingsFields, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
 
 export function EditEvent() {
   const { slug } = useParams<{ slug: string }>();
@@ -30,6 +31,9 @@ export function EditEvent() {
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [location, setLocation] = useState('');
   const [groupChatUrl, setGroupChatUrl] = useState('');
+  // P1336: the event's own setting (the series default applies on create only).
+  const [preparationEnabled, setPreparationEnabled] = useState(false);
+  const [statementTag, setStatementTag] = useState('');
   // P1194: true when the existing link could not be READ. An empty field then means
   // "unknown", not "the host cleared it" — and the two must not submit the same value.
   const [groupChatLoadFailed, setGroupChatLoadFailed] = useState(false);
@@ -57,6 +61,8 @@ export function EditEvent() {
         setDurationMinutes(eventData.durationMinutes);
         setLocation(eventData.location);
         setDescription(eventData.description);
+        setPreparationEnabled(eventData.preparationEnabled ?? false);
+        setStatementTag(eventData.statementTag ?? '');
         // P1194: the group chat link lives in the RLS-gated side table, not on the
         // event row. The host passes that gate, so this returns their own value.
         if (eventData.hasGroupChat) {
@@ -154,6 +160,10 @@ export function EditEvent() {
     if (groupChatError) {
       newErrors.groupChatUrl = groupChatError;
     }
+    const statementTagError = validateStatementTag(statementTag);
+    if (statementTagError) {
+      newErrors.statementTag = statementTagError;
+    }
     if (!description.trim() || description.length < 20) {
       newErrors.description = 'Description must be at least 20 characters';
     }
@@ -182,6 +192,8 @@ export function EditEvent() {
       // Omitted, not empty, when the read failed — an undefined field is left alone
       // by updateEvent; an empty string would delete the stored link.
       ...(groupChatLoadFailed && !groupChatUrl.trim() ? {} : { groupChatUrl: groupChatUrl.trim() }),
+      preparationEnabled,
+      statementTag: normalizeStatementTag(statementTag),
     });
 
     setIsSubmitting(false);
@@ -342,6 +354,15 @@ export function EditEvent() {
                   </p>
             }
           </div>
+
+          {/* P1336: per-event preparation */}
+          <PrepSettingsFields
+            enabled={preparationEnabled}
+            onEnabledChange={setPreparationEnabled}
+            tag={statementTag}
+            onTagChange={setStatementTag}
+            tagError={errors.statementTag}
+          />
 
           {/* Description */}
           <div>

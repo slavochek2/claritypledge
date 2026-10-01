@@ -9,12 +9,14 @@
  * for the four approved strings verbatim — EventRoomReady.tsx and EventRoomMeet.tsx
  * import it from here rather than duplicating the copy.
  */
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/pages/meeting-terms-page';
+import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
+import { PrepRoomGate, useRoomPrepGate } from '../prep/PrepRoom';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 
 const GATE_HEADING = 'This is for people coming to the event';
@@ -67,13 +69,24 @@ export function EventRoomGateScreen({
 
 export function EventRoomGate() {
   const { slug, event, loading, granted, isLoggedIn, offline } = useEventRoomAccess();
-  const { loading: selfLoading } = useEventRoomSelf(event, granted);
+  // P1336: a registrant whose preparation is not complete is offered it before the room. The
+  // gate is decided BEFORE useEventRoomSelf runs, because that hook joins the room (a public
+  // roster row) — someone who chooses "Prepare now" must not be on the roster yet.
+  const { gate: prepGate } = useRoomPrepGate(event, granted);
+  const [joinedWithoutPrep, setJoinedWithoutPrep] = useState(false);
+  const enterRoom = granted && (prepGate === false || joinedWithoutPrep);
+  const { loading: selfLoading } = useEventRoomSelf(event, enterRoom);
   const { isCapturingForEvent } = useRoomCapture();
 
-  if (loading || (granted && selfLoading)) return null;
+  if (loading) return null;
   // P1369 Scope v2: never visited here and no network — not the register wall.
   if (offline) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
+  if (prepGate === null) return null;
+  if (prepGate && !joinedWithoutPrep && event) {
+    return <PrepRoomGate event={event} onJoin={() => setJoinedWithoutPrep(true)} />;
+  }
+  if (selfLoading) return null;
 
   // P1307 D10: everyone passes the ready screen, so everyone is offered the transcription
   // switch. Only a person ALREADY being transcribed for this event goes straight to /meet.

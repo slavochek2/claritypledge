@@ -930,6 +930,12 @@ export interface Event {
    * instead of navigating away on a silent partial success.
    */
   groupChatWriteFailed?: boolean;
+  /** P1336: the post-RSVP preparation flow and the room gate are on for this event. */
+  preparationEnabled?: boolean;
+  /** P1336: the point tag the positions step reads. Unset = no positions step. */
+  statementTag?: string;
+  /** P1336: recording-volunteer places ("{left} of {n}"). Set via SQL; default 6. */
+  researchPlaces?: number;
 }
 
 /**
@@ -996,6 +1002,10 @@ export interface DbEvent {
   /** P1179: JSONB array, defaults to [] on every row. */
   links?: EventLinkEntry[] | null;
   has_group_chat?: boolean;
+  /** P1336 */
+  preparation_enabled?: boolean;
+  statement_tag?: string | null;
+  research_places?: number;
 }
 
 export interface DbEventRsvp {

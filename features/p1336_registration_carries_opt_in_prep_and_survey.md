@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: story
 rank: 1
 workstream: events
@@ -10,9 +10,8 @@ tags:
   - opt-in
   - survey
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -108,7 +107,7 @@ Video steps' bar: **Play the video** / secondary **Continue without video** → 
 **0. Registered** (after RSVP)
 - Box: ✓ **You're Registered!** + event details, **Add to calendar**, **Join WhatsApp group**,
   line *"WhatsApp group: last-minute changes, questions, and getting there. If you need a lift, ask in the group."*,
-  **Share** row (LINE, WhatsApp, Telegram, Facebook, **Copy link** / **Copied!**) sharing the event page.
+  **Share** row (LINE, WhatsApp, Telegram, Facebook, **Copy link** / **Copied!**) sharing the event page. (UAT 2026-10-01) On a touch device with a share sheet (phones) the last button reads **More** and opens it (desktop keeps **Copy link** and copies, even where the browser has a share sheet) — Instagram, TikTok, X and the rest live there; no web share link exists for Instagram or TikTok.
 - **Do you have {N} minutes to prepare for the event?** (N computed, see Minutes; renders at once with 10 until points load)
 - *Your short preparation will make the event discussions more meaningful.*
 - Avatars + *"{X} prepared for the last event · {Y} for this event"* (real counts, host excluded). No previous event → only *"{Y} for this event"*; line hidden when the shown count is 0.
@@ -117,10 +116,10 @@ Video steps' bar: **Play the video** / secondary **Continue without video** → 
 - Registration is immediate (one tap RSVP; the pre-commit question variant C is rejected). Above the
   prep question, a short why (DRAFT): *"Our events are different… we ask every participant to prepare."*
   No "how did you hear about us" question. Prototype: `/tree/p1336-d`.
-- Once prep has started, the box shows the person's status: **Prepared ✓** or **{k} of 6 steps**
+- Once prep has started, the box shows the person's status: **Prepared ✓** or **{k} of 6 steps** — a quiet muted line, not a badge (UAT 2026-10-01: the green pill read as a floating alert); on the event page the prepared state is the same one line, no box
   (k of M for a returning person) so the host can check it on their phone at the door.
 
-**Plan** — **Your preparation · 6 steps** (DRAFT); numbered timeline with per-row minutes; done rows ticked. CTA **Start now**.
+**Plan** — (UAT 2026-10-01) the steps' header with a back arrow (no progress bar yet); **Your preparation** (DRAFT) with *"6 steps · about N min"* under it; numbered timeline with per-row minutes; done rows ticked. CTA **Start now** directly under the list, at every width.
 1. See how this event is different
 2. Learn the definition of cognitive understanding
 3. Decide about your participation in a new social norm
@@ -149,9 +148,9 @@ Statement bar (4, 5): counter *"{a} of {n} answered"* (subtle progress, zooms on
 **Step 6a** — **Are you open to be one of six volunteers who record their conversations at the event, to contribute to our R&D?** · *We provide you with a USB-C lavalier microphone, or you can bring your own mic.* · clip `research-recording`. Bar: *"{left} of 6 volunteer places left"*, link **Learn how we use your data** (Dialog), **Yes, sure** (primary) | **No, thanks** (outline), side by side. The places-left count is floored at 1 and **Yes, sure** always stays available: overbooking is accepted and the host handles extra volunteers at the event. No waitlist (a possible later upgrade).
 Dialog **How we use your data**: the 3 Q&A in the prototype's `RESEARCH_QA`, with the access answer stating that **Clarity Pledge (as a research programme)** reads volunteers' transcripts for research, and event organisers/hosts do not. Then **Terms · Privacy · Read more about our research program** (link stays the GitHub research-programme doc; a readable product page is a later separate task).
 
-**Step 6b** (after Yes) — **Does your phone have a USB-C port?** · *iPhone 15 and newer, and most Android phones, do.* · **Yes, USB-C** / **No, I'll bring my own microphone** / **No, and I don't have a microphone** → the last shows *"Thanks. You can still take part in the discussion without recording."* + **Continue** and records the person as not a volunteer.
+**Step 6b** (after Yes) — (UAT 2026-10-01) a centered page that first says why: *(DRAFT) "To use a recording, we need to know who is speaking. That takes your voice loud and clear, louder than the people around you, so the microphone has to sit close to your mouth: a clip-on lavalier mic or a headset."*; then **Does your phone have a USB-C port?** · *iPhone 15 and newer, and most Android phones, do.* · **Yes, USB-C** / **No, I'll bring my own microphone** / **No, and I don't have a microphone** as white buttons in the page, under the question → the last shows *"Thanks. You can still take part in the discussion without recording."* + **Continue** under it (in the page, not pinned) and records the person as not a volunteer.
 
-**End** — box **Thank you for preparing** (same box as screen 0); volunteers see *"You're a recording volunteer. We'll bring a USB-C mic for you."* / *"…Please bring your own microphone."* Below: **Interested in enriching your perspective before the event?** · *Our AI agents predicted how {experts} would answer the {N} points {you took a position on | we'll discuss}. Each position comes with a story that explains it.* · **Read their stories** → `/stake/{event tag}?tab=stories`. Experts = agents with stories on the event tag, read from data, not hardcoded; no stories → this block and its CTA are hidden. When prep was opened from the room gate, the end CTA is **Join the room** instead.
+**End** — box **Thank you for preparing** (same box as screen 0, no status badge: the title says it — UAT 2026-10-01); volunteers see *"You're a recording volunteer. We'll bring a USB-C mic for you."* / *"…Please bring your own microphone."* Below: **Interested in enriching your perspective before the event?** · *Our AI agents predicted how {experts} would answer the {N} points {you took a position on | we'll discuss}. Each position comes with a story that explains it.* · **Read their stories** → `/stake/{event tag}?tab=stories`. Experts = agents with stories on the event tag, read from data, not hardcoded; no stories → this block and its CTA are hidden. When prep was opened from the room gate, the end CTA is **Join the room** instead. (UAT 2026-10-01) The CTA is pinned in the bottom bar, with **Back to the event** under it (it is the only CTA when there are no stories); expert names drop the account prefix ("Simon Sinek", not "Agent · Simon Sinek"). The end screen is not immersive: it carries `?done=1` and the app's top and bottom menus return, as on a completed letter (P932); every step before it stays immersive.
 
 **Zero event points** → step 5 is dropped from the plan and minutes are recomputed.
 
@@ -164,7 +163,7 @@ Dialog **How we use your data**: the 3 Q&A in the prototype's `RESEARCH_QA`, wit
 - **Expert names** derived from the tag's story authors; none → the experts block is hidden.
 - **Host photo/name** from the event's host profile, labelled *"Your event host"*.
 - **Volunteer places:** per-event value, default 6; the founder changes it via terminal/SQL (no UI yet).
-- **Social proof counts** are summed across all past events of the series + this event: *"{X} people prepared for Clarity Nights · {Y} for this one"*; same shape for opted in. Each part hidden when 0.
+- **Social proof counts** are summed across all past events of the series + this event. (UAT round 3, founder wording) Earlier events and this event are two named scopes: *"{P} people opted in at previous Clarity Nights, and {T} for this event"* · *"{P} people opted in at previous Clarity Nights"* (none here yet) · *"{T} people prepared for this event"* (no earlier ones); same shapes for prepared. {P} counts the series' earlier events only. Hidden at 0. Counts are distinct people. Faces are 40px, plain (no pledge ring); **every prepared person has a face** (founder 2026-10-01 — "3 people prepared" beside one face read as a bug; opt-outs are visible in the room anyway), the opted-in faces still show only people who opted in. (UAT 2026-10-01) For a Clarity Night the series is every Clarity Night by the same host (by title), with or without preparation, and an opt-in is a prep answer **or a room answer** — Clarity Night #1 ran the room before preparation existed, and its opt-ins are the proof step 3b exists to show. At most 4 faces; the line carries the number.
 
 ## Confirmation prep block (variant D, round E)
 
@@ -212,7 +211,7 @@ A summary line: "{v} volunteers · {k} USB-C mics needed" (v above 6 signals ove
 
 ## Video hosting
 
-- Four clips + posters live in a **public Supabase Storage bucket** (placeholder name `p1336-clips`; not git, not the site deploy).
+- Four clips + posters live with the site's other public media on **Google Cloud Storage**, `claritypledge-story-images/event-prep/` (beside the landing page's `founder/` clip): the production CSP allows `media-src` from `storage.googleapis.com` only, so Supabase Storage (the first build) would have been blocked on the live site while every local run passed. One upload serves every environment; a unit test checks each clip URL against `vercel.json`'s CSP. The `p1336-clips` Supabase bucket created by the first migration is unused.
 - Each clip has a `durationSeconds` constant in page data; minutes and the facade read it, never the loaded media.
   `public/p1336-clips/` is local-only and is not committed.
 - MP4 re-muxed **faststart** (`ffmpeg -movflags +faststart -c copy`), played at **1.15x** via `playbackRate`.
@@ -227,7 +226,7 @@ once-per-person intro is not done) sees a gate with two choices: **Prepare now**
 resume step, with a return target; finishing, or the flow's skip paths, returns them to the room)
 and **Join the room without preparing** (enters directly, no confirmation dialog), with the muted line
 *(DRAFT) "You'll miss the shared definitions and the meeting principle. You can catch up any time."* under it. The room banner reads **Start your preparation** (0 done) or **Finish your preparation** (in progress). A bypassed attendee can return to prep
-anytime from the room. Their preparation status (**Prepared ✓** or **{k} of 6 steps**) is visible on
+anytime from the room (UAT round 2: a *"{k} of 6 steps · Finish your preparation"* link on the Back line; once prepared, a blue check after their answer on the roster, for everyone in the room). Their preparation status (**Prepared ✓** or **{k} of 6 steps**) is visible on
 their own phone in the room, so the host can check it.
 
 ## Emails
@@ -243,7 +242,7 @@ signed-in in one click, so they depend on the redirect endpoint and ship with it
 ## Invariants
 
 - A completed once-per-person part is never shown again to that person.
-- Opt-outs are never shown to other attendees (P1114).
+- Opt-outs given in preparation become visible in the room once the person enters it, like every room answer (P1114 public roster, 2026-08-21) — founder decision 2026-10-01: keep visible. Before the room, no opt-out is shown to anyone but the person and the host.
 - The host's account is excluded from every count (decisions.md 2026-09-21).
 - Every existing call site of a shared component renders as before.
 
@@ -261,38 +260,58 @@ Non-goals: waitlist; event emails + sign-in links (P1380); recording pause/resum
 
 ## Acceptance Criteria
 
-- [ ] New registrant at 320px completes screens 0 → End without help; every screen's copy matches this spec verbatim
-- [ ] Returning person (intro done) sees plan rows 3 (decision only), 5, 6; steps 1, 2, 3a, 4 never render
-- [ ] On a later visit, already-answered statements are not shown; within one session Back shows the same cards
-- [ ] Reload / other device mid-flow → "Continue where you left off" resumes the same step (DB-backed, not localStorage)
-- [ ] Minutes on screen 0 equal the sum of the plan's rows for that person; header shows `Step k of {remaining}` for a returning person
-- [ ] Anon and another attendee querying `event_preparations` get 0 rows; the host gets their event's rows; the aggregate function returns no opt-out, score or volunteer data
-- [ ] Per-part completion: bumping one part's content version re-shows only that part; a skipped part is not marked completed
-- [ ] Event with 0 points: step 5 absent, minutes recomputed; no stories: End CTA hidden; no previous event: social-proof line shows this event only, hidden at 0
-- [ ] Research Yes stores consented_at + policy_version
-- [ ] Opt-in chosen in prep seeds the room on entry (P1114); a change in the room writes back to the prep row with a new timestamp; a walk-in without prep uses the room's existing flow
-- [ ] Opted-out "No, continue" stores no 0–10; "Yes" stores one
-- [ ] Volunteer + mic answers persist; places-left decrements; `none` stores not-a-volunteer
-- [ ] With 6+ confirmed volunteers the bar still reads "1 of 6 volunteer places left" and **Yes, sure** still confirms; host view shows the volunteer total
-- [ ] "How we use your data" says the company (research programme) reads volunteers' transcripts and organisers/hosts do not; a host account cannot read a volunteer's transcript, the research path can
-- [ ] Host list shows per person: prep state, opt-in + 0–10, positions a/n, volunteer + mic; USB-C total; host excluded
-- [ ] Non-prepared registrant opening `/events/:slug/room` sees **Prepare now** and **Join the room without preparing**; Prepare now lands on prep at their resume step and the End CTA **Join the room** returns them; Join without preparing enters the room, and prep stays reachable from the room
-- [ ] Registered box and room show **Prepared ✓** or **{k} of 6 steps** on the attendee's phone
-- [ ] Screen 0 shows the why line before **Prepare now / Remind me by email**; no how-heard question; "Remind me" triggers no extra email
-- [ ] Clips load from the storage bucket, start playing before full download (faststart), play at 1.15x; transcript toggles
-- [ ] Existing-behaviour tests for every opt-in prop pass (StakePage, MeetingPrincipleView, Mp4VideoFacade, LetterProgressBar, LetterFlowContent) and `/meet`, `/stake`, letters render unchanged
+- [x] New registrant at 320px completes screens 0 → End without help; every screen's copy matches this spec verbatim
+- [x] Returning person (intro done) sees plan rows 3 (decision only), 5, 6; steps 1, 2, 3a, 4 never render
+- [x] On a later visit, already-answered statements are not shown; within one session Back shows the same cards
+- [x] Reload / other device mid-flow → "Continue where you left off" resumes the same step (DB-backed, not localStorage)
+- [x] Minutes on screen 0 equal the sum of the plan's rows for that person; header shows `Step k of {remaining}` for a returning person
+- [x] Anon and another attendee querying `event_preparations` get 0 rows; the host gets their event's rows; the aggregate function returns no opt-out, score or volunteer data
+- [x] Per-part completion: bumping one part's content version re-shows only that part; a skipped part is not marked completed
+- [x] Event with 0 points: step 5 absent, minutes recomputed; no stories: End CTA hidden; no previous event: social-proof line shows this event only, hidden at 0
+- [x] Research Yes stores consented_at + policy_version
+- [x] Opt-in chosen in prep seeds the room on entry (P1114); a change in the room writes back to the prep row with a new timestamp; a walk-in without prep uses the room's existing flow
+- [x] Opted-out "No, continue" stores no 0–10; "Yes" stores one
+- [x] Volunteer + mic answers persist; places-left decrements; `none` stores not-a-volunteer
+- [x] With 6+ confirmed volunteers the bar still reads "1 of 6 volunteer places left" and **Yes, sure** still confirms; host view shows the volunteer total
+- [x] "How we use your data" says the company (research programme) reads volunteers' transcripts and organisers/hosts do not; a host account cannot read a volunteer's transcript, the research path can
+- [x] Host list shows per person: prep state, opt-in + 0–10, positions a/n, volunteer + mic; USB-C total; host excluded
+- [x] Non-prepared registrant opening `/events/:slug/room` sees **Prepare now** and **Join the room without preparing**; Prepare now lands on prep at their resume step and the End CTA **Join the room** returns them; Join without preparing enters the room, and prep stays reachable from the room
+- [x] Registered box and room show **Prepared ✓** or **{k} of 6 steps** on the attendee's phone (room since UAT round 2: the roster check / the Back-line link)
+- [x] Screen 0 shows the why line before **Prepare now / Remind me by email**; no how-heard question; "Remind me" triggers no extra email
+- [x] Clips load from the storage bucket, start playing before full download (faststart), play at 1.15x; transcript toggles
+- [x] Existing-behaviour tests for every opt-in prop pass (StakePage, MeetingPrincipleView, Mp4VideoFacade, LetterProgressBar, LetterFlowContent) and `/meet`, `/stake`, letters render unchanged
 
-- [ ] Event create/edit has a **Preparation** on/off setting defaulted by series (Clarity Night on, hikes off); off → no prep block or room gate for that event
-- [ ] Event without a statement tag: positions step hidden, minutes recomputed; tag with no story authors: experts block hidden; expert names come from story authors, not hardcoded
-- [ ] Host photo/name come from the event's host profile under "Your event host"; a non-founder host's event plays the founder's intro videos
-- [ ] Volunteer places read from a per-event value (default 6) changed via SQL
-- [ ] Social proof sums prepared/opted-in across past series events + this event; each count hidden at 0
-- [ ] Confirmation block: 0 done shows question + Prepare now / Remind me by email; 1–5 shows "{k} of 6 steps done" + Continue your preparation; done shows Prepared ✓; "0 of 6" never renders; pinned to the bottom bar only when inline it would end below the fold
-- [ ] Room gate skip opens no dialog and shows the consequence line; room banner reads Start / Finish your preparation by state
+- [x] Event create/edit has a **Preparation** on/off setting defaulted by series (Clarity Night on, hikes off); off → no prep block or room gate for that event
+- [x] Event without a statement tag: positions step hidden, minutes recomputed; tag with no story authors: experts block hidden; expert names come from story authors, not hardcoded
+- [x] Host photo/name come from the event's host profile under "Your event host"; a non-founder host's event plays the founder's intro videos
+- [x] Volunteer places read from a per-event value (default 6) changed via SQL
+- [x] Social proof sums prepared/opted-in across past series events + this event; each count hidden at 0
+- [x] Confirmation block: 0 done shows question + Prepare now / Remind me by email; 1–5 shows "{k} of 6 steps done" + Continue your preparation; done shows Prepared ✓; "0 of 6" never renders; pinned to the bottom bar only when inline it would end below the fold
+- [x] Room gate skip opens no dialog and shows the consequence line; room banner reads Start / Finish your preparation by state
+
+UAT round 1 (founder, 2026-10-01):
+- [x] Step 3b's opted-in line counts past Clarity Night **room** opt-ins (Clarity Night #1 had no preparation); distinct people; host, opt-outs and other series excluded; at most 4 faces (integration `UAT: opt-ins given in past Clarity Night rooms…`, 13/13; test DB mirroring prod reads "11 people opted in at Clarity Nights")
+- [x] The step 3b question is the page heading: centered, same size as every step's title
+- [x] Step 6b says why a close mic is needed before the USB-C question; answers are white buttons in the page; after "No, and I don't have a microphone" the note and **Continue** stay in view at 320px (E2E `mic-why`; screenshots 390/320/1280)
+- [x] End screen: app menus return (`?done=1`); the CTA is pinned with **Back to the event**; no status badge; expert names without the "Agent ·" prefix (E2E walk)
+- [x] **Prepared ✓** is a quiet line (registered box, event page), never a green pill
+
+UAT round 2 (founder, 2026-10-01):
+- [x] In the room, "prepared" is a small blue check after the row's answer ("8/10 ✓"), explained on hover / tap; the unfinished-preparation link sits on the Back line; nothing is shown once prepared (integration `get_event_room_prepared` — completed prep, still registered, in the room; walk-ins never; readable only by people registered for the event or its host; anon refused — 14/14; E2E `room-roster-prepared` + tap shows "Prepared for the event")
+- [x] Social-proof line names two scopes, "previous Clarity Nights" and "this event", never a sum (unit `socialProofLine`; integration `optedInPrevious`); faces 40px, no pledge ring; every prepared person has a prepared face, an opt-out never an opted-in face (integration)
+- [x] Plan screen: the steps' header with a back arrow; "Your preparation" + "{n} steps · about {N} min"; **Start now** under the list at every width (E2E `plan-summary`)
+- [x] End screen's WhatsApp glyph is WhatsApp green; the button stays outlined
 
 ## Pre-deploy Checklist
 
-- [ ] Create public storage bucket; upload faststart clips + posters
+- [x] Clips: upload the 8 faststart files (`*-v1.mp4` + `*-v1-poster.jpg`) to `gs://claritypledge-story-images/event-prep/` with a one-year cache, BEFORE `/push`, and confirm each is served (HTTP 206 on a range request). Same bucket for every environment. **Done 2026-10-01:** all 8 return 206, `video/mp4` / `image/jpeg`, `cache-control: public, max-age=31536000`; `moov` at byte 36 in all four MP4s (faststart); bucket has no lifecycle rule (nothing auto-deletes), 7-day soft delete.
+
+## Post-deploy (after `/push` applies the migrations)
+
+These cannot run before the merge: the `statement_tag` column arrives with the migration, and the group link is the founder's own Edit-event action. Without either the flow still works (no step 5 / no group button).
+
+- Set `statement_tag = 'ikigai1'` on the 6 Oct Clarity Night (prod).
+- Add the WhatsApp group to the 6 Oct Clarity Night (Edit event) — prod has `has_group_chat = false` for it today.
 
 ## Founder decisions
 
