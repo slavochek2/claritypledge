@@ -18,20 +18,19 @@ import { CheckIcon, Youtube } from "lucide-react";
 import { motion, useReducedMotion, useInView, animate } from "framer-motion";
 import { analytics } from "@/lib/mixpanel";
 import { Mp4VideoFacade } from "@/app/components/shared/mp4-video-facade";
+import { publicMediaUrl } from "@/lib/public-media";
 
 /** The full (unlisted) talk on YouTube — the link-out target under the clip. */
 export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
 
 /**
- * The talk clip, hosted on the app's public GCS media bucket (uploaded to
- * gs://claritypledge-story-images/founder/; not committed to the repo). CSP media-src
- * allows storage.googleapis.com (see vercel.json).
+ * The talk clip, on the public media bucket under founder/ (not committed to the repo).
+ * URLs come from publicMediaUrl — see src/lib/public-media.ts for why.
  */
-const GCS = "https://storage.googleapis.com/claritypledge-story-images/founder";
 const FOUNDER_CLIP = {
-  src: `${GCS}/founder-credibility-clip-v1.mp4`,
-  poster: `${GCS}/founder-credibility-poster-v1.jpg`,
-  captions: `${GCS}/founder-credibility-clip-v1.en.vtt`,
+  src: publicMediaUrl("founder/founder-credibility-clip-v1.mp4"),
+  poster: publicMediaUrl("founder/founder-credibility-poster-v1.jpg"),
+  captions: publicMediaUrl("founder/founder-credibility-clip-v1.en.vtt"),
 } as const;
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */

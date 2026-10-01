@@ -86,6 +86,10 @@ grep -r "functionName" src/ --include="*.ts" --include="*.tsx"
 
 Correct sequence: search → understand full impact → implement → update all call sites in the same commit. Writing the replacement before grepping silently breaks callers you didn't know existed.
 
+## Public Media Host (P1385)
+
+Public media (video, posters, captions, curated images) → `gs://claritypledge-story-images`, URL built with `publicMediaUrl()` from `src/lib/public-media.ts` — never a hand-built storage URL, never a Supabase Storage bucket. Prod CSP `media-src` allows only `storage.googleapis.com`; the dev server sends no CSP, so a wrong host passes every local run and is blocked on the live site. Pinned by `src/tests/p1385-public-media.test.ts`.
+
 ## User-Controlled URL Sinks
 
 Any new `<a href>`, `window.open()`, or `location.assign()` / `location.href =` that receives a user- or DB-derived string must pass through `safeLinkHref` before use:

@@ -1,13 +1,13 @@
 ---
-status: backlog
+status: in-progress
 type: task
 rank: 310
 workstream: infrastructure
 created_date: '2026-10-01'
 tags: [csp, storage, media, guard]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -76,10 +76,10 @@ Reversibility: plain revert. Decision density: zero — the GCS convention and C
 
 ## Done-When
 
-- [ ] Every public media URL in `src/` comes from the helper (grep shows no other construction of GCS or Supabase-storage media URLs outside the allowlist)
-- [ ] The test fails when the helper's origin is removed from `media-src` (shown red, then green) and when a new Supabase Storage URL literal is added to `src/` (shown red, then green)
-- [ ] The rule lines exist in `database.md` and `src.md`, passed through the rules gate
-- [ ] `infrastructure.md` names the bucket
+- [x] Every public media URL in `src/` comes from the helper (grep shows no other construction of GCS or Supabase-storage media URLs outside the allowlist)
+- [x] The test fails when the helper's origin is removed from `media-src` (shown red, then green) and when a new Supabase Storage URL literal is added to `src/` (shown red, then green)
+- [x] The rule lines exist in `database.md` and `src.md`, passed through the rules gate
+- [x] `infrastructure.md` names the bucket
 
 ## Related
 

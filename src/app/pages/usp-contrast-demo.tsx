@@ -3,6 +3,7 @@ import { StoryCardWithLinks } from "@/app/components/social/story-card-with-link
 import { PointCardWithLinks, type StoryAuthor } from "@/app/components/social/point-card-with-links";
 import type { Story as DemoStory, Point as DemoPoint } from "@/app/components/shared/prototype-types";
 import type { SevenPointCounts } from "@/app/components/shared/PositionButton";
+import { publicMediaUrl } from "@/lib/public-media";
 
 /**
  * USP contrast demo — preserved from the coach landing page (cut 2026-06, founder
@@ -30,7 +31,7 @@ const ST1_STORY: DemoStory = {
   visibility: "public",
   linkedPointIds: ["f8629cdd-aa5d-432e-90ae-1c1e8c07be73"],
   understoodCount: 0,
-  imageUrl: "https://storage.googleapis.com/claritypledge-story-images/story-images/883d89f5-4449-46b2-a663-f4f2c7204c22/ce9328cc-621e-47b1-90f0-26baea23eed4.jpg",
+  imageUrl: publicMediaUrl("story-images/883d89f5-4449-46b2-a663-f4f2c7204c22/ce9328cc-621e-47b1-90f0-26baea23eed4.jpg"),
 };
 
 const ST1_POINT: DemoPoint = {

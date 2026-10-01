@@ -7,17 +7,15 @@
 import type { ReactNode } from 'react';
 import { TELEGRAM_GLYPH, WHATSAPP_GLYPH } from '../components/GroupChatBlock';
 import type { ClipKey } from './prep-plan';
+import { publicMediaUrl } from '@/lib/public-media';
 
-// ─── clips: public Supabase Storage bucket, versioned filenames (cache-busting) ─────────
+// ─── clips: public media bucket, versioned filenames (cache-busting) ─────────
 
 /**
- * The clips live with the site's other public media (the landing page's founder clip is in the
- * same bucket, `founder/`), on Google Cloud Storage: the production CSP allows `media-src` from
- * storage.googleapis.com only, so a video served from Supabase Storage is blocked on the live
- * site while every local run passes (the dev server sends no CSP). One upload serves every
- * environment. Pinned by the CSP test in p1336-prep-pieces.test.tsx.
+ * The clips live with the site's other public media under `event-prep/` — see
+ * src/lib/public-media.ts for why that is GCS and never Supabase Storage. One upload serves
+ * every environment. Pinned by the CSP tests in p1336-prep-pieces and p1385-public-media.
  */
-export const CLIP_BASE = 'https://storage.googleapis.com/claritypledge-story-images/event-prep';
 /** Bump with a re-render: the new file is uploaded under the new name, never over the old. */
 export const CLIP_FILE_VERSION = 'v1';
 
@@ -45,7 +43,7 @@ export const CLIP_POSTER_ALT: Record<ClipKey, string> = {
 /** Public object URL. Faststart MP4s, so playback starts before the whole file arrives. */
 export function clipUrl(clip: ClipKey, kind: 'video' | 'poster'): string {
   const file = `${CLIP_NAMES[clip]}-${CLIP_FILE_VERSION}${kind === 'video' ? '.mp4' : '-poster.jpg'}`;
-  return `${CLIP_BASE}/${file}`;
+  return publicMediaUrl(`event-prep/${file}`);
 }
 
 /** Each clip's own words, from the Night #1 transcript at the clip's in/out points. */

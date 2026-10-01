@@ -9,12 +9,13 @@
 ## Google Cloud Platform
 
 **Existing infrastructure:**
-- **GCS Bucket:** `[TBD - add bucket name]` — used for voice recordings, event banners
+- **Public media bucket:** `gs://claritypledge-story-images` — every public video, poster, caption and curated image (the landing page's founder clip, event-prep clips, story images). Curated static media counts, not only uploads. Build URLs with `publicMediaUrl()` (`src/lib/public-media.ts`); production CSP `media-src` allows only `storage.googleapis.com`, and the dev server sends no CSP, so a wrong host passes locally (P1385).
+- **Session recordings bucket:** `gs://claritypledge-ml-training` (private, signed URLs)
 - **Project ID:** `[TBD - add project ID]`
 
 **When to use GCS over alternatives:**
 - File uploads (images, audio, documents) → GCS bucket
-- Prefer GCS over Supabase Storage — we have credits and it's already set up
+- Prefer GCS over Supabase Storage — we have credits and it's already set up. For public media it is a requirement, not a preference (CSP above). Existing Supabase buckets (event banners, avatars) are user-uploaded images that `img-src` allows; they are not a template for new media.
 
 **Future uses to consider:**
 - Background jobs (Cloud Run)

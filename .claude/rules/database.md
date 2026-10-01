@@ -19,6 +19,10 @@ Multiple files with the same 8-digit date (e.g., `20260206_a.sql`, `20260206_b.s
 
 Extracts DB password from `.env.local` automatically. Run this — don't ask.
 
+## No New Public Media Buckets in Supabase Storage (P1385)
+
+A migration that creates a storage bucket for public media (video, posters, curated images) is the wrong host: prod CSP `media-src` allows only `storage.googleapis.com`, and the dev server sends no CSP, so it passes locally and is blocked on the live site. Upload to `gs://claritypledge-story-images` and build URLs with `publicMediaUrl()` (`src/lib/public-media.ts`).
+
 ## Schema Decision Gate
 
 - **Ask first:** Schema changes to core tables (profiles, points, clarity_sessions)
