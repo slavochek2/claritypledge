@@ -104,6 +104,7 @@ const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prot
 const VideoSummaryPage = lazy(() => import("@/app/pages/video-summary-page").then(m => ({ default: m.VideoSummaryPage })));
 const AdminUsersPage = lazy(() => import("@/app/pages/admin-users-page").then(m => ({ default: m.AdminUsersPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
+const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
@@ -1069,6 +1070,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/admin-users" element={<LazyRoute><AdminUsersPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
