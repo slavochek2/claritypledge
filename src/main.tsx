@@ -11,6 +11,7 @@ import {
 } from "@/lib/sentry-filters";
 import { installNavTrace } from "@/lib/nav-trace";
 import { stampHistoryBoot } from "@/app/hooks/use-go-back";
+import { retryPendingOfflineClear } from "@/lib/offline-read-cache";
 import App from "./App";
 import "./index.css";
 
@@ -82,6 +83,10 @@ installNavTrace();
 // P1364: record, before the router mounts, whether this tab held a page before the app's
 // first entry — the only moment `history.length` means that (see use-go-back.ts).
 stampHistoryBoot();
+
+// P1369: a sign-out whose offline-cache clear failed left the cache blocked (nothing is read from
+// it); finish that clear now. Fire-and-forget: the block holds until it succeeds.
+void retryPendingOfflineClear();
 
 const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(<Main />);

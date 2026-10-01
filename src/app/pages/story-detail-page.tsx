@@ -772,7 +772,7 @@ export function StoryDetailPage() {
 
             // Batch fetch position data + other stories for each point. P1369: read through the
             // offline cache too, so an offline copy shows the counts that were last seen.
-            const extras = await readThrough('story-extras', `${data.id}:${user?.id ?? '-'}`, async () => {
+            const extras = await readThrough('story-extras', data.id, async () => {
               const [counts, positions, authorPositions, linkedStories] = await Promise.all([
                 pointsService.getPositionCountsForPoints(pointIds),
                 user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map<string, PointPosition>()),
@@ -782,7 +782,7 @@ export function StoryDetailPage() {
                 storiesService.getStoriesForPoints(pointIds, data.id),
               ]);
               return { counts, positions, authorPositions, linkedStories };
-            });
+            }, { viewerId: user?.id ?? null });
             if (cancelled || extras.source === 'offline' || !extras.data) return;
             const { counts, positions, authorPositions, linkedStories } = extras.data;
             setExtrasCachedAt(extras.source === 'cache' ? extras.storedAt : null);

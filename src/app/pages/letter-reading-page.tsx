@@ -31,7 +31,6 @@ import { letterUsesPredictions, predictionsForMode, resolveResponsesMode } from 
 import {
   getLetterForReading,
   getLetterForReadingByToken,
-  getLetterForPublicReading,
   getLetterPointResponses,
   getLetterPointResponsesByToken,
   claimLetterDelivery,
@@ -165,12 +164,15 @@ export function LetterReadingPage() {
     setPageState('ready_public');
   }, [deliveryId]);
 
-  // Nothing spins forever: after the deadline, a page still loading shows the stored copy.
+  // Nothing spins forever: after the deadline, a page still loading shows the stored copy. When
+  // the browser already says it is offline there is nothing to wait for: the load below is gated
+  // on auth settling, which offline can take the whole deadline (P1369 review R7).
   useEffect(() => {
     if (pageState !== 'loading' || offlineMiss) return;
+    const browserOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
     const t = setTimeout(() => {
       if (pageStateRef.current === 'loading') void showOfflineCopy();
-    }, LETTER_OFFLINE_DEADLINE_MS);
+    }, browserOffline ? 0 : LETTER_OFFLINE_DEADLINE_MS);
     return () => clearTimeout(t);
   }, [pageState, offlineMiss, showOfflineCopy, offlineReconnectKey]);
 

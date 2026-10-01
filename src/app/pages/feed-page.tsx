@@ -195,7 +195,7 @@ export function FeedPage() {
       // BR-8: tag cloud stays computed from ALL public content — with a tag filter active, the
       // read (offline-reads.ts feedRead) fetches the unfiltered set alongside, concurrently.
       const r = feedRead(viewerUserId, ascending, tagFilter);
-      const read = await readThrough(r.type, r.id, r.fetch);
+      const read = await readThrough(r.type, r.id, r.fetch, r.options);
       if (isStale()) return;
       const rows = applyRead(read);
       if (!rows) return; // offline, nothing stored: the needs-connection body

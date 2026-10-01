@@ -19,7 +19,7 @@ import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { getMyRoomStatus, joinEventRoom } from '@/app/data/event-room-service';
 import type { EventRoomSelf, EventWithHost } from '@/app/types';
-import { readThrough } from '@/lib/offline-read-cache';
+import { readThrough, rememberOffline } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 
 export interface EventRoomAccess {
@@ -65,7 +65,7 @@ export function useEventRoomAccess(): EventRoomAccess {
     setLoading(true);
     (async () => {
       const userId = isLoggedIn ? viewerId : null;
-      const read = await readThrough('event-access', `${slug}:${userId ?? '-'}`, async () => {
+      const read = await readThrough('event-access', slug, async () => {
         const found = await eventsService.getEventBySlug(slug);
         if (!found) return null;
         let registered = false;
@@ -79,7 +79,7 @@ export function useEventRoomAccess(): EventRoomAccess {
           }
         }
         return { event: found, registered };
-      });
+      }, { viewerId: userId });
       if (cancelled) return;
       if (read.source === 'offline') {
         setOffline(true);
@@ -178,7 +178,9 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     if (!event || !granted) return false;
     const ticket = ++issuedRef.current;
     // P1369 Scope v2: the last-seen row is kept offline; offline, no join is attempted.
-    const read = await readThrough('event-self', `${event.id}:${viewerId}`, () => getMyRoomStatus(event.id));
+    const read = await readThrough('event-self', event.id, () => getMyRoomStatus(event.id), {
+      viewerId: viewerId === '-' ? null : viewerId,
+    });
     if (read.source === 'offline') return false;
     if (read.source === 'cache') {
       offer(ticket, read.data);
@@ -196,6 +198,9 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       // the row when the status read itself failed.
       const joined = await joinEventRoom(event.id, user?.name || 'Guest');
       offer(ticket, joined);
+      // P1369 Scope v2 item 5: a first visit's check-in (the row the join just created) is the
+      // last-seen state too — without this, only a SECOND visit left anything to show offline.
+      void rememberOffline('event-self', event.id, joined);
       return true;
     } catch {
       // Room closed/full, or unreachable — leave self as it is; callers degrade.

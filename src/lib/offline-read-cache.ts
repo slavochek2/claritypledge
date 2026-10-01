@@ -13,7 +13,13 @@
  *     navigator.onLine — captive portals report online while nothing gets through.
  *   - PARTITIONED BY AUTH CONTEXT. The key is owner + resource, where the owner is the signed-in
  *     user id from the stored session (or `anon`) plus the room codes this tab presents. One
- *     person's rows are never readable under another person's key.
+ *     person's rows are never readable under another person's key. Resource ids never contain
+ *     the React auth user (null until the profile loads, and it never loads offline); a read
+ *     that depends on the viewer passes `viewerId` so it is stored only for the matching owner.
+ *   - SERVER TROUBLE IS NOT AN ANSWER. A 5xx / 429 / status-0 response during a read counts like
+ *     a network failure here: it never deletes or overwrites the cached copy and is never cached.
+ *   - A FAILED CLEAR BLOCKS THE CACHE. Until a clear succeeds (retried at startup) nothing is
+ *     read from or written to it.
  *   - CLEARED on every sign-out path (api.ts signOut, AuthContext, any SIGNED_OUT event). A read
  *     that was in flight when the cache was cleared never writes its rows back (generation check).
  *   - A genuine "not found" deletes the entry: revoked or deleted content is not kept around to
@@ -29,7 +35,13 @@
  * person's rows to another) — that is why this lives in the app, not in the SW.
  */
 import { heldRoomCodes } from './room-capability';
-import { isSupabaseUnreachable, networkFailedSince, networkMark, recordNetworkTrouble } from './network-outcome';
+import {
+  isSupabaseUnreachable,
+  networkFailedSince,
+  networkMark,
+  recordNetworkTrouble,
+  serverTroubleSince,
+} from './network-outcome';
 
 export type OfflineResourceType =
   | 'story'
@@ -100,6 +112,8 @@ export interface OfflineEntryStore {
   delete(key: string): Promise<void>;
   listType(type: OfflineResourceType): Promise<Array<{ key: string; storedAt: number }>>;
   clear(): Promise<void>;
+  /** Last resort when `clear` fails: remove the whole backing database. */
+  destroy?(): Promise<void>;
 }
 
 // ─── Stores ──────────────────────────────────────────────────────────────────
@@ -119,19 +133,29 @@ class IndexedDbEntryStore implements OfflineEntryStore {
 
   private open(): Promise<IDBDatabase> {
     if (!this.db) {
-      this.db = new Promise<IDBDatabase>((resolve, reject) => {
+      const opening: Promise<IDBDatabase> = new Promise<IDBDatabase>((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, 1);
         req.onupgradeneeded = () => {
           const store = req.result.createObjectStore(STORE, { keyPath: 'key' });
           store.createIndex('type', 'type');
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+          const db = req.result;
+          // Another tab deleting the cache (sign-out clear fallback) must never be blocked by
+          // this connection: close it and reopen lazily on the next read (/finish review, P1369).
+          db.onversionchange = () => {
+            db.close();
+            if (this.db === opening) this.db = null; // never drop a newer connection
+          };
+          resolve(db);
+        };
         req.onerror = () => reject(req.error);
         req.onblocked = () => reject(new Error('offline-read-cache: open blocked'));
       });
+      this.db = opening;
       // A failed open is retried on the next call rather than cached forever.
-      this.db.catch(() => {
-        this.db = null;
+      opening.catch(() => {
+        if (this.db === opening) this.db = null;
       });
     }
     return this.db;
@@ -161,6 +185,26 @@ class IndexedDbEntryStore implements OfflineEntryStore {
 
   async clear() {
     await requestToPromise((await this.tx('readwrite')).clear());
+  }
+
+  /** indexedDB.deleteDatabase — needs no open connection, so it also works when `open` is broken. */
+  async destroy() {
+    const open = this.db;
+    this.db = null;
+    if (open) {
+      try {
+        (await open).close();
+      } catch {
+        /* an open that failed has nothing to close */
+      }
+    }
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      // onblocked: only a connection without the versionchange close (an old build) can block;
+      // the delete then completes when that tab closes, and clear-pending keeps reads off meanwhile.
+    });
   }
 }
 
@@ -267,33 +311,87 @@ function clearPackStamps(): void {
   }
 }
 
-/** Remove every cached read, for every owner. Called on every sign-out path. */
-export async function clearOfflineReadCache(): Promise<void> {
+/**
+ * Set while a clear has been asked for and has not yet succeeded. While it is set NOTHING is read
+ * from or written to the cache — rows a sign-out meant to remove are never served — and the next
+ * app start retries the clear (`retryPendingOfflineClear`). Kept in localStorage, not in the
+ * database it guards, so a broken database cannot hide it. Not under the pack-stamp prefix, which
+ * a clear itself removes.
+ */
+export const OFFLINE_CLEAR_PENDING_KEY = 'clarity-offline-reads:clear-pending';
+
+/** Fallback for a browser where localStorage cannot be written (set only when writing it failed). */
+let clearPendingInMemory = false;
+
+export function isOfflineClearPending(): boolean {
+  try {
+    return localStorage.getItem(OFFLINE_CLEAR_PENDING_KEY) !== null || clearPendingInMemory;
+  } catch {
+    return clearPendingInMemory;
+  }
+}
+
+function setClearPending(pending: boolean): void {
+  clearPendingInMemory = false;
+  try {
+    if (pending) localStorage.setItem(OFFLINE_CLEAR_PENDING_KEY, String(Date.now()));
+    else localStorage.removeItem(OFFLINE_CLEAR_PENDING_KEY);
+  } catch {
+    clearPendingInMemory = pending; // storage unwritable: this tab still holds the block
+  }
+}
+
+/**
+ * Remove every cached read, for every owner. Called on every sign-out path. Resolves true when
+ * the rows are gone: `clear()`, or failing that, deleting the whole database. When both fail it
+ * resolves false and leaves the clear-pending flag set, so the rows stay unreadable until a later
+ * clear succeeds.
+ */
+export async function clearOfflineReadCache(): Promise<boolean> {
   generation += 1;
+  setClearPending(true); // before anything else: a tab that dies mid-clear stays blocked
   // The pack's "already pre-loaded" stamps describe rows that are gone now.
   clearPackStamps();
   try {
     await store.clear();
+    setClearPending(false);
+    return true;
   } catch (err) {
-    console.error('[offline-read-cache] clear failed:', err);
+    console.error('[offline-read-cache] clear failed, deleting the database instead:', err);
   }
+  try {
+    if (!store.destroy) throw new Error('store cannot be deleted');
+    await store.destroy();
+    setClearPending(false);
+    return true;
+  } catch (err) {
+    console.error('[offline-read-cache] deleting the database failed; cached reads stay blocked until a clear succeeds:', err);
+    return false;
+  }
+}
+
+/** At startup: finish a clear that an earlier session could not. Resolves true when none is pending after it. */
+export async function retryPendingOfflineClear(): Promise<boolean> {
+  if (!isOfflineClearPending()) return true;
+  return clearOfflineReadCache();
 }
 
 /**
  * Clear, but never wait longer than `ms` for it: a wedged IndexedDB open must not hold a
  * sign-out. The clear keeps running if it overruns (and in-flight reads are already fenced off by
- * the generation bump, which happens at once). Resolves true when the clear finished in time.
+ * the generation bump, which happens at once). Resolves true only when the clear finished in
+ * time AND succeeded; false otherwise (the clear-pending flag then keeps cached rows unreadable).
  */
 export async function clearOfflineReadCacheWithin(ms: number): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const finished = await Promise.race([
-    clearOfflineReadCache().then(() => true),
+    clearOfflineReadCache(),
     new Promise<false>((resolve) => {
       timer = setTimeout(() => resolve(false), ms);
     }),
   ]);
   clearTimeout(timer);
-  if (!finished) console.warn(`[offline-read-cache] clear still running after ${ms} ms; not waiting for it`);
+  if (!finished) console.warn(`[offline-read-cache] clear not done after ${ms} ms, or failed; cached reads stay blocked until it is`);
   return finished;
 }
 
@@ -321,6 +419,7 @@ function stamp(): number {
 
 async function write(key: string, type: OfflineResourceType, data: unknown, gen: number): Promise<void> {
   if (gen !== generation) return; // cleared (sign-out) while this read was in flight
+  if (isOfflineClearPending()) return; // a clear is outstanding: nothing new goes in until it lands
   try {
     await store.put({ key, type, data, storedAt: stamp() });
     if (gen !== generation) {
@@ -349,6 +448,26 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   ]).finally(() => clearTimeout(timer));
 }
 
+export interface ReadOptions {
+  deadlineMs?: number;
+  uncachedDeadlineMs?: number;
+  /**
+   * The viewer the fetcher fetched FOR (their user id, undefined when anonymous), when the result
+   * depends on who is asking (their own position, their registration). The key never contains
+   * it — the owner already partitions the cache by the stored session — but a result fetched for
+   * a different viewer than the stored session's (the profile has not loaded yet, a sign-in is
+   * mid-flight) is shown and never stored, so it cannot overwrite the owner's own copy.
+   */
+  viewerId?: string | null;
+}
+
+/** Whether a result fetched for `options.viewerId` may be stored under `owner` (see ReadOptions). */
+function viewerMatchesOwner(owner: string, options: ReadOptions): boolean {
+  if (!('viewerId' in options)) return true;
+  const base = owner.split('|rc:')[0];
+  return base === (options.viewerId ? `u:${options.viewerId}` : 'anon');
+}
+
 /**
  * Read `type:id` through the cache. `fetcher` is the page's existing service call; it may return
  * null for "not found". The services swallow network errors (a failed fetch comes back as null
@@ -365,7 +484,7 @@ export async function readThrough<T>(
   type: OfflineResourceType,
   id: string,
   fetcher: () => Promise<T | null>,
-  options: { deadlineMs?: number; uncachedDeadlineMs?: number } = {},
+  options: ReadOptions = {},
 ): Promise<ReadResult<T>> {
   const deadlineMs = options.deadlineMs ?? NETWORK_DEADLINE_MS;
   const uncachedDeadlineMs = Math.max(options.uncachedDeadlineMs ?? UNCACHED_DEADLINE_MS, deadlineMs);
@@ -373,7 +492,13 @@ export async function readThrough<T>(
   const mark = networkMark();
   // The owner is read synchronously here (the identity this read is sent as); only the room-code
   // digest is awaited, and the network request does not wait for it.
-  const keyP: Promise<string | null> = offlineCacheOwner().then((owner) => (owner === null ? null : `${owner}|${type}|${id}`));
+  const blocked = isOfflineClearPending(); // a failed sign-out clear: no cached rows at all
+  const ownerP = offlineCacheOwner();
+  const keyP: Promise<string | null> = ownerP.then((owner) => (owner === null || blocked ? null : `${owner}|${type}|${id}`));
+  /** The key this read's result may be WRITTEN under (null: show it, never store it). */
+  const writeKeyP: Promise<string | null> = Promise.all([keyP, ownerP]).then(([key, owner]) =>
+    key && owner !== null && viewerMatchesOwner(owner, options) ? key : null,
+  );
 
   const fetchP: Promise<Outcome<T>> = fetcher().then(
     (data) => ({ ok: true as const, data }),
@@ -385,14 +510,14 @@ export async function readThrough<T>(
     .then((e) => (isFresh(e) ? e : undefined))
     .catch(() => undefined);
 
-  /** A request that started during this read never reached the server. */
-  const failed = () => networkFailedSince(mark);
+  /** A request that started during this read never reached the server, or got a 5xx/429/0. */
+  const failed = () => networkFailedSince(mark) || serverTroubleSince(mark);
 
   const storeLate = () => {
     // A late answer, if it ever arrives complete and clean, still refreshes the cache.
     void fetchP.then(async (o) => {
       if (!o.ok || o.data == null || failed()) return;
-      const key = await keyP;
+      const key = await writeKeyP;
       if (key) void write(key, type, o.data, gen);
     });
   };
@@ -426,17 +551,22 @@ export async function readThrough<T>(
 
   if (!failed()) {
     if (!outcome.ok) throw outcome.error; // a real error, not connectivity
-    const key = await keyP;
-    if (key) {
-      if (outcome.data != null) void write(key, type, outcome.data, gen);
-      else void store.delete(key).catch(() => undefined); // a real not-found: don't keep it around
+    const writeKey = await writeKeyP;
+    if (outcome.data != null) {
+      if (writeKey) void write(writeKey, type, outcome.data, gen);
+    } else if (writeKey) {
+      // Only a read made AS the owner may conclude "not found" for the owner's copy (a private
+      // row read before the profile loaded is "not found" for anon, not for its owner).
+      void store.delete(writeKey).catch(() => undefined); // a real not-found: don't keep it around
     }
     return { source: 'network', data: outcome.data };
   }
 
   // Part of this read never reached the server, so its result may be partial (or a false null).
   // It is never stored, and a null is never "not found".
-  if (outcome.ok && outcome.data != null && !isSupabaseUnreachable()) {
+  // Server trouble (5xx/429/0) is excluded: the services turn it into a plausible-looking answer
+  // ("not registered", an empty list), so a stored copy is the better answer whenever there is one.
+  if (outcome.ok && outcome.data != null && !isSupabaseUnreachable() && !serverTroubleSince(mark)) {
     // The main answer arrived and the network is answering again: show it live, like before P1369.
     return { source: 'network', data: outcome.data };
   }
@@ -458,12 +588,14 @@ export async function prefetchThrough<T>(
   id: string,
   fetcher: () => Promise<T | null>,
   timeoutMs = 15_000,
+  options: Pick<ReadOptions, 'viewerId'> = {},
 ): Promise<{ stored: boolean; data: T | null }> {
   const skipped = { stored: false, data: null };
   const gen = generation;
   const mark = networkMark();
   const owner = await offlineCacheOwner();
-  if (owner === null) return skipped;
+  if (owner === null || isOfflineClearPending()) return skipped;
+  if (!viewerMatchesOwner(owner, options)) return skipped;
   const key = `${owner}|${type}|${id}`;
   const outcome = await within<Outcome<T> | 'deadline'>(
     fetcher().then(
@@ -473,7 +605,9 @@ export async function prefetchThrough<T>(
     timeoutMs,
     'deadline',
   );
-  if (outcome === 'deadline' || !outcome.ok || outcome.data == null || networkFailedSince(mark)) return skipped;
+  if (outcome === 'deadline' || !outcome.ok || outcome.data == null || networkFailedSince(mark) || serverTroubleSince(mark)) {
+    return skipped;
+  }
   // The owner may have changed while the fetch ran (sign-in/out): never file rows under another key.
   if ((await offlineCacheOwner()) !== owner) return skipped;
   await write(key, type, outcome.data, gen);
@@ -488,7 +622,7 @@ export async function prefetchThrough<T>(
 export async function peekOfflineCache<T>(type: OfflineResourceType, id: string): Promise<{ data: T; storedAt: number } | null> {
   try {
     const owner = await offlineCacheOwner();
-    if (owner === null) return null;
+    if (owner === null || isOfflineClearPending()) return null;
     const e = await within(store.get(`${owner}|${type}|${id}`), CACHE_LOOKUP_TIMEOUT_MS, undefined);
     return isFresh(e) ? { data: e.data as T, storedAt: e.storedAt } : null;
   } catch {

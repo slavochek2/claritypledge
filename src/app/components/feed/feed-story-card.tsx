@@ -31,6 +31,8 @@ import {
   CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { GroupPlayer } from '@/app/components/shared/source-group';
+import { saveInOrder, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
 import { pointsService } from '@/app/data/points-service';
 import type { Position } from '@/app/types';
 import { normalizeVideoQuotes } from '@/lib/video';
@@ -115,6 +117,8 @@ export function FeedStoryCard({
     navigate(`/story/${story.id}`);
   };
 
+  const canWrite = useOnlineWriteGuard();
+
   /**
    * P1212: the WRITE half of the position controls this section put on the feed.
    *
@@ -130,12 +134,19 @@ export function FeedStoryCard({
    * card carries the dialog too, a toggle-off keeps its optimistic local state and writes
    * nothing — the same behaviour as before this fix, and only for that one case.
    */
-  const handlePointPosition = async (pointId: string, position: Position) => {
+  const handlePointPosition = async (pointId: string, position: Position): Promise<boolean | undefined> => {
     if (!currentUserId || position === null) return;
+    // P1369: /feed and /stake render cached cards offline. Resolving false makes the quoted
+    // card take its optimistic selection back — a vote that did not land never looks saved.
+    if (!canWrite()) return false;
+    const sentAt = networkMark();
     try {
-      await pointsService.setPosition(pointId, currentUserId, position);
-    } catch {
-      toast.error('Failed to save position.');
+      // Bounded: a captive portal can leave the request unanswered for good.
+      await saveInOrder(`position:${pointId}`, () => pointsService.setPosition(pointId, currentUserId, position));
+      return true;
+    } catch (err) {
+      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
+      return false;
     }
   };
 

@@ -16,7 +16,7 @@
  * finds the statement text on screen cannot — the bare-button version passed exactly that.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Ear } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -77,7 +77,12 @@ export interface QuotedPointCardProps {
    */
   fromProfileId?: string;
   currentUserId?: string;
-  onPositionSelect?: (position: Position) => void;
+  /**
+   * Record the position. May report the outcome: resolving `false` means the write did not land
+   * (blocked offline, failed, timed out) and the optimistic selection is taken back (P1369).
+   * Returning nothing keeps the old contract — the selection stays.
+   */
+  onPositionSelect?: (position: Position) => unknown; // resolving to `false` takes the vote back
   /**
    * P1372: explicit "Clear position" row in the intensity menu (P847 Model C′). Opt-in per
    * caller: pass it only where removal is actually wired — the feed's handler ignores null,
@@ -107,8 +112,13 @@ export function QuotedPointCard({
   );
 
   // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
+  // P1369 review: a failed save reverts only if it was the latest click, and to the last SAVED
+  // position — not to what showed before that click, which may have been an unsaved click too.
+  const clickSeq = useRef(0);
+  const savedPosition = useRef<Position>((point.userPosition as Position) ?? null);
   useEffect(() => {
     setUserPosition((point.userPosition as Position) ?? null);
+    savedPosition.current = (point.userPosition as Position) ?? null;
   }, [point.userPosition]);
 
   const baseCounts = useMemo(
@@ -124,13 +134,17 @@ export function QuotedPointCard({
     [baseCounts, initialPosition, userPosition],
   );
 
-  const handlePositionClick = (position: Position) => {
+  const handlePositionClick = async (position: Position) => {
+    const seq = ++clickSeq.current;
     const newPosition = userPosition === position ? null : position;
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
     }
-    onPositionSelect?.(newPosition);
+    const landed = await onPositionSelect?.(newPosition);
+    if (newPosition === null) return;
+    if (landed !== false) savedPosition.current = newPosition;
+    else if (seq === clickSeq.current) setUserPosition(savedPosition.current);
   };
 
   return (

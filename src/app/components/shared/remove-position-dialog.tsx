@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { pointsService } from '@/app/data/points-service';
+import { NEEDS_INTERNET_MESSAGE, saveInOrder, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { isSupabaseUnreachable, networkMark } from '@/lib/network-outcome';
 
 // ============================================================================
 // Props
@@ -100,9 +102,18 @@ export function useRemovePositionGuard({
 
   const handleConfirm = useCallback(async () => {
     if (!pendingPointId) return;
+    // P1369: cached cards render offline — a removal there must never look done.
+    if (isSupabaseUnreachable() || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+      toast.error(NEEDS_INTERNET_MESSAGE);
+      setDialogOpen(false);
+      setPendingPointId(null);
+      return;
+    }
     setIsRemoving(true);
+    const sentAt = networkMark();
     try {
-      await pointsService.removePosition(pendingPointId, userId);
+      // Bounded: a captive portal can leave the request unanswered for good.
+      await saveInOrder(`position:${pendingPointId}`, () => pointsService.removePosition(pendingPointId, userId));
       setIsRemoving(false);
       setDialogOpen(false);
       const resolvedPointId = pendingPointId;
@@ -111,7 +122,7 @@ export function useRemovePositionGuard({
     } catch (err) {
       console.error('Failed to remove position:', err);
       setIsRemoving(false);
-      toast.error('Failed to remove position.');
+      toast.error(writeFailureMessage(err, 'Failed to remove position.', sentAt));
     }
   }, [pendingPointId, userId, onAfterRemove]);
 
