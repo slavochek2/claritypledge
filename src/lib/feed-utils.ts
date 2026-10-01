@@ -82,3 +82,20 @@ export function collapseToLatest<T extends { tags: string[]; systemTags: string[
     .map(([, item]) => item);
   return [...sorted, ...noStTag];
 }
+
+/**
+ * A tagged set's own order: st1, st2, st3… (P1069 — display order lives in `system_tags`,
+ * never `created_at`). Without it, rewriting st1 and st5 as v2 put them first on a
+ * newest-first list and last on an oldest-first one (founder, 2026-10-01). Ties (two versions
+ * of one st) go newest version first. Items with no st-tag keep their incoming order, after.
+ */
+export function orderBySequence<T extends { systemTags?: string[] }>(items: T[]): T[] {
+  const st = (i: T) => getStGroup(i.systemTags ?? []);
+  const stOf = (i: T) => st(i) ?? Number.MAX_SAFE_INTEGER;
+  const sequenced = items.filter(i => st(i) !== null);
+  if (sequenced.length === 0) return items;
+  const rest = items.filter(i => st(i) === null);
+  const ordered = [...sequenced].sort((a, b) =>
+    stOf(a) - stOf(b) || getVersion(b.systemTags ?? []) - getVersion(a.systemTags ?? []));
+  return [...ordered, ...rest];
+}

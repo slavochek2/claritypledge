@@ -353,7 +353,7 @@ export function FeedStoryCard({
                 unmarked even for a reader who never clicks. */}
 
             {/* Tag pills */}
-            <TagPills tags={story.tags} context="feed" activeTag={activeTag} className="mt-2" />
+            <TagPills tags={story.tags} systemTags={story.systemTags} context="feed" activeTag={activeTag} className="mt-2" />
 
             {/* P1141: gated on identityPending too — the registry fails closed, and reading
                 isAgent while it loads renders an agent story as a human one.

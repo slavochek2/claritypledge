@@ -121,10 +121,15 @@ export const runtimeCaching: RuntimeCachingRule[] = [
       },
     },
   },
-  // Images — cache first. Never Supabase Storage (invariant 5).
+  // Images — cache first, SAME-ORIGIN ONLY. Never Supabase Storage (invariant 5).
+  // A fetch made by the service worker is governed by sw.js's CSP `connect-src`, not the page's
+  // `img-src`: intercepting a YouTube thumbnail (i.ytimg.com, img-src only) made every one of
+  // them fail to load once the worker was installed — the black video posters of 2026-10-01.
+  // Nothing is lost by not intercepting: a cross-origin <img> is a no-cors request, its opaque
+  // response is never cacheable here anyway.
   {
-    urlPattern: ({ url }: { url: URL }) =>
-      !/(^|\.)supabase\.co$/i.test(url.hostname) && /\.(?:png|jpg|jpeg|webp|gif)$/i.test(url.pathname),
+    urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
+      sameOrigin && /\.(?:png|jpg|jpeg|webp|gif)$/i.test(url.pathname),
     handler: 'CacheFirst',
     options: {
       cacheName: 'images',

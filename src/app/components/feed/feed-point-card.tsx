@@ -291,7 +291,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
             )}
 
             {/* Tag pills */}
-            <TagPills tags={point.tags} context="feed" activeTag={activeTag} className="mt-2" />
+            <TagPills tags={point.tags} systemTags={point.systemTags} context="feed" activeTag={activeTag} className="mt-2" />
 
             {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
                 (since P1366 into the `⋯` menu above); the row is the position buttons alone, so

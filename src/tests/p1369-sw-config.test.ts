@@ -69,6 +69,19 @@ describe('P1369: no service-worker rule touches Supabase', () => {
   });
 });
 
+describe('service-worker rules leave cross-origin images to the browser', () => {
+  // The worker's own fetch obeys sw.js's connect-src, which does not list image CDNs; an
+  // intercepted thumbnail therefore fails outright (founder, 2026-10-01: video with no thumbnail).
+  it.each([
+    'https://i.ytimg.com/vi/eRrc1pUY5oU/maxresdefault.jpg',
+    'https://i.ytimg.com/vi/eRrc1pUY5oU/hqdefault.jpg',
+    'https://images.unsplash.com/photo-1.jpg',
+    'https://lh3.googleusercontent.com/a/x.png',
+  ])('%s is matched by no runtimeCaching rule', (url) => {
+    expect(matchingRules({ url, mode: 'no-cors' }).map((r) => r.handler)).toEqual([]);
+  });
+});
+
 describe('P1369: the app shell boots offline from one build', () => {
   const navRule = runtimeCaching.find((r) => matches(r, { url: `${APP_ORIGIN}/x`, mode: 'navigate' }))!;
   const jsRule = runtimeCaching.find((r) => matches(r, { url: `${APP_ORIGIN}/assets/a.js` }))!;

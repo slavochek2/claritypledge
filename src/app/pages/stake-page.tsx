@@ -42,6 +42,7 @@ import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { isSafeTag } from '@/app/data/event-links';
+import { orderBySequence } from '@/lib/feed-utils';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
@@ -382,7 +383,9 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
   }, [tag, cacheKey, listFetchKey, dataFetchKey, loading, error, points, stories, storyPointsState, pointStoriesState, offlineRead.cachedAt]);
 
   // P1296 item 7 — stories built on one video gather under one player.
-  const storyEntries = useMemo(() => groupBySource(stories), [stories]);
+  // The tag's own st1, st2… order, not fetch (creation) order — see orderBySequence.
+  const orderedPoints = useMemo(() => orderBySequence(points), [points]);
+  const storyEntries = useMemo(() => groupBySource(orderBySequence(stories)), [stories]);
 
   const isEmpty = points.length === 0 && stories.length === 0;
 
@@ -488,7 +491,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
         ) : (
           <div className="space-y-4" data-testid="stake-list">
             {activeTab === 'points'
-              ? points.map(point => (
+              ? orderedPoints.map(point => (
                   <FeedPointCard
                     key={point.id}
                     point={point}
