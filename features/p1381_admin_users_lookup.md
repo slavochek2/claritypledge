@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 15
 created_date: '2026-10-01'
@@ -65,19 +65,19 @@ Build the approved prototype `/tree/admin-users` (`src/app/pages/prototypes/admi
 
 ## Acceptance Criteria
 
-- [ ] Signed in as the founder, `/admin/users` lists all users, including unverified ones
-- [ ] Typing part of a name or email narrows the list instantly; the clear button resets it
-- [ ] Filter chips show correct counts and filter the list
-- [ ] Pledgers show the blue ring; Google photos show where available
-- [ ] The most recently logged-in user is first; never-logged-in users show "Never logged in" and sit at the bottom
-- [ ] The LinkedIn icon opens the profile in a new tab; users without one show no icon
-- [ ] Clicking a row with a profile opens `/p/:slug`
-- [ ] Signed in as a non-admin, or signed out, `/admin/users` shows not-found, and calling the function directly returns no data (verified on **test** by curl). `[post-deploy]` re-verify on prod.
-- [ ] `pg_proc.proacl` for the function, read after applying on **test**, shows no `anon` or `PUBLIC` execute. `[post-deploy]` re-check on prod.
-- [ ] Test: a non-admin calling every profile-writing RPC with `is_admin: true` in the payload leaves `is_admin` false
-- [ ] Test: a LinkedIn value of `javascript:...` or `data:...` renders no icon
-- [ ] On any function error the page shows the generic not-found page; `/admin/users` is not in the sitemap
-- [ ] Layout holds at 320px, 375px and desktop with no overflow (long names and emails truncate)
+- [x] Signed in as the founder, `/admin/users` lists all users, including unverified ones
+- [x] Typing part of a name or email narrows the list instantly; the clear button resets it
+- [x] Filter chips show correct counts and filter the list
+- [x] Pledgers show the blue ring; Google photos show where available
+- [x] The most recently logged-in user is first; never-logged-in users show "Never logged in" and sit at the bottom
+- [x] The LinkedIn icon opens the profile in a new tab; users without one show no icon
+- [x] Clicking a row with a profile opens `/p/:slug`
+- [x] Signed in as a non-admin, or signed out, `/admin/users` shows not-found, and calling the function directly returns no data (verified on **test** by curl). `[post-deploy]` re-verify on prod.
+- [x] `pg_proc.proacl` for the function, read after applying on **test**, shows no `anon` or `PUBLIC` execute. `[post-deploy]` re-check on prod.
+- [x] Test: a non-admin calling every profile-writing RPC with `is_admin: true` in the payload leaves `is_admin` false
+- [x] Test: a LinkedIn value of `javascript:...` or `data:...` renders no icon
+- [x] On any function error the page shows the generic not-found page; `/admin/users` is not in the sitemap
+- [x] Layout holds at 320px, 375px and desktop with no overflow (long names and emails truncate)
 
 ## UX Notes
 
