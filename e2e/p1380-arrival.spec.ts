@@ -98,7 +98,7 @@ test.describe('P1380 arrival check-in', () => {
     await expect(page.getByTestId('arriving-venue')).toHaveText(VENUE);
     await expect(page.getByTestId('arriving-address')).toHaveText(LOCATION);
     await expect(page.getByTestId('arriving-map')).toHaveAttribute('href', /google\.com\/maps\/search/);
-    await expect(page.getByTestId('arriving-on-time')).toContainText('sharp (doors open');
+    await expect(page.getByTestId('arriving-on-time')).toContainText(/^We start at \d\d:\d\d sharp\.$/);
     expect(await arrivedAt(soon.id, u.user.id)).toBeNull();
     await shoot(page, 'arriving');
     await page.getByRole('button', { name: "I'm here now" }).click();
@@ -144,7 +144,7 @@ test.describe('P1380 arrival check-in', () => {
     await page.getByRole('button', { name: 'No, continue' }).click();
     // No statement tag on this event → no positions step.
     await page.getByRole('button', { name: 'No, thanks' }).click();
-    await expect(page.getByTestId('end-on-time')).toContainText('sharp (doors open');
+    await expect(page.getByTestId('end-on-time')).toContainText(/^We start at \d\d:\d\d sharp\.$/);
     await shoot(page, 'prep-end');
   });
 
@@ -162,12 +162,13 @@ test.describe('P1380 arrival check-in', () => {
 
     // Opening the page alone spends nothing (what a link scanner does).
     await page.goto(`/auth/event-link?ticket=${ticket}`);
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Continue as / })).toBeVisible();
+    await expect(page.getByTestId('event-link-event')).toHaveText(soon.title);
     const { data: unspent } = await supabaseAdmin.from('event_email_links').select('last_used_at').eq('rsvp_id', rsvp!.id).single();
     expect(unspent!.last_used_at).toBeNull();
     await shoot(page, 'continue');
 
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: /^Continue as / }).click();
     // Signed in, arrival recorded from ?arrived=1, then the preparation gate.
     await expect(page.getByTestId('prep-room-gate')).toBeVisible({ timeout: 20_000 });
     await expect.poll(() => arrivedAt(soon.id, u.user.id)).not.toBeNull();
@@ -176,7 +177,8 @@ test.describe('P1380 arrival check-in', () => {
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
     await page.goto(`/auth/event-link?ticket=${ticket}`);
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByTestId('event-link-reason')).toHaveText('This button has already been used. Sign in to continue.');
+    await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page).toHaveURL(/\/login\?redirect=/);
     expect(decodeURIComponent(page.url())).toContain(`/events/${soon.slug}/room?arrived=1`);
   });

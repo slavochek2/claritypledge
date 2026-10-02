@@ -43,7 +43,7 @@ type Row = {
   event_rsvps: {
     id: string;
     profile_id: string | null;
-    events: { slug: string | null; status: string; datetime: string; duration_minutes: number | null; host_id: string | null } | null;
+    events: { slug: string | null; title: string; status: string; datetime: string; duration_minutes: number | null; host_id: string | null } | null;
   } | null;
 };
 
@@ -59,15 +59,18 @@ serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   let ticket = '';
+  let peek = false;
   try {
-    const body = await req.json() as { t?: unknown };
+    const body = await req.json() as { t?: unknown; peek?: unknown };
     if (typeof body.t === 'string') ticket = body.t;
+    peek = body.peek === true;
   } catch { /* not JSON */ }
   if (!TICKET_RE.test(ticket)) return json({ error: 'invalid ticket' }, 400);
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return json({ to: '/events' });
 
-  const toLogin = (target: string | null) =>
-    json({ to: target ? `/login?redirect=${encodeURIComponent(target)}` : '/events' });
+  // `reason` lets the Continue page say WHY it is sending someone to normal sign-in.
+  const toLogin = (target: string | null, reason: 'used' | 'expired' | 'restricted' | 'unknown' = 'unknown') =>
+    json({ to: target ? `/login?redirect=${encodeURIComponent(target)}` : '/events', mode: 'login', reason });
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
@@ -76,22 +79,42 @@ serve(async (req: Request) => {
       .from('event_email_links')
       .select(`
         token_hash, purpose, expires_at,
-        event_rsvps!inner(id, profile_id, events!inner(slug, status, datetime, duration_minutes, host_id))
+        event_rsvps!inner(id, profile_id, events!inner(slug, title, status, datetime, duration_minutes, host_id))
       `)
       .eq('token_hash', tokenHash)
       .maybeSingle();
     const row = data as unknown as Row | null;
     const rsvp = row?.event_rsvps;
     const event = rsvp?.events;
-    if (!row || !isLinkPurpose(row.purpose) || !event?.slug) return toLogin(null);
+    if (!row || !isLinkPurpose(row.purpose) || !event?.slug) return toLogin(null, 'unknown');
 
     const target = purposePath(row.purpose, event.slug);
     if (event.status === 'cancelled') return json({ to: `/events/${encodeURIComponent(event.slug)}` });
     const expiresAt = Math.min(new Date(row.expires_at).getTime(), ticketExpiry(event).getTime());
-    if (expiresAt <= Date.now() || !rsvp?.profile_id) return toLogin(target);
-    if (rsvp.profile_id === event.host_id) return toLogin(target);
-    const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', rsvp.profile_id).maybeSingle();
-    if (prof?.is_admin) return toLogin(target);
+    if (expiresAt <= Date.now() || !rsvp?.profile_id) return toLogin(target, 'expired');
+    if (rsvp.profile_id === event.host_id) return toLogin(target, 'restricted');
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('is_admin, name, avatar_url, avatar_color, has_pledged')
+      .eq('id', rsvp.profile_id)
+      .maybeSingle();
+    if (prof?.is_admin) return toLogin(target, 'restricted');
+
+    // Peek: who this button is for, so the page can say "Continue as Anna" with her photo —
+    // the way Google's account chooser does. Spends nothing; the holder of the email already
+    // knows whose email it is. A used button answers like any used button.
+    if (peek) {
+      const { data: used } = await supabase.from('event_email_links').select('last_used_at').eq('token_hash', tokenHash).single();
+      if (used?.last_used_at) return toLogin(target, 'used');
+      return json({
+        mode: 'continue',
+        name: prof?.name ?? null,
+        avatarUrl: prof?.avatar_url ?? null,
+        avatarColor: prof?.avatar_color ?? null,
+        hasPledged: !!prof?.has_pledged,
+        eventTitle: event.title,
+      });
+    }
 
     // Spend the ticket BEFORE minting: two presses racing cannot both get a session.
     const { data: spent } = await supabase
@@ -101,7 +124,7 @@ serve(async (req: Request) => {
       .is('last_used_at', null)
       .select('token_hash')
       .maybeSingle();
-    if (!spent) return toLogin(target);
+    if (!spent) return toLogin(target, 'used');
 
     const { data: user, error: userErr } = await supabase.auth.admin.getUserById(rsvp.profile_id);
     const email = user?.user?.email;
@@ -115,7 +138,7 @@ serve(async (req: Request) => {
     }
 
     const params = new URLSearchParams({ token_hash: hashed, type: 'magiclink', redirect: target });
-    return json({ to: `/auth/verify?${params.toString()}` });
+    return json({ to: `/auth/verify?${params.toString()}`, mode: 'continue' });
   } catch (err) {
     console.error('event-email-link error:', err);
     return toLogin(null);

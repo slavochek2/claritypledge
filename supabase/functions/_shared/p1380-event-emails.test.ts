@@ -38,11 +38,8 @@ Deno.test('isOnlineLocation: only http(s) URLs', () => {
   assertFalse(isOnlineLocation('Zuzalu library, Chiang Mai'));
   assertFalse(isOnlineLocation('javascript:alert(1)'));
 });
-Deno.test('onTimeLine: start sharp, doors 15 min before, in the event time zone', () => {
-  assertEquals(
-    onTimeLine(night),
-    'We start at 18:30 sharp (doors open 18:15). Round 1 pairs whoever is in the room at 18:30; later arrivals join from round 2.',
-  );
+Deno.test('onTimeLine: one short line, 24-hour, in the event time zone', () => {
+  assertEquals(onTimeLine(night), 'We start at 18:30 sharp.');
 });
 
 // ── when the starting-soon email goes ────────────────────────────────────────
@@ -90,9 +87,17 @@ Deno.test('purposePath: destination fixed by purpose', () => {
 
 // ── email content ────────────────────────────────────────────────────────────
 
-Deno.test('confirmation: Prepare now only when a link is given', () => {
-  assertStringIncludes(buildConfirmation(night, 'Anna Lee', 'https://x/l?t=1').html, 'Prepare now');
+Deno.test('confirmation: registered, start sharp, the why before Prepare now', () => {
+  const html = buildConfirmation(night, 'Anna Lee', 'https://x/l?t=1').html;
+  assertStringIncludes(html, "You're registered for the event");
+  assertStringIncludes(html, 'We start at 18:30 sharp.');
+  assert(html.indexOf('Our events are different') < html.indexOf('Prepare now'));
   assertFalse(buildConfirmation(night, 'Anna Lee').html.includes('Prepare now'));
+  assertFalse(buildConfirmation({ ...night, preparation_enabled: false }, 'Anna').html.includes('sharp'));
+});
+Deno.test('starting soon: no start-time line (it lives in the registration email)', () => {
+  const m = buildStartingSoon(night, 'Anna', { arrivedUrl: 'a', notYetUrl: 'n', roomUrl: null });
+  assertFalse(m.html.includes('sharp'));
 });
 Deno.test('reminder: Preparation off → today\'s reminder, unchanged', () => {
   const hike = { ...night, preparation_enabled: false };
@@ -105,7 +110,7 @@ Deno.test('reminder: not started → about preparing, Prepare now', () => {
   const r = buildReminder(night, 'Anna', { prep: 'not_started', prepareUrl: 'https://x/l?t=1' });
   assertStringIncludes(r.subject, 'prepare before tomorrow');
   assertStringIncludes(r.html, 'Prepare now');
-  assertStringIncludes(r.html, '18:30 sharp');
+  assertStringIncludes(r.html, 'We start at 18:30 sharp.');
 });
 Deno.test('reminder: started → Finish preparing', () => {
   const r = buildReminder(night, 'Anna', { prep: 'started', prepareUrl: 'https://x/l?t=1' });

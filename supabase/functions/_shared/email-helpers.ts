@@ -239,14 +239,21 @@ export function buildConfirmation(
   prepareUrl?: string | null,
 ): { subject: string; html: string; text: string } {
   const subject = `You're in: ${event.title}`;
+  // P1380: the why first (the same words as the registration screen in the app), then the button.
   const prepareBlock = prepareUrl
-    ? `<p style="margin:20px 0 8px;">${emailButton('Prepare now', prepareUrl)}</p>`
+    ? `<p style="margin:20px 0 2px;font-size:16px;font-weight:600;color:#111827;">Our events are different</p>
+    <p style="margin:0 0 12px;font-size:15px;color:#4b5563;">We use a special structure, and we ask every participant to prepare. It takes about 10 minutes.</p>
+    <p style="margin:0 0 8px;">${emailButton('Prepare now', prepareUrl)}</p>`
+    : '';
+  const onTime = event.preparation_enabled
+    ? `<p style="margin:16px 0 0;font-size:15px;color:#111827;">${escapeHtml(onTimeLine(event))}</p>`
     : '';
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
-    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're registered for the event 🎉</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">We're looking forward to seeing you.</p>
+    ${onTime}
     ${prepareBlock}
     ${eventCard(event)}
     ${eventLink}
@@ -256,8 +263,11 @@ export function buildConfirmation(
     </p>
   `);
   const first = firstName(name);
-  const prepareText = prepareUrl ? `\n\nPrepare now: ${prepareUrl}` : '';
-  const text = `${first ? `Hi ${first},\n\n` : ''}You're going to: ${event.title}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}${prepareText}\n\nSee you there!\nClarity Pledge`;
+  const prepareText = prepareUrl
+    ? `\n\nOur events are different. We use a special structure, and we ask every participant to prepare. It takes about 10 minutes.\nPrepare now: ${prepareUrl}`
+    : '';
+  const onTimeText = event.preparation_enabled ? `\n\n${onTimeLine(event)}` : '';
+  const text = `${first ? `Hi ${first},\n\n` : ''}You're registered for: ${event.title}${onTimeText}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}${prepareText}\n\nSee you there!\nClarity Pledge`;
   return { subject, html, text };
 }
 
@@ -349,12 +359,11 @@ export function buildStartingSoon(
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <p style="margin:0 0 12px;font-size:16px;color:#111827;">${escapeHtml(why)}</p>
-    <p style="margin:0;font-size:15px;color:#111827;">${escapeHtml(onTimeLine(event))}</p>
     ${question}
     ${eventCard(event)}
   `);
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},\n\n` : ''}${why}\n\n${onTimeLine(event)}\n\n${questionText}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nClarity Pledge`;
+  const text = `${first ? `Hi ${first},\n\n` : ''}${why}\n\n${questionText}\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nClarity Pledge`;
   return { subject, html, text };
 }
 

@@ -41,9 +41,7 @@ describe('P1380 arrival text', () => {
     expect(isOnlineLocation('javascript:alert(1)')).toBe(false);
   });
   it('states the start sharp, doors 15 min before, in the event time zone', () => {
-    expect(onTimeLine(night.datetime, night.timezone)).toBe(
-      'We start at 18:30 sharp (doors open 18:15). Round 1 pairs whoever is in the room at 18:30; later arrivals join from round 2.',
-    );
+    expect(onTimeLine(night.datetime, night.timezone)).toBe('We start at 18:30 sharp.');
   });
   it('builds an encoded maps link', () => {
     expect(mapsUrl('A & B, C')).toBe('https://www.google.com/maps/search/?api=1&query=A%20%26%20B%2C%20C');

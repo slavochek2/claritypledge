@@ -123,10 +123,7 @@ function formatTime(d: Date, tz: string | null): string {
   }
 }
 
-/** Founder-approved 2026-10-01: start sharp, doors 15 minutes before, late arrivals from round 2. */
+/** Founder, 2026-10-02: one short line, no doors time, no rounds. */
 export function onTimeLine(event: { datetime: string; timezone: string | null }): string {
-  const start = new Date(event.datetime);
-  const doors = new Date(start.getTime() - 15 * 60 * 1000);
-  const t = formatTime(start, event.timezone);
-  return `We start at ${t} sharp (doors open ${formatTime(doors, event.timezone)}). Round 1 pairs whoever is in the room at ${t}; later arrivals join from round 2.`;
+  return `We start at ${formatTime(new Date(event.datetime), event.timezone)} sharp.`;
 }

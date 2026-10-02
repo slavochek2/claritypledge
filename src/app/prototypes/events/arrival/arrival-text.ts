@@ -39,16 +39,14 @@ function formatTime(d: Date, tz: string | undefined): string {
 }
 
 /**
- * Founder-approved 2026-10-01: start sharp, doors 15 minutes before, late arrivals from round 2.
+ * The "we start sharp" line (founder, 2026-10-02 wording).
  * `timeZone` omitted = the viewer's own zone, which is how every other time on these pages is
  * shown (the event card beside it) — the two must never disagree on one screen. Emails pass
  * the event's zone instead (no viewer zone on the server), as all event emails do.
  */
 export function onTimeLine(datetime: string, timeZone?: string): string {
-  const start = new Date(datetime);
-  const doors = new Date(start.getTime() - 15 * 60 * 1000);
-  const t = formatTime(start, timeZone);
-  return `We start at ${t} sharp (doors open ${formatTime(doors, timeZone)}). Round 1 pairs whoever is in the room at ${t}; later arrivals join from round 2.`;
+  // Founder, 2026-10-02: one short line, no doors time, no rounds.
+  return `We start at ${formatTime(new Date(datetime), timeZone)} sharp.`;
 }
 
 /** The room asks "Have you arrived?" from an hour before the start until the event ends. */
