@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 111
+**Next ID:** 113
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1921,5 +1921,20 @@ From the P1382 review (Opus, 2026-10-01): P913 suppresses 42501 on _is_letter_* 
 **due:** month
 
 Found by the room-sweep cost-leak review 2026-10-01 (Codex Sol executed it; Gemini concurred). Both predate the hourly change. (1) /process starts an unbounded background task per request and returns 202, so Cloud Tasks max 5 / Cloud Run concurrency 5 do not bound work: 20 requests ran 20 jobs at once on one instance. (2) STALE_PROCESSING_MINUTES=30 with no heartbeat, but a 180-min member recording is ~36 sequential 5-min Gemini calls, so /sweep can reset a job that is still running and a second worker re-processes it (double Gemini spend, racing transcript writes, can burn all 3 attempts). Low live risk today (8 jobs ever). Fix needs a service redeploy: semaphore around background work + heartbeat claimed_at (or stale threshold above the service 3600 s timeout).
+
+---
+
+<!-- Resolved 2026-10-02: P1379 applied to prod via migrate.sh --env prod --only (founder-approved); prod smoke 8/8. -->
+
+## Story-1 path for first-time visitors: pinned st1 story -> st1 letter -> verify live
+
+**ID:** INBOX-112
+**Date:** 2026-10-02
+**Status:** proposed
+**due:** month
+
+Founder idea (2026-10-02, during P1392): bring the st1 story forward for first-time visitors (pinned at the top of the Stories tab for signed-out visitors only), connect it to the st1 letter, and from there invite them to verify it live in /live with the founder.
+Deferred until P1392 (feed-first homepage) has run long enough to show whether the new "/" alone produces discovery-call bookings, so the two changes can be measured separately.
+Before building: write the success signal up front (e.g. N visitors reach the letter, M book or start a /live). Rejected for now: product walkthroughs, letter demo with dummy data, Clarity Organization explainer (explain-before-they-care pattern).
 
 ---
