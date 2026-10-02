@@ -1,15 +1,15 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 301
 created_date: '2026-09-11'
 tags: [design-system, ui, consistency]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-02
 ---
 
 # P1308: One blue for primary buttons — audit and settle the app's button colours
