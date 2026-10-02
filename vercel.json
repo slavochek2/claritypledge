@@ -157,6 +157,16 @@
       "permanent": false
     },
     {
+      "source": "/spiritual-revolution",
+      "destination": "/api/series-redirect?series=spiritual-revolution",
+      "permanent": false
+    },
+    {
+      "source": "/events/spiritual-revolution",
+      "destination": "/api/series-redirect?series=spiritual-revolution",
+      "permanent": false
+    },
+    {
       "source": "/hike",
       "destination": "/api/series-redirect?series=hike",
       "permanent": false

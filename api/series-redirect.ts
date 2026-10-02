@@ -17,6 +17,8 @@ const SERIES: Record<string, string> = {
   // upcoming one. Matches the series prefix because the title convention is
   // "Clarity Night #N: <topic>" — see docs/events/clarity-practice-event.md.
   'night': 'Clarity Night%',
+  // Philip Keay's self-inquiry workshops (guest host, Communication Activism CM).
+  'spiritual-revolution': 'A Spiritual Revolution%',
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
