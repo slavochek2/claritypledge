@@ -170,23 +170,27 @@ for (const phone of PHONES) {
       await page.getByRole('button', { name: 'Opt in' }).click();
       await page.getByRole('button', { name: 'Try it now' }).click();
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeVisible();
-      // The rating panel docks over the certificate (founder's choice) — question, 0-10 and Confirm
-      // only; the host line sits above the certificate, not in the panel.
+      // The rating panel docks over the certificate (founder's choice): who asks, the question, 0-10
+      // and Confirm — all in the drawer, next to the answer.
       await check('rating', 0.5, false);
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeInViewport();
       expect(await onTop(page, 'Rate 7'), 'Rate 7 is tappable').toBe(true);
-      await expect(page.getByTestId('rating-question')).toBeVisible();
-      expect(await page.getByTestId('rating-host').evaluate((el) => {
-        for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return true;
-        return false;
-      }), 'host line is in the page, not in the docked panel').toBe(false);
+      await expect(page.getByTestId('rating-host')).toBeInViewport();
+      await expect(page.getByText('How much do you think you understand my intended meaning behind this principle?')).toBeInViewport();
       await page.getByRole('button', { name: 'Rate 7' }).click();
       await page.getByRole('button', { name: 'Confirm' }).click();
       await expect(page.getByRole('heading', { name: /value perception/ })).toBeVisible();
-      await check('cmp7');
+      // Points steps: progress + Continue + the Skip link under it (founder's stacked choice, for
+      // more answers) — a taller bar than the one-row steps.
+      await check('cmp7', 0.28);
+      // Continue is the main action even before every point is answered; a tap says what is missing.
+      expect(await onTop(page, 'Continue'), 'Continue is tappable').toBe(true);
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
+      await expect(page.getByTestId('answer-hint')).toHaveText(/^Set your position on all \d+ points to continue\.$/);
+      await expect(page.getByRole('heading', { name: /value perception/ })).toBeVisible();
       await page.getByRole('button', { name: 'Skip and proceed' }).click();
       await expect(page.getByRole('heading', { name: /Set your positions/ })).toBeVisible();
-      await check('positions');
+      await check('positions', 0.28);
       await page.getByRole('button', { name: 'Skip and proceed' }).click();
       await expect(page.getByRole('heading', { name: /volunteers/ })).toBeVisible();
       await check('research');

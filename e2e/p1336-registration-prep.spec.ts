@@ -170,10 +170,10 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('try-it-now')).toContainText("Thank you for opting in. You promised that anybody at the event can ask you a specific question, right? Let's try it now, to show how it works.");
     await expect(page.getByTestId('host-caption')).toContainText('P1336 E2E Host');
     await page.getByRole('button', { name: 'Try it now' }).click();
-    // P1387 (founder, 2026-10-02): the question sits with the host above the principle; the docked
-    // panel holds only 0-10 and Confirm.
-    await expect(page.getByTestId('rating-context')).toHaveText('Thanks for trying it. My question:');
-    await expect(page.getByTestId('rating-question')).toHaveText("How much do you think you understand P1336's intended meaning behind this principle?");
+    // P1387 (founder, 2026-10-02): who asks and the question sit in the drawer, next to 0-10 — a small
+    // avatar + "{host} · Your event host", and the question in the host's own voice.
+    await expect(page.getByTestId('rating-host')).toContainText('P1336 E2E Host · Your event host');
+    await expect(page.getByText('How much do you think you understand my intended meaning behind this principle?')).toBeVisible();
     await page.getByRole('button', { name: 'Rate 7' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();
 

@@ -134,25 +134,19 @@ const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?
   },
 );
 
-/** Two actions side by side: both real buttons of the same size (founder, 2026-10-02) — the
- *  secondary outlined, the primary filled, as on the volunteer step's Yes / No. */
+/** The main action as the blue button, the alternative as a small link under it (founder,
+ *  2026-10-02 — one rule; equal choices like the volunteer Yes / No are two buttons instead). */
 function ActionRow({ primary, secondary }: { primary: ReactNode; secondary?: ReactNode }) {
   return (
-    <div className={cn('grid w-full max-w-sm gap-2', secondary ? 'grid-cols-2' : 'grid-cols-1')}>
-      {secondary}
+    <div className="flex w-full max-w-sm flex-col items-center gap-1">
       {primary}
+      {secondary}
     </div>
   );
 }
 
-/** The outlined twin of LetterPrimaryCta's filled pill, for ActionRow. */
-function OutlineCta({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button onClick={onClick} size="lg" variant="outline" className="h-auto min-h-14 w-full min-w-0 whitespace-normal rounded-full px-3 text-base">
-      {label}
-    </Button>
-  );
-}
+const answerHintText = (total: number) => `Set your position on all ${total} points to continue.`;
+
 
 /** lg and up: the step actions sit in the page, so no space is reserved for a pinned bar. */
 function useIsDesktop(): boolean {
@@ -305,7 +299,6 @@ const numberWord = (n: number) => NUMBER_WORDS[n] ?? String(n);
 const joinNames = (names: string[]) =>
   names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
-const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 
 // ─── flow ──────────────────────────────────────────────────────────────────────────────
 
@@ -358,6 +351,9 @@ function PrepFlow({
   const [principleRating, setPrincipleRating] = useState<number | null>(null);
   const [researchInfoOpen, setResearchInfoOpen] = useState(false);
   const [micAsked, setMicAsked] = useState(false);
+  // The dimmed Continue's hint, shown on tap; cleared on every new screen.
+  const [answerHint, setAnswerHint] = useState(false);
+  useEffect(() => setAnswerHint(false), [screen]);
   const [micSetup, setMicSetup] = useState<MicSetup | null>(prep?.micSetup ?? null);
   const [researchSaving, setResearchSaving] = useState(false);
   const [placesLeft, setPlacesLeft] = useState<number | null>(null);
@@ -576,7 +572,6 @@ function PrepFlow({
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;
   const topic = eventTopic(event.title);
-  const hostFirst = firstName(event.hostName);
   const stepIndex = screen !== 'plan' && screen !== 'end' ? plan.indexOf(screen) : -1;
 
   const statementsBar = (count: Count, loaded: boolean) => {
@@ -600,13 +595,22 @@ function PrepFlow({
             />
           </div>
         )}
-        {/* One action at a time (P1387 review): Skip until every point is answered, then Continue —
-            never a greyed-out Continue that reads as dead. */}
-        {allSet ? (
-          <LetterPrimaryCta label="Continue" onClick={() => next('completed')} />
-        ) : (
-          <div className="w-full max-w-sm"><OutlineCta label="Skip and proceed" onClick={() => next('skipped')} /></div>
+        {/* Founder (2026-10-02): Continue is the main action, dimmed until every point is answered —
+            a tap (phone) or hover (desktop) says what is missing — with Skip as a small link under
+            it, so more people answer. Not `disabled`: a disabled button cannot explain itself. */}
+        <div className="w-full max-w-sm" title={allSet ? undefined : answerHintText(count.total)}>
+          <LetterPrimaryCta
+            label="Continue"
+            onClick={() => (allSet ? next('completed') : setAnswerHint(true))}
+            className={allSet ? undefined : 'opacity-50 hover:bg-[#0044CC]'}
+          />
+        </div>
+        {!allSet && answerHint && (
+          <p role="status" className="pt-1 text-center text-sm text-foreground" data-testid="answer-hint">
+            {answerHintText(count.total)}
+          </p>
         )}
+        {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={() => next('skipped')} variant="secondary" />}
       </StepActions>
     );
   };
@@ -627,7 +631,7 @@ function PrepFlow({
   );
   const markPlayed = (clip: VideoKey) => () => setClipPlayed((p) => ({ ...p, [clip]: true }));
 
-  const hostAvatar = (size: 'md' | 'xl') => (
+  const hostAvatar = (size: 'sm' | 'md' | 'xl') => (
     <GravatarAvatar
       name={event.hostName}
       photoUrl={event.hostAvatarUrl ?? undefined}
@@ -694,32 +698,13 @@ function PrepFlow({
           onRatingChange={setPrincipleRating}
           onRatingSubmit={() => void confirmRating()}
           submitLabel="Confirm"
-          question=""
+          question="How much do you think you understand my intended meaning behind this principle?"
           header={
             answer === null ? (
               <h1 className="pt-2 text-center text-2xl font-bold leading-tight text-foreground" data-testid="principle-decision-question">
                 Do you want to follow this principle with the attendees at the event?
               </h1>
-            ) : (
-              // P1387 (founder, 2026-10-02): the host's line sits above the certificate, not in the
-              // docked question panel — the panel holds only the question, 0-10 and Confirm.
-              <div className="flex items-center gap-3 px-2 pb-2 sm:px-5" data-testid="rating-host">
-                {hostAvatar('md')}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {event.hostName} <span className="font-normal text-muted-foreground">· Your event host</span>
-                  </p>
-                  {/* P1387 (founder, 2026-10-02): the question sits here, with the host — the docked
-                      panel keeps only 0-10 and Confirm, so the principle stays readable. */}
-                  <p className="text-sm text-foreground" data-testid="rating-context">
-                    {answer === 'in' ? 'Thanks for trying it. My question:' : 'Thanks for letting me ask. My question:'}
-                  </p>
-                  <p className="pt-1 text-lg font-semibold leading-snug text-foreground" data-testid="rating-question">
-                    How much do you think you understand {hostFirst}&apos;s intended meaning behind this principle?
-                  </p>
-                </div>
-              </div>
-            )
+            ) : undefined
           }
           aboveChoice={
             optedInLine ? (
@@ -729,6 +714,17 @@ function PrepFlow({
             ) : undefined
           }
           ratingBarClassName="animate-in slide-in-from-bottom duration-300"
+          // P1387 (founder, 2026-10-02): who asks sits IN the drawer, next to the answer — a small
+          // avatar and one line — and the question is in the host's own voice ("my"), so it relates
+          // to the principle above without a long name in it.
+          aboveRating={
+            <div className="flex items-center gap-2 px-2 pb-1 sm:px-5" data-testid="rating-host">
+              {hostAvatar('sm')}
+              <p className="text-sm font-semibold text-foreground">
+                {event.hostName} <span className="font-normal text-muted-foreground">· Your event host</span>
+              </p>
+            </div>
+          }
         />
       ) : (
         <main className="mx-auto max-w-2xl space-y-6 px-4 pt-4" style={contentPadding}>
@@ -841,7 +837,7 @@ function PrepFlow({
               <StepActions ref={barRef}>
                 <ActionRow
                   primary={<LetterPrimaryCta label={answer === 'in' ? 'Try it now' : 'Yes'} onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }} />}
-                  secondary={answer === 'out' ? <OutlineCta label="No, continue" onClick={() => next()} /> : undefined}
+                  secondary={answer === 'out' ? <LetterPrimaryCta label="No, continue" onClick={() => next()} variant="secondary" /> : undefined}
                 />
               </StepActions>
             </section>
@@ -1030,7 +1026,7 @@ function PrepFlow({
                           <LetterPrimaryCta label="Back to the event" onClick={toEvent} />
                         )
                       }
-                      secondary={fromRoom || hasStories ? <OutlineCta label="Back to the event" onClick={toEvent} /> : undefined}
+                      secondary={fromRoom || hasStories ? <LetterPrimaryCta label="Back to the event" onClick={toEvent} variant="secondary" /> : undefined}
                     />
                   </StepActions>
                   )}
