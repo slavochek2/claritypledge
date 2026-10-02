@@ -42,11 +42,12 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
     expect(feed).toMatch(/\{showPinned && <PinnedStory onResolved=\{setPinnedId\} \/>\}/);
     expect(feed).toMatch(/s\.id !== pinnedId && !\(s\.tags \?\? \[\]\)\.includes\(PINNED_STORY_SLUG\)/);
   });
-  it('is a compact bar that opens the story page (where its video and points live)', () => {
+  it('P1397: expands the full story in place (no navigation), with no point-pin icon', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
-    expect(pin).toMatch(/to=\{`\/story\/\$\{storyId\}`\}/);
-    expect(pin).not.toMatch(/FeedStoryCard/);
+    expect(pin).toMatch(/aria-expanded=\{open\}/);
+    expect(pin).toMatch(/<FeedStoryCard story=\{story\} linkedPoints=\{points\} \/>/);
+    expect(pin).not.toMatch(/PinIcon|<Link/);
   });
 });
 

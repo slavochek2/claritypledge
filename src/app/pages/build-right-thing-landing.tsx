@@ -96,9 +96,8 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
   );
 }
 
-/** Sits under EVERY AuditCTA — carries the 15-minute disclosure so the "audit" CTA never
- *  hides that the click books a call. One constant so copies can't drift. */
-const AUDIT_MICROCOPY = "Starts with a 15-min call.";
+/* P1397 (founder): no microcopy under the CTA — "Book a 15-min discovery call" already
+   discloses the 15-minute call that "Starts with a 15-min call." used to carry. */
 
 /** The single primary action on the page (P955): "Book a 15-min discovery call" → /intro.
  *  P1004 wires the CTA into the P1003 audit funnel by reusing this — /intro is the audit
@@ -200,7 +199,6 @@ export function BuildRightThingLanding() {
 
             <div className="flex flex-col items-center gap-3 pt-6">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
               <p className="text-muted-foreground">
                 or{" "}
                 <Link
@@ -420,7 +418,6 @@ export function BuildRightThingLanding() {
                 H2 keeps the close; this restated it in mechanism terms. */}
             <div className="mt-12 flex flex-col items-center gap-3">
               <AuditCTA size="hero" />
-              <p className="text-sm text-muted-foreground">{AUDIT_MICROCOPY}</p>
             </div>
           </Reveal>
         </section>
