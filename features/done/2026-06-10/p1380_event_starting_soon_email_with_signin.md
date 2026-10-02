@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1
 workstream: events
@@ -9,7 +9,6 @@ tags:
   - email
   - auth
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 driver: anomaly
@@ -18,6 +17,7 @@ blocked_by:
 related:
   - p1336
   - p1256
+completed_at: 2026-10-02
 ---
 
 # P1380: "Starting in 15 minutes" email with arrival check-in, and one-click sign-in links in event emails
@@ -26,7 +26,7 @@ related:
 > **Founder framing, verbatim (2026-09-30):** "maybe we send a reminder email just before like 15 minutes before the event starts and clicking on that link by the way should log them in right automatically and then open this up"
 
 
-Split from [P1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) (founder decision
+Split from [P1336](p1336_registration_carries_opt_in_prep_and_survey.md) (founder decision
 2026-10-01). Registrants who did not prepare, or who forget the start time, need a nudge that opens
 the room (or their unfinished prep) already signed in. Today every event email links to the plain
 event page and none sign in.
