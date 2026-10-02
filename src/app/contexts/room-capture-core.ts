@@ -215,6 +215,8 @@ export interface PauseInputs {
   liveSessionActive: boolean;
   /** The recorder tapped Pause and has not tapped Resume. */
   manualPaused: boolean;
+  /** The person tapped Resume: a leftover /live record no longer holds the pause. */
+  userResumed?: boolean;
 }
 
 /**
@@ -228,7 +230,7 @@ export function decidePauseTransition(i: PauseInputs): 'pause' | 'resume' | null
     i.manualPaused ||
     i.pauseLocation ||
     i.explainBackHolds > 0 ||
-    (i.phase === 'paused' && i.liveSessionActive);
+    (i.phase === 'paused' && i.liveSessionActive && !i.userResumed);
   if ((i.phase === 'capturing' || i.phase === 'stalled') && wantPaused) return 'pause';
   if (i.phase === 'paused' && !wantPaused) return 'resume';
   return null;

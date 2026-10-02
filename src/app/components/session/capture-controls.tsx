@@ -16,8 +16,9 @@ import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
 
 export function PauseResumeButton() {
-  const { phase, manualPaused, pauseMine, resumeMine } = useRoomCapture();
+  const { phase, manualPaused, pauseMine, resumeMine, micLost } = useRoomCapture();
   if (phase === 'observing') return null; // another tab holds the mic; it pauses there
+  if (micLost) return null; // nothing to pause; Stop transcribing is the action
   const paused = phase === 'paused' && manualPaused;
   return (
     <button

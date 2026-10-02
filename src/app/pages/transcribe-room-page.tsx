@@ -479,16 +479,22 @@ function TranscribeCaptureRow() {
   const status = useCaptureStatus();
   const healthy = !status.warn && phase !== 'paused';
   return (
-    <div className="flex items-center gap-2 mb-3" data-testid="transcribe-listening-indicator" role="status">
-      {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-      <span
-        className={`text-xs flex-1 min-w-0 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
-        data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
-      >
-        {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
-      </span>
-      <CaptureInfoButton />
-      <PauseResumeButton />
+    // Phone: the status line gets the full width and the controls sit under it, right-aligned —
+    // squeezed into one row at 320px the line broke into four.
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-3" data-testid="transcribe-listening-indicator" role="status">
+      <div className="flex items-center gap-2 basis-full sm:basis-auto sm:flex-1 min-w-0">
+        {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+        <span
+          className={`text-xs min-w-0 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
+          data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
+        >
+          {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
+        </span>
+      </div>
+      <div className="flex items-center gap-1 ml-auto">
+        <CaptureInfoButton />
+        {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
+      </div>
     </div>
   );
 }

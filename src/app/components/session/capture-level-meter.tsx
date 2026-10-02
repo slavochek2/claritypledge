@@ -41,8 +41,12 @@ export function CaptureLevelMeter({ active }: { active: boolean }) {
       peak = Math.max(peak, rms);
       if (!frame) frame = requestAnimationFrame(paint);
     });
+    // When levels stop arriving altogether (iOS suspends the audio graph on screen lock), keep
+    // decaying, so the meter goes flat instead of freezing on the last word.
+    const decay = setInterval(() => { if (!frame) paint(); }, 250);
     return () => {
       unsubscribe();
+      clearInterval(decay);
       if (frame) cancelAnimationFrame(frame);
       // Paused or stopped: show flat, never the last level frozen in place.
       node.querySelectorAll('i').forEach((bar) => { bar.dataset.lit = 'false'; });

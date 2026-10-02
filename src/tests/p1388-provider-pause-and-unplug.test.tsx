@@ -169,3 +169,69 @@ describe('P1388: manual pause at the provider', () => {
     await waitFor(() => expect(ctx.micLost).toBe(true));
   });
 });
+
+/** Review HIGH 1–3: each reproduces an await the world changes under. */
+describe('P1388 review: setup races', () => {
+  const gum = () => navigator.mediaDevices.getUserMedia as unknown as ReturnType<typeof vi.fn>;
+
+  it('HIGH 1 — Stop during unplug recovery: the mic opened afterwards is closed, nothing records', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    let release!: () => void;
+    const late = { stop: vi.fn(), onended: null as (() => void) | null };
+    gum().mockImplementationOnce(() => new Promise((r) => { release = () => r({ getTracks: () => [late] }); }));
+    await act(async () => { tracks.list[0].onended?.(); });
+    await waitFor(() => expect(gum()).toHaveBeenCalledTimes(2));
+    await act(async () => { await ctx.endMyCapture('r1'); });
+    const recordersBefore = FakeRecorder.last;
+    await act(async () => { release(); await Promise.resolve(); });
+    expect(late.stop, 'the late stream must be stopped').toHaveBeenCalled();
+    expect(FakeRecorder.last, 'no recorder is created on it').toBe(recordersBefore);
+  });
+
+  it('HIGH 2 — Pause while the slice recorder is still starting: it is stopped on arrival, nothing is sent', async () => {
+    const { createSliceRecorder } = await import('@/lib/audio/slice-recorder');
+    let finish!: () => void;
+    const lateSlices = { stop: vi.fn() };
+    let onSlice: ((w: unknown, n: number) => void) | null = null;
+    (createSliceRecorder as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      (_s: unknown, opts: { onSlice: (w: unknown, n: number) => void }) => new Promise((r) => {
+        onSlice = opts.onSlice;
+        finish = () => r(lateSlices);
+      }),
+    );
+    render(tree());
+    let started!: Promise<unknown>;
+    await act(async () => { started = ctx.startCapture({ eventId: 'e1', displayName: 'A' }); await Promise.resolve(); });
+    await waitFor(() => expect(onSlice).not.toBeNull());
+    await act(async () => { ctx.pauseMine(); });
+    await act(async () => { finish(); await started; });
+    expect(lateSlices.stop, 'a slice recorder that finished starting mid-pause must stop').toHaveBeenCalled();
+    expect(FakeRecorder.last!.state).toBe('paused');
+  });
+
+  it('HIGH 3 — unplug while paused: the new mic is opened but the recorder does not start until Resume', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    await act(async () => { ctx.pauseMine(); });
+    const startsBefore = sliceState.started;
+    await act(async () => { tracks.list[0].onended?.(); });
+    await waitFor(() => expect(tracks.list).toHaveLength(2));
+    const rec = FakeRecorder.last!;
+    expect(rec.state, 'recorder on the new mic must not record during the pause').toBe('inactive');
+    expect(sliceState.started, 'no slices during the pause').toBe(startsBefore);
+    await act(async () => { ctx.resumeMine(); });
+    expect(rec.state).toBe('recording');
+    expect(sliceState.started).toBe(startsBefore + 1);
+  });
+
+  it('MEDIUM 6 — Resume is honoured despite a leftover /live record', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    await act(async () => { ctx.pauseMine(); });
+    localStorage.setItem('cp_active_session', JSON.stringify({ code: 'X', partnerName: 'B', role: 'creator', timestamp: new Date().toISOString() }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'cp_active_session' }));
+    await act(async () => { ctx.resumeMine(); });
+    expect(ctx.phase).toBe('capturing');
+  });
+});

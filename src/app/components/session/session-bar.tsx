@@ -92,7 +92,9 @@ export function SessionBar({
         )}
 
         {hasActions && (
-          <div className="flex items-center gap-4 sm:flex-row">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:flex-row sm:flex-nowrap">
+            {/* P1388: wraps rather than overflows — at 320px Pause + Open + Stop transcribing do
+                not fit one row, and the stop control was pushed off-screen. */}
             {extra}
             {primary && (
               <button

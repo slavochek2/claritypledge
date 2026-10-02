@@ -289,7 +289,22 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const [inputSilent, setInputSilent] = useState(false);
   const [micLost, setMicLost] = useState(false);
   const [micSwitched, setMicSwitched] = useState(false);
+  /** A Resume the person tapped outranks a leftover /live record (it is not /live, an
+   *  explain-back or a letter screen — those still hold the pause). */
+  const [userResumed, setUserResumed] = useState(false);
   const levelListeners = useRef(new Set<(rms: number) => void>());
+  /**
+   * P1388 review, HIGH 1–3. Every media setup awaits (getUserMedia, AudioContext.resume,
+   * addModule) and the world can change during the await. Two latches are re-read AFTER each:
+   *   - genRef: bumped by every stop. A setup that started under an older generation closes
+   *     what it opened — otherwise a mic opened during recovery outlived Stop transcribing.
+   *   - pausedRef: set by pauseMedia, cleared by resumeMedia. A recorder that finishes setting
+   *     up mid-pause does not record, and no slice is sent while it is set — otherwise a Pause
+   *     tapped during the slice recorder's start-up left live text running under "Paused".
+   */
+  const genRef = useRef(0);
+  const pausedRef = useRef(false);
+  const micSwitchedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const media = useRef<MediaHandles>(emptyHandles());
   const stateRef = useRef(state);
@@ -356,6 +371,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const startSlices = useCallback(async (roomId: string) => {
     const h = media.current;
     if (!h.stream) return;
+    const gen = genRef.current;
     const send = createSerialSender(
       (wav, sequence) => sendAudioSlice(roomId, sequence, wav),
       {
@@ -374,8 +390,12 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
         },
       },
     );
-    h.slices = await createSliceRecorder(h.stream, {
-      onSlice: send,
+    const slices = await createSliceRecorder(h.stream, {
+      // Nothing leaves while paused or after this capture ended, whatever the recorder emits.
+      onSlice: (wav, sequence) => {
+        if (pausedRef.current || genRef.current !== gen) return;
+        send(wav, sequence);
+      },
       onError: (err) => console.error('[room-capture] slice recorder error:', err),
       onLevel: (rms) => {
         const now = Date.now();
@@ -384,6 +404,14 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
         for (const listener of levelListeners.current) listener(rms);
       },
     });
+    if (pausedRef.current || genRef.current !== gen || h.slices) {
+      // Paused, ended, or a newer start won the race while this one was setting up.
+      slices.stop();
+      return;
+    }
+    h.slices = slices;
+    // No level could arrive while the tap was being built; the silence clock starts now.
+    h.lastSignalAt = Date.now();
   }, []);
 
   /**
@@ -397,6 +425,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // Bound now, synchronously: every caller clears storedRef right after this returns, and the
     // recorder's onstop runs later.
     const record = storedRef.current;
+    genRef.current += 1;
+    pausedRef.current = false;
     if (h.chunkTimer) clearInterval(h.chunkTimer);
     h.chunkTimer = null;
     // Order matters: the slice recorder stops (and flushes its final partial slice) before the
@@ -448,7 +478,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     const h = media.current;
     // Plain { audio: true }, never a stored deviceId: after a USB-C mic is unplugged its id is
     // stale, and the OS default (the built-in mic, or the next plugged-in one) is what we want.
+    const gen = genRef.current;
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (genRef.current !== gen) {
+      // The capture ended (Stop, sign-out, a hard stop) while the mic was being opened.
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
     h.stream = stream;
     h.lastSignalAt = Date.now();
     // P1388: a track ENDS when its source disconnects (Media Capture spec), with no fallback.
@@ -461,6 +497,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) h.chunkParts.push(e.data);
     };
+    // Opened during a pause (unplug recovery, or Pause tapped while the mic was starting):
+    // hold the stream, record nothing. resumeMedia starts the recorder and the slices.
+    if (pausedRef.current) return;
     recorder.start();
     startArchiveTimer(recorder);
     void prewarmSlicePath(roomId).catch((err) => console.warn('[room-capture] pre-warm failed (non-fatal):', err));
@@ -477,6 +516,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   /** Decision 8 (T3: hold). Only these two functions change if the iPhone measurement flips it. */
   const pauseMedia = useCallback(() => {
     const h = media.current;
+    pausedRef.current = true;
     if (h.chunkTimer) clearInterval(h.chunkTimer);
     h.chunkTimer = null;
     h.slices?.stop();
@@ -491,8 +531,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const resumeMedia = useCallback(async (roomId: string) => {
     const h = media.current;
     const recorder = h.recorder;
+    pausedRef.current = false;
     if (!recorder || !h.stream) return;
     if (recorder.state === 'paused') recorder.resume();
+    else if (recorder.state === 'inactive') recorder.start(); // opened during the pause
+    if (h.chunkTimer) clearInterval(h.chunkTimer);
     startArchiveTimer(recorder);
     try {
       await startSlices(roomId);
@@ -519,24 +562,45 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     h.recorder = null;
     h.stream?.getTracks().forEach((t) => t.stop());
     h.stream = null;
+    const gen = genRef.current;
     if (old && old.state !== 'inactive') {
       await new Promise<void>((resolve) => {
-        old.onstop = () => { enqueueChunk(false); resolve(); };
+        old.onstop = () => resolve();
         old.stop();
       });
     }
-    if (storedRef.current?.roomId !== roomId) return; // ended meanwhile
+    // Also when the recorder had already stopped itself as its track ended: its final data is
+    // already in chunkParts, and startMedia would otherwise clear it.
+    enqueueChunk(false);
+    if (genRef.current !== gen || storedRef.current?.roomId !== roomId) return; // ended meanwhile
     try {
       await startMedia(roomId);
+      if (genRef.current !== gen || !h.stream) return;
       setMicLost(false);
       setMicSwitched(true);
-      setTimeout(() => setMicSwitched(false), MIC_SWITCHED_NOTICE_MS);
-      if (stateRef.current.phase === 'paused') pauseMedia();
+      if (micSwitchedTimer.current) clearTimeout(micSwitchedTimer.current);
+      micSwitchedTimer.current = setTimeout(() => setMicSwitched(false), MIC_SWITCHED_NOTICE_MS);
     } catch (err) {
       console.error('[room-capture] microphone lost and could not be re-opened:', err);
     }
-  }, [enqueueChunk, startMedia, pauseMedia]);
+  }, [enqueueChunk, startMedia]);
   trackEndedRef.current = (roomId: string) => void recoverFromTrackEnded(roomId);
+
+  // A lost mic is retried when a device appears (plugged back in, or another one), rather than
+  // leaving Stop as the only way out.
+  useEffect(() => {
+    if (!micLost || !state.roomId || !navigator.mediaDevices?.addEventListener) return;
+    const roomId = state.roomId;
+    const retry = () => {
+      if (media.current.stream || storedRef.current?.roomId !== roomId) return;
+      const gen = genRef.current;
+      void startMedia(roomId).then(() => {
+        if (genRef.current === gen && media.current.stream) setMicLost(false);
+      }).catch((err) => console.warn('[room-capture] mic still unavailable:', err));
+    };
+    navigator.mediaDevices.addEventListener('devicechange', retry);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', retry);
+  }, [micLost, state.roomId, startMedia]);
 
   const teardownLocal = useCallback((forgetRecord: boolean) => {
     stopMedia();
@@ -763,7 +827,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { phase, roomId } = state;
     if (!roomId) return;
-    const transition = decidePauseTransition({ phase, pauseLocation, explainBackHolds, liveSessionActive, manualPaused });
+    const transition = decidePauseTransition({ phase, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed });
     if (transition === 'pause') {
       dispatch({ type: 'PAUSE_REQUESTED', reason: manualPaused ? 'manual' : pauseLocation ? 'location' : 'explain-back' });
       pauseMedia();
@@ -771,12 +835,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'RESUME_REQUESTED' });
       void resumeMedia(roomId);
     }
-  }, [state, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, pauseMedia, resumeMedia]);
+  }, [state, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed, pauseMedia, resumeMedia]);
 
   // A manual pause belongs to one capture: when it ends, the next one starts unpaused.
   useEffect(() => {
     if (state.phase === 'idle') {
       setManualPaused(false);
+      setUserResumed(false);
       setMicLost(false);
       setInputSilent(false);
     }
@@ -784,20 +849,34 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
 
   // P1388: every silent failure (iOS lock, a muted track, a dead input) writes zeros, never an
   // error. Checked only while actually capturing — a pause is silent on purpose.
+  // Keyed on "running", not the phase: a capturing ⇄ stalled flap must not restart the clock,
+  // or a flap faster than the threshold would hide a dead input for good.
+  const running = state.phase === 'capturing' || state.phase === 'stalled';
   useEffect(() => {
-    if (state.phase !== 'capturing' && state.phase !== 'stalled') {
+    if (!running) {
       setInputSilent(false);
       return;
     }
     media.current.lastSignalAt = Date.now();
     const timer = setInterval(() => {
-      setInputSilent(Date.now() - media.current.lastSignalAt > SILENCE_WARN_AFTER_MS);
+      const h = media.current;
+      // No tap running (starting up, or live text failed to start) means no level to judge —
+      // not silence. Saying "no sound" there would blame a mic that is recording fine.
+      if (!h.slices) h.lastSignalAt = Date.now();
+      setInputSilent(Date.now() - h.lastSignalAt > SILENCE_WARN_AFTER_MS);
     }, 1_000);
     return () => clearInterval(timer);
-  }, [state.phase]);
+  }, [running]);
 
-  const pauseMine = useCallback(() => setManualPaused(true), []);
-  const resumeMine = useCallback(() => setManualPaused(false), []);
+  const pauseMine = useCallback(() => {
+    if (stateRef.current.phase !== 'capturing' && stateRef.current.phase !== 'stalled') return;
+    setUserResumed(false);
+    setManualPaused(true);
+  }, []);
+  const resumeMine = useCallback(() => {
+    setManualPaused(false);
+    setUserResumed(true);
+  }, []);
   const subscribeLevel = useCallback((listener: (rms: number) => void) => {
     levelListeners.current.add(listener);
     return () => { levelListeners.current.delete(listener); };
