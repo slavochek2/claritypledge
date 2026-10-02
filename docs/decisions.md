@@ -6,6 +6,76 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: At an event the person recording owns the consent, and pause is what makes that model honest — overruling pair unanimity (P1388)
+
+**Context:** [decisions.md](decisions.md) 2026-09-16 made the **pair** the unit of recording consent: lavalier wearers paired only with each other, sat apart, and `pause/resume` was explicitly rejected as pre-event work because *"it fixes only capture during breaks, not partner consent or neighbour bleed."* Reviewing the trio format, the founder overruled it: *"if I want to start recording, I just start. And it's up to me to tell others … a person who records, he's responsible for getting consent from people around him, not us. We don't need to manage that."*
+
+**Decision:**
+- **The recorder is responsible**, and the visible lavalier is the notice. The ToS already says so (`src/app/content/tos.md` §Transcribe Rooms); the room is never asked who objects.
+- **Pause/resume moves from rejected to required.** The 2026-09-16 entry named one defect in the recorder-responsibility model that survives — *"everything before they object is already captured"* — and a pause control is precisely what closes it. The consent model now rests on it, so it is no longer optional.
+- **Grouping is decoupled from consent.** Recorders are *seated* together (one table, away from others, both sides of one conversation captured) rather than *matched* together. Two or three lavaliers bound capacity far below room size, so this costs the grouping almost nothing.
+- **The room is never asked who refuses.** That half of 2026-09-16 stands: refusal must not become a public declaration.
+
+**Alternatives rejected:** *Pair unanimity per round* — makes recording conditional on three people agreeing each time, and still leaves the pre-objection window open. *Telling non-consenters to identify themselves so recorders can pause near them* (proposed in conversation) — this is 2026-09-16's own rejected alternative, and it puts the cost on the person who wanted nothing.
+
+**Consequences:** P1388 filed: pause/resume exposed, "End session" renamed (it ends only the caller's capture), an info affordance instead of an on-bar sentence (founder: *"no other recording app does it, why would we"*). **UNTESTED.** Falsifier: at the next Clarity Night someone is recorded without realising, or a recorder does not pause when asked.
+
+**References:** [p1388](../features/p1388_transcribe_consent_controls.md) · decisions.md 2026-09-16 [product] · `docs/events/facilitator-checklist.md`
+
+---
+
+## 2026-10-02 [technical]: Browser audio capture fails by writing silence, not by erroring — a level meter is the only thing that makes it visible (P1388)
+
+**Context:** The P1337 recording plan assumed recorders could pocket a phone for a 15-minute round. Researched against WebKit and Chromium trackers (sourced, not verified on our devices).
+
+**Decision:** Treat silent capture as the default failure mode and design for its visibility.
+- **iOS Safari mutes the capture track** when the screen locks or the tab backgrounds (`microphoneCaptureState` → `muted` after `applicationDidEnterBackground`). `MediaRecorder` keeps running and **writes silence**. No workaround exists for a web page: silent-audio keep-alive, `navigator.audioSession.type` and MediaSession all target *playback*; an installed PWA behaves identically.
+- **Android Chrome** survives short backgrounding via a foreground service, but OEM battery optimisation (Samsung Sleeping Apps, MIUI, EMUI) kills the process mid-recording, and **a web page cannot set that**.
+- **Screen Wake Lock** (iOS 16.4+, Chrome 85+) keeps the screen on but does **not** survive a manual power-button press.
+- **An unplugged USB-C mic ENDS the track** (`MediaStreamTrack` → `ended`), with no automatic fallback to the built-in mic; re-requesting with the stale `deviceId` fails.
+- Therefore: **recorders keep the screen on, phone face up**, and the bar carries a **live level meter**. Every failure above is silent, so a meter is the only element that converts an invisible failure into a visible one.
+
+**Alternatives rejected:** Per-phone guided setup instructions (the only real variable is Android battery optimisation, which a page cannot detect or set — three lines in the facilitator checklist cover it). Device selection UI (`enumerateDevices` appears nowhere in `src/`; a USB-C lavalier becomes the OS default input without it, so the picker was never the blocker — an earlier claim in this session that its absence prevented lavalier use was wrong and is retracted here).
+
+**Consequences:** `docs/events/facilitator-checklist.md` carries the screen-on rule and prefers handing mics to Android phones. P1390 (transcript → `/live`) is blocked on capture quality, so it sits behind P1388. **Researched, not device-verified.** Falsifier, five minutes: lavalier in, lock the screen, check whether the transcript has words.
+
+**References:** [p1388](../features/p1388_transcribe_consent_controls.md) · `docs/events/clarity-practice-event.md` (independently warned 2026-09-10 that the speech path "dies on backgrounding or screen lock")
+
+---
+
+## 2026-10-02 [product]: A Clarity Night round is a matched disagreement, not a seating arrangement — and the phone is dark while people talk (P1337)
+
+**Context:** P1337 described pairs, a shared phone timer and hand-pairing. The room has run trios since 2026-09-28, and the founder's objection to random rotation was that the room then *"talks about all and nothing, like Clarity Night #1."* P1336 shipped 2026-10-02, so the positions a matcher would read are live.
+
+**Decision:**
+- **Group to maximise the position gap** on the night's statements, subject to: everyone observes exactly once across three rounds, nobody repeats a partner. Dimensions are switchable (recorders together · disagreement gap · haven't met yet); **group size is a parameter (2/3/4)**, which it must be anyway because fifteen people do not divide by three — and which makes "a round of pairs, no observer" a free experiment.
+- **All three rounds are computed at once, with recompute.** Arrivals need no host action; departures need none either, because a ghost simply makes that table a pair. **The format tolerating error is the design** — the host should not have to keep the model accurate for the evening to work.
+- **One tap, "I'm here", that is never a gate.** It records where someone actually sat and doubles as attendance; not tapping blocks nothing. It is only worth asking because the round screen gives people a reason to look at the phone — their matched statement.
+- **The phone is dark during a round. The observer holds the clock** and says "swap" aloud at six minutes. **No sound and no vibration anywhere**: `navigator.vibrate` does not exist on iOS Safari, and a phone speaker cannot cut through fifteen people talking. The host's physical bell stays.
+- **The compare view is the round screen** — statements sorted by gap, two columns per row, reusing the pattern `letter-reveal-ordinal.tsx` already uses. One surface serves the round, ordinary browsing, and the no-connection fallback.
+
+**Alternatives rejected:** *Matching as a later "v2"* — a random partner and a matched partner are different products, not the same product optimised. *Pre-computing nothing and grouping at each bell* — leaves the room blind whenever the host's connection drops. *A countdown on every phone* — it was the thing that would have put fifteen screens between people who are supposed to be talking.
+
+**Consequences:** P1337 rewritten; P1389 (the close) and P1388 (consent controls) carved out. Two prototypes on `feature/p1337-round-controls`: `/tree/compare-positions` and `/tree/host-controls`. A `[FOUNDER DECISION]` remains on which host override control wins. **UNTESTED.** Falsifier: matched trios produce no more disagreement in the room than random ones did.
+
+**References:** [p1337](../features/p1337_event_journey_on_screen_steps_rotation_and_ending.md) · decisions.md 2026-09-28 [product] (trios), 2026-09-29 [product] (hear-the-number rule)
+
+---
+
+## 2026-10-02 [process]: A UI probe that fires two clicks in one script never re-renders — and it agreed with the review it was checking
+
+**Context:** An adversarial reviewer reported that a prototype's two-tap control had no undo after a trade committed. Verifying it (epistemic gate 9, before promoting a reviewer's claim), a script clicked both names in a single `evaluate_script` call and found no undo button — confirming the finding.
+
+**Decision:** **In a React page, each click that changes state needs its own tool call.** Batched clicks run inside one render: the second handler reads the first's state from a stale closure, so the interaction never actually happens and the probe reports the post-state of an action that was never performed. Re-run as separate calls, the undo button appeared and the grid had swapped — the finding was wrong.
+
+**Alternatives rejected:** Trusting the first probe because it matched the reviewer (that agreement is exactly what made it invisible — a false probe that *contradicts* a review gets re-run; one that confirms it gets believed). Reading the source instead of the page — the source showed an undo control, which is what made the probe's result look like a real bug rather than a broken probe.
+
+**Consequences:** Adds a concrete instance to the probe-reliability family in [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gates 9/9b: a probe can be wrong in the direction of the claim it is testing, and that is the case no control catches. Practical rule for browser verification of any stateful UI: one state change per call, assert the intermediate state before the next.
+
+**References:** `src/app/pages/prototypes/p1337-host-controls-prototype.tsx` (branch `feature/p1337-round-controls`)
+
+---
+
 ## 2026-10-02 [product]: The room shown on the wall carries no per-person preparation marks; the host reads them on the event page (P1386)
 
 **Context:** P1386 first made the prepared check and the mic icon host-only in the room (/meet). The founder then pointed out that /meet is projected on a screen: the host's own view is what the whole room sees, so a host-only mark there tells everyone who did not prepare and who volunteered to be recorded.
