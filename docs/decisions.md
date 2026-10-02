@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: Recording controls are one short row — Pause · Stop together, navigation apart — and the short bar is the only form off the room page (P1388)
+
+**Context:** P1388's first build kept P1307's bar shape: a full-width blue Open and a lone "Stop transcribing" with the sign-out icon, four rows tall on a phone. Founder, on the phone test: *"open is so big and stop transcribing is somehow weird."* Iterating on the real device then moved Stop beside Pause on `/transcribe`, removed that page's own header (it hid the avatar and, with `h-screen`, slid off the nav — "the top menu is like twice"), and put the room's people beside the meter.
+**Decision:** (1) One row everywhere: Pause and Stop side by side as the recording controls, Open/Rejoin set apart at the end with an arrow; equal-weight outlined buttons, no full-width primary. (2) Stop uses a square, not the LogOut door; neutral at rest, red only on hover/press (P1323 R7 kept, plus a touch press state). (3) Off the room page the bar is ALWAYS the short one-line form, sticky under the nav — no fold-on-scroll, no expand control, no remembered state; full detail is one tap away in the room. Sticky because an in-flow bar scrolled off-screen left a recorder with no sign capture was running (P1307 D9). (4) `/transcribe` is served by the site nav; controls on one line with three faces + "+N" (one tap target → list linking to profiles). (5) The `/live` bar takes the same short form.
+**Alternatives rejected:** a collapsed bar with an expand arrow (the founder's first idea) — a remembered expanded/collapsed state makes the same bar look different page to page, the confusion it was meant to avoid; red Stop at rest — draws the eye to the one control that must not be hit by accident; per-face profile links in the stack — 32 px overlapping targets are untappable.
+**Consequences:** The ⓘ sheet wording is founder-approved; the privacy policy names Pause and "Stop transcribing" with its date deliberately not bumped (founder: "bumping is too much"). Room faces link a typed display name to the real profile — accepted for discoverability. **UNTESTED at an event.** Falsifier: at the next Clarity Night a recorder cannot tell at a glance whether they are recording, or taps Stop meaning Pause.
+**References:** [p1388](../features/done/2026-06-10/p1388_transcribe_consent_controls.md), `src/app/components/session/room-capture-bar.tsx`, `capture-controls.tsx`
+
+## 2026-10-02 [technical]: Room capture re-checks the world after every await, and never reopens a lost mic on its own (P1388)
+
+**Context:** Two adversarial reviews of P1388 found the same class three times: every media setup awaits (`getUserMedia`, `AudioContext.resume`, `addModule`), and Stop, Pause, a second unplug or a device change can land inside the await — leaving a mic open after Stop, live slices running under "Paused", or a "still recording" notice on a dead track.
+**Decision:** Two latches read AFTER each await — `genRef` (bumped by every stop; a stale setup closes what it opened, and `startMedia` never installs a second stream) and `pausedRef` (a recorder that finishes starting mid-pause records and sends nothing). One mic (re)open at a time. After "Microphone disconnected — nothing is being recorded", capture returns only on a tapped "Reconnect mic" — the `devicechange` auto-reopen was removed because AirPods connecting restarted recording with no tap. Fixed-height phone screens use `h-dvh`: `100vh` includes the address bar, so `/live` and `/transcribe` scrolled and their chrome drifted.
+**Alternatives rejected:** auto-reconnect on `devicechange` — breaks the "nothing is recorded" promise the recorder relies on for consent.
+**Consequences:** Each fix has a jsdom test that fails on the previous provider. Real device unplug and stored-audio-while-paused are **not yet verified** (founder will check on prod; no iPhone tested). Chromium's fake mic cannot end a track, so the e2e cannot cover recovery. Falsifier: a USB-C unplug on a real phone leaves the bar saying "Recording".
+**References:** `src/app/contexts/room-capture-context.tsx`, `src/tests/p1388-provider-pause-and-unplug.test.tsx`
+
 ## 2026-10-02 [product]: P1393 — one blue, gray for private, and seven button rules decided by look, not by prose
 
 **Context:** A read-only sweep of `src/app/` against [design-system.md](design-system.md) found amber as the

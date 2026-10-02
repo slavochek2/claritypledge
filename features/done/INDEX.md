@@ -364,6 +364,7 @@ Last updated: 2026-10-02
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1388** (Oct 26) Recorder can pause, sees a level meter, short sticky bar — capture fails silently; re-check state after every await, never auto-reopen a lost mic
 
 - **P1380** (Oct 02) Starting-in-15 email, arrival check-in, email sign-in — email buttons open a "Continue as" page; never a magic link in the email (scanners, 1h expiry)
 - **P1387** (Oct 02) On phones the registration and preparation screens scrolled in two parts — content scrolls, the action pins in one slim bar; main = blue button, alternative = small link; tappable = elementFromPoint, not toBeInViewport
