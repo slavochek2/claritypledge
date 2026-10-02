@@ -51,7 +51,7 @@ export function TermsUpdateDialog({
         hideCloseButton={!dismissible}
         onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
         onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
-        // Focus the primary action, not the first tabbable (the "What's new" toggle).
+        // Focus the primary action, not the first tabbable (the "Show more" toggle).
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           acceptRef.current?.focus();

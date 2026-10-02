@@ -3,7 +3,7 @@
  *
  * A returning user asked to accept updated terms must be told what changed, not
  * only handed two long documents. `headline` is the one visible sentence;
- * `highlights` open on demand behind "What's new". Bumping CURRENT_TERMS_VERSION without adding an
+ * `highlights` open on demand behind "Show more". Bumping CURRENT_TERMS_VERSION without adding an
  * entry here fails src/tests/terms-change-summary.test.ts.
  *
  * `requiresConsent` picks how returning users are told. false: a dismissible
