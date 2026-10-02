@@ -71,10 +71,9 @@ describe('source guards', () => {
   it('the event page has no separate Preparation card', () => {
     expect(src('app/prototypes/events/components/EventDetail.tsx')).not.toMatch(/PrepHostList/);
   });
-  it('the room reads marks only through the host-only view', () => {
+  it('the room (projected on the wall) shows no prep marks and never reads who prepared', () => {
     const room = src('app/prototypes/events/components/EventRoomMeet.tsx');
-    expect(room).not.toMatch(/get_event_room_prepared|getRoomPrepared/);
-    expect(room).toMatch(/useHostPrepMarks\(event\?\.id, isHost &&/);
+    expect(room).not.toMatch(/get_event_room_prepared|getRoomPrepared|PrepMarks|useHostPrepMarks/);
   });
 });
 

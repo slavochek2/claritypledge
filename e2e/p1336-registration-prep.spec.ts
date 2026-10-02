@@ -320,18 +320,17 @@ test.describe('P1336 registration preparation', () => {
     await page.getByRole('button', { name: 'Join the room' }).click();
     // Prepared → the gate does not stop them.
     await expect(page).toHaveURL(new RegExp(`/events/${ev.slug}/(ready|meet)`));
-    // In the room, "prepared" is not a line under Back; and since P1386 the roster's check mark is
-    // the host's only — this registrant prepared and still sees no mark.
+    // In the room, "prepared" is not a line under Back; and since P1386 no one sees prepared marks
+    // in the room — this registrant prepared and sees none.
     await page.goto(`/events/${ev.slug}/meet`);
     await expect(page.getByTestId('room-roster-item').first()).toBeVisible();
     await expect(page.getByTestId('prep-room-banner')).toHaveCount(0);
     await expect(page.getByTestId('prep-mark-prepared')).toHaveCount(0);
-    // P1386: the host, in the same room, sees the ✓; a tap (not a long-press) explains it.
+    // P1386: the room is projected, so even the host sees no marks there; they live on the event page.
     await setTestSession(page, host.email);
     await page.goto(`/events/${ev.slug}/meet`);
-    await expect(page.getByTestId('prep-mark-prepared').first()).toBeVisible();
-    await page.getByTestId('prep-mark-prepared').first().click();
-    await expect(page.getByTestId('prep-mark-note')).toHaveText('Prepared for the event');
+    await expect(page.getByTestId('room-roster-item').first()).toBeVisible();
+    await expect(page.getByTestId('prep-marks')).toHaveCount(0);
   });
 
   test('plan: the back arrow leaves the preparation (opened directly → the event page)', async ({ page }) => {

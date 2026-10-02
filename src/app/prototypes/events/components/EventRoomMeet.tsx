@@ -95,7 +95,6 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
-import { PrepMarks, useHostPrepMarks, type PrepMarkState } from '../prep/PrepMarks';
 import { PracticeRooms } from './PracticeRooms';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
@@ -150,7 +149,7 @@ const ROSTER_COLUMN_CLASS = 'min-[1600px]:max-w-[22rem]';
  * 4/10'". Undecided members never carry a rating. Since 2026-09-18 an opted-in / opted-out
  * row can be briefly without one too — the answer is written on the tap, the number when
  * submitted — and then shows no trailing text until it arrives. */
-function RosterRow({ member, showEarBadge = true, marks }: { member: EventRoomMember; showEarBadge?: boolean; marks?: PrepMarkState }) {
+function RosterRow({ member, showEarBadge = true }: { member: EventRoomMember; showEarBadge?: boolean }) {
   return (
     <PersonRow
       profileId={member.profileId ?? member.id}
@@ -167,7 +166,7 @@ function RosterRow({ member, showEarBadge = true, marks }: { member: EventRoomMe
       // floating in the gutter (visual QA, 2026-08-21). PersonRow's name column is
       // `flex-1 min-w-0`, so it yields to this rather than pushing it off-screen.
       trailing={
-        member.comprehensionRating != null || marks ? (
+        member.comprehensionRating != null ? (
           <span className="inline-flex shrink-0 items-center gap-0.5">
           {member.comprehensionRating != null && (
           <span
@@ -187,7 +186,6 @@ function RosterRow({ member, showEarBadge = true, marks }: { member: EventRoomMe
             {member.comprehensionRating}/10
           </span>
           )}
-          <PrepMarks marks={marks} />
           </span>
         ) : undefined
       }
@@ -211,15 +209,12 @@ export function RosterGroup({
   testId,
   members,
   showEarBadge = true,
-  prepMarks,
 }: {
   title: string;
   testId: string;
   members: EventRoomMember[];
   /** P1336: false hides each row's ear badge (registration roster). Default true: the room. */
   showEarBadge?: boolean;
-  /** P1386: the host's ✓ / 🎙 marks by profile id. Only the host's view passes any. */
-  prepMarks?: ReadonlyMap<string, PrepMarkState>;
 }) {
   if (members.length === 0) return null;
   return (
@@ -231,7 +226,6 @@ export function RosterGroup({
             <RosterRow
               member={member}
               showEarBadge={showEarBadge}
-              marks={member.profileId ? prepMarks?.get(member.profileId) : undefined}
             />
           </div>
         ))}
@@ -315,11 +309,8 @@ export function EventRoomMeet() {
     });
   }, [event?.id]);
 
-  // P1386: the host's ✓ prepared / 🎙 mic marks on the roster — host only (founder, 2026-10-01).
-  // Re-read when someone joins (a newcomer may have prepared) and once a minute (people can
-  // finish preparing from the room). Everyone else gets an empty map and sees no marks.
-  const isHost = !!user && !!event && event.hostId === user.id;
-  const prepMarks = useHostPrepMarks(event?.id, isHost && !!event?.preparationEnabled, { refreshKey: roster.length, poll: true });
+  // P1386: no prepared / mic marks here — this page is projected on the wall. The host reads them on
+  // the event page (founder, 2026-10-02).
 
   /**
    * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read
@@ -516,9 +507,9 @@ export function EventRoomMeet() {
               <p className="text-sm text-muted-foreground">Loading who is here…</p>
             ) : (
               <>
-                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} prepMarks={prepMarks} />
-                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} prepMarks={prepMarks} />
-                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} prepMarks={prepMarks} />
+                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
+                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} />
+                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} />
                 {undecidedMembers.length === 0 && (
                   /* Empty-Undecided is the payoff of this whole feature, not a nothing —
                      it is the moment the facilitator's "move yourself out of undecided" has

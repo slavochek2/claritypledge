@@ -104,8 +104,21 @@ export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
         </HintMark>
       )}
       {marks.mic && (
-        <HintMark label={MIC_HINTS[marks.mic]} testId={`prep-mark-mic-${marks.mic}`} className="text-muted-foreground">
-          <Mic className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+        // One grey mic = brings their own (nothing to do). Two overlapping dark mics = you hand
+        // one out (like WhatsApp's double check), so it reads as the one that needs action.
+        <HintMark
+          label={MIC_HINTS[marks.mic]}
+          testId={`prep-mark-mic-${marks.mic}`}
+          className={marks.mic === 'usbc' ? 'text-foreground' : 'text-muted-foreground'}
+        >
+          {marks.mic === 'usbc' ? (
+            <span className="inline-flex items-center" aria-hidden="true">
+              <Mic className="h-3.5 w-3.5" strokeWidth={2.5} />
+              <Mic className="-ml-2 h-3.5 w-3.5" strokeWidth={2.5} />
+            </span>
+          ) : (
+            <Mic className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+          )}
         </HintMark>
       )}
     </span>
