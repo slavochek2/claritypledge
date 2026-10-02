@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 18
 workstream: growth
 created_date: '2026-10-02'
 tags: [landing, navigation, feed, cta]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -57,15 +57,17 @@ Blast radius: medium — the front door for every anonymous visitor, plus every 
 
 ## Acceptance Criteria
 
-- [ ] Signed-out visitor opening "/" sees the feed with Stories selected, with site header (Use cases, Pricing) intact
-- [ ] Old landing reachable at its new path and via Use cases → For builders
-- [ ] /feed with no tab param shows Stories; Points still reachable
-- [ ] No visible "alignment audit" button text remains; buttons read "Book a 15-min discovery call" and open the booking calendar
-- [ ] Menu (desktop, mobile, footer) reads Feed · Events · Groups · Pledgers · Pricing; Events opens upcoming events in one click
-- [ ] Feed sort reads "Sort: Newest" and switches to Oldest; at most 5 tags show plus "More tags"; no #test / #p… tags
-- [ ] Desktop feed shows a right rail with next events and Explore groups; phone widths show no rail
-- [ ] /coach and /founder (no upcoming experiment) show "Book a 15-min discovery call" in header and hero
-- [ ] 375 / 320 / desktop screenshots pass visual QA
+- [x] Signed-out visitor opening "/" sees the feed with Stories selected, with site header (Use cases, Pricing) intact — browser, 2026-10-02
+- [x] Old landing reachable at its new path and via Use cases → For builders — /builders; ?referrer=/?login= invites routed there (review fix)
+- [x] /feed with no tab param shows Stories; Points still reachable — p491 unit + e2e
+- [x] No visible "alignment audit" button text remains; buttons read "Book a 15-min discovery call" and open the booking calendar — /intro (the Google schedule's own heading is set in Google, outside the app)
+- [x] Menu (desktop, mobile, footer) reads Feed · Events · Groups · Pledgers · Pricing; Events opens upcoming events in one click — menu verified in browser; footer carries Feed · Events · Groups · Pledgers (Pricing sits in the header, as before)
+- [x] Feed sort reads "Sort: Newest" ("Newest" below sm) and switches to Oldest; at most 5 tags show plus "More tags"; no #test / #p… tags
+- [x] Desktop feed shows a right rail with next events and Explore groups; phone widths show no rail (not mounted, no fetch)
+- [x] /coach and /founder (no upcoming experiment) show "Book a 15-min discovery call" in header and hero — /coach in browser, /founder via p969 test
+- [x] 375 / 320 / desktop screenshots pass visual QA — independent QA subagent; P1392-caused items (tab wrap, sort pill overflow at 320, pinned title truncation) fixed and re-measured; remaining items pre-existing
+
+5b. **Story 1 pinned** [FOUNDER DECISION: 2026-10-02]: signed-out visitors on the plain Stories view see a compact pinned bar ("Three kinds of understanding · Watch") opening story 1's page.
 
 ## Related
 
