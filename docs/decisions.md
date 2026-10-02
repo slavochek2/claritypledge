@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: P1393 — one blue, gray for private, and seven button rules decided by look, not by prose
+
+**Context:** A read-only sweep of `src/app/` against [design-system.md](design-system.md) found amber as the
+"private" signal in six components, amber/orange/yellow/purple on live screens, five active-tab styles, a second
+brand blue (`#0044CC`) across ~50 files, and no rule for button style or placement. The founder: *"there was many
+confusions also where to aligne d them.. how ot make decision of hierearchy"*.
+
+**Decision:** Each open call was made from a DEV-only `/tree` A/B page, never from a written description:
+- Private = gray tint + lock (`/tree/design-private`, option A). Public banner left blue for now.
+- Certificates keep their paper palette (cream, `#002B5C` frame, ink); the accent and then the **whole app** move
+  to `blue-600` ("why not fix all?"). This ends the separate "ceremony blue".
+- Seven button rules (`/tree/design-buttons`) — one filled primary at the bottom; outline for a real alternative;
+  ghost text for backing out; links for navigation; red text + confirmation for losses (red also as the popup
+  main action); icon-only card actions top-right; popup main action right on desktop, top when stacked on phones.
+  Now the § Button Decision Rules table in design-system.md. Settings account deletion sits in a "Danger zone".
+
+**Alternatives rejected:** Describing options in chat and asking for a choice — the founder asked to *see* each
+element, and the A/B page produced the decisions in one reply each. Deleting old `/tree` landings — they are
+DEV-gated, unreachable on prod, kept.
+
+**Consequences:**
+- **Avatar colours are data, not UI.** A blind hex sweep also rewrote the per-user avatar palette in two of its three
+  copies and seven avatar fallbacks; caught at KDD by grep and reverted before push. Any future colour sweep must
+  exclude `avatar_color`/`avatarColor` literals (the palette still lives in three places — see the earlier
+  avatar-palette entry).
+- `#002B5C` navy *buttons* (not certificate frames) still differ — [P1308](../features/p1308_one_blue_for_primary_buttons.md) owns that.
+- `variant="secondary"` (gray fill) is out of the rules: it reads as disabled.
+
+**References:** [P1393](../features/done/2026-06-10/p1393_design_system_sweep.md) · [design-system.md](design-system.md)
+
+---
+
 ## 2026-10-02 [product]: /topics — only signed-in votes count, results appear only after you rate, and the output is a ranked set the host draws several topics from (P1347)
 
 **Context:** Founder UAT over two days reshaped the shipped `/topics`. It supersedes the 2026-10-01 entries below ("anonymous to rate", "current order with the next event's date"). Clarity Nights also became fortnightly (#2 on 2026-10-06, #3 on 2026-10-20), and the founder wants several topics prepared ahead.

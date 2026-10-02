@@ -53,7 +53,7 @@ export function PledgerCard({
   role,
   reason,
   signedAt,
-  avatarColor = "#2563eb",
+  avatarColor = "#0044CC",
   avatarUrl,
   witnessCount = 0,
   reciprocations = 0,

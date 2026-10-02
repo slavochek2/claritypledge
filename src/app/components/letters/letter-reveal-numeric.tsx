@@ -65,7 +65,7 @@ export function LetterRevealNumeric({
   authorAvatarColor = '#475569',
   authorHasPledged = false,
   readerPhotoUrl,
-  readerAvatarColor = '#2563eb',
+  readerAvatarColor = '#0044CC',
   readerHasPledged = false,
   compact = false,
 }: LetterRevealNumericProps) {

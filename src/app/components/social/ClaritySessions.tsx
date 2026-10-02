@@ -18,7 +18,7 @@ export interface ClarityUser {
   id: string;
   name: string;
   hasPledged: boolean;
-  /** P1112: without this the avatar falls back to GravatarAvatar's default #2563eb. */
+  /** P1112: without this the avatar falls back to GravatarAvatar's default #0044CC. */
   avatarColor?: string;
   avatarUrl?: string | null;
 }

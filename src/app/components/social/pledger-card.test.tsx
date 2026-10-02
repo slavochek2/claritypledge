@@ -32,7 +32,7 @@ describe('PledgerCard', () => {
     role: 'Software Engineer',
     reason: 'I believe in clear communication',
     signedAt: '2024-01-15T10:30:00Z',
-    avatarColor: '#2563eb',
+    avatarColor: '#0044CC',
     witnessCount: 5,
     reciprocations: 3,
   };

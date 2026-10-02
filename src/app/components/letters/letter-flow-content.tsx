@@ -778,7 +778,7 @@ export function LetterFlowContent({
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
                 readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (
@@ -963,7 +963,7 @@ export function LetterFlowContent({
                     authorAvatarColor={senderProfileOwner.avatarColor}
                     authorHasPledged={senderProfileOwner.hasPledged ?? false}
                     readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
+                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
                     readerHasPledged={readerProfileOwner?.hasPledged ?? false}
                     compact
                   />
@@ -1195,7 +1195,7 @@ export function LetterFlowContent({
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
                 readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (

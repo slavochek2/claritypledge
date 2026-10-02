@@ -341,7 +341,7 @@ export function AcceptAgreementPage() {
         email: agreement.partnerEmail,
         options: {
           emailRedirectTo: redirectUrl,
-          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#2563eb", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
+          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
           shouldCreateUser: true,
         },
       });
