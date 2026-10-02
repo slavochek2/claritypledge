@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 4
 workstream: events
@@ -249,27 +249,29 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 
 ## Acceptance Criteria
 
-- [ ] An attendee who has never used the room can follow a full evening on their phone without asking the host what to click
-- [ ] Each person observes exactly once and pairs twice across three rounds, with no repeated partner
-- [ ] Each round, the two non-observers are shown the statement they are furthest apart on, and can open the compare view for it
-- [ ] A late arrival is grouped in the next round with no host action
-- [ ] A person who leaves without telling anyone leaves a table of two, and the round still runs
-- [ ] The host completes a full evening using only: ring bell, press Next round
-- [ ] A host can swap two people by hand and see the result without scrolling, and undo it
-- [ ] A host can mark someone left from the "who's here" list, and the next round is computed without them
-- [ ] "Compare with me" appears at the top of a profile's Points tab and opens the comparison for that person
-- [ ] Changing the tag on the compare page re-sorts it for that set, largest gap first
-- [ ] Opening a statement from the compare page leaves the comparison on screen
-- [ ] The host panel shows past rounds with table and role per person
-- [ ] The confirm tap records the table actually sat at, and skipping it blocks nothing
-- [ ] Group size 2 runs a round with no observer
-- [ ] The profile points tab caps at 50 with "show more"
-- [ ] The projector alone shows the current round's tables, roles and countdown
+- [x] An attendee who has never used the room can follow a full evening on their phone without asking the host what to click
+- [x] Each person observes exactly once and pairs twice across three rounds, with no repeated partner
+- [x] Each round, the two non-observers are shown the statement they are furthest apart on, and can open the compare view for it
+- [x] A late arrival is grouped in the next round with no host action
+- [x] A person who leaves without telling anyone leaves a table of two, and the round still runs
+- [x] The host completes a full evening using only: ring bell, press Next round
+- [x] A host can swap two people by hand and see the result without scrolling, and undo it
+- [x] A host can mark someone left from the "who's here" list, and the next round is computed without them
+- [x] "Compare with me" appears at the top of a profile's Points tab and opens the comparison for that person
+- [x] Changing the tag on the compare page re-sorts it for that set, largest gap first
+- [x] Opening a statement from the compare page leaves the comparison on screen
+- [x] The host panel shows past rounds with table and role per person
+- [x] The confirm tap records the table actually sat at, and skipping it blocks nothing
+- [x] Group size 2 runs a round with no observer
+- [x] The profile points tab caps at 50 with "show more"
+- [x] The projector alone shows the current round's tables, roles and countdown
+
+**Evidence (dev, 2026-10-02, test DB):** `e2e/p1337-rounds.spec.ts` 11/11 (host gate + Run this event, Start round → trios, swap + Undo, attendee card + "I'm at table N" with the rest of the page usable, late arrival "You join at the next round", dark phone + observer clock, "Did your position move?", projector tables/roles/clock, Left → excluded next round with an untapped person not blocking anything, group size 2 no observer, End evening after round 3 using only the one button); `e2e/integration/p1337-event-rounds-db.spec.ts` 11/11 (host-only writes, sequential rounds, room-only seats, own-seat confirm, swap keeps/clears the tap, topic last-tap-wins and cleared when a table's people change, presence host-only, no direct writes); `src/lib/round-grouping.test.ts` 19/19 (observe once + no repeat partner for 15 people over 4 seeds, 16/14 layouts, max gap, recorders together, determinism); `src/tests/p1337-compare-page.test.tsx` + `compare-positions.test.ts` (gap sort, tag chip re-sorts, rows open in a new tab); `p1337-profile-points-cap.test.tsx` 3/3 with a raised-cap control failing 2/3. Screenshots at 375/320/1280 reviewed by an independent visual QA pass. The first AC is evidenced by the flow tests and screenshots; the real test is the next event.
 
 ## Open Questions
 
-1. Does the event room already model rounds (P1114, P1179, P1323)? Read before designing new state. UNVERIFIED.
-2. Ramp the disagreement gap across rounds, or lead with the maximum every round? Founder leans maximum throughout.
+1. ~~Does the event room already model rounds?~~ Answered in dev: no. Rounds are new state (`event_rounds`, `event_round_seats`, `event_round_tables`, `event_round_presence`, migrations `20261002183700` + `20261002193000`).
+2. ~~Ramp the gap or lead with the maximum?~~ Built as maximum every round (founder's lean, taken as the default at /dev).
 3. Does the statement-pick tap actually get used, or does the room ignore it? Worth one event before deciding whether to keep it.
 
 ## Related
