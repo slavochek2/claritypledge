@@ -7,12 +7,11 @@
  * "Remind me by email" records the choice only: the existing 24h reminder ("Tomorrow") is the
  * reminder. No extra email is sent from here.
  */
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
-import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { savePreparation } from '@/app/data/event-prep-service';
 import type { EventWithHost } from '@/app/types';
 import { EventBox, PrepBlock, PrepStatus, seriesLabel, socialProofLine } from './PrepPieces';
@@ -20,10 +19,8 @@ import { usePrepState } from './use-prep-state';
 
 export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; groupChatUrl: string | null }) {
   const { user } = useAuth();
-  const { showUserMenu } = useNavAuthState();
   const navigate = useNavigate();
   const state = usePrepState(event, user?.id);
-  const anchorRef = useRef<HTMLDivElement>(null);
   const [remindSaving, setRemindSaving] = useState(false);
 
   const reminded = state.prep?.prepChoice === 'remind';
@@ -60,7 +57,6 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
           </div>
         }
       />
-      <div ref={anchorRef} className="!mt-0 h-0" aria-hidden />
       {!state.loading && !state.error && (
         <PrepBlock
           progress={state.progress}
@@ -69,8 +65,6 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
           proof={{ line: proofLine, people: proof?.preparedPeople ?? [] }}
           onPrepare={() => navigate(`/events/${event.slug}/prepare`)}
           onRemind={remind}
-          anchorRef={anchorRef}
-          aboveBottomNav={showUserMenu}
         />
       )}
     </main>

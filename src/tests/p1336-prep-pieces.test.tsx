@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
-import { createRef } from 'react';
 import { PrepBlock, PrepStatus, socialProofLine } from '@/app/prototypes/events/prep/PrepPieces';
 import { hostSummary, prepStateLabel } from '@/app/prototypes/events/prep/PrepHostList';
 import { defaultPreparation, validateStatementTag } from '@/app/prototypes/events/prep/PrepSettingsFields';
@@ -23,7 +22,6 @@ const renderBlock = (done: number, total: number, complete = false, reminded = f
       proof={noProof}
       onPrepare={vi.fn()}
       onRemind={vi.fn()}
-      anchorRef={createRef<HTMLElement>()}
     />,
   );
 

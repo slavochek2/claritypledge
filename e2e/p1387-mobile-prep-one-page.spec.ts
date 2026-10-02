@@ -34,7 +34,14 @@ const blankTail = (page: Page) =>
       if (r.height === 0 || r.width === 0 || getComputedStyle(el).visibility === 'hidden') continue;
       contentBottom = Math.max(contentBottom, r.bottom + window.scrollY);
     }
-    return Math.round(doc.scrollHeight - Math.max(contentBottom, window.innerHeight));
+    // Space under the content that a fixed bottom <nav> (the phone BottomNav) sits over is not
+    // blank: it is what keeps the last content clear of the nav. Only the remainder counts.
+    let navCover = 0;
+    for (const nav of Array.from(document.querySelectorAll<HTMLElement>('nav'))) {
+      const r = nav.getBoundingClientRect();
+      if (getComputedStyle(nav).position === 'fixed' && r.height > 0 && r.bottom >= window.innerHeight - 1) navCover = Math.max(navCover, r.height);
+    }
+    return Math.round(doc.scrollHeight - Math.max(contentBottom, window.innerHeight) - navCover);
   });
 
 /** Share of the screen covered by pinned (fixed/sticky) content, measured as a finger sees it:
@@ -106,24 +113,53 @@ for (const phone of PHONES) {
       expect(pinned.share, `pinned ${pinned.who}`).toBeLessThanOrEqual(0.25);
     });
 
-    test('preparation: no blank scroll; the rating step is not a pinned panel', async ({ page }) => {
+    test('preparation: every step is one page — no blank scroll, nothing pinned beyond the step header', async ({ page }) => {
       await setTestSession(page, u.email);
       await page.goto(`/events/${ev.slug}/prepare`);
+      const check = async (name: string) => {
+        await settle(page);
+        expect(await blankTail(page), `${name}: blank scroll`).toBeLessThanOrEqual(24);
+        const pinned = await pinnedShare(page);
+        // The fixed step header (back arrow, title, progress) is ~12-14%; anything above 25%
+        // means a bottom panel or bar is pinned too.
+        expect(pinned.share, `${name}: pinned ${pinned.who}`).toBeLessThanOrEqual(0.25);
+      };
       await expect(page.getByRole('heading', { name: 'Your preparation' })).toBeVisible();
-      await settle(page);
-      // No BottomNav on this route, so nothing to pad for: no blank scroll under the content.
-      expect(await blankTail(page), 'plan screen blank scroll').toBeLessThanOrEqual(24);
-
+      await check('plan');
       await page.getByRole('button', { name: 'Start now' }).click();
+      await expect(page.getByRole('heading', { name: 'How this event is different' })).toBeVisible();
+      await check('welcome');
       await page.getByRole('button', { name: 'Continue without video' }).click();
+      await expect(page.getByRole('heading', { name: 'What is cognitive understanding?' })).toBeVisible();
+      await check('story');
       await page.getByRole('button', { name: 'Continue without video' }).click();
+      await expect(page.getByRole('heading', { name: 'Introducing the Clarity Meeting Principle' })).toBeVisible();
+      await check('principle intro');
       await page.getByRole('button', { name: 'Continue without video' }).click();
+      await expect(page.getByTestId('principle-decision-question')).toBeVisible();
+      await check('principle decision');
       await page.getByRole('button', { name: 'Opt in' }).click();
       await page.getByRole('button', { name: 'Try it now' }).click();
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeVisible();
-      await settle(page);
-      const pinned = await pinnedShare(page);
-      expect(pinned.share, `pinned ${pinned.who}`).toBeLessThanOrEqual(0.25);
+      await check('rating');
+      // Arrival scrolls the question into view: the 0-10 row is on screen without a swipe.
+      await expect(page.getByRole('button', { name: 'Rate 7' })).toBeInViewport();
+      await page.getByRole('button', { name: 'Rate 7' }).click();
+      await page.getByRole('button', { name: 'Confirm' }).click();
+      await expect(page.getByRole('heading', { name: /value perception/ })).toBeVisible();
+      await check('cmp7');
+      await page.getByRole('button', { name: 'Skip and proceed' }).click();
+      await expect(page.getByRole('heading', { name: /Set your positions/ })).toBeVisible();
+      await check('positions');
+      await page.getByRole('button', { name: 'Skip and proceed' }).click();
+      await expect(page.getByRole('heading', { name: /volunteers/ })).toBeVisible();
+      await check('research');
+      await page.getByRole('button', { name: 'Yes, sure' }).click();
+      await expect(page.getByRole('heading', { name: /USB-C/ })).toBeVisible();
+      await check('mic');
+      await page.getByRole('button', { name: 'Yes, USB-C' }).click();
+      await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
+      await check('end');
     });
 
     test('room gate: no blank scroll', async ({ page }) => {

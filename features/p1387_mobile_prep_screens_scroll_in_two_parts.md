@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 16
 severity: high
@@ -109,10 +109,20 @@ phone.
    `scrollHeight <= innerHeight` when the content fits, and that fixed/sticky bottom elements cover at
    most a strip (≤ 25% of the viewport).
 
+## Resolution
+
+**date_resolved:** 2026-10-02. Founder chose "one page" on a phone (2026-10-02): every preparation
+step's actions, the principle's Opt in / Opt out and rating, and the confirm screen's prep block are
+in the page after the content — nothing pinned at the bottom. Layout bottom padding follows the
+BottomNav's own route rule (`bottom-nav-routes.ts`). /meet and letters keep their docked bars
+(`MeetingPrincipleView` `actionsInline` defaults false). Opus adversarial review (1 of 1 reported)
+found the first pass left 38-44% pinned on the long steps; fixed, and the e2e now walks every step
+at 390 and 320.
+
 ## Acceptance Criteria
 
-- [ ] On a 390 and a 320 phone viewport, signed in, a preparation step whose content fits does not scroll (no blank 80px)
-- [ ] The confirm screen shows "You're Registered!" and the event details uncovered; the prep panel is part of the page, not pinned over it
-- [ ] On the principle rating step, the certificate is readable and the question scrolls with the page; nothing pinned covers more than a button row
-- [ ] Pages that DO show the BottomNav keep their bottom padding (no content hidden under it)
-- [ ] Regression test passes: `e2e/p1387-mobile-prep-one-page.spec.ts` (mobile emulation, 390 and 320)
+- [x] On a 390 and a 320 phone viewport, signed in, a preparation step whose content fits does not scroll (no blank 80px)
+- [x] The confirm screen shows "You're Registered!" and the event details uncovered; the prep panel is part of the page, not pinned over it
+- [x] On the principle rating step, the certificate is readable and the question scrolls with the page; nothing pinned covers more than a button row
+- [x] Pages that DO show the BottomNav keep their bottom padding (no content hidden under it)
+- [x] Regression test passes: `e2e/p1387-mobile-prep-one-page.spec.ts` (mobile emulation, 390 and 320)

@@ -5,12 +5,12 @@
  * prototype on visual detail.
  *
  * Reuse, never rewrite: the header is the letter flow's (back arrow + LetterProgressBar), the
- * bars are FixedBottomBar + LetterPrimaryCta, clips are Mp4VideoFacade, the principle is
+ * actions are in-page StepActions + LetterPrimaryCta (P1387: not fixed bars), clips are Mp4VideoFacade, the principle is
  * MeetingPrincipleView at /meet's level 3, statements are StakePage (embedded) and the research
  * Q&A is the product Dialog. Progress lives in event_preparations (resumes on any device), the
  * once-per-person parts in person_prep_parts.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,7 +20,6 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
@@ -115,6 +114,21 @@ export function EventPrepPage() {
 // ─── small pieces ──────────────────────────────────────────────────────────────────────
 
 /** Height of a fixed element, kept current (same approach as MeetingPrincipleView's bar). */
+/**
+ * P1387: a step's actions, in the page after its content — not a bar fixed to the bottom. On a
+ * phone a fixed bar (progress + two buttons) plus the fixed step header left a ~40% scroll slot
+ * in the middle of the screen; the founder chose one scrolling page (2026-10-02).
+ */
+const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string }>(
+  function StepActions({ children, className }, ref) {
+    return (
+      <div ref={ref} className={cn('flex flex-col items-center pt-2', className)} data-testid="step-actions">
+        {children}
+      </div>
+    );
+  },
+);
+
 function useMeasuredHeight(): [(node: HTMLDivElement | null) => void, number] {
   const [height, setHeight] = useState(0);
   const observer = useRef<ResizeObserver | null>(null);
@@ -313,7 +327,6 @@ function PrepFlow({
   const [shownIds, setShownIds] = useState<ShownIds>(() => readShown(event.id, viewerId));
   useEffect(() => { writeShown(event.id, viewerId, shownIds); }, [event.id, viewerId, shownIds]);
   const [headerRef, headerHeight] = useMeasuredHeight();
-  const [barRef, barHeight] = useMeasuredHeight();
 
   const places = event.researchPlaces ?? 6;
   useEffect(() => {
@@ -515,7 +528,8 @@ function PrepFlow({
     if (ok && value !== 'none') next();
   };
 
-  const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 24 };
+  // The step actions are in the page now (P1387): only the safe area to clear at the bottom.
+  const contentPadding = { paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;
@@ -526,7 +540,7 @@ function PrepFlow({
   const statementsBar = (count: Count, loaded: boolean) => {
     const allSet = loaded && count.answered >= count.total;
     return (
-      <FixedBottomBar ref={barRef}>
+      <StepActions>
         {loaded && (
           <div
             key={count.answered}
@@ -546,12 +560,12 @@ function PrepFlow({
         )}
         <LetterPrimaryCta label="Continue" onClick={() => next('completed')} disabled={!allSet} />
         {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={() => next('skipped')} variant="secondary" />}
-      </FixedBottomBar>
+      </StepActions>
     );
   };
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
-    <FixedBottomBar ref={barRef}>
+    <StepActions>
       {clipPlayed[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (
@@ -560,7 +574,7 @@ function PrepFlow({
           <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />
         </>
       )}
-    </FixedBottomBar>
+    </StepActions>
   );
   const markPlayed = (clip: VideoKey) => () => setClipPlayed((p) => ({ ...p, [clip]: true }));
 
@@ -647,7 +661,7 @@ function PrepFlow({
             ) : undefined
           }
           ratingBarClassName="animate-in slide-in-from-bottom duration-300"
-          ratingInline
+          actionsInline
           aboveRating={
             <div className="flex items-center gap-3 px-2 pb-2 sm:px-5" data-testid="rating-host">
               {hostAvatar('md')}
@@ -770,13 +784,13 @@ function PrepFlow({
                   ? "Thank you for opting in. You promised that anybody at the event can ask you a specific question, right? Let's try it now, to show how it works."
                   : "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?"}
               </p>
-              <FixedBottomBar ref={barRef}>
+              <StepActions>
                 <LetterPrimaryCta
                   label={answer === 'in' ? 'Try it now' : 'Yes'}
                   onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }}
                 />
                 {answer === 'out' && <LetterPrimaryCta label="No, continue" onClick={() => next()} variant="secondary" />}
-              </FixedBottomBar>
+              </StepActions>
             </section>
           )}
 
@@ -877,7 +891,7 @@ function PrepFlow({
                 We provide you with a USB-C lavalier microphone, or you can bring your own mic.
               </p>
               <Clip clip="research" />
-              <FixedBottomBar ref={barRef} className="px-0">
+              <StepActions className="px-0">
                 <div className={cn(BAR_INNER_CLASS, 'flex flex-col items-center')}>
                   {placesLeft !== null && (
                     <p className="mb-2 text-base font-medium text-foreground" data-testid="places-left">
@@ -909,7 +923,7 @@ function PrepFlow({
                     </Button>
                   </div>
                 </div>
-              </FixedBottomBar>
+              </StepActions>
             </section>
           )}
 

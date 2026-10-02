@@ -143,12 +143,12 @@ export interface MeetingPrincipleViewProps {
   /** P1336: rendered inside the rating bar, directly above the question. Default: nothing. */
   aboveRating?: ReactNode;
   /**
-   * P1387: the rating step renders IN the page under the certificate (scrolled into view on
-   * arrival) instead of docked over it. Default false — /meet and letters keep the docked bar.
-   * The preparation sets it (founder, 2026-10-02: one page on a phone, nothing covering 70-88%
-   * of the screen).
+   * P1387: the choosing and rating actions render IN the page under the certificate (the rating
+   * scrolled into view on arrival) instead of docked over it. Default false — /meet and letters
+   * keep the docked bars. The preparation sets it (founder, 2026-10-02: one page on a phone,
+   * nothing pinned covering 38-88% of the screen).
    */
-  ratingInline?: boolean;
+  actionsInline?: boolean;
 }
 
 export function MeetingPrincipleView({
@@ -170,7 +170,7 @@ export function MeetingPrincipleView({
   ratingBarClassName,
   aboveChoice,
   aboveRating,
-  ratingInline = false,
+  actionsInline = false,
 }: MeetingPrincipleViewProps) {
   /**
    * The rating bar is FIXED, so the certificate scrolls behind it — without reserving
@@ -202,7 +202,7 @@ export function MeetingPrincipleView({
   // number; `meeting` is /meet's accepted state.
   const step: "choosing" | "rating" | "meeting" =
     accepted ? "meeting" : answer === null ? "choosing" : "rating";
-  const inlineRating = ratingInline && step === "rating";
+  const inlineRating = actionsInline && step === "rating";
   // On arrival at the inline rating, bring the question into view once; the certificate is
   // above it, one scroll up.
   const inlineRatingRef = useRef<HTMLDivElement>(null);
@@ -216,13 +216,13 @@ export function MeetingPrincipleView({
       // min-h-screen column AND carries the nav's 4rem top offset. A 100vh minimum here
       // stacks on that offset, so the page overflowed by exactly the nav height on every
       // viewport — a scrollbar and a band of dead space under content that fits.
-      className={inlineRating ? "pb-[max(1.5rem,env(safe-area-inset-bottom))]" : "pb-24"}
+      className={actionsInline ? "pb-[max(1.5rem,env(safe-area-inset-bottom))]" : "pb-24"}
       // pb-24 clears the short choosing/meeting bar. The rating bar is several times
       // taller and varies within the step, so its measured height wins when mounted —
       // without it the tail of the longest rung sits under the bar, unscrollable.
       // The choosing bar is measured too (P1336: content above Opt in / Opt out makes it taller
       // than pb-24 clears); never less than pb-24.
-      style={!inlineRating && ratingBarHeight > 0 ? { paddingBottom: Math.max(96, ratingBarHeight + 16) } : undefined}
+      style={!actionsInline && ratingBarHeight > 0 ? { paddingBottom: Math.max(96, ratingBarHeight + 16) } : undefined}
     >
       {lead}
 
@@ -333,13 +333,15 @@ export function MeetingPrincipleView({
            levels it would otherwise sit below the fold on arrival. Kept in the
            certificate's navy so it still reads as part of the document it belongs to. */
         <div
-          ref={setRatingBarRef}
+          ref={actionsInline ? undefined : setRatingBarRef}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-            BAR_FADE_CLASS,
+            actionsInline
+              ? "pt-2"
+              : "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+            !actionsInline && BAR_FADE_CLASS,
           )}
         >
-          {showScrollCue && <ScrollCue />}
+          {showScrollCue && !actionsInline && <ScrollCue />}
           <div className={cn(BAR_INNER_CLASS, "py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]")}>
             {step === "choosing" && aboveChoice}
             {step === "choosing" && (

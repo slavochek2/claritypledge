@@ -3,16 +3,15 @@
  * @description P1336 — the page-local compositions the approved prototype (/tree/p1336-d)
  * named: EventBox, SocialProof, the prep status badge and the confirmation PrepBlock. Each is
  * assembled from existing product components (RsvpConfirm's card, AddToCalendarMenu,
- * GroupChatBlock's glyphs and line, EventCard's AttendeeAvatarStack, LetterPrimaryCta,
- * FixedBottomBar) — none of those is copied or restyled here.
+ * GroupChatBlock's glyphs and line, EventCard's AttendeeAvatarStack, LetterPrimaryCta)
+ * — none of those is copied or restyled here.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Calendar, Link2, MapPin, MessagesSquare, MoreHorizontal, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard, shareOrCopy } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
-import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import type { EventWithHost } from '@/app/types';
 import type { SocialPerson } from '@/app/data/event-prep-service';
 import { AddToCalendarMenu } from '../components/AddToCalendarMenu';
@@ -253,9 +252,9 @@ export function PrepStatus({ progress, started }: { progress: Progress; started:
  * The confirmation's prep block (variant D, round E). The why line always shows. 0 done: the
  * question + Prepare now / Remind me by email. 1..M-1 done: "{k} of {M} steps done" + Continue
  * your preparation. Done: nothing here — the box carries "Prepared ✓". Never "0 of M".
- * Inline under the card. Only the action buttons pin to the bottom bar, and only when inline they
- * would end below the fold — P1387: pinning the whole block covered half a phone screen, the
- * registration details scrolling behind it. The why and the question always stay in the page.
+ * Inline under the card, buttons included — never pinned (P1387, founder 2026-10-02: one page on a
+ * phone). Pinning covered 44-72% of a phone screen with the registration details scrolling behind
+ * it; pinning only the buttons still took 36% at 320px with the menu bar and hid the question.
  */
 export function PrepBlock({
   progress,
@@ -264,8 +263,6 @@ export function PrepBlock({
   proof,
   onPrepare,
   onRemind,
-  anchorRef,
-  aboveBottomNav = false,
 }: {
   progress: Progress;
   minutes: number | null;
@@ -273,31 +270,11 @@ export function PrepBlock({
   proof: { line: string | null; people: SocialPerson[] };
   onPrepare: () => void;
   onRemind: () => void;
-  /** The element the block sits under (the box's end), measured for the fold. */
-  anchorRef: React.RefObject<HTMLElement | null>;
-  /** The phone BottomNav (64px) is showing: the pinned bar sits on top of it, never under it. */
-  aboveBottomNav?: boolean;
 }) {
-  const blockRef = useRef<HTMLElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const [pinned, setPinned] = useState(false);
-  // Decided once per content change, not on resize: iOS fires resize as its toolbar collapses
-  // mid-scroll, and re-deciding then made the bar jump (P1387).
-  useEffect(() => {
-    const anchor = anchorRef.current;
-    const block = blockRef.current;
-    if (!anchor || !block) return;
-    const navHeight = aboveBottomNav && window.innerWidth < 1024 ? 64 : 0;
-    // The block's inline height WITH its buttons: while pinned, the buttons are not inside it.
-    const blockHeight = block.contains(actionsRef.current) ? block.offsetHeight : block.offsetHeight + (actionsRef.current?.offsetHeight ?? 0);
-    const inlineBottom = anchor.getBoundingClientRect().bottom + window.scrollY + 32 + blockHeight;
-    setPinned(inlineBottom > window.innerHeight - navHeight);
-  }, [anchorRef, aboveBottomNav, progress.done, progress.complete, minutes, reminded, proof.line]);
-
   if (progress.complete) return null;
   const notStarted = progress.done === 0;
   const actions = (
-      <div className="flex flex-col items-center gap-1" data-testid="confirm-actions" ref={actionsRef}>
+      <div className="flex flex-col items-center gap-1" data-testid="confirm-actions">
         <LetterPrimaryCta label={notStarted ? 'Prepare now' : 'Continue your preparation'} onClick={onPrepare} />
         {notStarted &&
           (reminded ? (
@@ -314,7 +291,7 @@ export function PrepBlock({
       </div>
   );
   const block = (
-    <section className="space-y-2 text-center" data-testid="prep-block" ref={blockRef}>
+    <section className="space-y-2 text-center" data-testid="prep-block">
       {/* [DRAFT] founder copy: why before the question. */}
       <div className="space-y-0.5" data-testid="prep-why">
         <p className="text-base font-semibold text-foreground">Our events are different</p>
@@ -338,18 +315,8 @@ export function PrepBlock({
           {progress.done} of {progress.total} steps done
         </h2>
       )}
-      {!pinned && actions}
+      {actions}
     </section>
   );
-  return pinned ? (
-    <>
-      <div className="!mt-8">{block}</div>
-      {/* Reserve the pinned buttons' height so the page above can scroll clear of them. */}
-      <div aria-hidden style={{ height: (actionsRef.current?.offsetHeight ?? 112) + 48 }} />
-      {/* EventDetail's sticky RSVP bar pattern: above the BottomNav on phones (lg:hidden there). */}
-      <FixedBottomBar className={aboveBottomNav ? 'bottom-16 lg:bottom-0 pb-4 lg:pb-[max(env(safe-area-inset-bottom),1rem)]' : undefined}>{actions}</FixedBottomBar>
-    </>
-  ) : (
-    <div className="!mt-8">{block}</div>
-  );
+  return <div className="!mt-8">{block}</div>;
 }
