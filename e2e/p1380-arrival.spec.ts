@@ -183,12 +183,13 @@ test.describe('P1380 arrival check-in', () => {
     expect(decodeURIComponent(page.url())).toContain(`/events/${soon.slug}/room?arrived=1`);
   });
 
-  test('the host sees who arrived', async ({ page }) => {
+  test('the host sees who arrived (P1386 marks: an arrived pin after the name)', async ({ page }) => {
     await setTestSession(page, host.email);
     await page.goto(`/events/${soon.slug}`);
-    await expect(page.getByTestId('prep-host-arrived-summary')).toBeVisible();
-    await expect(page.getByTestId('prep-host-arrived-summary')).toHaveText("4 of 4 arrived");
-    await expect(page.getByTestId('prep-host-arrived').first()).toHaveText(/^Arrived \d\d:\d\d$/);
+    // Here, Email, Not Yet (then I'm here now) and Link arrived; Cancel released the place.
+    await expect(page.getByTestId('prep-mark-arrived')).toHaveCount(4);
+    await expect(page.getByTestId('prep-mark-arrived').first()).toHaveAttribute('aria-label', /^Arrived \d\d:\d\d$/);
     await shoot(page, 'host-list');
   });
+
 });
