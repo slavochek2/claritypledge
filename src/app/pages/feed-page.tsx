@@ -557,7 +557,7 @@ export function FeedPage() {
             onClick={() => handleTabChange('stories')}
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
               activeTab === 'stories'
-                ? 'text-foreground'
+                ? 'text-blue-600'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -566,7 +566,7 @@ export function FeedPage() {
                 tab never claims "(0)" about content still in flight. */}
             Stories{!loading && ` (${filteredStories.length})`}
             {activeTab === 'stories' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
             )}
           </button>
           <button
@@ -575,13 +575,13 @@ export function FeedPage() {
             onClick={() => handleTabChange('points')}
             className={`px-4 py-2 text-sm font-medium transition-colors relative ${
               activeTab === 'points'
-                ? 'text-foreground'
+                ? 'text-blue-600'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Points{!loading && ` (${filteredPoints.length})`}
             {activeTab === 'points' && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
             )}
           </button>
           <div className="ml-auto flex items-center gap-3 pb-2">

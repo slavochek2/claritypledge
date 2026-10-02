@@ -461,7 +461,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
                 onClick={() => selectTab(t)}
                 className={`min-h-11 px-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === t
-                    ? 'border-[#002B5C] text-[#002B5C] dark:border-blue-400 dark:text-blue-400'
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                     : 'border-transparent text-muted-foreground'
                 }`}
               >
