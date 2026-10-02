@@ -9,8 +9,8 @@ tags:
   - email
   - auth
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 driver: anomaly
 blocked_by:
@@ -172,6 +172,13 @@ Non-goals: prep flow itself (P1336); waitlist notices.
 
 ## Pre-deploy Checklist
 
-- [ ] Read prod OTP expiry (magic-link lifetime)
-- [ ] `supabase functions deploy dispatch-event-emails`, `send-event-emails` and `event-email-link` (test ✓ 2026-10-02, then prod)
-- [ ] Post-deploy: RSVP on a test event, confirm confirmation id, scheduled reminder and starting-soon email rows
+- [x] Read prod OTP expiry (magic-link lifetime) — N/A since 2026-10-02: links are minted at the press of "Continue", so the email never depends on the magic-link lifetime.
+- [x] Functions deployed to TEST and verified live (opt-in live-send test, browser press-through) — 2026-10-02.
+
+## Post-push Checklist (after `/push` applies the migration to prod)
+
+The functions read tables this branch's migration creates, so they cannot go to prod before
+`/push` applies it (P1211: `/push` owns prod migrations).
+- [ ] `./scripts/deploy-functions.sh event-email-link --env prod` (deployed with `--no-verify-jwt`), then `dispatch-event-emails` and `send-event-emails`
+- [ ] Post-deploy: RSVP on a prod test event, confirm the confirmation id, the scheduled reminder and the starting-soon rows in `email_send_log`
+- [ ] Test project: set `APP_URL` back from `http://localhost:5300` (it was pointed at the dev site for the founder's inbox test)
