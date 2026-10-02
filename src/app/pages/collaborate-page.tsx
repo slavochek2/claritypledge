@@ -224,7 +224,7 @@ export function CollaboratePage() {
                 type="submit"
                 size="lg"
                 disabled={isSubmitting}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                className="w-full bg-blue-500 hover:bg-blue-700 text-white font-semibold"
               >
                 {isSubmitting ? "Sending..." : "Send"}
               </Button>

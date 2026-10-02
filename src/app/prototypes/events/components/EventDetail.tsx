@@ -457,7 +457,7 @@ export function EventDetail() {
       return (
         <Button
           onClick={() => handleRsvp(trigger)}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+          className="w-full bg-blue-500 hover:bg-blue-700 text-white"
           size="lg"
           disabled={isActionLoading}
           data-testid="rsvp-button-repeat"
@@ -483,7 +483,7 @@ export function EventDetail() {
     return (
       <Button
         onClick={() => handleRsvp(trigger)}
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+        className="w-full bg-blue-500 hover:bg-blue-700 text-white"
         size="lg"
         disabled={isActionLoading}
         data-testid="rsvp-button"

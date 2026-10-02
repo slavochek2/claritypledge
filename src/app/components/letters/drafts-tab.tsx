@@ -117,7 +117,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
         <p className="text-sm text-muted-foreground">No drafts yet.</p>
         <Popover>
           <PopoverTrigger asChild>
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Button className="bg-blue-500 hover:bg-blue-700 text-white">
               <Plus className="w-4 h-4" />
               New Draft
             </Button>
@@ -212,7 +212,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
                 </Button>
                 <Button
                   size="sm"
-                  className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-11"
+                  className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-700 text-white min-h-11"
                   disabled={doc.story_count === 0}
                   title={doc.story_count === 0 ? 'Add at least one story first.' : undefined}
                   onClick={(e) => { e.stopPropagation(); navigate(`/letter/${doc.id}/compose`); }}

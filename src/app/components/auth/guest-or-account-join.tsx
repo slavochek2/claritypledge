@@ -102,7 +102,7 @@ export function GuestOrAccountJoin({
       <Button
         onClick={onGuestSubmit}
         disabled={submitting || submitDisabled}
-        className="w-full bg-blue-500 hover:bg-blue-600"
+        className="w-full bg-blue-500 hover:bg-blue-700"
         size="lg"
       >
         {submitting ? 'Joining...' : 'Join as Guest'}

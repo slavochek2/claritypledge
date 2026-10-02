@@ -111,7 +111,7 @@ export function LiveStoryCard({
         )}
 
         {/* CTA Button (visual emphasis, entire card is clickable) */}
-        <div className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md text-center transition-colors">
+        <div className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white text-sm font-medium rounded-md text-center transition-colors">
           Does {partnerFirstName} understand your story?
         </div>
       </button>

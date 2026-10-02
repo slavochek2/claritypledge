@@ -507,7 +507,7 @@ function AboutSection({
       {!isMember && (
         <Button
           onClick={onJoin}
-          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-600"
+          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-700"
         >
           Join this group
         </Button>

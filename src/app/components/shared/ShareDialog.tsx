@@ -161,7 +161,7 @@ export function ShareDialog({
             {hasNativeShare && (
               <Button
                 onClick={handleNativeShare}
-                className="w-full mt-2 bg-blue-500 hover:bg-blue-600"
+                className="w-full mt-2 bg-blue-500 hover:bg-blue-700"
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share...

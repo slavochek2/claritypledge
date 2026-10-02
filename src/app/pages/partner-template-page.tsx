@@ -73,7 +73,7 @@ export function PartnerTemplatePage() {
       <div className="mt-8 text-center space-y-4">
         <Link
           to="/agreements/new/create"
-          className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 py-3 rounded-md transition-colors text-base"
+          className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-md transition-colors text-base"
         >
           Create Your Agreement &rarr;
         </Link>

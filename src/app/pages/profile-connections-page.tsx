@@ -48,7 +48,7 @@ function EmptyState({ isOwner }: { isOwner: boolean }) {
           <p className="text-sm text-muted-foreground mb-4">
             No partners yet. Invite someone to get started.
           </p>
-          <Button asChild className="min-h-11 bg-blue-600 hover:bg-blue-600/90 text-white">
+          <Button asChild className="min-h-11 bg-blue-600 hover:bg-blue-700/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
         </>
@@ -172,7 +172,7 @@ export function ProfileConnectionsPage() {
           {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
         </h1>
         {isOwner && hasAny && (
-          <Button asChild className="min-h-11 bg-blue-600 hover:bg-blue-600/90 text-white">
+          <Button asChild className="min-h-11 bg-blue-600 hover:bg-blue-700/90 text-white">
             <Link to="/agreements/new">Invite a new partner</Link>
           </Button>
         )}

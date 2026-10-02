@@ -167,7 +167,7 @@ export function ReconnectingCountdown({
             </span>
             <button
               onClick={handleCopy}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+              className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs rounded bg-blue-500 hover:bg-blue-700 text-white transition-colors"
             >
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? 'Copied!' : 'Copy'}

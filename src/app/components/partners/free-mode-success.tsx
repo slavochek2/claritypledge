@@ -161,7 +161,7 @@ export function FreeModeSuccess({
       <div className="w-full space-y-3">
         <Button
           size="lg"
-          className="bg-blue-500 hover:bg-blue-600 w-full"
+          className="bg-blue-500 hover:bg-blue-700 w-full"
           onClick={onContinue}
           disabled={isWaiting}
         >

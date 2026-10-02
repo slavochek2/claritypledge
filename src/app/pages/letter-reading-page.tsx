@@ -808,7 +808,7 @@ export function LetterReadingPage() {
         </p>
         <Link
           to="/"
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md mt-2 min-h-10"
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md mt-2 min-h-10"
         >
           Back to home
         </Link>
@@ -890,7 +890,7 @@ export function LetterReadingPage() {
             <button
               type="button"
               onClick={() => setPageState(previewState)}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md min-h-10"
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md min-h-10"
             >
               Preview
             </button>

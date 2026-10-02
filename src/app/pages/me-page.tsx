@@ -177,7 +177,7 @@ export function MePage() {
               ) : (
                 <Button
                   onClick={handleSendVerificationEmail}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  className="w-full bg-blue-500 hover:bg-blue-700 text-white"
                   disabled={isSending}
                 >
                   {isSending ? (

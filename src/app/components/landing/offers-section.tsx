@@ -315,7 +315,7 @@ export function Testimonials() {
 // primary; the closing one is auto-width, so the page still has exactly one full-width
 // primary action (P955).
 const PRIMARY_CTA_BASE =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 px-6 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/30";
 
 /**
  * The page's closing action, scoped to Clarity Champions ALONE (founder UAT round 3:

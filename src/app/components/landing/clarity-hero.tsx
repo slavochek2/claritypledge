@@ -64,7 +64,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
           <Button
             onClick={onSignPledge}
             size="lg"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-8 py-6 h-auto"
+            className="bg-blue-500 hover:bg-blue-700 text-white font-semibold text-lg px-8 py-6 h-auto"
           >
             Sign the Pledge
           </Button>

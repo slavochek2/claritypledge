@@ -107,7 +107,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
     size === "hero"
       ? "text-base sm:text-lg lg:text-xl px-6 sm:px-10 lg:px-12 py-4 sm:py-5 lg:py-6"
       : "text-base px-8 py-4";
-  const baseClass = `inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`;
+  const baseClass = `inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`;
   const onClick = () => analytics.track("alignment_audit_cta_clicked", { location: size });
   return (
     <Link to="/intro" className={baseClass} onClick={onClick}>

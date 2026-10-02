@@ -256,7 +256,7 @@ export function TranscribeRoomPage() {
             says both so nobody lands on a spinner expecting text. Back stays the quiet way out. */}
         <Button
           onClick={() => navigate('/sessions')}
-          className="w-full min-h-11 bg-blue-500 hover:bg-blue-600 text-white"
+          className="w-full min-h-11 bg-blue-500 hover:bg-blue-700 text-white"
           data-testid="transcribe-see-transcript"
         >
           See your transcript
@@ -311,7 +311,7 @@ export function TranscribeRoomPage() {
         <Button
           onClick={() => void handleJoin()}
           disabled={!consentGiven || view === 'joining'}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white min-h-11"
+          className="w-full bg-blue-500 hover:bg-blue-700 text-white min-h-11"
           data-testid="transcribe-join-button"
         >
           {view === 'joining' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

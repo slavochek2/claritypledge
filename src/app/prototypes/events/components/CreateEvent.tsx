@@ -109,7 +109,7 @@ export function CreateEvent() {
           <h1 className="text-2xl font-bold mb-2">Sign Up to Host Events</h1>
           <p className="text-muted-foreground mb-4">You need an account to host events.</p>
           <Link to="/signup">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
+            <Button className="bg-blue-500 hover:bg-blue-700 text-white">Sign Up</Button>
           </Link>
         </div>
       </div>
@@ -392,7 +392,7 @@ export function CreateEvent() {
           <div className="pt-4">
             <Button
               type="submit"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              className="w-full bg-blue-500 hover:bg-blue-700 text-white"
               size="lg"
               disabled={isSubmitting}
             >

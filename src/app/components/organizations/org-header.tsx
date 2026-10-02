@@ -218,7 +218,7 @@ export function OrgHeader({
               only; at 320 "Manage membership" overflowed a half-width cell, so
               narrower screens stack all three. */}
           {isOrganizer && (
-            <Button asChild className="col-span-full min-h-11 w-full gap-2 bg-blue-500 text-white hover:bg-blue-600 sm:w-auto">
+            <Button asChild className="col-span-full min-h-11 w-full gap-2 bg-blue-500 text-white hover:bg-blue-700 sm:w-auto">
               <Link to={`/events/new?org=${encodeURIComponent(org.slug)}`} data-testid="org-host-event">
                 <PlusIcon className="h-4 w-4" aria-hidden="true" />
                 Host event
@@ -228,7 +228,7 @@ export function OrgHeader({
           <Button
             onClick={() => setInviteDialogOpen(true)}
             variant={isOrganizer ? "outline" : "default"}
-            className={`min-h-11 w-full gap-2 sm:w-auto ${isOrganizer ? "" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+            className={`min-h-11 w-full gap-2 sm:w-auto ${isOrganizer ? "" : "bg-blue-500 text-white hover:bg-blue-700"}`}
           >
             <Share2Icon className="h-4 w-4" aria-hidden="true" />
             Invite
@@ -280,7 +280,7 @@ export function OrgHeader({
         <Button
           ref={joinButtonRef}
           onClick={onJoin}
-          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-600 sm:w-auto"
+          className="min-h-11 w-full bg-blue-500 text-white hover:bg-blue-700 sm:w-auto"
         >
           Join as member
         </Button>

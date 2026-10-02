@@ -85,7 +85,7 @@ export function AboutPage() {
                 <Button
                   asChild
                   size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-semibold"
                   onClick={() => analytics.track('founder_services_clicked', { source: 'about_page' })}
                 >
                   <a

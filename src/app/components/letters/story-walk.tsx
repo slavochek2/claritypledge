@@ -175,7 +175,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
         return (
           <Button
             variant="default"
-            className="min-h-11 bg-blue-500 hover:bg-blue-600 text-white text-sm"
+            className="min-h-11 bg-blue-500 hover:bg-blue-700 text-white text-sm"
             onClick={() => setCaptureOpen(true)}
           >
             Explain back what you understood
@@ -370,7 +370,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               onClick={() => navigate('prev')}
               className={hasPrimaryCta
                 ? 'min-h-11 text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                : 'min-h-11 bg-blue-500 hover:bg-blue-600 text-white'}
+                : 'min-h-11 bg-blue-500 hover:bg-blue-700 text-white'}
               aria-label="Previous story"
             >
               ← Previous Story
@@ -382,7 +382,7 @@ export function StoryWalk({ stories, perspective, senderProfile, receiverProfile
               onClick={() => navigate('next')}
               className={hasPrimaryCta
                 ? 'min-h-11 text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                : 'min-h-11 bg-blue-500 hover:bg-blue-600 text-white'}
+                : 'min-h-11 bg-blue-500 hover:bg-blue-700 text-white'}
               aria-label="Next story"
             >
               Next Story →

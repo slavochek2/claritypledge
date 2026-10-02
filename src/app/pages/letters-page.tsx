@@ -120,7 +120,7 @@ export function LettersPage() {
             {/* P725: persistent "New Draft" CTA — visible on all three tabs, not gated by activeTab. */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white mb-1">
+                <Button size="sm" className="bg-blue-500 hover:bg-blue-700 text-white mb-1">
                   <Plus className="w-4 h-4" />
                   New Draft
                 </Button>

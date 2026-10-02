@@ -811,7 +811,7 @@ export function ProfilePageV2() {
                 setLoading(true);
                 window.location.reload();
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
+              className="bg-blue-500 hover:bg-blue-700 text-white"
             >
               Try Again
             </Button>
@@ -833,7 +833,7 @@ export function ProfilePageV2() {
             This profile doesn't exist or has been removed.
           </p>
           <Link to="/">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Button className="bg-blue-500 hover:bg-blue-700 text-white">
               Go to Home
             </Button>
           </Link>
@@ -880,7 +880,7 @@ export function ProfilePageV2() {
                 <Button
                   onClick={handleResendEmail}
                   disabled={isResending || resendSuccess}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  className="w-full bg-blue-500 hover:bg-blue-700 text-white"
                 >
                   {isResending ? 'Sending...' : resendSuccess ? '✓ Email Sent!' : 'Resend Verification Email'}
                 </Button>
@@ -1227,7 +1227,7 @@ export function ProfilePageV2() {
             <div className="pt-3">
               <button
                 onClick={handleCreateClick}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-700 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <Globe size={18} />
                 <span className="text-sm font-medium">Share a Story</span>
@@ -1769,7 +1769,7 @@ function StoryCardFull({
                 />
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" onClick={handleEditCancel} disabled={isSaving}>Cancel</Button>
-                  <Button size="sm" onClick={handleEditSave} disabled={!editContent.trim() || isSaving} className="bg-blue-500 hover:bg-blue-600 text-white">
+                  <Button size="sm" onClick={handleEditSave} disabled={!editContent.trim() || isSaving} className="bg-blue-500 hover:bg-blue-700 text-white">
                     {isSaving ? <><Loader2 size={14} className="animate-spin mr-1" />Saving…</> : 'Save'}
                   </Button>
                 </div>

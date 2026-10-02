@@ -504,7 +504,7 @@ export function FeedPage() {
           {(
             <Link
               to="/create"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md transition-colors"
             >
               <Globe className="w-4 h-4" />
               Share a Story

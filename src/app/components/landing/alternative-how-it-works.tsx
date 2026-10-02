@@ -73,7 +73,7 @@ export function AlternativeHowItWorks() {
         <div className="text-center mt-16">
           <Link
             to="/live"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold text-base sm:text-lg px-8 py-4 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
           >
             Try it now
           </Link>

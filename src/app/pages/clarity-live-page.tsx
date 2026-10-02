@@ -4014,7 +4014,7 @@ export function ClarityLivePage() {
             </DialogHeader>
             <div className="flex flex-col gap-3">
               <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white w-full"
+                className="bg-blue-500 hover:bg-blue-700 text-white w-full"
                 onClick={() => setShowUploadNavGuard(false)}
               >
                 Stay on this page
@@ -4120,7 +4120,7 @@ export function ClarityLivePage() {
                     <Button
                       onClick={handleJoin}
                       disabled={isLoading || consentLoading}
-                      className="w-full bg-blue-500 hover:bg-blue-600"
+                      className="w-full bg-blue-500 hover:bg-blue-700"
                       size="lg"
                     >
                       Join Session
@@ -4315,7 +4315,7 @@ export function ClarityLivePage() {
                       <Button
                         onClick={handleCreate}
                         disabled={isLoading || !guestCanProceed}
-                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
+                        className="bg-blue-500 hover:bg-blue-700 disabled:bg-blue-300 rounded-full h-11 px-5"
                       >
                         <Mic className="h-[18px] w-[18px]" />
                         <span className="text-sm">{isLoading ? 'Creating...' : 'New session'}</span>
@@ -4555,7 +4555,7 @@ export function ClarityLivePage() {
                 <Button
                   onClick={handleShare}
                   size="sm"
-                  className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
+                  className="flex-shrink-0 bg-blue-500 hover:bg-blue-700"
                 >
                   {copied ? (
                     <Check className="h-4 w-4 mr-1" />

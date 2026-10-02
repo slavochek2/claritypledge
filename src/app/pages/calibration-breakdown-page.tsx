@@ -209,7 +209,7 @@ export function CalibrationBreakdownPage() {
               </p>
               <Link
                 to="/live"
-                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-500 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 Start a session
               </Link>

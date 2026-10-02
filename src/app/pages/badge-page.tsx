@@ -139,7 +139,7 @@ export function BadgePage() {
             This profile doesn't exist or has been removed.
           </p>
           <Link to="/">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+            <Button className="bg-blue-500 hover:bg-blue-700 text-white">
               Go to Home
             </Button>
           </Link>

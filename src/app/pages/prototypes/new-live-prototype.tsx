@@ -233,7 +233,7 @@ function JoinStep({ onJoin }: { onJoin: () => void }) {
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-6">
       <h1 className="font-serif text-2xl mb-8">Clarity Session</h1>
       <div className="w-full max-w-xs space-y-4">
-        <button onClick={onJoin} className="w-full py-4 bg-blue-500 text-white rounded-xl text-lg font-medium hover:bg-blue-600 transition-colors">
+        <button onClick={onJoin} className="w-full py-4 bg-blue-500 text-white rounded-xl text-lg font-medium hover:bg-blue-700 transition-colors">
           Start new session
         </button>
         <div className="flex items-center gap-3 text-gray-400 text-sm">
@@ -290,7 +290,7 @@ function RoleClaimStep({
               {selectedStory.owner === 'me' && (
                 <button
                   onClick={() => onRoleClaim('speaker', selectedStory)}
-                  className="w-full py-4 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-600 transition-colors"
+                  className="w-full py-4 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-700 transition-colors"
                 >
                   Does <span className="font-bold">{PARTNER_NAME}</span> understand you?
                 </button>
@@ -305,7 +305,7 @@ function RoleClaimStep({
           ) : (
             <button
               onClick={() => onRoleClaim('speaker', selectedStory)}
-              className="w-full py-4 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-600 transition-colors"
+              className="w-full py-4 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-700 transition-colors"
             >
               Does <span className="font-bold">{PARTNER_NAME}</span> understand you?
             </button>
@@ -517,7 +517,7 @@ function SliderSession({
               <div className="px-2">
                 <SliderTrack value={myValue} onChange={setMyValue} label="" />
               </div>
-              <button onClick={handleSealedSubmit} className="w-full mt-5 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
+              <button onClick={handleSealedSubmit} className="w-full mt-5 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 Submit
               </button>
               <button onClick={onSpeakFreely} className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-6 mx-auto block min-h-11">
@@ -549,7 +549,7 @@ function SliderSession({
                   <p className="text-base font-medium mb-4">
                     Paraphrase what you understood back to <span className="font-semibold">{PARTNER_NAME}</span>
                   </p>
-                  <button onClick={handleParaphraseDone} className="w-full py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
+                  <button onClick={handleParaphraseDone} className="w-full py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
                     I paraphrased
                   </button>
                 </>
@@ -629,7 +629,7 @@ function SummaryStep({ myFinal, theirFinal, story, onDone, onRestart }: {
           )}
         </div>
         <div className="space-y-3">
-          <button onClick={onRestart} className="w-full py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors">New session</button>
+          <button onClick={onRestart} className="w-full py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors">New session</button>
           <button onClick={onDone} className="w-full py-3 text-gray-500 hover:text-gray-700 text-sm">Done</button>
         </div>
       </div>

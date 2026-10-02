@@ -277,7 +277,7 @@ export function TopicsPage() {
               Showing {Math.min(shown, topics.length)} of {topics.length} topics
             </p>
             {topics.length > shown && (
-              <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-600" onClick={() => setShown((n) => n + TOP_COUNT)}>
+              <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setShown((n) => n + TOP_COUNT)}>
                 Show {Math.min(TOP_COUNT, topics.length - shown)} more
               </Button>
             )}
@@ -511,7 +511,7 @@ function AddYourOwn({ onAdded }: { onAdded: () => Promise<void> }) {
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <Button type="button" className="min-h-11 self-start bg-blue-500 text-white hover:bg-blue-600" onClick={() => setOpen(true)}>
+      <Button type="button" className="min-h-11 self-start bg-blue-500 text-white hover:bg-blue-700" onClick={() => setOpen(true)}>
         <Plus className="mr-1 h-4 w-4" aria-hidden /> Add a topic
       </Button>
       <DialogContent className="sm:max-w-md">
@@ -562,7 +562,7 @@ function AddYourOwn({ onAdded }: { onAdded: () => Promise<void> }) {
             {status === 'long' && <p className="text-sm text-red-600">Keep the comment under 240 characters.</p>}
             {status === 'limit' && <p className="text-sm text-red-600">You've added 5 topics today. Try again tomorrow.</p>}
             {status === 'error' && <p className="text-sm text-red-600">Not added. Try again in a moment.</p>}
-            <Button type="submit" className="min-h-11 self-end bg-blue-500 text-white hover:bg-blue-600">
+            <Button type="submit" className="min-h-11 self-end bg-blue-500 text-white hover:bg-blue-700">
               {status === 'sending' ? 'Submitting…' : 'Submit'}
             </Button>
           </form>

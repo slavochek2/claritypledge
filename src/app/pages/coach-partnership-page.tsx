@@ -85,7 +85,7 @@ function TryLetterCTA({ size = "section" }: { size?: "hero" | "section" }) {
     // P1392 (founder): every landing books the same 15-min discovery call — no letter CTA.
     <Link
       to="/intro"
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
     >
       Book a 15-min discovery call
     </Link>

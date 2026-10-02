@@ -97,7 +97,7 @@ export function RejoinPrompt({
         <Button
           onClick={onRejoin}
           disabled={isRejoining}
-          className="w-full bg-blue-500 hover:bg-blue-600 h-12 text-base"
+          className="w-full bg-blue-500 hover:bg-blue-700 h-12 text-base"
           size="lg"
         >
           {isRejoining ? 'Rejoining...' : 'Rejoin Session'}

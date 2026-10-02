@@ -828,7 +828,7 @@ export function AuthCallbackPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
             <Link
               to="/sign-pledge"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-700 text-white"
             >
               Request New Link
             </Link>

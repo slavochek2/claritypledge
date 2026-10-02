@@ -136,7 +136,7 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
             e.stopPropagation();
             handleClick();
           }}
-          className="hidden sm:inline-flex ml-auto bg-blue-500 hover:bg-blue-600 text-white min-h-11"
+          className="hidden sm:inline-flex ml-auto bg-blue-500 hover:bg-blue-700 text-white min-h-11"
         >
           <Eye className="w-4 h-4 mr-1" />
           Results
@@ -275,7 +275,7 @@ function LetterCard({
                   e.stopPropagation();
                   navigate(`/letter/${letter.id}/overview`);
                 }}
-                className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-600 text-white min-h-11"
+                className="hidden sm:inline-flex bg-blue-500 hover:bg-blue-700 text-white min-h-11"
               >
                 Open overview
               </Button>

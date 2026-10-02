@@ -674,7 +674,7 @@ function MockRegisterStep({ onRegistered }: { onRegistered: (choice: PrepChoice)
         </div>
         <Button
           onClick={() => setOpen(true)}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+          className="w-full bg-blue-500 hover:bg-blue-700 text-white"
           size="lg"
           data-testid="rsvp-button"
         >
@@ -733,7 +733,7 @@ function MockRegisterStep({ onRegistered }: { onRegistered: (choice: PrepChoice)
             {choice && (
               <Button
                 size="lg"
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                className="w-full bg-blue-500 hover:bg-blue-700 text-white"
                 onClick={() => onRegistered(choice)}
                 data-testid="register-confirm"
               >

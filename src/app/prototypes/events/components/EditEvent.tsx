@@ -122,7 +122,7 @@ export function EditEvent() {
           <h1 className="text-2xl font-bold mb-2">Sign Up Required</h1>
           <p className="text-muted-foreground mb-4">You need an account to edit events.</p>
           <Link to="/signup">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
+            <Button className="bg-blue-500 hover:bg-blue-700 text-white">Sign Up</Button>
           </Link>
         </div>
       </div>
@@ -405,7 +405,7 @@ export function EditEvent() {
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              className="flex-1 bg-blue-500 hover:bg-blue-700 text-white"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : 'Save Changes'}

@@ -645,7 +645,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
                   ? submitting  // private doc compose: always clickable; validation shows on submit (P682 behaviour)
                   : (!canProceed || submitting)  // public doc compose: need mode+valid row
             }
-            className="bg-blue-500 hover:bg-blue-600 text-white w-full"
+            className="bg-blue-500 hover:bg-blue-700 text-white w-full"
           >
             {submitLabel}
           </Button>

@@ -102,7 +102,7 @@ export function SessionBar({
                 onClick={primary.onClick}
                 disabled={primary.disabled}
                 data-testid={primary.testId}
-                className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors disabled:opacity-50"
+                className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {primary.label}
               </button>

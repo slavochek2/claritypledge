@@ -56,7 +56,7 @@ function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
       to={eventPath}
       title={event.title}
       data-testid="tonights-event-cta"
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${size}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${size}`}
       onClick={() => analytics.track("nav_cta_clicked", { cta: "tonights_event", device })}
     >
       <CalendarCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -92,7 +92,7 @@ function LoggedOutPrimaryCta({
 }) {
   const { pathname } = useLocation();
   const { nextEvent } = useNextWebinar();
-  const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold gap-2 ${sizeClass}`;
+  const className = `inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow rounded-md px-8 bg-blue-500 hover:bg-blue-700 text-white font-semibold gap-2 ${sizeClass}`;
 
   // Which landing's action does this page mirror? (P987) There are now three public
   // landings with three different offers, so "the main landing" above is no longer a

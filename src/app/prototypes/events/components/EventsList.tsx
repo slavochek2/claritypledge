@@ -161,7 +161,7 @@ export function EventsList({
       {/* Org context carries the org forward so the created event can be assigned
           org_id; the standalone link is untouched. */}
       <Link to={orgSlug ? `/events/new?org=${encodeURIComponent(orgSlug)}` : '/events/new'}>
-        <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
+        <Button className="gap-2 bg-blue-500 hover:bg-blue-700 text-white">
           <Plus className="w-4 h-4" />
           Host Event
         </Button>
@@ -328,7 +328,7 @@ export function EventsList({
             ) : (
               !isSeriesFiltered && activeTab === 'upcoming' && !isLoggedIn && (
                 <Link to="/signup">
-                  <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+                  <Button className="bg-blue-500 hover:bg-blue-700 text-white">
                     Sign Up to Host
                   </Button>
                 </Link>
@@ -349,7 +349,7 @@ export function EventsList({
               Sign up to create and host your own Clarity events.
             </p>
             <Link to="/signup">
-              <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up to Host</Button>
+              <Button className="bg-blue-500 hover:bg-blue-700 text-white">Sign Up to Host</Button>
             </Link>
           </div>
         </div>

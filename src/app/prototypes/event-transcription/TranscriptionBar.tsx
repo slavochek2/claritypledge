@@ -11,7 +11,7 @@
  *   - outer: `relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2`, `role="status"`, `aria-live="polite"`
  *   - inner: `max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4`
  *   - pulse dot: `inline-block h-2 w-2 rounded-full bg-blue-500 motion-safe:animate-pulse motion-reduce:animate-none`
- *   - primary action button: `bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600`
+ *   - primary action button: `bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700`
  *   - secondary/destructive action: `text-sm text-destructive hover:underline h-8 px-3`
  *
  * See the prototype's report for whether a shared presentational bar should be extracted so
@@ -48,7 +48,7 @@ export function TranscriptionBar({
             type="button"
             onClick={onOpen}
             data-testid="transcription-bar-open"
-            className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-600 transition-colors"
+            className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors"
           >
             Open
           </button>

@@ -34,7 +34,7 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
       <div className={`flex flex-col items-center gap-3 ${className}`}>
         <Link
           to="/sign-pledge"
-          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
+          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
         >
           Take the Pledge
         </Link>
@@ -57,7 +57,7 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
       <Link
         to={liveTarget}
         title="Start a live clarity session"
-        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
+        className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
       >
         <MicIcon className="w-5 h-5" />
         Start a Clarity Session

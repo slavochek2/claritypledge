@@ -74,7 +74,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
         <RatingButtons selectedValue={selectedRating} onSelect={handleSelect} disabled={disabled} />
         <Button
           size="sm"
-          className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2'}
+          className={ctaClassName ?? 'bg-blue-500 hover:bg-blue-700 w-full max-w-[200px] mt-2'}
           disabled={selectedRating === null || disabled}
           onClick={handleSubmit}
         >

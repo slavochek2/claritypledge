@@ -62,4 +62,17 @@ describe('P1308 — one interactive blue', () => {
     const blue = (tailwindConfig as { theme: { extend: { colors: { blue: Record<string, string> } } } }).theme.extend.colors.blue;
     expect(blue).toEqual({ '500': '#2563eb', '600': '#2563eb', '700': '#1d4ed8' });
   });
+
+  it('no solid blue button whose hover is the same colour (blue-500 and blue-600 are both #2563eb)', () => {
+    const SAME = /(^|[\s"'`])bg-blue-(500|600)(?![/\w-])[^"'`]*hover:bg-blue-(500|600)(?![/\w-])/;
+    const hits: string[] = [];
+    for (const p of walk(ROOT)) {
+      const rel = relative(ROOT, p);
+      if (EXEMPT_PATH.some(r => r.test(rel))) continue;
+      readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+        if (SAME.test(line) && !/opacity-|cursor-not-allowed/.test(line)) hits.push(`${rel}:${i + 1}`);
+      });
+    }
+    expect(hits).toEqual([]);
+  });
 });

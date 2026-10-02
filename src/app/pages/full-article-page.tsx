@@ -362,7 +362,7 @@ export function FullArticlePage() {
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
                   <Link
                     to="/sign-pledge"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base px-8 py-6 h-auto"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold text-base px-8 py-6 h-auto"
                   >
                     Take the Pledge Now
                     <ArrowRightIcon className="ml-2 w-5 h-5" />
@@ -411,7 +411,7 @@ export function FullArticlePage() {
                       </p>
                       <Link
                         to="/sign-pledge"
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm h-9 px-3"
+                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold text-sm h-9 px-3"
                       >
                         Take the Pledge
                         <ArrowRightIcon className="ml-2 w-4 h-4" />
@@ -432,7 +432,7 @@ export function FullArticlePage() {
                 <div className="flex flex-col items-center gap-3">
                   <Link
                     to="/live"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-700 text-white font-semibold text-lg px-10 py-6 h-auto"
                   >
                     Start a Clarity Meeting
                   </Link>
@@ -457,7 +457,7 @@ export function FullArticlePage() {
         <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 sm:right-6 sm:bottom-6 z-40 animate-in slide-in-from-bottom-4">
           <Link
             to="/sign-pledge"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 h-auto"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-blue-500 hover:bg-blue-700 text-white font-semibold shadow-2xl text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 h-auto"
           >
             Take the Pledge
             <ArrowRightIcon className="ml-2 w-5 h-5" />
