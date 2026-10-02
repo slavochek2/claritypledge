@@ -32,7 +32,7 @@ async function signedIn(user: TestUser): Promise<SupabaseClient> {
 }
 
 // Redesign: only the title (plus source and aggregates) is public. No video, no "why".
-const PUBLIC_COLUMNS = ['id', 'title', 'source', 'my_rating', 'my_is_public', 'rating_avg', 'rating_count', 'voters'].sort();
+const PUBLIC_COLUMNS = ['id', 'title', 'why', 'track', 'source', 'my_rating', 'my_is_public', 'rating_avg', 'rating_count', 'voters', 'author'].sort();
 
 describe('P1347: topic voting is gated in the database', () => {
   let plain: TestUser;
@@ -111,6 +111,21 @@ describe('P1347: topic voting is gated in the database', () => {
     expect(after.voters.map((v: { name: string }) => v.name).sort()).toEqual(['P1347 Other', 'P1347 Plain']);
   });
 
+  it('clear_topic_rating: anon refused; you take back only your own rating', async () => {
+    expect((await anon().rpc('clear_topic_rating', { p_topic_id: openId })).error).not.toBeNull();
+    const a = await signedIn(plain);
+    const b = await signedIn(other);
+    expect((await a.rpc('rate_topic', { p_topic_id: openId, p_rating: 5, p_is_public: true })).error).toBeNull();
+    expect((await b.rpc('rate_topic', { p_topic_id: openId, p_rating: 1, p_is_public: true })).error).toBeNull();
+    expect((await a.rpc('clear_topic_rating', { p_topic_id: openId })).error).toBeNull();
+    const mine = (await a.rpc('get_open_topics')).data!.find((r: { id: string }) => r.id === openId);
+    expect(mine.my_rating).toBeNull();
+    expect(mine.rating_avg).toBeNull(); // no result once you have no rating
+    const theirs = (await b.rpc('get_open_topics')).data!.find((r: { id: string }) => r.id === openId);
+    expect(theirs.my_rating).toBe(1);
+    expect(theirs.rating_count).toBe(1);
+  });
+
   it('out-of-range ratings and unpublished topics are refused', async () => {
     const c = await signedIn(plain);
     expect((await c.rpc('rate_topic', { p_topic_id: openId, p_rating: 0, p_is_public: true })).error?.code).toBe('22023');
@@ -131,22 +146,29 @@ describe('P1347: topic voting is gated in the database', () => {
     expect(read.data).toBeNull();
   });
 
-  it('add_topic: anon refused; signed-in adds a public topic listed above host topics, note kept private', async () => {
+  it('add_topic: anon refused; the comment is the public description, the link stays host-only; name shown unless anonymous', async () => {
     expect((await anon().rpc('add_topic', { p_title: `${tag} anon`, p_note: null, p_link: null })).error).not.toBeNull();
 
     const c = await signedIn(plain);
-    const added = await c.rpc('add_topic', { p_title: `${tag} community`, p_note: 'secret note', p_link: 'https://youtu.be/x' });
+    const added = await c.rpc('add_topic', { p_title: `${tag} community`, p_note: 'why it matters', p_link: 'https://youtu.be/hostonly' });
     expect(added.error).toBeNull();
+    const hidden = await c.rpc('add_topic', { p_title: `${tag} anonymous`, p_note: null, p_link: null, p_anonymous: true });
+    expect(hidden.error).toBeNull();
 
     const { data } = await anon().rpc('get_open_topics');
     const ids = data!.map((r: { id: string }) => r.id);
     const row = data!.find((r: { id: string }) => r.id === added.data);
     expect(row.source).toBe('community');
+    expect(row.why).toBe('why it matters');
+    expect(row.author.name).toBe('P1347 Plain');
     expect(ids.indexOf(added.data)).toBeLessThan(ids.indexOf(openId));
-    expect(JSON.stringify(data)).not.toContain('secret note');
+    expect(JSON.stringify(data)).not.toContain('hostonly');
+    expect(data!.find((r: { id: string }) => r.id === hidden.data).author).toBeNull();
 
     const bad = await c.rpc('add_topic', { p_title: `${tag} bad link`, p_note: null, p_link: 'javascript:alert(1)' });
     expect(bad.error?.code).toBe('22023');
+    const long = await c.rpc('add_topic', { p_title: `${tag} long`, p_note: 'x'.repeat(241), p_link: null });
+    expect(long.error?.code).toBe('22023');
   });
 
   it('admin RPCs refuse anon and a signed-in non-admin', async () => {

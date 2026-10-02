@@ -106,7 +106,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** No prepared or mic marks in /meet for anyone, host included. The marks and the packing line live only on the host's event page, which is not projected. The database function behind the old room check stays (it returns an empty list to everyone but the host) so a cached older page does not error; nothing in the app calls it any more.
 **Alternatives rejected:** host-only marks in /meet (defeated by projecting); a toggle to show them (a control to remember, and the wrong default for a wall).
 **Consequences:** The host must not share or project the event page; the participants list there is the host's private view. UNTESTED: whether hosts actually keep the event page off the projector; falsifier: a host reports the page was shown to a room.
-**References:** [P1386](../features/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md)
+**References:** [P1386](../features/done/2026-06-10/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md)
 
 ## 2026-10-02 [product]: The mic question asks two separate facts; the phone connector is asked only of people who need a mic (P1386)
 
@@ -114,7 +114,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Q1 "Do you have a microphone to bring?" (yes = own mic, nothing more asked). Only after "No, I need one": "Which charging port does your phone have?" with USB-C, Lightning, or Something else / not sure. USB-C saves `usbc` and `confirmed`; Lightning and other save `lightning` / `other` and `eligible`, because the public "volunteer places left" count counts every `confirmed` row and a person the host cannot equip must not use up a recording place. Host marks: one grey mic = brings own; two overlapping dark mics plus C / L / ? = the host hands one out; the packing line counts each kind.
 **Alternatives rejected:** a single Lightning answer bolted onto the old three (kept the conflation); asking the connector of everyone (bothers people who bring their own mic); a free-text "other" (cannot be counted).
 **Consequences:** Old `none` rows stay valid and read as declined. When Lightning mics exist, flipping those rows to `confirmed` is a data update, not a code change. UNTESTED: whether the Lightning / other count drives a buying decision; falsifier: after two events nobody picks them, the second question is cut to USB-C only.
-**References:** [P1386](../features/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md), migration 20261002140000
+**References:** [P1386](../features/done/2026-06-10/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md), migration 20261002140000
 
 ## 2026-10-02 [process]: A serial Playwright spec run on the default config reports mass false flakes; read it with one worker and no retries
 
@@ -164,7 +164,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** `publicMediaUrl()` in `src/lib/public-media.ts` is the only place a public media URL is built (`gs://claritypledge-story-images`). `src/tests/p1385-public-media.test.ts` (a) asserts the helper's origin is in `vercel.json`'s `media-src` and `img-src`, and (b) scans every ts/tsx/js/jsx/css/html/md file under `src/` (tests excluded) for hand-built GCS URLs, Supabase public-object URLs and `getPublicUrl(`, failing with a message that states the rule. Exceptions live in an allowlist with one reason per entry — today only `markdown.ts`, which *matches* user-uploaded event-banner image URLs for P1352 and builds none. Rule lines sit in the path-triggered `.claude/rules/src.md` and `database.md`, so they load when `src/` or a migration is written.
 **Alternatives rejected:** checking every URL in `src/` against the CSP (also flags non-media hosts and URL fragments; any-host media such as a new CDN stays with the post-deploy `csp-smoke` gate, a spec ACCEPT); scanning `.ts/.tsx` only (review showed `getPublicUrl()` and CSS `url()` bypass it — both closed, red then green on real files).
 **Consequences:** Adding public media is "upload to the bucket, call the helper"; any other path is red locally. An allowlist entry is a decision, not a fix for a red test. Known gaps, accepted: a URL assembled from split string fragments, and the matcher reads CSP wildcards as one label deep (stricter than browsers).
-**References:** [p1385 spec](../features/p1385_public_media_defaults_to_gcs_with_csp_check.md) · [public-media.ts](../src/lib/public-media.ts)
+**References:** [p1385 spec](../features/done/2026-06-10/p1385_public_media_defaults_to_gcs_with_csp_check.md) · [public-media.ts](../src/lib/public-media.ts)
 
 ---
 ## 2026-10-01 [technical]: Public media must be on an origin the production CSP allows — the dev server sends no CSP, so only a test against vercel.json catches it (P1336, P1385)

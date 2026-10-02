@@ -22,6 +22,10 @@ export interface TopicVoter {
 export interface OpenTopic {
   id: string;
   title: string;
+  /** Short public "read more" line. NULL for attendee-added topics. */
+  why: string | null;
+  /** 'room' = in-person Clarity Night, 'online' = conjecture track. */
+  track: 'room' | 'online';
   /** 'community' = added by an attendee; always listed above the host's ('host'). */
   source: 'host' | 'community';
   myRating: number | null;
@@ -30,17 +34,22 @@ export interface OpenTopic {
   ratingAvg: number | null;
   ratingCount: number | null;
   voters: TopicVoter[] | null;
+  /** Who added a community topic; null for host topics and anonymous adds. */
+  author: TopicVoter | null;
 }
 
 interface OpenTopicRow {
   id: string;
   title: string;
+  why: string | null;
+  track: 'room' | 'online';
   source: 'host' | 'community';
   my_rating: number | null;
   my_is_public: boolean | null;
   rating_avg: number | string | null;
   rating_count: number | null;
   voters: TopicVoter[] | null;
+  author: TopicVoter | null;
 }
 
 const num = (v: number | string | null): number | null => (v === null ? null : Number(v));
@@ -49,12 +58,15 @@ function mapOpenTopic(r: OpenTopicRow): OpenTopic {
   return {
     id: r.id,
     title: r.title,
+    why: r.why,
+    track: r.track,
     source: r.source,
     myRating: r.my_rating,
     myIsPublic: r.my_is_public,
     ratingAvg: num(r.rating_avg),
     ratingCount: r.rating_count,
     voters: r.voters,
+    author: r.author,
   };
 }
 
@@ -77,6 +89,13 @@ export async function rateTopic(topicId: string, rating: number, isPublic: boole
   return !error;
 }
 
+/** Takes your rating back (tap your current star again). */
+export async function clearTopicRating(topicId: string): Promise<boolean> {
+  const { error } = await supabase.rpc('clear_topic_rating', { p_topic_id: topicId });
+  if (error) console.error('[topics] clear_topic_rating failed:', error.code, error.message);
+  return !error;
+}
+
 /** Applies "show my photo" to every vote this person has cast. */
 export async function setMyVotesPublic(isPublic: boolean): Promise<boolean> {
   const { error } = await supabase.rpc('set_my_topic_votes_public', { p_is_public: isPublic });
@@ -93,11 +112,12 @@ export function rankTopics(topics: OpenTopic[]): OpenTopic[] {
 }
 
 /** Signed-in only. Title goes public at once; note and link go to the host only. */
-export async function addTopic(input: { title: string; note?: string; link?: string }): Promise<'ok' | 'limit' | 'error'> {
+export async function addTopic(input: { title: string; note?: string; link?: string; anonymous?: boolean }): Promise<'ok' | 'limit' | 'error'> {
   const { error } = await supabase.rpc('add_topic', {
     p_title: input.title,
     p_note: input.note?.trim() || null,
     p_link: input.link?.trim() || null,
+    p_anonymous: input.anonymous ?? false,
   });
   if (!error) return 'ok';
   console.error('[topics] add_topic failed:', error.code, error.message);

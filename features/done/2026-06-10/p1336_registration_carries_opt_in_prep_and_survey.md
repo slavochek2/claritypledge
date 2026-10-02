@@ -234,7 +234,7 @@ their own phone in the room, so the host can check it.
 Unchanged in this spec. **Remind me by email** relies on the existing 24h reminder ("Tomorrow"),
 which links to the event page; prep is reached from there after normal sign-in.
 
-**Moved to [P1380](../../p1380_event_starting_soon_email_with_signin.md)** (decided 2026-10-01, by
+**Moved to [P1380](p1380_event_starting_soon_email_with_signin.md)** (decided 2026-10-01, by
 dependency): the starting-in-15-minutes email, the click-time sign-in redirect endpoint, and the
 confirmation **Prepare now** / 24h **Finish preparing** buttons. Those two buttons exist to open prep
 signed-in in one click, so they depend on the redirect endpoint and ship with it, not here.

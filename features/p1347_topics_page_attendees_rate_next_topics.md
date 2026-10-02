@@ -10,10 +10,8 @@ tags:
   - voting
   - clarity-night
 disclosure: public
-delivery_stage: dev
-pipeline_ran:
-  - create-spec
-  - dev
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -28,10 +26,10 @@ related:
 
 ## Problem
 
-**Situation:** Clarity Nights run weekly from event #2 on 2026-09-29. Each one runs on a single topic,
+**Situation:** Clarity Nights run every two weeks (founder, 2026-10-02): #2 on Tue 2026-10-06, #3 on Tue 2026-10-20. No fixed cadence is assumed anywhere on the page. Each one runs on a single topic,
 fed into the Disagreement Pipeline from a starting video of a thinker with a strong opinion. P1166
 produces a ranked, private candidate backlog (`.private/docs/topic-backlog.md`, 30 candidates as of
-2026-09-22). P1337 ends each evening with *"a topic suggestion or vote for next week"*, but specifies no
+2026-09-22). P1337 ends each evening with *"a topic suggestion or vote for next week"* (P1337 now links to /topics and shows whatever the next published event is), but specifies no
 surface to vote on.
 
 **Complication:** Topic choice is still the founder picking from his own interests. Event #1's topic (AI
@@ -39,7 +37,7 @@ safety) was the founder's pick, and attendees called it a weak fit. The audience
 correct this exists only as a hallway conversation. The backlog is ranked on founder and meetup evidence,
 never on this room's.
 
-**Question:** How does the room tell us, every week and in under a minute, which upcoming topics it
+**Question:** How does the room tell us, in under a minute, which upcoming topics it
 wants, so that the room's signal becomes the second half of the ranking?
 
 > Founder, 2026-09-22: *"our prioritization of topics with YouTube videos … will serve us as a kind of
@@ -67,8 +65,9 @@ from event announcements.
 3. **Improve (optional, collapsed).** Per card: a free-text box ("how would this be more interesting?").
    Page-level: "suggest a topic or a thinker you admire", with an optional link. Suggestions go to the
    founder's review queue and never appear on the page automatically.
-4. **See the result.** After rating, the voter sees the current order (average rating plus number of
-   raters), and the date of the next event with the topic that is currently leading.
+4. **See the result.** After rating, the voter sees that topic's average and who rated it. No single
+   "leading topic" and no event date: the founder draws SEVERAL topics from the ranked set to prepare
+   ahead (2026-10-02), so the output is a ranked set in `/admin/topics`, not one winner for one date.
 
 **Publishing.** The founder marks which backlog rows are open for voting. A published row carries only
 the topic string, the public video URL, the thinker's name and the one-line reason. Nothing else from
@@ -115,12 +114,12 @@ carry the abuse risk, sit behind identity. **Resolved (dev): (c)**, as recommend
 
 ## Done-When
 
-- [ ] A first-time visitor on a phone can watch a starting video and rate 3 topics in under a minute without instructions
-- [x] Ratings are 0–5 per topic, and a voter can rate several topics
-- [x] After rating, the voter sees the current order with rater counts and the next event's date
+- [x] A first-time visitor on a phone can rate 3 topics in under a minute without instructions (founder redesign: no videos) — NOT TESTED on a real phone: founder waived the check 2026-10-02 ("forget about it, ship"); founder reviewed in a phone-width browser
+- [x] Ratings are 1–5 per topic (tap again to clear), and a voter can rate several topics
+- [x] After rating, the voter sees that topic's average and voters (founder redesign: no single leader, no event date)
 - [x] Suggestions and links land in a founder-only view and never render publicly without founder action
 - [x] The founder can publish or unpublish a backlog topic without editing code
-- [ ] The page is reachable from the event-room Links menu and from the P1337 ending step
+- [x] The page is reachable from the event-room Links menu (Tools → "Pick next topic"); the P1337 ending-step link is P1337's deliverable
 - [x] Only the four published fields of a topic are readable by an anonymous visitor (verified with an anon read)
 
 ## Founder redesign (2026-10-01, supersedes the card design in Solution)
@@ -147,11 +146,21 @@ carry the abuse risk, sit behind identity. **Resolved (dev): (c)**, as recommend
 - Not ticked: the under-a-minute phone check is a live UAT item for `/verify`; the P1337 ending-step link needs P1337's ending step, which does not exist yet (requirement added to P1337).
 - Reviewed by Opus (saw screenshots), Gemini 3.8 Flash and Codex Sol (source only); 3 of 3 reported.
 
+## Code review (2026-10-02, one Opus reviewer: 0 HIGH, 1 MEDIUM, 8 LOW)
+
+- Fixed: stars tapped while signed out were saved with the photo shown even when the person hides it;
+  failed guest saves were lost silently; the guest save wiped later taps; a title with nothing to open
+  was announced as a button. Regression test proven against the old behaviour.
+- Accepted: on a topic with exactly two votes, the average plus your own rating reveals the other
+  rating; rating, reading the result, then clearing lets someone peek. Both are small-room trade-offs.
+- Follow-up: the 5-per-day add limit has no lock (parallel calls could add a sixth); the star group
+  lacks arrow-key handling for screen readers.
+
 ## Open Questions
 
 1. Does the existing points/story embed component (used on `/point/:id`, `/story/:id`) render a YouTube
    thumbnail with inline play? Reuse it rather than building a new card. UNVERIFIED.
-2. Should the leading topic feed the weekly event page automatically (P1337 open question 2)? Kept
+2. Should a top-rated topic feed the next event page automatically (P1337 open question 2)? Kept
    manual here.
 
 ## Related

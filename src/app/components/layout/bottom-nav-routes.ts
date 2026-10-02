@@ -16,7 +16,8 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
   // so the receiver can be directed onward. Only the /letter/ reading route is exempted;
   // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
   const letterDone = new URLSearchParams(search).get('done') === '1';
-  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration', '/transcribe'];
+  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration', '/transcribe', '/topics'];
+  // P1347: /topics carries its own pinned bar (Show more + Back), so the menu would cover it.
   // /org/:slug is a browse page, but /org/:slug/join (the terms gate) is a focus
   // page — a prefix entry can't express that, so it gets its own exact pattern.
   // P1016/P1024: /meet (formerly /terms) carries its own sticky action bar, which the
