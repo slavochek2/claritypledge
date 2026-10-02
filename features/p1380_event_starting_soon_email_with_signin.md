@@ -132,6 +132,26 @@ The starting-soon email goes to every registrant of such an event, prepared or n
   (the ticket is deleted with the RSVP). An event cancelled and then un-cancelled does not resend
   a starting-soon email that was already scheduled.
 
+## Decisions after /dev (founder, 2026-10-02)
+
+- **Email buttons open a "Continue" page; one press signs in; each button works once** (security
+  review: link scanners open every link; a forwarded email). Supabase's own docs recommend this
+  shape for scanners. Event host and admin accounts are never signed in this way.
+- **A button works until 2 hours after the event's scheduled end** (start + duration), whenever it
+  was sent: a month-ahead "You're in" still works, once.
+- **24-hour times everywhere** (event pages and event emails).
+- **Open:** where the "we start sharp" line stays — recommended: 24h reminder + end of
+  preparation, drop it from the starting-soon email.
+
+## Evidence (/dev)
+
+- Unit: `src/tests/p1380-*.test.ts(x)` (arrival rules, gate, Continue page), `supabase/functions/_shared/p1380-event-emails.test.ts` (18 Deno).
+- DB: `e2e/integration/p1380-db-schema.spec.ts` (5, test DB).
+- Browser: `e2e/p1380-arrival.spec.ts` (8, test DB + deployed function): arrival, See you soon, release place, host arrivals, Continue press-through, second press → sign-in.
+- Live (opt-in, real Mailgun on test): `e2e/integration/p1380-live-send.spec.ts` (2): confirmation +
+  late-RSVP starting-soon on registering; cron starting-soon for an event with no reminder due
+  (the code-review HIGH), prep reminder; second tick sends nothing.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -143,15 +163,15 @@ Non-goals: prep flow itself (P1336); waitlist notices.
 
 ## Acceptance Criteria
 
-- [ ] Confirmation has **Prepare now**; 24h reminder has **Finish preparing** only if incomplete; "Remind me" triggers no extra email; each RSVP on a test event has non-null message ids
-- [ ] Starting-in-15 email is delivered at start−15 min (immediately for a late RSVP before start; never for a cancelled event); its link signs the person in and opens the room gate (prepared → room; else Prepare now / Join without preparing)
-- [ ] An event with Preparation off (e.g. a hike) gets today's emails only: no prep buttons, no starting-soon email
-- [ ] The starting-soon email explains why in its first lines and carries **I'm here** / **Not yet** as two buttons; **I'm here** (email or room gate) stamps the registration as arrived and opens the room; **Not yet** shows the venue, address, map link, **I'm here now** and **I can't make it**; the host sees who arrived
-- [ ] The question names the venue ("Have you arrived at Zuzalu library?") when the location starts with a place name, falls back to "Have you arrived?" + address otherwise, and is absent for an online event (**Join now**)
-- [ ] An email button clicked >1h after scheduling still signs in one-click (link minted at click by the redirect endpoint); an expired/used link lands on normal sign-in, then the same target
+- [x] Confirmation has **Prepare now**; 24h reminder has **Finish preparing** only if incomplete; "Remind me" triggers no extra email; each RSVP on a test event has non-null message ids
+- [x] Starting-in-15 email is delivered at start−15 min (immediately for a late RSVP before start; never for a cancelled event); its link signs the person in and opens the room gate (prepared → room; else Prepare now / Join without preparing)
+- [x] An event with Preparation off (e.g. a hike) gets today's emails only: no prep buttons, no starting-soon email
+- [x] The starting-soon email explains why in its first lines and carries **I'm here** / **Not yet** as two buttons; **I'm here** (email or room gate) stamps the registration as arrived and opens the room; **Not yet** shows the venue, address, map link, **I'm here now** and **I can't make it**; the host sees who arrived
+- [x] The question names the venue ("Have you arrived at Zuzalu library?") when the location starts with a place name, falls back to "Have you arrived?" + address otherwise, and is absent for an online event (**Join now**)
+- [x] An email button clicked >1h after scheduling still signs in (founder 2026-10-02: one press on a "Continue" page, link minted at the press; single use); an expired/used link lands on normal sign-in, then the same target
 
 ## Pre-deploy Checklist
 
 - [ ] Read prod OTP expiry (magic-link lifetime)
-- [ ] `supabase functions deploy dispatch-event-emails` and `send-event-emails` (test, then prod)
+- [ ] `supabase functions deploy dispatch-event-emails`, `send-event-emails` and `event-email-link` (test ✓ 2026-10-02, then prod)
 - [ ] Post-deploy: RSVP on a test event, confirm confirmation id, scheduled reminder and starting-soon email rows
