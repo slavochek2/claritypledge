@@ -115,7 +115,7 @@ export const ExportAgreementCertificate = forwardRef<HTMLDivElement, ExportAgree
               style={{
                 fontSize: '24px',
                 fontWeight: 'bold',
-                color: '#002B5C',
+                color: '#2563eb',
                 letterSpacing: '0.05em',
                 margin: '0 0 10px 0',
               }}

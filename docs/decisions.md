@@ -6,6 +6,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: One interactive blue is medium `#2563eb` — navy reversed before push (P1396)
+
+**Context:** P1308 merged dark navy `#002B5C` as the single interactive blue (founder: "last dardk navy imho").
+Before push, a logo comparison prompted "maybe we went to fast into navy.. mayb buttons have to be middle?".
+**Decision:** Medium blue `#2563eb`, chosen after the real `/feed` was shown live in both colours side by side.
+Navy stays certificate paper only (frames, ink). Logo, loader, favicon and theme colour follow.
+**Alternatives rejected:** Navy — reads near-black against body text, so actions stand out less; certificates
+lose their distinct look; the home-screen icon vanishes on dark wallpapers. Light `#3b82f6` — white text fails
+WCAG AA (3.68:1).
+**Consequences:** Show colour choices on the real app, not on mock pages — the navy pick was made from a
+mock and reversed within the hour once seen live. PNG app icons still `#3b82f6` (deferred, near-identical).
+**References:** [P1396](../features/p1396_medium_blue_one_interactive_blue.md) · [P1308](../features/done/)
+
+---
+
 ## 2026-10-02 [product]: The feed (Stories) is the front door; every landing books one 15-min discovery call
 
 **Context:** No visitor ever booked the "free alignment audit" sold by the "/" landing. The founder also reached events three clicks deep (Groups → group → event). The decision was to show the product instead of describing it (P1392).

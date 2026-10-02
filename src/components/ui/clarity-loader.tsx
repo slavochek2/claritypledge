@@ -29,7 +29,7 @@ export function ClarityLoader({ size = "md", className }: ClarityLoaderProps) {
       role="img"
       aria-label="Loading"
     >
-      <rect width="128" height="128" rx="16" fill="#3b82f6" />
+      <rect width="128" height="128" rx="16" fill="#2563eb" />
       <path
         d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
         stroke="white"

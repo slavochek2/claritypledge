@@ -53,13 +53,13 @@ export default {
             ]
         },
         "colors": {
-            // P1393/P1308 founder decision: ONE interactive blue, the brand navy. The action shades
-            // of Tailwind's blue are remapped so every existing `blue-500/600/700` class follows.
-            // Tints (50-300) and dark-mode shades (400+) keep Tailwind's values. See design-system.md.
+            // P1308 founder decision (2026-10-02): ONE interactive blue — medium blue #2563eb, picked over
+            // navy after seeing both live. blue-500 is remapped to the same value so the ~380 legacy
+            // `blue-500` uses follow. Tints (50-400) keep Tailwind's values. See design-system.md.
             "blue": {
-                "500": "#00336B",
-                "600": "#002B5C",
-                "700": "#001F45"
+                "500": "#2563eb",
+                "600": "#2563eb",
+                "700": "#1d4ed8"
             },
             "border": "hsl(var(--border))",
             "input": "hsl(var(--input))",

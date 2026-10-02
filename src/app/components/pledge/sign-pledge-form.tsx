@@ -233,7 +233,7 @@ export function SignPledgeForm({
                   backgroundColor: profileStrength.filled === 2
                     ? "#002B5C"  // Complete
                     : profileStrength.filled === 1
-                      ? "#002B5C"  // Strong
+                      ? "#2563eb"  // Strong
                       : "#3366DD"  // Good
                 }}
               />
@@ -341,7 +341,7 @@ export function SignPledgeForm({
         <div className="space-y-2">
           <Button
             type="submit"
-            className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
             size="lg"
             disabled={isSubmitting}
           >

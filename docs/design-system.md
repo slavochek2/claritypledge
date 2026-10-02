@@ -50,12 +50,12 @@ The **landing page** ([src/app/pages/landing-page.tsx](../src/app/pages/landing-
 - "Your" content in multi-user contexts (see Multi-User Pattern below)
 - Pending/in-progress states (no amber needed)
 
-**Tailwind tokens — one interactive blue, the brand navy (founder decision, P1308):**
-`tailwind.config.js` remaps the action shades, so existing class names render navy:
-- `blue-600` → `#002B5C` — primary buttons, active tabs, links, selected states
-- `blue-500` → `#00336B` (slightly lighter navy) · `blue-700` → `#001F45` (hover)
-- Tints `blue-50`…`blue-300` and `blue-400` keep Tailwind's values (pills, highlight backgrounds)
-- Never write a blue hex (`#2563eb`, `#3b82f6`, `#0044CC`) in UI code — use the class. Avatar colours are user data and exempt.
+**Tailwind tokens — one interactive blue, medium blue `#2563eb` (founder decision, P1308 — chosen over navy after comparing both live):**
+`tailwind.config.js` maps `blue-500` and `blue-600` → `#2563eb`, `blue-700` → `#1d4ed8` (hover):
+- `blue-600` — primary buttons, active tabs, links, selected states
+- Tints `blue-50`…`blue-400` keep Tailwind's values (pills, highlight backgrounds)
+- `#002B5C` navy is certificate paper only (frames, ink) — never a button
+- Never write a blue hex (`#3b82f6`, `#0044CC`) in UI code — use the class. Avatar colours are user data and exempt.
 - `blue-50` - Highlight backgrounds
 - `blue-200` - Borders for action pills
 

@@ -1,5 +1,5 @@
 /**
- * P1308 — one interactive blue. `tailwind.config.js` remaps blue-500/600/700 to the brand navy, so
+ * P1308 — one interactive blue (medium, #2563eb). `tailwind.config.js` maps blue-500/600/700 to it, so
  * a class follows the decision automatically; a raw blue HEX in UI code does not. This guard fails
  * on any off-brand blue hex in prod-reachable UI code.
  *
@@ -12,7 +12,7 @@ import { join, relative } from 'node:path';
 import tailwindConfig from '../../tailwind.config.js';
 
 const ROOT = join(__dirname, '..');
-const BANNED = /#(2563eb|3b82f6|0044cc|0033aa|1d4ed8)\b/i;
+const BANNED = /#(3b82f6|0044cc|0033aa|00336b|001f45)\b/i;  // off-brand; #2563eb/#1d4ed8 ARE the brand
 
 const EXEMPT_PATH = [
   /\.test\.tsx?$/,
@@ -53,13 +53,13 @@ describe('P1308 — one interactive blue', () => {
   });
 
   it('MUST-FAIL: a planted UI blue hex is caught; an avatar colour is not', () => {
-    expect(findOffBrandBlues([{ path: 'app/pages/x.tsx', text: '<div className="bg-[#2563eb]" />' }]))
+    expect(findOffBrandBlues([{ path: 'app/pages/x.tsx', text: '<div className="bg-[#3b82f6]" />' }]))
       .toEqual(['app/pages/x.tsx:1']);
     expect(findOffBrandBlues([{ path: 'app/pages/x.tsx', text: "avatarColor = '#0044CC'," }])).toEqual([]);
   });
 
   it('the navy remap itself is in tailwind.config.js (deleting it must fail)', () => {
     const blue = (tailwindConfig as { theme: { extend: { colors: { blue: Record<string, string> } } } }).theme.extend.colors.blue;
-    expect(blue).toEqual({ '500': '#00336B', '600': '#002B5C', '700': '#001F45' });
+    expect(blue).toEqual({ '500': '#2563eb', '600': '#2563eb', '700': '#1d4ed8' });
   });
 });

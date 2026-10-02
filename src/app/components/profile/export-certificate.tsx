@@ -106,7 +106,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#002B5C",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -131,7 +131,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#002B5C",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -156,7 +156,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#002B5C",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -282,7 +282,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
-                  <circle cx="64" cy="64" r="64" fill="#00336B" />
+                  <circle cx="64" cy="64" r="64" fill="#2563eb" />
                   <path
                     d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
                     stroke="white"
@@ -321,7 +321,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
               <p
                 style={{
                   fontSize: "18px",
-                  color: "#002B5C",
+                  color: "#2563eb",
                   fontWeight: "500",
                   margin: "0 0 10px 0",
                 }}
@@ -347,7 +347,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <circle cx="64" cy="64" r="64" fill="#00336B" />
+                <circle cx="64" cy="64" r="64" fill="#2563eb" />
                 <path
                   d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
                   stroke="white"
