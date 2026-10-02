@@ -5,10 +5,10 @@ const START = '2026-10-06T11:30:00.000Z';
 const at = (ms: number) => new Date(START).getTime() + ms;
 
 describe('roundClock', () => {
-  it('starts with 90 seconds to find tables', () => {
+  it('starts with 60 seconds to find tables', () => {
     const c = roundClock(START, at(10_000), true);
     expect(c.phase).toBe('seating');
-    expect(c.phaseRemainingMs).toBe(80_000);
+    expect(c.phaseRemainingMs).toBe(50_000);
     expect(c.talkRemainingMs).toBe(2 * SPEAKER_MS + OBSERVER_MS);
   });
 

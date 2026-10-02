@@ -177,8 +177,8 @@ pattern (`SET search_path = ''`, `COALESCE(flag,false)` against `auth.uid()`, ex
 trust-column guard fires only for `anon`/`authenticated`, so a SECURITY DEFINER writer bypasses it.
 
 **Two actions per round: ring the bell, press Next round.** Everything else is optional — mark someone
-left, swap two people by hand (the case no algorithm can know), Recompute. Press *Start round* → **90
-seconds** for the room to find tables → 6 / 6 / 3. One clock for the whole room; a round that is not
+left, swap two people by hand (the case no algorithm can know), Recompute. Press *Start round* → **60
+seconds** for the room to find tables (founder, 2026-10-03, down from 90 after walking it through: enough to walk, read the statement and tap; still a healthy push) → 6 / 6 / 3. One clock for the whole room; a round that is not
 ended simply continues, and the countdown passing zero reads "over by 2:30".
 
 The panel also shows **past rounds** — who sat where, in which role — which is the only way to answer

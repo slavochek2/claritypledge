@@ -2,7 +2,7 @@
  * @file round-clock.ts
  * @description P1337 — the one clock for a round, derived from the round's server start time.
  *
- * Start round → 90 seconds for the room to find tables → 6 minutes on the first speaker's
+ * Start round → 60 seconds for the room to find tables (founder, from 90 after walking it through) → 6 minutes on the first speaker's
  * meaning, 6 on the second's, 3 for the observer (spec §6). A round with no observer (group
  * size 2) ends after the second six. A round that is not ended simply continues: past zero the
  * clock reads "over by 2:30" instead of stopping.
@@ -13,7 +13,7 @@
 
 export type RoundPhase = 'seating' | 'first' | 'second' | 'observer' | 'over';
 
-export const SEATING_MS = 90_000;
+export const SEATING_MS = 60_000;
 export const SPEAKER_MS = 6 * 60_000;
 export const OBSERVER_MS = 3 * 60_000;
 

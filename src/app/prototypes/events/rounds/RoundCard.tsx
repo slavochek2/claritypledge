@@ -2,7 +2,7 @@
  * @file RoundCard.tsx
  * @description P1337 §3 — what each person sees, round by round, in the event room.
  *
- * Between rounds (the 90 seconds to find tables) is the only phone moment: your table, who is
+ * Between rounds (the 60 seconds to find tables) is the only phone moment: your table, who is
  * there, your role, and the reason to look — the statement you and your partner are furthest
  * apart on, with a way into the comparison. One tap, "I'm at table N", records where you
  * actually sat. THE TAP IS NEVER A GATE (spec Invariants): not tapping changes nothing, and it
