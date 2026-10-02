@@ -36,6 +36,10 @@ export interface SessionBarProps {
   tone?: 'live' | 'offline';
   /** The offline state's second line, under the text. */
   detail?: ReactNode;
+  /** P1388: inline after the text — the room-capture bar's level meter and ⓘ. */
+  adornment?: ReactNode;
+  /** P1388: an extra control placed before the primary — the room-capture bar's Pause/Resume. */
+  extra?: ReactNode;
 }
 
 const END_BUTTON_CLASS =
@@ -50,9 +54,11 @@ export function SessionBar({
   showDot = true,
   tone = 'live',
   detail,
+  adornment,
+  extra,
 }: SessionBarProps) {
   const offline = tone === 'offline';
-  const hasActions = !!primary || !!secondary;
+  const hasActions = !!primary || !!secondary || !!extra;
   return (
     <div
       role="status"
@@ -81,11 +87,13 @@ export function SessionBar({
               />
             )}
             <span className="text-sm font-medium text-blue-900">{text}</span>
+            {adornment}
           </div>
         )}
 
         {hasActions && (
           <div className="flex items-center gap-4 sm:flex-row">
+            {extra}
             {primary && (
               <button
                 type="button"

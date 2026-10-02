@@ -6,22 +6,20 @@
  *
  * Renders only while something is running for this person: capturing, stalled (still
  * archiving — the indicator must not disappear), or observing (another tab of the same
- * browser holds the microphone; this tab still shows Open / End). Paused, starting, ending
- * and idle render nothing: during a pause nothing is captured, so the absence of a bar is the
- * truth, and D3/D13 ask for no "paused" message.
+ * browser holds the microphone; this tab still shows Open / End). Starting, ending and idle
+ * render nothing. P1388: a MANUAL pause renders the bar in its paused state (the Resume control
+ * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
+ * renders nothing, as D3/D13 asked.
  */
 import { useLayoutEffect, useState } from 'react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
+import { CaptureInfoButton, PauseResumeButton } from './capture-controls';
+import { STOP_TRANSCRIBING, useCaptureStatus } from './capture-status';
+import { CaptureLevelMeter } from './capture-level-meter';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing']);
-
-/** UI Contract. */
-const RUNNING_TEXT = '● Transcribing for AI insights';
-/** [FOUNDER DECISION: copy — PROPOSED] Reuses the room page's existing stall string; build
- *  with it and confirm at /verify. */
-const STALLED_TEXT = '● Live text has stalled — your words are still being recorded.';
 
 /**
  * P1369 — the offline state. Capture behaviour when the network drops was VERIFIED by reading
@@ -44,13 +42,15 @@ const OFFLINE_STOP = 'Stop microphone';
 const OFFLINE_STOPPING = 'Stopping…';
 
 export function RoomCaptureBar() {
-  const { phase, roomId, open, endMyCapture } = useRoomCapture();
+  const { phase, roomId, open, endMyCapture, manualPaused } = useRoomCapture();
   const { offline } = useConnectivity();
+  const status = useCaptureStatus();
   // Offline, the End RPC fails or hangs after the microphone is already off; until it settles the
   // phase does not change, so the button says the stop is under way instead of inviting a retap.
   const [stopping, setStopping] = useState(false);
 
-  if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
+  const manuallyPaused = phase === 'paused' && manualPaused;
+  if ((!VISIBLE_PHASES.has(phase) && !manuallyPaused) || !roomId) return null;
 
   if (offline) {
     return (
@@ -78,9 +78,16 @@ export function RoomCaptureBar() {
       testId="room-capture-bar"
       ariaLabel="Room transcription active"
       showDot={false}
-      text={phase === 'stalled' ? STALLED_TEXT : RUNNING_TEXT}
+      text={<span data-warn={status.warn} className="data-[warn=true]:text-red-800">{status.text}</span>}
+      adornment={
+        <>
+          {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+          <CaptureInfoButton />
+        </>
+      }
+      extra={<PauseResumeButton />}
       primary={{ label: 'Open', onClick: open, testId: 'room-capture-bar-open' }}
-      secondary={{ label: 'End session', onClick: () => void endMyCapture(roomId), testId: 'room-capture-bar-end' }}
+      secondary={{ label: STOP_TRANSCRIBING, onClick: () => void endMyCapture(roomId), testId: 'room-capture-bar-end' }}
     />
   );
 }

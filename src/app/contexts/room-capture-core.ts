@@ -204,3 +204,41 @@ export async function acquireCaptureLock(roomId: string): Promise<CaptureLock> {
   });
   return { acquired, release: acquired ? release : () => {} };
 }
+
+// ─── P1388: the manual pause ─────────────────────────────────────────────────
+
+export interface PauseInputs {
+  phase: CapturePhase;
+  /** On /live or an immersive letter screen. */
+  pauseLocation: boolean;
+  explainBackHolds: number;
+  liveSessionActive: boolean;
+  /** The recorder tapped Pause and has not tapped Resume. */
+  manualPaused: boolean;
+}
+
+/**
+ * The one pause/resume rule. P1388 adds `manualPaused`: before it, any `paused` phase with no
+ * automatic reason was resumed on the next render, so a hand-pressed Pause would have been
+ * undone at once (spec open question 2). A manual pause is a reason like the others — and a
+ * manual Resume removes only that reason, so it never overrides /live or an explain-back.
+ */
+export function decidePauseTransition(i: PauseInputs): 'pause' | 'resume' | null {
+  const wantPaused =
+    i.manualPaused ||
+    i.pauseLocation ||
+    i.explainBackHolds > 0 ||
+    (i.phase === 'paused' && i.liveSessionActive);
+  if ((i.phase === 'capturing' || i.phase === 'stalled') && wantPaused) return 'pause';
+  if (i.phase === 'paused' && !wantPaused) return 'resume';
+  return null;
+}
+
+/**
+ * P1388: input below this RMS for SILENCE_WARN_AFTER_MS reads as "no sound reaching the
+ * recording". Set at near-digital-zero on purpose: a quiet room with a lavalier still has a
+ * noise floor well above it, while a track iOS has muted (screen lock, backgrounded tab) or
+ * a disconnected source delivers exact zeros. So this flags a dead input, not a pause in talk.
+ */
+export const SILENCE_RMS_FLOOR = 0.0001;
+export const SILENCE_WARN_AFTER_MS = 8_000;

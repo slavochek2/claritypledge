@@ -162,9 +162,9 @@ test.describe('P1307: event transcription', () => {
     await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 10_000 });
   });
 
-  test('End session from the bar clears it and ends this person\'s capture', async ({ page }) => {
+  test('Stop transcribing from the bar clears it and ends this person\'s capture', async ({ page }) => {
     await reachCapturing(page);
-    await page.getByRole('button', { name: /end session/i }).click();
+    await page.getByRole('button', { name: /stop transcribing/i }).click();
     await expect(page.getByText(/Transcribing for AI insights/i)).not.toBeVisible({ timeout: 10_000 });
 
     const { data: members } = await supabaseAdmin

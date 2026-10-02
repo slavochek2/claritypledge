@@ -120,7 +120,7 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
       await expect(page.getByTestId('room-capture-bar'), `${w.name}: the session bar must not render on the room page`).toHaveCount(0);
       await expect(page.getByTestId('room-capture-bar-open'), `${w.name}: no "Open" pointing at this page`).toHaveCount(0);
       await expect(page.getByTestId('transcribe-listening-indicator'), `${w.name}: D9 indicator must be on screen`).toBeVisible();
-      const ends = page.getByRole('button', { name: /end session/i }).filter({ visible: true });
+      const ends = page.getByRole('button', { name: /stop transcribing/i }).filter({ visible: true });
       await expect(ends, `${w.name}: exactly one End control`).toHaveCount(1);
 
       // AC-2 — exactly one VISIBLE trigger, inside the page's own header, overlapping nothing.
@@ -187,7 +187,7 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
       await expect(pageB.getByTestId('transcribe-room-screen'), 'tab B shows the room, not a join or consent screen').toBeVisible({ timeout: 20_000 });
       await expect(pageB.getByTestId('room-capture-bar'), 'tab B: no session bar').toHaveCount(0);
       await expect(pageB.getByTestId('transcribe-listening-indicator'), 'tab B: indicator on screen').toBeVisible();
-      await expect(pageB.getByRole('button', { name: /end session/i }).filter({ visible: true }), 'tab B: exactly one End').toHaveCount(1);
+      await expect(pageB.getByRole('button', { name: /stop transcribing/i }).filter({ visible: true }), 'tab B: exactly one End').toHaveCount(1);
       await expect(visibleLinksTriggers(pageB), 'tab B: exactly one visible Links trigger').toHaveCount(1);
     } finally {
       await context.close();

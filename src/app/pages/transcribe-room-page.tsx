@@ -22,6 +22,9 @@
  *   - P1236 Decision 7 still holds: there is no browser speech recognizer and no interim text
  *     anywhere here; live text arrives only as the server's rows.
  */
+import { CaptureInfoButton, PauseResumeButton } from '@/app/components/session/capture-controls';
+import { STOP_TRANSCRIBING, useCaptureStatus } from '@/app/components/session/capture-status';
+import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
@@ -360,12 +363,12 @@ export function TranscribeRoomPage() {
             <button
               type="button"
               onClick={() => void handleEndSession()}
-              aria-label="End Session"
+              aria-label={STOP_TRANSCRIBING}
               className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
               data-testid="transcribe-end-session-button"
             >
               <LogOut className="h-4 w-4" />
-              <span>End Session</span>
+              <span>{STOP_TRANSCRIBING}</span>
             </button>
             </div>
           </div>
@@ -405,23 +408,8 @@ export function TranscribeRoomPage() {
             {/* [FOUNDER DECISION: copy] — the page's existing placeholder, unchanged. */}
             Could not access your microphone. You can still read the chat.
           </p>
-        ) : capture.phase === 'stalled' ? (
-          <p
-            className="text-xs py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500 mb-3"
-            data-testid="transcribe-mic-error"
-            role="status"
-          >
-            Live text has stalled — your words are still being recorded.
-          </p>
         ) : (
-          <div
-            className="flex items-center gap-1.5 mb-3 text-xs text-muted-foreground"
-            data-testid="transcribe-listening-indicator"
-            role="status"
-          >
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shrink-0" aria-hidden="true" />
-            Listening — your words appear here a few seconds after you say them
-          </div>
+          <TranscribeCaptureRow />
         )}
 
         <div className="relative flex-1 min-h-0 mb-4">
@@ -477,6 +465,30 @@ export function TranscribeRoomPage() {
           <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" className="mt-0" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * P1388: the recorder's status line on the room page — the same controls as the capture bar,
+ * which this page claims and does not draw (P1323 R6). While all is well it keeps the page's
+ * own "Listening" line; anything else (paused, stalled, no sound, mic gone) replaces it.
+ */
+function TranscribeCaptureRow() {
+  const { phase } = useRoomCapture();
+  const status = useCaptureStatus();
+  const healthy = !status.warn && phase !== 'paused';
+  return (
+    <div className="flex items-center gap-2 mb-3" data-testid="transcribe-listening-indicator" role="status">
+      {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+      <span
+        className={`text-xs flex-1 min-w-0 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
+        data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
+      >
+        {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
+      </span>
+      <CaptureInfoButton />
+      <PauseResumeButton />
     </div>
   );
 }

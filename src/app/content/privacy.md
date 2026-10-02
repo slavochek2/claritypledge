@@ -123,8 +123,9 @@ Your audio is also uploaded to our Google Cloud Storage bucket and kept there.
 
 Transcription keeps running while you move to other pages of the app, and a bar at the top of
 the page shows that it is running. It pauses while you are in a live session, record an
-explain-back or read a letter, and resumes afterwards. It stops when you press End session (in
-the bar or on the room page) or switch it off on the ready screen, when you sign out, three
+explain-back or read a letter, and resumes afterwards. You can also pause it yourself from the
+bar or the room page; while paused nothing is recorded. It stops when you press Stop
+transcribing (in the bar or on the room page) or switch it off on the ready screen, when you sign out, three
 hours after you first switched it on, and when the room ends. Moving to another page does not
 stop it. A page left open — for example on a phone whose screen has turned off — keeps
 recording until one of those happens.

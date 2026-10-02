@@ -35,6 +35,14 @@ function baseCaptureState(overrides: Record<string, unknown> = {}) {
     roomId: 'r1',
     open: vi.fn(),
     endMyCapture: vi.fn(),
+    // P1388 additions to the context value.
+    manualPaused: false,
+    pauseMine: vi.fn(),
+    resumeMine: vi.fn(),
+    subscribeLevel: () => () => {},
+    inputSilent: false,
+    micLost: false,
+    micSwitched: false,
     ...overrides,
   };
 }
@@ -61,9 +69,9 @@ describe('P1307: RoomCaptureBar — visibility', () => {
     }
   });
 
-  it('while paused specifically, absence satisfies "capture never runs with no indicator" — nothing is running', () => {
-    // D3/D13's "no paused message" requirement, restated as a negative: the bar's silence
-    // during paused is not a violation of D9, because nothing is being captured.
+  it('while AUTOMATICALLY paused, absence satisfies "capture never runs with no indicator" — nothing is running', () => {
+    // D3/D13's "no paused message" requirement, restated as a negative. P1388: holds for the
+    // automatic pause only; a manual pause renders its paused state (p1388-capture-bar.test).
     mockUseRoomCapture.mockReturnValue(baseCaptureState({ phase: 'paused' }));
     const { container } = render(<RoomCaptureBar />);
     expect(container.textContent).toBe('');
@@ -77,18 +85,18 @@ describe('P1307: RoomCaptureBar — content and actions', () => {
     expect(screen.getByText(/●\s*Transcribing for AI insights/)).toBeInTheDocument();
   });
 
-  it('has an "Open" action and an "End session" action', () => {
+  it('has an "Open" action and a "Stop transcribing" action (P1388 rename)', () => {
     mockUseRoomCapture.mockReturnValue(baseCaptureState());
     render(<RoomCaptureBar />);
     expect(screen.getByRole('button', { name: /open/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /end session/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /stop transcribing/i })).toBeInTheDocument();
   });
 
-  it('End session calls the PER-PERSON end, never a room-wide end function', () => {
+  it('Stop transcribing calls the PER-PERSON end, never a room-wide end function', () => {
     const endMyCapture = vi.fn();
     mockUseRoomCapture.mockReturnValue(baseCaptureState({ endMyCapture }));
     render(<RoomCaptureBar />);
-    fireEvent.click(screen.getByRole('button', { name: /end session/i }));
+    fireEvent.click(screen.getByRole('button', { name: /stop transcribing/i }));
     expect(endMyCapture).toHaveBeenCalledTimes(1);
     expect(endMyCapture).toHaveBeenCalledWith('r1');
   });
@@ -108,6 +116,6 @@ describe('P1307: RoomCaptureBar — stall-state copy is a FOUNDER DECISION place
     // FOUNDER DECISION: copy pending — this test intentionally does not pin the string.
     mockUseRoomCapture.mockReturnValue(baseCaptureState({ phase: 'stalled' }));
     render(<RoomCaptureBar />);
-    expect(screen.queryByRole('button', { name: /end session/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /stop transcribing/i })).toBeInTheDocument();
   });
 });
