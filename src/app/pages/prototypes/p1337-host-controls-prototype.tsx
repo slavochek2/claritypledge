@@ -42,13 +42,21 @@ type Variant = 'trade' | 'whowhere' | 'facts';
 
 const TABLES = [1, 2, 3, 4, 5] as const;
 
-/** seats[tableIndex] = three names. Index 0 of each table is the observer. */
+/**
+ * seats[tableIndex] = three names. Index 0 of each table is the observer.
+ *
+ * Deliberately NOT alphabetical and NOT in name order across tables: the first fixture was
+ * both (Ana-Ben-Chloe = 1, Dev-Erin-Finn = 2 …), which let a reader infer table membership
+ * from the alphabet and hid whether the grouping is legible on its own (review H2). Long
+ * names are in on purpose too — the 52px tile with a second "observer" line is where they
+ * break (H11).
+ */
 const INITIAL: string[][] = [
-  ['Ana', 'Ben', 'Chloe'],
-  ['Dev', 'Erin', 'Finn'],
-  ['Gia', 'Haru', 'Ivo'],
-  ['Jan', 'Kim', 'Lars'],
-  ['Mia', 'Noa', 'Oskar'],
+  ['Aleksandra', 'Ben', 'Noa'],
+  ['Somchai', 'Kim', 'Erin'],
+  ['Gia', 'Muhammad', 'Lars'],
+  ['Jan', 'Haru', 'Chloe'],
+  ['Mia', 'Dev', 'Oskar'],
 ];
 
 type FactKind = 'apart' | 'met' | 'arrived' | 'left';
@@ -107,6 +115,9 @@ function RoomGrid({
 }) {
   return (
     <div className="space-y-1.5">
+      {/* The number column is labelled once: an unlabelled 1-5 chip reads as a row or a
+          round, not a table (review H9). */}
+      <p className="text-[10px] uppercase tracking-widest text-slate-500">Table</p>
       {seats.map((table, i) => (
         <div key={i} className="flex items-stretch gap-1.5">
           <div className="w-7 shrink-0 grid place-items-center rounded-lg bg-slate-200 text-[13px] font-semibold text-slate-600">

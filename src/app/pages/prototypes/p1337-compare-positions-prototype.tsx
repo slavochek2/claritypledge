@@ -25,8 +25,7 @@
  *
  * Render-only: mock data, no api.ts / auth imports.
  */
-import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useMemo } from "react";
 import { cn } from '@/lib/utils';
 
 /** -3..+3, the app's seven-point scale. 0 = unsure / no view. */
@@ -148,35 +147,24 @@ function StanceColumn({
   );
 }
 
-function StatementRow({ s, defaultOpen }: { s: Statement; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+function StatementRow({ s, rank }: { s: Statement; rank: number }) {
   const gap = gapOf(s);
-  const long = s.text.length > 90;
 
   return (
     <li className="border border-border rounded-xl overflow-hidden bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        className="w-full text-left px-4 pt-3.5 pb-3 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-      >
-        <div className="flex items-start gap-2">
-          <p
-            className={cn(
-              'flex-1 text-[14px] leading-snug text-slate-900',
-              !open && long && 'line-clamp-2',
-            )}
-          >
-            {s.text}
-          </p>
-          {long && (
-            <span className="shrink-0 mt-0.5 text-slate-400" aria-hidden>
-              {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      {/* No truncation and no expander: the statements are short enough to show whole.
+          An expander that appears only past a character threshold produces exactly one
+          orphan control in a list of six (review finding C3, cause verified in page). */}
+      <div className="px-4 pt-3.5 pb-3">
+        <p className="text-[14px] leading-snug text-slate-900">
+          {rank === 0 && (
+            <span className="mr-1.5 align-[1px] inline-block rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              Start here
             </span>
           )}
-        </div>
-      </button>
+          {s.text}
+        </p>
+      </div>
 
       <div className="px-4 pb-4">
         <div className="flex items-start gap-3">
@@ -205,7 +193,6 @@ export function ComparePositionsPrototype() {
     () => [...STATEMENTS].sort((a, b) => gapOf(b) - gapOf(a)),
     [],
   );
-  const top = sorted[0];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -223,27 +210,19 @@ export function ComparePositionsPrototype() {
           </div>
         </header>
 
-        {/* The suggestion. Doing the choosing for them, without hiding the rest. */}
-        <div className="mb-4 rounded-xl bg-slate-900 text-white px-4 py-3.5">
-          <p className="text-[11px] uppercase tracking-widest text-white/50">
-            Start here
-          </p>
-          <p className="mt-1 text-[14px] leading-snug">{top.text}</p>
-          <p className="mt-2 text-[12px] text-white/60">
-            {gapOf(top)} steps apart — the furthest of the {STATEMENTS.length}
-          </p>
-        </div>
+        {/* The orientation line sits ABOVE the list: the sort it describes is then ahead
+            of the reader, not 1600px behind them (review C2). The suggestion is a badge
+            on the first row rather than a dark banner repeating its sentence (C1). */}
+        <p className="mb-3 text-[12px] leading-snug text-slate-600">
+          Furthest apart first — start at the top. Where you agree is at the bottom, worth a
+          look because you may agree for different reasons.
+        </p>
 
         <ul className="space-y-2.5">
           {sorted.map((s, i) => (
-            <StatementRow key={s.id} s={s} defaultOpen={i === 0} />
+            <StatementRow key={s.id} s={s} rank={i} />
           ))}
         </ul>
-
-        <p className="mt-5 text-[11px] text-slate-400 text-center leading-relaxed">
-          Sorted by how far apart you are. Where you agree sits at the bottom —
-          worth a look, because you may agree for different reasons.
-        </p>
       </div>
     </div>
   );
