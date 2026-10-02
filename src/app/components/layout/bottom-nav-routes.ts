@@ -40,9 +40,11 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // because it is a REGEX, not a quoted path string.
     || /^\/(org|groups)\/[^/]+\/join\/?$/.test(pathname)
     || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(pathname)
+    // P1337: /host too — the host panel is run one-handed standing up; the bar covered the
+    // who's-here list at 375px.
     // P1387: /confirm too — the 'Do you have 10 minutes to prepare?' screen is the first step of
     // the preparation, and its pinned Prepare now must not compete with the menu.
-    || /^\/(ready|events\/[^/]+\/(ready|room|prepare|confirm))\/?$/.test(pathname)
+    || /^\/(ready|events\/[^/]+\/(ready|room|prepare|confirm|host))\/?$/.test(pathname)
     // P1389: the evening close is focused while its steps run; its thank-you (?done=1) has the menus.
     || (/^\/events\/[^/]+\/close\/?$/.test(pathname) && !letterDone)
     // P1402: the standalone /prepare is focused while its steps run; its end screen (?done=1) is a

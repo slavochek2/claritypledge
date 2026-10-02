@@ -54,7 +54,7 @@ import {
 } from '@/lib/round-grouping';
 import { formatClock, roundClock, type RoundPhase } from '@/lib/round-clock';
 import type { EventRoomMember } from '@/app/types';
-import { shortName, useEventRounds, useNow } from './use-event-rounds';
+import { firstName, initial, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
 
 const PHASE_LABEL: Record<RoundPhase, string> = {
@@ -64,6 +64,8 @@ const PHASE_LABEL: Record<RoundPhase, string> = {
   observer: 'Observer',
   over: 'Over by',
 };
+
+const START_LOCK_MS = 10_000;
 
 const ROLE_LABEL = { first: 'first', second: 'second', observer: 'observer' } as const;
 
@@ -150,7 +152,8 @@ function ScreenView({
   roomCount: number;
 }) {
   return (
-    <div className="min-h-screen bg-white px-8 py-8 print:p-0" data-testid="host-screen">
+    // Fixed over the page so the projector carries no site chrome (header, menus).
+    <div className="fixed inset-0 z-[100] overflow-auto bg-white px-8 py-8 print:static print:p-0" data-testid="host-screen">
       {round ? (
         <>
           <div className="flex flex-wrap items-baseline justify-between gap-6 mb-8">
@@ -159,14 +162,14 @@ function ScreenView({
               <ClockReadout round={round} seats={seats} large />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(20rem,1fr))]">
             {groupByTable(seats).map(table => (
               <div key={table.no} className="rounded-xl border border-border p-5 break-inside-avoid">
                 <p className="text-sm uppercase tracking-widest text-muted-foreground">Table {table.no}</p>
                 <ul className="mt-2 space-y-1">
                   {table.seats.map(s => (
                     <li key={s.id} className="flex items-baseline justify-between gap-3 text-2xl">
-                      <span className="font-medium truncate">{names.get(s.id) ?? '—'}</span>
+                      <span className="font-medium min-w-0 break-words">{names.get(s.id) ?? '—'}</span>
                       <span className="shrink-0 text-base text-muted-foreground">{ROLE_LABEL[s.role]}</span>
                     </li>
                   ))}
@@ -204,8 +207,8 @@ function RoundGrid({
     <div className="space-y-1.5" data-testid="round-grid">
       <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Table</p>
       {groupByTable(seats).map(table => (
-        <div key={table.no} className="flex items-stretch gap-1.5">
-          <div className="w-7 shrink-0 grid place-items-center rounded-lg bg-muted text-[13px] font-semibold text-muted-foreground">
+        <div key={table.no} className="flex items-stretch gap-1 min-[375px]:gap-1.5">
+          <div className="w-6 min-[375px]:w-7 shrink-0 grid place-items-center rounded-lg bg-muted text-[13px] font-semibold text-muted-foreground">
             {table.no}
           </div>
           {table.seats.map(s => (
@@ -216,17 +219,17 @@ function RoundGrid({
               data-testid="round-grid-name"
               aria-pressed={lifted === s.id}
               className={cn(
-                'flex-1 min-w-0 min-h-[52px] rounded-lg px-1 text-[14px] font-medium leading-tight',
+                'flex-1 min-w-0 min-h-[52px] rounded-lg px-0.5 min-[375px]:px-1 font-medium leading-tight',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                 lifted === s.id ? 'bg-blue-600 text-white' : 'bg-white border border-border text-foreground',
               )}
             >
-              <span className="block truncate">{shortName(names.get(s.id) ?? '—')}</span>
-              {s.role === 'observer' && (
-                <span className={cn('block text-[11px] font-normal', lifted === s.id ? 'text-white/80' : 'text-muted-foreground')}>
-                  observer
-                </span>
-              )}
+              {/* First name on its own line, initial (+ observer) under it: at 320px the tiles
+                  are ~78px, which fits "Aleksandra" at 13px but not "Aleksandra P." (spec §6). */}
+              <span className="block truncate text-[12px] min-[375px]:text-[13px]">{firstName(names.get(s.id) ?? '—')}</span>
+              <span className={cn('block truncate text-[11px] font-normal', lifted === s.id ? 'text-white/80' : 'text-muted-foreground')}>
+                {s.role === 'observer' ? 'observer' : initial(names.get(s.id) ?? '') || '\u00a0'}
+              </span>
             </button>
           ))}
         </div>
@@ -299,6 +302,10 @@ export function EventHostPage() {
   const lastRound = state.rounds[state.rounds.length - 1];
   const evening = state.rounds.length === 0 ? 'before' : lastRound?.endedAt ? 'ended' : 'running';
   const nextNo = state.rounds.length + 1;
+  // A double tap on "Start round 1" must not also start round 2: the button that just
+  // changed label stays locked for the first seconds of a round.
+  const now = useNow(!!round);
+  const justStarted = !!round && now - new Date(round.startedAt).getTime() < START_LOCK_MS;
 
   // Undo applies to one round only.
   useEffect(() => {
@@ -467,9 +474,9 @@ export function EventHostPage() {
         {primary && (
           <Button
             type="button"
-            className="mt-3 w-full min-h-12 text-base"
+            className="mt-3 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
             onClick={primary.action}
-            disabled={busy || !loaded}
+            disabled={busy || !loaded || justStarted}
             data-testid="host-primary"
           >
             {busy ? 'Grouping…' : primary.label}

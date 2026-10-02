@@ -835,7 +835,7 @@ export function EventDetail() {
                   <Button
                     size="sm"
                     onClick={() => navigate(`/events/${slug}/host`)}
-                    className="mt-3 w-full min-h-10"
+                    className="mt-3 w-full min-h-10 bg-blue-500 hover:bg-blue-600 text-white"
                     data-testid="run-this-event"
                   >
                     Run this event

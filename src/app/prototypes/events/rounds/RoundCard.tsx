@@ -19,6 +19,7 @@
  * and means "I arrived at the venue". This tap means "I'm at this table".
  */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -213,7 +214,7 @@ export function RoundCard({
         ) : (
           <Button
             type="button"
-            className="mt-4 w-full min-h-12 text-base"
+            className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
             onClick={() => void onConfirm()}
             disabled={confirming}
             data-testid="round-card-confirm"
@@ -223,9 +224,11 @@ export function RoundCard({
         )}
       </section>
 
-      {showDark && clock && (
+      {/* Portalled to <body>: inside the room layout a transformed ancestor turned `fixed` into
+          "fixed to that ancestor" and left the site header showing above the dark layer. */}
+      {showDark && clock && createPortal(
         <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black px-6 text-center"
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black px-6 text-center"
           data-testid="round-dark"
           data-role={mine.role}
         >
@@ -258,7 +261,8 @@ export function RoundCard({
           >
             Show table
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

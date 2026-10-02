@@ -190,6 +190,31 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect((await o.rpc('set_round_topic', { p_round_id: round1, p_table_no: 1, p_point_id: pointId })).error?.code).toBe('42501');
   });
 
+  test('a table keeps its mark when only roles change, and loses it when its people change', async () => {
+    const ca = await clientFor(a);
+    const h = await clientFor(host);
+    const topicOf = async () =>
+      (await supabaseAdmin.from('event_round_tables').select('topic_point_id').eq('round_id', round1).eq('table_no', 1).maybeSingle()).data?.topic_point_id ?? null;
+    expect((await ca.rpc('set_round_topic', { p_round_id: round1, p_table_no: 1, p_point_id: pointId })).error).toBeNull();
+    // Same three people, roles rotated.
+    const rotated = [
+      { m: member.b, t: 1, r: 'first' },
+      { m: member.c, t: 1, r: 'second' },
+      { m: member.a, t: 1, r: 'observer' },
+    ];
+    expect((await h.rpc('host_set_round_seats', { p_round_id: round1, p_seats: rotated })).error).toBeNull();
+    expect(await topicOf()).toBe(pointId);
+    // c moves away: table 1's people changed.
+    const split = [
+      { m: member.a, t: 1, r: 'first' },
+      { m: member.b, t: 1, r: 'second' },
+      { m: member.c, t: 2, r: 'first' },
+    ];
+    expect((await h.rpc('host_set_round_seats', { p_round_id: round1, p_seats: split })).error).toBeNull();
+    expect(await topicOf()).toBeNull();
+    expect((await h.rpc('host_set_round_seats', { p_round_id: round1, p_seats: trio() })).error).toBeNull();
+  });
+
   test('position moved: stored for the caller only', async () => {
     const cb = await clientFor(b);
     expect((await cb.rpc('set_round_position_moved', { p_round_id: round1, p_moved: true })).error).toBeNull();
