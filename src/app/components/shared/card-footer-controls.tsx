@@ -58,7 +58,7 @@ const ICON_BUTTON =
 
 /** Prototype K's expander (`STORIES_CLASS.i`): the card's loud, labelled action. */
 const EXPANDER =
-  `inline-flex h-10 min-w-0 max-w-full items-center gap-1.5 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors ${FOCUS_RING}`;
+  `inline-flex h-10 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors ${FOCUS_RING}`;
 
 /** Prototype K's `ADD_LINK`: the viewer's slot, a blue text link with a 40px hit area. */
 const SLOT_LINK =

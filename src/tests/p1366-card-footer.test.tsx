@@ -105,7 +105,8 @@ const renderPoint = (point: PointWithUserPosition, linked: StoryWithAuthor[] | u
 const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =>
   render(<MemoryRouter><FeedStoryCard story={makeStory()} linkedPoints={[]} surface="stake" {...props} /></MemoryRouter>);
 
-/** The solid blue expander of prototype K (STORIES_CLASS.i). */
+/** The expander of prototype K (STORIES_CLASS.i). Solid blue until 2026-10-02, when the founder chose the
+ *  light action pill (P1308: one filled primary per screen — a card list is many cards). */
 /**
  * The list-card highlight recolours only the TOP, RIGHT and BOTTOM borders. A bare
  * `hover:border-blue-400` / `focus-within:border-blue-400` also repaints the `border-l-4` bar —
@@ -128,14 +129,15 @@ function expectSideHighlight(className: string) {
 
 function expectSolidExpander(el: HTMLElement) {
   expect(el.tagName).toBe('BUTTON');
-  expect(el.className).toContain('bg-blue-600');
-  expect(el.className).toContain('text-white');
+  expect(el.className).toContain('bg-blue-50');
+  expect(el.className).toContain('text-blue-700');
+  expect(el.className).not.toContain('text-white');
   expect(el.className).toContain('h-10');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('P1366 — feed/stake point card', () => {
-  it('N stories is a solid blue button that expands in place', () => {
+  it('N stories is a light blue pill button that expands in place', () => {
     renderPoint(makePoint(), stories(2));
     const expander = screen.getByTestId('feed-point-story-expander');
     expectSolidExpander(expander);
@@ -377,7 +379,7 @@ describe('P1366 — feed/stake point card', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('P1366 — feed/stake story card', () => {
-  it('N points is a solid blue button; singular "1 point"', () => {
+  it('N points is a light blue pill button; singular "1 point"', () => {
     const { unmount } = renderStory({ linkedPoints: points(2) });
     const expander = screen.getByTestId('feed-story-point-expander');
     expectSolidExpander(expander);
