@@ -123,8 +123,8 @@ export function DesignPrivatePage() {
           The only open detail is the heading blue: today it is a custom blue, not the app blue.
         </p>
         <div className="grid gap-6 md:grid-cols-2">
-          <Paper accent="#0044CC" label="Keep as is: custom certificate blue" />
-          <Paper accent="#2563eb" label="Swap heading to the app blue" />
+          <Paper accent="#0044CC" label="Before: custom certificate blue" />
+          <Paper accent="#2563eb" label="Approved: app blue" />
         </div>
         <div className="flex flex-wrap gap-4 text-xs">
           {[

@@ -39,7 +39,7 @@ export function ProfileCertificate({
   email,
   signedAt,
   role,
-  avatarColor = "#2563eb",
+  avatarColor = "#0044CC",
   photoUrl,
   showQrCode = false,
   profileUrl,
