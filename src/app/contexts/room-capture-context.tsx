@@ -406,6 +406,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     });
     if (pausedRef.current || genRef.current !== gen || h.slices) {
       // Paused, ended, or a newer start won the race while this one was setting up.
+      console.warn('[room-capture] slice recorder discarded on arrival', {
+        paused: pausedRef.current, ended: genRef.current !== gen, duplicate: !!h.slices,
+      });
       slices.stop();
       return;
     }

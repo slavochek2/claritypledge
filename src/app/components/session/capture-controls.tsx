@@ -10,10 +10,42 @@
  *   - CaptureInfoButton: ⓘ — what is captured, where it goes, the recorder's part. Read by
  *     the people who care, invisible to everyone else; the bar carries no added sentence.
  */
-import { Info, Pause, Play } from 'lucide-react';
+import { ArrowRight, Info, Pause, Play, Square } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
+
+/** P1388 (founder, 2026-10-02): one compact row — Pause and Stop together as the recording
+ *  controls, Open apart at the end as navigation. Equal weight; no full-width primary. */
+const CONTROL_CLASS =
+  'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors disabled:opacity-50';
+
+/** A square, not the LogOut door: this stops a recording, it does not leave anything.
+ *  Neutral at rest, destructive on hover/focus — P1323 R7's End treatment, kept. Visible
+ *  "Stop" sits inside the accessible name "Stop transcribing" (label-in-name). */
+export function StopCaptureButton({ onClick, label = 'Stop', testId }: { onClick: () => void; label?: string; testId?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Stop transcribing"
+      data-testid={testId}
+      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 transition-colors"
+    >
+      <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+      {label}
+    </button>
+  );
+}
+
+export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testId?: string }) {
+  return (
+    <button type="button" onClick={onClick} data-testid={testId} className={`${CONTROL_CLASS} ml-auto`}>
+      Open
+      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+}
 
 export function PauseResumeButton() {
   const { phase, manualPaused, pauseMine, resumeMine, micLost } = useRoomCapture();
@@ -26,7 +58,7 @@ export function PauseResumeButton() {
       onClick={paused ? resumeMine : pauseMine}
       aria-pressed={paused}
       data-testid={paused ? 'capture-resume' : 'capture-pause'}
-      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors"
+      className={CONTROL_CLASS}
     >
       {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
       {paused ? 'Resume' : 'Pause'}

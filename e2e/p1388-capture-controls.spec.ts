@@ -18,9 +18,6 @@ const shot = async (page: Page, name: string) => {
 };
 
 test.describe('P1388: capture controls', () => {
-  // Serial: three fake-microphone browsers in parallel left the meter flat at 375/320 in one
-  // run (each passed alone) — contention, not the feature. One browser at a time.
-  test.describe.configure({ mode: 'serial' });
   let attendee: TestUser;
   let event: TestEvent;
 
@@ -38,6 +35,7 @@ test.describe('P1388: capture controls', () => {
   for (const vp of [{ name: 'desktop', width: 1280, height: 800 }, { name: '375', width: 375, height: 740 }, { name: '320', width: 320, height: 640 }]) {
     test(`pause, resume, meter, info and stop — ${vp.name}`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
+      page.on('console', (m) => { if (/room-capture|slice/i.test(m.text())) console.log(`BROWSER[${m.type()}] ${m.text()}`); });
       await setTestSession(page, attendee.email);
       await page.waitForLoadState('networkidle');
       await page.goto(`/events/${event.slug}/ready`);

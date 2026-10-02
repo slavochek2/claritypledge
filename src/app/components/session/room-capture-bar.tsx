@@ -14,8 +14,8 @@
 import { useLayoutEffect, useState } from 'react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
-import { CaptureInfoButton, PauseResumeButton } from './capture-controls';
-import { STOP_TRANSCRIBING, useCaptureStatus } from './capture-status';
+import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
+import { useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 
@@ -85,9 +85,13 @@ export function RoomCaptureBar() {
           <CaptureInfoButton />
         </>
       }
-      extra={<PauseResumeButton />}
-      primary={{ label: 'Open', onClick: open, testId: 'room-capture-bar-open' }}
-      secondary={{ label: STOP_TRANSCRIBING, onClick: () => void endMyCapture(roomId), testId: 'room-capture-bar-end' }}
+      extra={
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <PauseResumeButton />
+          <StopCaptureButton onClick={() => void endMyCapture(roomId)} testId="room-capture-bar-end" />
+          <OpenRoomButton onClick={open} testId="room-capture-bar-open" />
+        </div>
+      }
     />
   );
 }

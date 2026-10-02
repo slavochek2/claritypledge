@@ -22,7 +22,7 @@
  *   - P1236 Decision 7 still holds: there is no browser speech recognizer and no interim text
  *     anywhere here; live text arrives only as the server's rows.
  */
-import { CaptureInfoButton, PauseResumeButton } from '@/app/components/session/capture-controls';
+import { CaptureInfoButton, PauseResumeButton, StopCaptureButton } from '@/app/components/session/capture-controls';
 import { STOP_TRANSCRIBING, useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,7 +31,7 @@ import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, Users, LogOut, ArrowDown } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, Users, ArrowDown } from 'lucide-react';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
@@ -360,16 +360,7 @@ export function TranscribeRoomPage() {
                   (`.filter({ visible: true })`), and the same one the nav has always had. */}
               <span className="lg:hidden inline-flex"><EventLinksButton owner="page" /></span>
               <span className="hidden lg:inline-flex"><EventLinksButton owner="page" variant="dropdown" /></span>
-            <button
-              type="button"
-              onClick={() => void handleEndSession()}
-              aria-label={STOP_TRANSCRIBING}
-              className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg px-3 h-9 transition-colors"
-              data-testid="transcribe-end-session-button"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>{STOP_TRANSCRIBING}</span>
-            </button>
+            <StopCaptureButton onClick={() => void handleEndSession()} label={STOP_TRANSCRIBING} testId="transcribe-end-session-button" />
             </div>
           </div>
         </div>

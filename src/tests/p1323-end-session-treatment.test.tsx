@@ -26,7 +26,9 @@ const tokens = (cls: string) => cls.split(/\s+/).filter(Boolean);
 function assertNeutralAtRest(cls: string, where: string) {
   const t = tokens(cls);
   expect(t, `${where}: red AT REST — the P1323 defect`).not.toContain('text-destructive');
-  expect(t, `${where}: neutral resting colour`).toContain('text-muted-foreground');
+  // P1388: the capture controls' Stop rests in the same blue-900 as its Pause/Open siblings —
+  // grey there read as a DISABLED control (visual QA, 2026-10-02). Still never red at rest.
+  expect(t.includes('text-muted-foreground') || t.includes('text-blue-900'), `${where}: neutral resting colour`).toBe(true);
   expect(t, `${where}: destructive on hover`).toContain('hover:text-destructive');
   // Keyboard users get the same signal: a first version gave focus-visible to SessionBar only
   // (adversarial review, Codex Sol).
@@ -65,12 +67,15 @@ describe('P1323 AC-12 — one End Session treatment across four controls', () =>
   });
 
   it("/transcribe/:code's header End Session is neutral at rest", () => {
-    const src = read('src/app/pages/transcribe-room-page.tsx');
-    const at = src.indexOf('data-testid="transcribe-end-session-button"');
-    expect(at, 'transcribe-end-session-button not found').toBeGreaterThan(-1);
-    const openTag = src.slice(src.lastIndexOf('<button', at), at);
-    const m = openTag.match(/className="([^"]*)"/);
-    expect(m, 'header End Session has no static className').not.toBeNull();
-    assertNeutralAtRest(m![1]!, 'transcribe header');
+    // P1388: the header's stop moved into the shared StopCaptureButton (same control as the
+    // capture bar). The page must render THAT component for this test id, and the component's
+    // own className must stay neutral at rest — the rule is unchanged, only where it lives.
+    const page = read('src/app/pages/transcribe-room-page.tsx');
+    expect(page, 'header stop must be the shared StopCaptureButton').toMatch(/<StopCaptureButton[^/]*?testId="transcribe-end-session-button"/);
+    const src = read('src/app/components/session/capture-controls.tsx');
+    const fn = src.slice(src.indexOf('export function StopCaptureButton'));
+    const m = fn.match(/className="([^"]*)"/);
+    expect(m, 'StopCaptureButton has no static className').not.toBeNull();
+    assertNeutralAtRest(m![1]!, 'transcribe header (StopCaptureButton)');
   });
 });
