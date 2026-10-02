@@ -42,9 +42,10 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
     expect(feed).toMatch(/\{showPinned && <PinnedStory onResolved=\{setPinnedId\} \/>\}/);
     expect(feed).toMatch(/filteredStories\.filter\(\(s\) => s\.id !== pinnedId\)/);
   });
-  it('links the pinned story to its letter', () => {
+  it('is a compact bar that opens the story page (where its video and points live)', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
-    expect(pin).toMatch(/to=\{`\/letter\/\$\{PINNED_STORY_SLUG\}`\}/);
+    expect(pin).toMatch(/to=\{`\/story\/\$\{storyId\}`\}/);
+    expect(pin).not.toMatch(/FeedStoryCard/);
   });
 });
