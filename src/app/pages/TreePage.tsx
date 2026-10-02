@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/design-buttons',
+    label: 'Design decisions: button rules',
+    description: 'Seven button rules, each shown right vs wrong, for approval'
+  },
+  {
     path: '/tree/design-private',
     label: 'Design decisions: private + certificates',
     description: 'A/B for the private signal (amber is banned) and the certificate paper palette'
