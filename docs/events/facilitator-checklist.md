@@ -19,8 +19,8 @@ Roles: **facilitator** = you (the host). **Volunteer** = the person helping, who
 - [ ] Lavalier mics, **charged**, with their USB-C ends
 - [ ] S/L badge cards + lanyard holders, one per attendee + 5 spare
 - [ ] Printed table numbers (large, one per table)
-- [ ] Printed fallback sheet: blank grid for writing table assignments by hand
-- [ ] Pen
+- [ ] Pen and a blank sheet — only for the rare evening with no connection at all; the app is the
+      mechanism, not paper
 - [ ] Power bank
 
 ## Before anyone arrives (target: 45 min before start)
@@ -82,8 +82,12 @@ Optional, only when something is obviously wrong:
   together — no algorithm knows this, you do)
 
 **You never read out who sits where.** The projector shows the table list; each phone shows its own
-assignment. If the software is not working, write the groups on the fallback sheet and read those —
-the format tolerates tables of 2, 3 or 4, so you do not have to get it exactly right.
+assignment.
+
+**If there is no connection at all** (rare, and not what the evening is built on): rotate everyone
+one seat clockwise and let each pair find their own disagreement — each person opens the other's
+profile, filters to this event's statements, and they talk about whichever one they are furthest
+apart on. The format tolerates tables of 2, 3 or 4, so the rotation does not have to be exact.
 
 ## At the end
 

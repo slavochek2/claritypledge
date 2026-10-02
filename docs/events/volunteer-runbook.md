@@ -59,8 +59,8 @@ Some people wear a small clip-on microphone and are recording their own conversa
 
 This is normal and the evening does not depend on it.
 
-- **Phones not showing tables?** The host reads the groups out or writes them on the fallback sheet.
-  Help people find their table numbers.
+- **Phones not showing tables?** The host handles the regrouping out loud. Help people find their
+  table numbers.
 - **Projector dead?** The host talks instead. Nothing is lost.
 - **Someone's phone is flat?** They do not need it. Tell them which table and which role.
 
