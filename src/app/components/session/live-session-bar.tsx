@@ -10,6 +10,7 @@ import { useLiveSession } from '@/app/contexts/live-session-context';
 import { clearSessionJoiner, getClaritySession } from '@/app/data/api';
 import { useTerminateSession } from '@/hooks/use-terminate-session';
 import { SessionBar } from './session-bar';
+import { SessionGoButton, SessionStopButton } from './capture-controls';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 /** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
@@ -66,8 +67,14 @@ export function LiveSessionBar() {
     <SessionBar
       ariaLabel="Active session notification"
       text={hasPartner ? `In session with ${activeSessionPartnerName}` : 'Waiting for partner…'}
-      primary={{ label: hasPartner ? 'Rejoin Session' : 'Return to Session', onClick: () => navigate('/live') }}
-      secondary={{ label: isEnding ? 'Ending…' : 'End Session', onClick: () => void handleEndSession(), disabled: isEnding }}
+      // P1388: the same compact row as the room-capture bar — stop first, navigation apart at
+      // the end, equal weight, no full-width primary. Labels unchanged.
+      extra={
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <SessionStopButton label={isEnding ? 'Ending…' : 'End Session'} onClick={() => void handleEndSession()} disabled={isEnding} />
+          <SessionGoButton label={hasPartner ? 'Rejoin Session' : 'Return to Session'} onClick={() => navigate('/live')} />
+        </div>
+      }
     />
   );
 }

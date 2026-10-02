@@ -73,9 +73,9 @@ describe('P1323 AC-12 — one End Session treatment across four controls', () =>
     const page = read('src/app/pages/transcribe-room-page.tsx');
     expect(page, 'header stop must be the shared StopCaptureButton').toMatch(/<StopCaptureButton[^/]*?testId="transcribe-end-session-button"/);
     const src = read('src/app/components/session/capture-controls.tsx');
-    const fn = src.slice(src.indexOf('export function StopCaptureButton'));
+    const fn = src.slice(src.indexOf('export function SessionStopButton'));
     const m = fn.match(/className="([^"]*)"/);
-    expect(m, 'StopCaptureButton has no static className').not.toBeNull();
+    expect(m, 'SessionStopButton has no static className').not.toBeNull();
     assertNeutralAtRest(m![1]!, 'transcribe header (StopCaptureButton)');
   });
 });

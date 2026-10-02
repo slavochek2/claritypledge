@@ -20,34 +20,48 @@ import { useRoomCapture } from '@/app/contexts/room-capture-context';
 const CONTROL_CLASS =
   'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors disabled:opacity-50';
 
-/** A square, not the LogOut door: this stops a recording, it does not leave anything.
- *  Neutral at rest, destructive on hover/focus — P1323 R7's End treatment, kept. Visible
- *  "Stop" sits inside the accessible name "Stop transcribing" (label-in-name). */
-export function StopCaptureButton({ onClick, label = 'Stop', testId }: { onClick: () => void; label?: string; testId?: string }) {
-  const { stopping } = useRoomCapture();
+/** A square, not the LogOut door: this stops something, it leaves nothing. Neutral at rest,
+ *  destructive on hover/focus — P1323 R7's End treatment, kept. Presentational, so the /live
+ *  bar uses the same control (P1388: one compact row across both bars). */
+export function SessionStopButton({ onClick, label, ariaLabel, disabled, testId }: {
+  onClick: () => void; label: string; ariaLabel?: string; disabled?: boolean; testId?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={stopping}
-      aria-label="Stop transcribing"
+      disabled={disabled}
+      aria-label={ariaLabel}
       data-testid={testId}
       className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 transition-colors disabled:opacity-50 disabled:pointer-events-none"
     >
       <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-      {stopping ? 'Stopping…' : label}
+      {label}
     </button>
+  );
+}
+
+/** Navigation, set apart at the end of the row with an arrow (Open / Rejoin). */
+export function SessionGoButton({ onClick, label, disabled, testId }: { onClick: () => void; label: string; disabled?: boolean; testId?: string }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} data-testid={testId} className={`${CONTROL_CLASS} ml-auto`}>
+      {label}
+      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Visible "Stop" sits inside the accessible name "Stop transcribing" (label-in-name). */
+export function StopCaptureButton({ onClick, label = 'Stop', testId }: { onClick: () => void; label?: string; testId?: string }) {
+  const { stopping } = useRoomCapture();
+  return (
+    <SessionStopButton onClick={onClick} label={stopping ? 'Stopping…' : label} ariaLabel="Stop transcribing" disabled={stopping} testId={testId} />
   );
 }
 
 export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testId?: string }) {
   const { stopping } = useRoomCapture();
-  return (
-    <button type="button" onClick={onClick} disabled={stopping} data-testid={testId} className={`${CONTROL_CLASS} ml-auto`}>
-      Open
-      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-    </button>
-  );
+  return <SessionGoButton onClick={onClick} label="Open" disabled={stopping} testId={testId} />;
 }
 
 export function PauseResumeButton() {
