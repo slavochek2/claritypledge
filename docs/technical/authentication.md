@@ -224,6 +224,15 @@ Since P396 (2026-02-19) there is **no unverified-profile state**. `getOrCreateGu
 
 ---
 
+## Event-email sign-in (P1380)
+
+Event emails never carry a magic link. Each button carries an opaque single-use ticket (sha256 in
+`event_email_links`, service_role only) and opens `/auth/event-link?ticket=…` (`src/auth/EventLinkPage.tsx`).
+The page peeks (`event-email-link` with `peek: true`, spends nothing) to show "Continue as {name}"; the press
+spends the ticket and gets `/auth/verify?token_hash=…`, which signs in via `verifyOtp` and opens the page
+fixed by the ticket's purpose. Admin and event-host accounts are refused (normal sign-in). Why:
+[decisions.md](../decisions.md) 2026-10-02 [technical].
+
 ## Post-Auth Action Handlers
 
 `AuthCallbackPage` supports `action=` params to auto-execute an action after signup:

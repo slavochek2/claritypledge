@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 ---
 
@@ -364,6 +364,7 @@ Last updated: 2026-10-01
 
 ## Events & Content
 
+- **P1380** (Oct 02) Starting-in-15 email, arrival check-in, email sign-in — email buttons open a "Continue as" page; never a magic link in the email (scanners, 1h expiry)
 - **P1387** (Oct 02) On phones the registration and preparation screens scrolled in two parts — content scrolls, the action pins in one slim bar; main = blue button, alternative = small link; tappable = elementFromPoint, not toBeInViewport
 - **P1336** (Oct 26) Registering for a Clarity Night carries the preparation, opt-in and survey — prod CSP allows media only from GCS; dev sends no CSP, so test URLs against vercel.json
 - **P1161** (Aug 26) The first physical Clarity event in Chiang Mai — end to end — closed on preparation, not the run; the six unticked items were all *executing* and moved to the results doc rather than holding a prepared board open.
