@@ -451,6 +451,9 @@ test.describe('P1336 registration preparation', () => {
     // Change the answer: now USB-C → confirmed, and that person DOES take a place.
     await page.getByRole('button', { name: 'Yes, sure' }).click();
     await page.getByRole('button', { name: 'No, I need one' }).click();
+    // The saved Lightning answer shows its note; "Change my answer" brings the three answers back.
+    await expect(page.getByTestId('mic-no-lend-note')).toBeVisible();
+    await page.getByRole('button', { name: 'Change my answer' }).click();
     await page.getByRole('button', { name: /^USB-C/ }).click();
     await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
     await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. We'll bring a USB-C mic for you.");

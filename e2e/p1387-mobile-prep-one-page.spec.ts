@@ -195,10 +195,13 @@ for (const phone of PHONES) {
       await expect(page.getByRole('heading', { name: /volunteers/ })).toBeVisible();
       await check('research');
       await page.getByRole('button', { name: 'Yes, sure' }).click();
-      await expect(page.getByRole('heading', { name: /USB-C/ })).toBeVisible();
-      // Three answers pinned (they are the step's actions); the page above is a few short lines.
+      await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
+      // P1386: two questions. The answers are the step's actions, pinned; the page above is a few short lines.
       await check('mic', 0.35);
-      await page.getByRole('button', { name: 'Yes, USB-C' }).click();
+      await page.getByRole('button', { name: 'No, I need one' }).click();
+      await expect(page.getByRole('heading', { name: 'Which charging port does your phone have?' })).toBeVisible();
+      await check('mic port', 0.4);
+      await page.getByRole('button', { name: /^USB-C/ }).click();
       await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
       await check('end');
       // The last step keeps the app menus hidden; its pinned buttons are what a finger hits.
