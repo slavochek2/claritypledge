@@ -126,7 +126,7 @@ Deno.test('reminder: prepared → no button, primes the I\'m here email', () => 
   assertStringIncludes(r.html, 'tap &quot;I\'m here&quot; when you walk in');
   assertFalse(r.html.includes('keep it to yourself')); // no buttons → no button note
 });
-Deno.test('starting soon: glanceable — question, one big I\'m here, Not yet as a link, directions', () => {
+Deno.test('starting soon: glanceable — question, I\'m here (filled) and Not yet (outlined) side by side, directions', () => {
   const m = buildStartingSoon(night, 'Anna', { arrivedUrl: 'https://x/a', notYetUrl: 'https://x/n', roomUrl: null });
   assertEquals(m.subject, 'At Zuzalu library? Tap "I\'m here"');
   const ask = m.html.indexOf('Have you arrived at Zuzalu library?');

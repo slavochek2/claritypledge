@@ -226,8 +226,17 @@ function emailButton(label: string, href: string): string {
   return `<a href="${escapeHtml(href)}" style="display:block;box-sizing:border-box;width:100%;max-width:420px;margin:0 auto;padding:15px 20px;border-radius:999px;color:#ffffff;background:#0044CC;font-size:17px;font-weight:700;text-align:center;text-decoration:none;">${escapeHtml(label)}</a>`;
 }
 
-const textLink = (label: string, href: string) =>
-  `<a href="${escapeHtml(href)}" style="color:#4b5563;font-size:14px;text-decoration:underline;">${escapeHtml(label)}</a>`;
+/**
+ * Two answers side by side, equal size: the first filled, the second outlined (founder,
+ * 2026-10-02: "they see that they have a choice"). A table, because email clients ignore flex.
+ */
+function choiceButtons(primary: { label: string; href: string }, secondary: { label: string; href: string }): string {
+  const base = 'display:block;padding:15px 10px;border:2px solid #0044CC;border-radius:999px;font-size:17px;font-weight:700;text-align:center;text-decoration:none;';
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px;margin:0 auto;"><tr>
+    <td width="50%" style="padding-right:6px;"><a href="${escapeHtml(primary.href)}" style="${base}color:#ffffff;background:#0044CC;">${escapeHtml(primary.label)}</a></td>
+    <td width="50%" style="padding-left:6px;"><a href="${escapeHtml(secondary.href)}" style="${base}color:#0044CC;background:#ffffff;">${escapeHtml(secondary.label)}</a></td>
+  </tr></table>`;
+}
 
 const BUTTON_NOTE = 'The buttons in this email sign you in, so please keep it to yourself.';
 
@@ -418,7 +427,7 @@ export function buildReminder(
 /**
  * P1380: "Starting in 15 minutes", built for a glance at a phone while walking in (review
  * 2026-10-02): the arrival question, ONE big "I'm here", one line on what it does, then
- * "Not yet" as a quiet link (founder: both answers stay) and the address with directions.
+ * "I'm here" (filled) and "Not yet" (outlined) side by side, then the address with directions.
  * No greeting, calendar or event box — nobody plans at this moment.
  * Online event: "Ready to join?" with Join now.
  */
@@ -458,9 +467,8 @@ export function buildStartingSoon(
     <div style="text-align:center;">
       <p style="margin:0 0 8px;font-size:14px;color:#4b5563;">${escapeHtml(kicker)}</p>
       <h1 style="margin:0 0 18px;font-size:26px;line-height:1.25;font-weight:700;color:#111827;" data-p1380="arrival-question">${escapeHtml(ask)}</h1>
-      ${emailButton("I'm here", here)}
-      <p style="margin:12px 0 0;font-size:14px;line-height:1.45;color:#4b5563;">${escapeHtml(benefit)}</p>
-      <p style="margin:14px 0 0;">${textLink('Not yet', notYet)}</p>
+      ${choiceButtons({ label: "I'm here", href: here }, { label: 'Not yet', href: notYet })}
+      <p style="margin:14px 0 0;font-size:14px;line-height:1.45;color:#4b5563;">${escapeHtml(benefit)}</p>
     </div>
     ${address}
   `, { preheader: 'Tap "I\'m here" when you walk in. One tap and the app guides your evening.', footerNote: BUTTON_NOTE });
