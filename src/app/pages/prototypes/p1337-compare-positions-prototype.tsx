@@ -9,218 +9,255 @@
  * position is a small static badge in the quote header and the viewer's is the highlighted
  * button row further down (point-card-with-links.tsx:384 vs :423). Same quantity, two
  * visual languages, separated by the quote text — you compare them in your head, per point.
- * The letters flow already concluded this doesn't work: letter-reveal-ordinal.tsx:101
- * ("Where you each stand") gives two labelled columns for a SINGLE point.
  *
- * Decisions this encodes (conversation 2026-10-01/02):
- * - A plain list, sorted biggest gap first. No swiping, no cards to dismiss, no enter/exit
- *   mode: two people share one screen, so a one-person gesture excludes the other, and
- *   hiding the non-current rows is wrong when the job is choosing together.
- * - Agreements stay visible, sorted last — that is where false agreement hides.
- * - The round screen links in here with partner + event tag preset. The observer gets the
- *   same view for the pair in front of them, so they hear the real disagreement.
+ * REBUILT 2026-10-02 on founder feedback: *"why don't we reuse the same patterns that we
+ * have in Clarity Letter? now you put design system completely different, no icons, no
+ * pictures, invented stuff, not clickable."* So this uses the real letter-reveal vocabulary
+ * rather than an invented one:
+ *   - StanceColumn's shape from letter-reveal-ordinal.tsx:50-83 — GravatarAvatar at 24px,
+ *     name in text-xs at 50% opacity, the stance as a BLUE pill (text-blue-700/bg-blue-100,
+ *     rounded-full px-4 py-2) carrying the full-word label.
+ *   - Blue for BOTH sides, never green/red. The letters flow is deliberate about this, and it
+ *     also answers the review finding that red-vs-green reads as "the app says he is wrong".
+ *   - The statement in StatementPointCard's treatment (letter-point-card.tsx:33-45) — pin
+ *     icon in a blue circle, gray-50 contained card, text-lg.
+ *   - POSITION_FULL_LABELS wording, not invented short labels.
  *
- * Real build: one tag-filtered query (points.tags/system_tags contains the event's
- * statement_tag), not the unbounded profile fetch (points-service-real.ts:666-675).
+ * Also on that feedback: the "N steps apart · opposite sides" meta line is GONE — *"this is
+ * weird. don't do that."* The sort carries the comparison; it does not need narrating. Rows
+ * are now clickable through to the point.
+ *
+ * A plain list, sorted biggest gap first. No swiping, no cards to dismiss, no enter/exit
+ * mode: two people share one screen, so a one-person gesture excludes the other.
+ *
+ * Real build: /compare/:person?tag=<tag>, reached from a control on any profile — one
+ * tag-filtered query, not the unbounded profile fetch (points-service-real.ts:666-675).
  *
  * Render-only: mock data, no api.ts / auth imports.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from 'react';
+import { ChevronRight, Pin } from 'lucide-react';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { cn } from '@/lib/utils';
 
-/** -3..+3, the app's seven-point scale. 0 = unsure / no view. */
-type Level = -3 | -2 | -1 | 0 | 1 | 2 | 3;
+type PositionKey =
+  | 'strongly_agree'
+  | 'agree'
+  | 'somewhat_agree'
+  | 'unsure'
+  | 'somewhat_disagree'
+  | 'disagree'
+  | 'strongly_disagree';
+
+/** letter-reveal-ordinal.tsx:23-31 — third person, because the column describes someone. */
+const POSITION_FULL_LABELS: Record<PositionKey, string> = {
+  strongly_agree: 'Strongly agrees',
+  agree: 'Agrees',
+  somewhat_agree: 'Somewhat agrees',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Somewhat disagrees',
+  disagree: 'Disagrees',
+  strongly_disagree: 'Strongly disagrees',
+};
+
+/** First person for the viewer's own column — "You strongly agrees" reads wrong. */
+const POSITION_FIRST_PERSON: Record<PositionKey, string> = {
+  strongly_agree: 'Strongly agree',
+  agree: 'Agree',
+  somewhat_agree: 'Somewhat agree',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Somewhat disagree',
+  disagree: 'Disagree',
+  strongly_disagree: 'Strongly disagree',
+};
+
+const ORDER: PositionKey[] = [
+  'strongly_disagree',
+  'disagree',
+  'somewhat_disagree',
+  'unsure',
+  'somewhat_agree',
+  'agree',
+  'strongly_agree',
+];
 
 interface Statement {
   id: string;
   text: string;
-  mine: Level;
-  theirs: Level;
+  mine: PositionKey;
+  theirs: PositionKey;
 }
 
-const LABELS: Record<Level, string> = {
-  [-3]: 'Strongly disagree',
-  [-2]: 'Disagree',
-  [-1]: 'Somewhat disagree',
-  [0]: 'Unsure',
-  [1]: 'Somewhat agree',
-  [2]: 'Agree',
-  [3]: 'Strongly agree',
-};
-
-const SHORT: Record<Level, string> = {
-  [-3]: 'Strongly\ndisagree',
-  [-2]: 'Disagree',
-  [-1]: 'Somewhat\ndisagree',
-  [0]: 'Unsure',
-  [1]: 'Somewhat\nagree',
-  [2]: 'Agree',
-  [3]: 'Strongly\nagree',
-};
-
-/** Mock: the Ikigai 1 statement set, with a realistic spread incl. one exact agreement. */
 const STATEMENTS: Statement[] = [
   {
     id: 's1',
     text: 'Work that pays well but means nothing to you is a worse life than work that means something and pays badly.',
-    mine: 3,
-    theirs: -3,
+    mine: 'strongly_agree',
+    theirs: 'strongly_disagree',
   },
   {
     id: 's2',
     text: 'Most people who say they have found their purpose have simply stopped asking the question.',
-    mine: -2,
-    theirs: 2,
+    mine: 'disagree',
+    theirs: 'agree',
   },
   {
     id: 's3',
     text: 'You discover what you are for by doing things, not by reflecting on yourself.',
-    mine: 2,
-    theirs: -1,
+    mine: 'agree',
+    theirs: 'somewhat_disagree',
   },
   {
     id: 's4',
     text: 'A person who needs their work to be meaningful is asking too much of work.',
-    mine: -1,
-    theirs: 1,
+    mine: 'somewhat_disagree',
+    theirs: 'somewhat_agree',
   },
   {
     id: 's5',
     text: 'If an AI could do your work better than you, the work was never your purpose.',
-    mine: 1,
-    theirs: 2,
+    mine: 'somewhat_agree',
+    theirs: 'agree',
   },
   {
     id: 's6',
     text: 'Purpose is something a community gives you, not something you find alone.',
-    mine: 2,
-    theirs: 2,
+    mine: 'agree',
+    theirs: 'agree',
   },
 ];
 
-const ME = { name: 'You', initials: 'YO' };
-const THEM = { name: 'Ben Tan', initials: 'BT' };
+const ME = { name: 'You', avatarColor: '#1E40AF', hasPledged: true };
+const THEM = { name: 'Ben Tan', avatarColor: '#B45309', hasPledged: false };
+
+/** The sets you can compare on: an event's statements, or a standing system tag. */
+const TAGS = [
+  { id: 'ikigai1', label: 'Ikigai 1' },
+  { id: 'understanding', label: 'Understanding' },
+  { id: 'cmp', label: 'Clarity Meeting Principle' },
+];
 
 function gapOf(s: Statement) {
-  return Math.abs(s.mine - s.theirs);
+  return Math.abs(ORDER.indexOf(s.mine) - ORDER.indexOf(s.theirs));
 }
 
-/** Opposite sides of the midpoint, both with a real view: the rows worth a round. */
-function isOpposed(s: Statement) {
-  return s.mine !== 0 && s.theirs !== 0 && Math.sign(s.mine) !== Math.sign(s.theirs);
-}
-
+/** letter-reveal-ordinal.tsx:50-83 — avatar + name above, blue stance pill as the hero. */
 function StanceColumn({
   name,
-  initials,
-  level,
-  tone,
+  avatarColor,
+  hasPledged,
+  label,
 }: {
   name: string;
-  initials: string;
-  level: Level;
-  tone: 'mine' | 'theirs';
+  avatarColor: string;
+  hasPledged: boolean;
+  label: string;
 }) {
   return (
-    <div className="flex-1 min-w-0 flex flex-col items-center gap-1.5">
-      <div
-        className={cn(
-          'w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold shrink-0',
-          tone === 'mine' ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700',
-        )}
-        aria-hidden
-      >
-        {initials}
+    <div className="flex-1 min-w-0 flex flex-col items-center gap-3">
+      <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+        <GravatarAvatar
+          name={name}
+          photoUrl={undefined}
+          avatarColor={avatarColor}
+          isPledger={hasPledged}
+          size="sm"
+          className="!w-6 !h-6 !text-[10px]"
+        />
+        <span className="text-xs text-[#1A1A1A]/50 truncate">{name}</span>
       </div>
-      <span className="text-[11px] text-slate-500 truncate max-w-full">{name}</span>
-      <span
-        className={cn(
-          'text-[13px] font-semibold leading-tight text-center whitespace-pre-line',
-          level > 0 && 'text-green-700',
-          level < 0 && 'text-red-700',
-          level === 0 && 'text-slate-400',
-        )}
-      >
-        {SHORT[level]}
+      <span className="inline-block text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
+        {label}
       </span>
     </div>
   );
 }
 
-function StatementRow({ s, rank }: { s: Statement; rank: number }) {
-  const gap = gapOf(s);
-
+function StatementRow({ s }: { s: Statement }) {
   return (
-    <li className="border border-border rounded-xl overflow-hidden bg-white">
-      {/* No truncation and no expander: the statements are short enough to show whole.
-          An expander that appears only past a character threshold produces exactly one
-          orphan control in a list of six (review finding C3, cause verified in page). */}
-      <div className="px-4 pt-3.5 pb-3">
-        <p className="text-[14px] leading-snug text-slate-900">
-          {rank === 0 && (
-            <span className="mr-1.5 align-[1px] inline-block rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-              Start here
-            </span>
-          )}
-          {s.text}
-        </p>
-      </div>
-
-      <div className="px-4 pb-4">
-        <div className="flex items-start gap-3">
-          <StanceColumn name={ME.name} initials={ME.initials} level={s.mine} tone="mine" />
-          <div className="w-px self-stretch bg-slate-200" />
-          <StanceColumn name={THEM.name} initials={THEM.initials} level={s.theirs} tone="theirs" />
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          /* real build: navigate to the point */
+        }}
+        className="w-full text-left bg-white rounded-xl border border-border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        {/* letter-point-card.tsx:33-45 — the statement, pinned, in its own contained card */}
+        <div className="rounded-lg border border-border bg-gray-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
+              <Pin size={12} className="rotate-45" />
+            </div>
+            <p className="text-lg font-medium text-[#1A1A1A] flex-1 min-w-0 break-words leading-snug">
+              {s.text}
+            </p>
+            <ChevronRight size={18} className="shrink-0 mt-1 text-[#1A1A1A]/30" aria-hidden />
+          </div>
         </div>
 
-        <p className="mt-3 text-[11px] text-center text-slate-500">
-          {gap === 0 ? (
-            <>You both said <span className="font-medium text-slate-700">{LABELS[s.mine]}</span></>
-          ) : (
-            <>
-              {gap} {gap === 1 ? 'step' : 'steps'} apart
-              {isOpposed(s) && <span className="text-slate-700 font-medium"> · opposite sides</span>}
-            </>
-          )}
-        </p>
-      </div>
+        <div className="mt-4 flex items-start gap-4">
+          <StanceColumn
+            name={ME.name}
+            avatarColor={ME.avatarColor}
+            hasPledged={ME.hasPledged}
+            label={POSITION_FIRST_PERSON[s.mine]}
+          />
+          <div className="w-px self-stretch bg-gray-200" />
+          <StanceColumn
+            name={THEM.name}
+            avatarColor={THEM.avatarColor}
+            hasPledged={THEM.hasPledged}
+            label={POSITION_FULL_LABELS[s.theirs]}
+          />
+        </div>
+      </button>
     </li>
   );
 }
 
 export function ComparePositionsPrototype() {
-  const sorted = useMemo(
-    () => [...STATEMENTS].sort((a, b) => gapOf(b) - gapOf(a)),
-    [],
-  );
+  const [tag, setTag] = useState(TAGS[0].id);
+  const sorted = useMemo(() => [...STATEMENTS].sort((a, b) => gapOf(b) - gapOf(a)), []);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-md px-4 py-5">
-        {/* Who, and which set of statements */}
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto w-full max-w-lg px-4 py-5">
         <header className="mb-4">
-          <p className="text-[11px] uppercase tracking-widest text-slate-400">
-            Where you each stand
-          </p>
-          <h1 className="mt-1 text-[20px] font-semibold text-slate-900 leading-tight">
+          <p className="text-xs uppercase tracking-wide text-[#1A1A1A]/50">Where you each stand</p>
+          <h1 className="mt-1 text-xl font-semibold text-[#1A1A1A] leading-tight">
             You and {THEM.name}
           </h1>
-          <div className="mt-2 inline-flex items-center rounded-full bg-white border border-border px-2.5 py-1 text-[12px] text-slate-600">
-            Ikigai 1 · {STATEMENTS.length} statements
-          </div>
         </header>
 
-        {/* The orientation line sits ABOVE the list: the sort it describes is then ahead
-            of the reader, not 1600px behind them (review C2). The suggestion is a badge
-            on the first row rather than a dark banner repeating its sentence (C1). */}
-        <p className="mb-3 text-[12px] leading-snug text-slate-600">
-          Furthest apart first — start at the top. Where you agree is at the bottom, worth a
-          look because you may agree for different reasons.
+        {/* The tag is a CHOICE, not a label: this is how you compare yourself with anyone on
+            any set — an event's statements, or a standing tag like Understanding. */}
+        <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
+          {TAGS.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTag(t.id)}
+              className={cn(
+                'shrink-0 rounded-full px-3 min-h-[36px] text-sm border',
+                tag === t.id
+                  ? 'bg-blue-100 border-blue-200 text-blue-700 font-medium'
+                  : 'bg-white border-border text-[#1A1A1A]/60',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <p className="mb-3 text-sm text-[#1A1A1A]/60">
+          Furthest apart first. Where you agree is at the bottom — worth a look, because you may
+          agree for different reasons.
         </p>
 
-        <ul className="space-y-2.5">
-          {sorted.map((s, i) => (
-            <StatementRow key={s.id} s={s} rank={i} />
+        <ul className="space-y-3">
+          {sorted.map(s => (
+            <StatementRow key={s.id} s={s} />
           ))}
         </ul>
       </div>
