@@ -125,7 +125,7 @@ function CountUpPercent({ target }: { target: number }) {
 
 /**
  * Webinar CTA button — when an upcoming event exists: "Join the next Clarity Experiment"
- * → /events/experiment. When none exists: "Try a Clarity Letter" → /letter/ck (fallback
+ * → /events/experiment. When none exists: "Book a 15-min discovery call" → /intro (P1392; fallback
  * used on /coach, avoids a broken promise of a "next" session that doesn't exist).
  */
 function WebinarCTA({ size = "section", hasEvent }: { size?: "hero" | "section"; hasEvent: boolean }) {
@@ -138,8 +138,9 @@ function WebinarCTA({ size = "section", hasEvent }: { size?: "hero" | "section";
 
   if (!hasEvent) {
     return (
-      <Link to="/letter/ck" className={baseClass} onClick={onClick}>
-        Try a Clarity Letter
+      // P1392 (founder): no letter CTA — the fallback books the 15-min discovery call.
+      <Link to="/intro" className={baseClass} onClick={onClick}>
+        Book a 15-min discovery call
         <ArrowRightIcon className="w-5 h-5 shrink-0" />
       </Link>
     );

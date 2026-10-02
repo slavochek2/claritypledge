@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
-import { Search, X, Globe, ArrowUpDown } from 'lucide-react';
+import { Search, X, Globe, ChevronDown } from 'lucide-react';
+import { HomeSideRail } from '@/app/components/feed/home-side-rail';
 import { storiesService } from '@/app/data/stories-service';
 import { feedRead } from '@/app/data/offline-reads';
 import { readThrough } from '@/lib/offline-read-cache';
@@ -36,6 +37,15 @@ import {
 } from '@/lib/list-return-cache';
 
 type FeedTab = 'points' | 'stories';
+
+/** P1392: the feed is the homepage now — the tag cloud shows the most-used few, the rest behind "More tags". */
+const TAG_CLOUD_LIMIT = 5;
+
+/** P1392: test / pipeline tags (#test, #p1369r…, #p154) are never shown to visitors in the cloud.
+ *  They still filter if linked to directly. */
+function isInternalTag(tag: string): boolean {
+  return /^test$/i.test(tag) || /^p\d+/i.test(tag);
+}
 
 
 /**
@@ -344,6 +354,7 @@ export function FeedPage() {
   // P630: tags now includes system tags (merged at data layer). Hide st/v tags from cloud.
   // P1075: reads cloudStories/cloudPoints (always unfiltered), not stories/points
   // (now server-side tag-filtered) -- see fetchData.
+  const [showAllTags, setShowAllTags] = useState(false);
   const tagCloud = useMemo(() => {
     const tagCounts = new Map<string, number>();
     for (const story of cloudStories) {
@@ -353,7 +364,7 @@ export function FeedPage() {
       for (const tag of point.tags || []) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     }
     return [...tagCounts.entries()]
-      .filter(([tag]) => !/^st\d+$/i.test(tag) && !/^v\d+$/i.test(tag))
+      .filter(([tag]) => !/^st\d+$/i.test(tag) && !/^v\d+$/i.test(tag) && !isInternalTag(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
   }, [cloudStories, cloudPoints]);
@@ -417,11 +428,12 @@ export function FeedPage() {
   };
 
   // Sort toggle
-  const handleSortToggle = () => {
-    const newSort = ascending ? 'newest' : 'oldest';
+  // P1392: a "Sort:" pill with named choices (the /topics pattern) replaced the toggle
+  // whose label read as a status ("Currently newest first, click for oldest").
+  const handleSortChange = (newSort: 'newest' | 'oldest') => {
     analytics.track('feed_sort_changed', { sort_order: newSort });
     const params = new URLSearchParams(searchParams);
-    if (ascending) {
+    if (newSort === 'newest') {
       params.delete('sort');
     } else {
       params.set('sort', 'oldest');
@@ -469,7 +481,9 @@ export function FeedPage() {
     <>
       <SEO title={seoTitle} description="Browse public stories and points shared by the ClarityPledge community." />
 
-      <div className="container mx-auto px-4 lg:px-8 py-6 max-w-2xl">
+      {/* P1392: desktop adds a right rail (next events, groups); the feed column is unchanged. */}
+      <div className="container mx-auto px-4 lg:px-8 py-6 lg:max-w-5xl lg:flex lg:gap-8 lg:justify-center">
+      <div className="max-w-2xl w-full mx-auto lg:mx-0">
         {/* Page header + Write Story CTA */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-foreground">Home</h1>
@@ -508,7 +522,7 @@ export function FeedPage() {
         {/* Tag cloud (only when we have tags and not loading) */}
         {!loading && tagCloud.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {tagCloud.map((tag) => {
+            {(showAllTags ? tagCloud : tagCloud.slice(0, TAG_CLOUD_LIMIT)).map((tag) => {
               const isActive = activeTags.includes(tag);
               return (
                 <button
@@ -526,6 +540,14 @@ export function FeedPage() {
                 </button>
               );
             })}
+            {tagCloud.length > TAG_CLOUD_LIMIT && (
+              <button
+                onClick={() => setShowAllTags((v) => !v)}
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm text-blue-600 hover:underline"
+              >
+                {showAllTags ? 'Fewer tags' : `More tags (${tagCloud.length - TAG_CLOUD_LIMIT})`}
+              </button>
+            )}
           </div>
         )}
 
@@ -599,14 +621,19 @@ export function FeedPage() {
                 <span className={`inline-block w-3 h-3 rounded-full border ${versionLatest ? 'bg-blue-500 border-blue-500' : 'border-muted-foreground'}`} />
               </button>
             )}
-            <button
-              onClick={handleSortToggle}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-              aria-label={ascending ? 'Currently oldest first, click for newest' : 'Currently newest first, click for oldest'}
-            >
-              {ascending ? 'Oldest first' : 'Newest first'}
-              <ArrowUpDown className="w-3.5 h-3.5" />
-            </button>
+            <label className="relative inline-flex h-10 items-center rounded-full border border-border pl-3 pr-8 text-sm text-foreground hover:bg-muted/60">
+              <span className="text-muted-foreground">Sort:</span>
+              <select
+                aria-label="Sort by"
+                value={ascending ? 'oldest' : 'newest'}
+                onChange={(e) => handleSortChange(e.target.value as 'newest' | 'oldest')}
+                className="h-full cursor-pointer appearance-none bg-transparent pl-1 text-base font-medium focus:outline-none md:text-sm"
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+              <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground" />
+            </label>
           </div>
         </div>
 
@@ -693,6 +720,8 @@ export function FeedPage() {
             </div>
           )}
         </div>
+      </div>
+      <HomeSideRail />
       </div>
     </>
   );

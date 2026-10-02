@@ -221,7 +221,7 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   it('sort and version toggles REPLACE too', async () => {
     renderApp(['/start', '/feed?tab=points']);
     await screen.findAllByTestId('point-card');
-    fireEvent.click(screen.getByRole('button', { name: /newest first/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: /sort by/i }), { target: { value: 'oldest' } }); // P1392 pill
     fireEvent.click(screen.getByRole('switch', { name: /latest versions/i }));
     await waitFor(() => expect(where()).toBe('/feed?tab=points&sort=oldest&version=latest'));
     go(-1);

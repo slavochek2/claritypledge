@@ -98,29 +98,7 @@ function LoggedOutPrimaryCta({
   // landings with three different offers, so "the main landing" above is no longer a
   // single thing: "/" sells the alignment audit, "/coach" the letter (P856), "/founder"
   // the co-founder program behind the webinar funnel. Mirror the page you are ON.
-  const onCoach = pathname === "/coach";
   const onFounder = pathname === "/founder";
-
-  // (P856) /coach keeps the product-trial CTA. (P987 + P969) /founder's own hero is
-  // old-landing-2's WebinarCta, which degrades to the letter when no Clarity Experiment
-  // is upcoming — mirror that, or the nav offers the key-hire audit on a page selling the
-  // co-founder program.
-  if (onCoach || (onFounder && !nextEvent)) {
-    return (
-      <Link
-        to="/letter/ck"
-        title="Try a Clarity Letter"
-        className={className}
-        onClick={() => {
-          analytics.track("nav_cta_clicked", { cta: "try_letter", device });
-          onNavigate?.();
-        }}
-      >
-        <MailIcon className="w-4 h-4" />
-        Try a Clarity Letter
-      </Link>
-    );
-  }
 
   // (P987) Every page other than /coach and /founder mirrors "/" → the alignment audit.
   // NOT event-aware, deliberately: P987 removed the webinar CTA from "/" entirely, so
@@ -128,7 +106,9 @@ function LoggedOutPrimaryCta({
   // promise a Clarity Experiment that does not exist) holds a fortiori — these pages now
   // never promise one at all. P969's event-aware fallback still lives on /founder above,
   // which is the only landing still running the webinar funnel.
-  if (!onFounder) {
+  // P1392 (founder): /coach and /founder book the same discovery call — the letter CTA is gone.
+  // /founder keeps its webinar CTA only while a Clarity Experiment is actually upcoming.
+  if (!onFounder || !nextEvent) {
     return (
       <Link
         to="/intro"

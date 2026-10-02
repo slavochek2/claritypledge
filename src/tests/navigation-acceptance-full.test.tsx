@@ -209,14 +209,14 @@ describe('KISS Navigation', () => {
         }
       });
 
-      it('on "/coach" keeps the Try a Clarity Letter CTA → /letter/ck (the one exception)', () => {
+      // P1392 (founder): /coach books the same discovery call — no more letter exception.
+      it('on "/coach" shows the discovery-call CTA → /intro', () => {
         window.history.pushState({}, '', '/coach');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-          const cta = screen.getByRole('link', { name: /try a clarity letter/i });
-          expect(cta).toBeInTheDocument();
-          // pin the alias contract — a broken target would otherwise pass all nav tests
-          expect(cta).toHaveAttribute('href', '/letter/ck');
+          const cta = screen.getByRole('link', { name: /book a 15-min discovery call/i });
+          expect(cta).toHaveAttribute('href', '/intro');
+          expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
           expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests

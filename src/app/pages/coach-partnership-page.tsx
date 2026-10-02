@@ -9,7 +9,7 @@
  * the named CONSEQUENCE, not a promised outcome. Names are canon: Clarity Letter,
  * Clarity Session, Clarity Partner Agreement. A minimal two-circle SVG illustrates the illusion.
  *
- * COPY: DRAFT, founder to approve. Primary CTA = "Try a Clarity Letter" → /letter/ck.
+ * COPY: DRAFT, founder to approve. Primary CTA = "Book a 15-min discovery call" → /intro (P1392; was the Clarity Letter).
  */
 import { useState, useEffect, useRef, Children } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -82,11 +82,12 @@ function TryLetterCTA({ size = "section" }: { size?: "hero" | "section" }) {
   // hero size matches the landing DualCTA hero button (text-xl px-12 py-8)
   const sizeClasses = size === "hero" ? "text-xl px-12 py-8" : "text-base px-8 py-4";
   return (
+    // P1392 (founder): every landing books the same 15-min discovery call — no letter CTA.
     <Link
-      to="/letter/ck"
+      to="/intro"
       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${sizeClasses}`}
     >
-      Try a Clarity Letter
+      Book a 15-min discovery call
     </Link>
   );
 }

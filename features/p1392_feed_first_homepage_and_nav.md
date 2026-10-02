@@ -36,6 +36,10 @@ Blast radius: medium — the front door for every anonymous visitor, plus every 
 3. **Anonymous "/" → feed on Stories** [FOUNDER DECISION: made 2026-10-02, chose feed over groups]. The build-the-right-thing landing moves to its own path; "For builders" in Use cases points there. Signed-in behaviour unchanged (already → /feed).
 4. **Public menu order: Feed · Events · Groups · Pledgers · Pricing** [FOUNDER DECISION: made 2026-10-02]. "Events" opens the upcoming-events list directly (reverses P1193's removal of the word from the menu). Pricing last. Use cases menu stays.
 
+5. **Feed header, decluttered** [FOUNDER DECISION: approved 2026-10-02]: sort becomes a "Sort: Newest / Oldest" pill (the /topics pattern); tag cloud shows the top 5 with "More tags", internal/test tags (#test, #p…) hidden.
+6. **Desktop right rail** [FOUNDER DECISION: approved 2026-10-02, instead of a LinkedIn 3-column]: next events + Explore groups. Phones unchanged.
+7. **CTA consistency** [FOUNDER DECISION: 2026-10-02]: /coach and /founder book the same 15-min discovery call instead of "Try a Clarity Letter". /founder keeps its webinar CTA only while a Clarity Experiment is upcoming.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -47,6 +51,7 @@ Blast radius: medium — the front door for every anonymous visitor, plus every 
 
 **Non-Goals**
 - Do NOT redesign the feed, landing or /intro page content.
+- Do NOT build a LinkedIn-style left column or post composer.
 - Do NOT build the video / playable-character landing (v2) or rework /tree/landing-first.
 - Do NOT touch P1003's "diagnostic" naming.
 
@@ -57,6 +62,9 @@ Blast radius: medium — the front door for every anonymous visitor, plus every 
 - [ ] /feed with no tab param shows Stories; Points still reachable
 - [ ] No visible "alignment audit" button text remains; buttons read "Book a 15-min discovery call" and open the booking calendar
 - [ ] Menu (desktop, mobile, footer) reads Feed · Events · Groups · Pledgers · Pricing; Events opens upcoming events in one click
+- [ ] Feed sort reads "Sort: Newest" and switches to Oldest; at most 5 tags show plus "More tags"; no #test / #p… tags
+- [ ] Desktop feed shows a right rail with next events and Explore groups; phone widths show no rail
+- [ ] /coach and /founder (no upcoming experiment) show "Book a 15-min discovery call" in header and hero
 - [ ] 375 / 320 / desktop screenshots pass visual QA
 
 ## Related

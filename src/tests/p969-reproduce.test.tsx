@@ -67,7 +67,8 @@ describe('p969: header nav CTA is event-aware (no-event fallback)', () => {
     window.history.pushState({}, '', '/');
   });
 
-  it('with no upcoming event, /founder header CTA reads "Try a Clarity Letter" → /letter/ck', async () => {
+  // P1392 (founder): the no-event fallback is the discovery call now, not the letter.
+  it('with no upcoming event, /founder header CTA reads "Book a 15-min discovery call" → /intro', async () => {
     // P987: /founder is the landing still running the webinar funnel — its hero is
     // old-landing-2's WebinarCta. The nav must mirror it, or the header sells the
     // key-hire audit on a page selling the co-founder program.
@@ -75,8 +76,8 @@ describe('p969: header nav CTA is event-aware (no-event fallback)', () => {
     render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
 
     await waitFor(() => {
-      const cta = screen.getByRole('link', { name: /try a clarity letter/i });
-      expect(cta).toHaveAttribute('href', '/letter/ck');
+      const cta = screen.getByRole('link', { name: /book a 15-min discovery call/i });
+      expect(cta).toHaveAttribute('href', '/intro');
     });
   });
 
