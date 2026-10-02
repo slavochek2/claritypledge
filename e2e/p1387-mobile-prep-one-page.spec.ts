@@ -81,7 +81,12 @@ const pinnedShare = (page: Page) =>
     return { share: Math.round((covered / total) * 100) / 100, who: JSON.stringify([...who]) };
   });
 
-const settle = (page: Page) => page.waitForTimeout(600);
+// Wait for the page to finish loading first: the points steps update their own URL just after
+// load, and a measurement taken mid-update throws "execution context destroyed" (seen 1 in 3 runs).
+const settle = async (page: Page) => {
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(600);
+};
 
 /** The button is what a finger hits at its centre — not merely inside the viewport. The P1387
  *  review found the end screen's pinned row under the BottomNav while toBeInViewport passed. */
