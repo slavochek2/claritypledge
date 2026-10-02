@@ -148,16 +148,32 @@ This is what makes every platform's description consistent — no per-platform d
    - `{register_cta}` → the `register_cta` value
 4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
 
-**If `series_doc` is null or has no `## Promo blurb`:** generate the canonical blurb here, so every platform gets the same link discipline:
+**If `series_doc` is null or has no `## Promo blurb`:** generate the canonical blurb here, so every platform gets the same link discipline.
+
+**Short link first — the long slug is the last resort** (founder, 2026-10-02: *"put in the link
+the claritypledge.com short link, not the long link"*). Before writing the blurb, look for a
+series key whose `ILIKE` pattern in `SERIES` (`api/series-redirect.ts`) matches this title, and
+confirm it is live: `curl -sI https://claritypledge.com/<key>` must 307 to **this** slug.
+
+- **Matches and live** → `<link>` = `claritypledge.com/<key>?d=<YYMMDD>` (bare form if `vercel.json`
+  has it, else `/events/<key>`; cache-buster rules below apply).
+- **Matches but not live yet** (committed, not pushed) → still use the short link, and put "push
+  first, the short link 307s to /events until then" at the top of the Phase B sweep.
+- **No match** → before filling anything, suggest one: *"No short link for this event. Add
+  `claritypledge.com/<proposed-key>`? Worth it if the host will run it again."* On yes, add the
+  `SERIES` entry + both `vercel.json` routes, check the pattern matches only this event on prod, and
+  commit via `git-ops.sh commit-to-main`. On no, use `claritypledge.com/events/<slug>`.
 
 ```
 [ONE-LINE HOOK — first non-empty line of the event description]
-Full details & registration: claritypledge.com/events/<slug>
+Full details & registration: <link>
 
 [BODY — 2-4 key lines from the event description: what happens, who it's for, what to bring]
 
-Register: claritypledge.com/events/<slug>
+Register: <link>
 ```
+
+Booking-URL fields (todo.today "Booking page URL") take the same `<link>`, with `https://`.
 
 Pass this as the canonical promo blurb to every platform sub-skill in step 4, same as the series case.
 
