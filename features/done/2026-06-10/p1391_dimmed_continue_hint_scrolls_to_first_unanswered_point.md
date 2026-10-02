@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 18
 severity: medium
@@ -15,9 +15,9 @@ reproduce_artifact:
   confidence: high
 tags: [events, preparation, mobile]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 related: [p1387, p1336]
+completed_at: 2026-10-02
 ---
 
 # P1391: Tapping the dimmed Continue on a points step says "answer all points" but shows none of them
