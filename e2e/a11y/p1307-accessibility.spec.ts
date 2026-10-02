@@ -93,7 +93,7 @@ test.describe('P1307 a11y: the persistent capture bar', () => {
     await page.goto(`/events/${event.slug}/ready`);
     await page.getByRole('switch').click();
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
 
     const openBtn = page.getByRole('button', { name: /^open$/i });
     const endBtn = page.getByRole('button', { name: /end session/i });

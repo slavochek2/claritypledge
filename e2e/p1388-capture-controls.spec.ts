@@ -49,7 +49,7 @@ test.describe('P1388: capture controls', () => {
       await shot(page, `${vp.name}-1-running`);
 
       await bar.getByRole('button', { name: 'Pause' }).click();
-      await expect(bar.getByText('Paused — not recording')).toBeVisible();
+      await expect(bar.getByText('Paused', { exact: true })).toBeVisible();
       await expect(page.getByTestId('capture-level-meter')).toHaveAttribute('data-level', '0');
       await shot(page, `${vp.name}-2-paused`);
       await page.waitForTimeout(3_000);
@@ -64,7 +64,7 @@ test.describe('P1388: capture controls', () => {
       await shot(page, `${vp.name}-3-info`);
       await page.keyboard.press('Escape');
 
-      await bar.getByRole('button', { name: 'Open' }).click();
+      await bar.getByRole('button', { name: 'Open the room' }).click();
       await expect(page.getByTestId('transcribe-room-screen')).toBeVisible({ timeout: 15_000 });
       await expect(page.getByRole('button', { name: /stop transcribing/i }).filter({ visible: true })).toHaveCount(1);
       await shot(page, `${vp.name}-4-room`);

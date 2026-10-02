@@ -11,7 +11,7 @@
  * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
  * renders nothing, as D3/D13 asked.
  */
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { ArrowRight, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
@@ -42,31 +42,14 @@ const OFFLINE_DETAIL = 'Words said while offline may not be saved.';
 const OFFLINE_STOP = 'Stop microphone';
 const OFFLINE_STOPPING = 'Stopping…';
 
-/** P1388: fold past FOLD_AT, unfold only back under UNFOLD_AT. The gap is hysteresis: folding
- *  shortens the page, which can pull scrollY back under a single threshold and flip the bar
- *  back and forth (adversarial review). */
-const FOLD_AT_PX = 120;
-const UNFOLD_AT_PX = 16;
-
-function useFoldedOnScroll(): boolean {
-  const [folded, setFolded] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setFolded((was) => (was ? window.scrollY > UNFOLD_AT_PX : window.scrollY > FOLD_AT_PX));
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-  return folded;
-}
-
 const ICON_BUTTON =
   'inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 disabled:opacity-50';
 
 /**
- * The folded bar: the status in a few words, the meter, and the same three controls as icons.
- * Not a different feature — the same bar, shorter, so that a recorder scrolling the feed still
- * sees that capture is running (P1307 D9: capture never runs with no indicator) without a
- * two-row block covering the page. No expand control: scrolling back up unfolds it.
+ * The short bar — the ONLY form on ordinary pages (founder, 2026-10-02): the status in a few
+ * words, the meter, ⓘ, and the three controls as icons. One look everywhere, no expand control
+ * and no remembered state: the full detail is one tap away in the room (→). It is sticky, so a
+ * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
 function CompactCaptureBar({ roomId }: { roomId: string }) {
   const { phase, open, endMyCapture, manualPaused, pauseMine, resumeMine, micLost, stopping } = useRoomCapture();
@@ -74,11 +57,12 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
   const paused = phase === 'paused' && manualPaused;
   const short = stopping ? 'Stopping…' : paused ? 'Paused' : status.warn ? 'Check mic' : '● Recording';
   return (
-    <div role="status" aria-label="Room transcription active" data-testid="room-capture-bar-compact"
+    <div role="status" aria-label="Room transcription active" data-testid="room-capture-bar" data-form="short"
       className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800">{short}</span>
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+        <CaptureInfoButton />
         <div className="ml-auto flex items-center gap-2">
           {phase !== 'observing' && !micLost && (
             <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={paused ? resumeMine : pauseMine}
@@ -87,10 +71,10 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
             </button>
           )}
           <button type="button" className={`${ICON_BUTTON} hover:text-destructive`} disabled={stopping}
-            onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing">
+            onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
           </button>
-          <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room">
+          <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room" data-testid="room-capture-bar-open">
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -99,8 +83,7 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
   );
 }
 
-export function RoomCaptureBar({ foldOnScroll = false }: { foldOnScroll?: boolean }) {
-  const scrolled = useFoldedOnScroll();
+export function RoomCaptureBar({ short = false }: { short?: boolean }) {
   const { phase, roomId, open, endMyCapture, manualPaused } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
@@ -111,7 +94,7 @@ export function RoomCaptureBar({ foldOnScroll = false }: { foldOnScroll?: boolea
   const manuallyPaused = phase === 'paused' && manualPaused;
   if ((!VISIBLE_PHASES.has(phase) && !manuallyPaused) || !roomId) return null;
 
-  if (foldOnScroll && scrolled && !offline) return <CompactCaptureBar roomId={roomId} />;
+  if (short && !offline) return <CompactCaptureBar roomId={roomId} />;
 
   if (offline) {
     return (
@@ -167,14 +150,14 @@ export function RoomCaptureBarSlot() {
   // The nav moves down exactly when the offline STRIP shows — read the same signal it reads.
   const offline = useOfflineStripShown();
   useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
-  // P1388 (founder, 2026-10-02): stuck under the fixed nav, folding to one line on scroll — so
-  // a recorder browsing the feed always sees that capture is running (D9) and can pause it.
+  // P1388 (founder, 2026-10-02): the short bar, stuck under the fixed nav — so a recorder
+  // browsing the feed always sees that capture is running (D9) and can pause it.
   // Offline, the nav sits 1.75rem lower under the offline strip (simple-navigation.tsx).
   return barVisible ? (
     <div className={`sticky z-30 ${offline
       ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]'
       : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]'}`}>
-      <RoomCaptureBar foldOnScroll />
+      <RoomCaptureBar short />
     </div>
   ) : null;
 }

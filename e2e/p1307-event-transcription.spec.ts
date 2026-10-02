@@ -89,7 +89,7 @@ test.describe('P1307: event transcription', () => {
     await page.getByRole('button', { name: /continue/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 15_000 });
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
   });
 
   test('switch off + Continue lands on /meet with NO bar, and nothing captured', async ({ page }) => {
@@ -99,7 +99,7 @@ test.describe('P1307: event transcription', () => {
     await page.getByRole('button', { name: /continue/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 15_000 });
-    await expect(page.getByText(/Transcribing for AI insights/i)).not.toBeVisible();
+    await expect(page.getByTestId('room-capture-bar')).not.toBeVisible();
 
     const { data: members } = await supabaseAdmin
       .from('transcribe_room_members')
@@ -122,7 +122,7 @@ test.describe('P1307: event transcription', () => {
 
     await page.getByRole('switch').click();
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
   });
 
   async function reachCapturing(page: Page) {
@@ -131,7 +131,7 @@ test.describe('P1307: event transcription', () => {
     await page.goto(`/events/${event.slug}/ready`);
     await page.getByRole('switch').click();
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
   }
 
   // /dev (KDD 2026-09-14): the bar can show while every slice is refused. The test project
@@ -157,15 +157,15 @@ test.describe('P1307: event transcription', () => {
   test('the bar persists across profile and feed navigation', async ({ page }) => {
     await reachCapturing(page);
     await page.goto('/feed');
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 10_000 });
     await page.goto(`/p/${attendee.slug}`);
-    await expect(page.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 10_000 });
   });
 
   test('Stop transcribing from the bar clears it and ends this person\'s capture', async ({ page }) => {
     await reachCapturing(page);
     await page.getByRole('button', { name: /stop transcribing/i }).click();
-    await expect(page.getByText(/Transcribing for AI insights/i)).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('room-capture-bar')).not.toBeVisible({ timeout: 10_000 });
 
     const { data: members } = await supabaseAdmin
       .from('transcribe_room_members')
@@ -176,7 +176,7 @@ test.describe('P1307: event transcription', () => {
 
   test('opening the room from the bar shows the room view with no second consent screen', async ({ page }) => {
     await reachCapturing(page);
-    await page.getByRole('button', { name: /^open$/i }).click();
+    await page.getByTestId('room-capture-bar-open').click();
     await expect(page).toHaveURL(/\/transcribe\//, { timeout: 10_000 });
     // No consent screen: the switch/consent copy from the ready page must not reappear here.
     // Founder, 2026-09-14: the ready-screen line now reads "Transcription follows our …".
@@ -200,7 +200,7 @@ test.describe('P1307: event transcription', () => {
       // without a page hook, so this asserts the OBSERVABLE proxy: exactly one member row
       // for this profile+room (the join RPC is idempotent per profile), never two divergent
       // capture states server-side.
-      await expect(pageB.getByText(/Transcribing for AI insights/i)).toBeVisible({ timeout: 10_000 });
+      await expect(pageB.getByTestId('room-capture-bar')).toBeVisible({ timeout: 10_000 });
 
       const { data: members } = await supabaseAdmin
         .from('transcribe_room_members')
