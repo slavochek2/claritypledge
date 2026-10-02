@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 18
 severity: medium
@@ -9,10 +9,14 @@ created_date: '2026-10-02'
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
+reproduce_artifact:
+  test_file: e2e/p1387-mobile-prep-one-page.spec.ts
+  observed_red: 'first card viewport ratio 0 after the dimmed tap, at 390 and 375'
+  confidence: high
 tags: [events, preparation, mobile]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 related: [p1387, p1336]
 ---
 
@@ -63,8 +67,12 @@ Only the hint appears, in the pinned bar; the page does not move.
 
 On the dimmed tap, find the first point card without an answer and `scrollIntoView({ block: 'center', behavior: 'smooth' })`, keeping the hint.
 
+## Resolution
+
+**date_resolved:** 2026-10-02. The dimmed tap now also scrolls the first unanswered card (in the order shown) to the centre of the screen; cards carry `data-point-id`. Red before (viewport ratio 0), green after at 390 and 375, on both points steps.
+
 ## Acceptance Criteria
 
-- [ ] On a 390 and a 375 phone, tapping the dimmed Continue on the value-perception step shows the hint AND brings an unanswered point into the viewport
-- [ ] Same on the positions step
-- [ ] Regression test passes: `e2e/p1387-mobile-prep-one-page.spec.ts`
+- [x] On a 390 and a 375 phone, tapping the dimmed Continue on the value-perception step shows the hint AND brings an unanswered point into the viewport
+- [x] Same on the positions step
+- [x] Regression test passes: `e2e/p1387-mobile-prep-one-page.spec.ts`

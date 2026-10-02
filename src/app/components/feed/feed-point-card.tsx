@@ -231,6 +231,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       aria-label={`Point: ${point.statement}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`feed-point-card-${point.id}`}
+      /* P1391: the preparation scrolls to the first unanswered card by this id. */
+      data-point-id={point.id}
       onClick={handleClick}
       onKeyDown={(e) => {
         // P1212: only the CARD ITSELF activates. Without the target check this fires for a

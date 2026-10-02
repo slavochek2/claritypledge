@@ -277,6 +277,13 @@ function StakeStep({
   );
 }
 
+/** The first card, in the order shown, that has no position yet (P1391). */
+function firstUnanswered(points: PointWithUserPosition[] | null | undefined, askedIds: string[] | undefined): string | null {
+  if (!points || !askedIds) return null;
+  const byId = new Map(points.map((p) => [p.id, p]));
+  return askedIds.find((id) => { const p = byId.get(id); return !p || !isAnswered(p); }) ?? null;
+}
+
 /** Which cards each statements step showed on first entry, this session (Back shows the same
  *  cards, answered ones included; answered cards are skipped only on a later visit). */
 type ShownIds = Record<string, string[]>;
@@ -589,7 +596,7 @@ function PrepFlow({
   const topic = eventTopic(event.title);
   const stepIndex = screen !== 'plan' && screen !== 'end' ? plan.indexOf(screen) : -1;
 
-  const statementsBar = (count: Count, loaded: boolean) => {
+  const statementsBar = (count: Count, loaded: boolean, firstUnansweredId: string | null) => {
     const allSet = loaded && count.answered >= count.total;
     return (
       <StepActions ref={barRef}>
@@ -616,7 +623,15 @@ function PrepFlow({
         <div className="w-full max-w-sm" title={allSet ? undefined : answerHintText(count.total)}>
           <LetterPrimaryCta
             label="Continue"
-            onClick={() => (allSet ? next('completed') : setAnswerHint(true))}
+            onClick={() => {
+              if (allSet) return next('completed');
+              setAnswerHint(true);
+              // P1391: bring the first unanswered point into view with the hint, so the person
+              // sees where to answer (on a phone the list is 4-5 screens long).
+              if (firstUnansweredId) {
+                document.querySelector(`[data-point-id="${firstUnansweredId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              }
+            }}
             className={allSet ? undefined : 'opacity-50 hover:bg-[#0044CC]'}
           />
         </div>
@@ -870,7 +885,7 @@ function PrepFlow({
                   onCountChange={setCmp7Count}
                 />
               )}
-              {statementsBar(cmp7Count, !!(state.cmp7Points && shownIds[CMP7_TAG]))}
+              {statementsBar(cmp7Count, !!(state.cmp7Points && shownIds[CMP7_TAG]), firstUnanswered(state.cmp7Points, shownIds[CMP7_TAG]))}
             </section>
           )}
 
@@ -895,7 +910,7 @@ function PrepFlow({
                   onCountChange={setStakeCount}
                 />
               )}
-              {statementsBar(stakeCount, !!(state.eventPoints && shownIds[tag]))}
+              {statementsBar(stakeCount, !!(state.eventPoints && shownIds[tag]), firstUnanswered(state.eventPoints, shownIds[tag]))}
             </section>
           )}
 

@@ -185,12 +185,22 @@ for (const phone of PHONES) {
       await check('cmp7', 0.28);
       // Continue is the main action even before every point is answered; a tap says what is missing.
       expect(await onTop(page, 'Continue'), 'Continue is tappable').toBe(true);
+      // P1391: from the bottom of the list, the tap also brings the first unanswered point into
+      // view — nothing is answered yet, so that is the first card.
+      await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
+      await expect(page.locator('[data-testid^="feed-point-card-"]').first()).not.toBeInViewport();
       await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(page.getByTestId('answer-hint')).toHaveText(/^Set your position on all \d+ points to continue\.$/);
+      await expect(page.locator('[data-testid^="feed-point-card-"]').first()).toBeInViewport();
       await expect(page.getByRole('heading', { name: /value perception/ })).toBeVisible();
       await page.getByRole('button', { name: 'Skip and proceed' }).click();
       await expect(page.getByRole('heading', { name: /Set your positions/ })).toBeVisible();
       await check('positions', 0.28);
+      // P1391: same on the positions step — the dimmed tap brings the first unanswered point into view.
+      await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
+      await expect(page.getByTestId('answer-hint')).toBeVisible();
+      await expect(page.locator('[data-testid^="feed-point-card-"]').first()).toBeInViewport();
       await page.getByRole('button', { name: 'Skip and proceed' }).click();
       await expect(page.getByRole('heading', { name: /volunteers/ })).toBeVisible();
       await check('research');
