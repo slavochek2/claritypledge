@@ -15,8 +15,8 @@ reproduce_artifact:
   confidence: high
 tags: [events, preparation, mobile, layout]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 related: [p1336, p1386]
 ---
 
