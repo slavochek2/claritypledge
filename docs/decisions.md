@@ -16,6 +16,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-03 [process]: The ship gate must read pipeline_ran in block form too — 76 open specs are written that way (Status: proposed)
+
+**Context:** P1388 failed `ship-gates.sh` gate 2.5 with "no implementation recorded" although `pipeline_ran` listed `dev` — as a YAML block list. Both readers (gate 2.5 and the absorber check) take the first `^pipeline_ran:` line only. Third occurrence after P1335 and P1233; 108 specs (76 open) use block form, and the kanban writer re-serialises arrays as blocks (P1126), so instructing agents to write inline cannot hold.
+**Decision:** proposed — fix both parsers to accept block and inline, with a gate-7c fixture (block allowed, inline allowed, block holding only `create-spec` refused). Fold into P1129, whose "nothing breaks today" is contradicted by the gate.
+**Consequences:** until fixed, every block-form spec needs a hand conversion at ship.
+
+## 2026-10-03 [technical]: Two fixed-height screens still use 100vh after the P1388 h-dvh fix (Status: proposed)
+
+**Context:** P1388 moved the layout wrapper to `h-dvh`, but `src/app/pages/clarity-live-page.tsx:4654` and `src/app/pages/landing-v4.tsx:1128` keep `h-screen overflow-hidden`. The 100vh-includes-the-address-bar bug has been fixed four times; screenshot QA cannot see it (headless has no address bar).
+**Decision:** proposed — fix both sites, plus one source-grep test that fails on `h-screen` with `overflow-hidden` under `src/app`. A pre-commit lint is deferred until a third regression.
+**Consequences:** on-device behaviour still needs a phone check after the fix.
+
 ## 2026-10-02 [product]: Recording controls are one short row — Pause · Stop together, navigation apart — and the short bar is the only form off the room page (P1388)
 
 **Context:** P1388's first build kept P1307's bar shape: a full-width blue Open and a lone "Stop transcribing" with the sign-out icon, four rows tall on a phone. Founder, on the phone test: *"open is so big and stop transcribing is somehow weird."* Iterating on the real device then moved Stop beside Pause on `/transcribe`, removed that page's own header (it hid the avatar and, with `h-screen`, slid off the nav — "the top menu is like twice"), and put the room's people beside the meter.
