@@ -81,7 +81,7 @@ export function CaptureInfoButton() {
         <Info className="h-4 w-4" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent className="text-sm space-y-2" data-testid="capture-info-sheet">
-        {/* [FOUNDER DECISION: the wording inside the info sheet — PROPOSED] */}
+        {/* Wording approved by the founder 2026-10-02. */}
         <p><span className="font-medium">What’s recorded:</span> your microphone, while this says Transcribing. Paused records nothing.</p>
         <p><span className="font-medium">Where it goes:</span> the text appears for everyone in this room, and the audio is kept so the whole conversation can be transcribed afterwards.</p>
         <p><span className="font-medium">Your part:</span> you’re the one recording, so let the people around you know, and pause whenever someone asks.</p>
