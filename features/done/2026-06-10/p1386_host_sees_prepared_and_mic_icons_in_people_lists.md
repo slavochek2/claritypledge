@@ -1,18 +1,18 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 311
 workstream: events
 created_date: '2026-10-01'
 tags: [events, host, preparation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
 related: [p1336, p1337, p1114]
+completed_at: 2026-10-02
 ---
 
 # P1386: The host sees who prepared and who needs a mic as small icons in the people lists
