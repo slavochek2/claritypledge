@@ -28,7 +28,7 @@ E2E tests in this project use Playwright to test the full stack — from browser
 - Tests use real Supabase auth (not mocked)
 - Tests create real database records (using service_role key)
 - Tests clean up after themselves (delete test data in afterEach)
-- Tests run sequentially (workers: 1 in playwright.config.ts)
+- Tests run in parallel (`fullyParallel`, 3 workers locally, 2 in CI — `playwright.config.ts`); a spec that depends on order needs `test.describe.configure({ mode: 'serial' })`
 - Tests use password-based auth (more reliable than magic links)
 
 ---

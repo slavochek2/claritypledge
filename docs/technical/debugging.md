@@ -66,6 +66,12 @@ Is the schema actually applied?
 ls supabase/migrations/
 ```
 
+The opposite case, on the **shared test DB**: a migration applied there from another session's
+unshipped branch. A test failure involving a migration-dependent RPC or column (e.g. PGRST202, an RPC
+returning a narrower result than `main`'s definition) may be that branch's schema, not a product bug —
+compare the test DB's applied versions with the files in `main`'s `supabase/migrations/` before filing
+one. Seen with P1236/P1275 and with P1386 breaking a P1336 e2e on `main` (2026-10-02).
+
 ### 3. Column existence
 Only check this after RLS + migrations ruled out
 
