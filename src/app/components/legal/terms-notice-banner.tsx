@@ -43,7 +43,7 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
             <p>{TERMS_CONSENT_LINE}</p>
             <LegalDocLinks />
           </div>
-          <Button className="h-10 shrink-0 bg-blue-500 hover:bg-blue-600" onClick={onDismiss} disabled={isLoading}>
+          <Button className="h-10 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={onDismiss} disabled={isLoading}>
             Accept
           </Button>
         </div>
