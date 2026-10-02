@@ -87,6 +87,7 @@ const GateFixtureExample = lazy(() => import("@/app/tree/_gate/example/GateFixtu
 const DesignPrivatePage = lazy(() => import("@/app/pages/design-private-page").then(m => ({ default: m.DesignPrivatePage })));
 const DesignButtonsPage = lazy(() => import("@/app/pages/design-buttons-page").then(m => ({ default: m.DesignButtonsPage })));
 const DesignBluePage = lazy(() => import("@/app/pages/design-blue-page").then(m => ({ default: m.DesignBluePage })));
+const GateFixtureTermsUpdate = lazy(() => import("@/app/tree/_gate/terms-update/GateFixture").then(m => ({ default: m.GateFixture })));
 const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
 const LandingV2 = lazy(() => import("@/app/pages/landing-v2").then(m => ({ default: m.LandingV2 })));
 const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ default: m.LandingV3 })));
@@ -1096,6 +1097,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/design-private" element={<LazyRoute><DesignPrivatePage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/design-buttons" element={<LazyRoute><DesignButtonsPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/design-blue" element={<LazyRoute><DesignBluePage /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/_gate/terms-update" element={<LazyRoute><GateFixtureTermsUpdate /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />}
