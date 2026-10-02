@@ -111,7 +111,7 @@ beforeEach(() => {
 
 describe('P1364 finding 1 — an own write invalidates the Back cache', () => {
   it('/feed: a position taken on a card → open an item → Back shows the position (refetched), not the stale row', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'take p1' })); });
     expect(svc.setPosition).toHaveBeenCalledTimes(1);
@@ -122,7 +122,7 @@ describe('P1364 finding 1 — an own write invalidates the Back cache', () => {
   });
 
   it('/feed: rows still on screen after the write cannot re-fill the cache (a later tab switch writes nothing)', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'take p1' })); });
     fireEvent.click(screen.getByRole('tab', { name: /stories/i })); // links arrive → state changes
@@ -134,7 +134,7 @@ describe('P1364 finding 1 — an own write invalidates the Back cache', () => {
   });
 
   it('/feed: an anonymous position invalidates too', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     fireEvent.click(screen.getByRole('button', { name: 'anon p1' }));
     go('/point/p1');
@@ -143,7 +143,7 @@ describe('P1364 finding 1 — an own write invalidates the Back cache', () => {
   });
 
   it('/feed: a story edit invalidates too', async () => {
-    renderApp(['/feed?tab=stories']);
+    renderApp(['/feed']);
     await screen.findAllByTestId('story-card');
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'edit s1' })); });
     go('/point/p1');
@@ -162,7 +162,7 @@ describe('P1364 finding 1 — an own write invalidates the Back cache', () => {
   });
 
   it('without a write, Back is still served from the cache (the invalidation is not a blanket refetch)', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     go('/point/p1');
     go(-1);
@@ -190,7 +190,7 @@ describe('P1364 finding 1 — the feed removal clears the viewer\'s own position
     svc.getPublicPointsFeed.mockReset().mockResolvedValue([
       point('p1', { userPosition: mine, totalPositions: 3, positionCounts: { agree: 3 } as never }),
     ]);
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     expect(card('p1').getAttribute('data-user-position')).toBe('agree');
     fireEvent.click(screen.getByRole('button', { name: 'withdraw p1' }));

@@ -132,7 +132,7 @@ function LoggedOutPrimaryCta({
     return (
       <Link
         to="/intro"
-        title="Book a free alignment audit"
+        title="Book a 15-min discovery call"
         className={className}
         onClick={() => {
           analytics.track("nav_cta_clicked", { cta: "book_audit", device });
@@ -140,7 +140,7 @@ function LoggedOutPrimaryCta({
         }}
       >
         <CalendarIcon className="w-4 h-4" />
-        Book a free alignment audit
+        Book a 15-min discovery call
       </Link>
     );
   }

@@ -24,7 +24,7 @@ export function IntroPage() {
 
   return (
     <>
-      <SEO title="Book your free alignment audit" url="/intro" noIndex />
+      <SEO title="Book a 15-min discovery call" url="/intro" noIndex />
       {/* No custom heading here. P987 added one because the page "used to be a bare
           calendar embed with no copy at all" — but the embed now carries its own title
           ("Start your free alignment audit with a 15-min intro") plus a description, so a
@@ -51,7 +51,7 @@ export function IntroPage() {
           width="100%"
           className="block min-h-[1000px] sm:min-h-[580px]"
           style={{ border: 0, height: "calc(100dvh - 15rem)" }}
-          title="Book your free alignment audit"
+          title="Book a 15-min discovery call"
           {...iframeProps}
         />
         {overlay}

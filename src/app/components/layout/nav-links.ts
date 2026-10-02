@@ -9,6 +9,7 @@ import {
   NewspaperIcon,
   BookOpenIcon,
   InfoIcon,
+  CalendarDaysIcon,
 } from "lucide-react";
 
 /**
@@ -33,7 +34,8 @@ import {
 // so it never shows a self-link).
 export const AUDIENCE_LINKS = [
   // P1351 order (founder): builders, hiring, co-founders, coaches.
-  { to: "/", label: "For builders", Icon: TargetIcon },
+  // P1392: the builders landing left "/" (now the feed) for /builders.
+  { to: "/builders", label: "For builders", Icon: TargetIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
   { to: "/coach", label: "For coaches", Icon: BriefcaseIcon },
@@ -64,6 +66,9 @@ export const AUDIENCE_LINKS = [
  * /founder reachable from one menu and not the others (P987).
  */
 export const EVENTS_NAV_TO = "/groups";
+
+/** P1392: the menu's "Events" item — the upcoming-events list, not a group page. */
+export const EVENTS_LIST_TO = "/events/list";
 
 /**
  * Active-state matcher for the Groups nav item. Covers the group routes AND the
@@ -110,9 +115,13 @@ export const PUBLIC_NAV_GROUPS = [
       // public product surface with no entry here — reachable only by typing /feed or
       // following a tag link, which meant first-time visitors never met it.
       { to: "/feed", label: "Feed", Icon: NewspaperIcon },
+      // P1392 (founder): Events is back as its own item — one click to the upcoming list
+      // instead of Groups → group → event. /events/list is the unredirected list.
+      { to: EVENTS_LIST_TO, label: "Events", Icon: CalendarDaysIcon },
       { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
-      { to: "/pricing", label: "Pricing", Icon: TagIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
+      // P1392 (founder): Pricing last.
+      { to: "/pricing", label: "Pricing", Icon: TagIcon },
     ],
   },
   {
@@ -128,6 +137,8 @@ export const PUBLIC_NAV_GROUPS = [
 // Navigation links config - used by footer
 // Desktop nav bar shows Groups + Blog as visible links; rest in dropdown menu
 export const NAV_LINKS = [
+  { to: "/feed", label: "Feed" },
+  { to: EVENTS_LIST_TO, label: "Events" },
   { to: EVENTS_NAV_TO, label: "Groups" },
   { to: "/pledgers", label: "Pledgers" },
   { to: "/manifesto", label: "Manifesto" },

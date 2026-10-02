@@ -117,40 +117,13 @@ const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ d
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
 const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ default: m.OffersPage })));
 
-/** P555: Redirect on session check (not profile fetch) — eliminates ~300-500ms loader.
- *  Previously waited for profile via useNavAuthState; now uses useAuth() directly.
- *  Supabase caches sessions in localStorage, so sessionChecked resolves in ~10ms. */
+/** P1392: "/" is the feed, opening on Stories, for everyone — signed in or not, direct
+ *  load or logo click. The build-the-right-thing landing (P1004) moved to /builders: it
+ *  produced zero bookings as the front door, and the stories ARE the product. Query and
+ *  hash are forwarded so UTM-tagged links to "/" keep their attribution. */
 function HomeRedirect() {
-  const { session, sessionChecked } = useAuth();
   const location = useLocation();
-  const state = location.state as { fromLogo?: boolean } | null;
-
-  // While session is resolving (~10ms from localStorage), show loader
-  if (!sessionChecked) {
-    return (
-      // "/" while the session resolves. `public` matches the landing it may become; a
-      // signed-in visitor is redirected to /feed a tick later and never sees this.
-      <ClarityLandingLayout surface="public">
-        <ClarityPageLoader />
-      </ClarityLandingLayout>
-    );
-  }
-
-  // Direct URL load → redirect to feed. Logo click (state.fromLogo) → show landing.
-  if (session && !state?.fromLogo) {
-    return <Navigate to="/feed" replace />;
-  }
-
-  // Anonymous → show the build-the-right-thing landing (the public homepage, P1004). The
-  // key-hire ProgramPage moved to /hiring; coach landing at /coach; old landing at /tree/old-landing.
-  return (
-    // The public homepage — reading ABOUT the thing.
-    <ClarityLandingLayout surface="public">
-      <LazyRoute>
-        <BuildRightThingLanding />
-      </LazyRoute>
-    </ClarityLandingLayout>
-  );
+  return <Navigate to={`/feed${location.search}${location.hash}`} replace />;
 }
 
 /** P486: Redirect /chat → /create, forwarding all query params via useSearchParams */
@@ -394,10 +367,22 @@ export default function ClarityPledgeApp() {
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>
-        {/* P491: Authenticated users → /feed, anonymous → landing page */}
+        {/* P1392: everyone → /feed (Stories). Landing lives at /builders. */}
         <Route
           path="/"
           element={<HomeRedirect />}
+        />
+
+        {/* P1392: the build-the-right-thing landing, formerly "/" for anonymous visitors. */}
+        <Route
+          path="/builders"
+          element={
+            <ClarityLandingLayout surface="public">
+              <LazyRoute>
+                <BuildRightThingLanding />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
         />
 
         {/* P1004: the key-hire landing (was "/") re-homed here, intact + dormant-revivable.

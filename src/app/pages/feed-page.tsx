@@ -100,7 +100,8 @@ export function FeedPage() {
     [tagParamKey]
   );
   const tabParam = searchParams.get('tab');
-  const activeTab: FeedTab = tabParam === 'stories' ? 'stories' : 'points';
+  // P1392: Stories is the default tab; Points needs ?tab=points.
+  const activeTab: FeedTab = tabParam === 'points' ? 'points' : 'stories';
   const ascending = searchParams.get('sort') === 'oldest';
   const versionLatest = searchParams.get('version') === 'latest';
 
@@ -393,8 +394,8 @@ export function FeedPage() {
   // Tab switching
   const handleTabChange = (tab: FeedTab) => {
     const params = new URLSearchParams(searchParams);
-    if (tab === 'stories') {
-      params.set('tab', 'stories');
+    if (tab === 'points') {
+      params.set('tab', 'points');
     } else {
       params.delete('tab');
     }

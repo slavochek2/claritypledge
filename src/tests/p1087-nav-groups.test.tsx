@@ -78,7 +78,7 @@ async function renderNav(route: string, { loggedIn = false, withLinks = false } 
 }
 
 const sessionCta = () => screen.queryAllByTitle('Start a live clarity session');
-const marketingCta = () => screen.queryAllByTitle('Book a free alignment audit');
+const marketingCta = () => screen.queryAllByTitle('Book a 15-min discovery call');
 
 describe('P1087 — nav CTA suppression is scoped to the MARKETING cta, not the session one', () => {
   beforeEach(() => {

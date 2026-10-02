@@ -151,7 +151,8 @@ describe('KISS Navigation', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
         expect(screen.getByRole('menuitem', { name: /groups/i })).toBeInTheDocument();
-        expect(screen.queryByRole('menuitem', { name: /^events$/i })).not.toBeInTheDocument();
+        // P1392: Events is back, as the upcoming-events list (not a group page).
+        expect(screen.getByRole('menuitem', { name: /^events$/i })).toHaveAttribute('href', '/events/list');
         expect(screen.getByRole('menuitem', { name: /blog/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
         expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
@@ -169,7 +170,7 @@ describe('KISS Navigation', () => {
       // on /founder, whose hero still runs it, and the assertion moved there (below).
       it('at "/" shows the alignment-audit CTA → /intro, even when an event exists', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        const cta = await screen.findByRole('link', { name: /book a free alignment audit/i });
+        const cta = await screen.findByRole('link', { name: /book a 15-min discovery call/i });
         expect(cta).toHaveAttribute('href', '/intro');
         // Deliberately NOT event-aware here: an upcoming event is mocked, and the nav must
         // still show the audit, because "/" itself no longer offers the webinar.
@@ -182,7 +183,7 @@ describe('KISS Navigation', () => {
         window.history.pushState({}, '', '/pledgers');
         try {
           render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-          const cta = await screen.findByRole('link', { name: /book a free alignment audit/i });
+          const cta = await screen.findByRole('link', { name: /book a 15-min discovery call/i });
           expect(cta).toHaveAttribute('href', '/intro');
           expect(screen.queryByRole('link', { name: /try a clarity letter/i })).not.toBeInTheDocument();
           expect(screen.queryByRole('link', { name: new RegExp(WEBINAR_CTA_LABEL, 'i') })).not.toBeInTheDocument();
@@ -202,7 +203,7 @@ describe('KISS Navigation', () => {
           // compare would pass tautologically even if WEBINAR_REGISTER_URL drifted.
           expect(cta).toHaveAttribute('href', '/events/experiment');
           expect(WEBINAR_REGISTER_URL).toBe('/events/experiment');
-          expect(screen.queryByRole('link', { name: /book a free alignment audit/i })).not.toBeInTheDocument();
+          expect(screen.queryByRole('link', { name: /book a 15-min discovery call/i })).not.toBeInTheDocument();
         } finally {
           window.history.pushState({}, '', '/'); // restore for later tests
         }

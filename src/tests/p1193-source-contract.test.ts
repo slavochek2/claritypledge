@@ -91,9 +91,14 @@ describe('P1193 — the nav item is Groups', () => {
     expect(codeOnly(navLinks)).not.toContain('/org/cm');
   });
 
-  it('labels every call site "Groups" and none of them "Events"', () => {
+  // P1392 (founder, 2026-10-02): "Events" returns to the menu, but ONLY as the
+  // upcoming-events list (EVENTS_LIST_TO), never as a group page or the /events redirect.
+  it('labels every group call site "Groups"; any "Events" label targets the events list', () => {
     const code = codeOnly(navLinks);
-    expect(code).not.toMatch(/label: "Events"/);
+    for (const line of code.split('\n').filter((l) => /label: "Events"/.test(l))) {
+      expect(line).toMatch(/to: EVENTS_LIST_TO/);
+    }
+    expect(navLinks).toMatch(/export const EVENTS_LIST_TO = "\/events\/list";/);
     expect(code.match(/label: "Groups"/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
@@ -107,6 +112,7 @@ describe('P1193 — the nav item is Groups', () => {
       if (!/\.tsx?$/.test(f)) continue;
       const src = codeOnly(read(`src/app/components/layout/${f}`));
       for (const line of src.split('\n')) {
+        if (/EVENTS_LIST_TO/.test(line)) continue; // P1392: the sanctioned events-list item
         if (/>\s*Events\s*</.test(line) || /label:\s*["']Events["']/.test(line)) {
           offenders.push(`src/app/components/layout/${f}: ${line.trim()}`);
         }

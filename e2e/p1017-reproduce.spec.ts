@@ -61,7 +61,7 @@ test.describe('P1017: /intro loading state for the calendar embed', () => {
     release();
 
     await expect(page.getByTestId(LOADER)).toBeHidden();
-    await expect(page.locator('iframe[title="Book your free alignment audit"]')).toBeVisible();
+    await expect(page.locator('iframe[title="Book a 15-min discovery call"]')).toBeVisible();
   });
 
   test('the loader does not displace the embed — no layout shift when it clears', async ({ page }) => {
@@ -72,7 +72,7 @@ test.describe('P1017: /intro loading state for the calendar embed', () => {
     await page.setViewportSize({ width: 320, height: 700 });
     const release = await gotoIntroWithHeldCalendar(page);
 
-    const iframe = page.locator('iframe[title="Book your free alignment audit"]');
+    const iframe = page.locator('iframe[title="Book a 15-min discovery call"]');
     await expect(page.getByTestId(LOADER)).toBeVisible();
     const boxWhileLoading = await iframe.boundingBox();
 
@@ -100,7 +100,7 @@ test.describe('P1017: /intro loading state for the calendar embed', () => {
 
     const loaderBox = await page.getByTestId(LOADER).boundingBox();
     const iframeBox = await page
-      .locator('iframe[title="Book your free alignment audit"]')
+      .locator('iframe[title="Book a 15-min discovery call"]')
       .boundingBox();
 
     expect(loaderBox).not.toBeNull();

@@ -346,21 +346,27 @@ describe('P491: Feed Page — Tab Bar', () => {
     return render(<MemoryRouter initialEntries={[path]}><FeedPage /></MemoryRouter>);
   };
 
-  it('renders Points tab as default active tab', async () => {
+  // P1392: Stories is the default tab; Points needs ?tab=points.
+  it('renders Stories tab as default active tab (P1392)', async () => {
     renderFeedAt('/feed');
-    expect((await screen.findByRole('tab', { name: /points/i })).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByRole('tab', { name: /stories/i }).getAttribute('aria-selected')).toBe('false');
+    expect((await screen.findByRole('tab', { name: /stories/i })).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /points/i }).getAttribute('aria-selected')).toBe('false');
   });
 
-  it('Stories tab becomes active when ?tab=stories is in URL', async () => {
+  it('Stories tab stays active for legacy ?tab=stories links', async () => {
     renderFeedAt('/feed?tab=stories');
     expect((await screen.findByRole('tab', { name: /stories/i })).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: /points/i }).getAttribute('aria-selected')).toBe('false');
   });
 
-  it('unknown tab param falls back to Points (default)', async () => {
-    renderFeedAt('/feed?tab=invalid');
+  it('Points tab becomes active when ?tab=points is in URL', async () => {
+    renderFeedAt('/feed?tab=points');
     expect((await screen.findByRole('tab', { name: /points/i })).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('unknown tab param falls back to Stories (default)', async () => {
+    renderFeedAt('/feed?tab=invalid');
+    expect((await screen.findByRole('tab', { name: /stories/i })).getAttribute('aria-selected')).toBe('true');
   });
 
   it('tab bar has correct ARIA roles (tablist, tab, tabpanel)', () => {

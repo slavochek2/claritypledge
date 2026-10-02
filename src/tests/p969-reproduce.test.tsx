@@ -90,13 +90,13 @@ describe('p969: header nav CTA is event-aware (no-event fallback)', () => {
     });
   });
 
-  it('P987: "/" header CTA mirrors the audit hero — "book a free alignment audit" → /intro', async () => {
+  it('P987: "/" header CTA mirrors the audit hero — "book a 15-min discovery call" → /intro', async () => {
     // "/" no longer carries a webinar CTA at all, so the nav must not offer one (or the
     // letter) here — it mirrors the hero's alignment-audit action.
     render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
 
     await waitFor(() => {
-      const cta = screen.getByRole('link', { name: /book a free alignment audit/i });
+      const cta = screen.getByRole('link', { name: /book a 15-min discovery call/i });
       expect(cta).toHaveAttribute('href', '/intro');
     });
     expect(

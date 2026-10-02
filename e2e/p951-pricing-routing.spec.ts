@@ -130,7 +130,7 @@ test('the nav CTA is hidden on /pricing so it does not undercut the paid action'
 
   // A free-call CTA in the header directly above a page selling €295/month competes with
   // the thing the page exists to sell (same reasoning as P844 on event detail pages).
-  await expect(page.getByRole('link', { name: /Book a free alignment audit/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Book a 15-min discovery call/i })).toHaveCount(0);
 
   // MOBILE too — a desktop-only assertion passed here while the mobile sandwich still
   // rendered the CTA as its FIRST item, which is exactly where it does the most damage.
@@ -140,14 +140,14 @@ test('the nav CTA is hidden on /pricing so it does not undercut the paid action'
   await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: /menu/i }).first().click();
   await expect(page.locator('#mobile-navigation-menu')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Book a free alignment audit/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /Book a 15-min discovery call/i })).toHaveCount(0);
   await page.setViewportSize({ width: 1280, height: 800 });
 
   // Control: it IS present on a page that is not selling anything, so this test fails if
   // the CTA disappears globally rather than just here.
   await page.goto('/manifesto');
   await page.waitForLoadState('networkidle');
-  await expect(page.getByRole('link', { name: /Book a free alignment audit/i }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Book a 15-min discovery call/i }).first()).toBeVisible();
 });
 
 test('the mobile menu renders every public link under a labelled group, Use cases first', async ({ page }) => {

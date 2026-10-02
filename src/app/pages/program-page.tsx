@@ -171,7 +171,7 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
 // does not need it first.)
 const AUDIT_MICROCOPY = "Starts with a 15-min call.";
 
-/** The single primary action on the page (P955): "Book a free alignment audit"
+/** The single primary action on the page (P955): "Book a 15-min discovery call"
  *  → /intro (interim booking page). Replaces the prior webinar-registration CTA. */
 function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
   const sizeClasses =
@@ -190,7 +190,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
           15-min call." — the icon is the second place a reader learns the click books a
           call rather than delivering the audit. */}
       <CalendarIcon className="w-5 h-5 shrink-0" />
-      Book a free alignment audit
+      Book a 15-min discovery call
     </Link>
   );
 }

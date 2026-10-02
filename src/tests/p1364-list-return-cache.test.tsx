@@ -146,7 +146,7 @@ describe('P1364 cache store rules', () => {
 
 describe('P1364 /feed — Back returns to the list as it was left', () => {
   it('POP serves the cached list: no refetch (list or links), no skeleton on the first frame', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     await waitFor(() => expect(screen.getAllByTestId('point-card')[0]!.getAttribute('data-linked')).toBe('1'));
     go('/story/s1');
@@ -162,18 +162,18 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('a PUSH to /feed (the nav Feed tab) fetches fresh', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     go('/story/s1');
     getPoints.mockResolvedValue([point('p9')]);
-    go('/feed');
+    go('/feed?tab=points');
     expect(screen.getByTestId('skeleton')).toBeTruthy();
     await waitFor(() => expect(pointIds()).toEqual(['p9']));
     expect(getPoints).toHaveBeenCalledTimes(2);
   });
 
   it("another viewer never gets the previous viewer's rows", async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     go('/story/s1');
     viewer.id = 'u2';
@@ -184,7 +184,7 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('a removed point stays gone after open item → Back (write-through)', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     fireEvent.click(screen.getByRole('button', { name: 'withdraw p1' })); // last position → P543 drop
     expect(pointIds()).toEqual(['p2']);
@@ -195,22 +195,22 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('a removal is written through to OTHER cached feed entries too (an earlier tag filter)', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
-    go('/feed?tag=t'); // tag selection pushes (D2)
+    go('/feed?tab=points&tag=t'); // tag selection pushes (D2)
     await waitFor(() => expect(getPoints).toHaveBeenCalledTimes(3)); // filtered + cloud call
     await screen.findAllByTestId('point-card');
     fireEvent.click(screen.getAllByRole('button', { name: 'withdraw p1' })[0]!);
     go(-1); // back to the unfiltered /feed entry, served from the cache
-    expect(where()).toBe('/feed');
+    expect(where()).toBe('/feed?tab=points');
     await waitFor(() => expect(pointIds()).toEqual(['p2']));
   });
 
   it('a tab change REPLACES: Back leaves the feed, the list is not refetched and no skeleton shows', async () => {
-    renderApp(['/start', '/feed']);
+    renderApp(['/start', '/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     fireEvent.click(screen.getByRole('tab', { name: /stories/i }));
-    expect(where()).toBe('/feed?tab=stories');
+    expect(where()).toBe('/feed');
     expect(screen.queryByTestId('skeleton')).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: /points/i }));
     expect(getPoints).toHaveBeenCalledTimes(1);
@@ -219,22 +219,22 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('sort and version toggles REPLACE too', async () => {
-    renderApp(['/start', '/feed']);
+    renderApp(['/start', '/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     fireEvent.click(screen.getByRole('button', { name: /newest first/i }));
     fireEvent.click(screen.getByRole('switch', { name: /latest versions/i }));
-    await waitFor(() => expect(where()).toBe('/feed?sort=oldest&version=latest'));
+    await waitFor(() => expect(where()).toBe('/feed?tab=points&sort=oldest&version=latest'));
     go(-1);
     expect(screen.getByTestId('start')).toBeTruthy();
   });
 
   it('search: no request while typing, `?q=` written by replace on the keystroke, and it survives open item → Back', async () => {
-    renderApp(['/start', '/feed']);
+    renderApp(['/start', '/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     const input = screen.getByPlaceholderText(/search stories and points/i);
     fireEvent.change(input, { target: { value: 'p2' } });
     expect(pointIds()).toEqual(['p2']); // client-side filter, immediately
-    expect(where()).toBe('/feed?q=p2'); // no debounce: a tap on a card cannot outrun it
+    expect(where()).toBe('/feed?tab=points&q=p2'); // no debounce: a tap on a card cannot outrun it
     expect(getPoints).toHaveBeenCalledTimes(1);
     expect(getStoriesForPoints).toHaveBeenCalledTimes(1);
     go('/point/p2');
@@ -246,17 +246,17 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('open an item IMMEDIATELY after typing → Back still has the query', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     fireEvent.change(screen.getByPlaceholderText(/search stories and points/i), { target: { value: 'p2' } });
     go('/point/p2'); // same tick as the keystroke
     go(-1);
-    expect(where()).toBe('/feed?q=p2');
+    expect(where()).toBe('/feed?tab=points&q=p2');
     expect((screen.getByPlaceholderText(/search stories and points/i) as HTMLInputElement).value).toBe('p2');
   });
 
   it('the cache key ignores tab and search: a search session keeps ONE entry, served on Back', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     const input = screen.getByPlaceholderText(/search stories and points/i);
     for (const q of ['p', 'p2', 'p', '']) fireEvent.change(input, { target: { value: q } });
@@ -269,13 +269,13 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
   });
 
   it('a PUSH to the same URL after a POP-restored feed (tapping Feed in the nav) fetches fresh', async () => {
-    renderApp(['/feed']);
+    renderApp(['/feed?tab=points']);
     await screen.findAllByTestId('point-card');
     go('/story/s1');
     go(-1); // restored from the cache
     expect(getPoints).toHaveBeenCalledTimes(1);
     getPoints.mockResolvedValue([point('fresh')]);
-    go('/feed'); // PUSH, same URL, same mounted page
+    go('/feed?tab=points'); // PUSH, same URL, same mounted page
     await waitFor(() => expect(pointIds()).toEqual(['fresh']));
     expect(getPoints).toHaveBeenCalledTimes(2);
   });

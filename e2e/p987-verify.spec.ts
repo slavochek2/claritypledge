@@ -35,7 +35,7 @@ test.describe('P987: CP Front-Door Realignment', () => {
     ).toBeVisible();
 
     // Single primary CTA
-    const cta = main.getByRole('link', { name: /book a free alignment audit/i }).first();
+    const cta = main.getByRole('link', { name: /book a 15-min discovery call/i }).first();
     await expect(cta).toBeVisible();
     await expect(cta).toHaveAttribute('href', /\/intro/);
 

@@ -100,7 +100,7 @@ function RefSup({ n, className = "" }: { n: number | string; className?: string 
  *  hides that the click books a call. One constant so copies can't drift. */
 const AUDIT_MICROCOPY = "Starts with a 15-min call.";
 
-/** The single primary action on the page (P955): "Book a free alignment audit" → /intro.
+/** The single primary action on the page (P955): "Book a 15-min discovery call" → /intro.
  *  P1004 wires the CTA into the P1003 audit funnel by reusing this — /intro is the audit
  *  entry P1003 owns and will reconcile downstream (P1003 not yet built; do not rebuild). */
 function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
@@ -113,7 +113,7 @@ function AuditCTA({ size = "section" }: { size?: "hero" | "section" }) {
   return (
     <Link to="/intro" className={baseClass} onClick={onClick}>
       <CalendarIcon className="w-5 h-5 shrink-0" />
-      Book a free alignment audit
+      Book a 15-min discovery call
     </Link>
   );
 }
