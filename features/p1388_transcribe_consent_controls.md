@@ -119,12 +119,12 @@ recorder's responsibility. Read by the people who care, invisible to everyone el
 
 ## Acceptance Criteria
 
-- [ ] A recorder can pause and resume their own capture from the bar, and the paused state is visible without tapping anything
+- [x] A recorder can pause and resume their own capture from the bar, and the paused state is visible without tapping anything — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
 - [ ] Audio written while paused is zero — verified by inspecting the stored capture, not by the UI's claim
-- [ ] The bar's stop control reads "Stop transcribing" and ends only the caller's capture
+- [x] The bar's stop control reads "Stop transcribing" and ends only the caller's capture — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
 - [ ] The level meter moves with speech and sits flat in silence, verified on a real phone
 - [ ] Unplugging a USB-C mic mid-capture surfaces a visible state within a few seconds rather than recording silence
-- [ ] The info affordance opens the explanation and the bar carries no added sentence
+- [x] The info affordance opens the explanation and the bar carries no added sentence — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
 
 ## Open Questions
 

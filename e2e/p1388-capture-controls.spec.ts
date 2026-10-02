@@ -51,7 +51,7 @@ test.describe('P1388: capture controls', () => {
       await shot(page, `${vp.name}-1-running`);
 
       await bar.getByRole('button', { name: 'Pause' }).click();
-      await expect(bar.getByText('Paused — nothing is being recorded')).toBeVisible();
+      await expect(bar.getByText('Paused — not recording')).toBeVisible();
       await expect(page.getByTestId('capture-level-meter')).toHaveAttribute('data-level', '0');
       await shot(page, `${vp.name}-2-paused`);
       await page.waitForTimeout(3_000);
@@ -62,6 +62,7 @@ test.describe('P1388: capture controls', () => {
 
       await bar.getByRole('button', { name: 'About this recording' }).click();
       await expect(page.getByTestId('capture-info-sheet')).toBeVisible();
+      await page.waitForTimeout(400); // let the popover's fade-in finish before the screenshot
       await shot(page, `${vp.name}-3-info`);
       await page.keyboard.press('Escape');
 

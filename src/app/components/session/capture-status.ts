@@ -11,7 +11,7 @@ export const STOP_TRANSCRIBING = 'Stop transcribing';
 export const STATUS = {
   running: '● Transcribing for AI insights',
   stalled: '● Live text has stalled — your words are still being recorded.',
-  paused: 'Paused — nothing is being recorded',
+  paused: 'Paused — not recording',
   silent: 'No sound is reaching the recording — check the mic',
   micLost: 'Microphone disconnected — nothing is being recorded',
   micSwitched: 'Microphone changed — still recording',

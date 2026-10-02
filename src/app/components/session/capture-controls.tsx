@@ -26,7 +26,7 @@ export function PauseResumeButton() {
       onClick={paused ? resumeMine : pauseMine}
       aria-pressed={paused}
       data-testid={paused ? 'capture-resume' : 'capture-pause'}
-      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-9 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors"
+      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors"
     >
       {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
       {paused ? 'Resume' : 'Pause'}
@@ -40,7 +40,7 @@ export function CaptureInfoButton() {
       <PopoverTrigger
         aria-label="About this recording"
         data-testid="capture-info"
-        className="inline-flex items-center justify-center h-9 w-9 -my-2 rounded-full text-blue-700 hover:bg-blue-100"
+        className="inline-flex items-center justify-center h-10 w-10 -my-2 rounded-full text-blue-700 hover:bg-blue-100"
       >
         <Info className="h-4 w-4" aria-hidden="true" />
       </PopoverTrigger>
