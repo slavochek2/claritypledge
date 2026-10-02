@@ -3,9 +3,9 @@
  * @description P1388 (founder, 2026-10-02): who is in the room, as faces that lead to profiles —
  * so people can find each other after the conversation.
  *
- * One line however big the room gets: up to MAX_FACES faces, or MAX_FACES-1 and a "+N" circle.
- * Tapping "+N" or the count opens the full list (photo, name, link). The person speaking carries
- * a ring. Names are always in the text (screen readers, and the roster e2e reads them).
+ * Sits on the controls line beside the meter: MAX_FACES overlapping faces and "+N". Tapping the
+ * stack opens the full list (photo, name, link to profile). The person speaking carries a ring.
+ * Names are always in the text (screen readers, and the roster e2e reads them).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,27 +14,12 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { fetchRoomPeople, type TranscribeRoomMember } from '@/app/data/transcribe-service';
 import type { PersonRef } from '@/app/types';
 
-const MAX_FACES = 5;
+/** Founder, 2026-10-02: three small faces and "+N", beside the sound meter. */
+const MAX_FACES = 3;
 
 function personFor(m: TranscribeRoomMember, people: Record<string, PersonRef>): PersonRef {
-  const p = people[m.profileId];
   // The name said in this room is the one shown; the profile supplies the face and the link.
-  return { ...(p ?? { hasPledged: false }), name: m.displayName };
-}
-
-function Face({ member, person, speaking }: { member: TranscribeRoomMember; person: PersonRef; speaking: boolean }) {
-  const face = (
-    <span className={`inline-flex rounded-full ${speaking ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}>
-      <PersonAvatar person={person} size="sm" />
-    </span>
-  );
-  return person.slug ? (
-    <Link to={`/p/${person.slug}`} aria-label={`${member.displayName}${speaking ? ' (speaking)' : ''} — profile`} className="-ml-2 first:ml-0 rounded-full">
-      {face}
-    </Link>
-  ) : (
-    <span aria-label={member.displayName} className="-ml-2 first:ml-0">{face}</span>
-  );
+  return { ...(people[m.profileId] ?? { hasPledged: false }), name: m.displayName };
 }
 
 export function RoomPeople({ members, speakingIds }: { members: TranscribeRoomMember[]; speakingIds: ReadonlySet<string> }) {
@@ -48,30 +33,30 @@ export function RoomPeople({ members, speakingIds }: { members: TranscribeRoomMe
     return () => { live = false; };
   }, [idsKey]);
 
-  const overflow = members.length > MAX_FACES;
-  const shown = overflow ? members.slice(0, MAX_FACES - 1) : members;
+  const shown = members.slice(0, MAX_FACES);
   const rest = members.length - shown.length;
 
   return (
-    <div className="flex items-center gap-3 mb-3" data-testid="transcribe-roster">
-      <div className="flex items-center">
+    <div className="flex items-center" data-testid="transcribe-roster">
+      {/* ONE target for the whole stack: overlapping 32 px faces are too small to tap one by
+          one on a phone. The list it opens links each person to their profile. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`${members.length} in the room — see who`}
+        className="flex items-center min-h-10 rounded-full pr-1"
+      >
         {shown.map((m) => (
-          <Face key={m.id} member={m} person={personFor(m, people)} speaking={speakingIds.has(m.id)} />
+          <span key={m.id} className={`-ml-2 first:ml-0 inline-flex rounded-full border-2 border-white ${speakingIds.has(m.id) ? 'ring-2 ring-blue-500' : ''}`}>
+            <PersonAvatar person={personFor(m, people)} size="sm" />
+          </span>
         ))}
-        {overflow && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="-ml-2 h-8 w-8 rounded-full bg-slate-100 border-2 border-white text-xs font-semibold text-slate-700"
-            data-testid="transcribe-roster-more"
-          >
+        {rest > 0 && (
+          <span className="-ml-2 h-8 min-w-8 px-1 rounded-full bg-slate-100 border-2 border-white text-xs font-semibold text-slate-700 inline-flex items-center justify-center" data-testid="transcribe-roster-more">
             +{rest}
-          </button>
+          </span>
         )}
-      </div>
-      <button type="button" onClick={() => setOpen(true)} className="text-xs text-muted-foreground hover:text-foreground min-h-10 text-left">
-        {members.length} in the room
-        <span className="sr-only">: {members.map((m) => m.displayName).join(', ')}</span>
+        <span className="sr-only">{members.map((m) => m.displayName).join(', ')}</span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

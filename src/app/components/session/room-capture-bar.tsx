@@ -11,7 +11,8 @@
  * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
  * renders nothing, as D3/D13 asked.
  */
-import { useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { ArrowRight, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
@@ -41,7 +42,62 @@ const OFFLINE_DETAIL = 'Words said while offline may not be saved.';
 const OFFLINE_STOP = 'Stop microphone';
 const OFFLINE_STOPPING = 'Stopping…';
 
-export function RoomCaptureBar() {
+/** P1388: past this much scroll the bar folds to one slim line; back at the top it unfolds. */
+const COMPACT_AFTER_PX = 48;
+
+function useScrolledPast(px: number): boolean {
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setPast(window.scrollY > px);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [px]);
+  return past;
+}
+
+const ICON_BUTTON =
+  'inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 disabled:opacity-50';
+
+/**
+ * The folded bar: the status in a few words, the meter, and the same three controls as icons.
+ * Not a different feature — the same bar, shorter, so that a recorder scrolling the feed still
+ * sees that capture is running (P1307 D9: capture never runs with no indicator) without a
+ * two-row block covering the page. No expand control: scrolling back up unfolds it.
+ */
+function CompactCaptureBar({ roomId }: { roomId: string }) {
+  const { phase, open, endMyCapture, manualPaused, pauseMine, resumeMine, micLost, stopping } = useRoomCapture();
+  const status = useCaptureStatus();
+  const paused = phase === 'paused' && manualPaused;
+  const short = stopping ? 'Stopping…' : paused ? 'Paused' : status.warn ? 'Check mic' : '● Recording';
+  return (
+    <div role="status" aria-label="Room transcription active" data-testid="room-capture-bar-compact"
+      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1">
+      <div className="max-w-4xl mx-auto flex items-center gap-2">
+        <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800">{short}</span>
+        {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+        <div className="ml-auto flex items-center gap-2">
+          {phase !== 'observing' && !micLost && (
+            <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={paused ? resumeMine : pauseMine}
+              aria-label={paused ? 'Resume' : 'Pause'} aria-pressed={paused}>
+              {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
+            </button>
+          )}
+          <button type="button" className={`${ICON_BUTTON} hover:text-destructive`} disabled={stopping}
+            onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing">
+            <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+          </button>
+          <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room">
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function RoomCaptureBar({ foldOnScroll = false }: { foldOnScroll?: boolean }) {
+  const scrolled = useScrolledPast(COMPACT_AFTER_PX);
   const { phase, roomId, open, endMyCapture, manualPaused } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
@@ -51,6 +107,8 @@ export function RoomCaptureBar() {
 
   const manuallyPaused = phase === 'paused' && manualPaused;
   if ((!VISIBLE_PHASES.has(phase) && !manuallyPaused) || !roomId) return null;
+
+  if (foldOnScroll && scrolled && !offline) return <CompactCaptureBar roomId={roomId} />;
 
   if (offline) {
     return (
@@ -104,7 +162,13 @@ export function RoomCaptureBar() {
 export function RoomCaptureBarSlot() {
   const { registerBarSlot, barVisible } = useRoomCapture();
   useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
-  return barVisible ? <RoomCaptureBar /> : null;
+  // P1388 (founder, 2026-10-02): stuck under the fixed nav, folding to one line on scroll — so
+  // a recorder browsing the feed always sees that capture is running (D9) and can pause it.
+  return barVisible ? (
+    <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))] z-30">
+      <RoomCaptureBar foldOnScroll />
+    </div>
+  ) : null;
 }
 
 /**

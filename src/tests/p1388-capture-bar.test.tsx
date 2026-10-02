@@ -106,3 +106,26 @@ describe('P1388: Stop answers the tap at once', () => {
     expect(screen.getByRole('button', { name: /open/i })).toBeDisabled();
   });
 });
+
+describe('P1388: the bar folds to one line on scroll', () => {
+  it('scrolled past the top, a fold-on-scroll bar shows icon controls that still pause and stop', () => {
+    const pauseMine = vi.fn(); const endMyCapture = vi.fn();
+    mockUseRoomCapture.mockReturnValue(state({ pauseMine, endMyCapture }));
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 200 });
+    render(<RoomCaptureBar foldOnScroll />);
+    expect(screen.getByTestId('room-capture-bar-compact')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stop transcribing' }));
+    expect(pauseMine).toHaveBeenCalled();
+    expect(endMyCapture).toHaveBeenCalledWith('r1');
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+  });
+
+  it('at the top it is the full bar', () => {
+    mockUseRoomCapture.mockReturnValue(state());
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    render(<RoomCaptureBar foldOnScroll />);
+    expect(screen.queryByTestId('room-capture-bar-compact')).toBeNull();
+    expect(screen.getByTestId('room-capture-bar')).toBeInTheDocument();
+  });
+});

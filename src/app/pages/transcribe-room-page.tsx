@@ -26,7 +26,7 @@ import { CaptureInfoButton, PauseResumeButton, StopCaptureButton } from '@/app/c
 import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
 import { RoomPeople } from '@/app/components/session/room-people';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -363,11 +363,8 @@ export function TranscribeRoomPage() {
             Could not access your microphone. You can still read the chat.
           </p>
         ) : (
-          <TranscribeCaptureRow onStop={() => void handleEndSession()} />
+          <TranscribeCaptureRow onStop={() => void handleEndSession()} people={<RoomPeople members={members} speakingIds={speaking} />} />
         )}
-        {/* P1388: who is in the room sits under the controls — the controls are what the
-            recorder needs first. */}
-        <RoomPeople members={members} speakingIds={speaking} />
 
         <div className="relative flex-1 min-h-0 mb-4">
           <div
@@ -431,7 +428,7 @@ export function TranscribeRoomPage() {
  * which this page claims and does not draw (P1323 R6). While all is well it keeps the page's
  * own "Listening" line; anything else (paused, stalled, no sound, mic gone) replaces it.
  */
-function TranscribeCaptureRow({ onStop }: { onStop: () => void }) {
+function TranscribeCaptureRow({ onStop, people }: { onStop: () => void; people: ReactNode }) {
   const { phase } = useRoomCapture();
   const status = useCaptureStatus();
   const healthy = !status.warn && phase !== 'paused';
@@ -441,6 +438,7 @@ function TranscribeCaptureRow({ onStop }: { onStop: () => void }) {
     <div className="mb-2" data-testid="transcribe-listening-indicator" role="status">
       <div className="flex items-center gap-2">
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
+        {people}
         <div className="flex items-center gap-2 ml-auto">
           <CaptureInfoButton />
           {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
