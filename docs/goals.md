@@ -4,6 +4,13 @@
 
 Concrete next steps in priority order. **Active on top; dormant/superseded compressed to a pointer at the bottom — git history holds the detail.**
 
+## Next Steps
+
+1. [ ] Event #2 on Tue 2026-10-06. Until then, physical-event improvement only.
+2. [ ] From 2026-09-30: champion outreach and online pilots; physical events continue as the lab.
+3. [ ] Run 1-2 low-stakes online rehearsals before the first organization pilot.
+4. [ ] Before a pilot, agree success criteria with the champion, and never include a follow-up request.
+
 **[SUPERSEDED 2026-07-20 → wedge flip]** — applying the supersession already recorded in the callout below; the ladder it describes is the key-hire/coaching motion, retained-not-current. Was: 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
 > **[THIS WEEK 2026-09-21 → 2026-09-29, founder direction]** Physical events become **weekly**, automated as far as possible. **Until event #2 (Tue 2026-10-06, moved from 09-29): physical-event improvement only** — registration with opt-in, prep and survey ([P1336](../features/p1336_registration_carries_opt_in_prep_and_survey.md)), the deck ([P1338](../features/p1338_clarity_night_deck_cut_theory_and_run_rounds.md)), then the event journey ([P1337](../features/p1337_event_journey_on_screen_steps_rotation_and_ending.md)). **From 2026-09-30: champion outreach and online pilots** (the block below), while weekly physical events continue. Founder time on development: about 30%.
