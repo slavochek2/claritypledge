@@ -26,7 +26,7 @@ interface TermsUpdateDialogProps {
    * fails (e.g. RLS/network). Null/undefined hides the error block.
    */
   errorMessage?: string | null;
-  /** Label for the secondary button. The global gate passes "Log out", which is what it does there. */
+  /** Label for the secondary button. The global gate passes "Decline and log out", which is what it does there. */
   cancelLabel?: string;
 }
 
@@ -51,7 +51,7 @@ export function TermsUpdateDialog({
         hideCloseButton={!dismissible}
         onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
         onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
-        // Focus the primary action, not the first tabbable (the "Learn more" toggle).
+        // Focus the primary action, not the first tabbable (the "Show more" toggle).
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           acceptRef.current?.focus();

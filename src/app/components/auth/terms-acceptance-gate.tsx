@@ -141,7 +141,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
         isLoading={isAccepting}
         dismissible={false}
         errorMessage={acceptError}
-        cancelLabel="Log out"
+        cancelLabel="Decline and log out"
       />
     </>
   );

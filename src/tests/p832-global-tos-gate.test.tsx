@@ -297,7 +297,7 @@ describe('TermsAcceptanceGate', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /log out/i }));
+    fireEvent.click(screen.getByRole('button', { name: /decline and log out/i }));
 
     // signOut has been called and is in flight; dialog must remain visible
     // (it should NOT be eagerly hidden before signOut completes).

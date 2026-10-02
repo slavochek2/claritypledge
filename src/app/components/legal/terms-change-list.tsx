@@ -25,7 +25,7 @@ export function TermsTitle() {
   );
 }
 
-/** One-sentence summary with an inline "Learn more"; the list opens on demand. */
+/** One-sentence summary with an inline "Show more"; the list opens on demand. */
 export function TermsChangeList() {
   const [open, setOpen] = useState(false);
   const changes = TERMS_CHANGES[CURRENT_TERMS_VERSION];
@@ -33,6 +33,7 @@ export function TermsChangeList() {
   return (
     <div className="space-y-2 text-sm">
       <p>
+        <span className="font-medium">In short:</span>{' '}
         {changes.headline}{' '}
         <button
           type="button"
@@ -40,7 +41,7 @@ export function TermsChangeList() {
           onClick={() => setOpen((v) => !v)}
           className={`-my-2 inline-block rounded py-2 ${MUTED_LINK} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
         >
-          {open ? 'Show less' : 'Learn more'}
+          {open ? 'Show less' : 'Show more'}
         </button>
       </p>
       {open && (
