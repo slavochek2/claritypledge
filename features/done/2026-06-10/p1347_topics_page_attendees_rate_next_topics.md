@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 5
 workstream: events
@@ -10,7 +10,6 @@ tags:
   - voting
   - clarity-night
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -20,6 +19,7 @@ related:
   - p1166
   - p1337
   - p1336
+completed_at: 2026-10-02
 ---
 
 # P1347: Attendees rate upcoming Clarity Night topics on a /topics page, each with the thinker's video that starts it
@@ -165,6 +165,6 @@ carry the abuse risk, sit behind identity. **Resolved (dev): (c)**, as recommend
 
 ## Related
 
-- [p1166](p1166_topic_sourcing_from_interest_corpora.md): the private backlog this page publishes from
-- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md): the evening's ending step, which links here
+- [p1166](../../p1166_topic_sourcing_from_interest_corpora.md): the private backlog this page publishes from
+- [p1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md): the evening's ending step, which links here
 - [p1336](p1336_registration_carries_opt_in_prep_and_survey.md): registration identity, if option (b)/(c) is chosen
