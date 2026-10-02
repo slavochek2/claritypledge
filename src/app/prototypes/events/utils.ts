@@ -111,13 +111,14 @@ export function formatDateShort(date: Date): string {
 }
 
 /**
- * Format time for display (e.g., "6:00 PM")
+ * Format time for display (e.g., "18:00"). 24-hour everywhere (founder, 2026-10-02: "always
+ * 24 hour to avoid confusions") — the same clock the event emails and the on-time line use.
  */
 export function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hourCycle: 'h23',
   });
 }
 

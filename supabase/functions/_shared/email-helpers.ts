@@ -154,8 +154,10 @@ export function formatDate(datetime: string, timezone: string | null): string {
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
+      // 24-hour in every email (founder, 2026-10-02), matching the app.
+      hourCycle: 'h23',
       timeZoneName: 'short',
     });
   } catch {
