@@ -9,10 +9,11 @@ tags:
   - consent
   - recording
 disclosure: public
-delivery_stage: dev
+delivery_stage: ship
 pipeline_ran:
   - create-spec
   - dev
+  - ship
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -120,10 +121,10 @@ recorder's responsibility. Read by the people who care, invisible to everyone el
 ## Acceptance Criteria
 
 - [x] A recorder can pause and resume their own capture from the bar, and the paused state is visible without tapping anything — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
-- [ ] Audio written while paused is zero — verified by inspecting the stored capture, not by the UI's claim
+- [x] Audio written while paused is zero — verified by inspecting the stored capture, not by the UI's claim — NOT YET VERIFIED on stored audio: founder accepted shipping and will check on prod (2026-10-02). Mechanism pinned by p1388-provider-pause-and-unplug.test.tsx (recorder paused, slices stopped, nothing sent while paused, incl. start-up races)
 - [x] The bar's stop control reads "Stop transcribing" and ends only the caller's capture — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
-- [ ] The level meter moves with speech and sits flat in silence, verified on a real phone
-- [ ] Unplugging a USB-C mic mid-capture surfaces a visible state within a few seconds rather than recording silence
+- [x] The level meter moves with speech and sits flat in silence, verified on a real phone — founder, Android (Galaxy) over adb, 2026-10-02: "the meter shows that it works"
+- [x] Unplugging a USB-C mic mid-capture surfaces a visible state within a few seconds rather than recording silence — NOT YET VERIFIED on a device: founder will unplug on prod (2026-10-02). Mechanism pinned by unit tests (track ended → reopen default mic / "Mic lost" + Reconnect). iPhone untested (founder has none)
 - [x] The info affordance opens the explanation and the bar carries no added sentence — p1388-capture-bar.test.tsx, p1388-provider-pause-and-unplug.test.tsx, e2e/p1388-capture-controls.spec.ts (1280/375/320)
 
 ## Open Questions
