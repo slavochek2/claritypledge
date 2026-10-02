@@ -44,10 +44,15 @@ export function newTicket(): string {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** Tickets stop working when the event ends (+1h grace for late check-ins). */
+/**
+ * Tickets stop working 2 hours after the event's scheduled END (start + its own duration, so a
+ * half-day event is already covered) — the grace absorbs a late start or an overrun (founder,
+ * 2026-10-02).
+ */
+export const TICKET_GRACE_MS = 2 * 60 * 60 * 1000;
 export function ticketExpiry(event: { datetime: string; duration_minutes: number | null }): Date {
   const end = new Date(event.datetime).getTime() + (event.duration_minutes ?? 60) * 60 * 1000;
-  return new Date(end + 60 * 60 * 1000);
+  return new Date(end + TICKET_GRACE_MS);
 }
 
 /**

@@ -72,12 +72,12 @@ Deno.test('claimable: unclaimed or stuck PENDING only', () => {
 
 // ── tickets ──────────────────────────────────────────────────────────────────
 
-Deno.test('tickets: unguessable, hashed, expire an hour after the event ends', async () => {
+Deno.test('tickets: unguessable, hashed, expire two hours after the event ends', async () => {
   const t = newTicket();
   assert(/^[A-Za-z0-9_-]{43}$/.test(t), t);
   assert(newTicket() !== t);
   assert(/^[0-9a-f]{64}$/.test(await hashTicket(t)));
-  assertEquals(ticketExpiry(night).toISOString(), '2026-10-06T14:30:00.000Z');
+  assertEquals(ticketExpiry(night).toISOString(), '2026-10-06T15:30:00.000Z');
 });
 Deno.test('purposePath: destination fixed by purpose', () => {
   assertEquals(purposePath('prepare', 's'), '/events/s/prepare');
