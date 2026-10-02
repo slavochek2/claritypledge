@@ -593,7 +593,7 @@ export function FeedPage() {
             role="tab"
             aria-selected={activeTab === 'stories'}
             onClick={() => handleTabChange('stories')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            className={`px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors relative ${
               activeTab === 'stories'
                 ? 'text-blue-600'
                 : 'text-muted-foreground hover:text-foreground'
@@ -611,7 +611,7 @@ export function FeedPage() {
             role="tab"
             aria-selected={activeTab === 'points'}
             onClick={() => handleTabChange('points')}
-            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            className={`px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors relative ${
               activeTab === 'points'
                 ? 'text-blue-600'
                 : 'text-muted-foreground hover:text-foreground'
@@ -636,8 +636,9 @@ export function FeedPage() {
                 <span className={`inline-block w-3 h-3 rounded-full border ${versionLatest ? 'bg-blue-500 border-blue-500' : 'border-muted-foreground'}`} />
               </button>
             )}
-            <label className="relative inline-flex h-10 items-center rounded-full border border-border pl-3 pr-8 text-sm text-foreground hover:bg-muted/60">
-              <span className="text-muted-foreground">Sort:</span>
+            <label className="relative inline-flex h-10 shrink-0 items-center rounded-full border border-border pl-2.5 sm:pl-3 pr-7 sm:pr-8 text-sm text-foreground hover:bg-muted/60">
+              {/* P1392 visual QA: the "Sort:" prefix drops below sm so tabs + pill fit at 320px */}
+              <span className="hidden sm:inline text-muted-foreground">Sort:</span>
               <select
                 aria-label="Sort by"
                 value={ascending ? 'oldest' : 'newest'}

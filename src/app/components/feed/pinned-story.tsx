@@ -46,7 +46,7 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
       <PinIcon className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Pinned</span>
-        <span className="block truncate text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
+        <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
       </span>
       <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-blue-700">
         <PlayIcon className="h-4 w-4" aria-hidden /> Watch
