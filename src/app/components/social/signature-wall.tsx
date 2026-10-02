@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles } from "@/app/data/api";
 import type { ProfileSummary } from "@/app/types";
@@ -179,14 +178,9 @@ export function SignatureWall() {
 
         {/* View All Button */}
         <div className="text-center">
-          <Button
-            asChild
-            variant="outline"
-            size="lg"
-            className="text-lg font-semibold"
-          >
-            <Link to="/pledgers">View All Pledgers</Link>
-          </Button>
+          <Link to="/pledgers" className="text-lg font-semibold text-blue-600 underline underline-offset-4 hover:text-blue-700">
+            View All Pledgers
+          </Link>
         </div>
       </div>
     </section>

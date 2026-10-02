@@ -99,7 +99,7 @@ export function LetterStaleTermsModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+          <Button variant="ghost" onClick={onCancel} disabled={isLoading}>
             Not now
           </Button>
           <Button

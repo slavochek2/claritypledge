@@ -829,7 +829,7 @@ export function LiveModeView({
           <DialogDescription>{confirmSkipDescription}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-row gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => setConfirmSkipOpen(false)}>
+          <Button variant="ghost" onClick={() => setConfirmSkipOpen(false)}>
             Cancel
           </Button>
           <Button variant="destructive" onClick={handleConfirmSkip}>

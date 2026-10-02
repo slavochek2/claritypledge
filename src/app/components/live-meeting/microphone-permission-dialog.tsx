@@ -114,7 +114,7 @@ export function MicrophonePermissionDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
           <Button onClick={onRetry}>Try Again</Button>

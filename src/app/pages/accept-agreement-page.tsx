@@ -663,7 +663,7 @@ export function AcceptAgreementPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setShowDeclineConfirm(false)}>
+            <Button variant="ghost" onClick={() => setShowDeclineConfirm(false)}>
               Cancel
             </Button>
             <Button

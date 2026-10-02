@@ -111,7 +111,7 @@ function TerminateDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isTerminating} autoFocus>
+          <Button variant="ghost" onClick={onCancel} disabled={isTerminating} autoFocus>
             Cancel
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isTerminating}>

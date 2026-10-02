@@ -236,7 +236,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={deleting}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>

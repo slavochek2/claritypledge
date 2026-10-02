@@ -388,7 +388,7 @@ export function SettingsPage() {
             {!showWithdrawConfirm ? (
               <button
                 onClick={() => setShowWithdrawConfirm(true)}
-                className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+                className="min-h-10 inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 transition-colors"
               >
                 Withdraw my pledge
               </button>
@@ -450,18 +450,19 @@ export function SettingsPage() {
       </div>
 
       {/* P520: Account deletion */}
-      <div className="mt-12 pt-8 border-t border-border">
-        <h2 className="text-sm font-medium mb-3 text-muted-foreground">Account</h2>
+      <div className="mt-12 rounded-lg border border-destructive/40 p-4">
+        <h2 className="text-sm font-semibold mb-1 text-destructive">Danger zone</h2>
+        <p className="text-xs text-muted-foreground mb-3">Actions here can&apos;t be undone.</p>
 
         {!showDeleteConfirm ? (
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="text-sm text-muted-foreground hover:text-destructive transition-colors"
+            className="min-h-10 inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 transition-colors"
           >
             Delete my account
           </button>
         ) : (
-          <div className="rounded-lg border border-destructive/40 p-4 space-y-4">
+          <div className="space-y-4">
             <p className="text-sm font-medium">Delete your account?</p>
             <div className="text-sm text-muted-foreground space-y-2">
               <p>This happens immediately and can&apos;t be undone.</p>

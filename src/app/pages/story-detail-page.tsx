@@ -555,7 +555,7 @@ function DeleteStoryDialog({
         </DialogHeader>
         <DialogFooter>
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={onCancel}
             disabled={isDeleting}
             autoFocus
@@ -1352,7 +1352,7 @@ export function StoryDetailPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setUnlinkTargetPoint(null)} disabled={isUnlinking}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setUnlinkTargetPoint(null)} disabled={isUnlinking}>Cancel</Button>
               <Button variant="destructive" onClick={handleUnlinkConfirm} disabled={isUnlinking}>
                 {isUnlinking ? 'Unlinking...' : 'Unlink'}
               </Button>

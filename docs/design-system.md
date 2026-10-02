@@ -192,6 +192,22 @@ Always use shadcn/ui `<Button>` component with variants. Don't create custom but
 - `destructive` - Delete, remove, disconnect
 - `link` - Text link style
 
+##### Button Decision Rules (founder-approved)
+
+One question decides every button: **what does it do?** Visual reference: `/tree/design-buttons` (dev only).
+
+| # | What it does | Style | Placement |
+|---|--------------|-------|-----------|
+| 1 | The step forward (Continue, Save, Send) | Filled `bg-blue-600`, full width | Bottom of the screen/card. **Only one per screen.** |
+| 2 | A real alternative (Edit, Save and share) | `variant="outline"` (white + border), full width | Directly under the primary |
+| 3 | Backing out (Cancel, Skip, Not now) | `variant="ghost"`, muted text, no box | Under the alternatives, last |
+| 4 | Going somewhere else (Learn more, See profile) | A link (`<a>`/`<Link>`), blue underlined text — never a button | Inline, where the reader needs it |
+| 5 | Losing something (Delete, Remove, Discard) | Red text (`variant="ghost"` + `text-red-600`), then a confirmation step | Last, small; never the biggest thing on screen |
+| 6 | Small actions on a card (Share, More) | Icon only, gray, 44px touch target | Card top-right |
+| 7 | Two buttons in a popup | Main action filled — **red if it loses something (rule 5), otherwise blue**; the other is ghost | Desktop: main on the right. Phone: stacked, main on top |
+
+`variant="secondary"` (gray fill) is not in this table: it reads as disabled. Use outline instead.
+
 ##### Button Hierarchy
 
 | Level | Use Case | Style | Example |

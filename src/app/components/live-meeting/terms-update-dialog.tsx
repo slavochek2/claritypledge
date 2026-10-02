@@ -90,7 +90,7 @@ export function TermsUpdateDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+          <Button variant="ghost" onClick={onCancel} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={onAccept} disabled={isLoading}>

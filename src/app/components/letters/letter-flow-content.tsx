@@ -819,7 +819,7 @@ export function LetterFlowContent({
                       <LetterPrimaryCta
                         label={overwriteLabel}
                         onClick={() => setPositionDialogState({ mode: 'edit', story: existingStory, pointId: currentPoint.id, position: userPos ?? undefined })}
-                        variant="secondary"
+                        variant="outline"
                       />
                     </FixedBottomBar>
                   );
@@ -1232,7 +1232,7 @@ export function LetterFlowContent({
                       <LetterPrimaryCta
                         label={overwriteLabel}
                         onClick={() => setPositionDialogState({ mode: 'edit', story: existingStory, pointId: currentPoint.id, position: userPos ?? undefined })}
-                        variant="secondary"
+                        variant="outline"
                       />
                     </FixedBottomBar>
                   );

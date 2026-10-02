@@ -829,7 +829,7 @@ export function PointDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUnlinkTargetStory(null)} disabled={isUnlinking}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setUnlinkTargetStory(null)} disabled={isUnlinking}>Cancel</Button>
             <Button variant="destructive" onClick={handleUnlinkConfirm} disabled={isUnlinking}>
               {isUnlinking ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Unlinking...</> : 'Unlink'}
             </Button>

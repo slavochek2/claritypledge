@@ -139,17 +139,17 @@ export function DesignButtonsPage() {
         </Phone>
       </Rule>
 
-      <Rule n={7} title="Two buttons in a popup: main on the right; on phones stacked, main on top" why="Matches what phones and laptops already teach people.">
+      <Rule n={7} title="Two buttons in a popup: main on the right (red if it loses something); on phones stacked, main on top" why="Matches what phones and laptops already teach people.">
         <Phone ok label="Desktop popup">
           <p className="font-semibold">Discard changes?</p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost">Keep editing</Button>
-            <Button className="bg-blue-600 text-white">Discard</Button>
+            <Button variant="destructive">Discard</Button>
           </div>
         </Phone>
         <Phone ok label="Phone popup">
           <p className="font-semibold">Discard changes?</p>
-          <Primary>Discard</Primary>
+          <Button variant="destructive" className="w-full">Discard</Button>
           <Button variant="ghost" className="w-full">Keep editing</Button>
         </Phone>
       </Rule>

@@ -51,7 +51,7 @@ export function RemovePositionDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isRemoving}>
+          <Button variant="ghost" onClick={onCancel} disabled={isRemoving}>
             Cancel
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={isRemoving}>

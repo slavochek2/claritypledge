@@ -24,8 +24,9 @@ interface LetterPrimaryCtaProps {
   onClick: () => void;
   disabled?: boolean;
   icon?: 'lock' | 'arrow';
-  /** 'primary' (default) = filled blue pill. 'secondary' = ghost/outline — demoted advance. */
-  variant?: 'primary' | 'secondary';
+  /** 'primary' (default) = filled blue pill. 'outline' = white bordered pill — a real alternative
+   *  (design-system button rule 2). 'secondary' = plain text link — backing out / skip (rule 3). */
+  variant?: 'primary' | 'outline' | 'secondary';
   /** Escape hatch for one-off overrides; merged after the base classes. */
   className?: string;
 }
@@ -47,6 +48,8 @@ export function LetterPrimaryCta({
           'w-full gap-2',
           variant === 'primary'
             ? 'rounded-full font-bold text-base min-h-14 bg-[#0044CC] hover:bg-[#0033AA] text-white'
+            : variant === 'outline'
+            ? 'rounded-full font-semibold text-base min-h-12 bg-background border border-border text-foreground hover:bg-muted'
             // Secondary = plain text link (no pill/bg/border), matching the
             // "Explain in text instead" fallback in explain-back-capture.tsx.
             : 'rounded-none shadow-none bg-transparent font-normal text-sm min-h-11 underline underline-offset-4 text-muted-foreground hover:text-foreground hover:bg-transparent focus-visible:ring-[#0044CC]/40',
