@@ -12,6 +12,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
+import { createHash, randomBytes } from 'crypto';
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
@@ -147,11 +148,44 @@ test.describe('P1380 arrival check-in', () => {
     await shoot(page, 'prep-end');
   });
 
+  test('email button: Continue signs in and opens the room; a second press goes to normal sign-in', async ({ page }) => {
+    const u = await registrant('P1380 Link', soon);
+    const { data: rsvp } = await supabaseAdmin.from('event_rsvps').select('id').eq('event_id', soon.id).eq('profile_id', u.user.id).single();
+    const ticket = randomBytes(32).toString('base64url');
+    const { error } = await supabaseAdmin.from('event_email_links').insert({
+      token_hash: createHash('sha256').update(ticket).digest('hex'),
+      rsvp_id: rsvp!.id,
+      purpose: 'arrived',
+      expires_at: new Date(Date.now() + 3 * 3600e3).toISOString(),
+    });
+    expect(error).toBeNull();
+
+    // Opening the page alone spends nothing (what a link scanner does).
+    await page.goto(`/auth/event-link?ticket=${ticket}`);
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+    const { data: unspent } = await supabaseAdmin.from('event_email_links').select('last_used_at').eq('rsvp_id', rsvp!.id).single();
+    expect(unspent!.last_used_at).toBeNull();
+    await shoot(page, 'continue');
+
+    await page.getByRole('button', { name: 'Continue' }).click();
+    // Signed in, arrival recorded from ?arrived=1, then the preparation gate.
+    await expect(page.getByTestId('prep-room-gate')).toBeVisible({ timeout: 20_000 });
+    await expect.poll(() => arrivedAt(soon.id, u.user.id)).not.toBeNull();
+
+    // Second press of the same button, in a fresh browser: normal sign-in, same destination.
+    await page.context().clearCookies();
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(`/auth/event-link?ticket=${ticket}`);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page).toHaveURL(/\/login\?redirect=/);
+    expect(decodeURIComponent(page.url())).toContain(`/events/${soon.slug}/room?arrived=1`);
+  });
+
   test('the host sees who arrived', async ({ page }) => {
     await setTestSession(page, host.email);
     await page.goto(`/events/${soon.slug}`);
     await expect(page.getByTestId('prep-host-arrived-summary')).toBeVisible();
-    await expect(page.getByTestId('prep-host-arrived-summary')).toHaveText("3 of 3 arrived");
+    await expect(page.getByTestId('prep-host-arrived-summary')).toHaveText("4 of 4 arrived");
     await expect(page.getByTestId('prep-host-arrived').first()).toHaveText(/^Arrived \d\d:\d\d$/);
     await shoot(page, 'host-list');
   });
