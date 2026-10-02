@@ -6,6 +6,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: /topics — only signed-in votes count, results appear only after you rate, and the output is a ranked set the host draws several topics from (P1347)
+
+**Context:** Founder UAT over two days reshaped the shipped `/topics`. It supersedes the 2026-10-01 entries below ("anonymous to rate", "current order with the next event's date"). Clarity Nights also became fortnightly (#2 on 2026-10-06, #3 on 2026-10-20), and the founder wants several topics prepared ahead.
+**Decision:**
+- **Who can vote.** Only signed-in votes count. A signed-out visitor can still tap stars; they are kept in sessionStorage and saved after sign-in, with that person's existing photo choice.
+- **When results show.** A topic's result (average, plus a face pile with "+N", like the pledger stack) is returned by Postgres only to someone who rated that topic, so the crowd does not anchor a first vote.
+- **Clearing.** Tapping your current star again takes the rating back.
+- **Order.** The public order is attendee topics first, then the host's backlog order. It is never ordered by votes. Viewers can sort per visit, and the sort applies once, so rows never jump under a tap.
+- **Privacy.** Voters can hide their photo ("Hide my photo on my votes", a small line under the list). Attendees can add a topic anonymously. An attendee's comment becomes the topic's public description (≤240 characters); a link stays host-only.
+- **What the page produces.** A ranked set in `/admin/topics`, never one "leading topic" for one date.
+- **Layout.** `/topics` is a focus page with no bottom menu, a pinned "Showing N of M / Show 8 more / Back" bar, and a "Details" button like point cards.
+**Alternatives rejected:**
+- Anonymous device-token voting: votes from strangers the founder cannot trust.
+- Averages visible to everyone: anchoring.
+- A names list of voters: clutter, and it duplicated the faces.
+- Auto-ordering by votes: rich-get-richer.
+- Pre-filling the founder's own ratings: fake votes in the average.
+**Consequences:**
+- Accepted trade-offs: on a two-vote topic the average plus your own rating reveals the other rating, and rate → read → clear lets someone peek. Both are recorded in the spec.
+- Follow-ups: the 5-per-day add limit has no lock, and the stars lack arrow-key handling.
+- Live has no topics yet: they must be loaded after `/push` applies the 7 P1347 migrations.
+**References:** [p1347 spec](../features/done/2026-06-10/p1347_topics_page_attendees_rate_next_topics.md)
+
+## 2026-10-02 [process]: A long feature branch ships as one squashed commit; per-commit cherry-pick re-runs the full pre-commit suite each time (P1347)
+
+**Context:** `/ship p1347` cherry-picked ~40 iteration commits one by one. Each pick re-ran build plus the whole test suite (several minutes). Two shared files (`deploy-manifest.json`, `decisions.md`) conflicted at most picks because co-tenant sessions write them too. Unrelated tests failed under load twice. After about an hour, 6 of ~40 had landed.
+**Decision:** Stop the pick (the single in-flight pick cancelled; nothing queued), tag the old tip (`p1347-pre-squash`), merge main into the branch once in its worktree, resolve once, `reset --soft main` into one commit, and verify every feature file is byte-identical to the old tip before `git-ops ship`. Founder approved: "who cares if it's all related to /topics".
+**Alternatives rejected:** Keep resuming. Hours of identical suite runs and repeated hand-merges on the shared checkout.
+**Consequences:** For a branch with many UAT-iteration commits, squash before `/ship`. Same lesson as P1336 (2026-10-01), now from a plain feature branch with no prototype merge in it.
+
+---
+
 ## 2026-10-02 [technical]: Sign-in from event emails is a hashed single-use ticket plus a "Continue as …" page, never a magic link in the email (P1380)
 
 **Context:** Founder asked that buttons in event emails ("Prepare now", "I'm here") sign the person in. A Supabase magic link lives one hour (`otp_expiry`, one setting shared by every auth email incl. password reset) and Mailgun holds scheduled emails up to 72h; people open "You're registered" weeks later. A hostile review of the first one-click version found that a ticket reusable until event end mints a full-account session per click (a forwarded email = the account), and that mail link-scanners open every link.
