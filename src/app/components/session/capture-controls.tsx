@@ -24,23 +24,26 @@ const CONTROL_CLASS =
  *  Neutral at rest, destructive on hover/focus — P1323 R7's End treatment, kept. Visible
  *  "Stop" sits inside the accessible name "Stop transcribing" (label-in-name). */
 export function StopCaptureButton({ onClick, label = 'Stop', testId }: { onClick: () => void; label?: string; testId?: string }) {
+  const { stopping } = useRoomCapture();
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={stopping}
       aria-label="Stop transcribing"
       data-testid={testId}
-      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 transition-colors"
+      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 transition-colors disabled:opacity-50 disabled:pointer-events-none"
     >
       <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
-      {label}
+      {stopping ? 'Stopping…' : label}
     </button>
   );
 }
 
 export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testId?: string }) {
+  const { stopping } = useRoomCapture();
   return (
-    <button type="button" onClick={onClick} data-testid={testId} className={`${CONTROL_CLASS} ml-auto`}>
+    <button type="button" onClick={onClick} disabled={stopping} data-testid={testId} className={`${CONTROL_CLASS} ml-auto`}>
       Open
       <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -48,7 +51,7 @@ export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testI
 }
 
 export function PauseResumeButton() {
-  const { phase, manualPaused, pauseMine, resumeMine, micLost } = useRoomCapture();
+  const { phase, manualPaused, pauseMine, resumeMine, micLost, stopping } = useRoomCapture();
   if (phase === 'observing') return null; // another tab holds the mic; it pauses there
   if (micLost) return null; // nothing to pause; Stop transcribing is the action
   const paused = phase === 'paused' && manualPaused;
@@ -56,6 +59,7 @@ export function PauseResumeButton() {
     <button
       type="button"
       onClick={paused ? resumeMine : pauseMine}
+      disabled={stopping}
       aria-pressed={paused}
       data-testid={paused ? 'capture-resume' : 'capture-pause'}
       className={CONTROL_CLASS}

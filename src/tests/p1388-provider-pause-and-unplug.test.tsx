@@ -235,3 +235,18 @@ describe('P1388 review: setup races', () => {
     expect(ctx.phase).toBe('capturing');
   });
 });
+
+describe('P1388: stopping flag', () => {
+  it('is true from the tap until the server has recorded the end', async () => {
+    let releaseEnd!: () => void;
+    endRpc.mockImplementationOnce(() => new Promise<void>((r) => { releaseEnd = r; }));
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    let ending!: Promise<void>;
+    act(() => { ending = ctx.endMyCapture('r1'); });
+    expect(ctx.stopping).toBe(true);
+    await waitFor(() => expect(endRpc).toHaveBeenCalled());
+    await act(async () => { releaseEnd(); await ending; });
+    expect(ctx.stopping).toBe(false);
+  });
+});

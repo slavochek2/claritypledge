@@ -22,7 +22,7 @@ function state(overrides: Record<string, unknown> = {}) {
   return {
     phase: 'capturing', roomId: 'r1', open: vi.fn(), endMyCapture: vi.fn(),
     manualPaused: false, pauseMine: vi.fn(), resumeMine: vi.fn(),
-    subscribeLevel: () => () => {}, inputSilent: false, micLost: false, micSwitched: false,
+    subscribeLevel: () => () => {}, inputSilent: false, micLost: false, micSwitched: false, stopping: false,
     ...overrides,
   };
 }
@@ -93,5 +93,16 @@ describe('P1388: stop control and info affordance', () => {
     expect(screen.queryByText(/let the people around you know/i)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'About this recording' }));
     expect(screen.getByText(/let the people around you know/i)).toBeInTheDocument();
+  });
+});
+
+describe('P1388: Stop answers the tap at once', () => {
+  it('while stopping, the bar says so and the controls are disabled', () => {
+    mockUseRoomCapture.mockReturnValue(state({ stopping: true }));
+    render(<RoomCaptureBar />);
+    expect(screen.getByText(STATUS.stopping)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /stop transcribing/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /open/i })).toBeDisabled();
   });
 });

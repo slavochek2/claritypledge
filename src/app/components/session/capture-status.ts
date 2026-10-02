@@ -15,10 +15,12 @@ export const STATUS = {
   silent: 'No sound is reaching the recording — check the mic',
   micLost: 'Microphone disconnected — nothing is being recorded',
   micSwitched: 'Microphone changed — still recording',
+  stopping: 'Stopped — saving the last few seconds…',
 } as const;
 
 export function useCaptureStatus(): { text: string; warn: boolean } {
-  const { phase, manualPaused, inputSilent, micLost, micSwitched } = useRoomCapture();
+  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping } = useRoomCapture();
+  if (stopping) return { text: STATUS.stopping, warn: false };
   if (micLost) return { text: STATUS.micLost, warn: true };
   if (phase === 'paused' && manualPaused) return { text: STATUS.paused, warn: false };
   if (micSwitched) return { text: STATUS.micSwitched, warn: false };

@@ -198,6 +198,8 @@ export interface RoomCaptureContextValue {
   micLost: boolean;
   /** P1388: the source ended and capture moved to the default input — shown briefly. */
   micSwitched: boolean;
+  /** P1388: Stop was tapped. The mic is already off; the last chunk is still uploading. */
+  stopping: boolean;
   isCapturingForEvent: (eventId: string) => boolean;
   speakingMemberIds: ReadonlySet<string>;
   /** In-flow bar slots (the layout, the room page). With none mounted, App renders a fallback. */
@@ -225,6 +227,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   inputSilent: false,
   micLost: false,
   micSwitched: false,
+  stopping: false,
   isCapturingForEvent: () => false,
   speakingMemberIds: new Set(),
   registerBarSlot: () => noop,
@@ -292,6 +295,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   /** A Resume the person tapped outranks a leftover /live record (it is not /live, an
    *  explain-back or a letter screen — those still hold the pause). */
   const [userResumed, setUserResumed] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const levelListeners = useRef(new Set<(rms: number) => void>());
   /**
    * P1388 review, HIGH 1–3. Every media setup awaits (getUserMedia, AudioContext.resume,
@@ -625,6 +629,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const endMyCapture = useCallback(async (roomId: string) => {
     if (stateRef.current.phase === 'idle' || endingRef.current) return;
     endingRef.current = true;
+    // P1388: the tap is answered at once. The mic stops on the next line; what takes up to
+    // END_UPLOAD_GRACE_MS is saving the tail, which must finish before the End RPC.
+    setStopping(true);
     // The microphone is released at once — End must never wait on the network to stop
     // recording. The bar stays until the server has recorded the End, so what the person sees
     // disappear is an end that exists, not one that is still in flight.
@@ -648,6 +655,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'END_REQUESTED' });
       dispatch({ type: 'TEARDOWN_COMPLETE' });
       endingRef.current = false;
+      setStopping(false);
     }
   }, [stopMedia, uploadsDrained]);
 
@@ -1005,12 +1013,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     inputSilent,
     micLost,
     micSwitched,
+    stopping,
     isCapturingForEvent: (eventId: string) => state.eventId === eventId && LIVE_PHASES.has(state.phase),
     speakingMemberIds: new Set(speaking.keys()),
     registerBarSlot,
     barSlotCount,
   }), [state, pauseLocation, startCapture, endMyCapture, open, holdPause, manualPaused, pauseMine, resumeMine,
-    subscribeLevel, inputSilent, micLost, micSwitched, speaking, registerBarSlot, barSlotCount]);
+    subscribeLevel, inputSilent, micLost, micSwitched, stopping, speaking, registerBarSlot, barSlotCount]);
 
   return <RoomCaptureContext.Provider value={value}>{children}</RoomCaptureContext.Provider>;
 }
