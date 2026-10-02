@@ -56,8 +56,8 @@ test('smoke: popup on a non-session page describes the documents only, with no c
 
   const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("Show more");
-  await expect(dialog).toContainText('you agree to the updated Terms and Privacy Policy.');
+  await expect(dialog).toContainText("Learn more");
+  await expect(dialog).toContainText('you agree to the updated terms.');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);

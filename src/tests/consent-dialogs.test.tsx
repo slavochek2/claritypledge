@@ -63,7 +63,9 @@ describe('TermsUpdateDialog', () => {
     );
     render(<TermsUpdateDialog {...defaultProps} />);
 
-    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /we've updated our terms and privacy policy/i })
+    ).toBeInTheDocument();
   });
 
   // P1300: this assertion previously required "This session is recorded for AI Insights".
@@ -76,7 +78,7 @@ describe('TermsUpdateDialog', () => {
     render(<TermsUpdateDialog {...defaultProps} />);
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms and privacy policy\./i);
+    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session|record/i);
   });
 

@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useRef } from 'react';
-import { LegalDocLinks, TermsChangeList, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
+import { TermsChangeList, TermsTitle, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
 
 interface TermsUpdateDialogProps {
   open: boolean;
@@ -51,7 +51,7 @@ export function TermsUpdateDialog({
         hideCloseButton={!dismissible}
         onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
         onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
-        // Focus the primary action, not the first tabbable (the "Show more" toggle).
+        // Focus the primary action, not the first tabbable (the "Learn more" toggle).
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           acceptRef.current?.focus();
@@ -59,7 +59,9 @@ export function TermsUpdateDialog({
         className="max-h-[85dvh] overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle>We've updated our Terms</DialogTitle>
+          <DialogTitle className="text-base leading-snug">
+            <TermsTitle />
+          </DialogTitle>
           <DialogDescription className="sr-only">{TERMS_CONSENT_LINE}</DialogDescription>
         </DialogHeader>
 
@@ -71,8 +73,6 @@ export function TermsUpdateDialog({
           <p className="text-sm text-muted-foreground">
             {TERMS_CONSENT_LINE}
           </p>
-
-          <LegalDocLinks />
 
           {errorMessage && (
             <div

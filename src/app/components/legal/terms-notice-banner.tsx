@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { LegalDocLinks, TermsChangeList, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
+import { TermsChangeList, TermsTitle, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
 
 interface TermsNoticeBannerProps {
   onDismiss: () => void;
@@ -34,15 +34,14 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
     >
       {/* Only the summary scrolls; the consent line and button stay pinned and reachable. */}
       <div className="mx-auto flex max-h-[50dvh] max-w-2xl flex-col px-4 pt-3">
-        <p className="text-sm font-semibold">We've updated our Terms</p>
-        <div className="min-h-0 overflow-y-auto">
+        <p className="text-sm font-semibold">
+          <TermsTitle />
+        </p>
+        <div className="mt-1 min-h-0 overflow-y-auto">
           <TermsChangeList />
         </div>
         <div className="flex flex-col gap-2 border-t py-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-muted-foreground">
-            <p>{TERMS_CONSENT_LINE}</p>
-            <LegalDocLinks />
-          </div>
+          <p className="text-sm text-muted-foreground">{TERMS_CONSENT_LINE}</p>
           <Button className="h-10 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={onDismiss} disabled={isLoading}>
             Accept
           </Button>
