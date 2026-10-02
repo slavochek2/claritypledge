@@ -6,6 +6,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: The room shown on the wall carries no per-person preparation marks; the host reads them on the event page (P1386)
+
+**Context:** P1386 first made the prepared check and the mic icon host-only in the room (/meet). The founder then pointed out that /meet is projected on a screen: the host's own view is what the whole room sees, so a host-only mark there tells everyone who did not prepare and who volunteered to be recorded.
+**Decision:** No prepared or mic marks in /meet for anyone, host included. The marks and the packing line live only on the host's event page, which is not projected. The database function behind the old room check stays (it returns an empty list to everyone but the host) so a cached older page does not error; nothing in the app calls it any more.
+**Alternatives rejected:** host-only marks in /meet (defeated by projecting); a toggle to show them (a control to remember, and the wrong default for a wall).
+**Consequences:** The host must not share or project the event page; the participants list there is the host's private view. UNTESTED: whether hosts actually keep the event page off the projector; falsifier: a host reports the page was shown to a room.
+**References:** [P1386](../features/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md)
+
+## 2026-10-02 [product]: The mic question asks two separate facts; the phone connector is asked only of people who need a mic (P1386)
+
+**Context:** The preparation step asked "Does your phone have a USB-C port?" with three answers that mixed two facts: whether the person has a mic, and what their phone plugs into. A Lightning iPhone with no mic had no honest answer and was recorded as declined, so the host could not see Lightning demand (no Lightning mics are owned yet; the count informs a purchase).
+**Decision:** Q1 "Do you have a microphone to bring?" (yes = own mic, nothing more asked). Only after "No, I need one": "Which charging port does your phone have?" with USB-C, Lightning, or Something else / not sure. USB-C saves `usbc` and `confirmed`; Lightning and other save `lightning` / `other` and `eligible`, because the public "volunteer places left" count counts every `confirmed` row and a person the host cannot equip must not use up a recording place. Host marks: one grey mic = brings own; two overlapping dark mics plus C / L / ? = the host hands one out; the packing line counts each kind.
+**Alternatives rejected:** a single Lightning answer bolted onto the old three (kept the conflation); asking the connector of everyone (bothers people who bring their own mic); a free-text "other" (cannot be counted).
+**Consequences:** Old `none` rows stay valid and read as declined. When Lightning mics exist, flipping those rows to `confirmed` is a data update, not a code change. UNTESTED: whether the Lightning / other count drives a buying decision; falsifier: after two events nobody picks them, the second question is cut to USB-C only.
+**References:** [P1386](../features/p1386_host_sees_prepared_and_mic_icons_in_people_lists.md), migration 20261002140000
+
+## 2026-10-02 [process]: A serial Playwright spec run on the default config reports mass false flakes; read it with one worker and no retries
+
+**Context:** `e2e/p1336-registration-prep.spec.ts` is `mode: 'serial'` (tests share events created by earlier tests), but `playwright.config.ts` is `fullyParallel` with 3 workers and 1 retry. Run as-is, 14 of 16 tests were reported "flaky" with 30-second timeouts and 2 failed (one of those a genuine ordering bug in a new test of mine); the same file with `--workers=1 --retries=0` passed 16 of 16, and 17 of 17 once a test was added. Filtering a serial file to one test with `-g` also fails instantly, because the shared state is missing.
+**Decision:** For a serial spec, trust only `--workers=1 --retries=0` on the whole file; a flaky label from the default config is not a finding about the app. Separately: a review claim about a write race was false because the save helper chains writes on a queue, so every review claim was re-checked by command before it changed the code (one of six was wrong, one was a vacuous assertion the reviewer was right about).
+**Alternatives rejected:** retrying until green (hides a real failure); raising the 30-second timeout (the cause was parallelism, not speed).
+**Consequences:** No config change made. A "serial spec" note in the e2e guide would stop the next session losing minutes to it; not written, as the test rules need the claude-md gate.
+**References:** [p1336-registration-prep.spec.ts](../e2e/p1336-registration-prep.spec.ts), [playwright.config.ts](../playwright.config.ts)
+
 ## 2026-10-02 [product]: On a phone, the preparation scrolls its content and pins its action — one rule for every step (P1387)
 
 **Context:** The founder, on a phone: "there are multiple parts and I scroll only one part." Measured under iPhone emulation: every preparation step scrolled 80px of blank space (the layout padded for a bottom menu that those routes hide), the confirm screen pinned a panel over 44-72% of the screen, and the long steps kept a stacked bar of 134-166px under the fixed step header. A first fix made everything inline; the founder then found that steps which ask for an action lost their sense of progress ("0 of 7 answered" and Continue at the end of a 9-screen list).
