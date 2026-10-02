@@ -23,7 +23,7 @@ export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
     // are asked at the moment they apply, not through this update.
     requiresConsent: false,
     highlights: [
-      'We now name every service that processes your data, including where it is stored (the US).',
+      'We now name every service that processes your data and where it runs: our main database is in the US, analytics and email in the EU.',
       'We explain how voice audio, transcripts and voice profiles are collected and used.',
       'We disclose that our analytics (Mixpanel) can replay how you use the site.',
     ],

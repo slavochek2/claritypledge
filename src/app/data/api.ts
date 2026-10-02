@@ -3655,8 +3655,13 @@ export async function needsTermsAcceptance(userId: string): Promise<boolean> {
  * Record terms acceptance for a user.
  * Updates profile and creates audit trail entry.
  * @param userId - The user's UUID
+ * @param mode - 'explicit' (clicked Continue on the blocking popup) or 'notice'
+ *   (dismissed the non-blocking banner; continued use is acceptance)
  */
-export async function recordTermsAcceptance(userId: string): Promise<void> {
+export async function recordTermsAcceptance(
+  userId: string,
+  mode: 'explicit' | 'notice' = 'explicit'
+): Promise<void> {
   if (!isValidUUID(userId)) {
     throw new Error('Invalid userId format');
   }
@@ -3682,6 +3687,7 @@ export async function recordTermsAcceptance(userId: string): Promise<void> {
       terms_version: CURRENT_TERMS_VERSION,
       ip_hash: ipHash,
       user_agent: navigator.userAgent,
+      acceptance_mode: mode,
     });
 
   if (auditError) {

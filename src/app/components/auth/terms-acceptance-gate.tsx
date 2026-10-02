@@ -111,7 +111,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     if (!user) return;
     setIsAccepting(true);
     try {
-      await recordTermsAcceptance(user.id);
+      await recordTermsAcceptance(user.id, 'notice');
       analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
     } catch (err) {
       reportAcceptFailure(err);

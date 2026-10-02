@@ -59,7 +59,7 @@ describe('TermsAcceptanceGate — notice mode', () => {
     renderGate();
     fireEvent.click(await screen.findByRole('button', { name: /got it/i }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
-    expect(mockRecordTermsAcceptance).toHaveBeenCalledWith('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
+    expect(mockRecordTermsAcceptance).toHaveBeenCalledWith('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'notice');
   });
 
   it('a failed save still hides the banner instead of trapping the user', async () => {

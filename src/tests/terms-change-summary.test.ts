@@ -11,3 +11,15 @@ describe('terms change summary', () => {
     expect(entry?.highlights.length).toBeGreaterThan(0);
   });
 });
+
+// The real summary text renders over every authed page (P1300): it may describe
+// the documents only. Checked against the real entries, not a mock.
+describe('terms change summary wording', () => {
+  it('never mentions a session or a recording', () => {
+    for (const [version, entry] of Object.entries(TERMS_CHANGES)) {
+      for (const line of [...entry.highlights, ...entry.details]) {
+        expect(line, `${version}: ${line}`).not.toMatch(/session|record/i);
+      }
+    }
+  });
+});
