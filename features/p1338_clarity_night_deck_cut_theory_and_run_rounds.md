@@ -42,6 +42,29 @@ Planning this first would build a timer and round slides that P1337 replaces. **
 P1338 once they land:** (a) the short opening spoken to a room that has already onboarded, (b) the
 topic slot, (c) a fallback deck that can carry the rounds if the phone flow fails on the night.
 
+### Three changes P1337 hands to this spec (2026-10-02)
+
+Written here rather than sent, because no session is on P1338 and a spec note survives where a
+message does not.
+
+1. **The roles slide is wrong in two ways and the deck still carries both.** It says **pairs** — the
+   room has run **trios** since 2026-09-28 — and it states the **below-8 prohibition**, which was
+   **overruled 2026-09-29**. The live rule: *an opted-in listener may not disagree until they have
+   heard the speaker's number; the number does not have to reach 8*, and opted-out listeners are not
+   bound by it. This matters beyond tidiness: the deck is this spec's own named fallback for a night
+   when the phone flow fails, so projecting it teaches the room a rule the founder deliberately
+   killed — and contaminates the falsifier recorded for the new one.
+   **`public/presi3/index.html` carries the same two errors and is untouched as of 2026-10-02.**
+2. **The deck stops being the round engine and becomes a projector surface.** P1337 puts tables,
+   roles and the countdown on the host's phone and casts the current round's table list. What the
+   deck needs is a **seating frame** the host screen can fill — not its own timer, not its own
+   rotation instructions.
+3. **Add a slide carrying the recorder instruction** (founder's preference, so it is said the same
+   way every time rather than from memory): *"You have a mic. Before each round, tell the people at
+   your table you're recording, and that you'll pause if anyone prefers. If someone asks you to
+   pause, pause — no explanation needed."* Never ask the room who does **not** want to be recorded
+   (decisions.md 2026-09-16; consent model revised 2026-10-02).
+
 **What the event-1 recording actually shows** (`~/video-library/clarity-night-1-ai-safety-sep-2026/
 transcripts/20260918_180542.txt`, 48 min, local-only): at minute 48 the room had **still not started a
 pair round** — the two stage volunteers were only just being seated. Roughly **15 of those minutes
