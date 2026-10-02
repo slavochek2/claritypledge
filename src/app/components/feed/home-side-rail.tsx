@@ -3,7 +3,8 @@
  * into groups. Deliberately two cards, not a LinkedIn-style dashboard: phones (most
  * visitors) never render it, and blog / manifesto / use cases already live in the menu.
  * The page's one primary action stays the header CTA (P955), so nothing here is a
- * filled button.
+ * filled button. It starts level with the tab bar (founder, 2026-10-02), below search + tags,
+ * so the feed reads first.
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -34,7 +35,7 @@ export function HomeSideRail() {
   }, []);
 
   return (
-    <aside className="hidden lg:block w-72 shrink-0 space-y-4 pt-1" aria-label="Events and groups" data-testid="home-side-rail">
+    <aside className="hidden lg:block w-72 shrink-0 space-y-4 lg:mt-[5.875rem]" aria-label="Events and groups" data-testid="home-side-rail">
       <section className="rounded-lg border border-border p-4">
         <h2 className="text-sm font-semibold text-foreground mb-3">Next events</h2>
         {events === null ? (
@@ -57,7 +58,7 @@ export function HomeSideRail() {
         <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-1">
           <LandmarkIcon className="w-4 h-4" aria-hidden /> Groups
         </h2>
-        <p className="text-sm text-muted-foreground mb-3">Communities that practice calibrated conversation together.</p>
+        <p className="text-sm text-muted-foreground mb-3">Communities that practice clear communication together.</p>
         <Link to={EVENTS_NAV_TO} className="text-sm text-blue-600 hover:underline">
           Explore groups
         </Link>

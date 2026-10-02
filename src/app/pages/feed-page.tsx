@@ -485,9 +485,12 @@ export function FeedPage() {
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:max-w-5xl lg:flex lg:gap-8 lg:justify-center">
       <div className="max-w-2xl w-full mx-auto lg:mx-0">
         {/* Page header + Write Story CTA */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-foreground">Home</h1>
-          {session && (
+        {/* P1392 (founder): no visible "Home" title — the stories start higher. The h1 stays for
+            screen readers and document outline. */}
+        <h1 className="sr-only">Home</h1>
+        {session && (
+        <div className="flex items-center justify-end mb-4">
+          {(
             <Link
               to="/create"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
@@ -497,6 +500,7 @@ export function FeedPage() {
             </Link>
           )}
         </div>
+        )}
 
         {/* Search bar */}
         <div className="relative mb-4">
