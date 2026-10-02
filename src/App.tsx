@@ -101,6 +101,7 @@ const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons
 const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
 const ComparePositionsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-compare-positions-prototype").then(m => ({ default: m.ComparePositionsPrototype })));
 const HostControlsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-host-controls-prototype").then(m => ({ default: m.HostControlsPrototype })));
+const ProfileCompareEntryPrototype = lazy(() => import("@/app/pages/prototypes/p1337-profile-compare-entry-prototype").then(m => ({ default: m.ProfileCompareEntryPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/EventRoomGate").then(m => ({ default: m.EventRoomGate })));
 const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
@@ -1133,6 +1134,7 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/compare-positions" element={<LazyRoute><ComparePositionsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/host-controls" element={<LazyRoute><HostControlsPrototype /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/compare-entry" element={<LazyRoute><ProfileCompareEntryPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/p1336" element={<LazyRoute><P1336OnboardingPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/p1336-c" element={<LazyRoute><P1336OnboardingPrototype variant="c" /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/p1336-d" element={<LazyRoute><P1336OnboardingPrototype variant="d" /></LazyRoute>} />}
