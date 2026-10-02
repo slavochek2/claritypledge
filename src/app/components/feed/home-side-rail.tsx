@@ -3,7 +3,7 @@
  * into groups. Deliberately two cards, not a LinkedIn-style dashboard: phones (most
  * visitors) never render it, and blog / manifesto / use cases already live in the menu.
  * The page's one primary action stays the header CTA (P955), so nothing here is a
- * filled button. It starts level with the tab bar (founder, 2026-10-02), below search + tags,
+ * filled button. It starts level with the first feed card (founder, 2026-10-02), below search, tags and tabs,
  * so the feed reads first.
  */
 import { useEffect, useState } from "react";
@@ -35,7 +35,7 @@ export function HomeSideRail() {
   }, []);
 
   return (
-    <aside className="hidden lg:block w-72 shrink-0 space-y-4 lg:mt-[5.875rem]" aria-label="Events and groups" data-testid="home-side-rail">
+    <aside className="hidden lg:block w-72 shrink-0 space-y-4 lg:mt-[9.9375rem]" aria-label="Events and groups" data-testid="home-side-rail">
       <section className="rounded-lg border border-border p-4">
         <h2 className="text-sm font-semibold text-foreground mb-3">Next events</h2>
         {events === null ? (

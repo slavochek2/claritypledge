@@ -35,3 +35,16 @@ describe('P1392 — feed-first homepage', () => {
     expect(feed).toMatch(/<HomeSideRail \/>/);
   });
 });
+
+describe('P1392 — story 1 pinned for signed-out visitors', () => {
+  it('pins only for signed-out visitors on the plain Stories view, and de-duplicates', () => {
+    expect(feed).toMatch(/const showPinned = !session && activeTab === 'stories' && activeTags\.length === 0 && !searchQuery\.trim\(\);/);
+    expect(feed).toMatch(/\{showPinned && <PinnedStory onResolved=\{setPinnedId\} \/>\}/);
+    expect(feed).toMatch(/filteredStories\.filter\(\(s\) => s\.id !== pinnedId\)/);
+  });
+  it('links the pinned story to its letter', () => {
+    const pin = read('src/app/components/feed/pinned-story.tsx');
+    expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
+    expect(pin).toMatch(/to=\{`\/letter\/\$\{PINNED_STORY_SLUG\}`\}/);
+  });
+});

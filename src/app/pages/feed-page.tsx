@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ChevronDown } from 'lucide-react';
 import { HomeSideRail } from '@/app/components/feed/home-side-rail';
+import { PinnedStory } from '@/app/components/feed/pinned-story';
 import { storiesService } from '@/app/data/stories-service';
 import { feedRead } from '@/app/data/offline-reads';
 import { readThrough } from '@/lib/offline-read-cache';
@@ -386,7 +387,14 @@ export function FeedPage() {
   // P1296 item 7 — group exactly the stories the tab is SHOWING, after the tag and search
   // filters. A pure function of that list, so typing in the search regroups on the next
   // render: a group left with one story becomes a plain card, a group left with none is gone.
-  const storyEntries = useMemo(() => groupBySource(filteredStories), [filteredStories]);
+  // P1392: signed-out visitors on the plain Stories view get story 1 pinned on top; it is
+  // dropped from the list below so it never shows twice.
+  const showPinned = !session && activeTab === 'stories' && activeTags.length === 0 && !searchQuery.trim();
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const storyEntries = useMemo(
+    () => groupBySource(showPinned && pinnedId ? filteredStories.filter((s) => s.id !== pinnedId) : filteredStories),
+    [filteredStories, showPinned, pinnedId],
+  );
 
   const filteredPoints = useMemo(() => {
     let result = filterByTags(points, activeTags);
@@ -693,6 +701,7 @@ export function FeedPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {showPinned && <PinnedStory onResolved={setPinnedId} />}
               {activeTab === 'points'
                 ? (filteredPoints as PointWithUserPosition[]).map((point) => (
                     <FeedPointCard
