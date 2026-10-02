@@ -227,7 +227,7 @@ export function redactRoomCodes(text: string): string {
  * wherever a URL-bearing string reaches Sentry, alongside room codes. The index.html Mixpanel
  * block carries an identical copy; a test asserts they stay identical.
  */
-export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23)(?:token_hash|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+export const AUTH_TOKEN_IN_URL =/((?:[?&#]|%3F|%26|%23)(?:token_hash|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
 
 export function redactAuthTokens(text: string): string {
   return text.replace(AUTH_TOKEN_IN_URL, "$1[redacted]");

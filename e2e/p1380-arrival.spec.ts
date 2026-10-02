@@ -129,6 +129,24 @@ test.describe('P1380 arrival check-in', () => {
     await expect(page.getByTestId('arrival-question')).toHaveCount(0);
   });
 
+  test('the preparation end screen states the start (on-time line)', async ({ page }) => {
+    const u = await registrant('P1380 End', later);
+    const at = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    await supabaseAdmin.from('person_prep_parts').upsert(
+      ['intro_video', 'cognitive_video', 'principle_intro', 'cmp7'].map((part) => ({ profile_id: u.user.id, part, content_version: 1, completed_at: at })),
+      { onConflict: 'profile_id,part' },
+    );
+    await setTestSession(page, u.email);
+    await page.goto(`/events/${later.slug}/prepare`);
+    await page.getByRole('button', { name: 'Start now' }).click();
+    await page.getByRole('button', { name: 'Opt out' }).click();
+    await page.getByRole('button', { name: 'No, continue' }).click();
+    // No statement tag on this event → no positions step.
+    await page.getByRole('button', { name: 'No, thanks' }).click();
+    await expect(page.getByTestId('end-on-time')).toContainText('sharp (doors open');
+    await shoot(page, 'prep-end');
+  });
+
   test('the host sees who arrived', async ({ page }) => {
     await setTestSession(page, host.email);
     await page.goto(`/events/${soon.slug}`);

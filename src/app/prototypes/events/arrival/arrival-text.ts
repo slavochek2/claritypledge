@@ -32,18 +32,23 @@ export function arrivalQuestion(location: string | null | undefined): string {
 
 function formatTime(d: Date, tz: string | undefined): string {
   try {
-    return d.toLocaleTimeString('en-GB', { timeZone: tz || 'UTC', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('en-GB', { ...(tz ? { timeZone: tz } : {}), hour: '2-digit', minute: '2-digit' });
   } catch {
     return d.toISOString().slice(11, 16);
   }
 }
 
-/** Founder-approved 2026-10-01: start sharp, doors 15 minutes before, late arrivals from round 2. */
-export function onTimeLine(event: { datetime: string; timezone?: string }): string {
-  const start = new Date(event.datetime);
+/**
+ * Founder-approved 2026-10-01: start sharp, doors 15 minutes before, late arrivals from round 2.
+ * `timeZone` omitted = the viewer's own zone, which is how every other time on these pages is
+ * shown (the event card beside it) — the two must never disagree on one screen. Emails pass
+ * the event's zone instead (no viewer zone on the server), as all event emails do.
+ */
+export function onTimeLine(datetime: string, timeZone?: string): string {
+  const start = new Date(datetime);
   const doors = new Date(start.getTime() - 15 * 60 * 1000);
-  const t = formatTime(start, event.timezone);
-  return `We start at ${t} sharp (doors open ${formatTime(doors, event.timezone)}). Round 1 pairs whoever is in the room at ${t}; later arrivals join from round 2.`;
+  const t = formatTime(start, timeZone);
+  return `We start at ${t} sharp (doors open ${formatTime(doors, timeZone)}). Round 1 pairs whoever is in the room at ${t}; later arrivals join from round 2.`;
 }
 
 /** The room asks "Have you arrived?" from an hour before the start until the event ends. */

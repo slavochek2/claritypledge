@@ -120,7 +120,7 @@
            session recording off on the sign-in landing routes, where the recorder attaches the
            raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
            src/lib/sentry-filters.ts; a test asserts the two stay identical. */
-        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23)(?:token_hash|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
+        var p1325SignInParam = /((?:[?&#]|%3F|%26|%23)(?:token_hash|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code)(?:=|%3D))[^&#%\s"'<>]+/gi;
         var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname)
         /* P1381: /admin/* renders founder-only PII (every user's email); never record it. */
         p1325NoRecord = p1325NoRecord || /^\/admin(?:\/|$)/i.test(window.location.pathname);

@@ -19,6 +19,7 @@
 export { useAuth, AuthProvider } from './AuthContext';
 export { AuthCallbackPage } from './AuthCallbackPage';
 export { AuthVerifyPage } from './AuthVerifyPage';
+export { EventLinkPage } from './EventLinkPage';
 
 // Re-export types for convenience
 export type { Profile } from '@/app/types';

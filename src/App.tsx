@@ -5,7 +5,7 @@ import { isChunkErrorMessage } from "@/lib/chunk-error";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { AuthCallbackPage, AuthVerifyPage, AuthProvider, useAuth } from "@/auth";
+import { AuthCallbackPage, AuthVerifyPage, EventLinkPage, AuthProvider, useAuth } from "@/auth";
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
@@ -761,6 +761,19 @@ export default function ClarityPledgeApp() {
           inbox-delivered entry point, so a lazy chunk fetch is one more thing that can
           fail between the tap and the session.
         */}
+        {/*
+          P1380: every event-email button opens this "Continue" page; only the press redeems the
+          ticket, so link scanners spend nothing. Eager for the same reason as /auth/verify.
+        */}
+        <Route
+          path="/auth/event-link"
+          element={
+            <ClarityLandingLayout surface="public">
+              <EventLinkPage />
+            </ClarityLandingLayout>
+          }
+        />
+
         <Route
           path="/auth/verify"
           element={

@@ -84,13 +84,13 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 401, expectCors: false },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
-  // P1380: deployed --no-verify-jwt (opened from an inbox; the hashed ticket is the
-  // credential). GET/HEAD only — OPTIONS and POST hit the handler's own method guard, which
-  // is both the boot proof and the refusal. Recorded from the handler code, not yet from a
-  // prod response: confirm on the first post-deploy smoke.
+  // P1380: deployed --no-verify-jwt (called by the app's "Continue" page before sign-in; the
+  // hashed, single-use ticket is the credential). A POST {} carries no ticket, so the deny reply
+  // is the HANDLER's input check — a boot proof, like create-and-sign. Recorded from the handler
+  // code, not yet from a prod response: confirm on the first post-deploy smoke.
   'event-email-link': {
-    options: { status: 405, expectCors: false },
-    deny: { status: 405, bodyIncludes: 'Method not allowed' },
+    options: { status: 200, expectCors: true },
+    deny: { status: 400, bodyIncludes: 'invalid ticket' },
   },
   // No OPTIONS branch either: the handler's method guard answers 405 first.
   //

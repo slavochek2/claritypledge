@@ -83,7 +83,7 @@ export function EventArrivingPage() {
           </a>
         )}
       </div>
-      <p className="text-sm text-foreground" data-testid="arriving-on-time">{onTimeLine(event)}</p>
+      <p className="text-sm text-foreground" data-testid="arriving-on-time">{onTimeLine(event.datetime)}</p>
       <div className="flex w-full flex-col items-center gap-1">
         {/* While confirming a release, the safe answer is the one primary on the page. */}
         {!confirmingCancel && <LetterPrimaryCta label="I'm here now" onClick={hereNow} disabled={busy} />}

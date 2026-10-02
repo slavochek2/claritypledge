@@ -1056,7 +1056,7 @@ function PrepFlow({
                   <Title>Thank you for preparing</Title>
                   {/* P1380: said once, where people plan their evening (founder-approved copy). */}
                   {!isOnlineLocation(event.location) && (
-                    <p className="text-sm text-foreground" data-testid="end-on-time">{onTimeLine(event)}</p>
+                    <p className="text-sm text-foreground" data-testid="end-on-time">{onTimeLine(event.datetime)}</p>
                   )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
                     <p className="text-sm text-muted-foreground" data-testid="volunteer-note">

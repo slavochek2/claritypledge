@@ -40,6 +40,8 @@ const LEAKY_URLS = [
   `https://claritypledge.com/auth/callback#access_token=${JWT}&expires_in=3600&refresh_token=${SECRET}&token_type=bearer`,
   `https://claritypledge.com/auth/callback?source=signup&code=${SECRET}`,
   `https://claritypledge.com/login?redirect=%2Fauth%2Fverify%3Ftoken_hash%3D${SECRET}`,
+  // P1380: the event-email "Continue" page carries a single-use sign-in ticket.
+  `https://claritypledge.com/auth/event-link?ticket=${SECRET}`,
 ];
 
 describe('P1325: Mixpanel carries no sign-in token', () => {

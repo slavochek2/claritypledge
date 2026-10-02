@@ -50,8 +50,14 @@ export function ticketExpiry(event: { datetime: string; duration_minutes: number
   return new Date(end + 60 * 60 * 1000);
 }
 
+/**
+ * Buttons open the APP's "Continue" page, never the function directly: a scanner that fetches
+ * the link gets a page, and only a human press redeems the ticket (event-email-link header).
+ * APP_URL (the convention send-letter-emails uses) lets the test project point at a dev/preview site; prod defaults to claritypledge.com.
+ */
 function linkBase(): string {
-  return `${Deno.env.get('SUPABASE_URL') ?? ''}/functions/v1/event-email-link`;
+  const site = (Deno.env.get('APP_URL') ?? 'https://claritypledge.com').replace(/\/+$/, '');
+  return `${site}/auth/event-link`;
 }
 
 /**
@@ -75,7 +81,7 @@ export async function mintEmailLink(
     console.error(`mintEmailLink(${purpose}) failed:`, error.message);
     return null;
   }
-  return `${linkBase()}?t=${encodeURIComponent(ticket)}`;
+  return `${linkBase()}?ticket=${encodeURIComponent(ticket)}`;
 }
 
 // ── Text rules shared with the app (src/app/prototypes/events/arrival/arrival-text.ts) ──
