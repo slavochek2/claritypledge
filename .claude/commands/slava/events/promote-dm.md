@@ -116,6 +116,32 @@ email_sent_at: —
 
 ---
 
+## Step 5b — Reply status, sheet, drafts (learned on Clarity Night #2, 2026-10-02)
+
+1. **Reply status from Beeper, not memory.** Pull every 1:1 message since the previous invite
+   window via the Beeper local API `GET /v1/messages/search?chatType=single&dateAfter=…&sender=me|others`
+   (page to exhaustion; confirm the oldest message reaches the window start). For each person: invite
+   sent? replied after it? what they said? Registered/came (prod `event_rsvps`)? Do NOT run the full
+   `mirror-beeper.py` refresh for this — it crashed Beeper Desktop twice under load.
+2. **Working surface is a Google Sheet** the founder edits: Tier, Name, Chat ID, invite date, Replied?,
+   What they said, Recommendation, Why, Your call, Draft, Status, **Final list** (DM / email /
+   organiser / -). Emails live in the same sheet. When writing back, **match rows by Chat ID, never
+   by position** — the founder re-sorts mid-session.
+3. **Tiers:** warm invite (link) · light ask ("May I send you the link?") · last nudge (close, no
+   reply) · respectful last message (thin, no reply) · opt-out line · drop · skip (away) · organiser
+   ask · email.
+4. **The founder's voice** (from his edits): open with "I'd like to invite you…", never "I'm
+   hosting…"; say why it fits *them* first; relative time ("Tuesday next week, 18:30 at Zuzalu"); a
+   personal hook first and the invite as a P.S. for new contacts; their language (German, Russian…).
+   **Opt-out line:** "I now run these weekly on different topics. I don't like to spam you, so unless I
+   hear back from you, I will stop sending you these invites. Otherwise please let me know." Never ask
+   "would you like me to keep sending?".
+5. **Messenger card** (`/slava:events:messenger-card`): offer it before drafting. Attach it ONLY to
+   messages that already contain the link. A "may I send the link?" ask goes as text; whoever says
+   yes gets the link + card as the reply.
+6. Re-read the sheet immediately before sending; send only `Final list = DM/organiser` rows whose
+   Status is empty; write SENT + (card|text) back per row.
+
 ## Step 6 — WhatsApp (always first)
 
 Ask for the message (or draft one if user provides event details). Then invoke `promote-whatsapp` with `campaign_path`.

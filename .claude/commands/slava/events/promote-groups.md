@@ -204,6 +204,22 @@ Before the probe, extract every URL from every resolved blurb (pattern `https?:/
 
 If any URL fails: **STOP.** Report: "Link check failed: {url} → {reason}. Fix the link before posting." Do not probe or send. Runs once per distinct URL, not per group.
 
+### 3c. Messenger card (offer before the probe)
+
+If `.private/campaigns/<campaign>/invite-card.jpg` does not exist for this event, offer
+`/slava:events:messenger-card` now and build it before the probe — the founder wants it shown at the
+start of every group/DM promotion (2026-10-02). Once approved, **every group post carries it**:
+upload via the Beeper local API (`POST /v1/assets/upload`) and send text + `attachment` (the MCP
+`send_message` tool cannot attach). Include the card in the self-chat probe so the founder sees the
+exact message as it will land.
+
+**Moderation check before a group's first event post with an image.** On 2026-10-02 two groups
+removed the post within seconds or hours: one Telegram group's AI anti-spam bot deleted it and blocked
+the founder, and a WhatsApp group's admins deleted it. Before posting, read the last ~50 messages: a
+moderation bot posting ban notices, or recent event posts that are gone, means skip and ask the
+founder. Never assume a group that accepted a text post last month accepts an image post with a
+registration link now.
+
 ### 4. Transport probe
 
 Load Beeper MCP via ToolSearch. Send **each distinct-language blurb** to self-chat chatID `1011` as a transport probe (one message per language, prefixed with the lang code, e.g. `[EN] …`, `[ES] …`).
@@ -351,6 +367,14 @@ Failed:                  N
 ```
 
 For each `verify_unavailable` or `verify_needed` group, note: "Re-trigger required — these are never auto-retried." (A transient auth drop must not become a delayed wrong-post on the next run.)
+
+### 8. Deletion re-check (same day, and next run)
+
+"Sent and verified" is a snapshot. Admins and bots delete later (2026-10-02: a large WhatsApp group deleted
+the post hours after a clean verify). A few hours after posting, and again at the start of the next
+promote run, list each group's recent messages via the Beeper local API and look for the founder's
+post with `isDeleted: true`. A deleted post → report it, and set that group's entry in
+`.private/event-channels.json` to `excluded` with the date and evidence, so the next event skips it.
 
 ---
 

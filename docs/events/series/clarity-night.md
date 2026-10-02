@@ -52,9 +52,10 @@ event's description**, never reused from the last night (the saved blurbs are ev
 
 - **Beeper must be loaded** (the `cf` launch alias). Steps 3 to 5 are Beeper sends. Check before
   step 1, not when step 3 arrives.
-- **Links:** the per-topic short link with `?d=<YYMMDD>` everywhere, except messages to people and
-  channels inside the 4Seas community, who get the **Sola event link** (that is where their
-  community's events live).
+- **Links:** the per-topic short link with `?d=<YYMMDD>` everywhere, 4Seas included (founder,
+  2026-10-02: the event is listed on Sola, but there is no need to spread Sola links).
+- **Messenger card:** build it first with `/slava:events:messenger-card`; group posts and warm DMs
+  carry it.
 
 ### 1. Platforms — `/slava:events:promote-all`
 
@@ -82,8 +83,7 @@ Make sure the event is in the CM events calendar, coloured the way the private t
 ### 4. Organiser asks — a special tier, before personal DMs
 
 People who run other communities' announcement posts. They are not invitees; each gets **one short
-message asking to include the event in their next announcement**, with the link that fits their
-community (Sola link for 4Seas). Show every draft first and send **exactly one** message per
+message asking to include the event in their next announcement**, with the ClarityPledge short link. Show every draft first and send **exactly one** message per
 organiser. On 2026-09-14 one organiser received two versions because a draft was sent before the
 founder's rewrite.
 

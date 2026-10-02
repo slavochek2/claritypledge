@@ -90,7 +90,12 @@ Update `campaign_path/audience.md` header: add `email_sent_at: YYYY-MM-DD`.
 ## Conventions
 
 - **Credentials**: `MAILGUN_API_KEY` from the keychain (locked half, P1318 — not in `.env.local`); `MAILGUN_DOMAIN=mg.claritypledge.com`, `MAILGUN_REGION=eu` from `.env.local`
-- **From**: always `Slava <slava@claritypledge.com>`
+- **From**: always `Slava Ladischenski <slava@claritypledge.com>` (founder, 2026-10-01: full name, not bare "Slava"; sign-off stays "Slava")
+- **Format**: multipart — a plain-text part plus a minimal HTML part (same words, no images or styling) so the footer reads "Don't want these invites? **Unsubscribe**" with the word linked. Text part ends `--\nDon't want these invites? Unsubscribe: %unsubscribe_url%`; also send header `h:List-Unsubscribe=<%unsubscribe_url%>`. With curl use `--form-string` — in `-F`, a value starting with `<` is read as a file and the send aborts.
+- **Suppressions**: Mailgun auto-skips its unsubscribes/bounces/complaints lists; count them before a send and report.
+- **Daily cap**: the plan allows **100 sends/day** (tests included). Over the cap Mailgun refuses with "daily request limit (100) exceeded, try again after …" — record the refused rows and retry after that time; never loop.
+- **One test per send**, not several — repeated near-identical tests to the same inbox landed in spam (2026-09-15). Delivery can lag ~20 min after "accepted"; check events before re-testing.
+- **Chiang Mai event emails** append the calendar P.S. from `.private/event-channels.json` (`email_ps`) after the sign-off; never in non-Chiang-Mai outreach.
 - **Never batch-write status** — write per row immediately after send
 - **Declined contacts are never sent to** — hard skip
 - **Test recipient**: Slava's personal Gmail (from global CLAUDE.md profile) — not in the audience table, no dedup needed
