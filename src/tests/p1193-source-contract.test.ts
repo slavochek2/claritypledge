@@ -134,7 +134,9 @@ describe('P1193 — the rename reached REGEX path patterns, not only string lite
   it('the bottom nav still treats the join page as a focus surface', () => {
     // If this stops matching, BottomNav renders on top of the join page's own action
     // on mobile — the exact overlap the focus-route list exists to prevent.
-    const bottomNav = read('src/app/components/layout/bottom-nav.tsx');
+    // P1387: the focus-route rule moved, unchanged, into bottom-nav-routes.ts (shared with the
+    // layout's bottom padding); BottomNav calls it.
+    const bottomNav = read('src/app/components/layout/bottom-nav-routes.ts');
     expect(bottomNav).toMatch(/\/\^\\\/\(org\|groups\)\\\/\[\^\/\]\+\\\/join/);
   });
 

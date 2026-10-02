@@ -647,6 +647,7 @@ function PrepFlow({
             ) : undefined
           }
           ratingBarClassName="animate-in slide-in-from-bottom duration-300"
+          ratingInline
           aboveRating={
             <div className="flex items-center gap-3 px-2 pb-2 sm:px-5" data-testid="rating-host">
               {hostAvatar('md')}

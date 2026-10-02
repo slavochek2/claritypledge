@@ -3,6 +3,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
+import { isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineStrip } from "@/app/components/offline/offline-strip";
@@ -152,7 +153,8 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const hasVisibleBanner = (hasActiveSession || roomBarVisible) && !isLivePage && !isImmersiveLetterRoute;
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
-  const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly;
+  // P1387: and only where the BottomNav actually shows — same rule, one source.
+  const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,

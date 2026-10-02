@@ -5,7 +5,7 @@
  * P113 Phase 2: Shows fixed bottom nav on mobile for verified users.
  * Uses design system tokens only.
  */
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LandmarkIcon, UserIcon, MailIcon, HomeIcon, UsersIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
@@ -14,6 +14,7 @@ import { useUnreadLetterCount } from "@/app/hooks/useUnreadLetterCount";
 import { useOpenLiveInvite } from "@/app/hooks/useOpenLiveInvite";
 import { usePendingPartnerInvitationCount } from "@/app/hooks/usePendingPartnerInvitationCount";
 import { EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
+import { isBottomNavHiddenRoute } from "./bottom-nav-routes";
 
 interface NavItem {
   icon: typeof HomeIcon;
@@ -27,7 +28,6 @@ interface NavItem {
 
 export function BottomNav() {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const { showUserMenu, slug } = useNavAuthState();
   const { isLive } = useLiveSession();
   const { count: unreadLetterCount } = useUnreadLetterCount();
@@ -46,46 +46,7 @@ export function BottomNav() {
     return null;
   }
 
-  // Hide on creation/focus pages — these use FocusHeader instead.
-  // Content pages (/story/, /point/) keep bottom nav for navigation.
-  // P932: a completed letter (?done=1) leaves immersive mode — restore the bottom nav
-  // so the receiver can be directed onward. Only the /letter/ reading route is exempted;
-  // other focus routes (and letter results/overview, which don't set ?done) stay hidden.
-  const letterDone = searchParams.get('done') === '1';
-  const focusRoutes = ['/agreements/', '/create', '/letter/', '/letters/drafts/', '/explain-back/', '/me/calibration', '/transcribe'];
-  // /org/:slug is a browse page, but /org/:slug/join (the terms gate) is a focus
-  // page — a prefix entry can't express that, so it gets its own exact pattern.
-  // P1016/P1024: /meet (formerly /terms) carries its own sticky action bar, which the
-  // bottom nav would sit on top of. Kept as an EXACT pattern — the old '/terms' entry
-  // needed one to avoid swallowing /terms-of-service, and exactness is still correct
-  // here: nothing else lives under /meet.
-  // P1077: /ready is the same kind of single-focus surface as /meet — one question,
-  // one action — so the bottom nav's browse affordances don't belong on it either.
-  // P1114 rev2: the room's own /events/:slug/{room,ready,meet} carry the exact same
-  // sticky action bar (meet) or single action (ready, and the gate) — found via a
-  // captured screenshot at 320px, where BottomNav rendered fixed at the bottom
-  // directly on top of the room's Opt in / Opt out bar, both position:fixed and
-  // fighting for the same pixels. Every registered visitor is signed in (the room
-  // requires it), so BottomNav always renders here unless excluded.
-  const onFocusRoute = focusRoutes.some(r => location.pathname.startsWith(r))
-    // P1193: the join page moved to /groups/:slug/join. BOTH nouns are matched —
-    // /org* redirects before it renders, so only the /groups form is reachable today,
-    // but a pattern that silently stops matching is exactly how this focus treatment
-    // would be lost again on the next rename. Missed by the first sweep of this branch
-    // because it is a REGEX, not a quoted path string.
-    || /^\/(org|groups)\/[^/]+\/join\/?$/.test(location.pathname)
-    || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(location.pathname)
-    || /^\/(ready|events\/[^/]+\/(ready|room|prepare))\/?$/.test(location.pathname)
-    // P1323: /stake/:tag — the page attendees land on from a room ("Links -> cmp7"). Desktop
-    // renders it `compact` (no tab row); the phone was the one device still showing the full
-    // browse bar under the points (founder, 2026-09-16, measured signed in). Focused on every
-    // device, like the room pages; Back, the logo and the Links trigger still reach everything.
-    // EXACT: one segment only, so /stakeholders or /stake/x/y are not swallowed.
-    || /^\/stake\/[^/]+\/?$/.test(location.pathname);
-  const completedLetterReading = letterDone && location.pathname.startsWith('/letter/');
-  // P1336: the finished preparation (?done=1) is a destination, not a focus step — the bar returns.
-  const completedPreparation = letterDone && /^\/events\/[^/]+\/prepare\/?$/.test(location.pathname);
-  if (onFocusRoute && !completedLetterReading && !completedPreparation) {
+  if (isBottomNavHiddenRoute(location.pathname, location.search)) {
     return null;
   }
 

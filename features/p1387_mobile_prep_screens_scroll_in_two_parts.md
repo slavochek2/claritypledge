@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 16
 severity: high
@@ -9,10 +9,14 @@ created_date: '2026-10-02'
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+reproduce_artifact:
+  test_file: e2e/p1387-mobile-prep-one-page.spec.ts
+  observed_red: '6 failed — confirm pinned 0.44 (390) / 0.56 (320); blank scroll 80px on plan and room gate at both widths'
+  confidence: high
 tags: [events, preparation, mobile, layout]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 related: [p1336, p1386]
 ---
 

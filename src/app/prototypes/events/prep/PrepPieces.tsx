@@ -253,7 +253,9 @@ export function PrepStatus({ progress, started }: { progress: Progress; started:
  * The confirmation's prep block (variant D, round E). The why line always shows. 0 done: the
  * question + Prepare now / Remind me by email. 1..M-1 done: "{k} of {M} steps done" + Continue
  * your preparation. Done: nothing here — the box carries "Prepared ✓". Never "0 of M".
- * Inline under the card; pinned to the bottom bar only when inline it would end below the fold.
+ * Inline under the card. Only the action buttons pin to the bottom bar, and only when inline they
+ * would end below the fold — P1387: pinning the whole block covered half a phone screen, the
+ * registration details scrolling behind it. The why and the question always stay in the page.
  */
 export function PrepBlock({
   progress,
@@ -277,23 +279,40 @@ export function PrepBlock({
   aboveBottomNav?: boolean;
 }) {
   const blockRef = useRef<HTMLElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(false);
+  // Decided once per content change, not on resize: iOS fires resize as its toolbar collapses
+  // mid-scroll, and re-deciding then made the bar jump (P1387).
   useEffect(() => {
-    const measure = () => {
-      const anchor = anchorRef.current;
-      const block = blockRef.current;
-      if (!anchor || !block) return;
-      const navHeight = aboveBottomNav && window.innerWidth < 1024 ? 64 : 0;
-      const inlineBottom = anchor.getBoundingClientRect().bottom + window.scrollY + 32 + block.offsetHeight;
-      setPinned(inlineBottom > window.innerHeight - navHeight);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  });
+    const anchor = anchorRef.current;
+    const block = blockRef.current;
+    if (!anchor || !block) return;
+    const navHeight = aboveBottomNav && window.innerWidth < 1024 ? 64 : 0;
+    // The block's inline height WITH its buttons: while pinned, the buttons are not inside it.
+    const blockHeight = block.contains(actionsRef.current) ? block.offsetHeight : block.offsetHeight + (actionsRef.current?.offsetHeight ?? 0);
+    const inlineBottom = anchor.getBoundingClientRect().bottom + window.scrollY + 32 + blockHeight;
+    setPinned(inlineBottom > window.innerHeight - navHeight);
+  }, [anchorRef, aboveBottomNav, progress.done, progress.complete, minutes, reminded, proof.line]);
 
   if (progress.complete) return null;
   const notStarted = progress.done === 0;
+  const actions = (
+      <div className="flex flex-col items-center gap-1" data-testid="confirm-actions" ref={actionsRef}>
+        <LetterPrimaryCta label={notStarted ? 'Prepare now' : 'Continue your preparation'} onClick={onPrepare} />
+        {notStarted &&
+          (reminded ? (
+            <p
+              aria-live="polite"
+              className="flex min-h-11 items-center py-1 text-center text-sm font-medium text-green-600"
+              data-testid="reminder-confirmation"
+            >
+              ✓ We&apos;ll email you a reminder
+            </p>
+          ) : (
+            <LetterPrimaryCta label="Remind me by email" onClick={onRemind} variant="secondary" />
+          ))}
+      </div>
+  );
   const block = (
     <section className="space-y-2 text-center" data-testid="prep-block" ref={blockRef}>
       {/* [DRAFT] founder copy: why before the question. */}
@@ -319,29 +338,16 @@ export function PrepBlock({
           {progress.done} of {progress.total} steps done
         </h2>
       )}
-      <div className="flex flex-col items-center gap-1" data-testid="confirm-actions">
-        <LetterPrimaryCta label={notStarted ? 'Prepare now' : 'Continue your preparation'} onClick={onPrepare} />
-        {notStarted &&
-          (reminded ? (
-            <p
-              aria-live="polite"
-              className="flex min-h-11 items-center py-1 text-center text-sm font-medium text-green-600"
-              data-testid="reminder-confirmation"
-            >
-              ✓ We&apos;ll email you a reminder
-            </p>
-          ) : (
-            <LetterPrimaryCta label="Remind me by email" onClick={onRemind} variant="secondary" />
-          ))}
-      </div>
+      {!pinned && actions}
     </section>
   );
   return pinned ? (
     <>
-      {/* Reserve the pinned bar's height so the box above can scroll clear of it. */}
-      <div aria-hidden style={{ height: (blockRef.current?.offsetHeight ?? 0) + 48 }} />
+      <div className="!mt-8">{block}</div>
+      {/* Reserve the pinned buttons' height so the page above can scroll clear of them. */}
+      <div aria-hidden style={{ height: (actionsRef.current?.offsetHeight ?? 112) + 48 }} />
       {/* EventDetail's sticky RSVP bar pattern: above the BottomNav on phones (lg:hidden there). */}
-      <FixedBottomBar className={aboveBottomNav ? 'bottom-16 lg:bottom-0 pb-4 lg:pb-[max(env(safe-area-inset-bottom),1rem)]' : undefined}>{block}</FixedBottomBar>
+      <FixedBottomBar className={aboveBottomNav ? 'bottom-16 lg:bottom-0 pb-4 lg:pb-[max(env(safe-area-inset-bottom),1rem)]' : undefined}>{actions}</FixedBottomBar>
     </>
   ) : (
     <div className="!mt-8">{block}</div>
