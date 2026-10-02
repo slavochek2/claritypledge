@@ -22,7 +22,7 @@ function state(overrides: Record<string, unknown> = {}) {
   return {
     phase: 'capturing', roomId: 'r1', open: vi.fn(), endMyCapture: vi.fn(),
     manualPaused: false, pauseMine: vi.fn(), resumeMine: vi.fn(),
-    subscribeLevel: () => () => {}, inputSilent: false, micLost: false, micSwitched: false, stopping: false,
+    subscribeLevel: () => () => {}, inputSilent: false, micLost: false, micSwitched: false, stopping: false, pausedByLiveRecord: false, reconnectMic: vi.fn(),
     ...overrides,
   };
 }
@@ -123,6 +123,36 @@ describe('P1388: the short bar (the only form on ordinary pages)', () => {
   it('a manual pause shows "Paused" and Resume in the short bar', () => {
     const resumeMine = vi.fn();
     mockUseRoomCapture.mockReturnValue(state({ phase: 'paused', manualPaused: true, resumeMine }));
+    render(<RoomCaptureBar short />);
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    expect(resumeMine).toHaveBeenCalled();
+  });
+});
+
+describe('P1388 adversarial review 2: the short bar names each state', () => {
+  it.each([
+    [{ micLost: true }, 'Mic lost'],
+    [{ phase: 'stalled' }, 'Live text stalled'],
+    [{ inputSilent: true }, 'No sound'],
+    [{ phase: 'observing' }, 'Recording in another tab'],
+  ])('%o → %s', (flags, text) => {
+    mockUseRoomCapture.mockReturnValue(state(flags));
+    render(<RoomCaptureBar short />);
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  it('a lost mic offers Reconnect in the short bar', () => {
+    const reconnectMic = vi.fn();
+    mockUseRoomCapture.mockReturnValue(state({ micLost: true, reconnectMic }));
+    render(<RoomCaptureBar short />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect mic' }));
+    expect(reconnectMic).toHaveBeenCalled();
+  });
+
+  it('a pause held only by a /live record is shown, with Resume', () => {
+    const resumeMine = vi.fn();
+    mockUseRoomCapture.mockReturnValue(state({ phase: 'paused', pausedByLiveRecord: true, resumeMine }));
     render(<RoomCaptureBar short />);
     expect(screen.getByText('Paused')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));

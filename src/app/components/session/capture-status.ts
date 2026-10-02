@@ -19,16 +19,25 @@ export const STATUS = {
   stopping: 'Stopped — saving the last few seconds…',
 } as const;
 
-export function useCaptureStatus(): { text: string; warn: boolean } {
-  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping } = useRoomCapture();
-  if (stopping) return { text: STATUS.stopping, warn: false };
-  if (micLost) return { text: STATUS.micLost, warn: true };
-  if (phase === 'paused' && manualPaused) return { text: STATUS.paused, warn: false };
-  // Paused by the app (an explain-back, a /live session) — never claim to be transcribing.
-  if (phase === 'paused') return { text: STATUS.autoPaused, warn: false };
-  if (micSwitched) return { text: STATUS.micSwitched, warn: false };
-  if (inputSilent) return { text: STATUS.silent, warn: true };
-  if (phase === 'stalled') return { text: STATUS.stalled, warn: true };
-  return { text: STATUS.running, warn: false };
-}
+/** Short words for the short bar — each state named, never a vague "check mic" for a state
+ *  that is not about the mic (adversarial review 2). */
+export const SHORT = {
+  running: '● Recording', observing: 'Recording in another tab', stopping: 'Stopping…', micLost: 'Mic lost',
+  paused: 'Paused', autoPaused: 'Paused', micSwitched: 'Mic changed', silent: 'No sound', stalled: 'Live text stalled',
+} as const;
 
+export type CaptureStatusKind = keyof typeof SHORT;
+
+export function useCaptureStatus(): { text: string; warn: boolean; kind: CaptureStatusKind } {
+  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping } = useRoomCapture();
+  if (stopping) return { text: STATUS.stopping, warn: false, kind: 'stopping' };
+  if (micLost) return { text: STATUS.micLost, warn: true, kind: 'micLost' };
+  if (phase === 'paused' && manualPaused) return { text: STATUS.paused, warn: false, kind: 'paused' };
+  // Paused by the app (an explain-back, a /live session) — never claim to be transcribing.
+  if (phase === 'paused') return { text: STATUS.autoPaused, warn: false, kind: 'autoPaused' };
+  if (phase === 'observing') return { text: STATUS.running, warn: false, kind: 'observing' };
+  if (micSwitched) return { text: STATUS.micSwitched, warn: false, kind: 'micSwitched' };
+  if (inputSilent) return { text: STATUS.silent, warn: true, kind: 'silent' };
+  if (phase === 'stalled') return { text: STATUS.stalled, warn: true, kind: 'stalled' };
+  return { text: STATUS.running, warn: false, kind: 'running' };
+}

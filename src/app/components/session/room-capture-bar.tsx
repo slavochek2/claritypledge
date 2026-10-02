@@ -12,15 +12,15 @@
  * renders nothing, as D3/D13 asked.
  */
 import { useLayoutEffect, useState } from 'react';
-import { ArrowRight, Pause, Play, Square } from 'lucide-react';
+import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { SessionBar } from './session-bar';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
-import { useCaptureStatus } from './capture-status';
+import { SHORT, useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
 import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-status-context';
 
-const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing']);
+const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing', 'paused']);
 
 /**
  * P1369 — the offline state. Capture behaviour when the network drops was VERIFIED by reading
@@ -52,25 +52,31 @@ const ICON_BUTTON =
  * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
 function CompactCaptureBar({ roomId }: { roomId: string }) {
-  const { phase, open, endMyCapture, manualPaused, pauseMine, resumeMine, micLost, stopping } = useRoomCapture();
+  const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
   const status = useCaptureStatus();
-  const paused = phase === 'paused' && manualPaused;
-  const short = stopping ? 'Stopping…' : paused ? 'Paused' : status.warn ? 'Check mic' : '● Recording';
+  const paused = phase === 'paused';
+  const short = SHORT[status.kind];
   return (
-    <div role="status" aria-label="Room transcription active" data-testid="room-capture-bar" data-form="short"
+    <div role="status" aria-label={`Room transcription: ${status.text}`} data-testid="room-capture-bar" data-form="short"
       className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800">{short}</span>
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
         <CaptureInfoButton />
         <div className="ml-auto flex items-center gap-2">
+          {micLost && (
+            <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={() => void reconnectMic()}
+              aria-label="Reconnect mic" data-testid="capture-reconnect">
+              <Mic className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
           {phase !== 'observing' && !micLost && (
             <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={paused ? resumeMine : pauseMine}
               aria-label={paused ? 'Resume' : 'Pause'} aria-pressed={paused}>
               {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
             </button>
           )}
-          <button type="button" className={`${ICON_BUTTON} hover:text-destructive`} disabled={stopping}
+          <button type="button" className={`${ICON_BUTTON} hover:text-destructive active:text-destructive active:bg-destructive/10`} disabled={stopping}
             onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
           </button>
@@ -84,15 +90,16 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
 }
 
 export function RoomCaptureBar({ short = false }: { short?: boolean }) {
-  const { phase, roomId, open, endMyCapture, manualPaused } = useRoomCapture();
+  const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
   // Offline, the End RPC fails or hangs after the microphone is already off; until it settles the
   // phase does not change, so the button says the stop is under way instead of inviting a retap.
   const [stopping, setStopping] = useState(false);
 
-  const manuallyPaused = phase === 'paused' && manualPaused;
-  if ((!VISIBLE_PHASES.has(phase) && !manuallyPaused) || !roomId) return null;
+  if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
+  // Of the pauses, only the two the person can see and undo render (D3/D13 for the rest).
+  if (phase === 'paused' && !manualPaused && !pausedByLiveRecord) return null;
 
   if (short && !offline) return <CompactCaptureBar roomId={roomId} />;
 

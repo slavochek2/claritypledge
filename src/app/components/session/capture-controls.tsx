@@ -33,7 +33,7 @@ export function SessionStopButton({ onClick, label, ariaLabel, disabled, testId 
       disabled={disabled}
       aria-label={ariaLabel}
       data-testid={testId}
-      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+      className="flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:border-destructive/40 hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 active:text-destructive active:bg-destructive/10 transition-colors disabled:opacity-50 disabled:pointer-events-none"
     >
       <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
       {label}
@@ -65,7 +65,7 @@ export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testI
 }
 
 export function PauseResumeButton() {
-  const { phase, manualPaused, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
+  const { phase, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
   if (phase === 'observing') return null; // another tab holds the mic; it pauses there
   if (micLost) {
     // Nothing to pause. Capture comes back only on this tap — never on its own.
@@ -76,9 +76,10 @@ export function PauseResumeButton() {
       </button>
     );
   }
-  // Paused by the app, not the person: their Pause/Resume does not apply, so it is not offered.
-  if (phase === 'paused' && !manualPaused) return null;
-  const paused = phase === 'paused' && manualPaused;
+  // Any pause offers Resume — including an automatic one: off /live the only automatic reason
+  // left is a /live record, possibly stale, and without Resume the person was stuck paused
+  // (adversarial review 2). A tapped Resume never overrides /live itself or an explain-back.
+  const paused = phase === 'paused';
   return (
     <button
       type="button"

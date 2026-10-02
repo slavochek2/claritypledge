@@ -302,3 +302,20 @@ describe('P1388 adversarial review — a Resume does not outlive its pause', () 
     expect(ctx.phase, 'the old Resume must not override a live session').toBe('paused');
   });
 });
+
+describe('P1388 adversarial review 2', () => {
+  it('a mic that dies while starting up is reported lost, never "still recording"', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    const gum = navigator.mediaDevices.getUserMedia as unknown as ReturnType<typeof vi.fn>;
+    gum.mockImplementationOnce(async () => {
+      const dead = { stop: vi.fn(), onended: null as (() => void) | null, readyState: 'ended' };
+      tracks.list.push(dead);
+      return { getTracks: () => [dead] };
+    });
+    await act(async () => { tracks.list[0].onended?.(); });
+    await waitFor(() => expect(gum).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(ctx.micLost).toBe(true));
+    expect(ctx.micSwitched).toBe(false);
+  });
+});

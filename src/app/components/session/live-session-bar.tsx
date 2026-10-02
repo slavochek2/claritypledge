@@ -10,7 +10,7 @@ import { useLiveSession } from '@/app/contexts/live-session-context';
 import { clearSessionJoiner, getClaritySession } from '@/app/data/api';
 import { useTerminateSession } from '@/hooks/use-terminate-session';
 import { SessionBar } from './session-bar';
-import { SessionGoButton, SessionStopButton } from './capture-controls';
+import { ArrowRight, Square } from 'lucide-react';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 
 /** P1369 UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
@@ -63,18 +63,28 @@ export function LiveSessionBar() {
     }
   }
 
+  // P1388 (founder, 2026-10-02): the same short bar as room capture — one line, the status in
+  // a few words, the two controls as icons. Accessible names keep the long labels.
+  const rejoin = hasPartner ? 'Rejoin Session' : 'Return to Session';
   return (
-    <SessionBar
-      ariaLabel="Active session notification"
-      text={hasPartner ? `In session with ${activeSessionPartnerName}` : 'Waiting for partner…'}
-      // P1388: the same compact row as the room-capture bar — stop first, navigation apart at
-      // the end, equal weight, no full-width primary. Labels unchanged.
-      extra={
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <SessionStopButton label={isEnding ? 'Ending…' : 'End Session'} onClick={() => void handleEndSession()} disabled={isEnding} />
-          <SessionGoButton label={hasPartner ? 'Rejoin Session' : 'Return to Session'} onClick={() => navigate('/live')} />
+    <div role="status" aria-label="Active session notification" data-testid="live-session-bar"
+      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1">
+      <div className="max-w-4xl mx-auto flex items-center gap-2">
+        <span className="text-sm font-medium text-blue-900 truncate min-w-0">
+          {hasPartner ? `● In session with ${activeSessionPartnerName}` : 'Waiting for partner…'}
+        </span>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <button type="button" onClick={() => void handleEndSession()} disabled={isEnding}
+            aria-label={isEnding ? 'Ending…' : 'End Session'}
+            className="inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive active:text-destructive active:bg-destructive/10 disabled:opacity-50">
+            <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => navigate('/live')} aria-label={rejoin}
+            className="inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100">
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
-      }
-    />
+      </div>
+    </div>
   );
 }

@@ -200,6 +200,9 @@ export interface RoomCaptureContextValue {
   micSwitched: boolean;
   /** P1388: Stop was tapped. The mic is already off; the last chunk is still uploading. */
   stopping: boolean;
+  /** P1388: paused only because a /live record exists (no /live page, no explain-back) — the
+   *  one automatic pause the person may need to see and undo, since the record can be stale. */
+  pausedByLiveRecord: boolean;
   /** P1388: re-open the default mic after it was lost — only on the person's tap. */
   reconnectMic: () => Promise<void>;
   isCapturingForEvent: (eventId: string) => boolean;
@@ -231,6 +234,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   micSwitched: false,
   stopping: false,
   reconnectMic: () => Promise.resolve(),
+  pausedByLiveRecord: false,
   isCapturingForEvent: () => false,
   speakingMemberIds: new Set(),
   registerBarSlot: () => noop,
@@ -438,6 +442,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // recorder's onstop runs later.
     const record = storedRef.current;
     genRef.current += 1;
+    // A getUserMedia that never settles (an unanswered permission prompt) must not leave
+    // recovery and Reconnect locked for the rest of the session (adversarial review 2).
+    reconnectingRef.current = false;
     pausedRef.current = false;
     if (h.chunkTimer) clearInterval(h.chunkTimer);
     h.chunkTimer = null;
@@ -564,6 +571,27 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    * is kept — this is the same capture, on a new device. If no input can be opened, capture is
    * left stopped and the bar says the microphone is lost; Stop transcribing still works.
    */
+  /** The new mic may already have died while it was starting (a flaky Bluetooth / USB-C mic);
+   *  its 'ended' fired while reconnectingRef blocked a second recovery. Treat that as lost —
+   *  never report "still recording" on a dead track (adversarial review 2, HIGH). */
+  const releaseIfDead = useCallback((): boolean => {
+    const h = media.current;
+    if (!h.stream || h.stream.getTracks().every((t) => t.readyState !== 'ended')) return false;
+    if (h.chunkTimer) clearInterval(h.chunkTimer);
+    h.chunkTimer = null;
+    h.slices?.stop();
+    h.slices = null;
+    if (h.recorder && h.recorder.state !== 'inactive') {
+      h.recorder.onstop = () => enqueueChunk(false);
+      h.recorder.stop();
+    }
+    h.recorder = null;
+    h.stream.getTracks().forEach((t) => t.stop());
+    h.stream = null;
+    setMicLost(true);
+    return true;
+  }, [enqueueChunk]);
+
   const recoverFromTrackEnded = useCallback(async (roomId: string) => {
     const h = media.current;
     if (h.stream === null || reconnectingRef.current) return;
@@ -593,7 +621,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     }
     try {
       await startMedia(roomId);
-      if (genRef.current !== gen || !h.stream) return;
+      if (genRef.current !== gen || !h.stream || releaseIfDead()) return;
       setMicLost(false);
       setMicSwitched(true);
       if (micSwitchedTimer.current) clearTimeout(micSwitchedTimer.current);
@@ -603,7 +631,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     } finally {
       reconnectingRef.current = false;
     }
-  }, [enqueueChunk, startMedia]);
+  }, [enqueueChunk, startMedia, releaseIfDead]);
   trackEndedRef.current = (roomId: string) => void recoverFromTrackEnded(roomId);
 
   /**
@@ -618,13 +646,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     const gen = genRef.current;
     try {
       await startMedia(roomId);
-      if (genRef.current === gen && media.current.stream) setMicLost(false);
+      if (genRef.current === gen && media.current.stream && !releaseIfDead()) setMicLost(false);
     } catch (err) {
       console.warn('[room-capture] mic still unavailable:', err);
     } finally {
       reconnectingRef.current = false;
     }
-  }, [startMedia]);
+  }, [startMedia, releaseIfDead]);
 
   const teardownLocal = useCallback((forgetRecord: boolean) => {
     stopMedia();
@@ -1011,6 +1039,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     if (code) navigate(`/transcribe/${code}`);
   }, [navigate]);
 
+  const pausedByLiveRecord =
+    state.phase === 'paused' && !manualPaused && !pauseLocation && explainBackHolds === 0 && liveSessionActive;
+
   const value = useMemo<RoomCaptureContextValue>(() => ({
     phase: state.phase,
     roomId: state.roomId,
@@ -1020,8 +1051,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // P1388: a MANUAL pause keeps the bar up (its Resume lives there); an automatic pause on
     // /live or a letter screen still hides it, as P1307 D3/D13 asked.
     barVisible:
+      // P1388: a manual pause keeps the bar, and so does a pause held ONLY by a /live record —
+      // possibly stale, and otherwise invisible with no way out (adversarial review 2). The
+      // other automatic pauses (/live, letters, explain-back) still show nothing, per D3/D13.
       (state.phase === 'capturing' || state.phase === 'stalled' || state.phase === 'observing' ||
-        (state.phase === 'paused' && manualPaused)) && !pauseLocation,
+        (state.phase === 'paused' && (manualPaused || pausedByLiveRecord))) && !pauseLocation,
     startCapture,
     endMyCapture,
     open,
@@ -1035,12 +1069,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     micSwitched,
     stopping,
     reconnectMic,
+    pausedByLiveRecord,
     isCapturingForEvent: (eventId: string) => state.eventId === eventId && LIVE_PHASES.has(state.phase),
     speakingMemberIds: new Set(speaking.keys()),
     registerBarSlot,
     barSlotCount,
   }), [state, pauseLocation, startCapture, endMyCapture, open, holdPause, manualPaused, pauseMine, resumeMine,
-    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, speaking, registerBarSlot, barSlotCount]);
+    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, pausedByLiveRecord, speaking, registerBarSlot, barSlotCount]);
 
   return <RoomCaptureContext.Provider value={value}>{children}</RoomCaptureContext.Provider>;
 }
