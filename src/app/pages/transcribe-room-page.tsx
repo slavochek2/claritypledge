@@ -25,13 +25,14 @@
 import { CaptureInfoButton, PauseResumeButton, StopCaptureButton } from '@/app/components/session/capture-controls';
 import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
+import { RoomPeople } from '@/app/components/session/room-people';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, Users, ArrowDown } from 'lucide-react';
+import { Sparkles, ShieldOff, Loader2, ArrowDown } from 'lucide-react';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
 import {
@@ -366,13 +367,7 @@ export function TranscribeRoomPage() {
         )}
         {/* P1388: who is in the room sits under the controls — the controls are what the
             recorder needs first. */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3" data-testid="transcribe-roster">
-          <Users className="w-3.5 h-3.5" />
-          <span>
-            {members.length} in the room:{' '}
-            {members.map((m) => (speaking.has(m.id) ? `${m.displayName} …` : m.displayName)).join(', ') || '—'}
-          </span>
-        </div>
+        <RoomPeople members={members} speakingIds={speaking} />
 
         <div className="relative flex-1 min-h-0 mb-4">
           <div

@@ -10,6 +10,7 @@
  * every member has stopped and creates the whole-recording work for each of them.
  */
 import { supabase } from '@/lib/supabase';
+import type { PersonRef } from '@/app/types';
 import { createClaritySession } from './api';
 // Shared with slice-recorder.ts: the same defect appeared at three layers of this feature,
 // so the deadline lives in one place rather than three copies that drift.
@@ -666,4 +667,33 @@ export async function getMyCaptureStatus(roomId: string, profileId: string): Pro
     captureEndedAt: (member.capture_ended_at as string | null) ?? null,
     roomEndedAt: (room.ended_at as string | null) ?? null,
   };
+}
+
+/**
+ * P1388: faces and profile links for a room's roster. The member rows carry only a display
+ * name; the photo, colour, pledge ring and slug live on profiles (publicly readable — the same
+ * select agreements-service-real.ts makes). A failed read returns {} and the roster falls back
+ * to initials from the display name, so the room never breaks over a picture.
+ */
+export async function fetchRoomPeople(profileIds: string[]): Promise<Record<string, PersonRef>> {
+  if (profileIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, slug, avatar_color, avatar_url, has_pledged')
+    .in('id', profileIds);
+  if (error || !data) {
+    console.warn('[transcribe] roster profiles could not be read:', error);
+    return {};
+  }
+  const out: Record<string, PersonRef> = {};
+  for (const row of data as { id: string; name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null }[]) {
+    out[row.id] = {
+      name: row.name ?? '',
+      slug: row.slug ?? undefined,
+      avatarColor: row.avatar_color ?? undefined,
+      avatarUrl: row.avatar_url,
+      hasPledged: !!row.has_pledged,
+    };
+  }
+  return out;
 }
