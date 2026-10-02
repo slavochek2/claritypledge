@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-01'
 tags: [events, host, preparation]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -142,13 +142,13 @@ the `/tree` onboarding prototype page; handing out mics is still P1337.
 
 ## Amended Acceptance Criteria
 
-- [ ] Preparation step: "Do you have a microphone to bring?" — Yes saves `own` + `confirmed` and continues without a second question
-- [ ] "No, I need one" asks what the phone plugs into; USB-C saves `usbc` + `confirmed`; Lightning and Something else save `lightning` / `other` + `eligible`
-- [ ] Lightning and Something else show the note and a Continue; the page still scrolls as one page at 320px
-- [ ] Back: from Q2 to Q1, from Q1 to the opt-in screen; a returning person with a saved answer sees the matching answer highlighted; saying Yes again on the opt-in screen opens on Q1 and does not downgrade a USB-C or own-mic volunteer from confirmed
-- [ ] A Lightning or Something else volunteer does not reduce "{n} of {places} volunteer places left"; a USB-C or own-mic volunteer does
-- [ ] Host, event page: `own` = one grey mic; USB-C / Lightning / other = two overlapping dark mics with C / L / ?; each has its hint (hover on desktop, tap on phone); readable at 320px and in dark mode
-- [ ] Host line counts each kind and reads right for mixed, only-USB-C and only-other cases; absent when nobody needs a mic
-- [ ] Non-host sees no marks and no line (DB still refuses them); /meet shows none to anyone
-- [ ] End screen volunteer note and the opt-in line read as in the wording block, for all four mic outcomes
-- [ ] Migration applies on test; `usbc/own/none` writes still succeed; `lightning` / `other` are accepted; a value outside the set is rejected (new e2e DB test)
+- [x] Preparation step: "Do you have a microphone to bring?" — Yes saves `own` + `confirmed` and continues without a second question
+- [x] "No, I need one" asks what the phone plugs into; USB-C saves `usbc` + `confirmed`; Lightning and Something else save `lightning` / `other` + `eligible`
+- [x] Lightning and Something else show the note and a Continue; the page still scrolls as one page at 320px
+- [x] Back: from Q2 to Q1, from Q1 to the opt-in screen; a returning person with a saved answer sees the matching answer highlighted; saying Yes again on the opt-in screen opens on Q1 and does not downgrade a USB-C or own-mic volunteer from confirmed — verified by e2e for Q2 → Q1 → opt-in and the Q1 highlight; the Q2 highlight was seen in a screenshot, not asserted.
+- [x] A Lightning or Something else volunteer does not reduce "{n} of {places} volunteer places left"; a USB-C or own-mic volunteer does
+- [x] Host, event page: `own` = one grey mic; USB-C / Lightning / other = two overlapping dark mics with C / L / ?; each has its hint (hover on desktop, tap on phone); readable at 320px and in dark mode — verified at 1280 / 390 / 320px; dark mode NOT verified (the app does not follow the browser colour scheme).
+- [x] Host line counts each kind and reads right for mixed, only-USB-C and only-other cases; absent when nobody needs a mic
+- [x] Non-host sees no marks and no line (DB still refuses them); /meet shows none to anyone
+- [x] End screen volunteer note and the opt-in line read as in the wording block, for all four mic outcomes — e2e asserts the end note for USB-C, own and Something else; the Lightning end line and the changed opt-in line were not asserted (the Lightning e2e path ends as USB-C).
+- [x] Migration applies on test; `usbc/own/none` writes still succeed; `lightning` / `other` are accepted; a value outside the set is rejected (new e2e DB test)
