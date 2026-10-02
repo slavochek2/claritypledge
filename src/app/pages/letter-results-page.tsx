@@ -307,7 +307,7 @@ export function LetterResultsPage() {
         <p className="text-sm text-muted-foreground">
           This letter doesn&apos;t exist or you don&apos;t have access.
         </p>
-        <Link to="/letters" className="text-sm text-[#0044CC] hover:underline">
+        <Link to="/letters" className="text-sm text-blue-600 hover:underline">
           Back to Letters
         </Link>
       </div>
@@ -318,7 +318,7 @@ export function LetterResultsPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 text-center">
         <p className="text-sm text-muted-foreground">No stories found in this letter.</p>
-        <Link to="/letters" className="text-sm text-[#0044CC] hover:underline">
+        <Link to="/letters" className="text-sm text-blue-600 hover:underline">
           Back to Letters
         </Link>
       </div>

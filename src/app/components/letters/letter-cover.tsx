@@ -65,8 +65,8 @@ export function LetterCover({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 py-10">
-      <div className="w-16 h-16 rounded-full bg-[#0044CC]/10 flex items-center justify-center">
-        <Mail className="w-8 h-8 text-[#0044CC]" />
+      <div className="w-16 h-16 rounded-full bg-blue-600/10 flex items-center justify-center">
+        <Mail className="w-8 h-8 text-blue-600" />
       </div>
 
       <div className={`space-y-2 transition-opacity duration-300 ${isAuthenticating ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -109,8 +109,8 @@ export function LetterCover({
         onClick={handleOpen}
         aria-disabled={isDisabled}
         aria-describedby={HINT_ID}
-        className={`w-full max-w-sm bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-14 gap-2 ${
-          isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-[#0044CC]' : ''
+        className={`w-full max-w-sm bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-base min-h-14 gap-2 ${
+          isDisabled ? 'opacity-60 cursor-not-allowed hover:bg-blue-600' : ''
         }`}
         aria-busy={isAuthenticating}
         aria-label={isAuthenticating ? 'Opening the letter, please wait' : undefined}
@@ -145,7 +145,7 @@ export function LetterCover({
           By opening, you agree to the{' '}
           <Link
             to="/terms-of-service"
-            className="underline hover:text-[#0044CC]"
+            className="underline hover:text-blue-600"
             onClick={(e) => e.stopPropagation()}
           >
             Terms of Service
@@ -153,7 +153,7 @@ export function LetterCover({
           and{' '}
           <Link
             to="/privacy-policy"
-            className="underline hover:text-[#0044CC]"
+            className="underline hover:text-blue-600"
             onClick={(e) => e.stopPropagation()}
           >
             Privacy Policy

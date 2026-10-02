@@ -65,7 +65,7 @@ export function LetterRevealNumeric({
   authorAvatarColor = '#475569',
   authorHasPledged = false,
   readerPhotoUrl,
-  readerAvatarColor = '#0044CC',
+  readerAvatarColor = '#2563eb',
   readerHasPledged = false,
   compact = false,
 }: LetterRevealNumericProps) {
@@ -149,13 +149,13 @@ export function LetterRevealNumeric({
 
           {/* Gap segment between the two markers, in brand blue */}
           <div
-            className="absolute top-0 bottom-0 bg-[#0044CC] rounded-full"
+            className="absolute top-0 bottom-0 bg-blue-600 rounded-full"
             style={{ left: `${lowPct}%`, width: `${highPct - lowPct}%` }}
           />
 
           {/* Reader marker dot — seated ON the line (round-6 fix preserved) */}
           <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-[#0044CC] ring-2 ring-white"
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-3 h-3 rounded-full bg-blue-600 ring-2 ring-white"
             style={readerStyle}
           />
           {/* Author marker dot — seated ON the line */}
@@ -177,7 +177,7 @@ export function LetterRevealNumeric({
               size="sm"
               className="!w-6 !h-6 !text-[10px]"
             />
-            <span className="text-sm font-bold text-[#0044CC] tabular-nums leading-none">
+            <span className="text-sm font-bold text-blue-600 tabular-nums leading-none">
               You {readerRating}
             </span>
           </div>

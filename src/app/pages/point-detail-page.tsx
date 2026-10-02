@@ -924,7 +924,7 @@ function PositionHolderCard({
             ref={toggleRef}
             data-testid="story-toggle"
             onClick={e => { e.stopPropagation(); onToggle(); }}
-            className="ml-auto flex items-center gap-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full px-2.5 py-1 transition-colors shrink-0"
+            className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
             aria-label={isExpanded ? `Collapse story by ${holder.userName}` : `Expand story by ${holder.userName}`}
           >
             {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}
@@ -1098,7 +1098,7 @@ function PositionlessStoryRow({
         <button
           data-testid="story-toggle"
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="ml-auto flex items-center gap-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-full px-2.5 py-1 transition-colors shrink-0"
+          className="ml-auto flex items-center gap-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 rounded-full px-2.5 py-1 transition-colors shrink-0"
           aria-label={isExpanded ? `Collapse story by ${story.authorName}` : `Expand story by ${story.authorName}`}
         >
           {isExpanded ? <ChevronDown size={14} className="transition-transform" /> : <ChevronRight size={14} className="transition-transform" />}

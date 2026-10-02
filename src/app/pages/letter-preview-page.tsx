@@ -241,7 +241,7 @@ function LetterPreviewFlow({
         </p>
         <Button
           onClick={() => closePreview(navigate)}
-          className="bg-[#0044CC] hover:bg-[#0033AA] text-white"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           Close preview
         </Button>

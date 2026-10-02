@@ -173,7 +173,7 @@ export function DesignAuditPage() {
                 Terminate Agreement
               </Button>
               <Button variant="outline" className="min-h-11">Resend Invitation</Button>
-              <span className="text-[#0044CC] hover:underline font-medium text-sm cursor-pointer">
+              <span className="text-blue-600 hover:underline font-medium text-sm cursor-pointer">
                 Ready to practice? Start a /live session &rarr;
               </span>
             </div>
@@ -182,7 +182,7 @@ export function DesignAuditPage() {
           <div className="border-t pt-4">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Pledge Page CTAs</p>
             <div className="flex flex-wrap gap-3 items-center">
-              <Button className="min-h-11 px-8 bg-[#0044CC] hover:bg-[#0033AA]">Accept This Pledge</Button>
+              <Button className="min-h-11 px-8 bg-blue-600 hover:bg-blue-700">Accept This Pledge</Button>
               <Button variant="outline" className="min-h-11">Share</Button>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-[#0A66C2] bg-[#0A66C2]/10 rounded cursor-pointer">
                 LinkedIn
@@ -198,7 +198,7 @@ export function DesignAuditPage() {
                 <input
                   type="text"
                   placeholder="their name"
-                  className="border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 text-base font-semibold border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC] min-w-[200px] placeholder:text-[#1A1A1A]/30 placeholder:font-normal"
+                  className="border-0 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 text-base font-semibold border-b-2 border-[#1A1A1A]/20 focus-visible:border-blue-600 min-w-[200px] placeholder:text-[#1A1A1A]/30 placeholder:font-normal"
                   style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
                 />
               </div>
@@ -251,7 +251,7 @@ export function DesignAuditPage() {
                 <p className="text-lg leading-relaxed text-[#1A1A1A]" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
                   I, <span className="font-bold">Vyacheslav Ladischenski</span>, hereby commit to everyone...
                 </p>
-                <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] tracking-wide">YOUR RIGHT</h4>
+                <h4 className="text-xl md:text-2xl font-bold text-blue-600 tracking-wide">YOUR RIGHT</h4>
                 <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">When we speak, if you need to know...</p>
               </div>
             </div>
@@ -265,7 +265,7 @@ export function DesignAuditPage() {
                 <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
                   We, <span className="font-semibold">Vyacheslav Ladischenski</span> and <span className="font-semibold">Opa Mukaaaa</span>, agree to:
                 </p>
-                <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">Your Right</h3>
+                <h3 className="text-base md:text-lg font-bold text-blue-600 tracking-wide uppercase">Your Right</h3>
                 <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">When we speak, if either of us needs to know...</p>
               </div>
             </div>

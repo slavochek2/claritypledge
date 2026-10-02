@@ -35,7 +35,7 @@ export function LetterProgressBar({
   label,
   tone = 'default',
 }: LetterProgressBarProps) {
-  const fill = tone === 'subtle' ? 'bg-blue-400' : 'bg-[#0044CC]';
+  const fill = tone === 'subtle' ? 'bg-blue-400' : 'bg-blue-600';
   const track = tone === 'subtle' ? 'bg-gray-200' : 'bg-gray-300';
   const text =
     label ??
@@ -79,7 +79,7 @@ export function LetterProgressBar({
                           isFilled
                             ? fill
                             : isActive
-                              ? cn(track, 'ring-1 ring-inset ring-[#0044CC]/60')
+                              ? cn(track, 'ring-1 ring-inset ring-blue-600/60')
                               : track
                         )}
                       />
@@ -95,7 +95,7 @@ export function LetterProgressBar({
                   className={cn(
                     'absolute inset-y-0 left-0 rounded-full transition-[width] duration-300',
                     fill,
-                    isEngagePhase ? 'ring-1 ring-inset ring-[#0044CC]/60' : ''
+                    isEngagePhase ? 'ring-1 ring-inset ring-blue-600/60' : ''
                   )}
                   style={{ width: committedSteps > 0 ? '100%' : '5%' }}
                 />

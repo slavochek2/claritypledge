@@ -632,7 +632,7 @@ function PrepFlow({
                 document.querySelector(`[data-point-id="${firstUnansweredId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
               }
             }}
-            className={allSet ? undefined : 'opacity-50 hover:bg-[#0044CC]'}
+            className={allSet ? undefined : 'opacity-50 hover:bg-blue-600'}
           />
         </div>
         {!allSet && answerHint && (
@@ -942,7 +942,7 @@ function PrepFlow({
                             aria-pressed={chosen}
                             className={cn(
                               'h-auto min-h-12 min-w-0 whitespace-normal rounded-full bg-background px-4 text-base',
-                              chosen && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
+                              chosen && 'border-2 border-blue-600 font-semibold text-blue-600 hover:text-blue-600 dark:border-blue-400 dark:text-blue-300',
                             )}
                           >
                             {text}
@@ -993,7 +993,7 @@ function PrepFlow({
                             aria-pressed={micSetup === value}
                             className={cn(
                               'h-auto min-h-12 min-w-0 flex-col gap-0 whitespace-normal rounded-full bg-background px-4 py-2 text-base',
-                              micSetup === value && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
+                              micSetup === value && 'border-2 border-blue-600 font-semibold text-blue-600 hover:text-blue-600 dark:border-blue-400 dark:text-blue-300',
                             )}
                           >
                             <span>{text}</span>
@@ -1043,7 +1043,7 @@ function PrepFlow({
                       onClick={() => void researchYes()}
                       disabled={researchSaving}
                       size="lg"
-                      className="h-12 min-w-0 rounded-full bg-[#0044CC] px-2 text-base font-bold text-white hover:bg-[#0033AA]"
+                      className="h-12 min-w-0 rounded-full bg-blue-600 px-2 text-base font-bold text-white hover:bg-blue-700"
                     >
                       Yes, sure
                     </Button>

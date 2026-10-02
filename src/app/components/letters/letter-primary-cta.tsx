@@ -47,12 +47,12 @@ export function LetterPrimaryCta({
         className={cn(
           'w-full gap-2',
           variant === 'primary'
-            ? 'rounded-full font-bold text-base min-h-14 bg-[#0044CC] hover:bg-[#0033AA] text-white'
+            ? 'rounded-full font-bold text-base min-h-14 bg-blue-600 hover:bg-blue-700 text-white'
             : variant === 'outline'
             ? 'rounded-full font-semibold text-base min-h-12 bg-background border border-border text-foreground hover:bg-muted'
             // Secondary = plain text link (no pill/bg/border), matching the
             // "Explain in text instead" fallback in explain-back-capture.tsx.
-            : 'rounded-none shadow-none bg-transparent font-normal text-sm min-h-11 underline underline-offset-4 text-muted-foreground hover:text-foreground hover:bg-transparent focus-visible:ring-[#0044CC]/40',
+            : 'rounded-none shadow-none bg-transparent font-normal text-sm min-h-11 underline underline-offset-4 text-muted-foreground hover:text-foreground hover:bg-transparent focus-visible:ring-blue-600/40',
           className
         )}
       >

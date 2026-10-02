@@ -778,7 +778,7 @@ export function LetterFlowContent({
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
                 readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (
@@ -936,7 +936,7 @@ export function LetterFlowContent({
                   // "cant select again" strand). isSubmitting alone guards double-submit.
                   disabled={isSubmitting}
                   submitLabel="Continue"
-                  ctaClassName="bg-[#0044CC] hover:bg-[#0033AA] w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
+                  ctaClassName="bg-blue-600 hover:bg-blue-700 w-full max-w-sm mx-auto rounded-full font-bold text-base min-h-14 mt-3"
                 />
               </FixedBottomBar>
             ))}
@@ -963,7 +963,7 @@ export function LetterFlowContent({
                     authorAvatarColor={senderProfileOwner.avatarColor}
                     authorHasPledged={senderProfileOwner.hasPledged ?? false}
                     readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                    readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
                     readerHasPledged={readerProfileOwner?.hasPledged ?? false}
                     compact
                   />
@@ -1195,7 +1195,7 @@ export function LetterFlowContent({
                 authorAvatarColor={senderProfileOwner.avatarColor}
                 authorHasPledged={senderProfileOwner.hasPledged ?? false}
                 readerPhotoUrl={readerProfileOwner?.avatarUrl ?? undefined}
-                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#0044CC'}
+                readerAvatarColor={readerProfileOwner?.avatarColor ?? '#2563eb'}
                 readerHasPledged={readerProfileOwner?.hasPledged ?? false}
               />
               ) : (

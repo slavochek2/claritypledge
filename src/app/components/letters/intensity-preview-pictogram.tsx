@@ -247,7 +247,7 @@ export function IntensityPreviewPictogram({ onAnimationFinished }: IntensityPrev
     <>
       <div
         ref={wrapperRef}
-        className="relative pointer-events-none animate-in fade-in duration-200 motion-reduce:animate-none bg-[#0044CC]/[0.05] rounded-xl p-2"
+        className="relative pointer-events-none animate-in fade-in duration-200 motion-reduce:animate-none bg-blue-600/[0.05] rounded-xl p-2"
         aria-hidden="true"
       >
         <PositionButtons
@@ -283,7 +283,7 @@ export function IntensityPreviewPictogram({ onAnimationFinished }: IntensityPrev
               className={`block w-7 h-7 rounded-full border-2 animate-ping ${
                 pulse.tone === 'light'
                   ? 'bg-white/60 border-white'
-                  : 'bg-[#0044CC]/25 border-[#0044CC]/70'
+                  : 'bg-blue-600/25 border-blue-600/70'
               }`}
             />
           </span>
@@ -317,7 +317,7 @@ export function IntensityPreviewPictogram({ onAnimationFinished }: IntensityPrev
              blue-on-blue there. The blue stroke + shadow keep it defined on the
              white modal/dropdown too. */}
           <CursorIcon
-            className="w-6 h-6 fill-white text-[#0044CC]"
+            className="w-6 h-6 fill-white text-blue-600"
             style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}
           />
         </div>,
@@ -341,7 +341,7 @@ export function IntensityPreviewPictogram({ onAnimationFinished }: IntensityPrev
           }}
           aria-hidden="true"
         >
-          <div className="bg-[#0044CC] text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+          <div className="bg-blue-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
             {POSITION_LABELS.somewhat_disagree}
           </div>
         </div>,

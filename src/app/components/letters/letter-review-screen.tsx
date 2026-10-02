@@ -98,7 +98,7 @@ export function LetterReviewScreen({
                 value="off"
                 checked={responsesMode === 'off'}
                 onChange={() => onResponsesModeChange('off')}
-                className="accent-[#0044CC]"
+                className="accent-blue-600"
               />
               <span className="text-sm text-foreground">Just read the letter</span>
             </label>
@@ -109,7 +109,7 @@ export function LetterReviewScreen({
                 value="invite"
                 checked={responsesMode === 'invite'}
                 onChange={() => onResponsesModeChange('invite')}
-                className="accent-[#0044CC]"
+                className="accent-blue-600"
               />
               <span className="text-sm text-foreground">Ask them to explain your stories back (voice or text)</span>
             </label>

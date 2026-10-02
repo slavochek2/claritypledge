@@ -34,7 +34,7 @@ export function LetterSealConfirmCard({
             value="off"
             checked={responsesMode === 'off'}
             onChange={() => onResponsesModeChange('off')}
-            className="accent-[#0044CC]"
+            className="accent-blue-600"
           />
           <span className="text-sm font-medium text-foreground">Just read the letter</span>
         </label>
@@ -46,7 +46,7 @@ export function LetterSealConfirmCard({
             value="invite"
             checked={responsesMode === 'invite'}
             onChange={() => onResponsesModeChange('invite')}
-            className="accent-[#0044CC]"
+            className="accent-blue-600"
           />
           <span className="text-sm font-medium text-foreground">Ask them to explain your stories back (voice or text)</span>
         </label>
@@ -55,7 +55,7 @@ export function LetterSealConfirmCard({
       <Button
         onClick={onSend}
         disabled={sealing}
-        className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full font-bold text-base min-h-14"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-full font-bold text-base min-h-14"
       >
         {sealing ? 'Sending…' : 'Send letter →'}
       </Button>

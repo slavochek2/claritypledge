@@ -50,7 +50,7 @@ const createMockProfile = (id: number): Profile => ({
   reason: `Reason ${id}`,
   signedAt: '2024-01-15T10:30:00Z',
   isVerified: true,
-  avatarColor: '#0044CC',
+  avatarColor: '#2563eb',
   witnesses: [],
   reciprocations: 0,
 });

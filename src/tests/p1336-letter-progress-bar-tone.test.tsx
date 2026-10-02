@@ -13,7 +13,7 @@ describe('LetterProgressBar tone', () => {
   it('default: filled ticks use the letter blue on the gray-300 track', () => {
     render(<LetterProgressBar currentChapter={0} totalChapters={1} stepCount={3} committedSteps={1} />);
     const [filled, empty] = ticks();
-    expect(filled).toHaveClass('bg-[#0044CC]');
+    expect(filled).toHaveClass('bg-blue-600');
     expect(empty).toHaveClass('bg-gray-300');
     expect(filled).not.toHaveClass('bg-blue-400');
   });
@@ -24,13 +24,13 @@ describe('LetterProgressBar tone', () => {
     );
     const [filled, empty] = ticks();
     expect(filled).toHaveClass('bg-blue-400');
-    expect(filled).not.toHaveClass('bg-[#0044CC]');
+    expect(filled).not.toHaveClass('bg-blue-600');
     expect(empty).toHaveClass('bg-gray-200');
   });
 
   it('default: completed chapters stay the letter blue', () => {
     render(<LetterProgressBar currentChapter={1} totalChapters={2} />);
     const completed = screen.getByRole('progressbar').querySelector('.flex.gap-1 > div');
-    expect(completed).toHaveClass('bg-[#0044CC]');
+    expect(completed).toHaveClass('bg-blue-600');
   });
 });

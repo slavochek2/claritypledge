@@ -770,7 +770,7 @@ export function LetterReadingPage() {
         </p>
         <Link
           to="/"
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          className="text-sm text-blue-600 hover:underline mt-2"
         >
           Return home
         </Link>
@@ -789,7 +789,7 @@ export function LetterReadingPage() {
         </p>
         <Link
           to="/"
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          className="text-sm text-blue-600 hover:underline mt-2"
         >
           Return home
         </Link>
@@ -840,7 +840,7 @@ export function LetterReadingPage() {
                 navigate(`/letter/${deliveryId}?token=${token}`);
               }
             }}
-            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] transition-colors rounded-md min-h-10"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-md min-h-10"
           >
             Sign out
           </button>
@@ -860,7 +860,7 @@ export function LetterReadingPage() {
         </p>
         <Link
           to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          className="text-sm text-blue-600 hover:underline mt-2"
         >
           Sign in
         </Link>
@@ -1348,7 +1348,7 @@ function LetterReadingFlow({
       </p>
       <Link
         to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-        className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-[#0044CC] hover:bg-[#0033AA] rounded-md min-h-11"
+        className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md min-h-11"
       >
         Sign in to continue
       </Link>

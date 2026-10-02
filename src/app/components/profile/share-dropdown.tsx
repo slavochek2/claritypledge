@@ -157,7 +157,7 @@ ${firstName}`
         {/* Share Dropdown */}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0044CC] hover:bg-[#0033AA] text-white transition-colors text-sm font-medium w-full sm:w-auto">
+            <button className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium w-full sm:w-auto">
               <LinkIcon className="w-4 h-4" />
               Share
               <ChevronDownIcon className="w-4 h-4" />

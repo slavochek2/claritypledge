@@ -115,7 +115,7 @@ export function IntensityTutorialModal({ open, onProceed, dismissible = false, t
            frame label, not the first line of the message. top-0 + -translate-y-1/2
            centers the pill on the border. Tinted (not solid) blue signals "label"
            rather than an actionable blue CTA — keeps it distinct from "Continue". */}
-        <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#0044CC] shadow-sm">
+        <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600 shadow-sm">
           <Lightbulb className="w-3.5 h-3.5" aria-hidden="true" />
           Quick tip
         </span>
@@ -156,7 +156,7 @@ export function IntensityTutorialModal({ open, onProceed, dismissible = false, t
         <div className="flex justify-center mt-6">
           <Button
             onClick={handleProceed}
-            className="bg-[#0044CC] hover:bg-[#0033AA] text-white rounded-full px-12 h-12 text-base font-bold min-w-[220px]"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-12 h-12 text-base font-bold min-w-[220px]"
           >
             Continue
           </Button>

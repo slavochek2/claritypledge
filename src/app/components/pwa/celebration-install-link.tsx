@@ -30,7 +30,7 @@ export function CelebrationInstallLink() {
       <div>
         <button
           onClick={handleClick}
-          className="text-sm text-[#0044CC] hover:underline"
+          className="text-sm text-blue-600 hover:underline"
         >
           Install app for quick access →
         </button>

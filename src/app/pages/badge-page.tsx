@@ -243,7 +243,7 @@ export function BadgePage() {
                 {/* Share dropdown */}
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0044CC] hover:bg-[#0033AA] text-white transition-colors text-sm font-medium">
+                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium">
                       <LinkIcon className="w-4 h-4" />
                       Share
                       <ChevronDownIcon className="w-4 h-4" />

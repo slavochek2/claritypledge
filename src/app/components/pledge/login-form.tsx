@@ -166,7 +166,7 @@ export function LoginForm({ onSwitchToSign, redirect, action, extraParams }: Log
 
         <Button
           type="submit"
-          className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           size="lg"
           disabled={isSubmitting}
         >

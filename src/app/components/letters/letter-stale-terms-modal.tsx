@@ -68,14 +68,14 @@ export function LetterStaleTermsModal({
             <Link
               to="/terms-of-service"
               target="_blank"
-              className="text-[#0044CC] hover:underline"
+              className="text-blue-600 hover:underline"
             >
               Terms of Service
             </Link>
             <Link
               to="/privacy-policy"
               target="_blank"
-              className="text-[#0044CC] hover:underline"
+              className="text-blue-600 hover:underline"
             >
               Privacy Policy
             </Link>

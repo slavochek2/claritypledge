@@ -272,7 +272,7 @@ export function LetterResponseConfirmPage() {
           confirmedRef.current = false;
           setPageState('confirming');
         }}
-        className="text-sm text-[#0044CC] hover:underline mt-2"
+        className="text-sm text-blue-600 hover:underline mt-2"
       >
         Try again
       </button>

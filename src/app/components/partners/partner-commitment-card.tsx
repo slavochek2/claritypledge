@@ -18,7 +18,7 @@ export function PartnerCommitmentCard({
       <p className="text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
         {commitmentText}
       </p>
-      <p className="text-right mt-4 text-[#0044CC] font-medium">
+      <p className="text-right mt-4 text-blue-600 font-medium">
         — {creatorName}
       </p>
     </div>

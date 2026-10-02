@@ -286,7 +286,7 @@ function ActiveView({
       />
 
       <div className="text-center">
-        <Link to="/live" className="text-sm text-[#0044CC] hover:underline">
+        <Link to="/live" className="text-sm text-blue-600 hover:underline">
           Ready to practice? Start a /live session →
         </Link>
       </div>
@@ -325,7 +325,7 @@ function DeclinedView({
         {isCreator && (
           <p className="text-sm text-muted-foreground">
             Consider{' '}
-            <Link to="/live" className="text-[#0044CC] hover:underline">
+            <Link to="/live" className="text-blue-600 hover:underline">
               scheduling a /live session first
             </Link>{' '}
             to practice together before sending another agreement.

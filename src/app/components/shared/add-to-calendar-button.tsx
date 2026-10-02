@@ -61,7 +61,7 @@ export function AddToCalendarButton({ event }: AddToCalendarButtonProps) {
         href={getGoogleCalendarUrl(event)}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-md border border-r-0 border-[#0044CC]/40 text-sm text-[#0044CC] hover:bg-[#0044CC]/5 transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-md border border-r-0 border-blue-600/40 text-sm text-blue-600 hover:bg-blue-600/5 transition-colors"
       >
         Add to Google Calendar
       </a>
@@ -70,7 +70,7 @@ export function AddToCalendarButton({ event }: AddToCalendarButtonProps) {
           <button
             type="button"
             aria-label="More calendar options"
-            className="inline-flex items-center px-2 py-1.5 rounded-r-md border border-[#0044CC]/40 text-sm text-[#0044CC] hover:bg-[#0044CC]/5 transition-colors"
+            className="inline-flex items-center px-2 py-1.5 rounded-r-md border border-blue-600/40 text-sm text-blue-600 hover:bg-blue-600/5 transition-colors"
           >
             <ChevronDownIcon size={14} />
           </button>

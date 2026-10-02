@@ -169,7 +169,7 @@ export function ReceivedLettersSection({ userId }: ReceivedLettersSectionProps) 
             <LetterStatusBadge status={del.status} />
             <Link
               to={`/letter/${del.id}?token=${del.invitation_token}`}
-              className="text-xs text-[#0044CC] hover:underline flex-shrink-0"
+              className="text-xs text-blue-600 hover:underline flex-shrink-0"
             >
               {del.status === 'completed' ? 'View' : 'Read'}
             </Link>
@@ -207,7 +207,7 @@ function LetterRow({ letterId, label, date, badgeStatus, isGroup }: LetterRowPro
       <LetterStatusBadge status={badgeStatus} />
       <Link
         to={`/letter/${letterId}/results`}
-        className="text-xs text-[#0044CC] hover:underline flex-shrink-0"
+        className="text-xs text-blue-600 hover:underline flex-shrink-0"
       >
         View
       </Link>

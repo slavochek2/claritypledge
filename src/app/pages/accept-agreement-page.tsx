@@ -341,7 +341,7 @@ export function AcceptAgreementPage() {
         email: agreement.partnerEmail,
         options: {
           emailRedirectTo: redirectUrl,
-          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
+          data: { name: partnerDisplayName.trim() || undefined, avatar_color: ["#2563eb", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"][Math.floor(Math.random() * 5)] },
           shouldCreateUser: true,
         },
       });
@@ -458,7 +458,7 @@ export function AcceptAgreementPage() {
         </p>
         <a
           href="https://claritypledge.com"
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          className="text-sm text-blue-600 hover:underline mt-2"
         >
           Return to Clarity Pledge
         </a>
@@ -477,7 +477,7 @@ export function AcceptAgreementPage() {
         </p>
         <Link
           to={`/agreements/${agreementId}`}
-          className="text-sm text-[#0044CC] hover:underline mt-2"
+          className="text-sm text-blue-600 hover:underline mt-2"
         >
           View agreement
         </Link>

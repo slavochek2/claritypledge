@@ -266,7 +266,7 @@ export function AgreementCertificate({
                 <button
                   type="button"
                   onClick={() => onTermsChange(termsPlaceholder)}
-                  className="inline-flex items-center text-xs font-sans font-medium text-blue-600 hover:text-[#0033AA] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40 rounded px-1.5 py-1 min-h-11 sm:min-h-0 transition-colors whitespace-nowrap"
+                  className="inline-flex items-center text-xs font-sans font-medium text-blue-600 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40 rounded px-1.5 py-1 min-h-11 sm:min-h-0 transition-colors whitespace-nowrap"
                 >
                   Use suggested terms
                 </button>

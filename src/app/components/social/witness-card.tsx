@@ -84,7 +84,7 @@ export function WitnessCard({
           onClick={() => analytics.track('witness_cta_clicked', { referrer_profile_id: profileId })}
         >
           <Button
-            className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white transition-all"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all"
             size="lg"
           >
             <span className="flex items-center justify-center gap-2">
@@ -152,7 +152,7 @@ export function WitnessCard({
 
         <Button
           type="submit"
-          className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white transition-all"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all"
           size="lg"
           disabled={isSubmitting}
         >

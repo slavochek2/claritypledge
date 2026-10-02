@@ -149,8 +149,8 @@ ${firstName}`
     <div className="max-w-3xl mx-auto">
       <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-full bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center">
-            <ShareIcon className="w-5 h-5 text-[#0044CC] dark:text-blue-400" />
+          <div className="w-10 h-10 rounded-full bg-blue-600/10 dark:bg-blue-500/10 flex items-center justify-center">
+            <ShareIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-foreground">Share Your Pledge</h2>
