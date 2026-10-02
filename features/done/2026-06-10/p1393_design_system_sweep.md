@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 91
 workstream: design
 created_date: '2026-10-02'
 tags: [design-system, ui, consistency, buttons]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: low
 driver: heuristic
 related:
   - p1308
+completed_at: 2026-10-02
 ---
 
 # P1393: Design-system sweep — private signal, one blue, button rules
