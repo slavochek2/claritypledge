@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 20
 workstream: growth
 created_date: '2026-10-02'
 tags: [feed, landing, pinned-story]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
+completed_at: 2026-10-02
 ---
 
 # P1397: Pinned story expands in place; no point-pin icon on a story
