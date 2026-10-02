@@ -170,7 +170,7 @@ export function RoundCard({
           <p className="mt-1 text-sm text-muted-foreground">
             with{' '}
             {others
-              .map(s => `${shortName(member(s.id)?.displayName ?? '—')}${s.role === 'observer' ? ' (observer)' : ''}`)
+              .map(s => `${shortName(member(s.id)?.displayName ?? '—')} (${s.role === 'observer' ? 'observer' : s.role === 'first' ? 'first' : 'second'})`)
               .join(', ')}
           </p>
         )}
