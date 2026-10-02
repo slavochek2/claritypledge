@@ -22,7 +22,7 @@
  *   - P1236 Decision 7 still holds: there is no browser speech recognizer and no interim text
  *     anywhere here; live text arrives only as the server's rows.
  */
-import { CaptureInfoButton, PauseResumeButton, StopCaptureButton } from '@/app/components/session/capture-controls';
+import { CaptureInfoButton, PauseResumeButton, SessionStopButton, StopCaptureButton } from '@/app/components/session/capture-controls';
 import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
 import { RoomPeople } from '@/app/components/session/room-people';
@@ -354,6 +354,13 @@ export function TranscribeRoomPage() {
         </div>
 
         {showReadOnlyRoom ? (
+          <>
+          {/* The page header that held End Session is gone (P1388): the read-only person keeps
+              the roster and a way to leave, which ends nothing — their capture never started. */}
+          <div className="flex items-center gap-2 mb-2">
+            <RoomPeople members={members} speakingIds={speaking} />
+            <span className="ml-auto"><SessionStopButton label="Leave" onClick={() => void handleEndSession()} testId="transcribe-end-session-button" /></span>
+          </div>
           <p
             className="text-xs py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500 mb-3"
             data-testid="transcribe-mic-error"
@@ -362,6 +369,7 @@ export function TranscribeRoomPage() {
             {/* [FOUNDER DECISION: copy] — the page's existing placeholder, unchanged. */}
             Could not access your microphone. You can still read the chat.
           </p>
+          </>
         ) : (
           <TranscribeCaptureRow onStop={() => void handleEndSession()} people={<RoomPeople members={members} speakingIds={speaking} />} />
         )}

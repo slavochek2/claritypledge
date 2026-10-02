@@ -10,7 +10,7 @@
  *   - CaptureInfoButton: ⓘ — what is captured, where it goes, the recorder's part. Read by
  *     the people who care, invisible to everyone else; the bar carries no added sentence.
  */
-import { ArrowRight, Info, Pause, Play, Square } from 'lucide-react';
+import { ArrowRight, Info, Mic, Pause, Play, Square } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
@@ -65,9 +65,19 @@ export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testI
 }
 
 export function PauseResumeButton() {
-  const { phase, manualPaused, pauseMine, resumeMine, micLost, stopping } = useRoomCapture();
+  const { phase, manualPaused, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
   if (phase === 'observing') return null; // another tab holds the mic; it pauses there
-  if (micLost) return null; // nothing to pause; Stop transcribing is the action
+  if (micLost) {
+    // Nothing to pause. Capture comes back only on this tap — never on its own.
+    return (
+      <button type="button" onClick={() => void reconnectMic()} disabled={stopping} data-testid="capture-reconnect" className={CONTROL_CLASS}>
+        <Mic className="h-4 w-4" aria-hidden="true" />
+        Reconnect mic
+      </button>
+    );
+  }
+  // Paused by the app, not the person: their Pause/Resume does not apply, so it is not offered.
+  if (phase === 'paused' && !manualPaused) return null;
   const paused = phase === 'paused' && manualPaused;
   return (
     <button

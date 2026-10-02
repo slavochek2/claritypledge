@@ -123,13 +123,14 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
       const ends = page.getByRole('button', { name: /stop transcribing/i }).filter({ visible: true });
       await expect(ends, `${w.name}: exactly one End control`).toHaveCount(1);
 
-      // AC-2 — exactly one VISIBLE trigger, inside the page's own header, overlapping nothing.
+      // AC-2 — exactly one VISIBLE trigger, overlapping nothing. P1388 removed the page's own
+      // header: the trigger is now the site nav's own, beside the nav's logo, whose layout
+      // e2e/p1179-links-menu.spec.ts covers — so the page-logo check below was dropped (it
+      // would now measure an icon inside the page, not a logo).
       const triggers = visibleLinksTriggers(page);
       await expect(triggers, `${w.name}: exactly one visible Links trigger`).toHaveCount(1);
       const trigger = await triggers.first().boundingBox();
       const end = await ends.first().boundingBox();
-      // The VISIBLE logo — one of two is CSS-hidden per breakpoint.
-      const logo = await page.getByTestId('transcribe-room-screen').locator('svg').filter({ visible: true }).first().boundingBox();
       expect(trigger, `${w.name}: trigger has a box`).not.toBeNull();
       expect(trigger!.x + trigger!.width, `${w.name}: trigger inside the viewport`).toBeLessThanOrEqual(w.width);
       // Found by LOOKING at a 320px screenshot, after this test had passed: the trigger was on
@@ -143,7 +144,6 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow, `${w.name}: page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
       expect(overlaps(trigger!, end!), `${w.name}: trigger overlaps End Session`).toBe(false);
-      if (logo) expect(overlaps(trigger!, logo), `${w.name}: trigger overlaps the logo`).toBe(false);
 
       // AC-12 — the End control is neutral at rest, not destructive-red.
       const color = await ends.first().evaluate(el => getComputedStyle(el).color);

@@ -12,6 +12,7 @@ export const STATUS = {
   running: '● Transcribing for AI insights',
   stalled: '● Live text has stalled — your words are still being recorded.',
   paused: 'Paused — not recording',
+  autoPaused: 'Paused while a live session or recording is on',
   silent: 'No sound is reaching the recording — check the mic',
   micLost: 'Microphone disconnected — nothing is being recorded',
   micSwitched: 'Microphone changed — still recording',
@@ -23,6 +24,8 @@ export function useCaptureStatus(): { text: string; warn: boolean } {
   if (stopping) return { text: STATUS.stopping, warn: false };
   if (micLost) return { text: STATUS.micLost, warn: true };
   if (phase === 'paused' && manualPaused) return { text: STATUS.paused, warn: false };
+  // Paused by the app (an explain-back, a /live session) — never claim to be transcribing.
+  if (phase === 'paused') return { text: STATUS.autoPaused, warn: false };
   if (micSwitched) return { text: STATUS.micSwitched, warn: false };
   if (inputSilent) return { text: STATUS.silent, warn: true };
   if (phase === 'stalled') return { text: STATUS.stalled, warn: true };

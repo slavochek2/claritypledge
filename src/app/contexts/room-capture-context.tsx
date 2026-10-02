@@ -200,6 +200,8 @@ export interface RoomCaptureContextValue {
   micSwitched: boolean;
   /** P1388: Stop was tapped. The mic is already off; the last chunk is still uploading. */
   stopping: boolean;
+  /** P1388: re-open the default mic after it was lost — only on the person's tap. */
+  reconnectMic: () => Promise<void>;
   isCapturingForEvent: (eventId: string) => boolean;
   speakingMemberIds: ReadonlySet<string>;
   /** In-flow bar slots (the layout, the room page). With none mounted, App renders a fallback. */
@@ -228,6 +230,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   micLost: false,
   micSwitched: false,
   stopping: false,
+  reconnectMic: () => Promise.resolve(),
   isCapturingForEvent: () => false,
   speakingMemberIds: new Set(),
   registerBarSlot: () => noop,
@@ -307,6 +310,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    *     tapped during the slice recorder's start-up left live text running under "Paused".
    */
   const genRef = useRef(0);
+  /** One mic (re)open at a time — recovery and a tapped Reconnect never overlap. */
+  const reconnectingRef = useRef(false);
   const pausedRef = useRef(false);
   const micSwitchedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -487,8 +492,10 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // stale, and the OS default (the built-in mic, or the next plugged-in one) is what we want.
     const gen = genRef.current;
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    if (genRef.current !== gen) {
-      // The capture ended (Stop, sign-out, a hard stop) while the mic was being opened.
+    if (genRef.current !== gen || h.stream) {
+      // The capture ended (Stop, sign-out, a hard stop) while the mic was being opened — or a
+      // concurrent start already installed a stream. Never install a second one: the first
+      // would be orphaned, and nothing would ever stop it (adversarial review, BLOCKER).
       stream.getTracks().forEach((t) => t.stop());
       return;
     }
@@ -559,7 +566,8 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    */
   const recoverFromTrackEnded = useCallback(async (roomId: string) => {
     const h = media.current;
-    if (h.stream === null) return;
+    if (h.stream === null || reconnectingRef.current) return;
+    reconnectingRef.current = true;
     setMicLost(true);
     if (h.chunkTimer) clearInterval(h.chunkTimer);
     h.chunkTimer = null;
@@ -579,7 +587,10 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // Also when the recorder had already stopped itself as its track ended: its final data is
     // already in chunkParts, and startMedia would otherwise clear it.
     enqueueChunk(false);
-    if (genRef.current !== gen || storedRef.current?.roomId !== roomId) return; // ended meanwhile
+    if (genRef.current !== gen || storedRef.current?.roomId !== roomId) { // ended meanwhile
+      reconnectingRef.current = false;
+      return;
+    }
     try {
       await startMedia(roomId);
       if (genRef.current !== gen || !h.stream) return;
@@ -589,25 +600,31 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       micSwitchedTimer.current = setTimeout(() => setMicSwitched(false), MIC_SWITCHED_NOTICE_MS);
     } catch (err) {
       console.error('[room-capture] microphone lost and could not be re-opened:', err);
+    } finally {
+      reconnectingRef.current = false;
     }
   }, [enqueueChunk, startMedia]);
   trackEndedRef.current = (roomId: string) => void recoverFromTrackEnded(roomId);
 
-  // A lost mic is retried when a device appears (plugged back in, or another one), rather than
-  // leaving Stop as the only way out.
-  useEffect(() => {
-    if (!micLost || !state.roomId || !navigator.mediaDevices?.addEventListener) return;
-    const roomId = state.roomId;
-    const retry = () => {
-      if (media.current.stream || storedRef.current?.roomId !== roomId) return;
-      const gen = genRef.current;
-      void startMedia(roomId).then(() => {
-        if (genRef.current === gen && media.current.stream) setMicLost(false);
-      }).catch((err) => console.warn('[room-capture] mic still unavailable:', err));
-    };
-    navigator.mediaDevices.addEventListener('devicechange', retry);
-    return () => navigator.mediaDevices.removeEventListener('devicechange', retry);
-  }, [micLost, state.roomId, startMedia]);
+  /**
+   * After a failed recovery the bar says "nothing is being recorded", so capture must not come
+   * back on its own (adversarial review, HIGH: a devicechange — even AirPods connecting —
+   * restarted recording with no tap). The person reconnects deliberately.
+   */
+  const reconnectMic = useCallback(async () => {
+    const roomId = storedRef.current?.roomId;
+    if (!roomId || media.current.stream || reconnectingRef.current) return;
+    reconnectingRef.current = true;
+    const gen = genRef.current;
+    try {
+      await startMedia(roomId);
+      if (genRef.current === gen && media.current.stream) setMicLost(false);
+    } catch (err) {
+      console.warn('[room-capture] mic still unavailable:', err);
+    } finally {
+      reconnectingRef.current = false;
+    }
+  }, [startMedia]);
 
   const teardownLocal = useCallback((forgetRecord: boolean) => {
     stopMedia();
@@ -839,6 +856,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     const { phase, roomId } = state;
     if (!roomId) return;
     const transition = decidePauseTransition({ phase, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed });
+    // A Resume answers the pause it was tapped on; a later automatic pause (/live, an
+    // explain-back) must not inherit it (adversarial review, HIGH).
+    if (userResumed && (pauseLocation || explainBackHolds > 0)) setUserResumed(false);
     if (transition === 'pause') {
       dispatch({ type: 'PAUSE_REQUESTED', reason: manualPaused ? 'manual' : pauseLocation ? 'location' : 'explain-back' });
       pauseMedia();
@@ -1014,12 +1034,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     micLost,
     micSwitched,
     stopping,
+    reconnectMic,
     isCapturingForEvent: (eventId: string) => state.eventId === eventId && LIVE_PHASES.has(state.phase),
     speakingMemberIds: new Set(speaking.keys()),
     registerBarSlot,
     barSlotCount,
   }), [state, pauseLocation, startCapture, endMyCapture, open, holdPause, manualPaused, pauseMine, resumeMine,
-    subscribeLevel, inputSilent, micLost, micSwitched, stopping, speaking, registerBarSlot, barSlotCount]);
+    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, speaking, registerBarSlot, barSlotCount]);
 
   return <RoomCaptureContext.Provider value={value}>{children}</RoomCaptureContext.Provider>;
 }

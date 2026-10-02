@@ -250,3 +250,55 @@ describe('P1388: stopping flag', () => {
     expect(ctx.stopping).toBe(false);
   });
 });
+
+describe('P1388 adversarial review fixes', () => {
+  const gum = () => navigator.mediaDevices.getUserMedia as unknown as ReturnType<typeof vi.fn>;
+
+  it('BLOCKER — two overlapping mic opens never leave an orphaned stream', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    gum().mockRejectedValueOnce(new Error('NotFoundError'));
+    await act(async () => { tracks.list[0].onended?.(); });
+    await waitFor(() => expect(ctx.micLost).toBe(true));
+    // Two reconnect taps at once: only one stream may survive, the other must be stopped.
+    await act(async () => { await Promise.all([ctx.reconnectMic(), ctx.reconnectMic()]); });
+    const live = tracks.list.slice(1).filter((t) => !(t.stop as ReturnType<typeof vi.fn>).mock.calls.length);
+    expect(live.length, 'exactly one open mic').toBe(1);
+    expect(ctx.micLost).toBe(false);
+  });
+
+  it('HIGH — after a lost mic, nothing records until the person taps Reconnect', async () => {
+    // A real event target, so a 'devicechange' listener (the removed auto-reopen) would fire.
+    const et = new EventTarget();
+    Object.assign(navigator.mediaDevices, {
+      addEventListener: et.addEventListener.bind(et),
+      removeEventListener: et.removeEventListener.bind(et),
+      dispatchEvent: et.dispatchEvent.bind(et),
+    });
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    gum().mockRejectedValueOnce(new Error('NotFoundError'));
+    await act(async () => { tracks.list[0].onended?.(); });
+    await waitFor(() => expect(ctx.micLost).toBe(true));
+    const opens = gum().mock.calls.length;
+    await act(async () => { navigator.mediaDevices.dispatchEvent(new Event('devicechange')); await Promise.resolve(); });
+    expect(gum().mock.calls.length, 'a device appearing must not reopen the mic').toBe(opens);
+  });
+});
+
+describe('P1388 adversarial review — a Resume does not outlive its pause', () => {
+  it('after an explain-back pause, a still-active /live record keeps capture paused despite an earlier Resume', async () => {
+    render(tree());
+    await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
+    await act(async () => { ctx.pauseMine(); });
+    await act(async () => { ctx.resumeMine(); });          // userResumed = true
+    expect(ctx.phase).toBe('capturing');
+    let release!: () => void;
+    await act(async () => { release = ctx.holdPause('explain-back'); });
+    expect(ctx.phase).toBe('paused');
+    localStorage.setItem('cp_active_session', JSON.stringify({ code: 'X', partnerName: 'B', role: 'creator', timestamp: new Date().toISOString() }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'cp_active_session' }));
+    await act(async () => { release(); });
+    expect(ctx.phase, 'the old Resume must not override a live session').toBe('paused');
+  });
+});

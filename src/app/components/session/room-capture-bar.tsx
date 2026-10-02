@@ -18,7 +18,7 @@ import { SessionBar } from './session-bar';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
 import { useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
-import { useConnectivity } from '@/app/contexts/offline-status-context';
+import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-status-context';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing']);
 
@@ -42,18 +42,21 @@ const OFFLINE_DETAIL = 'Words said while offline may not be saved.';
 const OFFLINE_STOP = 'Stop microphone';
 const OFFLINE_STOPPING = 'Stopping…';
 
-/** P1388: past this much scroll the bar folds to one slim line; back at the top it unfolds. */
-const COMPACT_AFTER_PX = 48;
+/** P1388: fold past FOLD_AT, unfold only back under UNFOLD_AT. The gap is hysteresis: folding
+ *  shortens the page, which can pull scrollY back under a single threshold and flip the bar
+ *  back and forth (adversarial review). */
+const FOLD_AT_PX = 120;
+const UNFOLD_AT_PX = 16;
 
-function useScrolledPast(px: number): boolean {
-  const [past, setPast] = useState(false);
+function useFoldedOnScroll(): boolean {
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
-    const onScroll = () => setPast(window.scrollY > px);
+    const onScroll = () => setFolded((was) => (was ? window.scrollY > UNFOLD_AT_PX : window.scrollY > FOLD_AT_PX));
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [px]);
-  return past;
+  }, []);
+  return folded;
 }
 
 const ICON_BUTTON =
@@ -97,7 +100,7 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
 }
 
 export function RoomCaptureBar({ foldOnScroll = false }: { foldOnScroll?: boolean }) {
-  const scrolled = useScrolledPast(COMPACT_AFTER_PX);
+  const scrolled = useFoldedOnScroll();
   const { phase, roomId, open, endMyCapture, manualPaused } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
@@ -161,11 +164,16 @@ export function RoomCaptureBar({ foldOnScroll = false }: { foldOnScroll?: boolea
  */
 export function RoomCaptureBarSlot() {
   const { registerBarSlot, barVisible } = useRoomCapture();
+  // The nav moves down exactly when the offline STRIP shows — read the same signal it reads.
+  const offline = useOfflineStripShown();
   useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
   // P1388 (founder, 2026-10-02): stuck under the fixed nav, folding to one line on scroll — so
   // a recorder browsing the feed always sees that capture is running (D9) and can pause it.
+  // Offline, the nav sits 1.75rem lower under the offline strip (simple-navigation.tsx).
   return barVisible ? (
-    <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))] z-30">
+    <div className={`sticky z-30 ${offline
+      ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]'
+      : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]'}`}>
       <RoomCaptureBar foldOnScroll />
     </div>
   ) : null;
