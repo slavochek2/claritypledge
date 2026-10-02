@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 92
 workstream: design
 created_date: '2026-10-02'
 tags: [design-system, ui, consistency]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
@@ -15,6 +14,7 @@ driver: heuristic
 related:
   - p1308
   - p1393
+completed_at: 2026-10-02
 ---
 
 # P1396: One interactive blue is medium blue, not navy
