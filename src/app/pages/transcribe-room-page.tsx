@@ -23,7 +23,7 @@
  *     anywhere here; live text arrives only as the server's rows.
  */
 import { CaptureInfoButton, PauseResumeButton, StopCaptureButton } from '@/app/components/session/capture-controls';
-import { STOP_TRANSCRIBING, useCaptureStatus } from '@/app/components/session/capture-status';
+import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -360,7 +360,6 @@ export function TranscribeRoomPage() {
                   (`.filter({ visible: true })`), and the same one the nav has always had. */}
               <span className="lg:hidden inline-flex"><EventLinksButton owner="page" /></span>
               <span className="hidden lg:inline-flex"><EventLinksButton owner="page" variant="dropdown" /></span>
-            <StopCaptureButton onClick={() => void handleEndSession()} label={STOP_TRANSCRIBING} testId="transcribe-end-session-button" />
             </div>
           </div>
         </div>
@@ -400,7 +399,7 @@ export function TranscribeRoomPage() {
             Could not access your microphone. You can still read the chat.
           </p>
         ) : (
-          <TranscribeCaptureRow />
+          <TranscribeCaptureRow onStop={() => void handleEndSession()} />
         )}
 
         <div className="relative flex-1 min-h-0 mb-4">
@@ -465,7 +464,7 @@ export function TranscribeRoomPage() {
  * which this page claims and does not draw (P1323 R6). While all is well it keeps the page's
  * own "Listening" line; anything else (paused, stalled, no sound, mic gone) replaces it.
  */
-function TranscribeCaptureRow() {
+function TranscribeCaptureRow({ onStop }: { onStop: () => void }) {
   const { phase } = useRoomCapture();
   const status = useCaptureStatus();
   const healthy = !status.warn && phase !== 'paused';
@@ -482,9 +481,12 @@ function TranscribeCaptureRow() {
           {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
         </span>
       </div>
-      <div className="flex items-center gap-1 ml-auto">
+      {/* P1388 (founder, 2026-10-02): Stop sits beside Pause — the same pair as the capture bar —
+          not up in the page header, where it was far from Pause and crowded the avatar. */}
+      <div className="flex items-center gap-2 ml-auto">
         <CaptureInfoButton />
         {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
+        <StopCaptureButton onClick={onStop} testId="transcribe-end-session-button" />
       </div>
     </div>
   );

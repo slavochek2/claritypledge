@@ -193,7 +193,11 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
      * 2026-08-21). Logged-out public pages are unchanged: no menu.
      */
     <EventLinksMenu enabled={surface === 'product' || showUserMenu}>
-    <div className={`${isLivePage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
+    {/* P1388: h-dvh, not h-screen. On a phone 100vh includes the browser's address bar, so the
+        "fixed-height" /live and /transcribe screens were taller than the visible area: the page
+        scrolled a little, the page's own sticky header slid off the nav it covers (two menus
+        showing) and the bottom Back fell below the fold. dvh is the height actually visible. */}
+    <div className={`${isLivePage ? 'h-screen h-dvh overflow-hidden' : 'min-h-screen'} bg-background text-foreground flex flex-col`}>
       <OfflineStrip />
       {!hasOwnNavigation && !isImmersiveLetterRoute && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} />
