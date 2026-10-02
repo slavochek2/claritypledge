@@ -198,6 +198,7 @@ for (const phone of PHONES) {
       await check('positions', 0.28);
       // P1391: same on the positions step — the dimmed tap brings the first unanswered point into view.
       await page.evaluate(() => window.scrollTo(0, document.scrollingElement!.scrollHeight));
+      await expect(page.locator('[data-testid^="feed-point-card-"]').first()).not.toBeInViewport();
       await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(page.getByTestId('answer-hint')).toBeVisible();
       await expect(page.locator('[data-testid^="feed-point-card-"]').first()).toBeInViewport();
