@@ -15,6 +15,7 @@ import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-
 import { ArrowLeft, Check, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, stripAgentPrefix } from '@/lib/utils';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -113,22 +114,51 @@ export function EventPrepPage() {
 
 // ─── small pieces ──────────────────────────────────────────────────────────────────────
 
-/** Height of a fixed element, kept current (same approach as MeetingPrincipleView's bar). */
 /**
- * P1387: a step's actions, in the page after its content — not a bar fixed to the bottom. On a
- * phone a fixed bar (progress + two buttons) plus the fixed step header left a ~40% scroll slot
- * in the middle of the screen; the founder chose one scrolling page (2026-10-02).
+ * P1387 (founder, 2026-10-02): every step's actions are pinned at the bottom of a phone, in ONE
+ * slim bar — the question and explanation scroll in the page above it. The first build stacked
+ * progress + two buttons (134-166px at 320px) under the fixed step header, a ~40% scroll slot;
+ * ActionRow puts the two buttons side by side. On desktop the bar sits in the page under the
+ * content (pinned, it floated far below a short step).
  */
 const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string }>(
   function StepActions({ children, className }, ref) {
     return (
-      <div ref={ref} className={cn('flex flex-col items-center pt-2', className)} data-testid="step-actions">
-        {children}
-      </div>
+      <FixedBottomBar
+        ref={ref}
+        className={cn('lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0', className)}
+      >
+        <div className="flex w-full flex-col items-center" data-testid="step-actions">{children}</div>
+      </FixedBottomBar>
     );
   },
 );
 
+/** The secondary action (a text link) beside the primary button, on one row. */
+function ActionRow({ primary, secondary }: { primary: ReactNode; secondary?: ReactNode }) {
+  return (
+    <div className="flex w-full max-w-sm items-center gap-3">
+      {secondary && <div className="flex shrink-0 justify-center [&>div]:w-auto">{secondary}</div>}
+      <div className="min-w-0 flex-1">{primary}</div>
+    </div>
+  );
+}
+
+/** lg and up: the step actions sit in the page, so no space is reserved for a pinned bar. */
+function useIsDesktop(): boolean {
+  const query = '(min-width: 1024px)';
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return;
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return matches;
+}
+
+/** Height of a fixed element, kept current (same approach as MeetingPrincipleView's bar). */
 function useMeasuredHeight(): [(node: HTMLDivElement | null) => void, number] {
   const [height, setHeight] = useState(0);
   const observer = useRef<ResizeObserver | null>(null);
@@ -327,6 +357,8 @@ function PrepFlow({
   const [shownIds, setShownIds] = useState<ShownIds>(() => readShown(event.id, viewerId));
   useEffect(() => { writeShown(event.id, viewerId, shownIds); }, [event.id, viewerId, shownIds]);
   const [headerRef, headerHeight] = useMeasuredHeight();
+  const [barRef, barHeight] = useMeasuredHeight();
+  const isDesktop = useIsDesktop();
 
   const places = event.researchPlaces ?? 6;
   useEffect(() => {
@@ -528,8 +560,8 @@ function PrepFlow({
     if (ok && value !== 'none') next();
   };
 
-  // The step actions are in the page now (P1387): only the safe area to clear at the bottom.
-  const contentPadding = { paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Phones reserve the pinned action bar's height; desktop has the actions in the page.
+  const contentPadding = { paddingBottom: !isDesktop && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;
@@ -540,7 +572,7 @@ function PrepFlow({
   const statementsBar = (count: Count, loaded: boolean) => {
     const allSet = loaded && count.answered >= count.total;
     return (
-      <StepActions>
+      <StepActions ref={barRef}>
         {loaded && (
           <div
             key={count.answered}
@@ -558,21 +590,23 @@ function PrepFlow({
             />
           </div>
         )}
-        <LetterPrimaryCta label="Continue" onClick={() => next('completed')} disabled={!allSet} />
-        {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={() => next('skipped')} variant="secondary" />}
+        <ActionRow
+          primary={<LetterPrimaryCta label="Continue" onClick={() => next('completed')} disabled={!allSet} />}
+          secondary={!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={() => next('skipped')} variant="secondary" />}
+        />
       </StepActions>
     );
   };
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
-    <StepActions>
+    <StepActions ref={barRef}>
       {clipPlayed[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (
-        <>
-          <LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />
-          <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />
-        </>
+        <ActionRow
+          primary={<LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />}
+          secondary={<LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />}
+        />
       )}
     </StepActions>
   );
@@ -651,7 +685,21 @@ function PrepFlow({
               <h1 className="pt-2 text-center text-2xl font-bold leading-tight text-foreground" data-testid="principle-decision-question">
                 Do you want to follow this principle with the attendees at the event?
               </h1>
-            ) : undefined
+            ) : (
+              // P1387 (founder, 2026-10-02): the host's line sits above the certificate, not in the
+              // docked question panel — the panel holds only the question, 0-10 and Confirm.
+              <div className="flex items-center gap-3 px-2 pb-2 sm:px-5" data-testid="rating-host">
+                {hostAvatar('md')}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {event.hostName} <span className="font-normal text-muted-foreground">· Your event host</span>
+                  </p>
+                  <p className="text-sm text-foreground" data-testid="rating-context">
+                    {answer === 'in' ? 'Thanks for trying it. Here is the question:' : 'Thanks for letting me ask. Here is the question:'}
+                  </p>
+                </div>
+              </div>
+            )
           }
           aboveChoice={
             optedInLine ? (
@@ -661,20 +709,6 @@ function PrepFlow({
             ) : undefined
           }
           ratingBarClassName="animate-in slide-in-from-bottom duration-300"
-          actionsInline
-          aboveRating={
-            <div className="flex items-center gap-3 px-2 pb-2 sm:px-5" data-testid="rating-host">
-              {hostAvatar('md')}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">
-                  {event.hostName} <span className="font-normal text-muted-foreground">· Your event host</span>
-                </p>
-                <p className="text-sm text-foreground" data-testid="rating-context">
-                  {answer === 'in' ? 'Thanks for trying it. Here is the question:' : 'Thanks for letting me ask. Here is the question:'}
-                </p>
-              </div>
-            </div>
-          }
         />
       ) : (
         <main className="mx-auto max-w-2xl space-y-6 px-4 pt-4" style={contentPadding}>
@@ -719,9 +753,9 @@ function PrepFlow({
                   );
                 })}
               </ol>
-              <div className="flex justify-center pb-8">
+              <StepActions ref={barRef}>
                 <LetterPrimaryCta label="Start now" onClick={start} />
-              </div>
+              </StepActions>
             </section>
           )}
 
@@ -784,12 +818,11 @@ function PrepFlow({
                   ? "Thank you for opting in. You promised that anybody at the event can ask you a specific question, right? Let's try it now, to show how it works."
                   : "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?"}
               </p>
-              <StepActions>
-                <LetterPrimaryCta
-                  label={answer === 'in' ? 'Try it now' : 'Yes'}
-                  onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }}
+              <StepActions ref={barRef}>
+                <ActionRow
+                  primary={<LetterPrimaryCta label={answer === 'in' ? 'Try it now' : 'Yes'} onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }} />}
+                  secondary={answer === 'out' && <LetterPrimaryCta label="No, continue" onClick={() => next()} variant="secondary" />}
                 />
-                {answer === 'out' && <LetterPrimaryCta label="No, continue" onClick={() => next()} variant="secondary" />}
               </StepActions>
             </section>
           )}
@@ -847,37 +880,40 @@ function PrepFlow({
                 <Title>Does your phone have a USB-C port?</Title>
                 <p className="text-base text-muted-foreground">iPhone 15 and newer, and most Android phones, do.</p>
               </div>
-              <div className="grid w-full grid-cols-1 gap-2" data-testid="mic-answers">
-                {([
-                  ['usbc', 'Yes, USB-C'],
-                  ['own', "No, I'll bring my own microphone"],
-                  ['none', "No, and I don't have a microphone"],
-                ] as const).map(([value, text]) => (
-                  <Button
-                    key={value}
-                    onClick={() => void chooseMic(value)}
-                    size="lg"
-                    variant="outline"
-                    aria-pressed={micSetup === value}
-                    className={cn(
-                      'h-auto min-h-12 min-w-0 whitespace-normal rounded-full bg-background px-4 text-base',
-                      micSetup === value && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
-                    )}
-                  >
-                    {text}
-                  </Button>
-                ))}
-              </div>
-              {micSetup === 'none' && (
-                // In the page, under the answers (not pinned): a pinned bar covered the chosen answer
-                // and this note at 320px.
-                <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300" ref={micNoteRef}>
-                  <p className="text-base text-foreground" data-testid="mic-none-note">
-                    Thanks. You can still take part in the discussion without recording.
-                  </p>
-                  <LetterPrimaryCta label="Continue" onClick={() => next()} />
-                </div>
-              )}
+              {/* P1387: the answers are this step's actions — pinned like every step's. After "No, and I
+                  don't have a microphone" the bar swaps to the note + Continue. */}
+              <StepActions ref={barRef}>
+                {micSetup === 'none' ? (
+                  <div className="flex w-full flex-col items-center gap-3 animate-in fade-in duration-300" ref={micNoteRef}>
+                    <p className="text-center text-base text-foreground" data-testid="mic-none-note">
+                      Thanks. You can still take part in the discussion without recording.
+                    </p>
+                    <LetterPrimaryCta label="Continue" onClick={() => next()} />
+                  </div>
+                ) : (
+                  <div className="grid w-full grid-cols-1 gap-2" data-testid="mic-answers">
+                    {([
+                      ['usbc', 'Yes, USB-C'],
+                      ['own', "No, I'll bring my own microphone"],
+                      ['none', "No, and I don't have a microphone"],
+                    ] as const).map(([value, text]) => (
+                      <Button
+                        key={value}
+                        onClick={() => void chooseMic(value)}
+                        size="lg"
+                        variant="outline"
+                        aria-pressed={micSetup === value}
+                        className={cn(
+                          'h-auto min-h-12 min-w-0 whitespace-normal rounded-full bg-background px-4 text-base',
+                          micSetup === value && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
+                        )}
+                      >
+                        {text}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </StepActions>
             </section>
           )}
 
@@ -891,8 +927,7 @@ function PrepFlow({
                 We provide you with a USB-C lavalier microphone, or you can bring your own mic.
               </p>
               <Clip clip="research" />
-              <StepActions className="px-0">
-                <div className={cn(BAR_INNER_CLASS, 'flex flex-col items-center')}>
+              <div className="flex flex-col items-center text-center">
                   {placesLeft !== null && (
                     <p className="mb-2 text-base font-medium text-foreground" data-testid="places-left">
                       {placesLeft} of {places} volunteer places left
@@ -909,6 +944,9 @@ function PrepFlow({
                       Learn how we use your data
                     </button>
                   </div>
+              </div>
+              <StepActions ref={barRef} className="px-0">
+                <div className={cn(BAR_INNER_CLASS, 'flex flex-col items-center')}>
                   <div className="grid w-full grid-cols-2 gap-2" data-testid="research-answers">
                     <Button
                       onClick={() => void researchYes()}
@@ -935,8 +973,8 @@ function PrepFlow({
             const toEvent = () => navigate(`/events/${event.slug}`);
             return (
               // UAT 2026-10-01: what is new here leads — the thanks, then the next thing to do (the
-              // stories, or the room), then the event box the person already saw on screen 0. All in the
-              // page: a pinned bar covered the box's own actions at 320px and cut the stories heading.
+              // stories, or the room), then the event box the person already saw on screen 0. P1387: the
+              // buttons pin in ONE slim row like every step (the 2026-10-01 stacked bar covered the box).
               <section className="space-y-8 pt-4">
                 <div className="space-y-2 text-center">
                   <Title>Thank you for preparing</Title>
@@ -958,17 +996,22 @@ function PrepFlow({
                       </p>
                     </div>
                   )}
+                  {/* P1387: pinned like every step's actions, on one row. */}
                   {actionsReady && (
-                  <div className="flex w-full flex-col items-center gap-1">
-                    {fromRoom ? (
-                      <LetterPrimaryCta label="Join the room" onClick={() => navigate(`/events/${event.slug}/room`)} />
-                    ) : hasStories ? (
-                      <LetterPrimaryCta label="Read their stories" onClick={() => navigate(`/stake/${tag}?tab=stories`)} />
-                    ) : (
-                      <LetterPrimaryCta label="Back to the event" onClick={toEvent} />
-                    )}
-                    {(fromRoom || hasStories) && <LetterPrimaryCta label="Back to the event" onClick={toEvent} variant="secondary" />}
-                  </div>
+                  <StepActions ref={barRef}>
+                    <ActionRow
+                      primary={
+                        fromRoom ? (
+                          <LetterPrimaryCta label="Join the room" onClick={() => navigate(`/events/${event.slug}/room`)} />
+                        ) : hasStories ? (
+                          <LetterPrimaryCta label="Read their stories" onClick={() => navigate(`/stake/${tag}?tab=stories`)} />
+                        ) : (
+                          <LetterPrimaryCta label="Back to the event" onClick={toEvent} />
+                        )
+                      }
+                      secondary={(fromRoom || hasStories) && <LetterPrimaryCta label="Back to the event" onClick={toEvent} variant="secondary" />}
+                    />
+                  </StepActions>
                   )}
                 </div>
                 <EventBox event={event} groupChatUrl={groupChatUrl} testId="end-card" title={null} />

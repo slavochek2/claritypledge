@@ -1,13 +1,16 @@
 /**
  * @file p1387-mobile-prep-one-page.spec.ts
  * @description P1387 — on a phone, the registration and preparation screens scroll as one page.
- * Real phone emulation (isMobile + hasTouch, iPhone 13 and a 320px phone), real test DB, real
+ * Real phone emulation (isMobile + hasTouch, iPhone 13 and iPhone SE 375x667), real test DB, real
  * signed-in session. The P1336 suite only ever ran Desktop Chrome resized, which is how a pinned
  * panel covering half the screen and 80px of blank scroll shipped unseen.
  *
- * Asserts the symptoms, not the mechanism:
+ * Asserts the symptoms, not the mechanism — the founder's rule (2026-10-02): the question and
+ * explanation scroll in the page; what you tap is pinned at the bottom in ONE slim bar.
  *  - no screen scrolls into blank space under its content;
- *  - nothing pinned to the screen covers more than a button strip (25% of the height).
+ *  - the bottom bar is a slim strip (<= 22% of the screen), except the principle rating panel,
+ *    which docks the question + 0-10 + Confirm and is allowed more (<= 50%), host line excluded;
+ *  - the confirm screen has no bottom menu competing with Prepare now.
  */
 import { test, expect, devices, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -17,9 +20,11 @@ import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from '.
 test.describe.configure({ timeout: 180_000 });
 
 const { defaultBrowserType: _b, ...iphone13 } = devices['iPhone 13'];
+// Real phones at a Chiang Mai expat event: a current iPhone (390) and the smallest phone still
+// sold, iPhone SE 2nd/3rd gen (375x667). The 2016 SE (320) is rare enough not to design for.
 const PHONES = [
   { name: '390', use: iphone13 },
-  { name: '320', use: { ...iphone13, viewport: { width: 320, height: 568 }, screen: { width: 320, height: 568 } } },
+  { name: 'SE-375', use: { ...iphone13, viewport: { width: 375, height: 667 }, screen: { width: 375, height: 667 } } },
 ];
 
 /** Blank scroll: how far the page scrolls past the end of its last visible content. A long screen
@@ -44,7 +49,7 @@ const blankTail = (page: Page) =>
     return Math.round(doc.scrollHeight - Math.max(contentBottom, window.innerHeight) - navCover);
   });
 
-/** Share of the screen covered by pinned (fixed/sticky) content, measured as a finger sees it:
+/** Share of the screen covered by content pinned to the BOTTOM edge, measured as a finger sees it:
  *  a 9x16 grid of points, each asking which element is on top there (elementFromPoint, which skips
  *  pointer-events:none layers). A point counts as covered when that element sits inside a fixed or
  *  sticky ancestor. The site's top bar and the phone BottomNav are chrome, not content — excluded. */
@@ -66,6 +71,9 @@ const pinnedShare = (page: Page) =>
       total++;
       const pin = pinnedAncestor(document.elementFromPoint(x, y));
       if (!pin || pin.closest('nav, header')) continue;
+      // Only bars anchored to the bottom edge: the fixed step header (back, title, progress) is
+      // the agreed top chrome; the question is what pins at the BOTTOM.
+      if (pin.getBoundingClientRect().bottom < window.innerHeight - 1) continue;
       covered++;
       const key = `${pin.tagName}[${pin.getAttribute('data-testid') ?? ''}].${pin.className.toString().slice(0, 50)}`;
       who.set(key, (who.get(key) ?? 0) + 1);
@@ -110,19 +118,22 @@ for (const phone of PHONES) {
       await expect(page.getByRole('button', { name: 'Prepare now' })).toBeVisible();
       await settle(page);
       const pinned = await pinnedShare(page);
-      expect(pinned.share, `pinned ${pinned.who}`).toBeLessThanOrEqual(0.25);
+      expect(pinned.share, `pinned ${pinned.who}`).toBeLessThanOrEqual(0.22);
+      // The decision is pinned on a phone, and nothing else competes with it at the bottom.
+      await expect(page.getByRole('button', { name: 'Prepare now' })).toBeInViewport();
+      await expect(page.getByRole('link', { name: /^Home$/ })).toHaveCount(0);
     });
 
     test('preparation: every step is one page — no blank scroll, nothing pinned beyond the step header', async ({ page }) => {
       await setTestSession(page, u.email);
       await page.goto(`/events/${ev.slug}/prepare`);
-      const check = async (name: string) => {
+      const check = async (name: string, maxPinned = 0.22, hasStepActions = true) => {
         await settle(page);
         expect(await blankTail(page), `${name}: blank scroll`).toBeLessThanOrEqual(24);
         const pinned = await pinnedShare(page);
-        // The fixed step header (back arrow, title, progress) is ~12-14%; anything above 25%
-        // means a bottom panel or bar is pinned too.
-        expect(pinned.share, `${name}: pinned ${pinned.who}`).toBeLessThanOrEqual(0.25);
+        expect(pinned.share, `${name}: pinned ${pinned.who}`).toBeLessThanOrEqual(maxPinned);
+        // Every step's next action is reachable without scrolling.
+        if (hasStepActions) await expect(page.getByTestId('step-actions').last()).toBeInViewport();
       };
       await expect(page.getByRole('heading', { name: 'Your preparation' })).toBeVisible();
       await check('plan');
@@ -137,13 +148,19 @@ for (const phone of PHONES) {
       await check('principle intro');
       await page.getByRole('button', { name: 'Continue without video' }).click();
       await expect(page.getByTestId('principle-decision-question')).toBeVisible();
-      await check('principle decision');
+      await check('principle decision', 0.35, false);
+      await expect(page.getByRole('button', { name: 'Opt in' })).toBeInViewport();
       await page.getByRole('button', { name: 'Opt in' }).click();
       await page.getByRole('button', { name: 'Try it now' }).click();
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeVisible();
-      await check('rating');
-      // Arrival scrolls the question into view: the 0-10 row is on screen without a swipe.
+      // The rating panel docks over the certificate (founder's choice) — question, 0-10 and Confirm
+      // only; the host line sits above the certificate, not in the panel.
+      await check('rating', 0.5, false);
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeInViewport();
+      expect(await page.getByTestId('rating-host').evaluate((el) => {
+        for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return true;
+        return false;
+      }), 'host line is in the page, not in the docked panel').toBe(false);
       await page.getByRole('button', { name: 'Rate 7' }).click();
       await page.getByRole('button', { name: 'Confirm' }).click();
       await expect(page.getByRole('heading', { name: /value perception/ })).toBeVisible();
@@ -156,7 +173,8 @@ for (const phone of PHONES) {
       await check('research');
       await page.getByRole('button', { name: 'Yes, sure' }).click();
       await expect(page.getByRole('heading', { name: /USB-C/ })).toBeVisible();
-      await check('mic');
+      // Three answers pinned (they are the step's actions); the page above is a few short lines.
+      await check('mic', 0.35);
       await page.getByRole('button', { name: 'Yes, USB-C' }).click();
       await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
       await check('end');

@@ -7,6 +7,7 @@
  * — none of those is copied or restyled here.
  */
 import { useState, type ReactNode } from 'react';
+import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Calendar, Link2, MapPin, MessagesSquare, MoreHorizontal, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard, shareOrCopy } from '@/lib/utils';
@@ -252,9 +253,9 @@ export function PrepStatus({ progress, started }: { progress: Progress; started:
  * The confirmation's prep block (variant D, round E). The why line always shows. 0 done: the
  * question + Prepare now / Remind me by email. 1..M-1 done: "{k} of {M} steps done" + Continue
  * your preparation. Done: nothing here — the box carries "Prepared ✓". Never "0 of M".
- * Inline under the card, buttons included — never pinned (P1387, founder 2026-10-02: one page on a
- * phone). Pinning covered 44-72% of a phone screen with the registration details scrolling behind
- * it; pinning only the buttons still took 36% at 320px with the menu bar and hid the question.
+ * Inline under the card; on a phone only the buttons pin (P1387, founder 2026-10-02). Pinning the
+ * whole block covered 44-72% of a phone screen; the bottom menu is hidden on this route so the
+ * pinned buttons are the only thing competing for the tap.
  */
 export function PrepBlock({
   progress,
@@ -315,8 +316,19 @@ export function PrepBlock({
           {progress.done} of {progress.total} steps done
         </h2>
       )}
-      {actions}
     </section>
   );
-  return <div className="!mt-8">{block}</div>;
+  return (
+    <div className="!mt-8">
+      {block}
+      {/* P1387 (founder, 2026-10-02): on a phone the decision is pinned — Prepare now with Remind me
+          under it — and enters once with a soft slide-up (no repeating pulse). The question stays in
+          the page above it. The bottom menu is hidden on this route, as on every prep step. On
+          desktop the actions sit in the page under the question. */}
+      <div className="h-36 lg:hidden" aria-hidden />
+      <FixedBottomBar className="animate-in fade-in slide-in-from-bottom-4 duration-500 lg:static lg:mt-4 lg:animate-none lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+        {actions}
+      </FixedBottomBar>
+    </div>
+  );
 }
