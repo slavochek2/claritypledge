@@ -178,9 +178,8 @@ export function TopicsPage() {
     setSortedIds([...topics].sort((a, b) => key(b) - key(a)).map((t) => t.id));
   };
 
-  // The layout pads 5rem for a bottom menu this page hides; -mb-20 takes it back.
   return (
-    <div className="mx-auto -mb-20 w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10 lg:mb-0">
+    <div className="mx-auto w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10">
       <SEO
         title="Vote for the next topic"
         description="Vote for the next Clarity Night topic, or add your own."
