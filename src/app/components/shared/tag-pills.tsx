@@ -60,7 +60,9 @@ export function TagPills({ tags, systemTags, context, activeTag, className = '' 
           : tag;
         const isActive = activeTag === tag;
 
-        if (!isInteractive) {
+        // A set's position number (st1, st2…) is shown but never a link: /feed?tag=st1 would list
+        // point 1 of every unrelated set (adversarial review, 2026-10-02).
+        if (!isInteractive || /^st\d+$/i.test(tag)) {
           return (
             <span
               key={tag}

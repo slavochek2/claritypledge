@@ -16,4 +16,10 @@ describe('TagPills hides version tags', () => {
     const { container } = render(<MemoryRouter><TagPills systemTags={['v1']} context="detail" /></MemoryRouter>);
     expect(container.innerHTML).toBe('');
   });
+
+  it('shows the st number as plain text, never a link to a cross-set /feed?tag=stN', () => {
+    render(<MemoryRouter><TagPills systemTags={['misunderstanding', 'st1']} context="feed" /></MemoryRouter>);
+    expect(screen.getByText('#st1').closest('a')).toBeNull();
+    expect(screen.getByText('#misunderstanding').closest('a')?.getAttribute('href')).toBe('/feed?tag=misunderstanding');
+  });
 });

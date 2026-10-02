@@ -42,7 +42,7 @@ import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { isSafeTag } from '@/app/data/event-links';
-import { orderBySequence } from '@/lib/feed-utils';
+import { isSystemTag, orderBySequence } from '@/lib/feed-utils';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
@@ -384,8 +384,11 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
 
   // P1296 item 7 — stories built on one video gather under one player.
   // The tag's own st1, st2… order, not fetch (creation) order — see orderBySequence.
-  const orderedPoints = useMemo(() => orderBySequence(points), [points]);
-  const storyEntries = useMemo(() => groupBySource(orderBySequence(stories)), [stories]);
+  // Only under a set tag (understanding/misunderstanding): st numbers are global, so a user tag
+  // spanning two sets would interleave them.
+  const sequenced = !!tag && isSystemTag(tag);
+  const orderedPoints = useMemo(() => (sequenced ? orderBySequence(points) : points), [points, sequenced]);
+  const storyEntries = useMemo(() => groupBySource(sequenced ? orderBySequence(stories) : stories), [stories, sequenced]);
 
   const isEmpty = points.length === 0 && stories.length === 0;
 

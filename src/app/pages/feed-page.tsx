@@ -22,7 +22,7 @@ import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
-import { parseTags, serializeTags, filterByTags, collapseToLatest, orderBySequence } from '@/lib/feed-utils';
+import { parseTags, serializeTags, filterByTags, collapseToLatest, orderBySequence, isSystemTag } from '@/lib/feed-utils';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
@@ -361,8 +361,9 @@ export function FeedPage() {
   const filteredStories = useMemo(() => {
     let result = filterByTags(stories, activeTags);
     // One tag is a set with its own st1, st2… order; the sort toggle orders only what has none.
-    // Exactly one: st numbers are global (P1069), so two tags would interleave two sets.
-    if (activeTags.length === 1) result = orderBySequence(result);
+    // Exactly one SET tag: st numbers are global (P1069), so two tags — or a user tag spanning
+    // sets — would interleave two sets.
+    if (activeTags.length === 1 && isSystemTag(activeTags[0])) result = orderBySequence(result);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(s => s.content.toLowerCase().includes(q));
@@ -379,7 +380,7 @@ export function FeedPage() {
     let result = filterByTags(points, activeTags);
     if (versionLatest) {
       result = collapseToLatest(result);
-    } else if (activeTags.length === 1) {
+    } else if (activeTags.length === 1 && isSystemTag(activeTags[0])) {
       result = orderBySequence(result);
     }
     if (searchQuery.trim()) {

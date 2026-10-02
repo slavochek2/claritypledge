@@ -292,6 +292,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
 
             {/* Tag pills */}
             <TagPills tags={point.tags} systemTags={point.systemTags} context="feed" activeTag={activeTag} className="mt-2" />
+            {/* A replaced wording, shown when the feed lists every version: without this the old
+                and new wording of one st sit side by side, indistinguishable (the #v pill is hidden). */}
+            {point.supersededBy && (
+              <p className="mt-1 text-sm text-muted-foreground" data-testid="earlier-wording">Earlier wording</p>
+            )}
 
             {/* Position buttons. P1296: share USED TO sit at the end of this row. It moved out
                 (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
