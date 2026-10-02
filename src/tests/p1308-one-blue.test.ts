@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import tailwindConfig from '../../tailwind.config.js';
 
 const ROOT = join(__dirname, '..');
 const BANNED = /#(2563eb|3b82f6|0044cc|0033aa|1d4ed8)\b/i;
@@ -55,5 +56,10 @@ describe('P1308 — one interactive blue', () => {
     expect(findOffBrandBlues([{ path: 'app/pages/x.tsx', text: '<div className="bg-[#2563eb]" />' }]))
       .toEqual(['app/pages/x.tsx:1']);
     expect(findOffBrandBlues([{ path: 'app/pages/x.tsx', text: "avatarColor = '#0044CC'," }])).toEqual([]);
+  });
+
+  it('the navy remap itself is in tailwind.config.js (deleting it must fail)', () => {
+    const blue = (tailwindConfig as { theme: { extend: { colors: { blue: Record<string, string> } } } }).theme.extend.colors.blue;
+    expect(blue).toEqual({ '500': '#00336B', '600': '#002B5C', '700': '#001F45' });
   });
 });

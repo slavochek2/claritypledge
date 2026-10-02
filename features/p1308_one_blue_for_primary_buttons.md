@@ -71,6 +71,7 @@ ceremony language).
 |---|---|---|
 | A colour sweep across 100+ files breaks visual/snapshot tests or misses call sites | MITIGATE | Inventory first; migrate through one token so a miss is greppable |
 | The founder prefers the other blue once it is live everywhere | ACCEPT | With one token the change is one line |
+| Dark mode: ~219 `dark:` variants are dormant (nothing adds the `dark` class); many `text-blue-600` uses have no `dark:` pair and would render navy on near-black | DEFER | Only matters if dark mode is ever switched on — add `dark:text-blue-400` pairs then |
 
 **Non-Goals**
 - Do NOT change P1307's screens here — they keep today's colours until this lands.
