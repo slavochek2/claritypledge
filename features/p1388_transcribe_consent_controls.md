@@ -10,10 +10,7 @@ tags:
   - recording
 disclosure: public
 delivery_stage: ship
-pipeline_ran:
-  - create-spec
-  - dev
-  - ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
