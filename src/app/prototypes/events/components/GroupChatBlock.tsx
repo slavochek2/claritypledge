@@ -128,8 +128,8 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'button
         {label}
       </a>
       <p className="text-xs text-muted-foreground mt-2 max-w-md">
-        {/* Founder-authored 2026-08-31; one line for every in-person event since 2026-09-11. */}
-        Last-minute changes, questions, and getting there. If you need a lift, ask in the group.
+        {/* Founder-authored 2026-08-31; shortened to one line by the founder (P1387, 2026-10-02). */}
+        Last-minute changes, questions, lifts.
       </p>
     </div>
   );

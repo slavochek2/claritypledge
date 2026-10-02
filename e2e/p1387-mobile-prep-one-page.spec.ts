@@ -83,6 +83,15 @@ const pinnedShare = (page: Page) =>
 
 const settle = (page: Page) => page.waitForTimeout(600);
 
+/** The button is what a finger hits at its centre — not merely inside the viewport. The P1387
+ *  review found the end screen's pinned row under the BottomNav while toBeInViewport passed. */
+const onTop = (page: Page, name: string) =>
+  page.getByRole('button', { name, exact: true }).first().evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!hit && (hit === el || el.contains(hit));
+  });
+
 for (const phone of PHONES) {
   test.describe(`P1387 phone ${phone.name}`, () => {
     test.use(phone.use);
@@ -121,6 +130,9 @@ for (const phone of PHONES) {
       expect(pinned.share, `pinned ${pinned.who}`).toBeLessThanOrEqual(0.22);
       // The decision is pinned on a phone, and nothing else competes with it at the bottom.
       await expect(page.getByRole('button', { name: 'Prepare now' })).toBeInViewport();
+      expect(await onTop(page, 'Prepare now'), 'Prepare now is tappable').toBe(true);
+      // The question leads the page, above the registered card.
+      await expect(page.getByTestId('prep-question')).toBeInViewport();
       await expect(page.getByRole('link', { name: /^Home$/ })).toHaveCount(0);
     });
 
@@ -157,6 +169,8 @@ for (const phone of PHONES) {
       // only; the host line sits above the certificate, not in the panel.
       await check('rating', 0.5, false);
       await expect(page.getByRole('button', { name: 'Rate 7' })).toBeInViewport();
+      expect(await onTop(page, 'Rate 7'), 'Rate 7 is tappable').toBe(true);
+      await expect(page.getByTestId('rating-question')).toBeVisible();
       expect(await page.getByTestId('rating-host').evaluate((el) => {
         for (let n: HTMLElement | null = el as HTMLElement; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return true;
         return false;
@@ -178,6 +192,9 @@ for (const phone of PHONES) {
       await page.getByRole('button', { name: 'Yes, USB-C' }).click();
       await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
       await check('end');
+      // The last step keeps the app menus hidden; its pinned buttons are what a finger hits.
+      await expect(page.getByRole('link', { name: /^Home$/ })).toHaveCount(0);
+      expect(await onTop(page, 'Back to the event'), 'Back to the event is tappable').toBe(true);
     });
 
     test('room gate: no blank scroll', async ({ page }) => {

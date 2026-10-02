@@ -11,11 +11,13 @@ import { AttendeeAvatarStack } from '@/app/prototypes/events/components/Attendee
 import { EventBox, SocialProof } from '@/app/prototypes/events/prep/PrepPieces';
 
 describe('immersive route: the preparation', () => {
-  it('is immersive while in progress, leaves on ?done=1 for a signed-in viewer only', () => {
+  // P1387 (founder, 2026-10-02): the end screen (?done=1) stays immersive — the app menus covered
+  // its pinned Read their stories / Join the room on every phone. Was: leaves on ?done=1 (P1336).
+  it('is immersive throughout, the end screen (?done=1) included', () => {
     expect(isImmersiveLetterRoute('/events/cn-2/prepare', '', true)).toBe(true);
     expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?from=room', true)).toBe(true);
-    expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?done=1', true)).toBe(false);
-    expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?from=room&done=1', true)).toBe(false);
+    expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?done=1', true)).toBe(true);
+    expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?from=room&done=1', true)).toBe(true);
     expect(isImmersiveLetterRoute('/events/cn-2/prepare', '?done=1', false)).toBe(true);
   });
 

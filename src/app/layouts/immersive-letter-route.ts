@@ -15,9 +15,8 @@
  * app menu (P932).
  *
  * P1336: an event's preparation (/events/:slug/prepare) is the same kind of focus flow — its
- * own back arrow, progress bar and bottom bar — and ends the same way: the end screen stamps
- * ?done=1 and the app menus return, so a prepared attendee is never left on a page with no way
- * on. Room capture pausing here too is correct: a volunteer who opens the preparation from the
+ * own back arrow, progress bar and bottom bar. Unlike a letter, its end screen (?done=1) stays
+ * immersive (P1387): the pinned Back to the event is the way on. Room capture pausing here too is correct: a volunteer who opens the preparation from the
  * room must not keep recording on a screen that hides the capture bar (P1307 D13).
  */
 const IMMERSIVE_LETTER_PATH = /^\/letter\/[^/]+(\/compose)?$/;
@@ -25,5 +24,8 @@ const IMMERSIVE_PREP_PATH = /^\/events\/[^/]+\/prepare\/?$/;
 
 export function isImmersiveLetterRoute(pathname: string, search: string, hasAppMenu: boolean): boolean {
   const done = new URLSearchParams(search).get('done') === '1' && hasAppMenu;
-  return (IMMERSIVE_LETTER_PATH.test(pathname) || IMMERSIVE_PREP_PATH.test(pathname)) && !done;
+  // P1387 (founder, 2026-10-02): the preparation's end screen stays immersive too — it is the last
+  // step, not a destination; its pinned row (Read their stories / Join the room + Back to the
+  // event) is the way on. With the menus back, the BottomNav covered that row on every phone.
+  return (IMMERSIVE_LETTER_PATH.test(pathname) && !done) || IMMERSIVE_PREP_PATH.test(pathname);
 }

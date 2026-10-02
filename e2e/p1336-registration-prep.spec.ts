@@ -88,7 +88,8 @@ test.describe('P1336 registration preparation', () => {
     await page.goto(`/events/${ev.slug}/confirm`);
 
     await expect(page.getByTestId('registered-card')).toContainText("You're Registered!");
-    await expect(page.getByTestId('prep-why')).toContainText('Our events are different');
+    // P1387 (founder, 2026-10-02): one subtitle under the question, not four sentences.
+    await expect(page.getByTestId('prep-why')).toHaveText('Our events have a special structure. A short preparation makes the discussions more meaningful.');
     await expect(page.getByTestId('prep-question')).toHaveText(/^Do you have \d+ minutes to prepare for the event\?$/);
     await expect(page.getByRole('button', { name: 'Prepare now' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remind me by email' })).toBeVisible();
@@ -169,8 +170,10 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('try-it-now')).toContainText("Thank you for opting in. You promised that anybody at the event can ask you a specific question, right? Let's try it now, to show how it works.");
     await expect(page.getByTestId('host-caption')).toContainText('P1336 E2E Host');
     await page.getByRole('button', { name: 'Try it now' }).click();
-    await expect(page.getByTestId('rating-context')).toHaveText('Thanks for trying it. Here is the question:');
-    await expect(page.getByText("How much do you think you understand P1336's intended meaning behind this principle?")).toBeVisible();
+    // P1387 (founder, 2026-10-02): the question sits with the host above the principle; the docked
+    // panel holds only 0-10 and Confirm.
+    await expect(page.getByTestId('rating-context')).toHaveText('Thanks for trying it. My question:');
+    await expect(page.getByTestId('rating-question')).toHaveText("How much do you think you understand P1336's intended meaning behind this principle?");
     await page.getByRole('button', { name: 'Rate 7' }).click();
     await page.getByRole('button', { name: 'Confirm' }).click();
 
@@ -201,12 +204,13 @@ test.describe('P1336 registration preparation', () => {
 
     // End
     await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
-    // UAT 2026-10-01: the title says it — no status badge on the end screen; the app menus return.
+    // UAT 2026-10-01: the title says it — no status badge on the end screen. P1387 (2026-10-02):
+    // the app menus stay hidden here; the pinned Back to the event is the way on.
     await expect(page.getByTestId('end-card')).toBeVisible();
     await expect(page.getByTestId('prep-status')).toHaveCount(0);
     await expect(page).toHaveURL(/[?&]done=1/);
     await expect(page.getByRole('button', { name: 'Back to the event' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Tools' })).toBeVisible(); // the app menu is back
+    await expect(page.getByRole('button', { name: 'Tools' })).toHaveCount(0); // no app menu on the last step
     // Experts read as people ("Simon Sinek"), not account names ("Agent · Simon Sinek").
     await expect(page.getByTestId('end-stories')).toContainText('Our AI agents predicted how');
     await expect(page.getByTestId('end-stories')).not.toContainText('Agent ·');

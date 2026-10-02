@@ -149,12 +149,14 @@ export function EventBox({
       {groupChatUrl && (
         // GroupChatBlock's own line (founder-authored).
         <p className="text-xs text-muted-foreground">
-          {isWhatsApp ? 'WhatsApp group' : 'Group chat'}: last-minute changes, questions, and getting there. If you need a lift, ask in the group.
+          {/* P1387 (founder, 2026-10-02): one line. */}
+          {isWhatsApp ? 'WhatsApp group' : 'Group chat'}: last-minute changes, questions, lifts.
         </p>
       )}
-      <div className="space-y-1 border-t border-border pt-3" data-testid={`${testId}-share`}>
+      {/* P1387 (founder, 2026-10-02): "Share" on the same line as the icons. */}
+      <div className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-3" data-testid={`${testId}-share`}>
         <p className="text-sm font-medium text-muted-foreground">Share</p>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="contents">
           {shareTargets(pageUrl, event.title).map(({ name, glyph, href }) => (
             <a
               key={name}
@@ -253,9 +255,8 @@ export function PrepStatus({ progress, started }: { progress: Progress; started:
  * The confirmation's prep block (variant D, round E). The why line always shows. 0 done: the
  * question + Prepare now / Remind me by email. 1..M-1 done: "{k} of {M} steps done" + Continue
  * your preparation. Done: nothing here — the box carries "Prepared ✓". Never "0 of M".
- * Inline under the card; on a phone only the buttons pin (P1387, founder 2026-10-02). Pinning the
- * whole block covered 44-72% of a phone screen; the bottom menu is hidden on this route so the
- * pinned buttons are the only thing competing for the tap.
+ * P1387 (founder, 2026-10-02): leads the confirm page (above the registered card). On a phone the
+ * buttons and the social proof pin; the bottom menu is hidden on this route.
  */
 export function PrepBlock({
   progress,
@@ -291,44 +292,39 @@ export function PrepBlock({
           ))}
       </div>
   );
-  const block = (
-    <section className="space-y-2 text-center" data-testid="prep-block">
-      {/* [DRAFT] founder copy: why before the question. */}
-      <div className="space-y-0.5" data-testid="prep-why">
-        <p className="text-base font-semibold text-foreground">Our events are different</p>
-        <p className="text-sm leading-snug text-muted-foreground">
-          We use a special structure, and we ask every participant to prepare.
-        </p>
-      </div>
-      {notStarted ? (
-        <>
-          {/* Rendered at once: 10 stands in until the points load. */}
-          <h2 className="text-xl font-bold leading-snug text-foreground" data-testid="prep-question" data-ready={minutes !== null}>
-            Do you have {minutes ?? 10} minutes to prepare for the event?
-          </h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Your short preparation will make the event discussions more meaningful.
-          </p>
-          <SocialProof testId="prepared-proof" line={proof.line} people={proof.people} />
-        </>
-      ) : (
-        <h2 className="text-xl font-bold leading-snug text-foreground" data-testid="prep-progress">
-          {progress.done} of {progress.total} steps done
-        </h2>
-      )}
-    </section>
-  );
   return (
-    <div className="!mt-8">
-      {block}
-      {/* P1387 (founder, 2026-10-02): on a phone the decision is pinned — Prepare now with Remind me
-          under it — and enters once with a soft slide-up (no repeating pulse). The question stays in
-          the page above it. The bottom menu is hidden on this route, as on every prep step. On
-          desktop the actions sit in the page under the question. */}
-      <div className="h-36 lg:hidden" aria-hidden />
+    <>
+      {/* P1387 (founder, 2026-10-02): the question leads the page, big — it is the main thing we ask
+          — with ONE subtitle (was four sentences). [DRAFT] subtitle copy. */}
+      <section className="space-y-2 pt-2 text-center" data-testid="prep-block">
+        {notStarted ? (
+          <>
+            {/* Rendered at once: 10 stands in until the points load. */}
+            <h1 className="text-2xl font-bold leading-tight text-foreground" data-testid="prep-question" data-ready={minutes !== null}>
+              Do you have {minutes ?? 10} minutes to prepare for the event?
+            </h1>
+          </>
+        ) : (
+          <h1 className="text-2xl font-bold leading-tight text-foreground" data-testid="prep-progress">
+            {progress.done} of {progress.total} steps done
+          </h1>
+        )}
+        {/* The why is always shown (P1336), in both states. */}
+        <p className="text-base leading-relaxed text-muted-foreground" data-testid="prep-why">
+          Our events have a special structure. A short preparation makes the discussions more meaningful.
+        </p>
+      </section>
+      {/* On a phone the decision is pinned with its social proof (as the opt-in step does), and
+          enters once with a soft slide-up — no repeating pulse. Desktop: in the page under the
+          question. The bottom menu is hidden on this route, as on every prep step. */}
       <FixedBottomBar className="animate-in fade-in slide-in-from-bottom-4 duration-500 lg:static lg:mt-4 lg:animate-none lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+        {notStarted && proof.line && (
+          <div className="mb-2 w-full max-w-sm">
+            <SocialProof testId="prepared-proof" line={proof.line} people={proof.people} />
+          </div>
+        )}
         {actions}
       </FixedBottomBar>
-    </div>
+    </>
   );
 }

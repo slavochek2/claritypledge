@@ -28,7 +28,8 @@ const renderBlock = (done: number, total: number, complete = false, reminded = f
 describe('PrepBlock states', () => {
   it('0 done: the why, the question with N minutes, Prepare now + Remind me by email', () => {
     renderBlock(0, 6);
-    expect(screen.getByTestId('prep-why')).toHaveTextContent('Our events are different');
+    // P1387 (founder, 2026-10-02): one subtitle replaces "Our events are different" + three sentences.
+    expect(screen.getByTestId('prep-why')).toHaveTextContent('Our events have a special structure.');
     expect(screen.getByTestId('prep-question')).toHaveTextContent('Do you have 12 minutes to prepare for the event?');
     expect(screen.getByRole('button', { name: 'Prepare now' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remind me by email' })).toBeInTheDocument();

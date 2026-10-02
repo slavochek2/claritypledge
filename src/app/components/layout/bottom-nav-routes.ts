@@ -49,7 +49,7 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // EXACT: one segment only, so /stakeholders or /stake/x/y are not swallowed.
     || /^\/stake\/[^/]+\/?$/.test(pathname);
   const completedLetterReading = letterDone && pathname.startsWith('/letter/');
-  // P1336: the finished preparation (?done=1) is a destination, not a focus step — the bar returns.
-  const completedPreparation = letterDone && /^\/events\/[^/]+\/prepare\/?$/.test(pathname);
-  return onFocusRoute && !completedLetterReading && !completedPreparation;
+  // P1387: the finished preparation (?done=1) keeps the bar hidden — it covered the end screen's
+  // pinned row on every phone. (P1336 had brought it back there.)
+  return onFocusRoute && !completedLetterReading;
 }
