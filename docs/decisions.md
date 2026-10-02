@@ -332,6 +332,23 @@ DEV-gated, unreachable on prod, kept.
 **References:** [p1381 spec](../features/done/2026-06-10/p1381_admin_users_lookup.md), [database.md](technical/database.md), `supabase/migrations/20261001153000_p1381_admin_list_users.sql`
 
 ---
+## 2026-10-01 [technical]: A Cloud Scheduler ping inside Cloud Run's idle window is a 24/7 bill; the room sweep runs hourly and the tripwire checks target + interval
+
+**Context:** `transcribe-room-sweep` (P1307) pinged `transcribe-room-batch` every 10 min. The service runs with `--no-cpu-throttling` and idles out after ~15 min, so it was billed 24 h/day from 2026-09-16 to 2026-10-01, for 8 room jobs in total. Same mechanism as the May `transcribe-session` leak, on a CPU service. The daily tripwire flagged it on 2026-09-29 only as "not allowlisted", with no cost attached, and nobody acted.
+**Decision:**
+1. Prod scheduler set to hourly (`0 * * * *`), changed 2026-10-01T09:36Z. Measured afterwards: billed time went from 60 to 14-15 min/h and held for 27 h; the control service was unchanged.
+2. CPU throttling stays off. `/process` returns 202 and keeps transcribing in a background task, so request-only billing would starve real jobs.
+3. The `day-cp` tripwire (`scripts/scheduler-warm-check.py`) selects jobs by `run.app` target URI, not by name. It expands the whole cron minute field and flags any gap under 30 min, even for allowlisted jobs. It reports "did not run" when it crashes.
+**Alternatives rejected:**
+- A name-only allowlist entry: it goes silent if the job is ever set back to `*/10`.
+- The first interval parser (`*`, `*/N`, commas only). All three reviewers (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) broke it with `0-59/10`, `*/45` and `5-50`. Codex also showed that selecting by job name misses a job named `hourly-maintenance`.
+- An inline `python3 -c` parser inside the skill. Quoting broke it, and the empty output read as "no flags". That is how the parser moved to a script that fails closed.
+**Consequences:**
+- Recovery for a stuck or lost room job is now up to ~60 min (worst case ~4.5 h over 3 attempts, previously ~2 h). The happy path is unchanged.
+- Remaining idle cost: ~6 h/day. Calling `/sweep` from pg_cron only when a job is pending or stale would bring it to near zero. Filed as follow-up, not built.
+- The same review found two older service defects: unbounded background concurrency, and a 30-min stale threshold that can reclaim a job that is still running. Filed as INBOX-110.
+**References:** `scripts/scheduler-warm-check.py`, `.claude/commands/slava/maintain/day-cp.md` (cost tripwire), `docs/technical/infrastructure.md` (transcribe-room-batch), `services/transcribe-room-batch/main.py`
+
 ## 2026-10-01 [technical]: Anon 42501 on an authenticated-only RPC is suppressed at the caller, only when the client has no session (P1382)
 
 **Context:** Sentry JAVASCRIPT-REACT-3K. The Partners badge refetched on tab focus after the Supabase client had dropped its session while React still held `user`, so `get_my_pending_invitations` (revoked from anon on purpose, P1222) returned 42501. The first draft extended P913's function-name predicate in `logDbError`. Review (Opus, Codex Sol, Gemini 3.8, 3 of 3 reporting) rejected it.
