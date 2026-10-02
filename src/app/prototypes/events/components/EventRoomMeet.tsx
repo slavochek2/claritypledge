@@ -273,6 +273,9 @@ export function EventRoomMeet() {
   // Measured bottom-bar height (see file doc comment) — same pattern as
   // meeting-terms-page.tsx's ratingBarHeight.
   const [barHeight, setBarHeight] = useState(0);
+  // P1337: true while this person is seated in a live round — the answered bar then steps
+  // aside so it never covers "I'm at table N" (visual QA). Choosing/rating bars stay.
+  const [seated, setSeated] = useState(false);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -427,9 +430,11 @@ export function EventRoomMeet() {
         ? ''
         : 'You have not answered yet.';
 
+  const barHidden = seated && step === 'answered';
+
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.
-    <div data-testid="room-meet" style={barHeight > 0 ? { paddingBottom: barHeight + 16 } : undefined}>
+    <div data-testid="room-meet" style={barHeight > 0 && !barHidden ? { paddingBottom: barHeight + 16 } : undefined}>
       {/* No level stepper here. The shipped /meet shows "You may ask / Reveal the gap /
           Explain back" because a visitor arriving there is choosing a level and needs to
           see where they are in that ladder. Inside an event room there is no ladder: the
@@ -474,7 +479,7 @@ export function EventRoomMeet() {
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
           {event && !isFrozen && (
-            <RoundCard eventId={event.id} statementTag={event.statementTag} self={self} roster={roster} />
+            <RoundCard eventId={event.id} statementTag={event.statementTag} self={self} roster={roster} onSeatedChange={setSeated} />
           )}
           <CertificateFrame
             ariaLabel={PRINCIPLE_TITLE}
@@ -572,7 +577,7 @@ export function EventRoomMeet() {
           nothing to do with the decision (this is why `pointer-events` moves to the panel
           alone, not the bar — see below). Below min-[1600px] there is only one column, so
           the full-width bar is correct and nothing changes. */}
-      {!isFrozen && (
+      {!isFrozen && !barHidden && (
         <FixedBottomBar
           ref={setBarRef}
           className={cn(

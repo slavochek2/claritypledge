@@ -124,11 +124,11 @@ function ClockReadout({ round, seats, large }: { round: EventRound | null; seats
   const ms = clock.phase === 'over' ? clock.overByMs : clock.phaseRemainingMs;
   return (
     <div className="flex items-baseline gap-3" data-testid="round-clock" data-phase={clock.phase}>
-      <span className={cn('text-muted-foreground', large ? 'text-3xl' : 'text-sm')}>{PHASE_LABEL[clock.phase]}</span>
+      <span className={cn('text-muted-foreground', large ? 'text-xl sm:text-3xl' : 'text-sm')}>{PHASE_LABEL[clock.phase]}</span>
       <span
         className={cn(
           'font-semibold tabular-nums',
-          large ? 'text-8xl' : 'text-4xl',
+          large ? 'text-6xl sm:text-8xl' : 'text-4xl',
           clock.phase === 'over' ? 'text-red-600' : 'text-foreground',
         )}
       >
@@ -153,24 +153,24 @@ function ScreenView({
 }) {
   return (
     // Fixed over the page so the projector carries no site chrome (header, menus).
-    <div className="fixed inset-0 z-[100] overflow-auto bg-white px-8 py-8 print:static print:p-0" data-testid="host-screen">
+    <div className="fixed inset-0 z-[100] overflow-auto bg-white px-4 py-6 sm:px-8 sm:py-8 print:static print:p-0" data-testid="host-screen">
       {round ? (
         <>
           <div className="flex flex-wrap items-baseline justify-between gap-6 mb-8">
-            <h1 className="text-5xl font-semibold">Round {round.roundNo}</h1>
+            <h1 className="text-4xl sm:text-5xl font-semibold">Round {round.roundNo}</h1>
             <div className="print:hidden">
               <ClockReadout round={round} seats={seats} large />
             </div>
           </div>
-          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(20rem,1fr))]">
+          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(22rem,100%),1fr))]">
             {groupByTable(seats).map(table => (
               <div key={table.no} className="rounded-xl border border-border p-5 break-inside-avoid">
-                <p className="text-sm uppercase tracking-widest text-muted-foreground">Table {table.no}</p>
+                <p className="text-base uppercase tracking-widest text-muted-foreground">Table {table.no}</p>
                 <ul className="mt-2 space-y-1">
                   {table.seats.map(s => (
-                    <li key={s.id} className="flex items-baseline justify-between gap-3 text-2xl">
+                    <li key={s.id} className="flex items-baseline justify-between gap-3 text-2xl sm:text-3xl">
                       <span className="font-medium min-w-0 break-words">{names.get(s.id) ?? '—'}</span>
-                      <span className="shrink-0 text-base text-muted-foreground">{ROLE_LABEL[s.role]}</span>
+                      <span className="shrink-0 text-base sm:text-xl text-muted-foreground">{ROLE_LABEL[s.role]}</span>
                     </li>
                   ))}
                 </ul>
@@ -442,7 +442,7 @@ export function EventHostPage() {
     evening === 'ended'
       ? null
       : nextNo <= ROUNDS_PER_EVENING
-        ? { label: `Start round ${nextNo}`, action: startNext }
+        ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext }
         : { label: 'End evening', action: () => void run(() => hostEndRounds(event.id)) };
 
   return (
@@ -471,12 +471,16 @@ export function EventHostPage() {
         <div className="mt-1 min-h-[2.5rem]">
           <ClockReadout round={round} seats={seats} />
         </div>
-        {primary && (
+        {primary && justStarted && !busy && (
+          // The start lock: nothing to press for a few seconds rather than a greyed-out button.
+          <div className="mt-3 min-h-12" aria-hidden="true" />
+        )}
+        {primary && (!justStarted || busy) && (
           <Button
             type="button"
             className="mt-3 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
             onClick={primary.action}
-            disabled={busy || !loaded || justStarted}
+            disabled={busy || !loaded}
             data-testid="host-primary"
           >
             {busy ? 'Grouping…' : primary.label}
@@ -525,7 +529,7 @@ export function EventHostPage() {
         <h2 className="text-sm font-semibold">
           Who&rsquo;s here <span className="font-normal text-muted-foreground">({here.length})</span>
           {round && unconfirmed > 0 && (
-            <span className="ml-2 font-normal text-muted-foreground">· {unconfirmed} not at a table yet</span>
+            <span className="ml-2 font-normal text-muted-foreground">· {unconfirmed} haven&rsquo;t tapped in</span>
           )}
         </h2>
         <ul className="mt-2 divide-y divide-border rounded-xl border border-border bg-card">
@@ -534,7 +538,7 @@ export function EventHostPage() {
             const sitsOut = presence.get(m.id)?.sitsOutRound === nextNo;
             return (
               <li key={m.id} className="flex items-center gap-2 px-3 py-1.5 min-h-12" data-testid="host-member">
-                <span className="flex-1 min-w-0 truncate text-sm">{m.displayName}</span>
+                <span className="flex-1 min-w-0 break-words text-sm">{m.displayName}</span>
                 <span className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
                   {seat ? (
                     <>

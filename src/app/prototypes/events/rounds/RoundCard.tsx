@@ -63,11 +63,15 @@ export function RoundCard({
   statementTag,
   self,
   roster,
+  onSeatedChange,
 }: {
   eventId: string;
   statementTag: string | null | undefined;
   self: EventRoomSelf | null;
   roster: EventRoomMember[];
+  /** True while this person holds a seat in a round that is not over — the room page hides
+   * its opt-in bar then, so it never covers "I'm at table N". */
+  onSeatedChange?: (seated: boolean) => void;
 }) {
   const { state, refresh } = useEventRounds(eventId, !!self);
   const round = currentRound(state);
@@ -98,6 +102,11 @@ export function RoundCard({
     const row = furthestApart(buildCompareRows(positions.statements, a, b));
     return row ? { statement: row.statement, chosen: false } : null;
   }, [round, mine, state.topics, positions, firstMember, secondMember]);
+
+  const seatedNow = !!mine && !!clock && clock.phase !== 'over';
+  useEffect(() => {
+    onSeatedChange?.(seatedNow);
+  }, [seatedNow, onSeatedChange]);
 
   const [hiddenFor, setHiddenFor] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);

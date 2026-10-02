@@ -116,7 +116,9 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
       const at = rows.filter(r => r.table_no === table).map(r => r.role).sort();
       expect(at).toEqual(['first', 'observer', 'second']);
     }
-    await expect(page.getByTestId('host-primary')).toHaveText('Start round 2');
+    // "Next round" once a round runs — and absent for the first seconds (the double-tap lock).
+    await expect(page.getByTestId('host-primary')).toHaveCount(0);
+    await expect(page.getByTestId('host-primary')).toHaveText('Next round', { timeout: 20_000 });
   });
 
   test('a two-tap swap moves both people, and Undo puts them back', async ({ page }) => {
@@ -223,6 +225,6 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3 of 3');
     const rows = await seats(event.id);
     expect(rows.some(r => r.role === 'observer')).toBe(false);
-    await expect(page.getByTestId('host-primary')).toHaveText('End evening');
+    await expect(page.getByTestId('host-primary')).toHaveText('End evening', { timeout: 20_000 });
   });
 });
