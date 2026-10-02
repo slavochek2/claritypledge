@@ -104,17 +104,42 @@ six minutes. No sound, no vibration — the Vibration API does not exist on iOS 
 speaker cannot cut through fifteen people talking. The observer is also the one who keeps the round a
 dialogue rather than two monologues.
 
+**One tap marks what they chose.** On the compare view each row carries *"we're talking about this
+one"*. Tapping another row moves the mark; tapping the marked row clears it; **anyone at the table
+can tap it, observer included, last tap wins**. It is a note, not a permission. Without it a
+recording is fifteen minutes of audio and a guess about which statement it concerns. (Settles open
+question 2 of the previous draft.)
+
 **At the end of each round**, an optional *"did your position move?"* — captured while the
 conversation is still in their head, in a moment they are already looking at the phone.
 
 ### 4. The compare view
 
-`/compare/:person?tag=<event tag>` — the statements both people hold a position on, **sorted by
-largest gap**, each row showing the two positions side by side in the pattern the letters flow
-already uses (`letter-reveal-ordinal.tsx`, "Where you each stand"). A plain list: no swiping, no
-cards to dismiss, no modes — **two people share one phone**, so a one-person gesture excludes the
-other, and hiding the non-current rows is wrong when the job is choosing together. Agreements sort
-last and stay visible: that is where false agreement hides.
+`/compare/:person?tag=<tag>` — the statements both people hold a position on, **sorted by largest
+gap, every tag, no exception**, each row showing the two positions side by side in the pattern the
+letters flow already uses (`letter-reveal-ordinal.tsx`, "Where you each stand"). A plain list: no
+swiping, no cards to dismiss, no modes — **two people share one phone**, so a one-person gesture
+excludes the other, and hiding the non-current rows is wrong when the job is choosing together.
+Agreements sort last and stay visible: that is where false agreement hides.
+
+**It reuses the letter vocabulary, not a new one** (founder, 2026-10-02): GravatarAvatar and the
+blue stance pill from `letter-reveal-ordinal.tsx:50-83`, the statement in `letter-point-card.tsx`'s
+pinned gray-50 card, `POSITION_FULL_LABELS` wording. **Blue on both sides, never green/red** — the
+letters flow is deliberate about this, and red-against-green reads as a verdict on who is right. No
+"N steps apart" meta line: the sort carries the comparison without narrating it.
+
+**Entry point: a "Compare with me" control at the top of a profile's Points tab** — not the profile
+header, which would show it on the Stories tab where there is nothing to compare. Deliberately
+**not** wired into `/admin/users`: a profile button is everyone's feature, an admin row is an
+admin-only one. The tag is a **selector on the page**, so the same screen compares you with anyone
+on an event's statements or on a standing tag, with no link to generate.
+
+**Rows open the point in a new tab.** The comparison must stay underneath — they are mid-round.
+
+An earlier draft said the CMP set must keep its own order rather than being gap-sorted. That was
+wrong: P1055's ordering constraint governs **when the room stakes and sees things during the
+evening**, not how a two-person page lists statements both people have already staked. The P1055
+rule that does bind here: **do not show CMP positions to anyone while people are still staking.**
 
 One surface, three jobs: the round screen, general curiosity about where you differ from anyone, and
 the no-connection fallback (§7).
@@ -155,12 +180,26 @@ The panel also shows **past rounds** — who sat where, in which role — which 
 "who was Ana with when she said that?", and a **print view** of the current grouping (no PDF
 download; the browser's share sheet covers it).
 
-**The override control:** prototype at `/tree/host-controls`, three variants. An independent
-usability review ranked **A (tap a name, tap who it trades with) first** — the whole room stays above
-the fold with 52px targets, and a committed trade produces an "Undo X ↔ Y" control. C (declare facts,
-press Regroup) ranked last: its vocabulary contains no *move* and no *swap*, so it cannot do the job
-directly, and it reshuffles uninvolved people in public.
-`[FOUNDER DECISION: confirm A, after looking at all three on a phone]`
+**The panel is two surfaces, because the grid cannot say everything.**
+
+| Surface | What it carries |
+|---|---|
+| **The round grid** | Swap two people. Undo. |
+| **A "who's here" list** | Mark left · mark sitting out this round · see who has not confirmed |
+| Not controls | Start round · Next round · Recompute · past rounds · print view · group size · dimension toggles |
+
+Add and remove belong on the **list**, never the grid: the grid answers *where people sit*, the list
+answers *who is here*. And **adding needs no control at all** — opening the event room puts you in
+the pool for the next round.
+
+**The override control: variant A, confirmed by the founder on a phone, 2026-10-02.** Tap a name,
+tap who it trades with; a committed trade produces an "Undo X ↔ Y" control. The whole room stays
+above the fold with 52px targets. (Prototype `/tree/host-controls`; B loses the room mid-change and
+puts the table number in low-contrast grey, C's vocabulary contains no *move* and no *swap* so it
+cannot do the job directly and reshuffles uninvolved people in public.)
+
+**Measured constraint:** at 320px the name tiles are 78px and long names truncate to "Aleksan…".
+Use first name plus initial, or a two-line tile at narrow widths.
 
 ### 7. When the network is not there
 
@@ -211,7 +250,11 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 - [ ] A late arrival is grouped in the next round with no host action
 - [ ] A person who leaves without telling anyone leaves a table of two, and the round still runs
 - [ ] The host completes a full evening using only: ring bell, press Next round
-- [ ] A host can swap two people by hand and see the result without scrolling
+- [ ] A host can swap two people by hand and see the result without scrolling, and undo it
+- [ ] A host can mark someone left from the "who's here" list, and the next round is computed without them
+- [ ] "Compare with me" appears at the top of a profile's Points tab and opens the comparison for that person
+- [ ] Changing the tag on the compare page re-sorts it for that set, largest gap first
+- [ ] Opening a statement from the compare page leaves the comparison on screen
 - [ ] The host panel shows past rounds with table and role per person
 - [ ] The confirm tap records the table actually sat at, and skipping it blocks nothing
 - [ ] Group size 2 runs a round with no observer
@@ -221,8 +264,8 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 ## Open Questions
 
 1. Does the event room already model rounds (P1114, P1179, P1323)? Read before designing new state. UNVERIFIED.
-2. Should choosing a statement to discuss be recorded (which one the pair picked)? It is one more tap and real research data.
-3. Ramp the disagreement gap across rounds, or lead with the maximum every round?
+2. Ramp the disagreement gap across rounds, or lead with the maximum every round? Founder leans maximum throughout.
+3. Does the statement-pick tap actually get used, or does the room ignore it? Worth one event before deciding whether to keep it.
 
 ## Related
 
