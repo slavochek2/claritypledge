@@ -53,6 +53,18 @@ async function tagPointIds(tag: string): Promise<string[]> {
 
 const continueWithoutVideo = (page: Page) => page.getByRole('button', { name: 'Continue without video' }).click();
 
+/** P1386: a returning person (all videos done, no positions) walked to the mic question. */
+async function toMicQuestion(page: Page, ev: TestEvent, u: TestUser) {
+  await seedAllPartsDone(u.user.id);
+  await setTestSession(page, u.email);
+  await page.goto(`/events/${ev.slug}/prepare`);
+  await page.getByRole('button', { name: 'Start now' }).click();
+  await page.getByRole('button', { name: 'Opt out' }).click();
+  await page.getByRole('button', { name: 'No, continue' }).click();
+  await page.getByRole('button', { name: 'Skip and proceed' }).click();
+  await expect(page.getByRole('heading', { name: /Are you open to be one of six volunteers/ })).toBeVisible();
+}
+
 test.describe('P1336 registration preparation', () => {
   let host: TestUser;
   const users: TestUser[] = [];
@@ -198,9 +210,11 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('research-dialog')).toContainText('Clarity Pledge, as a research programme, reads the conversation transcripts');
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Yes, sure' }).click();
-    await expect(page.getByRole('heading', { name: 'Does your phone have a USB-C port?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
     await expect(page.getByTestId('mic-why')).toContainText('louder than the people around you');
-    await page.getByRole('button', { name: 'Yes, USB-C' }).click();
+    await page.getByRole('button', { name: 'No, I need one' }).click();
+    await expect(page.getByRole('heading', { name: 'What does your phone plug into?' })).toBeVisible();
+    await page.getByRole('button', { name: /^USB-C/ }).click();
 
     // End
     await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
@@ -370,6 +384,107 @@ test.describe('P1336 registration preparation', () => {
     await box.click();
     await page.locator('#title').fill('Sunday hike, longer route');
     await expect(box).toHaveAttribute('data-state', 'checked'); // touched: no longer follows the title
+  });
+
+  test('P1386 mic question: own mic → one question, saved own + confirmed, end note', async ({ page }) => {
+    const ev = await prepEvent(host);
+    events.push(ev);
+    const u = await registrant('P1386 Own Mic', ev);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await toMicQuestion(page, ev, u);
+    await page.getByRole('button', { name: 'Yes, sure' }).click();
+    await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
+    await page.getByRole('button', { name: "Yes, I'll bring my own" }).click();
+    await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
+    await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. Please bring your own microphone.");
+    expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'own', research_state: 'confirmed' });
+  });
+
+  test('P1386 mic question: Lightning is eligible (no recording place), Back goes Q2 → Q1 → opt-in, answer can change', async ({ page, browser }) => {
+    const ev = await prepEvent(host);
+    events.push(ev);
+    const u = await registrant('P1386 Lightning', ev);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await toMicQuestion(page, ev, u);
+    await expect(page.getByTestId('places-left')).toHaveText('6 of 6 volunteer places left');
+    await page.getByRole('button', { name: 'Yes, sure' }).click();
+    await page.getByRole('button', { name: 'No, I need one' }).click();
+    await expect(page.getByRole('button', { name: /^USB-C/ })).toContainText('iPhone 15 and newer');
+    await expect(page.getByRole('button', { name: /^Lightning/ })).toContainText('iPhone 14 and older');
+    await page.getByRole('button', { name: /^Lightning/ }).click();
+    await expect(page.getByTestId('mic-no-lend-note')).toContainText("We don't have Lightning microphones yet");
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect.poll(async () => (await prepRow(ev.id, u.user.id))?.mic_setup).toBe('lightning');
+    expect(await prepRow(ev.id, u.user.id)).toMatchObject({ research_state: 'eligible' });
+
+    // Back: Q2 → Q1 → the opt-in screen. The Lightning person has taken no place.
+    await page.getByTestId('header-back').click();
+    await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'No, I need one' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('header-back').click();
+    await expect(page.getByRole('heading', { name: /Are you open to be one of six volunteers/ })).toBeVisible();
+    await expect(page.getByTestId('places-left')).toHaveText('6 of 6 volunteer places left');
+
+    // Change the answer: now USB-C → confirmed, and that person DOES take a place.
+    await page.getByRole('button', { name: 'Yes, sure' }).click();
+    await page.getByRole('button', { name: 'No, I need one' }).click();
+    await page.getByRole('button', { name: /^USB-C/ }).click();
+    await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
+    await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. We'll bring a USB-C mic for you.");
+    expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'usbc', research_state: 'confirmed' });
+
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    const v = await registrant('P1386 Observer', ev);
+    await toMicQuestion(other, ev, v);
+    await expect(other.getByTestId('places-left')).toHaveText('5 of 6 volunteer places left');
+    await ctx.close();
+  });
+
+  test('P1386 mic question: Something else is eligible with its own note and end line', async ({ page }) => {
+    const ev = await prepEvent(host);
+    events.push(ev);
+    const u = await registrant('P1386 Other Plug', ev);
+    await toMicQuestion(page, ev, u);
+    await page.getByRole('button', { name: 'Yes, sure' }).click();
+    await page.getByRole('button', { name: 'No, I need one' }).click();
+    await page.getByRole('button', { name: /^Something else/ }).click();
+    await expect(page.getByTestId('mic-no-lend-note')).toContainText('We may not be able to lend you a microphone for that');
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
+    await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. We'll tell you if we can lend you a microphone.");
+    expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'other', research_state: 'eligible' });
+  });
+
+  test('P1386 host marks by mic kind: C / L / ? letters, one grey mic for own, the packing line', async ({ page }) => {
+    const ev = await prepEvent(host);
+    events.push(ev);
+    const done = new Date().toISOString();
+    const consent = { research_consented_at: done, research_policy_version: 'p1336-research-v1' };
+    const kinds: Array<[string, string, 'confirmed' | 'eligible']> = [
+      ['Kind Usbc', 'usbc', 'confirmed'], ['Kind Lightning', 'lightning', 'eligible'],
+      ['Kind Other', 'other', 'eligible'], ['Kind Own', 'own', 'confirmed'],
+    ];
+    for (const [name, mic, state] of kinds) {
+      const u = await registrant(name, ev);
+      const { error } = await supabaseAdmin.from('event_preparations').insert({ event_id: ev.id, profile_id: u.user.id, research_state: state, mic_setup: mic, ...consent });
+      if (error) throw error;
+    }
+    await setTestSession(page, host.email);
+    await page.goto(`/events/${ev.slug}`);
+    await expect(page.getByTestId('prep-mic-line')).toHaveText('Bring 1 USB-C mic, 1 Lightning mic · 1 needs another kind of mic');
+    await expect(page.getByTestId('prep-mark-mic-usbc')).toHaveCount(1);
+    await expect(page.getByTestId('prep-mark-mic-lightning')).toHaveCount(1);
+    await expect(page.getByTestId('prep-mark-mic-other')).toHaveCount(1);
+    await expect(page.getByTestId('prep-mark-mic-own')).toHaveCount(1);
+    await expect(page.getByTestId('prep-mark-letter')).toHaveCount(3);
+    expect((await page.getByTestId('prep-mark-letter').allTextContents()).sort()).toEqual(['?', 'C', 'L']);
+    await page.getByTestId('prep-mark-mic-lightning').click();
+    await expect(page.getByTestId('prep-mark-note')).toHaveText('Needs a Lightning mic');
+    // The room shows no marks, even to the host.
+    await page.goto(`/events/${ev.slug}/meet`);
+    await expect(page.getByTestId('prep-marks')).toHaveCount(0);
   });
 
   test('P1386 host marks: ✓ / 🎙 in Participants with hints, mic line, no Preparation card; non-host sees none', async ({ page }) => {

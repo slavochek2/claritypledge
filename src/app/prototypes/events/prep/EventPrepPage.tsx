@@ -355,6 +355,8 @@ function PrepFlow({
   const [answerHint, setAnswerHint] = useState(false);
   useEffect(() => setAnswerHint(false), [screen]);
   const [micSetup, setMicSetup] = useState<MicSetup | null>(prep?.micSetup ?? null);
+  // P1386: second mic question ("what does your phone plug into?") is shown only after "No, I need one".
+  const [micNeeded, setMicNeeded] = useState(false);
   const [researchSaving, setResearchSaving] = useState(false);
   const [placesLeft, setPlacesLeft] = useState<number | null>(null);
   const [experts, setExperts] = useState<string[] | null>(null);
@@ -551,7 +553,7 @@ function PrepFlow({
   // Bring the "no microphone" note and its Continue into view once, when that answer is chosen.
   const micNoteRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (micSetup === 'none') micNoteRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (micSetup === 'lightning' || micSetup === 'other') micNoteRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [micSetup]);
 
   const researchNo = () => {
@@ -564,6 +566,14 @@ function PrepFlow({
     setMicSetup(value);
     const ok = await save({ micSetup: value, researchState: value === 'none' ? 'declined' : 'confirmed' });
     if (ok && value !== 'none') next();
+  };
+
+  // P1386: a Lightning or "something else" phone with no mic. Consented, but the host cannot equip
+  // them, so they are saved `eligible` (not `confirmed`): they take no recording place. A note and
+  // Continue follow; USB-C and "bring my own" go through chooseMic above.
+  const chooseMicNoLend = async (value: 'lightning' | 'other') => {
+    setMicSetup(value);
+    await save({ micSetup: value, researchState: 'eligible' });
   };
 
   // Phones reserve the pinned action bar's height; desktop has the actions in the page.
@@ -659,7 +669,7 @@ function PrepFlow({
                   : screen === 'principle'
                   ? principleBack
                   : screen === 'research' && micAsked
-                  ? () => { setMicAsked(false); window.scrollTo(0, 0); }
+                  ? () => { if (micNeeded) setMicNeeded(false); else setMicAsked(false); window.scrollTo(0, 0); }
                   : back
               }
               aria-label="Back"
@@ -892,45 +902,79 @@ function PrepFlow({
                 the people around you, so the microphone has to sit close to your mouth: a clip-on lavalier mic or a
                 headset.
               </p>
-              <div className="space-y-2">
-                <Title>Does your phone have a USB-C port?</Title>
-                <p className="text-base text-muted-foreground">iPhone 15 and newer, and most Android phones, do.</p>
-              </div>
-              {/* P1387: the answers are this step's actions — pinned like every step's. After "No, and I
-                  don't have a microphone" the bar swaps to the note + Continue. */}
-              <StepActions ref={barRef}>
-                {micSetup === 'none' ? (
-                  <div className="flex w-full flex-col items-center gap-3 animate-in fade-in duration-300" ref={micNoteRef}>
-                    <p className="text-center text-base text-foreground" data-testid="mic-none-note">
-                      Thanks. You can still take part in the discussion without recording.
-                    </p>
-                    <LetterPrimaryCta label="Continue" onClick={() => next()} />
-                    <LetterPrimaryCta label="Change my answer" onClick={() => setMicSetup(null)} variant="secondary" />
-                  </div>
-                ) : (
-                  <div className="grid w-full grid-cols-1 gap-2" data-testid="mic-answers">
-                    {([
-                      ['usbc', 'Yes, USB-C'],
-                      ['own', "No, I'll bring my own microphone"],
-                      ['none', "No, and I don't have a microphone"],
-                    ] as const).map(([value, text]) => (
-                      <Button
-                        key={value}
-                        onClick={() => void chooseMic(value)}
-                        size="lg"
-                        variant="outline"
-                        aria-pressed={micSetup === value}
-                        className={cn(
-                          'h-auto min-h-12 min-w-0 whitespace-normal rounded-full bg-background px-4 text-base',
-                          micSetup === value && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
-                        )}
-                      >
-                        {text}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </StepActions>
+              {!micNeeded ? (
+                <>
+                  <Title>Do you have a microphone to bring?</Title>
+                  {/* P1387: the answers are this step's actions — pinned like every step's. */}
+                  <StepActions ref={barRef}>
+                    <div className="grid w-full grid-cols-1 gap-2" data-testid="mic-answers">
+                      {([
+                        ['own', "Yes, I'll bring my own"],
+                        ['need', 'No, I need one'],
+                      ] as const).map(([value, text]) => {
+                        const chosen = value === 'own' ? micSetup === 'own' : micSetup !== null && micSetup !== 'own';
+                        return (
+                          <Button
+                            key={value}
+                            onClick={() => (value === 'own' ? void chooseMic('own') : setMicNeeded(true))}
+                            size="lg"
+                            variant="outline"
+                            aria-pressed={chosen}
+                            className={cn(
+                              'h-auto min-h-12 min-w-0 whitespace-normal rounded-full bg-background px-4 text-base',
+                              chosen && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
+                            )}
+                          >
+                            {text}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </StepActions>
+                </>
+              ) : (
+                <>
+                  <Title>What does your phone plug into?</Title>
+                  {/* P1387: pinned like every step's actions. After Lightning / Something else the bar swaps to the
+                      note + Continue (+ Change my answer), as it does for the retired "no microphone" answer. */}
+                  <StepActions ref={barRef}>
+                    {micSetup === 'lightning' || micSetup === 'other' ? (
+                      <div className="flex w-full flex-col items-center gap-3 animate-in fade-in duration-300" ref={micNoteRef}>
+                        <p className="text-center text-base text-foreground" data-testid="mic-no-lend-note">
+                          {micSetup === 'lightning'
+                            ? "Thanks. We don't have Lightning microphones yet, so we may not be able to lend you one. You can still take part in the discussion."
+                            : 'Thanks. We may not be able to lend you a microphone for that. You can still take part in the discussion.'}
+                        </p>
+                        <LetterPrimaryCta label="Continue" onClick={() => next()} />
+                        <LetterPrimaryCta label="Change my answer" onClick={() => setMicSetup(null)} variant="secondary" />
+                      </div>
+                    ) : (
+                      <div className="grid w-full grid-cols-1 gap-2" data-testid="mic-port-answers">
+                        {([
+                          ['usbc', 'USB-C', 'iPhone 15 and newer, and most Android phones'],
+                          ['lightning', 'Lightning', 'iPhone 14 and older'],
+                          ['other', 'Something else, or I\'m not sure', null],
+                        ] as const).map(([value, text, hint]) => (
+                          <Button
+                            key={value}
+                            onClick={() => (value === 'usbc' ? void chooseMic('usbc') : void chooseMicNoLend(value))}
+                            size="lg"
+                            variant="outline"
+                            aria-pressed={micSetup === value}
+                            className={cn(
+                              'h-auto min-h-12 min-w-0 flex-col gap-0 whitespace-normal rounded-full bg-background px-4 py-2 text-base',
+                              micSetup === value && 'border-2 border-[#0044CC] font-semibold text-[#0044CC] hover:text-[#0044CC] dark:border-blue-400 dark:text-blue-300',
+                            )}
+                          >
+                            <span>{text}</span>
+                            {hint && <span className="text-sm font-normal text-muted-foreground">{hint}</span>}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </StepActions>
+                </>
+              )}
             </section>
           )}
 
@@ -941,7 +985,7 @@ function PrepFlow({
                 contribute to our R&amp;D?
               </Title>
               <p className="text-base text-foreground">
-                We provide you with a USB-C lavalier microphone, or you can bring your own mic.
+                We can lend you a USB-C lavalier microphone, or you can bring your own mic.
               </p>
               <Clip clip="research" />
               <div className="flex flex-col items-center text-center">
@@ -995,10 +1039,14 @@ function PrepFlow({
               <section className="space-y-8 pt-4">
                 <div className="space-y-2 text-center">
                   <Title>Thank you for preparing</Title>
-                  {(micSetup === 'usbc' || micSetup === 'own') && (
+                  {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
                     <p className="text-sm text-muted-foreground" data-testid="volunteer-note">
                       You&apos;re a recording volunteer.{' '}
-                      {micSetup === 'usbc' ? "We'll bring a USB-C mic for you." : 'Please bring your own microphone.'}
+                      {micSetup === 'usbc'
+                        ? "We'll bring a USB-C mic for you."
+                        : micSetup === 'own'
+                        ? 'Please bring your own microphone.'
+                        : "We'll tell you if we can lend you a microphone."}
                     </p>
                   )}
                 </div>

@@ -14,32 +14,53 @@ import { Check, Mic } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getPrepHostView, type HostPrepRow } from '@/app/data/event-prep-service';
 
+export type MarkMic = 'own' | 'usbc' | 'lightning' | 'other';
+
 export interface PrepMarkState {
   prepared: boolean;
-  /** Recording volunteer's mic: 'usbc' = needs one handed out, 'own' = brings their own. */
-  mic: 'usbc' | 'own' | null;
+  /** The volunteer's mic: 'own' = brings their own; the rest = needs one, by connector ('other' = not USB-C or Lightning, or unsure). */
+  mic: MarkMic | null;
 }
 
 export const PREPARED_HINT = 'Prepared for the event';
-export const MIC_HINTS = { usbc: 'Needs a USB-C mic', own: 'Brings own mic' } as const;
+export const MIC_HINTS = {
+  own: 'Brings own mic',
+  usbc: 'Needs a USB-C mic',
+  lightning: 'Needs a Lightning mic',
+  other: 'Needs a mic: other or unknown connector',
+} as const satisfies Record<MarkMic, string>;
+/** The small letter after the two overlapping mics: which connector the host would need. */
+const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
+
+const isMarkMic = (v: string | null): v is MarkMic => v === 'own' || v === 'usbc' || v === 'lightning' || v === 'other';
 
 /** Profile id → marks, for the people who carry at least one mark. */
 export function prepMarksByProfile(rows: HostPrepRow[]): Map<string, PrepMarkState> {
   const marks = new Map<string, PrepMarkState>();
   for (const r of rows) {
-    const volunteer = r.researchState === 'confirmed';
-    const mic = volunteer && (r.micSetup === 'usbc' || r.micSetup === 'own') ? r.micSetup : null;
+    // eligible = consented but not (yet) a recording place (Lightning / other); declined = said no (or the retired "none").
+    const volunteer = r.researchState === 'confirmed' || r.researchState === 'eligible';
+    const mic = volunteer && isMarkMic(r.micSetup) ? r.micSetup : null;
     const prepared = !!r.completedAt;
     if (prepared || mic) marks.set(r.profileId, { prepared, mic });
   }
   return marks;
 }
 
-/** "Bring 2 USB-C mics", or null when no mic is needed (the line is then not shown). */
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * The host's packing line, or null when nobody needs a mic (the line is then not shown):
+ * "Bring 2 USB-C mics, 1 Lightning mic · 1 needs another kind of mic".
+ */
 export function micLine(marks: ReadonlyMap<string, PrepMarkState>): string | null {
-  const n = [...marks.values()].filter((m) => m.mic === 'usbc').length;
-  if (n === 0) return null;
-  return `Bring ${n} USB-C ${n === 1 ? 'mic' : 'mics'}`;
+  const count = (k: MarkMic) => [...marks.values()].filter((m) => m.mic === k).length;
+  const usbc = count('usbc');
+  const lightning = count('lightning');
+  const other = count('other');
+  const bring = [usbc > 0 && plural(usbc, 'USB-C mic', 'USB-C mics'), lightning > 0 && plural(lightning, 'Lightning mic', 'Lightning mics')].filter(Boolean);
+  const parts = [bring.length > 0 && `Bring ${bring.join(', ')}`, other > 0 && `${other} ${other === 1 ? 'needs' : 'need'} another kind of mic`].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /**
@@ -105,19 +126,21 @@ export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
       )}
       {marks.mic && (
         // One grey mic = brings their own (nothing to do). Two overlapping dark mics = you hand
-        // one out (like WhatsApp's double check), so it reads as the one that needs action.
+        // one out (like WhatsApp's double check), so it reads as the one that needs action; the
+        // letter says which connector.
         <HintMark
           label={MIC_HINTS[marks.mic]}
           testId={`prep-mark-mic-${marks.mic}`}
-          className={marks.mic === 'usbc' ? 'text-foreground' : 'text-muted-foreground'}
+          className={marks.mic === 'own' ? 'text-muted-foreground' : 'text-foreground'}
         >
-          {marks.mic === 'usbc' ? (
+          {marks.mic === 'own' ? (
+            <Mic className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+          ) : (
             <span className="inline-flex items-center" aria-hidden="true">
               <Mic className="h-3.5 w-3.5" strokeWidth={2.5} />
               <Mic className="-ml-2 h-3.5 w-3.5" strokeWidth={2.5} />
+              <span className="ml-0.5 text-[10px] font-bold leading-none" data-testid="prep-mark-letter">{MIC_LETTER[marks.mic]}</span>
             </span>
-          ) : (
-            <Mic className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
           )}
         </HintMark>
       )}

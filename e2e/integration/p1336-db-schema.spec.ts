@@ -152,6 +152,17 @@ test.describe('P1336: event_preparations + per-event setup', () => {
     expect(left).toBe(1); // 1 place, 2 confirmed → still 1
   });
 
+  test('P1386: mic_setup accepts lightning / other and the old values, and rejects anything else', async () => {
+    const a = await clientFor(alice);
+    const set = (mic_setup: string) =>
+      a.from('event_preparations').update({ mic_setup }).eq('event_id', eventId).eq('profile_id', alice.user.id);
+    for (const ok of ['lightning', 'other', 'own', 'none', 'usbc']) {
+      expect((await set(ok)).error, `accepts ${ok}`).toBeNull();
+    }
+    const bad = await set('bogus');
+    expect(bad.error?.code).toBe('23514'); // check_violation
+  });
+
   test('prep opt-in seeds the room on entry; a room change writes back with a new timestamp', async () => {
     const a = await clientFor(alice);
     const { data: before } = await a.from('event_preparations').select('opted_in_at').eq('event_id', eventId).eq('profile_id', alice.user.id).single();

@@ -14,7 +14,8 @@ import type { EventAttendee } from '@/app/types';
 export type PrepStepKey = 'plan' | 'welcome' | 'story' | 'principle' | 'cmp7' | 'stake' | 'research';
 export type PrepPart = 'intro_video' | 'cognitive_video' | 'principle_intro' | 'cmp7';
 export type ResearchState = 'eligible' | 'confirmed' | 'declined';
-export type MicSetup = 'usbc' | 'own' | 'none';
+/** own = brings a mic; usbc / lightning / other = needs one, by what the phone plugs into; none = the retired "no mic" answer (old rows only). */
+export type MicSetup = 'usbc' | 'own' | 'lightning' | 'other' | 'none';
 
 export interface EventPreparation {
   eventId: string;
