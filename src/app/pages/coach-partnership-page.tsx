@@ -191,9 +191,9 @@ function MisunderstandingVenn() {
         {/* radial falloff: assumption density thins with distance from the core —
             no boundary, because unverified understanding has none */}
         <radialGradient id="assumed-fog">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-          <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.14" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          <stop offset="0%" stopColor="#00336B" stopOpacity="0.28" />
+          <stop offset="50%" stopColor="#00336B" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#00336B" stopOpacity="0" />
         </radialGradient>
       </defs>
       {/* assumed fog — same hue as the verified core, just diffuse. Spans most of
@@ -274,7 +274,7 @@ function MisunderstandingVenn() {
         r="6"
         className="transition-all duration-1000 ease-in-out"
         style={{
-          fill: verified ? "#3b82f6" : "#ef4444",
+          fill: verified ? "#00336B" : "#ef4444",
           transform: verified ? "translate(-232px, -42px)" : "translate(0, 0)",
         }}
       />
@@ -296,7 +296,7 @@ function MisunderstandingVenn() {
             verified-blue: the verifying act is what cancels the wrong belief */}
         <line
           x1="160" y1="356" x2="480" y2="356"
-          stroke="#3b82f6" strokeWidth="1.75" strokeDasharray="320"
+          stroke="#00336B" strokeWidth="1.75" strokeDasharray="320"
           style={{ strokeDashoffset: verified ? 0 : 320, transition: "stroke-dashoffset 400ms ease-in-out" }}
         />
       </g>
@@ -304,7 +304,7 @@ function MisunderstandingVenn() {
         className="transition-opacity duration-500"
         style={{ opacity: verified ? 1 : 0, transitionDelay: verified ? "1000ms" : "0ms" }}
       >
-        <text x="320" y="362" textAnchor="middle" fill="#3b82f6" fontSize="18" fontStyle="italic">
+        <text x="320" y="362" textAnchor="middle" fill="#00336B" fontSize="18" fontStyle="italic">
           You both know they understand you
         </text>
       </g>

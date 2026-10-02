@@ -233,7 +233,7 @@ export function SignPledgeForm({
                   backgroundColor: profileStrength.filled === 2
                     ? "#002B5C"  // Complete
                     : profileStrength.filled === 1
-                      ? "#2563eb"  // Strong
+                      ? "#002B5C"  // Strong
                       : "#3366DD"  // Good
                 }}
               />

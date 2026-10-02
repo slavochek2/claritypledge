@@ -35,7 +35,7 @@ function SealSvg() {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <circle cx="64" cy="64" r="64" fill="#3b82f6" />
+        <circle cx="64" cy="64" r="64" fill="#00336B" />
         <path
           d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
           stroke="white"
@@ -320,7 +320,7 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
             }}
           >
             <svg width="16" height="16" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="64" cy="64" r="64" fill="#3b82f6" />
+              <circle cx="64" cy="64" r="64" fill="#00336B" />
               <path
                 d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
                 stroke="white"

@@ -365,7 +365,7 @@ export function SliderTrack({
             style={{
               left: `${fillLeft}%`,
               width: `${fillWidth}%`,
-              background: muted ? '#cbd5e1' : '#3b82f6',
+              background: muted ? '#cbd5e1' : '#00336B',
             }}
           />
           {/* Midpoint tick — sits under the thumb at rest (value=5); revealed once

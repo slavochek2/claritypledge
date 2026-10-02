@@ -553,7 +553,7 @@ export function AcceptAgreementPage() {
                   <div className="space-y-2">
                     {existingPartner ? (
                       <Button
-                        className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
                         size="lg"
                         onClick={handleExistingUserSignIn}
                         disabled={isSigningUp}
@@ -572,7 +572,7 @@ export function AcceptAgreementPage() {
                       </Button>
                     ) : (
                       <Button
-                        className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
                         size="lg"
                         onClick={handleDirectSign}
                         disabled={isSigningUp}
@@ -614,7 +614,7 @@ export function AcceptAgreementPage() {
                 <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
-                      className="bg-[#002B5C] hover:bg-[#001f42] text-white"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={() => handleAccept()}
                       disabled={isAccepting}
                     >

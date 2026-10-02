@@ -320,7 +320,7 @@ export function LevelTrack({
                     "w-4 h-4 rounded-full border-2 bg-background transition-colors",
                     "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2",
                     selected
-                      ? "border-[#002B5C] bg-[#002B5C] dark:border-blue-400 dark:bg-blue-400"
+                      ? "border-blue-600 bg-blue-600 dark:border-blue-400 dark:bg-blue-400"
                       // An unselected ring at border-token strength is near-invisible
                       // on dark; the ladder has to stay readable across a room.
                       : "border-border dark:border-zinc-500",

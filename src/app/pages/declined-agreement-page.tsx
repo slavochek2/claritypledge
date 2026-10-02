@@ -24,7 +24,7 @@ export function DeclinedAgreementPage() {
 
         <a
           href="https://claritypledge.com"
-          className="text-[#002B5C]/60 hover:text-[#002B5C] hover:underline inline-flex items-center gap-1 text-sm"
+          className="text-blue-600/60 hover:text-blue-600 hover:underline inline-flex items-center gap-1 text-sm"
         >
           What is ClarityPledge?
         </a>

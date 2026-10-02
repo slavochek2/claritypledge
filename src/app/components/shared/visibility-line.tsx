@@ -23,20 +23,20 @@ export function VisibilityLine({ visibility, source }: VisibilityLineProps) {
       className={`rounded-lg p-2.5 text-sm flex items-center gap-2 border ${
         isPrivate
           ? 'bg-muted border-border'
-          : 'bg-blue-50 border-blue-200'
+          : 'bg-background border-border'
       }`}
     >
       {isPrivate ? (
         <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       ) : (
-        <Globe className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       )}
-      <span className={isPrivate ? 'text-foreground' : 'text-blue-800'}>
+      <span className="text-foreground">
         {isPrivate
           ? 'Only people you share with can see this.'
           : 'This will be public — visible on your profile'}
         {source && (
-          <span className={isPrivate ? 'text-muted-foreground' : 'text-blue-600'}>
+          <span className="text-muted-foreground">
             {' '}&middot; {source}
           </span>
         )}

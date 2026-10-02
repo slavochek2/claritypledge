@@ -1,12 +1,12 @@
 ---
-status: backlog
+status: qa
 type: task
 rank: 301
 created_date: '2026-09-11'
 tags: [design-system, ui, consistency]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, inline]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -78,10 +78,16 @@ ceremony language).
 
 ## Done-When
 
-- [ ] Inventory with screenshots recorded in this spec.
-- [ ] Founder decision on the primary colour recorded.
-- [ ] Every primary button uses the chosen token; `docs/design-system.md` states one rule.
-- [ ] Enforcement check built, or its rejection recorded with the reason.
+- [x] Inventory recorded — three blues counted in Problem (light ~380 / medium ~540 class uses, navy on
+      commitment surfaces) and shown side by side on `/tree/design-blue` (DEV). Screenshots were viewed by
+      the founder in Chrome, not embedded here.
+- [x] Founder decision on the primary colour recorded: **dark navy `#002B5C`** (2026-10-02, "last dardk
+      navy imho"), chosen over medium blue (agent's recommendation) and light blue (fails AA: 3.68:1).
+- [x] Every primary button uses the chosen token — `tailwind.config.js` remaps `blue-500/600/700` to navy
+      shades, so all class uses follow; raw hex in exports/illustrations swept; `docs/design-system.md`
+      states one rule. Public visibility banner is no longer blue (non-interactive → plain).
+- [x] Enforcement check built: `src/tests/p1308-one-blue.test.ts` fails on any off-brand blue hex in
+      prod-reachable UI code (failure path proven on a planted file in the real tree).
 
 ## Related
 

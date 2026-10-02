@@ -1,7 +1,7 @@
 /**
  * @file doc-privacy-banner.tsx
  * @description P551: Privacy/visibility banner for Clarity Doc detail page.
- * Shows gray for private docs, blue for public docs.
+ * Shows gray for private docs, plain for public docs.
  */
 
 import { Lock, Globe } from 'lucide-react';
@@ -23,7 +23,7 @@ export function DocPrivacyBanner({ visibility, subtitle }: DocPrivacyBannerProps
       className={`w-full px-4 py-2 flex flex-col items-center gap-1 text-sm border-b ${
         isPrivate
           ? 'bg-muted border-border'
-          : 'bg-blue-50 border-blue-200'
+          : 'bg-background border-border'
       }`}
     >
       <div className="flex items-center justify-center gap-2">
@@ -38,9 +38,9 @@ export function DocPrivacyBanner({ visibility, subtitle }: DocPrivacyBannerProps
           </>
         ) : (
           <>
-            <Globe size={14} className="text-blue-600 flex-shrink-0" />
-            <span className="text-blue-800 font-medium">PUBLIC</span>
-            <span className="text-blue-700">
+            <Globe size={14} className="text-muted-foreground flex-shrink-0" />
+            <span className="text-foreground font-medium">PUBLIC</span>
+            <span className="text-muted-foreground">
               <span className="hidden sm:inline">&middot; Anyone with the link can see this Clarity Doc</span>
               <span className="sm:hidden">&middot; Visible to anyone</span>
             </span>
@@ -48,7 +48,7 @@ export function DocPrivacyBanner({ visibility, subtitle }: DocPrivacyBannerProps
         )}
       </div>
       {subtitle && (
-        <span className={`text-xs ${isPrivate ? 'text-muted-foreground' : 'text-blue-600'}`}>
+        <span className="text-xs text-muted-foreground">
           {subtitle}
         </span>
       )}
