@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/design-private',
+    label: 'Design decisions: private + certificates',
+    description: 'A/B for the private signal (amber is banned) and the certificate paper palette'
+  },
+  {
     path: '/tree/old-landing',
     label: 'Old Landing (pre-coach)',
     description: 'The previous "/" landing page, replaced by the coach-facing partnership page'

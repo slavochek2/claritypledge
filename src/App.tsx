@@ -84,6 +84,7 @@ const LetterOverviewPage = lazy(() => import("@/app/pages/letter-overview-page")
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
 // P955 fast-state harness: machine-owned gate fixtures under /tree/_gate/* (DEV-only, permanent render substrate — not throwaway).
 const GateFixtureExample = lazy(() => import("@/app/tree/_gate/example/GateFixture").then(m => ({ default: m.GateFixture })));
+const DesignPrivatePage = lazy(() => import("@/app/pages/design-private-page").then(m => ({ default: m.DesignPrivatePage })));
 const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
 const LandingV2 = lazy(() => import("@/app/pages/landing-v2").then(m => ({ default: m.LandingV2 })));
 const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ default: m.LandingV3 })));
@@ -1099,6 +1100,7 @@ export default function ClarityPledgeApp() {
             ============================================================ */}
         {import.meta.env.DEV && <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/_gate/example" element={<LazyRoute><GateFixtureExample /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/design-private" element={<LazyRoute><DesignPrivatePage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />}
