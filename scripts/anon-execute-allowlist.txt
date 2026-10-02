@@ -122,3 +122,9 @@ can_read_verification_message(uuid)           # policy: supabase/migrations/2026
 # The caller is not the browser app but the scheduled pg_cron health check. It is anonymous by
 # design: the four fields are job telemetry, not user data, and a key CI does not hold cannot leak.
 cron_health_snapshot()                        # the pg_cron health check reads each job's name, active flag, last success and 24h failure count, and nothing else (P1283) — .github/workflows/cron-health.yml:67
+
+# --- 2026-10-02, P1336: preparation social proof on the public /events/:slug/prepare page ---
+# The route is not auth-gated, so a logged-out visitor sees the counts. The function returns counts
+# and the public profile card (name, slug, avatar) of prepared / opted-in people only; never an
+# opt-out, a score, an answer or volunteer data (spec P1336 "Public counts/avatars").
+get_event_prep_social_proof(uuid)             # public counts + faces on the prepare page (P1336) — src/app/data/event-prep-service.ts:219
