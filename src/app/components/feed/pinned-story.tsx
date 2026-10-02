@@ -5,7 +5,7 @@
  * leaving the feed. No pin icon: across the app the pin marks a Point (PointHeader),
  * so it would mislabel a story. Renders nothing on any failure; the feed never waits.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { PlayCircleIcon, ChevronDownIcon } from "lucide-react";
 import { storiesService } from "@/app/data/stories-service";
 import { resolveStorySlug } from "@/app/data/stories-service-real";
@@ -44,21 +44,32 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   // Load the full story and its points once, on first open. The effect must not depend on
   // `story`: setting it would re-run the effect and its cleanup would cancel the points
   // request still in flight (the card then never showed its "N points" button).
-  const [requested, setRequested] = useState(false);
+  const requested = useRef(false);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
-    if (!open || !storyId || requested) return;
-    setRequested(true);
+    if (!open || !storyId || requested.current) return;
+    requested.current = true;
+    setFailed(false);
     storiesService
       .getStory(storyId)
-      .then((s) => setStory(s))
-      .catch(() => {});
+      .then((s) => {
+        if (s) setStory(s);
+        else throw new Error("story not found");
+      })
+      .catch(() => {
+        // Never an endless skeleton: show a message, and let the next open retry.
+        requested.current = false;
+        setFailed(true);
+      });
     storiesService
       .getPointsForStories([storyId])
       .then((map) => setPoints(map.get(storyId) ?? []))
       .catch(() => {
         /* the card hides its points expander, as in the feed */
       });
-  }, [open, storyId, requested]);
+  }, [open, storyId]);
+
+  const panelId = useId();
 
   if (!storyId) return null;
   return (
@@ -67,6 +78,7 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={panelId}
         className="flex w-full min-h-12 items-center gap-3 rounded-lg px-4 py-2.5 text-left transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <PlayCircleIcon className="h-5 w-5 shrink-0 text-blue-600" aria-hidden />
@@ -80,9 +92,11 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
         />
       </button>
       {open && (
-        <div className="px-2 pb-2 sm:px-3 sm:pb-3" data-testid="pinned-story-expanded">
+        <div id={panelId} className="px-2 pb-2 sm:px-3 sm:pb-3" data-testid="pinned-story-expanded" aria-busy={!story && !failed}>
           {story ? (
             <FeedStoryCard story={story} linkedPoints={points} />
+          ) : failed ? (
+            <p role="status" className="px-2 py-3 text-sm text-muted-foreground">Couldn't load the story. Close and tap again to retry.</p>
           ) : (
             <div className="h-40 rounded-lg bg-background animate-pulse" />
           )}
