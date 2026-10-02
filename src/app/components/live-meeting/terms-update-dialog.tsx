@@ -56,7 +56,6 @@ export function TermsUpdateDialog({
           e.preventDefault();
           acceptRef.current?.focus();
         }}
-        className="max-h-[85dvh] overflow-y-auto"
       >
         <DialogHeader>
           <DialogTitle className="text-base leading-snug">

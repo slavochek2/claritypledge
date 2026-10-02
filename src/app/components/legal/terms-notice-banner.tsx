@@ -30,17 +30,16 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
     <section
       aria-label="Terms update"
       style={{ bottom: navOffset }}
-      className={`fixed inset-x-0 z-50 border-t bg-background shadow-lg ${navOffset ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
+      className={`fixed inset-x-0 z-50 border-t border-border bg-background shadow-sheet ${navOffset ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
     >
-      {/* Only the summary scrolls; the consent line and button stay pinned and reachable. */}
-      <div className="mx-auto flex max-h-[50dvh] max-w-2xl flex-col px-4 pt-3">
+      <div className="mx-auto flex max-w-2xl flex-col px-4 pt-3">
         <p className="text-sm font-semibold">
           <TermsTitle />
         </p>
-        <div className="mt-1 min-h-0 overflow-y-auto">
+        <div className="mt-1">
           <TermsChangeList />
         </div>
-        <div className="flex flex-col gap-2 border-t py-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{TERMS_CONSENT_LINE}</p>
           <Button className="h-10 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={onDismiss} disabled={isLoading}>
             Accept
