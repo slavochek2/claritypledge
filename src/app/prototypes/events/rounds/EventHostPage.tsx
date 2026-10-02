@@ -242,11 +242,15 @@ function RoundGrid({
 
 export function EventHostPage() {
   const { slug, event, loading } = useEventRoomAccess();
-  const { user } = useAuth();
+  const { user, session, sessionChecked } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const isScreen = params.get('view') === 'screen';
-  const isHost = !!user && !!event && event.hostId === user.id;
+  // The signed-in id comes from the session, not the profile (as in EventRoomAccess): arriving
+  // through a sign-in link, the profile loads after the event, and checking `user` alone showed
+  // the host "Only the host can run this event" until a reload.
+  const viewerId = session?.user?.id ?? user?.id ?? null;
+  const isHost = !!viewerId && !!event && event.hostId === viewerId;
   const eventId = isHost ? event?.id : undefined;
 
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
@@ -372,7 +376,7 @@ export function EventHostPage() {
     [refresh],
   );
 
-  if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  if (loading || !sessionChecked) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!event || !isHost) {
     return (
       <div className="mx-auto max-w-lg px-4 py-10 text-sm" data-testid="host-not-allowed">
