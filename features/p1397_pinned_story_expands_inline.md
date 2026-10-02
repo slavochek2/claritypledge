@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 20
 workstream: growth
 created_date: '2026-10-02'
 tags: [feed, landing, pinned-story]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -44,10 +44,10 @@ Blast radius: one component on the signed-out feed. Reversibility: git revert. D
 
 ## Acceptance Criteria
 
-- [ ] Signed-out /feed shows a "Featured story" bar with no pin icon
-- [ ] Tapping it expands the full story (video + text + "N points" button) on the same page; tapping again collapses; URL unchanged
-- [ ] /builders shows no "Starts with a 15-min call." line
-- [ ] 320 / 375 / desktop: no overflow in collapsed or expanded state
+- [x] Signed-out /feed shows a "Featured story" bar with no pin icon — browser, no .lucide-pin in the bar
+- [x] Tapping it expands the full story (video + text + "N points" button) on the same page; tapping again collapses; URL unchanged — browser: "2 points" shown, URL /feed
+- [x] /builders shows no "Starts with a 15-min call." line — browser
+- [x] 320 / 375 / desktop: no overflow in collapsed or expanded state — measured scrollWidth, all three
 
 ## Related
 
