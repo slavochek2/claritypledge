@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 16
 workstream: events
@@ -9,7 +9,6 @@ tags:
   - consent
   - recording
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -19,6 +18,7 @@ related:
   - p1337
   - p1307
   - p1022
+completed_at: 2026-10-02
 ---
 
 # P1388: The person recording can pause, can tell the recording is working, and the bar says what it actually does
@@ -43,7 +43,7 @@ capture, not the session, so the label overstates what it does.
 **Complication:** Three things changed at once.
 
 1. **Consent moved onto the recorder**, per the framing above. This **overrules**
-   [decisions.md](../docs/decisions.md) 2026-09-16, which required pair unanimity ("lavalier wearers
+   [decisions.md](../../../docs/decisions.md) 2026-09-16, which required pair unanimity ("lavalier wearers
    pair only with each other"). That earlier entry rejected the recorder-responsibility model for one
    reason that still holds: *"everything before they object is already captured."* A pause control is
    what closes that gap — so it moves from "not worth building before the event" to the thing the new
@@ -94,7 +94,7 @@ recorder's responsibility. Read by the people who care, invisible to everyone el
 - **Pause must stop capture, not merely hide it.** The control exists so that a request to pause is
   honoured; a pause that keeps writing bytes is worse than no control at all.
 - **The room is never asked who does not want to be recorded.** Refusal must not become a public
-  declaration ([decisions.md](../docs/decisions.md) 2026-09-16 — the one part of that entry this work
+  declaration ([decisions.md](../../../docs/decisions.md) 2026-09-16 — the one part of that entry this work
   does not overrule).
 - The bar stays **one bar, never stacked** — when offline it becomes that bar's offline state
   (P1369, P1307 D7).
@@ -131,6 +131,6 @@ recorder's responsibility. Read by the people who care, invisible to everyone el
 
 ## Related
 
-- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) — the event flow this was carved out of
-- [p1307](done/2026-06-10/p1307_event_transcription_from_ready_across_pages_into_sessions.md) — the app-level capture provider and its bar
-- [p1022](p1022_recording_consent_page.md) — the publishing release, a different consent from this one
+- [p1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md) — the event flow this was carved out of
+- [p1307](p1307_event_transcription_from_ready_across_pages_into_sessions.md) — the app-level capture provider and its bar
+- [p1022](../../p1022_recording_consent_page.md) — the publishing release, a different consent from this one
