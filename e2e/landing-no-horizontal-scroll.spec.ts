@@ -17,7 +17,8 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Landing Page - No Horizontal Scroll', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    // P1392: the builders landing moved from "/" (now the feed) to /builders.
+    await page.goto('/builders');
     // Wait for page to fully load
     await page.waitForSelector('h1');
   });

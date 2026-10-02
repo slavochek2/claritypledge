@@ -26,14 +26,16 @@ test.describe('Logo Navigation', () => {
       // Click the logo
       await logoLink.click();
 
-      // Verify we're on the home page
-      await expect(page).toHaveURL('/');
+      // Verify we're on the home page (P1392: "/" is the feed)
+      await expect(page).toHaveURL(/\/feed$/);
     });
   }
 
   test('Logo on home page scrolls to top (does not navigate)', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
+    // P1392: home is the feed — wait for content so the page is tall enough to scroll
+    await page.locator('[role="tabpanel"] > div > *').first().waitFor({ timeout: 15000 });
 
     // Scroll down the page
     await page.evaluate(() => window.scrollTo(0, 500));
@@ -52,8 +54,8 @@ test.describe('Logo Navigation', () => {
     // Wait for scroll animation
     await page.waitForTimeout(500);
 
-    // Verify we're still on home but scrolled to top
-    await expect(page).toHaveURL('/');
+    // Verify we're still on home (P1392: /feed) but scrolled to top
+    await expect(page).toHaveURL(/\/feed$/);
     const scrollAfter = await page.evaluate(() => window.scrollY);
     expect(scrollAfter).toBeLessThan(scrollBefore);
   });

@@ -38,14 +38,15 @@ test.describe('P1193: /groups is the route', () => {
     // gated on isLandingPage (clarity-landing-layout.tsx); every other route gets
     // LegalFooter, which carries no site nav at all. Asserting this on /groups looks
     // reasonable and fails for a reason that has nothing to do with the rename.
-    await page.goto('/');
+    // P1392: "/" is the feed now (no landing footer); the landing lives at /builders.
+    await page.goto('/builders');
     await page.waitForLoadState('networkidle');
 
     const footer = page.locator('footer');
     await expect(footer.getByRole('link', { name: 'Groups', exact: true })).toBeVisible({ timeout: 10000 });
-    // The label left the menu with the rename. Exact match: "Groups" must not satisfy
-    // a loose /events/i, and neither may any other link on the page.
-    await expect(footer.getByRole('link', { name: 'Events', exact: true })).toHaveCount(0);
+    // P1392 (founder): "Events" is back, but only as the upcoming-events list — never a
+    // group page (the one-group hack P1193 removed).
+    await expect(footer.getByRole('link', { name: 'Events', exact: true })).toHaveAttribute('href', '/events/list');
   });
 });
 

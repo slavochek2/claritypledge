@@ -105,7 +105,10 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // while it shows <main> only has to clear the nav row itself.
   const offlineStripShown = useOfflineStripShown();
 
-  const isLandingPage = location.pathname === "/";
+  // P1392: the builders landing moved from "/" (now a redirect to /feed) to /builders.
+  const isLandingPage = location.pathname === "/" || location.pathname === "/builders";
+  // P1392: the feed is the homepage, so signed-out visitors get the site footer there too.
+  const showSiteFooter = isLandingPage || (location.pathname === "/feed" && !showUserMenu);
   // P987: routes whose hero carries its OWN nav offset (pt-24 lg:pt-28) and sizes itself
   // to lg:min-h-screen. <main>'s nav padding must not stack on top: 100vh measured from
   // 80px down overflows the fold by exactly the nav height, pushing the hero's
@@ -217,7 +220,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
           fixed bottom action bar. The footer's site links compete with the single
           action and sat underneath that bar; dropping it removes both problems. */}
       {!isLivePage && !isImmersiveLetterRoute && !logoOnly && !isMeetingTermsPage && !isReadyPage && (
-        isLandingPage
+        showSiteFooter
           ? <ClarityFooter />
           : !showUserMenu && <LegalFooter />
       )}

@@ -123,6 +123,12 @@ const OffersPage = lazy(() => import("@/app/pages/offers-page").then(m => ({ def
  *  hash are forwarded so UTM-tagged links to "/" keep their attribution. */
 function HomeRedirect() {
   const location = useLocation();
+  // Pledge-invite (?referrer=) and ?login= links still go through the landing, which owns
+  // those redirects and the landing_page_viewed referrer event (review finding, P1392).
+  const params = new URLSearchParams(location.search);
+  if (params.has("referrer") || params.has("login")) {
+    return <Navigate to={`/builders${location.search}${location.hash}`} replace />;
+  }
   return <Navigate to={`/feed${location.search}${location.hash}`} replace />;
 }
 

@@ -12,7 +12,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ChevronDown } from 'lucide-react';
 import { HomeSideRail } from '@/app/components/feed/home-side-rail';
-import { PinnedStory } from '@/app/components/feed/pinned-story';
+import { PinnedStory, PINNED_STORY_SLUG } from '@/app/components/feed/pinned-story';
 import { storiesService } from '@/app/data/stories-service';
 import { feedRead } from '@/app/data/offline-reads';
 import { readThrough } from '@/lib/offline-read-cache';
@@ -45,7 +45,8 @@ const TAG_CLOUD_LIMIT = 5;
 /** P1392: test / pipeline tags (#test, #p1369r…, #p154) are never shown to visitors in the cloud.
  *  They still filter if linked to directly. */
 function isInternalTag(tag: string): boolean {
-  return /^test$/i.test(tag) || /^p\d+/i.test(tag);
+  // 3+ digits after the p: pipeline tags (#p154, #p1369r…) — never #p2p, #p5js.
+  return /^test$/i.test(tag) || /^p\d{3,}/i.test(tag);
 }
 
 
@@ -392,7 +393,9 @@ export function FeedPage() {
   const showPinned = !session && activeTab === 'stories' && activeTags.length === 0 && !searchQuery.trim();
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const storyEntries = useMemo(
-    () => groupBySource(showPinned && pinnedId ? filteredStories.filter((s) => s.id !== pinnedId) : filteredStories),
+    () => groupBySource(showPinned && pinnedId
+        ? filteredStories.filter((s) => s.id !== pinnedId && !(s.tags ?? []).includes(PINNED_STORY_SLUG))
+        : filteredStories),
     [filteredStories, showPinned, pinnedId],
   );
 

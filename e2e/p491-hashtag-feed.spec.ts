@@ -86,11 +86,12 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
   // Flow A: Browse the Feed (anonymous)
   // ==========================================================================
 
-  test('anonymous user can browse Points tab (default)', async ({ page }) => {
-    await page.goto('/feed');
+  // P1392: Stories is the default tab; Points is reached via ?tab=points.
+  test('anonymous user can browse Points tab', async ({ page }) => {
+    await page.goto('/feed?tab=points');
     await page.waitForLoadState('networkidle');
 
-    // Points tab is default active
+    // Points tab is active
     const pointsTab = page.getByRole('tab', { name: /points/i });
     await expect(pointsTab).toHaveAttribute('aria-selected', 'true');
 
@@ -105,8 +106,8 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     // Click Stories tab
     await page.getByRole('tab', { name: /stories/i }).click();
 
-    // URL should update
-    await expect(page).toHaveURL(/tab=stories/);
+    // P1392: Stories is the default, so selecting it leaves no tab param
+    await expect(page).not.toHaveURL(/tab=/);
 
     // Stories tab should be active
     const storiesTab = page.getByRole('tab', { name: /stories/i });
@@ -186,12 +187,12 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
     await page.goto('/feed?tag=fundraising');
     await page.waitForLoadState('networkidle');
 
-    // Switch to Stories tab
-    await page.getByRole('tab', { name: /stories/i }).click();
+    // P1392: Stories is the default, so switch to Points (the non-default tab)
+    await page.getByRole('tab', { name: /points/i }).click();
 
     // Both params should be present
     await expect(page).toHaveURL(/tag=fundraising/);
-    await expect(page).toHaveURL(/tab=stories/);
+    await expect(page).toHaveURL(/tab=points/);
   });
 
   // ==========================================================================
@@ -199,8 +200,8 @@ test.describe('P491: Hashtag Feed — User Flows', () => {
   // ==========================================================================
 
   test('browser back restores previous filter/tab state', async ({ page }) => {
-    // Start unfiltered
-    await page.goto('/feed');
+    // Start unfiltered, on Points (the tag pill under test sits on a point card; P1392)
+    await page.goto('/feed?tab=points');
     await page.waitForLoadState('networkidle');
 
     // Apply tag filter

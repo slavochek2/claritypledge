@@ -115,7 +115,7 @@ function LoggedOutPrimaryCta({
         title="Book a 15-min discovery call"
         className={className}
         onClick={() => {
-          analytics.track("nav_cta_clicked", { cta: "book_audit", device });
+          analytics.track("nav_cta_clicked", { cta: "book_discovery_call", device });
           onNavigate?.();
         }}
       >
@@ -444,7 +444,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
             // P1227: the wordmark is display:none below lg, so the mobile link had no name.
             aria-label="ClarityPledge"
             onClick={(e) => {
-              if (location.pathname === "/") {
+              // P1392: "/" is /feed now — the logo on the feed scrolls to top instead of
+              // pushing a duplicate /feed entry; with filters set, the click still resets them.
+              if (location.pathname === "/" || (location.pathname === "/feed" && !location.search)) {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }

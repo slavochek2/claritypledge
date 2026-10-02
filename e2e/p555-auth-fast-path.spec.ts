@@ -64,10 +64,11 @@ test.describe('P555 — Authenticated user fast redirect', () => {
 test.describe('P555 — Anonymous user landing', () => {
   test('shows landing page without prolonged loading state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // P1392: "/" is the feed, which never reaches networkidle — wait for its tab bar instead
+    await page.getByRole('tablist').waitFor({ timeout: 15000 });
 
-    // URL should stay on / (no redirect)
-    expect(page.url()).not.toContain('/feed');
+    // P1392: "/" is the feed for everyone now
+    expect(page.url()).toContain('/feed');
 
     // Landing page content should be visible (not stuck on loader)
     // The landing page has recognizable content — look for any substantial text

@@ -40,12 +40,23 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
   it('pins only for signed-out visitors on the plain Stories view, and de-duplicates', () => {
     expect(feed).toMatch(/const showPinned = !session && activeTab === 'stories' && activeTags\.length === 0 && !searchQuery\.trim\(\);/);
     expect(feed).toMatch(/\{showPinned && <PinnedStory onResolved=\{setPinnedId\} \/>\}/);
-    expect(feed).toMatch(/filteredStories\.filter\(\(s\) => s\.id !== pinnedId\)/);
+    expect(feed).toMatch(/s\.id !== pinnedId && !\(s\.tags \?\? \[\]\)\.includes\(PINNED_STORY_SLUG\)/);
   });
   it('is a compact bar that opens the story page (where its video and points live)', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
     expect(pin).toMatch(/to=\{`\/story\/\$\{storyId\}`\}/);
     expect(pin).not.toMatch(/FeedStoryCard/);
+  });
+});
+
+describe('P1392 review fixes', () => {
+  it('invite (?referrer=) and ?login= links on "/" go to the landing, which owns those redirects', () => {
+    const fn = app.slice(app.indexOf('function HomeRedirect'), app.indexOf('/** P486'));
+    expect(fn).toMatch(/params\.has\("referrer"\) \|\| params\.has\("login"\)/);
+    expect(fn).toMatch(/<Navigate to=\{`\/builders\$\{location\.search\}/);
+  });
+  it('the internal-tag filter needs 3+ digits, so real tags like #p2p survive', () => {
+    expect(feed).toMatch(/\/\^p\\d\{3,\}\/i/);
   });
 });
