@@ -36,8 +36,8 @@ type OrgTab = "about" | "members" | "events";
 /** Underline tab styling — page-level navigation (see TabsList comment below). */
 const ORG_TAB_CLASS =
   "min-h-11 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-3 text-base " +
-  "data-[state=active]:border-blue-500 data-[state=active]:bg-transparent " +
-  "data-[state=active]:text-foreground data-[state=active]:shadow-none";
+  "data-[state=active]:border-blue-600 data-[state=active]:bg-transparent " +
+  "data-[state=active]:text-blue-600 data-[state=active]:shadow-none";
 
 export function OrgPage() {
   const { slug } = useParams<{ slug: string }>();

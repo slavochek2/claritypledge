@@ -88,7 +88,7 @@ function SignatureSlot({ label, name, value, signedAt, isPending, hideLabel, ava
         />
       )}
       <p
-        className={`text-base font-semibold text-[#1A1A1A] leading-tight ${hasProfile ? 'group-hover/slot:text-[#0044CC] group-hover/slot:underline transition-colors' : ''}`}
+        className={`text-base font-semibold text-[#1A1A1A] leading-tight ${hasProfile ? 'group-hover/slot:text-blue-600 group-hover/slot:underline transition-colors' : ''}`}
         style={{ fontFamily: CERTIFICATE_SERIF }}
       >
         {displayName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}
@@ -181,7 +181,7 @@ export function AgreementCertificate({
             >
               We,{' '}
               {creatorProfileUrl ? (
-                <a href={creatorProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{creatorName}</a>
+                <a href={creatorProfileUrl} className="font-semibold hover:text-blue-600 hover:underline transition-colors">{creatorName}</a>
               ) : (
                 <span className="font-semibold">{creatorName}</span>
               )}
@@ -204,7 +204,7 @@ export function AgreementCertificate({
                     ? 'cursor-default bg-[#F5F1E8]/50 border-b-2 border-[#1A1A1A]/20'
                     : partnerNameError
                       ? 'border-b-2 border-red-500 focus-visible:border-red-500'
-                      : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
+                      : 'border-b-2 border-[#1A1A1A]/20 focus-visible:border-blue-600'
                 }`}
                 style={{
                   fontFamily: '"Playfair Display", Georgia, serif',
@@ -227,13 +227,13 @@ export function AgreementCertificate({
           >
             We,{' '}
             {creatorProfileUrl ? (
-              <a href={creatorProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{creatorName}</a>
+              <a href={creatorProfileUrl} className="font-semibold hover:text-blue-600 hover:underline transition-colors">{creatorName}</a>
             ) : (
               <span className="font-semibold">{creatorName}</span>
             )}
             {' '}and{' '}
             {partnerProfileUrl && partnerName ? (
-              <a href={partnerProfileUrl} className="font-semibold hover:text-[#0044CC] hover:underline transition-colors">{partnerName}</a>
+              <a href={partnerProfileUrl} className="font-semibold hover:text-blue-600 hover:underline transition-colors">{partnerName}</a>
             ) : (
               <span className="font-semibold">{partnerName || <span className="text-[#1A1A1A]/30 font-normal">their name</span>}</span>
             )}
@@ -266,7 +266,7 @@ export function AgreementCertificate({
                 <button
                   type="button"
                   onClick={() => onTermsChange(termsPlaceholder)}
-                  className="inline-flex items-center text-xs font-sans font-medium text-[#0044CC] hover:text-[#0033AA] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0044CC]/40 rounded px-1.5 py-1 min-h-11 sm:min-h-0 transition-colors whitespace-nowrap"
+                  className="inline-flex items-center text-xs font-sans font-medium text-blue-600 hover:text-[#0033AA] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40 rounded px-1.5 py-1 min-h-11 sm:min-h-0 transition-colors whitespace-nowrap"
                 >
                   Use suggested terms
                 </button>
@@ -282,7 +282,7 @@ export function AgreementCertificate({
               onChange={e => onTermsChange(e.target.value)}
               rows={8}
               className={`w-full resize-y bg-[#F5F1E8] focus:bg-transparent border-0 border-b text-base md:text-sm leading-relaxed text-[#1A1A1A]/80 focus-visible:outline-none focus-visible:ring-0 placeholder:text-[#1A1A1A]/30 min-h-[120px] font-sans transition-colors ${
-                termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-[#0044CC]'
+                termsError ? 'border-red-400' : 'border-[#1A1A1A]/20 focus-visible:border-blue-600'
               }`}
             />
             <div className="flex justify-end">

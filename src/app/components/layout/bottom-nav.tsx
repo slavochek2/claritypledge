@@ -121,7 +121,7 @@ export function BottomNav() {
           }
 
           const itemClass = `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
-            active ? "text-blue-500" : "text-muted-foreground hover:text-foreground"
+            active ? "text-blue-600" : "text-muted-foreground hover:text-foreground"
           }`;
           const badgeCount = item.badge ?? 0;
           const showBadge = badgeCount > 0;
@@ -139,7 +139,7 @@ export function BottomNav() {
                 )}
               </span>
               <span className={`text-xs leading-none transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
-              <div className={`w-1 h-1 rounded-full mt-0.5 transition-colors ${active ? "bg-blue-500" : "bg-transparent"}`} />
+              <div className={`w-1 h-1 rounded-full mt-0.5 transition-colors ${active ? "bg-blue-600" : "bg-transparent"}`} />
             </>
           );
 

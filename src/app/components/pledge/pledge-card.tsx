@@ -38,13 +38,13 @@ export function PledgeCard({
         <div className="max-w-4xl mx-auto">
           <div className="relative bg-[#FDFBF7] dark:bg-card border-2 border-[#1A1A1A] dark:border-border shadow-2xl hover:shadow-3xl transition-all duration-300 group rounded-lg overflow-hidden">
             {/* Corner Decorations - Blue brackets for modern touch */}
-            <div className="absolute top-0 left-0 w-12 h-12 border-t-[6px] border-l-[6px] border-[#0044CC] dark:border-blue-500 rounded-tl-lg" />
+            <div className="absolute top-0 left-0 w-12 h-12 border-t-[6px] border-l-[6px] border-blue-600 dark:border-blue-500 rounded-tl-lg" />
 
-            <div className="absolute top-0 right-0 w-12 h-12 border-t-[6px] border-r-[6px] border-[#0044CC] dark:border-blue-500 rounded-tr-lg" />
+            <div className="absolute top-0 right-0 w-12 h-12 border-t-[6px] border-r-[6px] border-blue-600 dark:border-blue-500 rounded-tr-lg" />
 
-            <div className="absolute bottom-0 left-0 w-12 h-12 border-b-[6px] border-l-[6px] border-[#0044CC] dark:border-blue-500 rounded-bl-lg" />
+            <div className="absolute bottom-0 left-0 w-12 h-12 border-b-[6px] border-l-[6px] border-blue-600 dark:border-blue-500 rounded-bl-lg" />
 
-            <div className="absolute bottom-0 right-0 w-12 h-12 border-b-[6px] border-r-[6px] border-[#0044CC] dark:border-blue-500 rounded-br-lg" />
+            <div className="absolute bottom-0 right-0 w-12 h-12 border-b-[6px] border-r-[6px] border-blue-600 dark:border-blue-500 rounded-br-lg" />
 
             <div className="p-10 lg:p-16">
               {/* Card Title */}
@@ -55,7 +55,7 @@ export function PledgeCard({
                 <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   {PLEDGE_TEXT.subtitle.toUpperCase()}
                 </p>
-                <div className="w-24 h-0.5 bg-[#0044CC] dark:bg-blue-500 mx-auto" />
+                <div className="w-24 h-0.5 bg-blue-600 dark:bg-blue-500 mx-auto" />
               </div>
 
               {/* Pledge Statement */}
@@ -69,7 +69,7 @@ export function PledgeCard({
 
               {/* Your Right Section */}
               <div className="mb-10">
-                <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
+                <h4 className="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-5 tracking-wide">
                   {PLEDGE_TEXT.yourRight.heading}
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -79,7 +79,7 @@ export function PledgeCard({
 
               {/* My Promise Section */}
               <div className="mb-10">
-                <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
+                <h4 className="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-5 tracking-wide">
                   {PLEDGE_TEXT.myPromise.heading}
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -89,7 +89,7 @@ export function PledgeCard({
 
               {/* The Exception Section */}
               <div className="mb-10">
-                <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
+                <h4 className="text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400 mb-5 tracking-wide">
                   {PLEDGE_TEXT.exception.heading}
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -100,7 +100,7 @@ export function PledgeCard({
               {isSigned ? (
                 <div className="pt-8 border-t-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
                   <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-full bg-[#0044CC] text-white flex items-center justify-center font-bold text-lg">
+                    <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
                       {name.charAt(0)}
                     </div>
                     <div>
@@ -129,8 +129,8 @@ export function PledgeCard({
                     This pledge becomes official when you sign it
                   </p>
                   <div className="flex justify-center mt-4">
-                    <div className="w-16 h-16 rounded-full border-4 border-[#0044CC] dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card">
-                      <ClarityLogoMark size={36} className="text-[#0044CC] dark:text-blue-400" />
+                    <div className="w-16 h-16 rounded-full border-4 border-blue-600 dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card">
+                      <ClarityLogoMark size={36} className="text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </div>

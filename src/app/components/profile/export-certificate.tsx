@@ -106,7 +106,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#0044CC",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -131,7 +131,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#0044CC",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -156,7 +156,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             style={{
               fontSize: "28px",
               fontWeight: "bold",
-              color: "#0044CC",
+              color: "#2563eb",
               letterSpacing: "0.05em",
               margin: "0 0 15px 0",
             }}
@@ -321,7 +321,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
               <p
                 style={{
                   fontSize: "18px",
-                  color: "#0044CC",
+                  color: "#2563eb",
                   fontWeight: "500",
                   margin: "0 0 10px 0",
                 }}

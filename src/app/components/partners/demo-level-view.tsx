@@ -171,7 +171,7 @@ export function DemoLevelView({
   // Role badge
   const renderRoleBadge = () => (
     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium mb-4 ${
-      isSpeaker ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+      isSpeaker ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
     }`}>
       {isSpeaker ? <MessageSquare className="h-4 w-4" /> : <Users className="h-4 w-4" />}
       You are: {isSpeaker ? 'SPEAKER' : 'LISTENER'}
@@ -269,11 +269,11 @@ export function DemoLevelView({
         {isListener ? (
           // Listener view - paraphrase input
           <div className="space-y-4">
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <p className="text-purple-800 font-medium">
+            <div className="p-4 bg-muted border border-border rounded-lg">
+              <p className="text-foreground font-medium">
                 Paraphrase what {speakerName} said.
               </p>
-              <p className="text-sm text-purple-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Say it back to them in your own words, then record it here.
               </p>
             </div>

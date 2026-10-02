@@ -109,8 +109,8 @@ const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =
 /**
  * The list-card highlight recolours only the TOP, RIGHT and BOTTOM borders. A bare
  * `hover:border-blue-400` / `focus-within:border-blue-400` also repaints the `border-l-4` bar —
- * the card's type/visibility marker (amber = private point) — and `focus-within` persists after a
- * tap on phones, so a private card lost its amber marker (review finding, verified in Chrome).
+ * the card's type/visibility marker (gray = private point, amber before the design-system sweep) — and `focus-within` persists after a
+ * tap on phones, so a private card lost its marker (review finding, verified in Chrome).
  */
 function expectSideHighlight(className: string) {
   const tokens = className.split(/\s+/);
@@ -658,11 +658,11 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expectSideHighlight(root.className);
   });
 
-  it('a PRIVATE point card keeps its amber left marker: the highlight cannot repaint it', () => {
+  it('a PRIVATE point card keeps its gray left marker: the highlight cannot repaint it', () => {
     const privatePoint = { ...protoPoint(), visibility: 'private' } as unknown as Parameters<typeof PointCardWithLinks>[0]['point'];
     const { container } = renderProfile({ point: privatePoint, linkedStories: [], currentUserId: 'viewer-1' });
     const root = container.querySelector('[role="button"]')!;
-    expect(root.className.split(/\s+/)).toContain('border-l-amber-400');
+    expect(root.className.split(/\s+/)).toContain('border-l-gray-400');
     expectSideHighlight(root.className);
   });
 });

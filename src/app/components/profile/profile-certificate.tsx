@@ -39,7 +39,7 @@ export function ProfileCertificate({
   email,
   signedAt,
   role,
-  avatarColor = "#0044CC",
+  avatarColor = "#2563eb",
   photoUrl,
   showQrCode = false,
   profileUrl,
@@ -91,7 +91,7 @@ export function ProfileCertificate({
           I, {nameUrl ? (
             <a
               href={nameUrl}
-              className="font-bold hover:text-[#0044CC] hover:underline transition-colors"
+              className="font-bold hover:text-blue-600 hover:underline transition-colors"
               title="View profile"
             >
               {name}
@@ -109,7 +109,7 @@ export function ProfileCertificate({
 
         {/* Your Right Section */}
         <div className="space-y-4">
-          <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
+          <h4 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wide">
             {pledgeContent.yourRight.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -119,7 +119,7 @@ export function ProfileCertificate({
 
         {/* My Promise Section */}
         <div className="space-y-4">
-          <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
+          <h4 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wide">
             {pledgeContent.myPromise.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -130,7 +130,7 @@ export function ProfileCertificate({
         {/* V2+: The Exception Section */}
         {hasExtendedFormat && 'exception' in pledgeContent && (
           <div className="space-y-4">
-            <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
+            <h4 className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 tracking-wide">
               {pledgeContent.exception.heading}
             </h4>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
@@ -152,7 +152,7 @@ export function ProfileCertificate({
             <div className="text-center">
               <h3 className="text-xl font-semibold text-[#1A1A1A] dark:text-foreground">
                 {nameUrl ? (
-                  <a href={nameUrl} className="hover:text-[#0044CC] hover:underline transition-colors">
+                  <a href={nameUrl} className="hover:text-blue-600 hover:underline transition-colors">
                     {name}
                   </a>
                 ) : name}
@@ -208,7 +208,7 @@ export function ProfileCertificate({
                     isPledger={true}
                   />
                   <div>
-                    <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight group-hover/sig:text-[#0044CC] group-hover/sig:underline transition-colors">
+                    <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight group-hover/sig:text-blue-600 group-hover/sig:underline transition-colors">
                       {name}
                     </h3>
                     {role && (
@@ -279,7 +279,7 @@ export function ProfileCertificate({
         {exportMode && (
           <div className="mt-6 pt-4 border-t border-[#1A1A1A]/10 text-center space-y-2">
             {acceptanceCount > 0 && (
-              <p className="text-sm text-[#0044CC] font-medium">
+              <p className="text-sm text-blue-600 font-medium">
                 {acceptanceCount === 1
                   ? `1 person accepted ${name.split(" ")[0]}'s pledge`
                   : `${acceptanceCount} people accepted ${name.split(" ")[0]}'s pledge`}

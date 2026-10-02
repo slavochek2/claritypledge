@@ -250,12 +250,12 @@ export function PointCardWithLinks({
   };
 
   const isPrivate = point.visibility === 'private';
-  const borderColor = isPrivate ? 'border-l-amber-400' : 'border-l-slate-400';
-  const bgTint = isPrivate ? 'bg-amber-50/50' : 'bg-white';
+  const borderColor = isPrivate ? 'border-l-gray-400' : 'border-l-slate-400';
+  const bgTint = isPrivate ? 'bg-muted/60' : 'bg-white';
 
   /* P1366 — in a LIST the card's border highlights on hover and on keyboard focus inside it
      (colour and shadow only), on the top, right and bottom sides only: the `border-l-4` bar is the
-     private (amber) / public marker, and `focus-within` persists after a tap on phones, so a bare
+     private (gray) / public marker, and `focus-within` persists after a tap on phones, so a bare
      `border-blue-400` erased it. The point page, embeds and demos keep main's hover. */
   const cardHover = inListFooter
     ? 'hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md'

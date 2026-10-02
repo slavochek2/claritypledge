@@ -110,9 +110,9 @@ export function LetterPreviewPage() {
 
   // P956: chromeFree preview has no nav — pt clears the iOS status-bar inset (viewport-fit=cover); 0 elsewhere.
   const previewBanner = (
-    <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-200 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] flex items-center gap-2">
-      <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-      <p className="text-sm text-amber-800 font-medium">
+    <div className="sticky top-0 z-40 bg-muted border-b border-border px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] flex items-center gap-2">
+      <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      <p className="text-sm text-foreground font-medium">
         THIS IS A PREVIEW — The receiver will see this
       </p>
       <Button

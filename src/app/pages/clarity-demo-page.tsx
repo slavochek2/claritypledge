@@ -301,7 +301,7 @@ export function ClarityDemoPage() {
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="name" className={needsName ? "text-amber-600 font-medium" : ""}>
+            <Label htmlFor="name" className={needsName ? "text-red-600 font-medium" : ""}>
               Your Name {needsName && "*"}
             </Label>
             <Input
@@ -310,10 +310,10 @@ export function ClarityDemoPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
-              className={needsName ? "border-amber-500 ring-1 ring-amber-500" : ""}
+              className={needsName ? "border-red-500 ring-1 ring-red-500" : ""}
             />
             {needsName && (
-              <p className="text-sm text-amber-600">
+              <p className="text-sm text-red-600">
                 Please enter your name to join
               </p>
             )}
@@ -516,7 +516,7 @@ export function ClarityDemoPage() {
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
         {/* Connection warning banner */}
         {connectionError && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <div className="mb-4 p-3 bg-muted border border-border rounded-lg text-sm text-foreground">
             {connectionError}
           </div>
         )}
@@ -540,7 +540,7 @@ export function ClarityDemoPage() {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
         <div className="text-center space-y-6">
-          <PartyPopper className="h-16 w-16 text-yellow-500 mx-auto" />
+          <PartyPopper className="h-16 w-16 text-green-600 mx-auto" />
 
           <h1 className="text-2xl font-serif font-bold">
             Demo Complete!

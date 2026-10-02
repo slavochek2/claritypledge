@@ -28,8 +28,8 @@ export function PositionButtons({
   disabledMessage = 'Understanding must be achieved first',
 }: PositionButtonsProps) {
   const positions: { value: Position; label: string; icon: typeof ThumbsUp; color: string }[] = [
-    { value: 'agree', label: 'Agree', icon: ThumbsUp, color: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-300' },
-    { value: 'disagree', label: 'Disagree', icon: ThumbsDown, color: 'bg-red-100 text-red-700 hover:bg-red-200 border-red-300' },
+    { value: 'agree', label: 'Agree', icon: ThumbsUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200' },
+    { value: 'disagree', label: 'Disagree', icon: ThumbsDown, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200' },
     { value: 'skip', label: 'Skip', icon: SkipForward, color: 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300' },
   ];
 

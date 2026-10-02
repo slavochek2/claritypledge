@@ -237,8 +237,8 @@ function AddPointForm({
         source={docVisibility === 'private' ? 'Matches story visibility' : 'Visible on your profile'}
       />
       {orphanPoint && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
-          <p className="text-amber-900 mb-2">Point created but linking failed. Retry to link it to your story.</p>
+        <div className="bg-muted border border-border rounded-lg p-3 text-sm">
+          <p className="text-foreground mb-2">Point created but linking failed. Retry to link it to your story.</p>
           <Button
             type="button"
             onClick={handleRetryLink}
@@ -271,7 +271,7 @@ function AddPointForm({
           }}
         />
         {orphanPoint && (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-muted-foreground">
             Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
           </p>
         )}
@@ -279,7 +279,7 @@ function AddPointForm({
           const dl = displayLength(statement);
           const hasLinks = dl < statement.length;
           return (
-            <p className={`text-xs ${dl >= POINT_CHAR_MAX ? 'text-destructive font-medium' : dl >= POINT_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}>
+            <p className={`text-xs ${dl >= POINT_CHAR_MAX ? 'text-destructive font-medium' : dl >= POINT_CHAR_SOFT ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
               {dl >= POINT_CHAR_SOFT
                 ? <>Under 140 is punchiest · {dl}/{POINT_CHAR_MAX}{hasLinks && ' (links excluded)'}</>
                 : <>{dl}/{POINT_CHAR_MAX}{hasLinks && ' (links excluded)'}</>}
@@ -513,7 +513,7 @@ function EditStoryCard({
         </div>
         <span
           aria-live="polite"
-          className={`text-xs ${content.length >= STORY_CHAR_MAX ? 'text-destructive font-medium' : content.length >= STORY_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}
+          className={`text-xs ${content.length >= STORY_CHAR_MAX ? 'text-destructive font-medium' : content.length >= STORY_CHAR_SOFT ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
         >
           {content.length} / {STORY_CHAR_MAX}
         </span>

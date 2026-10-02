@@ -19,7 +19,7 @@ const config: Record<StoryVisibility, {
   colorClassName: string;
 }> = {
   public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', tooltip: 'Visible to everyone', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-muted-foreground' },
-  private: { icon: Lock, label: 'Private', description: 'Only people you share with can see this.', tooltip: 'Only people you share with can see this.', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-amber-600' },
+  private: { icon: Lock, label: 'Private', description: 'Only people you share with can see this.', tooltip: 'Only people you share with can see this.', labelClassName: 'text-muted-foreground bg-muted', colorClassName: 'text-muted-foreground' },
 };
 
 export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: VisibilityBadgeProps) {
@@ -79,7 +79,7 @@ export function CardVisibilityCornerBadge({ visibility }: { visibility?: StoryVi
 
 /**
  * P586: Inline visibility icon for use within metadata lines or flex rows.
- * Renders a small globe (public, gray) or lock (private, amber) with tooltip.
+ * Renders a small globe (public, gray) or lock (private, gray) with tooltip.
  */
 export function InlineVisibilityIcon({ visibility }: { visibility?: StoryVisibility }) {
   const v = visibility ?? 'public';

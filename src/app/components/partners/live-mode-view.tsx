@@ -81,8 +81,8 @@ function RecordingIndicator({ isPrivate = false, uploadHealth }: { isPrivate?: b
         </div>
       )}
       {uploadHealth === 'degraded' && (
-        <div className="flex items-center justify-center gap-2 py-1.5 bg-yellow-50 border-b border-yellow-200">
-          <span className="text-xs text-yellow-800">⚠️ Weak connection — retrying audio upload</span>
+        <div className="flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border">
+          <span className="text-xs text-foreground">⚠️ Weak connection — retrying audio upload</span>
         </div>
       )}
       {(!uploadHealth || uploadHealth === 'healthy') && (
@@ -3107,15 +3107,15 @@ function UnderstandingScreen({
           {/* P804: Badge headline — shown above celebration when a badge point was earned */}
           {liveState.badgePointEarned && (
             <div className="text-center mb-4">
-              <Award className="h-6 w-6 text-amber-500 mx-auto mb-1" aria-hidden />
-              <h2 className="text-amber-700 font-semibold">
+              <Award className="h-6 w-6 text-green-600 mx-auto mb-1" aria-hidden />
+              <h2 className="text-green-700 font-semibold">
                 {(liveState.badgeCount ?? 0) >= 9
                   ? `Full badge earned! 9/9 clarity points verified`
                   : `Badge point earned! ${Math.min(liveState.badgeCount ?? 0, 9)}/9 clarity points verified`
                 }
               </h2>
               {isCertifier && (
-                <p className="text-sm text-amber-600 mt-1">
+                <p className="text-sm text-green-600 mt-1">
                   You verified {displayPartnerName} on a clarity point
                 </p>
               )}

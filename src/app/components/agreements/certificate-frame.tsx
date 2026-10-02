@@ -91,7 +91,7 @@ export function CertificateOathBody({ sections }: { sections: readonly OathSecti
     <>
       {sections.map((section) => (
         <div key={section.heading} className="space-y-2">
-          <h3 className="text-base md:text-lg font-bold text-[#0044CC] tracking-wide uppercase">
+          <h3 className="text-base md:text-lg font-bold text-blue-600 tracking-wide uppercase">
             {section.heading}
           </h3>
           <p

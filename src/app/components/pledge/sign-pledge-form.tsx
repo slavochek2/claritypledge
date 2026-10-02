@@ -166,7 +166,7 @@ export function SignPledgeForm({
               onChange={(e) => setName(e.target.value)}
               required
               title={shouldPrefill ? "Your name (from profile)" : "Enter your full name as it will appear on your certificate"}
-              className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-base md:text-lg h-auto"
+              className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-blue-600 font-serif text-base md:text-lg h-auto"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
               readOnly={shouldPrefill}
             />
@@ -186,7 +186,7 @@ export function SignPledgeForm({
 
           {/* Your Right Section - Matching Certificate Design */}
           <div className="space-y-2 md:space-y-4">
-            <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
+            <h3 className="text-lg md:text-2xl font-bold text-blue-600 tracking-wide">
               {PLEDGE_TEXT.yourRight.heading}
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
@@ -196,7 +196,7 @@ export function SignPledgeForm({
 
           {/* My Promise Section - Matching Certificate Design */}
           <div className="space-y-2 md:space-y-4">
-            <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
+            <h3 className="text-lg md:text-2xl font-bold text-blue-600 tracking-wide">
               {PLEDGE_TEXT.myPromise.heading}
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
@@ -206,7 +206,7 @@ export function SignPledgeForm({
 
           {/* The Exception Section - Matching Certificate Design */}
           <div className="space-y-2 md:space-y-4">
-            <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
+            <h3 className="text-lg md:text-2xl font-bold text-blue-600 tracking-wide">
               {PLEDGE_TEXT.exception.heading}
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
@@ -221,7 +221,7 @@ export function SignPledgeForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-[#1A1A1A]/60">Profile strength</span>
-              <span className="font-medium text-[#0044CC]">
+              <span className="font-medium text-blue-600">
                 {strengthLabel}
               </span>
             </div>
@@ -233,7 +233,7 @@ export function SignPledgeForm({
                   backgroundColor: profileStrength.filled === 2
                     ? "#002B5C"  // Complete
                     : profileStrength.filled === 1
-                      ? "#0044CC"  // Strong
+                      ? "#2563eb"  // Strong
                       : "#3366DD"  // Good
                 }}
               />
@@ -253,7 +253,7 @@ export function SignPledgeForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-0 border-b-2 border-[#1A1A1A] rounded-none focus-visible:border-[#0044CC] focus-visible:ring-0 bg-transparent px-0"
+                className="border-0 border-b-2 border-[#1A1A1A] rounded-none focus-visible:border-blue-600 focus-visible:ring-0 bg-transparent px-0"
               />
             </div>
           )}
@@ -272,7 +272,7 @@ export function SignPledgeForm({
               rows={2}
               maxLength={280}
               className={`w-full px-0 py-2 border-0 border-b-2 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 resize-none text-base md:text-sm md:h-auto ${
-                reasonError ? "border-red-400 focus-visible:border-red-500" : "border-[#1A1A1A] focus-visible:border-[#0044CC]"
+                reasonError ? "border-red-400 focus-visible:border-red-500" : "border-[#1A1A1A] focus-visible:border-blue-600"
               }`}
             />
             <div className="flex justify-between items-center">

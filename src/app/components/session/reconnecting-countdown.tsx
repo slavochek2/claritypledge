@@ -86,7 +86,7 @@ export function ReconnectingCountdown({
   const countdownColor = expired
     ? 'text-muted-foreground'
     : isUrgent
-      ? 'text-orange-600'
+      ? 'text-red-600'
       : 'text-muted-foreground';
 
   // Screen reader announcements at 30s intervals

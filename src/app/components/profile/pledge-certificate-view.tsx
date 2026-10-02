@@ -93,12 +93,12 @@ export function ProfileVisitorView({
             }}
           >
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 text-4xl text-[#0044CC]/30 dark:text-blue-500/30 leading-none font-serif">
+              <div className="flex-shrink-0 text-4xl text-blue-600/30 dark:text-blue-500/30 leading-none font-serif">
                 &ldquo;
               </div>
               <div className="flex-1 min-w-0">
                 <h3
-                  className="text-sm font-medium text-[#0044CC] dark:text-blue-400 uppercase tracking-wider mb-3"
+                  className="text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3"
                   style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
                 >
                   Why {profile.name.split(" ")[0]} Took This Pledge
@@ -110,7 +110,7 @@ export function ProfileVisitorView({
                   {profile.reason}
                 </p>
               </div>
-              <div className="flex-shrink-0 text-4xl text-[#0044CC]/30 dark:text-blue-500/30 leading-none font-serif self-end">
+              <div className="flex-shrink-0 text-4xl text-blue-600/30 dark:text-blue-500/30 leading-none font-serif self-end">
                 &rdquo;
               </div>
             </div>
@@ -141,7 +141,7 @@ export function ProfileVisitorView({
           <div className={`border rounded-lg p-8 bg-gradient-to-br transition-all ${
             hasAccepted
               ? "border-green-500/50 from-green-50/50 to-transparent dark:from-green-950/30 dark:to-transparent animate-pulse-subtle-green"
-              : "border-[#0044CC]/30 dark:border-blue-500/30 from-blue-50/50 to-transparent dark:from-blue-950/30 dark:to-transparent"
+              : "border-blue-600/30 dark:border-blue-500/30 from-blue-50/50 to-transparent dark:from-blue-950/30 dark:to-transparent"
           }`}>
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold mb-2">

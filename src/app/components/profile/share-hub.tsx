@@ -230,11 +230,11 @@ ${firstName}`
               disabled={isExporting}
               className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed sm:col-span-2"
             >
-              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
                 {isExporting ? (
-                  <LoaderIcon className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-spin" />
+                  <LoaderIcon className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
                 ) : (
-                  <DownloadIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <DownloadIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 )}
               </div>
               <div>

@@ -133,7 +133,7 @@ export function BadgeCertificate({
             Verified by{" "}
             <a
               href={`/p/${certifierSlug}`}
-              className="underline hover:text-[#0044CC] transition-colors"
+              className="underline hover:text-blue-600 transition-colors"
             >
               {certifierName}
             </a>
@@ -154,7 +154,7 @@ export function BadgeCertificate({
                 {bp.storyId && bp.storyContent && (
                   <a
                     href={`/story/${bp.storyId}`}
-                    className="block px-4 pt-3 pb-2 text-sm text-[#1A1A1A]/80 dark:text-foreground/80 italic leading-snug hover:text-[#0044CC] dark:hover:text-blue-400 transition-colors"
+                    className="block px-4 pt-3 pb-2 text-sm text-[#1A1A1A]/80 dark:text-foreground/80 italic leading-snug hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                     aria-label="View story"
                   >
                     "{storyExcerpt(bp.storyContent)}"
@@ -165,7 +165,7 @@ export function BadgeCertificate({
                 <button
                   onClick={() => toggle(bp.id)}
                   aria-expanded={isExpanded}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A]/70 dark:text-muted-foreground hover:text-[#0044CC] dark:hover:text-blue-400 transition-colors border-t border-[#002B5C]/10 dark:border-border"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#1A1A1A]/70 dark:text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors border-t border-[#002B5C]/10 dark:border-border"
                 >
                   {isExpanded ? (
                     <ChevronDown size={14} aria-hidden="true" className="shrink-0" />
@@ -201,7 +201,7 @@ export function BadgeCertificate({
                     {/* Point statement */}
                     <a
                       href={`/point/${bp.pointId}`}
-                      className="block text-sm text-[#1A1A1A] dark:text-foreground leading-relaxed hover:text-[#0044CC] dark:hover:text-blue-400 hover:underline transition-colors"
+                      className="block text-sm text-[#1A1A1A] dark:text-foreground leading-relaxed hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors"
                     >
                       "{bp.pointStatement}"
                     </a>
@@ -222,7 +222,7 @@ export function BadgeCertificate({
             <div className="text-center">
               <a
                 href={`/p/${profile.slug}`}
-                className="text-xl font-semibold text-[#1A1A1A] dark:text-foreground hover:text-[#0044CC] hover:underline transition-colors"
+                className="text-xl font-semibold text-[#1A1A1A] dark:text-foreground hover:text-blue-600 hover:underline transition-colors"
               >
                 {profile.name}
               </a>
@@ -255,7 +255,7 @@ export function BadgeCertificate({
                   isPledger={false}
                 />
                 <div>
-                  <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight group-hover/sig:text-[#0044CC] group-hover/sig:underline transition-colors">
+                  <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight group-hover/sig:text-blue-600 group-hover/sig:underline transition-colors">
                     {profile.name}
                   </h3>
                   {profile.role && (
