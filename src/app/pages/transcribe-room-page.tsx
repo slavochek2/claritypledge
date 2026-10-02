@@ -32,7 +32,6 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldOff, Loader2, Users, ArrowDown } from 'lucide-react';
-import { ClarityLogo } from '@/components/ui/clarity-logo';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
 import {
@@ -44,7 +43,6 @@ import {
 } from '@/app/data/transcribe-service';
 import { useRoomCapture, type CapturePhase } from '@/app/contexts/room-capture-context';
 import { RoomCaptureBarClaimSilent } from '@/app/components/session/room-capture-bar';
-import { EventLinksButton } from '@/app/components/layout/event-links-menu';
 import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 
@@ -98,7 +96,10 @@ export function TranscribeRoomPage() {
    * Called unconditionally at the top level, before any of the early returns below, because
    * a hook cannot live behind one. The MODE is what varies.
    */
-  useLinksTriggerOverride(showRunningRoom || showReadOnlyRoom ? 'adopt' : null);
+  // P1388: the running room no longer draws its own header over the nav — its only job was to
+  // hold End Session, which now sits beside Pause. So every view of this page is served by the
+  // site nav (Tools, avatar) with no declaration, as the join and ended views always were.
+  useLinksTriggerOverride(null);
   const roomId = showRunningRoom ? capture.roomId : showReadOnlyRoom ? readOnlyRoomId : null;
 
   // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
@@ -333,38 +334,6 @@ export function TranscribeRoomPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0" data-testid="transcribe-room-screen">
-      {/* Same sticky-bar-over-the-fixed-nav technique as /live's session banner (P1149). */}
-      <div className="sticky top-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] lg:h-[calc(5rem+env(safe-area-inset-top))] bg-background border-b border-border pt-[env(safe-area-inset-top)] shrink-0">
-        <div className="container mx-auto px-4 lg:px-8 h-full">
-          <div className="flex items-center justify-between h-full">
-            {/* Icon-only below `lg`, exactly as the site nav does (simple-navigation.tsx). Adding
-                the Links trigger to this row (P1323) made the full wordmark + Links + End Session
-                overflow a phone: measured at 320px, End Session was pushed off the right edge and
-                Links butted into the wordmark. End Session is the one control this header exists
-                for, so the wordmark gives way, not it. */}
-            <ClarityLogo size="sm" iconOnly className="lg:hidden" />
-            <ClarityLogo size="sm" className="hidden lg:inline-flex" />
-            <div className="flex items-center gap-2">
-              {/* P1323 R2: this page draws its own header OVER the nav — the layout's nav
-                  guard is `!hasOwnNavigation && !isImmersiveLetterRoute` and does NOT include
-                  isLivePage, so the nav is covered, not hidden. ADOPTING moves the ONE
-                  trigger here: the nav's instances stand down, so there is still exactly one
-                  `event-links-button` node in the DOM (a second would be the strict-mode
-                  locator violation that broke the e2e suite in 2026-08-28). */}
-              {/* Per breakpoint, exactly as the nav does it: the phone SHEET below `lg`, the
-                  anchored DROPDOWN at `lg` and up. A first version mounted only the dropdown,
-                  which put a fixed-width desktop menu inside a 320px phone header instead of the
-                  thumb-reach sheet this control was designed around (found in adversarial
-                  review, Gemini 3.8). One of the two is CSS-hidden at any width, so exactly one
-                  trigger is VISIBLE — the property e2e/p1179-links-menu.spec.ts actually asserts
-                  (`.filter({ visible: true })`), and the same one the nav has always had. */}
-              <span className="lg:hidden inline-flex"><EventLinksButton owner="page" /></span>
-              <span className="hidden lg:inline-flex"><EventLinksButton owner="page" variant="dropdown" /></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* P1323 R6: the slot is CLAIMED and draws nothing — the page header above already
           carries End Session, and the listening indicator plus the live transcript below are
           a stronger D9 indicator than the bar was. Claiming rather than deleting is
@@ -372,7 +341,8 @@ export function TranscribeRoomPage() {
           fallback, which re-draws the same bar as a sticky overlay. See the component. */}
       <RoomCaptureBarClaimSilent />
 
-      <div className="max-w-2xl mx-auto px-4 py-4 flex flex-col flex-1 min-h-0 w-full">
+      {/* Clears the fixed site nav, which is now visible here (P1388). */}
+      <div className="max-w-2xl mx-auto px-4 pb-4 pt-[calc(4rem+env(safe-area-inset-top)+1rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+1rem)] flex flex-col flex-1 min-h-0 w-full">
         {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the
             same control as the join and ended screens and /stake — not an arrow in the header.
             Leaving does not end capture (P1307 D7); End Session does. */}
@@ -380,13 +350,6 @@ export function TranscribeRoomPage() {
             from the live transcript. The button itself stays 44 px tall. */}
         <div className="shrink-0 -mt-2 [&>button]:mb-0" data-testid="transcribe-top-back">
           <FocusHeader fallback={BACK_FALLBACK} />
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1" data-testid="transcribe-roster">
-          <Users className="w-3.5 h-3.5" />
-          <span>
-            {members.length} in the room:{' '}
-            {members.map((m) => (speaking.has(m.id) ? `${m.displayName} …` : m.displayName)).join(', ') || '—'}
-          </span>
         </div>
 
         {showReadOnlyRoom ? (
@@ -401,6 +364,15 @@ export function TranscribeRoomPage() {
         ) : (
           <TranscribeCaptureRow onStop={() => void handleEndSession()} />
         )}
+        {/* P1388: who is in the room sits under the controls — the controls are what the
+            recorder needs first. */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3" data-testid="transcribe-roster">
+          <Users className="w-3.5 h-3.5" />
+          <span>
+            {members.length} in the room:{' '}
+            {members.map((m) => (speaking.has(m.id) ? `${m.displayName} …` : m.displayName)).join(', ') || '—'}
+          </span>
+        </div>
 
         <div className="relative flex-1 min-h-0 mb-4">
           <div
@@ -468,26 +440,24 @@ function TranscribeCaptureRow({ onStop }: { onStop: () => void }) {
   const { phase } = useRoomCapture();
   const status = useCaptureStatus();
   const healthy = !status.warn && phase !== 'paused';
+  // P1388 (founder, phone test 2026-10-02): the controls on ONE line — meter at the start,
+  // ⓘ · Pause · Stop at the end — and the status text on its own line under them.
   return (
-    // Phone: the status line gets the full width and the controls sit under it, right-aligned —
-    // squeezed into one row at 320px the line broke into four.
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-3" data-testid="transcribe-listening-indicator" role="status">
-      <div className="flex items-center gap-2 basis-full sm:basis-auto sm:flex-1 min-w-0">
+    <div className="mb-2" data-testid="transcribe-listening-indicator" role="status">
+      <div className="flex items-center gap-2">
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-        <span
-          className={`text-xs min-w-0 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
-          data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
-        >
-          {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
-        </span>
+        <div className="flex items-center gap-2 ml-auto">
+          <CaptureInfoButton />
+          {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
+          <StopCaptureButton onClick={onStop} testId="transcribe-end-session-button" />
+        </div>
       </div>
-      {/* P1388 (founder, 2026-10-02): Stop sits beside Pause — the same pair as the capture bar —
-          not up in the page header, where it was far from Pause and crowded the avatar. */}
-      <div className="flex items-center gap-2 ml-auto">
-        <CaptureInfoButton />
-        {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
-        <StopCaptureButton onClick={onStop} testId="transcribe-end-session-button" />
-      </div>
+      <p
+        className={`text-xs mt-1 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
+        data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
+      >
+        {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
+      </p>
     </div>
   );
 }
