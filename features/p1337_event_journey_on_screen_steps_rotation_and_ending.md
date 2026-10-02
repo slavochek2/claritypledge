@@ -36,7 +36,11 @@ pairs stuck together all evening, late arrivals forcing repeats, nobody taking t
 roles unprompted ([goals.md](../docs/goals.md)). The recording shows the room had **still not started
 a round at minute 48**, with roughly 15 of those minutes lost to in-room logistics.
 
-**Complication:** Events now run weekly. The format changed on 2026-09-28 to **trios** — three rounds
+**Complication:** Events now recur — **#2 on 2026-10-06, #3 on 2026-10-20** (founder, 2026-10-02:
+fortnightly rather than weekly, to leave room for outreach and to prepare several topics up front
+from the room's votes). The cadence is **not fixed**, so nothing here may assume a weekly rhythm:
+the closing step shows whatever the next published event is. The format changed on 2026-09-28 to
+**trios** — three rounds
 of 15 minutes, six on one person's meaning, six on the other's, three for the observer, everyone
 rotating through speaker, listener and observer ([decisions.md](../docs/decisions.md) 2026-09-28
 [product]). Partners are no longer a detail of seating: the founder wants people matched to the
