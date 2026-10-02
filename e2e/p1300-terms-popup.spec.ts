@@ -56,8 +56,8 @@ test('smoke: popup on a non-session page describes the documents only, with no c
 
   const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('What changed');
-  await expect(dialog).toContainText('you agree to the updated terms.');
+  await expect(dialog).toContainText("What's new");
+  await expect(dialog).toContainText('you agree to the updated Terms and Privacy Policy.');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);
@@ -83,9 +83,9 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
   const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
 
-  const termsHref = await dialog.getByRole('link', { name: /view terms/i }).getAttribute('href');
+  const termsHref = await dialog.getByRole('link', { name: 'Terms', exact: true }).getAttribute('href');
   const privacyHref = await dialog
-    .getByRole('link', { name: /view privacy policy/i })
+    .getByRole('link', { name: 'Privacy Policy', exact: true })
     .getAttribute('href');
   expect(termsHref).toBe('/terms-of-service');
   expect(privacyHref).toBe('/privacy-policy');
@@ -107,13 +107,13 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
   await docs.close();
 });
 
-test('"Got it" records acceptance and closes the banner', async ({ page }) => {
+test('"Accept" records acceptance and closes the banner', async ({ page }) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
   const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole('button', { name: /^got it$/i }).click();
+  await dialog.getByRole('button', { name: /^accept$/i }).click();
   await expect(dialog).toBeHidden();
 
   await expect

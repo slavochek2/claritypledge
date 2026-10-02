@@ -50,9 +50,9 @@ describe('P1300 — terms re-acceptance popup on a non-session page', () => {
 
   it('makes no claim about a session or a recording', async () => {
     const dialog = await renderGateOn('/groups/example-group');
-    await waitFor(() => expect(dialog).toHaveTextContent('What changed'));
+    await waitFor(() => expect(dialog).toHaveTextContent("What's new"));
 
-    expect(dialog).toHaveTextContent(/you agree to the updated terms\./i);
+    expect(dialog).toHaveTextContent(/you agree to the updated terms and privacy policy\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session/i);
     expect(dialog.textContent ?? '').not.toMatch(/record/i);
   });
@@ -60,11 +60,11 @@ describe('P1300 — terms re-acceptance popup on a non-session page', () => {
   it('links "View Terms" to the Terms of Service page that actually exists', async () => {
     await renderGateOn('/groups/example-group');
 
-    expect(screen.getByRole('link', { name: /view terms/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^Terms$/ })).toHaveAttribute(
       'href',
       '/terms-of-service'
     );
-    expect(screen.getByRole('link', { name: /view privacy policy/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^Privacy Policy$/ })).toHaveAttribute(
       'href',
       '/privacy-policy'
     );

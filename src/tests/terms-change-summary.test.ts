@@ -9,6 +9,8 @@ describe('terms change summary', () => {
     const entry = TERMS_CHANGES[CURRENT_TERMS_VERSION];
     expect(entry).toBeDefined();
     expect(entry?.highlights.length).toBeGreaterThan(0);
+    // Details on demand stay short; the full documents carry the rest.
+    expect(entry?.highlights.length).toBeLessThanOrEqual(3);
   });
 });
 
@@ -17,7 +19,7 @@ describe('terms change summary', () => {
 describe('terms change summary wording', () => {
   it('never mentions a session or a recording', () => {
     for (const [version, entry] of Object.entries(TERMS_CHANGES)) {
-      for (const line of [...entry.highlights, ...entry.details]) {
+      for (const line of [entry.headline, ...entry.highlights]) {
         expect(line, `${version}: ${line}`).not.toMatch(/session|record/i);
       }
     }

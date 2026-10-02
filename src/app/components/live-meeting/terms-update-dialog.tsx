@@ -7,7 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { LegalDocLinks, TermsChangeList } from '@/app/components/legal/terms-change-list';
+import { useRef } from 'react';
+import { LegalDocLinks, TermsChangeList, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
 
 interface TermsUpdateDialogProps {
   open: boolean;
@@ -25,6 +26,8 @@ interface TermsUpdateDialogProps {
    * fails (e.g. RLS/network). Null/undefined hides the error block.
    */
   errorMessage?: string | null;
+  /** Label for the secondary button. The global gate passes "Log out", which is what it does there. */
+  cancelLabel?: string;
 }
 
 export function TermsUpdateDialog({
@@ -34,7 +37,9 @@ export function TermsUpdateDialog({
   isLoading = false,
   dismissible = true,
   errorMessage = null,
+  cancelLabel = 'Cancel',
 }: TermsUpdateDialogProps) {
+  const acceptRef = useRef<HTMLButtonElement>(null);
   return (
     <Dialog
       open={open}
@@ -46,21 +51,25 @@ export function TermsUpdateDialog({
         hideCloseButton={!dismissible}
         onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
         onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
+        // Focus the primary action, not the first tabbable (the "What's new" toggle).
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          acceptRef.current?.focus();
+        }}
+        className="max-h-[85dvh] overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle>Updated Terms</DialogTitle>
-          <DialogDescription>
-            We've updated our Terms and Privacy Policy.
-          </DialogDescription>
+          <DialogTitle>We've updated our Terms</DialogTitle>
+          <DialogDescription className="sr-only">{TERMS_CONSENT_LINE}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <TermsChangeList />
 
           {/* Describe the documents only: the global TermsAcceptanceGate renders this over
               every authed route, so a sentence about the page or a session is false on most of them. */}
           <p className="text-sm text-muted-foreground">
-            By continuing, you agree to the updated terms.
+            {TERMS_CONSENT_LINE}
           </p>
 
           <LegalDocLinks />
@@ -75,12 +84,12 @@ export function TermsUpdateDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={isLoading}>
-            Cancel
+            {cancelLabel}
           </Button>
-          <Button onClick={onAccept} disabled={isLoading}>
-            {isLoading ? 'Continuing...' : 'Continue'}
+          <Button ref={acceptRef} className="bg-blue-500 hover:bg-blue-600" onClick={onAccept} disabled={isLoading}>
+            {isLoading ? 'Saving...' : 'Agree and continue'}
           </Button>
         </DialogFooter>
       </DialogContent>

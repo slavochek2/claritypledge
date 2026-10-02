@@ -27,7 +27,7 @@ vi.mock('@/auth/AuthContext', () => ({
 // These cases cover the blocking popup, used when a version requires fresh consent.
 // Notice mode (the dismissible banner) is covered in terms-notice-banner.test.tsx.
 vi.mock('@/app/content/terms-changes', () => ({
-  TERMS_CHANGES: new Proxy({}, { get: () => ({ requiresConsent: true, highlights: ['x'], details: [] }) }),
+  TERMS_CHANGES: new Proxy({}, { get: () => ({ requiresConsent: true, headline: 'h', highlights: ['x'] }) }),
 }));
 
 vi.mock('@sentry/react', () => ({
@@ -65,7 +65,7 @@ describe('TermsAcceptanceGate', () => {
     expect(screen.getByText('Some authed route content')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+      expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     });
   });
 
@@ -89,7 +89,7 @@ describe('TermsAcceptanceGate', () => {
       expect(mockNeedsTermsAcceptance).toHaveBeenCalled();
     });
 
-    expect(screen.queryByText('Updated Terms')).not.toBeInTheDocument();
+    expect(screen.queryByText("We've updated our Terms")).not.toBeInTheDocument();
   });
 
   it('does not call needsTermsAcceptance when no user is logged in', async () => {
@@ -107,7 +107,7 @@ describe('TermsAcceptanceGate', () => {
 
     expect(screen.getByText('Public landing')).toBeInTheDocument();
     expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
-    expect(screen.queryByText('Updated Terms')).not.toBeInTheDocument();
+    expect(screen.queryByText("We've updated our Terms")).not.toBeInTheDocument();
   });
 
   it('skips the check while auth is still loading', async () => {
@@ -141,7 +141,7 @@ describe('TermsAcceptanceGate', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+      expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     });
 
     // Simulate Supabase session re-validation: AuthContext flips isLoading: true,
@@ -156,7 +156,7 @@ describe('TermsAcceptanceGate', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
 
     mockUseAuth.mockReturnValue(authedUser);
     rerender(
@@ -167,7 +167,7 @@ describe('TermsAcceptanceGate', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
   });
 
   it('stays dormant on /auth/* paths (race with AuthCallbackPage upsert)', async () => {
@@ -190,7 +190,7 @@ describe('TermsAcceptanceGate', () => {
     // Wait for any async — the modal must not appear and the gate must not
     // even call needsTermsAcceptance while on /auth/*.
     await waitFor(() => {
-      expect(screen.queryByText('Updated Terms')).not.toBeInTheDocument();
+      expect(screen.queryByText("We've updated our Terms")).not.toBeInTheDocument();
     });
     expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
   });
@@ -216,7 +216,7 @@ describe('TermsAcceptanceGate', () => {
 
       expect(screen.getByText('Legal document')).toBeInTheDocument();
       await waitFor(() => {
-        expect(screen.queryByText('Updated Terms')).not.toBeInTheDocument();
+        expect(screen.queryByText("We've updated our Terms")).not.toBeInTheDocument();
       });
       expect(mockNeedsTermsAcceptance).not.toHaveBeenCalled();
     }
@@ -239,7 +239,7 @@ describe('TermsAcceptanceGate', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+      expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     });
     expect(mockNeedsTermsAcceptance).toHaveBeenCalledTimes(1);
   });
@@ -260,7 +260,7 @@ describe('TermsAcceptanceGate', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+      expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
@@ -270,7 +270,7 @@ describe('TermsAcceptanceGate', () => {
     });
 
     // Dialog still open
-    expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     expect(screen.getByRole('alert').textContent).toMatch(/could not save/i);
   });
 
@@ -294,15 +294,15 @@ describe('TermsAcceptanceGate', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+      expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /log out/i }));
 
     // signOut has been called and is in flight; dialog must remain visible
     // (it should NOT be eagerly hidden before signOut completes).
     expect(mockSignOut).toHaveBeenCalled();
-    expect(screen.getByText('Updated Terms')).toBeInTheDocument();
+    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
 
     resolveSignOut();
   });

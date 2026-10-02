@@ -6,5 +6,5 @@ import { TermsNoticeBanner } from '@/app/components/legal/terms-notice-banner';
 export function GateFixture() {
   const phase = new URLSearchParams(window.location.search).get('phase');
   if (phase === 'notice') return <TermsNoticeBanner onDismiss={() => {}} />;
-  return <TermsUpdateDialog open onAccept={() => {}} onCancel={() => {}} dismissible={false} />;
+  return <TermsUpdateDialog open onAccept={() => {}} onCancel={() => {}} dismissible={false} cancelLabel="Log out" />;
 }

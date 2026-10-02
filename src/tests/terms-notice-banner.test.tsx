@@ -18,7 +18,7 @@ vi.mock('@/auth/AuthContext', () => ({ useAuth: () => mockUseAuth() }));
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 vi.mock('@/app/content/terms-changes', () => ({
   TERMS_CHANGES: new Proxy({}, {
-    get: () => ({ requiresConsent: false, highlights: ['Highlight one'], details: ['Detail one'] }),
+    get: () => ({ requiresConsent: false, headline: 'Headline one', highlights: ['Highlight one'] }),
   }),
 }));
 
@@ -47,17 +47,17 @@ describe('TermsAcceptanceGate — notice mode', () => {
     mockNeedsTermsAcceptance.mockResolvedValue(true);
     renderGate();
     const banner = await screen.findByRole('region', { name: 'Terms update' });
-    expect(banner.textContent).toContain('Highlight one');
+    expect(banner.textContent).toContain('Headline one');
     expect(banner.textContent).not.toMatch(/session|record/i);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('page content')).toBeInTheDocument();
   });
 
-  it('"Got it" records acceptance and hides the banner', async () => {
+  it('"Accept" records acceptance and hides the banner', async () => {
     mockNeedsTermsAcceptance.mockResolvedValue(true);
     mockRecordTermsAcceptance.mockResolvedValue(undefined);
     renderGate();
-    fireEvent.click(await screen.findByRole('button', { name: /got it/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^accept$/i }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
     expect(mockRecordTermsAcceptance).toHaveBeenCalledWith('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'notice');
   });
@@ -66,7 +66,7 @@ describe('TermsAcceptanceGate — notice mode', () => {
     mockNeedsTermsAcceptance.mockResolvedValue(true);
     mockRecordTermsAcceptance.mockRejectedValue(new Error('network'));
     renderGate();
-    fireEvent.click(await screen.findByRole('button', { name: /got it/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^accept$/i }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
   });
 

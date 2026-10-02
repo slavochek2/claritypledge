@@ -63,10 +63,7 @@ describe('TermsUpdateDialog', () => {
     );
     render(<TermsUpdateDialog {...defaultProps} />);
 
-    expect(screen.getByText('Updated Terms')).toBeInTheDocument();
-    expect(
-      screen.getByText(/we've updated our terms and privacy policy/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText("We've updated our Terms")).toBeInTheDocument();
   });
 
   // P1300: this assertion previously required "This session is recorded for AI Insights".
@@ -79,7 +76,7 @@ describe('TermsUpdateDialog', () => {
     render(<TermsUpdateDialog {...defaultProps} />);
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
+    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms and privacy policy\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session|record/i);
   });
 
@@ -89,8 +86,8 @@ describe('TermsUpdateDialog', () => {
     );
     render(<TermsUpdateDialog {...defaultProps} />);
 
-    const termsLink = screen.getByRole('link', { name: /view terms/i });
-    const privacyLink = screen.getByRole('link', { name: /view privacy policy/i });
+    const termsLink = screen.getByRole('link', { name: /^Terms$/ });
+    const privacyLink = screen.getByRole('link', { name: /^Privacy Policy$/ });
 
     // P1300: '/terms' never resolved (NotFoundPage); the legal page is /terms-of-service.
     expect(termsLink).toHaveAttribute('href', '/terms-of-service');
@@ -127,7 +124,7 @@ describe('TermsUpdateDialog', () => {
     );
     render(<TermsUpdateDialog {...defaultProps} isLoading={true} />);
 
-    expect(screen.getByText('Continuing...')).toBeInTheDocument();
+    expect(screen.getByText('Saving...')).toBeInTheDocument();
   });
 
   /**
