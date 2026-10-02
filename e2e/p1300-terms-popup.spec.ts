@@ -50,16 +50,15 @@ test('smoke: popup on a non-session page describes the documents only, with no c
 
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  // The modal marks the page behind it aria-hidden, so the role query must include hidden nodes.
-  // This proves the popup sits over the loaded groups page, not over a blank shell.
-  await expect(
-    page.getByRole('heading', { name: 'Clarity Groups', includeHidden: true })
-  ).toBeAttached();
+  // The current terms version is notice-only (terms-changes.ts requiresConsent: false), so the
+  // gate shows a dismissible banner over the loaded page, not a blocking popup.
+  await expect(page.getByRole('heading', { name: 'Clarity Groups' })).toBeVisible();
 
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('Updated Terms');
-  await expect(dialog).toContainText('By continuing, you agree to the updated terms.');
+  await expect(dialog).toContainText('What changed');
+  await expect(dialog).toContainText('you agree to the updated terms.');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);
 
@@ -81,7 +80,7 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
 }, testInfo) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
 
   const termsHref = await dialog.getByRole('link', { name: /view terms/i }).getAttribute('href');
@@ -102,19 +101,19 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
     await expect(docs.getByRole('heading', { level: 1, name: heading })).toBeVisible();
     // Let the gate's async acceptance check finish before asserting it did not fire.
     await docs.waitForLoadState('networkidle');
-    await expect(docs.getByRole('dialog')).toHaveCount(0);
+    await expect(docs.getByRole('region', { name: 'Terms update' })).toHaveCount(0);
     await docs.screenshot({ path: testInfo.outputPath(`p1300-doc-${heading.replace(/ /g, '-')}.png`) });
   }
   await docs.close();
 });
 
-test('Continue still records acceptance and closes the popup', async ({ page }) => {
+test('"Got it" records acceptance and closes the banner', async ({ page }) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('region', { name: 'Terms update' });
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole('button', { name: /^continue$/i }).click();
+  await dialog.getByRole('button', { name: /^got it$/i }).click();
   await expect(dialog).toBeHidden();
 
   await expect

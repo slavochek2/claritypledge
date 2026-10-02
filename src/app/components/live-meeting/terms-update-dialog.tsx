@@ -7,8 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { CURRENT_TERMS_VERSION } from '@/lib/constants';
-import { TERMS_CHANGES } from '@/app/content/terms-changes';
+import { LegalDocLinks, TermsChangeList } from '@/app/components/legal/terms-change-list';
 
 interface TermsUpdateDialogProps {
   open: boolean;
@@ -36,7 +35,6 @@ export function TermsUpdateDialog({
   dismissible = true,
   errorMessage = null,
 }: TermsUpdateDialogProps) {
-  const changes = TERMS_CHANGES[CURRENT_TERMS_VERSION];
   return (
     <Dialog
       open={open}
@@ -57,28 +55,7 @@ export function TermsUpdateDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {changes && (
-            <div className="space-y-2 text-sm">
-              <p className="font-medium">What changed</p>
-              <ul className="list-disc space-y-1 pl-5">
-                {changes.highlights.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-              {changes.details.length > 0 && (
-                <details>
-                  <summary className="cursor-pointer text-blue-600 hover:underline">
-                    See all changes
-                  </summary>
-                  <ul className="mt-1 list-disc space-y-1 pl-5">
-                    {changes.details.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          )}
+          <TermsChangeList />
 
           {/* Describe the documents only: the global TermsAcceptanceGate renders this over
               every authed route, so a sentence about the page or a session is false on most of them. */}
@@ -86,24 +63,7 @@ export function TermsUpdateDialog({
             By continuing, you agree to the updated terms.
           </p>
 
-          <div className="flex gap-4 text-sm">
-            <a
-              href="/terms-of-service"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              View Terms
-            </a>
-            <a
-              href="/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              View Privacy Policy
-            </a>
-          </div>
+          <LegalDocLinks />
 
           {errorMessage && (
             <div

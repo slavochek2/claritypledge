@@ -24,6 +24,12 @@ vi.mock('@/auth/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// These cases cover the blocking popup, used when a version requires fresh consent.
+// Notice mode (the dismissible banner) is covered in terms-notice-banner.test.tsx.
+vi.mock('@/app/content/terms-changes', () => ({
+  TERMS_CHANGES: new Proxy({}, { get: () => ({ requiresConsent: true, highlights: ['x'], details: [] }) }),
+}));
+
 vi.mock('@sentry/react', () => ({
   captureException: vi.fn(),
 }));

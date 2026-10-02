@@ -5,14 +5,23 @@
  * only handed two long documents. `highlights` are always visible; `details`
  * sit behind "See all changes". Bumping CURRENT_TERMS_VERSION without adding an
  * entry here fails src/tests/terms-change-summary.test.ts.
+ *
+ * `requiresConsent` picks how returning users are told. false: a dismissible
+ * banner (notice; continued use is acceptance). true: the blocking popup, for a
+ * change that needs fresh, explicit consent. Bumps are batched into the
+ * quarterly terms review, not made per edit (decisions.md 2026-09-14, P1307 D15).
  */
 export interface TermsChangeSummary {
+  requiresConsent: boolean;
   highlights: string[];
   details: string[];
 }
 
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
   'v1.4': {
+    // Notice only: the consents this version describes (transcription, recording)
+    // are asked at the moment they apply, not through this update.
+    requiresConsent: false,
     highlights: [
       'We now name every service that processes your data, including where it is stored (the US).',
       'We explain how voice audio, transcripts and voice profiles are collected and used.',

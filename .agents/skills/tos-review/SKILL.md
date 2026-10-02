@@ -156,11 +156,18 @@ For each approved change:
 
 ### Stage 7b — Version Bump (MANDATORY)
 
-**This step is non-optional.** Without it, users won't be prompted to re-accept updated terms.
+**This step is non-optional at the quarterly terms review.** Without it, users are never told the terms changed.
+
+**When to bump:** only at the quarterly review, not per edit (decisions.md 2026-09-14, P1307 D15). Between reviews, update `tos.md`/`privacy.md` in the same release as the change they describe, but leave the version alone — unless the change needs fresh, explicit consent, which bumps now.
 
 1. Bump `CURRENT_TERMS_VERSION` in `src/lib/constants.ts` (e.g., v1.1 → v1.2)
-2. Update the test expectation in `src/tests/consent-api.test.ts` to match the new version
-3. Verify: `npm test -- consent-api.test.ts` — must pass
+2. Add the version's entry to `src/app/content/terms-changes.ts`:
+   - `highlights`: 2–4 plain-language lines a user reads in seconds; `details`: the rest, behind "See all changes".
+   - Check every line against the old and new documents (`git show <old-sha>:<file>`). A summary line that is not true of the diff is worse than none.
+   - Describe the documents only — never a page, session or recording (the notice renders over every authed page, P1300).
+   - `requiresConsent`: `false` = dismissible banner, continued use is acceptance (the default). `true` = blocking popup, only when the change needs fresh explicit consent (a new use of personal data on a consent basis). Write the reason in a comment beside it. If unsure, ask the founder.
+3. Update the test expectation in `src/tests/consent-api.test.ts` to match the new version
+4. Verify: `npm test -- consent-api.test.ts terms-change-summary.test.ts` — must pass
 
 ### Stage 8 — Visual Review
 
@@ -168,7 +175,7 @@ Use Claude in Chrome to load `http://localhost:5173/terms-of-service` and screen
 
 **Pass criteria:** All new paragraphs render without truncation, spacing matches surrounding sections, no raw HTML visible, date in page header matches today.
 
-**Then review the re-acceptance popup. This is mandatory whenever Stage 7b bumped the version.** The bump
+**Then review the re-acceptance notice (banner, or popup when `requiresConsent`) including its "what changed" lines. This is mandatory whenever Stage 7b bumped the version.** The bump
 shows the popup to *every* returning user, over whatever page they open first. That page is usually a
 profile, a group or the feed, not a live session. Sign in as a user whose `accepted_terms_version` is
 behind, open an ordinary non-session page, and screenshot the popup. Then:

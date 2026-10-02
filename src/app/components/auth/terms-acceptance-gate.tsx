@@ -4,7 +4,9 @@ import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { useAuth } from '@/auth/AuthContext';
 import { needsTermsAcceptance, recordTermsAcceptance } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
+import { TermsNoticeBanner } from '@/app/components/legal/terms-notice-banner';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+import { TERMS_CHANGES } from '@/app/content/terms-changes';
 import { analytics } from '@/lib/mixpanel';
 
 interface TermsAcceptanceGateProps {
@@ -24,6 +26,18 @@ const GATE_EXEMPT_PREFIXES = ['/auth/'];
 // user can read, not what is processed. Exact routes, not prefixes: a look-alike
 // such as /privacy-policy-preview must stay gated.
 const GATE_EXEMPT_EXACT_PATHS = ['/terms-of-service', '/privacy-policy'];
+
+// Blocking popup only when the current version needs fresh consent. A version
+// with no summary entry also blocks: the safe side when nobody decided.
+const GATE_MODE: 'block' | 'notice' =
+  TERMS_CHANGES[CURRENT_TERMS_VERSION]?.requiresConsent === false ? 'notice' : 'block';
+
+function reportAcceptFailure(err: unknown) {
+  reportUnlessBlip(err, {
+    context: 'terms-acceptance-gate',
+    tags: { area: 'terms-acceptance-gate' },
+  });
+}
 
 function isGateExempt(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '') || '/';
@@ -63,7 +77,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
         setShowDialog(true);
         if (gateShownTrackedRef.current !== userId) {
           gateShownTrackedRef.current = userId;
-          analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION });
+          analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
         }
       }
     });
@@ -78,18 +92,32 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     setAcceptError(null);
     try {
       await recordTermsAcceptance(user.id);
-      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION });
+      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
       setShowDialog(false);
     } catch (err) {
-      reportUnlessBlip(err, {
-        context: 'terms-acceptance-gate',
-        tags: { area: 'terms-acceptance-gate' },
-      });
+      reportAcceptFailure(err);
       setAcceptError(
         'Could not save your acceptance. Check your connection and try again.'
       );
     } finally {
       setIsAccepting(false);
+    }
+  };
+
+  // Notice mode: dismissing records acceptance (continued use). If saving fails,
+  // hide it anyway for this page load rather than trap the user in a banner; it
+  // returns on the next load because the stored version is still behind.
+  const handleDismissNotice = async () => {
+    if (!user) return;
+    setIsAccepting(true);
+    try {
+      await recordTermsAcceptance(user.id);
+      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
+    } catch (err) {
+      reportAcceptFailure(err);
+    } finally {
+      setIsAccepting(false);
+      setShowDialog(false);
     }
   };
 
@@ -103,8 +131,11 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
   return (
     <>
       {children}
+      {GATE_MODE === 'notice' && showDialog && (
+        <TermsNoticeBanner onDismiss={handleDismissNotice} isLoading={isAccepting} />
+      )}
       <TermsUpdateDialog
-        open={showDialog}
+        open={GATE_MODE === 'block' && showDialog}
         onAccept={handleAccept}
         onCancel={handleCancel}
         isLoading={isAccepting}

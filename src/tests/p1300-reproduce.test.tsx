@@ -38,7 +38,8 @@ async function renderGateOn(path: string) {
       </TermsAcceptanceGate>
     </MemoryRouter>
   );
-  return screen.findByRole('dialog');
+  // The current terms version is notice-only, so the gate renders the banner, not the dialog.
+  return screen.findByRole('region', { name: 'Terms update' });
 }
 
 describe('P1300 — terms re-acceptance popup on a non-session page', () => {
@@ -49,9 +50,9 @@ describe('P1300 — terms re-acceptance popup on a non-session page', () => {
 
   it('makes no claim about a session or a recording', async () => {
     const dialog = await renderGateOn('/groups/example-group');
-    await waitFor(() => expect(dialog).toHaveTextContent('Updated Terms'));
+    await waitFor(() => expect(dialog).toHaveTextContent('What changed'));
 
-    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
+    expect(dialog).toHaveTextContent(/you agree to the updated terms\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session/i);
     expect(dialog.textContent ?? '').not.toMatch(/record/i);
   });
