@@ -102,7 +102,7 @@ function HintMark({ label, testId, className, children }: { label: string; testI
           onMouseLeave={() => setOpen(false)}
           onClick={(e) => e.stopPropagation()}
           aria-label={label}
-          className={`-m-2 inline-flex shrink-0 items-center justify-center p-2 ${className}`}
+          className={`-m-3 inline-flex shrink-0 items-center justify-center p-3 ${className}`}
           data-testid={testId}
         >
           {children}
@@ -119,6 +119,9 @@ export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
   if (!marks || (!marks.prepared && !marks.mic)) return null;
   return (
     <span className="inline-flex shrink-0 items-center gap-1" data-testid="prep-marks">
+      {/* From sm up, keeps every row's mic in the same column whether or not the row has a check. On a phone
+          the row has no width to spare: names win. */}
+      {!marks.prepared && <span className="hidden h-3.5 w-3.5 sm:inline-block" aria-hidden="true" />}
       {marks.prepared && (
         <HintMark label={PREPARED_HINT} testId="prep-mark-prepared" className="text-blue-600 dark:text-blue-400">
           <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />

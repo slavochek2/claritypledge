@@ -357,6 +357,7 @@ function PrepFlow({
   const [micSetup, setMicSetup] = useState<MicSetup | null>(prep?.micSetup ?? null);
   // P1386: second mic question ("what does your phone plug into?") is shown only after "No, I need one".
   const [micNeeded, setMicNeeded] = useState(false);
+  const [micSaving, setMicSaving] = useState(false);
   const [researchSaving, setResearchSaving] = useState(false);
   const [placesLeft, setPlacesLeft] = useState<number | null>(null);
   const [experts, setExperts] = useState<string[] | null>(null);
@@ -540,12 +541,14 @@ function PrepFlow({
     setResearchSaving(true);
     // Consent must be on record before the person is treated as a volunteer.
     const ok = await save({
-      researchState: 'eligible',
+      // Saying Yes again (after Back) must not downgrade someone who already named a mic we can use.
+      researchState: micSetup === 'usbc' || micSetup === 'own' ? 'confirmed' : 'eligible',
       researchConsentedAt: new Date().toISOString(),
       researchPolicyVersion: RESEARCH_POLICY_VERSION,
     });
     setResearchSaving(false);
     if (!ok) return;
+    setMicNeeded(false);
     setMicAsked(true);
     window.scrollTo(0, 0);
   };
@@ -572,8 +575,9 @@ function PrepFlow({
   // them, so they are saved `eligible` (not `confirmed`): they take no recording place. A note and
   // Continue follow; USB-C and "bring my own" go through chooseMic above.
   const chooseMicNoLend = async (value: 'lightning' | 'other') => {
-    setMicSetup(value);
-    await save({ micSetup: value, researchState: 'eligible' });
+    // The note and Continue appear only once the answer is on record (chooseMic's rule too).
+    const ok = await save({ micSetup: value, researchState: 'eligible' });
+    if (ok) setMicSetup(value);
   };
 
   // Phones reserve the pinned action bar's height; desktop has the actions in the page.
@@ -934,7 +938,7 @@ function PrepFlow({
                 </>
               ) : (
                 <>
-                  <Title>What does your phone plug into?</Title>
+                  <Title>Which charging port does your phone have?</Title>
                   {/* P1387: pinned like every step's actions. After Lightning / Something else the bar swaps to the
                       note + Continue (+ Change my answer), as it does for the retired "no microphone" answer. */}
                   <StepActions ref={barRef}>
@@ -942,7 +946,7 @@ function PrepFlow({
                       <div className="flex w-full flex-col items-center gap-3 animate-in fade-in duration-300" ref={micNoteRef}>
                         <p className="text-center text-base text-foreground" data-testid="mic-no-lend-note">
                           {micSetup === 'lightning'
-                            ? "Thanks. We don't have Lightning microphones yet, so we may not be able to lend you one. You can still take part in the discussion."
+                            ? "Thanks. We don't have Lightning microphones yet, so we can't promise you one. We'll tell you if that changes. You can still take part in the discussion."
                             : 'Thanks. We may not be able to lend you a microphone for that. You can still take part in the discussion.'}
                         </p>
                         <LetterPrimaryCta label="Continue" onClick={() => next()} />
@@ -957,7 +961,17 @@ function PrepFlow({
                         ] as const).map(([value, text, hint]) => (
                           <Button
                             key={value}
-                            onClick={() => (value === 'usbc' ? void chooseMic('usbc') : void chooseMicNoLend(value))}
+                            disabled={micSaving}
+                            onClick={async () => {
+                              if (micSaving) return;
+                              setMicSaving(true);
+                              try {
+                                if (value === 'usbc') await chooseMic('usbc');
+                                else await chooseMicNoLend(value);
+                              } finally {
+                                setMicSaving(false);
+                              }
+                            }}
                             size="lg"
                             variant="outline"
                             aria-pressed={micSetup === value}
@@ -1041,12 +1055,12 @@ function PrepFlow({
                   <Title>Thank you for preparing</Title>
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
                     <p className="text-sm text-muted-foreground" data-testid="volunteer-note">
-                      You&apos;re a recording volunteer.{' '}
                       {micSetup === 'usbc'
-                        ? "We'll bring a USB-C mic for you."
+                        ? "You're a recording volunteer. We'll bring a USB-C mic for you."
                         : micSetup === 'own'
-                        ? 'Please bring your own microphone.'
-                        : "We'll tell you if we can lend you a microphone."}
+                        ? "You're a recording volunteer. Please bring your own microphone."
+                        : // lightning / other: not a recording place (saved eligible), so not "a volunteer".
+                          "Thanks for offering to record. We'll tell you if we can lend you a microphone."}
                     </p>
                   )}
                 </div>

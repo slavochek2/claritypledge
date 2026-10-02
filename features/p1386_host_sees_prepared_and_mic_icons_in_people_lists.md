@@ -84,7 +84,7 @@ host cannot see Lightning demand (the founder owns no Lightning mics and may buy
 1. **Two questions in the existing mic screen** (same `research` step, same `mic-question` section):
    - Q1 "Do you have a microphone to bring?" — *Yes, I'll bring my own* (saves `own`, `confirmed`, continues; nothing
      more is asked: a mic they own is assumed to be a close-to-the-mouth mic) / *No, I need one* (local state only).
-   - Q2, only after "No, I need one": "What does your phone plug into?" — *USB-C* saves `usbc` + `confirmed` /
+   - Q2, only after "No, I need one": "Which charging port does your phone have?" — *USB-C* saves `usbc` + `confirmed` /
      *Lightning* saves `lightning` + `eligible` / *Something else, or I'm not sure* saves `other` + `eligible`.
      **Why eligible:** `get_event_research_places_left` counts every `confirmed` row and shows "{n} of {places}
      volunteer places left" to everyone; a person the host cannot equip must not use up a recording place. They stay
@@ -113,13 +113,14 @@ host cannot see Lightning demand (the founder owns no Lightning mics and may buy
 
 **Proposed participant wording — [FOUNDER DECISION: approve or change in the browser before ship]:**
 - Q1 title: "Do you have a microphone to bring?" Answers: "Yes, I'll bring my own" / "No, I need one".
-- Q2 title: "What does your phone plug into?" Answers: "USB-C" with subline "iPhone 15 and newer, and most Android
+- Q2 title: "Which charging port does your phone have?" Answers: "USB-C" with subline "iPhone 15 and newer, and most Android
   phones" / "Lightning" with subline "iPhone 14 and older" / "Something else, or I'm not sure".
-- Note after Lightning: "Thanks. We don't have Lightning microphones yet, so we may not be able to lend you one.
-  You can still take part in the discussion." After Something else: "Thanks. We may not be able to lend you a
+- Note after Lightning: "Thanks. We don't have Lightning microphones yet, so we can't promise you one. We'll tell you
+  if that changes. You can still take part in the discussion." After Something else: "Thanks. We may not be able to lend you a
   microphone for that. You can still take part in the discussion."
-- End screen: usbc "We'll bring a USB-C mic for you." / own "Please bring your own microphone." / lightning and
-  other: "You're a recording volunteer. We'll tell you if we can lend you a microphone."
+- End screen: usbc "You're a recording volunteer. We'll bring a USB-C mic for you." / own "You're a recording
+  volunteer. Please bring your own microphone." / lightning and other (not a recording place, so not "a volunteer"):
+  "Thanks for offering to record. We'll tell you if we can lend you a microphone."
 - Opt-in line: "We can lend you a USB-C lavalier microphone, or you can bring your own mic."
 - [FOUNDER DECISION: the C / L / ? letters on the marks, versus another distinction.]
 
@@ -144,7 +145,7 @@ the `/tree` onboarding prototype page; handing out mics is still P1337.
 - [ ] Preparation step: "Do you have a microphone to bring?" — Yes saves `own` + `confirmed` and continues without a second question
 - [ ] "No, I need one" asks what the phone plugs into; USB-C saves `usbc` + `confirmed`; Lightning and Something else save `lightning` / `other` + `eligible`
 - [ ] Lightning and Something else show the note and a Continue; the page still scrolls as one page at 320px
-- [ ] Back: from Q2 to Q1, from Q1 to the opt-in screen; a returning person with a saved answer sees the matching answer highlighted
+- [ ] Back: from Q2 to Q1, from Q1 to the opt-in screen; a returning person with a saved answer sees the matching answer highlighted; saying Yes again on the opt-in screen opens on Q1 and does not downgrade a USB-C or own-mic volunteer from confirmed
 - [ ] A Lightning or Something else volunteer does not reduce "{n} of {places} volunteer places left"; a USB-C or own-mic volunteer does
 - [ ] Host, event page: `own` = one grey mic; USB-C / Lightning / other = two overlapping dark mics with C / L / ?; each has its hint (hover on desktop, tap on phone); readable at 320px and in dark mode
 - [ ] Host line counts each kind and reads right for mixed, only-USB-C and only-other cases; absent when nobody needs a mic

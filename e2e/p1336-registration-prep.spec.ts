@@ -213,7 +213,7 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
     await expect(page.getByTestId('mic-why')).toContainText('louder than the people around you');
     await page.getByRole('button', { name: 'No, I need one' }).click();
-    await expect(page.getByRole('heading', { name: 'What does your phone plug into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Which charging port does your phone have?' })).toBeVisible();
     await page.getByRole('button', { name: /^USB-C/ }).click();
 
     // End
@@ -398,6 +398,22 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
     await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. Please bring your own microphone.");
     expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'own', research_state: 'confirmed' });
+
+  });
+
+  test('P1386 mic question: saying Yes again keeps a saved USB-C volunteer confirmed and opens on Q1', async ({ page }) => {
+    const ev = await prepEvent(host);
+    events.push(ev);
+    const u = await registrant('P1386 Returning Volunteer', ev);
+    const consent = { research_consented_at: new Date().toISOString(), research_policy_version: 'p1336-research-v1' };
+    const { error } = await supabaseAdmin.from('event_preparations').insert({ event_id: ev.id, profile_id: u.user.id, research_state: 'confirmed', mic_setup: 'usbc', ...consent });
+    if (error) throw error;
+    await toMicQuestion(page, ev, u);
+    await page.getByRole('button', { name: 'Yes, sure' }).click();
+    // Q1, not Q2, and the saved row was not downgraded to eligible by the second Yes.
+    await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
+    // Q1 appears only after the Yes has been saved, so the row below already reflects it.
+    expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'usbc', research_state: 'confirmed' });
   });
 
   test('P1386 mic question: Lightning is eligible (no recording place), Back goes Q2 → Q1 → opt-in, answer can change', async ({ page, browser }) => {
@@ -406,7 +422,6 @@ test.describe('P1336 registration preparation', () => {
     const u = await registrant('P1386 Lightning', ev);
     await page.setViewportSize({ width: 320, height: 640 });
     await toMicQuestion(page, ev, u);
-    await expect(page.getByTestId('places-left')).toHaveText('6 of 6 volunteer places left');
     await page.getByRole('button', { name: 'Yes, sure' }).click();
     await page.getByRole('button', { name: 'No, I need one' }).click();
     await expect(page.getByRole('button', { name: /^USB-C/ })).toContainText('iPhone 15 and newer');
@@ -418,13 +433,20 @@ test.describe('P1336 registration preparation', () => {
     await expect.poll(async () => (await prepRow(ev.id, u.user.id))?.mic_setup).toBe('lightning');
     expect(await prepRow(ev.id, u.user.id)).toMatchObject({ research_state: 'eligible' });
 
-    // Back: Q2 → Q1 → the opt-in screen. The Lightning person has taken no place.
+    // A fresh visitor now reads the places count (it is fetched when the page opens, so it must be a new
+    // page): the Lightning person has taken no place. Control: the USB-C answer below does take one.
+    const ctx1 = await browser.newContext();
+    const obs1 = await ctx1.newPage();
+    await toMicQuestion(obs1, ev, await registrant('P1386 Observer A', ev));
+    await expect(obs1.getByTestId('places-left')).toHaveText('6 of 6 volunteer places left');
+    await ctx1.close();
+
+    // Back: Q2 → Q1 → the opt-in screen.
     await page.getByTestId('header-back').click();
     await expect(page.getByRole('heading', { name: 'Do you have a microphone to bring?' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'No, I need one' })).toHaveAttribute('aria-pressed', 'true');
     await page.getByTestId('header-back').click();
     await expect(page.getByRole('heading', { name: /Are you open to be one of six volunteers/ })).toBeVisible();
-    await expect(page.getByTestId('places-left')).toHaveText('6 of 6 volunteer places left');
 
     // Change the answer: now USB-C → confirmed, and that person DOES take a place.
     await page.getByRole('button', { name: 'Yes, sure' }).click();
@@ -436,8 +458,7 @@ test.describe('P1336 registration preparation', () => {
 
     const ctx = await browser.newContext();
     const other = await ctx.newPage();
-    const v = await registrant('P1386 Observer', ev);
-    await toMicQuestion(other, ev, v);
+    await toMicQuestion(other, ev, await registrant('P1386 Observer B', ev));
     await expect(other.getByTestId('places-left')).toHaveText('5 of 6 volunteer places left');
     await ctx.close();
   });
@@ -453,7 +474,7 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('mic-no-lend-note')).toContainText('We may not be able to lend you a microphone for that');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByRole('heading', { name: 'Thank you for preparing' })).toBeVisible();
-    await expect(page.getByTestId('volunteer-note')).toHaveText("You're a recording volunteer. We'll tell you if we can lend you a microphone.");
+    await expect(page.getByTestId('volunteer-note')).toHaveText("Thanks for offering to record. We'll tell you if we can lend you a microphone.");
     expect(await prepRow(ev.id, u.user.id)).toMatchObject({ mic_setup: 'other', research_state: 'eligible' });
   });
 
@@ -484,6 +505,7 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('prep-mark-note')).toHaveText('Needs a Lightning mic');
     // The room shows no marks, even to the host.
     await page.goto(`/events/${ev.slug}/meet`);
+    await expect(page.getByTestId('room-roster-item').first()).toBeVisible();
     await expect(page.getByTestId('prep-marks')).toHaveCount(0);
   });
 
