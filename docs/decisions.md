@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-02 [product]: The feed (Stories) is the front door; every landing books one 15-min discovery call
+
+**Context:** No visitor ever booked the "free alignment audit" sold by the "/" landing. The founder also reached events three clicks deep (Groups → group → event). The decision was to show the product instead of describing it (P1392).
+**Decision:** (1) "/" redirects everyone to /feed, which opens on Stories. The build-the-right-thing landing moved to /builders, and `?referrer=`/`?login=` invite links still route through it. (2) Every landing (/builders, /coach, /founder when no experiment is upcoming, plus the nav) carries one CTA, "Book a 15-min discovery call" → /intro. The Clarity Letter CTA left /coach and /founder. (3) The menu reads Feed · Events (/events/list) · Groups · Pledgers · Pricing, reversing P1193's removal of "Events" (now a list, never a group page). (4) The feed has a "Sort:" pill (the /topics pattern), a cloud of the top 5 tags with internal #test/#p… tags hidden, a desktop-only rail (next events and groups), and story 1 pinned for signed-out visitors as a compact pinned-message bar that opens the story page.
+**Alternatives rejected:** A LinkedIn-style three-column home: phones lose the columns, and it adds a dozen links competing with the one CTA. Groups as "/": a group list means nothing before you know what a group does. A full pinned story card: it can't show the story's points (the feed attaches points only to its own page) and it takes a screen of space. A walkthrough, a letter demo with dummy data, or an org explainer: these explain before the visitor cares.
+**Consequences:** The baseline is the bookings measured over the next ~2 weeks of the new "/" alone. The story-1 → letter → verify-live path (INBOX-112) waits for that baseline, so the two changes can be measured separately. The site footer now shows on the signed-out feed and /builders, because it was keyed to "/" and would otherwise have vanished. Two founder-owned copy items remain open: the redundant "Starts with a 15-min call." microcopy, and the Google booking page's own "alignment audit" heading (edited in Google, not in code).
+**References:** [features/done/2026-06-10/p1392_feed_first_homepage_and_nav.md](../features/done/2026-06-10/p1392_feed_first_homepage_and_nav.md) · decisions.md 2026-07-16 [product] front-door CTA (superseded on wording) · P1193
+
+---
+
 ## 2026-10-02 [product]: Recording controls are one short row — Pause · Stop together, navigation apart — and the short bar is the only form off the room page (P1388)
 
 **Context:** P1388's first build kept P1307's bar shape: a full-width blue Open and a lone "Stop transcribing" with the sign-out icon, four rows tall on a phone. Founder, on the phone test: *"open is so big and stop transcribing is somehow weird."* Iterating on the real device then moved Stop beside Pause on `/transcribe`, removed that page's own header (it hid the avatar and, with `h-screen`, slid off the nav — "the top menu is like twice"), and put the room's people beside the meter.

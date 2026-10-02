@@ -211,6 +211,7 @@ Last updated: 2026-10-02
 - **P968** (Jun 28) Prepare-letter prediction walk reuses reading components (finishes P665) — Radix `DialogOverlay` is null under `modal={false}` so a dimmed scrim needs `modal` (reverses P688 for the recipient dialog, which now overlays the draft page via compose's `location.state` contract instead of a blank `/compose` page); one primary action per view → Seal in `FixedBottomBar`, Preview demoted to outline; renaming a CTA label ("Next Story"→"Continue") breaks `getByRole` selectors — sweep E2E specs
 
 ## Navigation & Routing
+- **P1392** (Oct 26) Feed-first homepage, discovery-call CTA, Events in menu — "/" redirect orphaned the "/"-keyed footer, hero offset and ?referrer invites; grep pathname === "/" before moving a homepage
 - **P1364** (Sep 29) Consistent back navigation — one `useGoBack` declared by `fallback`; Back to feed/stake/profile restores tab, card and open state — a one-shot scroll restore clamps to ~0 while the list is a spinner; own writes must clear the POP cache (drift guard derives writers from migrations).
 - **P1351** (Sep 22) Header main button follows context: tinted "Tools" button, "Tonight's event" on event days — a pure-overlap check passed a button touching the logo; a 4px-gap check caught it.
 - **P1329** (Sep 17) Signed-in phone menu ran under the bottom tab bar — P1310's viewport cap subtracted only the top header; a same-z fixed bar later in the DOM wins. Cap keyed on `body:has([data-nav="bottom"])`, so focus routes and signed-out keep full height.
