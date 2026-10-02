@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 113
+**Next ID:** 114
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1936,5 +1936,38 @@ Found by the room-sweep cost-leak review 2026-10-01 (Codex Sol executed it; Gemi
 Founder idea (2026-10-02, during P1392): bring the st1 story forward for first-time visitors (pinned at the top of the Stories tab for signed-out visitors only), connect it to the st1 letter, and from there invite them to verify it live in /live with the founder.
 Deferred until P1392 (feed-first homepage) has run long enough to show whether the new "/" alone produces discovery-call bookings, so the two changes can be measured separately.
 Before building: write the success signal up front (e.g. N visitors reach the letter, M book or start a /live). Rejected for now: product walkthroughs, letter demo with dummy data, Clarity Organization explainer (explain-before-they-care pattern).
+
+---
+
+## Publish Clarity Night #3 (Tue 2026-10-20) before CN#2 runs
+
+**ID:** INBOX-113
+**Date:** 2026-10-02
+**Status:** proposed
+**due:** week
+
+Decided 2026-10-02, not published. The date exists only in the P1337 spec text; there is no
+event page on prod.
+
+Blocked on two founder values:
+- the title (naming is a founder call; "Clarity Night #3 — you choose the topic" was proposed)
+- the series WhatsApp invite link, which is not stored anywhere — the clarity-night entry in
+  the private channels file holds promotion channels, not the event's own attendee chat. It
+  lives in a private table readable only by the host and registered attendees.
+
+Everything else is ready: Tue 2026-10-20 18:30 Asia/Bangkok, Zuzalu library (4Seas Nimman,
+Building F, 20 Nimmanhaemin Soi 15), 120 min, org cm, preparation ON with the statement tag
+left EMPTY until the room's votes pick the topic after CN#2, description drafted linking to
+/topics for the vote.
+
+Why it matters before 2026-10-06: the closing sequence at CN#2 is meant to let people register
+for the next night on the spot, which needs the page to exist. The previous "we'll email you"
+path already failed once — 13 RSVPs, zero sends.
+
+Also worth doing while publishing: store the series event defaults (group chat url, preparation,
+org, duration, timezone, location) in the private channels file so this is never asked again.
+Founder 2026-10-02: "for our clarity nights its a setting... its always same group chat link for
+this series, no need to ask (if it changes i update)." Making publish-event READ that block is a
+skill-file change and needs separate approval.
 
 ---
