@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 16
 severity: high
@@ -15,9 +15,9 @@ reproduce_artifact:
   confidence: high
 tags: [events, preparation, mobile, layout]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 related: [p1336, p1386]
+completed_at: 2026-10-02
 ---
 
 # P1387: On phones, the registration and preparation screens scroll in two parts
