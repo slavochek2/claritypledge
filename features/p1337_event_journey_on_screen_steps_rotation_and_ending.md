@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 4
 workstream: events
@@ -11,9 +11,10 @@ tags:
   - rotation
   - matching
 disclosure: public
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_ran:
   - create-spec
+  - dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high

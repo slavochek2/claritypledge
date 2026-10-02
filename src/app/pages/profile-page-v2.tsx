@@ -36,6 +36,7 @@ import {
   Loader2,
   ImagePlus,
   Award,
+  ArrowLeftRight,
 } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { AgentByline } from '@/app/components/shared/agent-byline';
@@ -165,6 +166,10 @@ const detailRoutes = {
 // Tab types
 type ContentTab = 'stories' | 'points';
 
+// The Points tab renders this many at a time; the rest sit behind "Show more".
+// The list is fetched whole (the tab count and the sort need all of it), only rendering is capped.
+const POINTS_PAGE_SIZE = 50;
+
 /**
  * P1364 — what /p/:id last rendered, kept for a POP return (see list-return-cache.ts): the
  * lists the reader scrolls (stories, points and the viewer's link maps, so card heights match)
@@ -236,6 +241,7 @@ export function ProfilePageV2() {
   // media-carrying stories answer that better than a list of points.
   const [realStories, setRealStories] = useState<StoryWithPoints[]>(() => restored?.stories ?? []);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>(() => restored?.points ?? []);
+  const [pointsVisible, setPointsVisible] = useState(POINTS_PAGE_SIZE);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(() => restored?.calibration ?? null);
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(() => restored?.sessionsCompleted ?? 0);
   const [calibrationLoaded, setCalibrationLoaded] = useState(() => !!restored);
@@ -384,6 +390,7 @@ export function ProfilePageV2() {
     setAgreementsLoading(true);
     setRealStories([]);
     setRealPoints([]);
+    setPointsVisible(POINTS_PAGE_SIZE);
 
     // Load stories, points, calibration, and agreements in parallel
     Promise.all([
@@ -1334,7 +1341,18 @@ export function ProfilePageV2() {
                   <p className="text-muted-foreground">No positions taken yet</p>
                 </div>
               ) : (
-                userPoints.map((point: AdaptedPoint) => (
+                <>
+                {/* P1337: the compare entry lives where the positions are, not in the header (nothing to compare on Stories). */}
+                {currentUser && !isOwner && profile.slug && (
+                  <Link
+                    to={`/compare/${profile.slug}`}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 min-h-[40px] text-sm font-medium text-blue-700"
+                  >
+                    <ArrowLeftRight size={16} />
+                    Compare with me
+                  </Link>
+                )}
+                {userPoints.slice(0, pointsVisible).map((point: AdaptedPoint) => (
                   <PointCardWithLinks
                     key={point.id}
                     point={point}
@@ -1379,7 +1397,17 @@ export function ProfilePageV2() {
                     tags={point.tags}
                     shareSurface="profile"
                   />
-                ))
+                ))}
+                {userPoints.length > pointsVisible && (
+                  <Button
+                    variant="outline"
+                    className="w-full min-h-[40px]"
+                    onClick={() => setPointsVisible(n => n + POINTS_PAGE_SIZE)}
+                  >
+                    Show more
+                  </Button>
+                )}
+                </>
               )
             )}
           </div>

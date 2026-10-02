@@ -831,6 +831,15 @@ export function EventDetail() {
                       </Button>
                     </div>
                   </div>
+                  {/* P1337: the host panel — rounds, tables, who's here. */}
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/events/${slug}/host`)}
+                    className="mt-3 w-full min-h-10"
+                    data-testid="run-this-event"
+                  >
+                    Run this event
+                  </Button>
                 </div>
               )}
 

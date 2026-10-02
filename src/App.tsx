@@ -62,6 +62,7 @@ const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m
 const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
 const StoryDetailPage = lazy(() => import("@/app/pages/story-detail-page").then(m => ({ default: m.StoryDetailPage })));
 const PointDetailPage = lazy(() => import("@/app/pages/point-detail-page").then(m => ({ default: m.PointDetailPage })));
+const ComparePage = lazy(() => import("@/app/pages/compare-page").then(m => ({ default: m.ComparePage })));
 const CreateAgreementPage = lazy(() => import("@/app/pages/create-agreement-page").then(m => ({ default: m.CreateAgreementPage })));
 const AgreementPage = lazy(() => import("@/app/pages/agreement-page").then(m => ({ default: m.AgreementPage })));
 const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page").then(m => ({ default: m.AcceptAgreementPage })));
@@ -110,6 +111,7 @@ const PreparePage = lazy(() => import("@/app/prototypes/events/prep/PreparePage"
 const EventClosePage = lazy(() => import("@/app/prototypes/events/close/EventClosePage").then(m => ({ default: m.EventClosePage })));
 const EventArrivingPage = lazy(() => import("@/app/prototypes/events/arrival/EventArrivingPage").then(m => ({ default: m.EventArrivingPage })));
 const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
+const EventHostPage = lazy(() => import("@/app/prototypes/events/rounds/EventHostPage").then(m => ({ default: m.EventHostPage })));
 const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
@@ -683,6 +685,18 @@ export default function ClarityPledgeApp() {
           }
         />
 
+        {/* P1337: where two people each stand. Signed-in viewers; the page itself shows the sign-in line. */}
+        <Route
+          path="/compare/:slug"
+          element={
+            <ClarityLandingLayout surface="product">
+              <LazyRoute>
+                <ComparePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
         {/* P1381: founder-only. Gated in Postgres (admin_list_users → assert_admin); non-admins get NotFound. Not linked anywhere. */}
         <Route
           path="/admin/users"
@@ -1170,6 +1184,8 @@ export default function ClarityPledgeApp() {
         {/* P1380: "See you soon" — behind Not yet in the starting-soon email and the room's arrival question. */}
         <Route path="/events/:slug/arriving" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventArrivingPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1337: the host panel — rounds, the round grid, who's here. ?view=screen is the projector. Host-gated in the page and in every RPC. */}
+        <Route path="/events/:slug/host" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventHostPage /></LazyRoute></ClarityLandingLayout>} />
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}
         <Route path="/events/*" element={<ClarityLandingLayout surface="product"><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
         {/* P909: chromeFree — the calendar IS the page; the page's own slim row is the only chrome */}

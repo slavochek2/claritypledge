@@ -96,6 +96,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { PracticeRooms } from './PracticeRooms';
+import { RoundCard } from '../rounds/RoundCard';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
 /** Pause between re-reads while a failed write is unreconciled (see `runWrite`). */
@@ -470,6 +471,11 @@ export function EventRoomMeet() {
         <div aria-hidden="true" className="hidden min-[1600px]:block" />
 
         <div className="space-y-4">
+          {/* P1337: the round — your table, your role, what to talk about. Renders nothing
+              until the host starts round 1, and nothing after the evening ends. */}
+          {event && !isFrozen && (
+            <RoundCard eventId={event.id} statementTag={event.statementTag} self={self} roster={roster} />
+          )}
           <CertificateFrame
             ariaLabel={PRINCIPLE_TITLE}
             title={PRINCIPLE_TITLE}

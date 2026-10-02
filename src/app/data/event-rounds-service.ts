@@ -1,0 +1,204 @@
+/**
+ * @file event-rounds-service.ts
+ * @description P1337: typed wrappers for the round tables and their SECURITY DEFINER RPCs
+ * (supabase/migrations/20261002183700_p1337_event_rounds.sql).
+ *
+ * Reads are plain selects — RLS lets the host and every member of the event's room see the
+ * seating, because the projector shows it anyway. `position_moved` is deliberately not
+ * selectable (column grant), and presence is host-only.
+ *
+ * Polled, not realtime: a round changes a handful of times an evening, and the room's own
+ * roster already showed how silently realtime + RLS can drop deliveries (P1114, 2026-08-21).
+ * A 4-second poll is what every phone and the projector use.
+ *
+ * Standalone module like event-room-service.ts: no mock variant, every table here is new.
+ */
+import { supabase } from '@/lib/supabase';
+import type { Seat, SeatRole } from '@/lib/round-grouping';
+
+export const ROUNDS_POLL_MS = 4000;
+/** The trio format: three rounds an evening (decisions.md 2026-09-28). */
+export const ROUNDS_PER_EVENING = 3;
+
+export interface EventRound {
+  id: string;
+  roundNo: number;
+  groupSize: 2 | 3 | 4;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+export interface RoundSeat extends Seat {
+  roundId: string;
+  confirmedAt: string | null;
+}
+
+export interface EventRoundsState {
+  /** Oldest first. */
+  rounds: EventRound[];
+  seatsByRound: Map<string, RoundSeat[]>;
+  /** `${roundId}:${table}` → point id the table marked. */
+  topics: Map<string, string>;
+}
+
+export const EMPTY_ROUNDS_STATE: EventRoundsState = { rounds: [], seatsByRound: new Map(), topics: new Map() };
+
+export const topicKey = (roundId: string, table: number) => `${roundId}:${table}`;
+
+/** The round on now: the latest one, unless the host ended the evening. */
+export function currentRound(state: EventRoundsState): EventRound | null {
+  const last = state.rounds[state.rounds.length - 1];
+  return last && !last.endedAt ? last : null;
+}
+
+interface DbRound {
+  id: string;
+  round_no: number;
+  group_size: number;
+  started_at: string;
+  ended_at: string | null;
+}
+
+interface DbSeat {
+  round_id: string;
+  room_member_id: string;
+  table_no: number;
+  role: SeatRole;
+  confirmed_at: string | null;
+}
+
+/** Throws on failure — callers keep the last good state rather than painting an empty room. */
+export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
+  const { data: rounds, error } = await supabase
+    .from('event_rounds')
+    .select('id, round_no, group_size, started_at, ended_at')
+    .eq('event_id', eventId)
+    .order('round_no', { ascending: true });
+  if (error) throw error;
+  const mapped: EventRound[] = (rounds as DbRound[]).map(r => ({
+    id: r.id,
+    roundNo: r.round_no,
+    groupSize: r.group_size as 2 | 3 | 4,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+  }));
+  if (mapped.length === 0) return EMPTY_ROUNDS_STATE;
+
+  const ids = mapped.map(r => r.id);
+  const [seatsRes, topicsRes] = await Promise.all([
+    supabase
+      .from('event_round_seats')
+      .select('round_id, room_member_id, table_no, role, confirmed_at')
+      .in('round_id', ids),
+    supabase.from('event_round_tables').select('round_id, table_no, topic_point_id').in('round_id', ids),
+  ]);
+  if (seatsRes.error) throw seatsRes.error;
+  if (topicsRes.error) throw topicsRes.error;
+
+  const seatsByRound = new Map<string, RoundSeat[]>(ids.map(id => [id, []]));
+  for (const s of seatsRes.data as DbSeat[]) {
+    seatsByRound.get(s.round_id)?.push({
+      roundId: s.round_id,
+      id: s.room_member_id,
+      table: s.table_no,
+      role: s.role,
+      confirmedAt: s.confirmed_at,
+    });
+  }
+  for (const seats of seatsByRound.values()) seats.sort((a, b) => a.table - b.table || roleOrder(a.role) - roleOrder(b.role));
+
+  const topics = new Map<string, string>();
+  for (const t of topicsRes.data as { round_id: string; table_no: number; topic_point_id: string | null }[]) {
+    if (t.topic_point_id) topics.set(topicKey(t.round_id, t.table_no), t.topic_point_id);
+  }
+  return { rounds: mapped, seatsByRound, topics };
+}
+
+export function roleOrder(role: SeatRole): number {
+  return role === 'first' ? 0 : role === 'second' ? 1 : 2;
+}
+
+const toJsonSeats = (seats: Seat[]) => seats.map(s => ({ m: s.id, t: s.table, r: s.role }));
+
+export async function hostStartRound(eventId: string, roundNo: number, groupSize: number, seats: Seat[]): Promise<string> {
+  const { data, error } = await supabase.rpc('host_start_round', {
+    p_event_id: eventId,
+    p_round_no: roundNo,
+    p_group_size: groupSize,
+    p_seats: toJsonSeats(seats),
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function hostSetRoundSeats(roundId: string, seats: Seat[]): Promise<void> {
+  const { error } = await supabase.rpc('host_set_round_seats', { p_round_id: roundId, p_seats: toJsonSeats(seats) });
+  if (error) throw error;
+}
+
+export async function hostEndRounds(eventId: string): Promise<void> {
+  const { error } = await supabase.rpc('host_end_rounds', { p_event_id: eventId });
+  if (error) throw error;
+}
+
+export interface RoundPresence {
+  memberId: string;
+  leftAt: string | null;
+  sitsOutRound: number | null;
+}
+
+export async function getRoundPresence(eventId: string): Promise<Map<string, RoundPresence>> {
+  const { data, error } = await supabase
+    .from('event_round_presence')
+    .select('room_member_id, left_at, sits_out_round')
+    .eq('event_id', eventId);
+  if (error) throw error;
+  return new Map(
+    (data as { room_member_id: string; left_at: string | null; sits_out_round: number | null }[]).map(p => [
+      p.room_member_id,
+      { memberId: p.room_member_id, leftAt: p.left_at, sitsOutRound: p.sits_out_round },
+    ]),
+  );
+}
+
+export async function hostSetRoundPresence(
+  eventId: string,
+  memberId: string,
+  left: boolean,
+  sitsOutRound: number | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('host_set_round_presence', {
+    p_event_id: eventId,
+    p_room_member_id: memberId,
+    p_left: left,
+    p_sits_out_round: sitsOutRound,
+  });
+  if (error) throw error;
+}
+
+export async function confirmRoundSeat(roundId: string): Promise<void> {
+  const { error } = await supabase.rpc('confirm_round_seat', { p_round_id: roundId });
+  if (error) throw error;
+}
+
+export async function setRoundTopic(roundId: string, table: number, pointId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('set_round_topic', { p_round_id: roundId, p_table_no: table, p_point_id: pointId });
+  if (error) throw error;
+}
+
+/** The statement one table marked, or null. Throws on failure. */
+export async function getRoundTopic(roundId: string, table: number): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('event_round_tables')
+    .select('topic_point_id')
+    .eq('round_id', roundId)
+    .eq('table_no', table)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { topic_point_id: string | null } | null)?.topic_point_id ?? null;
+}
+
+export async function setRoundPositionMoved(roundId: string, moved: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_round_position_moved', { p_round_id: roundId, p_moved: moved });
+  if (error) throw error;
+}
