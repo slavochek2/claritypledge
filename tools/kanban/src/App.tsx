@@ -17,7 +17,7 @@ import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
 import { ContentPage } from './components/ContentPage'
 import { PipelinePage } from './components/PipelinePage'
-import { DayPage } from './components/DayPage'
+import { DayPage } from './components/day/DayPage'
 import { Feature, FeatureType, Status } from './lib/types'
 import {
   STORAGE_KEYS,

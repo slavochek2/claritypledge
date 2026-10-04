@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 20
 workstream: infrastructure
 created_date: '2026-10-04'
 tags: [day, kanban, reporting, founder-workflow]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -434,46 +434,68 @@ and a visual QA (for UI), and its ACs ticked with evidence, before the next phas
 
 **Phase A: board page (redesigned 2026-10-04; each control's expected effect is listed in the
 control list in the private design folder, and tested against it)**
-- [ ] The personal board's sidebar has a Day entry; the cp board has none (verified by loading it).
-- [ ] Tabs Daily report · Stats · Monitoring · Reflection share one header with the day switcher
+- [x] The personal board's sidebar has a Day entry; the cp board has none (verified by loading it).
+      Evidence: e2e `the Day entry is present when the day dir is set` / `…absent when KANBAN_DAY_DIR is unset` (a second, Day-less board on its own ports); pp `scripts/kanban.sh` sets `KANBAN_DAY_DIR`, cp's launcher does not.
+- [x] Tabs Daily report · Stats · Monitoring · Reflection share one header with the day switcher
       directly below; no tab repeats its own name as a heading.
-- [ ] Status lists **every** check of the run with the run's own status word; a fixture check with
+      Evidence: e2e `four tabs, one switcher below, no tab repeats its own name`; visual QA rounds 1–3.
+- [x] Status lists **every** check of the run with the run's own status word; a fixture check with
       an unknown status renders "Not proven". Connections show one Fix button each; when all are
       fixed the panel collapses to one line and reopens on click.
-- [ ] Known-bad control: a check with status problem / not-run / unproven and **no finding**
+      Evidence: unit `reads an unknown check status as Not proven`; e2e `lists every check with its status word…`, `Fix records the decision, never shows ✓, and the panel collapses to a line that reopens`.
+- [x] Known-bad control: a check with status problem / not-run / unproven and **no finding**
       appears as an issue and is never counted as worked. Breaking the rule turns the test red.
-- [ ] Issues show one at a time in the order urgent+important, urgent, important, rest; each card
+      Evidence: unit `every problem / not-run / unproven check with no issue becomes an issue`, `a not-run check … never counted as worked`; `scripts/day-mutation-controls.sh` Invariant 1 control RED with synthesis disabled.
+- [x] Issues show one at a time in the order urgent+important, urgent, important, rest; each card
       shows Point A / Obstacle / Point B, the recommended option preselected with its confidence,
       and "Ask a question…" / "Other…" open a text box.
-- [ ] Previous / Next (and ← →) move between cards; their position does not change when a card
+      Evidence: unit rule-7 tests (comparator + view order), mutation controls `urgent before important`, `urgent within 72h`; e2e `cards follow the view order; the card shows A / Obstacle / B, the preselected recommendation…`.
+- [x] Previous / Next (and ← →) move between cards; their position does not change when a card
       expands (measured); the page has no inner scroll areas.
-- [ ] Choosing an option, a reflection position, a story, a budget change or a connection fix
+      Evidence: e2e `Previous / Next and ← → move between cards and write nothing`, `the bottom bar does not move when More info or Other expands` (boundingBox, < 1px), `no inner scroll areas`.
+- [x] Choosing an option, a reflection position, a story, a budget change or a connection fix
       appends one line to the decisions file; reloading keeps it. Earlier runs are read-only.
-- [ ] Start fixing (Phase A: copy) assembles one prompt that opens with the verify-first
+      Evidence: e2e `picking an option appends exactly one line, and a reload keeps it`, budget/reflection/connection-fix tests each read `decisions.jsonl`, `an earlier run is read-only…`.
+- [x] Start fixing (Phase A: copy) assembles one prompt that opens with the verify-first
       instruction, puts the founder's questions first, and contains every collected decision.
-- [ ] Monitoring: Claude and Codex show remaining quota, projection and reset date; Google Cloud
+      Evidence: unit `opens with verify-first, puts the founder’s questions first, and contains every collected decision` (+ mutation controls verify-first and questions-first RED); e2e `Start fixing writes the preselected batch and copies a verify-first prompt…`.
+- [x] Monitoring: Claude and Codex show remaining quota, projection and reset date; Google Cloud
       shows budget, credits with their caveat, and one bar per key; Systems lists every non-money
       check. "Raise monthly budget" joins Start fixing.
-- [ ] Stats: funnel and weekly lines; metrics not collected say "not collected yet", never 0.
-- [ ] Reflection uses the product's point card and position control; a story box opens after a
+      Evidence: e2e `Monitoring: Systems lists every non-money check; a budget raise joins Start fixing…`; Codex shows "not collected yet"; shots a3b/a5 monitoring-claude, monitoring-gcloud.
+- [x] Stats: funnel and weekly lines; metrics not collected say "not collected yet", never 0.
+      Evidence: e2e `Stats: readings show; what is not collected says so, never 0`; unit fixture `collected:false` funnel/series.
+- [x] Reflection uses the product's point card and position control; a story box opens after a
       position is chosen.
-- [ ] A run with a weekly or monthly review shows its badge and its items inside Issues/Reflection.
-- [ ] A newest run older than 24h, or an incomplete run, shows the warning line.
-- [ ] Missing day-data directory → the page says so; empty reports directory → "no runs recorded
+      Evidence: e2e `Reflection: a position opens the story box; keys 1 2 3 rate and cycle; Remove position…`; 7-level product scale −3…+3 (see Phase A build notes).
+- [x] A run with a weekly or monthly review shows its badge and its items inside Issues/Reflection.
+      Evidence: e2e `a weekly-review run shows its badge…` and `a monthly-review run shows its badge…`.
+- [x] A newest run older than 24h, or an incomplete run, shows the warning line.
+      Evidence: unit `warns when the newest run is older than 24h, or did not finish`; e2e `stale run warning`, `running and incomplete runs say they are partial`.
+- [x] Missing day-data directory → the page says so; empty reports directory → "no runs recorded
       yet"; a report with an unknown schema falls back to plain text.
-- [ ] Privacy: API on loopback only (`lsof`); a secret marker in fixtures never reaches logs; no
+      Evidence: unit API `missing day dir → absent; empty reports → no runs`, `RULE 3 — a newer schema is served as plain text`; e2e `missing folder and empty folder say so`, `a newer report format shows as plain text`.
+- [x] Privacy: API on loopback only (`lsof`); a secret marker in fixtures never reaches logs; no
       report content in browser storage; screenshots use a synthetic run.
-- [ ] A fault marked fixed comes back as an issue ("came back") when a later run reports it again
+      Evidence: `lsof` on the QA board: `node 127.0.0.1:9071` only; unit `privacy: report and decision content never reaches the logs` (+ mutation control RED when a log line carries the file text); `grep localStorage|sessionStorage|indexedDB src/components/day src/lib/day.ts` = comments only; QA board logs grep for the fixture secret = 0; every screenshot uses `day-fixture.ts`.
+- [x] A fault marked fixed comes back as an issue ("came back") when a later run reports it again
       (known-bad control: the current behaviour fails this test).
-- [ ] The newest run in state running/incomplete is shown as latest with the warning; an
+      Evidence: unit `RULE 1 — "fixed" lasts until the fault recurs…` and `RULE 1 — "came back" only when a run in between did not report the fault`; mutation control `v1 behaviour` RED. Sharpened by review: "Came back" only after a gap, else "You answered on <date>… Still reported.".
+- [x] The newest run in state running/incomplete is shown as latest with the warning; an
       unreadable newest file says so instead of showing yesterday's.
-- [ ] A report with an unknown status, an unknown field, a malformed row and a newer schema each
+      Evidence: unit API `RULE 2 — the newest run in state running is the latest…`, `RULE 2 — an unreadable newest file says so…`, `RULE 2 — a newest file that exists but cannot be read (permissions) still sorts first`; e2e `an unreadable newest file says so instead of showing yesterday`.
+- [x] A report with an unknown status, an unknown field, a malformed row and a newer schema each
       render (Not proven / ignored / "N rows unreadable" / plain text) without crashing.
-- [ ] A decision for a run that is not the latest, or a target not in that run, is refused (409).
-- [ ] Paging with Previous/Next writes nothing to the decisions file (file unchanged).
-- [ ] The board bundle imports no Supabase or product auth module.
-- [ ] Screenshots at 1440, 375 and 320 pass the visual QA checklist, reviewed by a separate
+      Evidence: unit rule-3 tests (unknown status, unknown fields, malformed rows counted, other schema); e2e `a malformed row is dropped with a visible note`, `a newer report format shows as plain text`.
+- [x] A decision for a run that is not the latest, or a target not in that run, is refused (409).
+      Evidence: unit API `RULE 4 — … refused (409)`, `a batch is all-or-nothing`; mutation controls rule 4 ×2 RED.
+- [x] Paging with Previous/Next writes nothing to the decisions file (file unchanged).
+      Evidence: unit API `RULE 5 — reading runs, paging … writes nothing` (day dir listing unchanged); e2e Previous/Next test compares decisions.jsonl byte-for-byte.
+- [x] The board bundle imports no Supabase or product auth module.
+      Evidence: unit `rule 10 — no file under tools/kanban/src imports Supabase or anything outside tools/kanban`; mutation control plants a Supabase import → RED.
+- [x] Screenshots at 1440, 375 and 320 pass the visual QA checklist, reviewed by a separate
       subagent given only screenshots and the checklist.
+      Evidence: separate visual-QA agents (screenshots + checklist only), 3 full rounds + 1 focused re-check: final BLOCKs 0 (phones with the board sidebar collapsed, per the risk row). Remaining WARNs are listed in the Phase A build notes.
 
 **Phase B: `/day` writes it**
 - [ ] The cp monthly review run inside `/day` asks nothing mid-run; its proposals appear as issues
@@ -532,6 +554,58 @@ to fail when the rule was broken. W5, W7, W8, W11 and N12 adopted above. W10: th
 fixed-vocabulary reasons (asserted by test with a secret marker); QA screenshots use a synthetic
 copy. Not verified by anyone: Vite dev-server DNS-rebinding behaviour (the API itself refuses
 non-loopback Host headers, tested).
+
+## Phase A build (2026-10-04)
+
+**Founder additions during the build (binding):**
+- **New people in Status.** "When new people register we want to know who they are and what they
+  did." The report carries `people` (name, how they arrived, joined, confirmed or not, what they did,
+  where they stopped, returning, LinkedIn, one line of background). The Status panel shows them as a
+  fold under Connections ("New people (3) · Person A, … · 1 not confirmed"); `people` absent reads
+  "not collected yet", `[]` reads "No new people". Read-only: never in the prompt or the count.
+  A history sweep (≈13 sessions, Feb–Sep 2026) found what /day does not collect yet: confirmation
+  status, LinkedIn, source (event/letter/invite), and filtering out agent accounts. Phase B owns it.
+- **Keyboard on Daily report and Reflection.** The position buttons were far from Next. Keys 1–9
+  pick the Nth option; on Reflection 1/2/3 = Disagree/Unsure/Agree, pressing the chosen side again
+  cycles its strength. Per-option key chips on desktop; the pager stays in the bottom bar.
+
+**Reconciled where the mockup, the controls list and §7 disagreed (§7 wins):**
+- Reflection uses the product's 7-level scale, −3…+3 (strongly disagree … strongly agree), not
+  rule 4's ±1/±2/0: the AC requires the product's position control, which has seven levels.
+- Rule 1, sharpened by review: an earlier non-park answer never resolves a fault that is reported
+  again. "Came back" is shown only when a run in between did not report it; a fault that never left
+  says "You answered on <date>: <answer>. Still reported." (Labelling a standing fault "came back"
+  every day would put a false claim into a verify-first prompt.)
+- A connection Fix never shows ✓ (rule 6): the row reads "Fix in Start fixing" with Undo and
+  "Open sign-in again". Start fixing is copy-only in Phase A (its label stays; Phase C launches).
+- An empty "Ask a question…"/"Other…" is not an answer: it does not count as resolved, and Start
+  fixing refuses until text is written (else the prompt silently carried the recommended option).
+- A run with an empty checks list is incomplete and yields an urgent issue; a budget "raise" must
+  exceed the current budget; a missing number shows "—", never 0.
+
+**Evidence kept in the repo:** `server/__tests__/day.test.ts` (rules, synthetic fixture),
+`scripts/day-mutation-controls.sh` (each rule broken in a throwaway copy must turn its test red),
+`e2e-day/day-page.spec.ts` (the page, on a seeded synthetic day dir; `DAY_E2E_PORT_BASE` moves its
+ports). Board regression: the P147 board suite, run against this branch and against main's live
+board, gives the same result on both (4 pass; the same 2 fail on main too — pre-existing).
+
+**Reviews (2026-10-04):** visual QA ×2 (separate agent, screenshots + checklist only) and one
+hostile round by Opus, Gemini 3.8 Flash (screenshots attached, served model verified) and Codex
+gpt-6-sol: 4 of 4 reported. Adopted after verification: unreadable newest file sorted by an empty
+key on a read error (now stat mtime first); an empty Ask/Other sent the recommended action;
+fast run switching could show the wrong run; the page went read-only without explanation when a
+newer run landed; story box remounted mid-typing; collapsed Status locked open on phones;
+see-through sticky bars; counts and status words differed across tabs; colour used for non-actions;
+€0 for unknown spend; "First seen: Today" for unknown ages. Not adopted: auto-collapsing the board
+sidebar on phones (a board change, Non-Goal; the spec's risk row accepts phones with the sidebar
+collapsed) and renaming Start fixing to "Copy prompt" (Phase C makes it launch).
+
+**Visual QA warnings left open after Phase A (none blocking):** "Start fixing (N)" also counts
+reflection ratings and budget changes, so it can read 14 next to "0 of 13 resolved" (by design: the
+control list says N is everything collected); the Reflection column is narrower than the other tabs
+(the approved mockup's centred point card); position labels are the product's title case
+("Somewhat Agree"); at 320px the Google Cloud tile breaks "€70 / €400" across two lines; read-only
+options keep their bordered rows (radios hidden, "Not answered on this run" shown).
 
 ## Open Questions
 
