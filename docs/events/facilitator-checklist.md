@@ -98,9 +98,13 @@ apart on. The format tolerates tables of 2, 3 or 4, so the rotation does not hav
 - [ ] Collect the lavaliers — count them against what you handed out
 - [ ] Collect leftover badges and lanyards
 - [ ] Check with each recorder that their transcript actually has words in it, before they leave
+- [ ] **Ask 5 attendees, one by one:** "Would you host a 5-minute exercise at an event you already
+      go to this week? Just say: talk to me after about clarity." Only events whose organizer you or
+      they can ask first. Nothing gets listed on the site (hand test, 14 days — 2026-10-04).
 
 ## After, same evening or next morning
 
+- [ ] Hand test log, for each of the 5: said yes? · which event · did the exercise happen · did anyone ask for more
 - [ ] Confirm the recordings uploaded
 - [ ] Note anything that went wrong while it is still fresh — the next event is in a week
 
