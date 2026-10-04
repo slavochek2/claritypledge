@@ -1,39 +1,33 @@
 # Volunteer Runbook — Clarity Night
 
-The host runs the evening. You run the door and the room.
+Your main job: **get every guest through onboarding** before the first round. The host runs the evening.
 
-**The evening:** people sit in threes at numbered tables. Three rounds of about 15 minutes: two talk, one observes, then everyone moves. A bell ends each round. At the end, a few questions on their phone.
+## Onboarding — each guest, at the door
 
-## Before doors
+1. Open **/prepare** on their phone.
+2. **Headphones in**, watch the video. Can't listen? Tap **Read summary** and read instead.
+3. **Set a position on every statement** (0–7).
+4. **Recorder?** Give them the USB mic.
+5. **Badge on.**
 
-- Chairs in threes, table numbers out, badges at the entrance
+Late? *"You'll join at the next round."*
 
-## At the door
+## During the rounds
 
-- **Badge for everyone.** Orange S = speaker, blue L = listener; they flip it each round.
-- **New?** Event page on their phone, onboarding standing up. Don't hold the room.
-- **Late?** *"You'll join at the next round."* Nothing to catch up on.
-
-## During
-
-- Nobody stands alone: walk them to a table with space. A table of two is fine.
-- Lost? *"Check your phone: it shows your table and role."*
-- Don't join or fix conversations. Drift and silence are fine.
-- The 0–10 numbers: how well people think they were understood. A self-estimate, not a score of anyone.
+- Help people **find their table**.
+- Help them **take their role**: speaker, listener, observer; **switch** speaker and listener when the round says so.
+- Encourage the **observer** to step in, and people to **ring the bell**.
+- Keep them **on the point**: talk about the statement, not around it.
+- Nobody stands alone: walk them to a table with space.
 
 ## Recording
 
-- Someone at a table may wear a mic. Anyone can ask them to pause, no reason needed.
-- Never ask the room who objects, and never point anyone out.
-
-## If tech fails
-
-The evening doesn't depend on it. Tell people their table and role out loud; the host talks instead of slides.
+Anyone can ask a recorder to pause, no reason needed. Never ask the room who objects, never point anyone out.
 
 ## End
 
-- Get everyone to answer the closing questions **before they stand up**.
-- Remind the host about the group photo (ask first).
+- Closing questions on phones **before anyone stands up**.
+- Remind the host: group photo (ask first).
 - Collect badges, count the mics back.
 
-**Don't:** explain the method, set topics, photograph people without asking, or repeat what you overheard.
+**Don't:** photograph people without asking, or repeat what you overheard.
