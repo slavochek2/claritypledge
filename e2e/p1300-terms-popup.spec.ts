@@ -39,6 +39,10 @@ test.afterAll(async () => {
   if (staleUser) await deleteTestUser(staleUser.user.id);
 });
 
+
+// The terms notice: blocking dialog or banner, whichever the current version uses.
+const NOTICE = '[role="dialog"], section[aria-label="Terms update"]';
+
 test('smoke: popup on a non-session page describes the documents only, with no console errors', async ({
   page,
 }, testInfo) => {
@@ -50,15 +54,17 @@ test('smoke: popup on a non-session page describes the documents only, with no c
 
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  // The current terms version is notice-only (terms-changes.ts requiresConsent: false), so the
-  // gate shows a dismissible banner over the loaded page, not a blocking popup.
-  await expect(page.getByRole('heading', { name: 'Clarity Groups' })).toBeVisible();
+  // The notice is the blocking dialog or the banner, depending on the current version's
+  // requiresConsent (terms-changes.ts). Both sit over the loaded groups page; the dialog
+  // marks it aria-hidden, so the heading query includes hidden nodes.
+  await expect(
+    page.getByRole('heading', { name: 'Clarity Groups', includeHidden: true })
+  ).toBeAttached();
 
-  const dialog = page.getByRole('region', { name: 'Terms update' });
+  const dialog = page.locator(NOTICE);
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Show more");
   await expect(dialog).toContainText('you agree to the updated terms.');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);
 
@@ -80,7 +86,7 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
 }, testInfo) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  const dialog = page.getByRole('region', { name: 'Terms update' });
+  const dialog = page.locator(NOTICE);
   await expect(dialog).toBeVisible();
 
   const termsHref = await dialog.getByRole('link', { name: 'Terms', exact: true }).getAttribute('href');
@@ -101,19 +107,19 @@ test('"View Terms" and "View Privacy Policy" open readable documents, not the po
     await expect(docs.getByRole('heading', { level: 1, name: heading })).toBeVisible();
     // Let the gate's async acceptance check finish before asserting it did not fire.
     await docs.waitForLoadState('networkidle');
-    await expect(docs.getByRole('region', { name: 'Terms update' })).toHaveCount(0);
+    await expect(docs.locator(NOTICE)).toHaveCount(0);
     await docs.screenshot({ path: testInfo.outputPath(`p1300-doc-${heading.replace(/ /g, '-')}.png`) });
   }
   await docs.close();
 });
 
-test('"Accept" records acceptance and closes the banner', async ({ page }) => {
+test('accepting records acceptance and closes the notice', async ({ page }) => {
   await setTestSession(page, staleUser.email);
   await page.goto('/groups');
-  const dialog = page.getByRole('region', { name: 'Terms update' });
+  const dialog = page.locator(NOTICE);
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole('button', { name: /^accept$/i }).click();
+  await dialog.getByRole('button', { name: /^(accept|agree and continue)$/i }).click();
   await expect(dialog).toBeHidden();
 
   await expect

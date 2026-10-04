@@ -38,8 +38,13 @@ async function renderGateOn(path: string) {
       </TermsAcceptanceGate>
     </MemoryRouter>
   );
-  // The current terms version is notice-only, so the gate renders the banner, not the dialog.
-  return screen.findByRole('region', { name: 'Terms update' });
+  // Whichever surface the current terms version uses: the blocking dialog
+  // (requiresConsent) or the banner. Both must satisfy the same P1300 contract.
+  return waitFor(() => {
+    const el = document.querySelector<HTMLElement>('[role="dialog"], section[aria-label="Terms update"]');
+    if (!el) throw new Error('no terms notice rendered');
+    return el;
+  });
 }
 
 describe('P1300 — terms re-acceptance popup on a non-session page', () => {

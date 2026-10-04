@@ -20,9 +20,10 @@ export interface TermsChangeSummary {
 
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
   'v1.4': {
-    // Notice only: the consents this version describes (transcription, recording)
-    // are asked at the moment they apply, not through this update.
-    requiresConsent: false,
+    // Blocking (founder): this version newly describes voice profiles, biometric data on
+    // a consent basis with no separate prompt of their own (privacy.md), so it asks for
+    // explicit acceptance. Later versions default to the banner unless they need consent.
+    requiresConsent: true,
     headline: 'We now say clearly who handles your data, including voice and analytics.',
     highlights: [
       'Our analytics can replay how you move around the site.',
