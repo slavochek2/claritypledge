@@ -69,7 +69,7 @@
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
@@ -238,7 +238,7 @@ export function RosterGroup({
 export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
@@ -457,7 +457,19 @@ export function EventRoomMeet() {
             label="Back"
             aria-label="Back to readiness"
           />
-          <PrepRoomBanner event={event} />
+          <div className="flex items-center gap-3">
+            {/* P1337: the host spends the evening in the room too — the rounds are one tap away. */}
+            {event && (session?.user?.id ?? user?.id) === event.hostId && (
+              <Link
+                to={`/events/${slug ?? event.slug}/host`}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600"
+                data-testid="room-run-event"
+              >
+                Run this event
+              </Link>
+            )}
+            <PrepRoomBanner event={event} />
+          </div>
         </div>
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no

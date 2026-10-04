@@ -17,8 +17,12 @@ import { supabase } from '@/lib/supabase';
 import type { Seat, SeatRole } from '@/lib/round-grouping';
 
 export const ROUNDS_POLL_MS = 4000;
-/** The trio format: three rounds an evening (decisions.md 2026-09-28). */
+/** The trio format plans three rounds (decisions.md 2026-09-28) — the grouping looks this far
+ * ahead so nobody repeats a partner. It is NOT a cap: the host runs as many rounds as the room
+ * wants (founder, 2026-10-04), up to the table's limit. */
 export const ROUNDS_PER_EVENING = 3;
+/** event_rounds.round_no CHECK (1..9). */
+export const MAX_ROUNDS = 9;
 
 export interface EventRound {
   id: string;

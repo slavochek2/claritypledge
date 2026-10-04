@@ -108,7 +108,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
   test('Start round 1 seats everyone at tables of three: first, second, observer', async ({ page }) => {
     await asHost(page);
     await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-round-title')).toHaveText('Round 1 of 3');
+    await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
     await expect(page.getByTestId('round-grid-name')).toHaveCount(6);
     const rows = await seats(event.id);
     expect(rows).toHaveLength(6);
@@ -148,6 +148,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     const mine = (await seats(event.id)).find(s => s.room_member_id === anaMember)!;
     await expect(page.getByTestId('round-card-table')).toHaveText(`Table ${mine.table_no}`);
     await expect(card).toHaveAttribute('data-role', mine.role);
+    await expect(page.getByTestId('room-run-event')).toHaveCount(0); // host-only link
     // The rest of the room page is still there and usable — the card is not a gate.
     await expect(page.getByTestId('room-roster')).toBeVisible();
 
@@ -212,7 +213,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await page.getByTestId('host-mark-left').click();
     await expect(leaver).toHaveAttribute('data-out', 'true');
     await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-round-title')).toHaveText('Round 2 of 3');
+    await expect(page.getByTestId('host-round-title')).toHaveText('Round 2');
     const rows = await seats(event.id);
     expect(rows.some(r => r.room_member_id === fillers[4])).toBe(false);
     expect(rows).toHaveLength(6); // 6 seated: five of the first six, plus the late arrival
@@ -224,9 +225,10 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await page.getByTestId('host-settings').locator('summary').click();
     await page.getByRole('button', { name: '2', exact: true }).click();
     await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-round-title')).toHaveText('Round 3 of 3');
+    await expect(page.getByTestId('host-round-title')).toHaveText('Round 3');
     const rows = await seats(event.id);
     expect(rows.some(r => r.role === 'observer')).toBe(false);
-    await expect(page.getByTestId('host-primary')).toHaveText('End evening', { timeout: 20_000 });
+    // No fixed count of rounds (founder, 2026-10-04): after the third, the button still says Next round.
+    await expect(page.getByTestId('host-primary')).toHaveText('Next round', { timeout: 20_000 });
   });
 });

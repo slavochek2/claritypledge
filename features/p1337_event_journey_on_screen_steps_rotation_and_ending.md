@@ -197,6 +197,15 @@ download; the browser's share sheet covers it).
 | Under the button | **Round N settings** — group size and the three grouping toggles. |
 | Past rounds | The same grid, fixed; summary "Round 1 · 5 of 6 tapped in". |
 
+**No fixed number of rounds, and no "End evening"** (founder, 2026-10-04: "I can decide myself how
+many rounds I run"). The button is always *Next round*; the grouping still plans three rounds ahead
+so nobody repeats a partner, and past the third it plans one at a time (DB limit: 9). The last round
+simply reads "Time's up"; the room page stops showing rounds once the event ends.
+
+**The way in:** *Run this event* on the event page, and — because the host spends the evening in the
+room — the same link at the top of the room page, host-only. On a desktop the panel splits: clock and
+button on the left, the room on the right.
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.
@@ -270,7 +279,7 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 - [x] The profile points tab caps at 50 with "show more"
 - [x] The projector alone shows the current round's tables, roles and countdown
 
-**Evidence (dev, 2026-10-02, test DB):** `e2e/p1337-rounds.spec.ts` 11/11 (host gate + Run this event, Start round → trios, swap + Undo, attendee card + "I'm at table N" with the rest of the page usable, late arrival "You join at the next round", dark phone + observer clock, "Did your position move?", projector tables/roles/clock, Left → excluded next round with an untapped person not blocking anything, group size 2 no observer, End evening after round 3 using only the one button); `e2e/integration/p1337-event-rounds-db.spec.ts` 11/11 (host-only writes, sequential rounds, room-only seats, own-seat confirm, swap keeps/clears the tap, topic last-tap-wins and cleared when a table's people change, presence host-only, no direct writes); `src/lib/round-grouping.test.ts` 19/19 (observe once + no repeat partner for 15 people over 4 seeds, 16/14 layouts, max gap, recorders together, determinism); `src/tests/p1337-compare-page.test.tsx` + `compare-positions.test.ts` (gap sort, tag chip re-sorts, rows open in a new tab); `p1337-profile-points-cap.test.tsx` 3/3 with a raised-cap control failing 2/3. Screenshots at 375/320/1280 reviewed by an independent visual QA pass. The first AC is evidenced by the flow tests and screenshots; the real test is the next event.
+**Evidence (dev, 2026-10-02, test DB):** `e2e/p1337-rounds.spec.ts` 11/11 (host gate + Run this event, Start round → trios, swap + Undo, attendee card + "I'm at table N" with the rest of the page usable, late arrival "You join at the next round", dark phone + observer clock, "Did your position move?", projector tables/roles/clock, Left → excluded next round with an untapped person not blocking anything, group size 2 no observer, End evening after round 3 using only the one button — superseded 2026-10-04: no End evening, the button stays Next round); `e2e/integration/p1337-event-rounds-db.spec.ts` 11/11 (host-only writes, sequential rounds, room-only seats, own-seat confirm, swap keeps/clears the tap, topic last-tap-wins and cleared when a table's people change, presence host-only, no direct writes); `src/lib/round-grouping.test.ts` 19/19 (observe once + no repeat partner for 15 people over 4 seeds, 16/14 layouts, max gap, recorders together, determinism); `src/tests/p1337-compare-page.test.tsx` + `compare-positions.test.ts` (gap sort, tag chip re-sorts, rows open in a new tab); `p1337-profile-points-cap.test.tsx` 3/3 with a raised-cap control failing 2/3. Screenshots at 375/320/1280 reviewed by an independent visual QA pass. The first AC is evidenced by the flow tests and screenshots; the real test is the next event.
 
 ## Open Questions
 

@@ -34,11 +34,11 @@ import { useEventRoomAccess } from '../components/EventRoomAccess';
 import { subscribeToRoomRoster } from '@/app/data/event-room-service';
 import { getPrepHostView } from '@/app/data/event-prep-service';
 import {
+  MAX_ROUNDS,
   ROUNDS_PER_EVENING,
   ROUNDS_POLL_MS,
   currentRound,
   getRoundPresence,
-  hostEndRounds,
   hostSetRoundPresence,
   hostSetRoundSeats,
   hostStartRound,
@@ -306,7 +306,7 @@ function PersonTile({
   const body = (
     <>
       <span className="relative">
-        <Avatar member={member} className="!h-8 !w-8 !text-xs" />
+        <Avatar member={member} className="!h-8 !w-8 !text-xs lg:!h-12 lg:!w-12 lg:!text-sm" />
         {tappedIn && (
           <Check
             className="absolute -bottom-1 -right-1.5 h-4 w-4 rounded-full bg-green-600 p-0.5 text-white"
@@ -314,8 +314,8 @@ function PersonTile({
           />
         )}
       </span>
-      <span className="mt-1 block w-full truncate text-xs min-[375px]:text-[13px] font-medium">{firstName(member?.displayName ?? '—')}</span>
-      <span className={cn('block w-full truncate text-[11px]', lifted ? 'text-white/80' : 'text-muted-foreground')}>{sub}</span>
+      <span className="mt-1 block w-full truncate text-xs min-[375px]:text-[13px] lg:text-sm font-medium">{firstName(member?.displayName ?? '—')}</span>
+      <span className={cn('block w-full truncate text-[11px] lg:text-xs', lifted ? 'text-white/80' : 'text-muted-foreground')}>{sub}</span>
     </>
   );
   const cls = cn(
@@ -337,7 +337,7 @@ function PersonTile({
       data-testid={testId}
       data-out={out ? 'true' : undefined}
       aria-pressed={lifted}
-      className={cn(cls, 'min-h-[76px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500')}
+      className={cn(cls, 'min-h-[76px] lg:min-h-[104px] lg:py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500')}
     >
       {body}
     </button>
@@ -363,8 +363,8 @@ function TablesGrid({
   return (
     <div className="space-y-1.5" data-testid="round-grid">
       {groupByTable(seats).map(table => (
-        <div key={table.no} className="flex items-stretch gap-1 min-[375px]:gap-1.5">
-          <div className="w-6 min-[375px]:w-7 shrink-0 grid place-items-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground" aria-label={`Table ${table.no}`}>
+        <div key={table.no} className="flex items-stretch gap-1 min-[375px]:gap-1.5 lg:gap-2">
+          <div className="w-6 min-[375px]:w-7 lg:w-10 shrink-0 grid place-items-center rounded-lg bg-muted text-sm lg:text-base font-semibold text-muted-foreground" aria-label={`Table ${table.no}`}>
             {table.no}
           </div>
           {table.seats.map(s => {
@@ -409,12 +409,12 @@ function PeopleGroup({
       <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {title} {!hideCount && <span className="tabular-nums">{people.length}</span>}
       </p>
-      <div className="grid grid-cols-3 gap-1 min-[375px]:grid-cols-4 min-[375px]:gap-1.5">
+      <div className="grid grid-cols-3 gap-1 min-[375px]:grid-cols-4 min-[375px]:gap-1.5 lg:grid-cols-6 lg:gap-2">
         {people.map(m => (
           <PersonTile
             key={m.id}
             member={m}
-            sub={shortName(m.displayName).split(' ')[1] ?? ' '}
+            sub={initial(m.displayName) || '\u00a0'}
             lifted={lifted === m.id}
             onTap={() => onTap(m.id)}
             testId="host-member"
@@ -538,7 +538,8 @@ export function EventHostPage() {
         people: poolFor(roundNo),
         history: historyBefore(roundNo),
         gap,
-        totalRounds: ROUNDS_PER_EVENING,
+        // Plan three rounds ahead, or just this one past the third — there is no fixed count.
+        totalRounds: Math.max(ROUNDS_PER_EVENING, roundNo),
         groupSize: settings.groupSize,
         toggles: settings.toggles,
         seed: eventId ?? '',
@@ -639,17 +640,15 @@ export function EventHostPage() {
     })();
 
   const clock = round ? roundClock(round.startedAt, now, seats.some(s => s.role === 'observer')) : null;
-  const hasNext = !ended && nextNo <= ROUNDS_PER_EVENING;
-  const primary = ended
-    ? null
-    : hasNext
-      ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext }
-      : { label: 'End evening', action: () => void run(() => hostEndRounds(event.id)) };
+  // No "End evening": the host decides how many rounds to run (founder, 2026-10-04). The last
+  // round simply reads "Time's up", and the room page stops showing rounds once the event ends.
+  const hasNext = !ended && nextNo <= MAX_ROUNDS;
+  const primary = hasNext ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext } : null;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
   const liftedName = lifted ? shortName(names.get(lifted) ?? '') : '';
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pt-4 pb-16" data-testid="host-panel">
+    <div className="mx-auto w-full max-w-lg lg:max-w-6xl px-4 pt-4 pb-16" data-testid="host-panel">
       <div className="flex items-start justify-between gap-3">
         <FocusHeader onBack={() => navigate(`/events/${slug}`)} label="Back" aria-label="Back to the event" />
         <a
@@ -663,162 +662,167 @@ export function EventHostPage() {
         </a>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <p className="text-sm font-medium text-muted-foreground" data-testid="host-round-title">
-          {ended ? 'Evening ended' : round ? `Round ${round.roundNo} of ${ROUNDS_PER_EVENING}` : `${members.length} in the room`}
-        </p>
-        {clock && (
-          <div className="mt-1 space-y-3">
-            <ClockNumber clock={clock} />
-            <PhaseStrip clock={clock} hasObserver={seats.some(s => s.role === 'observer')} />
-          </div>
-        )}
-        {primary && justStarted && !busy && (
-          // The start lock: nothing to press for a few seconds rather than a greyed-out button.
-          <div className="mt-4 min-h-12" aria-hidden="true" />
-        )}
-        {primary && (!justStarted || busy) && (
-          <Button
-            type="button"
-            className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
-            onClick={primary.action}
-            disabled={busy || !loaded}
-            data-testid="host-primary"
-          >
-            {busy ? 'Grouping…' : primary.label}
-          </Button>
-        )}
-        {error && (
-          <p role="alert" className="mt-2 text-sm text-red-600">
-            {error}
+      {/* Desktop: the clock and the one button stay put on the left; the room fills the right. */}
+      <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-4">
+          <p className="text-sm font-medium text-muted-foreground" data-testid="host-round-title">
+            {ended ? 'Evening ended' : round ? `Round ${round.roundNo}` : `${members.length} in the room`}
           </p>
-        )}
-        {hasNext && (
-          <details className="group mt-3" data-testid="host-settings">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
-              Next round settings
-              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="mt-2 space-y-3 border-t border-border pt-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm">Group size</span>
-                <div className="inline-flex rounded-lg bg-muted p-1">
-                  {([2, 3, 4] as const).map(size => (
-                    <button
-                      key={size}
-                      type="button"
-                      aria-pressed={settings.groupSize === size}
-                      onClick={() => setSettings({ ...settings, groupSize: size })}
-                      className={cn(
-                        'min-h-10 min-w-10 rounded-md text-sm',
-                        settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
-                      )}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {(
-                [
-                  ['recorders', 'Recorders together'],
-                  ['gap', 'Disagreement gap'],
-                  ['unmet', 'Haven’t met yet'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-3 text-sm min-h-10">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-blue-500"
-                    checked={settings.toggles[key]}
-                    onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
-                  />
-                  {label}
-                </label>
-              ))}
+          {clock && (
+            <div className="mt-1 space-y-3">
+              <ClockNumber clock={clock} />
+              <PhaseStrip clock={clock} hasObserver={seats.some(s => s.role === 'observer')} />
             </div>
-          </details>
-        )}
-      </section>
-
-      {!ended && (seats.length > 0 || waiting.length > 0 || outside.length > 0) && (
-        <section className="mt-5 space-y-4" data-testid="host-people">
-          <p className="text-[13px] text-muted-foreground">{round ? 'Tap a name to swap or mark out' : 'Tap a name to mark out'}</p>
-          {round && clock && seats.length > 0 && (
-            <TablesGrid seats={seats} byId={byId} phase={clock.phase} lifted={lifted} isOut={isOut} onTap={onTap} />
           )}
-          <PeopleGroup title={round ? 'Next round' : 'Here'} people={waiting} lifted={lifted} hideCount={!round} onTap={onTap} />
-          <PeopleGroup title="Out" people={outside} lifted={lifted} out onTap={onTap} />
-
-          {lifted ? (
-            <div className="sticky bottom-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2 pl-3 shadow-sm" aria-live="polite">
-              <span className="flex-1 min-w-0 text-sm">
-                {seatOf.has(lifted) && !isOut(lifted) ? `Swap ${firstName(liftedName)} with…` : liftedName}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-10 bg-white"
-                onClick={() => {
-                  setOut(lifted, !isOut(lifted));
-                  setLifted(null);
-                }}
-                data-testid="host-mark-left"
-              >
-                {isOut(lifted) ? 'Back in' : 'Out'}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0" onClick={() => setLifted(null)} aria-label="Cancel">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            round && (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {undoStack.length > 0 && (
-                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
-                    <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-10"
-                  disabled={busy}
-                  onClick={() => commitSeats(() => compute(round.roundNo), 'regroup')}
-                  data-testid="host-regroup"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" /> Regroup
-                </Button>
+          {primary && justStarted && !busy && (
+            // The start lock: nothing to press for a few seconds rather than a greyed-out button.
+            <div className="mt-4 min-h-12" aria-hidden="true" />
+          )}
+          {primary && (!justStarted || busy) && (
+            <Button
+              type="button"
+              className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
+              onClick={primary.action}
+              disabled={busy || !loaded}
+              data-testid="host-primary"
+            >
+              {busy ? 'Grouping…' : primary.label}
+            </Button>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          {hasNext && (
+            <details className="group mt-3" data-testid="host-settings">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
+                Next round settings
+                <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 space-y-3 border-t border-border pt-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm">Group size</span>
+                  <div className="inline-flex rounded-lg bg-muted p-1">
+                    {([2, 3, 4] as const).map(size => (
+                      <button
+                        key={size}
+                        type="button"
+                        aria-pressed={settings.groupSize === size}
+                        onClick={() => setSettings({ ...settings, groupSize: size })}
+                        className={cn(
+                          'min-h-10 min-w-10 rounded-md text-sm',
+                          settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
+                        )}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(
+                  [
+                    ['recorders', 'Recorders together'],
+                    ['gap', 'Disagreement gap'],
+                    ['unmet', 'Haven’t met yet'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-3 text-sm min-h-10">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-blue-500"
+                      checked={settings.toggles[key]}
+                      onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
+                    />
+                    {label}
+                  </label>
+                ))}
               </div>
-            )
+            </details>
           )}
         </section>
-      )}
 
-      {pastRounds.length > 0 && (
-        <section className="mt-6 space-y-2" data-testid="host-past-rounds">
-          {[...pastRounds].reverse().map(r => {
-            const past = state.seatsByRound.get(r.id) ?? [];
-            const tapped = past.filter(s => s.confirmedAt).length;
-            return (
-              <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
-                <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
-                  <span className="font-medium">Round {r.roundNo}</span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {tapped} of {past.length} tapped in
+        <div className="min-w-0">
+          {!ended && (seats.length > 0 || waiting.length > 0 || outside.length > 0) && (
+            <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
+              <p className="text-[13px] text-muted-foreground">{round ? 'Tap a name to swap or mark out' : 'Tap a name to mark out'}</p>
+              {round && clock && seats.length > 0 && (
+                <TablesGrid seats={seats} byId={byId} phase={clock.phase} lifted={lifted} isOut={isOut} onTap={onTap} />
+              )}
+              <PeopleGroup title={round ? 'Next round' : 'Here'} people={waiting} lifted={lifted} hideCount={!round} onTap={onTap} />
+              <PeopleGroup title="Out" people={outside} lifted={lifted} out onTap={onTap} />
+
+              {lifted ? (
+                <div className="sticky bottom-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2 pl-3 shadow-sm" aria-live="polite">
+                  <span className="flex-1 min-w-0 text-sm">
+                    {seatOf.has(lifted) && !isOut(lifted) ? `Swap ${firstName(liftedName)} with…` : liftedName}
                   </span>
-                  <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="pb-2 pt-1">
-                  <TablesGrid seats={past} byId={byId} phase="seating" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-10 bg-white"
+                    onClick={() => {
+                      setOut(lifted, !isOut(lifted));
+                      setLifted(null);
+                    }}
+                    data-testid="host-mark-left"
+                  >
+                    {isOut(lifted) ? 'Back in' : 'Out'}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0" onClick={() => setLifted(null)} aria-label="Cancel">
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-              </details>
-            );
-          })}
-        </section>
-      )}
+              ) : (
+                round && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {undoStack.length > 0 && (
+                      <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
+                        <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10"
+                      disabled={busy}
+                      onClick={() => commitSeats(() => compute(round.roundNo), 'regroup')}
+                      data-testid="host-regroup"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Regroup
+                    </Button>
+                  </div>
+                )
+              )}
+            </section>
+          )}
+
+          {pastRounds.length > 0 && (
+            <section className="mt-6 space-y-2" data-testid="host-past-rounds">
+              {[...pastRounds].reverse().map(r => {
+                const past = state.seatsByRound.get(r.id) ?? [];
+                const tapped = past.filter(s => s.confirmedAt).length;
+                return (
+                  <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
+                    <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                      <span className="font-medium">Round {r.roundNo}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {tapped} of {past.length} tapped in
+                      </span>
+                      <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="pb-2 pt-1">
+                      <TablesGrid seats={past} byId={byId} phase="seating" />
+                    </div>
+                  </details>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
