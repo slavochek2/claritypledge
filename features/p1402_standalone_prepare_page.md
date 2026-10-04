@@ -93,6 +93,21 @@ Open (founder): a letter recommendation from the diagnosis (no mapping exists in
 comparison step (P1337's `/compare/:person`, built, unshipped, at `qa`). Related backlog: P1025
 (self-serve onboarding), P1003 (3-minute audit → report).
 
+## Founder UAT round 4 (2026-10-04)
+
+> *"some people they need to read transcripts … maybe it's always visible and we've fixed the play
+> button and the continue button as we did otherwise everywhere else and both on desktop and
+> mobile and also both in the event room and here"*
+
+- Transcripts are always visible under each clip (no "Read the transcript" toggle), in `/prepare`
+  and the event preparation (shared `Transcript`).
+- Video steps pin Play / Continue on desktop too, in both. With round 2, P1387's "in the page on
+  desktop" now holds only for choice steps (principle decision, research, plan, end).
+- The thank-you page is the thank-you and one button, "Explore events" (→ `/events/list`); no
+  events list, no groups (round 3 superseded).
+- Localization of the preparation (switcher, translated text, dubbed clips) filed as P1409. The
+  founder's question "summary or a proper transcript?" is open there.
+
 ## Founder UAT round 2 (2026-10-04)
 
 > *"on desktop it's not fixed at the bottom but maybe it should be fixed at the bottom because this

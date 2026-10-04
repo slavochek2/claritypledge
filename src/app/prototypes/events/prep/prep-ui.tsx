@@ -90,30 +90,24 @@ export function Title({ children }: { children: ReactNode }) {
   return <h1 className="text-2xl font-bold leading-tight text-foreground">{children}</h1>;
 }
 
-/** "Read the transcript" under every clip — StoryMedia's "Read video summary" link pattern (P1349). */
+/**
+ * The clip's words, always on screen under it (founder UAT, 2026-10-04: "some people need to read
+ * transcripts … maybe it's always visible"). Not behind a toggle any more; the video's Play and
+ * Continue stay pinned, so the text scrolls freely above them.
+ */
 export function Transcript({ clip }: { clip: ClipKey }) {
-  const [open, setOpen] = useState(false);
   const id = `transcript-${clip}`;
   return (
-    <div data-testid={id}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls={`${id}-text`}
-        className="ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400"
-      >
-        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {open ? 'Hide the transcript' : 'Read the transcript'}
-      </button>
-      {open && (
-        <div id={`${id}-text`} className="mt-1 space-y-3 text-base leading-relaxed text-muted-foreground animate-in fade-in duration-300">
-          {TRANSCRIPTS[clip].map((para) => (
-            <p key={para.slice(0, 32)}>{para}</p>
-          ))}
-        </div>
-      )}
-    </div>
+    <section data-testid={id} aria-labelledby={`${id}-heading`} className="mt-4 space-y-3">
+      <h2 id={`${id}-heading`} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
+        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Transcript
+      </h2>
+      <div className="space-y-3 text-base leading-relaxed text-muted-foreground">
+        {TRANSCRIPTS[clip].map((para) => (
+          <p key={para.slice(0, 32)}>{para}</p>
+        ))}
+      </div>
+    </section>
   );
 }
 

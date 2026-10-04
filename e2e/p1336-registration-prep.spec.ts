@@ -153,8 +153,8 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByTestId('step-header')).toContainText('Step 1 of 6');
     await expect(page.getByRole('heading', { name: 'How this event is different' })).toBeVisible();
     await expect(page.getByTestId('welcome-intro')).toHaveText('In our events, we reward revealing gaps in cognitive understanding.');
-    await page.getByRole('button', { name: 'Read the transcript' }).click();
-    await expect(page.getByRole('button', { name: 'Hide the transcript' })).toBeVisible();
+    // P1402 (founder UAT 2026-10-04): the transcript is always on screen, no toggle.
+    await expect(page.getByTestId('transcript-welcome')).toContainText('So when I invited people to this event');
     await continueWithoutVideo(page);
 
     // Step 2 — then reload: resume lands on the same step (DB-backed, not localStorage).

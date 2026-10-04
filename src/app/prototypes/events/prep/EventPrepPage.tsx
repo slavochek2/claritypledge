@@ -445,8 +445,9 @@ function PrepFlow({
   };
 
   // Phones reserve the pinned action bar's height; desktop has the actions in the page.
-  // Statements steps pin their bar at every width (prep-ui.tsx StatementsActions).
-  const barPinned = !isDesktop || screen === 'cmp7' || screen === 'stake';
+  // Statements and video steps pin their bar at every width (founder UAT 2026-10-04): the
+  // progress and Play/Continue stay in view while the cards or the transcript scroll.
+  const barPinned = !isDesktop || screen === 'cmp7' || screen === 'stake' || screen === 'welcome' || screen === 'story' || (screen === 'principle' && !principleIntroDone);
   const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
@@ -466,7 +467,7 @@ function PrepFlow({
   );
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
-    <StepActions ref={barRef}>
+    <StepActions ref={barRef} pinnedOnDesktop>
       {clipPlayed[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (

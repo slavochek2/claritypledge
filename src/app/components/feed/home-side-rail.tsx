@@ -17,7 +17,6 @@ import { useConnectivity } from "@/app/contexts/offline-status-context";
 import type { EventWithHost } from "@/app/types";
 import type { Organization } from "@/app/data/organizations-service.interface";
 import { EventCard } from "@/app/prototypes/events/components/EventCard";
-import { formatDateShort, formatTime } from "@/app/prototypes/events/utils";
 import { OrgInitials } from "@/app/components/organizations/org-initials";
 import { useAuth } from "@/auth";
 import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "@/app/components/layout/nav-links";
@@ -187,43 +186,6 @@ function RailContent() {
 export function HomeTopBlock() {
   const isDesktop = useIsDesktop();
   return isDesktop ? null : <TopContent />;
-}
-
-/**
- * P1402: the next events as compact rows (date + title), for a page whose main message is
- * something else (the /prepare thank-you). Same data and the same "not started yet" rule as the
- * home rail; one row per event, no banner picture.
- */
-export function NextEventsCompact() {
-  const { events } = useHomeHighlights();
-  if (events === "error" || (Array.isArray(events) && events.length === 0)) return null;
-  return (
-    <section aria-label="Next events" data-testid="next-events-compact" className="space-y-2">
-      <div className="flex items-center justify-between">
-        <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
-        <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
-      </div>
-      {events === null ? (
-        <div className="h-[58px] rounded-lg border border-border bg-muted animate-pulse" aria-hidden />
-      ) : (
-        <div className="space-y-2">
-          {events.map((e) => {
-            const at = new Date(e.datetime);
-            return (
-              <Link
-                key={e.id}
-                to={`/events/${e.slug}`}
-                className="block rounded-lg border border-border bg-card px-3 py-2 text-left transition-all duration-200 hover:border-blue-500/50 hover:shadow-lg"
-              >
-                <span className="block text-sm text-muted-foreground">{formatDateShort(at)} at {formatTime(at)}</span>
-                <span className="block text-sm font-semibold text-foreground">{e.title}</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
 }
 
 function TopContent() {

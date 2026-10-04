@@ -74,9 +74,8 @@ test.describe('P1402 standalone /prepare', () => {
     await expect(page.getByTestId('prepare-end')).toBeVisible();
     // The end is a destination: the menus are back (?done=1) and it points on like the home page.
     await expect(page).toHaveURL(/\/prepare\?done=1$/);
-    await expect(page.getByTestId('next-events-compact')).toBeVisible();
-    await expect(page.getByText('Groups')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'All events' })).toBeVisible();
+    await expect(page.getByTestId('prepare-end').getByRole('button')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Explore events' })).toBeVisible();
     await expect(page.getByRole('navigation').first()).toBeVisible();
     // Skipping the videos completed nothing.
     expect(await page.evaluate(() => localStorage.getItem('cp-prep-parts'))).toBeNull();

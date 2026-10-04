@@ -21,7 +21,8 @@
  * part done here is skipped in any event's preparation later — one direction only.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -30,7 +31,6 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
 import { StakePage } from '@/app/pages/stake-page';
-import { NextEventsCompact } from '@/app/components/feed/home-side-rail';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { getProfileBySlug } from '@/app/data/api';
 import { LETTER_FOUNDER_SLUG } from '@/app/data/offline-reads-letters';
@@ -82,8 +82,7 @@ const COPY = {
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Thank you',
   endLine: 'You know how the Clarity process works. Try it with others at an event.',
-  endHost: 'Want to host one? Book a call',
-  endReview: 'Review the steps',
+  endPrimary: 'Explore events',
 };
 
 export function PreparePage() {
@@ -185,6 +184,7 @@ function PrepareFlow({
   reloadPoints: () => void;
   onLeave: () => void;
 }) {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<Screen>('list');
   const [playRequest, setPlayRequest] = useState(0);
   const [played, setPlayed] = useState<Record<'story' | 'principle', boolean>>({ story: false, principle: false });
@@ -258,12 +258,13 @@ function PrepareFlow({
   };
 
   const stepIndex = screen === 'list' || screen === 'end' ? -1 : STANDALONE_STEPS.indexOf(screen);
-  // Statements steps pin their bar at every width (prep-ui.tsx StatementsActions).
-  const barPinned = !isDesktop || isStatementsStep(screen);
+  // Statements and video steps pin their bar at every width (founder UAT 2026-10-04): the
+  // progress and Play/Continue stay in view while the cards or the transcript scroll.
+  const barPinned = !isDesktop || isStatementsStep(screen) || screen === 'story' || (screen === 'principle' && !principleIntroDone);
   const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
 
   const videoBar = (clip: 'story' | 'principle', onContinue: (watched: boolean) => void) => (
-    <StepActions ref={barRef}>
+    <StepActions ref={barRef} pinnedOnDesktop>
       {played[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (
@@ -495,22 +496,17 @@ function PrepareFlow({
           )}
 
           {screen === 'end' && (
-            // Founder UAT round 3 (2026-10-04): the thank-you is the page — centred, first — then a
-            // short list of the next events (no groups, no big cards), with the menus back.
-            <section className="mx-auto max-w-md space-y-8 pt-10 lg:pt-16" data-testid="prepare-end">
-              <div className="flex flex-col items-center space-y-3 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300" aria-hidden>
-                  <Check className="h-7 w-7" />
-                </span>
-                <Title>{COPY.endTitle}</Title>
-                <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
-              </div>
-              <NextEventsCompact />
-              <div className="flex flex-col items-center gap-2 text-sm">
-                <Link to="/intro" className="text-blue-600 hover:underline dark:text-blue-400">{COPY.endHost}</Link>
-                <button type="button" onClick={() => go('list')} className="text-blue-600 hover:underline dark:text-blue-400">
-                  {COPY.endReview}
-                </button>
+            // Founder UAT round 4 (2026-10-04): a thank-you page — the thank-you and one way on.
+            // The button sits in the page, not pinned: the menus are back here and a pinned bar
+            // would sit on the BottomNav (P1387).
+            <section className="mx-auto flex max-w-md flex-col items-center space-y-4 pt-16 text-center lg:pt-24" data-testid="prepare-end">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300" aria-hidden>
+                <Check className="h-7 w-7" />
+              </span>
+              <Title>{COPY.endTitle}</Title>
+              <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
+              <div className="w-full max-w-sm pt-4">
+                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate(EVENTS_LIST_TO)} />
               </div>
             </section>
           )}
