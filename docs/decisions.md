@@ -329,6 +329,32 @@ document diff), and choose banner or block with a reason.
 blocks rather than notifies. Voice profiles still lack their own consent prompt — revisit at the ~2026-12-01
 terms review. This is a judgement call, not legal advice.
 **References:** [P1398](../features/done/2026-06-10/p1398_terms_notice_says_what_changed.md) · decisions.md 2026-09-11 (P1300) · 2026-09-14 (P1307 D15)
+## 2026-10-04 [process]: The /day report is one list of issues you answer, built from user stories and a mockup first (P1399)
+
+**Context:** The first Day page was built straight from the spec's structure (groups sorted by who
+acts, readings, done list) and rejected on sight: "cluttered, not according to the tasks, not
+clear, copywriting bad, overview bad". The spec had the right rules but not the founder's jobs.
+**Decision:** (1) A product-manager pass wrote user stories from the founder's own words, a
+fresh agent built a frontend-only mockup on invented data, and twelve review rounds plus two
+hostile visual reviews and one adversarial coverage review settled the design before any wiring.
+(2) The report is one flow: status of every check first, then issues one at a time, each written
+as Point A / Obstacle / Point B with options and one recommended answer (with confidence), then
+one "Start fixing" that assembles every answer into a single agent prompt. "Needs your answer" and
+"give to an agent" were the same thing. (3) Tabs: Daily report, Stats, Monitoring, Reflection; the
+Day page uses the ClarityPledge design system. (4) The page never needs a UI change for a new
+check: every check gets a row, an unknown status reads "Not proven", a failure with no write-up
+becomes an issue, a newer report format falls back to text. (5) Delivered as one spec in three
+phases (page, /day writes the report, missing data + terminal launch) for one orchestrator.
+**Alternatives rejected:** Rebuilding the page in place from feedback (each round would carry the
+rejected layout's assumptions). Two action groups (founder: "isn't it the same?"). A stepped
+wizard (status, worked, issues, start, reflection): five steps for one morning read. Three
+separate specs: the orchestrator's per-phase gates give the same protection.
+**Consequences:** For founder-facing UI, mockup before wiring: rounds cost minutes and the founder
+reacts to a page, not to a spec. Spec reviews found the kept data rules had real bugs ("fixed"
+hid a recurring fault; a dead run made yesterday look current); they are now ACs with known-bad
+controls. Open, not tracked yet: the goals file needs rework into weekly measurable goals (a goals
+review proposed five; targets are founder decisions) and must go through docs-strategy-update.
+**References:** [features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md](../features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md)
 
 ---
 
