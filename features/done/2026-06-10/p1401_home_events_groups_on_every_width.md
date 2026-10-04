@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 21
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, landing, events, groups, mobile]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
+completed_at: 2026-10-04
 ---
 
 # P1401: Next events and groups on the home page at every width
