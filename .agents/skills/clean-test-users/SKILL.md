@@ -1,8 +1,8 @@
 ---
 name: clean-test-users
-description: Delete the founder's own test-user profiles (namespaces loaded from .private/docs/founder-accounts.md) from the Supabase prod/test DB after listing them and getting explicit confirmation. Clears blocking child rows in FK order, reassigns first-validated points to the founder (never deletes points), then deletes the auth user.
+description: Delete (default) or RESET (keep the account, wipe its state) the founder's own test-user profiles (namespaces loaded from .private/docs/founder-accounts.md) from the Supabase prod/test DB after listing them and getting explicit confirmation. Clears blocking child rows in FK order, reassigns first-validated points to the founder (never deletes points), then deletes the auth user.
 when_to_use: When the founder's personal test accounts have accumulated in prod (after /live testing, letter/doc experiments, demos). Run periodically, not on a schedule.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # /clean-test-users
@@ -89,7 +89,7 @@ Phase 2 has proven no real user is affected. Clear the candidate's rows so the `
 
 **A. Handle content — points reassigned, stories deletable:** `UPDATE points SET first_validator_id = <founder> WHERE first_validator_id = <candidate>` — preserve every point. The candidate's authored stories cascade-delete with the profile (fine — their points survive); but for any story frozen in a sealed letter (`letter_story_snapshots`/`letter_predictions` reference it → cascade blocked), `UPDATE stories SET author_id = <founder>` instead.
 
-**B. Clear position history BEFORE the profile:** `DELETE point_position_history WHERE user_id = <candidate>` then `DELETE point_positions WHERE user_id = <candidate>`. A trigger inserts into `point_position_history` when a `point_positions` row is deleted — if the profile is already gone (via cascade), that INSERT FK-fails (`point_position_history_user_id_fkey`) and the whole delete 500s. Pre-deleting them while the profile still exists avoids it.
+**B. Clear position history BEFORE the profile (reset mode: see its own ordering):** `DELETE point_position_history WHERE user_id = <candidate>` then `DELETE point_positions WHERE user_id = <candidate>`. A trigger inserts into `point_position_history` when a `point_positions` row is deleted — if the profile is already gone (via cascade), that INSERT FK-fails (`point_position_history_user_id_fkey`) and the whole delete 500s. Pre-deleting them while the profile still exists avoids it.
 
 | Table.column | FK | Action |
 |---|---|---|
@@ -143,6 +143,43 @@ curl -s -o /tmp/del -w "%{http_code}" -X DELETE \
 
 ---
 
+## Reset mode — keep the account, wipe its state
+
+Use when the founder wants the test account **kept** (e.g. a second phone handed to other people) but
+clean. Invoke as `reset <uid> "<new name>"`. **Eligibility is by explicit UUID only** — a uid the
+founder names this turn, or one listed in `.private/docs/founder-accounts.md`. Never match by name or
+email, never widen. Same Phase 0 (state env), Phase 2 live-session abort, and Phase 3 list-then-confirm
+as delete mode; prod writes use the same keyring preamble, one **Allow** per block.
+
+**Keeps (never touched):** `auth.users`, the profile row itself, `clarity_sessions`, `session_transcripts`,
+`transcription_jobs`, letters/docs the account owns, and the cached `ears_count` /
+`verification_session_count` (their source rows survive, so they stay correct).
+
+**Snapshot first** to `.private/reports/test-user-cleanup/YYYY-MM-DD-pre-<uid>.json`: the profile row,
+`event_rsvps`, `point_positions`, `point_position_history`, `badge_points`, `membership`, `witnesses`.
+
+**Order matters — `point_positions` has a delete trigger that re-inserts into `point_position_history`:**
+1. DELETE `point_position_history` where `user_id` = uid
+2. DELETE `point_positions` where `user_id` = uid
+3. DELETE `point_position_history` **again** (step 2 just recreated one row per deleted position —
+   observed 2026-10-04: 57 deleted, 20 reappeared)
+
+Then, in any order:
+- DELETE `event_rsvps` where `profile_id` = uid (cancels its pending reminder/feedback emails — say so)
+- DELETE `event_sub_rooms` (`initiator_id`/`target_id`) and `event_practice_rooms` (`creator_id`) rows
+- DELETE `membership` where `user_id` = uid (group membership)
+- DELETE `witnesses` where `profile_id` = uid; DELETE `badge_points` where `user_id` = uid
+- PATCH `profiles`: `name` = the new name, `has_pledged` = false, `avatar_url` = null, `avatar_provider` = null
+
+**Google-login caveat:** if the account signs in with Google, `auth.users.raw_user_meta_data` still holds
+the real name/photo and a later sign-in may overwrite the renamed profile. After the reset, have the
+founder sign in once and re-read the profile name; if it reverted, patch the auth metadata too.
+
+**Verify:** re-query every table above for the uid → all 0; profile shows the new name and `null`
+avatar; session count unchanged from the snapshot. Append an audit line (`uid | reset | rows cleared`).
+
+---
+
 ## Self-check
 - [ ] Env stated before any live call; auth verified (HTTP 200)
 - [ ] Only allowlist + exclusions used for identification (no heuristics)
@@ -150,3 +187,4 @@ curl -s -o /tmp/del -w "%{http_code}" -X DELETE \
 - [ ] No live sessions among candidates (or aborted those)
 - [ ] Founder gave explicit go after seeing the list
 - [ ] Each uid verified absent; audit line written
+- [ ] Reset mode: history deleted twice (before and after positions); sessions/transcripts untouched
