@@ -212,7 +212,7 @@
 .d-spin { width: 14px; height: 14px; border: 2px solid var(--line2); border-top-color: var(--slate); border-radius: 99px; animation: d-sp .8s linear infinite; }
 @keyframes d-sp { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .d-spin { animation: none; } }
-.d-toastact { margin-left: 12px; min-height: 32px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 6px; background: transparent; color: #fff; font-weight: 600; }
+.d-toastact { margin-left: 12px; min-height: 40px; min-width: 64px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 6px; background: transparent; color: #fff; font-weight: 600; }
 .d-toast { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); background: var(--fg); color: #fff; padding: 10px 16px; border-radius: var(--r); font-size: 14px; max-width: calc(100% - 32px); width: max-content; }
 
 /* monitoring */

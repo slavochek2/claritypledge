@@ -500,23 +500,33 @@ control list in the private design folder, and tested against it)**
 **Phase B: `/day` writes it**
 - [ ] The cp monthly review run inside `/day` asks nothing mid-run; its proposals appear as issues
       and the review is marked done. The pp weekly runs from `/day` when overdue.
-- [ ] Reflection statements in a real run were written by an Opus agent (model shown in the run).
-- [ ] A real `/day` pass ends with the renderer's card as its final output, and the same run
+      Evidence: pp weekly ran from the real /day of 2026-10-04 when overdue (marker updated; its drift became 4 findings, review-tagged). cp monthly: wired (monthly SKILL.md records each proposal as a finding with options and writes its marker; e2e `a monthly-review run shows its badge…`) but NOT yet seen in a real run — next due after 2026-10-20. Left open for that run.
+- [x] Reflection statements in a real run were written by an Opus agent (model shown in the run).
+      Evidence: real run 2026-10-04: 5 statements, model recorded from the agent's own answer: claude-opus-5-5 (Reflection tab).
+- [x] A real `/day` pass ends with the renderer's card as its final output, and the same run
       appears on the board without hand-editing.
-- [ ] An item the founder parked does not reappear as an issue on the next pass, **even when the
+      Evidence: real run 2026-10-04: the pass ended with the card; the branch board read the same run from ~/.claude-day with 0 dropped rows, 28 checks, 19 issues, 4 connections, 3 people, 6 notes.
+- [x] An item the founder parked does not reappear as an issue on the next pass, **even when the
       check's title text changed**. It shows under Parked with the reason.
-- [ ] Every check has its own status row in the ledger; a check failing inside a wave is a problem
+      Evidence: renderer test `e` (two synthetic passes, same check + fault key, different titles, a park line → not on the card, under Parked) + buildView rule-1 tests; fault keys in the runbooks are fixed slugs from source ids. A real repeat pass will confirm it on live data.
+- [x] Every check has its own status row in the ledger; a check failing inside a wave is a problem
       on the board.
-- [ ] A pass killed mid-run leaves a report marked incomplete, and the board shows it as latest.
-- [ ] A standing fault's age is computed from the first run that saw it, and matches the healer's
+      Evidence: real ledger 2026-10-04: 27 CHECK rows; wave cp.w3 recorded ok (exit 0) while cp.rls and cp.grants inside it are problem on the board.
+- [x] A pass killed mid-run leaves a report marked incomplete, and the board shows it as latest.
+      Evidence: the real run wrote its report as `running` at Step 0r and re-rendered after the sub-day registered; renderer test + control: the next pass rewrites an earlier `running` report as incomplete; Phase A e2e: running/incomplete latest shows the warning.
+- [x] A standing fault's age is computed from the first run that saw it, and matches the healer's
       own date within a day.
+      Evidence: real run: the VM fault's first_seen is 2026-09-14 from the healer's own unhealthy_since (card: 20 days); otherwise the earliest earlier report carrying the fingerprint (renderer test f).
 
 **Phase C: data and launch**
 - [ ] Codex quota, per-key budgets and the outreach funnel appear with real values from a run;
       until then each says "not collected yet".
+      Evidence: real run 2026-10-04: Codex 95% left (from its session log), Claude 40% left; per-key budgets 2 of 7 measured, 5 'not collected yet' (no billing data or disqualified budgets); events per week 6 real points. The OUTREACH FUNNEL has no source — nothing tracks reach-outs, champion talks or pilots ([FOUNDER DECISION] where to record them); it stays 'not collected yet'. Left open.
 - [ ] Start fixing opens a terminal session with the server-built prompt; a cross-origin POST, a
       text/plain POST and a POST carrying prompt text are each refused and spawn nothing (tested).
-- [ ] A second Start fixing within a minute, or for an already-sent collection, does not launch.
+      Evidence: 17 launch tests + 11 known-bad controls (cross-origin, no Origin, text/plain, extra fields incl. prompt text → refused, nothing spawned); a scripted Ghostty tab proven by a probe (returned 'tab'); the session counts as sent only when the launcher acknowledges Claude started. Claude actually starting in that tab is left for the founder's first click at UAT.
+- [x] A second Start fixing within a minute, or for an already-sent collection, does not launch.
+      Evidence: day-launch tests `within a minute does not launch`, `only what changed goes out` (unchanged → 409 already-sent; a change → follow-up with only the change) + controls.
 
 ## Alternatives Considered
 
@@ -606,6 +616,39 @@ control list says N is everything collected); the Reflection column is narrower 
 (the approved mockup's centred point card); position labels are the product's title case
 ("Somewhat Agree"); at 320px the Google Cloud tile breaks "€70 / €400" across two lines; read-only
 options keep their bordered rows (radios hidden, "Not answered on this run" shown).
+
+## Phases B and C build (2026-10-04/05)
+
+**What runs where.** The ledger tooling (`~/.claude/scripts/day-step.sh`: CHECK rows from a step's own
+`$DAY_CHECK_FILE`, agent `check`, `data` sections, `finding --fault-key` + issue sidecar) is live on
+`~/.claude` main and backward compatible. The dispatcher runbook (`day.md`, `day-steps.tsv`,
+`day-checks.tsv`, the findings filer) is on the `p1399-day-report` branch of `~/.claude`: it needs this
+branch's cp sub-day and renderer, so **both go live together — merge that branch in the same step as
+`/ship p1399`**. Until then the founder's `/day` is unchanged.
+
+**The first real run (2026-10-04, from this worktree, ~/.claude switched to the branch for the run):**
+every step recorded, card printed, report on the board unedited. It found what tests could not:
+gate 0d must run before 0a (0a was refused against the closed ledger); per-key money findings would
+have made ~24 near-identical cards (now one per kind of fault); an issue with its own options lacked
+Park (now always offered). Beeper Desktop was closed, so the calendar read NOT VERIFIED and the
+finish gate said INCOMPLETE — reported honestly; the card's header still read "complete" (every step
+recorded), a known wording gap. The video-summary heal was run read-only because the acceptance brief
+forbade database writes.
+
+**Reviews:** Phase B — Opus, Gemini 3.8, Codex (3 of 3); Phase C + B fixes — Opus, Gemini 3.8, Codex
+(3 of 3) and three visual-QA passes. Adopted after verification: checks reported only through the
+step's file (stdout could forge them); a check accepted only from its registered step; an exit code
+never overruled by an agent; no phantom "Worked" rows; a ledger-injection hole in `finding --check`
+(closed, live); owner-only ledger files; earliest first-seen; Codex quota read only from codex lines
+(it vanished exactly when used up); a send counts only when Claude acknowledged starting, is reserved
+before spawning, and later sends carry only changes; the prompt never sits in argv; irreversible
+actions need an explicit yes in the session. Not adopted, with reason: Gemini's DNS-rebinding,
+shell-injection and path-traversal claims (each refuted in code); "Next marks resolved" (the founder's
+approved design).
+
+**Still open after these phases:** the outreach funnel's source ([FOUNDER DECISION]); the first
+real Start-fixing click; the cp monthly inside a real run; where a launched session should start
+(cp repo today; most fixes are code there).
 
 ## Open Questions
 

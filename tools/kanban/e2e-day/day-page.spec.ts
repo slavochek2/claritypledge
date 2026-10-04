@@ -996,3 +996,14 @@ test.describe('narrow widths', () => {
 
 // referenced so the seed's other id stays in the suite's vocabulary
 void EARLIER_ID
+
+test.describe('toast actions', () => {
+  test('a toast Copy button is a full touch target (≥ 40px)', async ({ page }) => {
+    await openDay(page)
+    await page.getByRole('button', { name: /Start fixing/ }).click()
+    const copy = page.locator('.d-toastact')
+    await copy.waitFor()
+    const box = await copy.boundingBox()
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(40)
+  })
+})
