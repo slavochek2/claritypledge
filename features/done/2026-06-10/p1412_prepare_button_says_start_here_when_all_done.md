@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 24
 severity: low
@@ -11,11 +11,11 @@ exec_model: sonnet
 exec_effort: low
 tags: [prepare, copy]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 date_resolved: '2026-10-04'
 root_cause: The list button rendered COPY.start unconditionally
 resolution: Label follows firstOpen — "Start here" while a step is open, "Start again" when all are done
+completed_at: 2026-10-04
 ---
 
 # P1412: /prepare's main button still says "Start here" when every step is done
