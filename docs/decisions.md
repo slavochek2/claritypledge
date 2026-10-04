@@ -6,6 +6,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-04 [product]: /prepare is the Clarity explainer for anyone, signed out included; it hides nothing and carries progress one way into event preparation (P1402)
+
+**Context:** The preparation existed only inside an event (P1336). The founder wanted a page the home page and a future "become a clarity host" path can send people to, and a permanent home for the clips (*"if we have a bug … In Slash prepare, they will be always able to find it"*). Four UAT rounds on 2026-10-04 reframed it as *"general onboarding for somebody who is not logged in."*
+**Decision:**
+- `/prepare` ("Learn about the Clarity process", first entry in Tools) runs four steps: the understanding story, the Clarity Meeting Principle (intro clip, the principle, then the event preparation's own follow-up: "Try it now" after opting in, "can I ask you one question?" after opting out, and the 0-10, with the founder as the asker), the cmp7 statements, and the `misunderstanding` statements as a diagnosis. The welcome, positions and research steps stay event-only.
+- It never hides a part: done steps get a check and stay replayable. No sign-in wall and no sign-in prompt on the first screen.
+- Progress flows one way. Parts done signed out are kept in the browser and written to `person_prep_parts` at the first read after sign-in, so event preparation skips them. Statement answers use the existing anonymous-position path (P502).
+- The end screen is a thank-you page with one button, "Explore events", and the menus come back (`?done=1`). The event preparation's end stays immersive (P1387).
+- On both preparations, transcripts are always visible under each clip, and the pinned bar stays pinned on desktop for video and statements steps. **This narrows 2026-10-02 (P1387)** ("in the page on desktop") to choice steps only. Founder: *"this is how I see my progress one out of seven answers."*
+- One recording of the understanding story: st1 (homepage) and the preparation both play our own clip, not YouTube.
+**Alternatives rejected:** A sign-in wall (blocks the cold visitor the page is for). A second progress table (`person_prep_parts` already holds once-per-person parts). Keeping st1 on YouTube (we can only mark a part watched on our own player, and YouTube adds its own suggestions and blocked-embed failures). An end screen with the home page's events and groups, tried in round 2 and round 3 (*"thank you page is weird … too much info"*).
+**Consequences:** On a shared browser, signed-out progress is credited to whoever signs in next (accepted: same as anonymous positions). A sync during a running event preparation never dates a part before its start, so no step vanishes mid-flow. st1's prod switch is a post-push step (INBOX-114). Follow-ups: P1409 (localize the preparation, including whether the transcript becomes a reading-optimized version), P1410 (a "why" opener picked by interest), P1411 (the diagnosis recommends a letter, then a comparison via P1337). **UNTESTED.** Falsifier: few visitors who open `/prepare` from the home page or Tools finish the story step, or registrants who did `/prepare` still repeat the parts in event preparation.
+**References:** [P1402](../features/done/2026-06-10/p1402_standalone_prepare_page.md) · decisions.md 2026-10-02 [product] (P1387), 2026-10-01 [product] (P1336)
+
+## 2026-10-04 [technical]: A story video may be an mp4 in our media bucket — allowlisted in the CHECK constraint, never another host (P1402)
+
+**Context:** P1141's `stories.video_url` constraint allowed YouTube only. P1402 plays st1 from our own clip.
+**Decision:** The constraint adds exactly one arm: `https://storage.googleapis.com/claritypledge-story-images/…mp4`, path characters only, and no `..` (a browser resolves it out of the bucket). `isPublicMediaVideo()` mirrors it client-side, and `StoryMedia` plays such a URL in `Mp4VideoFacade` on every surface. Integration-tested through a raw insert: our bucket is accepted, while traversal, percent-encoding, other buckets, other hosts and query strings are refused.
+**Alternatives rejected:** Any https mp4 (the production CSP would block it, and it widens a field any verified user can write). Leaving st1 on YouTube.
+**Consequences:** Video quotes and seeking stay YouTube-only (an mp4 story with quotes would link to the raw file). `/push` applies the migration (P1211). A data change to prod `stories` that switches a video must come after the frontend that can play it.
+**References:** `supabase/migrations/20261004150000_p1402_story_video_public_media_mp4.sql` · `e2e/integration/p1402-db-schema.spec.ts` · decisions.md 2026-10-01 [technical] (public media origin)
+
 ## 2026-10-04 [product]: Home shows events and groups at every width; champions are tested by hand before any build (P1401–P1407, P1400)
 
 **Context:** After P1392, phones showed no events or groups, the featured story changed shape when opened, and the founder wanted to know whether members would act as "clarity champions" at other Chiang Mai events.
