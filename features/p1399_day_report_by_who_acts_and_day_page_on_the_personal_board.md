@@ -62,6 +62,10 @@ additive. Decision density: low, since the four calls below were made in the 202
 
 ### 1. One report, two parts, each with a single dimension
 
+> **Superseded by §3 (2026-10-04)** for layout: the two action groups became one Issues flow.
+> Still binding: who-acts thinking, "did not run never reads as clean", the output inventory as
+> a coverage list (§2b), and the visibility idea (detail one step away).
+
 The founder rejected a layout that mixed *who acts* with *what area* ("This is not one dimension").
 So:
 
@@ -181,25 +185,88 @@ Tiers: **D** Done ✓ · **A** Needs your answer · **G** Give to an agent · **
 | Do / Don't | X | — | Reference, not news |
 | Sub-day's "questions for the founder" | — | A, one item each | They are his decisions |
 
-### 3. The board's Day page (personal board)
+### 3. The board's Day page (personal board) — redesigned 2026-10-04
 
-- A new page in the sidebar, present only when the server is given a day-data directory (the pp
-  launcher sets it; the cp launcher does not).
-- **Order: header with a one-line summary** ("2 need your answer · 8 for an agent · ✓ 11 done ·
-  14 of 23 checks clean") **→ the three groups → Readings → Done ✓ → one step away.** The first
-  build put Readings and Done on top, and at 1440×900 "Needs your answer" fell below the fold:
-  the original complaint, rebuilt. Actions first; success stays visible in the summary line.
-- A run that is the newest but older than 24h carries a warning: either /day has not run, or a
-  later run died before saving (adversarial review W7).
-- Card actions: **Needs your answer** shows the options as buttons plus hold and snooze. **Give to
-  an agent** has one "Copy prompt" for the group, and per card: **Fixed**, **Not a problem** (a false
-  alarm, so a later phase can flag the check that raised it), snooze and hold. **On hold** shows the
-  founder's reason and age, and an "un-hold" action.
-- A list of earlier runs: date, complete or not, and counts per group. Selecting one shows that
-  run read-only (decisions apply to the latest run only).
-- Pressing a decision writes one line to the private decisions file and moves the card immediately.
+The first build of this section was rejected ("cluttered, not according to the tasks, not clear,
+copywriting bad, overview bad"). The replacement below was reached through user stories and twelve
+rounds of a frontend-only mockup reviewed by the founder, two hostile visual reviews (Opus, Gemini)
+and one adversarial coverage review. The approved mockup (`index.html`), its control list (`controls.md`: every
+clickable control and exactly what it does) and the user stories live in the private design
+folder `<cp-root>/.private/p1399-day-design/`. The mockup is the visual reference; this section
+and §7 are the contract where they differ. It supersedes the "three groups" layout of §1: Needs-your-answer and
+Give-to-an-agent were found to be **one thing** ("isn't it the same?"), an issue whose options may
+include handing it to an agent.
 
-### 4. Data contract (Phase 1 fixes it; Phase 2 produces it)
+> Founder, verbatim: "a decision it should explain the problem ... my options and what you
+> recommend and why and then just select the option" · "connection is straightforward click and
+> fix" · "at the beginning I just want to see what worked" · "I resolve them all ... and at the
+> end I say go and start" · "it has to be consistent across everything"
+
+**Placement and look.** One entry in the board's existing left sidebar (personal board only). The
+page uses the ClarityPledge design system (font, colours, buttons, cards), not the board's Notion
+theme (overrides decision 2). Colour has three meanings only: blue = an action, amber = needs you,
+green = worked. Red appears only on the "not connected" mark. One centred column; the header is
+identical on every tab.
+
+**Header.** Four tabs: **Daily report · Stats · Monitoring · Reflection**, and directly below them a
+compact day switcher `‹ Sun 4 Oct ›` (earlier runs open read-only, with "Back to today"). A run
+that also ran a weekly or monthly review carries a small "Weekly review" / "Monthly review" badge;
+its items join Issues and Reflection — no separate tab. Stale or incomplete runs show one warning
+line under the switcher.
+
+**Daily report — one flow, not steps.**
+1. **Status panel** (left on desktop, collapsible strip on phones). Broken connections first, one
+   row each ("Sentry · login expired") with a **Fix** button — no options, no explanation. Then
+   every check of the run, one row each, with the run's own status: **✓ Worked · ! Problem ·
+   ? Not proven · – Skipped (on purpose)**. Passed rows are folded. When all connections are fixed
+   the panel collapses to one line ("✓ All connected · 9 passed · 3 checks → in Issues") and can be
+   reopened. Also on this line: unpushed commits.
+2. **Issues, one card at a time.** Card, top to bottom: small topic tag (top-left) and Urgent
+   (filled amber) / Important (filled dark) pills and age in days; title; **Point A · Obstacle ·
+   Point B** (labelled, one short line each); "More info" (folded, directly under Point B: why
+   recommended, first seen, source); then **options** as a radio list, the recommended one
+   preselected and marked "Recommended · 85%" (the agent's confidence; nothing else), plus "Ask a
+   question…" and "Other…" which open a text box. Typical options include "Give to an agent" and
+   "Park: stop asking until I bring it back". Anything that fits nowhere else — sub-day questions,
+   open questions, weekly/monthly proposals, a failed check with no write-up — is an issue.
+3. **Navigation and progress** live in a fixed bottom bar on every tab: `‹ Previous · 3 of 10 ·
+   Next ›` (≥44px, keyboard ← →, ignored while typing), "4 of 10 resolved" with a thin progress
+   line, and a compact **Start fixing (N)** with a copy icon. Next accepts the preselected answer.
+   Nothing on the page moves when a card expands; the page has one scroll.
+4. **Start fixing is global**: it collects issue answers, reflection ratings and stories, and
+   budget changes from Monitoring into one prompt that opens with "check each item is still real",
+   answers the founder's questions first, and acts on the rest. Clicking it opens a new tab in the
+   founder's terminal and starts a Claude session with that prompt; copy is the fallback.
+
+**Stats.** Funnel first: Reach-outs → Champion talks → Qualified opportunities → Pilot agreed →
+Pilot event held. Then simple line charts against proposed targets: reach-outs per week, events per
+week (goals review, all targets `[FOUNDER DECISION]`). Plus product readings: signups that did not
+confirm, mentions and help requests. Metrics /day does not collect yet are labelled "not collected
+yet", never shown as zero.
+
+**Monitoring.** Overview cards (Claude, Codex, Google Cloud); selecting one shows its detail with a
+Week / Month toggle and ‹ period ›. Claude and Codex: remaining quota with a dashed projection to
+the reset date, the reset marked, a verdict ("Runs out Tue"), and the 5-hour window for Claude.
+Google Cloud: account budget and credits (shown with their own caveat, e.g. "~€N · unverified"),
+then one horizontal bar per key, spent vs its budget, closest to the limit first. Clicking a key or
+the account budget offers "Raise monthly budget to €__", which joins Start fixing. A **Systems**
+section lists every non-money check, grouped (servers and blog, backups and mirror, transcription
+and video, keys liveness, cost-leak tripwire, outreach machine, CRM, email and sessions), each
+with status and one line.
+
+**Reflection.** Provocative "change" statements only (no "keep"), one at a time, each rendered with
+the product's point card and its position control (Disagree / Unsure / Agree, with Somewhat /
+Strongly). Choosing a position opens an optional "Add your story" box. Ratings and stories join
+Start fixing. The statements are written by an **Opus** agent that `/day` spawns for this step
+(the rest of `/day` may run on Sonnet).
+
+**Extensibility contract (adversarial review, adopted).** The page never needs a UI change for a
+new check: every check gets a row; an unknown status renders as "Not proven", never as fine; any
+non-ok check without a finding becomes a default issue (Give to an agent / Park); every finding,
+including weekly and monthly ones, uses the one issue format; readings are rendered as given; a
+newer report schema falls back to plain text rather than an empty or clean page.
+
+### 4. Data contract (Phase A fixes it; Phase B produces it)
 
 Private, outside every repo: a day-data directory holding `reports/<pass>.json` (one per run) and
 `decisions.jsonl` (append-only). The board reads both; it writes only `decisions.jsonl`. An item is
@@ -215,7 +282,17 @@ fingerprint `check id + fault key`, where the fault key is a fixed slug the chec
 also says "19 days" disagrees with it the next morning (seen in the first build: title "19 days
 ago", card "open 20 days"). Counts and dates go in `why` or `evidence`.
 
-### 5. Phase 2: `/day` produces the report
+**Additions for the redesign (§3).** A run also carries: `reviews` (which of weekly / monthly ran
+inside it); `issues` in the one format (fingerprint, topic, urgent/important, point A / obstacle /
+point B, options with one `recommended` and a 0–100 `confidence`, more-info text, first seen);
+`checks` with a `group` for the Monitoring Systems section; `monitoring` (quotas with reset dates,
+budgets and per-key spend, each with a freshness/verified flag); `stats` (funnel and weekly series,
+each metric marked `collected` or not); `reflection` (statements). A **decision** gains the kinds
+the page creates: an option choice with optional free text or question, a reflection position with
+optional story, a monthly budget change, a connection fix. Unknown fields are ignored; unknown
+statuses render as "Not proven".
+
+### 5. Phase B: `/day` produces the report
 
 - **Per-check status, from the check's own command.** Today the ledger records one row per *wave*
   (`cp.w3 ok 0` while RLS drift inside it exited 1), and 14 of 34 rows are agent-attested prose.
@@ -238,6 +315,78 @@ ago", card "open 20 days"). Counts and dates go in `why` or `evidence`.
   the receiving session to **verify every item before acting**.
 - The sub-day's "QUESTIONS FOR THE FOUNDER" become findings with a question; standing-fault age
   comes from the first run that saw the fingerprint, not from the agent's reading.
+
+- **Decisions persist across runs.** The next pass reads `decisions.jsonl` and does not re-ask a
+  parked fingerprint (the 2026-10-02 "maybe future day should know about it?" complaint). This is
+  why the fault-key fingerprint above is required.
+- **Weekly and monthly reviews feed the same report.** The cp monthly review's interactive "apply
+  all / some / skip" becomes one issue per proposal, the review is marked done, and Start fixing
+  applies what was picked. The pp weekly review runs from `/day` when overdue (today it is only
+  listed). Their outputs land per the weekly/monthly map: actions → issues, counts → Stats,
+  health checks → Monitoring, pattern interrupts and programme-health verdict → Reflection.
+- **Reflection statements are written by an Opus agent** spawned by `/day` for that step.
+- **Start fixing opens a terminal tab.** The board server, on the founder's click only, opens a new
+  tab in the founder's terminal and starts a Claude session with the assembled prompt. Whether the
+  terminal app accepts a scripted new tab is unverified; a new window is the fallback, copy the
+  last resort.
+- **New data, separate spec:** Codex quota, the outreach funnel (reach-outs → pilot event held)
+  and the event-attendance / subscribed-after-event events are not collected by `/day` today. The
+  page labels them "not collected yet" until that spec lands.
+
+### 6. Delivery: one spec, three phases, one orchestrator (founder, 2026-10-04)
+
+> "just important that it's given as one to an orchestrator agent ... and it will instrument
+> building, reviewing etc of all."
+
+One orchestrator runs the phases in order. Each phase ends with its own tests, a hostile review
+and a visual QA (for UI), and its ACs ticked with evidence, before the next phase starts.
+
+- **Phase A: the page.** Report schema v2, the decision model, the Daily report (Status + Issues +
+  Start fixing as copy-only), the day switcher, the four tabs with Stats / Monitoring / Reflection
+  showing what the report carries and "not collected yet" otherwise. Fed by a hand-made v2 report of
+  a real run. Replaces the rejected UI on this branch.
+- **Phase B: `/day` writes the report** (§5): per-check status lines, fault-key fingerprints, report
+  written at start and end, decisions respected on the next pass, weekly/monthly reviews folded in,
+  Opus-written reflection statements.
+- **Phase C: the data and the launch:** Stats / Monitoring data /day does not collect yet (Codex
+  quota, outreach funnel, event attendance and newsletter events, per-key budgets), and Start
+  fixing opening a terminal session under the contract below.
+
+### 7. Rules from the spec reviews (Opus + Codex, 2 of 2 reported, 2026-10-04; verified in code)
+
+1. **"Fixed" lasts until the fault recurs.** A done/dismiss decision resolves a fingerprint only for
+   runs up to the one it was made on; if a later run reports the same fingerprint as a problem, it
+   is an issue again, marked "came back". (Codex repro: `buildView` resolves on any old `done`.)
+2. **A dead or running pass is shown, not skipped.** Schema v2 accepts `state: running`; the latest
+   run by `started_at` is shown even if incomplete, with the warning line. An unreadable newest file
+   shows as "latest run unreadable", never silently yields to yesterday's.
+3. **Tolerant reading.** Unknown check statuses render "Not proven"; unknown fields are ignored; a
+   newer schema renders as plain text; malformed rows are dropped with a visible "N rows unreadable"
+   note instead of crashing the page.
+4. **Decisions carry a run id and a kind.** `kind ∈ option | reflection | budget | connection`,
+   with a target id per kind (fingerprint, statement id, budget id, connection id), `run_id`, and
+   payload (`option_id`, optional `text`, `is_question`; `position` ±1/±2/0 and optional `story`
+   up to 2000 chars; budget `amount` + `scope`; connection `step`). The server accepts a decision
+   only for targets in the run named by `run_id`, and only if that run is the latest. Latest line
+   per (kind, target) wins; an explicit `remove` undoes.
+5. **Paging records nothing.** Next/Previous never write. Decisions are written when the founder
+   picks an option, rates, adds a story, sets a budget or presses Fix; preselected recommendations
+   are written in one batch only on Start fixing / copy.
+6. **"Fix" on a connection** records the fix step for the prompt and may open a documented sign-in
+   link; it never marks the check as worked. Only the next run can.
+7. **Ordering is one rule:** urgent = a deadline within 72h or a check that did not run / not proven;
+   important = set by the check's own severity, not the agent's mood. Sort: urgent+important,
+   urgent, important, rest; then deadline, first seen, title.
+8. **Two confidences, two names:** `recommendation_confidence` (0–100, shown as the %) and
+   `evidence` = verified / unverified (drives the verify-first prompt). Both kept.
+9. **Start fixing launch contract (Phase C):** the server builds the prompt from the latest run plus
+   the decisions file; the request body carries no prompt text; JSON content type and the board's
+   Origin are required; a fixed command runs via execFile with no shell, prompt passed by temp file;
+   at most one launch per minute; each launch writes a `sent` line so the same collection is not
+   sent twice. Phase A ships copy-only.
+10. **Design system reuse** without importing product code: the page reproduces the ClarityPledge
+    tokens and the point card's look in the board; the board bundle must not import Supabase or
+    product auth code.
 
 ## Invariants
 
@@ -274,49 +423,78 @@ ago", card "open 20 days"). Counts and dates go in `why` or `evidence`.
 
 **Non-Goals**
 - Do NOT show the Day page on the cp board.
-- Do NOT restyle the board or change other pages.
-- Do NOT let the board fix anything, run checks, or trigger `/day`. It shows and records decisions.
+- Do NOT restyle the board or change other pages (a board-wide move to the ClarityPledge design
+  system is a separate task; only the Day page uses it here).
+- Do NOT let the board run checks or trigger `/day`. It shows, records decisions, and (on the
+  founder's click only) opens one terminal session with the assembled prompt.
 - Do NOT change what `/day` checks in this spec. Only how results are recorded, kept and shown.
 - Do NOT publish any report to a hosted page.
 
 ## Acceptance Criteria
 
-**Phase 1: board page**
-- [ ] On the personal board, a "Day" page shows the 2026-10-04 run: header, Readings, Done ✓, and
-      the three groups, each item with its area tag, plain-words consequence, deadline or age.
-- [ ] The cp board shows no Day page (verified by loading it).
-- [ ] "Copy prompt" puts one prompt on the clipboard covering every "Give to an agent" item, and it
-      starts with the verify-first instruction.
-- [ ] Park / snooze / done / answer on a card moves it at once and appends one line to the
-      decisions file. Reloading the page keeps the result.
-- [ ] Expanding an item shows its evidence. Opening "all checks" lists every check with its status.
-- [ ] An earlier run can be opened from the history list and reads as read-only.
-- [ ] Known-bad control: a fixture with a check whose status is not-run, unproven or problem and
-      **no item pointing at it** shows a synthesised card under "Give to an agent", and the Checks
-      reading does not count it as clean. The grouping is computed by the board from the check
-      status, so the control can fail (shown by breaking the rule and watching the test go red).
-- [ ] "Not a problem" resolves an item as a false alarm, distinct from "Fixed".
-- [ ] A newest run older than 24h shows a warning.
-- [ ] The API answers on loopback only (`lsof` evidence), and no report text reaches the server log
-      (a secret marker in the fixtures is asserted absent from captured logs).
-- [ ] Missing day-data directory → the page says so plainly. An empty reports directory → "no runs
-      recorded yet". Neither shows an empty-but-normal page.
-- [ ] Screenshots at 1440, 720, and 375/320 (sidebar collapsed) pass the visual QA checklist,
-      reviewed by a separate subagent given only screenshots and the checklist. Screenshots use a
-      synthetic copy of the run, never the real one.
-- [ ] At 1440×900, "Needs your answer" is visible without scrolling.
+**Phase A: board page (redesigned 2026-10-04; each control's expected effect is listed in the
+control list in the private design folder, and tested against it)**
+- [ ] The personal board's sidebar has a Day entry; the cp board has none (verified by loading it).
+- [ ] Tabs Daily report · Stats · Monitoring · Reflection share one header with the day switcher
+      directly below; no tab repeats its own name as a heading.
+- [ ] Status lists **every** check of the run with the run's own status word; a fixture check with
+      an unknown status renders "Not proven". Connections show one Fix button each; when all are
+      fixed the panel collapses to one line and reopens on click.
+- [ ] Known-bad control: a check with status problem / not-run / unproven and **no finding**
+      appears as an issue and is never counted as worked. Breaking the rule turns the test red.
+- [ ] Issues show one at a time in the order urgent+important, urgent, important, rest; each card
+      shows Point A / Obstacle / Point B, the recommended option preselected with its confidence,
+      and "Ask a question…" / "Other…" open a text box.
+- [ ] Previous / Next (and ← →) move between cards; their position does not change when a card
+      expands (measured); the page has no inner scroll areas.
+- [ ] Choosing an option, a reflection position, a story, a budget change or a connection fix
+      appends one line to the decisions file; reloading keeps it. Earlier runs are read-only.
+- [ ] Start fixing (Phase A: copy) assembles one prompt that opens with the verify-first
+      instruction, puts the founder's questions first, and contains every collected decision.
+- [ ] Monitoring: Claude and Codex show remaining quota, projection and reset date; Google Cloud
+      shows budget, credits with their caveat, and one bar per key; Systems lists every non-money
+      check. "Raise monthly budget" joins Start fixing.
+- [ ] Stats: funnel and weekly lines; metrics not collected say "not collected yet", never 0.
+- [ ] Reflection uses the product's point card and position control; a story box opens after a
+      position is chosen.
+- [ ] A run with a weekly or monthly review shows its badge and its items inside Issues/Reflection.
+- [ ] A newest run older than 24h, or an incomplete run, shows the warning line.
+- [ ] Missing day-data directory → the page says so; empty reports directory → "no runs recorded
+      yet"; a report with an unknown schema falls back to plain text.
+- [ ] Privacy: API on loopback only (`lsof`); a secret marker in fixtures never reaches logs; no
+      report content in browser storage; screenshots use a synthetic run.
+- [ ] A fault marked fixed comes back as an issue ("came back") when a later run reports it again
+      (known-bad control: the current behaviour fails this test).
+- [ ] The newest run in state running/incomplete is shown as latest with the warning; an
+      unreadable newest file says so instead of showing yesterday's.
+- [ ] A report with an unknown status, an unknown field, a malformed row and a newer schema each
+      render (Not proven / ignored / "N rows unreadable" / plain text) without crashing.
+- [ ] A decision for a run that is not the latest, or a target not in that run, is refused (409).
+- [ ] Paging with Previous/Next writes nothing to the decisions file (file unchanged).
+- [ ] The board bundle imports no Supabase or product auth module.
+- [ ] Screenshots at 1440, 375 and 320 pass the visual QA checklist, reviewed by a separate
+      subagent given only screenshots and the checklist.
 
-**Phase 2: `/day` writes it**
+**Phase B: `/day` writes it**
+- [ ] The cp monthly review run inside `/day` asks nothing mid-run; its proposals appear as issues
+      and the review is marked done. The pp weekly runs from `/day` when overdue.
+- [ ] Reflection statements in a real run were written by an Opus agent (model shown in the run).
 - [ ] A real `/day` pass ends with the renderer's card as its final output, and the same run
       appears on the board without hand-editing.
-- [ ] An item the founder parked on the board does not appear under "Needs your answer" on the
-      next pass, **even when the check's title text changed**. It shows under "On hold" with the
-      reason.
+- [ ] An item the founder parked does not reappear as an issue on the next pass, **even when the
+      check's title text changed**. It shows under Parked with the reason.
 - [ ] Every check has its own status row in the ledger; a check failing inside a wave is a problem
       on the board.
 - [ ] A pass killed mid-run leaves a report marked incomplete, and the board shows it as latest.
 - [ ] A standing fault's age is computed from the first run that saw it, and matches the healer's
       own date within a day.
+
+**Phase C: data and launch**
+- [ ] Codex quota, per-key budgets and the outreach funnel appear with real values from a run;
+      until then each says "not collected yet".
+- [ ] Start fixing opens a terminal session with the server-built prompt; a cross-origin POST, a
+      text/plain POST and a POST carrying prompt text are each refused and spawn nothing (tested).
+- [ ] A second Start fixing within a minute, or for an already-sent collection, does not launch.
 
 ## Alternatives Considered
 
