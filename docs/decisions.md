@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-04 [product]: Home shows events and groups at every width; champions are tested by hand before any build (P1401–P1407, P1400)
+
+**Context:** After P1392, phones showed no events or groups, the featured story changed shape when opened, and the founder wanted to know whether members would act as "clarity champions" at other Chiang Mai events.
+**Decision:** (1) Next events (the canonical EventCard; a swipe row on phones) and the groups (initials tiles) show at every width. Only events from our own groups are shown, and only ones that have not started yet. (2) The featured story is for signed-out visitors only. It is one blue box: closed, it shows the photo, title and video thumbnail, and play opens it and starts the video. Open, it wraps the story card, with a chevron and no "Hide" text. (3) Loading reserves space for the tags, the featured bar and the groups, so the page does not jump. (4) The home events and groups read through the offline cache. The "not started yet" filter runs at render, so a saved copy never shows a past event. (5) Champions are tested on paper through the facilitator checklist (ask who goes where, and who would introduce newcomers). Nothing is built (P1400 stays a placeholder).
+**Alternatives rejected:** A Chiang Mai calendar link on the home page: it reads as a city listings site to online visitors. Building champion profiles now: demand is unproven. Showing the featured story to members: they have already seen it.
+**Consequences:** P1400 gets built only if members say yes and at least one stranger connects through a champion. The home page still has no independent review for P1404–P1407 (self-checked in the browser only).
+**References:** P1401, P1404, P1405, P1406, P1407, P1400 · docs/events/facilitator-checklist.md
+
+---
+
 ## 2026-10-04 [product]: A terms update says what changed, and blocks only when it needs fresh consent (P1398)
 
 **Context:** The founder registered for an event and immediately got a blocking "Updated Terms" popup with
