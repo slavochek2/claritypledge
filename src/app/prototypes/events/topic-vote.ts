@@ -11,8 +11,8 @@ export const TOPIC_VOTE_SERIES = 'clarity-night';
 
 export function showsTopicVote(
   event: Pick<Event, 'seriesSlug' | 'statementTag' | 'status'> | null | undefined,
-  isPast: boolean,
+  ended: boolean,
 ): boolean {
-  if (!event || isPast || event.status === 'cancelled') return false;
+  if (!event || ended || event.status === 'cancelled') return false;
   return event.seriesSlug === TOPIC_VOTE_SERIES && !event.statementTag?.trim();
 }

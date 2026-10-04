@@ -535,6 +535,9 @@ export function EventDetail() {
     // 'dismissed' → user cancelled, no-op
   };
 
+  // P1414: hasEnded, not isPast — once the night is over, "help pick the topic" is wrong.
+  const voteShown = showsTopicVote(event, hasEnded);
+
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
@@ -1036,7 +1039,7 @@ export function EventDetail() {
               {/* P1414: the next Clarity Night is published before its topic is chosen. With no topic
                   to read, the vote is the thing to do here — the live /topics page, embedded. It
                   renders nothing until topics load, and nothing at all if there are none. */}
-              {showsTopicVote(event, isPast) && (
+              {voteShown && (
                 <TopicsPage embedded returnTo={`/events/${event.slug}`} className="mb-6 border-t border-border pt-4" />
               )}
 
@@ -1059,7 +1062,8 @@ export function EventDetail() {
                 isRsvpd,
                 isPast,
                 isFull,
-                descriptionTallerThanViewport,
+                // P1414: the vote list pushes the page end far below the top Register button.
+                descriptionTallerThanViewport: descriptionTallerThanViewport || voteShown,
               }) && (
                 <div className="hidden lg:block mb-6" data-testid="rsvp-repeat">
                   {renderRsvpButton('card_bottom')}

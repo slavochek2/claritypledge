@@ -3,7 +3,7 @@
  * EventDetail harness copied from p1365-rsvp-repeat-render.test.tsx; the topic data
  * layer is mocked the same way p1347-topics-page.test.tsx mocks it.
  */
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent, cleanup as cleanupAll } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React from 'react';
@@ -179,7 +179,7 @@ describe('P1414 event page', () => {
   it('a Clarity Night with no topic shows the vote, and a signed-in visitor rates without leaving', async () => {
     renderEvent(makeEvent({ ...NIGHT }));
     const embed = await screen.findByTestId('topic-vote-embed');
-    expect(within(embed).getByRole('heading', { level: 2 })).toHaveTextContent('The topic is still open');
+    expect(within(embed).getByRole('heading', { level: 2 })).toHaveTextContent('Help pick the topic');
     expect(within(embed).getAllByTestId('topic-row')).toHaveLength(2);
     fireEvent.click(within(within(embed).getAllByTestId('topic-row')[0]).getByRole('radio', { name: '4 stars' }));
     // The same call /topics makes — so the same stored vote.
@@ -206,7 +206,17 @@ describe('P1414 event page', () => {
     await screen.findByRole('heading', { level: 1 });
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByTestId('topic-vote-embed')).toBeNull();
-    expect(screen.queryByText('The topic is still open')).toBeNull();
+    expect(screen.queryByText('Help pick the topic')).toBeNull();
+  });
+
+  it('an ended night (inside the 12h RSVP grace) shows no vote', () => {
+    expect(showsTopicVote({ seriesSlug: 'clarity-night', statementTag: undefined, status: 'upcoming' }, true)).toBe(false);
+  });
+
+  it('desktop: the quiet Register repeat appears after the vote even with a short description', async () => {
+    renderEvent(makeEvent({ ...NIGHT }));
+    await screen.findByTestId('topic-vote-embed');
+    expect(screen.getByTestId('rsvp-repeat')).toBeInTheDocument();
   });
 
   it('the vote adds no full-width primary: Add a topic is an outline button', async () => {
@@ -251,11 +261,29 @@ describe('P1414 embedded topics page', () => {
     expect(rateTopic).not.toHaveBeenCalled();
   });
 
-  it('more than 8 topics: "Show more" sits in the section, not in a pinned bar', async () => {
+  it('starts with 5 topics and no sort; "Show all" sits in the section, not in a pinned bar', async () => {
     topicsDb.rows = Array.from({ length: 11 }, (_, i) => topic(`t${i}`, `Topic ${i}`));
     renderEmbed();
-    expect(await screen.findAllByTestId('topic-row')).toHaveLength(8);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
+    expect(await screen.findAllByTestId('topic-row')).toHaveLength(5);
+    expect(screen.queryByRole('combobox', { name: 'Sort by' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 11 topics' }));
     expect(screen.getAllByTestId('topic-row')).toHaveLength(11);
+  });
+
+  it('stars tapped signed out survive a new tab (the email sign-in link), and expire after a day', async () => {
+    signedOut();
+    localStorage.clear();
+    const { unmount } = renderEmbed();
+    fireEvent.click(within((await screen.findAllByTestId('topic-row'))[0]).getByRole('radio', { name: '3 stars' }));
+    unmount();
+    sessionStorage.clear(); // a new tab starts with empty sessionStorage
+    renderEmbed();
+    expect(within((await screen.findAllByTestId('topic-row'))[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'true');
+    const stored = JSON.parse(localStorage.getItem('p1347-guest-ratings')!);
+    localStorage.setItem('p1347-guest-ratings', JSON.stringify({ ...stored, at: Date.now() - 25 * 60 * 60 * 1000 }));
+    cleanupAll();
+    renderEmbed();
+    expect(within((await screen.findAllByTestId('topic-row'))[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'false');
+    localStorage.clear();
   });
 });

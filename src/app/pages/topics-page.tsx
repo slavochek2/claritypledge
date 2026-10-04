@@ -39,25 +39,35 @@ import { cn } from '@/lib/utils';
 const STARS = [1, 2, 3, 4, 5] as const;
 /** Attendee topics, then the host's in backlog order: the first this many are shown. */
 const TOP_COUNT = 8;
+/** P1414: on an event page the list is a section, not the page — start shorter. */
+const EMBED_TOP_COUNT = 5;
 /** Title, then one line: stars · average · faces. Phones put that line under the title. */
 const ROW_GRID = 'grid grid-cols-1 gap-y-0.5 sm:grid-cols-[minmax(0,1fr)_30rem] sm:items-center sm:gap-x-6';
 /** P1414: embedded in a ~600px card column there is no room for the 30rem stars column — keep the phone layout at every width. */
 const ROW_STACKED = 'grid grid-cols-1 gap-y-0.5';
 const signInHref = (back: string) => `/login?redirect=${encodeURIComponent(back)}`;
 const signUpHref = (back: string) => `/signup?redirect=${encodeURIComponent(back)}`;
-/** Stars a signed-out visitor tapped, kept until they sign in, then saved. */
+/**
+ * Stars a signed-out visitor tapped, kept until they sign in, then saved.
+ * P1414: localStorage, not sessionStorage — the email sign-in link can open in a new tab, which
+ * has its own sessionStorage, and the stars were lost. Kept a day, so a shared device does not
+ * hand one visitor's stars to whoever signs in next week.
+ */
 const GUEST_STORE = 'p1347-guest-ratings';
+const GUEST_TTL_MS = 24 * 60 * 60 * 1000;
 function readGuest(): Record<string, number> {
   try {
-    return JSON.parse(sessionStorage.getItem(GUEST_STORE) ?? '{}') as Record<string, number>;
+    const raw = JSON.parse(localStorage.getItem(GUEST_STORE) ?? '{}') as { at?: number; r?: Record<string, number> };
+    if (!raw.at || !raw.r || Date.now() - raw.at > GUEST_TTL_MS) return {};
+    return raw.r;
   } catch {
     return {};
   }
 }
 function writeGuest(v: Record<string, number>) {
   try {
-    if (Object.keys(v).length) sessionStorage.setItem(GUEST_STORE, JSON.stringify(v));
-    else sessionStorage.removeItem(GUEST_STORE);
+    if (Object.keys(v).length) localStorage.setItem(GUEST_STORE, JSON.stringify({ at: Date.now(), r: v }));
+    else localStorage.removeItem(GUEST_STORE);
   } catch {
     /* storage blocked: the stars still show for this visit */
   }
@@ -74,7 +84,7 @@ type TopicsPageProps = {
    * page heading, no pinned bar, and nothing at all until there are topics to rate.
    */
   embedded?: boolean;
-  /** Where sign-in and sign-up return to. Same tab on purpose: stars tapped signed out live in sessionStorage, which a new tab does not share. */
+  /** Where sign-in and sign-up return to — the event page when embedded, so the visitor lands back where they rated. */
   returnTo?: string;
   /** Embedded only: the host page's spacing, applied to the section so an absent section leaves no divider. */
   className?: string;
@@ -88,7 +98,8 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
   // Taps not yet confirmed by the server, laid OVER fetched data: a refetch that left
   // before a later tap can never wipe that tap, and a failed save rolls back.
   // A short list first (8 more per tap), so nobody thinks they must rate everything.
-  const [shown, setShown] = useState(TOP_COUNT);
+  const step = embedded ? EMBED_TOP_COUNT : TOP_COUNT;
+  const [shown, setShown] = useState(step);
   const [pending, setPending] = useState<Record<string, number | null>>(() => readGuest());
   // Sorting is the viewer's choice and is applied once per choice, so rows never move under a tap.
   const [sortBy, setSortBy] = useState<SortBy>('suggested');
@@ -205,9 +216,9 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
 
       {embedded ? (
         <header className="mb-3">
-          <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">The topic is still open</h2>
+          <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">Help pick the topic</h2>
           <p className="mt-1 text-base text-muted-foreground">
-            Rate the ones you would like to talk about. You'll see how others rated after you rate.
+            Rate the topics you'd enjoy talking about. Your ratings help the host choose. You'll see how others rated after you rate.
           </p>
         </header>
       ) : (
@@ -223,7 +234,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
       </header>
       )}
 
-      {state.kind === 'ready' && !authLoading && (
+      {state.kind === 'ready' && !authLoading && !embedded && (
         <>
           {/* List settings, right above the table: sort left, anonymous right. */}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -242,7 +253,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
               <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground" />
             </label>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <AddYourOwn onAdded={load} returnTo={returnTo} quiet={embedded} />
+            <AddYourOwn onAdded={load} returnTo={returnTo} quiet={false} />
             </div>
           </div>
         </>
@@ -300,16 +311,15 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
             </label>
           )}
           {embedded ? (
-            topics.length > shown && (
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown((n) => n + TOP_COUNT)}>
-                  Show {Math.min(TOP_COUNT, topics.length - shown)} more
+            // Embedded: no sort (a short list in one order), and adding a topic comes after the easy thing.
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              {topics.length > shown && (
+                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown(topics.length)}>
+                  Show all {topics.length} topics
                 </Button>
-                <span className="text-sm text-muted-foreground" data-testid="topic-count">
-                  Showing {Math.min(shown, topics.length)} of {topics.length}
-                </span>
-              </div>
-            )
+              )}
+              <AddYourOwn onAdded={load} returnTo={returnTo} quiet />
+            </div>
           ) : (<>
           {/* Pinned bar (no bottom menu on this page): more topics, and a way back. */}
           <div className="h-40" aria-hidden />
@@ -318,8 +328,8 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
               Showing {Math.min(shown, topics.length)} of {topics.length} topics
             </p>
             {topics.length > shown && (
-              <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setShown((n) => n + TOP_COUNT)}>
-                Show {Math.min(TOP_COUNT, topics.length - shown)} more
+              <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setShown((n) => n + step)}>
+                Show {Math.min(step, topics.length - shown)} more
               </Button>
             )}
             {/* Same Back as every other focus page. */}

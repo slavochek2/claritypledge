@@ -127,7 +127,7 @@ describe('P1347 /topics', () => {
     expect(within(rows[0]).getByTestId('guest-save')).toHaveTextContent('Sign up or log in to save your rating');
     expect(mod.rateTopic).not.toHaveBeenCalled();
     expect(within(rows[0]).queryByTestId('topic-average')).toBeNull();
-    sessionStorage.clear();
+    localStorage.clear();
   });
 
   it('rows keep their place while you vote (no jumping under the finger)', async () => {
@@ -164,10 +164,11 @@ describe('P1347 /topics', () => {
     const mod = await import('@/app/data/topic-voting');
     vi.mocked(mod.rateTopic).mockClear();
     db.rows[0] = { ...db.rows[0], myRating: 2, myIsPublic: false, ratingAvg: 2, ratingCount: 1, voters: [] };
-    sessionStorage.setItem('p1347-guest-ratings', JSON.stringify({ b: 5 }));
+    // P1414: localStorage with a timestamp (kept a day), so the email sign-in link's new tab finds them.
+    localStorage.setItem('p1347-guest-ratings', JSON.stringify({ at: Date.now(), r: { b: 5 } }));
     renderPage();
     await waitFor(() => expect(mod.rateTopic).toHaveBeenCalledWith('b', 5, false));
-    await waitFor(() => expect(sessionStorage.getItem('p1347-guest-ratings')).toBeNull());
+    await waitFor(() => expect(localStorage.getItem('p1347-guest-ratings')).toBeNull());
   });
 
   it('a failed vote rolls the stars back and says so', async () => {
