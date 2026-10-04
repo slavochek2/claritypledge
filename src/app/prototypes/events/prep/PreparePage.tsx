@@ -491,6 +491,7 @@ function PrepareFlow({
                 firstUnansweredId={firstUnansweredOf(screen)}
                 onContinue={() => go(after(screen))}
                 onSkip={() => go(after(screen))}
+                onRecheck={reloadPoints}
               />
             </section>
           )}

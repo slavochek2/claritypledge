@@ -156,7 +156,10 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
   firstUnansweredId: string | null;
   onContinue: () => void;
   onSkip: () => void;
-}>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip }, ref) {
+  /** A dimmed Continue tap re-reads the answers: the last position write may have landed after
+   *  the list's own re-reads, so "not all answered" could be stale. */
+  onRecheck?: () => void;
+}>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip, onRecheck }, ref) {
   const [answerHint, setAnswerHint] = useState(false);
   const allSet = loaded && count.answered >= count.total;
   return (
@@ -186,6 +189,7 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
           label="Continue"
           onClick={() => {
             if (allSet) return onContinue();
+            onRecheck?.();
             setAnswerHint(true);
             // P1391: bring the first unanswered point into view with the hint, so the person
             // sees where to answer (on a phone the list is 4-5 screens long).

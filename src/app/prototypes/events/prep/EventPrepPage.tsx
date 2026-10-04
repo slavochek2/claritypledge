@@ -463,6 +463,7 @@ function PrepFlow({
       firstUnansweredId={firstUnansweredId}
       onContinue={() => next('completed')}
       onSkip={() => next('skipped')}
+      onRecheck={state.reloadPoints}
     />
   );
 

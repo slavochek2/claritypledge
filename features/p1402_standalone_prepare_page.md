@@ -65,7 +65,7 @@ Decision density: a few founder calls (route name, copy, end-screen order); scop
 4. **Opener: keep it simple.** No event welcome video, since its script speaks about "the
    discussion we will have today". One short "why" line leads into the story. A pick-your-why
    opener (personal or professional relationships → short scenario clips from the manifesto,
-   `src/app/content/full-article.md` §II) is a **follow-up spec**, not this one.
+   `src/app/content/full-article.md` §II) is a **follow-up spec** (P1410), not this one.
 5. **One recording of the understanding story:** our own clip, not YouTube. st1 and the prep
    story step both play `cognitive-understanding` from GCS, and completing it in either place
    marks the `cognitive_video` part.
@@ -171,7 +171,7 @@ existing prep components; this spec does not create a second implementation.
 | Two routes drift (event prep vs `/prepare`) | MITIGATE | Shared step components and one `prep-plan` source; no fork |
 
 **Non-Goals**
-- Do NOT build the pick-your-why or scenario opener (follow-up spec).
+- Do NOT build the pick-your-why or scenario opener (follow-up spec P1410).
 - Do NOT build the "become a clarity host" path, beyond a link on the end screen if the founder wants one.
 - Do NOT change event preparation's hiding behaviour or its step order.
 - Do NOT add a new table, and do NOT fork `person_prep_parts`.
