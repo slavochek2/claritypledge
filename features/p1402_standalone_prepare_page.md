@@ -70,6 +70,29 @@ Decision density: a few founder calls (route name, copy, end-screen order); scop
    story step both play `cognitive-understanding` from GCS, and completing it in either place
    marks the `cognitive_video` part.
 
+## Founder UAT round 1 (2026-10-04)
+
+> *"This is just learn more about clarity process or something … I think this is connected to the
+> one onboarding generally. Just like general onboarding for somebody who is not logged in."*
+
+Applied:
+- Framing: general onboarding for someone not logged in, not "prepare for a Clarity Night". Title
+  "Learn about the Clarity process" [FOUNDER DECISION: final copy]; principle step "Learn about the
+  Clarity Meeting Principle".
+- No "Sign in to keep your progress" line on the first screen; the main button reads "Start here".
+- Principle question: "Would you follow this principle in your important conversations?"
+- After the answer, the event preparation's follow-up is kept as designed: opt in → "Try it now" →
+  0-10; opt out → "can I ask you one question?" → 0-10 or "No, continue". Back changes the answer.
+  The asker is the founder (the clips are his voice). Nothing is recorded (no event).
+- cmp7 uses the event preparation's statements bar: "0 of 7 answered", Continue dimmed until all
+  are answered, "Skip and proceed".
+- New step 4 after cmp7: the misunderstanding diagnosis (the `misunderstanding` statements, as on
+  `/stake/misunderstanding`).
+
+Open (founder): a letter recommendation from the diagnosis (no mapping exists in code), and a
+comparison step (P1337's `/compare/:person`, built, unshipped, at `qa`). Related backlog: P1025
+(self-serve onboarding), P1003 (3-minute audit → report).
+
 ## Solution
 
 A `/prepare` route, a sibling of `/meet` and `/ready`: no sign-in wall, event-free.

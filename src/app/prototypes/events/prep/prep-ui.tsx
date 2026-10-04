@@ -9,6 +9,8 @@ import { FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
+import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
+import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { CLIP_PLAY_LABELS, CLIP_POSTER_ALT, clipUrl, TRANSCRIPTS } from './prep-content';
 import { PLAYBACK_RATE, watchSeconds, type ClipKey } from './prep-plan';
 // ─── small pieces ──────────────────────────────────────────────────────────────────────
@@ -140,3 +142,68 @@ export function Clip({ clip, pulse = false, onPlay, playRequest = 0 }: { clip: C
     </div>
   );
 }
+
+export interface StatementsCount { answered: number; total: number }
+
+const answerHintText = (total: number) => `Set your position on all ${total} points to continue.`;
+
+/**
+ * A statements step's pinned actions (moved from EventPrepPage, P1402): "N of M answered", Continue
+ * dimmed until every point is answered, Skip as a small link. A fresh instance per step, so the
+ * hint never carries over from the previous step.
+ */
+export const StatementsActions = forwardRef<HTMLDivElement, {
+  count: StatementsCount;
+  loaded: boolean;
+  firstUnansweredId: string | null;
+  onContinue: () => void;
+  onSkip: () => void;
+}>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip }, ref) {
+  const [answerHint, setAnswerHint] = useState(false);
+  const allSet = loaded && count.answered >= count.total;
+  return (
+    <StepActions ref={ref}>
+      {loaded && (
+        <div
+          key={count.answered}
+          className={cn('mb-3 w-full max-w-sm', count.answered > 0 && 'animate-in zoom-in-95 duration-300')}
+          aria-live="polite"
+          data-testid="answered-count"
+        >
+          <LetterProgressBar
+            currentChapter={0}
+            totalChapters={1}
+            stepCount={Math.max(count.total, 1)}
+            committedSteps={count.answered}
+            label={`${count.answered} of ${count.total} answered`}
+            tone="subtle"
+          />
+        </div>
+      )}
+      {/* Founder (2026-10-02): Continue is the main action, dimmed until every point is answered —
+          a tap (phone) or hover (desktop) says what is missing — with Skip as a small link under
+          it, so more people answer. Not `disabled`: a disabled button cannot explain itself. */}
+      <div className="w-full max-w-sm" title={allSet ? undefined : answerHintText(count.total)}>
+        <LetterPrimaryCta
+          label="Continue"
+          onClick={() => {
+            if (allSet) return onContinue();
+            setAnswerHint(true);
+            // P1391: bring the first unanswered point into view with the hint, so the person
+            // sees where to answer (on a phone the list is 4-5 screens long).
+            if (firstUnansweredId) {
+              document.querySelector(`[data-point-id="${firstUnansweredId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+          }}
+          className={allSet ? undefined : 'opacity-50 hover:bg-blue-600'}
+        />
+      </div>
+      {!allSet && answerHint && (
+        <p role="status" className="pt-1 text-center text-sm text-foreground" data-testid="answer-hint">
+          {answerHintText(count.total)}
+        </p>
+      )}
+      {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={onSkip} variant="secondary" />}
+    </StepActions>
+  );
+});

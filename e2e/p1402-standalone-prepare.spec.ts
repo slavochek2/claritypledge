@@ -42,19 +42,35 @@ test.describe('P1402 standalone /prepare', () => {
 
     await expect(page).toHaveURL(/\/prepare$/);
     await expect(page.getByTestId('prepare-why')).toBeVisible();
-    await expect(page.getByTestId('agenda').locator('li')).toHaveCount(3);
-    await expect(page.getByTestId('prepare-sign-in')).toBeVisible();
+    await expect(page.getByTestId('agenda').locator('li')).toHaveCount(4);
+    // Founder UAT 2026-10-04: no sign-in prompt on the first screen.
+    await expect(page.getByText(/sign in/i)).toHaveCount(0);
     // A focus route: no BottomNav, no site nav.
     await expect(page.getByRole('navigation')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Start now' }).click();
-    await expect(page.getByText('Step 1 of 3')).toBeVisible();
+    await page.getByRole('button', { name: 'Start here' }).click();
+    await expect(page.getByText('Step 1 of 4')).toBeVisible();
     await page.getByRole('button', { name: 'Continue without video' }).click();
     await page.getByRole('button', { name: 'Continue without video' }).click();
+    await expect(page.getByTestId('principle-decision-question')).toHaveText('Would you follow this principle in your important conversations?');
+    // Opt out → "can I ask you one question?" → Back → change to opt in → Try it now → 0-10.
+    await page.getByRole('button', { name: 'Opt out' }).click();
+    await expect(page.getByTestId('opt-out-ask')).toBeVisible();
+    await page.getByTestId('header-back').click();
     await page.getByRole('button', { name: 'Opt in' }).click();
-    await expect(page.getByText('Step 3 of 3')).toBeVisible();
+    await expect(page.getByTestId('try-it-now')).toBeVisible();
+    await page.getByRole('button', { name: 'Try it now' }).click();
+    await expect(page.getByTestId('rating-asker')).toBeVisible();
+    await page.getByRole('button', { name: 'Rate 8' }).click();
+    await page.getByRole('button', { name: 'Confirm' }).click();
+
+    await expect(page.getByText('Step 3 of 4')).toBeVisible();
     await expect(page.locator('[data-point-id]').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByTestId('answered-count')).toContainText('0 of 7 answered');
+    await page.getByRole('button', { name: 'Skip and proceed' }).click();
+    await expect(page.getByText('Step 4 of 4')).toBeVisible();
+    await expect(page.locator('[data-point-id]').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Skip and proceed' }).click();
     await expect(page.getByTestId('prepare-end')).toBeVisible();
     await expect(page.getByRole('button', { name: 'See upcoming events' })).toBeVisible();
     // Skipping the videos completed nothing.
@@ -75,10 +91,10 @@ test.describe('P1402 standalone /prepare', () => {
 
     // Signed out: watch the story on /prepare.
     await page.goto('/prepare');
-    await page.getByRole('button', { name: 'Start now' }).click();
+    await page.getByRole('button', { name: 'Start here' }).click();
     await page.getByRole('button', { name: 'Play the video' }).click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page.getByText('Step 2 of 3')).toBeVisible();
+    await expect(page.getByText('Step 2 of 4')).toBeVisible();
     const local = await page.evaluate(() => JSON.parse(localStorage.getItem('cp-prep-parts') ?? '{}'));
     expect(Object.keys(local)).toEqual(['cognitive_video']);
 
@@ -114,10 +130,9 @@ test.describe('P1402 standalone /prepare', () => {
     await setTestSession(page, u.email);
     await page.goto('/prepare');
 
-    await expect(page.getByTestId('agenda').locator('li')).toHaveCount(3);
+    await expect(page.getByTestId('agenda').locator('li')).toHaveCount(4);
     await expect(page.getByTestId('agenda-step-story')).toHaveAttribute('data-done', 'true');
     await expect(page.getByTestId('agenda-step-principle')).toHaveAttribute('data-done', 'true');
-    await expect(page.getByTestId('prepare-sign-in')).toHaveCount(0);
     await page.getByTestId('agenda-step-story').getByRole('button').click();
     await expect(page.getByTestId('clip-story')).toBeVisible();
   });

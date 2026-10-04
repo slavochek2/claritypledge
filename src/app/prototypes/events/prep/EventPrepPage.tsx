@@ -49,7 +49,7 @@ import {
   type PlanStep,
 } from './prep-plan';
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
-import { ActionRow, Clip, StepActions, Title, useIsDesktop, useMeasuredHeight } from './prep-ui';
+import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useIsDesktop, useMeasuredHeight } from './prep-ui';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
 
 // ─── page: access + data ───────────────────────────────────────────────────────────────
@@ -101,10 +101,9 @@ export function EventPrepPage() {
   return <PrepFlow event={event} groupChatUrl={groupChatUrl} state={state} viewerId={user!.id} />;
 }
 
-const answerHintText = (total: number) => `Set your position on all ${total} points to continue.`;
 
 
-interface Count { answered: number; total: number }
+type Count = StatementsCount;
 
 /** The real StakePage for one tag, listing exactly the session's snapshot of cards. */
 function StakeStep({
@@ -219,9 +218,6 @@ function PrepFlow({
   const [principleRating, setPrincipleRating] = useState<number | null>(null);
   const [researchInfoOpen, setResearchInfoOpen] = useState(false);
   const [micAsked, setMicAsked] = useState(false);
-  // The dimmed Continue's hint, shown on tap; cleared on every new screen.
-  const [answerHint, setAnswerHint] = useState(false);
-  useEffect(() => setAnswerHint(false), [screen]);
   const [micSetup, setMicSetup] = useState<MicSetup | null>(prep?.micSetup ?? null);
   // P1386: second mic question ("what does your phone plug into?") is shown only after "No, I need one".
   const [micNeeded, setMicNeeded] = useState(false);
@@ -456,54 +452,16 @@ function PrepFlow({
   const topic = eventTopic(event.title);
   const stepIndex = screen !== 'plan' && screen !== 'end' ? plan.indexOf(screen) : -1;
 
-  const statementsBar = (count: Count, loaded: boolean, firstUnansweredId: string | null) => {
-    const allSet = loaded && count.answered >= count.total;
-    return (
-      <StepActions ref={barRef}>
-        {loaded && (
-          <div
-            key={count.answered}
-            className={cn('mb-3 w-full max-w-sm', count.answered > 0 && 'animate-in zoom-in-95 duration-300')}
-            aria-live="polite"
-            data-testid="answered-count"
-          >
-            <LetterProgressBar
-              currentChapter={0}
-              totalChapters={1}
-              stepCount={Math.max(count.total, 1)}
-              committedSteps={count.answered}
-              label={`${count.answered} of ${count.total} answered`}
-              tone="subtle"
-            />
-          </div>
-        )}
-        {/* Founder (2026-10-02): Continue is the main action, dimmed until every point is answered —
-            a tap (phone) or hover (desktop) says what is missing — with Skip as a small link under
-            it, so more people answer. Not `disabled`: a disabled button cannot explain itself. */}
-        <div className="w-full max-w-sm" title={allSet ? undefined : answerHintText(count.total)}>
-          <LetterPrimaryCta
-            label="Continue"
-            onClick={() => {
-              if (allSet) return next('completed');
-              setAnswerHint(true);
-              // P1391: bring the first unanswered point into view with the hint, so the person
-              // sees where to answer (on a phone the list is 4-5 screens long).
-              if (firstUnansweredId) {
-                document.querySelector(`[data-point-id="${firstUnansweredId}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-              }
-            }}
-            className={allSet ? undefined : 'opacity-50 hover:bg-blue-600'}
-          />
-        </div>
-        {!allSet && answerHint && (
-          <p role="status" className="pt-1 text-center text-sm text-foreground" data-testid="answer-hint">
-            {answerHintText(count.total)}
-          </p>
-        )}
-        {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={() => next('skipped')} variant="secondary" />}
-      </StepActions>
-    );
-  };
+  const statementsBar = (count: Count, loaded: boolean, firstUnansweredId: string | null) => (
+    <StatementsActions
+      ref={barRef}
+      count={count}
+      loaded={loaded}
+      firstUnansweredId={firstUnansweredId}
+      onContinue={() => next('completed')}
+      onSkip={() => next('skipped')}
+    />
+  );
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
     <StepActions ref={barRef}>
