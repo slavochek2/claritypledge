@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 116
+**Next ID:** 117
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1991,5 +1991,16 @@ After P1402 is pushed AND its migration 20261004150000 is on prod AND the new fr
 **due:** week
 
 e2e/p1179-links-menu.spec.ts, e2e/p1179-links-navigation.spec.ts, e2e/p1323-links-menu-surfaces.spec.ts: 7 failures, e.g. "Expected: 6, Received: 7" on getByTestId('event-links-entry'). Verified 2026-10-04 with a control: they fail identically without P1402's new Tools entry, so they predate it (likely when /topics and /cm joined Tools). Needs /reproduce → /fix; counts should derive from STANDARD_TOOL_ENTRIES, not be hand-kept (epistemic gate 7e).
+
+---
+
+## Rework goals.md into weekly measurable goals (P1399 goals review)
+
+**ID:** INBOX-116
+**Date:** 2026-10-04
+**Status:** proposed
+**due:** week
+
+The P1399 goals review found the Next Steps are one-off checkboxes with no pace, so they cannot be plotted, and the champion falsifier has no weekly rate. It proposes five weekly goals: champion talks, pilots held, follow-ups per pilot, events per week, and zero broken sessions; every target is a founder decision. Review text: .private/p1399-day-design/p1399-goals-review.md. Route the edit through /slava:maintain:docs-strategy-update. The Day page Stats tab reads these goals.
 
 ---
