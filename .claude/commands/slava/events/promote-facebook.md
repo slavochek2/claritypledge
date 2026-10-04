@@ -79,6 +79,17 @@ native event, not an external link (link posts are what moderation bots remove).
 inside a group (step 4) only when there is no personal Facebook event, or the group allows events
 only via its own Events tab.
 
+**The share path that works (verified 2026-10-04, three groups):** event page → share arrow
+(`Share this event`, next to Edit) or the `Share in a group` card → **Share to a group** → type ONE
+distinctive word in "Search for groups" (`Vibes`, `Farang`, `What` — full names and apostrophes
+return nothing) → wait ~4 s → click the group row → wait until the Create post dialog stops
+re-laying out → click the "Create a public post…" field (re-screenshot first: it moves) → type the
+blurb → **the founder clicks Post.** Facebook search pages (`/search/groups`, group search) hang the
+extension; navigate to the event page instead. The extension can also drop the whole tab group
+between steps — re-read `tabs_context_mcp` before every action and reopen the event page if the
+tab is gone. Join new groups by having the founder click Join; reading which groups he has joined
+works via `get_page_text` on the search results ("Visit" = member).
+
 ### 4. For each eligible group — fill the Create Event form
 
 Navigate to the group's Events tab → click **Create Event**.
