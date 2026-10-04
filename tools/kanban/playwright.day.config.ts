@@ -23,6 +23,8 @@ const env = (p: { api: number; web: number }, day: boolean): Record<string, stri
     KANBAN_PORT_API: String(p.api),
     KANBAN_PORT_FRONTEND: String(p.web),
     KANBAN_DISABLE_WORKTREES: 'true',
+    // Never open a real terminal from the suite: Start fixing takes its 502 → copy fallback.
+    KANBAN_DAY_LAUNCH: 'off',
   }
   delete e.KANBAN_DAY_DIR
   if (day) e.KANBAN_DAY_DIR = DAY_E2E_DIR

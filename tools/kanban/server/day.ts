@@ -18,6 +18,8 @@
 import type { Express, Request } from 'express'
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
+import { KANBAN_CONFIG } from '../config'
+import { collectionHash, dayClock, dayLauncher, launchWorkdir, writePromptFile } from './dayLaunch'
 import {
   buildPrompt,
   buildView,
@@ -152,6 +154,41 @@ function latestReadable(dir: string): { id: string; report: DayReport; history: 
 
 const isJson = (req: Request) => !!req.is('application/json')
 
+/** The board's own page, and nothing else, may start a terminal session (rule 9). */
+function fromBoard(req: Request): boolean {
+  const origin = req.get('origin')
+  const port = KANBAN_CONFIG.ports.frontend
+  return origin === `http://localhost:${port}` || origin === `http://127.0.0.1:${port}`
+}
+
+interface SentLine { run_id: string; target: string; at: string }
+
+/** Launch receipts in decisions.jsonl: the memory of what was already sent, across restarts. */
+function readSent(dir: string): SentLine[] {
+  let text = ''
+  try {
+    text = readFileSync(join(dir, 'decisions.jsonl'), 'utf-8')
+  } catch {
+    return []
+  }
+  const out: SentLine[] = []
+  for (const raw of text.split('\n')) {
+    if (!raw.includes('"sent"')) continue
+    try {
+      const o = JSON.parse(raw) as Partial<SentLine> & { kind?: string }
+      if (o.kind === 'sent' && typeof o.run_id === 'string' && typeof o.target === 'string' && typeof o.at === 'string') {
+        out.push({ run_id: o.run_id, target: o.target, at: o.at })
+      }
+    } catch {
+      // unreadable lines are counted by parseDecisions; nothing to do here
+    }
+  }
+  return out
+}
+
+const LAUNCH_EVERY_MS = 60_000
+let launching = false
+
 export function registerDayRoutes(app: Express, now: () => Date = () => new Date()) {
   app.get('/api/day', (_req, res) => {
     const dir = dayDir()
@@ -250,6 +287,60 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
     } catch {
       console.error('[kanban] POST /api/day/decisions failed')
       res.status(500).json({ error: 'Failed to record decisions' })
+    }
+  })
+
+  // Start fixing (Phase C, rule 9): open one Claude session in the founder's terminal with the
+  // prompt built HERE. The body names the run and nothing else; the page's own origin only; JSON
+  // only; at most one launch a minute; the same collection is never sent twice. Every refusal
+  // happens before anything is spawned.
+  app.post('/api/day/start', async (req, res) => {
+    const dir = dayDir()
+    if (!dir) return res.status(404).json({ error: 'Day page is not enabled' })
+    if (!fromBoard(req)) return res.status(403).json({ error: 'Only the Day page can start a session' })
+    if (!isJson(req)) return res.status(415).json({ error: 'JSON only' })
+    const body = req.body as Record<string, unknown> | undefined
+    const keys = body && typeof body === 'object' ? Object.keys(body) : []
+    if (keys.length !== 1 || keys[0] !== 'run_id' || typeof body?.run_id !== 'string' || !PASS_ID.test(body.run_id)) {
+      return res.status(400).json({ error: 'The request names the run and nothing else' })
+    }
+    if (launching) return res.status(429).json({ error: 'A session is already opening' })
+    launching = true
+    try {
+      const latest = latestReadable(dir)
+      if ('refused' in latest) return res.status(409).json({ error: latest.refused, reason: 'not-latest' })
+      if (body.run_id !== latest.report.pass_id && body.run_id !== latest.id) {
+        return res.status(409).json({ error: 'Start fixing works on the latest run only', reason: 'not-latest' })
+      }
+      const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
+      const count = collect(view).count
+      if (!count) return res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
+      const prompt = buildPrompt(latest.report, view)
+      const hash = collectionHash(prompt)
+      const now = dayClock()
+      const sent = readSent(dir)
+      if (sent.some((s) => now.getTime() - Date.parse(s.at) < LAUNCH_EVERY_MS)) {
+        return res.status(429).json({ error: 'Started less than a minute ago' })
+      }
+      if (sent.some((s) => s.target === hash && (s.run_id === latest.report.pass_id || s.run_id === latest.id))) {
+        return res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
+      }
+      const { file, cleanup } = writePromptFile(prompt)
+      const result = await dayLauncher()(file, launchWorkdir())
+      if (!result.ok) {
+        cleanup()
+        console.warn('[kanban] day: terminal launch failed, copy fallback offered')
+        return res.status(502).json({ error: 'The terminal could not be opened', fallback: 'copy' })
+      }
+      const line = { kind: 'sent', target: hash, run_id: latest.report.pass_id, at: now.toISOString(), how: result.how, count }
+      mkdirSync(dir, { recursive: true })
+      appendFileSync(join(dir, 'decisions.jsonl'), JSON.stringify(line) + '\n', { encoding: 'utf-8', mode: 0o600 })
+      res.json({ launched: true, how: result.how })
+    } catch {
+      console.error('[kanban] POST /api/day/start failed')
+      res.status(500).json({ error: 'Failed to start a session' })
+    } finally {
+      launching = false
     }
   })
 

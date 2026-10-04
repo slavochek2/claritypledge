@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { buildView, daysOpen, parseDecisions, parseReport, traceOf, type DayReport } from '../../src/lib/day'
-import { fileIdOf, firstSeen, renderCard, run } from '../../scripts/day-render'
+import { cleanStepLabel, fileIdOf, firstSeen, renderCard, run } from '../../scripts/day-render'
 
 /**
  * P1399 Phase B — the /day renderer (scripts/day-render.ts). Synthetic ledgers, manifests and
@@ -32,17 +32,17 @@ interface World {
 
 const step = (id: string, status: string, rc = 0, detail = '') => [`STEP`, id, status, String(rc), TS, detail].join(T)
 const check = (id: string, status: string, stepId: string, detail = '', source = 'cmd') => ['CHECK', id, status, stepId, TS, source, detail].join(T)
-const find = (chk: string, sev: string, hex: string, title: string) => ['FIND', chk, sev, hex, 'private', title].join(T)
+const find = (chk: string, sev: string, hex: string, title: string, keyed = false) => ['FIND', chk, sev, hex, 'private', title, ...(keyed ? ['keyed'] : [])].join(T)
 const data = (section: string) => ['DATA', section, TS].join(T)
 const hexOf = (chk: string, faultKey: string) => createHash('sha256').update(`${chk}\n${faultKey}`).digest('hex').slice(0, 16)
 
 const PERSONAL_STEPS = [
   '# synthetic dispatcher manifest',
   '# id\tkind\tpolicy\tlabel',
-  ['disp.0d', 'gate', 'hard', 'Start gates'].join(T),
+  ['disp.0d', 'gate', 'hard', 'day-gates.sh --mode=start (D1 calendar staleness, D6 previous pass)'].join(T),
   ['disp.2a', 'cmd', 'hard', 'Cloud credits and AI keys'].join(T),
-  ['disp.3', 'attest', 'hard', 'Agent VM health'].join(T),
-  ['disp.8', 'attest', 'skippable', 'Events calendar refresh'].join(T),
+  ['disp.3', 'attest', 'hard', 'Agent VM health (P1399)'].join(T),
+  ['disp.8', 'attest', 'skippable', 'Events calendar refresh (skipped only on token expiry)'].join(T),
 ].join('\n')
 const PERSONAL_CHECKS = [
   '# check-id\tstep-id\tlabel\tgroup\tseverity\tconnection',
@@ -84,7 +84,7 @@ function cleanBody(w: World): string[] {
     step('disp.3', 'attested', 0, 'VM healthy, healer idle'),
     `manifest=${w.cp}`,
     step('cp.w1', 'ok', 0, '10s 120b'),
-    check('cp.sentry', 'ok', '-', 'no new issues', 'agent'),
+    check('cp.sentry', 'ok', 'cp.w1', 'no new issues', 'agent'),
     step('cp.w3', 'ok', 0, '40s 900b'),
     check('cp.rls', 'ok', 'cp.w3', 'live matches main'),
     check('cp.grants', 'ok', 'cp.w3', 'no drift'),
@@ -190,26 +190,36 @@ describe('day-render: a registered check with no CHECK row is never ok', () => {
 })
 
 describe('day-render: a step without registered checks is one check', () => {
-  it('STEP MAPPING — ok→ok, attested→ok (agent-reported), skipped→skipped, failed→problem, missing→not-run', () => {
-    const long = `VM healthy ${'x'.repeat(300)}`
+  it('STEP MAPPING — a step with no registered check is a row only when it failed or did not run', () => {
     const body = cleanBody(w)
-      .map((l) => (l.startsWith(`STEP${T}disp.3${T}`) ? step('disp.3', 'attested', 0, long) : l))
       .map((l) => (l.startsWith(`STEP${T}disp.0d${T}`) ? step('disp.0d', 'failed', 4, '0s 53b') : l))
     writeLedger(w, body.filter((l) => !l.startsWith(`STEP${T}disp.8${T}`)))
     const { report } = render(w, 'end')
-    expect(byId(report, 'disp.0d')).toMatchObject({ status: 'problem', detail: 'exited 4', label: 'Start gates', group: 'Personal' })
-    const vm = byId(report, 'disp.3')!
-    expect(vm.status).toBe('ok')
-    expect(vm.detail!.startsWith('agent-reported: VM healthy')).toBe(true)
-    expect(vm.detail!.length).toBeLessThanOrEqual(160)
-    expect(byId(report, 'cp.w2c')).toMatchObject({ status: 'skipped', detail: 'no new real-user signups', group: 'ClarityPledge', label: 'Signup intel' })
-    expect(byId(report, 'disp.8')).toMatchObject({ status: 'not-run', detail: 'did not run' })
+    expect(byId(report, 'disp.0d')).toMatchObject({ status: 'problem', detail: 'exited 4', label: 'Daily run gate: start', group: 'Daily run' })
+    expect(byId(report, 'disp.8')).toMatchObject({ status: 'not-run', detail: "didn't run", label: 'Events calendar refresh', group: 'Daily run' })
+    // ok, attested and skipped steps are not rows: they are not checks, and never count as worked
+    for (const id of ['disp.3', 'cp.w2c', 'cp.w1', 'cp.w3', 'disp.2a']) expect(byId(report, id)).toBeUndefined()
+    expect(report!.checks.filter((c) => c.status === 'ok').map((c) => c.id).sort()).toEqual(['cp.grants', 'cp.lint', 'cp.rls', 'cp.sentry', 'pp.credits', 'pp.keys'])
+  })
+
+  it('STEP MAPPING — an attested step never produces an ok row; at phase start an unrecorded step is not a row', () => {
+    writeLedger(w, [`manifest=${w.personal}`, step('disp.3', 'attested', 0, 'VM healthy'), `manifest=${w.cp}`])
+    const { report } = render(w, 'start')
+    expect(report!.checks.map((c) => c.id).sort()).toEqual(['cp.grants', 'cp.lint', 'cp.rls', 'cp.sentry', 'pp.credits', 'pp.keys'])
+  })
+
+  it('a step label loses trailing parentheticals; a day-gates label becomes "Daily run gate: X"', () => {
+    expect(cleanStepLabel('Due Board (P1399)')).toBe('Due Board')
+    expect(cleanStepLabel('CM Events calendar refresh (skipped only on 8a exit 2 or 3)')).toBe('CM Events calendar refresh')
+    expect(cleanStepLabel('Agent VM heal (only when Step 3 is not healthy) (P1)')).toBe('Agent VM heal')
+    expect(cleanStepLabel('day-gates.sh --mode=subday-return')).toBe('Daily run gate: subday-return')
+    expect(cleanStepLabel('day-gates.sh --mode=start (D1 calendar staleness)')).toBe('Daily run gate: start')
   })
 
   it('STEP EXIT — a step that exited non-zero while all its checks are ok adds a problem check', () => {
     writeLedger(w, cleanBody(w).map((l) => (l.startsWith(`STEP${T}cp.w3${T}`) ? step('cp.w3', 'failed', 1, '40s 900b') : l)))
     const { report } = render(w, 'end')
-    expect(byId(report, 'cp.w3')).toMatchObject({ status: 'problem', detail: 'exited 1', label: 'Repo health' })
+    expect(byId(report, 'cp.w3')).toMatchObject({ status: 'problem', detail: 'exited 1', label: 'Repo health', group: 'Daily run' })
     expect(buildView(report!, [], []).issues.map((i) => i.fp)).toContain('check:cp.w3')
   })
 
@@ -309,12 +319,18 @@ describe('day-render: first seen', () => {
     issues: [{ fp, topic: 't', title: 't', point_a: '', obstacle: '', point_b: '', options: [{ id: 'agent', label: 'Give to the agent' }] }],
   })
 
-  it('FIRST SEEN — sidecar date wins; else the earliest earlier report with the fp; else this pass', () => {
+  it('FIRST SEEN — the minimum of the sidecar date, earlier reports (their first_seen and their dates) and this pass', () => {
     const fp = 'disp.3:vm:healer-gave-up'
     const earlier = [issueReport('a', '2026-09-30T05:00:00Z', fp), issueReport('b', '2026-09-29T05:00:00Z', fp), issueReport('c', '2026-09-27T05:00:00Z', 'other:fp')]
     expect(firstSeen(fp, '2026-09-20', earlier, STARTED)).toBe('2026-09-20')
     expect(firstSeen(fp, undefined, earlier, STARTED)).toBe('2026-09-29')
     expect(firstSeen('new:fp', undefined, earlier, STARTED)).toBe('2026-10-04')
+    // the minimum, not the sidecar's word: an earlier report that saw it first wins over a later sidecar date
+    expect(firstSeen(fp, '2026-10-01', earlier, STARTED)).toBe('2026-09-29')
+    // an earlier report's own first_seen counts too
+    const dated = { ...issueReport('d', '2026-09-30T05:00:00Z', fp) }
+    dated.issues = [{ ...dated.issues[0], first_seen: '2026-09-15' }]
+    expect(firstSeen(fp, '2026-09-25', [...earlier, dated], STARTED)).toBe('2026-09-15')
   })
 
   it('FIRST SEEN — through the CLI: earlier report files date the fault, within a day of the healer’s own clock', () => {
@@ -333,7 +349,7 @@ describe('day-render: first seen', () => {
     const ours = daysOpen(issue.first_seen, r.started_at)!
     const healer = daysOpen(healerSince, r.started_at)!
     expect(Math.abs(ours - healer)).toBeLessThanOrEqual(1)
-    // and with the healer's date in the sidecar, that date is used as is
+    // and with the healer's (earlier) date in the sidecar, that date is used
     writeFinding(w, hex, 'healer stopped', { check: 'disp.3', fault_key: 'vm:healer-gave-up', title: 'Agent VM healer gave up', first_seen: '2026-09-28' })
     expect(render(w, 'end').report!.issues.find((i) => i.fp === fp)!.first_seen).toBe('2026-09-28')
   })
@@ -381,6 +397,7 @@ describe('day-render: DATA sections', () => {
     reflection: { model: 'claude-opus-x', statements: [{ id: 's1', text: 'Stop doing X' }] },
     reviews: ['weekly'],
     run: { model: 'claude-opus-x', unpushed_commits: 2 },
+    notes: [{ id: 'shipped', title: 'What shipped', body: 'line 1\nline 2', review: 'weekly' }],
   }
 
   it('DATA — every section lands in the report as given', () => {
@@ -399,19 +416,22 @@ describe('day-render: DATA sections', () => {
     expect(r.reviews).toEqual(['weekly'])
     expect(r.model).toBe('claude-opus-x')
     expect(r.unpushed_commits).toBe(2)
+    expect(r.notes).toEqual(sections.notes)
     expect(r.checks.some((c) => c.id.startsWith('day.data'))).toBe(false)
   })
 
   it('DATA — a malformed file is omitted and becomes a problem check, never silently dropped', () => {
     writeData(w, 'connections', '[{"id": "sentry", oops')
     writeData(w, 'people', [{ id: 'p1' }]) // no name: not a person
-    writeLedger(w, [...cleanBody(w), data('connections'), data('people'), data('stats')]) // stats has no file
+    writeData(w, 'notes', [{ id: 'n1', title: 'no body' }])
+    writeLedger(w, [...cleanBody(w), data('connections'), data('people'), data('stats'), data('notes')]) // stats has no file
     const { code, report } = render(w, 'end')
     expect(code).toBe(0)
     expect(report!.connections).toEqual([])
     expect(report!.people).toBeUndefined()
     expect(report!.stats).toBeUndefined()
-    for (const s of ['connections', 'people', 'stats']) expect(byId(report, `day.data.${s}`)).toMatchObject({ status: 'problem', detail: 'could not be read' })
+    expect(report!.notes).toBeUndefined()
+    for (const s of ['connections', 'people', 'stats', 'notes']) expect(byId(report, `day.data.${s}`)).toMatchObject({ status: 'problem', detail: 'could not be read' })
     expect(buildView(report!, [], []).issues.map((i) => i.fp)).toContain('check:day.data.people')
   })
 })
@@ -459,7 +479,7 @@ function richWorld(): void {
   const body = cleanBody(w)
     .map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', '2 rules live, not on main') : l))
     .map((l) => (l.startsWith(`CHECK${T}cp.lint${T}`) ? check('cp.lint', 'problem', 'cp.w3', '3 warnings') : l))
-    .map((l) => (l.startsWith(`CHECK${T}cp.sentry${T}`) ? check('cp.sentry', 'not-run', '-', 'login expired', 'agent') : l))
+    .map((l) => (l.startsWith(`CHECK${T}cp.sentry${T}`) ? check('cp.sentry', 'not-run', 'cp.w1', 'login expired', 'agent') : l))
     .filter((l) => !l.startsWith(`CHECK${T}pp.keys${T}`))
   const finds: [string, string, object | undefined, string][] = [
     ['cp.rls', 'rls:live', { check: 'cp.rls', fault_key: 'rls:live', title: 'Database rules are live before review', important: true, deadline: '2026-10-05' }, 'high'],
@@ -467,10 +487,11 @@ function richWorld(): void {
     ['disp.2a', 'gcp:baseline', { check: 'disp.2a', fault_key: 'gcp:baseline', title: 'Cloud credit baseline is stale' }, 'medium'],
     ['cp.grants', 'grants:new', { check: 'cp.grants', fault_key: 'grants:new', title: 'A new function is callable by anyone', deadline: '2026-10-20' }, 'low'],
     ['cp.w1', 'parked:thing', { check: 'cp.w1', fault_key: 'parked:thing', title: 'Old parked thing' }, 'low'],
+    ['cp.smoke', 'reply:post', { check: 'cp.smoke', fault_key: 'reply:post', title: 'Replies waiting on the event post', options: [{ id: 'reply', label: 'I reply today' }, { id: 'park', label: 'Park' }] }, 'low'],
   ]
   for (const [chk, fk, side, sev] of finds) {
     const hex = hexOf(chk, fk)
-    body.push(find(chk, sev, hex, (side as { title: string }).title))
+    body.push(find(chk, sev, hex, (side as { title: string }).title, true))
     writeFinding(w, hex, `${MARKER} evidence body`, side)
   }
   body.push(find('disp.2a', 'low', 'fedcba9876543210', 'Mirror of one repo is stale'))
@@ -493,7 +514,9 @@ describe('day-render: the card', () => {
     const view = buildView(report!, decisionsOf(w), [traceOf(report!)])
     expect(lines[0]).toMatch(/^DAY · \w{3} \d{1,2} \w{3}, \d{2}:\d{2} · /)
     const urgent = view.issues.filter((i) => i.urgent).length
-    expect(lines[1]).toBe(`${view.issues.length} to decide · ${urgent} urgent · ${view.counts.worked} of ${view.counts.total} checks worked · 1 parked`)
+    expect(urgent).toBe(2)
+    expect(view.counts.total).toBe(6)
+    expect(lines[1]).toBe(`${view.issues.length} issues · 1 needs you · 2 urgent · 2 of 6 checks worked · 1 parked`)
     expect(view.issues.length).toBeGreaterThan(6)
     const shown = lines.filter((l) => /^ {2}\d+\. /.test(l)).map((l) => l.replace(/^ {2}\d+\. ((Urgent|Important)( · Important)? — )?/, ''))
     expect(shown).toEqual(view.issues.slice(0, 6).map((i) => i.title))
@@ -514,7 +537,7 @@ describe('day-render: the card', () => {
     const view = buildView(report!, decisionsOf(w), [traceOf(report!)])
     const card = renderCard(report!, view, { kanbanUrl: 'http://k', timeZone: 'Europe/Berlin' })
     const lines = card.split('\n')
-    expect(lines[0]).toBe('DAY · Sun 4 Oct, 07:37 · stopped early: 1 check did not run')
+    expect(lines[0]).toBe('DAY · Sun 4 Oct, 07:37 · stopped early: 2 checks have no result')
     expect(lines[2]).toBe(`  1. Urgent · Important — ${view.issues[0].title}`)
   })
 
@@ -526,17 +549,18 @@ describe('day-render: the card', () => {
     expect(out).not.toContain('Connections:')
     expect(out).not.toContain('New people')
     expect(out.split('\n')[0]).toMatch(/ · complete$/)
-    expect(out).toContain('\n0 to decide · 8 of 10 checks worked\n')
+    expect(out).toContain('\n0 issues · 6 of 6 checks worked\n')
   })
 
-  it('CARD — control characters in a title never reach the terminal', () => {
+  it('CARD — control characters and < > | in a title never reach the terminal; plurals are right', () => {
     const hex = hexOf('cp.rls', 'esc')
     writeLedger(w, [...cleanBody(w), find('cp.rls', 'low', hex, 'x')])
-    writeFinding(w, hex, 'b', { check: 'cp.rls', fault_key: 'esc', title: 'Bad \u001b[31mred\u001b[0m\ntitle' })
+    writeFinding(w, hex, 'b', { check: 'cp.rls', fault_key: 'esc', title: 'Bad \u001b[31mred\u001b[0m\n<b>title</b> | x > y' })
     const { out } = render(w, 'end')
     // eslint-disable-next-line no-control-regex
-    expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f]/)
-    expect(out).toContain('Bad [31mred [0m title')
+    expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f<>|]/)
+    expect(out).toContain('Bad [31mred [0m btitle/b x y')
+    expect(out).toContain('\n1 issue · 6 of 6 checks worked\n')
   })
 
   it('--print detail lists every issue and every check with its status word; --print none prints nothing', () => {
@@ -550,7 +574,7 @@ describe('day-render: the card', () => {
 })
 
 describe('day-render: privacy', () => {
-  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\))$/
+  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\)|marked \d+ unfinished earlier runs? incomplete)$/
 
   // NODE_NO_WARNINGS: tsx triggers Node's own fixed-text deprecation notice (DEP0205); the
   // assertion is about the renderer's lines, which carry no content.
@@ -580,6 +604,97 @@ describe('day-render: privacy', () => {
       for (const l of err.split('\n').filter(Boolean)) expect(l).toMatch(STDERR_VOCAB)
     }
     expect(r2.code).toBe(3)
+  })
+})
+
+describe('day-render: where a status may come from (review 2026-10-04)', () => {
+  it('PROVENANCE — a CHECK row from the wrong step is ignored and reported, never trusted', () => {
+    const body = cleanBody(w).filter((l) => !l.startsWith(`CHECK${T}cp.rls${T}`))
+    body.push(check('cp.rls', 'ok', 'cp.w1', 'all fine')) // cp.rls belongs to cp.w3
+    writeLedger(w, body)
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.rls')).toMatchObject({ status: 'unproven', detail: 'the step ran but did not report this check' })
+    expect(byId(report, 'day.records')).toMatchObject({ status: 'problem', detail: 'a status came from the wrong place' })
+    expect(report!.state).toBe('incomplete')
+  })
+
+  it('PROVENANCE — a wrong-step row does not displace the right one', () => {
+    writeLedger(w, [...cleanBody(w), check('cp.rls', 'problem', 'cp.w1', 'bogus'), check('cp.lint', 'problem', '-', 'bogus', 'agent')])
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.rls')).toMatchObject({ status: 'ok', detail: 'live matches main' })
+    expect(byId(report, 'cp.lint')).toMatchObject({ status: 'ok', detail: 'clean' })
+    expect(byId(report, 'day.records')?.detail).toBe('2 statuses came from the wrong place')
+  })
+
+  it('AGENT CANNOT OVERRULE — a later agent row never replaces a cmd row; agent over agent, later wins', () => {
+    writeLedger(w, [
+      ...cleanBody(w).map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', 'drift exit 1') : l)),
+      check('cp.rls', 'ok', 'cp.w3', 'looks fine to me', 'agent'),
+      check('cp.sentry', 'problem', 'cp.w1', '3 new issues', 'agent'),
+    ])
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.rls')).toMatchObject({ status: 'problem', detail: 'drift exit 1' })
+    expect(byId(report, 'cp.sentry')).toMatchObject({ status: 'problem', detail: 'agent-reported: 3 new issues' })
+    expect(byId(report, 'day.records')).toBeUndefined()
+  })
+})
+
+describe('day-render: killed passes and lost details (review 2026-10-04)', () => {
+  const running = (pass: string, started: string, state: DayReport['state'] = 'running'): DayReport => ({
+    schema: 2, pass_id: pass, started_at: started, state, connections: [], checks: [{ id: 'x', label: 'x', status: 'ok' }], issues: [], ...({ future_field: 1 } as object),
+  })
+
+  it('KILLED PASS — at phase start another report still running is closed as incomplete, atomically; others untouched', () => {
+    writeReportFile(w, running('2026-10-03T05-00-00Z-1', '2026-10-03T05:00:00Z'))
+    writeReportFile(w, running('2026-10-02T05-00-00Z-1', '2026-10-02T05:00:00Z', 'complete'))
+    const completePath = reportPath(w, '2026-10-02T05-00-00Z-1')
+    const before = readFileSync(completePath, 'utf-8')
+    writeLedger(w, cleanBody(w))
+    const r = render(w, 'start')
+    expect(r.code).toBe(0)
+    const killed = JSON.parse(readFileSync(reportPath(w, '2026-10-03T05-00-00Z-1'), 'utf-8'))
+    expect(killed.state).toBe('incomplete')
+    expect(killed.future_field).toBe(1) // rewritten as it was, only the state changed
+    expect(statSync(reportPath(w, '2026-10-03T05-00-00Z-1')).mode & 0o777).toBe(0o600)
+    expect(readFileSync(completePath, 'utf-8')).toBe(before)
+    expect(r.report?.state).toBe('running') // this pass is the one running now
+    expect(r.err).toContain('marked 1 unfinished earlier run incomplete')
+    expect(readdirSync(join(w.dayDir, 'reports')).filter((n) => !n.endsWith('.json'))).toEqual([])
+  })
+
+  it('KILLED PASS — this pass’s own running report is not closed by its own start, and phase end closes nothing', () => {
+    writeReportFile(w, running('2026-10-03T05-00-00Z-1', '2026-10-03T05:00:00Z'))
+    writeLedger(w, cleanBody(w))
+    expect(render(w, 'end').report?.state).toBe('complete')
+    expect(JSON.parse(readFileSync(reportPath(w, '2026-10-03T05-00-00Z-1'), 'utf-8')).state).toBe('running')
+    render(w, 'start')
+    expect(render(w, 'start').report?.state).toBe('running')
+  })
+
+  it('KEYED FINDING — a fault-key finding whose sidecar is missing is a problem, and still shown', () => {
+    const hex = hexOf('cp.rls', 'rls:drift')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'high', hex, 'Rules drift', true)])
+    writeFinding(w, hex, 'body') // no .json beside it
+    const r = render(w, 'end').report!
+    expect(r.issues.map((i) => i.fp)).toEqual([`find:${hex}`])
+    expect(byId(r, 'day.findings')).toMatchObject({ status: 'problem', detail: '1 finding detail could not be read' })
+  })
+
+  it('REGISTRY MISSING — a step list with no check list beside it is a problem and never complete', () => {
+    rmSync(join(w.root, 'cp', 'day-cp-checks.tsv'))
+    writeLedger(w, cleanBody(w))
+    const r = render(w, 'end').report!
+    expect(byId(r, 'day.registry')).toMatchObject({ status: 'problem', detail: 'the check list for day-cp is missing', group: 'Daily run' })
+    expect(r.state).toBe('incomplete')
+  })
+
+  it('TOPIC — a review finding with no topic is filed under its review', () => {
+    const hex = hexOf('cp.lint', 'weekly:x')
+    writeLedger(w, [...cleanBody(w), find('cp.lint', 'low', hex, 'Weekly proposal', true)])
+    writeFinding(w, hex, 'b', { check: 'cp.lint', fault_key: 'weekly:x', title: 'Weekly proposal', review: 'weekly' })
+    expect(render(w, 'end').report!.issues[0].topic).toBe('Weekly review')
+    writeFinding(w, hex, 'b', { check: 'cp.lint', fault_key: 'weekly:x', title: 'Weekly proposal', review: 'monthly', topic: 'Product' })
+    expect(render(w, 'end').report!.issues[0].topic).toBe('Product')
   })
 })
 

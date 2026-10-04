@@ -53,6 +53,26 @@ export const postDecisions = (runId: string, decisions: DecisionInput[]) =>
     body: JSON.stringify({ run_id: runId, decisions }),
   }).then((r) => json<{ success: true; written: number }>(r))
 
+export interface StartResult {
+  status: number
+  body: { launched?: boolean; how?: 'tab' | 'window'; error?: string; reason?: 'already-sent' | 'not-latest' | 'nothing'; fallback?: 'copy' }
+}
+
+/**
+ * Ask the board server to open a terminal session with the prompt it builds itself (spec §7
+ * rule 9). The body is exactly `{ run_id }`: the page never sends prompt text. Same-origin, so
+ * the browser sends the board's Origin, which the server requires.
+ */
+export async function startRun(runId: string): Promise<StartResult> {
+  const res = await fetch('/api/day/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ run_id: runId }),
+  })
+  const body = (await res.json().catch(() => ({}))) as StartResult['body']
+  return { status: res.status, body }
+}
+
 export const getPrompt = () => fetch('/api/day/prompt').then((r) => json<{ run_id: string; prompt: string; count: number }>(r))
 
 /** Clipboard API first; a hidden textarea + execCommand when it is missing or refused. */

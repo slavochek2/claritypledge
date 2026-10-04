@@ -5,7 +5,7 @@
 //
 // Variants: default · weekly · monthly · stale · running · incomplete · unknown · malformed · unreadable ·
 // other-schema · empty · absent · connected (every connection ok) · no-people (people: []) ·
-// people-absent (no people field: not collected).
+// people-absent (no people field: not collected) · no-notes (no notes field).
 //
 // SAFETY: it writes only inside <dir>; it refuses the real day-data folder (~/.claude-day) and
 // any non-empty directory it did not create (a `.day-seed` marker proves it did). `absent`
@@ -34,6 +34,7 @@ export const VARIANTS = [
   'connected',
   'no-people',
   'people-absent',
+  'no-notes',
 ] as const
 export type Variant = (typeof VARIANTS)[number]
 
@@ -126,6 +127,12 @@ export function seedDay(dir: string, variant: Variant = 'default'): string {
     case 'people-absent': {
       const r = synthReport()
       delete r.people
+      latest = r
+      break
+    }
+    case 'no-notes': {
+      const r = synthReport()
+      delete r.notes
       latest = r
       break
     }

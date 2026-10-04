@@ -1,12 +1,45 @@
 // P1399: Stats — the outreach funnel, weekly lines against targets, then readings. Anything the run
 // did not collect says "not collected yet"; it is never drawn as 0.
 
-import type { DayStats } from '../../lib/day'
+import { useState } from 'react'
+import type { DayNote, DayStats } from '../../lib/day'
 import { Legend, LineChart } from './charts'
 
 const NotCollected = () => <span className="d-prop">not collected yet</span>
 
-export function StatsTab({ stats }: { stats?: DayStats }) {
+export function StatsTab({ stats, notes }: { stats?: DayStats; notes?: DayNote[] }) {
+  return (
+    <>
+      <StatsBody stats={stats} />
+      <Notes notes={notes} />
+    </>
+  )
+}
+
+/** Detail one step away ("From this run"): one fold per note, plain text, nothing when absent. */
+function Notes({ notes }: { notes?: DayNote[] }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  if (!notes?.length) return null
+  return (
+    <section className="d-notes" aria-label="From this run">
+      <h3 className="d-h3">From this run</h3>
+      <div className="d-card">
+        {notes.map((n) => (
+          <div className="d-note-item" key={n.id} data-note={n.id}>
+            <button type="button" className="d-fold" aria-expanded={!!open[n.id]} onClick={() => setOpen((o) => ({ ...o, [n.id]: !o[n.id] }))}>
+              <span className="d-tri">▶</span>
+              <span className="d-tx">{n.title}</span>
+              {n.review && <span className="d-runbadge sm">{n.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
+            </button>
+            {open[n.id] && <div className="d-notebody">{n.body}</div>}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function StatsBody({ stats }: { stats?: DayStats }) {
   if (!stats || (!stats.readings?.length && !stats.funnel && !stats.series?.length)) {
     return (
       <div className="d-card d-pad">

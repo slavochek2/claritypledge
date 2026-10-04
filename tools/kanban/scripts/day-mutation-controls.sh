@@ -116,10 +116,12 @@ control "Render: a missing step list is incomplete" "step list that has gone mis
   $D "s/  if \(registries\.missing > 0\) return 'incomplete'\n//" $R
 control "Render: the fingerprint never comes from the title" "FINGERPRINT" \
   $D 's/\$\{side\.check\}:\$\{side\.fault_key\}/\${side.check}:\${side.title.length + side.title.charCodeAt(16)}/' $R
-control "Render: the sidecar's first seen wins" "FIRST SEEN" \
+control "Render: the sidecar's first seen counts" "FIRST SEEN" \
   $D 's/if \(sidecarFirst && isoDay\(sidecarFirst\)\)/if (false)/' $R
 control "Render: first seen is the earliest earlier report" "FIRST SEEN" \
-  $D 's/return \[own, \.\.\.seen\]\.sort\(\)\[0\]/return own/' $R
+  $D 's/return dates\.sort\(\)\[0\]/return dates[0]/' $R
+control "Render: an earlier report's own first_seen counts" "FIRST SEEN — the minimum" \
+  $D 's/if \(isoDay\(issue\.first_seen\)\) dates\.push/if (false) dates.push/' $R
 control "Render: Park is never recommended" "Park never recommended|Park is never" \
   $D 's/options\.find\(\(o\) => o\.id === recommend && o\.id !== PARK\) \?\? options\.find\(\(o\) => o\.id !== PARK\)/options.find((o) => o.id === recommend) ?? options[options.length - 1]/' $R
 control "Render: a malformed data section is a problem, not dropped" "DATA — a malformed" \
@@ -140,6 +142,59 @@ control "Render: the card carries no internal ids" "CARD — ≤ 25 lines" \
   $D 's/\$\{plain\(i\.title\)\}`\)/\${plain(i.title)} (\${i.fp})`)/' $R
 control "Render: control characters never reach the terminal" "control characters" \
   $D 's/\.replace\(\/\[\\x00-\\x1f\\x7f-\\x9f\]\/g, . .\)//' $R
+
+control "Render: no phantom checks (an attested or ok step is not a row)" "STEP MAPPING" \
+  $D "s/if \(rec\.status === 'ok' \|\| rec\.status === 'attested' \|\| rec\.status === 'skipped'\) return null/if (rec.status === 'ok' || rec.status === 'attested') return { ...base, status: 'ok' }\n  if (rec.status === 'skipped') return null/" $R
+control "Render: a gate label reads Daily run gate" "Daily run gate" \
+  $D 's/if \(gate\) return `Daily run gate/if (false) return `Daily run gate/' $R
+control "Render: trailing parentheticals leave a step label" "trailing parentheticals" \
+  $D "s/s = s\.replace\(\/\\\\s\*\\\\\(\[\^\(\)\]\*\\\\\)\\\\s\*\\$\/, ''\)\.trim\(\)/s = s.trim()/" $R
+control "Render: a check takes a status only from its own step" "PROVENANCE — a CHECK row from the wrong step" \
+  $D 's/\.filter\(\(r\) => r\.step === rc\.step\)\)/)/' $R
+control "Render: a status from the wrong place is reported" "PROVENANCE" \
+  $D 's/      misplaced \+= \(ledger\.checks\.get\(rc\.id\) \?\? \[\]\)\.filter\(\(r\) => r\.step !== rc\.step\)\.length\n//' $R
+control "Render: an agent row cannot overrule a command row" "AGENT CANNOT OVERRULE" \
+  $D "s/if \(!best \|\| r\.source === 'cmd' \|\| best\.source !== 'cmd'\) best = r/best = r/" $R
+control "Render: phase start closes a killed pass" "KILLED PASS — at phase start" \
+  $D "s/if \(args\.phase === 'start'\) \{/if (false) {/" $R
+control "Render: a keyed finding without its sidecar is a problem" "KEYED FINDING" \
+  $D 's/if \(files\.sidecar === undefined \? row\.keyed : !side\) unusable\+\+/if (files.sidecar !== undefined \&\& !side) unusable++/' $R
+control "Render: a missing check list is never complete" "REGISTRY MISSING" \
+  $D "s/  if \(registries\.noRegistry\.length > 0\) return 'incomplete'\n//" $R
+control "Render: a missing check list is a problem check" "REGISTRY MISSING" \
+  $D 's/if \(names\.length\) \{/if (false) {/' $R
+control "Render: a review finding's topic is its review" "TOPIC" \
+  $D 's/\(side\?\.review \? REVIEW_TOPIC\[side\.review\] : undefined\) \|\| //' $R
+control "Render: notes land as given" "DATA — every section" \
+  $D "s/  if \(data\.notes\) report\.notes = data\.notes as DayReport\['notes'\]\n//" $R
+control "Render: need you = the recommended answer is not the agent's" "CARD — ≤ 25 lines" \
+  $D 's/\.filter\(\(i\) => !i\.options\[i\.recommended_index\]\?\.agent\)/.filter((i) => i.options[i.recommended_index]?.agent)/' $R
+control "Render: missing checks read as having no result" "CARD — the first issue line" \
+  $D "s/'has' : 'have'\} no result/'has' : 'have'} not run/" $R
+control "Render: plurals are right" "plurals are right" \
+  $D "s/plural\(view\.issues\.length, 'issue'\)/\`\\\${view.issues.length} issues\`/" $R
+control "Render: < > | never reach the terminal" "plurals are right" \
+  $D "s/\.replace\(\/\[<>\|\]\/g, ''\)//" $R
+control "Render: the card is the only stdout" "PRIVACY — stdout carries only the card" \
+  $D 's/say\(`report written \(\$\{report\.state\}\)`\)/io.out(`report written (\${report.state})\\n`)/' $R
+# Phase C: Start fixing launch (rule 9), guarded by server/__tests__/day-launch.test.ts.
+L=server/__tests__/day-launch.test.ts
+control "Launch: only the board's origin" "cross-origin POST is refused" \
+  server/day.ts 's/if \(!fromBoard\(req\)\) return/if (false) return/' "$L"
+control "Launch: JSON only" "text/plain POST is refused" \
+  server/day.ts 's/if \(!isJson\(req\)\) return res\.status\(415\)\.json\(\{ error: .JSON only. \}\)\n    const body = req\.body as Record/const body = req.body as Record/' "$L"
+control "Launch: the body names the run and nothing else" "carrying prompt text" \
+  server/day.ts "s/if \(keys\.length !== 1 \|\| keys\[0\] !== 'run_id' \|\| /if (/" "$L"
+control "Launch: at most one a minute" "within a minute does not launch" \
+  server/day.ts 's/now\.getTime\(\) - Date\.parse\(s\.at\) < LAUNCH_EVERY_MS/false/' "$L"
+control "Launch: the same collection is never sent twice" "already-sent collection" \
+  server/day.ts 's/if \(sent\.some\(\(s\) => s\.target === hash/if (false \&\& sent.some((s) => s.target === hash/' "$L"
+control "Launch: a failed launch records nothing" "failed launch records nothing" \
+  server/day.ts 's/        cleanup\(\)\n        console\.warn/        console.warn/' "$L"
+control "Launch: only the latest run" "only the latest run can be launched" \
+  server/day.ts 's/if \(body\.run_id !== latest\.report\.pass_id && body\.run_id !== latest\.id\) \{\n        return res\.status\(409\)/if (false) {\n        return res.status(409)/' "$L"
+control "Launch: sent lines are not decisions" "sent lines are not decisions" \
+  src/lib/day.ts "s/      if \(o\.kind === 'sent'\) continue\n//" "$L"
 
 # Rule 10: plant a product import in the board and require the guard to fire.
 fresh

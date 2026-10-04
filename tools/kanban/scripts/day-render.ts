@@ -12,6 +12,13 @@
 //   - "Did not run" never reads as clean. A registered check nobody reported is `unproven` when
 //     its step ran and `not-run` when it did not; never `ok`. A step that exited non-zero while
 //     every one of its checks says fine is a problem of its own.
+//   - No phantom checks: a step with no registered check is not a check. It becomes a row only
+//     when it failed or (at the end) never ran, in the "Daily run" group; an attested step never
+//     reads as a check that worked.
+//   - Provenance: a registered check takes a status only from its own step, and an agent row
+//     never overrules a command row (an agent cannot overrule an exit code).
+//   - A pass that died is closed: at --phase start another report still `running` becomes
+//     `incomplete`, so a killed pass never reads as in progress forever.
 //   - The fingerprint of a finding is `<check>:<fault key>`, never the title, so a decision made
 //     on one run still matches the same fault on the next.
 //   - Only the founder parks: the renderer never writes decisions.jsonl and never recommends Park.
@@ -53,13 +60,13 @@ const OPTION_ID = /^[A-Za-z0-9._-]{1,40}$/
 const FILE_KEY = /^[A-Za-z0-9]{1,64}$/
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/
 const STATUSES: CheckStatus[] = ['ok', 'problem', 'not-run', 'unproven', 'skipped']
-const SECTIONS = ['connections', 'people', 'monitoring', 'stats', 'reflection', 'reviews', 'run'] as const
+const SECTIONS = ['connections', 'people', 'monitoring', 'stats', 'reflection', 'reviews', 'run', 'notes'] as const
 type Section = (typeof SECTIONS)[number]
 
 const MAX_EVIDENCE = 2000
-const MAX_AGENT_DETAIL = 160
 const CARD_ISSUES = 6
 const RUN_GROUP = 'Daily run'
+const REVIEW_TOPIC: Record<Review, string> = { weekly: 'Weekly review', monthly: 'Monthly review' }
 
 const DEFAULT_OPTIONS: DayOption[] = [
   { id: 'agent', label: 'Give to the agent', agent: true },
@@ -71,21 +78,23 @@ const isObj = (x: unknown): x is Obj => !!x && typeof x === 'object' && !Array.i
 const text = (x: unknown): string | undefined => (typeof x === 'string' && x.trim() ? x : undefined)
 const isoDay = (x: unknown): string | undefined => (typeof x === 'string' && ISO_DAY.test(x) && Number.isFinite(Date.parse(x)) ? x : undefined)
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // ---------------------------------------------------------------------------------------
 // The ledger.
 
 export interface StepRow { id: string; status: string; rc: number; detail: string }
 export interface CheckRow { id: string; status: CheckStatus; step: string; source: string; detail: string }
-export interface FindRow { check: string; severity: string; key: string; title: string }
+/** `keyed` = recorded with a fault key, so it must have a sidecar */
+export interface FindRow { check: string; severity: string; key: string; title: string; keyed: boolean }
 
 export interface Ledger {
   header: Record<string, string>
   manifests: string[]
   /** last row per step id wins */
   steps: Map<string, StepRow>
-  /** last row per check id wins; Map order = first appearance */
-  checks: Map<string, CheckRow>
+  /** every row per check id, in ledger order (pickRow decides); Map order = first appearance */
+  checks: Map<string, CheckRow[]>
   finds: FindRow[]
   data: Section[]
   /** lines that could not be read */
@@ -105,9 +114,11 @@ export function parseLedger(textIn: string): Ledger {
       l.steps.set(f[1], { id: f[1], status: f[2], rc: Number.parseInt(f[3], 10) || 0, detail: f.slice(5).join(' ').trim() })
     } else if (f[0] === 'CHECK' && f.length >= 3 && ID.test(f[1])) {
       const status = STATUSES.includes(f[2] as CheckStatus) ? (f[2] as CheckStatus) : 'unproven'
-      l.checks.set(f[1], { id: f[1], status, step: f[3] ?? '-', source: f[5] ?? 'cmd', detail: f.slice(6).join(' ').trim() })
+      // Only an explicit `cmd` is a command's own result; anything else is an agent's word.
+      const row: CheckRow = { id: f[1], status, step: f[3] ?? '-', source: f[5] === 'cmd' ? 'cmd' : 'agent', detail: f.slice(6).join(' ').trim() }
+      l.checks.set(f[1], [...(l.checks.get(f[1]) ?? []), row])
     } else if (f[0] === 'FIND' && f.length >= 4 && FILE_KEY.test(f[3])) {
-      l.finds.push({ check: f[1], severity: f[2], key: f[3], title: f.slice(5).join(' ').trim() })
+      l.finds.push({ check: f[1], severity: f[2], key: f[3], title: (f[5] ?? '').trim(), keyed: f[6] === 'keyed' })
     } else if (f[0] === 'DATA' && f.length >= 2) {
       // An unknown section is a newer producer: ignored, like an unknown field (rule 3).
       if ((SECTIONS as readonly string[]).includes(f[1]) && !l.data.includes(f[1] as Section)) l.data.push(f[1] as Section)
@@ -118,18 +129,44 @@ export function parseLedger(textIn: string): Ledger {
   return l
 }
 
+/** A command's row beats an agent's (an agent cannot overrule an exit code); within one source the later row wins. */
+export function pickRow(rows: CheckRow[]): CheckRow | undefined {
+  let best: CheckRow | undefined
+  for (const r of rows) if (!best || r.source === 'cmd' || best.source !== 'cmd') best = r
+  return best
+}
+
 // ---------------------------------------------------------------------------------------
 // Step lists (manifests) and the check registries beside them.
 
 export interface ManifestStep { id: string; hard: boolean; label: string; group: string }
 export interface RegisteredCheck { id: string; step: string; label: string; group?: string; severity?: 'high' | 'normal'; connection?: string }
 export interface StepList { steps: ManifestStep[]; checks: RegisteredCheck[] }
-export interface Registries { lists: StepList[]; missing: number; bad: number }
+/** missing = step lists that could not be read · noRegistry = names of step lists with no check list beside them */
+export interface Registries { lists: StepList[]; missing: number; noRegistry: string[]; bad: number }
 
 const rowsOf = (t: string) => t.split('\n').filter((r) => r.trim() && !r.trimStart().startsWith('#')).map((r) => r.split('\t').map((c) => c.trim()))
 
 /** The owner's group for a step that has no registered checks (contract). */
 export const ownerGroup = (manifestPath: string) => (basename(manifestPath) === 'day-steps.tsv' ? 'Personal' : 'ClarityPledge')
+/** `day-cp-steps.tsv` → `day-cp`: the step list's name, as the founder reads it. */
+export const listName = (manifestPath: string) => basename(manifestPath).replace(/-steps\.tsv$/, '').replace(/\.tsv$/, '')
+
+/**
+ * A step's label as a check label: trailing parentheticals ("(P1399)", "(skipped only on …)") go,
+ * and a day-gates.sh line becomes "Daily run gate: <mode>".
+ */
+export function cleanStepLabel(label: string): string {
+  const gate = /day-gates\.sh\s+--mode=([A-Za-z0-9_-]+)/.exec(label)
+  if (gate) return `Daily run gate: ${gate[1]}`
+  let s = label.trim()
+  for (let prev = ''; prev !== s; ) {
+    prev = s
+    s = s.replace(/\s*\([^()]*\)\s*$/, '').trim()
+  }
+  return s || label.trim()
+}
+
 /** `<name>-steps.tsv` → `<name>-checks.tsv` beside it. */
 export const registryPathFor = (manifestPath: string) => (manifestPath.endsWith('-steps.tsv') ? `${manifestPath.slice(0, -'-steps.tsv'.length)}-checks.tsv` : null)
 
@@ -163,28 +200,33 @@ export function parseRegistry(t: string): { checks: RegisteredCheck[]; bad: numb
 export interface BuildChecksInput { ledger: Ledger; registries: Registries; phase: 'start' | 'end' }
 
 const notRunDetail = (phase: 'start' | 'end') => (phase === 'start' ? 'not run yet' : 'did not run')
+const agentDetail = (row: CheckRow) => (row.source === 'agent' ? `agent-reported${row.detail ? `: ${row.detail}` : ''}` : row.detail)
 
-function stepCheck(step: ManifestStep, rec: StepRow | undefined, phase: 'start' | 'end'): Omit<DayCheck, 'id'> {
-  const base = { label: step.label, group: step.group }
-  if (!rec) return { ...base, status: 'not-run', detail: notRunDetail(phase) }
-  switch (rec.status) {
-    case 'ok':
-      return { ...base, status: 'ok' } // its detail is timing noise ("28s 4628b")
-    case 'failed':
-      return { ...base, status: 'problem', detail: `exited ${rec.rc}` }
-    case 'attested':
-      return { ...base, status: 'ok', detail: truncate(rec.detail ? `agent-reported: ${rec.detail}` : 'agent-reported', MAX_AGENT_DETAIL) }
-    case 'skipped':
-      return { ...base, status: 'skipped', ...(rec.detail ? { detail: rec.detail } : {}) }
-    default:
-      return { ...base, status: 'unproven', detail: 'recorded with an unknown result' }
-  }
+/** The row a registered check accepts: only from its own step (provenance), then pickRow. */
+export function acceptedRow(ledger: Ledger, rc: RegisteredCheck): CheckRow | undefined {
+  return pickRow((ledger.checks.get(rc.id) ?? []).filter((r) => r.step === rc.step))
 }
 
-/** Every check of the run, in step-list order: registered checks, then steps with none, then unregistered CHECK ids. */
-export function buildChecks({ ledger, registries, phase }: BuildChecksInput): DayCheck[] {
+/**
+ * A step with no registered check is not a check (no phantom rows, no inflated "worked" count).
+ * It becomes a row only when it failed, or never ran by the end of the pass.
+ */
+function stepProblem(step: ManifestStep, rec: StepRow | undefined, phase: 'start' | 'end'): Omit<DayCheck, 'id'> | null {
+  const base = { label: cleanStepLabel(step.label), group: RUN_GROUP }
+  if (!rec) return phase === 'end' ? { ...base, status: 'not-run', detail: "didn't run" } : null
+  if (rec.status === 'failed' || rec.rc !== 0) return { ...base, status: 'problem', detail: `exited ${rec.rc}` }
+  if (rec.status === 'ok' || rec.status === 'attested' || rec.status === 'skipped') return null
+  return { ...base, status: 'unproven', detail: 'recorded with an unknown result' }
+}
+
+/**
+ * Every check of the run, in step-list order: registered checks, then step problems, then
+ * unregistered CHECK ids. `misplaced` counts rows for a registered check that came from another step.
+ */
+export function buildChecks({ ledger, registries, phase }: BuildChecksInput): { checks: DayCheck[]; misplaced: number } {
   const out: DayCheck[] = []
   const used = new Set<string>()
+  let misplaced = 0
   const add = (id: string, c: Omit<DayCheck, 'id'>) => {
     let unique = id
     for (let n = 2; used.has(unique); n++) unique = `${id}.${n}`
@@ -196,7 +238,8 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): Da
     const byStep = new Map<string, DayCheck[]>()
     for (const rc of list.checks) {
       if (used.has(rc.id)) continue
-      const row = ledger.checks.get(rc.id)
+      misplaced += (ledger.checks.get(rc.id) ?? []).filter((r) => r.step !== rc.step).length
+      const row = acceptedRow(ledger, rc)
       const meta = {
         label: rc.label,
         ...(rc.group ? { group: rc.group } : {}),
@@ -205,7 +248,7 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): Da
       }
       let c: Omit<DayCheck, 'id'>
       if (row) {
-        const detail = row.source === 'agent' ? `agent-reported${row.detail ? `: ${row.detail}` : ''}` : row.detail
+        const detail = agentDetail(row)
         c = { ...meta, status: row.status, ...(detail ? { detail } : {}) }
       } else if (ledger.steps.has(rc.step)) {
         c = { ...meta, status: 'unproven', detail: 'the step ran but did not report this check' }
@@ -220,33 +263,36 @@ export function buildChecks({ ledger, registries, phase }: BuildChecksInput): Da
       const rec = ledger.steps.get(step.id)
       const own = byStep.get(step.id)
       if (!own) {
-        add(step.id, stepCheck(step, rec, phase))
+        const p = stepProblem(step, rec, phase)
+        if (p) add(step.id, p)
         continue
       }
       // The step failed but none of its checks says so: the failure must not vanish.
       const failed = !!rec && (rec.status === 'failed' || rec.rc !== 0)
       if (failed && own.every((c) => c.status === 'ok' || c.status === 'skipped')) {
-        add(step.id, { label: step.label, group: step.group, status: 'problem', detail: `exited ${rec.rc}` })
+        add(step.id, { label: cleanStepLabel(step.label), group: RUN_GROUP, status: 'problem', detail: `exited ${rec.rc}` })
       }
     }
   }
-  for (const row of ledger.checks.values()) {
-    if (used.has(row.id)) continue
+  for (const [id, rows] of ledger.checks) {
+    const row = pickRow(rows)
+    if (used.has(id) || !row) continue
     const group = stepGroup.get(row.step)
-    const detail = row.source === 'agent' ? `agent-reported${row.detail ? `: ${row.detail}` : ''}` : row.detail
-    add(row.id, { label: row.id, status: row.status, ...(detail ? { detail } : {}), ...(group ? { group } : {}) })
+    const detail = agentDetail(row)
+    add(id, { label: id, status: row.status, ...(detail ? { detail } : {}), ...(group ? { group } : {}) })
   }
-  return out
+  return { checks: out, misplaced }
 }
 
-/** complete = every hard step recorded, every registered check reported, and no step list missing. */
+/** complete = every hard step recorded, every registered check reported from its own step, and no step or check list missing. */
 export function runState(ledger: Ledger, registries: Registries, phase: 'start' | 'end'): DayReport['state'] {
   if (phase === 'start') return 'running'
   if (ledger.header.state === 'abandoned') return 'abandoned'
   if (registries.missing > 0) return 'incomplete'
+  if (registries.noRegistry.length > 0) return 'incomplete'
   for (const list of registries.lists) {
     if (list.steps.some((s) => s.hard && !ledger.steps.has(s.id))) return 'incomplete'
-    if (list.checks.some((c) => !ledger.checks.has(c.id))) return 'incomplete'
+    if (list.checks.some((c) => !acceptedRow(ledger, c))) return 'incomplete'
   }
   return 'complete'
 }
@@ -305,12 +351,20 @@ export function readSidecar(raw: string): Sidecar | null {
   return s
 }
 
-/** sidecar date, else the earliest earlier report that carried the fp, else this pass's date. */
+/**
+ * The earliest of: the sidecar's date (the check's own clock), every earlier report's first_seen
+ * for this fp, the date of every earlier report that carried it, and this pass's date.
+ */
 export function firstSeen(fp: string, sidecarFirst: string | undefined, earlier: Pick<DayReport, 'started_at' | 'issues'>[], startedAt: string): string {
-  if (sidecarFirst && isoDay(sidecarFirst)) return sidecarFirst.slice(0, 10)
-  const own = startedAt.slice(0, 10)
-  const seen = earlier.filter((r) => r.issues.some((i) => i.fp === fp)).map((r) => r.started_at.slice(0, 10))
-  return [own, ...seen].sort()[0]
+  const dates = [startedAt.slice(0, 10)]
+  if (sidecarFirst && isoDay(sidecarFirst)) dates.push(sidecarFirst.slice(0, 10))
+  for (const r of earlier) {
+    const issue = r.issues.find((i) => i.fp === fp)
+    if (!issue) continue
+    dates.push(r.started_at.slice(0, 10))
+    if (isoDay(issue.first_seen)) dates.push((issue.first_seen as string).slice(0, 10))
+  }
+  return dates.sort()[0]
 }
 
 export interface FindingFiles { body?: string; sidecar?: string }
@@ -343,7 +397,8 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
   for (const row of latest.values()) {
     const files = input.files.get(row.key) ?? {}
     const side = files.sidecar === undefined ? null : readSidecar(files.sidecar)
-    if (files.sidecar !== undefined && !side) unusable++
+    // A sidecar that is unreadable, or missing for a finding recorded with a fault key, is lost detail.
+    if (files.sidecar === undefined ? row.keyed : !side) unusable++
     const checkId = side?.check ?? row.check
     const fp = side ? `${side.check}:${side.fault_key}` : `find:${row.key}`
     const check = checks.get(checkId)
@@ -351,7 +406,7 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
     const body = (files.body ?? '').replace(/\s+$/, '')
     const issue: DayIssue = {
       fp,
-      topic: side?.topic || check?.group || step?.group || 'Checks',
+      topic: side?.topic || (side?.review ? REVIEW_TOPIC[side.review] : undefined) || check?.group || step?.group || 'Checks',
       title: side?.title ?? (row.title || 'A finding with no title'),
       point_a: side?.point_a ?? body.split('\n')[0] ?? '',
       obstacle: side?.obstacle ?? '',
@@ -389,6 +444,7 @@ export function dataUsable(section: Section, v: unknown): boolean {
   switch (section) {
     case 'connections':
     case 'people':
+    case 'notes':
       return Array.isArray(v) && noDrops({ [section]: v })
     case 'monitoring':
     case 'stats':
@@ -421,7 +477,7 @@ const runProblem = (label: string, detail: string): Omit<DayCheck, 'id'> => ({ l
 
 export function buildReport(inp: RenderInputs): DayReport {
   const { ledger, registries, phase } = inp
-  const checks = buildChecks({ ledger, registries, phase })
+  const { checks, misplaced } = buildChecks({ ledger, registries, phase })
   const extra: DayCheck[] = []
 
   const data: Partial<Record<Section, unknown>> = {}
@@ -441,9 +497,17 @@ export function buildReport(inp: RenderInputs): DayReport {
   const { issues, unusable } = buildIssues({ finds: ledger.finds, files: inp.findingFiles, checks, steps, earlier: inp.earlier, startedAt })
 
   if (registries.missing > 0) extra.push({ id: 'day.manifests', ...runProblem('Daily run setup', `${registries.missing} of the lists of what to run could not be read`) })
-  if (unusable > 0) extra.push({ id: 'day.findings', ...runProblem('Finding details', `${unusable} finding details could not be read`) })
+  const names = registries.noRegistry
+  if (names.length) {
+    extra.push({ id: 'day.registry', ...runProblem('Check list', names.length === 1 ? `the check list for ${names[0]} is missing` : `the check lists for ${names.join(', ')} are missing`) })
+  }
+  if (unusable > 0) extra.push({ id: 'day.findings', ...runProblem('Finding details', `${plural(unusable, 'finding detail')} could not be read`) })
   const bad = ledger.bad + registries.bad
-  if (bad > 0) extra.push({ id: 'day.records', ...runProblem('Daily run record', `${bad} lines could not be read`) })
+  const record = [
+    bad && `${plural(bad, 'line')} could not be read`,
+    misplaced && (misplaced === 1 ? 'a status came from the wrong place' : `${misplaced} statuses came from the wrong place`),
+  ].filter(Boolean)
+  if (record.length) extra.push({ id: 'day.records', ...runProblem('Daily run record', record.join('; ')) })
 
   const report: DayReport = {
     schema: 2,
@@ -463,6 +527,7 @@ export function buildReport(inp: RenderInputs): DayReport {
   if (data.stats) report.stats = data.stats as DayReport['stats']
   if (data.reflection) report.reflection = data.reflection as DayReport['reflection']
   if (data.people) report.people = data.people as DayReport['people']
+  if (data.notes) report.notes = data.notes as DayReport['notes']
   return report
 }
 
@@ -481,10 +546,12 @@ export const fileIdOf = (passId: string) => passId.replace(/[^A-Za-z0-9._-]/g, '
 // ---------------------------------------------------------------------------------------
 // The card and the detail (plain text, no ANSI, no internal words).
 
-/** Foreign text for the terminal: control characters (escape sequences included) become spaces. */
+/**
+ * Foreign text for the terminal: control characters (escape sequences included) become spaces,
+ * and `<` `>` `|` are removed, so a relayed card can never carry a redirect or a pipe.
+ */
 // eslint-disable-next-line no-control-regex
-const plain = (s: string, max = 100) => truncate(s.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim(), max)
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+const plain = (s: string, max = 100) => truncate(s.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/[<>|]/g, '').replace(/\s+/g, ' ').trim(), max)
 
 function when(iso: string, timeZone?: string): string {
   const d = new Date(iso)
@@ -498,10 +565,8 @@ function stateWords(report: DayReport): string {
   if (report.state === 'running') return 'still running'
   if (report.state === 'complete') return 'complete'
   if (report.state === 'abandoned') return 'abandoned'
-  const notRun = report.checks.filter((c) => c.status === 'not-run').length
-  if (notRun) return `stopped early: ${plural(notRun, 'check')} did not run`
-  const unproven = report.checks.filter((c) => c.status === 'unproven').length
-  return unproven ? `incomplete: ${plural(unproven, 'check')} not proven` : 'incomplete'
+  const missing = report.checks.filter((c) => c.status === 'not-run' || c.status === 'unproven').length
+  return missing ? `stopped early: ${plural(missing, 'check')} ${missing === 1 ? 'has' : 'have'} no result` : 'incomplete'
 }
 
 const header = (report: DayReport, timeZone?: string) => `DAY · ${when(report.started_at, timeZone)} · ${stateWords(report)}`
@@ -511,10 +576,13 @@ export interface CardOptions { kanbanUrl: string; timeZone?: string }
 
 export function renderCard(report: DayReport, view: DayView, opts: CardOptions): string {
   const urgent = view.issues.filter((i) => i.urgent).length
+  // "need you" = the recommended answer is not the agent's: only the founder can move it.
+  const needYou = view.issues.filter((i) => !i.options[i.recommended_index]?.agent).length
   const counts = [
-    `${view.issues.length} to decide`,
+    plural(view.issues.length, 'issue'),
+    needYou && `${needYou} ${needYou === 1 ? 'needs' : 'need'} you`,
     urgent && `${urgent} urgent`,
-    `${view.counts.worked} of ${view.counts.total} checks worked`,
+    `${view.counts.worked} of ${plural(view.counts.total, 'check')} worked`,
     view.parked.length && `${view.parked.length} parked`,
   ].filter(Boolean)
   const L = [header(report, opts.timeZone), counts.join(' · ')]
@@ -578,7 +646,7 @@ export function readLedgerFiles(ledgerPath: string, ledger: Ledger): { findingFi
 }
 
 export function readRegistries(manifests: string[]): Registries {
-  const out: Registries = { lists: [], missing: 0, bad: 0 }
+  const out: Registries = { lists: [], missing: 0, noRegistry: [], bad: 0 }
   for (const m of manifests) {
     let t: string
     try {
@@ -591,14 +659,14 @@ export function readRegistries(manifests: string[]): Registries {
     out.bad += bad
     const regPath = registryPathFor(m)
     let checks: RegisteredCheck[] = []
-    if (regPath && existsSync(regPath)) {
-      try {
-        const r = parseRegistry(readFileSync(regPath, 'utf-8'))
-        checks = r.checks
-        out.bad += r.bad
-      } catch {
-        out.missing++
-      }
+    try {
+      if (!regPath) throw new Error('no-registry-name')
+      const r = parseRegistry(readFileSync(regPath, 'utf-8'))
+      checks = r.checks
+      out.bad += r.bad
+    } catch {
+      // Without its check list a step list's checks cannot be required: never complete.
+      out.noRegistry.push(listName(m))
     }
     out.lists.push({ steps, checks })
   }
@@ -644,17 +712,13 @@ function ensurePrivateDir(dir: string) {
   chmodSync(dir, 0o700)
 }
 
-/** Atomic: a temp file beside it (not *.json, so the board never lists it), then rename. */
-export function writeReport(dayDir: string, report: DayReport): void {
-  ensurePrivateDir(dayDir)
-  const dir = join(dayDir, 'reports')
-  ensurePrivateDir(dir)
-  const id = fileIdOf(report.pass_id)
-  const tmp = join(dir, `.${id}.json.tmp-${process.pid}`)
+/** Atomic, mode 0600: a temp file beside it (not *.json, so the board never lists it), then rename. */
+function writeJsonAtomic(dir: string, name: string, value: unknown): void {
+  const tmp = join(dir, `.${name}.tmp-${process.pid}`)
   try {
-    writeFileSync(tmp, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 })
+    writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 })
     chmodSync(tmp, 0o600)
-    renameSync(tmp, join(dir, `${id}.json`))
+    renameSync(tmp, join(dir, name))
   } catch (err) {
     try {
       unlinkSync(tmp)
@@ -663,6 +727,44 @@ export function writeReport(dayDir: string, report: DayReport): void {
     }
     throw err
   }
+}
+
+export function writeReport(dayDir: string, report: DayReport): void {
+  ensurePrivateDir(dayDir)
+  const dir = join(dayDir, 'reports')
+  ensurePrivateDir(dir)
+  writeJsonAtomic(dir, `${fileIdOf(report.pass_id)}.json`, report)
+}
+
+/**
+ * A pass that died never finished its report: at --phase start every OTHER report still `running`
+ * is rewritten as `incomplete` (same file, every other field as it was, validated like a new
+ * report, atomically). Returns how many were closed.
+ */
+export function closeKilledRuns(dayDir: string, passId: string): number {
+  const dir = join(dayDir, 'reports')
+  let names: string[]
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith('.json') && n !== `${fileIdOf(passId)}.json`)
+  } catch {
+    return 0
+  }
+  let closed = 0
+  for (const n of names) {
+    let raw: unknown
+    try {
+      raw = JSON.parse(readFileSync(join(dir, n), 'utf-8'))
+    } catch {
+      continue
+    }
+    if (!isObj(raw) || raw.state !== 'running' || raw.pass_id === passId) continue
+    const next = { ...raw, state: 'incomplete' }
+    const p = parseReport(next)
+    if (p.kind !== 'ok' || p.droppedRows > 0) continue
+    writeJsonAtomic(dir, n, next)
+    closed++
+  }
+  return closed
 }
 
 // ---------------------------------------------------------------------------------------
@@ -724,6 +826,10 @@ export function run(argv: string[], io: IO): number {
     return 3
   }
   try {
+    if (args.phase === 'start') {
+      const closed = closeKilledRuns(args.dayDir, report.pass_id)
+      if (closed) say(`marked ${plural(closed, 'unfinished earlier run')} incomplete`)
+    }
     writeReport(args.dayDir, report)
   } catch (err) {
     say(`could not write the report (${String((err as NodeJS.ErrnoException)?.code ?? 'EUNKNOWN').replace(/[^A-Z]/g, '')})`)

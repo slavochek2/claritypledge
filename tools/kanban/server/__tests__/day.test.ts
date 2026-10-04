@@ -130,6 +130,20 @@ describe('day v2: reading a report (rule 3, rule 2)', () => {
     expect(ok({ ...synthReport(), people: undefined }).people).toBeUndefined() // not collected ≠ nobody
   })
 
+  it('reads notes as plain detail; drops a note without a title and caps the body', () => {
+    const raw = { ...synthReport(), notes: [
+      { id: 'shipped', title: 'Shipped since the last run', body: 'a\nb' },
+      { id: 'bad', body: 'no title' },
+      { id: 'long', title: 'Long', body: 'x'.repeat(5000), review: 'weekly' },
+    ] }
+    const p = parseReport(raw)
+    expect(p.kind === 'ok' && p.droppedRows).toBe(1)
+    if (p.kind !== 'ok') return
+    expect(p.report.notes!.map((n) => n.id)).toEqual(['shipped', 'long'])
+    expect(p.report.notes![1].body).toHaveLength(4000)
+    expect(p.report.notes![1].review).toBe('weekly')
+  })
+
   it('keeps fix_url only when it is http(s)', () => {
     const raw = synthReport()
     raw.connections[0].fix_url = 'javascript:alert(1)'

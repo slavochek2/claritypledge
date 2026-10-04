@@ -202,6 +202,19 @@ export interface DayReport {
   reflection?: { model?: string; statements: DayStatement[] }
   /** new and returning people since the last run; absent = not collected */
   people?: DayPerson[]
+  /**
+   * Detail one step away (spec §2): what shipped, what's next, branches, the chat digest, a
+   * review's measurements. Plain text, shown folded on the Stats tab; never a question.
+   */
+  notes?: DayNote[]
+}
+
+export interface DayNote {
+  id: string
+  title: string
+  /** plain text, line breaks kept, ≤ 4000 characters */
+  body: string
+  review?: Review
 }
 
 export type ParsedReport =
@@ -420,6 +433,13 @@ function readPerson(x: unknown): DayPerson | null {
   return p
 }
 
+function readNote(x: unknown): DayNote | null {
+  if (!isObj(x) || typeof x.id !== 'string' || !ID.test(x.id) || !str(x.title) || typeof x.body !== 'string') return null
+  const n: DayNote = { id: x.id, title: x.title as string, body: x.body.slice(0, 4000) }
+  if (REVIEWS.includes(x.review as Review)) n.review = x.review as Review
+  return n
+}
+
 function readStatement(x: unknown): DayStatement | null {
   if (!isObj(x) || typeof x.id !== 'string' || !ID.test(x.id) || !str(x.text)) return null
   const s: DayStatement = { id: x.id, text: x.text as string }
@@ -514,6 +534,7 @@ export function parseReport(raw: unknown): ParsedReport {
   const stats = readStats(raw.stats)
   if (stats) report.stats = stats
   if (Array.isArray(raw.people)) report.people = rows(raw.people, readPerson, (p) => p.id, drop)
+  if (Array.isArray(raw.notes)) report.notes = rows(raw.notes, readNote, (n) => n.id, drop)
   if (isObj(raw.reflection)) {
     report.reflection = { statements: rows(raw.reflection.statements, readStatement, (s) => s.id, drop) }
     if (str(raw.reflection.model)) report.reflection.model = raw.reflection.model as string
@@ -595,6 +616,8 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
     if (!raw.trim()) continue
     try {
       const o = JSON.parse(raw) as Obj
+      // A launch receipt (Phase C, written by the server's Start fixing route) is not a decision.
+      if (o.kind === 'sent') continue
       const v = validateDecisionInput(o)
       if (!v.ok || typeof o.run_id !== 'string' || !ID.test(o.run_id) || !isoDay(o.at)) {
         badLines++

@@ -336,7 +336,8 @@ test.describe('issues', () => {
     const promptRes = page.waitForResponse((r) => r.url().endsWith('/api/day/prompt'))
     await startBtn(page).click()
     const { prompt } = await (await promptRes).json()
-    await expect(page.locator('.d-toast')).toHaveText('Prompt copied — paste it into a new Claude session')
+    // the suite's server never opens a terminal (KANBAN_DAY_LAUNCH=off): the real 502 path copies instead
+    await expect(page.locator('.d-toast')).toHaveText('Couldn’t open the terminal — prompt copied instead.')
     const clip = await page.evaluate(() => navigator.clipboard.readText())
     expect(clip).toBe(prompt)
     expect(clip.split('\n')[0]).toContain('still real')
@@ -770,6 +771,106 @@ test.describe('review round 3', () => {
     const starts = await page.locator('.d-strip .d-ph').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()[0]))
     expect(starts.length).toBeGreaterThanOrEqual(2)
     for (const c of starts) expect(c).not.toBe('·')
+  })
+})
+
+test.describe('Start fixing opens a terminal (Phase C)', () => {
+  const pick = (page: Page, label: string) => card(page).locator('.d-optrow').filter({ hasText: label }).click()
+
+  test('the request body is exactly { run_id }; 200 shows "Running in terminal" until a decision changes', async ({ page }) => {
+    await openDay(page)
+    let body: unknown = null
+    await page.route('**/api/day/start', async (route) => {
+      body = route.request().postDataJSON()
+      await new Promise((r) => setTimeout(r, 400))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ launched: true, how: 'tab' }) })
+    })
+    await startBtn(page).click()
+    await expect(page.locator('[data-launch="opening"]')).toHaveText('Opening…')
+    await expect(page.locator('[data-launch="running"]')).toHaveText('✓ Running in terminal')
+    await expect(page.locator('.d-toast')).toHaveText('Opened a new tab in your terminal')
+    await expect(startBtn(page)).toHaveCount(0)
+    expect(body).toEqual({ run_id: LATEST_ID })
+    await pick(page, 'Roll back now')
+    await expect(startBtn(page)).toBeVisible()
+    await expect(page.locator('[data-launch]')).toHaveCount(0)
+  })
+
+  test('how=window says so', async ({ page }) => {
+    await openDay(page)
+    await page.route('**/api/day/start', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ launched: true, how: 'window' }) }),
+    )
+    await startBtn(page).click()
+    await expect(page.locator('.d-toast')).toHaveText('Opened a new window in your terminal')
+  })
+
+  test('429 asks to wait; the button stays', async ({ page }) => {
+    await openDay(page)
+    await page.route('**/api/day/start', (route) =>
+      route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Too soon' }) }),
+    )
+    await startBtn(page).click()
+    await expect(page.locator('.d-toast')).toHaveText('Started less than a minute ago. Wait a moment, or copy the prompt.')
+    await expect(startBtn(page)).toBeVisible()
+  })
+
+  test('409 already-sent offers Copy, which copies the prompt', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${ON.web}` })
+    await openDay(page)
+    await page.route('**/api/day/start', (route) =>
+      route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Already sent', reason: 'already-sent' }) }),
+    )
+    await startBtn(page).click()
+    const toast = page.locator('.d-toast')
+    await expect(toast).toContainText('This was already sent to a terminal. Copy it instead?')
+    await toast.getByRole('button', { name: 'Copy' }).click()
+    await expect(toast).toHaveText('Prompt copied')
+    expect((await page.evaluate(() => navigator.clipboard.readText())).split('\n')[0]).toContain('still real')
+    await expect(startBtn(page)).toBeVisible()
+  })
+
+  test('the copy icon never asks for a terminal', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${ON.web}` })
+    await openDay(page)
+    let started = 0
+    await page.route('**/api/day/start', (route) => {
+      started++
+      return route.abort()
+    })
+    await page.getByRole('button', { name: 'Copy prompt' }).click()
+    await expect(page.locator('.d-toast')).toHaveText('Prompt copied')
+    expect(started).toBe(0)
+  })
+})
+
+test.describe('notes ("From this run")', () => {
+  test('each note is a fold under Stats that opens on click, keeping its line breaks', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const notes = page.locator('.d-notes')
+    await expect(notes.locator('.d-h3')).toHaveText('From this run')
+    await expect(notes.locator('[data-note]')).toHaveCount(3)
+    const shipped = notes.locator('[data-note="shipped"]')
+    const fold = shipped.getByRole('button')
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    expect((await rectOf(fold, 'note fold')).height).toBeGreaterThanOrEqual(40)
+    await expect(shipped.locator('.d-notebody')).toHaveCount(0)
+    await fold.click()
+    await expect(shipped.locator('.d-notebody')).toHaveText('Event page: room-ended message reworded.\nBoard: Day page phase A.')
+    expect(await shipped.locator('.d-notebody').evaluate((e) => getComputedStyle(e).whiteSpace)).toBe('pre-wrap')
+    await expect(notes.locator('[data-note="week-measures"] .d-runbadge')).toHaveText('Weekly review')
+  })
+
+  test('a run without notes shows no "From this run"', async ({ page }) => {
+    await openDay(page, 'people-absent')
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await expect(page.locator('[data-funnel]')).toBeVisible()
+    await expect(page.getByText('From this run')).toHaveCount(1)
+    await openDay(page, 'no-notes')
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await expect(page.locator('[data-funnel]')).toBeVisible()
+    await expect(page.getByText('From this run')).toHaveCount(0)
   })
 })
 

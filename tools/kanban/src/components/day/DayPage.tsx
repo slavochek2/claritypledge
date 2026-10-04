@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ASK, OTHER, pendingPreselected, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
-import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, type DayIndex, type RunPayload } from './api'
+import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport, type FreeKind } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab } from './ReflectionTab'
@@ -61,8 +61,10 @@ export function DayPage() {
   const [resolved, setResolved] = useState<Set<string>>(new Set())
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null)
   const [busy, setBusy] = useState(false)
+  /** Start fixing: idle → opening (request in flight) → running (until any decision changes) */
+  const [launch, setLaunch] = useState<'idle' | 'opening' | 'running'>('idle')
   /** set when a newer run appeared while this page was open */
   const [newerId, setNewerId] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -74,10 +76,10 @@ export function DayPage() {
   runIdRef.current = runId
   const latestRef = useRef<string | null>(null)
 
-  const say = useCallback((m: string) => {
-    setToast(m)
+  const say = useCallback((text: string, action?: { label: string; run: () => void }) => {
+    setToast({ text, action })
     window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), 3000)
+    toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 3000)
   }, [])
 
   // ---- loading -------------------------------------------------------------------------
@@ -134,6 +136,7 @@ export function DayPage() {
     setResolved(new Set())
     setChoice({})
     setDrafts({})
+    setLaunch('idle')
     stories.current = {}
     void reload(runId)
   }, [runId, reload])
@@ -159,6 +162,7 @@ export function DayPage() {
         async (): Promise<WriteResult> => {
           try {
             await postDecisions(id, ds)
+            setLaunch('idle') // a decision changed: what is running no longer matches the page
             await reload(id)
             return { ok: true }
           } catch (e) {
@@ -270,6 +274,7 @@ export function DayPage() {
 
   // ---- Start fixing / copy (rule 3) -------------------------------------------------------
 
+  const startRef = useRef<(mode: 'start' | 'copy') => Promise<void>>(async () => {})
   const startFixing = useCallback(
     async (mode: 'start' | 'copy') => {
       if (!runId || readOnly || busy || !view) return
@@ -294,11 +299,35 @@ export function DayPage() {
         const freeFps = new Set(Object.entries(choice).filter(([, v]) => isFree(v)).map(([fp]) => fp))
         const preselected = pendingPreselected(fresh.view).filter((d) => !freeFps.has(d.target))
         const batch = [...free, ...preselected]
-        if (batch.length) await postDecisions(runId, batch)
-        const { prompt } = await getPrompt()
-        await copyText(prompt)
-        say(mode === 'start' ? 'Prompt copied — paste it into a new Claude session' : 'Prompt copied')
+        if (batch.length) {
+          await postDecisions(runId, batch)
+          setLaunch('idle')
+        }
+        if (mode === 'copy') {
+          await copyText((await getPrompt()).prompt)
+          say('Prompt copied')
+          return
+        }
+        setLaunch('opening')
+        const r = await startRun(runId)
+        if (r.status === 200 && r.body.launched) {
+          setLaunch('running')
+          say(r.body.how === 'window' ? 'Opened a new window in your terminal' : 'Opened a new tab in your terminal')
+          return
+        }
+        setLaunch('idle')
+        if (r.status === 429) say('Started less than a minute ago. Wait a moment, or copy the prompt.')
+        else if (r.status === 409 && r.body.reason === 'already-sent')
+          say('This was already sent to a terminal. Copy it instead?', { label: 'Copy', run: () => void startRef.current('copy') })
+        else if (r.status === 502) {
+          await copyText((await getPrompt()).prompt)
+          say('Couldn’t open the terminal — prompt copied instead.')
+        } else {
+          if (r.status === 409 && r.body.reason === 'not-latest') void checkNewer()
+          say(`Couldn’t start: ${r.body.error ?? `request failed (${r.status})`}`)
+        }
       } catch (e) {
+        setLaunch('idle')
         if (e instanceof HttpError && e.status === 409) void checkNewer()
         say(`Couldn’t copy: ${(e as Error).message}`)
       } finally {
@@ -308,6 +337,7 @@ export function DayPage() {
     },
     [runId, readOnly, busy, view, freeEmpty, unsavedFree, choice, reload, say, checkNewer],
   )
+  startRef.current = startFixing
 
   // ---- paging (never writes) -------------------------------------------------------------
 
@@ -516,7 +546,7 @@ export function DayPage() {
                   onBringBack={bringBack}
                 />
               )}
-              {tab === 'stats' && <StatsTab stats={ok.report.stats} />}
+              {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} />}
               {tab === 'monitoring' && <MonitoringTab report={ok.report} view={view} readOnly={readOnly} onRaise={raise} onUndoRaise={undoRaise} />}
               {tab === 'reflection' && (
                 <ReflectionTab
@@ -538,7 +568,20 @@ export function DayPage() {
         <div className="d-gbar" data-bottom-bar>
           {toast && (
             <div className="d-toast" role="status">
-              {toast}
+              {toast.text}
+              {toast.action && (
+                <button
+                  type="button"
+                  className="d-toastact"
+                  onClick={() => {
+                    const run = toast.action?.run
+                    setToast(null)
+                    run?.()
+                  }}
+                >
+                  {toast.action.label}
+                </button>
+              )}
             </div>
           )}
           <div className="d-col">
@@ -591,9 +634,20 @@ export function DayPage() {
                   <span className="d-ro">Read only</span>
                 ) : (
                   <>
-                    <button type="button" className="d-btn primary sm" disabled={busy || ok.collectedCount === 0} onClick={() => void startFixing('start')}>
-                      Start fixing ({ok.collectedCount})
-                    </button>
+                    {launch === 'opening' ? (
+                      <span className="d-bstat opening" data-launch="opening">
+                        <span className="d-spin" aria-hidden="true" />
+                        Opening…
+                      </span>
+                    ) : launch === 'running' ? (
+                      <span className="d-bstat" data-launch="running">
+                        ✓ Running in terminal
+                      </span>
+                    ) : (
+                      <button type="button" className="d-btn primary sm" disabled={busy || ok.collectedCount === 0} onClick={() => void startFixing('start')}>
+                        Start fixing ({ok.collectedCount})
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="d-iconbtn"

@@ -142,6 +142,11 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
       { id: 'p-b', name: 'Person B', joined_at: '2026-10-04T02:40:00Z', source: 'Direct', confirmed: false, did: 'Signed up, nothing else yet.', stopped_at: 'Never confirmed the email.' },
       { id: 'p-c', name: 'Person C', source: 'Letter', returning: true, did: 'Came back and answered a letter.' },
     ],
+    notes: [
+      { id: 'shipped', title: 'Shipped since the last run', body: 'Event page: room-ended message reworded.\nBoard: Day page phase A.' },
+      { id: 'next', title: 'What is next', body: '1. Review the two live database rules.\n2. Send the pilot invite draft.' },
+      { id: 'week-measures', title: 'Weekly review: measurements', body: 'Reach-outs: 6 (target 10)\nChampion talks: 2', review: 'weekly' },
+    ],
     reflection: {
       model: 'Opus',
       statements: [
