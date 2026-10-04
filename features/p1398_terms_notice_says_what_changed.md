@@ -40,7 +40,7 @@ and are blocked only when a change genuinely needs their explicit consent?
 Blast radius: medium. The gate renders over every authed page for every user on old terms.
 Reversibility: high for the code; the new audit column is additive. Decision density: decided in
 conversation (below). Built inline in conversation ahead of this spec (`flow: inline`), then
-retrofitted onto `fix/p1398-terms-notice-says-what-changed` for `/ship`.
+retrofitted onto `feature/p1398-terms-notice-says-what-changed` for `/ship`.
 
 ## Solution
 

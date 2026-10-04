@@ -162,8 +162,8 @@ For each approved change:
 
 1. Bump `CURRENT_TERMS_VERSION` in `src/lib/constants.ts` (e.g., v1.1 → v1.2)
 2. Add the version's entry to `src/app/content/terms-changes.ts`:
-   - `highlights`: 2–4 plain-language lines a user reads in seconds; `details`: the rest, behind "See all changes".
-   - Check every line against the old and new documents (`git show <old-sha>:<file>`). A summary line that is not true of the diff is worse than none.
+   - `headline`: one plain sentence, shown after "In short:". `highlights`: at most 3 plain-language lines, opened by "Show more". Everything else is left to the full documents.
+   - Check every line against the old and new documents. Find the commit that set the previous version with `git log -S "CURRENT_TERMS_VERSION = '<old>'" --oneline -- src/lib/constants.ts`, then compare with `git show <that-sha>:src/app/content/privacy.md` (and `tos.md`). A summary line that is not true of the diff is worse than none.
    - Describe the documents only — never a page, session or recording (the notice renders over every authed page, P1300).
    - `requiresConsent`: `false` = dismissible banner, continued use is acceptance (the default). `true` = blocking popup, only when the change needs fresh explicit consent (a new use of personal data on a consent basis). Write the reason in a comment beside it. If unsure, ask the founder.
 3. Update the test expectation in `src/tests/consent-api.test.ts` to match the new version
@@ -175,7 +175,7 @@ Use Claude in Chrome to load `http://localhost:5173/terms-of-service` and screen
 
 **Pass criteria:** All new paragraphs render without truncation, spacing matches surrounding sections, no raw HTML visible, date in page header matches today.
 
-**Then review the re-acceptance notice (banner, or popup when `requiresConsent`) including its "what changed" lines. This is mandatory whenever Stage 7b bumped the version.** The bump
+**Then review the re-acceptance notice (banner, or popup when `requiresConsent`) including its "what changed" lines. This is mandatory whenever Stage 7b bumped the version.** The steps below say "popup"; for a banner version they apply the same way, plus: it sits above the mobile bottom nav, it never covers a legal page, and with "Show more" opened it fits at 320×568 without scrolling. The bump
 shows the popup to *every* returning user, over whatever page they open first. That page is usually a
 profile, a group or the feed, not a live session. Sign in as a user whose `accepted_terms_version` is
 behind, open an ordinary non-session page, and screenshot the popup. Then:
