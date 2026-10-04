@@ -4,7 +4,7 @@
  * page says where to sit. Live against the test DB.
  *
  * Covers: the host-only gate and the "Run this event" entry; Start round groups the room into
- * tables of speaker / listener / observer; a two-tap swap and its Undo; a late arrival sees "You
+ * tables of speaker / listener / observer; a two-tap swap and its Undo; "Seat now" for a late arrival; a late arrival sees "You
  * join at the next round"; tapping a name and "Out" takes someone out of the next round; the attendee's card, the
  * "I'm at table N" tap and that skipping it blocks nothing; the dark phone during the round and
  * the observer's clock; "Did your position move?" after the round; the projector view; group
@@ -111,7 +111,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
     await expect(page.getByTestId('round-grid-name')).toHaveCount(6);
     // Roles are columns with the printed cards' letters, not a label on every tile.
-    await expect(page.getByTestId('round-grid-role')).toHaveText(['SSpeaker', 'LListener', 'OObserver']);
+    await expect(page.getByTestId('round-grid-role')).toHaveText(['SSpeaker 1', 'LSpeaker 2', 'OObserver']);
     const rows = await seats(event.id);
     expect(rows).toHaveLength(6);
     for (const table of [1, 2]) {
@@ -166,6 +166,21 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-card-waiting')).toHaveText('You join at the next round.');
   });
 
+  test('"Seat now" puts a late arrival into the running round without moving anyone', async ({ page }) => {
+    const before = await seats(event.id);
+    await asHost(page);
+    await page.getByTestId('host-seat-now').click();
+    await expect.poll(async () => (await seats(event.id)).length).toBe(before.length + 1);
+    const after = await seats(event.id);
+    for (const b of before) {
+      const a = after.find(x => x.room_member_id === b.room_member_id)!;
+      expect([a.table_no, a.role]).toEqual([b.table_no, b.role]);
+    }
+    await setTestSession(page, late.email);
+    await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('round-card')).toBeVisible();
+  });
+
   test('during the round the phone is dark; the observer holds the clock', async ({ page }) => {
     await backdateCurrentRound(event.id, 2 * MIN); // 30s into the first speaker's six minutes
     const mine = (await seats(event.id)).find(s => s.room_member_id === anaMember)!;
@@ -204,7 +219,8 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-screen')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Round 1' })).toBeVisible();
     await expect(page.getByText('Table 1')).toBeVisible();
-    await expect(page.locator('[data-testid=screen-table] [data-role-badge]')).toHaveCount(6);
+    // Six seated at the start, plus the late arrival seated with "Seat now".
+    await expect(page.locator('[data-testid=screen-table] [data-role-badge]')).toHaveCount(7);
     await expect(page.getByTestId('round-clock')).toHaveAttribute('data-phase', 'over');
   });
 

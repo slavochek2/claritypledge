@@ -3,6 +3,7 @@ import {
   DEFAULT_TOGGLES,
   groupNextRound,
   pairGap,
+  seatLate,
   swapSeats,
   tableLayout,
   type GroupingInput,
@@ -170,5 +171,42 @@ describe('swapSeats', () => {
       { id: 'a', table: 2, role: 'first' },
       { id: 'b', table: 1, role: 'observer' },
     ]);
+  });
+});
+
+describe('seatLate', () => {
+  const running: Seat[] = [
+    { id: 'a', table: 1, role: 'first' },
+    { id: 'b', table: 1, role: 'second' },
+    { id: 'c', table: 1, role: 'observer' },
+    { id: 'd', table: 2, role: 'first' },
+    { id: 'e', table: 2, role: 'second' },
+  ];
+
+  it('moves nobody already seated', () => {
+    const out = seatLate(running, ['x', 'y', 'z']);
+    for (const s of running) expect(out).toContainEqual(s);
+  });
+
+  it('two newcomers open a new table as a speaker pair', () => {
+    const out = seatLate(running, ['x', 'y']);
+    expect(out.filter(s => s.table === 3)).toEqual([
+      { id: 'x', table: 3, role: 'first' },
+      { id: 'y', table: 3, role: 'second' },
+    ]);
+  });
+
+  it('three newcomers: a new trio', () => {
+    const out = seatLate(running, ['x', 'y', 'z']);
+    expect(out.filter(s => s.table === 3).map(s => s.role)).toEqual(['first', 'second', 'observer']);
+  });
+
+  it('one newcomer observes at the smallest table', () => {
+    const out = seatLate(running, ['x']);
+    expect(out).toContainEqual({ id: 'x', table: 2, role: 'observer' });
+  });
+
+  it('ignores someone already seated', () => {
+    expect(seatLate(running, ['a'])).toEqual(running);
   });
 });

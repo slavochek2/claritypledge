@@ -222,6 +222,19 @@ button on the left, the room on the right.
   column count, keep the largest type; 40 people = 5 × 3 tables at 23px on 1080p).
 - No instruction text ("Tap a name…" removed); **Out** is a red-outlined button, **Back in** blue.
 
+**Founder walkthrough 3, 2026-10-04:**
+- *Regroup removed* — with nothing changed it rebuilt identical tables and read as a dead button.
+  In its place **Seat now** beside "Next round": late arrivals join the running round without
+  moving anyone (two or more open a new table; one observes at the smallest), `seatLate`.
+- *Projector:* smaller (type ≤ 34px, round number quiet), the clock is the hero, the strip has no
+  "Tables" step (it showed no movement), thicker bars that fill visibly, and a **bell** — once at
+  the speakers' swap, once when the observer starts, three times on Next round — synthesised
+  with WebAudio, muted until the host taps the bell icon (browsers allow sound only after a tap).
+- *Host grid columns are fixed:* "Speaker 1 · Speaker 2 · Observer"; the S/L badge beside each
+  shows who speaks now and the speaking column's label is bold. "Time's up" is no longer red.
+- *Known, accepted (Codex review):* `host_set_round_seats` and the attendee writers do not refuse
+  an ended round. Host-only for seats, and the panel no longer ends rounds, so no migration now.
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.

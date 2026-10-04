@@ -336,3 +336,32 @@ export function swapSeats(seats: Seat[], a: string, b: string): Seat[] {
     s.id === a ? { ...s, table: sb.table, role: sb.role } : s.id === b ? { ...s, table: sa.table, role: sa.role } : s,
   );
 }
+
+/**
+ * Seat late arrivals in a round that is already running, without moving anyone already seated
+ * (founder: "they arrived one minute late, but maybe they still want to speak"). Two or more
+ * newcomers open new tables as speaker pairs; an odd one out observes — at the newest table this
+ * call opened, or else at the table with the fewest people.
+ */
+export function seatLate(seats: Seat[], newcomers: string[]): Seat[] {
+  const next = [...seats];
+  const queue = newcomers.filter(id => !seats.some(s => s.id === id));
+  let table = seats.reduce((max, s) => Math.max(max, s.table), 0);
+  let opened: number | null = null;
+  for (let i = 0; i + 1 < queue.length; i += 2) {
+    table += 1;
+    opened = table;
+    next.push({ id: queue[i] as string, table, role: 'first' }, { id: queue[i + 1] as string, table, role: 'second' });
+  }
+  const last = queue.length % 2 === 1 ? queue[queue.length - 1] : undefined;
+  if (last === undefined) return next;
+  if (next.length === 0) return [{ id: last, table: 1, role: 'first' }];
+  let target = opened;
+  if (target === null) {
+    const sizes = new Map<number, number>();
+    for (const s of next) sizes.set(s.table, (sizes.get(s.table) ?? 0) + 1);
+    target = [...sizes.entries()].sort(([ta, a], [tb, b]) => a - b || ta - tb)[0]?.[0] ?? 1;
+  }
+  next.push({ id: last, table: target, role: 'observer' });
+  return next;
+}

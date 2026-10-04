@@ -18,35 +18,42 @@ import {
 export function useEventRounds(eventId: string | undefined, enabled = true) {
   const [state, setState] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
   const [loaded, setLoaded] = useState(false);
-  const current = useRef<Promise<void> | null>(null);
+  const current = useRef<{ eventId: string; loop: Promise<void>; token: object } | null>(null);
   const again = useRef(false);
+  const activeEvent = useRef(eventId);
+  activeEvent.current = eventId;
 
   // One read at a time; a refresh asked for meanwhile is not dropped but runs once the current
   // read returns, and the caller's await resolves only after it. Otherwise a poll that started
   // before a host's swap lands AFTER it with the old seats, and the next swap — built on that
-  // stale board — silently reverts the first (code review).
+  // stale board — silently reverts the first (code review). A read is scoped to its event: if
+  // the page moves to another event mid-read, the old answer is dropped, never shown as the new
+  // event's rounds (Codex review).
   const refresh = useCallback((): Promise<void> => {
     if (!eventId) return Promise.resolve();
-    if (current.current) {
+    if (current.current?.eventId === eventId) {
       again.current = true;
-      return current.current;
+      return current.current.loop;
     }
+    const token = {};
     const loop = (async () => {
       try {
         do {
           again.current = false;
           try {
-            setState(await getEventRoundsState(eventId));
+            const next = await getEventRoundsState(eventId);
+            if (activeEvent.current !== eventId) return;
+            setState(next);
             setLoaded(true);
           } catch {
             /* keep what is shown */
           }
-        } while (again.current);
+        } while (again.current && activeEvent.current === eventId);
       } finally {
-        current.current = null;
+        if (current.current?.token === token) current.current = null;
       }
     })();
-    current.current = loop;
+    current.current = { eventId, loop, token };
     return loop;
   }, [eventId]);
 

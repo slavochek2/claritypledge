@@ -31,9 +31,9 @@
  * and the second listener … mark it the right way"): a header with the printed cards' S / L / O,
  * which trades S and L when the speakers swap.
  */
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, ChevronDown, MapPin, Mic, Monitor, RefreshCw, Undo2, X } from 'lucide-react';
+import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Monitor, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -60,6 +60,7 @@ import {
   DEFAULT_TOGGLES,
   groupNextRound,
   pairGap,
+  seatLate,
   swapSeats,
   type GroupingToggles,
   type Seat,
@@ -67,7 +68,6 @@ import {
 } from '@/lib/round-grouping';
 import {
   OBSERVER_MS,
-  SEATING_MS,
   SPEAKER_MS,
   formatClock,
   liveRole,
@@ -79,7 +79,7 @@ import type { EventRoomMember } from '@/app/types';
 import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
 import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
-import { ROLE_WORD, RoleBadge } from './RoleBadge';
+import { RoleBadge } from './RoleBadge';
 import { SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 
 const START_LOCK_MS = 10_000;
@@ -87,13 +87,19 @@ const PREP_POLL_MS = 60_000;
 const TRANSCRIBING_POLL_MS = 15_000;
 const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 
-/** The parts of a round, in order. Drawn in proportion to their length: 1 · 6 · 6 · 3 minutes. */
+/**
+ * The talking parts of a round, drawn in proportion: 6 · 6 · 3 minutes. The minute at the tables
+ * is not on the strip — a sliver that small showed no movement and read as noise (founder); the
+ * clock counts it down on its own.
+ */
 const PHASES: { phase: RoundPhase; label: string; ms: number }[] = [
-  { phase: 'seating', label: 'Tables', ms: SEATING_MS },
   { phase: 'first', label: 'Speaker 1', ms: SPEAKER_MS },
   { phase: 'second', label: 'Speaker 2', ms: SPEAKER_MS },
   { phase: 'observer', label: 'Observer', ms: OBSERVER_MS },
 ];
+
+/** The fixed column names on the host grid; the badge beside each shows who speaks right now. */
+const COLUMN_LABEL = { first: 'Speaker 1', second: 'Speaker 2', observer: 'Observer' } as const;
 
 interface Settings {
   groupSize: 2 | 3 | 4;
@@ -189,7 +195,7 @@ function ClockNumber({ clock, large }: { clock: RoundClock; large?: boolean }) {
   if (clock.phase === 'over') {
     return (
       <p
-        className={cn('font-semibold leading-none text-red-600', large ? 'whitespace-nowrap text-5xl sm:text-6xl' : 'flex min-h-12 items-end text-4xl')}
+        className={cn('font-semibold leading-none text-foreground', large ? 'whitespace-nowrap text-5xl sm:text-6xl' : 'flex min-h-12 items-end text-4xl')}
         data-testid="round-clock"
         data-phase="over"
       >
@@ -203,50 +209,98 @@ function ClockNumber({ clock, large }: { clock: RoundClock; large?: boolean }) {
     );
   }
   return (
-    <p className={cn('font-semibold tabular-nums leading-none', large ? 'text-7xl sm:text-8xl' : 'min-h-12 text-5xl')} data-testid="round-clock" data-phase={clock.phase}>
+    <p className={cn('font-semibold tabular-nums leading-none', large ? 'text-6xl sm:text-7xl' : 'min-h-12 text-5xl')} data-testid="round-clock" data-phase={clock.phase}>
       {formatClock(clock.phaseRemainingMs)}
     </p>
   );
 }
 
-/**
- * The parts of the round in proportion: the three talking parts are drawn exactly 6 : 6 : 3, so
- * "the speakers swap" is something you can see coming. The minute at the tables is a step before
- * them — text, no bar — because a bar one-sixteenth wide cannot carry its own label.
- */
+/** The talking parts in proportion, the current one filling as it runs. Empty while people find tables. */
 function PhaseStrip({ clock, hasObserver, large }: { clock: RoundClock; hasObserver: boolean; large?: boolean }) {
   const parts = PHASES.filter(p => hasObserver || p.phase !== 'observer');
   const current = parts.findIndex(p => p.phase === clock.phase);
   const over = clock.phase === 'over';
-  const label = (active: boolean) =>
-    cn('truncate', large ? 'text-xl sm:text-2xl' : 'text-[11px] min-[375px]:text-xs', active ? 'font-semibold text-blue-700' : 'text-muted-foreground');
-  const minutes = (ms: number) => <p className={cn('truncate text-muted-foreground', large ? 'text-base sm:text-lg' : 'text-[11px]')}>{ms / 60_000} min</p>;
   return (
-    <ol className={cn('flex items-end', large ? 'gap-3' : 'gap-1.5')} aria-label="Round">
+    <ol className={cn('flex', large ? 'gap-3' : 'gap-1.5')} aria-label="Round">
       {parts.map((p, i) => {
-        const done = over || i < current;
+        const done = over || (current >= 0 && i < current);
         const active = i === current;
-        if (p.phase === 'seating') {
-          return (
-            <li key={p.phase} className="shrink-0" aria-current={active ? 'step' : undefined}>
-              <p className={label(active)}>{p.label}</p>
-              {(large || active) && minutes(p.ms)}
-            </li>
-          );
-        }
         const filled = done ? 100 : active ? Math.round(100 * (1 - clock.phaseRemainingMs / p.ms)) : 0;
         return (
           <li key={p.phase} className="min-w-0" style={{ flexGrow: p.ms / 60_000, flexBasis: 0 }} aria-current={active ? 'step' : undefined}>
-            <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-3' : 'h-1.5')}>
-              <div className={cn('h-full rounded-full', done ? 'bg-blue-300' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
+            <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-5' : 'h-2')}>
+              <div className={cn('h-full rounded-full transition-[width] duration-1000 ease-linear', done ? 'bg-blue-300' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
             </div>
-            <p className={cn('mt-1', label(active))}>{p.label}</p>
-            {large && minutes(p.ms)}
+            <p
+              className={cn(
+                'mt-1 truncate',
+                large ? 'text-lg sm:text-xl' : 'text-[11px] min-[375px]:text-xs',
+                active ? 'font-semibold text-blue-700' : 'text-muted-foreground',
+              )}
+            >
+              {p.label}
+              {large && <span className="font-normal text-muted-foreground"> · {p.ms / 60_000} min</span>}
+            </p>
           </li>
         );
       })}
     </ol>
   );
+}
+
+/**
+ * The projector's bell (founder: "the screen should make a sound … between speaker one and two,
+ * between speaker two and the observer, and three times when I press Next round"). Synthesised
+ * with WebAudio — no file to load. Browsers allow sound only after a tap on the page, so the
+ * screen starts muted and the host taps the bell once; tapping again mutes it.
+ */
+function useBell() {
+  const ctxRef = useRef<AudioContext | null>(null);
+  const [on, setOn] = useState(false);
+  const ring = useCallback((times: number) => {
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    for (let i = 0; i < times; i++) {
+      const at = ctx.currentTime + i * 0.9;
+      for (const [freq, level] of [[880, 0.35], [1760, 0.12], [2640, 0.05]] as const) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(level, at);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.6);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + 1.7);
+      }
+    }
+  }, []);
+  // Release the audio device when the projector closes (Codex review).
+  useEffect(() => () => void ctxRef.current?.close().catch(() => {}), []);
+  const toggle = useCallback(() => {
+    if (on) return setOn(false);
+    try {
+      ctxRef.current ??= new AudioContext();
+      void ctxRef.current.resume();
+      setOn(true);
+      ring(1);
+    } catch {
+      /* no audio on this device — stays muted */
+    }
+  }, [on, ring]);
+  return { on, toggle, ring };
+}
+
+/** Rings on the transitions the room must hear, never on opening the screen mid-round. */
+function useRoundBell(round: EventRound | null, phase: RoundPhase | undefined, bell: ReturnType<typeof useBell>) {
+  const last = useRef<{ roundId?: string; phase?: RoundPhase }>({});
+  useEffect(() => {
+    const prev = last.current;
+    last.current = { roundId: round?.id, phase };
+    if (!bell.on || !round || !phase) return;
+    if (prev.roundId && prev.roundId !== round.id) return bell.ring(3);
+    if (prev.roundId !== round.id) return;
+    if ((prev.phase === 'first' && phase === 'second') || (prev.phase === 'second' && phase === 'observer')) bell.ring(1);
+  }, [round, phase, bell]);
 }
 
 /* ── The projector ───────────────────────────────────────────────────────── */
@@ -265,6 +319,8 @@ function ScreenView({
   ended: boolean;
 }) {
   const clock = useClock(round, seats);
+  const bell = useBell();
+  useRoundBell(round, clock?.phase, bell);
   const { w, h } = useViewport();
   const hasObserver = seats.some(s => s.role === 'observer');
   const tables = groupByTable(seats);
@@ -283,13 +339,23 @@ function ScreenView({
       style={{ padding: SCREEN_PAD }}
       data-testid="host-screen"
     >
+      <button
+        type="button"
+        onClick={bell.toggle}
+        className="absolute right-2 top-2 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted print:hidden"
+        aria-pressed={bell.on}
+        aria-label={bell.on ? 'Sound on — tap to mute' : 'Sound off — tap for the bell'}
+        data-testid="screen-bell"
+      >
+        {bell.on ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+      </button>
       {round && clock ? (
         <>
           <div
             className={cn('flex gap-x-10 gap-y-4', wide ? 'items-center' : 'flex-col')}
             style={wide ? { height: SCREEN_HEADER - SCREEN_GAP } : undefined}
           >
-            <h1 className="shrink-0 text-5xl sm:text-6xl font-semibold">Round {round.roundNo}</h1>
+            <h1 className="shrink-0 text-3xl sm:text-4xl font-semibold text-muted-foreground">Round {round.roundNo}</h1>
             <div className="min-w-0 flex-1 print:hidden">
               <PhaseStrip clock={clock} hasObserver={hasObserver} large />
             </div>
@@ -466,7 +532,6 @@ function TablesGrid({
     ? 'grid-cols-[1.5rem_repeat(3,minmax(0,1fr))] min-[375px]:grid-cols-[1.75rem_repeat(3,minmax(0,1fr))] lg:grid-cols-[2.5rem_repeat(3,minmax(0,1fr))]'
     : 'grid-cols-[1.5rem_repeat(2,minmax(0,1fr))] min-[375px]:grid-cols-[1.75rem_repeat(2,minmax(0,1fr))] lg:grid-cols-[2.5rem_repeat(2,minmax(0,1fr))]';
   const columns: SeatRole[] = hasObserver ? ['first', 'second', 'observer'] : ['first', 'second'];
-  const header = columns.map(r => liveRole(r, phase));
   const tile = (s: Seat) => {
     const out = isOut?.(s.id) ?? false;
     return (
@@ -485,12 +550,20 @@ function TablesGrid({
   return (
     <div className={cn('grid gap-1 min-[375px]:gap-1.5 lg:gap-2', cols)} data-testid="round-grid">
       <span aria-hidden="true" />
-      {header.map((role, i) => (
-        <p key={i} className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground" data-testid="round-grid-role">
-          <RoleBadge role={role} className="h-5 w-5 text-[11px]" />
-          <span className="hidden min-[375px]:inline">{ROLE_WORD[role]}</span>
-        </p>
-      ))}
+      {columns.map(col => {
+        const role = liveRole(col, phase);
+        const speaking = role === 'speaker' && phase !== 'seating' && phase !== 'over';
+        return (
+          <p
+            key={col}
+            className={cn('flex items-center justify-center gap-1.5 text-xs', speaking ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}
+            data-testid="round-grid-role"
+          >
+            <RoleBadge role={role} className="h-5 w-5 text-[11px]" />
+            <span className="hidden min-[375px]:inline">{COLUMN_LABEL[col]}</span>
+          </p>
+        );
+      })}
       {tables.map(table => (
         <div key={table.no} className="contents">
           <div
@@ -515,6 +588,7 @@ function PeopleGroup({
   marksFor,
   out,
   hideCount,
+  action,
   onTap,
 }: {
   title: string;
@@ -523,14 +597,18 @@ function PeopleGroup({
   marksFor: (memberId: string) => PersonMarks;
   out?: boolean;
   hideCount?: boolean;
+  action?: React.ReactNode;
   onTap: (id: string) => void;
 }) {
   if (people.length === 0) return null;
   return (
     <div data-testid={out ? 'host-out' : 'host-waiting'}>
-      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title} {!hideCount && <span className="tabular-nums">{people.length}</span>}
-      </p>
+      <div className="mb-1.5 flex min-h-10 items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {title} {!hideCount && <span className="tabular-nums">{people.length}</span>}
+        </p>
+        {action}
+      </div>
       <div className="grid grid-cols-3 gap-1 min-[375px]:grid-cols-4 min-[375px]:gap-1.5 lg:grid-cols-6 lg:gap-2">
         {people.map(m => (
           <PersonTile
@@ -819,11 +897,11 @@ export function EventHostPage() {
           phone the controls come first — the button is what the host reaches for. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-4 lg:order-2" data-testid="host-controls">
-          {(ended || round) && (
-            <p className="text-sm font-medium text-muted-foreground" data-testid="host-round-title">
-              {ended ? 'Evening ended' : `Round ${round?.roundNo}`}
-            </p>
-          )}
+          <p className="text-sm font-medium text-muted-foreground">
+            {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : `Round ${round?.roundNo}`}</span>}
+            {(ended || round) && !ended && ' · '}
+            {!ended && <span data-testid="host-room-count">{here.length} in the room</span>}
+          </p>
           {clock && (
             <div className="mt-1 space-y-3">
               <ClockNumber clock={clock} />
@@ -837,7 +915,7 @@ export function EventHostPage() {
           {primary && (!justStarted || busy) && (
             <Button
               type="button"
-              className={cn('w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white', (clock || ended) && 'mt-4')}
+              className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
               onClick={primary.action}
               disabled={busy || !loaded}
               data-testid="host-primary"
@@ -901,13 +979,32 @@ export function EventHostPage() {
         <div className="min-w-0 lg:order-1">
           {!ended && (
             <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
-              <p className="text-sm font-medium text-muted-foreground" data-testid="host-room-count">
-                {here.length} in the room
-              </p>
               {round && clock && seats.length > 0 && (
                 <TablesGrid seats={seats} byId={byId} phase={clock.phase} marksFor={marksFor} lifted={lifted} isOut={isOut} onTap={onTap} />
               )}
-              <PeopleGroup title={round ? 'Next round' : 'Here'} people={waiting} lifted={lifted} marksFor={marksFor} hideCount={!round} onTap={onTap} />
+              <PeopleGroup
+                title={round ? 'Next round' : 'Here'}
+                people={waiting}
+                lifted={lifted}
+                marksFor={marksFor}
+                hideCount={!round}
+                onTap={onTap}
+                action={
+                  round && waiting.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10"
+                      disabled={busy}
+                      onClick={() => commitSeats(seatLate(seats, waiting.map(m => m.id)), 'seat now')}
+                      data-testid="host-seat-now"
+                    >
+                      Seat now
+                    </Button>
+                  ) : null
+                }
+              />
               <PeopleGroup title="Out" people={outside} lifted={lifted} marksFor={marksFor} out onTap={onTap} />
 
               {lifted ? (
@@ -948,24 +1045,13 @@ export function EventHostPage() {
                   </Button>
                 </div>
               ) : (
-                round && (
+                round && undoStack.length > 0 && (
                   <div className="flex flex-wrap items-center justify-end gap-2">
-                    {undoStack.length > 0 && (
+                    {(
                       <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
                         <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
                       </Button>
                     )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-10"
-                      disabled={busy}
-                      onClick={() => commitSeats(() => compute(round.roundNo), 'regroup')}
-                      data-testid="host-regroup"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" /> Regroup
-                    </Button>
                   </div>
                 )
               )}
