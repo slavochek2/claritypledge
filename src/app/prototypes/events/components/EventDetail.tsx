@@ -514,7 +514,11 @@ export function EventDetail() {
   // copy; phones keep the native share sheet, which is already the best sharing surface there.
   const shareUrl = `${window.location.origin}/events/${event.slug}`;
   const handleShare = async () => {
-    if (!(typeof navigator !== 'undefined' && 'share' in navigator)) {
+    // Same rule as EventShareRow: the system share sheet only on a touch phone; desktop (Mac
+    // Chrome/Safari included) gets the window with the visible link and QR (founder 2026-10-01).
+    const touchShareSheet = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+      && !!window.matchMedia?.('(pointer: coarse)').matches;
+    if (!touchShareSheet) {
       setShareOpen(true);
       return;
     }
@@ -598,6 +602,7 @@ export function EventDetail() {
           className="mt-3 border-t border-green-200 pt-3"
         />
       )}
+      {!hasEnded && (
       <div className="mt-2 text-center">
         <Button
           variant="ghost"
@@ -610,6 +615,7 @@ export function EventDetail() {
           Can't make it
         </Button>
       </div>
+      )}
     </div>
   );
 

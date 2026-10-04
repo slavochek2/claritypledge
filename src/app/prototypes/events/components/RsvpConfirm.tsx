@@ -106,6 +106,8 @@ export function RsvpConfirm() {
     endDate: endDate,
   };
 
+  const hikeMeetName = isHikeLayout(event) ? parseHikeDetails(event.hikeDetails)?.meetName : undefined;
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -149,7 +151,7 @@ export function RsvpConfirm() {
                   className={`hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}
                 >
                   {/* P1403: same label as the event page for a hike. */}
-                  {(isHikeLayout(event) && parseHikeDetails(event.hikeDetails)?.meetName) ? `Meet at ${parseHikeDetails(event.hikeDetails)?.meetName}` : getLocationDisplayLabel(locationInfo, event.location)}
+                  {hikeMeetName ? `Meet at ${hikeMeetName}` : getLocationDisplayLabel(locationInfo, event.location)}
                 </a>
               </div>
             </div>

@@ -130,7 +130,8 @@ export function EventBox({
           {isWhatsApp ? 'WhatsApp group' : 'Group chat'}: last-minute changes, questions, lifts.
         </p>
       )}
-      {/* P1387 (founder, 2026-10-02): "Share" on the same line as the icons. P1403: one shared row. */}
+      {/* P1387 (founder, 2026-10-02): "Share" on the same line as the icons — on screens ≥640px. P1403:
+          one shared row; below 640px the label takes its own line so all six buttons fit at 320px. */}
       <EventShareRow title={event.title} url={pageUrl} testId={`${testId}-share`} className="border-t border-border pt-3" />
     </section>
   );
