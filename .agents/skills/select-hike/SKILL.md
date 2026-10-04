@@ -245,7 +245,16 @@ Then:
 4. Apply the two-part gate above. **Open only survivors as tabs** — one Google Maps tab each, never
    a chat list of cafe names.
 5. Post the numbered index: name, rating, review count, **measured walking minutes**, and the
-   day's opening hours.
+   day's opening hours. **Order by Google rating, highest first.**
+6. **Always surface the best-rated place nearby, even if it fails the gate.** Open its tab too,
+   mark it `FAILS GATE: <reason>` (e.g. `24 min walk, opens at meet time`), and let the founder
+   override. Founder, 2026-10-04, picking ร้านกาแฟผ่อห้วย (4.6★, 48) over two gate-passers
+   rated lower: *"next time make sure you show the one with higher stars if any nearby"*. The
+   gate filters what is offered as a default, never what the founder is allowed to see.
+7. **Show the walk, don't just state it.** For each offered place, open an OpenStreetMap foot
+   route tab (`https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=<cafeLat>%2C<cafeLon>%3B<headLat>%2C<headLon>`)
+   so the founder sees the path, not only the minutes. Founder, same day: *"can you show on open
+   street way from cafe to trail head"*.
 
 Then stop. The founder picks.
 
