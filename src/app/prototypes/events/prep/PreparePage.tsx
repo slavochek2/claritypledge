@@ -30,7 +30,7 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
 import { StakePage } from '@/app/pages/stake-page';
-import { HomeHighlightsBlock } from '@/app/components/feed/home-side-rail';
+import { NextEventsCompact } from '@/app/components/feed/home-side-rail';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { getProfileBySlug } from '@/app/data/api';
 import { LETTER_FOUNDER_SLUG } from '@/app/data/offline-reads-letters';
@@ -81,7 +81,7 @@ const COPY = {
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Thank you',
-  endLine: 'You know how the Clarity process works. Try it at an event, or join a group.',
+  endLine: 'You know how the Clarity process works. Try it with others at an event.',
   endHost: 'Want to host one? Book a call',
   endReview: 'Review the steps',
 };
@@ -495,15 +495,18 @@ function PrepareFlow({
           )}
 
           {screen === 'end' && (
-            // Founder UAT 2026-10-04: like the home page — the next events and the groups, with the
-            // menus back. No pinned bar: with the menus showing it would sit on the BottomNav (P1387).
-            <section className="space-y-6 pt-4" data-testid="prepare-end">
-              <div className="space-y-2">
+            // Founder UAT round 3 (2026-10-04): the thank-you is the page — centred, first — then a
+            // short list of the next events (no groups, no big cards), with the menus back.
+            <section className="mx-auto max-w-md space-y-8 pt-10 lg:pt-16" data-testid="prepare-end">
+              <div className="flex flex-col items-center space-y-3 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300" aria-hidden>
+                  <Check className="h-7 w-7" />
+                </span>
                 <Title>{COPY.endTitle}</Title>
                 <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
               </div>
-              <HomeHighlightsBlock />
-              <div className="flex flex-col items-start gap-2 text-sm">
+              <NextEventsCompact />
+              <div className="flex flex-col items-center gap-2 text-sm">
                 <Link to="/intro" className="text-blue-600 hover:underline dark:text-blue-400">{COPY.endHost}</Link>
                 <button type="button" onClick={() => go('list')} className="text-blue-600 hover:underline dark:text-blue-400">
                   {COPY.endReview}

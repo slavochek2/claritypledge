@@ -107,6 +107,8 @@ comparison step (P1337's `/compare/:person`, built, unshipped, at `qa`). Related
   (`HomeHighlightsBlock`, the home rail's content), the menus back (`?done=1`), no pinned bar.
   "Want to host one? Book a call" and "Review the steps" are small links. The event
   preparation's end screen is unchanged (stays immersive, P1387).
+- Round 3: *"it's the thank you page that's the main thing"* — the thank-you leads, centred; then
+  only the next events as compact rows (`NextEventsCompact`), no groups, no big cards.
 
 ## Solution
 
