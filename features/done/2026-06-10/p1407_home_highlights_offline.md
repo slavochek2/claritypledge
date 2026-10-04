@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 26
 workstream: growth
@@ -10,6 +10,7 @@ pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-04
 ---
 
 # P1407: Home page groups and events work offline
