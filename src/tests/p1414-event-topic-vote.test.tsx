@@ -179,7 +179,7 @@ describe('P1414 event page', () => {
   it('a Clarity Night with no topic shows the vote, and a signed-in visitor rates without leaving', async () => {
     renderEvent(makeEvent({ ...NIGHT }));
     const embed = await screen.findByTestId('topic-vote-embed');
-    expect(within(embed).getByRole('heading', { level: 2 })).toHaveTextContent('Help pick the topic');
+    expect(within(embed).getByRole('heading', { level: 2 })).toHaveTextContent("Vote for this night's topic");
     expect(within(embed).getAllByTestId('topic-row')).toHaveLength(2);
     fireEvent.click(within(within(embed).getAllByTestId('topic-row')[0]).getByRole('radio', { name: '4 stars' }));
     // The same call /topics makes — so the same stored vote.
@@ -206,7 +206,7 @@ describe('P1414 event page', () => {
     await screen.findByRole('heading', { level: 1 });
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByTestId('topic-vote-embed')).toBeNull();
-    expect(screen.queryByText('Help pick the topic')).toBeNull();
+    expect(screen.queryByText("Vote for this night's topic")).toBeNull();
   });
 
   it('an ended night (inside the 12h RSVP grace) shows no vote', () => {
@@ -261,12 +261,12 @@ describe('P1414 embedded topics page', () => {
     expect(rateTopic).not.toHaveBeenCalled();
   });
 
-  it('starts with 5 topics and no sort; "Show all" sits in the section, not in a pinned bar', async () => {
+  it('same controls as /topics: sort, 8 topics, "Show more" in the section (not a pinned bar)', async () => {
     topicsDb.rows = Array.from({ length: 11 }, (_, i) => topic(`t${i}`, `Topic ${i}`));
     renderEmbed();
-    expect(await screen.findAllByTestId('topic-row')).toHaveLength(5);
-    expect(screen.queryByRole('combobox', { name: 'Sort by' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all 11 topics' }));
+    expect(await screen.findAllByTestId('topic-row')).toHaveLength(8);
+    expect(screen.getByRole('combobox', { name: 'Sort by' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
     expect(screen.getAllByTestId('topic-row')).toHaveLength(11);
   });
 

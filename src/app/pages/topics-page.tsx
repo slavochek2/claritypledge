@@ -39,8 +39,6 @@ import { cn } from '@/lib/utils';
 const STARS = [1, 2, 3, 4, 5] as const;
 /** Attendee topics, then the host's in backlog order: the first this many are shown. */
 const TOP_COUNT = 8;
-/** P1414: on an event page the list is a section, not the page — start shorter. */
-const EMBED_TOP_COUNT = 5;
 /** Title, then one line: stars · average · faces. Phones put that line under the title. */
 const ROW_GRID = 'grid grid-cols-1 gap-y-0.5 sm:grid-cols-[minmax(0,1fr)_30rem] sm:items-center sm:gap-x-6';
 /** P1414: embedded in a ~600px card column there is no room for the 30rem stars column — keep the phone layout at every width. */
@@ -98,7 +96,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
   // Taps not yet confirmed by the server, laid OVER fetched data: a refetch that left
   // before a later tap can never wipe that tap, and a failed save rolls back.
   // A short list first (8 more per tap), so nobody thinks they must rate everything.
-  const step = embedded ? EMBED_TOP_COUNT : TOP_COUNT;
+  const step = TOP_COUNT;
   const [shown, setShown] = useState(step);
   const [pending, setPending] = useState<Record<string, number | null>>(() => readGuest());
   // Sorting is the viewer's choice and is applied once per choice, so rows never move under a tap.
@@ -216,9 +214,9 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
 
       {embedded ? (
         <header className="mb-3">
-          <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">Help pick the topic</h2>
+          <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">Vote for this night's topic</h2>
           <p className="mt-1 text-base text-muted-foreground">
-            Rate the topics you'd enjoy talking about. Your ratings help the host choose. You'll see how others rated after you rate.
+            This night's topic is chosen with you. Rate the ones you'd enjoy talking about, and you'll see how others rated after you rate.
           </p>
         </header>
       ) : (
@@ -234,7 +232,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
       </header>
       )}
 
-      {state.kind === 'ready' && !authLoading && !embedded && (
+      {state.kind === 'ready' && !authLoading && (
         <>
           {/* List settings, right above the table: sort left, anonymous right. */}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -253,7 +251,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
               <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground" />
             </label>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <AddYourOwn onAdded={load} returnTo={returnTo} quiet={false} />
+            <AddYourOwn onAdded={load} returnTo={returnTo} quiet={embedded} />
             </div>
           </div>
         </>
@@ -311,15 +309,17 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
             </label>
           )}
           {embedded ? (
-            // Embedded: no sort (a short list in one order), and adding a topic comes after the easy thing.
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-              {topics.length > shown && (
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown(topics.length)}>
-                  Show all {topics.length} topics
+            // Embedded: same controls as /topics (founder), minus the pinned bar — "Show 8 more" sits in the section.
+            topics.length > shown && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown((n) => n + step)}>
+                  Show {Math.min(step, topics.length - shown)} more
                 </Button>
-              )}
-              <AddYourOwn onAdded={load} returnTo={returnTo} quiet />
-            </div>
+                <span className="text-sm text-muted-foreground" data-testid="topic-count">
+                  Showing {Math.min(shown, topics.length)} of {topics.length}
+                </span>
+              </div>
+            )
           ) : (<>
           {/* Pinned bar (no bottom menu on this page): more topics, and a way back. */}
           <div className="h-40" aria-hidden />
