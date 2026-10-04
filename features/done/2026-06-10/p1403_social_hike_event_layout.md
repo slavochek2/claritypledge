@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 23
 workstream: events
 created_date: '2026-10-04'
 tags: [events, hikes, mobile, social-proof]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-04
 ---
 
 # P1403: Social Hike event layout — stats, route map, past-hike photos, reviews
