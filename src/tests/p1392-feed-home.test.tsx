@@ -64,7 +64,8 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     const openBranch = pin.slice(pin.indexOf('if (open) {'), pin.indexOf('return (\n    <section data-testid="pinned-story" className="rounded-lg'));
     expect(openBranch).toMatch(/<FeedStoryCard/);
-    expect(openBranch).not.toMatch(/GravatarAvatar|bg-blue-50/);
+    expect(openBranch).not.toMatch(/GravatarAvatar/);
+    expect(openBranch).toMatch(/bg-blue-50/); // P1405: the box stays when open
   });
 });
 

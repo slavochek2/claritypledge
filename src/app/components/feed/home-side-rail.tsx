@@ -153,7 +153,7 @@ export function HomeSideRail() {
 function RailContent() {
   const { events, groups } = useHomeHighlights();
   return (
-    <aside className="w-72 shrink-0 space-y-4 lg:mt-[9.9375rem]" aria-label="Groups and events" data-testid="home-side-rail">
+    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.9375rem]" aria-label="Groups and events" data-testid="home-side-rail">
       <section className="space-y-3">
         <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
         <GroupLinks groups={groups} />

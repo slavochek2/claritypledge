@@ -77,16 +77,20 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   if (open) {
     return (
       <section data-testid="pinned-story" className="space-y-2">
+        {/* P1405 (founder): the same blue box stays on top when open — only the photo goes
+            (the card below carries it) and the chevron becomes Hide. */}
         <button
           type="button"
           onClick={toggle}
           aria-expanded
           aria-controls={panelId}
-          className="flex min-h-10 w-full items-center gap-2 rounded-md text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-left hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">· {PINNED_STORY_TITLE}</span>
-          <span className="inline-flex shrink-0 items-center gap-1 font-medium text-blue-700">
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
+            <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-blue-700">
             Hide <ChevronUpIcon className="h-4 w-4" aria-hidden />
           </span>
         </button>
