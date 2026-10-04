@@ -101,9 +101,14 @@ apart on. The format tolerates tables of 2, 3 or 4, so the rotation does not hav
 - [ ] **Ask 5 attendees, one by one:** "Would you host a 5-minute exercise at an event you already
       go to this week? Just say: talk to me after about clarity." Only events whose organizer you or
       they can ask first. Nothing gets listed on the site (hand test, 14 days — 2026-10-04).
+- [ ] **Clarity champions:** ask members which Chiang Mai events they are going to in the next
+      2 weeks, and whether they are happy to be a clarity champion there: a friendly face who
+      introduces newcomers around. Note name · event · yes/no · contact OK. Hand test only,
+      nothing is shown on the site yet (P1400).
 
 ## After, same evening or next morning
 
+- [ ] Champion log: who said yes, for which event · did anyone meet through them
 - [ ] Hand test log, for each of the 5: said yes? · which event · did the exercise happen · did anyone ask for more
 - [ ] Confirm the recordings uploaded
 - [ ] Note anything that went wrong while it is still fresh — the next event is in a week
