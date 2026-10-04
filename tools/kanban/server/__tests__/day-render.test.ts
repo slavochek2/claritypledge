@@ -709,3 +709,22 @@ describe('day-render: imports', () => {
     }
   })
 })
+
+describe('day-render: Park is always offered', () => {
+  it('a finding with its own options still offers Park, last, never recommended', async () => {
+    const { buildIssues } = await import('../../scripts/day-render')
+    const fp = 'ab'.repeat(8) // a finding's 16-hex file name
+    const { issues } = buildIssues({
+      finds: [{ check: 'disp.vm', severity: 'high', key: fp, title: 'VM', keyed: true }],
+      files: new Map([[fp, { body: 'b', sidecar: JSON.stringify({ check: 'disp.vm', fault_key: 'vm:outreach-down', title: 'VM', options: [{ id: 'wait', label: 'Keep waiting' }, { id: 'update', label: 'Update', agent: true }], recommend: 'wait' }) }]]),
+      checks: [],
+      steps: [],
+      earlier: [],
+      startedAt: '2026-10-04T05:00:00Z',
+    } as never)
+    const opts = issues[0].options
+    expect(opts.map((o) => o.id)).toEqual(['wait', 'update', 'park'])
+    expect(opts.find((o) => o.id === 'park')?.recommended).toBeFalsy()
+    expect(opts.find((o) => o.id === 'wait')?.recommended).toBe(true)
+  })
+})

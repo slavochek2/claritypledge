@@ -68,6 +68,8 @@ const CARD_ISSUES = 6
 const RUN_GROUP = 'Daily run'
 const REVIEW_TOPIC: Record<Review, string> = { weekly: 'Weekly review', monthly: 'Monthly review' }
 
+const PARK_OPTION: DayOption = { id: PARK, label: 'Park: stop asking until I bring it back' }
+
 const DEFAULT_OPTIONS: DayOption[] = [
   { id: 'agent', label: 'Give to the agent', agent: true },
   { id: PARK, label: 'Park: stop asking until I bring it back' },
@@ -380,7 +382,11 @@ export interface BuildIssuesInput {
 function withRecommendation(options: DayOption[], recommend: string | undefined, why: string | undefined): DayOption[] {
   // Only the founder parks: Park is never the recommendation, whatever the finding asked for.
   const pick = options.find((o) => o.id === recommend && o.id !== PARK) ?? options.find((o) => o.id !== PARK)
-  return options.map((o) => (o === pick ? { ...o, recommended: true, ...(why ? { why } : {}) } : { ...o }))
+  const out = options.map((o) => (o === pick ? { ...o, recommended: true, ...(why ? { why } : {}) } : { ...o }))
+  // ...and he can always park: a finding that brings its own options still offers Park last (first
+  // real run, 2026-10-04: the VM issue offered only "wait" and "update").
+  if (!out.some((o) => o.id === PARK)) out.push({ ...PARK_OPTION })
+  return out
 }
 
 /** Findings → issues. Unusable sidecars are counted (never silently dropped) and read as plain findings. */

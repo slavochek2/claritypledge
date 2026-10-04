@@ -177,6 +177,9 @@ control "Render: < > | never reach the terminal" "plurals are right" \
   $D "s/\.replace\(\/\[<>\|\]\/g, ''\)//" $R
 control "Render: the card is the only stdout" "PRIVACY — stdout carries only the card" \
   $D 's/say\(`report written \(\$\{report\.state\}\)`\)/io.out(`report written (\${report.state})\\n`)/' $R
+control "Render: Park is always offered" "Park, last, never recommended" \
+  scripts/day-render.ts 's/  if \(!out\.some\(\(o\) => o\.id === PARK\)\) out\.push\(\{ \.\.\.PARK_OPTION \}\)\n//' "$R"
+
 # Phase C: Start fixing launch (rule 9), guarded by server/__tests__/day-launch.test.ts.
 L=server/__tests__/day-launch.test.ts
 control "Launch: only the board's origin" "cross-origin POST is refused" \
