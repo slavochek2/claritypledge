@@ -23,6 +23,7 @@ import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../loca
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
 import { OrgFooterNote } from './OrgFooterNote';
+import { ImageLightbox } from '@/app/components/shared/image-lightbox';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -85,6 +86,16 @@ export function EventDetail() {
   // P1403: series-level reviews + photos — public, fetched only for the hike layout.
   const [seriesContent, setSeriesContent] = useState<SeriesContent | null>(null);
   // P1403: the organising community, for the hike page's "Organized by" line.
+  // Founder 2026-10-04: any photo on an event page opens big — gallery, route map, and images
+  // embedded in the description (e.g. a Clarity Night poster), on every event, not only hikes.
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const openImage = useCallback((src: string, alt: string) => setLightbox({ src, alt }), []);
+  const onDescriptionClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if (t instanceof HTMLImageElement && t.closest('.event-description') && !t.closest('a, button')) {
+      setLightbox({ src: t.currentSrc || t.src, alt: t.alt });
+    }
+  }, []);
   const [organizer, setOrganizer] = useState<{ name: string; slug: string } | null>(null);
 
   // Which slug the currently-held `event` was loaded for. A ref, not state:
@@ -331,6 +342,7 @@ export function EventDetail() {
   );
   const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
+  const hikeDifficulty = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.difficulty : undefined;
   const organizerLearnMore = organizer ? ORG_LEARN_MORE_PATH[organizer.slug] : undefined;
   const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
 
@@ -691,6 +703,7 @@ export function EventDetail() {
                   past hikes, then the stats row just below the photos. Each hides without data. */}
               {hikeSeriesSlug && organizer && (
                 <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="hike-organizer">
+                  {hikeDifficulty && <><span className="font-medium text-foreground">{hikeDifficulty}</span>{' · '}</>}
                   {HIKE_LABELS.organizedBy} <span className="font-medium text-foreground">{organizer.name}</span>
                   {organizerLearnMore && (
                     <>
@@ -700,7 +713,7 @@ export function EventDetail() {
                   )}
                 </p>
               )}
-              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} />}
+              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={parseHikeDetails(event.hikeDetails)?.routeMapUrl} onOpenImage={openImage} />}
               {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
 
               {/* Cancellation Notice - inside card for better UX */}
@@ -949,16 +962,18 @@ export function EventDetail() {
                 // section and reviews follow it, before "Where we meet" — one route section, not two.
                 <div
                   ref={setDescriptionEl}
+                  onClick={onDescriptionClick}
                   className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 >
                   <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[0] }} />
-                  {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts[1]} />}
+                  {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts[1]} onOpenImage={openImage} />}
                   {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
                   {hikeDescriptionParts[1] && <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[1] }} />}
                 </div>
               ) : (
                 <div
                   ref={setDescriptionEl}
+                  onClick={onDescriptionClick}
                   className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                   dangerouslySetInnerHTML={{ __html: descriptionHtml }}
                 />
@@ -1126,6 +1141,15 @@ export function EventDetail() {
         isLoading={isActionLoading}
       />
 
+      {lightbox && (
+        <ImageLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          open
+          onOpenChange={open => { if (!open) setLightbox(null); }}
+          eventName="event_image_viewed"
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Repeat, MoveHorizontal, Map as MapIcon } from 'lucide-react';
 import type { SeriesPhoto, SeriesReview } from '@/app/types';
 import { safeLinkHref } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
@@ -28,23 +29,29 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   if (!stats) return null;
   const L = HIKE_LABELS.stats;
 
-  // Founder 2026-10-04: AllTrails-style plain row under the photos — no box, no link, and no
-  // "to trail" walk (the description already says it). Route type folds into the distance.
-  const items: { key: string; label: string; value: string }[] = [];
-  if (stats.distanceKm !== undefined) {
-    items.push({ key: 'distance', label: stats.routeType ? `${L.distance} · ${stats.routeType.toLowerCase()}` : L.distance, value: formatDistanceKm(stats.distanceKm) });
+  // Founder 2026-10-04 ("nice!" on AllTrails): big number, small unit, label underneath; route
+  // type as an icon. No box, no link, no "to trail" walk (the description already says it).
+  const items: { key: string; label: string; value: ReactNode }[] = [];
+  const num = (n: string, unit: string) => <>{n}<span className="ml-0.5 text-sm font-medium">{unit}</span></>;
+  if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(formatDistanceKm(stats.distanceKm).replace(/ km$/, ''), 'km') });
+  if (stats.elevationGainM !== undefined) items.push({ key: 'elevation', label: L.elevation, value: num(String(Math.round(stats.elevationGainM)), 'm') });
+  if (stats.walkTimeText) {
+    const m = stats.walkTimeText.match(/^(.*?)\s*(h|hr|hrs|hours?)$/i);
+    items.push({ key: 'walkTime', label: L.walkTime, value: m?.[1] ? num(m[1], 'h') : stats.walkTimeText });
   }
-  if (stats.elevationGainM !== undefined) items.push({ key: 'elevation', label: L.elevation, value: `${Math.round(stats.elevationGainM)} m` });
-  if (stats.walkTimeText) items.push({ key: 'walkTime', label: L.walkTime, value: stats.walkTimeText });
-  if (stats.difficulty) items.push({ key: 'difficulty', label: L.difficulty, value: stats.difficulty });
+  if (stats.routeType) {
+    const Icon = /loop/i.test(stats.routeType) ? Repeat : MoveHorizontal;
+    items.push({ key: 'routeType', label: stats.routeType, value: <Icon className="h-7 w-7" aria-hidden="true" /> });
+  }
+  // Difficulty sits on the line under the title (like AllTrails' "Hard · place"), not here.
   if (items.length === 0) return null;
 
   return (
-    <dl data-testid="hike-stats" className="grid grid-cols-2 gap-y-2 mb-5 min-[360px]:flex min-[360px]:divide-x min-[360px]:divide-border">
+    <dl data-testid="hike-stats" className="grid grid-cols-4 gap-x-3 mb-5 sm:flex sm:gap-x-10">
       {items.map(({ key, label, value }) => (
-        <div key={key} className="min-w-0 flex-1 min-[360px]:px-2 min-[360px]:first:pl-0 min-[360px]:last:pr-0" data-stat={key}>
+        <div key={key} className="min-w-0 flex flex-col-reverse" data-stat={key}>
           <dt className="text-xs text-muted-foreground whitespace-nowrap">{label}</dt>
-          <dd className="text-sm sm:text-base leading-tight font-semibold text-foreground whitespace-nowrap">{value}</dd>
+          <dd className="h-8 flex items-end text-xl min-[400px]:text-2xl leading-none font-bold tracking-tight text-foreground whitespace-nowrap">{value}</dd>
         </div>
       ))}
     </dl>
@@ -60,7 +67,7 @@ function isAllowedPhotoUrl(url: string): boolean {
   return url.startsWith(`${PUBLIC_MEDIA_ORIGIN}/`);
 }
 
-export function PastHikePhotos({ photos }: { photos: SeriesPhoto[] }) {
+export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: SeriesPhoto[]; mapUrl?: string; onOpenImage?: (src: string, alt: string) => void }) {
   const shown = photos.filter(p => isAllowedPhotoUrl(p.storageUrl));
   if (shown.length === 0) return null;
   return (
@@ -69,19 +76,36 @@ export function PastHikePhotos({ photos }: { photos: SeriesPhoto[] }) {
     <section data-testid="hike-photos" aria-label={HIKE_LABELS.photos} className="w-0 min-w-full mb-3">
       <h2 className="sr-only">{HIKE_LABELS.photos}</h2>
       <ul className="flex gap-2 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2">
-        {shown.map(photo => (
+        {shown.map((photo, i) => [
+          // Founder 2026-10-04: like AllTrails, the route map sits in the gallery, second tile.
+          i === 1 && mapUrl && isAllowedPhotoUrl(mapUrl) && (
+            <li key="route-map" className="snap-start flex-shrink-0 w-[62%] sm:w-56">
+              <a href="#hike-route" className="relative block aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
+                <img src={mapUrl} alt="Route map" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm">
+                  <MapIcon className="h-3.5 w-3.5" aria-hidden="true" /> {HIKE_LABELS.route}
+                </span>
+              </a>
+            </li>
+          ),
           <li key={photo.id} className="snap-start flex-shrink-0 w-[62%] sm:w-56">
             <figure>
               {/* aspect box reserves height before the image loads — no layout jump */}
-              <div className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
+              {/* Founder 2026-10-04: tap a photo to see it big. */}
+              <button
+                type="button"
+                onClick={() => onOpenImage?.(photo.storageUrl, photo.alt)}
+                aria-label={`View photo: ${photo.alt}`}
+                className="block aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted cursor-zoom-in"
+              >
                 <img src={photo.storageUrl} alt={photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-              </div>
+              </button>
               {photo.credit && (
                 <figcaption className="mt-1 text-[11px] text-muted-foreground truncate">{photo.credit}</figcaption>
               )}
             </figure>
-          </li>
-        ))}
+          </li>,
+        ])}
       </ul>
     </section>
   );
@@ -110,14 +134,17 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
               data-testid="hike-review"
               className={`snap-start flex-shrink-0 flex flex-col justify-between rounded-lg border border-border p-3 ${single ? 'w-full' : 'w-[85%] sm:w-80'}`}
             >
-              <blockquote className="text-sm text-foreground line-clamp-6">“{review.quote}”</blockquote>
+              <figure>
+                <span aria-hidden="true" className="block h-6 font-serif text-4xl leading-none text-blue-600/40">“</span>
+                <blockquote className={`text-[15px] leading-relaxed text-foreground ${single ? "" : "line-clamp-6"}`}>{review.quote}</blockquote>
+              </figure>
               {/* Founder 2026-10-04: the reviewer is a person — their photo (pledge ring when they
                   pledged) and a plain name link, never a button or chip. sm = 40px. */}
-              <div className="mt-2 flex items-center gap-2" data-testid="hike-review-author">
+              <div className="mt-3 flex items-center gap-2" data-testid="hike-review-author">
                 {review.author && <PersonAvatar person={review.author} size="sm" />}
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm">
                   {profilePath
-                    ? <Link to={profilePath} className="font-medium text-foreground underline underline-offset-2">{name}</Link>
+                    ? <Link to={profilePath} className="font-semibold text-foreground hover:underline underline-offset-2">{name}</Link>
                     : name}
                 </span>
               </div>
@@ -142,7 +169,7 @@ function osmLinkFor(geo: ReturnType<typeof extractRouteGeometry>): string | unde
   return p ? `https://www.openstreetmap.org/?mlat=${p[1]}&mlon=${p[0]}#map=14/${p[1]}/${p[0]}` : undefined;
 }
 
-export function HikeRouteMap({ geojson, details, showHeading = true }: { geojson: unknown; details?: unknown; showHeading?: boolean }) {
+export function HikeRouteMap({ geojson, details, showHeading = true, onOpenImage }: { geojson: unknown; details?: unknown; showHeading?: boolean; onOpenImage?: (src: string, alt: string) => void }) {
   const geo = extractRouteGeometry(geojson);
   const stats = parseHikeDetails(details);
   const imageUrl = stats?.routeMapUrl && isAllowedPhotoUrl(stats.routeMapUrl) ? stats.routeMapUrl : undefined;
@@ -176,12 +203,14 @@ export function HikeRouteMap({ geojson, details, showHeading = true }: { geojson
   }
 
   return (
-    <section data-testid="hike-route" aria-label={HIKE_LABELS.route} className="not-prose mb-6">
+    <section id="hike-route" data-testid="hike-route" aria-label={HIKE_LABELS.route} className="not-prose mb-6">
       {showHeading && <h2 className="text-base font-semibold text-foreground mb-2">{HIKE_LABELS.route}</h2>}
       <figure className="!m-0 rounded-lg border border-border overflow-hidden">
-        {href
-          ? <a href={href} target="_blank" rel="noopener noreferrer" aria-label={HIKE_LABELS.openMap} className="block">{picture}</a>
-          : picture}
+        {imageUrl && onOpenImage
+          ? <button type="button" onClick={() => onOpenImage(imageUrl, 'Map of the hike route')} aria-label="View the route map full size" className="block w-full cursor-zoom-in">{picture}</button>
+          : href
+            ? <a href={href} target="_blank" rel="noopener noreferrer" aria-label={HIKE_LABELS.openMap} className="block">{picture}</a>
+            : picture}
         <figcaption className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px] text-muted-foreground border-t border-border">
           <span>
             {imageUrl ? 'OpenTopoMap · ' : 'Route data '}

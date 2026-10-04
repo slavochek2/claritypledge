@@ -489,3 +489,8 @@ body {
   margin: 1rem 0;
   border-radius: 0.5rem;
 }
+
+/* Founder 2026-10-04: images in an event description open full size on tap (EventDetail lightbox). */
+.event-description img {
+  cursor: zoom-in;
+}

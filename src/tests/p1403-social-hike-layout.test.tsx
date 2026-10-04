@@ -95,11 +95,12 @@ describe('P1403: stats strip', () => {
   it('renders every stat from structured fields', () => {
     render(<HikeStatsStrip details={FULL_DETAILS} />);
     const strip = screen.getByTestId('hike-stats');
-    expect(strip.textContent).toContain('11.7 km');
-    expect(strip.textContent).toContain('539 m');
-    expect(strip.textContent).toContain('Distance · loop');
-    expect(strip.textContent).toContain('4–4.5 h');
-    expect(strip.textContent).toContain('Moderate');
+    const val = (k: string) => strip.querySelector(`[data-stat="${k}"] dd`)!.textContent;
+    expect(val('distance')).toBe('11.7km');
+    expect(val('elevation')).toBe('539m');
+    expect(val('walkTime')).toBe('4–4.5h');
+    expect(strip.querySelector('[data-stat="routeType"] dt')!.textContent).toBe('Loop');
+    expect(strip.textContent).not.toContain('Moderate');
     // Founder 2026-10-04: no "to trail" walk stat and no link in the row.
     expect(strip.textContent).not.toContain('min walk');
     expect(strip.querySelector('a')).toBeNull();
@@ -117,7 +118,7 @@ describe('P1403: stats strip', () => {
     render(<HikeStatsStrip details={{ distance_km: 8, walk_time_text: '3 h', meet_walk_minutes: 5, meet_walk_url: 'javascript:alert(1)' }} />);
     const strip = screen.getByTestId('hike-stats');
     expect(strip.querySelectorAll('[data-stat]')).toHaveLength(2);
-    expect(strip.textContent).toContain('8 km');
+    expect(strip.querySelector('[data-stat="distance"] dd')!.textContent).toBe('8km');
     expect(strip.querySelector('a')).toBeNull();
   });
 
