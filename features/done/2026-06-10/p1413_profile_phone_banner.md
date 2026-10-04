@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 24
 workstream: profiles
 created_date: '2026-10-04'
 tags: [profiles, banner, mobile]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-04
 ---
 
 # P1413: Profile pages get a phone banner, like events (P1354)
