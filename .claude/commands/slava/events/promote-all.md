@@ -127,6 +127,25 @@ curl -s -o "$LOCAL" -w "HTTP:%{http_code} bytes:%{size_download}\n" "$PUBLIC"
 - Prod service key enrolled in the keyring (founder machine — `./scripts/keyring.sh status` shows it `enrolled`, and never prompts): run `./scripts/event-photo-prep.sh <slug> "<query>"` (generates via Unsplash + uploads to storage; founder-only, macOS-only) and parse its `LOCAL`/`PUBLIC` output. The upload raises one authorization dialog — tell the founder **Allow**, never "Always Allow".
 - Not enrolled (operator machine): stop and tell the user — "The event banner is missing. Open the event on claritypledge.com — the banner auto-generates on creation (use the Regenerate control on the event page if needed) — then re-run." Never attempt the upload path without the enrolled key.
 
+**One crop per platform, from the SOURCE photo — never the site banner.** Founder, 2026-10-04:
+*"make sure we have mobile and desktop version for banners and use right ones on pages where we post
+.. and make sure in future its using right too when promoting."* The site banner is ~5.85:1 and,
+for a tall photo, is mostly blurred padding; uploading it as a platform cover shows a thin strip
+or cuts heads. When the event's banner was made from a real photo (record its path as
+`photo_source_path` in the cache), cut these from that source with ffmpeg and check each by
+eye that every face/head is inside the frame:
+
+| File | Ratio | Used by |
+|---|---|---|
+| `clarity-event-photo.jpg` | 16:9 (1920×1080) | todo.today cover |
+| `clarity-event-photo-fb.jpg` | 1.91:1 (1920×1005) | Facebook event cover — FB then shows ~2.7:1, so **drag to reposition** until heads are in, and zoom-check the frame |
+| `clarity-event-photo-square.jpg` | 1:1 (1200×1200) | Luma cover |
+
+The site itself needs **both** `banner_url` (desktop) and `banner_mobile_url` (phone, ~2:1, P1354)
+set before promotion; check both are non-null on the event row and render at desktop and 375 px.
+If the banner is auto-generated (no source photo), the downloaded banner above is the only image
+and this table does not apply.
+
 ### 3b. Resolve the promo blurb (single source of truth)
 
 This is what makes every platform's description consistent — no per-platform drift.
