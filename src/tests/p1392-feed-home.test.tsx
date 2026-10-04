@@ -91,6 +91,6 @@ describe('P1401 — next events and groups at every width', () => {
     expect(rail).toMatch(/<EventCard event=\{e\}/); // the canonical event card, not a home-only look
     expect(rail).toMatch(/<OrgInitials name=\{g\.name\} \/>/); // the groups-page tile
     const r = rail.slice(rail.indexOf('function RailContent'));
-    expect(r.indexOf('>Groups<')).toBeLessThan(r.indexOf('>Next events<'));
+    expect(r.indexOf('>Groups<')).toBeLessThan(r.indexOf('{nextEventsLabel(events)}<'));
   });
 });

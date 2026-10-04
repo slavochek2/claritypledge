@@ -24,6 +24,7 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   const [open, setOpen] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [points, setPoints] = useState<PointSummary[] | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
   const pointsRequested = useRef(false);
   const panelId = useId();
 
@@ -32,14 +33,21 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
     let cancelled = false;
     resolveStorySlug(PINNED_STORY_SLUG)
       .then(async (id) => {
-        if (!id) return;
+        if (!id) {
+          if (!cancelled) setFailed(true);
+          return;
+        }
         const s = await storiesService.getStory(id);
-        if (cancelled || !s) return;
+        if (cancelled) return;
+        if (!s) {
+          setFailed(true);
+          return;
+        }
         setStory(s);
         onResolved?.(s.id);
       })
       .catch(() => {
-        /* no featured story is the fallback */
+        if (!cancelled) setFailed(true); // no featured story is the fallback
       });
     return () => {
       cancelled = true;
@@ -60,7 +68,9 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
       });
   }, [open, story]);
 
-  if (!story) return null;
+  // P1406: hold the bar's place while it loads so the cards below don't jump; a failed
+  // load (failed=true) collapses to nothing.
+  if (!story) return failed ? null : <div data-testid="pinned-story-placeholder" aria-hidden className="h-[70px] rounded-lg border border-blue-100 bg-blue-50/60 animate-pulse" />;
   // Only a playable story video earns a play button (story cards play YouTube; a hosted MP4,
   // as on test's st1, renders as the picture). A play button that cannot play would mislead.
   const thumb = getThumbnailUrl(story.videoUrl);
@@ -71,30 +81,27 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
     setOpen((v) => !v);
   };
 
-  // P1404 (founder, annotated screenshot): open, the author appeared twice — in the bar and
-  // in the card. Open is now a slim label row ("Featured story · title", Hide) with the
-  // normal card directly under it, not boxed in the blue panel; the card carries the author.
+  // P1406 (founder): open, the blue box WRAPS the story — the bar on top (no photo: the card
+  // carries it), the card inside — so it reads as one thing that opened. Chevron only, in both
+  // states: a "Hide" that has no "Show" counterpart read as odd.
   if (open) {
     return (
-      <section data-testid="pinned-story" className="space-y-2">
-        {/* P1405 (founder): the same blue box stays on top when open — only the photo goes
-            (the card below carries it) and the chevron becomes Hide. */}
+      <section data-testid="pinned-story" className="rounded-lg border border-blue-200 bg-blue-50 p-2">
         <button
           type="button"
           onClick={toggle}
           aria-expanded
           aria-controls={panelId}
-          className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-left hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Collapse featured story: ${PINNED_STORY_TITLE}`}
+          className="flex min-h-12 w-full items-center gap-3 rounded-md px-1 py-0.5 text-left hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
             <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
           </span>
-          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-blue-700">
-            Hide <ChevronUpIcon className="h-4 w-4" aria-hidden />
-          </span>
+          <ChevronUpIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
         </button>
-        <div id={panelId} data-testid="pinned-story-expanded">
+        <div id={panelId} data-testid="pinned-story-expanded" className="mt-2">
           <FeedStoryCard story={story} linkedPoints={points} autoPlay={autoPlay} />
         </div>
       </section>

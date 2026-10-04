@@ -110,7 +110,15 @@ function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; ro
 /** Each group as a small version of the groups-page card: the same initials tile, name,
  *  border and hover — not a pill style of its own. */
 function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
-  if (groups === null) return <div className="h-[68px] rounded-lg bg-muted animate-pulse" />;
+  // P1406: placeholders the size of the real cards, so nothing shifts when they arrive.
+  if (groups === null)
+    return (
+      <div className="space-y-2" aria-hidden data-testid="groups-placeholder">
+        {Array.from({ length: MAX_GROUPS }, (_, i) => (
+          <div key={i} className="h-[58px] rounded-lg border border-border bg-muted animate-pulse" />
+        ))}
+      </div>
+    );
   if (groups === "error" || groups.length === 0) return null; // "All groups" still shows
   return (
     <div className="space-y-2">
@@ -130,7 +138,8 @@ function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
 
 function SectionTitle({ icon: Icon, children }: { icon: typeof LandmarkIcon; children: React.ReactNode }) {
   return (
-    <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+    // P1406 (founder): headings read smaller than the Stories/Points tabs — base size now.
+    <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
       <Icon className="w-4 h-4" aria-hidden /> {children}
     </h2>
   );
@@ -144,6 +153,11 @@ function MoreLink({ to, children }: { to: string; children: React.ReactNode }) {
   );
 }
 
+/** "Next event" for one, "Next events" otherwise (founder: desktop showed one under a plural). */
+function nextEventsLabel(events: Loaded<EventWithHost>): string {
+  return Array.isArray(events) && events.length === 1 ? "Next event" : "Next events";
+}
+
 /** Desktop: the right column beside the feed. */
 export function HomeSideRail() {
   const isDesktop = useIsDesktop();
@@ -153,14 +167,14 @@ export function HomeSideRail() {
 function RailContent() {
   const { events, groups } = useHomeHighlights();
   return (
-    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.9375rem]" aria-label="Groups and events" data-testid="home-side-rail">
+    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.6875rem]" aria-label="Groups and events" data-testid="home-side-rail">
       <section className="space-y-3">
         <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
         <GroupLinks groups={groups} />
         <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
       </section>
       <section className="space-y-3">
-        <SectionTitle icon={CalendarDaysIcon}>Next events</SectionTitle>
+        <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
         <EventsList events={events} />
         <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
       </section>
@@ -181,7 +195,7 @@ function TopContent() {
       {!(Array.isArray(events) && events.length === 0) && events !== "error" && (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <SectionTitle icon={CalendarDaysIcon}>Next events</SectionTitle>
+          <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
           <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
         </div>
         <EventsList events={events} row />

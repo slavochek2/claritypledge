@@ -507,40 +507,42 @@ export function FeedPage() {
         {/* P1392 (founder): no visible "Home" title — the stories start higher. The h1 stays for
             screen readers and document outline. */}
         <h1 className="sr-only">Home</h1>
-        {session && (
-        <div className="flex items-center justify-end mb-4">
-          {(
+        {/* P1406 (founder): search and Share a Story on one row; the field takes the rest. */}
+        <div className="mb-4 flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search stories and points..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-9 pr-9 py-2 border border-border rounded-md bg-background text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => handleSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {session && (
             <Link
               to="/create"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md transition-colors"
+              aria-label="Share a Story"
+              className="inline-flex h-10 shrink-0 items-center gap-2 px-3 sm:px-4 text-sm font-medium text-white bg-blue-500 hover:bg-blue-700 rounded-md transition-colors"
             >
-              <Globe className="w-4 h-4" />
-              Share a Story
+              <Globe className="w-4 h-4" aria-hidden />
+              <span className="hidden sm:inline">Share a Story</span>
+              <span className="sm:hidden">Share</span>
             </Link>
           )}
         </div>
-        )}
 
-        {/* Search bar */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search stories and points..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 border border-border rounded-md bg-background text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => handleSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        {/* P1406: while loading, hold the tag row's height so the tabs don't jump down. */}
+        {loading && <div aria-hidden className="mb-4 h-6 w-2/3 rounded-full bg-muted animate-pulse" data-testid="tag-cloud-placeholder" />}
 
         {/* Tag cloud (only when we have tags and not loading) */}
         {!loading && tagCloud.length > 0 && (

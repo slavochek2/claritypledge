@@ -1,12 +1,12 @@
 ---
-status: backlog
+status: qa
 type: story
 rank: 312
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, featured-story, polish]
 disclosure: public
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
@@ -35,8 +35,8 @@ exec_effort: low
 
 ## Acceptance Criteria
 
-- [ ] Signed in, Share a Story and search share one row at 375px and desktop
-- [ ] Section headings are the same size as the tab labels; label reads "Next event" for one event
-- [ ] Featured bar shows no Hide text; open, the story card sits inside the blue box
-- [ ] Loading: tags, featured bar and groups hold their space (no jump when data arrives)
-- [ ] Desktop: first group card top still level with the featured bar
+- [x] Signed in, Share a Story and search share one row at 375px and desktop
+- [x] Section headings are the same size as the tab labels; label reads "Next event" for one event
+- [x] Featured bar shows no Hide text; open, the story card sits inside the blue box
+- [x] Loading: tags, featured bar and groups hold their space (no jump when data arrives)
+- [x] Desktop: first group card top still level with the featured bar
