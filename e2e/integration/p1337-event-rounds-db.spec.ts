@@ -10,6 +10,7 @@
  *     table did not change and clears it for someone moved
  *   - set_round_topic: anyone at that table, last tap wins; someone at another table is refused
  *   - presence is host-only both ways; no client role writes any of the four tables directly
+ *   - get_event_transcribing_now (20261004120000): the host sees live transcription only
  */
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -233,6 +234,40 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect(hostView.data).toHaveLength(1);
     expect(hostView.data![0].left_at).not.toBeNull();
     expect((await ca.from('event_round_presence').select('room_member_id').eq('event_id', eventId)).data).toEqual([]);
+  });
+
+  test('host sees who is transcribing right now; an attendee and anon see nobody', async () => {
+    // 20261004120000_p1337_host_transcribing_now.sql — live = consent, not ended, seen < 10 min.
+    const code = `P1337T${Date.now() % 1_000_000}`;
+    const { data: room } = await supabaseAdmin.from('transcribe_rooms').insert({ code, event_id: eventId }).select('id').single();
+    const sessions: string[] = [];
+    const seat = async (u: TestUser, name: string, extra: Record<string, unknown>) => {
+      const { data: session } = await supabaseAdmin.from('clarity_sessions')
+        .insert({ code: `${code}-${name}`, creator_name: name, creator_profile_id: u.user.id }).select('id').single();
+      sessions.push(session!.id);
+      const { error } = await supabaseAdmin.from('transcribe_room_members').insert({
+        room_id: room!.id, profile_id: u.user.id, display_name: name, session_id: session!.id, ...extra,
+      });
+      expect(error).toBeNull();
+    };
+    const now = new Date().toISOString();
+    try {
+      await seat(a, 'Ana', { consent_given_at: now, last_seen_at: now }); // live
+      await seat(b, 'Ben', { consent_given_at: now, last_seen_at: new Date(Date.now() - 11 * 60_000).toISOString() }); // stale
+      await seat(c, 'Cy', { consent_given_at: now, last_seen_at: now, capture_ended_at: now }); // ended
+
+      const h = await clientFor(host);
+      const live = await h.rpc('get_event_transcribing_now', { p_event_id: eventId });
+      expect(live.error).toBeNull();
+      expect((live.data as { profile_id: string }[]).map(r => r.profile_id)).toEqual([a.user.id]);
+
+      const ca = await clientFor(a);
+      expect((await ca.rpc('get_event_transcribing_now', { p_event_id: eventId })).data).toEqual([]);
+      expect((await anon().rpc('get_event_transcribing_now', { p_event_id: eventId })).error).not.toBeNull();
+    } finally {
+      await supabaseAdmin.from('transcribe_rooms').delete().eq('id', room!.id);
+      if (sessions.length) await supabaseAdmin.from('clarity_sessions').delete().in('id', sessions);
+    }
   });
 
   test('no direct client writes to any round table', async () => {

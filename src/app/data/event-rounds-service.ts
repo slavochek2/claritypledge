@@ -206,3 +206,14 @@ export async function setRoundPositionMoved(roundId: string, moved: boolean): Pr
   const { error } = await supabase.rpc('set_round_position_moved', { p_round_id: roundId, p_moved: moved });
   if (error) throw error;
 }
+
+/**
+ * P1337 — profile ids of this event's attendees whose transcription is live right now (consent
+ * given, not ended, device seen in the last 10 minutes). Host only: the function returns no rows
+ * to anyone else. Profile ids only — never a transcript.
+ */
+export async function getTranscribingNow(eventId: string): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc('get_event_transcribing_now', { p_event_id: eventId });
+  if (error) throw error;
+  return new Set(((data ?? []) as { profile_id: string }[]).map(r => r.profile_id));
+}

@@ -36,6 +36,7 @@ import { formatClock, liveRole, roundClock } from '@/lib/round-clock';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
+import { RoleBadge } from './RoleBadge';
 
 // The stored role says who speaks first; the pair swap after six minutes (liveRole).
 const ROLE_LINE = {
@@ -43,8 +44,6 @@ const ROLE_LINE = {
   second: 'You listen first',
   observer: 'You observe and keep time',
 } as const;
-
-const ROLE_WORD = { speaker: 'Speaker', listener: 'Listener', observer: 'Observer' } as const;
 
 function readAnswered(roundId: string): boolean {
   try {
@@ -169,7 +168,11 @@ export function RoundCard({
         <h2 className="mt-0.5 text-3xl font-semibold" data-testid="round-card-table">
           Table {mine.table}
         </h2>
-        <p className="mt-1 text-base font-medium text-blue-700">{ROLE_LINE[mine.role]}</p>
+        <p className="mt-1.5 flex items-center gap-2 text-base font-medium">
+          {/* The same S / L / O as the printed card on the table. */}
+          <RoleBadge role={liveRole(mine.role, 'seating')} className="h-7 w-7 text-base" />
+          {ROLE_LINE[mine.role]}
+        </p>
         {others.length > 0 && clock && (
           // Faces, not only names: this is what you look for walking across the room.
           <ul className="mt-3 space-y-2" data-testid="round-card-mates">
@@ -177,6 +180,7 @@ export function RoundCard({
               const m = member(s.id);
               return (
                 <li key={s.id} className="flex items-center gap-2.5">
+                  <RoleBadge role={liveRole(s.role, clock.phase)} className="h-7 w-7 text-base" />
                   <GravatarAvatar
                     name={m?.displayName ?? '?'}
                     photoUrl={m?.profileAvatarUrl ?? undefined}
@@ -185,7 +189,6 @@ export function RoundCard({
                     size="sm"
                   />
                   <span className="flex-1 min-w-0 break-words text-sm font-medium">{shortName(m?.displayName ?? '—')}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{ROLE_WORD[liveRole(s.role, clock.phase)]}</span>
                 </li>
               );
             })}

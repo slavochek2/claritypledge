@@ -206,6 +206,22 @@ simply reads "Time's up"; the room page stops showing rounds once the event ends
 room — the same link at the top of the room page, host-only. On a desktop the panel splits: clock and
 button on the left, the room on the right.
 
+**Founder walkthrough 2, 2026-10-04:**
+- *Desktop:* the people on the left, the controls on the right (sticky). Phone: controls first.
+- *Roles are columns,* one header row with the printed role cards' letters — **S** on burnt orange
+  (#C2410C), **L** on blue (#1864AB), **O** neutral — trading S and L when the speakers swap. No
+  per-tile role label. The orange is a deliberate, single-place exception to the design system's
+  "no orange" (`RoleBadge.tsx`): the screen matches the card in people's hands.
+- *Host-only marks on every tile* (never on the projector): ✓ prepared, 🎙 recording volunteer with
+  the mic connector they need (reusing P1386's marks), and a red dot when their transcription is
+  live right now — a new host-gated read, `get_event_transcribing_now` (migration
+  20261004120000; profile ids only, live = consent, not ended, device seen < 10 min).
+- *The strip is in proportion:* Tables 1 · Speaker 6 · Speaker 6 · Observer 3 minutes; the
+  projector prints each part's minutes under it.
+- *The projector scales to one screen* from 6 to 40 people (`round-screen-layout.ts`: try every
+  column count, keep the largest type; 40 people = 5 × 3 tables at 23px on 1080p).
+- No instruction text ("Tap a name…" removed); **Out** is a red-outlined button, **Back in** blue.
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.

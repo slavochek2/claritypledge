@@ -86,7 +86,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     const errors: string[] = [];
     page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
     await asHost(page);
-    await expect(page.getByTestId('host-round-title')).toHaveText('6 in the room');
+    await expect(page.getByTestId('host-room-count')).toHaveText('6 in the room');
     await expect(page.getByTestId('host-member')).toHaveCount(6);
     expect(errors.filter(e => !/favicon|sentry|mixpanel/i.test(e))).toEqual([]);
 
@@ -110,6 +110,8 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await page.getByTestId('host-primary').click();
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
     await expect(page.getByTestId('round-grid-name')).toHaveCount(6);
+    // Roles are columns with the printed cards' letters, not a label on every tile.
+    await expect(page.getByTestId('round-grid-role')).toHaveText(['SSpeaker', 'LListener', 'OObserver']);
     const rows = await seats(event.id);
     expect(rows).toHaveLength(6);
     for (const table of [1, 2]) {
@@ -202,6 +204,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-screen')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Round 1' })).toBeVisible();
     await expect(page.getByText('Table 1')).toBeVisible();
+    await expect(page.locator('[data-testid=screen-table] [data-role-badge]')).toHaveCount(6);
     await expect(page.getByTestId('round-clock')).toHaveAttribute('data-phase', 'over');
   });
 
