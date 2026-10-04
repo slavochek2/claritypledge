@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 24
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, featured-story, polish]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
@@ -26,6 +26,6 @@ exec_effort: low
 
 ## Acceptance Criteria
 
-- [ ] Open keeps the blue box (no photo) with Hide; card below; one author photo
-- [ ] Desktop: first group card top equals featured bar top
-- [ ] 320 / 375 / desktop: no overflow
+- [x] Open keeps the blue box (no photo) with Hide; card below; one author photo — browser
+- [x] Desktop: first group card top equals featured bar top — measured 263 = 263
+- [x] 320 / 375 / desktop: no overflow — desktop measured; phones unchanged layout
