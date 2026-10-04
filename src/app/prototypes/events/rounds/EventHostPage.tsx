@@ -31,9 +31,9 @@
  * and the second listener … mark it the right way"): a header with the printed cards' S / L / O,
  * which trades S and L when the speakers swap.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Monitor, Undo2, X } from 'lucide-react';
+import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Minus, Monitor, Plus, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -49,10 +49,13 @@ import {
   currentRound,
   getRoundPresence,
   getTranscribingNow,
+  hostExtendRound,
   hostSetRoundPresence,
   hostSetRoundSeats,
   hostStartRound,
+  DEFAULT_ROUND_MINUTES,
   type EventRound,
+  type RoundMinutes,
   type RoundPresence,
   type RoundSeat,
 } from '@/app/data/event-rounds-service';
@@ -67,13 +70,13 @@ import {
   type SeatRole,
 } from '@/lib/round-grouping';
 import {
-  OBSERVER_MS,
-  SPEAKER_MS,
   formatClock,
   liveRole,
   roundClock,
+  roundTiming,
   type RoundClock,
   type RoundPhase,
+  type RoundTiming,
 } from '@/lib/round-clock';
 import type { EventRoomMember } from '@/app/types';
 import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
@@ -88,15 +91,25 @@ const TRANSCRIBING_POLL_MS = 15_000;
 const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 
 /**
- * The talking parts of a round, drawn in proportion: 6 · 6 · 3 minutes. The minute at the tables
- * is not on the strip — a sliver that small showed no movement and read as noise (founder); the
- * clock counts it down on its own.
+ * The talking parts of a round, drawn in proportion to the round's own minutes (6 · 6 · 3 by
+ * default). The minute at the tables is not on the strip — a sliver that small showed no movement
+ * and read as noise (founder); the clock counts it down on its own.
  */
-const PHASES: { phase: RoundPhase; label: string; ms: number }[] = [
-  { phase: 'first', label: 'Speaker 1', ms: SPEAKER_MS },
-  { phase: 'second', label: 'Speaker 2', ms: SPEAKER_MS },
-  { phase: 'observer', label: 'Observer', ms: OBSERVER_MS },
-];
+function talkingParts(timing: RoundTiming): { phase: RoundPhase; label: string; ms: number }[] {
+  return [
+    { phase: 'first', label: 'Speaker 1', ms: timing.firstMs },
+    { phase: 'second', label: 'Speaker 2', ms: timing.secondMs },
+    { phase: 'observer', label: 'Observer', ms: timing.observerMs },
+  ];
+}
+
+/** The name of the part running now, beside the host's clock. */
+const PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
+  seating: 'Finding tables',
+  first: 'Speaker 1',
+  second: 'Speaker 2',
+  observer: 'Observer',
+};
 
 /** The fixed column names on the host grid; the badge beside each shows who speaks right now. */
 const COLUMN_LABEL = { first: 'Speaker 1', second: 'Speaker 2', observer: 'Observer' } as const;
@@ -104,9 +117,18 @@ const COLUMN_LABEL = { first: 'Speaker 1', second: 'Speaker 2', observer: 'Obser
 interface Settings {
   groupSize: 2 | 3 | 4;
   toggles: GroupingToggles;
+  /** Minutes for the next round, stored with it when it starts (never moves a running round). */
+  minutes: RoundMinutes;
 }
 
-const DEFAULT_SETTINGS: Settings = { groupSize: 3, toggles: DEFAULT_TOGGLES };
+const DEFAULT_SETTINGS: Settings = { groupSize: 3, toggles: DEFAULT_TOGGLES, minutes: DEFAULT_ROUND_MINUTES };
+
+/** The three minute settings: what they are called, and the range the database accepts. */
+const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number }[] = [
+  { key: 'seatingS', label: 'Tables', min: 0, max: 30 },
+  { key: 'speakerS', label: 'Speaker', min: 1, max: 60 },
+  { key: 'observerS', label: 'Observer', min: 0, max: 60 },
+];
 
 /** Per-host convenience: survives a reload of the panel, never needed for the evening to run. */
 function useSettings(eventId: string | undefined): [Settings, (s: Settings) => void] {
@@ -116,7 +138,10 @@ function useSettings(eventId: string | undefined): [Settings, (s: Settings) => v
     if (!storageKey) return;
     try {
       const raw = localStorage.getItem(storageKey);
-      if (raw) setSettings({ ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) });
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<Settings>;
+        setSettings({ ...DEFAULT_SETTINGS, ...saved, minutes: { ...DEFAULT_ROUND_MINUTES, ...saved.minutes } });
+      }
     } catch {
       /* defaults */
     }
@@ -171,7 +196,7 @@ function tableSeats(t: Table): Seat[] {
 function useClock(round: EventRound | null, seats: Seat[]) {
   const now = useNow(!!round);
   if (!round) return null;
-  return roundClock(round.startedAt, now, seats.some(s => s.role === 'observer'));
+  return roundClock(round.startedAt, now, seats.some(s => s.role === 'observer'), roundTiming(round));
 }
 
 function Avatar({ member, className }: { member: EventRoomMember | undefined; className?: string }) {
@@ -216,8 +241,18 @@ function ClockNumber({ clock, large }: { clock: RoundClock; large?: boolean }) {
 }
 
 /** The talking parts in proportion, the current one filling as it runs. Empty while people find tables. */
-function PhaseStrip({ clock, hasObserver, large }: { clock: RoundClock; hasObserver: boolean; large?: boolean }) {
-  const parts = PHASES.filter(p => hasObserver || p.phase !== 'observer');
+function PhaseStrip({
+  clock,
+  timing,
+  hasObserver,
+  large,
+}: {
+  clock: RoundClock;
+  timing: RoundTiming;
+  hasObserver: boolean;
+  large?: boolean;
+}) {
+  const parts = talkingParts(timing).filter(p => (hasObserver || p.phase !== 'observer') && p.ms > 0);
   const current = parts.findIndex(p => p.phase === clock.phase);
   const over = clock.phase === 'over';
   return (
@@ -231,16 +266,14 @@ function PhaseStrip({ clock, hasObserver, large }: { clock: RoundClock; hasObser
             <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-5' : 'h-2')}>
               <div className={cn('h-full rounded-full transition-[width] duration-1000 ease-linear', done ? 'bg-blue-300' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
             </div>
-            <p
-              className={cn(
-                'mt-1 truncate',
-                large ? 'text-lg sm:text-xl' : 'text-[11px] min-[375px]:text-xs',
-                active ? 'font-semibold text-blue-700' : 'text-muted-foreground',
-              )}
-            >
-              {p.label}
-              {large && <span className="font-normal text-muted-foreground"> · {p.ms / 60_000} min</span>}
-            </p>
+            {/* Labelled on the projector only: on the host panel the part's name sits beside the
+                clock, and "Obser…" truncated at 320px (visual QA). */}
+            {large && (
+              <p className={cn('mt-1 truncate text-lg sm:text-xl', active ? 'font-semibold text-blue-700' : 'text-muted-foreground')}>
+                {p.label}
+                <span className="font-normal text-muted-foreground"> · {Math.round(p.ms / 60_000)} min</span>
+              </p>
+            )}
           </li>
         );
       })}
@@ -250,28 +283,65 @@ function PhaseStrip({ clock, hasObserver, large }: { clock: RoundClock; hasObser
 
 /**
  * The projector's bell (founder: "the screen should make a sound … between speaker one and two,
- * between speaker two and the observer, and three times when I press Next round"). Synthesised
- * with WebAudio — no file to load. Browsers allow sound only after a tap on the page, so the
- * screen starts muted and the host taps the bell once; tapping again mutes it.
+ * between speaker two and the observer, and three times when I press Next round"; then "more like
+ * a proper bell"). Synthesised with WebAudio — no file to load. A struck bell is not a stack of
+ * harmonics: its partials sit at inharmonic ratios (hum, prime, minor third, fifth, nominal…) and
+ * the high ones die first, after a short metallic strike. Each partial is a pair of slightly
+ * detuned oscillators, which gives the slow beating a real bell has. Browsers allow sound only
+ * after a tap on the page, so the screen starts muted and the host taps the bell once.
  */
+const BELL_BASE_HZ = 587; // D5 — carries over a room's talk without being shrill
+/** [ratio to the prime, level, seconds to fade] — church/hand-bell partials. */
+const BELL_PARTIALS: [number, number, number][] = [
+  [0.5, 0.1, 4.5],
+  [1, 0.28, 3.6],
+  [1.183, 0.12, 2.6],
+  [1.506, 0.08, 2.2],
+  [2, 0.12, 1.9],
+  [2.514, 0.06, 1.3],
+  [3.011, 0.04, 0.9],
+  [4.166, 0.03, 0.6],
+];
+const BELL_STRIKE_GAP_S = 1.3;
+
 function useBell() {
   const ctxRef = useRef<AudioContext | null>(null);
   const [on, setOn] = useState(false);
   const ring = useCallback((times: number) => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    const master = ctx.createGain();
+    master.gain.value = 0.7;
+    const limiter = ctx.createDynamicsCompressor();
+    master.connect(limiter).connect(ctx.destination);
     for (let i = 0; i < times; i++) {
-      const at = ctx.currentTime + i * 0.9;
-      for (const [freq, level] of [[880, 0.35], [1760, 0.12], [2640, 0.05]] as const) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(level, at);
-        gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.6);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(at);
-        osc.stop(at + 1.7);
+      const at = ctx.currentTime + 0.02 + i * BELL_STRIKE_GAP_S;
+      for (const [ratio, level, fade] of BELL_PARTIALS) {
+        for (const detune of [-0.8, 0.8]) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = BELL_BASE_HZ * ratio + detune;
+          gain.gain.setValueAtTime(0, at);
+          gain.gain.linearRampToValueAtTime(level / 2, at + 0.004);
+          gain.gain.exponentialRampToValueAtTime(0.0001, at + fade);
+          osc.connect(gain).connect(master);
+          osc.start(at);
+          osc.stop(at + fade + 0.05);
+        }
       }
+      // The strike: a few milliseconds of filtered noise, the clapper hitting metal.
+      const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.03), ctx.sampleRate);
+      const data = noise.getChannelData(0);
+      for (let j = 0; j < data.length; j++) data[j] = (Math.random() * 2 - 1) * (1 - j / data.length);
+      const src = ctx.createBufferSource();
+      src.buffer = noise;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = BELL_BASE_HZ * 4;
+      const hit = ctx.createGain();
+      hit.gain.value = 0.25;
+      src.connect(band).connect(hit).connect(master);
+      src.start(at);
     }
   }, []);
   // Release the audio device when the projector closes (Codex review).
@@ -357,7 +427,7 @@ function ScreenView({
           >
             <h1 className="shrink-0 text-3xl sm:text-4xl font-semibold text-muted-foreground">Round {round.roundNo}</h1>
             <div className="min-w-0 flex-1 print:hidden">
-              <PhaseStrip clock={clock} hasObserver={hasObserver} large />
+              <PhaseStrip clock={clock} timing={roundTiming(round)} hasObserver={hasObserver} large />
             </div>
             <div className="shrink-0 print:hidden">
               <ClockNumber clock={clock} large />
@@ -446,12 +516,19 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
   );
 }
 
+/**
+ * One person. Tapped, the tile itself carries what can be done with them — Out (or Back in) and
+ * Cancel — and every tile they could trade seats with says "Swap" (founder walkthrough 4: "Out
+ * should appear on the card itself"). No bar at the bottom of the page to look for.
+ */
 function PersonTile({
   member,
   marks,
   lifted,
   out,
   tappedIn,
+  swapHint,
+  actions,
   onTap,
   testId,
 }: {
@@ -460,10 +537,14 @@ function PersonTile({
   lifted: boolean;
   out?: boolean;
   tappedIn?: boolean;
+  /** Tapping this tile now trades seats with the lifted one. */
+  swapHint?: boolean;
+  /** Shown on the lifted tile: Out / Back in, and Cancel. */
+  actions?: ReactNode;
   onTap?: () => void;
   testId: string;
 }) {
-  const body = (
+  const face = (
     <>
       <span className="relative">
         <Avatar member={member} className="!h-8 !w-8 !text-xs lg:!h-12 lg:!w-12 lg:!text-sm" />
@@ -475,22 +556,43 @@ function PersonTile({
         )}
       </span>
       <span className="mt-1 block w-full truncate text-xs min-[375px]:text-[13px] lg:text-sm font-medium">{firstName(member?.displayName ?? '—')}</span>
-      {out ? (
-        <span className={cn('block text-[11px] lg:text-xs', lifted ? 'text-white/80' : 'text-muted-foreground')}>Out</span>
-      ) : (
-        <StatusMarks marks={marks} lifted={lifted} />
-      )}
     </>
+  );
+  const sub = out ? (
+    <span className={cn('block text-[11px] lg:text-xs', lifted ? 'text-white/80' : 'text-muted-foreground')}>Out</span>
+  ) : swapHint ? (
+    <span className="mt-0.5 block h-3.5 text-[11px] font-semibold leading-none text-blue-600 lg:text-xs">Swap</span>
+  ) : (
+    <StatusMarks marks={marks} lifted={lifted} />
   );
   const cls = cn(
     'flex w-full min-w-0 flex-col items-center rounded-lg px-0.5 py-1.5 text-center leading-tight',
-    lifted ? 'bg-blue-600 text-white' : onTap ? 'border border-border bg-white text-foreground' : 'bg-muted/60 text-foreground',
+    lifted
+      ? 'bg-blue-600 text-white'
+      : swapHint
+        ? 'border border-dashed border-blue-400 bg-blue-50 text-foreground'
+        : onTap
+          ? 'border border-border bg-white text-foreground'
+          : 'bg-muted/60 text-foreground',
     out && !lifted && 'opacity-60',
   );
   if (!onTap) {
     return (
       <div className={cls} data-testid={testId}>
-        {body}
+        {face}
+        {sub}
+      </div>
+    );
+  }
+  const focus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+  if (lifted && actions) {
+    // A tile holding buttons cannot itself be a button: the face cancels, the row acts.
+    return (
+      <div className={cn(cls, 'relative min-h-[76px] lg:min-h-[104px] lg:py-2.5')} data-testid={testId} data-out={out ? 'true' : undefined}>
+        <button type="button" onClick={onTap} aria-pressed className={cn('flex w-full flex-col items-center rounded-md', focus)}>
+          {face}
+        </button>
+        {actions}
       </div>
     );
   }
@@ -501,9 +603,10 @@ function PersonTile({
       data-testid={testId}
       data-out={out ? 'true' : undefined}
       aria-pressed={lifted}
-      className={cn(cls, 'min-h-[76px] lg:min-h-[104px] lg:py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500')}
+      className={cn(cls, 'min-h-[76px] lg:min-h-[104px] lg:py-2.5', focus)}
     >
-      {body}
+      {face}
+      {sub}
     </button>
   );
 }
@@ -516,6 +619,8 @@ function TablesGrid({
   marksFor,
   lifted,
   isOut,
+  canSwap,
+  actions,
   onTap,
 }: {
   seats: Seat[];
@@ -524,6 +629,8 @@ function TablesGrid({
   marksFor?: (memberId: string) => PersonMarks;
   lifted?: string | null;
   isOut?: (id: string) => boolean;
+  canSwap?: (id: string) => boolean;
+  actions?: ReactNode;
   onTap?: (id: string) => void;
 }) {
   const tables = groupByTable(seats);
@@ -542,6 +649,8 @@ function TablesGrid({
         lifted={lifted === s.id}
         out={out}
         tappedIn={!!(s as RoundSeat).confirmedAt}
+        swapHint={canSwap?.(s.id)}
+        actions={actions}
         onTap={onTap ? () => onTap(s.id) : undefined}
         testId="round-grid-name"
       />
@@ -574,7 +683,8 @@ function TablesGrid({
           </div>
           <div className="flex">{table.first ? tile(table.first) : null}</div>
           <div className="flex">{table.second ? tile(table.second) : null}</div>
-          {hasObserver && <div className="flex gap-1">{table.observers.map(tile)}</div>}
+          {/* Two observers stack: side by side at 320px each tile was ~36px wide (visual QA). */}
+          {hasObserver && <div className="flex flex-col gap-1">{table.observers.map(tile)}</div>}
         </div>
       ))}
     </div>
@@ -589,6 +699,7 @@ function PeopleGroup({
   out,
   hideCount,
   action,
+  actions,
   onTap,
 }: {
   title: string;
@@ -597,7 +708,9 @@ function PeopleGroup({
   marksFor: (memberId: string) => PersonMarks;
   out?: boolean;
   hideCount?: boolean;
-  action?: React.ReactNode;
+  action?: ReactNode;
+  /** Out / Back in and Cancel, shown on the lifted tile. */
+  actions?: ReactNode;
   onTap: (id: string) => void;
 }) {
   if (people.length === 0) return null;
@@ -616,6 +729,7 @@ function PeopleGroup({
             member={m}
             marks={marksFor(m.id)}
             lifted={lifted === m.id}
+            actions={actions}
             onTap={() => onTap(m.id)}
             testId="host-member"
           />
@@ -818,7 +932,7 @@ export function EventHostPage() {
       setError('Waiting for at least two people in the room.');
       return;
     }
-    void run(() => hostStartRound(event.id, nextNo, settings.groupSize, compute(nextNo)));
+    void run(() => hostStartRound(event.id, nextNo, settings.groupSize, compute(nextNo), settings.minutes));
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
@@ -870,27 +984,65 @@ export function EventHostPage() {
       }
     })();
 
-  const clock = round ? roundClock(round.startedAt, now, seats.some(s => s.role === 'observer')) : null;
+  const hasObserver = seats.some(s => s.role === 'observer');
+  const timing = round ? roundTiming(round) : null;
+  const clock = round && timing ? roundClock(round.startedAt, now, hasObserver, timing) : null;
+  // The whole round's time left, beside the part's (founder: "time left per sub-round vs total").
+  const roundLeftMs = clock ? (clock.phase === 'seating' ? clock.phaseRemainingMs : 0) + clock.talkRemainingMs : 0;
+
+  const extend = () => {
+    if (!round || !clock || clock.phase === 'over') return;
+    const phase = clock.phase;
+    void run(() => hostExtendRound(round.id, phase));
+  };
+
+  const canSwap = (id: string) =>
+    !!lifted && lifted !== id && seatOf.has(lifted) && seatOf.has(id) && !isOut(lifted) && !isOut(id);
+  const liftedActions = lifted ? (
+    <span className="mt-1.5 flex w-full items-center justify-center">
+      <button
+        type="button"
+        onClick={() => {
+          setOut(lifted, !isOut(lifted));
+          setLifted(null);
+        }}
+        className={cn(
+          'min-h-10 rounded-md bg-white px-2.5 text-xs font-semibold lg:text-sm',
+          isOut(lifted) ? 'text-blue-700' : 'text-red-600',
+        )}
+        data-testid="host-mark-left"
+      >
+        {isOut(lifted) ? 'Back in' : 'Out'}
+      </button>
+      {/* Cancel sits in the tile's corner, away from Out — side by side, ✕ read as a second
+          "remove" (visual QA). Tapping the face cancels too. */}
+      <button
+        type="button"
+        onClick={() => setLifted(null)}
+        className="absolute right-0 top-0 grid h-8 w-8 place-items-center rounded-md text-white/80 hover:text-white"
+        aria-label="Cancel"
+        data-testid="host-lift-cancel"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </span>
+  ) : null;
   // No "End evening": the host decides how many rounds to run (founder, 2026-10-04). The last
   // round simply reads "Time's up", and the room page stops showing rounds once the event ends.
   const hasNext = !ended && nextNo <= MAX_ROUNDS;
   const primary = hasNext ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext } : null;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
-  const liftedName = lifted ? shortName(names.get(lifted) ?? '') : '';
 
   return (
     <div className="mx-auto w-full max-w-lg lg:max-w-6xl px-4 pt-4 pb-16" data-testid="host-panel">
       <div className="flex items-start justify-between gap-3">
         <FocusHeader onBack={() => navigate(`/events/${slug}`)} label="Back" aria-label="Back to the event" />
-        <a
-          href={`/events/${slug}/host?view=screen`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-blue-600"
-          data-testid="host-screen-link"
-        >
-          <Monitor className="h-4 w-4" /> Screen
-        </a>
+        {/* Outline, not filled: the one filled button on this page is Next round (founder asked). */}
+        <Button asChild variant="outline" size="sm" className="min-h-10 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800">
+          <a href={`/events/${slug}/host?view=screen`} target="_blank" rel="noopener noreferrer" data-testid="host-screen-link">
+            <Monitor className="h-4 w-4" /> Screen
+          </a>
+        </Button>
       </div>
 
       {/* Desktop: the room on the left, the controls on the right (founder, 2026-10-04). On a
@@ -902,10 +1054,33 @@ export function EventHostPage() {
             {(ended || round) && !ended && ' · '}
             {!ended && <span data-testid="host-room-count">{here.length} in the room</span>}
           </p>
-          {clock && (
+          {clock && timing && (
             <div className="mt-1 space-y-3">
-              <ClockNumber clock={clock} />
-              <PhaseStrip clock={clock} hasObserver={seats.some(s => s.role === 'observer')} />
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <ClockNumber clock={clock} />
+                  {clock.phase !== 'over' && (
+                    <p className="mt-1.5 text-sm" data-testid="host-part">
+                      <span className="font-medium">{PART_NAME[clock.phase]}</span>
+                      <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
+                    </p>
+                  )}
+                </div>
+                {clock.phase !== 'over' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-10 shrink-0"
+                    onClick={extend}
+                    disabled={busy}
+                    data-testid="host-extend"
+                  >
+                    +1 min
+                  </Button>
+                )}
+              </div>
+              <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
             </div>
           )}
           {primary && justStarted && !busy && (
@@ -954,6 +1129,27 @@ export function EventHostPage() {
                     ))}
                   </div>
                 </div>
+                <div className="space-y-1" data-testid="host-minutes">
+                  {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2).map(f => {
+                    const value = Math.round(settings.minutes[f.key] / 60);
+                    const set = (next: number) =>
+                      setSettings({ ...settings, minutes: { ...settings.minutes, [f.key]: Math.min(f.max, Math.max(f.min, next)) * 60 } });
+                    return (
+                      <div key={f.key} className="flex items-center justify-between gap-3">
+                        <span className="text-sm">{f.label}</span>
+                        <div className="inline-flex items-center gap-1">
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value - 1)} disabled={value <= f.min} aria-label={`${f.label}: one minute less`}>
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="w-14 text-center text-sm tabular-nums">{value} min</span>
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value + 1)} disabled={value >= f.max} aria-label={`${f.label}: one minute more`}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 {(
                   [
                     ['recorders', 'Recorders together'],
@@ -980,7 +1176,17 @@ export function EventHostPage() {
           {!ended && (
             <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
               {round && clock && seats.length > 0 && (
-                <TablesGrid seats={seats} byId={byId} phase={clock.phase} marksFor={marksFor} lifted={lifted} isOut={isOut} onTap={onTap} />
+                <TablesGrid
+                  seats={seats}
+                  byId={byId}
+                  phase={clock.phase}
+                  marksFor={marksFor}
+                  lifted={lifted}
+                  isOut={isOut}
+                  canSwap={canSwap}
+                  actions={liftedActions}
+                  onTap={onTap}
+                />
               )}
               <PeopleGroup
                 title={round ? 'Next round' : 'Here'}
@@ -988,6 +1194,7 @@ export function EventHostPage() {
                 lifted={lifted}
                 marksFor={marksFor}
                 hideCount={!round}
+                actions={liftedActions}
                 onTap={onTap}
                 action={
                   round && waiting.length > 0 ? (
@@ -1005,55 +1212,14 @@ export function EventHostPage() {
                   ) : null
                 }
               />
-              <PeopleGroup title="Out" people={outside} lifted={lifted} marksFor={marksFor} out onTap={onTap} />
+              <PeopleGroup title="Out" people={outside} lifted={lifted} marksFor={marksFor} out actions={liftedActions} onTap={onTap} />
 
-              {lifted ? (
-                <div className="sticky bottom-3 flex items-center gap-2 rounded-xl border border-border bg-white p-2 pl-3 shadow-lg" aria-live="polite">
-                  <span className="flex-1 min-w-0 truncate text-sm font-medium">
-                    {seatOf.has(lifted) && !isOut(lifted) ? `Swap ${firstName(liftedName)} with…` : liftedName}
-                  </span>
-                  {isOut(lifted) ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="min-h-10 bg-blue-500 hover:bg-blue-600 text-white"
-                      onClick={() => {
-                        setOut(lifted, false);
-                        setLifted(null);
-                      }}
-                      data-testid="host-mark-left"
-                    >
-                      Back in
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-10 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-                      onClick={() => {
-                        setOut(lifted, true);
-                        setLifted(null);
-                      }}
-                      data-testid="host-mark-left"
-                    >
-                      Out
-                    </Button>
-                  )}
-                  <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0" onClick={() => setLifted(null)} aria-label="Cancel">
-                    <X className="h-4 w-4" />
+              {!lifted && round && undoStack.length > 0 && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
+                    <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
                   </Button>
                 </div>
-              ) : (
-                round && undoStack.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    {(
-                      <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
-                        <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
-                      </Button>
-                    )}
-                  </div>
-                )
               )}
             </section>
           )}

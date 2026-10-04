@@ -430,14 +430,17 @@ export function EventDetail() {
   // affordance on this page keys on the generous window too.
   // Founder 2026-10-04: signed-in viewers only. A logged-out visitor cannot use the room, and
   // without the room link the "Details" tab beside it has nothing to switch to.
-  const roomRowVisible = isLoggedIn && !isPast && !isCancelled;
+  //
+  // P1337 (founder walkthrough 4): the room stays reachable AFTER the event too. The row hides on
+  // cancellation; after the event it reads "Event Room" (never "Join now").
+  const roomRowVisible = isLoggedIn && !isCancelled;
   // "Join now" only when "now" is true. Before that the row names the destination
   // instead of issuing an invitation that is weeks premature (founder, 2026-09-08:
   // "should appear only 1 hour before the event? … otherwise confusing?"). Derived
   // from the absolute instant `eventDate`, so it is correct in every viewer's zone
   // with no timezone arithmetic — `event.timezone` is display-only.
   const roomRowLabel =
-    Date.now() >= eventDate.getTime() - ROOM_JOIN_WINDOW_MS ? 'Join now' : 'Event Room';
+    !isPast && Date.now() >= eventDate.getTime() - ROOM_JOIN_WINDOW_MS ? 'Join now' : 'Event Room';
   const isFull = eventsService.isEventFull(event);
 
   const handleRsvp = async (trigger: RsvpTrigger) => {

@@ -85,24 +85,19 @@ async function getPositionedPointIds(userId: string): Promise<Set<string>> {
   }
 }
 
-/**
- * Tags on the public points both people hold a position on, with how many such points carry
- * each. Version tags (v1, v2…) are not a set anyone compares on. Most shared first, then A-Z.
- */
-export async function getSharedTags(a: string, b: string): Promise<{ tag: string; count: number }[]> {
-  const [aIds, bIds] = await Promise.all([getPositionedPointIds(a), getPositionedPointIds(b)]);
-  const shared = [...aIds].filter(id => bIds.has(id));
-  if (shared.length === 0) return [];
-
+/** Tags on these public points, with how many carry each. Version tags (v1, v2…) are not a set
+ * anyone compares on. Most first, then A-Z. */
+async function tagCounts(pointIds: string[], context: string): Promise<{ tag: string; count: number }[]> {
+  if (pointIds.length === 0) return [];
   const pages = await Promise.all(
-    chunk(shared, IN_CHUNK).map(ids =>
+    chunk(pointIds, IN_CHUNK).map(ids =>
       supabase.from('points').select('tags, system_tags').in('id', ids).eq('visibility', 'public'),
     ),
   );
 
   const counts = new Map<string, number>();
   for (const { data, error } of pages) {
-    if (error) throwDbError('getSharedTags points', error, 'Could not load shared tags');
+    if (error) throwDbError(context, error, 'Could not load tags');
     for (const row of data ?? []) {
       // A tag held in both columns still counts once for this point.
       const tags = new Set([...(row.tags ?? []), ...(row.system_tags ?? [])]);
@@ -116,4 +111,16 @@ export async function getSharedTags(a: string, b: string): Promise<{ tag: string
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
     .sort((x, y) => y.count - x.count || x.tag.localeCompare(y.tag));
+}
+
+/** Tags on the public points both people hold a position on, most shared first. */
+export async function getSharedTags(a: string, b: string): Promise<{ tag: string; count: number }[]> {
+  const [aIds, bIds] = await Promise.all([getPositionedPointIds(a), getPositionedPointIds(b)]);
+  return tagCounts([...aIds].filter(id => bIds.has(id)), 'getSharedTags points');
+}
+
+/** Tags on the public points one person holds a position on — the compare view's fallback when
+ * two people share nothing yet, so it can still show where the other person stands. */
+export async function getAnsweredTags(userId: string): Promise<{ tag: string; count: number }[]> {
+  return tagCounts([...(await getPositionedPointIds(userId))], 'getAnsweredTags points');
 }

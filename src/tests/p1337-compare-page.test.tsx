@@ -17,6 +17,7 @@ vi.mock('@/app/data/compare-service', () => ({
   getTagStatements: vi.fn(),
   getPositionsFor: vi.fn(),
   getSharedTags: vi.fn(),
+  getAnsweredTags: vi.fn(),
 }));
 
 const VIEWER = 'viewer-1';
@@ -101,22 +102,38 @@ describe('ComparePage', () => {
     await waitFor(() => expect(compare.getTagStatements).toHaveBeenCalledWith('understanding'));
   });
 
-  it('keeps an unshared ?tag in the chip list and says so in one line', async () => {
+  it('keeps an unshared ?tag in the chip list, says nothing is answered there, and offers "Add yours"', async () => {
     vi.mocked(compare.getTagStatements).mockResolvedValue([]);
     vi.mocked(compare.getPositionsFor).mockResolvedValue(new Map());
 
     renderAt('/compare/ben-tan?tag=cmp7');
 
-    expect(await screen.findByText('Nothing on #cmp7 you both answered.')).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing on #cmp7 answered yet\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add yours' })).toHaveAttribute('href', '/stake/cmp7');
     expect(screen.getByRole('button', { name: '#cmp7' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('says there is nothing yet when no tag is shared', async () => {
+  it('with nothing shared, falls back to what the other person answered and shows their positions (walkthrough 4)', async () => {
     vi.mocked(compare.getSharedTags).mockResolvedValue([]);
+    vi.mocked(compare.getAnsweredTags).mockResolvedValue([{ tag: 'ikigai1', count: 1 }]);
+    vi.mocked(compare.getTagStatements).mockResolvedValue([{ id: 'p1', statement: 'Work is purpose.' }]);
+    vi.mocked(compare.getPositionsFor).mockResolvedValue(new Map([[OTHER, new Map([['p1', 'agree']])]]) as any);
 
     renderAt('/compare/ben-tan');
 
-    expect(await screen.findByText('No statements you both hold a position on yet.')).toBeInTheDocument();
+    expect(await screen.findByText('Only Ben answered')).toBeInTheDocument();
+    expect(screen.getByText('Work is purpose.')).toBeInTheDocument();
+    expect(screen.getByText('Agrees')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add yours' })).toHaveAttribute('href', '/stake/ikigai1');
+  });
+
+  it('says the other person has answered nothing when they have no tags at all', async () => {
+    vi.mocked(compare.getSharedTags).mockResolvedValue([]);
+    vi.mocked(compare.getAnsweredTags).mockResolvedValue([]);
+
+    renderAt('/compare/ben-tan');
+
+    expect(await screen.findByText('Ben hasn’t answered any statements yet.')).toBeInTheDocument();
     expect(compare.getTagStatements).not.toHaveBeenCalled();
   });
 

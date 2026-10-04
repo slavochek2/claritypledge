@@ -70,6 +70,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
@@ -273,9 +274,8 @@ export function EventRoomMeet() {
   // Measured bottom-bar height (see file doc comment) — same pattern as
   // meeting-terms-page.tsx's ratingBarHeight.
   const [barHeight, setBarHeight] = useState(0);
-  // P1337: true while this person is seated in a live round — the answered bar then steps
-  // aside so it never covers "I'm at table N" (visual QA). Choosing/rating bars stay.
-  const [seated, setSeated] = useState(false);
+  // P1337 walkthrough 4: once answered, the principle folds to one line; this opens it again.
+  const [principleOpen, setPrincipleOpen] = useState(false);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -430,7 +430,9 @@ export function EventRoomMeet() {
         ? ''
         : 'You have not answered yet.';
 
-  const barHidden = seated && step === 'answered';
+  // Once answered, the answer lives on the folded principle line, not in a bar over the page
+  // (founder walkthrough 4: "once accepted, attendees shouldn't keep seeing the meeting principle").
+  const barHidden = step === 'answered';
 
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.
@@ -453,9 +455,11 @@ export function EventRoomMeet() {
             Back line (UAT 2026-10-01), not as a box under it. */}
         <div className="flex items-start justify-between gap-3">
           <FocusHeader
-            onBack={() => navigate(`/events/${slug}/ready`)}
+            // After the event /ready forwards straight back here, so Back went in a loop; the
+            // event page is the way out then.
+            onBack={() => navigate(isFrozen ? `/events/${slug}` : `/events/${slug}/ready`)}
             label="Back"
-            aria-label="Back to readiness"
+            aria-label={isFrozen ? 'Back to the event' : 'Back to readiness'}
           />
           <div className="flex items-center gap-3">
             {/* P1337: the host spends the evening in the room too — the rounds are one tap away. */}
@@ -490,17 +494,58 @@ export function EventRoomMeet() {
         <div className="space-y-4">
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
-          {event && !isFrozen && (
-            <RoundCard eventId={event.id} statementTag={event.statementTag} self={self} roster={roster} onSeatedChange={setSeated} />
+          {event && (
+            <RoundCard
+              eventId={event.id}
+              eventSlug={slug ?? event.slug}
+              statementTag={event.statementTag}
+              self={self}
+              roster={roster}
+              ended={isFrozen}
+            />
           )}
-          <CertificateFrame
-            ariaLabel={PRINCIPLE_TITLE}
-            title={PRINCIPLE_TITLE}
-            kicker="A commitment for this conversation"
-            epigraph="We all crave being understood. Let's commit to listen."
-          >
-            <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
-          </CertificateFrame>
+          {step === 'answered' && (
+            <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
+              <button
+                type="button"
+                onClick={() => setPrincipleOpen(o => !o)}
+                aria-expanded={principleOpen}
+                aria-label={principleOpen ? 'Hide the Clarity Meeting Principle' : 'Show the Clarity Meeting Principle'}
+                className="flex min-h-11 min-w-0 items-center gap-2 text-sm"
+              >
+                <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', principleOpen && 'rotate-180')} aria-hidden />
+                <span
+                  data-testid="room-my-opt-in-status"
+                  data-opted-in={self?.optedIn ? 'true' : 'false'}
+                  className="whitespace-nowrap font-medium"
+                >
+                  {statusText}
+                </span>
+              </button>
+              {!isFrozen && (
+                <button
+                  type="button"
+                  data-testid="room-change-choice"
+                  onClick={handleChangeChoice}
+                  disabled={submitting}
+                  className="min-h-11 shrink-0 text-sm font-medium text-blue-600 disabled:opacity-50"
+                >
+                  {/* At 320px the full label squeezed "You opted in" to "You opt…" (visual QA). */}
+                  Change<span className="hidden min-[360px]:inline"> your choice</span>
+                </button>
+              )}
+            </div>
+          )}
+          {(step !== 'answered' || principleOpen) && (
+            <CertificateFrame
+              ariaLabel={PRINCIPLE_TITLE}
+              title={PRINCIPLE_TITLE}
+              kicker="A commitment for this conversation"
+              epigraph="We all crave being understood. Let's commit to listen."
+            >
+              <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
+            </CertificateFrame>
+          )}
 
           {isFrozen && (
             <div data-testid="room-frozen-notice" className="rounded-lg border border-border bg-muted p-4 text-sm">
@@ -722,21 +767,6 @@ export function EventRoomMeet() {
                 </Button>
               )}
 
-              {step === 'answered' && (
-                /* Founder's exact labels, 2026-08-21, replacing the shipped page's
-                   "Accepted — meeting in progress." / "End meeting". Full-width outlined,
-                   the same treatment that page gives its own non-committing action — which
-                   also lifts this control off the 32px ghost button it used to be. */
-                <Button
-                  data-testid="room-change-choice"
-                  onClick={handleChangeChoice}
-                  size="lg"
-                  disabled={submitting}
-                  className={cn(ANSWER_BUTTON_CLASS, 'w-full')}
-                >
-                  Change your choice
-                </Button>
-              )}
             </div>
           </div>
         </FixedBottomBar>

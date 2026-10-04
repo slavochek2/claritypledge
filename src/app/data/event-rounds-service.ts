@@ -30,6 +30,11 @@ export interface EventRound {
   groupSize: 2 | 3 | 4;
   startedAt: string;
   endedAt: string | null;
+  /** Seconds per part of this round (migration 20261004183000); null on rounds started before it. */
+  seatingS: number | null;
+  firstS: number | null;
+  secondS: number | null;
+  observerS: number | null;
 }
 
 export interface RoundSeat extends Seat {
@@ -61,6 +66,10 @@ interface DbRound {
   group_size: number;
   started_at: string;
   ended_at: string | null;
+  seating_s: number | null;
+  first_s: number | null;
+  second_s: number | null;
+  observer_s: number | null;
 }
 
 interface DbSeat {
@@ -75,7 +84,7 @@ interface DbSeat {
 export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase
     .from('event_rounds')
-    .select('id, round_no, group_size, started_at, ended_at')
+    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s')
     .eq('event_id', eventId)
     .order('round_no', { ascending: true });
   if (error) throw error;
@@ -85,6 +94,10 @@ export async function getEventRoundsState(eventId: string): Promise<EventRoundsS
     groupSize: r.group_size as 2 | 3 | 4,
     startedAt: r.started_at,
     endedAt: r.ended_at,
+    seatingS: r.seating_s,
+    firstS: r.first_s,
+    secondS: r.second_s,
+    observerS: r.observer_s,
   }));
   if (mapped.length === 0) return EMPTY_ROUNDS_STATE;
 
@@ -124,15 +137,39 @@ export function roleOrder(role: SeatRole): number {
 
 const toJsonSeats = (seats: Seat[]) => seats.map(s => ({ m: s.id, t: s.table, r: s.role }));
 
-export async function hostStartRound(eventId: string, roundNo: number, groupSize: number, seats: Seat[]): Promise<string> {
+/** Minutes the host chose for the next round, in seconds per part. */
+export interface RoundMinutes {
+  seatingS: number;
+  speakerS: number;
+  observerS: number;
+}
+
+export const DEFAULT_ROUND_MINUTES: RoundMinutes = { seatingS: 60, speakerS: 360, observerS: 180 };
+
+export async function hostStartRound(
+  eventId: string,
+  roundNo: number,
+  groupSize: number,
+  seats: Seat[],
+  minutes: RoundMinutes = DEFAULT_ROUND_MINUTES,
+): Promise<string> {
   const { data, error } = await supabase.rpc('host_start_round', {
     p_event_id: eventId,
     p_round_no: roundNo,
     p_group_size: groupSize,
     p_seats: toJsonSeats(seats),
+    p_seating_s: minutes.seatingS,
+    p_speaker_s: minutes.speakerS,
+    p_observer_s: minutes.observerS,
   });
   if (error) throw error;
   return data as string;
+}
+
+/** "+1 min" on the running round: one more minute on the part running now. */
+export async function hostExtendRound(roundId: string, phase: 'seating' | 'first' | 'second' | 'observer'): Promise<void> {
+  const { error } = await supabase.rpc('host_extend_round', { p_round_id: roundId, p_phase: phase });
+  if (error) throw error;
 }
 
 export async function hostSetRoundSeats(roundId: string, seats: Seat[]): Promise<void> {

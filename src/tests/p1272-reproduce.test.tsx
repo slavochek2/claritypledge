@@ -169,9 +169,15 @@ describe('P1272: the room nav row must reflect the event time state', () => {
     expect(roomLinks(), 'a cancelled event still offers the room row').toHaveLength(0);
   });
 
-  it('offers no room link once the event is past the grace window', async () => {
+  // P1337 founder walkthrough 4 REVISES the original assertion here ("no room link once past the
+  // grace window"): after the event the room is where an attendee finds who they sat with and
+  // compares positions, so the row stays. What P1272 protected still holds — a finished event
+  // never invites "Join now".
+  it('keeps the room link after the grace window, reading "Event Room", never "Join now"', async () => {
     const started = Date.now() - (EVENT_GRACE_HOURS + 1) * HOUR;
     await renderEvent(makeEvent({ datetime: new Date(started).toISOString() }));
-    expect(roomLinks(), 'a finished event still offers the room row').toHaveLength(0);
+    const links = roomLinks();
+    expect(links, 'a finished event lost the way back to its room').toHaveLength(1);
+    expect(links[0].textContent?.trim()).toBe('Event Room');
   });
 });

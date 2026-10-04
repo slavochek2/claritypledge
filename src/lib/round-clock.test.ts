@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, liveRole, roundClock, SEATING_MS, SPEAKER_MS, OBSERVER_MS } from './round-clock';
+import { DEFAULT_TIMING, formatClock, liveRole, roundClock, roundTiming, SEATING_MS, SPEAKER_MS, OBSERVER_MS } from './round-clock';
 
 const START = '2026-10-06T11:30:00.000Z';
 const at = (ms: number) => new Date(START).getTime() + ms;
@@ -45,5 +45,32 @@ describe('liveRole', () => {
     expect(liveRole('first', 'second')).toBe('listener');
     expect(liveRole('second', 'second')).toBe('speaker');
     expect(liveRole('observer', 'second')).toBe('observer');
+  });
+});
+
+describe('round minutes (stored with each round)', () => {
+  it('reads a round row\'s seconds, and falls back to 1 / 6 / 6 / 3 for rounds without them', () => {
+    expect(roundTiming({ seatingS: 120, firstS: 300, secondS: 300, observerS: 0 })).toEqual({
+      seatingMs: 120_000, firstMs: 300_000, secondMs: 300_000, observerMs: 0,
+    });
+    expect(roundTiming({})).toEqual(DEFAULT_TIMING);
+  });
+
+  it('runs on the round\'s own minutes', () => {
+    const timing = roundTiming({ seatingS: 120, firstS: 300, secondS: 300, observerS: 120 });
+    expect(roundClock(START, at(119_000), true, timing).phase).toBe('seating');
+    const c = roundClock(START, at(120_000 + 300_000 + 5_000), true, timing);
+    expect(c.phase).toBe('second');
+    expect(c.phaseElapsedMs).toBe(5_000);
+  });
+
+  it('"+1 min" on the second speaker never moves the first speaker\'s end back', () => {
+    const now = at(SEATING_MS + SPEAKER_MS + 30_000); // 30s into the second speaker
+    const before = roundClock(START, now, true, DEFAULT_TIMING);
+    const after = roundClock(START, now, true, { ...DEFAULT_TIMING, secondMs: SPEAKER_MS + 60_000 });
+    expect(before.phase).toBe('second');
+    expect(after.phase).toBe('second');
+    expect(after.phaseRemainingMs - before.phaseRemainingMs).toBe(60_000);
+    expect(after.talkRemainingMs - before.talkRemainingMs).toBe(60_000);
   });
 });

@@ -11,39 +11,24 @@
  * Access: signed-in viewers only. Reached from "Compare with me" on a profile's Points tab.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Check, ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlug } from '@/app/data/api';
-import { getPositionsFor, getSharedTags, getTagStatements } from '@/app/data/compare-service';
+import { getAnsweredTags, getPositionsFor, getSharedTags, getTagStatements } from '@/app/data/compare-service';
 import { ROUNDS_POLL_MS, getRoundTopic, setRoundTopic } from '@/app/data/event-rounds-service';
 import { SEO } from '@/app/components/seo';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { buildCompareRows, type CompareRow, type PositionKey } from '@/lib/compare-positions';
+import {
+  POSITION_FIRST_PERSON,
+  POSITION_FULL_LABELS,
+  buildCompareRows,
+  type CompareRow,
+  type PositionKey,
+} from '@/lib/compare-positions';
 import { cn } from '@/lib/utils';
 import type { Profile } from '@/app/types';
-
-// Wording of letter-reveal-ordinal.tsx — third person, because the column describes someone.
-const POSITION_FULL_LABELS: Record<PositionKey, string> = {
-  strongly_agree: 'Strongly agrees',
-  agree: 'Agrees',
-  somewhat_agree: 'Somewhat agrees',
-  unsure: 'Unsure',
-  somewhat_disagree: 'Somewhat disagrees',
-  disagree: 'Disagrees',
-  strongly_disagree: 'Strongly disagrees',
-};
-
-// First person for the viewer's own column — "You strongly agrees" reads wrong.
-const POSITION_FIRST_PERSON: Record<PositionKey, string> = {
-  strongly_agree: 'Strongly agree',
-  agree: 'Agree',
-  somewhat_agree: 'Somewhat agree',
-  unsure: 'Unsure',
-  somewhat_disagree: 'Somewhat disagree',
-  disagree: 'Disagree',
-  strongly_disagree: 'Strongly disagree',
-};
 
 interface Person {
   name: string;
@@ -130,6 +115,33 @@ export function StatementRow({
   );
 }
 
+/** A statement only the other person answered: the statement and their position, no "You" column. */
+function TheirRow({ pointId, statement, them, position }: { pointId: string; statement: string; them: Person; position: PositionKey }) {
+  return (
+    <li className="bg-white rounded-xl border border-border">
+      <a
+        href={`/point/${pointId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block rounded-xl p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <div className="rounded-lg border border-border bg-gray-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
+              <Pin size={12} className="rotate-45" />
+            </div>
+            <p className="text-lg font-medium text-[#1A1A1A] flex-1 min-w-0 break-words leading-snug">{statement}</p>
+            <ChevronRight size={18} className="shrink-0 mt-1 text-[#1A1A1A]/30" aria-hidden />
+          </div>
+        </div>
+        <div className="mt-4 flex">
+          <StanceColumn person={them} label={POSITION_FULL_LABELS[position]} />
+        </div>
+      </a>
+    </li>
+  );
+}
+
 /**
  * P1337 §3 — opened from a round (`?round=…&table=…`), each row carries "We're talking about
  * this one". Tapping another row moves the mark, tapping the marked row clears it; anyone at
@@ -191,6 +203,9 @@ interface BaseResult {
 interface RowsResult {
   key: string;
   rows: CompareRow[];
+  /** Statements only the other person answered (with their position), and how many only you did. */
+  theirsOnly: { pointId: string; statement: string; position: PositionKey }[];
+  mineOnlyCount: number;
   error: boolean;
 }
 
@@ -198,6 +213,9 @@ export function ComparePage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
+  // P1337: opened from the event room, the page carries a way back to it (compare opens in the
+  // same tab — founder walkthrough 4). Navigation state, so a shared link shows no Back.
+  const backTo = (useLocation().state as { backTo?: string } | null)?.backTo;
   const viewerId = user?.id;
   const tagParam = searchParams.get('tag');
   const tableParam = Number(searchParams.get('table'));
@@ -217,7 +235,10 @@ export function ComparePage() {
     (async () => {
       try {
         const person = await getProfileBySlug(slug);
-        const tags = person && person.id !== viewerId ? await getSharedTags(viewerId, person.id) : [];
+        let tags = person && person.id !== viewerId ? await getSharedTags(viewerId, person.id) : [];
+        // Nothing shared yet: offer the sets the other person answered, so the page can still show
+        // where they stand and invite "Add yours" instead of a dead end.
+        if (person && person.id !== viewerId && tags.length === 0) tags = await getAnsweredTags(person.id);
         if (!cancelled) setBase({ key: baseKey, person, tags, error: false });
       } catch {
         if (!cancelled) setBase({ key: baseKey, person: null, tags: [], error: true });
@@ -245,14 +266,17 @@ export function ComparePage() {
           [viewerId, person.id],
           statements.map(s => s.id),
         );
-        const rows = buildCompareRows(
-          statements,
-          positions.get(viewerId) ?? new Map(),
-          positions.get(person.id) ?? new Map(),
-        );
-        if (!cancelled) setRowsResult({ key: rowsKey, rows, error: false });
+        const mine = positions.get(viewerId) ?? new Map<string, PositionKey>();
+        const theirs = positions.get(person.id) ?? new Map<string, PositionKey>();
+        const rows = buildCompareRows(statements, mine, theirs);
+        const theirsOnly = statements.flatMap(st => {
+          const position = theirs.get(st.id);
+          return position && !mine.has(st.id) ? [{ pointId: st.id, statement: st.statement, position }] : [];
+        });
+        const mineOnlyCount = statements.filter(st => mine.has(st.id) && !theirs.has(st.id)).length;
+        if (!cancelled) setRowsResult({ key: rowsKey, rows, theirsOnly, mineOnlyCount, error: false });
       } catch {
-        if (!cancelled) setRowsResult({ key: rowsKey, rows: [], error: true });
+        if (!cancelled) setRowsResult({ key: rowsKey, rows: [], theirsOnly: [], mineOnlyCount: 0, error: true });
       }
     })();
     return () => {
@@ -293,38 +317,76 @@ export function ComparePage() {
 
   const firstName = person.name.split(' ')[0];
 
+  // A button, not a small link: it is this page's only way forward when you haven't answered (visual QA).
+  const addYours = activeTag && (
+    <Link
+      to={`/stake/${encodeURIComponent(activeTag)}`}
+      className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white hover:bg-blue-600"
+      data-testid="compare-add-yours"
+    >
+      Add yours
+    </Link>
+  );
+
   let body: ReactNode;
   if (!activeTag) {
-    body = <Muted>No statements you both hold a position on yet.</Muted>;
+    body = <Muted>{firstName} hasn&rsquo;t answered any statements yet.</Muted>;
   } else if (!rowsReady) {
     body = <Muted>Loading…</Muted>;
   } else if (rowsReady.error) {
     body = <Muted>Could not load the comparison.</Muted>;
-  } else if (rowsReady.rows.length === 0) {
-    body = <Muted>Nothing on #{activeTag} you both answered.</Muted>;
   } else {
+    const { rows, theirsOnly, mineOnlyCount } = rowsReady;
     body = (
-      <ul className="space-y-3">
-        {rowsReady.rows.map(row => (
-          <StatementRow
-            key={row.pointId}
-            row={row}
-            me={me}
-            them={them}
-            trailing={
-              tableTopic.active ? (
-                <TopicMark marked={tableTopic.topic === row.pointId} onToggle={() => tableTopic.toggle(row.pointId)} />
-              ) : undefined
-            }
-          />
-        ))}
-      </ul>
+      <div className="space-y-6">
+        {rows.length > 0 && (
+          <ul className="space-y-3">
+            {rows.map(row => (
+              <StatementRow
+                key={row.pointId}
+                row={row}
+                me={me}
+                them={them}
+                trailing={
+                  tableTopic.active ? (
+                    <TopicMark marked={tableTopic.topic === row.pointId} onToggle={() => tableTopic.toggle(row.pointId)} />
+                  ) : undefined
+                }
+              />
+            ))}
+          </ul>
+        )}
+        {theirsOnly.length > 0 && (
+          <section data-testid="compare-theirs-only">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-[#1A1A1A]">Only {firstName} answered</h2>
+              {addYours}
+            </div>
+            <ul className="space-y-3">
+              {theirsOnly.map(r => (
+                <TheirRow key={r.pointId} pointId={r.pointId} statement={r.statement} them={them} position={r.position} />
+              ))}
+            </ul>
+          </section>
+        )}
+        {rows.length === 0 && theirsOnly.length === 0 && (
+          mineOnlyCount > 0
+            ? <Muted>{firstName} hasn&rsquo;t answered #{activeTag} yet.</Muted>
+            : (
+              <div className="flex items-center justify-between gap-3">
+                <Muted>Nothing on #{activeTag} answered yet.</Muted>
+                {addYours}
+              </div>
+            )
+        )}
+      </div>
     );
   }
 
   return (
     <Shell>
       <SEO title={`You and ${firstName}`} noIndex />
+      {backTo && <FocusHeader fallback={backTo} />}
       <header className="mb-4">
         <p className="text-xs uppercase tracking-wide text-[#1A1A1A]/50">Where you each stand</p>
         <h1 className="mt-1 text-xl font-semibold text-[#1A1A1A] leading-tight break-words">
@@ -367,9 +429,11 @@ export function ComparePage() {
   );
 }
 
+// No min-h-screen: under the layout's fixed header a full-viewport box overflows by the header's
+// height, so a one-line empty page scrolled by 80px with nothing below (founder report).
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <div className="mx-auto w-full max-w-lg px-4 py-5">{children}</div>
     </div>
   );

@@ -102,7 +102,7 @@ compare view (§4). One tap, *"I'm here"*, confirming the table; it records wher
 doubles as attendance. **The tap is never a gate**: not tapping changes nothing, and anyone can tap
 late, including after coming back from the toilet.
 
-**During the round the phone is dark.** No timer, no controls, nothing to scroll. The two people talk.
+**During the round the phone is theirs.** No timer for the pair and nothing new to read; the page draws no black layer over it (founder walkthrough 4 — people put their own phone away). The two people talk.
 
 **The observer holds the clock.** Their phone shows the countdown, and they say *"swap"* out loud at
 six minutes. No sound, no vibration — the Vibration API does not exist on iOS Safari, and a phone
@@ -240,7 +240,7 @@ button on the left, the room on the right.
   explain when asked. Only the round card's "hear the number" line differs.
 - *Host marks stay three* — prepared · mic needed (from preparation) · transcription on now (one
   red dot; recording and paused are not told apart). No opt-in mark, no show/hide switches.
-- *The dark phone is ours*: an automatic black layer while talking, "Show table" lifts it.
+- ~~*The dark phone is ours*: an automatic black layer while talking.~~ Reversed — see "built" below.
 - *The room page changes with the moment* (no new routes): the principle folds to one line once
   answered; one status line at the top ("Round 2 · Find table 3 · You speak first"); the seating
   card carries table, role, faces and "I'm at table N" only — statements come once seated ("What
@@ -252,6 +252,43 @@ button on the left, the room on the right.
 - *Host panel queue:* Out / Cancel on the selected tile with "Swap" hints on the others; Screen
   as an outline button; the current part's name beside the clock plus the round total; a
   realistic bell. Compare page: designed empty states; reproduce a scrolling glitch.
+
+**Walkthrough 4 — built (2026-10-04):**
+- *The dark phone is gone* (founder, reversing the line above: "not sure we should decide this on
+  behalf of users… everybody knows how to control their phone"). Nothing backed it. While the pair
+  talk the card stays calm — table, who speaks now, the marked statement — with no timer; only the
+  observer's card carries the countdown and "Say swap", because keeping time is their job.
+- *Room page:* one status line ("Round 2 · Find table 3 · You speak first"); the seating card
+  holds the table, faces with S/L/O and "I'm at table N"; once seated, "What do we talk about?"
+  lists the pair's statements by gap (tap marks, anyone, last tap wins) or "Add your positions on
+  #tag" (→ /stake/tag); "Round N: did your position move?" is one line on the next card; earlier
+  rounds list table-mates, a face opens /compare in the same tab with Back to the room. The
+  principle folds to "You opted in · Change your choice" once answered (no bottom bar). After the
+  event: the event page keeps its "Event Room" link, past rounds stay readable (read once, no
+  polling), and Back goes to the event page instead of looping through /ready.
+- *Compare:* when nothing is shared, the page falls back to the other person's answered tags and
+  shows "Only X answered" with their positions and "Add yours"; the empty page no longer scrolls
+  (its full-viewport box overflowed the fixed header by 80px).
+- *Host panel:* Out / Back in and Cancel sit on the selected tile; tiles it can trade with say
+  "Swap"; Screen is an outline button; beside the clock the part's name and the round's total
+  ("Speaker 2 · 4:16 total"); "+1 min" adds a minute to the part running now
+  (`host_extend_round`); minutes per round (Tables / Speaker / Observer) are next-round settings,
+  stored with each round (migration 20261004183000, test DB only). The bell is a struck bell:
+  inharmonic partials, detuned pairs, a short strike.
+- *Transcription mark:* one red dot = switched on in this event (paused counts as on). Telling
+  paused from recording needs the transcriber to record when audio last arrived — a transcribe-wide
+  change, not this spec. Anyone at the event can transcribe; the dot covers everyone who switched
+  it on in this event's room, never other apps.
+- *Reviews:* independent visual QA (1 of 1 reported; screenshots at 320 / 375 / 1440) — fixed:
+  observers stack at 320px, no truncated labels under the host strip, "Add yours" is a button,
+  statements carry a radio circle, "N left in round", Cancel in the tile's corner, outlined
+  minute steppers; kept by founder decision: fixed "Speaker 1 / Speaker 2" columns and the "Swap"
+  hint. Codex (gpt-6-sol, low): 0 HIGH, 4 MEDIUM, all fixed — "+1 min" now locks before reading
+  the round and decides the running part on the server (migration 20261004190000, test DB), the
+  "position moved" memory is per person and written after the save, overlapping topic taps no
+  longer clear each other.
+- *Opted-out people keep their role card on* — the necklace card is the round's role, not the
+  principle. Pending founder decision: a quiet "opted out" beside their name on table-mates' cards.
 
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding

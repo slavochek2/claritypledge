@@ -270,6 +270,26 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     }
   });
 
+  test('minutes per round: "+1 min" is host-only and adds a minute to one part', async () => {
+    const read = async () =>
+      (await supabaseAdmin.from('event_rounds').select('seating_s, first_s, second_s, observer_s').eq('id', round1).single()).data!;
+    // A round started with the 4-argument call reads as the defaults.
+    expect(await read()).toEqual({ seating_s: 60, first_s: 360, second_s: 360, observer_s: 180 });
+    const ca = await clientFor(a);
+    expect((await ca.rpc('host_extend_round', { p_round_id: round1, p_phase: 'second' })).error?.code).toBe('42501');
+    expect((await anon().rpc('host_extend_round', { p_round_id: round1, p_phase: 'second' })).error).not.toBeNull();
+    const h = await clientFor(host);
+    // Put the round 30s into the second speaker. A stale tap naming the first speaker still extends
+    // the part running NOW, decided on the server — the first speaker's end never moves back.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (60 + 360 + 30) * 1000).toISOString() }).eq('id', round1);
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'first' })).error).toBeNull();
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'nonsense' })).error?.code).toBe('22023');
+    expect(await read()).toEqual({ seating_s: 60, first_s: 360, second_s: 420, observer_s: 180 });
+    // Past the end of the round there is nothing to extend.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - 60 * 60_000).toISOString() }).eq('id', round1);
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'observer' })).error?.code).toBe('22023');
+  });
+
   test('no direct client writes to any round table', async () => {
     const h = await clientFor(host);
     expect((await h.from('event_rounds').insert({ event_id: eventId, round_no: 9, group_size: 3 })).error).not.toBeNull();
@@ -278,13 +298,21 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect((await h.from('event_round_presence').insert({ event_id: eventId, room_member_id: member.a })).error).not.toBeNull();
   });
 
-  test('next round closes the previous one; end closes the last', async () => {
+  test('next round stores its minutes and closes the previous one; end closes the last', async () => {
     const h = await clientFor(host);
-    expect((await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 2, p_group_size: 2, p_seats: [{ m: member.a, t: 1, r: 'first' }, { m: member.b, t: 1, r: 'second' }] })).error).toBeNull();
+    // Out-of-range minutes are refused by the column checks; the host's minutes are stored with the round.
+    const pair = [{ m: member.a, t: 1, r: 'first' }, { m: member.b, t: 1, r: 'second' }];
+    expect((await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 2, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 0, p_observer_s: 0 })).error).not.toBeNull();
+    const started = await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 2, p_group_size: 2, p_seats: pair, p_seating_s: 120, p_speaker_s: 300, p_observer_s: 0 });
+    expect(started.error).toBeNull();
+    const { data: r2 } = await h.from('event_rounds').select('seating_s, first_s, second_s, observer_s').eq('id', started.data as string).single();
+    expect(r2).toEqual({ seating_s: 120, first_s: 300, second_s: 300, observer_s: 0 });
     // Round 1 is no longer the current round: its seats are frozen.
     expect((await h.rpc('host_set_round_seats', { p_round_id: round1, p_seats: trio() })).error?.code).toBe('22023');
     expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
     const { data } = await h.from('event_rounds').select('round_no, ended_at').eq('event_id', eventId).order('round_no');
     expect(data!.every(r => r.ended_at)).toBe(true);
+    // A finished round takes no more minutes.
+    expect((await h.rpc('host_extend_round', { p_round_id: started.data as string, p_phase: 'first' })).error?.code).toBe('22023');
   });
 });

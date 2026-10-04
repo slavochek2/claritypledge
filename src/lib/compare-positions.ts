@@ -19,6 +19,28 @@ export const POSITION_ORDER: PositionKey[] = [
   'strongly_agree',
 ];
 
+/** Third person, the letters' wording (letter-reveal-ordinal.tsx) — the column describes someone. */
+export const POSITION_FULL_LABELS: Record<PositionKey, string> = {
+  strongly_agree: 'Strongly agrees',
+  agree: 'Agrees',
+  somewhat_agree: 'Somewhat agrees',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Somewhat disagrees',
+  disagree: 'Disagrees',
+  strongly_disagree: 'Strongly disagrees',
+};
+
+/** First person for the viewer's own column — "You strongly agrees" reads wrong. */
+export const POSITION_FIRST_PERSON: Record<PositionKey, string> = {
+  strongly_agree: 'Strongly agree',
+  agree: 'Agree',
+  somewhat_agree: 'Somewhat agree',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Somewhat disagree',
+  disagree: 'Disagree',
+  strongly_disagree: 'Strongly disagree',
+};
+
 export function positionGap(a: PositionKey, b: PositionKey): number {
   return Math.abs(POSITION_ORDER.indexOf(a) - POSITION_ORDER.indexOf(b));
 }

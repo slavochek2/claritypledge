@@ -15,7 +15,8 @@ import {
   type EventRoundsState,
 } from '@/app/data/event-rounds-service';
 
-export function useEventRounds(eventId: string | undefined, enabled = true) {
+/** `live` false reads once and stops — after the event nothing changes, so nothing polls. */
+export function useEventRounds(eventId: string | undefined, enabled = true, live = true) {
   const [state, setState] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
   const [loaded, setLoaded] = useState(false);
   const current = useRef<{ eventId: string; loop: Promise<void>; token: object } | null>(null);
@@ -65,9 +66,10 @@ export function useEventRounds(eventId: string | undefined, enabled = true) {
   useEffect(() => {
     if (!eventId || !enabled) return;
     void refresh();
+    if (!live) return;
     const id = setInterval(() => void refresh(), ROUNDS_POLL_MS);
     return () => clearInterval(id);
-  }, [eventId, enabled, refresh]);
+  }, [eventId, enabled, live, refresh]);
 
   return { state, loaded, refresh };
 }

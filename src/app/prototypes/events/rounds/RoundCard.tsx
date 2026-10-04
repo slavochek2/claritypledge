@@ -1,83 +1,132 @@
 /**
  * @file RoundCard.tsx
- * @description P1337 §3 — what each person sees, round by round, in the event room.
+ * @description P1337 §3 — what each person sees, round by round, in the event room. The room page
+ * changes with the moment (founder walkthrough 4) rather than adding routes:
  *
- * Between rounds (the 60 seconds to find tables) is the only phone moment: your table, who is
- * there, your role, and the reason to look — the statement you and your partner are furthest
- * apart on, with a way into the comparison. One tap, "I'm at table N", records where you
- * actually sat. THE TAP IS NEVER A GATE (spec Invariants): not tapping changes nothing, and it
- * can be tapped late.
+ *   - One status line on top: "Round 2 · Find table 3 · You speak first".
+ *   - Finding the table (the first minute): the table, who is there with their role letter, and
+ *     "I'm at table N". Nothing to read yet — the statements come once you sit.
+ *   - At the table: "What do we talk about?" — the pair's statements, furthest apart first. A tap
+ *     marks the one the table chose; anyone at the table can tap, last tap wins (a note, not a
+ *     permission). With no answers yet: "Add your positions on #tag".
+ *   - Talking: no timer for the pair — the room clock is on the screen and the phone is theirs to
+ *     put away. The observer, who keeps time, gets the countdown on their card. An earlier build
+ *     drew a black layer over every phone; the founder removed it ("everybody knows how to
+ *     control their phone") — do not bring it back as a default.
+ *   - The next round's card asks one line about the last one: "did your position move?".
+ *   - Earlier rounds list who you sat with; a face opens the comparison, Back returns here.
  *
- * During the round the phone is dark — a black layer over the whole room page, nothing to
- * scroll. Except for the observer, who holds the clock: their layer is the countdown, with
- * "Say “swap”" as the first speaker's six minutes run out. No sound, no vibration (iOS Safari
- * has no Vibration API, and a phone speaker cannot cut through fifteen people talking).
- *
- * After the round: an optional "Did your position move?", while it is still in their head.
- *
- * "I'm here" is deliberately NOT the label: P1380's arrival check-in already says "I'm here"
- * and means "I arrived at the venue". This tap means "I'm at this table".
+ * THE TAP IS NEVER A GATE (spec Invariants): not tapping changes nothing, and it can be tapped late.
+ * "I'm here" is deliberately NOT the label: P1380's arrival check-in already says "I'm here" and
+ * means "I arrived at the venue". This tap means "I'm at this table".
  */
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { StatementPointCard } from '@/app/components/letters/letter-point-card';
 import {
   confirmRoundSeat,
   currentRound,
   setRoundPositionMoved,
+  setRoundTopic,
   topicKey,
+  type EventRound,
+  type RoundSeat,
 } from '@/app/data/event-rounds-service';
-import { buildCompareRows, furthestApart } from '@/lib/compare-positions';
-import { formatClock, liveRole, roundClock } from '@/lib/round-clock';
+import {
+  POSITION_FIRST_PERSON,
+  POSITION_FULL_LABELS,
+  buildCompareRows,
+  type PositionKey,
+} from '@/lib/compare-positions';
+import { formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
+import type { SeatRole } from '@/lib/round-grouping';
+import { cn } from '@/lib/utils';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
-import { shortName, useEventRounds, useNow } from './use-event-rounds';
+import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
 import { RoleBadge } from './RoleBadge';
 
-// The stored role says who speaks first; the pair swap after six minutes (liveRole).
-const ROLE_LINE = {
+// The stored role says who speaks first; the pair swap after the first speaker's minutes (liveRole).
+const ROLE_LINE: Record<SeatRole, string> = {
   first: 'You speak first',
   second: 'You listen first',
   observer: 'You observe and keep time',
-} as const;
+};
 
-function readAnswered(roundId: string): boolean {
+const LIVE_LINE: Record<LiveRole, string> = {
+  speaker: 'You speak',
+  listener: 'You listen',
+  observer: 'You observe',
+};
+
+/** How many statements the table card lists; the rest are one tap away on the compare page. */
+const TOPICS_SHOWN = 5;
+/** The observer's "Say swap" shows for this long after the first speaker's time ends. */
+const SWAP_CUE_MS = 20_000;
+
+// Keyed by person and round: on a shared phone one person's answer must not hide another's question.
+function readAnswered(memberId: string, roundId: string): boolean {
   try {
-    return localStorage.getItem(`p1337-moved:${roundId}`) === '1';
+    return localStorage.getItem(`p1337-moved:${memberId}:${roundId}`) === '1';
   } catch {
     return false;
   }
 }
 
-function writeAnswered(roundId: string) {
+function writeAnswered(memberId: string, roundId: string) {
   try {
-    localStorage.setItem(`p1337-moved:${roundId}`, '1');
+    localStorage.setItem(`p1337-moved:${memberId}:${roundId}`, '1');
   } catch {
     /* the question may be asked again after a reload — harmless */
   }
 }
 
+function Face({ member }: { member: EventRoomMember | undefined }) {
+  return (
+    <GravatarAvatar
+      name={member?.displayName ?? '?'}
+      photoUrl={member?.profileAvatarUrl ?? undefined}
+      avatarColor={member?.profileAvatarColor ?? undefined}
+      isPledger={member?.profileHasPledged ?? false}
+      size="sm"
+    />
+  );
+}
+
+function Panel({ children, testId }: { children: ReactNode; testId?: string }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-4" data-testid={testId}>
+      {children}
+    </section>
+  );
+}
+
+interface PastRound {
+  round: EventRound;
+  table: number;
+  mates: RoundSeat[];
+}
+
 export function RoundCard({
   eventId,
+  eventSlug,
   statementTag,
   self,
   roster,
-  onSeatedChange,
+  ended = false,
 }: {
   eventId: string;
+  eventSlug: string;
   statementTag: string | null | undefined;
   self: EventRoomSelf | null;
   roster: EventRoomMember[];
-  /** True while this person holds a seat in a round that is not over — the room page hides
-   * its opt-in bar then, so it never covers "I'm at table N". */
-  onSeatedChange?: (seated: boolean) => void;
+  /** After the event: no live round, read once, and only the rounds you sat in. */
+  ended?: boolean;
 }) {
-  const { state, refresh } = useEventRounds(eventId, !!self);
-  const round = currentRound(state);
+  const { state, refresh } = useEventRounds(eventId, !!self, !ended);
+  const round = ended ? null : currentRound(state);
   const seats = round ? state.seatsByRound.get(round.id) ?? [] : [];
   const mine = self ? seats.find(s => s.id === self.id) : undefined;
   const table = mine ? seats.filter(s => s.table === mine.table) : [];
@@ -86,58 +135,175 @@ export function RoundCard({
   const hasObserver = seats.some(s => s.role === 'observer');
 
   const now = useNow(!!round);
-  const clock = round ? roundClock(round.startedAt, now, hasObserver) : null;
+  const clock = round ? roundClock(round.startedAt, now, hasObserver, roundTiming(round)) : null;
+  const phase = clock?.phase ?? 'seating';
 
   const member = (id: string | undefined) => roster.find(m => m.id === id);
   const firstMember = member(first?.id);
   const secondMember = member(second?.id);
-  const pairProfiles = [firstMember?.profileId, secondMember?.profileId].filter((p): p is string => !!p);
+  const pairProfiles = [firstMember?.profileId, secondMember?.profileId, self?.profileId].filter(
+    (p): p is string => !!p,
+  );
   const positions = useTagPositions(statementTag, pairProfiles);
 
-  const shown = useMemo(() => {
-    if (!round || !mine) return null;
-    const topicId = state.topics.get(topicKey(round.id, mine.table));
-    const topic = topicId ? positions.statements.find(s => s.id === topicId) : undefined;
-    if (topic) return { statement: topic.statement, chosen: true };
+  const rows = useMemo(() => {
     const a = firstMember?.profileId ? positions.byProfile.get(firstMember.profileId) : undefined;
     const b = secondMember?.profileId ? positions.byProfile.get(secondMember.profileId) : undefined;
-    if (!a || !b) return null;
-    const row = furthestApart(buildCompareRows(positions.statements, a, b));
-    return row ? { statement: row.statement, chosen: false } : null;
-  }, [round, mine, state.topics, positions, firstMember, secondMember]);
+    return a && b ? buildCompareRows(positions.statements, a, b) : [];
+  }, [positions, firstMember, secondMember]);
 
-  const seatedNow = !!mine && !!clock && clock.phase !== 'over';
+  // The table's marked statement, shown at once on a tap while the write lands.
+  const markKey = round && mine ? topicKey(round.id, mine.table) : null;
+  const [pendingMark, setPendingMark] = useState<{ key: string; pointId: string | null } | null>(null);
   useEffect(() => {
-    onSeatedChange?.(seatedNow);
-  }, [seatedNow, onSeatedChange]);
+    setPendingMark(null);
+  }, [markKey]);
+  const serverMark = markKey ? state.topics.get(markKey) ?? null : null;
+  const mark = pendingMark && pendingMark.key === markKey ? pendingMark.pointId : serverMark;
 
-  const [hiddenFor, setHiddenFor] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [answered, setAnswered] = useState(false);
-  useEffect(() => {
-    setAnswered(round ? readAnswered(round.id) : false);
-  }, [round]);
+  const [justAnswered, setJustAnswered] = useState<string | null>(null);
 
-  if (!round || !self) return null;
+  // "Did your position move?" asks about the latest finished round you sat in — the one before
+  // this, this one once its time is up, or after the event the last one — if you spoke in it.
+  const movedRound = useMemo((): EventRound | null => {
+    if (!self) return null;
+    for (let i = state.rounds.length - 1; i >= 0; i--) {
+      const r = state.rounds[i] as EventRound;
+      if (round && r.id === round.id && phase !== 'over') continue;
+      const seat = state.seatsByRound.get(r.id)?.find(s => s.id === self.id);
+      if (seat) return seat.role === 'observer' ? null : r;
+    }
+    return null;
+  }, [self, state, round, phase]);
+  const askMoved = !!movedRound && !!self && (justAnswered === movedRound.id || !readAnswered(self.id, movedRound.id));
+  // Each tap on a statement gets a number; only the latest tap's write may clear the shown mark.
+  const markSeq = useRef(0);
 
-  if (!mine) {
+  if (!self) return null;
+
+  // Rounds you sat in that are behind you, newest first, with who sat with you.
+  const pastRounds: PastRound[] = state.rounds
+    .filter(r => !round || r.id !== round.id)
+    .flatMap(r => {
+      const rs = state.seatsByRound.get(r.id) ?? [];
+      const me = rs.find(s => s.id === self.id);
+      return me ? [{ round: r, table: me.table, mates: rs.filter(s => s.table === me.table && s.id !== self.id) }] : [];
+    })
+    .reverse();
+
+  // Compare opens in this tab; its Back returns here (founder walkthrough 4).
+  const backState = { backTo: `/events/${eventSlug}/meet` };
+  const compareHref = (slug: string, extra = '') => {
+    const params = new URLSearchParams(extra);
+    if (statementTag) params.set('tag', statementTag);
+    const q = params.toString();
+    return `/compare/${slug}${q ? `?${q}` : ''}`;
+  };
+
+  // Remembered only once saved: a failed save asks again next time rather than losing the answer.
+  const onMoved = (roundId: string, moved: boolean) => {
+    setJustAnswered(roundId);
+    void setRoundPositionMoved(roundId, moved)
+      .then(() => writeAnswered(self.id, roundId))
+      .catch(() => { /* optional answer */ });
+  };
+
+  const movedLine = movedRound && askMoved && (
+    <div className="flex items-center justify-between gap-3" data-testid="round-card-moved">
+      {justAnswered === movedRound.id ? (
+        <p className="text-sm text-muted-foreground">Thanks.</p>
+      ) : (
+        <>
+          <p className="text-sm">Round {movedRound.roundNo}: did your position move?</p>
+          <div className="flex shrink-0 gap-1.5">
+            <Button type="button" variant="outline" size="sm" className="min-h-10 px-3" onClick={() => onMoved(movedRound.id, true)}>
+              Yes
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="min-h-10 px-3" onClick={() => onMoved(movedRound.id, false)}>
+              No
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const past = pastRounds.length > 0 && (
+    <Panel testId="round-past">
+      <ul className="space-y-3">
+        {pastRounds.map(({ round: r, table: t, mates }) => (
+          <li key={r.id}>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Round {r.roundNo} · Table {t}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {mates.map(s => {
+                const m = member(s.id);
+                const face = (
+                  <>
+                    <Face member={m} />
+                    <span className="text-sm font-medium">{shortName(m?.displayName ?? '—')}</span>
+                  </>
+                );
+                return m?.profileSlug ? (
+                  <Link
+                    key={s.id}
+                    to={compareHref(m.profileSlug)}
+                    state={backState}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background py-1 pl-1 pr-2 hover:border-blue-300"
+                    data-testid="round-past-mate"
+                  >
+                    {face}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                  </Link>
+                ) : (
+                  <span key={s.id} className="inline-flex min-h-11 items-center gap-2 py-1 pl-1 pr-2">
+                    {face}
+                  </span>
+                );
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+
+  if (!round || !mine) {
+    if (!round && !movedLine && !past) return null;
     return (
-      <div className="rounded-xl border border-border bg-card p-4 text-sm" data-testid="round-card-waiting">
-        You join at the next round.
-      </div>
+      <>
+        {round && (
+          <p className="text-base font-medium" data-testid="round-card-waiting">
+            Round {round.roundNo} · You join the next round
+          </p>
+        )}
+        {movedLine && <Panel>{movedLine}</Panel>}
+        {past}
+      </>
     );
   }
 
-  const partner = mine.role === 'first' ? secondMember : mine.role === 'second' ? firstMember : undefined;
-  const others = table.filter(s => s.id !== mine.id);
-  const talking = clock && clock.phase !== 'seating' && clock.phase !== 'over';
-  const darkKey = `${round.id}`;
-  const showDark = talking && hiddenFor !== darkKey;
+  const talking = phase !== 'seating' && phase !== 'over';
+  const atTable = !!mine.confirmedAt || phase !== 'seating';
 
-  const compareHref =
-    partner?.profileSlug && statementTag
-      ? `/compare/${partner.profileSlug}?tag=${encodeURIComponent(statementTag)}&round=${round.id}&table=${mine.table}`
-      : null;
+  const status =
+    phase === 'over'
+      ? `Round ${round.roundNo} · Time’s up`
+      : talking
+        ? `Round ${round.roundNo} · Table ${mine.table} · ${LIVE_LINE[liveRole(mine.role, phase)]}`
+        : `Round ${round.roundNo} · ${mine.confirmedAt ? 'Table' : 'Find table'} ${mine.table} · ${ROLE_LINE[mine.role]}`;
+
+  const isSpeaker = mine.role !== 'observer';
+  const partner = mine.role === 'first' ? secondMember : mine.role === 'second' ? firstMember : undefined;
+  // "You: Agree" for your own position, "Chloe: Disagrees" for anyone else's.
+  const stance = (who: EventRoomMember | undefined, position: PositionKey) =>
+    who?.id === self.id
+      ? `You: ${POSITION_FIRST_PERSON[position]}`
+      : `${firstName(who?.displayName ?? '—')}: ${POSITION_FULL_LABELS[position]}`;
+  const iHaveNone =
+    isSpeaker && !!self.profileId && positions.statements.length > 0 && !positions.byProfile.get(self.profileId)?.size;
 
   const onConfirm = async () => {
     setConfirming(true);
@@ -151,96 +317,79 @@ export function RoundCard({
     }
   };
 
-  const onMoved = (moved: boolean) => {
-    setAnswered(true);
-    writeAnswered(round.id);
-    void setRoundPositionMoved(round.id, moved).catch(() => { /* optional answer */ });
+  const onMark = async (pointId: string) => {
+    if (!markKey) return;
+    const next = mark === pointId ? null : pointId;
+    const seq = ++markSeq.current;
+    setPendingMark({ key: markKey, pointId: next });
+    try {
+      await setRoundTopic(round.id, mine.table, next);
+      await refresh();
+    } catch {
+      /* a note, not a permission — the previous mark simply stays */
+    }
+    if (seq === markSeq.current) setPendingMark(null);
   };
 
   return (
     <>
+      <p className="text-base font-medium" data-testid="round-status">{status}</p>
       <section
         className="rounded-xl border border-blue-200 bg-card p-4 shadow-sm"
         data-testid="round-card"
         data-role={mine.role}
       >
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Round {round.roundNo}</p>
-        <h2 className="mt-0.5 text-3xl font-semibold" data-testid="round-card-table">
+        <h2 className="text-3xl font-semibold" data-testid="round-card-table">
           Table {mine.table}
         </h2>
-        <p className="mt-1.5 flex items-center gap-2 text-base font-medium">
-          {/* The same S / L / O as the printed card on the table. */}
-          <RoleBadge role={liveRole(mine.role, 'seating')} className="h-7 w-7 text-base" />
-          {ROLE_LINE[mine.role]}
-        </p>
-        {others.length > 0 && clock && (
-          // Faces, not only names: this is what you look for walking across the room.
-          <ul className="mt-3 space-y-2" data-testid="round-card-mates">
-            {others.map(s => {
-              const m = member(s.id);
-              return (
-                <li key={s.id} className="flex items-center gap-2.5">
-                  <RoleBadge role={liveRole(s.role, clock.phase)} className="h-7 w-7 text-base" />
-                  <GravatarAvatar
-                    name={m?.displayName ?? '?'}
-                    photoUrl={m?.profileAvatarUrl ?? undefined}
-                    avatarColor={m?.profileAvatarColor ?? undefined}
-                    isPledger={m?.profileHasPledged ?? false}
-                    size="sm"
-                  />
-                  <span className="flex-1 min-w-0 break-words text-sm font-medium">{shortName(m?.displayName ?? '—')}</span>
-                </li>
-              );
-            })}
-          </ul>
+        {/* The observer keeps time, so their card carries the clock while the pair talk. Nobody
+            else gets a timer: the room clock is on the screen, and the phone is theirs to put
+            away (founder walkthrough 4 — no black layer drawn over it). */}
+        {talking && clock && mine.role === 'observer' && (
+          <div className="mt-3 rounded-lg bg-muted px-4 py-3 text-center" data-testid="round-observer-clock">
+            <p className="text-sm text-muted-foreground">
+              {clock.phase === 'first'
+                ? `${shortName(firstMember?.displayName ?? '')} speaks`
+                : clock.phase === 'second'
+                  ? `${shortName(secondMember?.displayName ?? '')} speaks`
+                  : 'Your turn'}
+            </p>
+            {clock.phase === 'second' && clock.phaseElapsedMs < SWAP_CUE_MS ? (
+              <p className="mt-1 text-5xl font-semibold" data-testid="round-observer-swap">
+                Say &ldquo;swap&rdquo;
+              </p>
+            ) : (
+              <p className="mt-1 text-6xl font-semibold tabular-nums">{formatClock(clock.phaseRemainingMs)}</p>
+            )}
+          </div>
         )}
-        {self.optedIn && mine.role !== 'observer' && (
-          <p className="mt-2 text-sm" data-testid="round-card-rule">
+        {/* Faces, not only names: this is what you look for walking across the room. The same
+            S / L / O letters as the printed card on the table. */}
+        <ul className="mt-3 space-y-2" data-testid="round-card-mates">
+          {table.map(s => {
+            const isMe = s.id === mine.id;
+            return (
+              <li key={s.id} className="flex items-center gap-2.5">
+                <RoleBadge role={liveRole(s.role, phase)} className="h-7 w-7 text-base" />
+                <Face member={member(s.id)} />
+                <span className={cn('flex-1 min-w-0 break-words text-sm', isMe ? 'text-muted-foreground' : 'font-medium')}>
+                  {isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {self.optedIn && isSpeaker && (
+          <p className="mt-3 text-sm" data-testid="round-card-rule">
             Hear the number before you disagree.
           </p>
         )}
 
-        {shown && (
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-              {shown.chosen ? 'Your table chose' : 'Furthest apart'}
-            </p>
-            <StatementPointCard statement={shown.statement} />
-            {compareHref && (
-              <Link to={compareHref} className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-blue-600" data-testid="round-card-compare">
-                Compare all statements
-              </Link>
-            )}
-          </div>
-        )}
-
-        {talking && !showDark && mine.role === 'observer' && (
-          <Button type="button" variant="outline" className="mt-4 w-full min-h-11" onClick={() => setHiddenFor(null)}>
-            Show the clock
-          </Button>
-        )}
-
-        {clock?.phase === 'over' && mine.role !== 'observer' ? (
-          answered ? (
-            <p className="mt-4 text-sm text-muted-foreground">Thanks.</p>
-          ) : (
-            <div className="mt-4" data-testid="round-card-moved">
-              <p className="text-sm font-medium">Did your position move?</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => onMoved(true)}>
-                  Yes
-                </Button>
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => onMoved(false)}>
-                  No
-                </Button>
-              </div>
-            </div>
-          )
-        ) : mine.confirmedAt ? (
+        {mine.confirmedAt ? (
           <p className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="round-card-confirmed">
             <Check className="h-4 w-4 text-green-600" /> At table {mine.table}
           </p>
-        ) : (
+        ) : phase !== 'over' && (
           <Button
             type="button"
             className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
@@ -251,48 +400,75 @@ export function RoundCard({
             I&rsquo;m at table {mine.table}
           </Button>
         )}
-      </section>
 
-      {/* Portalled to <body>: inside the room layout a transformed ancestor turned `fixed` into
-          "fixed to that ancestor" and left the site header showing above the dark layer. */}
-      {showDark && clock && createPortal(
-        <div
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black px-6 text-center"
-          data-testid="round-dark"
-          data-role={mine.role}
-        >
-          {mine.role === 'observer' ? (
-            <>
-              <p className="text-lg text-white/60">
-                {clock.phase === 'first'
-                  ? `${shortName(firstMember?.displayName ?? '')} speaks`
-                  : clock.phase === 'second'
-                    ? `${shortName(secondMember?.displayName ?? '')} speaks`
-                    : 'Your three minutes'}
-              </p>
-              {clock.phase === 'second' && clock.phaseRemainingMs > 6 * 60_000 - 20_000 ? (
-                <p className="mt-2 text-6xl font-semibold text-white" data-testid="round-dark-swap">
-                  Say &ldquo;swap&rdquo;
-                </p>
-              ) : (
-                <p className="mt-2 text-8xl font-semibold tabular-nums text-white" data-testid="round-dark-clock">
-                  {formatClock(clock.phaseRemainingMs)}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-base text-white/40">Table {mine.table}</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setHiddenFor(darkKey)}
-            className="absolute bottom-8 min-h-11 px-4 text-sm text-white/40 underline"
-          >
-            Show table
-          </button>
-        </div>,
-        document.body,
-      )}
+        {atTable && (rows.length > 0 || (iHaveNone && statementTag)) && (
+          <div className="mt-5 border-t border-border pt-4" data-testid="round-card-topics">
+            <p className="text-sm font-semibold">What do we talk about?</p>
+            {rows.length > 0 ? (
+              <>
+                <ul className="mt-2 space-y-2">
+                  {rows.slice(0, TOPICS_SHOWN).map(row => {
+                    const marked = row.pointId === mark;
+                    return (
+                      <li key={row.pointId}>
+                        <button
+                          type="button"
+                          aria-pressed={marked}
+                          onClick={() => void onMark(row.pointId)}
+                          className={cn(
+                            'w-full rounded-lg border p-3 text-left transition-colors',
+                            marked ? 'border-blue-500 bg-blue-50' : 'border-border bg-background hover:border-blue-300',
+                          )}
+                          data-testid="round-card-topic"
+                        >
+                          <span className="flex items-start gap-2">
+                            {/* A radio circle says "pick one" without a line of instructions (visual QA). */}
+                            <span
+                              className={cn(
+                                'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border',
+                                marked ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400',
+                              )}
+                              aria-hidden
+                            >
+                              {marked && <Check className="h-3 w-3" />}
+                            </span>
+                            <span className="text-sm font-medium leading-snug">{row.statement}</span>
+                          </span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {stance(firstMember, row.mine)} · {stance(secondMember, row.theirs)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {partner?.profileSlug && (
+                  <Link
+                    to={compareHref(partner.profileSlug, `round=${round.id}&table=${mine.table}`)}
+                    state={backState}
+                    className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
+                    data-testid="round-card-compare"
+                  >
+                    Compare all
+                  </Link>
+                )}
+              </>
+            ) : (
+              <Link
+                to={`/stake/${encodeURIComponent(statementTag ?? '')}`}
+                className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
+                data-testid="round-card-add-positions"
+              >
+                Add your positions on #{statementTag}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {movedLine && <div className="mt-4 border-t border-border pt-3">{movedLine}</div>}
+      </section>
+      {past}
+
     </>
   );
 }
