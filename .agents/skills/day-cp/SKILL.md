@@ -514,6 +514,13 @@ case "$UNCONF" in
   *) echo "CHECK cp.signups problem $UNCONF sign-ups never confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 
+echo -e "\n=== EVENTS HELD PER WEEK (last 6 ISO weeks, P1399) ==="
+# Past, not cancelled, by start time. `status` is not a reliable "held" marker (a past event can
+# still read upcoming), so the start time decides; test-account hosts are left out like everywhere
+# here. One token for the REPORT block: week:count pairs, oldest first; "unknown" if the query failed.
+EVENTS_PER_WEEK=$(ro "SELECT to_char(w, 'IYYY') || '-W' || to_char(w, 'IW') AS week, count(e.id) AS n FROM generate_series(date_trunc('week', now()) - interval '5 weeks', date_trunc('week', now()), interval '1 week') AS w LEFT JOIN public.events e ON e.datetime >= w AND e.datetime < w + interval '1 week' AND e.datetime < now() AND COALESCE(e.status, '') <> 'cancelled' AND NOT EXISTS (SELECT 1 FROM public.profiles tp WHERE tp.id = e.host_id AND tp.email = 'test-agent@claritypledge.com') GROUP BY w ORDER BY w" | python3 -c "import json,sys;r=json.load(sys.stdin);print(','.join('%s:%s' % (x['week'], x['n']) for x in r) if isinstance(r,list) and r else 'unknown')" 2>/dev/null || echo "unknown")
+echo "events_per_week=$EVENTS_PER_WEEK"
+
 echo -e "\n=== ORPHANED SESSIONS ==="
 ORPH=$(ro "SELECT id, code, created_at, expires_at FROM public.clarity_sessions WHERE joiner_name IS NOT NULL AND expires_at < '${CUTOFF}' AND demo_status <> 'completed' ORDER BY expires_at DESC LIMIT 5")
 echo "$ORPH"
@@ -1218,6 +1225,7 @@ REPORT FOR THE DISPATCHER
   funnel_story_authors: <N> (<+change>)
   funnel_position_users: <N> (<+change>)
   funnel_agreements: <N> (<+change>)
+  events_per_week: <Wave 2's events_per_week= value as printed; leave the line out when it is unknown>
   people: <N recorded>
 ```
 
