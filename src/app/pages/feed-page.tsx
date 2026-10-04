@@ -11,7 +11,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ChevronDown } from 'lucide-react';
-import { HomeSideRail } from '@/app/components/feed/home-side-rail';
+import { HomeSideRail, HomeTopBlock } from '@/app/components/feed/home-side-rail';
 import { PinnedStory, PINNED_STORY_SLUG } from '@/app/components/feed/pinned-story';
 import { storiesService } from '@/app/data/stories-service';
 import { feedRead } from '@/app/data/offline-reads';
@@ -495,6 +495,8 @@ export function FeedPage() {
       {/* P1392: desktop adds a right rail (next events, groups); the feed column is unchanged. */}
       <div className="container mx-auto px-4 lg:px-8 py-6 lg:max-w-5xl lg:flex lg:gap-8 lg:justify-center">
       <div className="max-w-2xl w-full mx-auto lg:mx-0">
+        {/* P1401: phones get the next events and groups at the very top; desktop has the rail. */}
+        <HomeTopBlock />
         {/* Page header + Write Story CTA */}
         {/* P1392 (founder): no visible "Home" title — the stories start higher. The h1 stays for
             screen readers and document outline. */}

@@ -61,3 +61,19 @@ describe('P1392 review fixes', () => {
     expect(feed).toMatch(/\/\^p\\d\{3,\}\/i/);
   });
 });
+
+describe('P1401 — next events and groups at every width', () => {
+  const rail = read('src/app/components/feed/home-side-rail.tsx');
+  it('phones get a top block; desktop keeps the rail; exactly one is mounted per width', () => {
+    expect(feed).toMatch(/<HomeTopBlock \/>/);
+    expect(feed).toMatch(/<HomeSideRail \/>/);
+    expect(rail).toMatch(/return isDesktop \? null : <TopContent \/>/);
+    expect(rail).toMatch(/return isDesktop \? <RailContent \/> : null/);
+  });
+  it('groups are listed by name (capped), events cap at 2 (1 on phones), groups come first on desktop', () => {
+    expect(rail).toMatch(/const MAX_GROUPS = 3;/);
+    expect(rail).toMatch(/<EventsList events=\{events\} max=\{1\} \/>/);
+    const r = rail.slice(rail.indexOf('function RailContent'));
+    expect(r.indexOf('>Groups<')).toBeLessThan(r.indexOf('>Next events<'));
+  });
+});
