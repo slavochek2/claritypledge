@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 312
 workstream: growth
@@ -10,6 +10,7 @@ pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-04
 ---
 
 # P1406: Home polish: search row, steady loading, featured box holds the story
