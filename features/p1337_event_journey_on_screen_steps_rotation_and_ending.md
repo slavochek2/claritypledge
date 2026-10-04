@@ -235,6 +235,24 @@ button on the left, the room on the right.
 - *Known, accepted (Codex review):* `host_set_round_seats` and the attendee writers do not refuse
   an ended round. Host-only for seats, and the panel no longer ends rounds, so no migration now.
 
+**Founder walkthrough 4, 2026-10-04 — decided and queued to build:**
+- *Opted-out people sit at tables like everyone else*; they are just not bound to give a number or
+  explain when asked. Only the round card's "hear the number" line differs.
+- *Host marks stay three* — prepared · mic needed (from preparation) · transcription on now (one
+  red dot; recording and paused are not told apart). No opt-in mark, no show/hide switches.
+- *The dark phone is ours*: an automatic black layer while talking, "Show table" lifts it.
+- *The room page changes with the moment* (no new routes): the principle folds to one line once
+  answered; one status line at the top ("Round 2 · Find table 3 · You speak first"); the seating
+  card carries table, role, faces and "I'm at table N" only — statements come once seated ("What
+  do we talk about?", by gap, tap marks the topic, anyone, last tap wins; with no answers yet,
+  "Add your positions on #tag"); past rounds with partners, tap to compare.
+- *Pending founder confirmation (recommended):* "Did your position move?" as one line on the next
+  round's card; the chosen topic as one dim line on the dark phone; compare opens in the same tab
+  with Back to the room; minutes per round apply to the next round plus "+1 min" on the running one.
+- *Host panel queue:* Out / Cancel on the selected tile with "Swap" hints on the others; Screen
+  as an outline button; the current part's name beside the clock plus the round total; a
+  realistic bell. Compare page: designed empty states; reproduce a scrolling glitch.
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.
