@@ -12,7 +12,7 @@
  * Mock surface copied from p1264-stale-org-note-on-navigation.test.tsx.
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React from 'react';
@@ -148,6 +148,14 @@ describe('P1272: the room nav row must reflect the event time state', () => {
     const links = roomLinks();
     expect(links).toHaveLength(1);
     expect(links[0].textContent?.trim()).toBe('Join now');
+  });
+
+  it('opens the share window on desktop instead of silently copying (founder 2026-10-04)', async () => {
+    await renderEvent(makeEvent({}), { loggedIn: false });
+    expect('share' in navigator).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Share event' }));
+    expect(await screen.findByText('Invite friends')).toBeInTheDocument();
+    expect(screen.getByText(/\/events\/event-a$/)).toBeInTheDocument();
   });
 
   it('offers no room row to a logged-out visitor (founder 2026-10-04)', async () => {

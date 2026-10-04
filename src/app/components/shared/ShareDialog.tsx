@@ -18,7 +18,7 @@ interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Type of content being shared */
-  type: 'story' | 'point' | 'profile' | 'org';
+  type: 'story' | 'point' | 'profile' | 'org' | 'event';
   /** The URL to share */
   url: string;
   /** Optional title for native share */
@@ -108,7 +108,9 @@ export function ShareDialog({
       ? 'Share story'
       : type === 'org'
         ? 'Invite new members'
-        : 'Share point';
+        : type === 'event'
+          ? 'Invite friends'
+          : 'Share point';
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -123,7 +125,7 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription className="sr-only">
-            Copy a link or embed code to share this {type}
+            {showEmbedOption ? `Copy a link or embed code to share this ${type}` : `Copy a link to share this ${type}`}
           </DialogDescription>
         </DialogHeader>
 

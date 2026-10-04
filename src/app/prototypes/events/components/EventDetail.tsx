@@ -18,12 +18,14 @@ import {
   Ear,
   RefreshCw,
   Share2,
+  UserPlus,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
 import { OrgFooterNote } from './OrgFooterNote';
 import { ImageLightbox } from '@/app/components/shared/image-lightbox';
+import { ShareDialog } from '@/app/components/shared/ShareDialog';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -77,6 +79,7 @@ export function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [isRsvpd, setIsRsvpd] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [shareOpen, setShareOpen] = useState(false);
   // P1194: fetched separately from the event — the service returns null for anyone
   // who is not the host or registered, so this state never holds a value we hide.
   const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
@@ -507,8 +510,15 @@ export function EventDetail() {
     }
   };
 
+  // Founder 2026-10-04: desktop gets the share window (visible link + copy) instead of a silent
+  // copy; phones keep the native share sheet, which is already the best sharing surface there.
+  const shareUrl = `${window.location.origin}/events/${event.slug}`;
   const handleShare = async () => {
-    const result = await shareOrCopy(event.title, window.location.href);
+    if (!(typeof navigator !== 'undefined' && 'share' in navigator)) {
+      setShareOpen(true);
+      return;
+    }
+    const result = await shareOrCopy(event.title, shareUrl);
     if (result === 'copied') {
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2000);
@@ -569,24 +579,40 @@ export function EventDetail() {
 
   // P844: RSVP'd confirmation card — used in both mobile inline and desktop right-column placements
   const renderRsvpGreenCard = () => (
-    <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
       <div className="flex items-center gap-3">
-        <CheckCircle2 className="w-6 h-6 text-green-600" />
+        <CheckCircle2 className="w-6 h-6 flex-shrink-0 text-green-600" />
         <div>
           <p className="font-semibold text-green-800">You're going!</p>
           <p className="text-sm text-green-700">See you there</p>
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleCancelRsvp}
-        disabled={isActionLoading}
-        className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
-      >
-        <X className="w-4 h-4 mr-1" />
-        Can't make it
-      </Button>
+      {/* Founder 2026-10-04: right after registering is when people bring a friend. Outline, not
+          a second primary — the page keeps one primary action (P955). Status on top, actions in
+          one row below, so nothing squeezes at 320px. */}
+      <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+        {!hasEnded && (
+          <Button
+            variant="outline"
+            onClick={handleShare}
+            className="flex-1 min-h-10 gap-2 bg-white border-green-300 text-green-800 hover:bg-green-100"
+            data-testid="rsvp-invite"
+          >
+            <UserPlus className="w-4 h-4" />
+            {copyState === 'copied' ? 'Link copied' : 'Invite a friend'}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCancelRsvp}
+          disabled={isActionLoading}
+          className="min-h-10 whitespace-nowrap text-muted-foreground hover:text-red-600 hover:bg-white/50"
+        >
+          <X className="w-4 h-4 mr-1" />
+          Can't make it
+        </Button>
+      </div>
     </div>
   );
 
@@ -713,7 +739,7 @@ export function EventDetail() {
                   aria-label="Share event"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span className="text-xs">{copyState === 'copied' ? 'Copied!' : 'Share'}</span>
+                  <span className="text-sm">{copyState === 'copied' ? 'Copied!' : 'Share'}</span>
                 </button>
               </div>
 
@@ -1160,6 +1186,14 @@ export function EventDetail() {
         variant="default"
         onConfirm={confirmUncancelEvent}
         isLoading={isActionLoading}
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        type="event"
+        url={shareUrl}
+        title={event.title}
       />
 
       {lightbox && (
