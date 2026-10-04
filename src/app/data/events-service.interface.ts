@@ -20,6 +20,8 @@ export interface EventsService {
   getEventGroupChatUrl(eventId: string): Promise<string | null>;
   /** P1264: the org's standing footer note for its event pages. Null when unset. */
   getEventOrgFooterNote(eventId: string): Promise<string | null>;
+  /** P1403: the organising community's name + slug, for the hike page's "Organized by" line. */
+  getEventOrganizer(eventId: string): Promise<{ name: string; slug: string } | null>;
   /**
    * P1403: series-level reviews and photos (public). Empty lists on error or when the
    * series has none — each hike section hides on its own empty list.

@@ -7,7 +7,7 @@
  * following the p1194 convention).
  */
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -97,11 +97,12 @@ describe('P1403: stats strip', () => {
     const strip = screen.getByTestId('hike-stats');
     expect(strip.textContent).toContain('11.7 km');
     expect(strip.textContent).toContain('539 m');
-    expect(strip.textContent).toContain('Loop');
+    expect(strip.textContent).toContain('Distance · loop');
     expect(strip.textContent).toContain('4–4.5 h');
     expect(strip.textContent).toContain('Moderate');
-    const walk = screen.getByRole('link', { name: '12 min walk' });
-    expect(walk.getAttribute('href')).toBe(FULL_DETAILS.meet_walk_url);
+    // Founder 2026-10-04: no "to trail" walk stat and no link in the row.
+    expect(strip.textContent).not.toContain('min walk');
+    expect(strip.querySelector('a')).toBeNull();
   });
 
   it('hides with no details, an empty object, or malformed values', () => {
@@ -113,7 +114,7 @@ describe('P1403: stats strip', () => {
   });
 
   it('renders only the stats present, and never a javascript: walk link', () => {
-    render(<HikeStatsStrip details={{ distance_km: 8, meet_walk_minutes: 5, meet_walk_url: 'javascript:alert(1)' }} />);
+    render(<HikeStatsStrip details={{ distance_km: 8, walk_time_text: '3 h', meet_walk_minutes: 5, meet_walk_url: 'javascript:alert(1)' }} />);
     const strip = screen.getByTestId('hike-stats');
     expect(strip.querySelectorAll('[data-stat]')).toHaveLength(2);
     expect(strip.textContent).toContain('8 km');
@@ -160,22 +161,14 @@ describe('P1403: reviews', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('shows the first 2 of 6, then expands and collapses', () => {
+  it('shows every review in one swipeable row, with no "more" button (founder 2026-10-04)', () => {
     renderReviews(reviews(6));
-    expect(screen.getAllByTestId('hike-review')).toHaveLength(2);
-    const btn = screen.getByRole('button', { name: 'Show 4 more' });
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
-    // collapsed quotes are clamped — keeps 6 reviews compact at 375px
-    expect(screen.getAllByTestId('hike-review')[0].querySelector('blockquote')!.className).toMatch(/line-clamp-4/);
-    fireEvent.click(btn);
+    const section = screen.getByTestId('hike-reviews');
     expect(screen.getAllByTestId('hike-review')).toHaveLength(6);
-    fireEvent.click(screen.getByRole('button', { name: HIKE_LABELS.showFewerReviews }));
-    expect(screen.getAllByTestId('hike-review')).toHaveLength(2);
-  });
-
-  it('shows no "more" button when everything fits', () => {
-    renderReviews(reviews(2));
+    expect(section.querySelector('ul')!.className).toMatch(/overflow-x-auto/);
+    expect(section.querySelector('ul')!.className).toMatch(/snap-x/);
     expect(screen.queryByRole('button')).toBeNull();
+    expect(section.textContent).toContain(`${HIKE_LABELS.reviews} (6)`);
   });
 
   it('links the author only to a safe in-app profile path', () => {

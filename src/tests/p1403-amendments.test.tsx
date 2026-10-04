@@ -100,3 +100,15 @@ describe('P1403 amendment 3: hike banner height', () => {
       .toContain('heightClassName={hikeSeriesSlug ? HIKE_BANNER_HEIGHT_CLASS : undefined}');
   });
 });
+
+describe('P1403: map + reviews sit inside the description route section (founder 2026-10-04)', () => {
+  it('splits after the first h2 section whose heading mentions route', async () => {
+    const { splitAfterRouteSection } = await import('@/app/prototypes/events/hike/hike-utils');
+    const html = '<p>Intro</p><h2>The route</h2><p>Loop</p><h2>Where we meet</h2><p>Cafe</p>';
+    expect(splitAfterRouteSection(html)).toEqual(['<p>Intro</p><h2>The route</h2><p>Loop</p>', '<h2>Where we meet</h2><p>Cafe</p>']);
+  });
+  it('keeps the whole description first when there is no route heading', async () => {
+    const { splitAfterRouteSection } = await import('@/app/prototypes/events/hike/hike-utils');
+    expect(splitAfterRouteSection('<h2>Plan</h2><p>x</p>')).toEqual(['<h2>Plan</h2><p>x</p>', '']);
+  });
+});

@@ -468,6 +468,31 @@ export const realEventsService: EventsService = {
     return data?.group_chat_url ?? null;
   },
 
+  // P1403: the organising community for the hike page's "Organized by" line. Two flat
+  // queries, same as the footer note below (src.md: no nested selects).
+  async getEventOrganizer(eventId: string): Promise<{ name: string; slug: string } | null> {
+    const { data: ev, error: evError } = await supabase
+      .from('events')
+      .select('org_id')
+      .eq('id', eventId)
+      .maybeSingle();
+    if (evError) {
+      logDbError('getEventOrganizer(event)', evError);
+      return null;
+    }
+    if (!ev?.org_id) return null;
+    const { data: org, error: orgError } = await supabase
+      .from('organization')
+      .select('name, slug')
+      .eq('id', ev.org_id)
+      .maybeSingle();
+    if (orgError) {
+      logDbError('getEventOrganizer(org)', orgError);
+      return null;
+    }
+    return org?.name && org?.slug ? { name: org.name, slug: org.slug } : null;
+  },
+
   // P1264: the organiser's standing note, rendered as the last block on the event
   // page. Two flat queries rather than a nested select — src.md bans nested selects
   // against PostgREST as unreliable, and this runs once per page view.

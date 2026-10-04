@@ -16,11 +16,12 @@ export const SOCIAL_HIKE_SERIES = 'social-hike';
  * [FOUNDER DECISION pending: section labels] — defaults until decided.
  */
 export const HIKE_LABELS = {
-  photos: 'From past hikes',
-  reviews: 'From people who came',
+  photos: 'Photos from past hikes',
+  reviews: 'Reviews',
   route: 'Route',
-  showMoreReviews: (n: number) => `Show ${n} more`,
-  showFewerReviews: 'Show fewer',
+  openMap: 'Open map',
+  organizedBy: 'Organized by',
+  learnMore: 'Learn more',
   osmAttribution: '© OpenStreetMap contributors',
   mapStart: 'Start',
   mapMeet: 'Cafe',
@@ -30,12 +31,11 @@ export const HIKE_LABELS = {
     routeType: 'Route',
     walkTime: 'Time',
     difficulty: 'Level',
-    meetWalk: 'To trail',
   },
 } as const;
 
-/** Reviews shown before "Show more". Keeps the section compact on mobile as reviews accumulate. */
-export const REVIEWS_COLLAPSED_COUNT = 2;
+/** Founder 2026-10-04: "learn more" about the organiser. Only orgs with a public page get the link. */
+export const ORG_LEARN_MORE_PATH: Record<string, string> = { cm: '/cm' };
 
 export function isHikeLayout(event: Pick<Event, 'seriesSlug'> | null | undefined): boolean {
   return event?.seriesSlug === SOCIAL_HIKE_SERIES;
@@ -49,6 +49,12 @@ export interface HikeStats {
   difficulty?: string;
   meetWalkMinutes?: number;
   meetWalkUrl?: string;
+  /** Pre-rendered terrain map (scripts/hike-route-map.mjs) on the public media host. */
+  routeMapUrl?: string;
+  /** Where "Open in OpenStreetMap" goes from the map. */
+  routeMapLink?: string;
+  /** Meeting place name, so the location row says where we meet instead of "View on Maps". */
+  meetName?: string;
 }
 
 function num(v: unknown): number | undefined {
@@ -73,8 +79,12 @@ export function parseHikeDetails(raw: unknown): HikeStats | null {
     difficulty: str(r.difficulty),
     meetWalkMinutes: num(r.meet_walk_minutes),
     meetWalkUrl: str(r.meet_walk_url, 2000),
+    routeMapUrl: str(r.route_map_url, 2000),
+    routeMapLink: str(r.route_map_link, 2000),
+    meetName: str(r.meet_name, 80),
   };
-  const displayable = Object.entries(stats).some(([k, v]) => k !== 'meetWalkUrl' && v !== undefined);
+  const statKeys: (keyof HikeStats)[] = ['distanceKm', 'elevationGainM', 'routeType', 'walkTimeText', 'difficulty', 'meetWalkMinutes'];
+  const displayable = statKeys.some(k => stats[k] !== undefined);
   return displayable ? stats : null;
 }
 
@@ -205,3 +215,22 @@ export function safeInternalPath(path: string | undefined): string | undefined {
  * for a real trail photo on desktop. Hike-layout events only; mobile keeps the default h-48
  * (~2:1 at 375px already reads as a photo). Non-hike events pass nothing → default height. */
 export const HIKE_BANNER_HEIGHT_CLASS = 'h-48 md:h-[22rem] lg:h-[26rem]';
+
+/**
+ * Founder 2026-10-04: the map belongs inside the description's own route section, and reviews
+ * right after it — not a second "Route" heading under the description. Splits the rendered
+ * description HTML at the end of the first <h2> section whose heading mentions "route".
+ * No such heading → [whole, ''], and the caller places map + reviews after the description.
+ */
+export function splitAfterRouteSection(html: string): [string, string] {
+  const heads = [...html.matchAll(/<h2[\s>]/g)].map(m => m.index ?? 0);
+  for (let i = 0; i < heads.length; i++) {
+    const close = html.indexOf('</h2>', heads[i]);
+    const text = html.slice(heads[i], close).replace(/<[^>]*>/g, '');
+    if (/route/i.test(text)) {
+      const end = i + 1 < heads.length ? heads[i + 1] : html.length;
+      return [html.slice(0, end), html.slice(end)];
+    }
+  }
+  return [html, ''];
+}

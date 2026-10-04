@@ -32,7 +32,7 @@ import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
-import { isHikeLayout, HIKE_BANNER_HEIGHT_CLASS } from '../hike/hike-utils';
+import { isHikeLayout, HIKE_BANNER_HEIGHT_CLASS, HIKE_LABELS, ORG_LEARN_MORE_PATH, parseHikeDetails, splitAfterRouteSection } from '../hike/hike-utils';
 import { HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
@@ -84,6 +84,8 @@ export function EventDetail() {
   const [orgFooterNote, setOrgFooterNote] = useState<string | null>(null);
   // P1403: series-level reviews + photos — public, fetched only for the hike layout.
   const [seriesContent, setSeriesContent] = useState<SeriesContent | null>(null);
+  // P1403: the organising community, for the hike page's "Organized by" line.
+  const [organizer, setOrganizer] = useState<{ name: string; slug: string } | null>(null);
 
   // Which slug the currently-held `event` was loaded for. A ref, not state:
   // reading it must not itself trigger a render, and it is only ever compared.
@@ -230,6 +232,21 @@ export function EventDetail() {
       });
     return () => { cancelled = true; };
   }, [hikeSeriesSlug]);
+  useEffect(() => {
+    if (!hikeSeriesSlug || !eventId) {
+      setOrganizer(null);
+      return;
+    }
+    let cancelled = false;
+    setOrganizer(null);
+    eventsService.getEventOrganizer(eventId)
+      .then(org => { if (!cancelled) setOrganizer(org); })
+      .catch(error => {
+        console.error('[EventDetail] Failed to fetch organizer:', error);
+        if (!cancelled) setOrganizer(null);
+      });
+    return () => { cancelled = true; };
+  }, [hikeSeriesSlug, eventId]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -312,6 +329,10 @@ export function EventDetail() {
     () => (event ? renderEventDescription(event.description) : ''),
     [event?.description],
   );
+  const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
+  // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
+  const organizerLearnMore = organizer ? ORG_LEARN_MORE_PATH[organizer.slug] : undefined;
+  const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
 
   // Loading state
   if (loading) {
@@ -666,8 +687,20 @@ export function EventDetail() {
                 </button>
               </div>
 
-              {/* P1403: hike stats strip — directly under the title so it is above the fold at
-                  375×667 (AC1). Hides without data. */}
+              {/* P1403 (founder 2026-10-04, AllTrails order): who organises it, then photos from
+                  past hikes, then the stats row just below the photos. Each hides without data. */}
+              {hikeSeriesSlug && organizer && (
+                <p className="-mt-2 mb-4 text-sm text-muted-foreground" data-testid="hike-organizer">
+                  {HIKE_LABELS.organizedBy} <span className="font-medium text-foreground">{organizer.name}</span>
+                  {organizerLearnMore && (
+                    <>
+                      {' · '}
+                      <Link to={organizerLearnMore} className="text-blue-600 hover:underline">{HIKE_LABELS.learnMore}</Link>
+                    </>
+                  )}
+                </p>
+              )}
+              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} />}
               {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
 
               {/* Cancellation Notice - inside card for better UX */}
@@ -780,7 +813,7 @@ export function EventDetail() {
                     : <MapPin className="w-5 h-5 flex-shrink-0" />
                   }
                   <span className={`group-hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}>
-                    {getLocationDisplayLabel(locationInfo, event.location)}
+                    {hikeMeetName ? `Meet at ${hikeMeetName}` : getLocationDisplayLabel(locationInfo, event.location)}
                   </span>
                 </a>
               )}
@@ -910,19 +943,26 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* P1403: "From past hikes" — after Reserve / group chat, before the description. */}
-              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} />}
-
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
-              <div
-                ref={setDescriptionEl}
-                className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
-                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
-              />
-
-              {/* P1403: route map then reviews, after the description. Each hides without data. */}
-              {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} />}
-              {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
+              {hikeSeriesSlug ? (
+                // P1403 (founder 2026-10-04): the map sits inside the description's own route
+                // section and reviews follow it, before "Where we meet" — one route section, not two.
+                <div
+                  ref={setDescriptionEl}
+                  className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                >
+                  <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[0] }} />
+                  {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts[1]} />}
+                  {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
+                  {hikeDescriptionParts[1] && <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[1] }} />}
+                </div>
+              ) : (
+                <div
+                  ref={setDescriptionEl}
+                  className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                  dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                />
+              )}
 
               {/* P1365: desktop repeat, only after a description taller than the viewport —
                   so it and the top button are never in view together. */}
