@@ -3,7 +3,7 @@
  * fresh consent, a stale user gets a dismissible banner, not the blocking popup.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mockNeedsTermsAcceptance = vi.fn();
@@ -67,6 +67,27 @@ describe('TermsAcceptanceGate — notice mode', () => {
     mockRecordTermsAcceptance.mockRejectedValue(new Error('network'));
     renderGate();
     fireEvent.click(await screen.findByRole('button', { name: /^accept$/i }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
+  });
+
+  it('does not cover a legal page reached by an in-app link (P1300)', async () => {
+    mockNeedsTermsAcceptance.mockResolvedValue(true);
+    const { MemoryRouter: R } = await import('react-router-dom');
+    const { useNavigate } = await import('react-router-dom');
+    let go: (p: string) => void = () => {};
+    function Nav() {
+      go = useNavigate();
+      return null;
+    }
+    render(
+      <R initialEntries={['/feed']}>
+        <TermsAcceptanceGate>
+          <Nav />
+        </TermsAcceptanceGate>
+      </R>
+    );
+    await screen.findByRole('region', { name: 'Terms update' });
+    act(() => go('/privacy-policy'));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
   });
 

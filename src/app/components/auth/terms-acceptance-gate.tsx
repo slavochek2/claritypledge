@@ -131,7 +131,8 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
   return (
     <>
       {children}
-      {GATE_MODE === 'notice' && showDialog && (
+      {/* The banner is fixed, so an in-app link to a legal page would otherwise carry it along. */}
+      {GATE_MODE === 'notice' && showDialog && !isExemptPath && (
         <TermsNoticeBanner onDismiss={handleDismissNotice} isLoading={isAccepting} />
       )}
       <TermsUpdateDialog
