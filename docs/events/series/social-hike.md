@@ -179,7 +179,7 @@ Every photo, the map, and any image in a description open full size on tap.
 | `hike_details.meet_name` | the cafe name **in Latin script**, shown as "Meet at …" (see the cafe-name rule below) |
 | `hike_details.meet_walk_minutes` · `meet_walk_url` | the cafe→trailhead walk (OSM directions link) |
 | `hike_details.route_map_url` | `node scripts/hike-route-map.mjs route.geojson out.jpg`, uploaded to `gs://claritypledge-story-images/hikes/<slug>/route-map.jpg` |
-| `route_geojson` | the trail line plus `Point` features with `properties.kind` = `start` / `meet` |
+| `route_geojson` | the trail line plus `Point` features with `properties.kind` = `start` / `meet`. **The line is the AllTrails track itself:** on the trail page (founder's logged-in Chrome) open ⋯ → *Export map file* → *GPX Track* → *Export*; the file lands in `~/Downloads` on the first click even though the dialog then shows its menu again. Convert `<trkpt>` points to a LineString; `start` = first point, `meet` = the cafe pin. Never draw a stand-in route (2026-10-04: the first live map used one and the founder caught it). |
 
 **Cafe name in Latin script, always** (founder 2026-10-04: *"nobody can read"* a Thai-only name).
 Use the cafe's own English or romanised name from its Google Maps, Wongnai or social listing
