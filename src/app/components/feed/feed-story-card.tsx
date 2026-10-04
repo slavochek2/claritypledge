@@ -5,7 +5,7 @@
  * Blue left border. Clickable → navigates to /story/:id.
  */
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -52,6 +52,9 @@ interface FeedStoryCardProps {
    * card that flashes `0 points` while the links are still in flight reads as a fact
    * about the story rather than about the fetch.
    */
+  /** P1401: start the story's video as soon as the card mounts — the featured story's
+   *  "play" in its collapsed bar opens the card AND plays, instead of open-then-play. */
+  autoPlay?: boolean;
   linkedPoints?: PointSummary[];
   /**
    * The signed-in viewer. Forwarded to `QuotedPointCard`, which renders its position
@@ -87,6 +90,7 @@ export function FeedStoryCard({
   story,
   activeTag,
   linkedPoints,
+  autoPlay = false,
   currentUserId,
   groupPlayer,
   surface = 'feed',
@@ -112,6 +116,12 @@ export function FeedStoryCard({
   const quoteSeek = groupPlayer ? groupPlayer.onSeek : player.onSeek;
   const quotePlayerBlocked = groupPlayer ? groupPlayer.playerBlocked : player.playerBlocked;
   const videoQuotes = normalizeVideoQuotes(story.videoQuotes);
+
+  // P1401: onSeek(0) mounts the player if needed and plays from the start. Once, on mount.
+  useEffect(() => {
+    if (autoPlay && parseVideoUrl(story.videoUrl) && !groupPlayer) player.onSeek(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleClick = () => {
     navigate(`/story/${story.id}`);

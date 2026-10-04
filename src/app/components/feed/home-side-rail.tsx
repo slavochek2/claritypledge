@@ -15,12 +15,14 @@ import { eventsService } from "@/app/data/events-service";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { EventWithHost } from "@/app/types";
 import type { Organization } from "@/app/data/organizations-service.interface";
-import { EventRowCompact } from "@/app/components/shared/EventRowCompact";
+import { EventCard } from "@/app/prototypes/events/components/EventCard";
+import { OrgInitials } from "@/app/components/organizations/org-initials";
+import { useAuth } from "@/auth";
 import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "@/app/components/layout/nav-links";
 
 const MAX_EVENTS = 2;
 /** A growing directory must never take over the page; the rest sit behind "All groups". */
-const MAX_GROUPS = 3;
+const MAX_GROUPS = 2;
 const DESKTOP_QUERY = "(min-width: 1024px)"; // Tailwind lg
 
 function useIsDesktop(): boolean {
@@ -80,31 +82,41 @@ function useHomeHighlights() {
   return { events, groups };
 }
 
-function EventsList({ events, max = MAX_EVENTS }: { events: Loaded<EventWithHost>; max?: number }) {
-  if (events === null) return <div className="h-[70px] rounded-lg bg-muted animate-pulse" />;
+/** The SAME card the events pages use (banner picture, date, title, host, place, going) —
+ *  P1401 design pass: the home page must not invent its own look for an event.
+ *  `row` (phones): a sideways row that snaps card by card, the next card peeking so it is
+ *  obvious there is more (the myCNX "swipeable rows" pattern; no swiping inside a card). */
+function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; row?: boolean }) {
+  const { user } = useAuth();
+  if (events === null) return <div className="aspect-video w-full rounded-xl bg-muted animate-pulse" />;
   if (events === "error") return <p className="text-sm text-muted-foreground">Couldn't load events.</p>;
   if (events.length === 0) return <p className="text-sm text-muted-foreground">No events scheduled yet.</p>;
-  return (
-    <div className="space-y-2">
-      {events.slice(0, max).map((e) => (
-        <EventRowCompact key={e.id} event={e} role="none" detailed />
-      ))}
+  const cards = events.map((e) => (
+    <div key={e.id} className={row && events.length > 1 ? "w-[85%] shrink-0 snap-start" : ""}>
+      <EventCard event={e} isLoggedIn={!!user} userId={user?.id} />
     </div>
-  );
+  ));
+  if (row && events.length > 1) {
+    return <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">{cards}</div>;
+  }
+  return <div className="space-y-3">{cards}</div>;
 }
 
+/** Each group as a small version of the groups-page card: the same initials tile, name,
+ *  border and hover — not a pill style of its own. */
 function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
-  if (groups === null) return <div className="h-10 rounded-full bg-muted animate-pulse" />;
+  if (groups === null) return <div className="h-[68px] rounded-lg bg-muted animate-pulse" />;
   if (groups === "error" || groups.length === 0) return null; // "All groups" still shows
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="space-y-2">
       {groups.map((g) => (
         <Link
           key={g.id}
           to={`${EVENTS_NAV_TO}/${g.slug}`}
-          className={`inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted max-w-full py-1.5`}
+          className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 transition-all duration-200 hover:border-blue-500/50 hover:shadow-lg"
         >
-          {g.name}
+          <OrgInitials name={g.name} />
+          <span className="min-w-0 text-sm font-semibold text-foreground">{g.name}</span>
         </Link>
       ))}
     </div>
@@ -137,12 +149,12 @@ function RailContent() {
   const { events, groups } = useHomeHighlights();
   return (
     <aside className="w-72 shrink-0 space-y-4 lg:mt-[9.9375rem]" aria-label="Groups and events" data-testid="home-side-rail">
-      <section className="rounded-lg border border-border p-4 space-y-3">
+      <section className="space-y-3">
         <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
         <GroupLinks groups={groups} />
         <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
       </section>
-      <section className="rounded-lg border border-border p-4 space-y-3">
+      <section className="space-y-3">
         <SectionTitle icon={CalendarDaysIcon}>Next events</SectionTitle>
         <EventsList events={events} />
         <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
@@ -160,15 +172,15 @@ export function HomeTopBlock() {
 function TopContent() {
   const { events, groups } = useHomeHighlights();
   return (
-    <section aria-label="Next events and groups" data-testid="home-top-block" className="mb-4 space-y-3 rounded-lg border border-border p-3">
+    <section aria-label="Next events and groups" data-testid="home-top-block" className="mb-6 space-y-5">
       {!(Array.isArray(events) && events.length === 0) && events !== "error" && (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <SectionTitle icon={CalendarDaysIcon}>Next event</SectionTitle>
+          <SectionTitle icon={CalendarDaysIcon}>Next events</SectionTitle>
           <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
         </div>
         {/* Phones: just the next one, so the stories stay close to the top. */}
-        <EventsList events={events} max={1} />
+        <EventsList events={events} row />
       </div>
       )}
       <div className="space-y-2">

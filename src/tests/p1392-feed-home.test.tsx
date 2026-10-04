@@ -21,9 +21,12 @@ describe('P1392 — feed-first homepage', () => {
     expect(app).toMatch(/path="\/builders"[\s\S]{0,200}<BuildRightThingLanding \/>/);
   });
 
-  it('caps the tag cloud and hides internal tags', () => {
+  it('caps the tag cloud and offers only allowed topic tags (P1401)', () => {
     expect(feed).toMatch(/const TAG_CLOUD_LIMIT = 5;/);
-    expect(feed).toMatch(/!isInternalTag\(tag\)/);
+    expect(feed).toMatch(/\.filter\(\(\[tag\]\) => allowed\.has\(tag\)\)/);
+    const t = read('src/app/data/event-topic-tags.ts');
+    expect(t).toMatch(/FIXED_TOPIC_TAGS = \['understanding', 'misunderstanding', 'aisafety1'\]/);
+    expect(t).toMatch(/\.select\('statement_tag'\)/);
   });
 
   it('sort is a "Sort by" select, not a status-worded toggle', () => {
@@ -42,11 +45,18 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
     expect(feed).toMatch(/\{showPinned && <PinnedStory onResolved=\{setPinnedId\} \/>\}/);
     expect(feed).toMatch(/s\.id !== pinnedId && !\(s\.tags \?\? \[\]\)\.includes\(PINNED_STORY_SLUG\)/);
   });
+  it('P1401: collapsed bar shows the author and the video thumbnail; play opens AND plays', () => {
+    const pin = read('src/app/components/feed/pinned-story.tsx');
+    expect(pin).toMatch(/<GravatarAvatar/);
+    expect(pin).toMatch(/getThumbnailUrl\(story\.videoUrl\)/);
+    expect(pin).toMatch(/setAutoPlay\(true\);\s*setOpen\(true\);/);
+    expect(read('src/app/components/feed/feed-story-card.tsx')).toMatch(/if \(autoPlay && parseVideoUrl\(story\.videoUrl\) && !groupPlayer\) player\.onSeek\(0\)/);
+  });
   it('P1397: expands the full story in place (no navigation), with no point-pin icon', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
     expect(pin).toMatch(/aria-expanded=\{open\}/);
-    expect(pin).toMatch(/<FeedStoryCard story=\{story\} linkedPoints=\{points\} \/>/);
+    expect(pin).toMatch(/<FeedStoryCard story=\{story\} linkedPoints=\{points\} autoPlay=\{autoPlay\} \/>/);
     expect(pin).not.toMatch(/PinIcon|<Link/);
   });
 });
@@ -56,9 +66,6 @@ describe('P1392 review fixes', () => {
     const fn = app.slice(app.indexOf('function HomeRedirect'), app.indexOf('/** P486'));
     expect(fn).toMatch(/params\.has\("referrer"\) \|\| params\.has\("login"\)/);
     expect(fn).toMatch(/<Navigate to=\{`\/builders\$\{location\.search\}/);
-  });
-  it('the internal-tag filter needs 3+ digits, so real tags like #p2p survive', () => {
-    expect(feed).toMatch(/\/\^p\\d\{3,\}\/i/);
   });
 });
 
@@ -71,8 +78,10 @@ describe('P1401 — next events and groups at every width', () => {
     expect(rail).toMatch(/return isDesktop \? <RailContent \/> : null/);
   });
   it('groups are listed by name (capped), events cap at 2 (1 on phones), groups come first on desktop', () => {
-    expect(rail).toMatch(/const MAX_GROUPS = 3;/);
-    expect(rail).toMatch(/<EventsList events=\{events\} max=\{1\} \/>/);
+    expect(rail).toMatch(/const MAX_GROUPS = 2;/);
+    expect(rail).toMatch(/<EventsList events=\{events\} row \/>/);
+    expect(rail).toMatch(/<EventCard event=\{e\}/); // the canonical event card, not a home-only look
+    expect(rail).toMatch(/<OrgInitials name=\{g\.name\} \/>/); // the groups-page tile
     const r = rail.slice(rail.indexOf('function RailContent'));
     expect(r.indexOf('>Groups<')).toBeLessThan(r.indexOf('>Next events<'));
   });

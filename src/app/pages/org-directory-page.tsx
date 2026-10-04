@@ -27,6 +27,7 @@ import { readThrough } from "@/lib/offline-read-cache";
 import { useOfflineReadState } from "@/app/hooks/use-offline-read-state";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { DETAILS_BUTTON_CLASS } from "@/app/components/shared/card-action-classes";
+import { OrgInitials } from "@/app/components/organizations/org-initials";
 import type {
   Organization,
   OrgEventSummary,
@@ -141,27 +142,6 @@ export function OrgDirectoryPage() {
           .
         </p>
       </div>
-    </div>
-  );
-}
-
-/** Initials tile for a group. Founder-approved (2026-08-28, "the initials
- *  tiles"). Two characters at most: a bare glyph reads as an avatar, three reads as
- *  a word. Decorative — the name beside it carries the accessible identity. */
-function OrgInitials({ name }: { name: string }) {
-  const initials = name
-    .replace(/^Clarity Practice Community[^A-Za-z0-9]*/i, "")
-    .split(/\s+/)
-    .filter((w) => /[A-Za-z0-9]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-  return (
-    <div
-      aria-hidden="true"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-semibold text-blue-700"
-    >
-      {initials || "C"}
     </div>
   );
 }

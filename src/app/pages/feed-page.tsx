@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import { Search, X, Globe, ChevronDown } from 'lucide-react';
 import { HomeSideRail, HomeTopBlock } from '@/app/components/feed/home-side-rail';
+import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { PinnedStory, PINNED_STORY_SLUG } from '@/app/components/feed/pinned-story';
 import { storiesService } from '@/app/data/stories-service';
 import { feedRead } from '@/app/data/offline-reads';
@@ -42,12 +43,6 @@ type FeedTab = 'points' | 'stories';
 /** P1392: the feed is the homepage now — the tag cloud shows the most-used few, the rest behind "More tags". */
 const TAG_CLOUD_LIMIT = 5;
 
-/** P1392: test / pipeline tags (#test, #p1369r…, #p154) are never shown to visitors in the cloud.
- *  They still filter if linked to directly. */
-function isInternalTag(tag: string): boolean {
-  // 3+ digits after the p: pipeline tags (#p154, #p1369r…) — never #p2p, #p5js.
-  return /^test$/i.test(tag) || /^p\d{3,}/i.test(tag);
-}
 
 
 /**
@@ -357,7 +352,18 @@ export function FeedPage() {
   // P1075: reads cloudStories/cloudPoints (always unfiltered), not stories/points
   // (now server-side tag-filtered) -- see fetchData.
   const [showAllTags, setShowAllTags] = useState(false);
+  // P1401: the cloud offers only our event topics + understanding/misunderstanding
+  // (event-topic-tags.ts). Any other tag still filters when linked to directly.
+  const [eventTopicTags, setEventTopicTags] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getEventTopicTags().then((t) => !cancelled && setEventTopicTags(t)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const tagCloud = useMemo(() => {
+    const allowed = new Set<string>([...FIXED_TOPIC_TAGS, ...eventTopicTags]);
     const tagCounts = new Map<string, number>();
     for (const story of cloudStories) {
       for (const tag of story.tags || []) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
@@ -366,10 +372,10 @@ export function FeedPage() {
       for (const tag of point.tags || []) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     }
     return [...tagCounts.entries()]
-      .filter(([tag]) => !/^st\d+$/i.test(tag) && !/^v\d+$/i.test(tag) && !isInternalTag(tag))
+      .filter(([tag]) => allowed.has(tag))
       .sort((a, b) => b[1] - a[1])
       .map(([tag]) => tag);
-  }, [cloudStories, cloudPoints]);
+  }, [cloudStories, cloudPoints, eventTopicTags]);
 
   // Client-side tag + version + search filtering
   const filteredStories = useMemo(() => {
