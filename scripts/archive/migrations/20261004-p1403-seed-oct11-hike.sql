@@ -42,7 +42,7 @@ SELECT 'social-hike', '<SHORTENED ENGLISH REVIEW>', '<REVIEWER FIRST NAME>',
     WHERE series_slug = 'social-hike' AND author_name = '<REVIEWER FIRST NAME>'
  );
 
--- 3. Photos: mirror every row of test series_photos (16 as of 2026-10-04, social shots first;
+-- 3. Photos: mirror every row of test series_photos (15 as of 2026-10-04, social shots first, snake removed;
 --    founder chose to include faces). Rows below are the original four, uploaded to
 --    gs://claritypledge-story-images (P1385) — the only image host prod CSP allows for them.
 INSERT INTO public.series_photos (series_slug, storage_url, alt, credit, sort_order)
