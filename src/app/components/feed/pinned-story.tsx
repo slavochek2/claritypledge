@@ -7,7 +7,7 @@
  * Renders nothing on any failure; the feed never waits on it.
  */
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDownIcon, PlayIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, PlayIcon } from "lucide-react";
 import { storiesService } from "@/app/data/stories-service";
 import { resolveStorySlug } from "@/app/data/stories-service-real";
 import { FeedStoryCard } from "@/app/components/feed/feed-story-card";
@@ -65,17 +65,45 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   // as on test's st1, renders as the picture). A play button that cannot play would mislead.
   const thumb = getThumbnailUrl(story.videoUrl);
 
+  const toggle = () => {
+    // Reopening by the bar never replays: autoplay belongs to the play button only.
+    setAutoPlay(false);
+    setOpen((v) => !v);
+  };
+
+  // P1404 (founder, annotated screenshot): open, the author appeared twice — in the bar and
+  // in the card. Open is now a slim label row ("Featured story · title", Hide) with the
+  // normal card directly under it, not boxed in the blue panel; the card carries the author.
+  if (open) {
+    return (
+      <section data-testid="pinned-story" className="space-y-2">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded
+          aria-controls={panelId}
+          className="flex min-h-10 w-full items-center gap-2 rounded-md text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">· {PINNED_STORY_TITLE}</span>
+          <span className="inline-flex shrink-0 items-center gap-1 font-medium text-blue-700">
+            Hide <ChevronUpIcon className="h-4 w-4" aria-hidden />
+          </span>
+        </button>
+        <div id={panelId} data-testid="pinned-story-expanded">
+          <FeedStoryCard story={story} linkedPoints={points} autoPlay={autoPlay} />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section data-testid="pinned-story" className="rounded-lg border border-blue-200 bg-blue-50">
       <div className="flex items-center gap-3 px-3 py-2.5">
         <button
           type="button"
-          onClick={() => {
-            // Reopening by the bar never replays: autoplay belongs to the play button only.
-            setAutoPlay(false);
-            setOpen((v) => !v);
-          }}
-          aria-expanded={open}
+          onClick={toggle}
+          aria-expanded={false}
           aria-controls={panelId}
           className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -90,12 +118,9 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
             <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
             <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
           </span>
-          <ChevronDownIcon
-            className={`h-5 w-5 shrink-0 text-blue-700 transition-transform ${open ? "rotate-180" : ""}`}
-            aria-hidden
-          />
+          <ChevronDownIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
         </button>
-        {thumb && !open && (
+        {thumb && (
           <button
             type="button"
             onClick={() => {
@@ -113,11 +138,6 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
           </button>
         )}
       </div>
-      {open && (
-        <div id={panelId} className="px-2 pb-2 sm:px-3 sm:pb-3" data-testid="pinned-story-expanded">
-          <FeedStoryCard story={story} linkedPoints={points} autoPlay={autoPlay} />
-        </div>
-      )}
     </section>
   );
 }

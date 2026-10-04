@@ -55,9 +55,16 @@ describe('P1392 — story 1 pinned for signed-out visitors', () => {
   it('P1397: expands the full story in place (no navigation), with no point-pin icon', () => {
     const pin = read('src/app/components/feed/pinned-story.tsx');
     expect(pin).toMatch(/PINNED_STORY_SLUG = "st1"/);
-    expect(pin).toMatch(/aria-expanded=\{open\}/);
+    expect(pin).toMatch(/aria-expanded\n/);
+    expect(pin).toMatch(/aria-expanded=\{false\}/);
     expect(pin).toMatch(/<FeedStoryCard story=\{story\} linkedPoints=\{points\} autoPlay=\{autoPlay\} \/>/);
     expect(pin).not.toMatch(/PinIcon|<Link/);
+  });
+  it('P1404: the open state shows the author once — no photo in the label row, card not boxed in the panel', () => {
+    const pin = read('src/app/components/feed/pinned-story.tsx');
+    const openBranch = pin.slice(pin.indexOf('if (open) {'), pin.indexOf('return (\n    <section data-testid="pinned-story" className="rounded-lg'));
+    expect(openBranch).toMatch(/<FeedStoryCard/);
+    expect(openBranch).not.toMatch(/GravatarAvatar|bg-blue-50/);
   });
 });
 
