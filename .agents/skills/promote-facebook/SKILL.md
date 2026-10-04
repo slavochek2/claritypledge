@@ -67,6 +67,18 @@ For each result, note:
 
 **Config absent or `facebook_groups` empty — fail closed, no hardcoded defaults.** A prior version of this skill defaulted to two Koh Phangan groups whenever the config was missing, which meant every Chiang Mai (or any non-Ko-Phangan) event silently posted into the wrong-city audience — `.private/event-operator.json` has never existed on this operator's machine, so this default fired on every run. If `facebook_groups` is absent or empty, **stop here** and ask: "No known Facebook groups configured for this operator. Add a `facebook_groups` array to `.private/event-operator.json` (see schema in step 0 of `promote-all.md`), or reply with group names/URLs to search for this run only (not saved)." Do not proceed to group discovery on an assumed city.
 
+**Filter by event type.** Use only groups with `eligible: true` **and** whose `fits` array contains
+this event's type (`clarity-night`, `hike`, `ai-run`…). A hiking group never gets a Clarity Night.
+Read `facebook_groups_policy` in the same file if present and follow it. Report every
+not-yet-joined candidate whose `fits` matches as "join to unlock", never drop it silently.
+
+**Share vs create.** When the event already has a Facebook event on the operator's profile (state
+cache `status.facebook_personal` holds its URL), **share that event into the group** (event page →
+Share → Share to a group), so RSVPs and "Interested" counts collect in one place and the post is a
+native event, not an external link (link posts are what moderation bots remove). Create a new event
+inside a group (step 4) only when there is no personal Facebook event, or the group allows events
+only via its own Events tab.
+
 ### 4. For each eligible group — fill the Create Event form
 
 Navigate to the group's Events tab → click **Create Event**.
