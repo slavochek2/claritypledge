@@ -6,8 +6,8 @@ workstream: legal
 created_date: '2026-10-04'
 tags: [terms, consent, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, ship]
 flow: inline
 drafted_by: opus
 exec_model: opus
