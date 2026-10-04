@@ -335,6 +335,16 @@ Phase 1: unset the day-data directory in the pp launcher and the page disappears
 board commit. Phase 2: revert the skill and script commits; `/day` returns to agent-composed
 output. Private data files can be deleted without affecting anything else.
 
+## Founder verdict on the first build (2026-10-04)
+
+> "it looks like shit, it's cluttered, it's not according to the tasks, it's not clear ... the
+> copywriting is bad. Overview is bad. ... Let's redo it."
+
+The Phase 1 UI on this branch (commits 598e63aaa, d02c53ba4) is **rejected as a design**. Keep: the
+data contract, server routes, decision file, tests and the rules in `src/lib/day.ts`. Redo: the
+page. Next step: a product-manager pass turns this conversation's inputs into user stories, and a
+fresh agent builds a frontend-only artifact from those stories alone, before anything is wired.
+
 ## Review findings (2026-10-04)
 
 One hostile reviewer, 1 of 1 reported. Verified by command before adoption: B1 (fingerprint drift,
