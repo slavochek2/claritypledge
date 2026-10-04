@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 27
 workstream: growth
@@ -10,6 +10,7 @@ pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-04
 ---
 
 # P1408: Home review fixes (featured focus, offline pack)
