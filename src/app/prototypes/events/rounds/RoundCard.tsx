@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { StatementPointCard } from '@/app/components/letters/letter-point-card';
 import {
   confirmRoundSeat,
@@ -31,16 +32,19 @@ import {
   topicKey,
 } from '@/app/data/event-rounds-service';
 import { buildCompareRows, furthestApart } from '@/lib/compare-positions';
-import { formatClock, roundClock } from '@/lib/round-clock';
+import { formatClock, liveRole, roundClock } from '@/lib/round-clock';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
 
+// The stored role says who speaks first; the pair swap after six minutes (liveRole).
 const ROLE_LINE = {
-  first: 'You go first',
-  second: 'You go second',
+  first: 'You speak first',
+  second: 'You listen first',
   observer: 'You observe and keep time',
 } as const;
+
+const ROLE_WORD = { speaker: 'Speaker', listener: 'Listener', observer: 'Observer' } as const;
 
 function readAnswered(roundId: string): boolean {
   try {
@@ -166,13 +170,26 @@ export function RoundCard({
           Table {mine.table}
         </h2>
         <p className="mt-1 text-base font-medium text-blue-700">{ROLE_LINE[mine.role]}</p>
-        {others.length > 0 && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            with{' '}
-            {others
-              .map(s => `${shortName(member(s.id)?.displayName ?? '—')} (${s.role === 'observer' ? 'observer' : s.role === 'first' ? 'first' : 'second'})`)
-              .join(', ')}
-          </p>
+        {others.length > 0 && clock && (
+          // Faces, not only names: this is what you look for walking across the room.
+          <ul className="mt-3 space-y-2" data-testid="round-card-mates">
+            {others.map(s => {
+              const m = member(s.id);
+              return (
+                <li key={s.id} className="flex items-center gap-2.5">
+                  <GravatarAvatar
+                    name={m?.displayName ?? '?'}
+                    photoUrl={m?.profileAvatarUrl ?? undefined}
+                    avatarColor={m?.profileAvatarColor ?? undefined}
+                    isPledger={m?.profileHasPledged ?? false}
+                    size="sm"
+                  />
+                  <span className="flex-1 min-w-0 break-words text-sm font-medium">{shortName(m?.displayName ?? '—')}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{ROLE_WORD[liveRole(s.role, clock.phase)]}</span>
+                </li>
+              );
+            })}
+          </ul>
         )}
         {self.optedIn && mine.role !== 'observer' && (
           <p className="mt-2 text-sm" data-testid="round-card-rule">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, roundClock, SEATING_MS, SPEAKER_MS, OBSERVER_MS } from './round-clock';
+import { formatClock, liveRole, roundClock, SEATING_MS, SPEAKER_MS, OBSERVER_MS } from './round-clock';
 
 const START = '2026-10-06T11:30:00.000Z';
 const at = (ms: number) => new Date(START).getTime() + ms;
@@ -34,5 +34,16 @@ describe('roundClock', () => {
   it('formats without a 0:00 while live', () => {
     expect(formatClock(400)).toBe('0:01');
     expect(formatClock(SPEAKER_MS)).toBe('6:00');
+  });
+});
+
+describe('liveRole', () => {
+  it('starts as speaker and listener, and the pair swap for the second six minutes', () => {
+    expect(liveRole('first', 'seating')).toBe('speaker');
+    expect(liveRole('second', 'seating')).toBe('listener');
+    expect(liveRole('first', 'first')).toBe('speaker');
+    expect(liveRole('first', 'second')).toBe('listener');
+    expect(liveRole('second', 'second')).toBe('speaker');
+    expect(liveRole('observer', 'second')).toBe('observer');
   });
 });

@@ -4,8 +4,8 @@
  * page says where to sit. Live against the test DB.
  *
  * Covers: the host-only gate and the "Run this event" entry; Start round groups the room into
- * tables of first / second / observer; a two-tap swap and its Undo; a late arrival sees "You join
- * at the next round"; "Left" takes someone out of the next round; the attendee's card, the
+ * tables of speaker / listener / observer; a two-tap swap and its Undo; a late arrival sees "You
+ * join at the next round"; tapping a name and "Out" takes someone out of the next round; the attendee's card, the
  * "I'm at table N" tap and that skipping it blocks nothing; the dark phone during the round and
  * the observer's clock; "Did your position move?" after the round; the projector view; group
  * size 2 has no observer.
@@ -204,11 +204,13 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-clock')).toHaveAttribute('data-phase', 'over');
   });
 
-  test('"Left" takes someone out of the next round; the late arrival is seated in it', async ({ page }) => {
+  test('"Out" takes someone out of the next round; the late arrival is seated in it', async ({ page }) => {
     await asHost(page);
-    const leaver = page.getByTestId('host-member').filter({ hasText: 'Fay Fox' });
-    await leaver.getByTestId('host-mark-left').click();
-    await expect(page.getByTestId('host-member').filter({ hasText: 'Fay Fox' })).toHaveCount(0);
+    // Tap the name, then Out — the one presence control (founder: out until brought back).
+    const leaver = page.getByTestId('round-grid-name').filter({ hasText: 'Fay' });
+    await leaver.click();
+    await page.getByTestId('host-mark-left').click();
+    await expect(leaver).toHaveAttribute('data-out', 'true');
     await page.getByTestId('host-primary').click();
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 2 of 3');
     const rows = await seats(event.id);

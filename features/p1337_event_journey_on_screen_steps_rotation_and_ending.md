@@ -179,23 +179,27 @@ trust-column guard fires only for `anon`/`authenticated`, so a SECURITY DEFINER 
 **Two actions per round: ring the bell, press Next round.** Everything else is optional — mark someone
 left, swap two people by hand (the case no algorithm can know), Recompute. Press *Start round* → **60
 seconds** for the room to find tables (founder, 2026-10-03, down from 90 after walking it through: enough to walk, read the statement and tap; still a healthy push) → 6 / 6 / 3. One clock for the whole room; a round that is not
-ended simply continues, and the countdown passing zero reads "over by 2:30".
+ended simply continues; past zero the clock reads **"Time's up +2:30"** (founder, 2026-10-04: "over"
+was unclear), and a strip under the clock names the parts — Tables · Speaker 1 · Speaker 2 · Observer.
 
 The panel also shows **past rounds** — who sat where, in which role — which is the only way to answer
 "who was Ana with when she said that?", and a **print view** of the current grouping (no PDF
 download; the browser's share sheet covers it).
 
-**The panel is two surfaces, because the grid cannot say everything.**
+**The panel is one surface: the people grid** (founder, 2026-10-04 walkthrough — reverses the
+2026-10-02 two-surface split, which put a "who's here" list beside the grid and duplicated every name).
 
-| Surface | What it carries |
+| Part | What it carries |
 |---|---|
-| **The round grid** | Swap two people. Undo. |
-| **A "who's here" list** | Mark left · mark sitting out this round · see who has not confirmed |
-| Not controls | Start round · Next round · Recompute · past rounds · print view · group size · dimension toggles |
+| **Tables** | Each person as a tile: photo (pledge ring), first name, live role. Tap → swap or Out. Undo · Regroup. |
+| **Next round** | In the room, not seated this round — they join the next one. Before round 1 it reads **Here**. |
+| **Out** | One state, out until the host taps **Back in** (replaces "Sit out" + "Left"). |
+| Under the button | **Round N settings** — group size and the three grouping toggles. |
+| Past rounds | The same grid, fixed; summary "Round 1 · 5 of 6 tapped in". |
 
-Add and remove belong on the **list**, never the grid: the grid answers *where people sit*, the list
-answers *who is here*. And **adding needs no control at all** — opening the event room puts you in
-the pool for the next round.
+**Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
+first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
+still needs no control — opening the event room puts you in the pool for the next round.
 
 **The override control: variant A, confirmed by the founder on a phone, 2026-10-02.** Tap a name,
 tap who it trades with; a committed trade produces an "Undo X ↔ Y" control. The whole room stays
@@ -256,7 +260,7 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 - [x] A person who leaves without telling anyone leaves a table of two, and the round still runs
 - [x] The host completes a full evening using only: ring bell, press Next round
 - [x] A host can swap two people by hand and see the result without scrolling, and undo it
-- [x] A host can mark someone left from the "who's here" list, and the next round is computed without them
+- [x] A host can tap a name and mark them Out, and the next round is computed without them
 - [x] "Compare with me" appears at the top of a profile's Points tab and opens the comparison for that person
 - [x] Changing the tag on the compare page re-sorts it for that set, largest gap first
 - [x] Opening a statement from the compare page leaves the comparison on screen

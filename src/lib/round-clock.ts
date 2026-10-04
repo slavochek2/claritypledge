@@ -10,6 +10,7 @@
  * Pure — every surface (host panel, projector, the observer's phone) reads this with its own
  * Date.now(), so they agree to within the devices' clock skew.
  */
+import type { SeatRole } from './round-grouping';
 
 export type RoundPhase = 'seating' | 'first' | 'second' | 'observer' | 'over';
 
@@ -58,4 +59,17 @@ export function formatClock(ms: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+export type LiveRole = 'speaker' | 'listener' | 'observer';
+
+/**
+ * What a seat is doing right now. The stored role says who speaks FIRST; the pair trade places
+ * when the first six minutes end (founder: "speaker, listener, and then within the round they
+ * switch"). Before the talking starts and after it ends, a seat reads as what it starts as.
+ */
+export function liveRole(role: SeatRole, phase: RoundPhase): LiveRole {
+  if (role === 'observer') return 'observer';
+  const swapped = phase === 'second' || phase === 'observer';
+  return (role === 'first') !== swapped ? 'speaker' : 'listener';
 }

@@ -5,11 +5,11 @@
  *
  * The host is standing, one-handed, in a dim room with people waiting. Two actions per round:
  * ring the (physical) bell, press the one button. Everything else is optional — swap two people
- * by hand, undo, regroup, mark someone left or sitting out.
+ * by hand, undo, regroup, mark someone out.
  *
  * Two views from one route:
- *   - default: the phone panel (clock · the one button · the round grid · who's here).
- *   - `?view=screen`: the projector — current tables, roles and the countdown, no controls.
+ *   - default: the phone panel (clock · the one button · the people grid · past rounds).
+ *   - `?view=screen`: the projector — current tables, faces, live roles and the countdown.
  *     It is also the print view (the browser's own print/share sheet; no PDF download).
  *
  * The grouping is computed HERE, on the host's device (src/lib/round-grouping.ts), and written
@@ -18,13 +18,15 @@
  *
  * The override control is variant A, confirmed by the founder on a phone (prototype
  * /tree/host-controls): tap a name, tap who it trades with; a committed trade leaves an
- * "Undo X ↔ Y". Adding someone needs no control at all — opening the event room puts them in
- * the pool for the next round. Add/remove facts live on the "who's here" list, never the grid.
+ * "Undo X ↔ Y". The same tap offers Out / Back in: the founder folded the separate "who's here"
+ * list into the grid, so every person appears once — at a table, in "Next round", or in "Out".
+ * Adding someone needs no control at all — opening the event room puts them in the pool.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, Monitor, Undo2, X } from 'lucide-react';
+import { Check, ChevronDown, Monitor, RefreshCw, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -52,22 +54,32 @@ import {
   type GroupingToggles,
   type Seat,
 } from '@/lib/round-grouping';
-import { formatClock, roundClock, type RoundPhase } from '@/lib/round-clock';
+import {
+  OBSERVER_MS,
+  SEATING_MS,
+  SPEAKER_MS,
+  formatClock,
+  liveRole,
+  roundClock,
+  type LiveRole,
+  type RoundClock,
+  type RoundPhase,
+} from '@/lib/round-clock';
 import type { EventRoomMember } from '@/app/types';
 import { firstName, initial, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
 
-const PHASE_LABEL: Record<RoundPhase, string> = {
-  seating: 'Finding tables',
-  first: 'First speaker',
-  second: 'Second speaker',
-  observer: 'Observer',
-  over: 'Over by',
-};
-
 const START_LOCK_MS = 10_000;
 
-const ROLE_LABEL = { first: 'first', second: 'second', observer: 'observer' } as const;
+/** The parts of a round, in order — the strip under the clock. */
+const PHASES: { phase: RoundPhase; label: string; ms: number }[] = [
+  { phase: 'seating', label: 'Tables', ms: SEATING_MS },
+  { phase: 'first', label: 'Speaker 1', ms: SPEAKER_MS },
+  { phase: 'second', label: 'Speaker 2', ms: SPEAKER_MS },
+  { phase: 'observer', label: 'Observer', ms: OBSERVER_MS },
+];
+
+const ROLE_WORD: Record<LiveRole, string> = { speaker: 'Speaker', listener: 'Listener', observer: 'Observer' };
 
 interface Settings {
   groupSize: 2 | 3 | 4;
@@ -118,24 +130,76 @@ function useClock(round: EventRound | null, seats: Seat[]) {
   return roundClock(round.startedAt, now, seats.some(s => s.role === 'observer'));
 }
 
-function ClockReadout({ round, seats, large }: { round: EventRound | null; seats: Seat[]; large?: boolean }) {
-  const clock = useClock(round, seats);
-  if (!round || !clock) return null;
-  const ms = clock.phase === 'over' ? clock.overByMs : clock.phaseRemainingMs;
+function Avatar({ member, className }: { member: EventRoomMember | undefined; className?: string }) {
   return (
-    <div className="flex items-baseline gap-3" data-testid="round-clock" data-phase={clock.phase}>
-      <span className={cn('text-muted-foreground', large ? 'text-xl sm:text-3xl' : 'text-sm')}>{clock.phase === 'over' && ms >= 60 * 60_000 ? 'Over' : PHASE_LABEL[clock.phase]}</span>
-      <span
-        className={cn(
-          'font-semibold tabular-nums',
-          large ? 'text-6xl sm:text-8xl' : 'text-4xl',
-          clock.phase === 'over' ? 'text-red-600' : 'text-foreground',
-        )}
+    <GravatarAvatar
+      name={member?.displayName ?? '?'}
+      photoUrl={member?.profileAvatarUrl ?? undefined}
+      avatarColor={member?.profileAvatarColor ?? undefined}
+      isPledger={member?.profileHasPledged ?? false}
+      size="sm"
+      className={className}
+    />
+  );
+}
+
+/**
+ * The time left in the current part of the round. Past the end it reads "Time's up" —
+ * "Over by 2204:35" said nothing a host could act on.
+ */
+function ClockNumber({ clock, large }: { clock: RoundClock; large?: boolean }) {
+  if (clock.phase === 'over') {
+    return (
+      <p
+        className={cn('font-semibold leading-none text-red-600', large ? 'text-6xl sm:text-8xl' : 'flex min-h-12 items-end text-4xl')}
+        data-testid="round-clock"
+        data-phase="over"
       >
-        {/* A round left open past an hour (nobody pressed End evening) reads "Over", not "Over by 2204:35". */}
-        {clock.phase === 'over' && ms >= 60 * 60_000 ? '' : formatClock(ms)}
-      </span>
-    </div>
+        Time&rsquo;s up
+        {clock.overByMs < 60 * 60_000 && (
+          <span className={cn('ml-3 font-normal tabular-nums text-muted-foreground', large ? 'text-3xl sm:text-5xl' : 'text-lg')}>
+            +{formatClock(clock.overByMs)}
+          </span>
+        )}
+      </p>
+    );
+  }
+  return (
+    <p className={cn('font-semibold tabular-nums leading-none', large ? 'text-7xl sm:text-9xl' : 'min-h-12 text-5xl')} data-testid="round-clock" data-phase={clock.phase}>
+      {formatClock(clock.phaseRemainingMs)}
+    </p>
+  );
+}
+
+/** The parts of the round, so "the speakers swap" is something you can see coming. */
+function PhaseStrip({ clock, hasObserver, large }: { clock: RoundClock; hasObserver: boolean; large?: boolean }) {
+  const parts = PHASES.filter(p => hasObserver || p.phase !== 'observer');
+  const current = parts.findIndex(p => p.phase === clock.phase);
+  const over = clock.phase === 'over';
+  return (
+    <ol className={cn('flex', large ? 'gap-3' : 'gap-1.5')} aria-label="Round">
+      {parts.map((p, i) => {
+        const done = over || i < current;
+        const active = i === current;
+        const filled = done ? 100 : active ? Math.round(100 * (1 - clock.phaseRemainingMs / p.ms)) : 0;
+        return (
+          <li key={p.phase} className="flex-1 min-w-0" aria-current={active ? 'step' : undefined}>
+            <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-3' : 'h-1.5')}>
+              <div className={cn('h-full rounded-full', done ? 'bg-blue-200' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
+            </div>
+            <p
+              className={cn(
+                'mt-1 truncate',
+                large ? 'text-xl sm:text-3xl' : 'text-[11px] min-[375px]:text-xs',
+                active ? 'font-semibold text-blue-700' : 'text-muted-foreground',
+              )}
+            >
+              {p.label}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -144,46 +208,75 @@ function ClockReadout({ round, seats, large }: { round: EventRound | null; seats
 function ScreenView({
   round,
   seats,
-  names,
-  roomCount,
+  byId,
+  room,
+  ended,
 }: {
   round: EventRound | null;
   seats: Seat[];
-  names: Map<string, string>;
-  roomCount: number;
+  byId: Map<string, EventRoomMember>;
+  room: EventRoomMember[];
+  ended: boolean;
 }) {
+  const clock = useClock(round, seats);
+  const hasObserver = seats.some(s => s.role === 'observer');
   return (
     // Fixed over the page so the projector carries no site chrome (header, menus).
-    <div className="fixed inset-0 z-[100] overflow-auto bg-white px-4 py-6 sm:px-8 sm:py-8 print:static print:p-0" data-testid="host-screen">
-      {round ? (
+    <div className="fixed inset-0 z-[100] overflow-auto bg-white px-4 py-6 sm:px-10 sm:py-8 print:static print:p-0" data-testid="host-screen">
+      {round && clock ? (
         <>
-          <div className="flex flex-wrap items-baseline justify-between gap-6 mb-8">
-            <h1 className="text-4xl sm:text-5xl font-semibold">Round {round.roundNo}</h1>
+          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-2">
+            <h1 className="text-5xl sm:text-7xl font-semibold">Round {round.roundNo}</h1>
             <div className="print:hidden">
-              <ClockReadout round={round} seats={seats} large />
+              <ClockNumber clock={clock} large />
             </div>
           </div>
-          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(22rem,100%),1fr))]">
+          <div className="mt-6 mb-10 print:hidden">
+            <PhaseStrip clock={clock} hasObserver={hasObserver} large />
+          </div>
+          <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(24rem,100%),1fr))]">
             {groupByTable(seats).map(table => (
-              <div key={table.no} className="rounded-xl border border-border p-5 break-inside-avoid">
-                <p className="text-base uppercase tracking-widest text-muted-foreground">Table {table.no}</p>
-                <ul className="mt-2 space-y-1">
-                  {table.seats.map(s => (
-                    <li key={s.id} className="flex items-baseline justify-between gap-3 text-2xl sm:text-3xl">
-                      <span className="font-medium min-w-0 break-words">{names.get(s.id) ?? '—'}</span>
-                      <span className="shrink-0 text-base sm:text-xl text-muted-foreground">{ROLE_LABEL[s.role]}</span>
-                    </li>
-                  ))}
+              <div key={table.no} className="rounded-2xl border border-border p-5 break-inside-avoid">
+                <p className="text-3xl font-semibold">Table {table.no}</p>
+                <ul className="mt-3 space-y-3">
+                  {table.seats.map(s => {
+                    const m = byId.get(s.id);
+                    const role = liveRole(s.role, clock.phase);
+                    return (
+                      <li key={s.id} className="flex items-center gap-4">
+                        <Avatar member={m} className="!h-14 !w-14 !text-lg" />
+                        <div className="min-w-0">
+                          <p className="text-2xl sm:text-3xl font-medium leading-tight">{m?.displayName ?? '—'}</p>
+                          <span
+                            className={cn(
+                              'mt-1 inline-block rounded-full px-3 py-0.5 text-base sm:text-lg',
+                              role === 'speaker' ? 'bg-blue-500 text-white' : role === 'listener' ? 'bg-blue-50 text-blue-700' : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {ROLE_WORD[role]}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
           </div>
         </>
       ) : (
-        <div className="grid min-h-[70vh] place-items-center text-center">
+        <div className="grid min-h-[80vh] place-items-center text-center">
           <div>
-            <h1 className="text-5xl font-semibold">Round 1 starts soon</h1>
-            <p className="mt-4 text-2xl text-muted-foreground">{roomCount} in the room</p>
+            <h1 className="text-5xl sm:text-7xl font-semibold">{ended ? 'Evening ended' : 'Round 1 starts soon'}</h1>
+            {!ended && room.length > 0 && (
+              <ul className="mx-auto mt-10 flex max-w-4xl flex-wrap justify-center gap-4" aria-label="In the room">
+                {room.map(m => (
+                  <li key={m.id}>
+                    <Avatar member={m} className="!h-16 !w-16 !text-xl" />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
@@ -191,50 +284,143 @@ function ScreenView({
   );
 }
 
-/* ── The round grid (variant A) ──────────────────────────────────────────── */
+/* ── People: the round's tables, then who is waiting, then who is out ────── */
 
-function RoundGrid({
-  seats,
-  names,
+function PersonTile({
+  member,
+  sub,
   lifted,
-  onName,
+  out,
+  tappedIn,
+  onTap,
+  testId,
+}: {
+  member: EventRoomMember | undefined;
+  sub: string;
+  lifted: boolean;
+  out?: boolean;
+  tappedIn?: boolean;
+  onTap?: () => void;
+  testId: string;
+}) {
+  const body = (
+    <>
+      <span className="relative">
+        <Avatar member={member} className="!h-8 !w-8 !text-xs" />
+        {tappedIn && (
+          <Check
+            className="absolute -bottom-1 -right-1.5 h-4 w-4 rounded-full bg-green-600 p-0.5 text-white"
+            aria-label="at their table"
+          />
+        )}
+      </span>
+      <span className="mt-1 block w-full truncate text-xs min-[375px]:text-[13px] font-medium">{firstName(member?.displayName ?? '—')}</span>
+      <span className={cn('block w-full truncate text-[11px]', lifted ? 'text-white/80' : 'text-muted-foreground')}>{sub}</span>
+    </>
+  );
+  const cls = cn(
+    'flex flex-1 min-w-0 flex-col items-center rounded-lg px-0.5 py-1.5 leading-tight',
+    lifted ? 'bg-blue-600 text-white' : onTap ? 'border border-border bg-white text-foreground' : 'bg-muted/60 text-foreground',
+    out && !lifted && 'opacity-60',
+  );
+  if (!onTap) {
+    return (
+      <div className={cls} data-testid={testId}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      data-testid={testId}
+      data-out={out ? 'true' : undefined}
+      aria-pressed={lifted}
+      className={cn(cls, 'min-h-[76px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500')}
+    >
+      {body}
+    </button>
+  );
+}
+
+/** The tables of one round. Tappable for the current round; the same picture, fixed, for past ones. */
+function TablesGrid({
+  seats,
+  byId,
+  phase,
+  lifted,
+  isOut,
+  onTap,
 }: {
   seats: Seat[];
-  names: Map<string, string>;
-  lifted: string | null;
-  onName: (id: string) => void;
+  byId: Map<string, EventRoomMember>;
+  phase: RoundPhase;
+  lifted?: string | null;
+  isOut?: (id: string) => boolean;
+  onTap?: (id: string) => void;
 }) {
   return (
     <div className="space-y-1.5" data-testid="round-grid">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Table</p>
       {groupByTable(seats).map(table => (
         <div key={table.no} className="flex items-stretch gap-1 min-[375px]:gap-1.5">
-          <div className="w-6 min-[375px]:w-7 shrink-0 grid place-items-center rounded-lg bg-muted text-[13px] font-semibold text-muted-foreground">
+          <div className="w-6 min-[375px]:w-7 shrink-0 grid place-items-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground" aria-label={`Table ${table.no}`}>
             {table.no}
           </div>
-          {table.seats.map(s => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onName(s.id)}
-              data-testid="round-grid-name"
-              aria-pressed={lifted === s.id}
-              className={cn(
-                'flex-1 min-w-0 min-h-[52px] rounded-lg px-0.5 min-[375px]:px-1 font-medium leading-tight',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-                lifted === s.id ? 'bg-blue-600 text-white' : 'bg-white border border-border text-foreground',
-              )}
-            >
-              {/* First name on its own line, initial (+ observer) under it: at 320px the tiles
-                  are ~78px, which fits "Aleksandra" at 13px but not "Aleksandra P." (spec §6). */}
-              <span className="block truncate text-[12px] min-[375px]:text-[13px]">{firstName(names.get(s.id) ?? '—')}</span>
-              <span className={cn('block truncate text-[11px] font-normal', lifted === s.id ? 'text-white/80' : 'text-muted-foreground')}>
-                {s.role === 'observer' ? 'observer' : initial(names.get(s.id) ?? '') || '\u00a0'}
-              </span>
-            </button>
-          ))}
+          {table.seats.map(s => {
+            const out = isOut?.(s.id) ?? false;
+            return (
+              <PersonTile
+                key={s.id}
+                member={byId.get(s.id)}
+                sub={out ? 'Out' : ROLE_WORD[liveRole(s.role, phase)]}
+                lifted={lifted === s.id}
+                out={out}
+                tappedIn={!!(s as RoundSeat).confirmedAt}
+                onTap={onTap ? () => onTap(s.id) : undefined}
+                testId="round-grid-name"
+              />
+            );
+          })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function PeopleGroup({
+  title,
+  people,
+  lifted,
+  out,
+  hideCount,
+  onTap,
+}: {
+  title: string;
+  people: EventRoomMember[];
+  lifted: string | null;
+  out?: boolean;
+  hideCount?: boolean;
+  onTap: (id: string) => void;
+}) {
+  if (people.length === 0) return null;
+  return (
+    <div data-testid={out ? 'host-out' : 'host-waiting'}>
+      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title} {!hideCount && <span className="tabular-nums">{people.length}</span>}
+      </p>
+      <div className="grid grid-cols-3 gap-1 min-[375px]:grid-cols-4 min-[375px]:gap-1.5">
+        {people.map(m => (
+          <PersonTile
+            key={m.id}
+            member={m}
+            sub={shortName(m.displayName).split(' ')[1] ?? ' '}
+            lifted={lifted === m.id}
+            onTap={() => onTap(m.id)}
+            testId="host-member"
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -299,6 +485,7 @@ export function EventHostPage() {
   // The host is not seated: they run the room (an odd person observes or makes a table of two).
   const members = useMemo(() => roster.filter(m => m.profileId !== event?.hostId), [roster, event?.hostId]);
   const names = useMemo(() => new Map(roster.map(m => [m.id, m.displayName])), [roster]);
+  const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
   const positions = useTagPositions(isScreen ? null : event?.statementTag, profileIds);
 
@@ -389,8 +576,10 @@ export function EventHostPage() {
     );
   }
 
+  const ended = evening === 'ended';
+
   if (isScreen) {
-    return <ScreenView round={round} seats={seats} names={names} roomCount={members.length} />;
+    return <ScreenView round={round} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
 
   const startNext = () => {
@@ -410,12 +599,23 @@ export function EventHostPage() {
     });
   };
 
-  const onName = (id: string) => {
+  const seatOf = new Map(seats.map(s => [s.id, s]));
+  const isOut = (id: string) => !!presence.get(id)?.leftAt;
+  const waiting = members.filter(m => !seatOf.has(m.id) && !isOut(m.id));
+  const outside = members.filter(m => !seatOf.has(m.id) && isOut(m.id));
+
+  // Tap a name: it lifts, and the bar offers what can be done with it. Tapping a second seated
+  // name trades the two seats (variant A); "Out" / "Back in" is the only presence control —
+  // out until the host brings them back (founder: one state, not "sit out" plus "left").
+  const onTap = (id: string) => {
     if (!lifted) return setLifted(id);
     if (lifted === id) return setLifted(null);
-    const label = `${shortName(names.get(lifted) ?? '')} ↔ ${shortName(names.get(id) ?? '')}`;
-    commitSeats(swapSeats(seats, lifted, id), label);
-    setLifted(null);
+    if (seatOf.has(lifted) && seatOf.has(id) && !isOut(lifted) && !isOut(id)) {
+      const label = `${shortName(names.get(lifted) ?? '')} ↔ ${shortName(names.get(id) ?? '')}`;
+      commitSeats(swapSeats(seats, lifted, id), label);
+      return setLifted(null);
+    }
+    setLifted(id);
   };
 
   const undo = () => {
@@ -427,28 +627,26 @@ export function EventHostPage() {
     });
   };
 
-  const seatOf = new Map(seats.map(s => [s.id, s]));
-  const here = members.filter(m => !presence.get(m.id)?.leftAt);
-  const gone = members.filter(m => presence.get(m.id)?.leftAt);
-  const unconfirmed = seats.filter(s => !s.confirmedAt).length;
-
-  const setPresenceFor = (memberId: string, left: boolean, sitsOut: number | null) =>
+  const setOut = (memberId: string, out: boolean) =>
     void (async () => {
       setError(null);
       try {
-        await hostSetRoundPresence(event.id, memberId, left, sitsOut);
+        await hostSetRoundPresence(event.id, memberId, out, null);
         await refreshPresence();
       } catch {
         setError('That didn’t save. Try again.');
       }
     })();
 
-  const primary =
-    evening === 'ended'
-      ? null
-      : nextNo <= ROUNDS_PER_EVENING
-        ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext }
-        : { label: 'End evening', action: () => void run(() => hostEndRounds(event.id)) };
+  const clock = round ? roundClock(round.startedAt, now, seats.some(s => s.role === 'observer')) : null;
+  const hasNext = !ended && nextNo <= ROUNDS_PER_EVENING;
+  const primary = ended
+    ? null
+    : hasNext
+      ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext }
+      : { label: 'End evening', action: () => void run(() => hostEndRounds(event.id)) };
+  const pastRounds = state.rounds.filter(r => r.id !== round?.id);
+  const liftedName = lifted ? shortName(names.get(lifted) ?? '') : '';
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-4 pb-16" data-testid="host-panel">
@@ -467,23 +665,22 @@ export function EventHostPage() {
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <p className="text-sm font-medium text-muted-foreground" data-testid="host-round-title">
-          {evening === 'ended'
-            ? 'Evening ended'
-            : round
-              ? `Round ${round.roundNo} of ${ROUNDS_PER_EVENING}`
-              : `${members.length} in the room`}
+          {ended ? 'Evening ended' : round ? `Round ${round.roundNo} of ${ROUNDS_PER_EVENING}` : `${members.length} in the room`}
         </p>
-        <div className="mt-1 min-h-[2.5rem]">
-          <ClockReadout round={round} seats={seats} />
-        </div>
+        {clock && (
+          <div className="mt-1 space-y-3">
+            <ClockNumber clock={clock} />
+            <PhaseStrip clock={clock} hasObserver={seats.some(s => s.role === 'observer')} />
+          </div>
+        )}
         {primary && justStarted && !busy && (
           // The start lock: nothing to press for a few seconds rather than a greyed-out button.
-          <div className="mt-3 min-h-12" aria-hidden="true" />
+          <div className="mt-4 min-h-12" aria-hidden="true" />
         )}
         {primary && (!justStarted || busy) && (
           <Button
             type="button"
-            className="mt-3 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
+            className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
             onClick={primary.action}
             disabled={busy || !loaded}
             data-testid="host-primary"
@@ -496,163 +693,130 @@ export function EventHostPage() {
             {error}
           </p>
         )}
+        {hasNext && (
+          <details className="group mt-3" data-testid="host-settings">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
+              Next round settings
+              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 space-y-3 border-t border-border pt-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm">Group size</span>
+                <div className="inline-flex rounded-lg bg-muted p-1">
+                  {([2, 3, 4] as const).map(size => (
+                    <button
+                      key={size}
+                      type="button"
+                      aria-pressed={settings.groupSize === size}
+                      onClick={() => setSettings({ ...settings, groupSize: size })}
+                      className={cn(
+                        'min-h-10 min-w-10 rounded-md text-sm',
+                        settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
+                      )}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(
+                [
+                  ['recorders', 'Recorders together'],
+                  ['gap', 'Disagreement gap'],
+                  ['unmet', 'Haven’t met yet'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-3 text-sm min-h-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-blue-500"
+                    checked={settings.toggles[key]}
+                    onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
 
-      {round && seats.length > 0 && (
-        <section className="mt-4 space-y-3">
-          <p className="text-[13px] text-muted-foreground" aria-live="polite">
-            {lifted ? `Tap who swaps with ${shortName(names.get(lifted) ?? '')}` : 'Tap two names to swap'}
-          </p>
-          <RoundGrid seats={seats} names={names} lifted={lifted} onName={onName} />
-          <div className="flex flex-wrap items-center gap-2 min-h-[44px]">
-            {lifted && (
-              <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={() => setLifted(null)}>
-                <X className="h-3.5 w-3.5" /> Cancel
-              </Button>
-            )}
-            {undoStack.length > 0 && (
-              <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
-                <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="ml-auto min-h-10 text-muted-foreground"
-              disabled={busy}
-              onClick={() => commitSeats(() => compute(round.roundNo), 'regroup')}
-              data-testid="host-regroup"
-            >
-              Regroup
-            </Button>
-          </div>
-        </section>
-      )}
-
-      <section className="mt-6" data-testid="host-whos-here">
-        <h2 className="text-sm font-semibold">
-          Who&rsquo;s here <span className="font-normal text-muted-foreground">({here.length})</span>
-          {round && unconfirmed > 0 && (
-            <span className="ml-2 font-normal text-muted-foreground">· {unconfirmed} haven&rsquo;t tapped in</span>
+      {!ended && (seats.length > 0 || waiting.length > 0 || outside.length > 0) && (
+        <section className="mt-5 space-y-4" data-testid="host-people">
+          <p className="text-[13px] text-muted-foreground">{round ? 'Tap a name to swap or mark out' : 'Tap a name to mark out'}</p>
+          {round && clock && seats.length > 0 && (
+            <TablesGrid seats={seats} byId={byId} phase={clock.phase} lifted={lifted} isOut={isOut} onTap={onTap} />
           )}
-        </h2>
-        <ul className="mt-2 divide-y divide-border rounded-xl border border-border bg-card">
-          {here.map(m => {
-            const seat = seatOf.get(m.id);
-            const sitsOut = presence.get(m.id)?.sitsOutRound === nextNo;
-            return (
-              <li key={m.id} className="flex items-center gap-2 px-3 py-1.5 min-h-12" data-testid="host-member">
-                <span className="flex-1 min-w-0 break-words text-sm">{m.displayName}</span>
-                <span className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-                  {seat ? (
-                    <>
-                      {seat.confirmedAt && <Check className="h-3.5 w-3.5 text-green-600" aria-label="at their table" />}
-                      Table {seat.table}
-                    </>
-                  ) : null}
-                </span>
-                {nextNo <= ROUNDS_PER_EVENING && evening !== 'ended' && (
-                  <Button
-                    type="button"
-                    variant={sitsOut ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="min-h-10 shrink-0 px-2 text-xs"
-                    aria-pressed={sitsOut}
-                    onClick={() => setPresenceFor(m.id, false, sitsOut ? null : nextNo)}
-                  >
-                    Sit out
+          <PeopleGroup title={round ? 'Next round' : 'Here'} people={waiting} lifted={lifted} hideCount={!round} onTap={onTap} />
+          <PeopleGroup title="Out" people={outside} lifted={lifted} out onTap={onTap} />
+
+          {lifted ? (
+            <div className="sticky bottom-3 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-2 pl-3 shadow-sm" aria-live="polite">
+              <span className="flex-1 min-w-0 text-sm">
+                {seatOf.has(lifted) && !isOut(lifted) ? `Swap ${firstName(liftedName)} with…` : liftedName}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-10 bg-white"
+                onClick={() => {
+                  setOut(lifted, !isOut(lifted));
+                  setLifted(null);
+                }}
+                data-testid="host-mark-left"
+              >
+                {isOut(lifted) ? 'Back in' : 'Out'}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0" onClick={() => setLifted(null)} aria-label="Cancel">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            round && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {undoStack.length > 0 && (
+                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
+                    <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
                   </Button>
                 )}
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="min-h-10 shrink-0 px-2 text-xs"
-                  onClick={() => setPresenceFor(m.id, true, null)}
-                  data-testid="host-mark-left"
+                  className="min-h-10"
+                  disabled={busy}
+                  onClick={() => commitSeats(() => compute(round.roundNo), 'regroup')}
+                  data-testid="host-regroup"
                 >
-                  Left
+                  <RefreshCw className="h-3.5 w-3.5" /> Regroup
                 </Button>
-              </li>
+              </div>
+            )
+          )}
+        </section>
+      )}
+
+      {pastRounds.length > 0 && (
+        <section className="mt-6 space-y-2" data-testid="host-past-rounds">
+          {[...pastRounds].reverse().map(r => {
+            const past = state.seatsByRound.get(r.id) ?? [];
+            const tapped = past.filter(s => s.confirmedAt).length;
+            return (
+              <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
+                <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                  <span className="font-medium">Round {r.roundNo}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {tapped} of {past.length} tapped in
+                  </span>
+                  <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="pb-2 pt-1">
+                  <TablesGrid seats={past} byId={byId} phase="seating" />
+                </div>
+              </details>
             );
           })}
-          {here.length === 0 && <li className="px-3 py-3 text-sm text-muted-foreground">Nobody yet.</li>}
-        </ul>
-        {gone.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {gone.map(m => (
-              <li key={m.id} className="flex items-center gap-2 px-3 text-sm text-muted-foreground">
-                <span className="flex-1 min-w-0 truncate line-through">{m.displayName}</span>
-                <Button type="button" variant="ghost" size="sm" className="min-h-10 px-2 text-xs" onClick={() => setPresenceFor(m.id, false, null)}>
-                  Back
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <details className="mt-6 rounded-xl border border-border bg-card px-4 py-3" data-testid="host-settings">
-        <summary className="cursor-pointer text-sm font-semibold min-h-8">Grouping</summary>
-        <div className="mt-3 space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm">Group size</span>
-            <div className="inline-flex rounded-lg bg-muted p-1">
-              {([2, 3, 4] as const).map(size => (
-                <button
-                  key={size}
-                  type="button"
-                  aria-pressed={settings.groupSize === size}
-                  onClick={() => setSettings({ ...settings, groupSize: size })}
-                  className={cn(
-                    'min-h-10 min-w-10 rounded-md text-sm',
-                    settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
-                  )}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-          {(
-            [
-              ['recorders', 'Recorders together'],
-              ['gap', 'Disagreement gap'],
-              ['unmet', 'Haven’t met yet'],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-3 text-sm min-h-10">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={settings.toggles[key]}
-                onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </details>
-
-      {state.rounds.filter(r => r.id !== round?.id).length > 0 && (
-        <section className="mt-6" data-testid="host-past-rounds">
-          <h2 className="text-sm font-semibold">Past rounds</h2>
-          {state.rounds
-            .filter(r => r.id !== round?.id)
-            .map(r => (
-              <details key={r.id} className="mt-2 rounded-xl border border-border bg-card px-4 py-3">
-                <summary className="cursor-pointer text-sm min-h-8">Round {r.roundNo}</summary>
-                <ul className="mt-2 space-y-1 text-sm">
-                  {groupByTable(state.seatsByRound.get(r.id) ?? []).map(table => (
-                    <li key={table.no}>
-                      <span className="text-muted-foreground">Table {table.no}:</span>{' '}
-                      {table.seats.map(s => `${names.get(s.id) ?? '—'} (${ROLE_LABEL[s.role]})`).join(', ')}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ))}
         </section>
       )}
     </div>
