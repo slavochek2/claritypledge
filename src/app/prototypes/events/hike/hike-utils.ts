@@ -22,13 +22,15 @@ export const HIKE_LABELS = {
   showMoreReviews: (n: number) => `Show ${n} more`,
   showFewerReviews: 'Show fewer',
   osmAttribution: '© OpenStreetMap contributors',
+  mapStart: 'Start',
+  mapMeet: 'Cafe',
   stats: {
     distance: 'Distance',
     elevation: 'Climb',
     routeType: 'Route',
     walkTime: 'Time',
-    difficulty: 'Difficulty',
-    meetWalk: 'Cafe → trail',
+    difficulty: 'Level',
+    meetWalk: 'To trail',
   },
 } as const;
 

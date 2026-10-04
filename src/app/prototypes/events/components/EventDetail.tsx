@@ -666,6 +666,10 @@ export function EventDetail() {
                 </button>
               </div>
 
+              {/* P1403: hike stats strip — directly under the title so it is above the fold at
+                  375×667 (AC1). Hides without data. */}
+              {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
+
               {/* Cancellation Notice - inside card for better UX */}
               {isCancelled && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -862,9 +866,6 @@ export function EventDetail() {
                   )}
                 </div>
               )}
-
-              {/* P1403: hike stats strip — near the top, before Reserve. Hides without data. */}
-              {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
 
               {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
                   P1365 repeats it after a description taller than the viewport (below).

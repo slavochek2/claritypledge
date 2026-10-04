@@ -52,15 +52,15 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   return (
     <dl
       data-testid="hike-stats"
-      className="grid grid-cols-3 gap-x-2 gap-y-3 rounded-lg border border-border bg-muted/40 p-3 mb-4"
+      className="grid grid-cols-3 gap-x-2 gap-y-1 rounded-lg border border-border bg-muted/40 px-3 py-1 mb-4 md:grid-cols-6 md:py-2"
     >
       {items.map(({ key, icon: Icon, label, value }) => (
         <div key={key} className="min-w-0" data-stat={key}>
-          <dt className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <dt className="flex items-center gap-1 text-[11px] leading-tight text-muted-foreground whitespace-nowrap">
             <Icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-            <span className="truncate">{label}</span>
+            <span>{label}</span>
           </dt>
-          <dd className="text-sm font-semibold text-foreground truncate">{value}</dd>
+          <dd className="text-sm leading-tight font-semibold text-foreground whitespace-nowrap">{value}</dd>
         </div>
       ))}
     </dl>
@@ -115,7 +115,7 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
 
   return (
     <section data-testid="hike-reviews" aria-label={HIKE_LABELS.reviews} className="mb-6">
-      <h2 className="text-sm font-semibold text-foreground mb-2">{HIKE_LABELS.reviews}</h2>
+      <h2 className="text-sm font-semibold text-foreground mb-2">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
       <ul className="space-y-3">
         {shown.map(review => {
           // A linked profile wins over the legacy stored path; either must be a safe in-app path.
@@ -174,7 +174,7 @@ export function HikeRouteMap({ geojson }: { geojson: unknown }) {
       <figure className="rounded-lg border border-border bg-muted/40 overflow-hidden">
         <svg
           viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-          className="block w-full h-auto"
+          className="block w-full h-auto max-h-64"
           role="img"
           aria-label="Hike route line"
         >
@@ -184,12 +184,14 @@ export function HikeRouteMap({ geojson }: { geojson: unknown }) {
           {projected.meet && (
             <g data-marker="meet">
               <circle cx={projected.meet.x} cy={projected.meet.y} r={5} fill="#ffffff" stroke="#1e293b" strokeWidth={2} />
+              <text x={projected.meet.x + 9} y={projected.meet.y + 4} fontSize={13} fontWeight={600} fill="#1e293b" paintOrder="stroke" stroke="#ffffff" strokeWidth={3}>{HIKE_LABELS.mapMeet}</text>
               <title>Meeting point</title>
             </g>
           )}
           {projected.start && (
             <g data-marker="start">
               <circle cx={projected.start.x} cy={projected.start.y} r={5} fill="#1e293b" />
+              <text x={projected.start.x + 9} y={projected.start.y + 4} fontSize={13} fontWeight={600} fill="#1e293b" paintOrder="stroke" stroke="#ffffff" strokeWidth={3}>{HIKE_LABELS.mapStart}</text>
               <title>Trail start</title>
             </g>
           )}
