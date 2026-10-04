@@ -61,6 +61,7 @@ export interface Profile {
    */
   links?: unknown;
   bannerUrl?: string; // P504: AI-generated profile banner image
+  bannerMobileUrl?: string; // P1413: hand-set phone banner, read-only in the UI
   bannerGenerationAttempted?: boolean; // P504: Whether banner generation was attempted
   isTestAccount?: boolean; // P1133: plumbed through for Mixpanel is_internal tagging
 }
@@ -115,6 +116,7 @@ export interface DbProfile {
   bio?: string | null; // P414: self-description; widened to 2000 chars by P1259
   links?: unknown; // P1259: the subject's own public profiles, JSONB array — validate before render
   banner_url?: string | null; // P504: AI-generated profile banner image
+  banner_mobile_url?: string | null; // P1413: phone banner
   banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
   is_test_account?: boolean; // P571: Excludes account from public /pledgers listing
 }

@@ -641,6 +641,7 @@ export function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 
     bio: dbProfile.bio ?? null, // P414: self-description (P1259: up to 2000 chars)
     links: dbProfile.links ?? [], // P1259: the subject's own public profiles, validated at render
     bannerUrl: dbProfile.banner_url ?? undefined, // P504: AI-generated profile banner
+    bannerMobileUrl: dbProfile.banner_mobile_url ?? undefined, // P1413
     bannerGenerationAttempted: dbProfile.banner_generation_attempted ?? false, // P504
     isTestAccount: dbProfile.is_test_account ?? false, // P1133: Mixpanel is_internal tagging
   };

@@ -959,6 +959,8 @@ export function ProfilePageV2() {
             {/* P510: Banner with visible gradient fallback, custom height */}
             <BannerDisplay
               bannerUrl={banner.bannerUrl}
+              // P1413: read from `profile`, not `useBanner` — hand-set/read-only, as P1354 for events
+              mobileBannerUrl={profile.bannerMobileUrl}
               altText={`${profile.name}'s profile banner`}
               heightClassName="h-[120px] md:h-[160px]"
               fallbackClassName="bg-gradient-to-r from-blue-500/20 via-indigo-400/15 to-purple-500/20"
