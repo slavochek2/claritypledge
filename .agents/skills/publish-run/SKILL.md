@@ -430,6 +430,12 @@ For a Social Hike, set the skin fields on the event row — `series_slug`, `hike
 
 Then open the page at 375px and desktop and confirm the stats row, the map tile, the route map (real shape) and the reviews render — a missing field hides its section silently.
 
+**Keep the founder out of the loop where nothing needs him:** do every prod write for the hike
+(event row, skin fields, banner, series rows) in **one** script with **one** keyring read, so he
+answers one Allow dialog per run, not one per field (2026-10-04 cost him seven). Show him the
+finished page once, after the checklist passes, not intermediate states. Ask only for what is
+his: copy he wrote, the photo set, and the publish click.
+
 ### 9. Open the event page
 
 Navigate the Chrome tab to: `https://claritypledge.com/events/[SLUG]`

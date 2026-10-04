@@ -82,7 +82,11 @@ function buildSandbox(): string {
   // this file tests. Copy the real guards in rather than stubbing them, so the
   // sandbox mirrors the shipped layout.
   mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true });
-  for (const lib of readdirSync(resolve(process.cwd(), 'scripts/lib'))) {
+  // Files only: a Python helper run from scripts/lib leaves a __pycache__/ directory there,
+  // and copyFileSync on a directory throws in beforeAll, which failed every pre-commit run
+  // on 2026-10-04 until the cache was deleted by hand.
+  for (const lib of readdirSync(resolve(process.cwd(), 'scripts/lib'), { withFileTypes: true })
+    .filter(e => e.isFile()).map(e => e.name)) {
     copyFileSync(
       resolve(process.cwd(), 'scripts/lib', lib),
       join(dir, 'scripts', 'lib', lib),

@@ -201,7 +201,9 @@ to the series and show on every hike. Add a review as a row linked to the review
 the description (the old "From a regular" block is retired). New photos: strip metadata
 (`ffmpeg -map_metadata -1`), upload under `hikes/social-hike/`, add a row with an `alt`; social
 shots first. Faces of people who have not agreed are the founder's call, never the agent's; no
-children.
+children. Pick what makes a stranger want to come: groups, smiles, views, friendly animals
+(the elephants stayed). Nothing that could put someone off: the founder removed a snake photo
+on 2026-10-04.
 
 ## Banner from a group photo — the recipe, so it is not re-derived
 
