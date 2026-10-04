@@ -9,6 +9,7 @@ import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opport
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 import { KANBAN_CONFIG } from '../config'
 import { inboxEnabled, registerInboxRoutes } from './inbox'
+import { dayEnabled, registerDayRoutes } from './day'
 
 const app = express()
 // CORS is an ORIGIN ALLOWLIST, not a wildcard. Restored here after being lost:
@@ -600,6 +601,7 @@ app.get('/api/config', (_req, res) => {
     faviconEmoji: KANBAN_FAVICON_EMOJI,
     wipLimits: WIP_LIMITS,
     inboxEnabled: inboxEnabled(),
+    dayEnabled: dayEnabled(),
   })
 })
 
@@ -991,6 +993,9 @@ function openInVSCode(args: string[], res: express.Response) {
 // P1317: inbox cards. `-g path:line` is what lets the editor land on the entry's
 // heading — the generic /api/open above has no way to target a line.
 registerInboxRoutes(app, DEFAULT_PROJECT_ROOT, (target, res) => openInVSCode(['-r', '-g', target], res))
+
+// P1399: the Day page — /day runs and the founder's decisions. Off unless KANBAN_DAY_DIR is set.
+registerDayRoutes(app)
 
 // GET /api/goals - milestone-based goals removed; returns empty
 app.get('/api/goals', async (_req, res) => {

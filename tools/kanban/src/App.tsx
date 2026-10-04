@@ -17,6 +17,7 @@ import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
 import { ContentPage } from './components/ContentPage'
 import { PipelinePage } from './components/PipelinePage'
+import { DayPage } from './components/DayPage'
 import { Feature, FeatureType, Status } from './lib/types'
 import {
   STORAGE_KEYS,
@@ -56,6 +57,8 @@ interface KanbanConfig {
   wipLimits?: Record<string, number>
   // P1317: deferred-work inbox cards. Off for embedders (pp) — see server/inbox.ts.
   inboxEnabled?: boolean
+  // P1399: the Day page. On only when the server has a private day-data dir (pp).
+  dayEnabled?: boolean
 }
 
 interface ColumnConfig {
@@ -88,6 +91,7 @@ const ALL_DONE_COLUMN: ColumnConfig = {
 const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected'])
 
 const ALL_PAGES: { id: PageId; icon: string; label: string }[] = [
+  { id: 'day', icon: '☀️', label: 'Day' },
   { id: 'board', icon: '\u{1F4CB}', label: 'Board' },
   { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
   { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
@@ -110,6 +114,14 @@ const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
   { id: 'story', label: 'Story', color: 'var(--tag-green-bg)' },
   { id: 'change-request', label: 'Change Request', color: 'var(--tag-purple-bg)' },
 ]
+
+// The Day page exists only where the server says it is enabled (pp); every other page is
+// visible unless the embedder hides it.
+function isPageVisible(id: PageId, config: KanbanConfig): boolean {
+  if (config.hidePages.includes(id)) return false
+  if (id === 'day') return config.dayEnabled === true
+  return true
+}
 
 export default function App() {
   const [config, setConfig] = useState<KanbanConfig | null>(null)
@@ -150,12 +162,12 @@ export default function App() {
   // (stale `kanban-page` values pointing at a now-hidden page fall back to 'board').
   const visiblePages = useMemo(() => {
     if (!config) return new Set<PageId>(ALL_PAGES.map(p => p.id))
-    return new Set<PageId>(ALL_PAGES.filter(p => !config.hidePages.includes(p.id)).map(p => p.id))
+    return new Set<PageId>(ALL_PAGES.filter(p => isPageVisible(p.id, config)).map(p => p.id))
   }, [config])
 
   const filteredPages = useMemo(() => {
-    if (!config) return ALL_PAGES
-    return ALL_PAGES.filter(p => !config.hidePages.includes(p.id))
+    if (!config) return ALL_PAGES.filter(p => p.id !== 'day')
+    return ALL_PAGES.filter(p => isPageVisible(p.id, config))
   }, [config])
 
   // Build API URL with worktree param. Skip the param entirely when worktrees
@@ -904,6 +916,12 @@ export default function App() {
                   currentWorktree={selectedWorktree || undefined}
                 />
               </div>
+            </div>
+          )}
+
+          {currentPage === 'day' && (
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <DayPage />
             </div>
           )}
 

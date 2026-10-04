@@ -116,6 +116,16 @@ a problem** becomes an item: Needs your answer if only the founder can resolve i
 otherwise. A check that **did not run or could not prove its result** becomes a Give-to-an-agent
 item, never a ✓. Its full raw output sits one step away in the all-checks table.
 
+**The rule is enforced by the renderer, not by the agent.** A check whose status is `problem`,
+`not-run` or `unproven` and that no recorded item points at gets an item synthesised for it. On
+2026-10-04 the agent recorded 5 findings while the checks showed about 9 problems (adversarial
+review, verified against the ledger). Every row below therefore has an implicit third column:
+**did not run → G**, whatever its "when not fine" cell says.
+
+**An item with options is a question.** The same fault never appears twice: a finding that carries
+a question is shown under Needs your answer, otherwise under Give to an agent. One fault, one
+fingerprint, one card.
+
 **Mid-run asks are separate.** When the run is blocked on the founder *right now* (open Beeper, log
 in to gcloud), it asks in one line at that moment and carries on. That is not a report section. The
 outcome lands in Done ("calendar refreshed after Beeper was opened") or, if still unresolved at the
@@ -127,12 +137,13 @@ Tiers: **D** Done ✓ · **A** Needs your answer · **G** Give to an agent · **
 | Current output | When fine | When not fine | Why |
 |---|---|---|---|
 | Model warning (not on Opus) | N in card; one header note "ran on Sonnet" | same | The founder chooses the model; one note is enough |
-| Setup reminders, extension check | N | A if it needs his hand, else G | Housekeeping that only matters when broken |
+| Setup reminders (Whisper reset, extension check) | N | A if it needs his hand, else G | Housekeeping that only matters when broken |
+| MCP / OAuth reconnect needed (Sentry, Mixpanel, Beeper token) | N | A, because only he can sign in | Agent cannot complete a sign-in |
 | gcloud gate | N | mid-run ask | Blocks the run, so it cannot wait for the card |
-| Start gate (previous pass finished?) | N | G "yesterday's run did not finish: steps …" | Only news when it failed |
+| Start gate (previous pass finished?, calendar staleness, stop-hook liveness, NO LEDGER) | N | G "yesterday's run did not finish: steps …" | Only news when it failed |
 | Due board (weekly/monthly reviews) | N | G "weekly review N days overdue (run in pp)" | An agent session can run a review |
 | Sub-days dispatched | D "ClarityPledge checks: N ran" | G | Proves the second half happened |
-| GCP credits | R Money | A when the baseline needs a console reading | Only he can read the console page |
+| GCP credits | R Money | A (finding with a question) when the baseline needs a console reading · LOW BALANCE → A | Only he can read the console page |
 | GCP budgets | R Money (account-wide %), per-budget lines X | G if a budget is new-over or unmeasured is new | Percent of budget is what he steers by |
 | AI keys spend + prod ping | R Money "N keys, 0 over budget" | G unmonitored or dead key · A missing cap (console click) | Money summary daily; gaps are work |
 | Off-machine mirror | D "N of N repos backed up" | G names the stale repo and age | A backup he never has to think about |
@@ -145,7 +156,8 @@ Tiers: **D** Done ✓ · **A** Needs your answer · **G** Give to an agent · **
 | Calendar concerns list | X, count on the Done line | G only if events were pushed wrong | 29 lines nobody acts on |
 | Beeper triage: you came up, help requests | R Life counts, full text X | — | Ambient; worth a glance, not a task |
 | Unanswered replies to his event posts | — | A "reply to … in …" | Missed replies on hikes were a stated pain (2026-09-03) |
-| Stale triage digest | note on the Life reading "(from 2 Oct)" | — | Honest about freshness |
+| Stale triage digest | note on the Life reading "(from 2 Oct)" | G when older than 1 day: the digest pipeline is not running | Freshness is a pipeline fault, not a footnote |
+| Imprecise reply matching (IMPRECISE count) | note on the Life reading | — | Says the reply count is weaker evidence |
 | Memory save | N, or D if something was saved | — | Internal |
 | Findings filed to inbox | D "N items filed" | G if filing failed | Proof the work left the session |
 | Hand-off prompt | the G group's Copy prompt; full text X | — | One action instead of a re-ask |
@@ -173,10 +185,15 @@ Tiers: **D** Done ✓ · **A** Needs your answer · **G** Give to an agent · **
 
 - A new page in the sidebar, present only when the server is given a day-data directory (the pp
   launcher sets it; the cp launcher does not).
-- Top: run header and the Readings strip. Then Done (collapsed to one line, expandable). Then the
-  three groups as cards.
-- Card actions: **Needs your answer** shows the options as buttons plus park and snooze. **Give to
-  an agent** has one "Copy prompt" for the group and per-card park and snooze. **On hold** shows the
+- **Order: header with a one-line summary** ("2 need your answer · 8 for an agent · ✓ 11 done ·
+  14 of 23 checks clean") **→ the three groups → Readings → Done ✓ → one step away.** The first
+  build put Readings and Done on top, and at 1440×900 "Needs your answer" fell below the fold:
+  the original complaint, rebuilt. Actions first; success stays visible in the summary line.
+- A run that is the newest but older than 24h carries a warning: either /day has not run, or a
+  later run died before saving (adversarial review W7).
+- Card actions: **Needs your answer** shows the options as buttons plus hold and snooze. **Give to
+  an agent** has one "Copy prompt" for the group, and per card: **Fixed**, **Not a problem** (a false
+  alarm, so a later phase can flag the check that raised it), snooze and hold. **On hold** shows the
   founder's reason and age, and an "un-hold" action.
 - A list of earlier runs: date, complete or not, and counts per group. Selecting one shows that
   run read-only (decisions apply to the latest run only).
@@ -186,13 +203,35 @@ Tiers: **D** Done ✓ · **A** Needs your answer · **G** Give to an agent · **
 
 Private, outside every repo: a day-data directory holding `reports/<pass>.json` (one per run) and
 `decisions.jsonl` (append-only). The board reads both; it writes only `decisions.jsonl`. An item is
-keyed by the **fingerprint** `/day` already computes for findings (check id + stable title), so a
-decision on Monday still matches the same fault on Thursday.
+keyed by a **fingerprint** so a decision on Monday still matches the same fault on Thursday.
+
+**The fingerprint must not come from the title** (adversarial review B1, verified 2026-10-04 against
+the private inbox: the Agent VM fault was filed under 6 different fingerprints, the mirror under 4,
+CRM ingest under 3, because titles carried "62h+", "13.6 days", "escalated 7d"). Phase 2 makes the
+fingerprint `check id + fault key`, where the fault key is a fixed slug the check names
+(`vm:healer-gave-up`, `mirror:repo-stale:<repo>`), never prose. Titles are free text.
+
+**Titles carry no ages or counts.** The card shows "open N days" from `first_seen`; a title that
+also says "19 days" disagrees with it the next morning (seen in the first build: title "19 days
+ago", card "open 20 days"). Counts and dates go in `why` or `evidence`.
 
 ### 5. Phase 2: `/day` produces the report
 
-- Checks record items at the moment of finding, extending the existing finding command with an
-  optional question/options, area and deadline. Readings and Done lines are recorded the same way.
+- **Per-check status, from the check's own command.** Today the ledger records one row per *wave*
+  (`cp.w3 ok 0` while RLS drift inside it exited 1), and 14 of 34 rows are agent-attested prose.
+  Each check prints one machine line (`CHECK <id> <ok|problem|not-run|unproven> <detail>`) that the
+  step runner records; MCP checks that only the agent can attest are marked agent-reported. This is
+  a change to how results are *recorded*, not to what is checked, so it sits inside the non-goal.
+- Checks record items at the moment of finding, extending the existing finding command with a
+  required fault key, optional question/options, area, deadline and evidence. Readings and Done
+  lines are recorded the same way.
+- **The report is written at the start of the pass (state `running`) and rewritten at the end**,
+  so a pass that dies still leaves a visible, incomplete report instead of yesterday's as "latest".
+- **The terminal prints only the card.** Detail lives on the board; `day detail` prints it on
+  demand. Printing a DETAIL block after the card would leave the terminal as long as today
+  (review N12).
+- Age of a fault already open before Phase 2: taken from the check's own clock when it reports one
+  (the healer's `unhealthy_since`), else from the first run that saw the fingerprint.
 - At the end of the pass a renderer script (not the agent) reads the ledger, the manifests and the
   decisions file, writes the run's JSON, and prints the terminal card. The agent relays it.
 - The existing hand-off prompt is generated from the "Give to an agent" group and opens by telling
@@ -209,7 +248,11 @@ decision on Monday still matches the same fault on Thursday.
   evidence screenshots use synthetic fixtures (P1317 precedent).
 - **Nothing derived from report content is logged**, nor persisted in browser storage. Logs carry
   path, line and a fixed-vocabulary reason only. The API binds to loopback (P1317 Invariants).
-- **Only the founder puts an item on hold.** No agent path writes a hold decision.
+- **Only the founder puts an item on hold.** No agent code path writes a hold decision: the board
+  writes on his click, and a terminal `/day park` runs only when he types it. This is enforced by
+  where the writers are, not cryptographically: the decisions file is a plain private file.
+  Decisions made before this shipped (the 2026-10-02 VM deferral, the p1181 park) are not
+  migrated by an agent. He presses Hold on them once.
 - **The board's inbox stays read-only.** Day decisions go to their own file; they never edit, close
   or annotate inbox entries (P1317 Non-Goals).
 
@@ -224,7 +267,10 @@ decision on Monday still matches the same fault on Thursday.
 | Phase 1 fixture drifts from what Phase 2 emits | MITIGATE | Phase 1 defines a validated schema; Phase 2 must pass the same validator |
 | Decision file written while a `/day` pass reads it | ACCEPT | Append-only lines, read once at render; a decision made mid-run lands on the next run |
 | Report history grows without bound | ACCEPT | ~10 KB per run; prune later if ever needed |
-| Two-step terminal ("DETAIL" after the card) still long in a terminal | DEFER | Revisit after two weeks of Phase 2 runs |
+| Terminal still long | MITIGATE | Phase 2 prints the card only; detail on demand |
+| Fingerprints drift with titles (verified: 6 fingerprints for one fault) | MITIGATE | Fault key, Solution 4 |
+| Ledger is per wave, so a problem inside a wave reads ok | MITIGATE | Per-check status lines, Solution 5 |
+| Phone widths: the board shell keeps a 200px sidebar, and the API answers on loopback only, so no phone can reach it | ACCEPT | Verified at 720px (half-screen) and at 375/320 with the sidebar collapsed |
 
 **Non-Goals**
 - Do NOT show the Day page on the cp board.
@@ -245,18 +291,30 @@ decision on Monday still matches the same fault on Thursday.
       decisions file. Reloading the page keeps the result.
 - [ ] Expanding an item shows its evidence. Opening "all checks" lists every check with its status.
 - [ ] An earlier run can be opened from the history list and reads as read-only.
-- [ ] Known-bad control: a fixture with a check that did not run shows it under "Give to an agent"
-      and the Checks reading does not count it as clean.
+- [ ] Known-bad control: a fixture with a check whose status is not-run, unproven or problem and
+      **no item pointing at it** shows a synthesised card under "Give to an agent", and the Checks
+      reading does not count it as clean. The grouping is computed by the board from the check
+      status, so the control can fail (shown by breaking the rule and watching the test go red).
+- [ ] "Not a problem" resolves an item as a false alarm, distinct from "Fixed".
+- [ ] A newest run older than 24h shows a warning.
+- [ ] The API answers on loopback only (`lsof` evidence), and no report text reaches the server log
+      (a secret marker in the fixtures is asserted absent from captured logs).
 - [ ] Missing day-data directory → the page says so plainly. An empty reports directory → "no runs
       recorded yet". Neither shows an empty-but-normal page.
-- [ ] Screenshots at 1440, 375 and 320 px pass the visual QA checklist, reviewed by a separate
-      subagent given only screenshots and the checklist.
+- [ ] Screenshots at 1440, 720, and 375/320 (sidebar collapsed) pass the visual QA checklist,
+      reviewed by a separate subagent given only screenshots and the checklist. Screenshots use a
+      synthetic copy of the run, never the real one.
+- [ ] At 1440×900, "Needs your answer" is visible without scrolling.
 
 **Phase 2: `/day` writes it**
 - [ ] A real `/day` pass ends with the renderer's card as its final output, and the same run
       appears on the board without hand-editing.
 - [ ] An item the founder parked on the board does not appear under "Needs your answer" on the
-      next pass. It shows under "On hold" with the reason.
+      next pass, **even when the check's title text changed**. It shows under "On hold" with the
+      reason.
+- [ ] Every check has its own status row in the ledger; a check failing inside a wave is a problem
+      on the board.
+- [ ] A pass killed mid-run leaves a report marked incomplete, and the board shows it as latest.
 - [ ] A standing fault's age is computed from the first run that saw it, and matches the healer's
       own date within a day.
 
@@ -276,6 +334,16 @@ decision on Monday still matches the same fault on Thursday.
 Phase 1: unset the day-data directory in the pp launcher and the page disappears, or revert the
 board commit. Phase 2: revert the skill and script commits; `/day` returns to agent-composed
 output. Private data files can be deleted without affecting anything else.
+
+## Review findings (2026-10-04)
+
+One hostile reviewer, 1 of 1 reported. Verified by command before adoption: B1 (fingerprint drift,
+inbox titles), B2/B3 (per-wave ledger, 5 findings vs ~9 problems, from the run's own ledger). B4
+was partly wrong: the Phase 1 board computes grouping from check status, and the control was shown
+to fail when the rule was broken. W5, W7, W8, W11 and N12 adopted above. W10: the server logs only
+fixed-vocabulary reasons (asserted by test with a secret marker); QA screenshots use a synthetic
+copy. Not verified by anyone: Vite dev-server DNS-rebinding behaviour (the API itself refuses
+non-loopback Host headers, tested).
 
 ## Open Questions
 
