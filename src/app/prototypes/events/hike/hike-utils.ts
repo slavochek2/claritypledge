@@ -83,8 +83,9 @@ export function parseHikeDetails(raw: unknown): HikeStats | null {
     routeMapLink: str(r.route_map_link, 2000),
     meetName: str(r.meet_name, 80),
   };
-  const statKeys: (keyof HikeStats)[] = ['distanceKm', 'elevationGainM', 'routeType', 'walkTimeText', 'difficulty', 'meetWalkMinutes'];
-  const displayable = statKeys.some(k => stats[k] !== undefined);
+  // Any field counts: a details object holding only the map or the cafe name still drives
+  // those sections (the stats row hides itself when it has no stat to show).
+  const displayable = Object.values(stats).some(v => v !== undefined);
   return displayable ? stats : null;
 }
 
@@ -220,17 +221,17 @@ export const HIKE_BANNER_HEIGHT_CLASS = 'h-48 md:h-[22rem] lg:h-[26rem]';
  * Founder 2026-10-04: the map belongs inside the description's own route section, and reviews
  * right after it — not a second "Route" heading under the description. Splits the rendered
  * description HTML at the end of the first <h2> section whose heading mentions "route".
- * No such heading → [whole, ''], and the caller places map + reviews after the description.
+ * No such heading → matched: false, and the caller places map + reviews after the description.
  */
-export function splitAfterRouteSection(html: string): [string, string] {
+export function splitAfterRouteSection(html: string): { before: string; after: string; matched: boolean } {
   const heads = [...html.matchAll(/<h2[\s>]/g)].map(m => m.index ?? 0);
   for (let i = 0; i < heads.length; i++) {
     const close = html.indexOf('</h2>', heads[i]);
     const text = html.slice(heads[i], close).replace(/<[^>]*>/g, '');
     if (/route/i.test(text)) {
       const end = i + 1 < heads.length ? heads[i + 1] : html.length;
-      return [html.slice(0, end), html.slice(end)];
+      return { before: html.slice(0, end), after: html.slice(end), matched: true };
     }
   }
-  return [html, ''];
+  return { before: html, after: '', matched: false };
 }

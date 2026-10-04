@@ -92,7 +92,14 @@ export function EventDetail() {
   const openImage = useCallback((src: string, alt: string) => setLightbox({ src, alt }), []);
   const onDescriptionClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
-    if (t instanceof HTMLImageElement && t.closest('.event-description') && !t.closest('a, button')) {
+    if (t instanceof HTMLImageElement && t.closest('[data-description-html]') && !t.closest('a, button')) {
+      setLightbox({ src: t.currentSrc || t.src, alt: t.alt });
+    }
+  }, []);
+  const onDescriptionKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if ((e.key === 'Enter' || e.key === ' ') && t instanceof HTMLImageElement && t.closest('[data-description-html]')) {
+      e.preventDefault();
       setLightbox({ src: t.currentSrc || t.src, alt: t.alt });
     }
   }, []);
@@ -340,6 +347,15 @@ export function EventDetail() {
     () => (event ? renderEventDescription(event.description) : ''),
     [event?.description],
   );
+  // Description images open in the lightbox — make them reachable by keyboard too.
+  useEffect(() => {
+    descriptionEl?.querySelectorAll<HTMLImageElement>('[data-description-html] img, img').forEach(img => {
+      if (!img.closest('[data-description-html]') || img.closest('a, button')) return;
+      img.tabIndex = 0;
+      img.setAttribute('role', 'button');
+      img.setAttribute('aria-label', `View image full size${img.alt ? `: ${img.alt}` : ''}`);
+    });
+  }, [descriptionEl, descriptionHtml]);
   const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
   const hikeDifficulty = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.difficulty : undefined;
@@ -963,17 +979,20 @@ export function EventDetail() {
                 <div
                   ref={setDescriptionEl}
                   onClick={onDescriptionClick}
+                  onKeyDown={onDescriptionKeyDown}
                   className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 >
-                  <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[0] }} />
-                  {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts[1]} onOpenImage={openImage} />}
+                  <div data-description-html dangerouslySetInnerHTML={{ __html: hikeDescriptionParts.before }} />
+                  {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts.matched} onOpenImage={openImage} />}
                   {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
-                  {hikeDescriptionParts[1] && <div dangerouslySetInnerHTML={{ __html: hikeDescriptionParts[1] }} />}
+                  {hikeDescriptionParts.after && <div data-description-html dangerouslySetInnerHTML={{ __html: hikeDescriptionParts.after }} />}
                 </div>
               ) : (
                 <div
                   ref={setDescriptionEl}
                   onClick={onDescriptionClick}
+                  onKeyDown={onDescriptionKeyDown}
+                  data-description-html
                   className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                   dangerouslySetInnerHTML={{ __html: descriptionHtml }}
                 />

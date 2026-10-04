@@ -28,6 +28,10 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS hike_details jsonb,
   ADD COLUMN IF NOT EXISTS route_geojson jsonb;
 
+-- Re-runnable: drop-then-add (review 2026-10-04).
+ALTER TABLE public.events
+  DROP CONSTRAINT IF EXISTS events_hike_details_is_object,
+  DROP CONSTRAINT IF EXISTS events_route_geojson_is_object;
 ALTER TABLE public.events
   ADD CONSTRAINT events_hike_details_is_object
     CHECK (hike_details IS NULL OR jsonb_typeof(hike_details) = 'object'),
@@ -66,6 +70,7 @@ ALTER TABLE public.series_reviews ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.series_reviews FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.series_reviews TO anon, authenticated;
 
+DROP POLICY IF EXISTS "Series reviews are public" ON public.series_reviews;
 CREATE POLICY "Series reviews are public"
   ON public.series_reviews FOR SELECT
   TO anon, authenticated
@@ -92,6 +97,7 @@ ALTER TABLE public.series_photos ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.series_photos FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.series_photos TO anon, authenticated;
 
+DROP POLICY IF EXISTS "Series photos are public" ON public.series_photos;
 CREATE POLICY "Series photos are public"
   ON public.series_photos FOR SELECT
   TO anon, authenticated

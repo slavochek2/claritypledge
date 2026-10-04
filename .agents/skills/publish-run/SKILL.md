@@ -345,6 +345,16 @@ dimensions actually changed rather than trusting the script's success line.
 
 If no photo was supplied, skip this step entirely.
 
+**Resolution gate — check before cropping, upscale when short.** The desktop banner needs a
+source at least **2880 px wide** (a 1440 px screen at 2x); the mobile one at least 1600 px. Chat
+photos (WhatsApp, Telegram) arrive at ~1536 px, so they fail it and look soft on a laptop; the
+2026-10-11 banner shipped that way. When `sips -g pixelWidth` reports less, upscale the source once
+with Nano Banana Pro (`gemini-3-pro-image-preview`, the photo as `inline_data`, `imageSize: "4K"`,
+the source's own aspect ratio, prompt: *same photo, only more resolution, add or move nothing*),
+compare it side by side with the original (same people, same poses), then crop both banners from
+the upscaled file. Desktop crop about 3.2:1 (2880x900): the hike banner is tall on desktop, so a
+thin 6:1 strip gets enlarged and cut. Mobile crop 2:1 (1600x800).
+
 ### 8c. Group chat link — the gated field, never the description
 
 If the founder supplied a WhatsApp (or Telegram / Signal / Discord) invite link in step 5, write
@@ -402,6 +412,10 @@ python3 scripts/supabase-readonly-sql.py --env prod \
 
 An empty array means the write silently failed and the button will not render — a successful curl
 exit code is not evidence the row exists.
+
+### 8d. Social Hike skin (hikes only)
+
+For a Social Hike, set the skin fields on the event row — `series_slug`, `hike_details`, `route_geojson`, and the rendered route map. What each one is and where it comes from lives in [social-hike.md § Social Hike skin](../../../../docs/events/series/social-hike.md#social-hike-skin--the-event-page-format-p1403); follow it rather than restating it here. Prod patch shape is the same as step 8b. Then open the page at 375px and desktop and confirm the stats row, the map tile and the reviews render — a missing field hides its section silently.
 
 ### 9. Open the event page
 

@@ -69,43 +69,48 @@ function isAllowedPhotoUrl(url: string): boolean {
 
 export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: SeriesPhoto[]; mapUrl?: string; onOpenImage?: (src: string, alt: string) => void }) {
   const shown = photos.filter(p => isAllowedPhotoUrl(p.storageUrl));
-  if (shown.length === 0) return null;
+  const mapTile = mapUrl && isAllowedPhotoUrl(mapUrl) ? mapUrl : undefined;
+  if (shown.length === 0 && !mapTile) return null;
+
+  // Founder 2026-10-04: like AllTrails, the route map sits in the gallery as the second tile
+  // (first when there is at most one photo). One flat list, one key per item.
+  type Tile = { kind: 'photo'; photo: SeriesPhoto } | { kind: 'map'; src: string };
+  const tiles: Tile[] = shown.map(photo => ({ kind: 'photo', photo }));
+  if (mapTile) tiles.splice(Math.min(1, tiles.length), 0, { kind: 'map', src: mapTile });
+
   return (
     // w-0 min-w-full: the section takes the column's width but contributes no
     // min-content, so the scroller can never widen the page (no horizontal page scroll).
     <section data-testid="hike-photos" aria-label={HIKE_LABELS.photos} className="w-0 min-w-full mb-3">
       <h2 className="sr-only">{HIKE_LABELS.photos}</h2>
       <ul className="flex gap-2 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2">
-        {shown.map((photo, i) => [
-          // Founder 2026-10-04: like AllTrails, the route map sits in the gallery, second tile.
-          i === 1 && mapUrl && isAllowedPhotoUrl(mapUrl) && (
-            <li key="route-map" className="snap-start flex-shrink-0 w-[62%] sm:w-56">
-              <a href="#hike-route" className="relative block aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
-                <img src={mapUrl} alt="Route map" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm">
-                  <MapIcon className="h-3.5 w-3.5" aria-hidden="true" /> {HIKE_LABELS.route}
-                </span>
-              </a>
-            </li>
-          ),
-          <li key={photo.id} className="snap-start flex-shrink-0 w-[62%] sm:w-56">
+        {tiles.map(tile => tile.kind === 'map' ? (
+          <li key="route-map" className="snap-start flex-shrink-0 w-[62%] sm:w-56">
+            <a href="#hike-route" className="relative block aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
+              <img src={tile.src} alt="Route map" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm">
+                <MapIcon className="h-3.5 w-3.5" aria-hidden="true" /> {HIKE_LABELS.route}
+              </span>
+            </a>
+          </li>
+        ) : (
+          <li key={tile.photo.id} className="snap-start flex-shrink-0 w-[62%] sm:w-56">
             <figure>
-              {/* aspect box reserves height before the image loads — no layout jump */}
-              {/* Founder 2026-10-04: tap a photo to see it big. */}
+              {/* Founder 2026-10-04: tap a photo to see it big. Aspect box reserves height. */}
               <button
                 type="button"
-                onClick={() => onOpenImage?.(photo.storageUrl, photo.alt)}
-                aria-label={`View photo: ${photo.alt}`}
+                onClick={() => onOpenImage?.(tile.photo.storageUrl, tile.photo.alt)}
+                aria-label={`View photo: ${tile.photo.alt}`}
                 className="block aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted cursor-zoom-in"
               >
-                <img src={photo.storageUrl} alt={photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <img src={tile.photo.storageUrl} alt={tile.photo.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </button>
-              {photo.credit && (
-                <figcaption className="mt-1 text-[11px] text-muted-foreground truncate">{photo.credit}</figcaption>
+              {tile.photo.credit && (
+                <figcaption className="mt-1 text-[11px] text-muted-foreground truncate">{tile.photo.credit}</figcaption>
               )}
             </figure>
-          </li>,
-        ])}
+          </li>
+        ))}
       </ul>
     </section>
   );

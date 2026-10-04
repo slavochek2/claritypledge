@@ -157,6 +157,38 @@ Coffee or lunch after for anyone who feels like it.
   speak; end the description with the terms.
 - No em dashes in the prose. Short sentences. Facts stay, framing goes.
 
+## Social Hike skin — the event page format (P1403)
+
+Every Social Hike publishes in this skin; `publish-run` step 8d sets it. The founder named it on
+2026-10-04: *"use this latest format ... let's call it social hike skin."* The page reads like an
+AllTrails trail page but stays a community event: who organises it, real photos from our hikes,
+then the trail facts.
+
+**Top to bottom:** banner → title → `Moderate · Organized by <org> · Learn more` → swipeable
+photos from past hikes (the route map is the second tile) → stats row (big number, small unit:
+distance, climb, time, loop/out-and-back icon) → date, `Meet at <cafe>` → description, with the
+route map and the **Reviews** row inside its "The route" section, before "Where we meet".
+Every photo, the map, and any image in a description open full size on tap.
+
+**What a run writes (all on the event row, nothing in the description):**
+
+| Field | Value |
+|---|---|
+| `series_slug` | `social-hike` (selects the skin; never inferred from the title) |
+| `hike_details.distance_km` · `elevation_gain_m` · `route_type` · `walk_time_text` · `difficulty` | from the trail DB / AllTrails page |
+| `hike_details.meet_name` | the cafe name, shown as "Meet at …" |
+| `hike_details.meet_walk_minutes` · `meet_walk_url` | the cafe→trailhead walk (OSM directions link) |
+| `hike_details.route_map_url` | `node scripts/hike-route-map.mjs route.geojson out.jpg`, uploaded to `gs://claritypledge-story-images/hikes/<slug>/route-map.jpg` |
+| `route_geojson` | the trail line plus `Point` features with `properties.kind` = `start` / `meet` |
+
+**Series content, not per event:** reviews (`series_reviews`) and photos (`series_photos`) belong
+to the series and show on every hike. Add a review as a row linked to the reviewer's profile
+(`author_profile_id`) so the card shows their avatar and links to them; never paste reviews into
+the description (the old "From a regular" block is retired). New photos: strip metadata
+(`ffmpeg -map_metadata -1`), upload under `hikes/social-hike/`, add a row with an `alt`; social
+shots first. Faces of people who have not agreed are the founder's call, never the agent's; no
+children.
+
 ## Banner from a group photo — the recipe, so it is not re-derived
 
 The event page renders the banner at about **5.85:1** on desktop (1497x256) and **1.95:1** on

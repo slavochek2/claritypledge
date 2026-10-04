@@ -105,10 +105,11 @@ describe('P1403: map + reviews sit inside the description route section (founder
   it('splits after the first h2 section whose heading mentions route', async () => {
     const { splitAfterRouteSection } = await import('@/app/prototypes/events/hike/hike-utils');
     const html = '<p>Intro</p><h2>The route</h2><p>Loop</p><h2>Where we meet</h2><p>Cafe</p>';
-    expect(splitAfterRouteSection(html)).toEqual(['<p>Intro</p><h2>The route</h2><p>Loop</p>', '<h2>Where we meet</h2><p>Cafe</p>']);
+    expect(splitAfterRouteSection(html)).toEqual({ before: '<p>Intro</p><h2>The route</h2><p>Loop</p>', after: '<h2>Where we meet</h2><p>Cafe</p>', matched: true });
   });
   it('keeps the whole description first when there is no route heading', async () => {
     const { splitAfterRouteSection } = await import('@/app/prototypes/events/hike/hike-utils');
-    expect(splitAfterRouteSection('<h2>Plan</h2><p>x</p>')).toEqual(['<h2>Plan</h2><p>x</p>', '']);
+    expect(splitAfterRouteSection('<h2>Plan</h2><p>x</p>')).toEqual({ before: '<h2>Plan</h2><p>x</p>', after: '', matched: false });
+    expect(splitAfterRouteSection('<h2>The route</h2><p>x</p>').matched).toBe(true);
   });
 });
