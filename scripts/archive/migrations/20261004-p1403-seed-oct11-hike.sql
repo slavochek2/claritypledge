@@ -1,5 +1,5 @@
 -- P1403 seed — NOT APPLIED. Run by hand (service role / SQL editor) AFTER
--- supabase/migrations/20261004120000_p1403_social_hike_series.sql is live, test first.
+-- supabase/migrations/20261004093000_p1403_social_hike_series.sql is live, test first.
 --
 -- Every <PLACEHOLDER> must be replaced before running. The review text, reviewer name and
 -- profile path, and the photo object paths are private inputs (the founder holds them);

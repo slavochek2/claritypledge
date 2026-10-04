@@ -26,7 +26,7 @@ import type { SeriesReview, SeriesPhoto } from '@/app/types';
 
 const R = (p: string) => readFileSync(join(process.cwd(), p), 'utf-8');
 const DETAIL = R('src/app/prototypes/events/components/EventDetail.tsx');
-const MIGRATION = R('supabase/migrations/20261004120000_p1403_social_hike_series.sql');
+const MIGRATION = R('supabase/migrations/20261004093000_p1403_social_hike_series.sql');
 
 const FULL_DETAILS = {
   distance_km: 11.7,
