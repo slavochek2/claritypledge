@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 24
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, featured-story, polish]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-04
 ---
 
 # P1405: Featured story keeps its box when open; side column lines up
