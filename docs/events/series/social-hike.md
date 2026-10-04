@@ -51,11 +51,18 @@ on 2026-08-30 and 2026-09-06:
 chosen trail and cafe. It is the Sept 6 description generalized — the best version so far,
 which is the point.
 
+**No numbers the page already shows** (founder 2026-10-04, after an Opus + Gemini review): on
+a Social Hike page the stats row carries distance, climb, walking time and loop type, and the
+line under the title carries the difficulty. The description never repeats them; it says what
+the stats cannot (where it starts, what you see, how we walk). Not "morning" either: the day
+runs into the afternoon. Walking time is the AllTrails estimate; breaks and the cafe walk are
+the "Plan for up to …" sentence, not the stats.
+
 ```
-Morning hike this [DAY]. Everyone welcome.
+[DAY] day hike. Everyone welcome.
 
 **[TRAIL NAME]**, [PARK NAME]
-[DISTANCE] [TYPE], [ELEVATION]m climb, about [TIME] of walking. [2-3 HIGHLIGHTS]. "[BEST TRAIL QUOTE]" — one recent hiker ([RATING]★, [N] reviews).
+[2-3 HIGHLIGHTS: where it starts, what you see]. "[BEST TRAIL QUOTE]" — one recent hiker ([RATING]★, [N] reviews).
 [View on AllTrails]([ALLTRAILS_URL])
 
 **Meet [TIME] at [CAFE NAME]**, [AREA].
@@ -73,7 +80,7 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total (I have bl
 
 Coffee or lunch after for anyone who feels like it.
 
-*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+*Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good day because I want to, not because I am responsible for it.*
 
 *Photos: take as many as you like and share them in the group. I may use group photos to promote future hikes. If you would rather not appear, just tell me and I'll leave you out.*
 ```

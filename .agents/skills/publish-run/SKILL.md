@@ -418,7 +418,17 @@ exit code is not evidence the row exists.
 
 ### 8d. Social Hike skin (hikes only)
 
-For a Social Hike, set the skin fields on the event row — `series_slug`, `hike_details`, `route_geojson`, and the rendered route map. What each one is and where it comes from lives in [social-hike.md § Social Hike skin](../../../../docs/events/series/social-hike.md#social-hike-skin--the-event-page-format-p1403); follow it rather than restating it here. Prod patch shape is the same as step 8b. Then open the page at 375px and desktop and confirm the stats row, the map tile and the reviews render — a missing field hides its section silently.
+For a Social Hike, set the skin fields on the event row — `series_slug`, `hike_details`, `route_geojson`, and the rendered route map. What each one is and where it comes from lives in [social-hike.md § Social Hike skin](../../../../docs/events/series/social-hike.md#social-hike-skin--the-event-page-format-p1403); follow it rather than restating it here. Prod patch shape is the same as step 8b.
+
+**Checklist — each line is a mistake the 2026-10-11 hike made before the founder caught it:**
+
+- [ ] **Route = the AllTrails GPX**, exported in the founder's Chrome (⋯ → *Export map file* → *GPX Track* → *Export*; it lands in `~/Downloads` on the first click). Never a stand-in or hand-drawn line. Render it with `node scripts/hike-route-map.mjs`, then compare the shape with the AllTrails map thumbnail (spurs and side trips included) before publishing.
+- [ ] **Cafe name in Latin script** everywhere (`meet_name`, description, blurb); the Thai name once, in brackets, in "Where we meet".
+- [ ] **Description repeats no number the page shows** (distance, climb, walking time, loop, difficulty) and does not call the day a "morning" hike.
+- [ ] **Banner at the standard height**, cropped 2880x512 / 1600x820, upscaled first if the source is under 2880px wide (step 8b).
+- [ ] **No reviews or photo blocks in the description** — they live in `series_reviews` / `series_photos` and show on every hike.
+
+Then open the page at 375px and desktop and confirm the stats row, the map tile, the route map (real shape) and the reviews render — a missing field hides its section silently.
 
 ### 9. Open the event page
 

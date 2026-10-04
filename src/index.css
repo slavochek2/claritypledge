@@ -396,10 +396,12 @@ body {
   gap: 0.375rem;
   padding: 0.3125rem 0.6875rem;
   margin: 0 0.0625rem;
-  border: 1px solid hsl(var(--foreground));
+  /* Founder 2026-10-04: outlined, not a black pill — a black pill read as a second primary
+     button competing with the blue RSVP (Opus + Gemini visual review). */
+  border: 1px solid hsl(var(--border));
   border-radius: 9999px;
-  background-color: hsl(var(--foreground));
-  color: hsl(var(--background));
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
   font-weight: 600;
   text-decoration: none;
   line-height: 1.6;
@@ -407,8 +409,8 @@ body {
 }
 
 .event-description a.link-chip:hover {
-  background-color: hsl(var(--foreground) / 0.85);
-  border-color: hsl(var(--foreground) / 0.85);
+  background-color: hsl(var(--muted));
+  border-color: hsl(var(--foreground) / 0.4);
 }
 
 /* The chip drops the underline, so a keyboard user has no affordance left except
@@ -416,9 +418,8 @@ body {
    a near-black pill. Draw it in the background colour with an offset instead, so
    it reads against the chip rather than inside it. */
 .event-description a.link-chip:focus-visible {
-  outline: 2px solid hsl(var(--background));
+  outline: 2px solid hsl(var(--foreground));
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px hsl(var(--foreground) / 0.45);
 }
 
 /* The outbound mark — drawn in CSS so a chip needs no per-link markup. */

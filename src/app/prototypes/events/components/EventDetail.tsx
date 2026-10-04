@@ -1013,7 +1013,7 @@ export function EventDetail() {
                   ref={setDescriptionEl}
                   onClick={onDescriptionClick}
                   onKeyDown={onDescriptionKeyDown}
-                  className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                  className="event-description prose prose-sm max-w-none text-foreground/80 mb-6 pt-4 border-t border-border"
                 >
                   <div data-description-html dangerouslySetInnerHTML={{ __html: hikeDescriptionParts.before }} />
                   {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts.matched} onOpenImage={openImage} />}
@@ -1026,7 +1026,7 @@ export function EventDetail() {
                   onClick={onDescriptionClick}
                   onKeyDown={onDescriptionKeyDown}
                   data-description-html
-                  className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
+                  className="event-description prose prose-sm max-w-none text-foreground/80 mb-6 pt-4 border-t border-border"
                   dangerouslySetInnerHTML={{ __html: descriptionHtml }}
                 />
               )}
