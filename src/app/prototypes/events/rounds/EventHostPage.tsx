@@ -124,7 +124,7 @@ function ClockReadout({ round, seats, large }: { round: EventRound | null; seats
   const ms = clock.phase === 'over' ? clock.overByMs : clock.phaseRemainingMs;
   return (
     <div className="flex items-baseline gap-3" data-testid="round-clock" data-phase={clock.phase}>
-      <span className={cn('text-muted-foreground', large ? 'text-xl sm:text-3xl' : 'text-sm')}>{PHASE_LABEL[clock.phase]}</span>
+      <span className={cn('text-muted-foreground', large ? 'text-xl sm:text-3xl' : 'text-sm')}>{clock.phase === 'over' && ms >= 60 * 60_000 ? 'Over' : PHASE_LABEL[clock.phase]}</span>
       <span
         className={cn(
           'font-semibold tabular-nums',
@@ -132,7 +132,8 @@ function ClockReadout({ round, seats, large }: { round: EventRound | null; seats
           clock.phase === 'over' ? 'text-red-600' : 'text-foreground',
         )}
       >
-        {formatClock(ms)}
+        {/* A round left open past an hour (nobody pressed End evening) reads "Over", not "Over by 2204:35". */}
+        {clock.phase === 'over' && ms >= 60 * 60_000 ? '' : formatClock(ms)}
       </span>
     </div>
   );
