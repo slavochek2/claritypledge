@@ -2,6 +2,8 @@ import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { parseVideoUrl } from '@/lib/video';
+import { isPublicMediaVideo, publicMediaPosterFor } from '@/lib/public-media';
+import { Mp4VideoFacade } from './mp4-video-facade';
 import { useLinksInNewTab } from './links-in-new-tab';
 import { useHasVideoSummary, videoSummaryPath } from '@/app/data/video-summaries-service';
 import { StoryImage } from './story-image';
@@ -91,6 +93,24 @@ export const StoryMedia = forwardRef<StoryVideoPlayerHandle, StoryMediaProps>(
   ) {
     const video = parseVideoUrl(videoUrl);
     const hasSummary = useHasVideoSummary(video?.videoId);
+
+    // P1402: a video we host (the media bucket) plays in our own click-to-play player, in place,
+    // on every surface — a card has no separate thumbnail step for it. The poster is the story's
+    // image when it has one, else the poster stored next to the clip.
+    if (videoUrl && isPublicMediaVideo(videoUrl)) {
+      return (
+        <div className={className} data-testid="story-media-mp4">
+          <Mp4VideoFacade
+            look="story"
+            src={videoUrl.trim()}
+            poster={imageProps?.src || publicMediaPosterFor(videoUrl)}
+            posterAlt={imageProps?.authorName ? `Video by ${imageProps.authorName}` : 'Story video'}
+            playLabel="Play the video"
+            durationSeconds={durationSeconds ?? undefined}
+          />
+        </div>
+      );
+    }
 
     if (!video) {
       // Absent OR unparseable — both are "this story has no video", identically.

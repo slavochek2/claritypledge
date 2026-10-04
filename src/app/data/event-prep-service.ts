@@ -193,11 +193,13 @@ export async function markPrepPart(
   part: PrepPart,
   contentVersion: number,
   outcome: 'completed' | 'skipped',
+  /** P1402: when it was completed, if not now (a part done signed-out on /prepare, synced later). */
+  completedAt?: string,
 ): Promise<void> {
   const now = new Date().toISOString();
   const row =
     outcome === 'completed'
-      ? { profile_id: profileId, part, content_version: contentVersion, completed_at: now, updated_at: now }
+      ? { profile_id: profileId, part, content_version: contentVersion, completed_at: completedAt ?? now, updated_at: now }
       : { profile_id: profileId, part, content_version: contentVersion, skipped_at: now, completed_at: null, updated_at: now };
   const { error } = await supabase.from('person_prep_parts').upsert(row, { onConflict: 'profile_id,part' });
   if (error) throw error;

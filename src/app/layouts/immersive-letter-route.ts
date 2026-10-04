@@ -20,7 +20,8 @@
  * room must not keep recording on a screen that hides the capture bar (P1307 D13).
  */
 const IMMERSIVE_LETTER_PATH = /^\/letter\/[^/]+(\/compose)?$/;
-const IMMERSIVE_PREP_PATH = /^\/events\/[^/]+\/prepare\/?$/;
+// P1402: the standalone /prepare is the same flow without an event.
+const IMMERSIVE_PREP_PATH = /^\/(events\/[^/]+\/)?prepare\/?$/;
 
 export function isImmersiveLetterRoute(pathname: string, search: string, hasAppMenu: boolean): boolean {
   const done = new URLSearchParams(search).get('done') === '1' && hasAppMenu;

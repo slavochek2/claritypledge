@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 22
 workstream: events
 created_date: '2026-10-04'
 tags: [prepare, onboarding, understanding, stories]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -111,6 +111,8 @@ existing prep components; this spec does not create a second implementation.
 | Signed-out progress lost (private window, cleared storage) | ACCEPT | Same as `/meet`; the content stays replayable |
 | st1's quote timecodes (`video_quotes`) assume the YouTube cut | MITIGATE | st1 has no quotes today (`quotes: []`, prod 2026-10-04); re-check at /dev |
 | The mp4 is blocked by production CSP | MITIGATE | `media-src` already allows `storage.googleapis.com` (decisions.md 2026-10-01, P1336/P1385); test against `vercel.json` |
+| Shared browser: parts done signed out are credited to whoever signs in next there | ACCEPT | Same rule as anonymous positions today (P502, `AuthCallbackPage.tsx`); only shortens that person's own preparation. Adversarial review 2026-10-04 |
+| A sync during an event preparation already under way drops a step mid-flow | MITIGATE | The sync never dates a part before the preparation's `started_at` (unit-tested) |
 | Two routes drift (event prep vs `/prepare`) | MITIGATE | Shared step components and one `prep-plan` source; no fork |
 
 **Non-Goals**
@@ -145,12 +147,17 @@ existing prep components; this spec does not create a second implementation.
 
 ## Acceptance Criteria
 
-- [ ] A signed-out visitor opens `/prepare` and can play the story, read the principle and reach the end screen without signing in
-- [ ] A visitor who completed the story on `/prepare`, then signed in and registered for a Clarity Night, does not get the story step in that event's preparation
-- [ ] A signed-in person who completed every part still sees all steps on `/prepare`, marked done and replayable
-- [ ] The homepage pinned story (st1) plays the self-hosted clip, not YouTube; a different story with a YouTube video still plays
-- [ ] The clip plays on claritypledge.com under the production CSP — verified by a test against `vercel.json`. `[post-deploy]` re-check on prod
-- [ ] Phone (375 and 320) and desktop screenshots pass the visual QA checklist
+- [x] A signed-out visitor opens `/prepare` and can play the story, read the principle and reach the end screen without signing in — e2e `p1402-standalone-prepare.spec.ts` smoke (320px, no console errors), 3/3 passed with retries off
+- [x] A visitor who completed the story on `/prepare`, then signed in and registered for a Clarity Night, does not get the story step in that event's preparation — e2e: agenda lacks the story row; `person_prep_parts` carries the /prepare date; local store cleared
+- [x] A signed-in person who completed every part still sees all steps on `/prepare`, marked done and replayable — e2e
+- [x] The homepage pinned story (st1) plays the self-hosted clip, not YouTube; a different story with a YouTube video still plays — on **test** (st1 `video_url` set there): /feed pinned story played to 24s of 84s in our player, no YouTube iframe; YouTube path pinned by `p1402` + `p1141-story-media` unit tests. `[post-deploy]` needs the prod st1 change in the Pre-deploy Checklist
+- [x] The clip plays on claritypledge.com under the production CSP — verified by a test against `vercel.json` (`p1385-public-media.test.ts` pins `publicMediaUrl`'s origin in `media-src`; the clip is built only through it). `[post-deploy]` re-check on prod
+- [x] Phone (375 and 320) and desktop screenshots pass the visual QA checklist — no horizontal overflow at 320 on any step (`scrollWidth` 320); separate QA reviewer's findings: header wrap fixed; pinned-bar edges, poster overlay and small skip link are the shared P1387 components, unchanged; sparse end screen awaits the copy decision
+
+## Pre-deploy Checklist
+
+- [ ] Prod migration `20261004150000_p1402_story_video_public_media_mp4.sql` applied (`migrate.sh --env prod --only …`, founder-approved)
+- [ ] Prod st1 (`883d89f5-…`) `video_url` set to `publicMediaUrl('event-prep/cognitive-understanding-v1.mp4')` — founder-approved data change; old value `https://youtu.be/k4zpMYIKK5A` (revert = set it back)
 
 ## Done-When
 

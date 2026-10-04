@@ -10,18 +10,16 @@
  * Q&A is the product Dialog. Progress lives in event_preparations (resumes on any device), the
  * once-per-person parts in person_prep_parts.
  */
-import { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, FileText } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, stripAgentPrefix } from '@/lib/utils';
-import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
@@ -39,29 +37,19 @@ import {
   type PrepStepKey,
 } from '@/app/data/event-prep-service';
 import type { EventWithHost, PointWithUserPosition } from '@/app/types';
-import {
-  CLIP_PLAY_LABELS,
-  CLIP_POSTER_ALT,
-  clipUrl,
-  RESEARCH_POLICY_VERSION,
-  RESEARCH_PROGRAMME_URL,
-  RESEARCH_QA,
-  TRANSCRIPTS,
-} from './prep-content';
+import { RESEARCH_POLICY_VERSION, RESEARCH_PROGRAMME_URL, RESEARCH_QA } from './prep-content';
 import {
   CMP7_TAG,
   eventTopic,
   PART_VERSIONS,
-  PLAYBACK_RATE,
   PRINCIPLE_LEVEL,
   STEP_PART,
   stepLabel,
   stepMinutes,
-  watchSeconds,
-  type ClipKey,
   type PlanStep,
 } from './prep-plan';
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
+import { ActionRow, Clip, StepActions, Title, useIsDesktop, useMeasuredHeight } from './prep-ui';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
 
 // ─── page: access + data ───────────────────────────────────────────────────────────────
@@ -113,136 +101,8 @@ export function EventPrepPage() {
   return <PrepFlow event={event} groupChatUrl={groupChatUrl} state={state} viewerId={user!.id} />;
 }
 
-// ─── small pieces ──────────────────────────────────────────────────────────────────────
-
-/**
- * P1387 (founder, 2026-10-02): every step's actions are pinned at the bottom of a phone, in ONE
- * slim bar — the question and explanation scroll in the page above it. The first build stacked
- * progress + two buttons (134-166px at 320px) under the fixed step header, a ~40% scroll slot;
- * ActionRow puts the two buttons side by side. On desktop the bar sits in the page under the
- * content (pinned, it floated far below a short step).
- */
-const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string }>(
-  function StepActions({ children, className }, ref) {
-    return (
-      <FixedBottomBar
-        ref={ref}
-        className={cn('lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0', className)}
-      >
-        <div className="flex w-full flex-col items-center" data-testid="step-actions">{children}</div>
-      </FixedBottomBar>
-    );
-  },
-);
-
-/** The main action as the blue button, the alternative as a small link under it (founder,
- *  2026-10-02 — one rule; equal choices like the volunteer Yes / No are two buttons instead). */
-function ActionRow({ primary, secondary }: { primary: ReactNode; secondary?: ReactNode }) {
-  return (
-    <div className="flex w-full max-w-sm flex-col items-center gap-1">
-      {primary}
-      {secondary}
-    </div>
-  );
-}
-
 const answerHintText = (total: number) => `Set your position on all ${total} points to continue.`;
 
-
-/** lg and up: the step actions sit in the page, so no space is reserved for a pinned bar. */
-function useIsDesktop(): boolean {
-  const query = '(min-width: 1024px)';
-  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia?.(query);
-    if (!mq) return;
-    const onChange = () => setMatches(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return matches;
-}
-
-/** Height of a fixed element, kept current (same approach as MeetingPrincipleView's bar). */
-function useMeasuredHeight(): [(node: HTMLDivElement | null) => void, number] {
-  const [height, setHeight] = useState(0);
-  const observer = useRef<ResizeObserver | null>(null);
-  const ref = useCallback((node: HTMLDivElement | null) => {
-    observer.current?.disconnect();
-    observer.current = null;
-    if (!node) {
-      setHeight(0);
-      return;
-    }
-    setHeight(node.getBoundingClientRect().height);
-    if (typeof ResizeObserver !== 'undefined') {
-      const o = new ResizeObserver(([entry]) => {
-        if (entry) setHeight(entry.target.getBoundingClientRect().height);
-      });
-      o.observe(node);
-      observer.current = o;
-    }
-  }, []);
-  useEffect(() => () => observer.current?.disconnect(), []);
-  return [ref, height];
-}
-
-function Title({ children }: { children: ReactNode }) {
-  return <h1 className="text-2xl font-bold leading-tight text-foreground">{children}</h1>;
-}
-
-/** "Read the transcript" under every clip — StoryMedia's "Read video summary" link pattern (P1349). */
-function Transcript({ clip }: { clip: ClipKey }) {
-  const [open, setOpen] = useState(false);
-  const id = `transcript-${clip}`;
-  return (
-    <div data-testid={id}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls={`${id}-text`}
-        className="ml-auto flex h-10 w-fit items-center gap-1 text-sm text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-400"
-      >
-        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {open ? 'Hide the transcript' : 'Read the transcript'}
-      </button>
-      {open && (
-        <div id={`${id}-text`} className="mt-1 space-y-3 text-base leading-relaxed text-muted-foreground animate-in fade-in duration-300">
-          {TRANSCRIPTS[clip].map((para) => (
-            <p key={para.slice(0, 32)}>{para}</p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Clip({ clip, pulse = false, onPlay, playRequest = 0 }: { clip: ClipKey; pulse?: boolean; onPlay?: () => void; playRequest?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // The bar's "Play the video" bumps playRequest; the poster's own button starts it.
-  useEffect(() => {
-    if (playRequest > 0) ref.current?.querySelector<HTMLButtonElement>('button')?.click();
-  }, [playRequest]);
-  return (
-    <div>
-      <div ref={ref} data-testid={`clip-${clip}`}>
-        <Mp4VideoFacade
-          look="story"
-          src={clipUrl(clip, 'video')}
-          poster={clipUrl(clip, 'poster')}
-          posterAlt={CLIP_POSTER_ALT[clip]}
-          playLabel={CLIP_PLAY_LABELS[clip]}
-          durationSeconds={watchSeconds(clip)}
-          pulse={pulse}
-          onPlay={onPlay}
-          playbackRate={PLAYBACK_RATE}
-        />
-      </div>
-      <Transcript clip={clip} />
-    </div>
-  );
-}
 
 interface Count { answered: number; total: number }
 

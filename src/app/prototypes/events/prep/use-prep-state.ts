@@ -29,10 +29,11 @@ import {
   type PlanStep,
   type Progress,
 } from './prep-plan';
+import { syncLocalPrepParts } from './prep-local-parts';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
 const TAG_POINTS_LIMIT = 50;
-export function loadTagPoints(tag: string, viewerId: string): Promise<PointWithUserPosition[]> {
+export function loadTagPoints(tag: string, viewerId: string | undefined): Promise<PointWithUserPosition[]> {
   const keepsUnstaked = (STANDARD_STAKE_TAGS as readonly string[]).includes(tag);
   return pointsService.getPublicPointsFeed(TAG_POINTS_LIMIT, 0, tag, viewerId, true, keepsUnstaked, true);
 }
@@ -82,7 +83,11 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     // A read for a new (event, viewer) is "unknown" until it lands — never "not started".
     setLoading(true);
     try {
-      const [p, pr] = await Promise.all([getMyPreparation(eventId, viewerId), getMyPrepParts(viewerId)]);
+      const [p, accountParts] = await Promise.all([getMyPreparation(eventId, viewerId), getMyPrepParts(viewerId)]);
+      let pr = accountParts;
+      // P1402: parts done signed-out on /prepare join the account before the plan is built, so
+      // they are not asked again here.
+      if ((await syncLocalPrepParts(viewerId, pr, p?.startedAt ?? null)).length > 0) pr = await getMyPrepParts(viewerId);
       setPrep(p);
       setParts(pr);
       setError(false);

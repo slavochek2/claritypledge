@@ -17,3 +17,28 @@ export const PUBLIC_MEDIA_BUCKET = 'claritypledge-story-images';
 export function publicMediaUrl(path: string): string {
   return `${PUBLIC_MEDIA_ORIGIN}/${PUBLIC_MEDIA_BUCKET}/${path.replace(/^\/+/, '')}`;
 }
+
+/**
+ * P1402 — a story video served from the media bucket (an mp4 we host) rather than YouTube. Only
+ * this origin + bucket: any other mp4 host would be blocked by the production CSP.
+ */
+export function isPublicMediaVideo(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  // Same rule as the stories CHECK constraint (P1402 migration): path characters only, no ".."
+  // (a browser resolves it, leaving the bucket) and no percent-encoding (which can spell one).
+  if (!/^https:\/\/storage\.googleapis\.com\/claritypledge-story-images\/[A-Za-z0-9_./-]+\.mp4$/.test(url.trim())) return false;
+  if (url.includes('..')) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return (
+      parsed.origin === PUBLIC_MEDIA_ORIGIN &&
+      parsed.pathname.startsWith(`/${PUBLIC_MEDIA_BUCKET}/`) &&
+      parsed.pathname.endsWith('.mp4')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The poster stored next to a bucket mp4 (`name.mp4` → `name-poster.jpg`, the event-prep convention). */
+export const publicMediaPosterFor = (videoUrl: string) => videoUrl.trim().replace(/\.mp4$/, '-poster.jpg');
