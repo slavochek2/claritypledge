@@ -44,14 +44,35 @@ function useHomeHighlights() {
   const [groups, setGroups] = useState<Loaded<Organization>>(null);
   useEffect(() => {
     let cancelled = false;
-    eventsService
-      .getUpcomingEvents()
-      .then((rows) => !cancelled && setEvents(rows.filter((e) => e.status === "upcoming").slice(0, MAX_EVENTS)))
-      .catch(() => !cancelled && setEvents("error"));
-    organizationsService
-      .listPublicOrganizations()
-      .then((rows) => !cancelled && setGroups(rows.slice(0, MAX_GROUPS)))
-      .catch(() => !cancelled && setGroups("error"));
+    (async () => {
+      let orgs: Organization[];
+      try {
+        orgs = (await organizationsService.listPublicOrganizations()).slice(0, MAX_GROUPS);
+      } catch {
+        if (!cancelled) {
+          setGroups("error");
+          setEvents("error");
+        }
+        return;
+      }
+      if (cancelled) return;
+      setGroups(orgs);
+      // "Our next event" = the next event of OUR groups (review, P1401): an unscoped query
+      // would let any account's event become the one featured here. Only events that have
+      // not started yet — the service's 12-hour grace window would otherwise show last
+      // night's Clarity Night as "next" the morning after.
+      const perGroup = await Promise.all(orgs.map((o) => eventsService.getUpcomingEvents(o.id).catch(() => [])));
+      if (cancelled) return;
+      const now = Date.now();
+      const seen = new Set<string>();
+      const next = perGroup
+        .flat()
+        .filter((e) => e.status === "upcoming" && new Date(e.datetime).getTime() > now)
+        .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
+        .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
+        .slice(0, MAX_EVENTS);
+      setEvents(next);
+    })();
     return () => {
       cancelled = true;
     };
@@ -60,29 +81,28 @@ function useHomeHighlights() {
 }
 
 function EventsList({ events, max = MAX_EVENTS }: { events: Loaded<EventWithHost>; max?: number }) {
-  if (events === null) return <div className="h-12 rounded bg-muted animate-pulse" />;
+  if (events === null) return <div className="h-[70px] rounded-lg bg-muted animate-pulse" />;
   if (events === "error") return <p className="text-sm text-muted-foreground">Couldn't load events.</p>;
   if (events.length === 0) return <p className="text-sm text-muted-foreground">No events scheduled yet.</p>;
   return (
     <div className="space-y-2">
       {events.slice(0, max).map((e) => (
-        <EventRowCompact key={e.id} event={e} role="none" />
+        <EventRowCompact key={e.id} event={e} role="none" detailed />
       ))}
     </div>
   );
 }
 
-function GroupLinks({ groups, oneRow = false }: { groups: Loaded<Organization>; oneRow?: boolean }) {
-  if (groups === null) return <div className="h-8 rounded bg-muted animate-pulse" />;
+function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
+  if (groups === null) return <div className="h-10 rounded-full bg-muted animate-pulse" />;
   if (groups === "error" || groups.length === 0) return null; // "All groups" still shows
   return (
-    // oneRow (phones): a single sideways-scrolling row, so the block stays short.
-    <div className={oneRow ? "-mx-3 flex gap-2 overflow-x-auto px-3 pb-1" : "flex flex-wrap gap-2"}>
+    <div className="flex flex-wrap gap-2">
       {groups.map((g) => (
         <Link
           key={g.id}
           to={`${EVENTS_NAV_TO}/${g.slug}`}
-          className={`inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted ${oneRow ? "shrink-0 whitespace-nowrap" : "max-w-full py-1.5"}`}
+          className={`inline-flex min-h-10 items-center rounded-full border border-border bg-background px-3 text-sm font-medium text-foreground hover:bg-muted max-w-full py-1.5`}
         >
           {g.name}
         </Link>
@@ -141,6 +161,7 @@ function TopContent() {
   const { events, groups } = useHomeHighlights();
   return (
     <section aria-label="Next events and groups" data-testid="home-top-block" className="mb-4 space-y-3 rounded-lg border border-border p-3">
+      {!(Array.isArray(events) && events.length === 0) && events !== "error" && (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <SectionTitle icon={CalendarDaysIcon}>Next event</SectionTitle>
@@ -149,12 +170,13 @@ function TopContent() {
         {/* Phones: just the next one, so the stories stay close to the top. */}
         <EventsList events={events} max={1} />
       </div>
+      )}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
           <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
         </div>
-        <GroupLinks groups={groups} oneRow />
+        <GroupLinks groups={groups} />
       </div>
     </section>
   );

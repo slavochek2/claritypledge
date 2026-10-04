@@ -12,9 +12,12 @@ interface EventRowCompactProps {
   event: EventWithHost;
   /** User's relationship to the event */
   role: "hosting" | "attending" | "none";
+  /** P1401: the home page's "next event" — weekday, "Online" or the place, and a title that
+   *  may run to two lines, so a first-time visitor can tell when, where and what. */
+  detailed?: boolean;
 }
 
-export function EventRowCompact({ event, role }: EventRowCompactProps) {
+export function EventRowCompact({ event, role, detailed = false }: EventRowCompactProps) {
   const isCancelled = event.status === "cancelled";
   const isCompleted = event.status === "completed";
 
@@ -30,6 +33,7 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
   const formatEventDate = (datetime: string) => {
     const date = new Date(datetime);
     const formatted = date.toLocaleString("en-US", {
+      ...(detailed ? { weekday: "short" as const } : {}),
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -54,9 +58,14 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
         }`}
       />
       <div className="flex-1 min-w-0">
-        <div className="font-medium truncate">{event.title}</div>
+        <div className={`font-medium ${detailed ? "line-clamp-2" : "truncate"}`}>{event.title}</div>
         <div className="text-sm text-muted-foreground">
           {formatEventDate(event.datetime)}
+          {detailed && (
+            <span className="block truncate">
+              {isVirtual ? "Online" : event.location.split(",")[0]}
+            </span>
+          )}
         </div>
       </div>
       {/* Role/Status Badge */}
