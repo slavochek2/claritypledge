@@ -62,10 +62,27 @@ iframing it — *"the step embeds the live `/stake` page, so it is never behind"
 ([decisions.md](../docs/decisions.md)). The same move applies here: give the topics page an
 `embedded` mode and render it on the event page.
 
-**It appears only when the event has no topic yet** — that is, when `statement_tag` is empty. An
-event whose topic is settled has nothing to vote on, and the section is absent rather than empty.
+**It appears only when the event has no topic yet.** The first draft of this spec said "when
+`statement_tag` is empty", which is **wrong** — hikes and guest events have no tag either, so the
+vote would appear on all of them. The in-flight implementation gets this right by keying on the
+series as well: `seriesSlug === 'clarity-night' && !statementTag?.trim()`, excluding past and
+cancelled events.
+
+> **BLOCKER, verified on prod 2026-10-04.** No Clarity Night on production has `series_slug` set —
+> both existing nights read `null`; only hikes carry it, because P1403 (which added the column
+> today) writes it from the hike flow. **The create-event form never sets it.** So the guard as
+> written can never fire on a real Clarity Night: the vote would silently not appear and nothing
+> would error. Whatever ships must also ensure the series key is written for nights — either the
+> create form sets it, or existing nights are backfilled, or the guard keys on something that is
+> actually populated. An event whose topic is settled still shows nothing, which is the intent.
 
 `[FOUNDER DECISION: where on the page — above the description, or below it and above Register]`
+
+**A signed-out visitor can rate without an account, and that is the strongest argument for the
+embed.** `handleRate` in `topics-page.tsx` writes a guest rating to local storage and saves it on
+sign-in. So a stranger who lands on the event page can act **immediately** — no account, no sign-in
+wall — and their ratings follow them if they later register. A link to another page spends that
+willingness on a navigation; the embed spends it on a vote.
 
 **Registration stays the single primary action.** The vote is a section, not a competing
 full-width button (P955 — competing primaries split intent).
@@ -77,7 +94,7 @@ rule P1337 sets for the compare view: a visitor reading an event page must not l
 
 | Risk | Label | Note |
 |---|---|---|
-| Voting needs a sign-in, so a cold visitor sees a control they cannot use | ACCEPT | Registering needs an account anyway, so anyone acting on this page signs in regardless. Worth watching whether the vote becomes the sign-up trigger rather than the event |
+| ~~Voting needs a sign-in~~ | WITHDRAWN | **False, checked in the code 2026-10-04.** `handleRate` stores a signed-out visitor's ratings locally and saves them after sign-in; only *adding* a topic requires an account. This inverts the argument for the embed — see below |
 | The embed shows an empty topics list and the page looks broken | MITIGATE | Render nothing at all when no topics are published, rather than an empty frame |
 | A second surface drifts from `/topics` | ACCEPT | The component embed is the live page; that is the reason for choosing it over copied markup |
 | The page gets long on a phone | MITIGATE | The section is collapsed below the fold by position, not by a toggle |
