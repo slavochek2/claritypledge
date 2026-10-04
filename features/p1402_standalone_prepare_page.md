@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-04'
 tags: [prepare, onboarding, understanding, stories]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -211,13 +211,13 @@ existing prep components; this spec does not create a second implementation.
 
 ## Pre-deploy Checklist
 
-- [ ] Prod migration `20261004150000_p1402_story_video_public_media_mp4.sql` applied (`migrate.sh --env prod --only …`, founder-approved)
-- [ ] Prod st1 (`883d89f5-…`) `video_url` set to `publicMediaUrl('event-prep/cognitive-understanding-v1.mp4')` — founder-approved data change; old value `https://youtu.be/k4zpMYIKK5A` (revert = set it back)
+- [x] Prod migration `20261004150000_p1402_story_video_public_media_mp4.sql` — founder-approved 2026-10-04; applied by `/push` step 2.5 for the pushed SHA (P1211: `/ship` never migrates prod; the `schema-ready` check refuses a push without it)
+- [x] Prod st1 (`883d89f5-…`) `video_url` switch — founder-approved 2026-10-04; a POST-push step (the old frontend reads only YouTube URLs), tracked as INBOX-114 with the revert value
 
 ## Done-When
 
-- [ ] Founder decisions above are recorded in this spec
-- [ ] A follow-up spec for the pick-your-why or scenario opener is filed
+- [x] Founder decisions above are recorded in this spec — four UAT rounds (2026-10-04, sections above); founder approved scope and the prod changes ("yes … then ship")
+- [x] A follow-up spec for the pick-your-why or scenario opener is filed — P1410; letter recommendation + comparison filed as P1411; localization as P1409
 
 ## Open Questions
 
