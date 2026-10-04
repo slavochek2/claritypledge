@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 114
+**Next ID:** 116
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1969,5 +1969,27 @@ org, duration, timezone, location) in the private channels file so this is never
 Founder 2026-10-02: "for our clarity nights its a setting... its always same group chat link for
 this series, no need to ask (if it changes i update)." Making publish-event READ that block is a
 skill-file change and needs separate approval.
+
+---
+
+## P1402 post-push: switch prod st1 to our own clip
+
+**ID:** INBOX-114
+**Date:** 2026-10-04
+**Status:** proposed
+**due:** week
+
+After P1402 is pushed AND its migration 20261004150000 is on prod AND the new frontend is live: set prod story st1 (883d89f5-4449-46b2-a663-f4f2c7204c22) video_url to publicMediaUrl('event-prep/cognitive-understanding-v1.mp4'). Founder-approved 2026-10-04. Not before the deploy: the old frontend reads only YouTube URLs and would show st1 without its video. Revert: set it back to https://youtu.be/k4zpMYIKK5A. Then check the /feed pinned story plays on claritypledge.com.
+
+---
+
+## Links-menu e2e: 7 tests already failing on main (stale entry counts)
+
+**ID:** INBOX-115
+**Date:** 2026-10-04
+**Status:** proposed
+**due:** week
+
+e2e/p1179-links-menu.spec.ts, e2e/p1179-links-navigation.spec.ts, e2e/p1323-links-menu-surfaces.spec.ts: 7 failures, e.g. "Expected: 6, Received: 7" on getByTestId('event-links-entry'). Verified 2026-10-04 with a control: they fail identically without P1402's new Tools entry, so they predate it (likely when /topics and /cm joined Tools). Needs /reproduce → /fix; counts should derive from STANDARD_TOOL_ENTRIES, not be hand-kept (epistemic gate 7e).
 
 ---
