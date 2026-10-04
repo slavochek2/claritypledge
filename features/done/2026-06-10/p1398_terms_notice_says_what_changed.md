@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 20
 workstream: legal
 created_date: '2026-10-04'
 tags: [terms, consent, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, ship]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-04
 ---
 
 # P1398: Terms update notice says what changed; blocks only when fresh consent is needed
