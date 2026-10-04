@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-04 [product]: A terms update says what changed, and blocks only when it needs fresh consent (P1398)
+
+**Context:** The founder registered for an event and immediately got a blocking "Updated Terms" popup with
+no hint of what changed (*"I don't want to see updated terms right away ... we need always to show a summary
+of what has been updated"*). The targeting was correct: the account was an older test account still on v1.3.
+The defects were the popup's content and the fact that every update blocked, whatever its weight.
+**Decision:** (1) Each terms version carries a summary in `src/app/content/terms-changes.ts`: one headline
+("In short:"), at most three highlights behind "Show more", and `requiresConsent`. (2) `requiresConsent: false`
+→ a dismissible banner where Accept is acceptance by continued use; `true`, or no entry → the existing
+blocking popup ("Agree and continue" / "Decline and log out"). (3) v1.4 blocks: voice profiles are biometric
+data on a consent basis with no separate prompt of their own. (4) `terms_acceptances.acceptance_mode`
+(`explicit` | `notice`) records how each acceptance was given, so a banner dismissal is never mistaken for
+explicit consent. (5) Copy is one compact block; document links and the toggle are muted grey on purpose, a
+founder-approved exception to "links are blue", so that only the action draws the eye. (6) `/tos-review`
+Stage 7b: bump only at the quarterly review, always write the summary (checked line by line against the
+document diff), and choose banner or block with a reason.
+**Alternatives rejected:** Always block with a summary (a wall every quarter for routine edits); notice only
+(no explicit acceptance when a change needs one); a popup that disappears on its own (cannot show it was seen).
+**Consequences:** A version bump without a summary entry fails `terms-change-summary.test.ts`; a missing entry
+blocks rather than notifies. Voice profiles still lack their own consent prompt — revisit at the ~2026-12-01
+terms review. This is a judgement call, not legal advice.
+**References:** [P1398](../features/done/2026-06-10/p1398_terms_notice_says_what_changed.md) · decisions.md 2026-09-11 (P1300) · 2026-09-14 (P1307 D15)
+
+---
+
 ## 2026-10-02 [product]: One interactive blue is medium `#2563eb` — navy reversed before push (P1396)
 
 **Context:** P1308 merged dark navy `#002B5C` as the single interactive blue (founder: "last dardk navy imho").

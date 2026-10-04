@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-02
+Last updated: 2026-10-04
 
 ---
 
@@ -322,6 +322,7 @@ Last updated: 2026-10-02
 
 - **P1381** (Oct 26) Founder-only user lookup — `assert_admin()` DB gate for all admin RPCs; auth email, not profiles.email; page past 1000-row cap
 - **P1378** (Sep 26) Clarity Agent listed as a pledger — `has_pledged` defaults true; system profiles must set false explicitly, on create and adopt
+- **P1398** (Oct 04) Terms update notice says what changed — per-version summary + `requiresConsent` picks banner vs blocking popup; a missing summary blocks; `acceptance_mode` keeps notice dismissals distinct from explicit consent in the audit
 - **P1300** (Sep 11) Terms re-acceptance popup said "This session is recorded" on every page and linked a dead `/terms` — a component reused into a wider context leaks its copy, not only its behaviour (P832 caught only the behaviour); the one test of the sentence asserted it was present; and the gate also covered the legal pages it linked, so the fix exempts them by exact route (decisions.md 2026-09-11 [product])
 - **P520** (Sep 3) Self-serve account deletion — a definer RPC that walks the schema and deletes the `auth.users` row. Match by id, never by display name. Two GoTrue tables do not cascade and need explicit deletes. **Derive the coverage census from the catalogue**, not a hand-written list, or a new table silently escapes erasure.
 - **P1219** (Sep 3) ToS + Privacy rewritten from what the code actually does, v1.3→v1.4 (every existing user re-accepts on next sign-in). **Publication order is the deliverable**: it could not ship until the tracking removal and self-serve deletion were both on main, because the documents describe them.
