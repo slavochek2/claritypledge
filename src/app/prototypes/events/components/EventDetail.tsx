@@ -32,7 +32,7 @@ import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
-import { isHikeLayout } from '../hike/hike-utils';
+import { isHikeLayout, HIKE_BANNER_HEIGHT_CLASS } from '../hike/hike-utils';
 import { HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
@@ -568,6 +568,7 @@ export function EventDetail() {
         mobileBannerUrl={event.bannerMobileUrl}
         fallbackColor={isCancelled ? '#9ca3af' : event.hostAvatarColor}
         altText={event.title}
+        heightClassName={hikeSeriesSlug ? HIKE_BANNER_HEIGHT_CLASS : undefined}
       >
         {isHost && (
           <BannerControls

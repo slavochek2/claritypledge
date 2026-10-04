@@ -231,6 +231,22 @@ function eventDescriptionMd(allowedPrefixes: readonly string[]): Marked {
         if (!safe) return body;
         return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${body}</a>`;
       },
+      // P1403 amendment (2026-10-04): only a link that is the whole content of its own paragraph
+      // (one per line allowed, e.g. "[View hike on AllTrails](…)") is an action chip. A link inside
+      // a sentence stays an ordinary inline link. The class is the only signal CSS needs.
+      paragraph({ tokens }) {
+        const body = this.parser.parseInline(tokens);
+        const meaningful = tokens.filter(
+          (t) => !(t.type === 'br' || ((t.type === 'text' || t.type === 'space') && !t.raw.trim())),
+        );
+        const standalone =
+          meaningful.length > 0 &&
+          meaningful.every(
+            (t) => t.type === 'link' && !(t as Tokens.Link).tokens.some((c) => c.type === 'image'),
+          );
+        const html = standalone ? body.replace(/<a href=/g, '<a class="link-chip" href=') : body;
+        return `<p>${html}</p>\n`;
+      },
     },
   });
 }

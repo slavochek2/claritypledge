@@ -367,14 +367,30 @@ body {
  * on one page and leave the blue RSVP competing with both. Neutral chips keep the
  * one brand colour on the page meaningful.
  */
-/* Height: a chip sits INSIDE a paragraph, so it cannot take the 40px the
- * visual-QA touch-target rule asks of a standalone control without wrecking the
- * line rhythm around it. Compromise, stated rather than hidden: ~34px where a
- * cursor is doing the pointing, and the full 40px on touch devices, where the
- * rule's reason actually applies. A plain markdown link — what this replaces —
- * offered a ~20px target at every width, so both branches improve on it.
+/* P1403 amendment (2026-10-04, founder) — supersedes "every link is a chip" above.
+ * A link inside a sentence is prose and renders as an ordinary underlined inline link
+ * (no pill, no ↗). Only a link that is the whole content of its own paragraph/line gets
+ * the chip; renderEventDescription (src/lib/markdown.ts) marks those with `.link-chip`.
+ * Inline links keep the ~20px text-height target of any prose link — they are NOT
+ * touch-target-compliant controls, and are not claimed to be. See docs/decisions.md 2026-10-04.
  */
 .event-description a {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-description a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Height: a chip sits on its own line, but several chips can stack in one paragraph
+ * (one per line), so it keeps a compact ~34px where a cursor is doing the pointing and
+ * takes the full 40px the visual-QA touch-target rule asks for on touch devices, where
+ * the rule's reason actually applies. Inline sentence links (above) stay ~20px text height.
+ */
+.event-description a.link-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -390,7 +406,7 @@ body {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.event-description a:hover {
+.event-description a.link-chip:hover {
   background-color: hsl(var(--foreground) / 0.85);
   border-color: hsl(var(--foreground) / 0.85);
 }
@@ -399,14 +415,14 @@ body {
    the focus ring — and the browser default draws it in a dark colour directly on
    a near-black pill. Draw it in the background colour with an offset instead, so
    it reads against the chip rather than inside it. */
-.event-description a:focus-visible {
+.event-description a.link-chip:focus-visible {
   outline: 2px solid hsl(var(--background));
   outline-offset: 2px;
   box-shadow: 0 0 0 4px hsl(var(--foreground) / 0.45);
 }
 
 /* The outbound mark — drawn in CSS so a chip needs no per-link markup. */
-.event-description a::after {
+.event-description a.link-chip::after {
   content: "↗";
   font-size: 0.75em;
   opacity: 0.7;
@@ -414,7 +430,7 @@ body {
 
 /* Touch devices get the full 40px the rule asks for — see the note above. */
 @media (pointer: coarse) {
-  .event-description a {
+  .event-description a.link-chip {
     padding: 0.5rem 0.875rem;
   }
 }

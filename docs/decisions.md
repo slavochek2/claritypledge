@@ -35,6 +35,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** A Chiang Mai calendar link on the home page: it reads as a city listings site to online visitors. Building champion profiles now: demand is unproven. Showing the featured story to members: they have already seen it.
 **Consequences:** P1400 gets built only if members say yes and at least one stranger connects through a champion. The home page still has no independent review for P1404–P1407 (self-checked in the browser only).
 **References:** P1401, P1404, P1405, P1406, P1407, P1400 · docs/events/facilitator-checklist.md
+## 2026-10-04 [product]: In an event description, only a link on its own line is a chip; a link in a sentence is a plain link (P1403)
+
+**Context:** P1264 made every link in an event description a black pill chip with ↗ (CSS on `.event-description a`
+in `src/index.css`). Reviewing the Social Hike layout, the founder: *"didn't we say that we don't do the 24 minutes
+walk like a big black button but instead just a link"*. A chip in the middle of a sentence reads as an advert and
+breaks the line.
+**Decision:** Supersedes the "all links are chips" part of P1264. `renderEventDescription` marks a link with
+`class="link-chip"` only when it is the whole content of its own paragraph (one per line allowed, e.g.
+`[View hike on AllTrails](url)`, `[Directions](url)`). The chip CSS is scoped to `a.link-chip`; every other description
+link is an underlined foreground-colour inline link without ↗. The rest of P1264 (scope to `.event-description`,
+neutral not brand colour, plain links in the org note) stands.
+**Alternatives rejected:** Keeping chips everywhere (the founder's complaint); authoring a marker per link (authors
+would forget it, and the paragraph shape already says it).
+**Consequences:** Inline links have a ~20px text-height target like any prose link; chips keep ~34px / 40px on
+touch. A link in a list item is not a chip.
+**References:** P1403 · P1264 · `src/lib/markdown.ts` · `src/index.css`
 
 ---
 

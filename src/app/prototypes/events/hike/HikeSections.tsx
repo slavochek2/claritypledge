@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { Route, Mountain, Repeat, Clock, Gauge, Footprints } from 'lucide-react';
 import type { SeriesPhoto, SeriesReview } from '@/app/types';
 import { safeLinkHref } from '../location-utils';
+import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PUBLIC_MEDIA_ORIGIN } from '@/lib/public-media';
 import {
   HIKE_LABELS,
@@ -117,18 +118,26 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
       <h2 className="text-sm font-semibold text-foreground mb-2">{HIKE_LABELS.reviews}</h2>
       <ul className="space-y-3">
         {shown.map(review => {
-          const profilePath = safeInternalPath(review.authorProfilePath);
+          // A linked profile wins over the legacy stored path; either must be a safe in-app path.
+          const profilePath = safeInternalPath(
+            review.author?.slug ? `/p/${review.author.slug}` : review.authorProfilePath,
+          );
+          const name = review.author?.name ?? review.authorName;
           return (
             <li key={review.id} data-testid="hike-review" className="rounded-lg border border-border p-3">
               <blockquote className={`text-sm text-foreground ${expanded ? '' : 'line-clamp-4'}`}>
                 “{review.quote}”
               </blockquote>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                —{' '}
-                {profilePath
-                  ? <Link to={profilePath} className="text-blue-600 hover:underline">{review.authorName}</Link>
-                  : review.authorName}
-              </p>
+              {/* Founder 2026-10-04: the reviewer is a person — their photo (pledge ring when they
+                  pledged) and a plain name link, never a button or chip. sm = 40px. */}
+              <div className="mt-2 flex items-center gap-2" data-testid="hike-review-author">
+                {review.author && <PersonAvatar person={review.author} size="sm" />}
+                <span className="text-sm text-muted-foreground">
+                  {profilePath
+                    ? <Link to={profilePath} className="font-medium text-foreground underline underline-offset-2">{name}</Link>
+                    : name}
+                </span>
+              </div>
             </li>
           );
         })}

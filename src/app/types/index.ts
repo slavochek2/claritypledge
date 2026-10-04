@@ -951,6 +951,9 @@ export interface SeriesReview {
   authorName: string;
   /** In-app path such as /p/<slug>; present only when the reviewer agreed to be linked. */
   authorProfilePath?: string;
+  /** P1403 amendment: the reviewer's public profile, when series_reviews.author_profile_id is set.
+   * Drives the avatar (with pledge ring) and the name link; absent → text-only authorName. */
+  author?: PersonRef;
 }
 
 /** P1403: one past-event photo attached to an event series. */

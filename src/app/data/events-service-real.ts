@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent, PersonRef } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
@@ -32,6 +32,25 @@ import { slugifyName } from './api';
 // query is a SQL `.gte('datetime', cutoff)` and cannot add a per-row duration
 // without a computed column. One rule both surfaces can evaluate beats a more
 // precise rule only one of them can.
+/** P1403 amendment: map a joined reviewer profile to a PersonRef (null join → no avatar). */
+function toReviewAuthor(
+  raw: { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null; ears_count: number | null }
+    | { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null; ears_count: number | null }[]
+    | null,
+  fallbackName: string,
+): PersonRef | undefined {
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  if (!row) return undefined;
+  return {
+    name: row.name || fallbackName,
+    slug: row.slug ?? undefined,
+    avatarColor: row.avatar_color ?? undefined,
+    avatarUrl: row.avatar_url,
+    hasPledged: row.has_pledged ?? false,
+    earCount: earCountOf(row),
+  };
+}
+
 export const EVENT_GRACE_HOURS = 12;
 
 /** Returns an ISO string for `now - EVENT_GRACE_HOURS`. */
@@ -492,7 +511,10 @@ export const realEventsService: EventsService = {
     const [reviewsRes, photosRes] = await Promise.all([
       supabase
         .from('series_reviews')
-        .select('id, quote, author_name, author_profile_path, sort_order')
+        .select(`
+          id, quote, author_name, author_profile_path, sort_order,
+          author:profiles!series_reviews_author_profile_id_fkey (name, slug, avatar_color, avatar_url, has_pledged, ears_count)
+        `)
         .eq('series_slug', seriesSlug)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
@@ -507,7 +529,14 @@ export const realEventsService: EventsService = {
     if (reviewsRes.error) logDbError('getSeriesContent(reviews)', reviewsRes.error);
     if (photosRes.error) logDbError('getSeriesContent(photos)', photosRes.error);
 
-    type ReviewRow = { id: string; quote: string; author_name: string; author_profile_path: string | null };
+    type AuthorRow = {
+      name: string | null; slug: string | null; avatar_color: string | null;
+      avatar_url: string | null; has_pledged: boolean | null; ears_count: number | null;
+    };
+    type ReviewRow = {
+      id: string; quote: string; author_name: string; author_profile_path: string | null;
+      author: AuthorRow | AuthorRow[] | null;
+    };
     type PhotoRow = { id: string; storage_url: string; alt: string; credit: string | null };
 
     return {
@@ -516,6 +545,7 @@ export const realEventsService: EventsService = {
         quote: r.quote,
         authorName: r.author_name,
         authorProfilePath: r.author_profile_path ?? undefined,
+        author: toReviewAuthor(r.author, r.author_name),
       })),
       photos: ((photosRes.data ?? []) as PhotoRow[]).map(p => ({
         id: p.id,
