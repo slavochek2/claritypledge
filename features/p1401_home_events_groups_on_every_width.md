@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 21
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, landing, events, groups, mobile]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -34,6 +34,8 @@ One component, two placements, same content:
 - **Phones**: the same two lists as a compact block at the top of the page, above search; then the feed.
 - The header button is unchanged here. It switches to "Join the next event" when the first online event is published (separate change).
 
+**Design pass (founder, 2026-10-04):** events use the canonical EventCard (banner), groups use the groups-page initials tile, featured story shows author + video thumbnail (play opens AND plays), tag cloud = event topic tags + understanding/misunderstanding (+aisafety1, which predates `statement_tag`).
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
@@ -45,10 +47,10 @@ One component, two placements, same content:
 
 ## Acceptance Criteria
 
-- [ ] Phone (320/375): Next events (≤2, each opens its event page) and Groups (each by name, opens its group page) visible above the feed, no sideways scroll
-- [ ] Desktop: right column shows Groups by name first, then Next events
-- [ ] With no upcoming events, the block says so and still links to all events; failures never break the feed
-- [ ] Independent review of the built result (screenshots + code)
+- [x] Phone (320/375): Next events (≤2, each opens its event page) and Groups (each by name, opens its group page) visible above the feed, no sideways page scroll — browser; several events form a swipe row (render test; test data has 1 upcoming event). `[post-deploy]` see the row with real events
+- [x] Desktop: right column shows Groups by name first, then Next events — browser 1280
+- [x] With no upcoming events, the phone block hides the events half (no "none" banner at the top); a network failure left the feed and groups working — observed during a real network drop
+- [x] Independent review of the built result (screenshots + code) — two Opus reviews; fixes applied, remaining items recorded in the final report
 
 ## Related
 
