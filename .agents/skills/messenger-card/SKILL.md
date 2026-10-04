@@ -56,8 +56,12 @@ No PIL and no ffmpeg `drawtext` on the founder machine — headless Chrome is th
 
 READ `card.jpg`. Check: no face or emblem clipped, nothing overlapping (the pill vs the divider line
 did on the first try), date not crowding the names, QR readable. Adjust `tiles` x/y and re-render.
-Then send it to the founder's own self-chat (chat ID in `.private/event-channels.json`) via Beeper so he sees it at phone size,
-and wait for approval. Save the approved card to `.private/campaigns/<campaign>/invite-card.jpg`.
+**Then send it automatically — no asking first — to the founder's self-chat** (`self_chat.beeper_id`
+in `.private/event-channels.json`) via the Beeper local API (upload + attachment, step 4), with the
+planned group caption as the message text, so he sees exactly what will land at phone size. Verify
+the latest message in that chat is the card (`type: IMAGE`, `isSender: true`), then tell him it is
+there and wait for approval. Founder, 2026-10-04: *"when card is built automatically … send it
+automatically via beeper"*. Every rebuild after an edit is sent the same way. Save the approved card to `.private/campaigns/<campaign>/invite-card.jpg`.
 
 ### 4. Hand back
 
