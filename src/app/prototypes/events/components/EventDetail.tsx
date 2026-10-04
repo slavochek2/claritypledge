@@ -18,7 +18,6 @@ import {
   Ear,
   RefreshCw,
   Share2,
-  UserPlus,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -26,6 +25,7 @@ import { GroupChatBlock } from './GroupChatBlock';
 import { OrgFooterNote } from './OrgFooterNote';
 import { ImageLightbox } from '@/app/components/shared/image-lightbox';
 import { ShareDialog } from '@/app/components/shared/ShareDialog';
+import { EventShareRow } from './EventShareRow';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
@@ -579,7 +579,7 @@ export function EventDetail() {
 
   // P844: RSVP'd confirmation card — used in both mobile inline and desktop right-column placements
   const renderRsvpGreenCard = () => (
-    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+    <div className="px-3 py-4 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
       <div className="flex items-center gap-3">
         <CheckCircle2 className="w-6 h-6 flex-shrink-0 text-green-600" />
         <div>
@@ -587,21 +587,18 @@ export function EventDetail() {
           <p className="text-sm text-green-700">See you there</p>
         </div>
       </div>
-      {/* Founder 2026-10-04: right after registering is when people bring a friend. Outline, not
-          a second primary — the page keeps one primary action (P955). Status on top, actions in
-          one row below, so nothing squeezes at 320px. */}
-      <div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-        {!hasEnded && (
-          <Button
-            variant="outline"
-            onClick={handleShare}
-            className="flex-1 min-h-10 gap-2 bg-white border-green-300 text-green-800 hover:bg-green-100"
-            data-testid="rsvp-invite"
-          >
-            <UserPlus className="w-4 h-4" />
-            {copyState === 'copied' ? 'Link copied' : 'Invite a friend'}
-          </Button>
-        )}
+      {/* Founder 2026-10-04: right after registering is when people bring a friend — the same
+          share row as the confirmation screens (LINE, WhatsApp, Telegram, Facebook, More/Copy). */}
+      {!hasEnded && (
+        <EventShareRow
+          title={event.title}
+          url={shareUrl}
+          label="Bring a friend:"
+          testId="rsvp-invite"
+          className="mt-3 border-t border-green-200 pt-3"
+        />
+      )}
+      <div className="mt-2 text-center">
         <Button
           variant="ghost"
           size="sm"
@@ -1026,6 +1023,18 @@ export function EventDetail() {
                   data-description-html
                   className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                   dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                />
+              )}
+
+              {/* Founder 2026-10-04: someone coming back to pass the event on finds the share row
+                  at the end of the page. Registered viewers already have it in their green card. */}
+              {!isRsvpd && !isCancelled && !hasEnded && (
+                <EventShareRow
+                  title={event.title}
+                  url={shareUrl}
+                  label="Share this event:"
+                  testId="event-share-bottom"
+                  className="mb-6 border-t border-border pt-4"
                 />
               )}
 

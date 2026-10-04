@@ -10,6 +10,8 @@ import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../loca
 import { GroupChatBlock } from './GroupChatBlock';
 import { AddToCalendarMenu } from './AddToCalendarMenu';
 import { PrepConfirm } from '../prep/PrepConfirm';
+import { EventShareRow } from './EventShareRow';
+import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -146,7 +148,8 @@ export function RsvpConfirm() {
                   rel="noopener noreferrer"
                   className={`hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}
                 >
-                  {getLocationDisplayLabel(locationInfo, event.location)}
+                  {/* P1403: same label as the event page for a hike. */}
+                  {(isHikeLayout(event) && parseHikeDetails(event.hikeDetails)?.meetName) ? `Meet at ${parseHikeDetails(event.hikeDetails)?.meetName}` : getLocationDisplayLabel(locationInfo, event.location)}
                 </a>
               </div>
             </div>
@@ -158,6 +161,16 @@ export function RsvpConfirm() {
             <GroupChatBlock url={groupChatUrl} />
 
             <AddToCalendarMenu event={calendarEventData} />
+
+            {/* P1403 (founder 2026-10-04): the same share row as the prep confirmation, so every
+                event can be passed on right after registering, not only prepared ones. */}
+            <EventShareRow
+              title={event.title}
+              url={`${window.location.origin}/events/${event.slug}`}
+              label="Bring a friend:"
+              testId="rsvp-confirm-share"
+              className="pt-1"
+            />
 
             <Link to={`/events/${slug}`} className="block">
               <Button variant="ghost" className="w-full gap-2">

@@ -6,11 +6,9 @@
  * GroupChatBlock's glyphs and line, EventCard's AttendeeAvatarStack, LetterPrimaryCta)
  * — none of those is copied or restyled here.
  */
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
-import { Calendar, Link2, MapPin, MessagesSquare, MoreHorizontal, Video } from 'lucide-react';
-import { toast } from 'sonner';
-import { copyToClipboard, shareOrCopy } from '@/lib/utils';
+import { Calendar, MapPin, MessagesSquare, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import type { EventWithHost } from '@/app/types';
@@ -21,7 +19,7 @@ import { TELEGRAM_GLYPH, WHATSAPP_GLYPH } from '../components/GroupChatBlock';
 import { classifyGroupChat } from '../group-chat-utils';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { formatDate, formatTime } from '../utils';
-import { shareTargets } from './prep-content';
+import { EventShareRow } from '../components/EventShareRow';
 import type { Progress } from './prep-plan';
 
 export const eventPageUrl = (slug: string) => `${window.location.origin}/events/${slug}`;
@@ -100,7 +98,6 @@ export function EventBox({
   testId: string;
   note?: ReactNode;
 }) {
-  const [copied, setCopied] = useState(false);
   const pageUrl = eventPageUrl(event.slug);
   const start = new Date(event.datetime);
   const calendarEvent = {
@@ -112,27 +109,7 @@ export function EventBox({
     startDate: start,
     endDate: new Date(start.getTime() + event.durationMinutes * 60 * 1000),
   };
-  // On a phone the last button opens the share sheet — every other app is there — so it reads
-  // "More" (UAT 2026-10-01). Desktop Chrome on macOS also has navigator.share, but there people
-  // expect "Copy link" (founder, same day): touch + share sheet, not the API alone.
-  const canShareSheet =
-    typeof navigator !== 'undefined' && typeof navigator.share === 'function' &&
-    typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
-  // The button does what it says: "More" opens the share sheet, "Copy link" copies.
-  const copyLink = async () => {
-    const result = canShareSheet
-      ? await shareOrCopy(event.title, pageUrl)
-      : (await copyToClipboard(pageUrl)) ? 'copied' : 'failed';
-    if (result === 'copied') {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } else if (result === 'failed') {
-      toast.error('Could not copy link');
-    }
-  };
   const isWhatsApp = !!groupChatUrl && classifyGroupChat(groupChatUrl).provider === 'whatsapp';
-  const iconButton =
-    'inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground hover:bg-muted';
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-center shadow-sm" data-testid={testId}>
       {title}
@@ -153,37 +130,8 @@ export function EventBox({
           {isWhatsApp ? 'WhatsApp group' : 'Group chat'}: last-minute changes, questions, lifts.
         </p>
       )}
-      {/* P1387 (founder, 2026-10-02): "Share" on the same line as the icons. */}
-      <div className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-3" data-testid={`${testId}-share`}>
-        <p className="text-sm font-medium text-muted-foreground">Share</p>
-        <div className="contents">
-          {shareTargets(pageUrl, event.title).map(({ name, glyph, href }) => (
-            <a
-              key={name}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Share on ${name}`}
-              title={name}
-              className={iconButton}
-              data-testid={`share-${name.toLowerCase()}`}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                <path d={glyph} />
-              </svg>
-            </a>
-          ))}
-          <button
-            type="button"
-            onClick={copyLink}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-medium text-foreground hover:bg-muted"
-            data-testid="share-event"
-          >
-            {canShareSheet ? <MoreHorizontal className="h-4 w-4" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
-            {copied ? 'Copied!' : canShareSheet ? 'More' : 'Copy link'}
-          </button>
-        </div>
-      </div>
+      {/* P1387 (founder, 2026-10-02): "Share" on the same line as the icons. P1403: one shared row. */}
+      <EventShareRow title={event.title} url={pageUrl} testId={`${testId}-share`} className="border-t border-border pt-3" />
     </section>
   );
 }

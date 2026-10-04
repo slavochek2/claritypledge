@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { copyToClipboard } from '@/lib/utils';
 import { analytics } from '@/lib/mixpanel';
-import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
+import { Share2, Copy, Check, Link2, Code, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { MobileTooltip } from './mobile-tooltip';
 import {
   Dialog,
@@ -56,6 +57,7 @@ export function ShareDialog({
 }: ShareDialogProps) {
   const [linkCopied, setLinkCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [embedPreset, setEmbedPreset] = useState<EmbedPreset>('collapsed');
   const hasNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
   const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
@@ -158,6 +160,24 @@ export function ShareDialog({
                 {linkCopied ? <Check size={18} /> : <Copy size={18} />}
               </button>
             </div>
+
+            {/* Founder 2026-10-04: one tap shows a QR, so someone standing next to you scans
+                instead of typing — for every share window (stories, points, profiles, events). */}
+            <button
+              type="button"
+              onClick={() => setShowQr(v => !v)}
+              aria-expanded={showQr}
+              className="mt-2 inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline"
+              data-testid="share-dialog-qr-toggle"
+            >
+              <QrCode size={16} />
+              {showQr ? 'Hide QR code' : 'Show QR code'}
+            </button>
+            {showQr && (
+              <div className="mt-2 flex justify-center rounded-lg border border-border bg-white p-4" data-testid="share-dialog-qr">
+                <QRCodeSVG value={url} size={200} marginSize={1} />
+              </div>
+            )}
 
             {/* Native share button (mobile) */}
             {hasNativeShare && (
