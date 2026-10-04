@@ -22,15 +22,18 @@
 # the privilege-floor check inside Wave 3 8/13. Everything here has been silently dropped at
 # least once except Wave 1.
 #
+# P1399: which CHECKS each step carries lives beside this file, in day-cp-checks.tsv.
+#
 # id	kind	policy	label
 cp.w1	cmd	hard	Wave 1 — prod smoke, git log, stranded specs, cloud, key digest, GCP leak tripwire
 cp.w2	cmd	hard	Wave 2 — Supabase signup funnel, job health, email cron delivery evidence
 cp.w2s	attest	hard	Wave 2 — Sentry issues since last run
 cp.w2b	attest	hard	Wave 2b — Mixpanel user intelligence
 cp.w2c	attest	skippable	Wave 2c — signup intel (only when Wave 2 found new real-user signups)
+cp.people	cmd	hard	New and returning people recorded for the day report (P1399)
 cp.w3	cmd	hard	Wave 3 — repo health, RLS drift, function grants, privilege floor, lint
 cp.vsum	cmd	hard	Video summaries — auto-heal: draft + check every prod story video without one (P1373)
-cp.health	attest	hard	HEALTH rows returned to the dispatcher
+cp.health	attest	hard	Every check reported a status, every problem has a finding (P1399)
 cp.reflect	attest	hard	Reflection since last /day
 cp.goals	attest	hard	Goals and milestone
 cp.branch	cmd	hard	Branch status — stash check (branch and stranded-spec rows come from cp.w1)

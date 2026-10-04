@@ -2,7 +2,7 @@
 name: monthly
 description: Monthly meta-review — extract behavioral patterns from session history, challenge existing CLAUDE.md principles, run the research-programme health check, propose concrete improvements. Run once a month.
 when_to_use: "Once a month. Auto-invoked by /day when >28d since last run, or run directly."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /slava:monthly
@@ -24,6 +24,12 @@ Runs 4 parallel subagents against the last month of session logs, filters findin
 - **D:** Prompt-pattern / skill-gap mining (moved from /weekly 2.7 — P900; complements B's recurring-questions with intent clustering)
 
 Then synthesizes → proposes concrete changes → you approve → applies them.
+
+**Run inside `/day` (`$DAY_STEP` is set — P1399): it asks nothing.** `/day` runs this in a subagent
+where nobody can answer, so step 2.6's close offer and step 5's "Apply all / some / skip" become
+findings the founder answers on the Day page, the review is marked done at step 6, and nothing is
+applied or committed here — Start fixing on the board applies the picked changes in a separate
+session, through the normal gates. Run directly, it is unchanged.
 
 ---
 
@@ -248,7 +254,10 @@ absence. Then filter to `due: month`:
 ```
 
 Surface them **by ID**, age-flag anything sitting 2+ **months**, and offer the same close — one
-list, one prompt, `resolve INBOX-<n>` / `drop INBOX-<n>` / default keep. The resolve and drop
+list, one prompt, `resolve INBOX-<n>` / `drop INBOX-<n>` / default keep. **Inside `/day`** there is
+no prompt: record the offer per entry exactly as `/weekly` step 2.5 does inside `/day` (same
+options, same loop guard), with `--check cp.monthly --review monthly --fault-key
+monthly:inbox-<id, lowercased>`. The resolve and drop
 mechanics (full-token ID matching, graduation into `docs/decisions.md`, deleting through
 `./scripts/inbox.sh delete`, never writing `Status: done`, private entries never graduating into the
 public log) are defined once in `/weekly` step 2.5; follow them there rather than restating them here.
@@ -336,6 +345,29 @@ Rationale: [1 sentence]
 
 Present all proposed changes as terminal output. **Do NOT edit any file from this skill.** Ask: **"Apply all / apply some (list) / skip all?"**
 
+**Inside `/day` (`$DAY_STEP` is set), do not ask** (P1399) — the question would reach nobody. Record
+each proposed change as one finding instead, its draft text and rationale as the body, so the
+founder decides change by change on the Day page:
+
+```bash
+"$DAY_STEP" finding --check cp.monthly --severity medium --store public --review monthly \
+  --fault-key monthly:<short-slug-of-the-change> \
+  --title "<the change, in plain words>" \
+  --point-a "<what happens today>" --obstacle "<the pattern the agents found>" \
+  --point-b "<what the change would make true>" \
+  --option apply="Apply this change" --option skip="Not now" --recommend apply --confidence 70 <<'BODY'
+PROPOSED CHANGE: File / Section / Type
+Draft text:
+<exact text>
+Rationale: <1 sentence>
+BODY
+```
+
+Set `--confidence` (0-100) to how sure you are the change helps. `--store public` only when the draft names nothing private (it targets a public file, so it usually
+does not); otherwise leave the default, private. Then go to step 6. The changes the founder picks
+are applied later by the session Start fixing opens, each CLAUDE.md change through
+`/slava:maintain:claude-md` as below — never from inside `/day`.
+
 Apply only what the user approves. For each approved CLAUDE.md change, run `/slava:maintain:claude-md` gate check before editing. Subagents spawned by this skill are read-only analysts — they must NEVER edit CLAUDE.md or `.claude/rules/` files.
 
 ---
@@ -352,6 +384,10 @@ key_insight: [one sentence summary of the most important finding]
 EOF
 ```
 
+**Inside `/day`, write the marker once every proposal is recorded as a finding** — the review is
+done; applying is the later session's job — with `changes_applied: 0` and `key_insight` as usual,
+and **do not stage or commit anything.**
+
 After the user approves changes and the main agent applies them (through `/slava:maintain:claude-md` gates), stage and commit:
 ```bash
 git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
@@ -367,7 +403,7 @@ git add CLAUDE.md .claude/rules/*.md docs/technical/*.md
 - **Agent D dedupes into Agent B.** Same intent surfaced by both = one finding, not two.
 - **Agent C is a devil's advocate, not a validator.** If it finds nothing to challenge, it's not looking hard enough.
 - **Proposed change text must be pasteable.** No "something like..." — exact draft text or nothing.
-- **User approves before applying.** Never auto-apply CLAUDE.md changes.
+- **User approves before applying.** Never auto-apply CLAUDE.md changes — inside `/day` the approval is his choice on the Day page, never a recommendation standing in for it.
 - **Run `/slava:maintain:claude-md` gate on each CLAUDE.md change.** Even if the monthly synthesis already checked placement.
 - **This is not a weekly retro.** No Sentry, no metrics, no product retrospective, no user conversation count. That's `/weekly`. This is about the collaboration system itself — **plus** the one research-programme verdict from step 2.5, which is a *methodology* judgment (is the programme progressing?), not an ops metric. Those are the only numbers that belong here.
 - **Relay `/programme-health` verbatim.** One verdict, one recommendation, unedited. Re-judging it here destroys the independence its fresh-context analyst exists to provide.
