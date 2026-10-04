@@ -8,6 +8,7 @@ tags: [terms, consent, ux]
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -38,8 +39,8 @@ and are blocked only when a change genuinely needs their explicit consent?
 
 Blast radius: medium. The gate renders over every authed page for every user on old terms.
 Reversibility: high for the code; the new audit column is additive. Decision density: decided in
-conversation (below). Built ahead of this spec on `fix/terms-popup-change-summary`, which was
-retrofitted for `/ship`.
+conversation (below). Built inline in conversation ahead of this spec (`flow: inline`), then
+retrofitted onto `fix/p1398-terms-notice-says-what-changed` for `/ship`.
 
 ## Solution
 
