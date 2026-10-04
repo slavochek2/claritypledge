@@ -35,3 +35,11 @@ export const outlineButton: CSSProperties = {
   color: 'var(--text-primary)',
   fontWeight: 'var(--font-weight-medium)' as unknown as number,
 }
+
+/** Left-edge colour per group: three clearly different hues (visual QA: the first build's
+ *  dark brown and dark navy were hard to tell apart). Notion's own orange, blue and grey. */
+export const GROUP_ACCENT: Record<'answer' | 'agent' | 'hold', string> = {
+  answer: '#d9730d',
+  agent: '#2383e2',
+  hold: 'rgba(55, 53, 47, 0.3)',
+}

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { buildAgentPrompt, type DayReport, type DayView, type ShownItem } from '../lib/day'
 import { AreaTag, DayItemCard, type DecisionInput } from './DayItemCard'
-import { ghostButton, outlineButton } from './dayUi'
+import { GROUP_ACCENT, ghostButton, outlineButton } from './dayUi'
 
 interface RunSummary {
   id: string
@@ -30,6 +30,7 @@ type RunResponse =
   | { id: string; valid: true; isLatest: boolean; report: DayReport; view: DayView; decisionsState: string; decisionsBadLines: number }
 
 const DONE_VISIBLE = 8
+const GROUP_VISIBLE = 6
 
 const GROUPS: { key: 'answer' | 'agent' | 'hold'; title: string; definition: string; empty: string }[] = [
   {
@@ -63,10 +64,11 @@ function formatRunTime(iso: string): string {
   return d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-function SectionHeader({ title, count, definition, action }: { title: string; count?: number; definition?: string; action?: ReactNode }) {
+function SectionHeader({ title, count, definition, action, accent }: { title: string; count?: number; definition?: string; action?: ReactNode; accent?: string }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {accent && <span aria-hidden style={{ width: 10, height: 10, borderRadius: 2, background: accent, flexShrink: 0 }} />}
         <h2 style={{ fontSize: 'var(--font-size-16)', fontWeight: 600, color: 'var(--text-primary)' }}>{title}</h2>
         {count !== undefined && (
           <span style={{ background: 'var(--status-gray-bg)', color: 'var(--status-gray-text)', fontSize: 'var(--font-size-12)', padding: '0 6px', borderRadius: 3, lineHeight: '18px' }}>
@@ -76,7 +78,7 @@ function SectionHeader({ title, count, definition, action }: { title: string; co
         <span style={{ flex: 1 }} />
         {action}
       </div>
-      {definition && <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-12)', lineHeight: 1.5, marginTop: 2 }}>{definition}</div>}
+      {definition && <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-12)', lineHeight: 1.5, marginTop: 2 }}>{definition}</div>}
     </div>
   )
 }
@@ -90,7 +92,7 @@ function Disclosure({ label, children, testId }: { label: string; children: Reac
         aria-expanded={open}
         style={{ ...ghostButton, padding: '0 4px', color: 'var(--text-secondary)', fontWeight: 500 }}
       >
-        <span style={{ display: 'inline-block', width: 14, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.1s' }}>›</span>
+        <span aria-hidden style={{ display: 'inline-block', width: 16 }}>{open ? '▾' : '▸'}</span>
         {label}
       </button>
       {open && <div style={{ padding: '4px 0 8px 18px' }}>{children}</div>}
@@ -105,6 +107,8 @@ const CHECK_ICON: Record<string, { icon: string; color: string; label: string }>
   unproven: { icon: '?', color: 'var(--tag-red-text)', label: 'result not proven' },
   skipped: { icon: '–', color: 'var(--text-tertiary)', label: 'not needed this run' },
 }
+
+const CHECK_ORDER: Record<string, number> = { 'not-run': 0, unproven: 0, problem: 1, ok: 2, skipped: 3 }
 
 function Notice({ children, tone = 'info' }: { children: ReactNode; tone?: 'info' | 'warn' }) {
   return (
@@ -192,6 +196,7 @@ export function DayPage() {
   if (list.state === 'error') return <Page><Notice tone="warn">The /day runs folder could not be read. See the board server log.</Notice></Page>
   if (list.runs.length === 0) return <Page><Notice>No /day runs recorded yet. The next /day run will appear here.</Notice></Page>
 
+  const latestId = list.runs.find((r) => r.valid)?.id
   const history = (
     <section data-testid="day-history">
       <SectionHeader title="Earlier runs" count={list.runs.length} />
@@ -216,11 +221,14 @@ export function DayPage() {
               }}
             >
               <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, padding: '6px 0', lineHeight: 1.35 }}>
-                <span>{r.startedAt ? formatRunTime(r.startedAt) : r.id}</span>
+                <span>
+                  {r.startedAt ? formatRunTime(r.startedAt) : r.id}
+                  {r.id === latestId && <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-12)' }}> · latest</span>}
+                </span>
                 {!r.valid ? (
                   <span style={{ color: 'var(--tag-red-text)', fontSize: 'var(--font-size-12)' }}>file unreadable</span>
                 ) : (
-                  <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-12)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-12)' }}>
                     {r.state !== 'complete' ? `${r.state} · ` : ''}
                     {r.answer} for you · {r.agent} for an agent
                   </span>
@@ -243,7 +251,7 @@ export function DayPage() {
       </Notice>
     )
   } else {
-    body = <RunView run={run} decide={decide} copied={copied} setCopied={setCopied} showAllDone={showAllDone} setShowAllDone={setShowAllDone} actionError={actionError} onBackToLatest={() => setSelected(list.runs.find((r) => r.valid)?.id ?? null)} />
+    body = <RunView key={run.id} run={run} decide={decide} copied={copied} setCopied={setCopied} showAllDone={showAllDone} setShowAllDone={setShowAllDone} actionError={actionError} onBackToLatest={() => setSelected(list.runs.find((r) => r.valid)?.id ?? null)} />
   }
 
   return (
@@ -264,9 +272,9 @@ function Page({ children }: { children: ReactNode }) {
         @media (min-width: 1100px) { .day-layout { grid-template-columns: minmax(0, 1fr) 280px; } .day-aside { position: sticky; top: 0; align-self: start; } }
         .day-readings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px 24px; }
         .day-reading { display: flex; gap: 10px; padding: 4px 0; min-width: 0; }
-        .day-reading-label { width: 64px; flex-shrink: 0; color: var(--text-tertiary); font-size: var(--font-size-12); padding-top: 2px; }
+        .day-reading-label { width: 64px; flex-shrink: 0; color: var(--text-secondary); font-size: var(--font-size-12); padding-top: 2px; }
         @media (max-width: 480px) { .day-reading { flex-direction: column; gap: 0; } .day-reading-label { width: auto; padding-top: 0; } }
-        @media (min-width: 720px) { .day-readings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1200px) { .day-readings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       `}</style>
       {children}
     </div>
@@ -286,7 +294,7 @@ interface RunViewProps {
 
 function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, actionError, onBackToLatest }: RunViewProps) {
   const { report, view, isLatest } = run
-  const runDate = report.started_at
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const doneShown = showAllDone ? report.done : report.done.slice(0, DONE_VISIBLE)
   const notRun = view.checks.notRun
 
@@ -308,7 +316,7 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
           <div style={{ marginBottom: 12 }}>
             <Notice>
               You are looking at an earlier run. It shows what that morning reported; decisions are made on the latest run.{' '}
-              <button style={{ ...ghostButton, minHeight: 0, padding: 0, color: 'var(--status-blue-text)', textDecoration: 'underline' }} onClick={onBackToLatest}>
+              <button style={{ ...ghostButton, padding: '0 4px', color: 'var(--status-blue-text)', textDecoration: 'underline' }} onClick={onBackToLatest}>
                 Back to latest
               </button>
             </Notice>
@@ -330,7 +338,7 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
           >
             {report.state === 'complete' ? 'Complete ✓' : report.state === 'incomplete' ? 'Incomplete: some steps did not run' : 'Abandoned'}
           </span>
-          {report.model && <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-tertiary)' }}>ran on {report.model}</span>}
+          {report.model && <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-secondary)' }}>checks run by {report.model}</span>}
         </div>
         <div data-testid="day-summary" style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 'var(--font-size-14)' }}>
           <span><strong>{view.answer.length}</strong> need your answer</span>
@@ -353,15 +361,15 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
       {/* The three groups */}
       {GROUPS.map((g) => {
         const items: ShownItem[] = view[g.key]
-        if (g.key === 'hold' && items.length === 0) return null
         return (
           <section key={g.key} data-testid={`day-group-${g.key}`}>
             <SectionHeader
               title={g.title}
+              accent={GROUP_ACCENT[g.key]}
               count={items.length}
               definition={g.definition}
               action={
-                g.key === 'agent' && items.length > 0 ? (
+                g.key === 'agent' && items.length > 0 && isLatest ? (
                   <button style={outlineButton} onClick={copyPrompt} data-testid="day-copy-prompt">
                     {copied === 'ok' ? 'Copied ✓' : copied === 'failed' ? 'Copy failed' : `Copy prompt for all ${items.length}`}
                   </button>
@@ -372,9 +380,14 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
               <div style={{ color: 'var(--text-tertiary)' }}>{g.empty}</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {items.map((it) => (
-                  <DayItemCard key={it.fp} item={it} runDate={runDate} canDecide={isLatest} onDecide={decide} />
+                {(expanded[g.key] ? items : items.slice(0, GROUP_VISIBLE)).map((it) => (
+                  <DayItemCard key={`${run.id}:${it.fp}`} item={it} report={report} canDecide={isLatest} onDecide={decide} />
                 ))}
+                {items.length > GROUP_VISIBLE && (
+                  <button style={{ ...ghostButton, alignSelf: 'flex-start' }} onClick={() => setExpanded({ ...expanded, [g.key]: !expanded[g.key] })}>
+                    {expanded[g.key] ? 'Show fewer' : `+${items.length - GROUP_VISIBLE} more`}
+                  </button>
+                )}
               </div>
             )}
           </section>
@@ -420,7 +433,7 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
           ))}
         </ul>
         {report.done.length > DONE_VISIBLE && (
-          <button style={{ ...ghostButton, padding: '0 4px' }} onClick={() => setShowAllDone(!showAllDone)}>
+          <button style={{ ...ghostButton, padding: '0 0 0 22px' }} onClick={() => setShowAllDone(!showAllDone)}>
             {showAllDone ? 'Show fewer' : `+${report.done.length - DONE_VISIBLE} more ✓`}
           </button>
         )}
@@ -456,7 +469,7 @@ function RunView({ run, decide, copied, setCopied, showAllDone, setShowAllDone, 
       <section data-testid="day-more" style={{ borderTop: '1px solid var(--border-table)', paddingTop: 12 }}>
         <Disclosure label={`All checks (${view.checks.total})`} testId="day-all-checks">
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {report.checks.map((c) => {
+            {[...report.checks].sort((a, b) => CHECK_ORDER[a.status] - CHECK_ORDER[b.status]).map((c) => {
               const s = CHECK_ICON[c.status]
               return (
                 <li key={c.id} style={{ display: 'flex', gap: 8, lineHeight: 1.5 }}>
