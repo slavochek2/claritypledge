@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 22
 workstream: events
 created_date: '2026-10-04'
 tags: [prepare, onboarding, understanding, stories]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-04
 ---
 
 # P1402: Standalone /prepare — the explainer anyone can open, without an event
@@ -226,7 +226,7 @@ existing prep components; this spec does not create a second implementation.
 
 ## Related
 
-- [P1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md): event preparation, `person_prep_parts`
-- [P1387](done/2026-06-10/p1387_mobile_prep_screens_scroll_in_two_parts.md): phone layout rule
-- [P1392](done/2026-06-10/p1392_feed_first_homepage_and_nav.md), [P1397](done/2026-06-10/p1397_pinned_story_expands_inline.md): st1 pinned on the feed
+- [P1336](p1336_registration_carries_opt_in_prep_and_survey.md): event preparation, `person_prep_parts`
+- [P1387](p1387_mobile_prep_screens_scroll_in_two_parts.md): phone layout rule
+- [P1392](p1392_feed_first_homepage_and_nav.md), [P1397](p1397_pinned_story_expands_inline.md): st1 pinned on the feed
 - decisions.md 2026-10-01 [product] (P1336 scope), 2026-10-01 [technical] (CSP media origin, immersive route), 2026-10-02 [product] (P1387)
