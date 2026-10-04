@@ -28,8 +28,11 @@ function Notes({ notes }: { notes?: DayNote[] }) {
           <div className="d-note-item" key={n.id} data-note={n.id}>
             <button type="button" className="d-fold" aria-expanded={!!open[n.id]} onClick={() => setOpen((o) => ({ ...o, [n.id]: !o[n.id] }))}>
               <span className="d-tri">▶</span>
-              <span className="d-tx">{n.title}</span>
-              {n.review && <span className="d-runbadge sm">{n.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
+              <span className="d-notetitle">
+                {n.title}
+                {/* the badge flows after the title and wraps as a unit, never squeezing it; a title that already says "review" needs none */}
+                {n.review && !/review/i.test(n.title) && <span className="d-runbadge sm">{n.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
+              </span>
             </button>
             {open[n.id] && <div className="d-notebody">{n.body}</div>}
           </div>

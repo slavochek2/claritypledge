@@ -208,8 +208,7 @@
 .d-iconbtn:hover:not(:disabled) { background: var(--soft); }
 .d-iconbtn:disabled { color: var(--line2); background: var(--card); }
 .d-ro { font-size: 13px; font-weight: 600; color: var(--fg3); }
-.d-bstat { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--green-800); white-space: nowrap; }
-.d-bstat.opening { color: var(--fg2); }
+.d-bstat { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--fg2); white-space: nowrap; }
 .d-spin { width: 14px; height: 14px; border: 2px solid var(--line2); border-top-color: var(--slate); border-radius: 99px; animation: d-sp .8s linear infinite; }
 @keyframes d-sp { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .d-spin { animation: none; } }
@@ -294,6 +293,8 @@
 .d-notes { margin-top: 16px; }
 .d-note-item + .d-note-item { border-top: 1px solid var(--line); }
 .d-note-item .d-fold { min-height: 44px; }
+.d-notetitle { flex: 1; min-width: 0; }
+.d-notetitle .d-runbadge { display: inline-block; margin-left: 8px; vertical-align: 1px; }
 .d-notebody { padding: 0 16px 14px 36px; font-size: 14px; color: var(--fg2); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* reflection: the product's point card look */

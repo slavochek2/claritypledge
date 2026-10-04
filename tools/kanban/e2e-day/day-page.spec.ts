@@ -333,11 +333,14 @@ test.describe('issues', () => {
     await card(page).getByRole('textbox', { name: 'Your question' }).fill(QUESTION)
     await expect(startBtn(page)).toHaveText(`Start fixing (${collectedCount})`)
 
-    const promptRes = page.waitForResponse((r) => r.url().endsWith('/api/day/prompt'))
     await startBtn(page).click()
+    // the suite's server never opens a terminal (KANBAN_DAY_LAUNCH=off): the real 502 path offers Copy
+    const toast = page.locator('.d-toast')
+    await expect(toast).toContainText('Couldn’t start a session in the terminal.')
+    const promptRes = page.waitForResponse((r) => r.url().endsWith('/api/day/prompt'))
+    await toast.getByRole('button', { name: 'Copy' }).click()
     const { prompt } = await (await promptRes).json()
-    // the suite's server never opens a terminal (KANBAN_DAY_LAUNCH=off): the real 502 path copies instead
-    await expect(page.locator('.d-toast')).toHaveText('Couldn’t open the terminal — prompt copied instead.')
+    await expect(toast).toHaveText('Prompt copied')
     const clip = await page.evaluate(() => navigator.clipboard.readText())
     expect(clip).toBe(prompt)
     expect(clip.split('\n')[0]).toContain('still real')
@@ -345,8 +348,10 @@ test.describe('issues', () => {
     expect(q).toBeGreaterThan(0)
     expect(q).toBeLessThan(clip.indexOf(view.issues[0].title))
 
-    const written = lines()
+    // the server also journals the launch attempt (kind 'sent': pending → failed); count the answers
+    const written = lines().filter((d) => d.kind === 'option')
     expect(written).toHaveLength(view.issues.length) // one batch: the ask + every preselected answer
+    expect(lines().filter((d) => d.kind === 'sent').map((d) => d.state)).toEqual(['pending', 'failed'])
     expect(written.filter((d) => d.option_id === 'ask')).toEqual([expect.objectContaining({ text: QUESTION, is_question: true })])
     expect(new Set(written.map((d) => d.at)).size).toBeLessThanOrEqual(2)
   })
@@ -776,58 +781,107 @@ test.describe('review round 3', () => {
 
 test.describe('Start fixing opens a terminal (Phase C)', () => {
   const pick = (page: Page, label: string) => card(page).locator('.d-optrow').filter({ hasText: label }).click()
+  const json = (status: number, body: unknown) => ({ status, contentType: 'application/json', body: JSON.stringify(body) })
+  /** Patch what the server says about sending (lastSentAt / collectedCount) on every run read. */
+  async function sentState(page: Page, lastSentAt: string | null, collectedCount: number) {
+    await page.route('**/api/day/runs/*', async (route) => {
+      const res = await route.fetch()
+      const body = await res.json()
+      await route.fulfill({ response: res, json: { ...body, lastSentAt, collectedCount } })
+    })
+  }
+  const clockOf = (page: Page, iso: string) => page.evaluate((x) => new Date(x).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), iso)
 
-  test('the request body is exactly { run_id }; 200 shows "Running in terminal" until a decision changes', async ({ page }) => {
+  test('the request body is exactly { run_id }; "Opening…" while waiting; then the run is re-read', async ({ page }) => {
     await openDay(page)
     let body: unknown = null
     await page.route('**/api/day/start', async (route) => {
       body = route.request().postDataJSON()
-      await new Promise((r) => setTimeout(r, 400))
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ launched: true, how: 'tab' }) })
+      await new Promise((r) => setTimeout(r, 600))
+      await route.fulfill(json(200, { launched: true, how: 'tab', count: 13, followUp: false }))
     })
+    const reread = page.waitForResponse((r) => r.url().includes(`/api/day/runs/${LATEST_ID}`) && r.request().method() === 'GET')
     await startBtn(page).click()
     await expect(page.locator('[data-launch="opening"]')).toHaveText('Opening…')
-    await expect(page.locator('[data-launch="running"]')).toHaveText('✓ Running in terminal')
     await expect(page.locator('.d-toast')).toHaveText('Opened a new tab in your terminal')
-    await expect(startBtn(page)).toHaveCount(0)
+    await reread
     expect(body).toEqual({ run_id: LATEST_ID })
-    await pick(page, 'Roll back now')
-    await expect(startBtn(page)).toBeVisible()
-    await expect(page.locator('[data-launch]')).toHaveCount(0)
+    await expect(page.locator('[data-launch="opening"]')).toHaveCount(0)
   })
 
-  test('how=window says so', async ({ page }) => {
+  test('toasts: a new window, and a follow-up that sends only the changes', async ({ page }) => {
     await openDay(page)
-    await page.route('**/api/day/start', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ launched: true, how: 'window' }) }),
-    )
+    let reply = { launched: true, how: 'window', count: 13, followUp: false }
+    await page.route('**/api/day/start', (route) => route.fulfill(json(200, reply)))
     await startBtn(page).click()
     await expect(page.locator('.d-toast')).toHaveText('Opened a new window in your terminal')
-  })
-
-  test('429 asks to wait; the button stays', async ({ page }) => {
-    await openDay(page)
-    await page.route('**/api/day/start', (route) =>
-      route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'Too soon' }) }),
-    )
+    reply = { launched: true, how: 'tab', count: 2, followUp: true }
+    await expect(startBtn(page)).toBeEnabled()
     await startBtn(page).click()
-    await expect(page.locator('.d-toast')).toHaveText('Started less than a minute ago. Wait a moment, or copy the prompt.')
-    await expect(startBtn(page)).toBeVisible()
+    await expect(page.locator('.d-toast')).toHaveText('Sent 2 changes to a new terminal tab')
   })
 
-  test('409 already-sent offers Copy, which copies the prompt', async ({ page, context }) => {
+  test('sent, nothing new: the bar says when, survives a reload, and the copy icon still works', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${ON.web}` })
+    const at = '2026-10-05T06:12:00Z'
+    await sentState(page, at, 0)
     await openDay(page)
-    await page.route('**/api/day/start', (route) =>
-      route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Already sent', reason: 'already-sent' }) }),
-    )
+    const when = await clockOf(page, at)
+    await expect(page.locator('[data-launch="sent"] .d-tl')).toHaveText(`Sent to your terminal at ${when}`)
+    await expect(startBtn(page)).toHaveCount(0)
+    expect(await page.locator('[data-launch="sent"]').evaluate((e) => getComputedStyle(e).color)).toBe('rgb(71, 85, 105)')
+    await page.reload()
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await expect(page.locator('[data-launch="sent"] .d-tl')).toHaveText(`Sent to your terminal at ${when}`)
+    await page.getByRole('button', { name: 'Copy prompt' }).click()
+    await expect(page.locator('.d-toast')).toHaveText('Prompt copied')
+  })
+
+  test('sent, then changed: the button says "Send N changes"', async ({ page }) => {
+    await sentState(page, '2026-10-05T06:12:00Z', 3)
+    await openDay(page)
+    await expect(page.getByRole('button', { name: 'Send 3 changes' })).toBeVisible()
+  })
+
+  test('320px: the sent state is short and the bar keeps its two rows', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await openDay(page)
+    await collapseSidebar(page)
+    const h0 = (await rectOf(page.locator('[data-bottom-bar]'), 'bar')).height
+    const at = '2026-10-05T06:12:00Z'
+    await sentState(page, at, 0)
+    await pick(page, 'Roll back now') // any write re-reads the run, now patched
+    await expect(page.locator('[data-launch="sent"] .d-ts')).toHaveText(`Sent ${await clockOf(page, at)}`)
+    await expect(page.locator('[data-launch="sent"] .d-tl')).toBeHidden()
+    expect((await rectOf(page.locator('[data-bottom-bar]'), 'bar')).height).toBeLessThanOrEqual(h0 + 0.5)
+  })
+
+  for (const [status, body, text] of [
+    [429, { error: 'Too soon' }, 'A session is opening, or one started less than a minute ago.'],
+    [409, { error: 'Already sent', reason: 'already-sent' }, 'Already sent to your terminal; nothing has changed since.'],
+    [502, { error: 'No terminal', fallback: 'copy' }, 'Couldn’t start a session in the terminal.'],
+  ] as const) {
+    test(`${status}: "${text}" with a Copy button that copies; no auto-copy`, async ({ page, context }) => {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${ON.web}` })
+      await openDay(page)
+      await page.evaluate(() => navigator.clipboard.writeText('untouched'))
+      await page.route('**/api/day/start', (route) => route.fulfill(json(status, body)))
+      await startBtn(page).click()
+      const toast = page.locator('.d-toast')
+      await expect(toast).toContainText(text)
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('untouched')
+      await toast.getByRole('button', { name: 'Copy' }).click()
+      await expect(toast).toHaveText('Prompt copied')
+      expect((await page.evaluate(() => navigator.clipboard.readText())).split('\n')[0]).toContain('still real')
+      await expect(startBtn(page)).toBeVisible()
+    })
+  }
+
+  test('a network failure says "Couldn’t start", not "Couldn’t copy"', async ({ page }) => {
+    await openDay(page)
+    await page.route('**/api/day/start', (route) => route.abort())
     await startBtn(page).click()
-    const toast = page.locator('.d-toast')
-    await expect(toast).toContainText('This was already sent to a terminal. Copy it instead?')
-    await toast.getByRole('button', { name: 'Copy' }).click()
-    await expect(toast).toHaveText('Prompt copied')
-    expect((await page.evaluate(() => navigator.clipboard.readText())).split('\n')[0]).toContain('still real')
-    await expect(startBtn(page)).toBeVisible()
+    await expect(page.locator('.d-toast')).toContainText('Couldn’t start:')
   })
 
   test('the copy icon never asks for a terminal', async ({ page, context }) => {
@@ -859,7 +913,29 @@ test.describe('notes ("From this run")', () => {
     await fold.click()
     await expect(shipped.locator('.d-notebody')).toHaveText('Event page: room-ended message reworded.\nBoard: Day page phase A.')
     expect(await shipped.locator('.d-notebody').evaluate((e) => getComputedStyle(e).whiteSpace)).toBe('pre-wrap')
-    await expect(notes.locator('[data-note="week-measures"] .d-runbadge')).toHaveText('Weekly review')
+    // the title already says "review": no badge repeating it
+    await expect(notes.locator('[data-note="week-measures"] .d-runbadge')).toHaveCount(0)
+  })
+
+  test('a review note whose title does not say so gets the badge, without squeezing the title at 320px', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await page.route('**/api/day/runs/*', async (route) => {
+      const res = await route.fetch()
+      const body = await res.json()
+      if (body.report) body.report.notes = [{ id: 'm', title: 'Measurements', body: 'Reach-outs: 6', review: 'monthly' }]
+      await route.fulfill({ response: res, json: body })
+    })
+    await openDay(page)
+    await collapseSidebar(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const title = page.locator('[data-note="m"] .d-notetitle')
+    await expect(title.locator('.d-runbadge')).toHaveText('Monthly review')
+    const range = await title.evaluate((e) => {
+      const r = document.createRange()
+      r.selectNodeContents(e.firstChild as Node)
+      return r.getClientRects().length
+    })
+    expect(range, 'title text on one line').toBe(1)
   })
 
   test('a run without notes shows no "From this run"', async ({ page }) => {

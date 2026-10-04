@@ -29,6 +29,9 @@ const TABS: [Tab, string][] = [
 /** Below ~420px of page width the tabs keep one row with these. */
 const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', monitoring: 'Monitor', reflection: 'Reflect' }
 
+/** "08:12" in the founder's local time. */
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+
 const draftKey = (fp: string, kind: FreeKind) => `${fp}\u0000${kind}`
 const isFree = (id: string | undefined): id is FreeKind => id === ASK || id === OTHER
 type WriteResult = { ok: true } | { ok: false; status: number; message: string }
@@ -63,8 +66,9 @@ export function DayPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null)
   const [busy, setBusy] = useState(false)
-  /** Start fixing: idle → opening (request in flight) → running (until any decision changes) */
-  const [launch, setLaunch] = useState<'idle' | 'opening' | 'running'>('idle')
+  /** Start fixing request in flight (the server waits for Claude to acknowledge, up to ~20s). What
+   *  was sent is the server's to say: the bar reads `lastSentAt` / `collectedCount` from the run. */
+  const [opening, setOpening] = useState(false)
   /** set when a newer run appeared while this page was open */
   const [newerId, setNewerId] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -136,7 +140,7 @@ export function DayPage() {
     setResolved(new Set())
     setChoice({})
     setDrafts({})
-    setLaunch('idle')
+    setOpening(false)
     stories.current = {}
     void reload(runId)
   }, [runId, reload])
@@ -162,7 +166,6 @@ export function DayPage() {
         async (): Promise<WriteResult> => {
           try {
             await postDecisions(id, ds)
-            setLaunch('idle') // a decision changed: what is running no longer matches the page
             await reload(id)
             return { ok: true }
           } catch (e) {
@@ -299,38 +302,37 @@ export function DayPage() {
         const freeFps = new Set(Object.entries(choice).filter(([, v]) => isFree(v)).map(([fp]) => fp))
         const preselected = pendingPreselected(fresh.view).filter((d) => !freeFps.has(d.target))
         const batch = [...free, ...preselected]
-        if (batch.length) {
-          await postDecisions(runId, batch)
-          setLaunch('idle')
-        }
+        if (batch.length) await postDecisions(runId, batch)
         if (mode === 'copy') {
           await copyText((await getPrompt()).prompt)
           say('Prompt copied')
           return
         }
-        setLaunch('opening')
+        setOpening(true)
         const r = await startRun(runId)
+        // Never auto-copy here: by now focus may be in the terminal and the copy can fail silently.
+        const copy = { label: 'Copy', run: () => void startRef.current('copy') }
         if (r.status === 200 && r.body.launched) {
-          setLaunch('running')
-          say(r.body.how === 'window' ? 'Opened a new window in your terminal' : 'Opened a new tab in your terminal')
-          return
-        }
-        setLaunch('idle')
-        if (r.status === 429) say('Started less than a minute ago. Wait a moment, or copy the prompt.')
-        else if (r.status === 409 && r.body.reason === 'already-sent')
-          say('This was already sent to a terminal. Copy it instead?', { label: 'Copy', run: () => void startRef.current('copy') })
-        else if (r.status === 502) {
-          await copyText((await getPrompt()).prompt)
-          say('Couldn’t open the terminal — prompt copied instead.')
-        } else {
+          const n = r.body.count ?? 0
+          say(
+            r.body.followUp
+              ? `Sent ${n} change${n === 1 ? '' : 's'} to a new terminal ${r.body.how === 'window' ? 'window' : 'tab'}`
+              : r.body.how === 'window'
+                ? 'Opened a new window in your terminal'
+                : 'Opened a new tab in your terminal',
+          )
+        } else if (r.status === 429) say('A session is opening, or one started less than a minute ago.', copy)
+        else if (r.status === 409 && r.body.reason === 'already-sent') say('Already sent to your terminal; nothing has changed since.', copy)
+        else if (r.status === 502) say('Couldn’t start a session in the terminal.', copy)
+        else {
           if (r.status === 409 && r.body.reason === 'not-latest') void checkNewer()
           say(`Couldn’t start: ${r.body.error ?? `request failed (${r.status})`}`)
         }
       } catch (e) {
-        setLaunch('idle')
         if (e instanceof HttpError && e.status === 409) void checkNewer()
-        say(`Couldn’t copy: ${(e as Error).message}`)
+        say(`${mode === 'copy' ? 'Couldn’t copy' : 'Couldn’t start'}: ${(e as Error).message}`)
       } finally {
+        setOpening(false)
         setBusy(false)
         await reload(runId)
       }
@@ -634,15 +636,20 @@ export function DayPage() {
                   <span className="d-ro">Read only</span>
                 ) : (
                   <>
-                    {launch === 'opening' ? (
-                      <span className="d-bstat opening" data-launch="opening">
+                    {opening ? (
+                      <span className="d-bstat" data-launch="opening">
                         <span className="d-spin" aria-hidden="true" />
                         Opening…
                       </span>
-                    ) : launch === 'running' ? (
-                      <span className="d-bstat" data-launch="running">
-                        ✓ Running in terminal
+                    ) : ok.lastSentAt && ok.collectedCount === 0 ? (
+                      <span className="d-bstat" data-launch="sent" title={`Sent to your terminal at ${clock(ok.lastSentAt)}`}>
+                        <span className="d-tl">Sent to your terminal at {clock(ok.lastSentAt)}</span>
+                        <span className="d-ts">Sent {clock(ok.lastSentAt)}</span>
                       </span>
+                    ) : ok.lastSentAt ? (
+                      <button type="button" className="d-btn primary sm" disabled={busy} onClick={() => void startFixing('start')}>
+                        Send {ok.collectedCount} change{ok.collectedCount === 1 ? '' : 's'}
+                      </button>
                     ) : (
                       <button type="button" className="d-btn primary sm" disabled={busy || ok.collectedCount === 0} onClick={() => void startFixing('start')}>
                         Start fixing ({ok.collectedCount})
@@ -653,7 +660,7 @@ export function DayPage() {
                       className="d-iconbtn"
                       aria-label="Copy prompt"
                       title="Copy prompt"
-                      disabled={busy || ok.collectedCount === 0}
+                      disabled={busy || (ok.collectedCount === 0 && !ok.lastSentAt)}
                       onClick={() => void startFixing('copy')}
                     >
                       <CopyIcon />

@@ -24,7 +24,10 @@ export type RunPayload =
       view: DayView
       droppedRows: number
       decisionsBadLines: number
+      /** items not yet sent to a terminal */
       collectedCount: number
+      /** when Start fixing last reached a terminal on this run, if ever */
+      lastSentAt?: string | null
       warnings: ('stale' | 'unfinished')[]
     }
   | { id: string; isLatest: boolean; kind: 'other-schema'; text: string }
@@ -55,7 +58,7 @@ export const postDecisions = (runId: string, decisions: DecisionInput[]) =>
 
 export interface StartResult {
   status: number
-  body: { launched?: boolean; how?: 'tab' | 'window'; error?: string; reason?: 'already-sent' | 'not-latest' | 'nothing'; fallback?: 'copy' }
+  body: { launched?: boolean; how?: 'tab' | 'window'; count?: number; followUp?: boolean; error?: string; reason?: 'already-sent' | 'not-latest' | 'nothing'; fallback?: 'copy' }
 }
 
 /**
