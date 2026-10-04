@@ -93,6 +93,21 @@ Open (founder): a letter recommendation from the diagnosis (no mapping exists in
 comparison step (P1337's `/compare/:person`, built, unshipped, at `qa`). Related backlog: P1025
 (self-serve onboarding), P1003 (3-minute audit → report).
 
+## Founder UAT round 2 (2026-10-04)
+
+> *"on desktop it's not fixed at the bottom but maybe it should be fixed at the bottom because this
+> is how I see my progress one out of seven answers"*
+
+- Step 4 reads "Let's find out how you think understanding works between people" (list: "Share how
+  you think understanding works between people") [FOUNDER DECISION: final copy].
+- Statements steps ("N of M answered", dimmed Continue, Skip) are pinned on desktop too — in
+  `/prepare` AND the event preparation. **Narrows decisions.md 2026-10-02 (P1387)**, which put
+  every step's actions in the page on desktop; video and choice steps keep that rule.
+- The end screen is a destination like the home page: the next events and groups
+  (`HomeHighlightsBlock`, the home rail's content), the menus back (`?done=1`), no pinned bar.
+  "Want to host one? Book a call" and "Review the steps" are small links. The event
+  preparation's end screen is unchanged (stays immersive, P1387).
+
 ## Solution
 
 A `/prepare` route, a sibling of `/meet` and `/ready`: no sign-in wall, event-free.

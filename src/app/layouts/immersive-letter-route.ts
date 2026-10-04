@@ -20,13 +20,20 @@
  * room must not keep recording on a screen that hides the capture bar (P1307 D13).
  */
 const IMMERSIVE_LETTER_PATH = /^\/letter\/[^/]+(\/compose)?$/;
-// P1402: the standalone /prepare is the same flow without an event.
-const IMMERSIVE_PREP_PATH = /^\/(events\/[^/]+\/)?prepare\/?$/;
+const IMMERSIVE_PREP_PATH = /^\/events\/[^/]+\/prepare\/?$/;
+// P1402: the standalone /prepare is the same flow without an event — but its end screen (?done=1)
+// is a destination (founder UAT 2026-10-04): the menus come back, for signed-out visitors too.
+const STANDALONE_PREP_PATH = /^\/prepare\/?$/;
 
 export function isImmersiveLetterRoute(pathname: string, search: string, hasAppMenu: boolean): boolean {
   const done = new URLSearchParams(search).get('done') === '1' && hasAppMenu;
   // P1387 (founder, 2026-10-02): the preparation's end screen stays immersive too — it is the last
   // step, not a destination; its pinned row (Read their stories / Join the room + Back to the
   // event) is the way on. With the menus back, the BottomNav covered that row on every phone.
-  return (IMMERSIVE_LETTER_PATH.test(pathname) && !done) || IMMERSIVE_PREP_PATH.test(pathname);
+  const standaloneDone = new URLSearchParams(search).get('done') === '1';
+  return (
+    (IMMERSIVE_LETTER_PATH.test(pathname) && !done) ||
+    IMMERSIVE_PREP_PATH.test(pathname) ||
+    (STANDALONE_PREP_PATH.test(pathname) && !standaloneDone)
+  );
 }

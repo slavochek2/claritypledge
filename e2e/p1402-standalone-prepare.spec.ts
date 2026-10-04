@@ -45,7 +45,7 @@ test.describe('P1402 standalone /prepare', () => {
     await expect(page.getByTestId('agenda').locator('li')).toHaveCount(4);
     // Founder UAT 2026-10-04: no sign-in prompt on the first screen.
     await expect(page.getByText(/sign in/i)).toHaveCount(0);
-    // A focus route: no BottomNav, no site nav.
+    // A focus route while the steps run: no BottomNav, no site nav.
     await expect(page.getByRole('navigation')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Start here' }).click();
@@ -72,7 +72,11 @@ test.describe('P1402 standalone /prepare', () => {
     await expect(page.locator('[data-point-id]').first()).toBeVisible();
     await page.getByRole('button', { name: 'Skip and proceed' }).click();
     await expect(page.getByTestId('prepare-end')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'See upcoming events' })).toBeVisible();
+    // The end is a destination: the menus are back (?done=1) and it points on like the home page.
+    await expect(page).toHaveURL(/\/prepare\?done=1$/);
+    await expect(page.getByTestId('home-top-block')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'All events' })).toBeVisible();
+    await expect(page.getByRole('navigation').first()).toBeVisible();
     // Skipping the videos completed nothing.
     expect(await page.evaluate(() => localStorage.getItem('cp-prep-parts'))).toBeNull();
     expect(errors).toEqual([]);

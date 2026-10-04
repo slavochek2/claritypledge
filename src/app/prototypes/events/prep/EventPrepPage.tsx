@@ -445,7 +445,9 @@ function PrepFlow({
   };
 
   // Phones reserve the pinned action bar's height; desktop has the actions in the page.
-  const contentPadding = { paddingBottom: !isDesktop && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Statements steps pin their bar at every width (prep-ui.tsx StatementsActions).
+  const barPinned = !isDesktop || screen === 'cmp7' || screen === 'stake';
+  const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;

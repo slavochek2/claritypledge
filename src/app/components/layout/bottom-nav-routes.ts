@@ -42,7 +42,10 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(pathname)
     // P1387: /confirm too — the 'Do you have 10 minutes to prepare?' screen is the first step of
     // the preparation, and its pinned Prepare now must not compete with the menu.
-    || /^\/(ready|prepare|events\/[^/]+\/(ready|room|prepare|confirm))\/?$/.test(pathname)
+    || /^\/(ready|events\/[^/]+\/(ready|room|prepare|confirm))\/?$/.test(pathname)
+    // P1402: the standalone /prepare is focused while its steps run; its end screen (?done=1) is a
+    // destination with the menus back (founder UAT 2026-10-04) — and has no pinned bar to cover.
+    || (/^\/prepare\/?$/.test(pathname) && !letterDone)
     // P1323: /stake/:tag — the page attendees land on from a room ("Links -> cmp7"). Desktop
     // renders it `compact` (no tab row); the phone was the one device still showing the full
     // browse bar under the points (founder, 2026-09-16, measured signed in). Focused on every

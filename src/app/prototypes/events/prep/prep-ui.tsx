@@ -22,12 +22,12 @@ import { PLAYBACK_RATE, watchSeconds, type ClipKey } from './prep-plan';
  * ActionRow puts the two buttons side by side. On desktop the bar sits in the page under the
  * content (pinned, it floated far below a short step).
  */
-export const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string }>(
-  function StepActions({ children, className }, ref) {
+export const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string; pinnedOnDesktop?: boolean }>(
+  function StepActions({ children, className, pinnedOnDesktop = false }, ref) {
     return (
       <FixedBottomBar
         ref={ref}
-        className={cn('lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0', className)}
+        className={cn(!pinnedOnDesktop && 'lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0', className)}
       >
         <div className="flex w-full flex-col items-center" data-testid="step-actions">{children}</div>
       </FixedBottomBar>
@@ -148,6 +148,10 @@ export interface StatementsCount { answered: number; total: number }
 const answerHintText = (total: number) => `Set your position on all ${total} points to continue.`;
 
 /**
+ * Founder UAT (2026-10-04): a statements list is long on every screen, so its progress ("3 of 7
+ * answered") and Continue stay pinned on desktop too — the one exception to P1387's "in the page on
+ * desktop". Callers reserve the bar's height at every width on these steps.
+ *
  * A statements step's pinned actions (moved from EventPrepPage, P1402): "N of M answered", Continue
  * dimmed until every point is answered, Skip as a small link. A fresh instance per step, so the
  * hint never carries over from the previous step.
@@ -162,7 +166,7 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
   const [answerHint, setAnswerHint] = useState(false);
   const allSet = loaded && count.answered >= count.total;
   return (
-    <StepActions ref={ref}>
+    <StepActions ref={ref} pinnedOnDesktop>
       {loaded && (
         <div
           key={count.answered}

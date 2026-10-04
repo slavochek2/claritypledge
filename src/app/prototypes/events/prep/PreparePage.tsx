@@ -21,7 +21,7 @@
  * part done here is skipped in any event's preparation later — one direction only.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -30,6 +30,7 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
 import { StakePage } from '@/app/pages/stake-page';
+import { HomeHighlightsBlock } from '@/app/components/feed/home-side-rail';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { getProfileBySlug } from '@/app/data/api';
 import { LETTER_FOUNDER_SLUG } from '@/app/data/offline-reads-letters';
@@ -70,7 +71,7 @@ const COPY = {
     story: STEP_LABELS.story,
     principle: 'Learn about the Clarity Meeting Principle',
     cmp7: STEP_LABELS.cmp7,
-    misunderstanding: 'Find where misunderstandings start for you',
+    misunderstanding: 'Share how you think understanding works between people',
   } satisfies Record<StandaloneStep, string>,
   principleQuestion: 'Would you follow this principle in your important conversations?',
   askerRole: 'Founder of Clarity Pledge',
@@ -78,11 +79,11 @@ const COPY = {
     "Thank you for opting in. You promised that anybody in an important conversation can ask you a specific question, right? Let's try it now, to show how it works.",
   optedOut:
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
-  misunderstandingTitle: 'Where do misunderstandings start for you?',
+  misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Thank you',
-  endLine: 'You know how the Clarity process works. Try it at a Clarity Night, or ask us about hosting your own.',
-  endPrimary: 'See upcoming events',
-  endSecondary: 'Want to host one? Book a call',
+  endLine: 'You know how the Clarity process works. Try it at an event, or join a group.',
+  endHost: 'Want to host one? Book a call',
+  endReview: 'Review the steps',
 };
 
 export function PreparePage() {
@@ -184,7 +185,6 @@ function PrepareFlow({
   reloadPoints: () => void;
   onLeave: () => void;
 }) {
-  const navigate = useNavigate();
   const [screen, setScreen] = useState<Screen>('list');
   const [playRequest, setPlayRequest] = useState(0);
   const [played, setPlayed] = useState<Record<'story' | 'principle', boolean>>({ story: false, principle: false });
@@ -201,6 +201,18 @@ function PrepareFlow({
   const [headerRef, headerHeight] = useMeasuredHeight();
   const [barRef, barHeight] = useMeasuredHeight();
   const isDesktop = useIsDesktop();
+
+  // The end screen is a destination: ?done=1 brings the app menus back (immersive-letter-route.ts,
+  // bottom-nav-routes.ts). Every other screen stays immersive.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const isDone = searchParams.get('done') === '1';
+    if ((screen === 'end') === isDone) return;
+    const params = new URLSearchParams(searchParams);
+    if (screen === 'end') params.set('done', '1');
+    else params.delete('done');
+    setSearchParams(params, { replace: true });
+  }, [screen, searchParams, setSearchParams]);
 
   useEffect(() => {
     getProfileBySlug(LETTER_FOUNDER_SLUG).then(setAsker).catch(() => undefined);
@@ -246,7 +258,9 @@ function PrepareFlow({
   };
 
   const stepIndex = screen === 'list' || screen === 'end' ? -1 : STANDALONE_STEPS.indexOf(screen);
-  const contentPadding = { paddingBottom: !isDesktop && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Statements steps pin their bar at every width (prep-ui.tsx StatementsActions).
+  const barPinned = !isDesktop || isStatementsStep(screen);
+  const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
 
   const videoBar = (clip: 'story' | 'principle', onContinue: (watched: boolean) => void) => (
     <StepActions ref={barRef}>
@@ -287,6 +301,7 @@ function PrepareFlow({
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
+      {screen !== 'end' && (
       <div ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="step-header">
           <button
@@ -317,7 +332,8 @@ function PrepareFlow({
           )}
         </div>
       </div>
-      <div style={{ height: headerHeight }} aria-hidden />
+      )}
+      {screen !== 'end' && <div style={{ height: headerHeight }} aria-hidden />}
 
       {showPrincipleView ? (
         <MeetingPrincipleView
@@ -479,17 +495,20 @@ function PrepareFlow({
           )}
 
           {screen === 'end' && (
-            <section className="space-y-6 pt-4 text-center" data-testid="prepare-end">
+            // Founder UAT 2026-10-04: like the home page — the next events and the groups, with the
+            // menus back. No pinned bar: with the menus showing it would sit on the BottomNav (P1387).
+            <section className="space-y-6 pt-4" data-testid="prepare-end">
               <div className="space-y-2">
                 <Title>{COPY.endTitle}</Title>
                 <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
               </div>
-              <StepActions ref={barRef}>
-                <ActionRow
-                  primary={<LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/events/list')} />}
-                  secondary={<LetterPrimaryCta label={COPY.endSecondary} onClick={() => navigate('/intro')} variant="secondary" />}
-                />
-              </StepActions>
+              <HomeHighlightsBlock />
+              <div className="flex flex-col items-start gap-2 text-sm">
+                <Link to="/intro" className="text-blue-600 hover:underline dark:text-blue-400">{COPY.endHost}</Link>
+                <button type="button" onClick={() => go('list')} className="text-blue-600 hover:underline dark:text-blue-400">
+                  {COPY.endReview}
+                </button>
+              </div>
             </section>
           )}
         </main>

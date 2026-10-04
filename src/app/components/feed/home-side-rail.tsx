@@ -188,6 +188,11 @@ export function HomeTopBlock() {
   return isDesktop ? null : <TopContent />;
 }
 
+/** P1402: the same block at every width, for a page that ends by pointing on (the /prepare end). */
+export function HomeHighlightsBlock() {
+  return <TopContent />;
+}
+
 function TopContent() {
   const { events, groups } = useHomeHighlights();
   return (

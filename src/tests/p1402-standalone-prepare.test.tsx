@@ -111,6 +111,13 @@ describe('P1402 /prepare is a focus route', () => {
   it('is immersive like the event preparation', () => {
     expect(isImmersiveLetterRoute('/prepare', '', true)).toBe(true);
     expect(isImmersiveLetterRoute('/prepare', '', false)).toBe(true);
+    // The end screen (?done=1) is a destination: menus back, signed in or not.
+    expect(isImmersiveLetterRoute('/prepare', '?done=1', true)).toBe(false);
+    expect(isImmersiveLetterRoute('/prepare', '?done=1', false)).toBe(false);
+    expect(isBottomNavHiddenRoute('/prepare', '?done=1')).toBe(false);
+    // The event preparation's end stays immersive (P1387) — unchanged.
+    expect(isImmersiveLetterRoute('/events/x/prepare', '?done=1', true)).toBe(true);
+    expect(isBottomNavHiddenRoute('/events/x/prepare', '?done=1')).toBe(true);
     expect(isImmersiveLetterRoute('/events/x/prepare', '', true)).toBe(true);
   });
   it('does not sweep in neighbouring paths', () => {
