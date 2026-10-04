@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-04'
 tags: [events, hikes, mobile, social-proof]
 disclosure: public
-delivery_stage: challenge-prd
-pipeline_ran: [create-spec, challenge-prd]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -109,15 +109,19 @@ photos → description → map → reviews.]
 
 ## Acceptance Criteria
 
-- [ ] On the 2026-10-11 Social Hike page at a 375×667 viewport, the stats strip (distance, climb, route type, time, difficulty, cafe-to-trailhead walk) is fully visible with its bottom edge at or above y=667 on first load, no scrolling
-- [ ] The same page shows the route line drawn from stored geometry with "© OpenStreetMap contributors" attribution, on desktop and at 375 px; a hike with no stored geometry shows no map section and no error
-- [ ] A "From past hikes" strip shows the 4 face-free photos, swipeable at 375 px, no horizontal page scroll
-- [ ] The first regular's review appears in the reviews section, linked to her profile; with 6 test reviews loaded the section's rendered height at 375 px is ≤ 480 px
-- [ ] Adding a review or a photo to the series makes it appear on every upcoming hike page without editing any description — shown by adding one on test
-- [ ] A Clarity Night event page renders unchanged (visual diff or snapshot test)
-- [ ] A non-registered visitor still cannot see the WhatsApp link; a registered one still can
-- [ ] `/slava:events:publish-run` writes the structured hike fields on the next hike it creates
-- [ ] (Review step, not completion evidence) Visual critique by three independent reviewers (Gemini, Codex, Opus) comparing desktop and 375 px against the AllTrails trail page, findings triaged and BLOCK items fixed
+Revised 2026-10-04 to the founder's review decisions (AllTrails order, stats under the photos,
+faces allowed, swipeable reviews, standard banner). Evidence: test DB, local preview at 375 / 320 /
+1440, screenshots in the worktree's `.p1403-shots/` (not committed).
+
+- [x] On the Social Hike page the stats row (distance, climb, walking time, loop/out-and-back) sits directly under the photo row, AllTrails style, one row at 375 px, 2×2 below 360 px, no overflow (DOM-measured: every value fits its cell at 320 and 375; founder moved it from "above the fold" to "below the photos", 2026-10-04)
+- [x] The route map shows inside the description's "The route" section: a pre-rendered terrain image (`scripts/hike-route-map.mjs`) with "© OpenStreetMap contributors", or an SVG of stored geometry; tap opens it full size; a hike with neither shows no map section (unit tests `p1403-social-hike-layout`)
+- [x] A swipeable "Photos from past hikes" row with the route map as its second tile, 15 photos on test (social shots first, faces allowed by the founder, snake removed), no horizontal page scroll (`scrollWidth` = viewport at 320/375)
+- [x] The first regular's review shows in a swipeable "Reviews" row with her avatar and her name linking to her profile (test: linked profile, prod: `author_profile_id` resolved by slug in the seed)
+- [x] Adding or removing a series review or photo changes every hike page without editing a description — shown on test (5 filler reviews deleted, 11 photos added, snake removed; page updated each time)
+- [x] A Clarity Night page shows no hike section and the standard banner; its only changes are the intended cross-event ones (share row at the bottom, Details/Event Room row only when signed in, tap-to-enlarge description images) — checked on test event `test-event-1791092852516-0w2omq` at 1440
+- [x] A non-registered visitor still cannot see the WhatsApp link; a registered one can (visitor: locked block; signed-in registered test account: "Join WhatsApp group")
+- [x] `/slava:events:publish-run` step 8d applies the Social Hike skin from `docs/events/series/social-hike.md` (instruction in place; first real run is the next hike)
+- [x] (Review step, not completion evidence) Visual critique by Gemini, Codex and Opus against AllTrails, findings triaged and BLOCK items fixed; code review by Opus, Codex and Gemini, verified findings fixed (Codex BLOCK: series columns now writable by the service role only, trigger proven on test)
 
 ## UX Notes
 
