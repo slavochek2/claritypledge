@@ -41,8 +41,10 @@ const STARS = [1, 2, 3, 4, 5] as const;
 const TOP_COUNT = 8;
 /** Title, then one line: stars · average · faces. Phones put that line under the title. */
 const ROW_GRID = 'grid grid-cols-1 gap-y-0.5 sm:grid-cols-[minmax(0,1fr)_30rem] sm:items-center sm:gap-x-6';
-const SIGN_IN_HREF = `/login?redirect=${encodeURIComponent('/topics')}`;
-const SIGN_UP_HREF = `/signup?redirect=${encodeURIComponent('/topics')}`;
+/** P1414: embedded in a ~600px card column there is no room for the 30rem stars column — keep the phone layout at every width. */
+const ROW_STACKED = 'grid grid-cols-1 gap-y-0.5';
+const signInHref = (back: string) => `/login?redirect=${encodeURIComponent(back)}`;
+const signUpHref = (back: string) => `/signup?redirect=${encodeURIComponent(back)}`;
 /** Stars a signed-out visitor tapped, kept until they sign in, then saved. */
 const GUEST_STORE = 'p1347-guest-ratings';
 function readGuest(): Record<string, number> {
@@ -66,7 +68,19 @@ type SortBy = 'suggested' | 'mine' | 'average';
 type LoadState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; topics: OpenTopic[] };
 
 
-export function TopicsPage() {
+type TopicsPageProps = {
+  /**
+   * P1414: rendered inside another page (the next Clarity Night's event page) — no SEO, no
+   * page heading, no pinned bar, and nothing at all until there are topics to rate.
+   */
+  embedded?: boolean;
+  /** Where sign-in and sign-up return to. Same tab on purpose: stars tapped signed out live in sessionStorage, which a new tab does not share. */
+  returnTo?: string;
+  /** Embedded only: the host page's spacing, applied to the section so an absent section leaves no divider. */
+  className?: string;
+};
+
+export function TopicsPage({ embedded = false, returnTo = '/topics', className }: TopicsPageProps = {}) {
   const { user, isLoading: authLoading } = useAuth();
   const goBack = useGoBack('/');
   const [showPhoto, setShowPhoto] = useState(true);
@@ -178,14 +192,25 @@ export function TopicsPage() {
     setSortedIds([...topics].sort((a, b) => key(b) - key(a)).map((t) => t.id));
   };
 
+  // P1414: embedded, the section is absent rather than a spinner, an error box or an empty frame.
+  if (embedded && (state.kind !== 'ready' || authLoading || topics.length === 0)) return null;
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10">
-      <SEO
+    <div className={embedded ? cn('w-full', className) : 'mx-auto w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10'} data-testid={embedded ? 'topic-vote-embed' : undefined}>
+      {!embedded && <SEO
         title="Vote for the next topic"
         description="Vote for the next Clarity Night topic, or add your own."
         url="/topics"
-      />
+      />}
 
+      {embedded ? (
+        <header className="mb-3">
+          <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">The topic is still open</h2>
+          <p className="mt-1 text-base text-muted-foreground">
+            Rate the ones you would like to talk about. You'll see how others rated after you rate.
+          </p>
+        </header>
+      ) : (
       <header className="mb-5">
         <div>
         <h1 className="text-2xl font-semibold leading-tight text-foreground sm:text-3xl">
@@ -196,6 +221,7 @@ export function TopicsPage() {
         </p>
         </div>
       </header>
+      )}
 
       {state.kind === 'ready' && !authLoading && (
         <>
@@ -216,7 +242,7 @@ export function TopicsPage() {
               <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground" />
             </label>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <AddYourOwn onAdded={load} />
+            <AddYourOwn onAdded={load} returnTo={returnTo} quiet={embedded} />
             </div>
           </div>
         </>
@@ -256,6 +282,9 @@ export function TopicsPage() {
                 canVote={!!user}
                 guest={!user}
                 onRate={handleRate}
+                returnTo={returnTo}
+                linksInNewTab={embedded}
+                stacked={embedded}
               />
             ))}
           </ul>
@@ -270,6 +299,18 @@ export function TopicsPage() {
               Hide my photo on my votes
             </label>
           )}
+          {embedded ? (
+            topics.length > shown && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown((n) => n + TOP_COUNT)}>
+                  Show {Math.min(TOP_COUNT, topics.length - shown)} more
+                </Button>
+                <span className="text-sm text-muted-foreground" data-testid="topic-count">
+                  Showing {Math.min(shown, topics.length)} of {topics.length}
+                </span>
+              </div>
+            )
+          ) : (<>
           {/* Pinned bar (no bottom menu on this page): more topics, and a way back. */}
           <div className="h-40" aria-hidden />
           <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-sheet">
@@ -286,6 +327,7 @@ export function TopicsPage() {
               <ArrowLeft className="h-4 w-4" aria-hidden /> Back
             </button>
           </div>
+          </>)}
         </>
       )}
     </div>
@@ -301,12 +343,18 @@ function TopicRow({
   canVote,
   guest,
   onRate,
+  returnTo,
+  linksInNewTab,
+  stacked,
 }: {
   topic: OpenTopic;
   shownRating: number | null;
   canVote: boolean;
   guest: boolean;
   onRate: (topicId: string, rating: number | null) => Promise<boolean>;
+  returnTo: string;
+  linksInNewTab: boolean;
+  stacked: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -338,7 +386,7 @@ function TopicRow({
 
   return (
     <li data-testid="topic-row" className={cn(expanded && 'bg-muted/40')}>
-      <div className={cn(ROW_GRID, 'px-1 py-2 sm:px-4')}>
+      <div className={cn(stacked ? ROW_STACKED : ROW_GRID, 'px-1 py-2', !stacked && 'sm:px-4')}>
         {/* Title, and a "Details" button like on point cards. The title opens the row too. */}
         <div className="flex items-start gap-2">
           <TitleTag
@@ -352,7 +400,7 @@ function TopicRow({
               <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">Online</span>
             )}
           </TitleTag>
-          {hasDetails && <span className="sm:hidden">{detailsButton}</span>}
+          {hasDetails && <span className={stacked ? undefined : 'sm:hidden'}>{detailsButton}</span>}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-1.5 sm:flex-nowrap sm:gap-x-2">
@@ -384,14 +432,14 @@ function TopicRow({
               <FacePile voters={voters} total={topic.ratingCount ?? 0} />
             </span>
           )}
-          {hasDetails && <span className="ml-auto hidden sm:inline-flex">{detailsButton}</span>}
+          {hasDetails && !stacked && <span className="ml-auto hidden sm:inline-flex">{detailsButton}</span>}
           {guest && shownRating !== null && (
             <p className="basis-full text-xs text-muted-foreground" data-testid="guest-save">
-              <Link to={SIGN_UP_HREF} className="text-blue-600 hover:text-blue-700">
+              <Link to={signUpHref(returnTo)} className="text-blue-600 hover:text-blue-700">
                 Sign up
               </Link>
               {' or '}
-              <Link to={SIGN_IN_HREF} className="text-blue-600 hover:text-blue-700">
+              <Link to={signInHref(returnTo)} className="text-blue-600 hover:text-blue-700">
                 log in
               </Link>
               {' to save your rating'}
@@ -407,7 +455,7 @@ function TopicRow({
       </div>
 
       {expanded && (
-        <div className="px-1 pb-3 sm:px-4" data-testid="topic-details">
+        <div className={cn('px-1 pb-3', !stacked && 'sm:px-4')} data-testid="topic-details">
           {topic.why && (
             <p className="text-sm text-muted-foreground" data-testid="topic-why">
               {topic.why}
@@ -422,7 +470,7 @@ function TopicRow({
                     <GravatarAvatar name={topic.author.name} photoUrl={topic.author.avatarUrl ?? undefined} avatarColor={topic.author.avatarColor ?? undefined} isPledger={topic.author.hasPledged} size="sm" className="!h-5 !w-5 !text-[9px]" />
                   </span>
                   {topic.author.slug ? (
-                    <Link to={`/p/${topic.author.slug}`} className="font-medium text-foreground hover:underline">
+                    <Link to={`/p/${topic.author.slug}`} {...(linksInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className="font-medium text-foreground hover:underline">
                       {topic.author.name}
                     </Link>
                   ) : (
@@ -476,7 +524,7 @@ function splitNoteAndLink(text: string): { note: string; link: string } {
   return { note: text.replace(m[0], '').replace(/\s+/g, ' ').trim(), link: m[0] };
 }
 
-function AddYourOwn({ onAdded }: { onAdded: () => Promise<void> }) {
+function AddYourOwn({ onAdded, returnTo, quiet }: { onAdded: () => Promise<void>; returnTo: string; quiet: boolean }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -511,7 +559,13 @@ function AddYourOwn({ onAdded }: { onAdded: () => Promise<void> }) {
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <Button type="button" className="min-h-11 self-start bg-blue-500 text-white hover:bg-blue-700" onClick={() => setOpen(true)}>
+      {/* Embedded, outline: the host page's Register stays the one filled action (P955). */}
+      <Button
+        type="button"
+        variant={quiet ? 'outline' : 'default'}
+        className={cn('min-h-11 self-start', !quiet && 'bg-blue-500 text-white hover:bg-blue-700')}
+        onClick={() => setOpen(true)}
+      >
         <Plus className="mr-1 h-4 w-4" aria-hidden /> Add a topic
       </Button>
       <DialogContent className="sm:max-w-md">
@@ -520,7 +574,7 @@ function AddYourOwn({ onAdded }: { onAdded: () => Promise<void> }) {
         </DialogHeader>
         {!user ? (
           <p className="text-base text-foreground">
-            <Link to={SIGN_IN_HREF} className="font-medium text-blue-700 underline underline-offset-2">
+            <Link to={signInHref(returnTo)} className="font-medium text-blue-700 underline underline-offset-2">
               Sign in
             </Link>{' '}
             to add a topic.

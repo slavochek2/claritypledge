@@ -39,6 +39,8 @@ import { isHikeLayout, HIKE_LABELS, ORG_LEARN_MORE_PATH, parseHikeDetails, split
 import { HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
+import { showsTopicVote } from '../topic-vote';
+import { TopicsPage } from '@/app/pages/topics-page';
 import { PrepMarks, micLine, useHostPrepMarks } from '../prep/PrepMarks';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
@@ -1029,6 +1031,13 @@ export function EventDetail() {
                   className="event-description prose prose-sm max-w-none text-foreground/80 mb-6 pt-4 border-t border-border"
                   dangerouslySetInnerHTML={{ __html: descriptionHtml }}
                 />
+              )}
+
+              {/* P1414: the next Clarity Night is published before its topic is chosen. With no topic
+                  to read, the vote is the thing to do here — the live /topics page, embedded. It
+                  renders nothing until topics load, and nothing at all if there are none. */}
+              {showsTopicVote(event, isPast) && (
+                <TopicsPage embedded returnTo={`/events/${event.slug}`} className="mb-6 border-t border-border pt-4" />
               )}
 
               {/* Founder 2026-10-04: someone coming back to pass the event on finds the share row
