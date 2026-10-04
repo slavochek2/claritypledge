@@ -311,13 +311,11 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
           {embedded ? (
             // Embedded: same controls as /topics (founder), minus the pinned bar — "Show 8 more" sits in the section.
             topics.length > shown && (
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => setShown((n) => n + step)}>
+              // Same button as the closing sequence's list (P1389): centred, blue outline, rounded.
+              <div className="mt-4 flex justify-center">
+                <Button type="button" variant="outline" onClick={() => setShown((n) => n + step)} className="min-h-11 rounded-full border-blue-600 px-5 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
                   Show {Math.min(step, topics.length - shown)} more
                 </Button>
-                <span className="text-sm text-muted-foreground" data-testid="topic-count">
-                  Showing {Math.min(shown, topics.length)} of {topics.length}
-                </span>
               </div>
             )
           ) : (<>
