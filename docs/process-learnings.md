@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 117
+**Next ID:** 118
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2002,5 +2002,16 @@ e2e/p1179-links-menu.spec.ts, e2e/p1179-links-navigation.spec.ts, e2e/p1323-link
 **due:** week
 
 The P1399 goals review found the Next Steps are one-off checkboxes with no pace, so they cannot be plotted, and the champion falsifier has no weekly rate. It proposes five weekly goals: champion talks, pilots held, follow-ups per pilot, events per week, and zero broken sessions; every target is a founder decision. Review text: .private/p1399-day-design/p1399-goals-review.md. Route the edit through /slava:maintain:docs-strategy-update. The Day page Stats tab reads these goals.
+
+---
+
+## /prepare statements step can load with 0 points and a dimmed Continue
+
+**ID:** INBOX-117
+**Date:** 2026-10-04
+**Status:** proposed
+**due:** week
+
+Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P1412 session): the cmp7 step rendered no cards and "Set your position on all 0 points to continue." The points read returned an empty list (not an error), so PreparePage snapshotted [] as the step's cards. Also flagged by the P1402 round review (LOW: a failed or empty read leaves a statements step with no cards and a misleading hint). Fix direction: treat an empty list as "couldn't load" (retry, or a short message) and never hint "0 points". Cause of the empty read unknown (VPN was on; unproven).
 
 ---
