@@ -27,14 +27,23 @@ UPDATE public.events
 -- Expect exactly 1 row. If 0 or >1, ROLLBACK and target by slug instead.
 
 -- 2. First review (founder confirmed for publishing; profile link agreed — Resolved Decision 6).
-INSERT INTO public.series_reviews (series_slug, quote, author_name, author_profile_path, sort_order)
-SELECT 'social-hike', '<SHORTENED ENGLISH REVIEW>', '<REVIEWER FIRST NAME>', '/p/<reviewer-slug>', 10
+--    Linked by author_profile_id so the card shows the reviewer's avatar and links to them
+--    (Codex review 2026-10-04: a path alone renders no avatar). Fails if the slug is unknown.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE slug = '<reviewer-slug>') THEN
+    RAISE EXCEPTION 'reviewer profile <reviewer-slug> not found';
+  END IF;
+END $$;
+INSERT INTO public.series_reviews (series_slug, quote, author_name, author_profile_id, sort_order)
+SELECT 'social-hike', '<SHORTENED ENGLISH REVIEW>', '<REVIEWER FIRST NAME>',
+       (SELECT id FROM public.profiles WHERE slug = '<reviewer-slug>'), 10
  WHERE NOT EXISTS (
    SELECT 1 FROM public.series_reviews
     WHERE series_slug = 'social-hike' AND author_name = '<REVIEWER FIRST NAME>'
  );
 
--- 3. Four face-free photos (#12–15 of the private shortlist), uploaded to
+-- 3. Photos: mirror every row of test series_photos (16 as of 2026-10-04, social shots first;
+--    founder chose to include faces). Rows below are the original four, uploaded to
 --    gs://claritypledge-story-images (P1385) — the only image host prod CSP allows for them.
 INSERT INTO public.series_photos (series_slug, storage_url, alt, credit, sort_order)
 SELECT v.series_slug, v.storage_url, v.alt, v.credit, v.sort_order
