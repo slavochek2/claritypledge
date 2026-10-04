@@ -137,6 +137,20 @@ test.describe('P1402 standalone /prepare', () => {
     await expect(page.getByTestId('agenda').locator('li')).toHaveCount(4);
     await expect(page.getByTestId('agenda-step-story')).toHaveAttribute('data-done', 'true');
     await expect(page.getByTestId('agenda-step-principle')).toHaveAttribute('data-done', 'true');
+    // P1412: with every step done the main button says "Start again" (not "Start here").
+    // The statements steps count as done only when every point has a position.
+    // One insert over the union: a point can carry both tags, and positions are UNIQUE(point, user).
+    const ids = new Set<string>();
+    for (const tag of ['cmp7', 'misunderstanding']) {
+      const { data: pts } = await supabaseAdmin.from('points').select('id').or(`tags.cs.{${tag}},system_tags.cs.{${tag}}`);
+      (pts ?? []).forEach((p) => ids.add(p.id as string));
+    }
+    const { error } = await supabaseAdmin.from('point_positions').insert([...ids].map((id) => ({ point_id: id, user_id: u.user.id, position: 'agree' })));
+    if (error) throw error;
+    await page.reload();
+    await expect(page.getByTestId('agenda-step-misunderstanding')).toHaveAttribute('data-done', 'true');
+    await expect(page.getByRole('button', { name: 'Start again' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start here' })).toHaveCount(0);
     await page.getByTestId('agenda-step-story').getByRole('button').click();
     await expect(page.getByTestId('clip-story')).toBeVisible();
   });

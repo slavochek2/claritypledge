@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 24
 severity: low
@@ -11,8 +11,11 @@ exec_model: sonnet
 exec_effort: low
 tags: [prepare, copy]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-10-04'
+root_cause: The list button rendered COPY.start unconditionally
+resolution: Label follows firstOpen — "Start here" while a step is open, "Start again" when all are done
 ---
 
 # P1412: /prepare's main button still says "Start here" when every step is done
@@ -58,8 +61,14 @@ Founder-approved 2026-10-04: "Start here" when nothing or only part is done (rou
 
 Label from `firstOpen`: defined → "Start here", undefined (all done) → "Start again".
 
+## Accepted
+
+- A returning all-done visitor may see "Start here" for a moment before "Start again" (the points
+  load after the account read). Cosmetic; the click target is right either way. Holding the button
+  until the points load would leave no button if that read fails (review, 2026-10-04).
+
 ## Acceptance Criteria
 
-- [ ] With every step done, the list's main button reads "Start again" and opens step 1
-- [ ] With nothing or some steps done, it reads "Start here" and opens the first unfinished step
-- [ ] Regression test passes: `e2e/p1402-standalone-prepare.spec.ts`
+- [x] With every step done, the list's main button reads "Start again" and opens step 1 — e2e canary failed before the fix ("Start again" not found), passes after
+- [x] With nothing or some steps done, it reads "Start here" and opens the first unfinished step — e2e smoke clicks "Start here" from a fresh list; same branch of the condition covers partial
+- [x] Regression test passes: `e2e/p1402-standalone-prepare.spec.ts` — 3/3, retries off

@@ -67,6 +67,7 @@ const COPY = {
   title: 'Learn about the Clarity process',
   why: 'Most conversations go wrong because we assume we understand each other. These steps show how to check, so you can reveal a gap instead of hiding it.',
   start: 'Start here',
+  startAgain: 'Start again',
   labels: {
     story: STEP_LABELS.story,
     principle: 'Learn about the Clarity Meeting Principle',
@@ -413,7 +414,8 @@ function PrepareFlow({
                 })}
               </ol>
               <StepActions ref={barRef}>
-                <LetterPrimaryCta label={COPY.start} onClick={() => go(firstOpen ?? STANDALONE_STEPS[0])} />
+                {/* P1412: once every step is done, "Start here" reads wrong — it starts again from step 1. */}
+                <LetterPrimaryCta label={firstOpen ? COPY.start : COPY.startAgain} onClick={() => go(firstOpen ?? STANDALONE_STEPS[0])} />
               </StepActions>
             </section>
           )}
