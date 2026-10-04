@@ -20,7 +20,7 @@
  *   - Skipped on Save-Data, while offline/unreachable, and in a hidden tab.
  */
 import { buildLinksMenu } from '@/app/data/event-links';
-import { feedRead, groupsRead, stakeRead, type OfflineRead } from '@/app/data/offline-reads';
+import { feedRead, groupsRead, homeRead, stakeRead, type OfflineRead } from '@/app/data/offline-reads';
 import { letterCodeRead, publicLetterRead } from '@/app/data/offline-reads-letters';
 import { OFFLINE_PACK_STAMP_PREFIX, offlineCacheOwner, prefetchThrough } from '@/lib/offline-read-cache';
 import { isSupabaseUnreachable } from '@/lib/network-outcome';
@@ -177,6 +177,7 @@ export async function runOfflinePack(viewerUserId: string | undefined): Promise<
 
   if (stillOnline()) await prefetch(feedRead(viewerUserId, false, undefined));
   if (stillOnline()) await prefetch(groupsRead());
+  if (stillOnline()) await prefetch(homeRead()); // P1408: home's groups + next events
   return finish(result);
 }
 

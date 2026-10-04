@@ -84,54 +84,37 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   // P1406 (founder): open, the blue box WRAPS the story — the bar on top (no photo: the card
   // carries it), the card inside — so it reads as one thing that opened. Chevron only, in both
   // states: a "Hide" that has no "Show" counterpart read as odd.
-  if (open) {
-    return (
-      <section data-testid="pinned-story" className="rounded-lg border border-blue-200 bg-blue-50 p-2">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded
-          aria-controls={panelId}
-          aria-label={`Collapse featured story: ${PINNED_STORY_TITLE}`}
-          className="flex min-h-12 w-full items-center gap-3 rounded-md px-1 py-0.5 text-left hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
-            <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
-          </span>
-          <ChevronUpIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
-        </button>
-        <div id={panelId} data-testid="pinned-story-expanded" className="mt-2">
-          <FeedStoryCard story={story} linkedPoints={points} autoPlay={autoPlay} />
-        </div>
-      </section>
-    );
-  }
-
+  // P1408 (review): ONE toggle button in both states, so keyboard focus survives the toggle.
   return (
-    <section data-testid="pinned-story" className="rounded-lg border border-blue-200 bg-blue-50">
-      <div className="flex items-center gap-3 px-3 py-2.5">
+    <section data-testid="pinned-story" className={`rounded-lg border border-blue-200 bg-blue-50 ${open ? "p-2" : ""}`}>
+      <div className={`flex items-center gap-3 ${open ? "" : "px-3 py-2.5"}`}>
         <button
           type="button"
           onClick={toggle}
-          aria-expanded={false}
-          aria-controls={panelId}
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          className={`flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${open ? "px-1 py-0.5 hover:bg-blue-100" : ""}`}
         >
-          <GravatarAvatar
-            name={story.authorName}
-            photoUrl={story.authorAvatarUrl}
-            avatarColor={story.authorAvatarColor}
-            size="sm"
-            isPledger={story.authorHasPledged ?? false}
-          />
+          {!open && (
+            <GravatarAvatar
+              name={story.authorName}
+              photoUrl={story.authorAvatarUrl}
+              avatarColor={story.authorAvatarColor}
+              size="sm"
+              isPledger={story.authorHasPledged ?? false}
+            />
+          )}
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-medium uppercase tracking-wide text-blue-700">Featured story</span>
             <span className="block line-clamp-2 text-sm font-semibold text-foreground">{PINNED_STORY_TITLE}</span>
           </span>
-          <ChevronDownIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
+          {open ? (
+            <ChevronUpIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
+          ) : (
+            <ChevronDownIcon className="h-5 w-5 shrink-0 text-blue-700" aria-hidden />
+          )}
         </button>
-        {thumb && (
+        {!open && thumb && (
           <button
             type="button"
             onClick={() => {
@@ -149,6 +132,11 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
           </button>
         )}
       </div>
+      {open && (
+        <div id={panelId} data-testid="pinned-story-expanded" className="mt-2">
+          <FeedStoryCard story={story} linkedPoints={points} autoPlay={autoPlay} />
+        </div>
+      )}
     </section>
   );
 }

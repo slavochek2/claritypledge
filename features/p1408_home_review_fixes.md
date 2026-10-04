@@ -1,12 +1,12 @@
 ---
-status: backlog
+status: qa
 type: bug
 rank: 27
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, offline, a11y]
 disclosure: public
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
@@ -20,6 +20,15 @@ Independent review of P1404–P1407: (1) opening/closing the featured bar swaps 
 
 ## Acceptance Criteria
 
-- [ ] The featured toggle is the same button element open and closed (focus stays)
-- [ ] The offline pack prefetches homeRead()
-- [ ] The scope-v2 key list includes 'home'
+- [x] The featured toggle is the same button element open and closed (focus stays)
+- [x] The offline pack prefetches homeRead()
+- [x] The scope-v2 key list includes 'home'
+- [x] Codex review: the rail re-reads on reconnect while showing a saved copy or error; a failing group's events no longer overwrite the saved copy
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| Page left open past an event's start keeps showing it as next | ACCEPT | Corrected on the next visit or reconnect; one-evening window |
+| Featured/group placeholders are fixed heights; wrapped titles or fewer groups still shift a little | ACCEPT | Small residual shift; real data is 2 groups |
+| Tag-row placeholder disappears when there are no tags | ACCEPT | Rare; one row |

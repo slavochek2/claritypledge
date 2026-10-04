@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { CalendarDaysIcon, LandmarkIcon } from "lucide-react";
 import { homeRead, HOME_MAX_GROUPS, type HomeHighlights } from "@/app/data/offline-reads";
 import { readThrough } from "@/lib/offline-read-cache";
+import { useConnectivity } from "@/app/contexts/offline-status-context";
 import type { EventWithHost } from "@/app/types";
 import type { Organization } from "@/app/data/organizations-service.interface";
 import { EventCard } from "@/app/prototypes/events/components/EventCard";
@@ -43,6 +44,11 @@ type Loaded<T> = T[] | null | "error"; // null = loading
 
 function useHomeHighlights() {
   const [data, setData] = useState<HomeHighlights | null | "error">(null);
+  const [fromCache, setFromCache] = useState(false);
+  // P1408 (review): re-read on reconnect while what is shown is a saved copy or an error, as the
+  // feed does — otherwise the rail stays stale until the page remounts.
+  const { reconnectTick } = useConnectivity();
+  const reconnectKey = fromCache || data === "error" ? reconnectTick : 0;
   useEffect(() => {
     let cancelled = false;
     // P1407: through the offline cache, like the feed — offline shows the last-seen copy.
@@ -51,7 +57,10 @@ function useHomeHighlights() {
       .then((read) => {
         if (cancelled) return;
         if (read.source === "offline" || !read.data) setData("error");
-        else setData(read.data);
+        else {
+          setData(read.data);
+          setFromCache(read.source === "cache");
+        }
       })
       .catch(() => {
         if (!cancelled) setData("error");
@@ -59,7 +68,7 @@ function useHomeHighlights() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reconnectKey]);
   if (data === null || data === "error") return { events: data, groups: data } as { events: Loaded<EventWithHost>; groups: Loaded<Organization> };
   // Only events that have not started yet — applied HERE, not at fetch, so a saved copy (and the
   // service's 12-hour grace window) never shows last night's Clarity Night as "next".

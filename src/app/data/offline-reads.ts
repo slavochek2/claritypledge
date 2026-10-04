@@ -148,7 +148,9 @@ export function homeRead(): OfflineRead<HomeHighlights> {
       const groups = (await organizationsService.listPublicOrganizations()).slice(0, HOME_MAX_GROUPS);
       // "Our next event" = the next event of OUR groups (review, P1401): an unscoped query would
       // let any account's event become the one featured here.
-      const perGroup = await Promise.all(groups.map((o) => eventsService.getUpcomingEvents(o.id).catch(() => [])));
+      // P1408 (review): no per-group catch — a failing group fails the whole read, so the cache
+      // keeps its last good copy instead of saving that group as having no events.
+      const perGroup = await Promise.all(groups.map((o) => eventsService.getUpcomingEvents(o.id)));
       return { groups, events: perGroup.flat() };
     },
   };

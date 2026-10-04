@@ -10,6 +10,7 @@ vi.mock('@/app/data/offline-reads', () => ({
   stakeRead: (tag: string, viewer?: string) => ({ type: 'stake', id: `${tag}:${viewer ?? '-'}`, fetch: async () => ({ tag }) }),
   feedRead: (viewer?: string) => ({ type: 'feed', id: `${viewer ?? '-'}:desc:`, fetch: async () => ({ feed: 1 }) }),
   groupsRead: () => ({ type: 'groups', id: 'directory', fetch: async () => ({ groups: 1 }) }),
+  homeRead: () => ({ type: 'home', id: 'highlights', fetch: async () => ({ groups: [], events: [] }) }),
 }));
 vi.mock('@/app/data/offline-reads-letters', () => ({
   // Codes st1..st9 resolve; ck does not (as on a test DB) — proves an unresolved code is skipped.
@@ -60,7 +61,7 @@ beforeEach(() => {
 
 async function keys(): Promise<string[]> {
   const out: string[] = [];
-  for (const t of ['stake', 'letter', 'letter-code', 'feed', 'groups'] as const) {
+  for (const t of ['stake', 'letter', 'letter-code', 'feed', 'groups', 'home'] as const) {
     for (const r of await store.listType(t)) out.push(r.key);
   }
   return out.sort();
@@ -109,13 +110,13 @@ describe('prefetchThrough — the pack writes where the pages read', () => {
 });
 
 describe('offline pack', () => {
-  it('pre-loads exactly the links-menu entries + feed first page + groups, once', async () => {
+  it('pre-loads exactly the links-menu entries + feed first page + groups + home, once', async () => {
     const r = await runOfflinePack(undefined);
     expect(r.ran).toBe(true);
     const codes = STANDARD_LETTER_ENTRIES.map((l) => l.code);
     const resolved = codes.filter((c) => c !== 'ck');
-    // data entries: 6 stake lists + every letter code + each resolved letter + feed + groups
-    expect(r.attempted).toBe(STANDARD_STAKE_TAGS.length + codes.length + resolved.length + 2);
+    // data entries: 6 stake lists + every letter code + each resolved letter + feed + groups + home (P1408)
+    expect(r.attempted).toBe(STANDARD_STAKE_TAGS.length + codes.length + resolved.length + 3);
     expect(await keys()).toEqual(
       [
         ...STANDARD_STAKE_TAGS.map((t) => `anon|stake|${t}:-`),
@@ -123,6 +124,7 @@ describe('offline pack', () => {
         ...resolved.map((c) => `anon|letter|L-${c}`),
         'anon|feed|-:desc:',
         'anon|groups|directory',
+        'anon|home|highlights',
       ].sort(),
     );
     // Slides: the deck and its script, nothing else (no images, no video).
