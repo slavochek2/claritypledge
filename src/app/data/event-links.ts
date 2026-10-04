@@ -213,6 +213,8 @@ export function letterPath(code: string): string {
  * `/presi2` is the frozen June draft (P1218) and is deliberately NOT linked.
  */
 export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean; featured?: boolean }> = [
+  // P1402: the Clarity process without an event — the explainer anyone can open (founder, 2026-10-04).
+  { label: 'Learn the Clarity process', to: '/prepare' },
   { label: 'Ready', to: '/ready' },
   { label: 'Clarity meeting principle', to: '/meet' },
   { label: 'Transcribe', to: '/transcribe' },

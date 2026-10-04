@@ -114,9 +114,10 @@ describe('P1351 — Tools is first and open by default', () => {
     expect(order).toEqual(['event-links-tab-tools', 'event-links-tab-points', 'event-links-tab-letters']);
   });
 
-  it('Tools: Ready, meeting principles, Transcribe, next-topic vote (P1347), Slides, the CM calendar, then the featured session last', () => {
+  it('Tools: the Clarity process (P1402), Ready, meeting principles, Transcribe, next-topic vote (P1347), Slides, the CM calendar, then the featured session last', () => {
     const tools = buildLinksMenu().filter(e => e.group === 'tools');
     expect(tools.map(e => [e.label, e.to])).toEqual([
+      ['Learn the Clarity process', '/prepare'],
       ['Ready', '/ready'],
       ['Clarity meeting principle', '/meet'],
       ['Transcribe', '/transcribe'],
