@@ -74,6 +74,8 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total (I have bl
 Coffee or lunch after for anyone who feels like it.
 
 *Not a commercial or guided hike. Nobody charges and nobody leads. I walk it like everyone else, and we are all adults looking after ourselves. Nothing is guaranteed. I try to make it a good morning because I want to, not because I am responsible for it.*
+
+*Photos: take as many as you like and share them in the group. I may use group photos to promote future hikes. If you would rather not appear, just tell me and I'll leave you out.*
 ```
 
 **Rules that survived founder edits — do not undo them.**
@@ -91,6 +93,7 @@ Coffee or lunch after for anyone who feels like it.
 - **Warm jacket only when the trail gains real altitude** (founder added it for Doi Pui:
   *"bring warm jacket because on higher altitude its usually a bit colder"*). Drop the
   clause on low trails.
+- **The photo line ships on every hike, right after the terms line.** Founder, 2026-10-04: *"people are welcome to take photos and videos and then send it in the group ... by participating in the hike, they allow for use of the photos for next hike promotion. And if they don't want it, they can let me know and I will opt them out."* It is the notice that makes using identifiable group photos in promotion (P1403) fair. Never ship a photo with an identifiable child, notice or not.
 - **The terms line ships on every hike and is not optional.** Free, unguided, unled; attendees
   responsible for themselves; no schedule, no guarantees; goodwill stated as an intention rather
   than an obligation. Founder's framing, 2026-09-07: *"out of goodwill I try to make sure people

@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-04'
 tags: [events, hikes, mobile, social-proof]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: challenge-prd
+pipeline_ran: [create-spec, challenge-prd]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -109,15 +109,15 @@ photos → description → map → reviews.]
 
 ## Acceptance Criteria
 
-- [ ] On the 2026-10-11 Social Hike page, a visitor on a 375 px phone sees distance, climb, route type, time, difficulty and the cafe-to-trailhead walk without scrolling past the first screen below the banner
-- [ ] The same page shows a route map with OpenStreetMap attribution, on desktop and at 375 px
+- [ ] On the 2026-10-11 Social Hike page at a 375×667 viewport, the stats strip (distance, climb, route type, time, difficulty, cafe-to-trailhead walk) is fully visible with its bottom edge at or above y=667 on first load, no scrolling
+- [ ] The same page shows the route line drawn from stored geometry with "© OpenStreetMap contributors" attribution, on desktop and at 375 px; a hike with no stored geometry shows no map section and no error
 - [ ] A "From past hikes" strip shows the 4 face-free photos, swipeable at 375 px, no horizontal page scroll
-- [ ] The first regular's review appears in the reviews section, linked to her profile; with 6 test reviews loaded the section stays compact at 375 px (no wall of text)
+- [ ] The first regular's review appears in the reviews section, linked to her profile; with 6 test reviews loaded the section's rendered height at 375 px is ≤ 480 px
 - [ ] Adding a review or a photo to the series makes it appear on every upcoming hike page without editing any description — shown by adding one on test
 - [ ] A Clarity Night event page renders unchanged (visual diff or snapshot test)
 - [ ] A non-registered visitor still cannot see the WhatsApp link; a registered one still can
 - [ ] `/slava:events:publish-run` writes the structured hike fields on the next hike it creates
-- [ ] Visual critique by three independent reviewers (Gemini, Codex, Opus) comparing desktop and 375 px against the AllTrails trail page, findings triaged and BLOCK items fixed
+- [ ] (Review step, not completion evidence) Visual critique by three independent reviewers (Gemini, Codex, Opus) comparing desktop and 375 px against the AllTrails trail page, findings triaged and BLOCK items fixed
 
 ## UX Notes
 
@@ -132,3 +132,15 @@ photos → description → map → reviews.]
 - P1354 — phone-specific banner (`banner_mobile_url`)
 - P1194 — registration-gated group chat
 - `docs/events/series/social-hike.md` — description base and series rules
+
+## Resolved Decisions
+
+| # | Source | Finding | Resolution | Rationale |
+|---|--------|---------|-----------|-----------|
+| 1 | /challenge-prd | [BLOCK] "Series" does not exist in the schema; only a title prefix, which already drifted once (2026-08-24) | Add a nullable `events.series_slug` set by publish-run and backfilled for existing Social Hike events; reviews and photos are keyed by `series_slug`. Layout selection reads `series_slug`, never the title | A stored key survives a series rename; the prefix pattern silently failed before |
+| 2 | /challenge-prd | [BLOCK] Route line has no source; CSP `img-src` blocks map tile hosts (verified in vercel.json) | v1 draws the route as an SVG from GeoJSON stored with the event — no tiles, no CSP change. Geometry is snapshotted at publish time from OpenStreetMap ways when OSM has them; otherwise the section is hidden. Never AllTrails geometry | Keeps the copyright invariant and needs no third-party host |
+| 3 | /challenge-prd | [BLOCK] AC1 ambiguous ("first screen") | Pinned to 375×667, strip bottom ≤ y=667 | Testable one way |
+| 4 | /challenge-prd | [WARN] Photo opt-out line not codified in the template | Added to `docs/events/series/social-hike.md` description base and rules on 2026-10-04; identifiable photos only after the opt-out PS goes out; the 30 Aug child photo never | The privacy backstop must be in the template, not one description |
+| 5 | /challenge-prd | [WARN] No success measure | Measure registrations per hike page for the next 4 hikes against the last 4. Not a gate; recorded so the layout can be retired if nothing moves | Founder-directed build; a falsifier costs nothing |
+| 6 | /challenge-prd | [WARN] Reviewer profile link is a second consent | Link only when the reviewer agreed to it; first review: founder confirmed 2026-10-04 | Recorded, not assumed |
+| 7 | /challenge-prd | [NOTE] Split into three specs | Kept as one spec, built in order: series key + stats strip → photos → reviews → map | Shared schema change; one review pass |
