@@ -31,7 +31,9 @@ import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
-import type { EventWithHost, PersonRef } from '@/app/types';
+import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
+import { isHikeLayout } from '../hike/hike-utils';
+import { HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { PrepMarks, micLine, useHostPrepMarks } from '../prep/PrepMarks';
@@ -80,6 +82,8 @@ export function EventDetail() {
   // P1264: the org's standing footer note. Public, so unlike the group chat link
   // it is fetched regardless of RSVP state.
   const [orgFooterNote, setOrgFooterNote] = useState<string | null>(null);
+  // P1403: series-level reviews + photos — public, fetched only for the hike layout.
+  const [seriesContent, setSeriesContent] = useState<SeriesContent | null>(null);
 
   // Which slug the currently-held `event` was loaded for. A ref, not state:
   // reading it must not itself trigger a render, and it is only ever compared.
@@ -207,6 +211,25 @@ export function EventDetail() {
       });
     return () => { cancelled = true; };
   }, [eventId]);
+
+  // P1403: the hike layout is selected by the stored series key, never the title.
+  // Non-hike events make no request and render no hike section.
+  const hikeSeriesSlug = isHikeLayout(event) ? event?.seriesSlug : undefined;
+  useEffect(() => {
+    if (!hikeSeriesSlug) {
+      setSeriesContent(null);
+      return;
+    }
+    let cancelled = false;
+    setSeriesContent(null);
+    eventsService.getSeriesContent(hikeSeriesSlug)
+      .then(content => { if (!cancelled) setSeriesContent(content); })
+      .catch(error => {
+        console.error('[EventDetail] Failed to fetch series content:', error);
+        if (!cancelled) setSeriesContent(null);
+      });
+    return () => { cancelled = true; };
+  }, [hikeSeriesSlug]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -839,6 +862,9 @@ export function EventDetail() {
                 </div>
               )}
 
+              {/* P1403: hike stats strip — near the top, before Reserve. Hides without data. */}
+              {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
+
               {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
                   P1365 repeats it after a description taller than the viewport (below).
                   Mobile uses the sticky bottom bar (non-RSVP'd) + inline green card after description (RSVP'd). */}
@@ -882,12 +908,19 @@ export function EventDetail() {
                 </div>
               )}
 
+              {/* P1403: "From past hikes" — after Reserve / group chat, before the description. */}
+              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} />}
+
               {/* Description - Markdown rendered (safe renderer strips raw HTML; P1352 allows images only from our own storage) */}
               <div
                 ref={setDescriptionEl}
                 className="event-description prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border"
                 dangerouslySetInnerHTML={{ __html: descriptionHtml }}
               />
+
+              {/* P1403: route map then reviews, after the description. Each hides without data. */}
+              {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} />}
+              {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
 
               {/* P1365: desktop repeat, only after a description taller than the viewport —
                   so it and the top button are never in view together. */}

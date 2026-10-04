@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
@@ -68,6 +68,10 @@ interface DbEventWithHost {
   preparation_enabled?: boolean | null;
   statement_tag?: string | null;
   research_places?: number | null;
+  /** P1403: read-only from the app's side — written by publish-run / service role. */
+  series_slug?: string | null;
+  hike_details?: unknown;
+  route_geojson?: unknown;
   host: {
     id: string;
     full_name: string | null;
@@ -166,6 +170,10 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     preparationEnabled: row.preparation_enabled ?? false, // P1336
     statementTag: row.statement_tag ?? undefined,
     researchPlaces: row.research_places ?? 6,
+    // P1403: read-only, like bannerMobileUrl — deliberately absent from updateEvent's mapping.
+    seriesSlug: row.series_slug ?? undefined,
+    hikeDetails: row.hike_details ?? undefined,
+    routeGeojson: row.route_geojson ?? undefined,
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
@@ -474,6 +482,48 @@ export const realEventsService: EventsService = {
     // Whitespace-only is "unset" as far as the render path is concerned, so a note
     // cleared to spaces cannot produce an empty bordered block.
     return note && note.trim().length > 0 ? note : null;
+  },
+
+  // P1403: series-level reviews + photos. Public tables (RLS SELECT for anon), so this
+  // is fetched regardless of auth or RSVP state. Two flat queries, no nested select.
+  // A failed query yields an empty list: its section hides, the page still renders.
+  async getSeriesContent(seriesSlug: string): Promise<SeriesContent> {
+    log(' getSeriesContent:', seriesSlug);
+    const [reviewsRes, photosRes] = await Promise.all([
+      supabase
+        .from('series_reviews')
+        .select('id, quote, author_name, author_profile_path, sort_order')
+        .eq('series_slug', seriesSlug)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('series_photos')
+        .select('id, storage_url, alt, credit, sort_order')
+        .eq('series_slug', seriesSlug)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if (reviewsRes.error) logDbError('getSeriesContent(reviews)', reviewsRes.error);
+    if (photosRes.error) logDbError('getSeriesContent(photos)', photosRes.error);
+
+    type ReviewRow = { id: string; quote: string; author_name: string; author_profile_path: string | null };
+    type PhotoRow = { id: string; storage_url: string; alt: string; credit: string | null };
+
+    return {
+      reviews: ((reviewsRes.data ?? []) as ReviewRow[]).map(r => ({
+        id: r.id,
+        quote: r.quote,
+        authorName: r.author_name,
+        authorProfilePath: r.author_profile_path ?? undefined,
+      })),
+      photos: ((photosRes.data ?? []) as PhotoRow[]).map(p => ({
+        id: p.id,
+        storageUrl: p.storage_url,
+        alt: p.alt,
+        credit: p.credit ?? undefined,
+      })),
+    };
   },
 
   isEventFull(event: EventWithHost): boolean {

@@ -282,9 +282,35 @@ payload = {
     # missed once, on the 2026-09-13 hike. Use the ORG_ID printed above — never a
     # UUID pasted from memory. See docs/events/org-defaults.md.
     "org_id": "<ORG_ID from the resolver above>",
+    # P1403: hikes only — omit these keys for a Clarity Run (it keeps today's layout).
+    # series_slug selects the hike layout and attaches the series' reviews + photos.
+    # It is a stored key, NOT the title prefix — set it on every Social Hike.
+    "series_slug": "social-hike",
+    # P1403: the stats strip. Snapshot of step 2 + select-hike's walk, never parsed from
+    # the description. Numbers as numbers; omit any key you could not read (that stat hides).
+    "hike_details": {
+        "distance_km": 11.7,             # step 2 Distance, number in km
+        "elevation_gain_m": 539,         # step 2 Elevation gain, number in m
+        "route_type": "Loop",            # step 2 Type: Loop / Out & back / Point-to-point
+        "walk_time_text": "4–4.5 h",     # step 2 Estimated time, as displayed
+        "difficulty": "Moderate",        # step 2 Difficulty
+        "meet_walk_minutes": 12,         # select-hike's MEASURED cafe -> trailhead minutes
+        "meet_walk_url": "https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=...",  # select-hike's OSM foot-route link
+    },
+    # P1403: optional route geometry. ONLY from OpenStreetMap ways (e.g. an Overpass query for
+    # the trail's relation/ways), as a GeoJSON FeatureCollection of LineStrings, optionally plus
+    # Point features with properties {"kind": "meet"} / {"kind": "start"}. NEVER AllTrails
+    # geometry (copyright invariant). No OSM data for the trail -> omit the key; the map hides.
+    # "route_geojson": {...},
 }
 subprocess.run(["curl", "-s", "-X", "POST", url, "-H", ..., "-d", json.dumps(payload)], ...)
 ```
+
+**Hike stats come from structured fields, not prose (P1403).** If `select-hike` did not run,
+`meet_walk_minutes` / `meet_walk_url` are omitted rather than estimated — the same "measured,
+never estimated" rule select-hike applies. Reviews and past-hike photos are NOT set here: they
+live in `series_reviews` / `series_photos` keyed by `series_slug` and appear on every hike
+automatically; never paste a review into the description.
 
 **Always use Python `json.dumps()` for the payload** — shell variable interpolation breaks multi-line descriptions.
 

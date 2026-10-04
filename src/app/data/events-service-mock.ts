@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 // Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
@@ -118,6 +118,11 @@ export const mockEventsService: EventsService = {
   // P1264: the archived mock carries no org records, so there is no note to return.
   async getEventOrgFooterNote(_eventId: string): Promise<string | null> {
     return null;
+  },
+
+  // P1403: the archived mock carries no series content.
+  async getSeriesContent(_seriesSlug: string): Promise<SeriesContent> {
+    return { reviews: [], photos: [] };
   },
 
   async getEventGroupChatUrl(eventId: string): Promise<string | null> {
