@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 24
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, featured-story, polish]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
@@ -28,9 +28,9 @@ Open, the featured bar keeps the author photo while the story card below repeats
 
 ## Acceptance Criteria
 
-- [ ] Open state shows the author photo exactly once (in the card)
-- [ ] Open state is visibly different from closed (slim label row, card not boxed in the blue panel); "Hide" collapses
-- [ ] 320 / 375 / desktop: no overflow, closed and open
+- [x] Open state shows the author photo exactly once (in the card) — browser: 1 photo at 375 and 1280
+- [x] Open state is visibly different from closed (slim label row, card not boxed in the blue panel); "Hide" collapses — browser + source test
+- [x] 320 / 375 / desktop: no overflow, closed and open — scrollWidth measured
 
 ## Related
 
