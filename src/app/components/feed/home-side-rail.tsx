@@ -88,16 +88,21 @@ function useHomeHighlights() {
  *  obvious there is more (the myCNX "swipeable rows" pattern; no swiping inside a card). */
 function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; row?: boolean }) {
   const { user } = useAuth();
-  if (events === null) return <div className="aspect-video w-full rounded-xl bg-muted animate-pulse" />;
+  if (events === null) return <div className="h-[400px] w-full max-w-sm rounded-xl bg-muted animate-pulse" />;
   if (events === "error") return <p className="text-sm text-muted-foreground">Couldn't load events.</p>;
   if (events.length === 0) return <p className="text-sm text-muted-foreground">No events scheduled yet.</p>;
   const cards = events.map((e) => (
-    <div key={e.id} className={row && events.length > 1 ? "w-[85%] shrink-0 snap-start" : ""}>
+    <div key={e.id} className={row && events.length > 1 ? "flex w-[85%] max-w-sm shrink-0 snap-start [&>a]:w-full" : row ? "max-w-sm" : ""}>
       <EventCard event={e} isLoggedIn={!!user} userId={user?.id} />
     </div>
   ));
   if (row && events.length > 1) {
-    return <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">{cards}</div>;
+    // scroll-px keeps the 16px gutter after a swipe; the bleed is phone-only so tablets don't clip.
+    return (
+      <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:scroll-px-0 sm:px-0">
+        {cards}
+      </div>
+    );
   }
   return <div className="space-y-3">{cards}</div>;
 }
@@ -125,7 +130,7 @@ function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
 
 function SectionTitle({ icon: Icon, children }: { icon: typeof LandmarkIcon; children: React.ReactNode }) {
   return (
-    <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2">
+    <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
       <Icon className="w-4 h-4" aria-hidden /> {children}
     </h2>
   );
@@ -179,7 +184,6 @@ function TopContent() {
           <SectionTitle icon={CalendarDaysIcon}>Next events</SectionTitle>
           <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
         </div>
-        {/* Phones: just the next one, so the stories stay close to the top. */}
         <EventsList events={events} row />
       </div>
       )}
