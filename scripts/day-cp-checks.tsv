@@ -7,11 +7,11 @@
 # morning RLS drift inside it exited 1 (spec §5).
 #
 # The /day renderer finds this file by name, beside the manifest the dispatcher registered. Every
-# check below gets a row in the day report even if nothing printed a status for it: "not proven"
+# check below gets a row in the day report even if nothing reported a status for it: "not proven"
 # when its step ran, "did not run" when its step did not. A check that stops reporting can never
 # read clean.
 #
-# How a check reports: a `run` body prints `CHECK <id> <status> <detail>`, derived from an exit code
+# How a check reports: a `run` body writes `CHECK <id> <status> <detail>` to "$DAY_CHECK_FILE" (never stdout), from an exit code
 # or token the body already prints; Sentry and Mixpanel, which only the agent can see through MCP,
 # are recorded with `"$DAY_STEP" check <id> <status> --detail "..." --step <step-id>`. day-cp.md
 # shows each one in place.

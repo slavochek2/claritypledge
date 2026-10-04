@@ -256,7 +256,7 @@ absence. Then filter to `due: month`:
 Surface them **by ID**, age-flag anything sitting 2+ **months**, and offer the same close — one
 list, one prompt, `resolve INBOX-<n>` / `drop INBOX-<n>` / default keep. **Inside `/day`** there is
 no prompt: record the offer per entry exactly as `/weekly` step 2.5 does inside `/day` (same
-options, same loop guard), with `--check cp.monthly --review monthly --fault-key
+options, same loop guard), with `--check cp.monthly --review monthly --topic "Monthly review" --fault-key
 monthly:inbox-<id, lowercased>`. The resolve and drop
 mechanics (full-token ID matching, graduation into `docs/decisions.md`, deleting through
 `./scripts/inbox.sh delete`, never writing `Status: done`, private entries never graduating into the
@@ -351,7 +351,7 @@ founder decides change by change on the Day page:
 
 ```bash
 "$DAY_STEP" finding --check cp.monthly --severity medium --store public --review monthly \
-  --fault-key monthly:<short-slug-of-the-change> \
+  --topic "Monthly review" --fault-key monthly:<target file>:<section> \
   --title "<the change, in plain words>" \
   --point-a "<what happens today>" --obstacle "<the pattern the agents found>" \
   --point-b "<what the change would make true>" \
@@ -363,7 +363,10 @@ Rationale: <1 sentence>
 BODY
 ```
 
-Set `--confidence` (0-100) to how sure you are the change helps. `--store public` only when the draft names nothing private (it targets a public file, so it usually
+Set `--confidence` (0-100) to how sure you are the change helps. The fault key comes from the change's **target**, never from its wording: the `File` and
+`Section` of the proposal, lowercased, every character outside `[a-z0-9._-]` turned into `-`, the
+key cut to 60 characters (`monthly:claude.md:debugging`). The same target re-proposed next month
+keeps its fingerprint, so a "Not now" the founder gave carries over. `--store public` only when the draft names nothing private (it targets a public file, so it usually
 does not); otherwise leave the default, private. Then go to step 6. The changes the founder picks
 are applied later by the session Start fixing opens, each CLAUDE.md change through
 `/slava:maintain:claude-md` as below — never from inside `/day`.

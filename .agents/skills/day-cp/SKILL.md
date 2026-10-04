@@ -75,13 +75,15 @@ which sees only exported variables — a body that reads an unexported `$SINCE` 
 window, and one that calls an unexported `"$DAY_STEP"` fails.
 
 **Each check reports its own status (P1399).** One wave is one step, and one step used to be one
-ledger row: `cp.w3 ok 0` read clean while the RLS drift inside it exited 1. So each check prints a
-machine line from its own exit code or token — never from prose — which the runner records as a
-row of its own; when the token is absent nothing is printed, and the board reads that check "not
-proven":
+ledger row: `cp.w3 ok 0` read clean while the RLS drift inside it exited 1. So each check writes a
+machine line, from its own exit code or token — never from prose — to the file the runner hands
+the body as `$DAY_CHECK_FILE`, and the runner records it as a row of its own. Stdout is never
+parsed for status, because anything a body runs (a test, a dependency, quoted prose) could print a
+line that looks like one. When the token is absent nothing is written, and the board reads that
+check "not proven". Each line is also `tee`d to stdout so you can read it; that copy is never parsed:
 
 ```bash
-echo "CHECK <check-id> <ok|problem|not-run|unproven|skipped> <plain detail, under 80 chars>"
+echo "CHECK <check-id> <ok|problem|not-run|unproven|skipped> <plain detail, under 80 chars>" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 ```
 
 Sentry and Mixpanel, which only an MCP call can see, are recorded by you beside their `attest`:
@@ -90,8 +92,10 @@ Sentry and Mixpanel, which only an MCP call can see, are recorded by you beside 
 "$DAY_STEP" check <check-id> <status> --detail "what came back, in plain words" --step <step-id>
 ```
 
-`scripts/day-cp-checks.tsv` lists every check this file reports and the step that computes it. Do
-not print `>`, `<` or `|` in a detail — these lines are relayed.
+`scripts/day-cp-checks.tsv` lists every check this file reports and the step that computes it, and
+`scripts/test-p1399-day-registry.sh` fails if a check written here is not in it. Do not put `>`, `<`
+or `|` in a detail — these lines are relayed. Run without `$DAY_STEP` (directly, not from `/day`),
+`$DAY_CHECK_FILE` is unset: the status lines still print, and nothing records them.
 
 **If `DAY_STEP` was not passed**, you were invoked directly rather than by `/day`. Run the
 commands as written, and **say so in the output**: nothing this pass does is recorded, exactly
@@ -113,7 +117,11 @@ BODY
 **The fault key is the fingerprint (P1399)** — `<check>:<fault key>`, never the title. Titles that
 carried "62h+" one morning and "13.6 days" the next filed one fault under six fingerprints, and a
 decision the founder made on one could not follow it to the next. A key is a fixed lowercase slug
-(`rls:new-policies`, `spec:qa:p1234`) — never prose, a count or a date. `--check` is a check id
+(`rls:new-policies`, `spec:qa:p1234`) — never prose, a count or a date, and never a tool's own
+label for the fault (a label can be a misdiagnosis; the key must outlive it). Where a fault is
+one of many of a kind, the suffix is a stable **source id** — a spec number, an issue number, a
+service name, an inbox ID — lowercased, with anything outside `[a-z0-9._:-]` turned into `-`, and
+the whole key cut to 60 characters. `--check` is a check id
 from `scripts/day-cp-checks.tsv` where one fits; a finding about something no check covers (a
 stranded spec, a stash) names the step it came from.
 
@@ -145,9 +153,9 @@ printf '%s\n' "$SMOKE_OUT"
 [ "$SMOKE_RC" -ne 0 ] && echo "SMOKE_FAILED"
 SMOKE_SUM="$(printf '%s\n' "$SMOKE_OUT" | grep -E '^[0-9]+ passed, [0-9]+ failed' | tail -1)"
 SMOKE_PASS="$(printf '%s' "$SMOKE_SUM" | awk '{print $1}')"; SMOKE_FAIL="$(printf '%s' "$SMOKE_SUM" | awk '{print $3}')"
-if [ -z "$SMOKE_SUM" ]; then echo "CHECK cp.smoke not-run the smoke test did not finish (exit $SMOKE_RC)"
-elif [ "$SMOKE_RC" -eq 0 ] && [ "$SMOKE_FAIL" = "0" ]; then echo "CHECK cp.smoke ok $SMOKE_PASS of $SMOKE_PASS smoke checks pass"
-else echo "CHECK cp.smoke problem $SMOKE_FAIL of $((SMOKE_PASS + SMOKE_FAIL)) smoke checks fail"; fi
+if [ -z "$SMOKE_SUM" ]; then echo "CHECK cp.smoke not-run the smoke test did not finish (exit $SMOKE_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$SMOKE_RC" -eq 0 ] && [ "$SMOKE_FAIL" = "0" ]; then echo "CHECK cp.smoke ok $SMOKE_PASS of $SMOKE_PASS smoke checks pass" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.smoke problem $SMOKE_FAIL of $((SMOKE_PASS + SMOKE_FAIL)) smoke checks fail" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== GIT LOG ==="
 git log --oneline --since="$SINCE" --author-date-order
@@ -201,7 +209,8 @@ grep -E "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no 
 
 echo "=== CLOUD ==="
 GCLOUD_OK=1
-if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q .; then
+# A real token, not the account list: `auth list` names an account whose credentials have expired.
+if ! gcloud auth print-access-token >/dev/null 2>&1; then
   echo "GCLOUD_NOT_AUTHENTICATED"
   GCLOUD_OK=0
 else
@@ -210,9 +219,9 @@ fi
 GHOST_STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5)"
 echo "ghost_status=$GHOST_STATUS"
 case "$GHOST_STATUS" in
-  200) echo "CHECK cp.blog ok the blog answers" ;;
-  000|"") echo "CHECK cp.blog problem the blog did not answer within 5 seconds" ;;
-  *) echo "CHECK cp.blog problem the blog answered HTTP $GHOST_STATUS" ;;
+  200) echo "CHECK cp.blog ok the blog answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  000|"") echo "CHECK cp.blog problem the blog did not answer within 5 seconds" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.blog problem the blog answered HTTP $GHOST_STATUS" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ 2>/dev/null | sort | tail -1)
 DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
@@ -224,10 +233,10 @@ if [ -n "$DATE" ]; then
     echo "backup_age_days=$BACKUP_AGE"
   fi
 fi
-if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.backup not-run gcloud is not signed in"
-elif [ -z "$BACKUP_AGE" ]; then echo "CHECK cp.backup unproven no dated backup could be listed"
-elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database backup is $BACKUP_AGE days old"
-else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old"; fi
+if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.backup not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ -z "$BACKUP_AGE" ]; then echo "CHECK cp.backup unproven no dated backup could be listed" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== GEMINI PROD KEY (P1162) ==="
 # The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
@@ -249,24 +258,29 @@ echo "gemini_prod_key_exit=$GEMKEY_RC"
 GEMKEY_SELFTEST_RC=$?
 echo "gemini_prod_key_selftest_exit=$GEMKEY_SELFTEST_RC"
 GEMKEY_TOKEN="$(printf '%s\n' "$GEMKEY_OUT" | grep -oE 'KEY_[A-Z_]+' | grep -v '^KEY_PING_OK$' | head -1)"
-if [ "$GEMKEY_RC" -ge 2 ]; then echo "CHECK cp.gemini not-run the production key check could not run (exit $GEMKEY_RC)"
-elif [ "$GEMKEY_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.gemini unproven the key classifier failed its self-test"
-elif [ "$GEMKEY_RC" -eq 1 ]; then echo "CHECK cp.gemini problem ${GEMKEY_TOKEN:-the production key check found a fault}"
-else echo "CHECK cp.gemini ok the deployed key matches its digest and answers"; fi
+if [ "$GEMKEY_RC" -ge 2 ]; then echo "CHECK cp.gemini not-run the production key check could not run (exit $GEMKEY_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMKEY_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.gemini unproven the key classifier failed its self-test" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMKEY_RC" -eq 1 ]; then echo "CHECK cp.gemini problem ${GEMKEY_TOKEN:-the production key check found a fault}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.gemini ok the deployed key matches its digest and answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
 # (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal.
 #  Below also emits EST_PER_DAY — a resource-based €/day estimate, NOT billed actuals. Billed €: weekly /gcp-spend.)
 GCP_PROJECT="gen-lang-client-0869694595"
+# Every `gcloud ... list` is graded on its own exit code (P1399 review): an empty listing piped into a
+# loop or a parser read exactly like "no leaks" when the listing itself had failed. TRIP_FAILED
+# names each listing that failed; any entry makes the check unproven, never ok.
+TRIP_FAILED=""
 TRIPWIRE_OUT="$(mktemp)"
 {
 for REGION in us-east4 us-central1 us-east5 europe-west1; do
-  gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | while read SVC; do
-    [ -z "$SVC" ] && continue
+  SVCS="$(gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null)"; LIST_RC=$?
+  if [ "$LIST_RC" -ne 0 ]; then TRIP_FAILED="$TRIP_FAILED run-services:$REGION"; echo "RUN_SERVICES_LIST_FAILED: $REGION (exit $LIST_RC)"; continue; fi
+  for SVC in $SVCS; do
     # Per-field queries — multi-field --format mis-maps when annotations are empty (verified May 2026)
-    GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null)
-    MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
+    GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null) || TRIP_FAILED="$TRIP_FAILED describe:$SVC"
+    MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null) || TRIP_FAILED="$TRIP_FAILED describe:$SVC"
     # A GPU service is flagged on BILLED hours, not on having a GPU: Cloud Run requires
     # cpu-throttling=false for GPUs, so that annotation carries no signal (cp decisions 2026-10-04).
     [ -n "$GPU" ] && ./scripts/gpu-warm-check.py "$GCP_PROJECT" "$SVC" 3
@@ -274,23 +288,23 @@ for REGION in us-east4 us-central1 us-east5 europe-west1; do
   done
 done
 # Enabled schedulers that target Cloud Run (the keep-warm trap) — selected by target URI and
-# shortest gap between runs; rules in scripts/scheduler-warm-check.py (cp INBOX-P50).
+# shortest gap between runs; rules in scripts/scheduler-warm-check.py (cp INBOX-P50). A listing
+# that failed never reaches the parser: an empty list is "no schedulers", which it is not.
 for REGION in us-east4 us-central1; do
-  SCHED_OUT=$(gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
-    --filter="state=ENABLED" --format="value(name,schedule,httpTarget.uri)" 2>/dev/null \
-    | ./scripts/scheduler-warm-check.py); SCHED_RC=$?
+  JOBS="$(gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
+    --filter="state=ENABLED" --format="value(name,schedule,httpTarget.uri)" 2>/dev/null)"; LIST_RC=$?
+  if [ "$LIST_RC" -ne 0 ]; then
+    TRIP_FAILED="$TRIP_FAILED scheduler:$REGION"
+    echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (listing exit $LIST_RC) — do not report clean"
+    continue
+  fi
+  SCHED_OUT=$({ [ -n "$JOBS" ] && printf '%s\n' "$JOBS"; } | ./scripts/scheduler-warm-check.py); SCHED_RC=$?
   [ -n "$SCHED_OUT" ] && echo "$SCHED_OUT"
-  if [ "$SCHED_RC" -ne 0 ]; then echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (exit $SCHED_RC) — do not report clean"
+  if [ "$SCHED_RC" -ne 0 ]; then TRIP_FAILED="$TRIP_FAILED scheduler-check:$REGION"; echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (exit $SCHED_RC) — do not report clean"
   elif [ -n "$SCHED_OUT" ]; then echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"; fi
 done
 } > "$TRIPWIRE_OUT" 2>&1
 cat "$TRIPWIRE_OUT"
-TRIP_N="$(grep -cE '^(GPU_SERVICE|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
-if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.cost not-run gcloud is not signed in"
-elif [ "$TRIP_N" -gt 0 ]; then echo "CHECK cp.cost problem $TRIP_N possible cost leaks: GPU, always-on or a warm-keeping scheduler"
-elif grep -q 'check did NOT run' "$TRIPWIRE_OUT"; then echo "CHECK cp.cost unproven the scheduler check did not run in every region"
-else echo "CHECK cp.cost ok no GPU, always-on or warm-keeping scheduler found"; fi
-rm -f "$TRIPWIRE_OUT"
 # €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
 # Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
 # between runs won't show here (only BigQuery billing history would) — that's what the tripwire above is for.
@@ -305,7 +319,12 @@ else
   DAYS_ELAPSED=1
 fi
 export DAYS_ELAPSED
-gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null | python3 -c '
+INSTANCES="$(gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null)"; LIST_RC=$?
+if [ "$LIST_RC" -ne 0 ]; then
+  TRIP_FAILED="$TRIP_FAILED compute-instances"
+  echo "EST_PER_DAY: not computed — the instance listing failed (exit $LIST_RC)"
+else
+  printf '%s\n' "$INSTANCES" | python3 -c '
 import sys, os
 HR={"e2-micro":0.0084,"e2-small":0.0168,"e2-medium":0.0335,"e2-standard-2":0.0670,"e2-standard-4":0.1340,"e2-standard-8":0.2681,"n1-standard-1":0.0475}
 usd_day=0.16  # disk+storage baseline/day (from /gcp-spend inventory)
@@ -317,13 +336,21 @@ days=float(os.environ.get("DAYS_ELAPSED","1"))
 eur_day=usd_day*0.92  # rough USD->EUR; estimate only
 print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
 '
+fi
+TRIP_N="$(grep -cE '^(GPU_SERVICE|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
+TRIP_FAILED="$(printf '%s\n' $TRIP_FAILED | sort -u | tr '\n' ' ' | sed 's/ *$//' | cut -c1-50)"
+if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.cost not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$TRIP_N" -gt 0 ]; then echo "CHECK cp.cost problem $TRIP_N possible cost leaks: GPU, always-on or a warm-keeping scheduler" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ -n "$TRIP_FAILED" ]; then echo "CHECK cp.cost unproven listing failed: $TRIP_FAILED" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.cost ok no GPU, always-on or warm-keeping scheduler found" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+rm -f "$TRIPWIRE_OUT"
 echo "(empty above = no always-on/GPU cost leaks)"
 # The wave's exit is the step's; every finding above is a CHECK line, never a failed step.
 exit 0
 STEP
 ```
 
-Process Wave 1 results before proceeding. The body has printed a status for each of its checks
+Process Wave 1 results before proceeding. The body has written a status for each of its checks
 (`cp.smoke`, `cp.blog`, `cp.backup`, `cp.gemini`, `cp.cost`). Since P1399 nothing below is shown to
 the founder as a line: where a rule says *show*, *report*, *flag* or *output*, record a finding —
 one per distinct fault, the check's own lines as its body:
@@ -482,9 +509,9 @@ echo -e "\n=== UNCONFIRMED SIGN-UPS (P1257 window: older than 24h, newer than 7 
 UNCONF=$(ro "SELECT count(*) AS n FROM auth.users WHERE email_confirmed_at IS NULL AND created_at < now() - interval '24 hours' AND created_at > now() - interval '7 days'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "unconfirmed_signups=$UNCONF"
 case "$UNCONF" in
-  0) echo "CHECK cp.signups ok every sign-up of the last week confirmed their email" ;;
-  ''|*[!0-9]*) echo "CHECK cp.signups not-run the sign-up confirmation query failed" ;;
-  *) echo "CHECK cp.signups problem $UNCONF sign-ups never confirmed their email" ;;
+  0) echo "CHECK cp.signups ok every sign-up of the last week confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  ''|*[!0-9]*) echo "CHECK cp.signups not-run the sign-up confirmation query failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.signups problem $UNCONF sign-ups never confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 
 echo -e "\n=== ORPHANED SESSIONS ==="
@@ -492,9 +519,9 @@ ORPH=$(ro "SELECT id, code, created_at, expires_at FROM public.clarity_sessions 
 echo "$ORPH"
 ORPH_N=$(printf '%s' "$ORPH" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 case "$ORPH_N" in
-  0) echo "CHECK cp.sessions ok no joined live session left without completion" ;;
-  ''|*[!0-9]*) echo "CHECK cp.sessions not-run the session query failed" ;;
-  *) echo "CHECK cp.sessions problem $ORPH_N joined live sessions never completed (5 shown at most)" ;;
+  0) echo "CHECK cp.sessions ok no joined live session left without completion" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  ''|*[!0-9]*) echo "CHECK cp.sessions not-run the session query failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.sessions problem $ORPH_N joined live sessions never completed (5 shown at most)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 
 echo -e "\n=== TRANSCRIPTION HEALTH ==="
@@ -510,9 +537,9 @@ echo "stale_processing(>30m): $TX_STALE_N"
 TX_LOST_N=$(ro "SELECT id FROM public.transcription_jobs WHERE status = 'pending' AND created_at < '${TX_LOST}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "lost_pending(>5m): $TX_LOST_N"
 case "$TX_STALE_N:$TX_LOST_N" in
-  0:0) echo "CHECK cp.transcribe ok no stale or lost transcription jobs" ;;
-  *[!0-9:]*|:*|*:) echo "CHECK cp.transcribe not-run the transcription job queries failed" ;;
-  *) echo "CHECK cp.transcribe problem $TX_STALE_N stale and $TX_LOST_N lost transcription jobs" ;;
+  0:0) echo "CHECK cp.transcribe ok no stale or lost transcription jobs" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *[!0-9:]*|:*|*:) echo "CHECK cp.transcribe not-run the transcription job queries failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.transcribe problem $TX_STALE_N stale and $TX_LOST_N lost transcription jobs" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 
 echo -e "\n=== EVENT EMAIL HEALTH ==="
@@ -536,23 +563,8 @@ echo -e "\n=== EVENT EMAIL HEALTH ==="
 # on schedule 328 times and FAILED all 328, logging an identical `column "Authorization"
 # does not exist` into cron.job_run_details each time. A hard, loud, recorded error —
 # operationally identical to silence, because nothing ever read that table. Read it.
-# THE CRON'S OWN STATUS IS NOT ENOUGH — and this is the correction that matters most.
-# net.http_post is ASYNCHRONOUS: it queues the request and returns, so the tick function
-# completes successfully whatever the HTTP outcome, and pg_cron records "succeeded".
-# Measured 2026-09-07: cron_status succeeded at 08:30 while the response arrived
-# separately in net._http_response. A 401 — a rotated secret, a wrong anon key, a missing
-# Vault entry — therefore produces a GREEN cron row.
-#
-# That is the P1256 outage's own failure mode reintroduced in a quieter form: the old
-# broken job at least errored loudly in SQL 328 times. The replacement cannot fail that
-# way, so cron status alone would report health while nothing was being delivered.
-# Caught in review, before it had a chance to hide a second outage.
-#
-# So assert POSITIVE evidence of delivery instead: the dispatcher's own 200 body is the
-# only thing in the database that emits "mode":"cron", which makes it unambiguous
-# attribution without a URL column (net._http_response has none). Absence of a recent one
-# covers BOTH failure shapes at once — no request queued (missing Vault config) and a
-# request that came back non-2xx.
+# The cron's own status is not evidence of delivery, so this asserts a recent successful
+# dispatch response instead. Why, and the incident behind it: `.private/docs/` (P1256).
 DISPATCH_SQL="SELECT max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%') AS last_ok_dispatch, round(extract(epoch FROM now()-max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%'))/60) AS mins_since_ok, count(*) FILTER (WHERE status_code<>200 AND created > now()-interval '6 hours') AS non_2xx_6h FROM net._http_response;"
 DISPATCH_OUT=$(ro "$DISPATCH_SQL"); DISPATCH_RC=$?
 echo "$DISPATCH_OUT"
@@ -618,7 +630,7 @@ if int(counts[0]) + int(counts[1]) > 0:
 if int(counts[2]) > 0:
     why.append("sends stuck pending")
 print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch delivering, no failing job, nothing overdue"))
-'
+' | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
@@ -627,6 +639,10 @@ MAIN_GIT_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
 METRICS_DIR="$(dirname "$MAIN_GIT_DIR")/.private/metrics"
 mkdir -p "$METRICS_DIR"
 CSV_FILE="$METRICS_DIR/funnel-daily.csv"
+# P1399: the funnel as a day-report reading, with the change since the last earlier day's row.
+FUNNEL_PREV=$(grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | grep -v "^$(date -u +%Y-%m-%d)," | tail -1)
+echo "funnel_today=${FUNNEL_SIGNUPS},${FUNNEL_STORY_USERS},${FUNNEL_POSITION_USERS},${FUNNEL_AGREEMENTS}"
+echo "funnel_previous_row=${FUNNEL_PREV:-none}"
 # Strip any trailing blank line before reading the tail — an empty last line never
 # equals today's date, which would otherwise defeat the dedup below on every run.
 LAST_CSV_DATE=$(grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | tail -1 | cut -d, -f1)
@@ -686,10 +702,8 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 `mins_since_ok` should be under ~60 (the job runs every 30 min). Over ~90 minutes, or
 `last_ok_dispatch` null, means **nothing is being delivered** — report
 `⚠ EVENT EMAIL DISPATCH SILENT: no successful dispatch in N minutes`. `non_2xx_6h > 0`
-names the shape: an auth failure (rotated CRON_SECRET, wrong anon key) returns 401 here
-while pg_cron still reports success, because `net.http_post` is asynchronous and the tick
-returns before the response exists. **Never conclude the dispatcher is healthy from a green
-cron row alone** — that combination is precisely what a rotated secret looks like.
+means dispatches are being refused. **Never conclude the dispatcher is healthy from a green
+cron row alone** (the history is in `.private/docs/`, P1256).
 
 **Then read the cron rows — they catch a different failure: the job not running at all.**
 Any job with `failed_24h > 0` is broken NOW, and `last_error` says how. A job with
@@ -1005,17 +1019,17 @@ echo "=== TEST ==="
 TEST_OUT="$(npm test -- --run 2>&1)"; TEST_RC=$?
 printf '%s\n' "$TEST_OUT" | tail -5
 TESTS_PASSED="$(printf '%s\n' "$TEST_OUT" | sed -n 's/^ *Tests  *\([0-9][0-9]*\) passed.*/\1/p' | tail -1)"
-if [ "$LINT_RC" -eq 0 ] && [ "$TEST_RC" -eq 0 ]; then echo "CHECK cp.baseline ok ${TESTS_PASSED:-all} tests pass, lint clean"
-else echo "CHECK cp.baseline problem lint exit $LINT_RC with $LINT_N error lines, tests exit $TEST_RC"; fi
+if [ "$LINT_RC" -eq 0 ] && [ "$TEST_RC" -eq 0 ]; then echo "CHECK cp.baseline ok ${TESTS_PASSED:-all} tests pass, lint clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.baseline problem lint exit $LINT_RC with $LINT_N error lines, tests exit $TEST_RC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== OPS ISSUES ==="
 OPS_OUT="$(gh issue list --state open --limit 50 2>&1)"; OPS_RC=$?
 printf '%s\n' "$OPS_OUT"
-if [ "$OPS_RC" -ne 0 ]; then echo "OPS-ISSUES-CHECK-FAILED (exit $OPS_RC)"; echo "CHECK cp.ops not-run the GitHub issue list could not be read (exit $OPS_RC)"
+if [ "$OPS_RC" -ne 0 ]; then echo "OPS-ISSUES-CHECK-FAILED (exit $OPS_RC)"; echo "CHECK cp.ops not-run the GitHub issue list could not be read (exit $OPS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
   # Every open issue in this repo is a scheduled gate's alert (P866 find-or-append pattern).
   OPS_N="$(printf '%s\n' "$OPS_OUT" | grep -c .)"
-  if [ "$OPS_N" -eq 0 ]; then echo "CHECK cp.ops ok no open alert issues on GitHub"
-  else echo "CHECK cp.ops problem $OPS_N open alert issues on GitHub"; fi
+  if [ "$OPS_N" -eq 0 ]; then echo "CHECK cp.ops ok no open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  else echo "CHECK cp.ops problem $OPS_N open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 fi
 echo "=== RLS DRIFT ==="
 # Pin to the MAIN checkout, same reason as the funnel CSV below: the baseline lives
@@ -1037,9 +1051,9 @@ if [ "$RLS_RC" -ge 2 ]; then
 fi
 echo "rls_drift_exit=$RLS_RC"
 case "$RLS_RC" in
-  0) echo "CHECK cp.rls ok no policy outside the recorded baseline" ;;
-  1) echo "CHECK cp.rls problem new policies on a live database, not in the baseline" ;;
-  *) echo "CHECK cp.rls not-run the RLS drift check did not run (exit $RLS_RC)" ;;
+  0) echo "CHECK cp.rls ok no policy outside the recorded baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  1) echo "CHECK cp.rls problem new policies on a live database, not in the baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.rls not-run the RLS drift check did not run (exit $RLS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 echo "=== FUNCTION GRANT DRIFT ==="
 # Same main-checkout pinning and same three-way exit contract as the RLS check
@@ -1052,10 +1066,10 @@ if [ "$FGD_RC" -ge 2 ]; then
   echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
 fi
 echo "function_grant_exit=$FGD_RC"
-if [ "$FGD_RC" -ge 2 ]; then echo "CHECK cp.grants not-run the function grant check did not run (exit $FGD_RC)"
-elif [ "$FGD_RC" -eq 1 ]; then echo "CHECK cp.grants problem a function became callable without sign-in, or the databases disagree"
-elif printf '%s\n' "$FGD_OUT" | grep -q 'BLIND'; then echo "CHECK cp.grants unproven grants match, but the guard probe could not run"
-else echo "CHECK cp.grants ok no function grant outside the recorded baseline"; fi
+if [ "$FGD_RC" -ge 2 ]; then echo "CHECK cp.grants not-run the function grant check did not run (exit $FGD_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$FGD_RC" -eq 1 ]; then echo "CHECK cp.grants problem a function became callable without sign-in, or the databases disagree" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif printf '%s\n' "$FGD_OUT" | grep -q 'BLIND'; then echo "CHECK cp.grants unproven grants match, but the guard probe could not run" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.grants ok no function grant outside the recorded baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== PRIVILEGE FLOOR (P1207) ==="
 # Third catalog, third blind spot closed. The RLS check reads pg_policies and the function-grant
 # check reads EXECUTE on pg_proc; NEITHER reads table/column privileges or pg_default_acl, so
@@ -1075,10 +1089,10 @@ echo "privilege_floor_exit=$PF_RC"
 python3 "$RLS_MAIN_ROOT/scripts/check-p1207-privilege-floor.py" --self-test 2>&1
 PF_SELFTEST_RC=$?
 echo "privilege_floor_selftest_exit=$PF_SELFTEST_RC"
-if [ "$PF_RC" -ge 2 ]; then echo "CHECK cp.floor not-run the privilege floor check did not run (exit $PF_RC)"
-elif [ "$PF_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.floor unproven the detector failed its self-test, so its verdict proves nothing"
-elif [ "$PF_RC" -eq 1 ]; then echo "CHECK cp.floor problem a banned privilege is back on prod"
-else echo "CHECK cp.floor ok no banned privilege on prod"; fi
+if [ "$PF_RC" -ge 2 ]; then echo "CHECK cp.floor not-run the privilege floor check did not run (exit $PF_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$PF_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.floor unproven the detector failed its self-test, so its verdict proves nothing" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$PF_RC" -eq 1 ]; then echo "CHECK cp.floor problem a banned privilege is back on prod" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.floor ok no banned privilege on prod" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 # The wave's exit is the step's; every finding above is a CHECK line, never a failed step.
 exit 0
 STEP
@@ -1152,9 +1166,9 @@ printf '%s\n' "$VS_OUT"
 VS_READY="$(printf '%s\n' "$VS_OUT" | sed -n 's/^READY FOR YOUR YES (\([0-9]*\)).*/\1/p' | tail -1)"
 VS_FAILED="$(printf '%s\n' "$VS_OUT" | sed -n 's/^FAILED (\([0-9]*\)).*/\1/p' | tail -1)"
 case "$rc" in
-  0) echo "CHECK cp.video ok summary heal ran, ${VS_READY:-0} summaries wait for your yes" ;;
-  1) echo "CHECK cp.video problem ${VS_FAILED:-some} video summaries failed to draft or check" ;;
-  *) echo "CHECK cp.video not-run the summary heal could not run (exit $rc)" ;;
+  0) echo "CHECK cp.video ok summary heal ran, ${VS_READY:-0} summaries wait for your yes" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  1) echo "CHECK cp.video problem ${VS_FAILED:-some} video summaries failed to draft or check" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.video not-run the summary heal could not run (exit $rc)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
 esac
 exit $rc
 STEP
@@ -1163,8 +1177,9 @@ STEP
 The counts are in the `cp.video` CHECK line. `READY FOR YOUR YES` (one or more) is a question only the
 founder can answer — record it as a finding, not a mid-run question: `--check cp.video --fault-key
 video:ready-for-yes --severity medium --title "Video summaries are written and checked, waiting for
-your yes" --option publish="Publish them after reading on localhost (feed, Read video summary)"
---option later="Not yet" --recommend publish --confidence 70`, the ids and titles in the body.
+your yes" --option read="Read them on localhost first (feed, Read video summary)" --option
+publish="Publish them" --recommend read --confidence 80`, the ids and titles in the body. Never
+recommend `publish`: publishing is his call after reading, never a preselected default.
 **This step stops at the question — it never confirms or promotes.** On the yes, in the
 main session: `confirm <id> --approved-in-chat` for each, then one
 `promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` (the step exits non-zero) are findings
@@ -1178,7 +1193,7 @@ carried still holds — a skipped check must read differently from a clean one, 
 mechanism moved: every check in `scripts/day-cp-checks.tsv` now has a status of its own, and a
 registered check nobody reported reads "not proven" on the board.
 
-Before moving on, walk that registry once. Every check should have printed or recorded a status
+Before moving on, walk that registry once. Every check should have written or recorded a status
 (the Sentry and Mixpanel ones are yours to record); every `problem` should have a finding with a
 fault key; Sentry's `not-run` and Mixpanel's `not called (no users)` stay distinct (`not-run` vs
 `skipped`). The GCP credits, AI keys and Agent VM checks are **not** yours — they are personal and
@@ -1199,8 +1214,16 @@ REPORT FOR THE DISPATCHER
   reviews: <weekly|monthly|none — the review Step 5 ran inside this pass>
   unpushed_commits: <N, from Wave 1's unpushed_commits= line>
   unconfirmed_signups: <N, from Wave 2's unconfirmed_signups= line>
+  funnel_signups: <N> (<+change since funnel_previous_row, when it is a row>)
+  funnel_story_authors: <N> (<+change>)
+  funnel_position_users: <N> (<+change>)
+  funnel_agreements: <N> (<+change>)
   people: <N recorded>
 ```
+
+The four funnel lines come from Wave 2's `funnel_today=` (signups, story authors, position users,
+agreements, in that order) and the change from `funnel_previous_row=` (its columns 2–5); a `?` or
+`none` leaves the change, or the line, out.
 
 ---
 
@@ -1414,6 +1437,69 @@ copy-pasted and the reviews simply did not happen (P900).
 "$DAY_STEP" attest cp.due --evidence "the Due Board verdict and what was done about it"
 ```
 
+### 6. Notes — what used to be printed, kept for the board (P1399)
+
+Some of this sub-day's output is not a check, a finding or a person, and when the terminal stopped
+printing it, it reached nobody. It is recorded as notes, which the board shows one step away — plain
+text, at most 4000 characters each (longer is cut), one note per heading below, and only the ones
+this pass has content for:
+
+| id | title | content |
+|---|---|---|
+| `shipped` | Shipped since the last run | Step 2c's SINCE LAST /day, BUSINESS, INSIGHT and CHALLENGE lines, in user-value words |
+| `whats-next` | What's next | Step 3's WHAT'S NEXT (or its "unavailable" line), DO and DON'T |
+| `branches` | Branches and specs | Step 4's BRANCHES block and the stranded-spec list from Wave 1 |
+| `cloud-spend` | Cloud spend estimate | Wave 1's `EST_PER_DAY` / `EST_SINCE_LAST` line, as "about €X a day, €Y since the last run (an estimate from running resources, not billed)" |
+| `weekly-review` | Weekly review | the review's measurements: Metrics, product pulse, user health, SEO pulse, GCP spend, Evidence Signals (review `weekly`) |
+| `monthly-review` | Monthly review | the synthesis' measurements and the programme-health verdict (review `monthly`) |
+
+A header line `@@ <id> [weekly|monthly] :: <title>` starts each note; every line after it, up to the
+next header, is its body.
+
+```bash
+"$DAY_STEP" run cp.notes <<'STEP'
+python3 -c '
+import json, re, sys
+IDS = ("shipped", "whats-next", "branches", "cloud-spend", "weekly-review", "monthly-review")
+notes, cur = [], None
+for line in sys.stdin.read().splitlines():
+    m = re.match(r"^@@ ([a-z-]+)(?: (weekly|monthly))? :: (.+)$", line)
+    if m:
+        if m.group(1) not in IDS:
+            sys.exit("not a note id: " + m.group(1))
+        cur = {"id": m.group(1), "title": m.group(3).strip(), "lines": []}
+        if m.group(2):
+            cur["review"] = m.group(2)
+        notes.append(cur)
+    elif cur is not None:
+        cur["lines"].append(line)
+out = []
+for n in notes:
+    body = "\n".join(n.pop("lines")).strip()
+    if not body or body.startswith("<"):
+        continue
+    n["body"] = body if len(body) <= 4000 else body[:3990] + "\n(cut)"
+    out.append(n)
+if len({n["id"] for n in out}) != len(out):
+    sys.exit("a note id appears twice")
+json.dump(out, sys.stdout)
+' <<'NOTES' | "$DAY_STEP" data notes
+@@ shipped :: Shipped since the last run
+<lines>
+@@ whats-next :: What's next
+<lines>
+@@ branches :: Branches and specs
+<lines>
+@@ cloud-spend :: Cloud spend estimate
+<line>
+NOTES
+STEP
+```
+
+Add the `@@ weekly-review weekly :: Weekly review` or `@@ monthly-review monthly :: Monthly review`
+note when Step 5 ran one. The dispatcher adds its own notes to the same section later (it merges by
+id), so record this one even when the pass goes on to fail.
+
 ## Event-to-Journey Mapping (Wave 2b reference)
 
 Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
@@ -1444,7 +1530,7 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 
 - Never show done steps in goals. Only what's coming.
 - No step here waits for the founder (this runs in a subagent). His decisions are findings with options (P1399): the stash (step 4c), a spec waiting in QA (Wave 1), video summaries ready for his yes, and the reviews' proposals. A Sentry or Mixpanel MCP that did not reconnect is a connection in the REPORT block, not a question.
-- **A new check needs three things (P1399):** a row in `scripts/day-cp-checks.tsv`, a `CHECK` line printed from its exit code or token, and a fault key for what it finds.
+- **A new check needs three things (P1399):** a row in `scripts/day-cp-checks.tsv`, a `CHECK` line written to `$DAY_CHECK_FILE` from its exit code or token, and a fault key for what it finds.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry,
   Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool
   calls per wave to prevent permission prompt floods.

@@ -319,7 +319,7 @@ change nothing in the store here — the session Start fixing opens carries out 
 drop, by the rules below:
 
 ```bash
-"$DAY_STEP" finding --check cp.weekly --severity low --review weekly \
+"$DAY_STEP" finding --check cp.weekly --severity low --review weekly --topic "Weekly review" \
   --fault-key weekly:inbox-<the ID, lowercased, e.g. inbox-31 or inbox-p4> \
   --title "<the entry's title, without its [day:…] tag>" \
   --point-a "open since <its Date>" --obstacle "<why it is still open, from the entry>" \
@@ -891,8 +891,11 @@ Sources (collect from the steps above):
 - Broken CLAUDE.md links / stale docs (1)
 
 **Inside `/day`**, each action is also a finding — work for an agent session, no options:
-`--check cp.weekly --review weekly --severity low --fault-key weekly:<short-slug-of-the-action>`,
-the action as the title. Skip an action that only restates a finding already recorded this pass
+`--check cp.weekly --review weekly --topic "Weekly review" --severity low --fault-key
+weekly:action:<source step>:<source id>`, the action as the title. The key names where the action
+came from, never its wording: the step it was collected from (`2.11`, `2.8`, `2.10`, `2.14`, `1`)
+and that item's own stable id — the email's message id, the flag token, the file path — lowercased,
+anything outside `[a-z0-9._-]` turned into `-`, the key cut to 60 characters. Skip an action that only restates a finding already recorded this pass
 (a process-debt count, which step 2.5 recorded per entry).
 
 Format:
