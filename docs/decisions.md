@@ -35,6 +35,19 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** A Chiang Mai calendar link on the home page: it reads as a city listings site to online visitors. Building champion profiles now: demand is unproven. Showing the featured story to members: they have already seen it.
 **Consequences:** P1400 gets built only if members say yes and at least one stranger connects through a champion. The home page still has no independent review for P1404–P1407 (self-checked in the browser only).
 **References:** P1401, P1404, P1405, P1406, P1407, P1400 · docs/events/facilitator-checklist.md
+## 2026-10-04 [product]: The "Details · Event Room" row shows only to signed-in viewers (P1403)
+
+**Decision:** a logged-out visitor sees no Details/Event Room row on any event page. Signed-in
+viewers keep it, with the P1272 time rules unchanged (hidden when cancelled or past).
+**Why:** founder: *"event room for a person who is not logged in, we don't need to show that ...
+if there is no event room, then we don't need to show details because obviously it's details."*
+The room is not usable without an account, so the link was a dead end, and a lone "Details" tab
+selects nothing.
+**Rejected:** keeping "Event Room" as a sign-up teaser for visitors. Registration already has
+its own button; a second, indirect path to it competes with the primary action.
+
+---
+
 ## 2026-10-04 [product]: In an event description, only a link on its own line is a chip; a link in a sentence is a plain link (P1403)
 
 **Context:** P1264 made every link in an event description a black pill chip with ↗ (CSS on `.event-description a`

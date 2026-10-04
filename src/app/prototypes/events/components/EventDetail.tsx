@@ -420,7 +420,9 @@ export function EventDetail() {
   // event hits `hasEnded` 90 minutes in; removing the room from a facilitator who is
   // still debriefing is the wrong side of that trade, and every other user-facing
   // affordance on this page keys on the generous window too.
-  const roomRowVisible = !isPast && !isCancelled;
+  // Founder 2026-10-04: signed-in viewers only. A logged-out visitor cannot use the room, and
+  // without the room link the "Details" tab beside it has nothing to switch to.
+  const roomRowVisible = isLoggedIn && !isPast && !isCancelled;
   // "Join now" only when "now" is true. Before that the row names the destination
   // instead of issuing an invitation that is weeks premature (founder, 2026-09-08:
   // "should appear only 1 hour before the event? … otherwise confusing?"). Derived

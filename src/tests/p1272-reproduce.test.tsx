@@ -88,8 +88,11 @@ function makeEvent(over: Partial<EventWithHost> = {}): EventWithHost {
 }
 
 /** Renders the page and waits for the event to have loaded. */
-async function renderEvent(event: EventWithHost) {
-  mockUseAuth.mockReturnValue({ user: null, session: null });
+async function renderEvent(event: EventWithHost, { loggedIn = true } = {}) {
+  // Founder 2026-10-04: the room row is for signed-in viewers only.
+  mockUseAuth.mockReturnValue(loggedIn
+    ? { user: { id: 'viewer-1' }, session: { user: { id: 'viewer-1' } } }
+    : { user: null, session: null });
   mockGetEventBySlug.mockResolvedValue(event);
   render(
     <MemoryRouter initialEntries={['/events/event-a']}>
@@ -145,6 +148,12 @@ describe('P1272: the room nav row must reflect the event time state', () => {
     const links = roomLinks();
     expect(links).toHaveLength(1);
     expect(links[0].textContent?.trim()).toBe('Join now');
+  });
+
+  it('offers no room row to a logged-out visitor (founder 2026-10-04)', async () => {
+    await renderEvent(makeEvent({}), { loggedIn: false });
+    expect(screen.queryByRole('link', { name: /Event Room|Join now/ })).toBeNull();
+    expect(screen.queryByText('Details')).toBeNull();
   });
 
   it('offers no room link at all on a cancelled event', async () => {
