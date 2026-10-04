@@ -19,9 +19,9 @@ fresh() {
   ln -s "$HERE/node_modules" "$WORK/k/node_modules"
 }
 
-# run_test <name-filter>  → prints PASS/FAIL, returns vitest's exit code
+# run_test <name-filter> [test-file]  → returns vitest's exit code (default file: day.test.ts)
 run_test() {
-  (cd "$WORK/k" && npx vitest run server/__tests__/day.test.ts -t "$1" >"$WORK/out.txt" 2>&1)
+  (cd "$WORK/k" && npx vitest run "${2:-server/__tests__/day.test.ts}" -t "$1" >"$WORK/out.txt" 2>&1)
 }
 
 # mutate <file> <perl-substitution>  — fails loudly if the pattern did not match
@@ -34,12 +34,12 @@ mutate() {
 }
 
 fails=0
-control() { # control <label> <test-filter> <file> <perl-substitution>
+control() { # control <label> <test-filter> <file> <perl-substitution> [test-file]
   fresh
   if ! mutate "$3" "$4"; then
     echo "BROKEN CONTROL  $1 — the mutation did not apply (pattern drifted)"; fails=$((fails + 1)); return
   fi
-  if run_test "$2"; then
+  if run_test "$2" "${5:-}"; then
     echo "MISSED          $1 — test stayed green with the rule broken"; fails=$((fails + 1))
   elif perl -pe 's/\e\[[0-9;]*m//g' "$WORK/out.txt" | grep -Eq "Tests +[0-9]+ failed"; then
     echo "RED as expected $1"
@@ -97,6 +97,50 @@ control "Rule 9 (Phase A part): non-JSON body refused" "non-JSON content type" \
 control "Privacy: no content in logs" "never reaches the logs" \
   server/day.ts "s/console\.warn\('\[kanban\] day: a run file is not valid JSON'\)/console.warn('[kanban] day: a run file is not valid JSON', text)/"
 
+# Phase B: the renderer (scripts/day-render.ts), guarded by server/__tests__/day-render.test.ts.
+R=server/__tests__/day-render.test.ts
+D=scripts/day-render.ts
+control "Render: a CHECK row's own status is reported" "a registered check reported problem inside a step" \
+  $D 's/c = \{ \.\.\.meta, status: row\.status,/c = { ...meta, status: "ok" as CheckStatus,/' $R
+control "Render: an unreported check is never ok" "UNREPORTED CHECK" \
+  $D "s/status: 'unproven', detail: 'the step ran/status: 'ok', detail: 'the step ran/" $R
+control "Render: a failed step is a problem" "STEP MAPPING" \
+  $D "s/return \{ \.\.\.base, status: 'problem', detail: \`exited/return { ...base, status: 'ok', detail: \`exited/" $R
+control "Render: a failed step with all-ok checks is a problem of its own" "STEP EXIT" \
+  $D 's/if \(failed && own\.every/if (false \&\& own.every/' $R
+control "Render: phase start is running" "RUN STATE" \
+  $D "s/if \(phase === 'start'\) return 'running'/if (false) return 'running'/" $R
+control "Render: a missing hard step is incomplete" "RUN STATE" \
+  $D "s/    if \(list\.steps\.some\(\(s\) => s\.hard && !ledger\.steps\.has\(s\.id\)\)\) return 'incomplete'\n//" $R
+control "Render: a missing step list is incomplete" "step list that has gone missing" \
+  $D "s/  if \(registries\.missing > 0\) return 'incomplete'\n//" $R
+control "Render: the fingerprint never comes from the title" "FINGERPRINT" \
+  $D 's/\$\{side\.check\}:\$\{side\.fault_key\}/\${side.check}:\${side.title.length + side.title.charCodeAt(16)}/' $R
+control "Render: the sidecar's first seen wins" "FIRST SEEN" \
+  $D 's/if \(sidecarFirst && isoDay\(sidecarFirst\)\)/if (false)/' $R
+control "Render: first seen is the earliest earlier report" "FIRST SEEN" \
+  $D 's/return \[own, \.\.\.seen\]\.sort\(\)\[0\]/return own/' $R
+control "Render: Park is never recommended" "Park never recommended|Park is never" \
+  $D 's/options\.find\(\(o\) => o\.id === recommend && o\.id !== PARK\) \?\? options\.find\(\(o\) => o\.id !== PARK\)/options.find((o) => o.id === recommend) ?? options[options.length - 1]/' $R
+control "Render: a malformed data section is a problem, not dropped" "DATA — a malformed" \
+  $D 's/else extra\.push\(\{ id: `day\.data/else if (false) extra.push({ id: `day.data/' $R
+control "Render: data sections land as given" "DATA — every section" \
+  $D "s/  if \(data\.people\) report\.people = data\.people as DayReport\['people'\]\n//" $R
+control "Render: a report that would not validate is not written" "WOULD NOT VALIDATE" \
+  $D 's/if \(problems\.length\) \{/if (false) {/' $R
+control "Render: the report is mode 0600" "WRITTEN FILE" \
+  $D 's/\{ mode: 0o600 \}\)\n    chmodSync\(tmp, 0o600\)/{ mode: 0o644 })\n    chmodSync(tmp, 0o644)/' $R
+control "Render: stderr carries no report content" "PRIVACY — in-process" \
+  $D 's/say\(`report written \(\$\{report\.state\}\)`\)/say(`report written (\${report.state}) \${JSON.stringify(report)}`)/' $R
+control "Render: the card leaves parked issues out" "CARD — ≤ 25 lines" \
+  $D "s/return parseDecisions\(readFileSync\(join\(dayDir, 'decisions\.jsonl'\), 'utf-8'\)\)\.lines/return []/" $R
+control "Render: the card shows the first six only" "CARD — ≤ 25 lines" \
+  $D 's/const CARD_ISSUES = 6/const CARD_ISSUES = 60/' $R
+control "Render: the card carries no internal ids" "CARD — ≤ 25 lines" \
+  $D 's/\$\{plain\(i\.title\)\}`\)/\${plain(i.title)} (\${i.fp})`)/' $R
+control "Render: control characters never reach the terminal" "control characters" \
+  $D 's/\.replace\(\/\[\\x00-\\x1f\\x7f-\\x9f\]\/g, . .\)//' $R
+
 # Rule 10: plant a product import in the board and require the guard to fire.
 fresh
 printf "import { createClient } from '@supabase/supabase-js'\nexport const probe = createClient\n" >"$WORK/k/src/lib/__probe.ts"
@@ -105,6 +149,7 @@ if run_test "imports no product code"; then echo "MISSED          Rule 10: produ
 # The unbroken copy must be green.
 fresh
 if run_test ""; then echo "GREEN           unmodified copy: all day tests pass"; else echo "UNEXPECTED RED  unmodified copy"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
+if run_test "" "$R"; then echo "GREEN           unmodified copy: all day-render tests pass"; else echo "UNEXPECTED RED  unmodified copy (day-render)"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
 
 echo
 if [ "$fails" -eq 0 ]; then echo "All controls fired."; exit 0; fi

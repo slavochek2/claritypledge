@@ -1,0 +1,596 @@
+import { describe, it, beforeEach, afterEach, expect } from 'vitest'
+import { createHash } from 'crypto'
+import { execFile } from 'child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join, resolve } from 'path'
+import { buildView, daysOpen, parseDecisions, parseReport, traceOf, type DayReport } from '../../src/lib/day'
+import { fileIdOf, firstSeen, renderCard, run } from '../../scripts/day-render'
+
+/**
+ * P1399 Phase B — the /day renderer (scripts/day-render.ts). Synthetic ledgers, manifests and
+ * day dirs in a temp folder only: nothing here reads ~/.claude-day or ~/.claude-day-ledger.
+ *
+ * Each rule has a known-bad control in scripts/day-mutation-controls.sh: the rule is broken in a
+ * throwaway copy and the test named here must go red.
+ */
+
+const T = '\t'
+const PASS = '2026-10-04T05:37:45Z-97246'
+const STARTED = '2026-10-04T05:37:45Z'
+const NOW = '2026-10-04T06:10:00Z'
+const MARKER = 'PRIVATE-CONTENT-MARKER-RENDER'
+const TS = '2026-10-04T05:40:00Z'
+
+interface World {
+  root: string
+  ledger: string
+  dayDir: string
+  personal: string
+  cp: string
+}
+
+const step = (id: string, status: string, rc = 0, detail = '') => [`STEP`, id, status, String(rc), TS, detail].join(T)
+const check = (id: string, status: string, stepId: string, detail = '', source = 'cmd') => ['CHECK', id, status, stepId, TS, source, detail].join(T)
+const find = (chk: string, sev: string, hex: string, title: string) => ['FIND', chk, sev, hex, 'private', title].join(T)
+const data = (section: string) => ['DATA', section, TS].join(T)
+const hexOf = (chk: string, faultKey: string) => createHash('sha256').update(`${chk}\n${faultKey}`).digest('hex').slice(0, 16)
+
+const PERSONAL_STEPS = [
+  '# synthetic dispatcher manifest',
+  '# id\tkind\tpolicy\tlabel',
+  ['disp.0d', 'gate', 'hard', 'Start gates'].join(T),
+  ['disp.2a', 'cmd', 'hard', 'Cloud credits and AI keys'].join(T),
+  ['disp.3', 'attest', 'hard', 'Agent VM health'].join(T),
+  ['disp.8', 'attest', 'skippable', 'Events calendar refresh'].join(T),
+].join('\n')
+const PERSONAL_CHECKS = [
+  '# check-id\tstep-id\tlabel\tgroup\tseverity\tconnection',
+  ['pp.credits', 'disp.2a', 'Cloud credits', 'Money', 'normal', ''].join(T),
+  ['pp.keys', 'disp.2a', 'AI key liveness', 'Keys', 'high', ''].join(T),
+].join('\n')
+const CP_STEPS = [
+  ['cp.w1', 'cmd', 'hard', 'Prod smoke and history'].join(T),
+  ['cp.w3', 'cmd', 'hard', 'Repo health'].join(T),
+  ['cp.w2c', 'attest', 'skippable', 'Signup intel'].join(T),
+].join('\n')
+const CP_CHECKS = [
+  ['cp.sentry', 'cp.w1', 'Error tracker', 'Errors', 'normal', 'sentry'].join(T),
+  ['cp.rls', 'cp.w3', 'Database access rules', 'Security', 'high', ''].join(T),
+  ['cp.grants', 'cp.w3', 'Function grants', 'Security', 'normal', ''].join(T),
+  ['cp.lint', 'cp.w3', 'Lint', 'Code', 'normal', ''].join(T),
+].join('\n')
+
+function makeWorld(): World {
+  const root = mkdtempSync(join(tmpdir(), 'day-render-'))
+  const w: World = { root, ledger: join(root, 'ledger'), dayDir: join(root, 'day'), personal: join(root, 'pp', 'day-steps.tsv'), cp: join(root, 'cp', 'day-cp-steps.tsv') }
+  mkdirSync(join(root, 'pp'))
+  mkdirSync(join(root, 'cp'))
+  writeFileSync(w.personal, PERSONAL_STEPS)
+  writeFileSync(join(root, 'pp', 'day-checks.tsv'), PERSONAL_CHECKS)
+  writeFileSync(w.cp, CP_STEPS)
+  writeFileSync(join(root, 'cp', 'day-cp-checks.tsv'), CP_CHECKS)
+  return w
+}
+
+/** A complete, clean pass: every hard step recorded, every registered check reported ok. */
+function cleanBody(w: World): string[] {
+  return [
+    `manifest=${w.personal}`,
+    step('disp.0d', 'ok', 0, 'recorded by day-gates.sh mode=start'),
+    step('disp.2a', 'ok', 0, '28s 4628b'),
+    check('pp.credits', 'ok', 'disp.2a', '19 of 400 spent'),
+    check('pp.keys', 'ok', 'disp.2a', '7 of 7 answering'),
+    step('disp.3', 'attested', 0, 'VM healthy, healer idle'),
+    `manifest=${w.cp}`,
+    step('cp.w1', 'ok', 0, '10s 120b'),
+    check('cp.sentry', 'ok', '-', 'no new issues', 'agent'),
+    step('cp.w3', 'ok', 0, '40s 900b'),
+    check('cp.rls', 'ok', 'cp.w3', 'live matches main'),
+    check('cp.grants', 'ok', 'cp.w3', 'no drift'),
+    check('cp.lint', 'ok', 'cp.w3', 'clean'),
+    step('cp.w2c', 'skipped', 0, 'no new real-user signups'),
+    step('disp.8', 'skipped', 0, 'token expired'),
+  ]
+}
+
+function writeLedger(w: World, body: string[], h: { pass?: string; started?: string; state?: string } = {}) {
+  const head = [`pass_id=${h.pass ?? PASS}`, 'session_id=s-1', `started_at=${h.started ?? STARTED}`, `state=${h.state ?? 'open'}`, 'blocks=0']
+  writeFileSync(w.ledger, [...head, ...body, ''].join('\n'))
+}
+
+function writeFinding(w: World, hex: string, body: string, sidecar?: object | string) {
+  mkdirSync(`${w.ledger}.findings`, { recursive: true })
+  writeFileSync(join(`${w.ledger}.findings`, `${hex}.txt`), body)
+  if (sidecar !== undefined) writeFileSync(join(`${w.ledger}.findings`, `${hex}.json`), typeof sidecar === 'string' ? sidecar : JSON.stringify(sidecar))
+}
+
+function writeData(w: World, section: string, value: unknown) {
+  mkdirSync(`${w.ledger}.data`, { recursive: true })
+  writeFileSync(join(`${w.ledger}.data`, `${section}.json`), typeof value === 'string' ? value : JSON.stringify(value))
+}
+
+function writeReportFile(w: World, r: DayReport) {
+  mkdirSync(join(w.dayDir, 'reports'), { recursive: true })
+  writeFileSync(join(w.dayDir, 'reports', `${fileIdOf(r.pass_id)}.json`), JSON.stringify(r))
+}
+
+const reportPath = (w: World, pass = PASS) => join(w.dayDir, 'reports', `${fileIdOf(pass)}.json`)
+
+function render(w: World, phase: 'start' | 'end', extra: string[] = []) {
+  let out = ''
+  let err = ''
+  const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9052', ...extra], {
+    out: (s) => (out += s),
+    err: (s) => (err += s),
+  })
+  const path = reportPath(w)
+  const report = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf-8')) as DayReport) : undefined
+  return { code, out, err, report }
+}
+
+const byId = (r: DayReport | undefined, id: string) => r?.checks.find((c) => c.id === id)
+const decisionsOf = (w: World) => (existsSync(join(w.dayDir, 'decisions.jsonl')) ? parseDecisions(readFileSync(join(w.dayDir, 'decisions.jsonl'), 'utf-8')).lines : [])
+
+let w: World
+beforeEach(() => {
+  w = makeWorld()
+})
+afterEach(() => {
+  rmSync(w.root, { recursive: true, force: true })
+})
+
+describe('day-render: per-check status (AC: a check failing inside a wave is a problem on the board)', () => {
+  it('a registered check reported problem inside a step that exited 0 is a problem, and an issue on the board', () => {
+    writeLedger(w, cleanBody(w).map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', '2 rules live, not on main') : l)))
+    const { code, report } = render(w, 'end')
+    expect(code).toBe(0)
+    expect(byId(report, 'cp.rls')).toMatchObject({ status: 'problem', detail: '2 rules live, not on main', label: 'Database access rules', group: 'Security', severity: 'high' })
+    expect(byId(report, 'cp.w3')).toBeUndefined() // the wave itself is not a check: its checks are
+    const view = buildView(report!, [], [])
+    expect(view.issues.map((i) => i.fp)).toContain('check:cp.rls')
+  })
+
+  it('an agent-reported check carries that in its detail; registry label, group and connection are kept', () => {
+    writeLedger(w, cleanBody(w))
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.sentry')).toMatchObject({ status: 'ok', detail: 'agent-reported: no new issues', connection: 'sentry', group: 'Errors' })
+  })
+
+  it('later CHECK rows for the same id win', () => {
+    writeLedger(w, [...cleanBody(w), check('cp.lint', 'problem', 'cp.w3', '3 warnings')])
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.lint')).toMatchObject({ status: 'problem', detail: '3 warnings' })
+  })
+
+  it('an unregistered CHECK id is still reported, after the registered ones', () => {
+    writeLedger(w, [...cleanBody(w), check('cp.extra', 'problem', 'cp.w3', 'surprise')])
+    const { report } = render(w, 'end')
+    const ids = report!.checks.map((c) => c.id)
+    expect(ids.indexOf('cp.extra')).toBeGreaterThan(ids.indexOf('cp.lint'))
+    expect(byId(report, 'cp.extra')?.status).toBe('problem')
+  })
+})
+
+describe('day-render: a registered check with no CHECK row is never ok', () => {
+  it('UNREPORTED CHECK — step recorded → unproven; step not recorded → not-run', () => {
+    const body = cleanBody(w).filter((l) => !l.startsWith(`CHECK${T}cp.lint${T}`) && !l.startsWith(`STEP${T}cp.w1${T}`) && !l.startsWith(`CHECK${T}cp.sentry${T}`))
+    writeLedger(w, body)
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.lint')).toMatchObject({ status: 'unproven', detail: 'the step ran but did not report this check' })
+    expect(byId(report, 'cp.sentry')).toMatchObject({ status: 'not-run', detail: 'did not run' })
+  })
+
+  it('UNREPORTED CHECK — at phase start a check that has not run yet says so', () => {
+    writeLedger(w, [`manifest=${w.personal}`, `manifest=${w.cp}`])
+    const { report } = render(w, 'start')
+    expect(byId(report, 'cp.rls')).toMatchObject({ status: 'not-run', detail: 'not run yet' })
+    expect(report!.checks.some((c) => c.status === 'ok')).toBe(false)
+  })
+})
+
+describe('day-render: a step without registered checks is one check', () => {
+  it('STEP MAPPING — ok→ok, attested→ok (agent-reported), skipped→skipped, failed→problem, missing→not-run', () => {
+    const long = `VM healthy ${'x'.repeat(300)}`
+    const body = cleanBody(w)
+      .map((l) => (l.startsWith(`STEP${T}disp.3${T}`) ? step('disp.3', 'attested', 0, long) : l))
+      .map((l) => (l.startsWith(`STEP${T}disp.0d${T}`) ? step('disp.0d', 'failed', 4, '0s 53b') : l))
+    writeLedger(w, body.filter((l) => !l.startsWith(`STEP${T}disp.8${T}`)))
+    const { report } = render(w, 'end')
+    expect(byId(report, 'disp.0d')).toMatchObject({ status: 'problem', detail: 'exited 4', label: 'Start gates', group: 'Personal' })
+    const vm = byId(report, 'disp.3')!
+    expect(vm.status).toBe('ok')
+    expect(vm.detail!.startsWith('agent-reported: VM healthy')).toBe(true)
+    expect(vm.detail!.length).toBeLessThanOrEqual(160)
+    expect(byId(report, 'cp.w2c')).toMatchObject({ status: 'skipped', detail: 'no new real-user signups', group: 'ClarityPledge', label: 'Signup intel' })
+    expect(byId(report, 'disp.8')).toMatchObject({ status: 'not-run', detail: 'did not run' })
+  })
+
+  it('STEP EXIT — a step that exited non-zero while all its checks are ok adds a problem check', () => {
+    writeLedger(w, cleanBody(w).map((l) => (l.startsWith(`STEP${T}cp.w3${T}`) ? step('cp.w3', 'failed', 1, '40s 900b') : l)))
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.w3')).toMatchObject({ status: 'problem', detail: 'exited 1', label: 'Repo health' })
+    expect(buildView(report!, [], []).issues.map((i) => i.fp)).toContain('check:cp.w3')
+  })
+
+  it('…but not when a check of that step already reports the problem', () => {
+    const body = cleanBody(w)
+      .map((l) => (l.startsWith(`STEP${T}cp.w3${T}`) ? step('cp.w3', 'failed', 1) : l))
+      .map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', 'drift') : l))
+    writeLedger(w, body)
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.w3')).toBeUndefined()
+  })
+})
+
+describe('day-render: run state', () => {
+  it('RUN STATE — phase start writes running; phase end with everything recorded is complete', () => {
+    writeLedger(w, cleanBody(w))
+    expect(render(w, 'start').report?.state).toBe('running')
+    const end = render(w, 'end')
+    expect(end.report?.state).toBe('complete')
+    expect(end.report?.finished_at).toBe(NOW)
+  })
+
+  it('RUN STATE — a missing hard step → incomplete; a missing skippable step does not matter', () => {
+    writeLedger(w, cleanBody(w).filter((l) => !l.startsWith(`STEP${T}cp.w2c${T}`)))
+    expect(render(w, 'end').report?.state).toBe('complete')
+    writeLedger(w, cleanBody(w).filter((l) => !l.startsWith(`STEP${T}disp.3${T}`)))
+    expect(render(w, 'end').report?.state).toBe('incomplete')
+  })
+
+  it('RUN STATE — a registered check with no CHECK row → incomplete', () => {
+    writeLedger(w, cleanBody(w).filter((l) => !l.startsWith(`CHECK${T}cp.grants${T}`)))
+    expect(render(w, 'end').report?.state).toBe('incomplete')
+  })
+
+  it('RUN STATE — an abandoned ledger → abandoned', () => {
+    writeLedger(w, cleanBody(w), { state: 'abandoned' })
+    expect(render(w, 'end').report?.state).toBe('abandoned')
+  })
+
+  it('RUN STATE — a step list that has gone missing is a problem and never complete', () => {
+    writeLedger(w, cleanBody(w))
+    rmSync(w.cp)
+    const { report } = render(w, 'end')
+    expect(report?.state).toBe('incomplete')
+    expect(byId(report, 'day.manifests')?.status).toBe('problem')
+  })
+})
+
+describe('day-render: fingerprints survive a title change; a park holds', () => {
+  it('FINGERPRINT — same check + fault key, different titles → same fp; a pass-1 park keeps it off the pass-2 card', () => {
+    const hex = hexOf('cp.rls', 'rls:live-not-on-main')
+    const p2 = '2026-10-05T05:30:00Z-11111'
+    // pass 1
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'high', hex, 'Rules live for 19 days')])
+    writeFinding(w, hex, '2 rules live', { check: 'cp.rls', fault_key: 'rls:live-not-on-main', title: 'Rules live for 19 days' })
+    const one = render(w, 'end').report!
+    // the founder parks it on pass 1
+    writeFileSync(join(w.dayDir, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'cp.rls:rls:live-not-on-main', option_id: 'park', run_id: PASS, at: '2026-10-04T09:00:00Z' }) + '\n')
+    // pass 2: the title text changed
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'high', hex, 'Rules live for 20 days')], { pass: p2, started: '2026-10-05T05:30:00Z' })
+    writeFinding(w, hex, '2 rules live', { check: 'cp.rls', fault_key: 'rls:live-not-on-main', title: 'Rules live for 20 days' })
+    let out = ''
+    const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', 'end', '--now', '2026-10-05T06:00:00Z'], { out: (s) => (out += s), err: () => {} })
+    expect(code).toBe(0)
+    const two = JSON.parse(readFileSync(reportPath(w, p2), 'utf-8')) as DayReport
+    expect(one.issues[0].fp).toBe('cp.rls:rls:live-not-on-main')
+    expect(two.issues[0].fp).toBe(one.issues[0].fp)
+    expect(out).not.toContain('Rules live')
+    const view = buildView(two, decisionsOf(w), [traceOf(one), traceOf(two)])
+    expect(view.parked.map((p) => p.fp)).toEqual(['cp.rls:rls:live-not-on-main'])
+    expect(view.issues.map((i) => i.fp)).not.toContain('cp.rls:rls:live-not-on-main')
+    expect(out).toMatch(/· 1 parked/)
+  })
+
+  it('a sidecar issue takes its fields; Park is never the recommendation', () => {
+    const hex = hexOf('cp.rls', 'rls:drift')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'medium', hex, 'Rules drift')])
+    writeFinding(w, hex, 'first line of body\nsecond', {
+      check: 'cp.rls', fault_key: 'rls:drift', title: 'Rules drift', topic: 'Security', deadline: '2026-10-06', important: false,
+      options: [{ id: 'park', label: 'Park' }, { id: 'merge', label: 'Merge them', agent: true }], recommend: 'park', confidence: 140, why: 'cheap', evidence: 'verified',
+      point_b: 'Rules match main', review: 'weekly',
+    })
+    const r = render(w, 'end').report!
+    const i = r.issues[0]
+    expect(i).toMatchObject({ fp: 'cp.rls:rls:drift', topic: 'Security', check: 'cp.rls', deadline: '2026-10-06', point_a: 'first line of body', point_b: 'Rules match main', evidence: 'verified', review: 'weekly', source: 'Database access rules' })
+    expect(i.important).toBeUndefined()
+    expect(i.recommendation_confidence).toBe(100)
+    expect(i.options.find((o) => o.id === 'park')?.recommended).toBeUndefined()
+    expect(i.options.find((o) => o.id === 'merge')?.recommended).toBe(true)
+    expect(i.evidence_text).toBe('first line of body\nsecond')
+  })
+})
+
+describe('day-render: first seen', () => {
+  const issueReport = (pass: string, started: string, fp: string): DayReport => ({
+    schema: 2, pass_id: pass, started_at: started, state: 'complete', connections: [], checks: [{ id: 'x', label: 'x', status: 'ok' }],
+    issues: [{ fp, topic: 't', title: 't', point_a: '', obstacle: '', point_b: '', options: [{ id: 'agent', label: 'Give to the agent' }] }],
+  })
+
+  it('FIRST SEEN — sidecar date wins; else the earliest earlier report with the fp; else this pass', () => {
+    const fp = 'disp.3:vm:healer-gave-up'
+    const earlier = [issueReport('a', '2026-09-30T05:00:00Z', fp), issueReport('b', '2026-09-29T05:00:00Z', fp), issueReport('c', '2026-09-27T05:00:00Z', 'other:fp')]
+    expect(firstSeen(fp, '2026-09-20', earlier, STARTED)).toBe('2026-09-20')
+    expect(firstSeen(fp, undefined, earlier, STARTED)).toBe('2026-09-29')
+    expect(firstSeen('new:fp', undefined, earlier, STARTED)).toBe('2026-10-04')
+  })
+
+  it('FIRST SEEN — through the CLI: earlier report files date the fault, within a day of the healer’s own clock', () => {
+    const hex = hexOf('disp.3', 'vm:healer-gave-up')
+    const fp = 'disp.3:vm:healer-gave-up'
+    const healerSince = '2026-09-28T23:10:00Z' // what the healer's --first-seen would say
+    writeReportFile(w, issueReport('2026-09-30T05-00-00Z-1', '2026-09-30T05:00:00Z', fp))
+    writeReportFile(w, issueReport('2026-09-29T05-00-00Z-1', '2026-09-29T05:00:00Z', fp))
+    mkdirSync(join(w.dayDir, 'reports'), { recursive: true })
+    writeFileSync(join(w.dayDir, 'reports', 'garbage.json'), '{not json')
+    writeLedger(w, [...cleanBody(w), find('disp.3', 'high', hex, 'Agent VM healer gave up')])
+    writeFinding(w, hex, 'healer stopped', { check: 'disp.3', fault_key: 'vm:healer-gave-up', title: 'Agent VM healer gave up' })
+    const r = render(w, 'end').report!
+    const issue = r.issues.find((i) => i.fp === fp)!
+    expect(issue.first_seen).toBe('2026-09-29')
+    const ours = daysOpen(issue.first_seen, r.started_at)!
+    const healer = daysOpen(healerSince, r.started_at)!
+    expect(Math.abs(ours - healer)).toBeLessThanOrEqual(1)
+    // and with the healer's date in the sidecar, that date is used as is
+    writeFinding(w, hex, 'healer stopped', { check: 'disp.3', fault_key: 'vm:healer-gave-up', title: 'Agent VM healer gave up', first_seen: '2026-09-28' })
+    expect(render(w, 'end').report!.issues.find((i) => i.fp === fp)!.first_seen).toBe('2026-09-28')
+  })
+})
+
+describe('day-render: legacy findings', () => {
+  it('LEGACY FIND — no sidecar → find:<hex> with default options; Park never recommended', () => {
+    const hex = 'abcdef0123456789'
+    writeLedger(w, [...cleanBody(w), find('disp.2a', 'high', hex, 'GCP credit baseline stale')])
+    writeFinding(w, hex, 'baseline is 40 days old\nmore')
+    const r = render(w, 'end').report!
+    const i = r.issues[0]
+    expect(i).toMatchObject({ fp: `find:${hex}`, title: 'GCP credit baseline stale', important: true, point_a: 'baseline is 40 days old', obstacle: '', point_b: '', topic: 'Personal' })
+    expect(i.options.map((o) => o.id)).toEqual(['agent', 'park'])
+    expect(i.options[0].recommended).toBe(true)
+    expect(i.options[1].recommended).toBeUndefined()
+    expect(i.first_seen).toBe('2026-10-04')
+  })
+
+  it('an unusable sidecar falls back to the plain finding and says the detail could not be read', () => {
+    const hex = hexOf('cp.rls', 'x')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'low', hex, 'Some finding')])
+    writeFinding(w, hex, 'body', '{broken')
+    const r = render(w, 'end').report!
+    expect(r.issues[0].fp).toBe(`find:${hex}`)
+    expect(byId(r, 'day.findings')).toMatchObject({ status: 'problem' })
+  })
+
+  it('the same finding recorded twice in one pass is one issue (the later title wins)', () => {
+    const hex = 'abcdef0123456789'
+    writeLedger(w, [...cleanBody(w), find('disp.2a', 'low', hex, 'first'), find('disp.2a', 'low', hex, 'second')])
+    writeFinding(w, hex, 'b')
+    const r = render(w, 'end')
+    expect(r.code).toBe(0)
+    expect(r.report!.issues.map((i) => i.title)).toEqual(['second'])
+  })
+})
+
+describe('day-render: DATA sections', () => {
+  const sections = {
+    connections: [{ id: 'sentry', label: 'Sentry', state: 'not-connected', why: 'login expired' }, { id: 'beeper', label: 'Beeper', state: 'failed' }],
+    people: [{ id: 'p1', name: 'Ada', confirmed: false }, { id: 'p2', name: 'Bo', confirmed: true, background: MARKER }],
+    monitoring: { quotas: [{ id: 'claude', label: 'Claude', collected: true, remaining_pct: 40 }] },
+    stats: { readings: [{ id: 'signups', label: 'Signups', collected: true, value: 3 }] },
+    reflection: { model: 'claude-opus-x', statements: [{ id: 's1', text: 'Stop doing X' }] },
+    reviews: ['weekly'],
+    run: { model: 'claude-opus-x', unpushed_commits: 2 },
+  }
+
+  it('DATA — every section lands in the report as given', () => {
+    const body = cleanBody(w)
+    for (const [k, v] of Object.entries(sections)) {
+      writeData(w, k, v)
+      body.push(data(k))
+    }
+    writeLedger(w, body)
+    const r = render(w, 'end').report!
+    expect(r.connections).toEqual(sections.connections)
+    expect(r.people).toEqual(sections.people)
+    expect(r.monitoring).toEqual(sections.monitoring)
+    expect(r.stats).toEqual(sections.stats)
+    expect(r.reflection).toEqual(sections.reflection)
+    expect(r.reviews).toEqual(['weekly'])
+    expect(r.model).toBe('claude-opus-x')
+    expect(r.unpushed_commits).toBe(2)
+    expect(r.checks.some((c) => c.id.startsWith('day.data'))).toBe(false)
+  })
+
+  it('DATA — a malformed file is omitted and becomes a problem check, never silently dropped', () => {
+    writeData(w, 'connections', '[{"id": "sentry", oops')
+    writeData(w, 'people', [{ id: 'p1' }]) // no name: not a person
+    writeLedger(w, [...cleanBody(w), data('connections'), data('people'), data('stats')]) // stats has no file
+    const { code, report } = render(w, 'end')
+    expect(code).toBe(0)
+    expect(report!.connections).toEqual([])
+    expect(report!.people).toBeUndefined()
+    expect(report!.stats).toBeUndefined()
+    for (const s of ['connections', 'people', 'stats']) expect(byId(report, `day.data.${s}`)).toMatchObject({ status: 'problem', detail: 'could not be read' })
+    expect(buildView(report!, [], []).issues.map((i) => i.fp)).toContain('check:day.data.people')
+  })
+})
+
+describe('day-render: the written file', () => {
+  it('WRITTEN FILE — passes parseReport with no dropped rows, mode 0600 in a 0700 folder, decisions untouched', () => {
+    const hex = hexOf('cp.rls', 'rls:drift')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'high', hex, 'Rules drift'), find('disp.2a', 'low', '0123456789abcdef', 'legacy')])
+    writeFinding(w, hex, 'b', { check: 'cp.rls', fault_key: 'rls:drift', title: 'Rules drift' })
+    writeFinding(w, '0123456789abcdef', 'c')
+    expect(render(w, 'end').code).toBe(0)
+    const parsed = parseReport(JSON.parse(readFileSync(reportPath(w), 'utf-8')))
+    expect(parsed.kind).toBe('ok')
+    if (parsed.kind === 'ok') expect(parsed.droppedRows).toBe(0)
+    expect(statSync(reportPath(w)).mode & 0o777).toBe(0o600)
+    expect(statSync(join(w.dayDir, 'reports')).mode & 0o777).toBe(0o700)
+    expect(readdirSync(join(w.dayDir, 'reports'))).toEqual([`${fileIdOf(PASS)}.json`])
+    expect(existsSync(join(w.dayDir, 'decisions.jsonl'))).toBe(false)
+    expect(fileIdOf(PASS)).toBe('2026-10-04T05-37-45Z-97246')
+  })
+
+  it('WOULD NOT VALIDATE — exit 3 and nothing written; the earlier file stays as it was', () => {
+    writeLedger(w, cleanBody(w))
+    expect(render(w, 'start').code).toBe(0)
+    const before = readFileSync(reportPath(w), 'utf-8')
+    writeLedger(w, cleanBody(w), { started: 'yesterday morning' })
+    const r = render(w, 'end')
+    expect(r.code).toBe(3)
+    expect(r.out).toBe('')
+    expect(readFileSync(reportPath(w), 'utf-8')).toBe(before)
+    expect(readdirSync(join(w.dayDir, 'reports'))).toEqual([`${fileIdOf(PASS)}.json`])
+  })
+
+  it('usage: a missing ledger or a bad flag exits 2 and writes nothing', () => {
+    expect(render(w, 'end').code).toBe(2)
+    writeLedger(w, cleanBody(w))
+    expect(run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', 'middle'], { out: () => {}, err: () => {} })).toBe(2)
+    expect(run(['--ledger', w.ledger, '--day-dir', w.dayDir], { out: () => {}, err: () => {} })).toBe(2)
+    expect(existsSync(join(w.dayDir, 'reports'))).toBe(false)
+  })
+})
+
+/** Many issues, broken connections, people, a park: the richest synthetic pass. */
+function richWorld(): void {
+  const body = cleanBody(w)
+    .map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', '2 rules live, not on main') : l))
+    .map((l) => (l.startsWith(`CHECK${T}cp.lint${T}`) ? check('cp.lint', 'problem', 'cp.w3', '3 warnings') : l))
+    .map((l) => (l.startsWith(`CHECK${T}cp.sentry${T}`) ? check('cp.sentry', 'not-run', '-', 'login expired', 'agent') : l))
+    .filter((l) => !l.startsWith(`CHECK${T}pp.keys${T}`))
+  const finds: [string, string, object | undefined, string][] = [
+    ['cp.rls', 'rls:live', { check: 'cp.rls', fault_key: 'rls:live', title: 'Database rules are live before review', important: true, deadline: '2026-10-05' }, 'high'],
+    ['disp.3', 'vm:healer', { check: 'disp.3', fault_key: 'vm:healer', title: 'Agent VM healer gave up', first_seen: '2026-09-20' }, 'high'],
+    ['disp.2a', 'gcp:baseline', { check: 'disp.2a', fault_key: 'gcp:baseline', title: 'Cloud credit baseline is stale' }, 'medium'],
+    ['cp.grants', 'grants:new', { check: 'cp.grants', fault_key: 'grants:new', title: 'A new function is callable by anyone', deadline: '2026-10-20' }, 'low'],
+    ['cp.w1', 'parked:thing', { check: 'cp.w1', fault_key: 'parked:thing', title: 'Old parked thing' }, 'low'],
+  ]
+  for (const [chk, fk, side, sev] of finds) {
+    const hex = hexOf(chk, fk)
+    body.push(find(chk, sev, hex, (side as { title: string }).title))
+    writeFinding(w, hex, `${MARKER} evidence body`, side)
+  }
+  body.push(find('disp.2a', 'low', 'fedcba9876543210', 'Mirror of one repo is stale'))
+  writeFinding(w, 'fedcba9876543210', `${MARKER} legacy body`)
+  writeData(w, 'connections', [{ id: 'sentry', label: 'Sentry', state: 'not-connected' }, { id: 'beeper', label: 'Beeper', state: 'failed' }, { id: 'gh', label: 'GitHub', state: 'ok' }])
+  writeData(w, 'people', [{ id: 'p1', name: 'Ada', confirmed: false }, { id: 'p2', name: 'Bo', confirmed: true, background: MARKER }, { id: 'p3', name: 'Cy' }])
+  body.push(data('connections'), data('people'))
+  writeLedger(w, body)
+  mkdirSync(w.dayDir, { recursive: true })
+  writeFileSync(join(w.dayDir, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'cp.w1:parked:thing', option_id: 'park', run_id: 'older-run', at: '2026-10-01T09:00:00Z' }) + '\n')
+}
+
+describe('day-render: the card', () => {
+  it('CARD — ≤ 25 lines, counts, first 6 issues in the board’s order, parked excluded, no internal words', () => {
+    richWorld()
+    const { code, out, report } = render(w, 'end')
+    expect(code).toBe(0)
+    const lines = out.trimEnd().split('\n')
+    expect(lines.length).toBeLessThanOrEqual(25)
+    const view = buildView(report!, decisionsOf(w), [traceOf(report!)])
+    expect(lines[0]).toMatch(/^DAY · \w{3} \d{1,2} \w{3}, \d{2}:\d{2} · /)
+    const urgent = view.issues.filter((i) => i.urgent).length
+    expect(lines[1]).toBe(`${view.issues.length} to decide · ${urgent} urgent · ${view.counts.worked} of ${view.counts.total} checks worked · 1 parked`)
+    expect(view.issues.length).toBeGreaterThan(6)
+    const shown = lines.filter((l) => /^ {2}\d+\. /.test(l)).map((l) => l.replace(/^ {2}\d+\. ((Urgent|Important)( · Important)? — )?/, ''))
+    expect(shown).toEqual(view.issues.slice(0, 6).map((i) => i.title))
+    expect(lines).toContain(`  + ${view.issues.length - 6} more`)
+    expect(out).not.toContain('Old parked thing')
+    expect(out).toContain('Connections: Sentry not connected · Beeper didn’t work')
+    expect(out).toContain('New people: 3 (1 not confirmed)')
+    expect(lines[lines.length - 1]).toBe('Decide on the Day page: http://localhost:9052 → Day')
+    expect(out).not.toMatch(/ledger|fingerprint|\bstep|pass_id|cp\.w|disp\.|find:/i)
+    expect(out).not.toContain(MARKER)
+    // eslint-disable-next-line no-control-regex
+    expect(out).not.toMatch(/\x1b/)
+  })
+
+  it('CARD — the first issue line carries Urgent · Important, and the header reads in local time', () => {
+    richWorld()
+    const { report } = render(w, 'end')
+    const view = buildView(report!, decisionsOf(w), [traceOf(report!)])
+    const card = renderCard(report!, view, { kanbanUrl: 'http://k', timeZone: 'Europe/Berlin' })
+    const lines = card.split('\n')
+    expect(lines[0]).toBe('DAY · Sun 4 Oct, 07:37 · stopped early: 1 check did not run')
+    expect(lines[2]).toBe(`  1. Urgent · Important — ${view.issues[0].title}`)
+  })
+
+  it('CARD — connection and people lines only when relevant; a clean run says so', () => {
+    writeLedger(w, [...cleanBody(w), data('connections'), data('people')])
+    writeData(w, 'connections', [{ id: 'gh', label: 'GitHub', state: 'ok' }])
+    writeData(w, 'people', [])
+    const { out } = render(w, 'end')
+    expect(out).not.toContain('Connections:')
+    expect(out).not.toContain('New people')
+    expect(out.split('\n')[0]).toMatch(/ · complete$/)
+    expect(out).toContain('\n0 to decide · 8 of 10 checks worked\n')
+  })
+
+  it('CARD — control characters in a title never reach the terminal', () => {
+    const hex = hexOf('cp.rls', 'esc')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'low', hex, 'x')])
+    writeFinding(w, hex, 'b', { check: 'cp.rls', fault_key: 'esc', title: 'Bad \u001b[31mred\u001b[0m\ntitle' })
+    const { out } = render(w, 'end')
+    // eslint-disable-next-line no-control-regex
+    expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f]/)
+    expect(out).toContain('Bad [31mred [0m title')
+  })
+
+  it('--print detail lists every issue and every check with its status word; --print none prints nothing', () => {
+    richWorld()
+    const detail = render(w, 'end', ['--print', 'detail'])
+    for (const c of detail.report!.checks) expect(detail.out).toContain(c.label)
+    expect(detail.out).toMatch(/Database access rules: Problem/)
+    expect(detail.out).toMatch(/Point A: /)
+    expect(render(w, 'end', ['--print', 'none']).out).toBe('')
+  })
+})
+
+describe('day-render: privacy', () => {
+  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\))$/
+
+  // NODE_NO_WARNINGS: tsx triggers Node's own fixed-text deprecation notice (DEP0205); the
+  // assertion is about the renderer's lines, which carry no content.
+  it('PRIVACY — stdout carries only the card; stderr only fixed-vocabulary lines (in a real process)', async () => {
+    richWorld()
+    writeData(w, 'stats', { readings: [{ id: MARKER, label: MARKER, collected: true }] })
+    const kanban = resolve(__dirname, '../..')
+    const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((res, rej) =>
+      execFile(join(kanban, 'node_modules/.bin/tsx'), ['scripts/day-render.ts', '--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', 'end', '--now', NOW], { cwd: kanban, env: { ...process.env, NODE_NO_WARNINGS: '1' } }, (err, stdout, stderr) =>
+        err ? rej(err) : res({ stdout, stderr })),
+    )
+    const report = JSON.parse(readFileSync(reportPath(w), 'utf-8')) as DayReport
+    const view = buildView(report, decisionsOf(w), [traceOf(report)])
+    expect(stdout).toBe(renderCard(report, view, { kanbanUrl: 'http://localhost:9052' }) + '\n')
+    expect(stdout).not.toContain(MARKER)
+    expect(stderr).not.toContain(MARKER)
+    for (const l of stderr.split('\n').filter(Boolean)) expect(l).toMatch(STDERR_VOCAB)
+  }, 30_000)
+
+  it('PRIVACY — in-process, errors carry no content either', () => {
+    richWorld()
+    const r1 = render(w, 'end')
+    writeLedger(w, cleanBody(w), { started: `${MARKER}` })
+    const r2 = render(w, 'end')
+    for (const err of [r1.err, r2.err]) {
+      expect(err).not.toContain(MARKER)
+      for (const l of err.split('\n').filter(Boolean)) expect(l).toMatch(STDERR_VOCAB)
+    }
+    expect(r2.code).toBe(3)
+  })
+})
+
+describe('day-render: imports', () => {
+  it('imports nothing outside tools/kanban and no Supabase', () => {
+    const src = readFileSync(resolve(__dirname, '../../scripts/day-render.ts'), 'utf-8')
+    const specs = [...src.matchAll(/(?:from\s+|import\s*\(\s*)['"]([^'"]+)['"]/g)].map((m) => m[1])
+    expect(specs.length).toBeGreaterThan(0)
+    for (const s of specs) {
+      expect(s).not.toMatch(/supabase/i)
+      if (s.startsWith('.')) expect(resolve(__dirname, '../../scripts', s).startsWith(resolve(__dirname, '../..'))).toBe(true)
+    }
+  })
+})
