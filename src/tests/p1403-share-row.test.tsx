@@ -1,5 +1,5 @@
 /**
- * P1403 (founder 2026-10-04): one share row for events (LINE, WhatsApp, Telegram, Facebook,
+ * P1403 (founder 2026-10-04): one share row for events (WhatsApp, LINE, Facebook, Telegram,
  * More/Copy, QR) and a one-tap QR in the general share window.
  */
 import { describe, it, expect } from 'vitest';
@@ -19,6 +19,12 @@ describe('P1403: EventShareRow', () => {
       expect(a.getAttribute('href')).toContain(encodeURIComponent(URL_));
     }
     expect(screen.getByTestId('share-event')).toBeInTheDocument();
+  });
+
+  it('orders the channels WhatsApp, LINE, Facebook, Telegram (founder 2026-10-04)', () => {
+    render(<EventShareRow title="Social Hike" url={URL_} />);
+    const names = screen.getAllByRole('link').map(a => a.getAttribute('aria-label'));
+    expect(names).toEqual(['Share on WhatsApp', 'Share on LINE', 'Share on Facebook', 'Share on Telegram']);
   });
 
   it('opens a scannable QR of the event link', async () => {

@@ -111,10 +111,12 @@ const FACEBOOK_GLYPH =
 export const shareTargets = (url: string, text: string) => {
   const u = encodeURIComponent(url);
   const t = encodeURIComponent(`${text} ${url}`);
+  // Founder 2026-10-04: WhatsApp first (the hike and Clarity Night crowd is expats and nomads, and
+  // our own groups run on WhatsApp), then LINE (Thai locals), then Facebook, then Telegram.
   return [
-    { name: 'LINE', glyph: LINE_GLYPH, href: `https://line.me/R/msg/text/?${t}` },
     { name: 'WhatsApp', glyph: WHATSAPP_GLYPH, href: `https://wa.me/?text=${t}` },
-    { name: 'Telegram', glyph: TELEGRAM_GLYPH, href: `https://t.me/share/url?url=${u}&text=${encodeURIComponent(text)}` },
+    { name: 'LINE', glyph: LINE_GLYPH, href: `https://line.me/R/msg/text/?${t}` },
     { name: 'Facebook', glyph: FACEBOOK_GLYPH, href: `https://www.facebook.com/sharer/sharer.php?u=${u}` },
+    { name: 'Telegram', glyph: TELEGRAM_GLYPH, href: `https://t.me/share/url?url=${u}&text=${encodeURIComponent(text)}` },
   ];
 };

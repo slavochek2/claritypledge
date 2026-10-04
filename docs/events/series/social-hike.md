@@ -176,10 +176,17 @@ Every photo, the map, and any image in a description open full size on tap.
 |---|---|
 | `series_slug` | `social-hike` (selects the skin; never inferred from the title) |
 | `hike_details.distance_km` · `elevation_gain_m` · `route_type` · `walk_time_text` · `difficulty` | from the trail DB / AllTrails page |
-| `hike_details.meet_name` | the cafe name, shown as "Meet at …" |
+| `hike_details.meet_name` | the cafe name **in Latin script**, shown as "Meet at …" (see the cafe-name rule below) |
 | `hike_details.meet_walk_minutes` · `meet_walk_url` | the cafe→trailhead walk (OSM directions link) |
 | `hike_details.route_map_url` | `node scripts/hike-route-map.mjs route.geojson out.jpg`, uploaded to `gs://claritypledge-story-images/hikes/<slug>/route-map.jpg` |
 | `route_geojson` | the trail line plus `Point` features with `properties.kind` = `start` / `meet` |
+
+**Cafe name in Latin script, always** (founder 2026-10-04: *"nobody can read"* a Thai-only name).
+Use the cafe's own English or romanised name from its Google Maps, Wongnai or social listing
+(e.g. "Por Huay Lake View Cafe" for ร้านกาแฟผ่อห้วย). If it has none, romanise it and add what it
+is ("Por Huay, the lakeside cafe"). The Thai name appears once, in brackets, after the first
+mention in the description, so a taxi driver can be shown it; `meet_name`, `{cafe_name}` in the
+blurb and every other mention use the Latin form. The Google Maps link may keep the Thai query.
 
 **Series content, not per event:** reviews (`series_reviews`) and photos (`series_photos`) belong
 to the series and show on every hike. Add a review as a row linked to the reviewer's profile

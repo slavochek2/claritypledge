@@ -301,7 +301,8 @@ Print the resolved selection and pass it straight into `/slava:events:publish-ru
 ```
 Trail:   <name> — <alltrails url>
 Shape:   <distance> <type>, <elevation>m climb, ~<time>
-Meet:    <cafe name as Google spells it> — <maps pin url>, <time>
+Meet:    <cafe name in Latin script, Thai original in brackets if any> — <maps pin url>, <time>
+         (cafe-name rule: docs/events/series/social-hike.md § Social Hike skin)
 Date:    <date, time, Asia/Bangkok>
 Photo:   <local path | skipped>
 Status:  <trail-status verdict, checked_on, and any finding publish-run must disclose>
