@@ -13,9 +13,9 @@ Roles: **facilitator** = you (the host). **Volunteer** = the person helping, who
 
 ## Bring
 
-- [ ] Both phones + chargers (one runs the host panel, one is a spare)
+- [ ] Three phones + chargers: one runs the host panel, one records, one is yours as a participant (your own controls)
+- [ ] Two tripods for the cameras
 - [ ] Laptop + charger for the deck
-- [ ] HDMI / USB-C adapter for the projector — **test the exact adapter with the exact venue**
 - [ ] Lavalier mics, **charged**, with their USB-C ends
 - [ ] S/L badge cards + lanyard holders, one per attendee + 5 spare
 - [ ] Printed table numbers (large, one per table)
