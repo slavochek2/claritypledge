@@ -212,10 +212,6 @@ export function safeInternalPath(path: string | undefined): string | undefined {
   return path && /^\/[^/\\]/.test(path) ? path : undefined;
 }
 
-/** P1403 amendment (founder 2026-10-04): the default event banner (h-48 md:h-64) is too short
- * for a real trail photo on desktop. Hike-layout events only; mobile keeps the default h-48
- * (~2:1 at 375px already reads as a photo). Non-hike events pass nothing → default height. */
-export const HIKE_BANNER_HEIGHT_CLASS = 'h-48 md:h-[22rem] lg:h-[26rem]';
 
 /**
  * Founder 2026-10-04: the map belongs inside the description's own route section, and reviews

@@ -352,8 +352,11 @@ photos (WhatsApp, Telegram) arrive at ~1536 px, so they fail it and look soft on
 with Nano Banana Pro (`gemini-3-pro-image-preview`, the photo as `inline_data`, `imageSize: "4K"`,
 the source's own aspect ratio, prompt: *same photo, only more resolution, add or move nothing*),
 compare it side by side with the original (same people, same poses), then crop both banners from
-the upscaled file. Desktop crop about 3.2:1 (2880x900): the hike banner is tall on desktop, so a
-thin 6:1 strip gets enlarged and cut. Mobile crop 2:1 (1600x800).
+the upscaled file. **Upscaling changes the pixels, never the shape:** every event banner uses
+the site's standard height (192px on phones, 256px on desktop; founder 2026-10-04, *"retain
+standard"*), so crop to that shape and never make a banner taller to fit a photo. Desktop
+**2880x512** (5.6:1, a 1440px screen at 2x); mobile **1600x820** (about 2:1). Leave headroom
+above the heads; a 5.6:1 strip of a group usually reads heads to chest.
 
 ### 8c. Group chat link — the gated field, never the description
 

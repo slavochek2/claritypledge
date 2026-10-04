@@ -11,7 +11,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderEventDescription } from '@/lib/markdown';
 import { SeriesReviews } from '@/app/prototypes/events/hike/HikeSections';
-import { HIKE_BANNER_HEIGHT_CLASS } from '@/app/prototypes/events/hike/hike-utils';
 import { BannerDisplay } from '@/app/components/shared/banner/BannerDisplay';
 
 const R = (p: string) => readFileSync(join(process.cwd(), p), 'utf-8');
@@ -87,17 +86,8 @@ describe('P1403 amendment 3: hike banner height', () => {
     expect(heightOf(container).className).toContain('h-48 md:h-64');
   });
 
-  it('a hike event gets the taller desktop banner, mobile unchanged', () => {
-    const { container } = render(<BannerDisplay altText="x" heightClassName={HIKE_BANNER_HEIGHT_CLASS} />);
-    const cls = heightOf(container).className;
-    expect(cls).toContain('md:h-[22rem]');
-    expect(cls).toContain('h-48');
-    expect(cls).not.toContain('md:h-64');
-  });
-
-  it('EventDetail passes the hike height only when the hike layout is selected', () => {
-    expect(R('src/app/prototypes/events/components/EventDetail.tsx'))
-      .toContain('heightClassName={hikeSeriesSlug ? HIKE_BANNER_HEIGHT_CLASS : undefined}');
+  it('a hike uses the standard banner height too (founder 2026-10-04: retain the standard)', () => {
+    expect(R('src/app/prototypes/events/components/EventDetail.tsx')).not.toMatch(/heightClassName=/);
   });
 });
 
