@@ -56,6 +56,8 @@ export type OfflineResourceType =
   | 'letter-code'
   | 'feed'
   | 'groups'
+  // P1407: the home page's groups + next events.
+  | 'home'
   | 'event-access'
   | 'event-self';
 
@@ -72,6 +74,7 @@ export const OFFLINE_CACHE_CAPS: Record<OfflineResourceType, number> = {
   'letter-code': 30,
   feed: 10,
   groups: 5,
+  home: 2,
   'event-access': 30,
   'event-self': 30,
 };

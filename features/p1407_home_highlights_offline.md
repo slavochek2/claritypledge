@@ -1,12 +1,12 @@
 ---
-status: backlog
+status: qa
 type: story
 rank: 26
 workstream: growth
 created_date: '2026-10-04'
 tags: [feed, offline]
 disclosure: public
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
@@ -34,5 +34,5 @@ Read the home groups + next events through the same offline cache as the feed (l
 
 ## Acceptance Criteria
 
-- [ ] Home groups + next events come from the offline cache when the network is down
-- [ ] An event whose time has passed never shows, even from a saved copy
+- [x] Home groups + next events come from the offline cache when the network is down
+- [x] An event whose time has passed never shows, even from a saved copy

@@ -11,9 +11,10 @@
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { organizationsService } from '@/app/data/organizations-service';
+import { eventsService } from '@/app/data/events-service';
 import { STANDARD_STAKE_TAGS } from '@/app/data/event-links';
 import type { OfflineResourceType, ReadOptions } from '@/lib/offline-read-cache';
-import type { PointWithUserPosition, StoryWithAuthor } from '@/app/types';
+import type { EventWithHost, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 import type { Organization, OrgEventSummary, OrgParticipation } from '@/app/data/organizations-service.interface';
 
 export interface OfflineRead<T> {
@@ -123,6 +124,32 @@ export function groupsRead(): OfflineRead<GroupsDirectory> {
         organizationsService.getEventSummaries(ids).catch(() => ({})),
       ]);
       return { orgs, memberCounts, participation, myOrgIds, eventSummaries };
+    },
+  };
+}
+
+// ─── / (home: groups + next events) ──────────────────────────────────────────
+
+export const HOME_MAX_GROUPS = 2;
+
+export interface HomeHighlights {
+  groups: Organization[];
+  /** Upcoming events of those groups, unfiltered by time: the reader drops started ones at
+   *  render, so a saved copy never shows a past event as "next". */
+  events: EventWithHost[];
+}
+
+/** P1407: the home page's groups and their upcoming events, readable offline. */
+export function homeRead(): OfflineRead<HomeHighlights> {
+  return {
+    type: 'home',
+    id: 'highlights',
+    fetch: async () => {
+      const groups = (await organizationsService.listPublicOrganizations()).slice(0, HOME_MAX_GROUPS);
+      // "Our next event" = the next event of OUR groups (review, P1401): an unscoped query would
+      // let any account's event become the one featured here.
+      const perGroup = await Promise.all(groups.map((o) => eventsService.getUpcomingEvents(o.id).catch(() => [])));
+      return { groups, events: perGroup.flat() };
     },
   };
 }

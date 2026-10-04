@@ -11,8 +11,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDaysIcon, LandmarkIcon } from "lucide-react";
-import { eventsService } from "@/app/data/events-service";
-import { organizationsService } from "@/app/data/organizations-service";
+import { homeRead, HOME_MAX_GROUPS, type HomeHighlights } from "@/app/data/offline-reads";
+import { readThrough } from "@/lib/offline-read-cache";
 import type { EventWithHost } from "@/app/types";
 import type { Organization } from "@/app/data/organizations-service.interface";
 import { EventCard } from "@/app/prototypes/events/components/EventCard";
@@ -22,7 +22,7 @@ import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "@/app/components/layout/nav-links
 
 const MAX_EVENTS = 2;
 /** A growing directory must never take over the page; the rest sit behind "All groups". */
-const MAX_GROUPS = 2;
+const MAX_GROUPS = HOME_MAX_GROUPS;
 const DESKTOP_QUERY = "(min-width: 1024px)"; // Tailwind lg
 
 function useIsDesktop(): boolean {
@@ -42,44 +42,35 @@ function useIsDesktop(): boolean {
 type Loaded<T> = T[] | null | "error"; // null = loading
 
 function useHomeHighlights() {
-  const [events, setEvents] = useState<Loaded<EventWithHost>>(null);
-  const [groups, setGroups] = useState<Loaded<Organization>>(null);
+  const [data, setData] = useState<HomeHighlights | null | "error">(null);
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      let orgs: Organization[];
-      try {
-        orgs = (await organizationsService.listPublicOrganizations()).slice(0, MAX_GROUPS);
-      } catch {
-        if (!cancelled) {
-          setGroups("error");
-          setEvents("error");
-        }
-        return;
-      }
-      if (cancelled) return;
-      setGroups(orgs);
-      // "Our next event" = the next event of OUR groups (review, P1401): an unscoped query
-      // would let any account's event become the one featured here. Only events that have
-      // not started yet — the service's 12-hour grace window would otherwise show last
-      // night's Clarity Night as "next" the morning after.
-      const perGroup = await Promise.all(orgs.map((o) => eventsService.getUpcomingEvents(o.id).catch(() => [])));
-      if (cancelled) return;
-      const now = Date.now();
-      const seen = new Set<string>();
-      const next = perGroup
-        .flat()
-        .filter((e) => e.status === "upcoming" && new Date(e.datetime).getTime() > now)
-        .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
-        .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-        .slice(0, MAX_EVENTS);
-      setEvents(next);
-    })();
+    // P1407: through the offline cache, like the feed — offline shows the last-seen copy.
+    const r = homeRead();
+    readThrough(r.type, r.id, r.fetch)
+      .then((read) => {
+        if (cancelled) return;
+        if (read.source === "offline" || !read.data) setData("error");
+        else setData(read.data);
+      })
+      .catch(() => {
+        if (!cancelled) setData("error");
+      });
     return () => {
       cancelled = true;
     };
   }, []);
-  return { events, groups };
+  if (data === null || data === "error") return { events: data, groups: data } as { events: Loaded<EventWithHost>; groups: Loaded<Organization> };
+  // Only events that have not started yet — applied HERE, not at fetch, so a saved copy (and the
+  // service's 12-hour grace window) never shows last night's Clarity Night as "next".
+  const now = Date.now();
+  const seen = new Set<string>();
+  const events = data.events
+    .filter((e) => e.status === "upcoming" && new Date(e.datetime).getTime() > now)
+    .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
+    .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
+    .slice(0, MAX_EVENTS);
+  return { events, groups: data.groups };
 }
 
 /** The SAME card the events pages use (banner picture, date, title, host, place, going) —
