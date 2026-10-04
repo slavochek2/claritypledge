@@ -189,11 +189,17 @@ control "Launch: JSON only" "text/plain POST is refused" \
 control "Launch: the body names the run and nothing else" "carrying prompt text" \
   server/day.ts "s/if \(keys\.length !== 1 \|\| keys\[0\] !== 'run_id' \|\| /if (/" "$L"
 control "Launch: at most one a minute" "within a minute does not launch" \
-  server/day.ts 's/now\.getTime\(\) - Date\.parse\(s\.at\) < LAUNCH_EVERY_MS/false/' "$L"
-control "Launch: the same collection is never sent twice" "already-sent collection" \
-  server/day.ts 's/if \(sent\.some\(\(s\) => s\.target === hash/if (false \&\& sent.some((s) => s.target === hash/' "$L"
-control "Launch: a failed launch records nothing" "failed launch records nothing" \
-  server/day.ts 's/        cleanup\(\)\n        console\.warn/        console.warn/' "$L"
+  server/day.ts 's/now\.getTime\(\) - Date\.parse\(l\.at\) < LAUNCH_EVERY_MS/false/' "$L"
+control "Launch: after a send only changes go out" "only what changed goes out" \
+  server/day.ts 's/const c = collect\(view, sent\.items\)/const c = collect(view)/' "$L"
+control "Launch: a failed launch is recorded as failed and cleaned up" "failed launch records nothing" \
+  server/day.ts 's/        cleanup\(\)\n        appendLine/        appendLine/' "$L"
+control "Launch: the send is reserved before spawning" "reserved \\(pending\\) BEFORE" \
+  server/day.ts "s/      appendLine\(dir, \{ \.\.\.base, state: 'pending'[^\n]*\n//" "$L"
+control "Launch: no acknowledgement, no send" "never started Claude is not a send" \
+  server/day.ts 's/if \(result\.ok && !\(await waitForAck\(ack, ackWaitMs\(\)\)\)\) result = \{ ok: false \}//' "$L"
+control "Launch: irreversible actions need a yes" "carries the safety rules" \
+  src/lib/day.ts "s/    'Anything that cannot be undone[^\n]*\n//" "$L"
 control "Launch: only the latest run" "only the latest run can be launched" \
   server/day.ts 's/if \(body\.run_id !== latest\.report\.pass_id && body\.run_id !== latest\.id\) \{\n        return res\.status\(409\)/if (false) {\n        return res.status(409)/' "$L"
 control "Launch: sent lines are not decisions" "sent lines are not decisions" \

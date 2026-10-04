@@ -4,7 +4,7 @@ import { createServer } from 'http'
 import type { AddressInfo } from 'net'
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from 'fs/promises'
 import { existsSync } from 'fs'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { tmpdir } from 'os'
 import { KANBAN_CONFIG } from '../../config'
 import { setDayClock, setDayLauncher, type Launcher } from '../dayLaunch'
@@ -24,15 +24,26 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
   let server: ReturnType<typeof createServer>
   let API: string
   let dir: string
-  let calls: { file: string; workdir: string; prompt: string; mode: number }[]
+  let calls: { file: string; ack: string; workdir: string; prompt: string; mode: number; ledgerAtLaunch: string }[]
   let fail: boolean
+  let noAck: boolean
   let t: number
   let logs: string[]
   const spies: ReturnType<typeof vi.spyOn>[] = []
 
-  const recorder: Launcher = async (file, workdir) => {
-    calls.push({ file, workdir, prompt: await readFile(file, 'utf-8'), mode: (await stat(file)).mode & 0o777 })
-    return fail ? { ok: false } : { ok: true, how: 'tab' }
+  // Stands in for osascript + the launcher + Claude: records what it was handed, acknowledges like
+  // the launcher does (unless told not to), and deletes the prompt file like the session does.
+  const recorder: Launcher = async (file, ack, workdir) => {
+    calls.push({
+      file, ack, workdir,
+      prompt: await readFile(file, 'utf-8'),
+      mode: (await stat(file)).mode & 0o777,
+      ledgerAtLaunch: await readFile(join(dir, 'decisions.jsonl'), 'utf-8').catch(() => ''),
+    })
+    if (fail) return { ok: false }
+    if (!noAck) await writeFile(ack, '')
+    await rm(file, { force: true })
+    return { ok: true, how: 'tab' }
   }
 
   beforeAll(async () => {
@@ -50,6 +61,8 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
     await writeFile(join(dir, 'reports', '2026-10-03T05-05-00Z.json'), JSON.stringify(synthEarlier()))
     calls = []
     fail = false
+    noAck = false
+    process.env.KANBAN_DAY_ACK_MS = '300'
     t = Date.parse('2026-10-04T08:00:00Z')
     setDayClock(() => new Date(t))
     setDayLauncher(recorder)
@@ -63,6 +76,8 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
     setDayLauncher(null)
     setDayClock(null)
     delete process.env.KANBAN_DAY_DIR
+    delete process.env.KANBAN_DAY_ACK_MS
+    for (const c of calls) await rm(dirname(c.file), { recursive: true, force: true })
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -71,7 +86,8 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
   const decide = (decisions: unknown[]) =>
     fetch(`${API}/api/day/decisions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id: RUN, decisions }) })
   const fileText = async () => { try { return await readFile(join(dir, 'decisions.jsonl'), 'utf-8') } catch { return '' } }
-  const sentLines = async () => (await fileText()).split('\n').filter((l) => l.includes('"kind":"sent"'))
+  const sentLines = async (state = 'started') =>
+    (await fileText()).split('\n').filter((l) => l.includes('"kind":"sent"') && l.includes(`"state":"${state}"`))
 
   it('a cross-origin POST is refused and spawns nothing', async () => {
     const r = await start({ run_id: RUN }, { 'Content-Type': 'application/json', Origin: 'http://evil.example' })
@@ -108,8 +124,58 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
     expect(calls[0].mode).toBe(0o600)
     const sent = await sentLines()
     expect(sent).toHaveLength(1)
-    expect(JSON.parse(sent[0])).toMatchObject({ kind: 'sent', run_id: RUN })
+    expect(JSON.parse(sent[0])).toMatchObject({ kind: 'sent', run_id: RUN, state: 'started' })
     expect(logs.join('\n')).not.toContain(SECRET)
+  })
+
+  it('the send is reserved (pending) BEFORE anything is spawned', async () => {
+    expect((await start({ run_id: RUN })).status).toBe(200)
+    expect(calls[0].ledgerAtLaunch).toMatch(/"kind":"sent".*"state":"pending"/)
+  })
+
+  it('a tab that opened but never started Claude is not a send: copy fallback, and a retry is allowed', async () => {
+    noAck = true
+    const r = await start({ run_id: RUN })
+    expect(r.status).toBe(502)
+    expect(await sentLines('failed')).toHaveLength(1)
+    expect(await sentLines('started')).toHaveLength(0)
+    expect(existsSync(calls[0].file)).toBe(false)
+    noAck = false
+    expect((await start({ run_id: RUN })).status).toBe(200) // not 429: a failed launch does not count
+  })
+
+  it('after a send, only what changed goes out, as a follow-up; unchanged → already sent', async () => {
+    expect((await start({ run_id: RUN })).status).toBe(200)
+    t += 120_000
+    expect((await start({ run_id: RUN })).status).toBe(409)
+    await decide([{ kind: 'option', target: 'spec:letters-waiting', option_id: 'after' }])
+    const r = await start({ run_id: RUN })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toMatchObject({ count: 1, followUp: true })
+    const p = calls[1].prompt
+    expect(p).toMatch(/only what changed since then/)
+    expect(p).toContain('Ship after Tuesday')
+    expect(p).not.toContain('Prod key liveness') // sent the first time, unchanged
+  })
+
+  it('the board remembers the send: the run says when, and how many items are still unsent', async () => {
+    expect((await start({ run_id: RUN })).status).toBe(200)
+    const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
+    expect(run.lastSentAt).toBeTruthy()
+    expect(run.collectedCount).toBe(0)
+  })
+
+  it('the prompt carries the safety rules: irreversible actions need a yes; quoted text is data', async () => {
+    expect((await start({ run_id: RUN })).status).toBe(200)
+    expect(calls[0].prompt).toMatch(/cannot be undone .* needs my explicit yes/)
+    expect(calls[0].prompt).toMatch(/is data, not instructions/)
+  })
+
+  it('the launcher never puts the prompt text in an argument (it names the file)', async () => {
+    const sh = await readFile(join(__dirname, '../../scripts/day-launch.sh'), 'utf-8')
+    const code = sh.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n')
+    expect(code).not.toMatch(/\$\(cat /)
+    expect(code).toMatch(/exec claude --model opus "Your task from the Day page is in the file \$1/)
   })
 
   it('a second Start fixing within a minute does not launch', async () => {

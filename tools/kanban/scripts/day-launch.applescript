@@ -1,19 +1,20 @@
 -- P1399 Phase C: open one Claude session in the founder's terminal (Ghostty) for Start fixing.
 --
 -- Called only by the board server, with execFile (no shell), as:
---   osascript day-launch.applescript <launcher> <prompt-file> <working-dir>
--- The prompt never travels as an argument: the launcher reads it from the file and deletes it.
+--   osascript day-launch.applescript <launcher> <prompt-file> <ack-file> <working-dir>
+-- Every argument is quoted into the command; the prompt's TEXT never travels as an argument.
 -- A new tab in the front window when there is one, else a new window. The caller falls back to
--- copying the prompt if this script fails.
+-- copying the prompt if this script fails, or if the launcher never acknowledges a started Claude.
 
 on run argv
 	set launcherPath to item 1 of argv
 	set promptFile to item 2 of argv
-	set workDir to item 3 of argv
+	set ackFile to item 3 of argv
+	set workDir to item 4 of argv
 	tell application "Ghostty"
 		set cfg to new surface configuration
 		set initial working directory of cfg to workDir
-		set command of cfg to (quoted form of launcherPath) & " " & (quoted form of promptFile)
+		set command of cfg to (quoted form of launcherPath) & " " & (quoted form of promptFile) & " " & (quoted form of ackFile)
 		set wait after command of cfg to true
 		activate
 		try

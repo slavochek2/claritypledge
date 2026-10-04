@@ -19,11 +19,12 @@ import type { Express, Request } from 'express'
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { KANBAN_CONFIG } from '../config'
-import { collectionHash, dayClock, dayLauncher, launchWorkdir, writePromptFile } from './dayLaunch'
+import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import {
   buildPrompt,
   buildView,
   collect,
+  collectedKeys,
   decisionTargetExists,
   parseDecisions,
   parseReport,
@@ -161,35 +162,60 @@ function fromBoard(req: Request): boolean {
   return origin === `http://localhost:${port}` || origin === `http://127.0.0.1:${port}`
 }
 
-interface SentLine { run_id: string; target: string; at: string }
+/**
+ * Launch receipts in decisions.jsonl — the memory of what was sent, across restarts. One launch is
+ * several lines sharing an id: `pending` (written BEFORE anything is spawned, so a crash between the
+ * spawn and the receipt cannot open a second session), then `started` once the launcher acknowledged
+ * Claude, or `failed`. A launch counts as sent while its last line is pending or started.
+ */
+interface SentLaunch { id: string; run_id: string; at: string; state: string; items: string[] }
 
-/** Launch receipts in decisions.jsonl: the memory of what was already sent, across restarts. */
-function readSent(dir: string): SentLine[] {
+function readSent(dir: string): SentLaunch[] {
   let text = ''
   try {
     text = readFileSync(join(dir, 'decisions.jsonl'), 'utf-8')
   } catch {
     return []
   }
-  const out: SentLine[] = []
+  const byId = new Map<string, SentLaunch>()
   for (const raw of text.split('\n')) {
     if (!raw.includes('"sent"')) continue
     try {
-      const o = JSON.parse(raw) as Partial<SentLine> & { kind?: string }
-      if (o.kind === 'sent' && typeof o.run_id === 'string' && typeof o.target === 'string' && typeof o.at === 'string') {
-        out.push({ run_id: o.run_id, target: o.target, at: o.at })
-      }
+      const o = JSON.parse(raw) as Partial<SentLaunch> & { kind?: string }
+      if (o.kind !== 'sent' || typeof o.id !== 'string' || typeof o.state !== 'string' || typeof o.at !== 'string') continue
+      const prev = byId.get(o.id)
+      byId.set(o.id, {
+        id: o.id,
+        run_id: typeof o.run_id === 'string' ? o.run_id : prev?.run_id ?? '',
+        at: prev?.at ?? o.at, // when it was first sent, not when it was confirmed
+        state: o.state,
+        items: Array.isArray(o.items) ? o.items.filter((x): x is string => typeof x === 'string') : prev?.items ?? [],
+      })
     } catch {
       // unreadable lines are counted by parseDecisions; nothing to do here
     }
   }
-  return out
+  return [...byId.values()]
+}
+
+/** What was already sent from this run: the items (so only changes go next time) and when, last. */
+function sentForRun(dir: string, report: DayReport): { items: Set<string>; lastAt?: string; all: SentLaunch[] } {
+  const all = readSent(dir).filter((l) => l.state === 'pending' || l.state === 'started')
+  const mine = all.filter((l) => l.run_id === report.pass_id)
+  return { items: new Set(mine.flatMap((l) => l.items)), lastAt: mine.map((l) => l.at).sort().pop(), all }
+}
+
+function appendLine(dir: string, line: object): void {
+  mkdirSync(dir, { recursive: true })
+  appendFileSync(join(dir, 'decisions.jsonl'), JSON.stringify(line) + '\n', { encoding: 'utf-8', mode: 0o600 })
 }
 
 const LAUNCH_EVERY_MS = 60_000
 let launching = false
 
 export function registerDayRoutes(app: Express, now: () => Date = () => new Date()) {
+  // Prompt files a launched session never read (it deletes its own), older than a day.
+  if (dayEnabled()) sweepLaunchDirs()
   app.get('/api/day', (_req, res) => {
     const dir = dayDir()
     if (!dir) return res.json({ enabled: false })
@@ -229,6 +255,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if (run.parsed.kind !== 'ok') return res.json({ id, isLatest, kind: 'unreadable' })
       const { lines, badLines } = readDecisions(dir)
       const view = buildView(run.parsed.report, lines, traces(list.runs))
+      const sent = isLatest ? sentForRun(dir, run.parsed.report) : { items: new Set<string>(), lastAt: undefined }
       res.json({
         id,
         isLatest,
@@ -237,7 +264,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         view,
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
-        collectedCount: collect(view).count,
+        collectedCount: collect(view, sent.items).count,
+        lastSentAt: sent.lastAt ?? null,
         warnings: runWarnings(run.parsed.report, now().toISOString(), isLatest),
       })
     } catch {
@@ -313,29 +341,39 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         return res.status(409).json({ error: 'Start fixing works on the latest run only', reason: 'not-latest' })
       }
       const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
-      const count = collect(view).count
-      if (!count) return res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
-      const prompt = buildPrompt(latest.report, view)
-      const hash = collectionHash(prompt)
+      const sent = sentForRun(dir, latest.report)
       const now = dayClock()
-      const sent = readSent(dir)
-      if (sent.some((s) => now.getTime() - Date.parse(s.at) < LAUNCH_EVERY_MS)) {
+      if (sent.all.some((l) => now.getTime() - Date.parse(l.at) < LAUNCH_EVERY_MS)) {
         return res.status(429).json({ error: 'Started less than a minute ago' })
       }
-      if (sent.some((s) => s.target === hash && (s.run_id === latest.report.pass_id || s.run_id === latest.id))) {
-        return res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
+      // After a send, only what changed goes out (Phase C review: a re-send of everything opened a
+      // second session on the same fixes).
+      const c = collect(view, sent.items)
+      if (!c.count) {
+        return sent.lastAt
+          ? res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
+          : res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
       }
-      const { file, cleanup } = writePromptFile(prompt)
-      const result = await dayLauncher()(file, launchWorkdir())
+      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt)
+      const id = collectionHash(prompt + now.toISOString())
+      const base = { kind: 'sent', id, run_id: latest.report.pass_id, target: collectionHash(prompt) }
+      appendLine(dir, { ...base, state: 'pending', at: now.toISOString(), items: collectedKeys(c), count: c.count })
+      const { file, ack, cleanup } = writePromptFile(prompt)
+      let result: Awaited<ReturnType<ReturnType<typeof dayLauncher>>> = { ok: false }
+      try {
+        result = await dayLauncher()(file, ack, launchWorkdir())
+        if (result.ok && !(await waitForAck(ack, ackWaitMs()))) result = { ok: false }
+      } catch {
+        result = { ok: false }
+      }
       if (!result.ok) {
         cleanup()
-        console.warn('[kanban] day: terminal launch failed, copy fallback offered')
+        appendLine(dir, { ...base, state: 'failed', at: dayClock().toISOString() })
+        console.warn('[kanban] day: terminal launch did not start a session, copy fallback offered')
         return res.status(502).json({ error: 'The terminal could not be opened', fallback: 'copy' })
       }
-      const line = { kind: 'sent', target: hash, run_id: latest.report.pass_id, at: now.toISOString(), how: result.how, count }
-      mkdirSync(dir, { recursive: true })
-      appendFileSync(join(dir, 'decisions.jsonl'), JSON.stringify(line) + '\n', { encoding: 'utf-8', mode: 0o600 })
-      res.json({ launched: true, how: result.how })
+      appendLine(dir, { ...base, state: 'started', at: dayClock().toISOString(), how: result.how })
+      res.json({ launched: true, how: result.how, count: c.count, followUp: !!sent.lastAt })
     } catch {
       console.error('[kanban] POST /api/day/start failed')
       res.status(500).json({ error: 'Failed to start a session' })
@@ -353,7 +391,13 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const latest = latestReadable(dir)
       if ('refused' in latest) return res.status(409).json({ error: latest.refused })
       const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
-      res.json({ run_id: latest.report.pass_id, prompt: buildPrompt(latest.report, view), count: collect(view).count })
+      const sent = sentForRun(dir, latest.report)
+      res.json({
+        run_id: latest.report.pass_id,
+        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt),
+        count: collect(view, sent.items).count,
+        lastSentAt: sent.lastAt ?? null,
+      })
     } catch {
       console.error('[kanban] GET /api/day/prompt failed')
       res.status(500).json({ error: 'Failed to build the prompt' })
