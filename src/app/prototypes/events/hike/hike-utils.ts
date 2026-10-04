@@ -29,7 +29,7 @@ export const HIKE_LABELS = {
     distance: 'Distance',
     elevation: 'Climb',
     routeType: 'Route',
-    walkTime: 'Time',
+    walkTime: 'Walking',
     difficulty: 'Level',
   },
 } as const;

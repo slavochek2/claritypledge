@@ -960,8 +960,11 @@ export function EventDetail() {
               {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
                   P1365 repeats it after a description taller than the viewport (below).
                   Mobile uses the sticky bottom bar (non-RSVP'd) + inline green card after description (RSVP'd). */}
+              {/* P1403 (QA 2026-10-04): a registered viewer sees "You're going" + "Invite a friend"
+                  here at every width; it used to sit after the description on phones, ~6000px
+                  down, so someone returning from WhatsApp could not tell they were registered. */}
               {!rsvpAffordanceHidden && (
-                <div className="hidden lg:block mb-6">
+                <div className={isRsvpd ? 'mb-6' : 'hidden lg:block mb-6'}>
                   {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton('card')}
                 </div>
               )}
@@ -1040,12 +1043,6 @@ export function EventDetail() {
                 </div>
               )}
 
-              {/* P844: Mobile RSVP'd green card — inline, mobile only. Desktop renders it in right column. */}
-              {!isHost && !isCancelled && isRsvpd && (
-                <div className="lg:hidden">
-                  {renderRsvpGreenCard()}
-                </div>
-              )}
               {/* P1336: where the 24h reminder lands — the preparation is reached from here. */}
               {!isHost && !isCancelled && isRsvpd && !hasEnded && event.preparationEnabled && (
                 <div className="mt-3 empty:hidden" data-testid="event-prep-entry">
