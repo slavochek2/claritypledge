@@ -125,7 +125,7 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
   const single = reviews.length === 1;
   return (
     <section data-testid="hike-reviews" aria-label={HIKE_LABELS.reviews} className="not-prose w-0 min-w-full mb-6">
-      <h2 className="text-base font-semibold text-foreground mb-2">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
+      <h2 className="text-xl font-bold text-foreground mt-8 mb-3">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
       <ul className="flex gap-3 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2">
         {reviews.map(review => {
           // A linked profile wins over the legacy stored path; either must be a safe in-app path.
@@ -209,7 +209,7 @@ export function HikeRouteMap({ geojson, details, showHeading = true, onOpenImage
 
   return (
     <section id="hike-route" data-testid="hike-route" aria-label={HIKE_LABELS.route} className="not-prose mb-6">
-      {showHeading && <h2 className="text-base font-semibold text-foreground mb-2">{HIKE_LABELS.route}</h2>}
+      {showHeading && <h2 className="text-xl font-bold text-foreground mt-8 mb-3">{HIKE_LABELS.route}</h2>}
       <figure className="!m-0 rounded-lg border border-border overflow-hidden">
         {imageUrl && onOpenImage
           ? <button type="button" onClick={() => onOpenImage(imageUrl, 'Map of the hike route')} aria-label="View the route map full size" className="block w-full cursor-zoom-in">{picture}</button>

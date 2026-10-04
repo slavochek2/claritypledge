@@ -754,7 +754,7 @@ export function EventDetail() {
                   {organizerLearnMore && (
                     <>
                       {' · '}
-                      <Link to={organizerLearnMore} className="text-blue-600 hover:underline">{HIKE_LABELS.learnMore}</Link>
+                      <Link to={organizerLearnMore} className="font-medium text-foreground underline underline-offset-2">{HIKE_LABELS.learnMore}</Link>
                     </>
                   )}
                 </p>
@@ -828,7 +828,7 @@ export function EventDetail() {
 
               {/* Date & Time */}
               <div className="flex items-center gap-3 mb-3 text-muted-foreground">
-                <CalendarPlus className="w-5 h-5" />
+                <CalendarPlus className="w-5 h-5 flex-shrink-0" />
                 <div>
                   {(() => {
                     const displayTz = isVirtual
