@@ -1,8 +1,8 @@
 /**
  * @file p1337-table-compare.spec.ts
  * @description P1337 founder walkthrough 6, items 3 and 6: after "I'm at table N" the table card
- * shows the compare page's rows — each statement with both positions, and "We're talking about
- * this one" marks the table's topic. A speaker reads their own position ("I agree") against their
+ * shows the compare page's rows — each statement with both positions (no topic mark: founder
+ * walkthrough 7). A speaker reads their own position ("I agree") against their
  * partner's; the observer reads the pair's. An earlier wording of a statement is never listed.
  */
 import { test, expect, type Page } from '@playwright/test';
@@ -103,14 +103,11 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(first).toContainText('Ben');
   });
 
-  test('"We\'re talking about this one" marks the table\'s topic', async ({ page }) => {
+  test('no "We\'re talking about this one" on the table card (founder walkthrough 7)', async ({ page }) => {
     const rows = await atTable(page, ana);
-    const mark = rows.getByTestId('compare-topic-mark').first();
-    await mark.click();
-    await expect(mark).toHaveAttribute('aria-pressed', 'true');
-    await expect
-      .poll(async () => (await supabaseAdmin.from('event_round_tables').select('topic_point_id').eq('round_id', roundId).eq('table_no', 1).maybeSingle()).data?.topic_point_id ?? null)
-      .not.toBeNull();
+    await expect(rows.getByRole('listitem').first()).toBeVisible();
+    await expect(page.getByTestId('compare-topic-mark')).toHaveCount(0);
+    await expect(page.getByText(/talking about this one/i)).toHaveCount(0);
   });
 
   test('compare opened from the table: "Compare positions", no "Add yours", and the event set by name', async ({ page }) => {
@@ -118,7 +115,7 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await page.getByTestId('round-card-compare').click();
     await expect(page).toHaveURL(/\/compare\//);
     await expect(page.getByRole('link', { name: 'Add yours' })).toHaveCount(0);
-    await expect(page.getByTestId('compare-topic-mark').first()).toBeVisible();
+    await expect(page.getByTestId('compare-topic-mark')).toHaveCount(0);
     await expect(page.getByRole('button', { name: `#${TAG}` })).toHaveCount(0); // named after the event, not the hashtag
   });
 
@@ -135,11 +132,10 @@ test.describe('P1337 — the comparison inside the table card', () => {
   test('moved mid-round: compare says where you are now and stops marking the old table', async ({ page }) => {
     await atTable(page, ana);
     await page.getByTestId('round-card-compare').click();
-    await expect(page.getByTestId('compare-topic-mark').first()).toBeVisible();
+    await expect(page).toHaveURL(/\/compare\//);
     // The host moves Ana to table 2.
     const { data: me } = await supabaseAdmin.from('event_room_members').select('id').eq('event_id', event.id).eq('profile_id', ana.user.id).single();
     expect((await supabaseAdmin.from('event_round_seats').update({ table_no: 2 }).eq('round_id', roundId).eq('room_member_id', me!.id)).error).toBeNull();
     await expect(page.getByTestId('compare-moved')).toContainText('Now table 2', { timeout: 20_000 });
-    await expect(page.getByTestId('compare-topic-mark')).toHaveCount(0);
   });
 });

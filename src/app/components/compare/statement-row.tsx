@@ -5,7 +5,7 @@
  * the letters vocabulary (letter-reveal-ordinal.tsx): blue on both sides, never green/red.
  */
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, Pin } from 'lucide-react';
+import { ChevronRight, Pin } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { cn } from '@/lib/utils';
 import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS, type CompareRow } from '@/lib/compare-positions';
@@ -90,24 +90,5 @@ export function StatementRow({
       </a>
       {trailing && <div className={compact ? 'px-2.5 pb-2.5' : 'px-4 pb-4'}>{trailing}</div>}
     </li>
-  );
-}
-
-/** Marks the statement this table talks about (one per table, P1337). */
-export function TopicMark({ marked, onToggle }: { marked: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={marked}
-      data-testid="compare-topic-mark"
-      className={cn(
-        'w-full inline-flex items-center justify-center gap-2 rounded-full border min-h-[40px] px-4 text-sm font-medium',
-        marked ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-blue-200 text-blue-700',
-      )}
-    >
-      {marked && <Check size={16} />}
-      We&rsquo;re talking about this one
-    </button>
   );
 }

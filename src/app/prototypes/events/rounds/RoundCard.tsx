@@ -6,9 +6,8 @@
  *   - One status line on top: "Round 2 · Find table 3 · You speak first".
  *   - Finding the table (the first minute): the table, who is there with their role letter, and
  *     "I'm at table N". Nothing to read yet — the statements come once you sit.
- *   - At the table: "What do we talk about?" — the pair's statements, furthest apart first. A tap
- *     marks the one the table chose; anyone at the table can tap, last tap wins (a note, not a
- *     permission). With no answers yet: "Add your positions on #tag".
+ *   - At the table: "What do we talk about?" — the pair's statements, furthest apart first. With
+ *     no answers yet: "Add your positions on #tag". No topic mark (founder walkthrough 7).
  *   - Talking: no timer for the pair — the room clock is on the screen and the phone is theirs to
  *     put away. The observer, who keeps time, gets the countdown on their card. An earlier build
  *     drew a black layer over every phone; the founder removed it ("everybody knows how to
@@ -16,24 +15,21 @@
  *   - No "did your position move?" (founder walkthrough 5): every change of position is already
  *     kept with its time (point_position_history), so changing your answer on the statement is
  *     the signal; the question only cost a tap.
- *   - Earlier rounds list who you sat with; a face opens the comparison, Back returns here.
+ *   - No earlier rounds for attendees, during or after the event (founder walkthrough 7); the host
+ *     keeps theirs on the host panel.
  *
  * THE TAP IS NEVER A GATE (spec Invariants): not tapping changes nothing, and it can be tapped late.
  * "I'm here" is deliberately NOT the label: P1380's arrival check-in already says "I'm here" and
  * means "I arrived at the venue". This tap means "I'm at this table".
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   confirmRoundSeat,
   currentRound,
-  setRoundTopic,
-  topicKey,
-  type EventRound,
-  type RoundSeat,
 } from '@/app/data/event-rounds-service';
 import { buildCompareRows } from '@/lib/compare-positions';
 import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
@@ -43,7 +39,7 @@ import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
 import { eventTopic } from '../prep/prep-plan';
-import { StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
+import { StatementRow, type Person } from '@/app/components/compare/statement-row';
 import { PairBadge, RoleBadge } from './RoleBadge';
 
 // The stored role says who speaks first; the pair swap after the first speaker's minutes (liveRole).
@@ -87,20 +83,6 @@ function Face({ member }: { member: EventRoomMember | undefined }) {
       size="sm"
     />
   );
-}
-
-function Panel({ children, testId }: { children: ReactNode; testId?: string }) {
-  return (
-    <section className="rounded-xl border border-border bg-card p-4" data-testid={testId}>
-      {children}
-    </section>
-  );
-}
-
-interface PastRound {
-  round: EventRound;
-  table: number;
-  mates: RoundSeat[];
 }
 
 export function RoundCard({
@@ -168,31 +150,9 @@ export function RoundCard({
     return a && b ? buildCompareRows(positions.statements, a, b) : [];
   }, [positions, leftMember, rightMember]);
 
-  // The table's marked statement, shown at once on a tap while the write lands.
-  const markKey = round && mine ? topicKey(round.id, mine.table) : null;
-  const [pendingMark, setPendingMark] = useState<{ key: string; pointId: string | null } | null>(null);
-  useEffect(() => {
-    setPendingMark(null);
-  }, [markKey]);
-  const serverMark = markKey ? state.topics.get(markKey) ?? null : null;
-  const mark = pendingMark && pendingMark.key === markKey ? pendingMark.pointId : serverMark;
-
   const [confirming, setConfirming] = useState(false);
 
-  // Each tap on a statement gets a number; only the latest tap's write may clear the shown mark.
-  const markSeq = useRef(0);
-
   if (!self) return null;
-
-  // Rounds you sat in that are behind you, newest first, with who sat with you.
-  const pastRounds: PastRound[] = state.rounds
-    .filter(r => !round || r.id !== round.id)
-    .flatMap(r => {
-      const rs = state.seatsByRound.get(r.id) ?? [];
-      const me = rs.find(s => s.id === self.id);
-      return me ? [{ round: r, table: me.table, mates: rs.filter(s => s.table === me.table && s.id !== self.id) }] : [];
-    })
-    .reverse();
 
   // Compare opens in this tab; its Back returns here (founder walkthrough 4).
   const backState = {
@@ -207,59 +167,13 @@ export function RoundCard({
     return `/compare/${slug}${q ? `?${q}` : ''}`;
   };
 
-  const past = pastRounds.length > 0 && (
-    <Panel testId="round-past">
-      <ul className="space-y-3">
-        {pastRounds.map(({ round: r, table: t, mates }) => (
-          <li key={r.id}>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Round {r.roundNo} · Table {t}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {mates.map(s => {
-                const m = member(s.id);
-                const face = (
-                  <>
-                    <Face member={m} />
-                    <span className="text-sm font-medium">{shortName(m?.displayName ?? '—')}</span>
-                  </>
-                );
-                return m?.profileSlug ? (
-                  <Link
-                    key={s.id}
-                    to={compareHref(m.profileSlug, "", r.matchTag ?? statementTag)}
-                    state={backState}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background py-1 pl-1 pr-2 hover:border-blue-300"
-                    data-testid="round-past-mate"
-                  >
-                    {face}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-                  </Link>
-                ) : (
-                  <span key={s.id} className="inline-flex min-h-11 items-center gap-2 py-1 pl-1 pr-2">
-                    {face}
-                  </span>
-                );
-              })}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-
   if (!round || !mine) {
-    if (!round && !past) return null;
+    if (!round) return null;
     return (
-      <>
-        {round && (
-          <p className="text-base font-medium" data-testid="round-card-waiting">
-            {/* A showcase seats only the people the host chose; everyone else watches. */}
-            Round {round.roundNo} · {round.showcase ? 'You watch' : 'You join the next round'}
-          </p>
-        )}
-        {past}
-      </>
+      <p className="text-base font-medium" data-testid="round-card-waiting">
+        {/* A showcase seats only the people the host chose; everyone else watches. */}
+        Round {round.roundNo} · {round.showcase ? 'You watch' : 'You join the next round'}
+      </p>
     );
   }
 
@@ -288,20 +202,6 @@ export function RoundCard({
     } finally {
       setConfirming(false);
     }
-  };
-
-  const onMark = async (pointId: string) => {
-    if (!markKey) return;
-    const next = mark === pointId ? null : pointId;
-    const seq = ++markSeq.current;
-    setPendingMark({ key: markKey, pointId: next });
-    try {
-      await setRoundTopic(round.id, mine.table, next);
-      await refresh();
-    } catch {
-      /* a note, not a permission — the previous mark simply stays */
-    }
-    if (seq === markSeq.current) setPendingMark(null);
   };
 
   return (
@@ -400,7 +300,6 @@ export function RoundCard({
                       them={asPerson(rightMember)}
                       meInFirstPerson={isPairSpeaker}
                       compact
-                      trailing={<TopicMark marked={row.pointId === mark} onToggle={() => void onMark(row.pointId)} />}
                     />
                   ))}
                 </ul>
@@ -428,7 +327,6 @@ export function RoundCard({
         )}
 
       </section>
-      {past}
 
     </>
   );

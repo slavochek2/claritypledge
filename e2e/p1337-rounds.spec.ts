@@ -252,10 +252,12 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await supabaseAdmin.from('event_room_members').update({ opted_in: null }).eq('id', mate.room_member_id);
   });
 
-  test('the room page lists the rounds behind you with who you sat with', async ({ page }) => {
+  test('attendees see no rounds behind them (founder walkthrough 7); the host keeps theirs', async ({ page }) => {
     await setTestSession(page, ana.email);
     await page.goto(`/events/${event.slug}/meet`);
-    await expect(page.getByTestId('round-past')).toContainText('Round 1');
+    await expect(page.getByTestId('round-card')).toBeVisible();
+    await expect(page.getByTestId('round-past')).toHaveCount(0);
+    await expect(page.getByText('Round 1 ·')).toHaveCount(0);
   });
 
   test('group size 2 runs a round with no observer', async ({ page }) => {

@@ -10,7 +10,7 @@
  *
  * Access: signed-in viewers only. Reached from "Compare with me" on a profile's Points tab.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
@@ -21,15 +21,13 @@ import {
   currentRound,
   getEventRoundsState,
   getRoundEvent,
-  getRoundTopic,
-  setRoundTopic,
 } from '@/app/data/event-rounds-service';
 import { getMyRoomStatus } from '@/app/data/event-room-service';
 import { LIVE_ROLE_LINE, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
 import { setLabel } from '@/lib/set-labels';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { StanceColumn, StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
+import { StanceColumn, StatementRow, type Person } from '@/app/components/compare/statement-row';
 
 // The row moved to a shared component (also the event room's table card); kept importable here.
 export { StatementRow };
@@ -79,16 +77,9 @@ function TheirRow({ pointId, statement, them, position }: { pointId: string; sta
 }
 
 /**
- * P1337 §3 — opened from a round (`?round=…&table=…`), each row carries "We're talking about
- * this one". Tapping another row moves the mark, tapping the marked row clears it; anyone at
- * the table can tap, last tap wins. A note, not a permission — so a failed write just leaves
- * the previous mark showing.
- */
-/**
  * Where the viewer sits in the round on NOW (P1337, founder walkthrough 6). Compare opened from a
  * table carries that round and table in its URL; if the host has since moved the viewer, or a new
- * round has started, `moved` is true — the page says where they are now and stops marking the old
- * table's topic (the UX review found it could).
+ * round has started, `moved` is true — the page says where they are now.
  */
 function useSeatNow(roundId: string | null, table: number | null) {
   const [now, setNow] = useState<{ moved: boolean; table?: number; line?: string; slug?: string }>({ moved: false });
@@ -126,41 +117,6 @@ function useSeatNow(roundId: string | null, table: number | null) {
   return now;
 }
 
-function useTableTopic(roundId: string | null, table: number | null) {
-  const [topic, setTopic] = useState<string | null>(null);
-  // Every tap takes a number; a poll that started before the latest tap never overwrites it, and
-  // only the latest tap's failure rolls back (Codex review: a slow poll reverted a fresh mark).
-  const writes = useRef(0);
-  useEffect(() => {
-    if (!roundId || table == null) return;
-    let cancelled = false;
-    const read = () => {
-      const before = writes.current;
-      return getRoundTopic(roundId, table)
-        .then(t => { if (!cancelled && writes.current === before) setTopic(t); })
-        .catch(() => { /* keep */ });
-    };
-    void read();
-    const id = setInterval(read, ROUNDS_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [roundId, table]);
-
-  const toggle = (pointId: string) => {
-    if (!roundId || table == null) return;
-    const next = topic === pointId ? null : pointId;
-    const prev = topic;
-    const seq = ++writes.current;
-    setTopic(next);
-    setRoundTopic(roundId, table, next).catch(() => {
-      if (writes.current === seq) setTopic(prev);
-    });
-  };
-  return { topic, toggle, active: !!roundId && table != null };
-}
-
 interface BaseResult {
   key: string;
   person: Profile | null;
@@ -189,10 +145,7 @@ export function ComparePage() {
   const tableParam = Number(searchParams.get('table'));
   const roundParam = searchParams.get('round');
   const tableNo = Number.isInteger(tableParam) && tableParam > 0 ? tableParam : null;
-  const tableTopic = useTableTopic(roundParam, tableNo);
   const seatNow = useSeatNow(roundParam, tableNo);
-  // Topic marks belong to the table you sit at now; after a move the old table's are not yours.
-  const canMark = tableTopic.active && !seatNow.moved;
   // Names for statement sets passed by the page that opened compare (the event's own set).
   const stateLabels = (useLocation().state as { setLabels?: Record<string, string> } | null)?.setLabels;
 
@@ -320,11 +273,6 @@ export function ComparePage() {
                 row={row}
                 me={me}
                 them={them}
-                trailing={
-                  canMark ? (
-                    <TopicMark marked={tableTopic.topic === row.pointId} onToggle={() => tableTopic.toggle(row.pointId)} />
-                  ) : undefined
-                }
               />
             ))}
           </ul>
