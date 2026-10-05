@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useId, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useId, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { clampMenuCenter } from './menu-clamp';
 import type { PositionType, PositionButtonGroup } from '@/app/types';
 import type { Position } from './prototype-types';
 import { getPositionGroup } from '@/app/utils/position-helpers';
@@ -266,12 +267,27 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
     const segEl = segmentRefs.current[openDropdown];
     if (!segEl) return;
     const rect = segEl.getBoundingClientRect();
+    // Clamp the menu's horizontal center so it stays inside the viewport (8px margin).
+    // Menu width isn't known until it mounts; estimate with its min-w (170) here and
+    // refine from the real width in the layout effect below.
     setDropdownPos({
       top: rect.bottom + window.scrollY + 4,
-      left: rect.left + window.scrollX + rect.width / 2,
+      left: clampMenuCenter(rect.left + rect.width / 2, 170) + window.scrollX,
       width: rect.width,
     });
   }, [openDropdown]);
+
+  // Refine the clamp once the portal menu is mounted and its real width is measurable.
+  useLayoutEffect(() => {
+    const menu = portalDropdownRef.current;
+    const segEl = openDropdown ? segmentRefs.current[openDropdown] : null;
+    if (!menu || !segEl || !dropdownPos) return;
+    const rect = segEl.getBoundingClientRect();
+    const left = clampMenuCenter(rect.left + rect.width / 2, menu.offsetWidth) + window.scrollX;
+    if (Math.abs(left - dropdownPos.left) > 0.5) {
+      setDropdownPos({ ...dropdownPos, left });
+    }
+  }, [openDropdown, dropdownPos]);
 
   // Close dropdown on click outside (check both the button row AND the portal dropdown).
   // Skipped in controlled mode — external code owns the open state; user clicks must not close.

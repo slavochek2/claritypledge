@@ -191,9 +191,10 @@ export function PledgerCard({
       {/* Spacer to push the open-link to bottom */}
       <div className="flex-grow" />
 
-      {/* Open link - always visible on mobile, hover on desktop. Must name the same
+      {/* Open link - always visible on touch (no-hover) devices incl. tablets, revealed
+          on hover where a pointer can hover. Must name the same
           destination `href` points at. */}
-      <div className="flex items-center justify-end mt-4 text-sm text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center justify-end mt-4 text-sm text-muted-foreground [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity">
         <span>{isMemberCard ? "Open Profile" : "Open Pledge"}</span>
       </div>
     </Link>
