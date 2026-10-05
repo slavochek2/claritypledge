@@ -18,16 +18,13 @@ import { PLAYBACK_RATE, watchSeconds, type ClipKey } from './prep-plan';
  * P1387 (founder, 2026-10-02): every step's actions are pinned at the bottom of a phone, in ONE
  * slim bar — the question and explanation scroll in the page above it. The first build stacked
  * progress + two buttons (134-166px at 320px) under the fixed step header, a ~40% scroll slot;
- * ActionRow puts the two buttons side by side. On desktop the bar sits in the page under the
- * content (pinned, it floated far below a short step).
+ * ActionRow puts the two buttons side by side. Pinned on desktop too (founder UAT 2026-10-05):
+ * the actions stay in one place on every step, short or long.
  */
-export const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string; pinnedOnDesktop?: boolean }>(
-  function StepActions({ children, className, pinnedOnDesktop = false }, ref) {
+export const StepActions = forwardRef<HTMLDivElement, { children: ReactNode; className?: string }>(
+  function StepActions({ children, className }, ref) {
     return (
-      <FixedBottomBar
-        ref={ref}
-        className={cn(!pinnedOnDesktop && 'lg:static lg:mt-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0', className)}
-      >
+      <FixedBottomBar ref={ref} className={className}>
         <div className="flex w-full flex-col items-center" data-testid="step-actions">{children}</div>
       </FixedBottomBar>
     );
@@ -46,20 +43,6 @@ export function ActionRow({ primary, secondary }: { primary: ReactNode; secondar
 }
 
 
-
-/** lg and up: the step actions sit in the page, so no space is reserved for a pinned bar. */
-export function useIsDesktop(): boolean {
-  const query = '(min-width: 1024px)';
-  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia?.(query);
-    if (!mq) return;
-    const onChange = () => setMatches(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return matches;
-}
 
 /** Height of a fixed element, kept current (same approach as MeetingPrincipleView's bar). */
 export function useMeasuredHeight(): [(node: HTMLDivElement | null) => void, number] {
@@ -176,7 +159,7 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
   const [answerHint, setAnswerHint] = useState(false);
   const allSet = loaded && count.answered >= count.total;
   return (
-    <StepActions ref={ref} pinnedOnDesktop>
+    <StepActions ref={ref}>
       {loaded && (
         <div
           key={count.answered}

@@ -49,7 +49,7 @@ import {
   type PlanStep,
 } from './prep-plan';
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
-import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useIsDesktop, useMeasuredHeight } from './prep-ui';
+import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight } from './prep-ui';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
 
 // ─── page: access + data ───────────────────────────────────────────────────────────────
@@ -231,7 +231,6 @@ function PrepFlow({
   useEffect(() => { writeShown(event.id, viewerId, shownIds); }, [event.id, viewerId, shownIds]);
   const [headerRef, headerHeight] = useMeasuredHeight();
   const [barRef, barHeight] = useMeasuredHeight();
-  const isDesktop = useIsDesktop();
 
   const places = event.researchPlaces ?? 6;
   useEffect(() => {
@@ -444,11 +443,8 @@ function PrepFlow({
     if (ok) setMicSetup(value);
   };
 
-  // Phones reserve the pinned action bar's height; desktop has the actions in the page.
-  // Statements and video steps pin their bar at every width (founder UAT 2026-10-04): the
-  // progress and Play/Continue stay in view while the cards or the transcript scroll.
-  const barPinned = !isDesktop || screen === 'cmp7' || screen === 'stake' || screen === 'welcome' || screen === 'story' || (screen === 'principle' && !principleIntroDone);
-  const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Every step pins its bar at every width (founder UAT 2026-10-05): the actions stay in one place.
+  const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;
@@ -468,7 +464,7 @@ function PrepFlow({
   );
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
-    <StepActions ref={barRef} pinnedOnDesktop>
+    <StepActions ref={barRef}>
       {clipPlayed[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (

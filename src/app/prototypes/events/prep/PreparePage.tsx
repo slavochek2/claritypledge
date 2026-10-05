@@ -38,7 +38,7 @@ import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@
 import type { PointWithUserPosition, Profile } from '@/app/types';
 import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
-import { ActionRow, Clip, StatementsActions, StepActions, Title, useIsDesktop, useMeasuredHeight, type StatementsCount } from './prep-ui';
+import { ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight, type StatementsCount } from './prep-ui';
 import { loadTagPoints } from './use-prep-state';
 
 const PROGRESS_READ_TIMEOUT_MS = 6000;
@@ -201,7 +201,6 @@ function PrepareFlow({
   const [asker, setAsker] = useState<Profile | null>(null);
   const [headerRef, headerHeight] = useMeasuredHeight();
   const [barRef, barHeight] = useMeasuredHeight();
-  const isDesktop = useIsDesktop();
 
   // The end screen is a destination: ?done=1 brings the app menus back (immersive-letter-route.ts,
   // bottom-nav-routes.ts). Every other screen stays immersive.
@@ -259,13 +258,11 @@ function PrepareFlow({
   };
 
   const stepIndex = screen === 'list' || screen === 'end' ? -1 : STANDALONE_STEPS.indexOf(screen);
-  // Statements and video steps pin their bar at every width (founder UAT 2026-10-04): the
-  // progress and Play/Continue stay in view while the cards or the transcript scroll.
-  const barPinned = !isDesktop || isStatementsStep(screen) || screen === 'story' || (screen === 'principle' && !principleIntroDone);
-  const contentPadding = { paddingBottom: barPinned && barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Every step pins its bar at every width (founder UAT 2026-10-05): the actions stay in one place.
+  const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
 
   const videoBar = (clip: 'story' | 'principle', onContinue: (watched: boolean) => void) => (
-    <StepActions ref={barRef} pinnedOnDesktop>
+    <StepActions ref={barRef}>
       {played[clip] ? (
         <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
       ) : (
