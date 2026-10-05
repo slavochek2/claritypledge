@@ -2,7 +2,7 @@
  * @file p1337-host-walkthrough6.spec.ts
  * @description P1337 founder walkthrough 6, item 9 — the host panel: "−1 min" beside "+1 min", the
  * controls stay on screen on a phone, past rounds fold into one line, "Match on #tag" is stored
- * with the round, "Choose who sits" runs a showcase (everyone else watches), and a round with no
+ * with the round (picked from a dropdown of existing sets — walkthrough 7), "Choose who sits" runs a showcase (everyone else watches), and a round with no
  * swap at half time assigns no starter.
  */
 import { test, expect, type Page } from '@playwright/test';
@@ -56,7 +56,10 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
   test('"Choose who sits" runs a showcase: only the chosen are seated, the match tag is stored, the rest watch', async ({ page, browser }) => {
     await asHost(page);
     await openSettings(page);
-    await page.getByTestId('host-match-tag').fill('showcasetag');
+    // Walkthrough 7: a dropdown of existing sets, no typing.
+    const matchOn = page.getByTestId('host-match-tag');
+    await expect(matchOn.locator('option[value="understanding"]')).toHaveCount(1);
+    await matchOn.selectOption('understanding');
     await page.getByTestId('host-choose-toggle').check();
     await page.getByTestId('host-choose-person').filter({ hasText: 'Bo' }).click();
     await page.getByTestId('host-choose-person').filter({ hasText: 'Cid' }).click();
@@ -65,7 +68,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
 
     const r1 = await lastRound(event.id);
-    expect(r1).toMatchObject({ round_no: 1, match_tag: 'showcasetag', showcase: true });
+    expect(r1).toMatchObject({ round_no: 1, match_tag: 'understanding', showcase: true });
     const { data: seated } = await supabaseAdmin.from('event_round_seats').select('room_member_id').eq('round_id', r1.id);
     expect(seated).toHaveLength(2);
 
@@ -104,6 +107,15 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(past.locator('> summary')).toContainText('Past rounds');
     await expect(past.locator('> summary')).toContainText('1');
     await expect(past).not.toHaveAttribute('open', '');
+  });
+
+  test('"Match on" opens on the event\'s own set (walkthrough 7)', async ({ page }) => {
+    const tag = `w7match${Date.now().toString(36)}`;
+    expect((await supabaseAdmin.from('events').update({ statement_tag: tag }).eq('id', event.id)).error).toBeNull();
+    await asHost(page);
+    await openSettings(page);
+    await expect(page.getByTestId('host-match-tag')).toHaveValue(tag);
+    await expect(page.getByTestId('host-match-tag').locator('option:checked')).toContainText('(this event)');
   });
 
   test('on a phone the controls stay on screen while the room scrolls', async ({ page }) => {

@@ -13,3 +13,8 @@ const KNOWN_SETS: Record<string, string> = {
 export function setLabel(tag: string, fromPage?: Record<string, string> | null): string {
   return fromPage?.[tag] ?? KNOWN_SETS[tag] ?? `#${tag}`;
 }
+
+/** The sets named above — offered wherever a list of existing sets is shown (the host's "Match on"). */
+export function knownSetTags(): string[] {
+  return Object.keys(KNOWN_SETS);
+}

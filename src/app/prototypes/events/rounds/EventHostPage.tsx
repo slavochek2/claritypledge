@@ -86,6 +86,9 @@ import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds
 import { numericPositions, useTagPositions } from './use-tag-positions';
 import { PairBadge, RoleBadge } from './RoleBadge';
 import { SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
+import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
+import { knownSetTags, setLabel } from '@/lib/set-labels';
+import { eventTopic } from '../prep/prep-plan';
 
 const START_LOCK_MS = 10_000;
 /** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
@@ -787,6 +790,29 @@ function PeopleGroup({
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
+
+/**
+ * "Match on" (founder walkthrough 7): a choice among the sets that already exist — the event's own
+ * first (the default), then every event's topic and the fixed topic tags (P1401's list, so a new
+ * Clarity Night topic appears without anyone editing code), then the named sets. No typing.
+ */
+function useMatchTagOptions(eventTag: string | null | undefined): string[] {
+  const [topicTags, setTopicTags] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void getEventTopicTags().then(tags => {
+      if (!cancelled) setTopicTags(tags);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return useMemo(
+    () => [...new Set([eventTag, ...topicTags, ...FIXED_TOPIC_TAGS, ...knownSetTags()].filter((t): t is string => !!t))],
+    [eventTag, topicTags],
+  );
+}
+
 export function EventHostPage() {
   const { slug, event, loading } = useEventRoomAccess();
   const { user, session, sessionChecked } = useAuth();
@@ -806,6 +832,7 @@ export function EventHostPage() {
   const [transcribing, setTranscribing] = useState<Set<string>>(new Set());
   const { state, loaded, refresh } = useEventRounds(eventId);
   const [settings, setSettings] = useSettings(eventId);
+  const matchOptions = useMatchTagOptions(event?.statementTag);
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
   const [busy, setBusy] = useState<null | 'grouping' | 'saving'>(null);
@@ -1299,20 +1326,20 @@ export function EventHostPage() {
                 ))}
                 <label className="flex items-center gap-3 text-sm min-h-10">
                   <span className="shrink-0">Match on</span>
-                  <span className="flex min-w-0 flex-1 items-center rounded-md border border-border bg-background px-2">
-                    <span className="text-muted-foreground">#</span>
-                    <input
-                      type="text"
-                      inputMode="text"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-base md:text-sm outline-none"
-                      placeholder={event.statementTag ?? 'tag'}
-                      value={settings.matchTag}
-                      onChange={e => setSettings({ ...settings, matchTag: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 50) })}
-                      data-testid="host-match-tag"
-                    />
-                  </span>
+                  <select
+                    className="min-h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base md:text-sm"
+                    value={settings.matchTag.trim() || event.statementTag || ''}
+                    onChange={e => setSettings({ ...settings, matchTag: e.target.value === event.statementTag ? '' : e.target.value })}
+                    data-testid="host-match-tag"
+                  >
+                    {!event.statementTag && <option value="">Choose a set</option>}
+                    {/* A tag stored from before the list (or since removed from it) stays selectable. */}
+                    {[...new Set([...matchOptions, settings.matchTag.trim()].filter(Boolean))].map(tag => (
+                      <option key={tag} value={tag}>
+                        {tag === event.statementTag ? `${eventTopic(event.title)} (this event)` : setLabel(tag)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="flex items-center gap-3 text-sm min-h-10">
                   <input
