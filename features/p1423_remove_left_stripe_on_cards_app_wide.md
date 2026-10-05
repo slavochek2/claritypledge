@@ -1,0 +1,130 @@
+---
+status: week
+type: task
+rank: 21
+workstream: design-system
+created_date: '2026-10-05'
+tags: [design-system, cards, visual-consistency]
+disclosure: public
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: sonnet
+exec_effort: medium
+driver: heuristic
+depends_on: [p1389]
+---
+
+# P1423: Remove the coloured left stripe from cards, app-wide
+
+## Problem
+
+**Situation:** Cards across the app carry a 4px coloured left stripe: blue on public stories,
+letters and events and on the 0-10 rating card, slate on points, grey on private items and
+cancelled events. P1389 (the evening close) already removed it on its own screens — the 0-10 card
+gained an `accent` switch and its event cards are static — because on the reserve screen the
+stripe pulled the eye to the card instead of the question and the buttons.
+
+**Complication:** The rest of the app still has it, so the same card looks different inside and
+outside the close. The founder decided to remove it everywhere, as its own piece of work after
+P1389 ships.
+
+> Founder, P1389 round 7 (2026-10-05): "On the reserve screen the eye goes to the middle card, not
+> the bottom actions (maybe the blue left stripe)."
+> Founder, 2026-10-05, on doing it app-wide: "i think we can do b right now you make a spec and
+> drive it to completion as orchestrator — review of spec with opus, then development,
+> verification of all relevant screens, codex and opus and gemini reviews and fixing".
+
+**Question:** Which stripes are decoration or a redundant state signal (remove), and which are
+typography or structure that only looks similar (keep)?
+
+## Appetite
+
+Blast radius: medium — many card surfaces (feed, profile, point pages, letters, events, /live,
+the letter reading flow), but styling only. Reversibility: high — class changes, a git revert.
+Decision density: low — the founder decided to remove it; one scope line below needs confirming.
+
+## Solution
+
+Remove the left stripe from every **card** that uses it as decoration or as a second signal of a
+state the card already shows another way. Keep every left border that is **typography or
+structure**, which only shares the CSS.
+
+Classification of every `border-l-*` on main (2026-10-05, from reading each line — re-check against
+the branch base before building):
+
+| Surface | What the stripe says | Action |
+|---|---|---|
+| `shared/comprehension-rating-card.tsx` | decoration (blue) | remove; P1389's `accent` prop becomes the default-off, or the prop is deleted |
+| `prototypes/events/components/EventCard.tsx` | blue = live, grey = cancelled | remove; cancelled keeps its opacity and label |
+| `feed/feed-story-card.tsx`, `social/story-card-with-links.tsx`, `social/StoryCardDetail.tsx` | blue = public, grey = private | remove; private keeps its visibility icon and muted background |
+| `feed/feed-point-card.tsx`, `social/point-card-with-links.tsx`, `pages/point-detail-page.tsx:634` | slate = point, grey = private | remove (same) |
+| `feed/feed-skeleton.tsx` | placeholder of the above | remove, to match |
+| `partners/live-content-cards.tsx` (5), `partners/live-story-card-expanded.tsx` | blue = story, muted = point | remove |
+| `pages/profile-page-v2.tsx:1619, 1976` | blue = story, slate = point | remove |
+| `letters/sent-tab.tsx`, `letters/drafts-tab.tsx` | blue = public, grey = private | remove; visibility stays on the inline visibility icon |
+| `pages/design-private-page.tsx`, `pages/prototypes/new-live-prototype.tsx` | design demos of the above | remove, so the demo shows the real card |
+| `utils/linkify.ts`, `shared/story-video-quotes.tsx`, `pages/full-article-page.tsx:397`, `pages/landing-v2.tsx`, `pages/clarity-demo-page.tsx` | quotation (blockquote) | **keep** |
+| `pages/full-article-page.tsx:292, 312` | table of contents: current section | **keep** |
+| `shared/source-group.tsx`, `shared/agent-profile-disclosure.tsx`, `pages/point-detail-page.tsx:404` | grouping / indented detail | **keep** |
+| `pledge/pledge-card.tsx`, `pages/not-found-page.tsx`, `pages/landing-v4.tsx:847` | corner frame, CSS triangle, landing art | **keep** (not a card stripe) |
+
+Where a card's hover state coloured only the stripe side, hover moves to the whole border, as on
+cards that never had a stripe.
+
+[FOUNDER DECISION: scope — "remove everywhere" read as every row marked *remove* above, including
+the public/private colour on stories, points and letters (private stays visible through its icon
+and muted background). If any of those colours should stay, name it.]
+
+## Invariants
+
+- **Private must stay visible without the stripe.** decisions.md (`CardMenu` entry) records that
+  list-card focus leaves the left border alone "so the `border-l-4` accent (amber = private) keeps
+  its meaning". With the stripe gone, every private story, point and letter card must still show
+  its visibility icon and its muted background, in list and detail views. Grep and screenshot,
+  never assume.
+- **`/live` keeps passing its two-party e2e.** decisions.md (P852 entry): a global restyle of
+  `ComprehensionRatingCard` "would change `/live` and trip its two-party E2E guard". Run those
+  specs; fix the code, not the test, if a selector depended on the stripe.
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| A private card becomes indistinguishable from a public one | MITIGATE | Invariant 1: screenshot a private story, point and letter in list and detail |
+| A test or selector keys on a stripe class | MITIGATE | grep `border-l-` in `src/tests` and `e2e` first; update only selectors, never assertions about meaning |
+| Cards look flat without the stripe | ACCEPT | The founder's intent; the visual reviewer judges consistency, not the absence itself |
+| P1389 not shipped yet, so the base lacks its `accent` prop and static EventCard | DEFER | Build on main after P1389 ships (`depends_on`) |
+
+**Non-Goals**
+- Do NOT change quotations, the article table of contents, grouping lines or decorative art (the
+  *keep* rows).
+- Do NOT redesign cards (padding, shadows, radius, type) beyond what removing the stripe forces.
+- Do NOT add a new private/public marker; the existing icon and background are the signal.
+
+## Done-When
+
+- [ ] No card in the *remove* rows renders a coloured left stripe — screenshots at 375, 320 and
+      desktop of: feed (story, point, skeleton), a story page, a point page, a profile, letters
+      sent and drafts, events list (live and cancelled), the 0-10 rating card in a letter and on
+      /meet, /live content cards
+- [ ] Every *keep* row renders unchanged (article quote and table of contents, a story's video
+      quotes, a source group)
+- [ ] A private story, point and letter is still visibly private in list and detail views
+- [ ] Unit tests and the touched surfaces' e2e pass, including /live's two-party specs
+- [ ] Opus visual review (screenshots only), Codex code review and Gemini review run, each finding
+      verified against the code, fixed or answered
+
+## Alternatives Considered
+
+- **Only the two surfaces the founder named (0-10 card, event cards).** Rejected: the founder
+  chose app-wide, and leaving the stripe on stories and points keeps the inconsistency P1389
+  exposed.
+- **A shared `accent` prop on every card, off by default.** Rejected: a switch nobody turns on is
+  dead code; delete the classes instead.
+
+## Related
+
+- P1389 (the evening close) — removed the stripe locally; this spec makes it app-wide.
+- decisions.md: `CardMenu` focus/hover entry (amber = private accent); P852 entry
+  (ComprehensionRatingCard restyle vs /live's two-party guard).
