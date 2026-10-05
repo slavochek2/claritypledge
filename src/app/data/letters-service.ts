@@ -1603,10 +1603,14 @@ export async function resolveLetterShortcode(
   code: string,
   senderSlug: string
 ): Promise<string | null> {
-  const { data } = await supabase.rpc('resolve_letter_shortcode', {
+  const { data, error } = await supabase.rpc('resolve_letter_shortcode', {
     p_code: code,
     p_sender_slug: senderSlug,
   });
+  if (error) {
+    logDbError('resolveLetterShortcode', error);
+    return null;
+  }
   return data ?? null;
 }
 

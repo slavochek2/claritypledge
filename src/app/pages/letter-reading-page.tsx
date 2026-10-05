@@ -17,6 +17,7 @@ import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { logDbError } from '../data/db-error-logger';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
 import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
@@ -679,16 +680,28 @@ export function LetterReadingPage() {
     if (viewState !== 'cover') return;
 
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('accepted_terms_version')
-        .eq('id', currentUser.id)
-        .single();
-      const current = data?.accepted_terms_version;
-      if (!current || !(ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(current)) {
-        setShowStaleTerms(true);
-      } else {
-        setStaleTermsResolved(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('accepted_terms_version')
+          .eq('id', currentUser.id)
+          .single();
+        if (error) {
+          // Unknown terms state: don't auto-open the modal; the click-time
+          // gate on "Open letter" still applies (staleTermsResolved stays false).
+          logDbError('letter-reading stale-terms check', error);
+          return;
+        }
+        const current = data?.accepted_terms_version;
+        if (!current || !(ACCEPTED_TERMS_VERSIONS as readonly string[]).includes(current)) {
+          setShowStaleTerms(true);
+        } else {
+          setStaleTermsResolved(true);
+        }
+      } catch (err) {
+        // supabase-js resolves query failures as { error }, so a throw here is
+        // not expected; log it and leave the click-time gate in charge.
+        console.error('[letter-reading] Stale terms check threw:', err);
       }
     })();
   }, [currentUser, letter, viewState, staleTermsResolved]);
