@@ -244,6 +244,11 @@ export function SettingsPage() {
             avatarColor={user.avatarColor}
             avatarProvider={user.avatarProvider}
             isPledger={!!user.hasPledged}
+            googleAvatarUrl={
+              typeof session.user.user_metadata?.picture === "string"
+                ? session.user.user_metadata.picture
+                : undefined
+            }
             onChanged={refreshProfile}
           />
         )}

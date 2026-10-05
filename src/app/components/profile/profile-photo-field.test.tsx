@@ -19,9 +19,9 @@ const png = new File(['x'], 'me.png', { type: 'image/png' });
 
 const OLD = 'https://x.supabase.co/storage/v1/object/public/avatars/u1/old.webp';
 
-function setup(provider?: string, avatarUrl?: string) {
+function setup(provider?: string, avatarUrl?: string, googleAvatarUrl?: string) {
   const onChanged = vi.fn();
-  render(<ProfilePhotoField userId="u1" name="Ann Lee" avatarUrl={avatarUrl} avatarProvider={provider} isPledger={false} onChanged={onChanged} />);
+  render(<ProfilePhotoField userId="u1" name="Ann Lee" avatarUrl={avatarUrl} avatarProvider={provider} isPledger={false} googleAvatarUrl={googleAvatarUrl} onChanged={onChanged} />);
   return { onChanged, input: screen.getByTestId('photo-input') };
 }
 
@@ -82,5 +82,14 @@ describe('P1418 ProfilePhotoField', () => {
     expect(removeAvatarAt).toHaveBeenCalledWith('u1', 'https://cdn/u1/1.webp');
     expect(removeAvatarAt).not.toHaveBeenCalledWith('u1', OLD);
     expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it('Remove for a Google user goes straight back to the Google picture', async () => {
+    const GOOGLE = 'https://lh3.googleusercontent.com/a/pic';
+    const { onChanged } = setup('upload', OLD, GOOGLE);
+    fireEvent.click(screen.getByRole('button', { name: PHOTO_COPY.remove }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(updateProfile).toHaveBeenCalledWith('u1', { avatar_url: GOOGLE, avatar_provider: 'google' });
+    expect(removeAvatarAt).toHaveBeenCalledWith('u1', OLD);
   });
 });

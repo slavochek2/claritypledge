@@ -37,7 +37,7 @@ Blast radius: one flow (profile avatar), but rendered on ~30 surfaces that all r
 2. **Client-side resize:** before upload, centre-crop to a square and re-encode to WebP at 512 px using a canvas. That keeps files small and removes EXIF/GPS metadata as a side effect.
 3. **Profile write:** `avatar_url` = public URL, `avatar_provider = 'upload'` (new CHECK value + TS union).
 4. **Sticky across Google login:** in `AuthCallbackPage`, when the existing `avatarProvider === 'upload'`, keep it. Google sync applies only to non-upload avatars.
-5. **Remove:** clears the upload. Google users go back to their Google picture on the next sign-in. Until then, and for email users, initials show (`avatar_url = null`, provider `generated`). Order: write the profile first, then delete only the one photo being replaced (never sweep the folder; delete errors leave a harmless orphan). If the save fails, the just-uploaded file is deleted. After a write, call `refreshProfile()` so the header updates without a reload.
+5. **Remove:** clears the upload. Google users go straight back to their Google picture (taken from the current sign-in session, provider `google`); email users get initials (`avatar_url = null`, provider `generated`). Founder, 2026-10-05: "if I remove my photo, but I logged in with Google, then should it go back, fall back on the Google?" Order: write the profile first, then delete only the one photo being replaced (never sweep the folder; delete errors leave a harmless orphan). If the save fails, the just-uploaded file is deleted. After a write, call `refreshProfile()` so the header updates without a reload.
 6. **Settings UI:** a "Photo" row at the top of Settings with the current avatar, **Upload photo** (or **Change** when a photo is set) and **Remove** (shown only for uploads). A hidden file input accepting JPG, PNG, WebP and HEIC, and an inline error line.
 
 ## UI Contract (copy, short and clear)
@@ -69,7 +69,7 @@ Blast radius: one flow (profile avatar), but rendered on ~30 surfaces that all r
 
 - [x] Email/password user: Settings → Upload photo → photo shows in Settings, header and own profile page after reload
 - [x] Google user: upload a photo, sign out, sign in with Google → uploaded photo still shown — verified by unit test on the sign-in rule (`resolve-avatar-fields.test.ts`, mutation-checked); real Google OAuth cannot run in e2e. `[post-deploy]` founder re-checks with a real Google account.
-- [x] Remove → initials (email user) / no uploaded photo (Google user); old file deleted from bucket
+- [x] Remove → initials (email user) / Google picture straight away (Google user, unit test); old file deleted from bucket
 - [x] Non-image or failed upload shows the one-line error; nothing else changes
 - [x] Storage RLS: upload to another user's folder is refused (test)
 - [x] Settings photo row looks right at 375, 320 and desktop

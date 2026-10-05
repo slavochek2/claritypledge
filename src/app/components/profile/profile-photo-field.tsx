@@ -18,6 +18,8 @@ interface ProfilePhotoFieldProps {
   avatarColor?: string;
   avatarProvider?: string;
   isPledger: boolean;
+  /** The signed-in user's Google picture, if they use Google sign-in. Remove falls back to it. */
+  googleAvatarUrl?: string;
   onChanged: () => Promise<void> | void;
 }
 
@@ -28,6 +30,7 @@ export function ProfilePhotoField({
   avatarColor,
   avatarProvider,
   isPledger,
+  googleAvatarUrl,
   onChanged,
 }: ProfilePhotoFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -77,10 +80,13 @@ export function ProfilePhotoField({
     setBusy(true);
     const previousUrl = avatarUrl;
     try {
-      const { error: saveError } = await updateProfile(userId, {
-        avatar_url: null,
-        avatar_provider: "generated",
-      });
+      // Google users go straight back to their Google picture; everyone else to initials.
+      const { error: saveError } = await updateProfile(
+        userId,
+        googleAvatarUrl
+          ? { avatar_url: googleAvatarUrl, avatar_provider: "google" }
+          : { avatar_url: null, avatar_provider: "generated" },
+      );
       if (saveError) throw saveError;
       await removeAvatarAt(userId, previousUrl);
       await onChanged();
