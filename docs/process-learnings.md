@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 120
+**Next ID:** 121
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2037,5 +2037,16 @@ Slot w10 maps to dev/e2e port 6000 (5000 + slot*100), which Chrome refuses as ER
 **due:** week
 
 git-ops.sh ship --resume cherry-picks only the commits recorded when the journal was first written; a commit added to the branch afterwards is silently dropped while the branch and worktree are deleted (P1418, 2026-10-05). Make resume refuse or re-plan when the branch tip differs from the journal's last source commit. Droppable once that check exists.
+
+---
+
+## Follow-ups from the 2026-10-05 bug batch (P1415-P1422)
+
+**ID:** INBOX-120
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+(1) Server-enforced position write ordering, a client sequence plus conditional upsert/delete, closes the P1420 accepted limits. (2) /feed overflows horizontally at 320px (header and Stories/Points+Sort row; pre-existing, noted in P1415). (3) e2e p1364 "tab or sort change then Back" targets a removed sort button, and search-then-Back sees offline-stake prefetch reads while typing. (4) next-p-number.sh gave the same number to parallel agents whose specs were still only in worktrees (P1420 and P1421 collided); reserve numbers in a ledger. (5) P1417 skill text edits for re-create-event abort and publish-run 8b (drafts in the P1417 spec) and P1419 hike banners on GCS still full size. Drop any item already covered by a spec.
 
 ---
