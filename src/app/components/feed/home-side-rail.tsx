@@ -53,7 +53,15 @@ function useHomeHighlights() {
     let cancelled = false;
     // P1407: through the offline cache, like the feed — offline shows the last-seen copy.
     const r = homeRead();
-    readThrough(r.type, r.id, r.fetch)
+    readThrough(r.type, r.id, r.fetch, {
+      // P1337: a saved copy shown only because the network was slow is replaced by the read's own
+      // late answer when it comes.
+      onLate: (late) => {
+        if (cancelled || !late) return;
+        setData(late);
+        setFromCache(false);
+      },
+    })
       .then((read) => {
         if (cancelled) return;
         if (read.source === "offline" || !read.data) setData("error");

@@ -97,7 +97,7 @@ describe('P1401 — next events and groups at every width', () => {
     expect(r.indexOf('{nextEventsLabel(events)}<')).toBeLessThan(r.indexOf('>Groups<'));
   });
   it('P1407: read through the offline cache; started events dropped at render, not only at fetch', () => {
-    expect(rail).toMatch(/readThrough\(r\.type, r\.id, r\.fetch\)/);
+    expect(rail).toMatch(/readThrough\(r\.type, r\.id, r\.fetch[,)]/); // P1337: options (onLate) may follow
     const hook = rail.slice(rail.indexOf('function useHomeHighlights'), rail.indexOf('function EventsList'));
     expect(hook).toMatch(/new Date\(e\.datetime\)\.getTime\(\) > now/);
     expect(read('src/app/data/offline-reads.ts')).not.toMatch(/getTime\(\) > now/);

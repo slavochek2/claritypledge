@@ -294,7 +294,7 @@ export function ComparePage() {
   const addYours = activeTag && !backTo && (
     <Link
       to={`/stake/${encodeURIComponent(activeTag)}`}
-      className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white hover:bg-blue-600"
+      className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white hover:bg-blue-700"
       data-testid="compare-add-yours"
     >
       Add yours
