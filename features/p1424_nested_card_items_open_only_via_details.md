@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 22
 workstream: growth
@@ -104,21 +104,36 @@ opt-in prop that both of its callers (feed story card, profile `StoryCardFull`) 
 
 ## Acceptance Criteria
 
-- [ ] At 375px on `/feed`, tapping the body (text, padding, pin icon) of a quoted point under a
+- [x] At 375px on `/feed`, tapping the body (text, padding, pin icon) of a quoted point under a
       story card does not leave the page. The same holds for a linked story under a point card,
-      on `/feed`, `/stake/:tag` and both profile tabs.
-- [ ] Tapping a nested item's `Details →` opens that point or story, and Back returns to the
-      list with P1364 return state intact.
-- [ ] Position buttons inside a nested point still record a position, and tapping them never
-      navigates.
-- [ ] Author name, `...more`, video play and timecodes inside a nested item behave as before.
-- [ ] A keyboard user can Tab to a nested `Details →` and press Enter to open it. The nested box
-      itself is not a tab stop.
-- [ ] On `/prepare` (embedded stake), tapping a nested story's body does nothing, and its
-      `Details →` opens the story in a new tab (P1336).
-- [ ] Non-goal guard: on `/point/:id?embed=true`, linked stories still open on tap. On
-      `/story/:id`, quoted points still open on tap.
-- [ ] The nested box has no pointer cursor or hover highlight.
+      on `/feed`, `/stake/:tag` and both profile tabs. Real taps at 375 on `/stake` (both card
+      types) and both profile tabs, using seeded data (e2e `p1424-nested-details-only`, 5/5).
+      `/feed` renders the same two components, which unit tests cover.
+- [x] Tapping a nested item's `Details →` opens that point or story, and Back returns to the
+      list with P1364 return state intact. The e2e covers all four surfaces: the detail URL
+      opens, then `goBack()` lands on the list with the nested item still expanded.
+- [x] Position buttons inside a nested point still record a position, and tapping them never
+      navigates. Unit test: "Agree" makes the write `('qp-1', 'viewer-1', 'agree')` with zero
+      navigations.
+- [x] Author name and `...more` inside a nested item behave as before (unit tests). Video play
+      and timecodes are not separately exercised. Their wrappers in the diff are unchanged, and
+      they now sit inside a box that has no click handler to escape.
+- [x] A keyboard user can Tab to a nested `Details →` and press Enter to open it. The nested box
+      itself is not a tab stop. Unit test with real `user.tab()` presses, asserting focus never
+      lands on the box, then Enter, then exactly one navigation.
+- [x] On `/prepare` (embedded stake), tapping a nested story's body does nothing, and its
+      `Details →` opens the story in a new tab (P1336). Verified at component level:
+      `FeedPointCard` inside `LinksInNewTabContext` calls `window.open(path, '_blank', …)`, and a
+      nested point under a story card does too (review fix). Not walked live: `/prepare` shows the
+      embedded stake only after its intro steps.
+- [x] Non-goal guard: on `/point/:id?embed=true`, linked stories still open on tap. Integration
+      test through the real `PointCardWithLinks` on an `?embed=true` route: the box keeps
+      `role="button"`, has no nested Details, and a tap opens the story. On `/story/:id` quoted
+      points still open on tap, because the diff does not touch `story-card-with-links.tsx` or
+      `StoryCardDetail.tsx`. The browser guard is `test.fixme`: on main, the embed's "Expand
+      linked stories" renders no story (filed in the task inbox).
+- [x] The nested box has no pointer cursor or hover highlight. Unit tests check the classes, and
+      the e2e checks the computed `cursor` at 375.
 
 ## UI Contract
 
@@ -148,3 +163,29 @@ opt-in prop that both of its callers (feed story card, profile `StoryCardFull`) 
   on was re-checked by grep.
 - Prototype: `/tree/nested-tap` (worktree `.claude/worktrees/nested-tap`, branch
   `proto/nested-tap-lab`, uncommitted, throwaway).
+
+## Review round (2026-10-06)
+
+Adversarial reviews: 3 of 3 reported (Opus: no HIGH; Codex: REQUEST CHANGES, no HIGH;
+Gemini: 1 HIGH). The separate visual-QA agent reported FAIL on items that were already like that
+on main, plus design notes. Applied:
+- A nested point's `Details →` now goes through `useOpenPath`, so it respects a new-tab host.
+  Gemini rated this HIGH and Codex MEDIUM, and Codex reproduced it with a test. It was not live
+  on `/prepare`, which is points-only. The control test fails with the old `navigate` path.
+- The nested story's `Details →` is described by "Story by {author}", as the card-level button
+  is. Before, it pointed at the text `<p>`, which is empty for a media-only story.
+- Tests strengthened: the position write with the exact payload; real Tab presses; exactly one
+  navigation on the story Details; an embed integration test through the real
+  `PointCardWithLinks`; `...more`; Back with return state in the e2e.
+
+Accepted:
+- Repeated "Details for this point" names. This is the same pattern P1415 shipped for the card
+  button, and the description tells them apart.
+- Keydown propagation from the nested button. No outer key handler remains, which Opus checked
+  by grep.
+
+Already on main, not this change:
+- The 320px story-card meta row wrapping.
+- The stance badge wrapping, which is by design (P1270).
+- Two failing `p1366-card-footer-layout` cases. They fail identically on main at the base commit.
+
