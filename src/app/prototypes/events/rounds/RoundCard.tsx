@@ -200,9 +200,9 @@ export function RoundCard({
     // The event's own set reads as the event's topic on the compare page (founder walkthrough 6).
     setLabels: statementTag && eventTitle ? { [statementTag]: eventTopic(eventTitle) } : undefined,
   };
-  const compareHref = (slug: string, extra = '') => {
+  const compareHref = (slug: string, extra = '', tag: string | null | undefined = roundTag) => {
     const params = new URLSearchParams(extra);
-    if (roundTag) params.set('tag', roundTag);
+    if (tag) params.set('tag', tag);
     const q = params.toString();
     return `/compare/${slug}${q ? `?${q}` : ''}`;
   };
@@ -227,7 +227,7 @@ export function RoundCard({
                 return m?.profileSlug ? (
                   <Link
                     key={s.id}
-                    to={compareHref(m.profileSlug)}
+                    to={compareHref(m.profileSlug, "", r.matchTag ?? statementTag)}
                     state={backState}
                     className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background py-1 pl-1 pr-2 hover:border-blue-300"
                     data-testid="round-past-mate"
@@ -399,6 +399,7 @@ export function RoundCard({
                       me={asPerson(leftMember)}
                       them={asPerson(rightMember)}
                       meInFirstPerson={isPairSpeaker}
+                      compact
                       trailing={<TopicMark marked={row.pointId === mark} onToggle={() => void onMark(row.pointId)} />}
                     />
                   ))}

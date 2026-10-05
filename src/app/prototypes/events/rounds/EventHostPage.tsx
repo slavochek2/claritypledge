@@ -91,7 +91,10 @@ const START_LOCK_MS = 10_000;
 /** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
  * Grouping…" while the venue network dropped). The page then asks whether it landed anyway. */
 const SAVE_DEADLINE_MS = 15_000;
-/** The follow-up reads (did it land? the fresh board) get their own, shorter bound. */
+/** The write itself; the "did it land?" check gets what is left of SAVE_DEADLINE_MS (Codex review:
+ * the whole interaction, not one request, is what must end within 15 s). */
+const WRITE_DEADLINE_MS = 10_000;
+/** The fresh board after a save; it never holds the button. */
 const CHECK_DEADLINE_MS = 6_000;
 
 function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
@@ -946,17 +949,19 @@ export function EventHostPage() {
       setBusy('saving');
       setError(null);
       const save = new AbortController();
-      const timer = setTimeout(() => save.abort(), SAVE_DEADLINE_MS);
+      const startedAt = Date.now();
+      const timer = setTimeout(() => save.abort(), WRITE_DEADLINE_MS);
       let saved = false;
       try {
         // Let the busy label paint before the (synchronous, up to ~2s on a phone) search runs.
         await new Promise(resolve => setTimeout(resolve, 30));
-        await withDeadline(write(save.signal), SAVE_DEADLINE_MS);
+        await withDeadline(write(save.signal), WRITE_DEADLINE_MS);
         saved = true;
       } catch {
         if (landed) {
           const check = new AbortController();
-          saved = await withDeadline(landed(check.signal), CHECK_DEADLINE_MS).catch(() => {
+          const left = Math.max(1_000, SAVE_DEADLINE_MS - (Date.now() - startedAt));
+          saved = await withDeadline(landed(check.signal), left).catch(() => {
             check.abort();
             return false;
           });
@@ -966,9 +971,9 @@ export function EventHostPage() {
         clearTimeout(timer);
         save.abort();
       }
-      // The board catches up on its next poll if this read is slow; it never holds the button.
-      if (saved) await withDeadline(refresh(), CHECK_DEADLINE_MS).catch(() => undefined);
       setBusy(null);
+      // The board catches up on its next poll if this read is slow; it never holds the button.
+      if (saved) void withDeadline(refresh(), CHECK_DEADLINE_MS).catch(() => undefined);
     },
     [refresh],
   );
@@ -1014,7 +1019,11 @@ export function EventHostPage() {
         setChosen(null);
         return id;
       },
-      signal => roundExists(event.id, roundNo, signal),
+      // A lost answer for a start that did land: the same reset (Codex review).
+      signal => roundExists(event.id, roundNo, signal).then(ok => {
+        if (ok) setChosen(null);
+        return ok;
+      }),
     );
   };
 
@@ -1150,7 +1159,7 @@ export function EventHostPage() {
           </p>
           {clock && timing && (
             <div className="mt-1 space-y-3">
-              <div className="flex items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
                 <div className="min-w-0">
                   <ClockNumber clock={clock} />
                   {clock.phase !== 'over' && (

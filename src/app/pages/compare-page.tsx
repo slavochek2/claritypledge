@@ -10,7 +10,7 @@
  *
  * Access: signed-in viewers only. Reached from "Compare with me" on a profile's Points tab.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
@@ -128,13 +128,18 @@ function useSeatNow(roundId: string | null, table: number | null) {
 
 function useTableTopic(roundId: string | null, table: number | null) {
   const [topic, setTopic] = useState<string | null>(null);
+  // Every tap takes a number; a poll that started before the latest tap never overwrites it, and
+  // only the latest tap's failure rolls back (Codex review: a slow poll reverted a fresh mark).
+  const writes = useRef(0);
   useEffect(() => {
     if (!roundId || table == null) return;
     let cancelled = false;
-    const read = () =>
-      getRoundTopic(roundId, table)
-        .then(t => { if (!cancelled) setTopic(t); })
+    const read = () => {
+      const before = writes.current;
+      return getRoundTopic(roundId, table)
+        .then(t => { if (!cancelled && writes.current === before) setTopic(t); })
         .catch(() => { /* keep */ });
+    };
     void read();
     const id = setInterval(read, ROUNDS_POLL_MS);
     return () => {
@@ -147,8 +152,11 @@ function useTableTopic(roundId: string | null, table: number | null) {
     if (!roundId || table == null) return;
     const next = topic === pointId ? null : pointId;
     const prev = topic;
+    const seq = ++writes.current;
     setTopic(next);
-    setRoundTopic(roundId, table, next).catch(() => setTopic(prev));
+    setRoundTopic(roundId, table, next).catch(() => {
+      if (writes.current === seq) setTopic(prev);
+    });
   };
   return { topic, toggle, active: !!roundId && table != null };
 }

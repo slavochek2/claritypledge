@@ -356,8 +356,11 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     await supabaseAdmin.from('event_rounds').update({ first_s: 90, started_at: new Date(Date.now() - (60 + 5) * 1000).toISOString() }).eq('id', id);
     expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
     expect((await read()).first_s).toBe(60);
+    // While it runs, someone at the table marks a topic; once it is over, nobody can (Codex review).
+    expect((await ca.rpc('set_round_topic', { p_round_id: id, p_table_no: 1, p_point_id: pointId })).error).toBeNull();
     // A finished round takes no minute off.
     expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
     expect((await h.rpc('host_shorten_round', { p_round_id: id })).error?.code).toBe('22023');
+    expect((await ca.rpc('set_round_topic', { p_round_id: id, p_table_no: 1, p_point_id: null })).error?.code).toBe('22023');
   });
 });
