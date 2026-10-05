@@ -227,7 +227,7 @@ async function runStartingSoon(
     try {
       const outcome = await dispatchStartingSoon(supabase, rsvp, now);
       if (outcome === 'sent') dispatched++;
-      else if (outcome === 'failed:mailgun' || outcome === 'error:db') errors++;
+      else if (outcome === 'failed:mailgun' || outcome === 'error:db' || outcome === 'error:writeback') errors++;
       console.log(`starting-soon rsvp ${rsvp.id}: ${outcome}`);
     } catch (err) {
       console.error(`starting-soon error for rsvp ${rsvp.id}:`, err);

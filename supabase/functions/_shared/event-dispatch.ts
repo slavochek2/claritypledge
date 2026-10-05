@@ -32,8 +32,11 @@ import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 // Tolerated delta between stored *_scheduled_at and expected time (spec security review).
 const MAX_TIME_DRIFT_MS = 30 * 60 * 1000; // 30 minutes
 
-// A PENDING row older than this is treated as stuck and retried.
-export const STUCK_PENDING_THRESHOLD_MS = 7 * 60 * 60 * 1000; // 7 hours
+// A PENDING claim older than this is treated as stuck and taken over (after the send-log check).
+// P1425: was 7h (P947, when the cron ran every 6h). With a 30-min cron a claim made within 7h of
+// its own deadline could never recover. A live claim lasts one function invocation — bounded by
+// the edge runtime's wall-clock limit, minutes at most — so 20 min cannot take over a live one.
+export const STUCK_PENDING_THRESHOLD_MS = 20 * 60 * 1000;
 
 /** Mailgun EU rejects an `o:deliverytime` further ahead than this. */
 export const DISPATCH_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -75,6 +78,7 @@ export type DispatchOutcome =
   | 'skipped:already-claimed'
   | 'skipped:already-sent' // a stuck claim whose send WAS recorded: id repaired, nothing re-sent
   | 'error:db' // the claim RPC or send-log read failed — counted as an error, never as a skip
+  | 'error:writeback' // SENT, but the id could not be stored; the stuck path repairs it from the log
   | 'error:threw';
 
 export function isStuckPending(attemptedAt: string | null, now: Date = new Date()): boolean {
@@ -91,7 +95,7 @@ function withinDrift(stored: string, expected: Date): boolean {
  * time is in (now, windowEnd] and it is unsent (or its claim is stuck). Pure.
  */
 export function dueKinds(
-  rsvp: Pick<RsvpRow, 'reminder_scheduled_at' | 'feedback_scheduled_at' | 'reminder_attempted_at' | 'feedback_attempted_at' | 'mailgun_message_ids'>,
+  rsvp: Omit<RsvpRow, 'id' | 'event_id' | 'profile_id' | 'profiles' | 'events'>,
   now: Date,
   windowEnd: Date = new Date(now.getTime() + DISPATCH_WINDOW_MS),
 ): { reminder: boolean; feedback: boolean } {
@@ -160,7 +164,7 @@ export async function dispatchReminder(
   // between claim and write-back, this matches nothing and the id is not stored: the old Mailgun
   // send fires at the old time (accepted race; P947 arch decision 5) and the new time re-queues on
   // the next tick. On a Mailgun failure the key is removed, so the next tick retries.
-  await writeBackMessage(supabase, rsvp.id, 'reminder', claim.token, { reminder: messageId ?? null });
+  const stored = await writeBackMessage(supabase, rsvp.id, 'reminder', claim.token, { reminder: messageId ?? null });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
@@ -170,7 +174,8 @@ export async function dispatchReminder(
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
 
-  return messageId ? 'sent' : 'failed:mailgun';
+  if (!messageId) return 'failed:mailgun';
+  return stored === 'error' ? 'error:writeback' : 'sent';
 }
 
 export async function dispatchFeedback(
@@ -222,7 +227,7 @@ export async function dispatchFeedback(
   const feedback = buildFeedback(event, profileData?.name);
   const messageId = await sendEmail({ to: email, ...feedback, from, deliverAt });
 
-  await writeBackMessage(supabase, rsvp.id, 'feedback', claim.token, { feedback: messageId ?? null });
+  const stored = await writeBackMessage(supabase, rsvp.id, 'feedback', claim.token, { feedback: messageId ?? null });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
@@ -232,7 +237,8 @@ export async function dispatchFeedback(
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
 
-  return messageId ? 'sent' : 'failed:mailgun';
+  if (!messageId) return 'failed:mailgun';
+  return stored === 'error' ? 'error:writeback' : 'sent';
 }
 
 function claimOutcome(status: 'held' | 'repaired' | 'error'): DispatchOutcome {
@@ -241,7 +247,7 @@ function claimOutcome(status: 'held' | 'repaired' | 'error'): DispatchOutcome {
 
 /** An outcome the cron counts as an error (P1425: a dead RPC must not read as a healthy skip). */
 export function isErrorOutcome(o: DispatchOutcome): boolean {
-  return o === 'failed:mailgun' || o === 'error:db' || o === 'error:threw';
+  return o === 'failed:mailgun' || o === 'error:db' || o === 'error:writeback' || o === 'error:threw';
 }
 
 /**

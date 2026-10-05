@@ -200,7 +200,11 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
     // P1425: the reminder and feedback were withdrawn too, and their ids were left stored — so after
     // an uncancel the cron (which only sends a kind whose id is absent) never sent them again.
     // Cleared per key against a fresh read; anything still scheduled at Mailgun is cancelled first.
-    await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal);
+    const cleared = await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal);
+    if (cleared !== 'ok') {
+      // The withdrawn ids are still stored, so the cron will NOT re-send these emails. Loud on purpose.
+      console.error(`uncancel: could not clear message ids for rsvp ${rsvp.id} (${cleared}) — reminders will not be re-sent`);
+    }
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -304,11 +308,15 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // read above — seconds old by now (cancels, the update email) — so a starting-soon id the cron
     // stored in between was erased and the email went out twice. An id that appeared since the
     // read is cancelled here; a starting-soon email for this exact start is kept.
-    await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal, {
+    const cleared = await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal, {
       keepStartingSoonFor: event.datetime,
       alreadyCancelled: new Set([reminderId, feedbackId, keepStartingSoon ? null : startingSoonId]
         .filter((x): x is string => isCancellableId(x))),
     });
+    if (cleared !== 'ok') {
+      // The cancelled ids are still stored, so the cron will NOT schedule replacements. Loud on purpose.
+      console.error(`update: could not clear message ids for rsvp ${rsvp.id} (${cleared}) — rescheduled emails will not go out`);
+    }
   }));
 }
 

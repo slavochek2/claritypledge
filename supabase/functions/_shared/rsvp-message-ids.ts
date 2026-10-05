@@ -68,8 +68,15 @@ export type ClaimResult =
   | { status: 'repaired' } // a stuck claim whose send WAS recorded: id restored, nothing to send
   | { status: 'error' };
 
-/** Clock skew allowance between the edge function (token) and the database (log created_at). */
-const LOG_SKEW_MS = 60 * 1000;
+/**
+ * A claim token: the claim time with random microseconds (timestamptz holds µs). Two overlapping
+ * cron invocations can capture the same millisecond; the random tail keeps their tokens distinct,
+ * so a late write-back cannot match a later claim that happened to start in the same ms.
+ */
+export function claimToken(now: Date): string {
+  const micros = String(crypto.getRandomValues(new Uint16Array(1))[0] % 1000).padStart(3, '0');
+  return now.toISOString().replace(/Z$/, `${micros}Z`);
+}
 
 /**
  * Claim one kind on one RSVP for sending. `current` and `attemptedAt` are what the caller read;
@@ -83,15 +90,15 @@ export async function claimMessage(
   attemptedAt: string | null,
   now: Date,
   stuckMs: number,
-  /** Extra keys to restore beside the id when a stuck claim is repaired from the send log. */
-  repairExtra: Patch = {},
+  /** Extra keys written with the claim and kept when a stuck claim is repaired (starting_soon_for). */
+  extra: Patch = {},
 ): Promise<ClaimResult> {
-  const token = now.toISOString();
+  const token = claimToken(now);
   const asClaim = (r: CasResult): ClaimResult =>
     r === 'ok' ? { status: 'claimed', token } : r === 'error' ? { status: 'error' } : { status: 'held' };
 
   if (current == null) {
-    return asClaim(await setMessageIds(supabase, rsvp.id, key, null, { [key]: 'PENDING' }, { attemptedAt: token }));
+    return asClaim(await setMessageIds(supabase, rsvp.id, key, null, { ...extra, [key]: 'PENDING' }, { attemptedAt: token }));
   }
   if (current !== 'PENDING') return { status: 'held' }; // a real id: already sent
 
@@ -99,8 +106,9 @@ export async function claimMessage(
   if (!stuck) return { status: 'held' };
 
   // Stuck. Did the claimer's send actually go out (its write-back failed, or it died after)?
+  // Only a send logged AFTER this claim counts: an earlier one belongs to a previous schedule (an
+  // edit cancelled it and cleared its id), and restoring it would block the replacement for good.
   if (attemptedAt && rsvp.profile_id) {
-    const since = new Date(new Date(attemptedAt).getTime() - LOG_SKEW_MS).toISOString();
     const { data: logged, error } = await supabase
       .from('email_send_log')
       .select('mailgun_message_id')
@@ -108,7 +116,7 @@ export async function claimMessage(
       .eq('profile_id', rsvp.profile_id)
       .eq('email_type', key)
       .eq('status', 'sent')
-      .gte('created_at', since)
+      .gt('created_at', attemptedAt)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -118,7 +126,7 @@ export async function claimMessage(
     }
     const loggedId = logged?.mailgun_message_id as string | null | undefined;
     if (loggedId) {
-      const r = await setMessageIds(supabase, rsvp.id, key, 'PENDING', { ...repairExtra, [key]: loggedId }, {
+      const r = await setMessageIds(supabase, rsvp.id, key, 'PENDING', { ...extra, [key]: loggedId }, {
         attemptedWas: attemptedAt,
       });
       return r === 'ok' ? { status: 'repaired' } : r === 'error' ? { status: 'error' } : { status: 'held' };
@@ -128,7 +136,7 @@ export async function claimMessage(
   // Not recorded as sent: take the claim over, but only if it is STILL that same stuck claim —
   // attempted_at must still be what we read, NULL included, so two overlapping ticks cannot both
   // take over one claim.
-  return asClaim(await setMessageIds(supabase, rsvp.id, key, 'PENDING', { [key]: 'PENDING' }, {
+  return asClaim(await setMessageIds(supabase, rsvp.id, key, 'PENDING', { ...extra, [key]: 'PENDING' }, {
     attemptedAt: token,
     attemptedWas: attemptedAt,
   }));
@@ -164,8 +172,10 @@ export async function writeBackMessage(
  * details, so it is handed to `cancel` before its key is cleared. Clearing also nulls the kind's
  * *_attempted_at, so an in-flight claimer's write-back (which must match its token) lands nowhere.
  *
- * `keepStartingSoonFor`: a starting-soon id scheduled for exactly this start is kept — an edit that
- * left the start alone must not send "starting in 15 minutes" twice (P1380).
+ * `keepStartingSoonFor`: a starting-soon email for exactly this start is kept — sent OR still being
+ * sent (the claim records `starting_soon_for` up front) — so an edit that left the start alone never
+ * sends "starting in 15 minutes" twice (P1380). Reminder/feedback are always rescheduled on an edit
+ * (their content carries the event details); a claim in flight at that moment is P947's accepted race.
  */
 export async function clearMessageIds(
   supabase: SupabaseClient,
@@ -190,16 +200,16 @@ export async function clearMessageIds(
     for (const kind of kinds) {
       const v = ids[kind];
       if (v == null) continue;
-      if (
-        kind === 'starting_soon' && opts.keepStartingSoonFor && v !== 'PENDING' &&
-        ids.starting_soon_for === opts.keepStartingSoonFor
-      ) continue;
+      if (kind === 'starting_soon' && opts.keepStartingSoonFor && ids.starting_soon_for === opts.keepStartingSoonFor) {
+        continue;
+      }
       if (v !== 'PENDING' && !cancelled.has(v)) {
         await cancel(v);
         cancelled.add(v);
       }
       const patch: Patch = kind === 'starting_soon' ? { starting_soon: null, starting_soon_for: null } : { [kind]: null };
-      const r = await setMessageIds(supabase, rsvpId, kind, v, patch, { attemptedAt: null });
+      let r = await setMessageIds(supabase, rsvpId, kind, v, patch, { attemptedAt: null });
+      if (r === 'error') r = await setMessageIds(supabase, rsvpId, kind, v, patch, { attemptedAt: null });
       if (r === 'error') return 'error';
       if (r === 'conflict') settled = false;
     }

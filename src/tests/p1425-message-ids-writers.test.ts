@@ -39,15 +39,64 @@ const COL = 'mailgun_message_ids';
 // A declaration's right-hand side is a type, not a value.
 const TYPE_RHS = /^(Record<|\{\s*\[|string\b|unknown\b|Json\b|any\b|null\s*\||Partial<)/;
 
-/** Blank out comments and string-literal contents, keeping offsets (so line numbers stay true). */
-export function stripCode(text: string): string {
-  return text.replace(
-    /\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g,
-    (m) => {
-      const blank = m.replace(/[^\n]/g, ' ');
-      return /^['"`]/.test(m) ? m[0] + blank.slice(1, -1) + m[m.length - 1] : blank;
-    },
-  );
+/**
+ * Blank out comments and string-literal text, keeping offsets (so line numbers stay true). Code
+ * inside a template literal's `${...}` is KEPT — it executes, so a write hidden there must be seen.
+ */
+export function stripCode(text: string, keepStrings = false): string {
+  const out = text.split('');
+  const blank = (i: number) => { if (out[i] !== '\n') out[i] = ' '; };
+  let i = 0;
+  const depth: number[] = []; // brace depth at which each open `${` resumes its template literal
+  let braces = 0;
+  const inTemplate = () => {
+    // scan template text until the closing backtick or a `${`
+    while (i < text.length) {
+      if (text[i] === '\\') { blank(i); blank(i + 1); i += 2; continue; }
+      if (text[i] === '`') { i++; return; }
+      if (text[i] === '$' && text[i + 1] === '{') { depth.push(braces); braces++; i += 2; return; }
+      blank(i); i++;
+    }
+  };
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '/' && text[i + 1] === '/') { while (i < text.length && text[i] !== '\n') blank(i++); continue; }
+    if (c === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      const stop = end < 0 ? text.length : end + 2;
+      while (i < stop) blank(i++);
+      continue;
+    }
+    if ((c === "'" || c === '"') && keepStrings) {
+      i++;
+      while (i < text.length && text[i] !== c && text[i] !== '\n') i += text[i] === '\\' ? 2 : 1;
+      i++;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      i++;
+      while (i < text.length && text[i] !== c && text[i] !== '\n') {
+        if (text[i] === '\\') { blank(i); i++; }
+        blank(i); i++;
+      }
+      i++;
+      continue;
+    }
+    if (c === '`' && keepStrings) {
+      i++;
+      while (i < text.length && text[i] !== '`') i += text[i] === '\\' ? 2 : 1;
+      i++;
+      continue;
+    }
+    if (c === '`') { i++; inTemplate(); continue; }
+    if (c === '{') braces++;
+    if (c === '}') {
+      braces--;
+      if (depth.length && braces === depth[depth.length - 1]) { depth.pop(); i++; inTemplate(); continue; }
+    }
+    i++;
+  }
+  return out.join('');
 }
 
 export interface Hit { file: string; line: number; text: string }
@@ -60,8 +109,14 @@ export function scanCode(file: string, text: string): Hit[] {
     const line = text.slice(0, index).split('\n').length;
     hits.push({ file, line, text: lines[line - 1].trim() });
   };
-  // quoted / computed key, or bracket assignment: { 'col': x }, { ['col']: x }, o['col'] = x
-  for (const m of text.matchAll(new RegExp(`['"\`]${COL}['"\`]\\s*\\]?\\s*(:|=(?!=))`, 'g'))) at(m.index!);
+  // the column's name as a whole string literal: a quoted/computed key ({ 'col': x }, { ['col']: x },
+  // o['col'] = x) or a constant that feeds one (const k = 'col'; { [k]: x }). Reads never need it
+  // alone — selects list several columns and filters address a key ('col->>reminder').
+  // A literal handed straight to .select( is a read.
+  const noComments = stripCode(text, true);
+  for (const m of noComments.matchAll(new RegExp(`(\\.select\\(\\s*)?['"\`]${COL}['"\`]`, 'g'))) {
+    if (!m[1]) at(m.index!);
+  }
   const code = stripCode(text);
   // object key (also across lines): { col: x }, { col\n : x } — unless the RHS is a type
   for (const m of code.matchAll(new RegExp(`\\b${COL}\\s*\\??\\s*:\\s*([^\\n]*)`, 'g'))) {
@@ -77,7 +132,7 @@ export function scanCode(file: string, text: string): Hit[] {
 /** A SQL assignment of the column (UPDATE ... SET col = ...). */
 export function scanSql(file: string, text: string): Hit[] {
   const sql = text.replace(/--[^\n]*/g, (m) => ' '.repeat(m.length));
-  return [...sql.matchAll(new RegExp(`\\b${COL}\\s*=(?!=)`, 'gi'))].map((m) => {
+  return [...sql.matchAll(new RegExp(`"?\\b${COL}"?\\s*=(?!=)`, 'gi'))].map((m) => {
     const line = sql.slice(0, m.index!).split('\n').length;
     return { file, line, text: text.split('\n')[line - 1].trim() };
   });
@@ -122,6 +177,9 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
     expect(inject('  const mailgun_message_ids = ids;\n  await supabase.from(\'event_rsvps\').update({ mailgun_message_ids });')).toBe(1);
     expect(inject('  payload.mailgun_message_ids = { ...ids };')).toBe(1);
     expect(inject("  payload['mailgun_message_ids'] = ids;")).toBe(1);
+    // review round 2 (Codex): a constant-fed computed key, and a write inside a template literal
+    expect(inject("  const key = 'mailgun_message_ids';\n  await supabase.from('event_rsvps').update({ [key]: ids });")).toBe(1);
+    expect(inject("  const r = `${await supabase.from('event_rsvps').update({ mailgun_message_ids: ids })}`;")).toBe(1);
   });
 
   it('control: reads, selects, filters and types are not flagged', () => {
@@ -131,10 +189,15 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
     expect(scanCode('x', '  mailgun_message_ids: Record<string, string> | null;')).toEqual([]);
     expect(scanCode('x', 'if (a.mailgun_message_ids == null) {}')).toEqual([]);
     expect(scanCode('x', '// mailgun_message_ids: { ...old }')).toEqual([]);
+    expect(scanCode('x', 'const SEL = `id, mailgun_message_ids, profiles(email)`;')).toEqual([]);
+    expect(scanCode('x', ".select('mailgun_message_ids')")).toEqual([]);
+    expect(scanCode('x', "/* see `mailgun_message_ids` */ // 'mailgun_message_ids'")).toEqual([]);
+    expect(scanCode('x', 'const q = `a ${x} b`; const o = { a: 1 }; f(o.mailgun_message_ids);')).toEqual([]);
   });
 
   it('control: a SQL UPDATE of the column in another migration is caught', () => {
     expect(scanSql('x.sql', "UPDATE public.event_rsvps SET mailgun_message_ids = '{}'::jsonb;")).toHaveLength(1);
+    expect(scanSql('x.sql', 'UPDATE public.event_rsvps SET "mailgun_message_ids" = \'{}\'::jsonb;')).toHaveLength(1);
     expect(scanSql('x.sql', "ALTER TABLE public.event_rsvps ADD COLUMN mailgun_message_ids JSONB;")).toHaveLength(0);
     expect(scanSql('x.sql', "-- SET mailgun_message_ids = x")).toHaveLength(0);
   });

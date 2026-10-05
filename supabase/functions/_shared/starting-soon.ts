@@ -45,7 +45,8 @@ export type StartingSoonOutcome =
   | 'skipped:not-eligible'
   | 'skipped:already-claimed'
   | 'skipped:already-sent' // P1425: a stuck claim whose send was recorded; id repaired, not re-sent
-  | 'error:db';
+  | 'error:db'
+  | 'error:writeback'; // P1425: sent, but the id could not be stored (the stuck path repairs it)
 
 /** Whether this row's event is one the email is for, right now. Pure — unit-tested. */
 export function startingSoonEligible(
@@ -91,7 +92,8 @@ export async function dispatchStartingSoon(
 
   // Atomic claim (P1425: per-key, with a claim token in starting_soon_attempted_at). A stuck
   // PENDING is taken over only if it is STILL the same stuck claim, and only after the send log
-  // shows its send never went out — otherwise its id is repaired and nothing is re-sent.
+  // shows its send never went out — otherwise its id is repaired and nothing is re-sent. The claim
+  // records starting_soon_for up front, so an edit that keeps the start keeps an in-flight claim.
   const claim = await claimMessage(
     supabase, rsvp, 'starting_soon', rsvp.mailgun_message_ids?.starting_soon,
     rsvp.starting_soon_attempted_at, now, STARTING_SOON_STUCK_MS, { starting_soon_for: event.datetime },
@@ -121,7 +123,7 @@ export async function dispatchStartingSoon(
   // to absent so the next tick retries while the event is still ahead.
   // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
   // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
-  await writeBackMessage(supabase, rsvp.id, 'starting_soon', claim.token, {
+  const stored = await writeBackMessage(supabase, rsvp.id, 'starting_soon', claim.token, {
     starting_soon: messageId ?? null,
     starting_soon_for: messageId ? event.datetime : null,
   });
@@ -134,7 +136,8 @@ export async function dispatchStartingSoon(
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
 
-  return messageId ? 'sent' : 'failed:mailgun';
+  if (!messageId) return 'failed:mailgun';
+  return stored === 'error' ? 'error:writeback' : 'sent';
 }
 
 export const STARTING_SOON_SELECT = `

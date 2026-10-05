@@ -143,11 +143,25 @@ Round 1 verdict: **Codex REJECT**. Every finding was re-checked against the code
 | Guard misses quoted / computed / shorthand / assignment / multi-line / SQL (all three) | guard rewritten; each form has a control injected into the real file |
 | Cancel → uncancel leaves reminder/feedback ids, so they are never re-sent (Opus sweep) — pre-existing | `handleUncancel` clears all kinds via `clearMessageIds` |
 
+Round 2 (Codex only — the reviewer that rejected): findings 2, 3, 6 CLOSED; 1, 4, 5, 7 partly OPEN
+plus new edge races. All re-checked and fixed:
+
+| Finding | Fix |
+|---|---|
+| F1 claim tokens are ms timestamps; two overlapping runs can share one | `claimToken()`: random µs tail (timestamptz holds µs) |
+| F2 a title-only edit clears an IN-FLIGHT starting-soon claim → second send | the claim records `starting_soon_for` up front; a same-start reset keeps it, PENDING or sent |
+| F3 7 h stuck threshold outlasts a late RSVP's dispatch window → never sent | threshold 20 min (cron is every 30 min; a live claim lasts one invocation) |
+| F4 write-back RPC failure still reported as a clean `sent` | `error:writeback` outcome, counted as an error |
+| F5 a failed reset is ignored → cancelled id blocks the replacement | reset retries an RPC error once; a remaining failure is logged loudly |
+| F6 log repair (60 s skew) could restore a PREVIOUS schedule's cancelled id | repair counts only sends logged strictly after this claim |
+| F7 guard misses a constant-fed computed key, code inside `${}`, quoted SQL identifier | scanner keeps template interpolations, flags the bare column-name literal, matches `"col" =` |
+
 Accepted, not changed: a reminder whose time already passed before any tick ran is not sent late
 (LOW, Opus). Before, it went out late only incidentally, for feedback-gated events via the feedback
 clause; the query never selected past reminders for other events. Residual: a stuck claim whose
-Mailgun send succeeded but whose send-log insert **also** failed can repeat once after 7h (10 min
-for starting-soon).
+Mailgun send succeeded but whose send-log insert **also** failed can repeat once after 20 min (10 min
+for starting-soon). A reminder/feedback claim in flight at the moment of an event edit is still
+P947's accepted race (the old-details email is not cancellable; the replacement goes out).
 
 Same-class bugs found elsewhere by the sweep, filed separately (different subsystems):
 [P1426](p1426_demo_flow_state_lost_update.md) (`/demo` state lost update, plus dead
@@ -164,14 +178,18 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   **31 passed, 0 failed** (live: incident shape, same-tick both kinds, CAS semantics, anon refused,
   claim token vs reset, stuck→repaired, stuck→taken over once, fresh claim left alone, reset
   helper, cancel→uncancel re-schedules; pure: dueKinds, RPC error → `error:db`).
+- After review round 2: **36 passed, 0 failed** (adds: claim tokens distinct within one ms,
+  same-start edit keeps an in-flight starting-soon claim, repair ignores a pre-claim send,
+  write-back failure → `error:writeback`).
 - After review round 1 (+ overlapping-takeover test): **32 passed, 0 failed**. One earlier run had a
   single unexplained failure — the CAS test's feedback write-back returned `conflict` in an 18 s run
   (normally 2 s); 3 isolated reruns and the full rerun passed. No test-DB cron exists and no other
   sends were logged, so neither is the cause. UNVERIFIED hypothesis: an HTTP-level retry of a CAS
   that had already applied. The test now prints the row state on a conflict so a recurrence names
   its cause.
-- Guard `src/tests/p1425-message-ids-writers.test.ts` → 7 passed; run against main's pre-fix files →
-  **fails with all 8 whole-object writes listed** (exit 1).
+- Guard `src/tests/p1425-message-ids-writers.test.ts` → 7 passed (after round-2 hardening); run against
+  main's pre-fix files → **fails with all 8 whole-object writes listed** (exit 1), re-checked after
+  each hardening.
 
 ## Pre-deploy Checklist
 
