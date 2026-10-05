@@ -164,6 +164,12 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   **31 passed, 0 failed** (live: incident shape, same-tick both kinds, CAS semantics, anon refused,
   claim token vs reset, stuck→repaired, stuck→taken over once, fresh claim left alone, reset
   helper, cancel→uncancel re-schedules; pure: dueKinds, RPC error → `error:db`).
+- After review round 1 (+ overlapping-takeover test): **32 passed, 0 failed**. One earlier run had a
+  single unexplained failure — the CAS test's feedback write-back returned `conflict` in an 18 s run
+  (normally 2 s); 3 isolated reruns and the full rerun passed. No test-DB cron exists and no other
+  sends were logged, so neither is the cause. UNVERIFIED hypothesis: an HTTP-level retry of a CAS
+  that had already applied. The test now prints the row state on a conflict so a recurrence names
+  its cause.
 - Guard `src/tests/p1425-message-ids-writers.test.ts` → 7 passed; run against main's pre-fix files →
   **fails with all 8 whole-object writes listed** (exit 1).
 

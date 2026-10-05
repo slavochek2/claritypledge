@@ -175,7 +175,12 @@ Deno.test({
       assertEquals(await setMessageIds(c, rsvpId, 'reminder', 'PENDING', { reminder: '<r>' }), 'ok');
       // A feedback claim made by a caller whose read predates the reminder id:
       assertEquals(await setMessageIds(c, rsvpId, 'feedback', null, { feedback: 'PENDING' }), 'ok');
-      assertEquals(await setMessageIds(c, rsvpId, 'feedback', 'PENDING', { feedback: null }), 'ok'); // Mailgun failed
+      const fbWrite = await setMessageIds(c, rsvpId, 'feedback', 'PENDING', { feedback: null }); // Mailgun failed
+      if (fbWrite !== 'ok') {
+        const { data } = await sb.from('event_rsvps').select('mailgun_message_ids, reminder_attempted_at, feedback_attempted_at').eq('id', rsvpId).single();
+        console.error('P1425 DIAG feedback write-back', fbWrite, JSON.stringify(data));
+      }
+      assertEquals(fbWrite, 'ok');
       assertEquals(await ids(sb, rsvpId), { reminder: '<r>' });
       // starting_soon set + cleared as a pair, siblings untouched
       assertEquals(await setMessageIds(c, rsvpId, 'starting_soon', null, { starting_soon: '<s>', starting_soon_for: 'x' }), 'ok');
@@ -281,6 +286,25 @@ Deno.test({
         assertEquals((await ids(sb, rsvpId)).reminder, '<p1425-1@stub>');
       });
     } finally { mg.restore(); }
+  },
+});
+
+Deno.test({
+  name: 'live: two overlapping takeovers of one stuck claim (attempted_at NULL) — only one wins',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId, eventId) => {
+      assertEquals(await setMessageIds(sb, rsvpId, 'reminder', null, { reminder: 'PENDING' }, { attemptedAt: null }), 'ok');
+      const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+      // both ticks read the same stuck state (PENDING, attempted_at NULL)
+      const [a, b] = await Promise.all([
+        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(), HOUR),
+        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(Date.now() + 1), HOUR),
+      ]);
+      assertEquals([a.status, b.status].filter((s) => s === 'claimed').length, 1);
+    });
   },
 });
 

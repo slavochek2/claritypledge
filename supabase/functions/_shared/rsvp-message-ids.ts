@@ -125,10 +125,12 @@ export async function claimMessage(
     }
   }
 
-  // Not recorded as sent: take the claim over, but only if it is STILL that same stuck claim.
+  // Not recorded as sent: take the claim over, but only if it is STILL that same stuck claim —
+  // attempted_at must still be what we read, NULL included, so two overlapping ticks cannot both
+  // take over one claim.
   return asClaim(await setMessageIds(supabase, rsvp.id, key, 'PENDING', { [key]: 'PENDING' }, {
     attemptedAt: token,
-    ...(attemptedAt ? { attemptedWas: attemptedAt } : {}),
+    attemptedWas: attemptedAt,
   }));
 }
 
