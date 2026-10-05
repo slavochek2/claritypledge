@@ -11,8 +11,8 @@
       "event-email-link": "dc692988995d3c640d1a58b451da64ac374da8d078bcd62fcf3ec343374de7c2",
       "explain-back-signed-url": "84583bb6269af9d7d9b74c4aa5305e76a91fbfc9f4d54e4af158222f706a12ad",
       "gcs-signed-url": "e1725288e4a472ebc2a80af3dff133bbb0a9a1982fab8ddb4049acb1886f76d2",
-      "generate-banner": "4a6f860d6a89a362c0007d79be461998987d2aa50f12a8080b551b428e034387",
-      "generate-event-banner": "d05ff142159cdc43b4cf6658bcb615be341044e03ae6a8913c993372ab60757d",
+      "generate-banner": "55c95013ff331c1b62adf329431f04126e91522592a29b899471644ce971cfdd",
+      "generate-event-banner": "54c09b6c5f707363f6ac04f50d3677c1ad38460bf0dbfe7ec194baeab9908198",
       "generate-story-image-url": "6cc90db497ed645a6caa9363cd3ce82511229d8291a6f32bf89b7928d37aeba6",
       "request-letter-response-signin": "45ecf2dd3366c4247014dc99e02e4f6c560350ef7e8561aa3d8877f3a458be25",
       "send-agreement-emails": "e9d6b6b12b029b7741c66efef7cc64499a614d4061b1522bc3d6c737920da3ae",
@@ -20,7 +20,7 @@
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
       "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-10-02T10:17:45Z",
+    "functions_deployed_at": "2026-10-05T13:30:50Z",
     "migrations": [
       "20250101",
       "20250117",
