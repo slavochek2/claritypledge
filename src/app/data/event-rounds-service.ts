@@ -157,8 +157,9 @@ export async function hostStartRound(
   seats: Seat[],
   minutes: RoundMinutes = DEFAULT_ROUND_MINUTES,
   splitSpeakers = true,
+  signal?: AbortSignal,
 ): Promise<string> {
-  const { data, error } = await supabase.rpc('host_start_round', {
+  const call = supabase.rpc('host_start_round', {
     p_event_id: eventId,
     p_round_no: roundNo,
     p_group_size: groupSize,
@@ -168,18 +169,34 @@ export async function hostStartRound(
     p_observer_s: minutes.observerS,
     p_split_speakers: splitSpeakers,
   });
+  const { data, error } = await (signal ? call.abortSignal(signal) : call);
   if (error) throw error;
   return data as string;
 }
 
+/** Whether round `roundNo` exists — asked when a start's answer was lost on the way back, to tell
+ * "the round started" from "nothing was saved". */
+export async function roundExists(eventId: string, roundNo: number, signal?: AbortSignal): Promise<boolean> {
+  const query = supabase.from('event_rounds').select('id').eq('event_id', eventId).eq('round_no', roundNo).limit(1);
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 /** "+1 min" on the running round: one more minute on the part running now. */
-export async function hostExtendRound(roundId: string, phase: 'seating' | 'first' | 'second' | 'observer'): Promise<void> {
-  const { error } = await supabase.rpc('host_extend_round', { p_round_id: roundId, p_phase: phase });
+export async function hostExtendRound(
+  roundId: string,
+  phase: 'seating' | 'first' | 'second' | 'observer',
+  signal?: AbortSignal,
+): Promise<void> {
+  const call = supabase.rpc('host_extend_round', { p_round_id: roundId, p_phase: phase });
+  const { error } = await (signal ? call.abortSignal(signal) : call);
   if (error) throw error;
 }
 
-export async function hostSetRoundSeats(roundId: string, seats: Seat[]): Promise<void> {
-  const { error } = await supabase.rpc('host_set_round_seats', { p_round_id: roundId, p_seats: toJsonSeats(seats) });
+export async function hostSetRoundSeats(roundId: string, seats: Seat[], signal?: AbortSignal): Promise<void> {
+  const call = supabase.rpc('host_set_round_seats', { p_round_id: roundId, p_seats: toJsonSeats(seats) });
+  const { error } = await (signal ? call.abortSignal(signal) : call);
   if (error) throw error;
 }
 

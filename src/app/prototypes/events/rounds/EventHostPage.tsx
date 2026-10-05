@@ -52,6 +52,7 @@ import {
   hostExtendRound,
   hostSetRoundPresence,
   hostSetRoundSeats,
+  roundExists,
   hostStartRound,
   DEFAULT_ROUND_MINUTES,
   type EventRound,
@@ -86,6 +87,21 @@ import { RoleBadge } from './RoleBadge';
 import { SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 
 const START_LOCK_MS = 10_000;
+/** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
+ * Grouping…" while the venue network dropped). The page then asks whether it landed anyway. */
+const SAVE_DEADLINE_MS = 15_000;
+/** The follow-up reads (did it land? the fresh board) get their own, shorter bound. */
+const CHECK_DEADLINE_MS = 6_000;
+
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('deadline')), ms);
+    work.then(
+      value => { clearTimeout(timer); resolve(value); },
+      err => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 const PREP_POLL_MS = 60_000;
 const TRANSCRIBING_POLL_MS = 15_000;
 const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
@@ -779,7 +795,7 @@ export function EventHostPage() {
   const [settings, setSettings] = useSettings(eventId);
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | 'grouping' | 'saving'>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => (eventId ? subscribeToRoomRoster(eventId, setRoster) : undefined), [eventId]);
@@ -908,20 +924,37 @@ export function EventHostPage() {
     [poolFor, historyBefore, gap, settings, eventId],
   );
 
+  // Every save is bounded: no answer within SAVE_DEADLINE_MS and the request is dropped. A lost
+  // answer is not a lost write, so `landed` (when given) asks the server whether it happened before
+  // the host is told "That didn't save".
   const run = useCallback(
-    async (write: () => Promise<unknown>) => {
-      setBusy(true);
+    async (write: (signal: AbortSignal) => Promise<unknown>, landed?: (signal: AbortSignal) => Promise<boolean>) => {
+      setBusy('saving');
       setError(null);
+      const save = new AbortController();
+      const timer = setTimeout(() => save.abort(), SAVE_DEADLINE_MS);
+      let saved = false;
       try {
-        // Let "Grouping…" paint before the (synchronous, up to ~2s on a phone) search runs.
+        // Let the busy label paint before the (synchronous, up to ~2s on a phone) search runs.
         await new Promise(resolve => setTimeout(resolve, 30));
-        await write();
-        await refresh();
+        await withDeadline(write(save.signal), SAVE_DEADLINE_MS);
+        saved = true;
       } catch {
-        setError('That didn’t save. Try again.');
+        if (landed) {
+          const check = new AbortController();
+          saved = await withDeadline(landed(check.signal), CHECK_DEADLINE_MS).catch(() => {
+            check.abort();
+            return false;
+          });
+        }
+        if (!saved) setError('That didn’t save. Try again.');
       } finally {
-        setBusy(false);
+        clearTimeout(timer);
+        save.abort();
       }
+      // The board catches up on its next poll if this read is slow; it never holds the button.
+      if (saved) await withDeadline(refresh(), CHECK_DEADLINE_MS).catch(() => undefined);
+      setBusy(null);
     },
     [refresh],
   );
@@ -949,14 +982,24 @@ export function EventHostPage() {
       setError('Waiting for at least two people in the room.');
       return;
     }
-    void run(() => hostStartRound(event.id, nextNo, settings.groupSize, compute(nextNo), settings.minutes, settings.splitSpeakers));
+    const roundNo = nextNo;
+    void run(
+      async signal => {
+        setBusy('grouping');
+        await new Promise(resolve => setTimeout(resolve, 30));
+        const grouped = compute(roundNo);
+        setBusy('saving');
+        return hostStartRound(event.id, roundNo, settings.groupSize, grouped, settings.minutes, settings.splitSpeakers, signal);
+      },
+      signal => roundExists(event.id, roundNo, signal),
+    );
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
     if (!round) return;
     const before = seats.map(({ id, table, role }) => ({ id, table, role }));
-    void run(async () => {
-      await hostSetRoundSeats(round.id, typeof next === 'function' ? next() : next);
+    void run(async signal => {
+      await hostSetRoundSeats(round.id, typeof next === 'function' ? next() : next, signal);
       setUndoStack(stack => [...stack, { roundId: round.id, seats: before, label }]);
     });
   };
@@ -984,8 +1027,8 @@ export function EventHostPage() {
   const undo = () => {
     const last = undoStack[undoStack.length - 1];
     if (!round || !last || last.roundId !== round.id) return;
-    void run(async () => {
-      await hostSetRoundSeats(round.id, last.seats);
+    void run(async signal => {
+      await hostSetRoundSeats(round.id, last.seats, signal);
       setUndoStack(stack => stack.slice(0, -1));
     });
   };
@@ -1010,7 +1053,7 @@ export function EventHostPage() {
   const extend = () => {
     if (!round || !clock || clock.phase === 'over') return;
     const phase = clock.phase;
-    void run(() => hostExtendRound(round.id, phase));
+    void run(signal => hostExtendRound(round.id, phase, signal));
   };
 
   const canSwap = (id: string) =>
@@ -1090,7 +1133,7 @@ export function EventHostPage() {
                     size="sm"
                     className="min-h-10 shrink-0"
                     onClick={extend}
-                    disabled={busy}
+                    disabled={!!busy}
                     data-testid="host-extend"
                   >
                     +1 min
@@ -1100,19 +1143,21 @@ export function EventHostPage() {
               <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
             </div>
           )}
-          {primary && justStarted && !busy && (
-            // The start lock: nothing to press for a few seconds rather than a greyed-out button.
-            <div className="mt-4 min-h-12" aria-hidden="true" />
+          {primary && justStarted && !busy && round && (
+            // The start lock: a few seconds with nothing to press, and the button's place says why.
+            <p className="mt-4 flex min-h-12 items-center justify-center text-base text-muted-foreground" data-testid="host-just-started">
+              Round {round.roundNo} started
+            </p>
           )}
           {primary && (!justStarted || busy) && (
             <Button
               type="button"
               className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
               onClick={primary.action}
-              disabled={busy || !loaded}
+              disabled={!!busy || !loaded}
               data-testid="host-primary"
             >
-              {busy ? 'Grouping…' : primary.label}
+              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
             </Button>
           )}
           {error && (
@@ -1231,7 +1276,7 @@ export function EventHostPage() {
                       variant="outline"
                       size="sm"
                       className="min-h-10"
-                      disabled={busy}
+                      disabled={!!busy}
                       onClick={() => commitSeats(seatLate(seats, waiting.map(m => m.id)), 'seat now')}
                       data-testid="host-seat-now"
                     >
@@ -1244,7 +1289,7 @@ export function EventHostPage() {
 
               {!lifted && round && undoStack.length > 0 && (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={busy} data-testid="host-undo">
+                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={!!busy} data-testid="host-undo">
                     <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
                   </Button>
                 </div>
