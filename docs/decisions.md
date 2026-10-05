@@ -157,6 +157,21 @@ in.
 **Context:** Two frictions in one P1389 session. (1) The visual reviewer flagged a 300-450px white band between question and buttons; the agent judged it acceptable under the round's rule and said nothing — the founder raised it again: *"did you examine visually? … i asked many times not sure i got any answer?"* (2) The agent recommended a CMP-step rule from the written evening programme; the founder: *"no this makes no sense … at end of event (not on projector) but on their own screen they open up /close."*
 **Decision (proposed):** Every reviewer finding the agent does not act on is listed to the founder with one line of why — never silently absorbed. Before a recommendation rests on a documented procedure (an event runbook, a programme), ask or state the assumption ("per the 2026-09-10 programme, the room re-stakes at the end — is that still how it runs?").
 **Consequences:** If adopted, add to the visual-qa rule's reporting step. Falsifier: the founder still re-asks about reviewer findings in the next two UAT rounds.
+## 2026-10-05 [technical]: Every statement list shows current versions by default; the feed's "Latest" switch is on by default (P1337) — revises 2026-09-30 (P1376)
+
+**Context:** Founder: future surfaces should show only the newest version of a reworded statement. P1376 had ruled surface by surface (stake heads-only, feed and profile keep history).
+**Decision:** One data-layer helper, `currentVersionsOnly` (`src/app/data/point-versions.ts`), filters `superseded_by IS NULL` inside the query. Every `.from('points')` uses it or carries a `// versions: <reason>` line; `src/tests/p1337-current-versions-guard.test.ts` fails otherwise. Standing exceptions: one statement by id/slug (an old version still opens, with P800's newer-version banner), writes, the version chain, positions that stay with the version they were given on (profile, badges), and the feed, whose "Latest" switch is now ON by default (`?version=all` turns it off; old `?version=latest` links land on the default) and hides points with `supersededBy` instead of grouping by st number (which merged st1 of two different sets).
+**Alternatives rejected:** (a) Filter after `.range()` — old rows sort first and empty the page (P1376). (b) Keep per-surface opt-in `headsOnly` — the next list forgets it.
+**Consequences:** A new list gets current versions without thinking; showing history needs a written reason. Sealed letters are snapshots and unaffected.
+**References:** [p1337](../features/p1337_event_journey_on_screen_steps_rotation_and_ending.md) · `src/app/data/point-versions.ts`
+
+## 2026-10-05 [technical]: Slow is not offline — a slow read keeps its saved copy as "Saved copy · updating…" and its own late answer replaces it (P1337)
+
+**Context:** Founder on a VPN saw "Offline · saved copy from 40 min ago" while the internet worked. A read past the 4 s deadline marked the app unreachable; its own late success could not clear that (it was sent before the mark), and the late answer was never shown.
+**Decision:** Deadline + saved copy + no failed request returns `{source:'cache', slow:true}` without marking unreachable; the same read's late, clean answer goes to the page via `readThrough(..., { onLate })` (null = not found, the copy is deleted). Unanswered 15 s from the read's start, or answered with a failure → unreachable, "Offline · saved copy from X". Pages report `slow` per copy; the strip says "updating" only when every copy is slow and nothing is failing. Guard: every `readThrough` call passes `onLate` or a `// late:` reason.
+**Alternatives rejected:** A shared store of late answers plus an app-wide re-read — rejected by all three reviewers (Codex, Opus, Gemini 3.8 Flash): it looped on a network that stays slow and showed old answers as live.
+**Consequences:** Copy "Saved copy · updating…" is the agent's wording, pending founder review.
+**References:** `src/lib/offline-read-cache.ts` · `src/tests/p1337-offline-slow-read.test.ts`
 
 ## 2026-10-05 [product]: Prep-video text is an edited reading version, not a verbatim transcript; every prep step pins its actions on desktop too
 
