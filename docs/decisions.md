@@ -6,6 +6,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [technical]: Scheduled event emails change their message ids one key at a time, in the database — never as a whole object (P1425)
+
+**Context:** One attendee received the same 24h reminder 13 times (prod, Clarity Night #2). `event_rsvps.mailgun_message_ids` is one jsonb object shared by every scheduled email kind, and is both the claim (`PENDING`) and the record of a send. Every writer read the row, spread the object it had read, changed its own key and wrote the whole object back. The feedback claim was built from a read taken before the reminder id was stored, so it erased that id; feedback was also attempted beyond Mailgun's 72h `o:deliverytime` limit (the query matched the row on its *reminder* clause), so every 30-minute tick failed, wrote back, erased the reminder id again, and the next tick re-sent the reminder.
+**Decision:** `set_rsvp_message_ids()` (service_role only) is the single writer of the column: a per-key compare-and-set in one UPDATE that changes only the keys it is given. On top of it (`supabase/functions/_shared/rsvp-message-ids.ts`):
+- a claim stamps a unique token (claim time + random µs) into the kind's `*_attempted_at`; a write-back must match PENDING **and** that token, so a late write-back can never land on a newer claim;
+- a claim passes `p_scheduled_for`: the kind's `*_scheduled_at` (starting-soon: the event start) must still be what the caller read and the event not cancelled, so a tick acting on a read from before an edit claims nothing;
+- a kind dispatches only when its **own** scheduled time is in `(now, now+72h]`;
+- a claim stuck past 20 min (was 7h, from the 6-hourly cron era) is repaired from `email_send_log` when its send was logged under the same `claim_token`, otherwise taken over — never re-sent on a guess;
+- resets (`handleUpdate`, `handleUncancel`) re-read the row and clear per key, cancelling ids they had not seen, and never clear a claim newer than themselves;
+- a database failure is an error outcome the cron counts, never a skip.
+`src/tests/p1425-message-ids-writers.test.ts` fails on any JS/TS whole-object write form or SQL assignment of the column outside the defining migrations.
+**Alternatives rejected:** Re-reading the row before each write (still read-then-write; the gap is the bug). Splitting the jsonb into real columns (larger migration, same need for a claim protocol). Holding an id until its Mailgun cancel succeeds (a 404 also means "already delivered", which would block every replacement). An event-content revision column to close the same-time content-edit race (schema change to `events`; recorded as an accepted residual instead).
+**Consequences:** Accepted residuals, all written in the spec: a send whose write-back AND log insert both failed may repeat once; a claim in flight at the moment of an event edit (P947 decision 5, now also the ms-wide read-before/claim-after window); a reminder whose time passed before any tick ran is not sent late. Cancel → uncancel now re-schedules reminder and feedback (before: never sent again). The same "stale spread written back whole" class exists elsewhere and is filed: P1426 (`/demo` session state), P1427 (letter seal `point_config`). Deploy order is binding: both migrations on prod before the two edge functions.
+**References:** [p1425](../features/done/2026-06-10/p1425_event_reminder_sent_repeatedly_stale_message_id_overwrite.md) · `supabase/migrations/20261006120000_p1425_set_rsvp_message_ids.sql` · `supabase/migrations/20261006130000_p1425_claim_schedule_check_and_log_token.sql`
+
+## 2026-10-06 [process]: An adversarial review loop converges only once findings are scoped to what the branch introduced (P1425)
+
+**Context:** P1425 went through seven Codex rounds (plus one Gemini and one Opus pass in round 1). Rounds 1–5 each found real defects and each fix was correct, but every round also attacked behaviour the branch had not touched — the pre-existing `handleUpdate` schedule write, Mailgun cancel failures — and each fix of those added new code for the next round to attack. Round 6's only blocker was pre-existing on main; round 7's only blocker was in round 6's own fix.
+**Decision:** From the second review round on, the brief states the blocking bar (HIGH, or MEDIUM reachable with one concurrent actor or one failure), the accepted-residuals list, and a scope rule: every finding is classified BRANCH (introduced or worsened by this change) or PRE-EXISTING (same on main); only BRANCH findings block, PRE-EXISTING ones are listed and filed. A re-review covers the last fix's diff, not the whole surface again.
+**Alternatives rejected:** Stopping after a fixed number of rounds (stops on the clock, not the evidence — rounds 1–5 all found real duplicate-send paths). Treating every finding as blocking (no fixed point: each fix is new surface).
+**Consequences:** UNTESTED as a convergence rule — one branch observed. Falsifier: a future multi-round review where the BRANCH-only bar is applied from round 2 and still needs more than three rounds to reach no blocking finding.
+**References:** [p1425](../features/done/2026-06-10/p1425_event_reminder_sent_repeatedly_stale_message_id_overwrite.md) § Adversarial Review
+
 ## 2026-10-06 [product]: A topic-open Clarity Night carries the vote on its own page, keyed on the series; `/next` always points at it (P1414)
 
 **Context:** Clarity Nights are published before their topic exists; the room's votes pick it (P1347). A placeholder page with no topic had nothing to act on: the vote sat one tap away on `/topics`, and there was no stable link to "the next night" to share before its topic is known.

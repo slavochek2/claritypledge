@@ -176,6 +176,30 @@ publicly-readable `events` query.
 the pre-renumber P-number; see its header)
 **Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
 
+### event_rsvps.mailgun_message_ids (P947, P1380, P1425 — scheduled event emails)
+
+One jsonb object per RSVP: `{ reminder, feedback, starting_soon, starting_soon_for }`. Each kind's
+value is absent (never attempted / cleared for re-sending), `'PENDING'` (claimed, being sent), a
+Mailgun message id, or `SENT_NO_ID`. The kind's claim token is in `reminder_attempted_at` /
+`feedback_attempted_at` / `starting_soon_attempted_at`.
+
+**Write path — the only one:** `public.set_rsvp_message_ids(...)` (service_role only), a per-key
+compare-and-set in one UPDATE: applies only if `mailgun_message_ids->>key` equals the expected value
+(and, when given, the kind's `*_attempted_at` equals the expected token and the kind's schedule /
+the event start equals `p_scheduled_for` with the event not cancelled); changes only the keys in
+the patch (string sets, JSON null removes). Edge functions call it through
+`supabase/functions/_shared/rsvp-message-ids.ts`. Never `.update({ mailgun_message_ids: ... })` —
+`src/tests/p1425-message-ids-writers.test.ts` fails on it.
+
+**`email_send_log.claim_token`** (P1425): the claim token a scheduled send was made under. A claim
+stuck past its threshold is repaired from the log only by exact token match.
+
+**Migrations:** `20260223212057_add_mailgun_ids_to_rsvps.sql`,
+`20261006120000_p1425_set_rsvp_message_ids.sql`,
+`20261006130000_p1425_claim_schedule_check_and_log_token.sql`
+**Tests:** `supabase/functions/_shared/p1425-dispatch.test.ts` (Deno, live against the test project,
+Mailgun stubbed)
+
 ### agent_accounts (P1104 — machine readings of public figures)
 
 A registry, not a flag. An **agent account** is a persistent machine reading of a real public
