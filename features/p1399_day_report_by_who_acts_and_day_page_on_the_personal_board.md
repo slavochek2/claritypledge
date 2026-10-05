@@ -528,6 +528,40 @@ control list in the private design folder, and tested against it)**
 - [x] A second Start fixing within a minute, or for an already-sent collection, does not launch.
       Evidence: day-launch tests `within a minute does not launch`, `only what changed goes out` (unchanged → 409 already-sent; a change → follow-up with only the change) + controls.
 
+**Phase D: founder review round (2026-10-06 decisions; tests first, each with a known-bad control)**
+- [ ] One custom option, "Your answer or question…", replaces Ask a question… and Other…; a reply
+      ending in "?" is a question and goes to the questions-first part of the prompt; decision lines
+      written by the old Ask/Other still read correctly.
+- [ ] The recommended option shows "Fit N%" (fixes the real cause without breaking something else),
+      one "Main risk" line, and a "Cause checked" / "Cause suspected" tag; an issue without a fit says
+      "Fit not rated", never a made-up number. `finding --recommend` is refused without `--fit` and
+      `--risk`, and every runbook finding that recommends carries both (registry test).
+- [ ] Start fixing sends only answered cards (picked, or accepted with Next) plus cards whose
+      recommendation is to give it to the agent; an unopened founder-choice card is not in the prompt
+      and is counted on the page as "still yours".
+- [ ] The Help requests and Mentions tiles open the chat-digest note.
+- [ ] Monitoring has no Systems list (every check stays in Status); Monitoring is money and
+      subscriptions only.
+- [ ] Claude and Codex share one "Subscriptions" card and chart: % left over the week from this
+      week's runs, a dashed projection to each reset, each reset marked and named.
+- [ ] AI keys with no billing data say why ("no billing data: unused, or not in the export"), and an
+      inbox item asks an agent to check the export per project.
+- [ ] The Stats funnel counts the cp board's Pipeline columns (Contacted → In conversation →
+      Qualified → Committed → Active) with real numbers, zeros included.
+- [ ] Reflection memory: the Opus statement writer receives the last 14 days of statements with the
+      founder's positions and stories; a new statement that repeats an answered one is refused and
+      the agent is asked again (positions and stories live in the decisions file, read back here).
+- [ ] Plain-language pass: before the report is written, one agent rewrites each card's title,
+      Point A, Obstacle and Point B into what it means for the founder; the original wording moves to
+      More info › Technical detail; an overlay for an unknown card is ignored; no overlay = original.
+- [ ] Cards whose recommendation is agent work are folded into one line ("N things an agent can
+      fix") that opens them as the same cards; the pager walks the founder's cards.
+- [ ] The Goals page and its API are gone from the board (both boards), and the board's other pages
+      use the Day page's type, colours, buttons and cards without losing any function (board e2e
+      suite unchanged, before/after screenshots reviewed).
+- [ ] Screenshots at 1440, 375 and 320 pass a separate visual QA; one hostile review by Opus,
+      Gemini 3.8 and Codex (technical and UX), claims verified before acting.
+
 ## Alternatives Considered
 
 - **A hosted artifact page first.** Rejected: it would publish real infrastructure and spend data,

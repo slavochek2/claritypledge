@@ -46,3 +46,6 @@ $ curl -s localhost:9051/api/goals-strategic
 - `tools/kanban/server/api.ts` — `GET /api/goals-strategic`
 - `tools/kanban/src/components/GoalsPage.tsx`
 - `.claude/commands/slava/maintain/day-cp.md` §3 Goals & Milestone
+
+**Note (2026-10-06, P1399 round D):** the kanban Goals page and `/api/goals-strategic` are being deleted
+(founder: "previous goals we can delete from this kanban"). Only the `/day` parser in `day-cp.md` remains.
