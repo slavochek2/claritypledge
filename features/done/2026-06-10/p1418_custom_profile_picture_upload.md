@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 26
 workstream: profile
 created_date: '2026-10-05'
 tags: [profile, avatar, settings, storage]
 disclosure: public
-delivery_stage: ship
 pipeline_plan: [create-spec, challenge-prd, generate-tests, dev, verify]
 pipeline_ran: [create-spec, challenge-prd, dev, verify, ship]
 pipeline_skipped: ["generate-tests -- tests written inline during dev (unit, storage RLS integration, browser e2e)", "ux -- design settled: one Photo row in Settings with Upload / Remove", "architect -- adversarial /challenge-prd covers the one structural question (storage + RLS)"]
@@ -15,6 +14,7 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-05
 ---
 
 # P1418: Users can upload their own profile picture
