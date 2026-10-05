@@ -6,9 +6,9 @@ workstream: profile
 created_date: '2026-10-05'
 tags: [profile, avatar, settings, storage]
 disclosure: public
-delivery_stage: verify
+delivery_stage: ship
 pipeline_plan: [create-spec, challenge-prd, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd, dev, verify]
+pipeline_ran: [create-spec, challenge-prd, dev, verify, ship]
 pipeline_skipped: ["generate-tests -- tests written inline during dev (unit, storage RLS integration, browser e2e)", "ux -- design settled: one Photo row in Settings with Upload / Remove", "architect -- adversarial /challenge-prd covers the one structural question (storage + RLS)"]
 flow: dev
 drafted_by: opus
@@ -84,6 +84,8 @@ Blast radius: one flow (profile avatar), but rendered on ~30 surfaces that all r
 | 4 | /challenge-prd | Remove ordering | Profile first, then delete, ignore delete errors | No dangling image URL |
 | 5 | /challenge-prd | Where the write lives | Extend `updateProfile` with avatar fields | KISS. ACCEPT: a user can point their own avatar_url at any URL; CSP limits the hosts that load |
 | 6 | /challenge-prd | Header staleness | `refreshProfile()` after a write | One line, no reload |
+| 7 | Codex review | [P1] cleanup swept the folder; two tabs could delete the live photo | Delete only the replaced photo's path | Regression tests in `src/lib/avatar-upload.test.ts` |
+| 8 | Codex review | [P2] photo change re-populated Settings, losing unsaved edits | Populate form once per user | Regression test in `settings-page.test.tsx`, mutation-checked |
 
 ## Related
 
