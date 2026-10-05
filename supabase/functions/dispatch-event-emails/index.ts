@@ -9,19 +9,14 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { type SupabaseClient } from '../_shared/email-helpers.ts';
 import {
-  buildFeedback,
-  buildReminder,
-  cancelScheduledEmail as _cancelScheduledEmail,
-  FEEDBACK_HOST_ID,
-  feedbackFrom,
-  logEmailSend,
-  sendEmail,
-  type EventRow,
-  type ReminderPrep,
-  type SupabaseClient,
-} from '../_shared/email-helpers.ts';
-import { mintEmailLink } from '../_shared/event-links.ts';
+  DISPATCH_WINDOW_MS,
+  dispatchFeedback,
+  dispatchRsvp,
+  STUCK_PENDING_THRESHOLD_MS,
+  type RsvpRow,
+} from '../_shared/event-dispatch.ts';
 import {
   dispatchStartingSoon,
   STARTING_SOON_SELECT,
@@ -34,223 +29,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 
-// Tolerated delta between stored *_scheduled_at and expected time (spec security review).
-const MAX_TIME_DRIFT_MS = 30 * 60 * 1000; // 30 minutes
-
-// A PENDING row older than this is treated as stuck and retried.
 /** P1256: the backfill target is interpolated into a PostgREST filter — pin its shape. */
-/**
- * P1256: why dispatchFeedback reports an outcome instead of returning void.
- *
- * It has five silent bail-outs (no email, not scheduled, host not gated, time drift,
- * already claimed). While it returned void, the backfill could only count how many rows
- * it had HANDED to it — so a run in which all 8 were skipped on the drift check reported
- * `dispatched: 8, errors: 0`, identical to a run in which 8 emails went out. logEmailSend
- * is skipped on a bail too, so the send log was empty either way, and empty is exactly
- * what it looked like before the backfill ran. The operator's only signal agreed with
- * both worlds.
- *
- * That mattered specifically for this feature's whole purpose: a one-shot send to 8 real
- * people, where "did it work?" has to be answerable from the response.
- */
-type FeedbackOutcome =
-  | 'sent'
-  | 'failed:mailgun'
-  | 'skipped:no-email'
-  | 'skipped:not-scheduled'
-  | 'skipped:host-not-gated'
-  | 'skipped:time-drift'
-  | 'skipped:already-claimed';
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const STUCK_PENDING_THRESHOLD_MS = 7 * 60 * 60 * 1000; // 7 hours
-
-interface RsvpRow {
-  id: string;
-  event_id: string;
-  profile_id: string | null;
-  reminder_scheduled_at: string | null;
-  feedback_scheduled_at: string | null;
-  reminder_attempted_at: string | null;
-  feedback_attempted_at: string | null;
-  mailgun_message_ids: Record<string, string> | null;
-  profiles: { email: string; name: string | null } | null;
-  events: EventRow & { status: string; host_id: string | null };
-}
-
-function isStuckPending(attemptedAt: string | null): boolean {
-  if (!attemptedAt) return false;
-  return Date.now() - new Date(attemptedAt).getTime() > STUCK_PENDING_THRESHOLD_MS;
-}
-
-function withinDrift(stored: string, expected: Date): boolean {
-  return Math.abs(new Date(stored).getTime() - expected.getTime()) <= MAX_TIME_DRIFT_MS;
-}
-
-async function dispatchReminder(
-  supabase: SupabaseClient,
-  rsvp: RsvpRow,
-  now: Date,
-): Promise<void> {
-  const { events: event, profile_id: profileId, profiles: profileData } = rsvp;
-  const email = profileData?.email;
-  if (!email || !rsvp.reminder_scheduled_at) return;
-
-  // Validate stored time matches expected (security: guard against crafted RSVPs)
-  const expectedReminder = new Date(new Date(event.datetime).getTime() - 24 * 60 * 60 * 1000);
-  if (!withinDrift(rsvp.reminder_scheduled_at, expectedReminder)) {
-    console.warn(`Skipping reminder for rsvp ${rsvp.id}: stored time drifts >30min from expected`);
-    return;
-  }
-
-  // Atomic claim: set mailgun_message_ids->reminder = 'PENDING' only if currently NULL.
-  //
-  // P1256: the old note here said ".is() only works on real columns, not JSONB
-  // extractions" — that is FALSE, and it is why this file carries three spellings of one
-  // condition. Checked against the client rather than repeated: PostgrestFilterBuilder
-  // emits `<column>=is.null` for `.is(col, null)` and `<column>=<op>.<value>` for
-  // `.filter(col, 'is', 'null')`, so these two and the `.or()` string below produce
-  // byte-identical request parameters. Either form is correct on a JSONB extraction.
-  // Keeping .filter() here only because it is what shipped; do not read a meaning into
-  // the difference.
-  const currentIds = rsvp.mailgun_message_ids ?? {};
-  const claimIds = { ...currentIds, reminder: 'PENDING' };
-
-  const { data: claimed } = await supabase
-    .from('event_rsvps')
-    .update({
-      mailgun_message_ids: claimIds,
-      reminder_attempted_at: now.toISOString(),
-    })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>reminder', 'is', 'null')
-    .select('id')
-    .maybeSingle();
-
-  if (!claimed) {
-    // Another cron run already claimed or dispatched this row
-    return;
-  }
-
-  const deliverAt = new Date(rsvp.reminder_scheduled_at);
-  // P1380: on a Preparation-on event the reminder is about the preparation if it is not done.
-  // A failed read degrades to today's reminder rather than skipping the send.
-  let prep: ReminderPrep | null = null;
-  let prepareUrl: string | null = null;
-  if (event.preparation_enabled && profileId) {
-    const { data: prepRow, error: prepErr } = await supabase
-      .from('event_preparations')
-      .select('started_at, completed_at')
-      .eq('event_id', rsvp.event_id)
-      .eq('profile_id', profileId)
-      .maybeSingle();
-    if (prepErr) {
-      console.warn(`reminder prep read failed for rsvp ${rsvp.id}: ${prepErr.message}`);
-    } else {
-      prep = prepRow?.completed_at ? 'complete' : prepRow?.started_at ? 'started' : 'not_started';
-      if (prep !== 'complete') prepareUrl = await mintEmailLink(supabase, rsvp.id, 'prepare', event);
-    }
-  }
-  const reminder = buildReminder(event, profileData?.name, { prep, prepareUrl });
-  const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
-
-  // Write real ID back — conditional on PENDING to handle handleUpdate race.
-  // If handleUpdate nulled the key between claim and write-back, this update matches
-  // zero rows and the ID is not stored. The old Mailgun send fires at the old time
-  // (accepted race; spec arch decision 5). The new time re-queues on next cron run.
-  const finalIds = { ...claimIds, reminder: messageId ?? null };
-  await supabase
-    .from('event_rsvps')
-    .update({ mailgun_message_ids: finalIds })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>reminder', 'eq', 'PENDING');
-
-  await logEmailSend(supabase, {
-    eventId: rsvp.event_id,
-    profileId,
-    emailType: 'reminder',
-    messageId,
-    errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
-  });
-}
-
-async function dispatchFeedback(
-  supabase: SupabaseClient,
-  rsvp: RsvpRow,
-  now: Date,
-  /**
-   * P1256 backfill: send NOW rather than handing Mailgun the stored
-   * `feedback_scheduled_at` as `o:deliverytime`. On the normal path that stored
-   * time is in the future and scheduling is the whole point; on the backfill path
-   * it is in the PAST, and a past `o:deliverytime` is not a thing worth relying on
-   * — this drops the header instead of betting on how Mailgun rounds it.
-   * Every other guard (host gate, drift check, atomic claim, send log) is shared.
-   */
-  immediate = false,
-): Promise<FeedbackOutcome> {
-  const { events: event, profile_id: profileId, profiles: profileData } = rsvp;
-  const email = profileData?.email;
-  if (!email) return 'skipped:no-email';
-  if (!rsvp.feedback_scheduled_at) return 'skipped:not-scheduled';
-
-  // Gate: only dispatch feedback for gated host
-  if (event.host_id !== FEEDBACK_HOST_ID) return 'skipped:host-not-gated';
-
-  // Validate stored time
-  const expectedFeedback = new Date(
-    new Date(event.datetime).getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000,
-  );
-  if (!withinDrift(rsvp.feedback_scheduled_at, expectedFeedback)) {
-    console.warn(`Skipping feedback for rsvp ${rsvp.id}: stored time drifts >30min from expected`);
-    return 'skipped:time-drift';
-  }
-
-  const currentIds = rsvp.mailgun_message_ids ?? {};
-  const claimIds = { ...currentIds, feedback: 'PENDING' };
-
-  const { data: claimed } = await supabase
-    .from('event_rsvps')
-    .update({
-      mailgun_message_ids: claimIds,
-      feedback_attempted_at: now.toISOString(),
-    })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>feedback', 'is', 'null')
-    .select('id')
-    .maybeSingle();
-
-  if (!claimed) return 'skipped:already-claimed';
-
-  // Fetch host name for feedbackFrom sender
-  const { data: host } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', event.host_id)
-    .single();
-
-  const from = feedbackFrom(host?.name as string | null);
-  const deliverAt = immediate ? undefined : new Date(rsvp.feedback_scheduled_at);
-  const feedback = buildFeedback(event, profileData?.name);
-  const messageId = await sendEmail({ to: email, ...feedback, from, deliverAt });
-
-  const finalIds = { ...claimIds, feedback: messageId ?? null };
-  await supabase
-    .from('event_rsvps')
-    .update({ mailgun_message_ids: finalIds })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>feedback', 'eq', 'PENDING');
-
-  await logEmailSend(supabase, {
-    eventId: rsvp.event_id,
-    profileId,
-    emailType: 'feedback',
-    messageId,
-    errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
-  });
-
-  return messageId ? 'sent' : 'failed:mailgun';
-}
 
 /**
  * P1256: send the feedback email for an event whose feedback time has ALREADY PASSED.
@@ -354,7 +134,7 @@ async function runFeedbackBackfill(
 
 async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: number; errors: number }> {
   const now = new Date();
-  const windowEnd = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + DISPATCH_WINDOW_MS);
   const stuckThreshold = new Date(now.getTime() - STUCK_PENDING_THRESHOLD_MS);
 
   // Query rows eligible for reminder or feedback dispatch
@@ -394,19 +174,11 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
 
   await Promise.all((rows as unknown as RsvpRow[]).map(async (rsvp) => {
     try {
-      const ids = rsvp.mailgun_message_ids ?? {};
-      const needsReminder = rsvp.reminder_scheduled_at &&
-        (ids.reminder == null || (ids.reminder === 'PENDING' && isStuckPending(rsvp.reminder_attempted_at)));
-      const needsFeedback = rsvp.feedback_scheduled_at &&
-        (ids.feedback == null || (ids.feedback === 'PENDING' && isStuckPending(rsvp.feedback_attempted_at)));
-
-      if (needsReminder) {
-        await dispatchReminder(supabase, rsvp, now);
-        dispatched++;
-      }
-      if (needsFeedback) {
-        await dispatchFeedback(supabase, rsvp, now);
-        dispatched++;
+      // P1425: the query returns a row when ANY kind is due; dispatchRsvp sends only the kinds
+      // whose own time is inside [now, windowEnd]. Counts emails Mailgun accepted.
+      for (const outcome of await dispatchRsvp(supabase, rsvp, now, windowEnd)) {
+        if (outcome === 'sent') dispatched++;
+        else if (outcome === 'failed:mailgun') errors++;
       }
     } catch (err) {
       console.error(`dispatch error for rsvp ${rsvp.id}:`, err);

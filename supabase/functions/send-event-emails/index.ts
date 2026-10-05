@@ -20,6 +20,7 @@ import {
   startingSoonEligible,
   type StartingSoonRsvp,
 } from '../_shared/starting-soon.ts';
+import { setMessageIds } from '../_shared/rsvp-message-ids.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -192,13 +193,18 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
   await Promise.all(rsvps.map(async (rsvp) => {
     // P1380: handleCancel withdrew the scheduled starting-soon email at Mailgun but its id is
     // still stored, which would block a new one forever. Back on → let the cron schedule again.
+    // P1425: per-key compare-and-set — clears the two starting-soon keys only if starting_soon
+    // still holds what we read, and never rewrites the reminder/feedback ids beside them.
     const ids = (rsvp.mailgun_message_ids as Record<string, string> | null) ?? {};
     if (ids.starting_soon != null) {
-      const { starting_soon: _s, starting_soon_for: _f, ...rest } = ids;
-      await supabase
-        .from('event_rsvps')
-        .update({ mailgun_message_ids: rest, starting_soon_attempted_at: null })
-        .eq('id', rsvp.id);
+      await setMessageIds(
+        supabase,
+        rsvp.id,
+        'starting_soon',
+        ids.starting_soon,
+        { starting_soon: null, starting_soon_for: null },
+        { attemptedAt: null },
+      );
     }
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
@@ -278,9 +284,11 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
     if (eventDatetime <= now) return;
 
-    // Null out mailgun_message_ids keys and reset attempted_at — cron re-dispatches with new times
+    // Null out mailgun_message_ids keys and reset attempted_at — cron re-dispatches with new times.
+    // P1425: the one sanctioned whole-object write of mailgun_message_ids (a deliberate reset, not
+    // a read-modify-write); src/tests/p1425-message-ids-writers.test.ts allows exactly this line.
     const updatePayload: Record<string, unknown> = {
-      mailgun_message_ids: keepStartingSoon
+      mailgun_message_ids: keepStartingSoon // p1425-sanctioned-reset
         ? { starting_soon: startingSoonId, starting_soon_for: ids?.starting_soon_for }
         : {},
       reminder_attempted_at: null,

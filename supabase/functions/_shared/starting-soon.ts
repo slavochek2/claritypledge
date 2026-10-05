@@ -21,6 +21,7 @@ import {
   type SupabaseClient,
 } from './email-helpers.ts';
 import { isOnlineLocation, mintEmailLink } from './event-links.ts';
+import { setMessageIds } from './rsvp-message-ids.ts';
 
 export const STARTING_SOON_LEAD_MS = 15 * 60 * 1000;
 /** Look-ahead: one 30-min cron interval past the 15-min lead, so every event is seen by a tick. */
@@ -86,21 +87,21 @@ export async function dispatchStartingSoon(
     return 'skipped:already-claimed';
   }
 
-  const currentIds = rsvp.mailgun_message_ids ?? {};
-  const claimIds = { ...currentIds, starting_soon: 'PENDING' };
-  const wasStuck = currentIds.starting_soon === 'PENDING';
+  const wasStuck = rsvp.mailgun_message_ids?.starting_soon === 'PENDING';
 
   // Atomic claim. A stuck PENDING is re-claimed only if it is STILL the same stuck claim
   // (attempted_at unchanged), so two ticks cannot both take over one stuck row.
-  let claim = supabase
-    .from('event_rsvps')
-    .update({ mailgun_message_ids: claimIds, starting_soon_attempted_at: now.toISOString() })
-    .eq('id', rsvp.id);
-  claim = wasStuck
-    ? claim.filter('mailgun_message_ids->>starting_soon', 'eq', 'PENDING')
-        .eq('starting_soon_attempted_at', rsvp.starting_soon_attempted_at)
-    : claim.filter('mailgun_message_ids->>starting_soon', 'is', 'null');
-  const { data: claimed } = await claim.select('id').maybeSingle();
+  // P1425: per-key compare-and-set — the claim changes starting_soon alone, never the sibling ids.
+  const claimed = await setMessageIds(
+    supabase,
+    rsvp.id,
+    'starting_soon',
+    wasStuck ? 'PENDING' : null,
+    { starting_soon: 'PENDING' },
+    wasStuck
+      ? { attemptedAt: now.toISOString(), attemptedWas: rsvp.starting_soon_attempted_at }
+      : { attemptedAt: now.toISOString() },
+  );
   if (!claimed) return 'skipped:already-claimed';
 
   // Links minted now, redeemed at click: a magic link minted here would be dead by then.
@@ -120,21 +121,14 @@ export async function dispatchStartingSoon(
     deliverAt: startingSoonDeliverAt(event.datetime, now),
   });
 
-  // Write back only over our own PENDING. On a Mailgun failure the key goes back to NULL so
+  // Write back only over our own PENDING. On a Mailgun failure the key goes back to absent so
   // the next tick retries while the event is still ahead.
-  await supabase
-    .from('event_rsvps')
-    // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
-    // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
-    .update({
-      mailgun_message_ids: {
-        ...claimIds,
-        starting_soon: messageId ?? null,
-        starting_soon_for: messageId ? event.datetime : null,
-      },
-    })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>starting_soon', 'eq', 'PENDING');
+  // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
+  // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
+  await setMessageIds(supabase, rsvp.id, 'starting_soon', 'PENDING', {
+    starting_soon: messageId ?? null,
+    starting_soon_for: messageId ? event.datetime : null,
+  });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
