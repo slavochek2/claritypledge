@@ -303,6 +303,8 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
       .from('event_rsvps')
       .update(updatePayload)
       .eq('id', rsvp.id);
+    // Claims made from here on were checked against the new schedule; the reset leaves them alone.
+    const scheduleChangedAt = new Date();
 
     // P1425: clear per key against a FRESH read. The old reset wrote a whole object built from the
     // read above — seconds old by now (cancels, the update email) — so a starting-soon id the cron
@@ -310,6 +312,7 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // read is cancelled here; a starting-soon email for this exact start is kept.
     const cleared = await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal, {
       keepStartingSoonFor: event.datetime,
+      since: scheduleChangedAt,
       alreadyCancelled: new Set([reminderId, feedbackId, keepStartingSoon ? null : startingSoonId]
         .filter((x): x is string => isCancellableId(x))),
     });

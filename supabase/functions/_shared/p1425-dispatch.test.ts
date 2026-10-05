@@ -559,3 +559,50 @@ Deno.test({
     } finally { mg.restore(); }
   },
 });
+
+// ── review round 4 (Codex) ───────────────────────────────────────────────────
+
+Deno.test({
+  name: 'live: a reset never clears a claim made AFTER it began (stale overlapping update)',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
+      const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+      const resetStarted = new Date(Date.now() - 2000);
+      // after the reset began, the cron claims starting-soon for the (new) start
+      const b = await claimMessage(sb, row, 'starting_soon', null, null, new Date(), 10 * 60_000, fx.start, { starting_soon_for: fx.start });
+      assertEquals(b.status, 'claimed');
+      // the stale reset (its own view: a different start) must leave B alone
+      assertEquals(await clearMessageIds(sb, rsvpId, ['starting_soon'], async () => {}, { keepStartingSoonFor: 'S1-stale', since: resetStarted }), 'ok');
+      assertEquals(await ids(sb, rsvpId), { starting_soon: 'PENDING', starting_soon_for: fx.start });
+    });
+  },
+});
+
+Deno.test({
+  name: 'live: repair restores the id only — never relabels an old send with the current start',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId, eventId, fx) => {
+        const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+        const S1 = 'S1-old-start';
+        const at = new Date(Date.now() - HOUR).toISOString();
+        assertEquals(await setMessageIds(sb, rsvpId, 'starting_soon', null, { starting_soon: 'PENDING', starting_soon_for: S1 }, { attemptedAt: at }), 'ok');
+        await sb.from('email_send_log').insert({
+          event_id: eventId, profile_id: FEEDBACK_HOST_ID, email_type: 'starting_soon', status: 'sent',
+          mailgun_message_id: '<s-old@stub>', claim_token: at,
+        });
+        const r = await claimMessage(sb, row, 'starting_soon', 'PENDING', at, new Date(), 10 * 60_000, fx.start, { starting_soon_for: fx.start });
+        assertEquals(r.status, 'repaired');
+        assertEquals(await ids(sb, rsvpId), { starting_soon: '<s-old@stub>', starting_soon_for: S1 });
+        assertEquals(mg.sent.length, 0);
+      });
+    } finally { mg.restore(); }
+  },
+});

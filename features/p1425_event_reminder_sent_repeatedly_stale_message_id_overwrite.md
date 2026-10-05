@@ -166,6 +166,20 @@ a second migration `20261006130000` (the first is already applied on test, so it
 | A tick's claim from a read taken before a reschedule/cancel succeeded → wrong-time send blocks the right one | `p_scheduled_for`: a claim requires its `*_scheduled_at` (starting-soon: the event start) unchanged and the event not cancelled |
 | LOW: guard read `{ [kind]: id }` as a type | only `{ [k: …` counts as a type |
 
+Round 4 (Codex): R3-1, R3-3 and the guard LOW CLOSED. Fixed:
+
+| Finding | Fix |
+|---|---|
+| R3-2 (rest): a reset's retry re-read the row but judged it with its own, possibly stale, event start → cleared a newer claim | a reset only clears claims made BEFORE it (`since` = when the schedule change returned); later claims passed the schedule check, so they are valid by construction |
+| R4-1: repair wrote the caller's CURRENT start onto an old send → kept as if for the new start | repair restores the id only; `starting_soon_for` stays what the claim recorded |
+| LOW: `null \|\| {…}` read as a type | type match is `null \|` not followed by `\|` |
+
+Accepted, not changed (R4-2): a tick that read an RSVP **before** a same-time content edit (title,
+location) and claims **after** it sends the old details — the window is the milliseconds between a
+tick's read and its claim of that row. Same class as P947 decision 5 (a send in flight at the moment
+of an edit), only shorter; closing it needs an event-content revision column, a schema change to
+`events` outside this fix.
+
 Accepted, not changed: a reminder whose time already passed before any tick ran is not sent late
 (LOW, Opus). Before, it went out late only incidentally, for feedback-gated events via the feedback
 clause; the query never selected past reminders for other events. Residual: a stuck claim whose
@@ -188,6 +202,8 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   **31 passed, 0 failed** (live: incident shape, same-tick both kinds, CAS semantics, anon refused,
   claim token vs reset, stuck→repaired, stuck→taken over once, fresh claim left alone, reset
   helper, cancel→uncancel re-schedules; pure: dueKinds, RPC error → `error:db`).
+- After review round 4: **41 passed, 0 failed** (adds: a reset never clears a claim newer than
+  itself; repair never relabels an old send's start).
 - After review round 3: **39 passed, 0 failed** (adds: stale-read claim after reschedule/cancel
   claims nothing, delayed reset cannot clear a newer claim, the send log records the claim token).
 - After review round 2: **36 passed, 0 failed** (adds: claim tokens distinct within one ms,
@@ -203,17 +219,20 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   main's pre-fix files → **fails with all 8 whole-object writes listed** (exit 1), re-checked after
   each hardening.
 
-## Pre-deploy Checklist
+## Deploy Sequence (after merge — nothing here is needed before it)
 
-### Deploy order (the migrations MUST be on prod before the functions)
-- [ ] Migrations `20261006120000_p1425_set_rsvp_message_ids.sql` and
-  `20261006130000_p1425_claim_schedule_check_and_log_token.sql` applied to prod (via `/push`)
-- [ ] Then `./scripts/deploy-functions.sh dispatch-event-emails --env prod` and `send-event-emails`
-  — new code against a DB without the function claims nothing (fails safe) and now reports errors
+Merging changes no running system: the edge functions and the prod schema only change through the
+steps below, in this order, each with the founder's explicit OK.
 
-### Post-deploy verification
-- [ ] Next cron tick on prod returns `errors: 0` and no `set_rsvp_message_ids` errors in function logs
-- [ ] `email_send_log` shows at most one `reminder` per (event, profile) for the next event
+1. `/push` — applies `20261006120000_p1425_set_rsvp_message_ids.sql` and
+   `20261006130000_p1425_claim_schedule_check_and_log_token.sql` to prod (P1211: `/push` owns prod
+   migrations). **Must precede step 2:** new function code against a database without
+   `set_rsvp_message_ids` claims nothing and reports `error:db` — fails safe, sends nothing.
+2. `./scripts/deploy-functions.sh dispatch-event-emails --env prod` and
+   `./scripts/deploy-functions.sh send-event-emails --env prod`.
+3. Verify: the next cron tick returns `errors: 0` with no `set_rsvp_message_ids` errors in the
+   function logs, and at the next event `email_send_log` holds at most one `reminder` per
+   (event, profile).
 
 ## Acceptance Criteria
 
@@ -224,4 +243,3 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
 - [x] Guard test fails on a reintroduced whole-object write, passes on the fixed code
 - [x] Regression test (live test DB) reproduces the repeated send before the fix and passes after
 - [x] Every round-1 review finding above is fixed or explicitly accepted with a reason
-- [ ] [post-deploy] Next prod event: at most one reminder per attendee in `email_send_log`

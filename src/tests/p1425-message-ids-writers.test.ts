@@ -40,7 +40,7 @@ function listFiles(dir: string, ext: RegExp): string[] {
 const COL = 'mailgun_message_ids';
 // A declaration's right-hand side is a type, not a value.
 // `{ [k: string]: … }` is an index-signature TYPE; `{ [kind]: id }` is a runtime object (Codex round 3).
-const TYPE_RHS = /^(Record<|\{\s*\[\s*\w+\s*:|string\b|unknown\b|Json\b|any\b|null\s*\||Partial<)/;
+const TYPE_RHS = /^(Record<|\{\s*\[\s*\w+\s*:|string\b|unknown\b|Json\b|any\b|null\s*\|(?!\|)|Partial<)/;
 
 /**
  * Blank out comments and string-literal text, keeping offsets (so line numbers stay true). Code
@@ -186,6 +186,8 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
     expect(inject("  const r = `${await supabase.from('event_rsvps').update({ mailgun_message_ids: ids })}`;")).toBe(1);
     // review round 3 (Codex): a computed key inside the written object is a value, not a type
     expect(inject("  await supabase.from('event_rsvps').update({ mailgun_message_ids: { [kind]: messageId } });")).toBe(1);
+    // review round 4 (Codex): `null || {...}` is a value, `null | X` a type
+    expect(inject("  await supabase.from('event_rsvps').update({ mailgun_message_ids: null || { [kind]: id } });")).toBe(1);
   });
 
   it('control: reads, selects, filters and types are not flagged', () => {

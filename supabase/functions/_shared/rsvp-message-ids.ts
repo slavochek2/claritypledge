@@ -97,7 +97,7 @@ export async function claimMessage(
   stuckMs: number,
   /** The kind's *_scheduled_at as read (starting_soon: the event's start). */
   scheduledFor: string,
-  /** Extra keys written with the claim and kept when a stuck claim is repaired (starting_soon_for). */
+  /** Extra keys written with the claim (starting_soon_for: the start this claim sends for). */
   extra: Patch = {},
 ): Promise<ClaimResult> {
   const token = claimToken(now);
@@ -136,7 +136,9 @@ export async function claimMessage(
     }
     const loggedId = logged?.mailgun_message_id as string | null | undefined;
     if (loggedId) {
-      const r = await setMessageIds(supabase, rsvp.id, key, 'PENDING', { ...extra, [key]: loggedId }, {
+      // The id only: the claim already recorded which start it was for (starting_soon_for). Writing
+      // the caller's CURRENT start here would relabel an old-schedule send as the new one (round 4).
+      const r = await setMessageIds(supabase, rsvp.id, key, 'PENDING', { [key]: loggedId }, {
         attemptedWas: attemptedAt,
       });
       return r === 'ok' ? { status: 'repaired' } : r === 'error' ? { status: 'error' } : { status: 'held' };
@@ -184,6 +186,12 @@ export async function writeBackMessage(
  * kind's *_attempted_at to be what was read, so a delayed reset cannot clear a NEWER claim made
  * after its read; clearing nulls that column, so an in-flight claimer's write-back lands nowhere.
  *
+ * `since`: the reset only clears claims made BEFORE it (default: when it was called). A claim made
+ * after the caller's schedule change was checked against the new schedule (`p_scheduled_for`), so it
+ * is valid by construction — and the caller's own view of the event may already be stale (two
+ * overlapping updates), so it must not judge such a claim. Pass the moment the schedule change
+ * returned.
+ *
  * `keepStartingSoonFor`: a starting-soon email for exactly this start is kept — sent OR still being
  * sent (the claim records `starting_soon_for` up front) — so an edit that left the start alone never
  * sends "starting in 15 minutes" twice (P1380). Reminder/feedback are always rescheduled on an edit
@@ -194,9 +202,10 @@ export async function clearMessageIds(
   rsvpId: string,
   kinds: MessageKind[],
   cancel: (id: string) => Promise<void>,
-  opts: { keepStartingSoonFor?: string; alreadyCancelled?: Set<string> } = {},
+  opts: { keepStartingSoonFor?: string; alreadyCancelled?: Set<string>; since?: Date } = {},
 ): Promise<CasResult> {
   const cancelled = opts.alreadyCancelled ?? new Set<string>();
+  const since = (opts.since ?? new Date()).getTime();
   for (let attempt = 0; attempt < 4; attempt++) {
     const { data, error } = await supabase
       .from('event_rsvps')
@@ -214,6 +223,8 @@ export async function clearMessageIds(
     for (const kind of kinds) {
       const v = ids[kind];
       if (v == null) continue;
+      const claimedAt = attempted(kind);
+      if (claimedAt && new Date(claimedAt).getTime() > since) continue; // newer than this reset
       if (kind === 'starting_soon' && opts.keepStartingSoonFor && ids.starting_soon_for === opts.keepStartingSoonFor) {
         continue;
       }
@@ -222,7 +233,7 @@ export async function clearMessageIds(
         cancelled.add(v);
       }
       const patch: Patch = kind === 'starting_soon' ? { starting_soon: null, starting_soon_for: null } : { [kind]: null };
-      const cas = { attemptedAt: null, attemptedWas: attempted(kind) };
+      const cas = { attemptedAt: null, attemptedWas: claimedAt };
       let r = await setMessageIds(supabase, rsvpId, kind, v, patch, cas);
       if (r === 'error') r = await setMessageIds(supabase, rsvpId, kind, v, patch, cas);
       if (r === 'error') return 'error';
