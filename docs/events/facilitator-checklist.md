@@ -28,6 +28,39 @@ What you do, in order. The why lives in [clarity-practice-event.md](clarity-prac
 - [ ] Ring the bell → press **Next round**. Mark leavers or swap people only if needed.
 - No connection: everyone moves one seat clockwise; pairs pick the statement they're furthest apart on.
 
+### What the observer does (2026-10-05)
+
+The observer **does not hold a clock** — the host does. The observer **guards the roles** and
+closes the round. Say it once at the start of round 1, in these terms:
+
+- **Keep the roles honest.** The listener listens; if they start arguing their own view, or
+  anyone runs long, or the number was skipped — **ring the bell and name the role**: *"you're
+  the listener right now."* That is the whole intervention; no ruling on who is right.
+- **Balance the talking.** One person monologuing is the observer's cue, not the host's.
+**When to ring — three triggers, nothing else:**
+
+1. The listener argues their own view instead of checking the speaker's.
+2. Anyone runs long — about two minutes with no check in between.
+3. They disagree before any number has been said.
+
+Ring, name the role, stop. Never rule on who is right.
+
+**The last 3 minutes are the observer's**, in this order:
+
+1. **One line of feedback** — what helped, what to change.
+2. **Explain back the first person's meaning**, about 30 seconds, saying your own estimate
+   first ("I think I understood you about 7") and taking their number after.
+3. **The same for the second person.**
+
+Those two numbers are why the beat is worth a fifth of the round: the observer's self-estimate
+against each speaker's rating is the same calibration gap the evening is about, scored by the
+one person with nothing at stake in the argument.
+
+- The observer has **no badge** and nothing to defend; next round they are the speaker.
+
+Falsifier for the role: observers sit idle, the bell is never rung in a round where someone
+plainly drifted, or the closing three minutes routinely run out before the second explain-back.
+
 ## End
 
 - [ ] Closing questions on phones, before anyone stands up

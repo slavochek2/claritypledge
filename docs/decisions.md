@@ -6,6 +6,39 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [product]: The observer guards the roles and closes the round; it holds no clock (/presi4)
+
+**Context:** Trios gave the round a third role nobody has ever played. The 2026-09-28 design had the observer call "swap" at six minutes, and the deck drew it that way. Reviewing the slide the founder dropped it: *"maybe we don't do the swap the clock. It's weird."*
+**Decision:**
+- **The observer does not hold a clock.** The host keeps the clock and the bell for the end of the round.
+- **The observer guards the roles.** If the listener argues their own view, if anyone runs long, if the number was skipped — the observer rings the bell and names the role ("you're the listener right now"). It is a role reminder, never a ruling on who is right.
+- **The observer rings on three triggers, and nothing else:** the listener argues their own view instead of checking; anyone runs long (about two minutes with no check); they disagree before any number has been said. Ring, name the role, stop — never a ruling on who is right.
+- **The observer owns the closing 3 minutes**, in order: one line of feedback (what helped, what to change), then an explain-back of EACH person's meaning — own estimate first, that person's number after, about 30 seconds each. **This is what the three minutes are for**, and the founder's open question ("we give them three minutes for what?") is what settled it: the two numbers are the same calibration gap the evening measures, produced by the one person with nothing at stake in the argument. Two extra measured pairs per round, at no extra clock.
+- The explain-back is the move that **raises the lower number** and the pair chooses it; the speaker answers with a **new number and what is missing to ten**. The listener's number comes first, the speaker's second, the lower is where the pair is.
+**Alternatives rejected:** the observer as timekeeper (the room then has two clocks and the role reads as admin); the observer as judge (invites a verdict, which is the failure mode the format exists to avoid); **cutting the closing beat entirely** and letting the observer only ring — rejected because it leaves the role with nothing to do for fourteen minutes, which is the recorded falsifier for trios; **closing with two bare numbers and no explain-back** — rejected because an unverified number is the self-assessment the instrument exists to catch.
+**Consequences:** `docs/events/facilitator-checklist.md` § Each round carries the long version. `/presi4`'s round slide is one chat thread that fills on the host's click, with the bell as the observer's two interventions. **UNTESTED.** Falsifier: at the next Clarity Night observers sit idle, nobody rings the bell in a round where someone plainly drifted out of role, or the closing three minutes routinely run out before the second explain-back — in which case the beat is over-specified and loses the feedback line first, not an explain-back.
+**References:** decisions.md 2026-09-28 [product] (trios), 2026-09-29 [product] (hear-the-number), 2026-10-02 [product] (matched rounds, no phone countdown); `public/presi4/index.html`
+
+---
+
+## 2026-10-04 [technical]: Scripted input into a production form fails because the session recorder owns the value setter — and three probes in one session reported a page state that was not real
+
+**Context:** Filling `/events/new` on prod through the browser extension. Four separate conclusions were drawn and three of them were wrong.
+
+**Decision:** Treat a page probe as a claim to be checked, not a reading.
+
+- **`HTMLTextAreaElement.prototype.value`'s setter is patched by the Mixpanel session recorder on prod.** The React-controlled-input idiom (native setter + `input` event) throws `TypeError: Illegal invocation` from inside `mixpanel-recorder`. Scripted text entry into prod forms is therefore not available; the extension's own form tool, or a human paste, is the path.
+- **The extension's accessibility snapshot of that form stops partway** — the fields after Location (group chat, preparation, statement tag, description, submit) never appear as refs at a 370px viewport, though they are present in the page text and in the DOM. Enumerate inputs via the DOM when a field is missing from the tree, rather than concluding it does not exist.
+- **Three probes misreported state**, each in a way that looked authoritative: (1) `/events/new` read immediately after navigation showed the signed-out view, because auth had not yet restored — reported as "not logged in" when the user was; (2) a sign-in check that tested whether the word *Tools* appeared in the page text, which it does for everyone; (3) a selector built with a template literal returned `undefined` for every named field, reported as "the form reset" when the form was intact — an enumeration over `document.querySelectorAll('input,textarea')` showed every value still present.
+
+**Alternatives rejected:** retrying the same probe (two of these produced the same wrong answer twice before the method was changed); concluding from a single read that a page is in a given state.
+
+**Consequences:** Practical rules for browser work on this app: wait for auth before reading an authenticated route; never infer sign-in from the presence of a word; when a named-selector probe returns nothing for *every* field, suspect the probe rather than the page; one state change per tool call on a React page (a batched two-click probe never re-renders, so the second handler reads stale state — same session, same class of error). **Also lost:** the browser tab group was closed mid-task, taking a filled-but-unsubmitted form with it; nothing was published.
+
+**References:** `/events/new`, P1337 prototype work, decisions.md 2026-10-02 [process] (the two-click probe)
+
+---
+
 ## 2026-10-04 [product]: /prepare is the Clarity explainer for anyone, signed out included; it hides nothing and carries progress one way into event preparation (P1402)
 
 **Context:** The preparation existed only inside an event (P1336). The founder wanted a page the home page and a future "become a clarity host" path can send people to, and a permanent home for the clips (*"if we have a bug … In Slash prepare, they will be always able to find it"*). Four UAT rounds on 2026-10-04 reframed it as *"general onboarding for somebody who is not logged in."*
