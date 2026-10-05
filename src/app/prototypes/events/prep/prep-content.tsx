@@ -46,7 +46,7 @@ export function clipUrl(clip: ClipKey, kind: 'video' | 'poster'): string {
   return publicMediaUrl(`event-prep/${file}`);
 }
 
-/** A paragraph, or a short list whose items may lead with a bold label. */
+/** A paragraph (`**bold**` allowed), or a short list whose items may lead with a bold label. */
 export type TranscriptBlock = string | { items: { label?: string; text: string }[] };
 
 /**
@@ -64,7 +64,7 @@ export const TRANSCRIPTS: Record<ClipKey, TranscriptBlock[]> = {
       ],
     },
     "So what is the crux? Why are discussions so often unproductive, in public events like this one, in personal conversations, in professional meetings? I suggest one of the main reasons is a social norm. In many places, admitting that you don't understand, revealing a gap in understanding, isn't tolerated. It's usually punished, because people think: so what, are you stupid? Weren't you paying attention?",
-    "And if we don't reveal the gap, we can't bridge it. I suggest every reason I gave at the start can be traced back to this. So today is an experiment. I developed some tools to see if I can create an environment where revealing a gap in understanding is rewarded, so we can bridge it, have a more meaningful discussion, and learn from each other.",
+    "And **if we don't reveal the gap, we can't bridge it.** I suggest every reason I gave at the start can be traced back to this. So today is an experiment. I developed some tools to see if I can create an environment where revealing a gap in understanding is rewarded, so we can bridge it, have a more meaningful discussion, and learn from each other.",
   ],
   story: [
     'Let me tell you a quick story. This is someone I love, and we had a conflict. Because understanding is my focus, I wanted to check that I understood her. So I explained back what she said and asked, "Is that what you meant?" She said, "Yes, that\'s what I mean."',
@@ -77,7 +77,7 @@ export const TRANSCRIPTS: Record<ClipKey, TranscriptBlock[]> = {
         { label: 'Cognitive understanding.', text: 'I repeat back what you meant, then ask: from 0 to 10, how well do you think I understand you?' },
       ],
     },
-    "If we both say 10, we've checked it, and we know I understood you. We might still disagree, and I might not feel what you feel, but I have exactly the picture in my head that you have.",
+    "If we both say 10, **we've checked it, and we know I understood you.** We might still disagree, and I might not feel what you feel, but I have exactly the picture in my head that you have.",
   ],
   principle: [
     "There's a lot of text here, but the text isn't the important part. It's simple. I call it the Clarity Meeting Principle, and you can opt in or opt out. Both are completely fine. It has three parts:",
@@ -88,7 +88,7 @@ export const TRANSCRIPTS: Record<ClipKey, TranscriptBlock[]> = {
         { label: 'The exception.', text: "If for some specific reason you can't answer, you explain why." },
       ],
     },
-    'The question is: from 0 to 10, how much do you think you understand me cognitively?',
+    'The question is: **from 0 to 10, how much do you think you understand me cognitively?**',
   ],
   research: [
     "This part is optional. If there are volunteers, I have microphones. Your discussions would help my research and development: I'd analyse them with AI to improve the next event, and, if you opt in, to personalise your experience in the future. If you change your mind, I can always delete the file.",

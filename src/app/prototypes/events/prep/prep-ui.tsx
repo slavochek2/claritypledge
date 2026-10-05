@@ -95,6 +95,13 @@ export function Title({ children }: { children: ReactNode }) {
  * transcripts … maybe it's always visible"). Not behind a toggle any more; the video's Play and
  * Continue stay pinned, so the text scrolls freely above them.
  */
+/** Renders `**…**` spans as bold; the rest stays plain text. */
+function withBold(text: string) {
+  return text.split(/\*\*(.+?)\*\*/).map((part, i) =>
+    i % 2 ? <strong key={i} className="font-semibold">{part}</strong> : part,
+  );
+}
+
 export function Transcript({ clip }: { clip: ClipKey }) {
   const id = `transcript-${clip}`;
   return (
@@ -105,7 +112,7 @@ export function Transcript({ clip }: { clip: ClipKey }) {
       <div className="max-w-prose space-y-3 text-base leading-relaxed text-foreground">
         {TRANSCRIPTS[clip].map((block, i) =>
           typeof block === 'string' ? (
-            <p key={i}>{block}</p>
+            <p key={i}>{withBold(block)}</p>
           ) : (
             <ul key={i} className="list-disc space-y-1.5 pl-5">
               {block.items.map((item) => (
