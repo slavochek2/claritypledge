@@ -296,7 +296,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     // through the same control a person would use.
     await page.getByRole('button', { name: 'Rate 2' }).click();
     await page.getByRole('button', { name: 'Submit' }).click();
-    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('You opted out');
+    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('Opted out');
     await page.getByTestId('room-change-choice').click();
     await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
 
@@ -307,9 +307,9 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await expect(page.getByRole('button', { name: 'Submit' })).toBeEnabled();
     await page.getByRole('button', { name: 'Submit' }).click();
 
-    // STEP 3 — the founder's exact labels, replacing "Accepted…" / "End meeting".
-    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('You opted in');
-    await expect(page.getByTestId('room-change-choice')).toContainText('Change your choice');
+    // STEP 3 — the founder's exact labels: one quiet line, "Opted in · Change" (P1337, 2026-10-05).
+    await expect(page.getByTestId('room-my-opt-in-status')).toContainText('Opted in');
+    await expect(page.getByTestId('room-change-choice')).toHaveText('Change');
     await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
     // The number moved OFF the status line and onto the roster row, where it is public —
     // it is not merely gone (the status line used to render "You opted in. /10." with an

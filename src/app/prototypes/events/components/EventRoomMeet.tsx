@@ -81,6 +81,7 @@ import {
 } from '@/app/components/agreements/certificate-frame';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
+import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { sectionsForLevel, type MeetingTermsLevel } from '@/app/content/meeting-terms';
@@ -246,7 +247,9 @@ export function EventRoomMeet() {
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
   const location = useLocation();
-  const transcriptionFailed = (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
+  const [startFailed, setStartFailed] = useState(false);
+  const transcriptionFailed =
+    startFailed || (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
@@ -429,8 +432,8 @@ export function EventRoomMeet() {
   const statusText =
     step === 'answered'
       ? self?.optedIn
-        ? 'You opted in'
-        : 'You opted out'
+        ? 'Opted in'
+        : 'Opted out'
       : step === 'rating'
         ? ''
         : 'You have not answered yet.';
@@ -451,6 +454,16 @@ export function EventRoomMeet() {
           the room. Do not reinstate it as "consistency with /meet" — the two pages are
           consistent in the parts a person can act on, which this is not. */}
       <h1 className="sr-only">{PRINCIPLE_TITLE}</h1>
+
+      {/* P1337: transcription is started from the room itself — the banner's idle state, in the
+          place the running banner takes once it starts. */}
+      {event && !isFrozen && (
+        <RoomTranscribeIdleBar
+          eventId={event.id}
+          displayName={user?.name || user?.email || 'Participant'}
+          onFailed={() => setStartFailed(true)}
+        />
+      )}
 
       {/* Page chrome sits above the columns, at the container's own left edge, rather than
           inside the certificate column — so it does not shift sideways when the layout
@@ -485,7 +498,7 @@ export function EventRoomMeet() {
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build
           // with it and confirm at /verify]
           <p role="status" className="mt-2 text-sm text-muted-foreground" data-testid="room-transcription-failed">
-            Transcription couldn&rsquo;t start. You can switch it on again from the ready screen.
+            Transcription couldn&rsquo;t start.
           </p>
         )}
       </div>
@@ -537,8 +550,8 @@ export function EventRoomMeet() {
                   disabled={submitting}
                   className="min-h-11 shrink-0 text-sm font-medium text-blue-600 disabled:opacity-50"
                 >
-                  {/* At 320px the full label squeezed "You opted in" to "You opt…" (visual QA). */}
-                  Change<span className="hidden min-[360px]:inline"> your choice</span>
+                  {/* One quiet line, "Opted in · Change" (founder, 2026-10-05). */}
+                  Change
                 </button>
               )}
             </div>

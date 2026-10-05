@@ -16,6 +16,8 @@ export interface SessionBarAction {
   onClick: () => void;
   disabled?: boolean;
   testId?: string;
+  /** Read by assistive tech and shown on hover; keeps the bar to one line (P1388). */
+  description?: string;
 }
 
 export interface SessionBarProps {
@@ -33,7 +35,11 @@ export interface SessionBarProps {
    * (`detail`), and only the actions that still work without a connection. It REPLACES the
    * normal bar while offline (never stacked; P1307 D7 requires one bar).
    */
-  tone?: 'live' | 'offline';
+  /**
+   * 'idle' (P1337): nothing is running — the short bar's quiet form, one outlined action (the
+   * event room's "Transcribe"). Same single line as 'live' (P1388: no second line), no pulsing dot.
+   */
+  tone?: 'live' | 'offline' | 'idle';
   /** The offline state's second line, under the text. */
   detail?: ReactNode;
   /** P1388: inline after the text — the room-capture bar's level meter and ⓘ. */
@@ -58,6 +64,7 @@ export function SessionBar({
   extra,
 }: SessionBarProps) {
   const offline = tone === 'offline';
+  const idle = tone === 'idle';
   const hasActions = !!primary || !!secondary || !!extra;
   return (
     <div
@@ -69,7 +76,9 @@ export function SessionBar({
       className={
         offline
           ? 'relative z-40 bg-slate-100 border-b border-slate-200 px-4 py-2'
-          : 'relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2'
+          : idle
+            ? 'relative z-40 bg-slate-50 border-b border-slate-200 px-4 py-2'
+            : 'relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2'
       }
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
@@ -80,13 +89,13 @@ export function SessionBar({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            {showDot && (
+            {showDot && !idle && (
               <span
                 aria-hidden="true"
                 className="inline-block h-2 w-2 rounded-full bg-blue-500 motion-safe:animate-pulse motion-reduce:animate-none"
               />
             )}
-            <span className="text-sm font-medium text-blue-900">{text}</span>
+            <span className={idle ? 'text-sm font-medium text-slate-700' : 'text-sm font-medium text-blue-900'}>{text}</span>
             {adornment}
           </div>
         )}
@@ -102,7 +111,13 @@ export function SessionBar({
                 onClick={primary.onClick}
                 disabled={primary.disabled}
                 data-testid={primary.testId}
-                className="w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                title={primary.description}
+                aria-description={primary.description}
+                className={
+                  idle
+                    ? 'w-full sm:w-auto border border-blue-300 bg-white text-blue-700 text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-50 transition-colors disabled:opacity-50'
+                    : 'w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50'
+                }
               >
                 {primary.label}
               </button>
