@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 
 ---
 
@@ -366,6 +366,7 @@ Last updated: 2026-10-04
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1414** (Oct 26) Next Clarity Night's page carries the topic vote — gate on series_slug, not a missing tag: hikes have no tag either
 - **P1402** (Oct 26) Standalone /prepare — the explainer anyone can open: never hide a done part; sync signed-out parts to the account, never dated before a running prep
 - **P1388** (Oct 26) Recorder can pause, sees a level meter, short sticky bar — capture fails silently; re-check state after every await, never auto-reopen a lost mic
 
