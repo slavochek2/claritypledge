@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 disclosure: public
 severity: medium
@@ -7,8 +7,8 @@ rank: 1
 date_reported: '2026-10-05'
 created_date: '2026-10-05'
 tags: [nav, header, bottom-nav, auth, layout-shift]
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
+completed_at: 2026-10-05
 ---
 
 # P1421: Header nav shifts under the cursor when the profile finishes loading
