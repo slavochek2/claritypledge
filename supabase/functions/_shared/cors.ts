@@ -3,7 +3,11 @@
 
 // Dev ports: w0=5001; w1..w7 base ports 5100..5700 (5100–5799 accepted to cover Vite HMR offsets); named=5800..5899
 const DEV_ORIGIN_RE = /^http:\/\/localhost:(5001|5[1-7]\d{2}|58\d{2})$/;
-const VERCEL_PREVIEW_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/;
+// Project-prefixed: claritypledge-<hash>, claritypledge-git-<branch>-<team>-<id>, claritypledge-git-staging.
+// Narrows, does not close: Vercel subdomains are first-come, so another account's
+// "claritypledge-x" project would still match. No Allow-Credentials is sent, so
+// a matching origin gains no cookie-authenticated access.
+const VERCEL_PREVIEW_RE = /^https:\/\/claritypledge(-[a-z0-9-]+)?\.vercel\.app$/;
 const PROD_ORIGIN = 'https://claritypledge.com';
 
 export function resolveAllowedOrigin(req: Request): string {

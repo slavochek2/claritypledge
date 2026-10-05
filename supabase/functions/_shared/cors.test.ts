@@ -33,6 +33,22 @@ Deno.test('Vercel preview URL reflects back', () => {
   assertEquals(resolveAllowedOrigin(makeReq(preview)), preview);
 });
 
+Deno.test('Vercel branch preview with team suffix reflects back', () => {
+  const o = 'https://claritypledge-git-feature-p1-slavas-projects-42f2b5c0.vercel.app';
+  assertEquals(resolveAllowedOrigin(makeReq(o)), o);
+});
+
+Deno.test('Vercel staging branch alias reflects back', () => {
+  const o = 'https://claritypledge-git-staging.vercel.app';
+  assertEquals(resolveAllowedOrigin(makeReq(o)), o);
+});
+
+Deno.test('foreign *.vercel.app origins are rejected', () => {
+  for (const o of ['https://evil.vercel.app', 'https://notclaritypledge-x.vercel.app', 'https://evil.vercel.app.attacker.com']) {
+    assertEquals(resolveAllowedOrigin(makeReq(o)), 'https://claritypledge.com');
+  }
+});
+
 Deno.test('unknown origin returns prod default', () => {
   const result = resolveAllowedOrigin(makeReq('https://evil.example.com'));
   assertEquals(result, 'https://claritypledge.com');
