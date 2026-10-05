@@ -100,6 +100,7 @@ const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/Even
 const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
 const EventPrepPage = lazy(() => import("@/app/prototypes/events/prep/EventPrepPage").then(m => ({ default: m.EventPrepPage })));
 const PreparePage = lazy(() => import("@/app/prototypes/events/prep/PreparePage").then(m => ({ default: m.PreparePage })));
+const EventClosePage = lazy(() => import("@/app/prototypes/events/close/EventClosePage").then(m => ({ default: m.EventClosePage })));
 const EventArrivingPage = lazy(() => import("@/app/prototypes/events/arrival/EventArrivingPage").then(m => ({ default: m.EventArrivingPage })));
 const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
 const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
@@ -1150,6 +1151,8 @@ export default function ClarityPledgeApp() {
         {/* P1336: the preparation carries its own header and bars, like a letter: immersive while
             in progress (immersive-letter-route.ts), app menus back on the end screen (?done=1). */}
         <Route path="/events/:slug/prepare" element={<ClarityLandingLayout surface="product"><LazyRoute><EventPrepPage /></LazyRoute></ClarityLandingLayout>} />
+        {/* P1389: the evening close — QR on the projector after the last round, and a link for anyone who left early. */}
+        <Route path="/events/:slug/close" element={<ClarityLandingLayout surface="product"><LazyRoute><EventClosePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1380: "See you soon" — behind Not yet in the starting-soon email and the room's arrival question. */}
         <Route path="/events/:slug/arriving" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventArrivingPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />

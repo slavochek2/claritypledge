@@ -273,13 +273,12 @@ describe('P1414 embedded topics page', () => {
     expect(rateTopic).not.toHaveBeenCalled();
   });
 
-  it('same controls as /topics: sort, 8 topics, "Show more" in the section (not a pinned bar)', async () => {
+  it('same controls as /topics: sort, and every topic at once — no "Show more" (founder, P1389 2026-10-05)', async () => {
     topicsDb.rows = Array.from({ length: 11 }, (_, i) => topic(`t${i}`, `Topic ${i}`));
     renderEmbed();
-    expect(await screen.findAllByTestId('topic-row')).toHaveLength(8);
+    expect(await screen.findAllByTestId('topic-row')).toHaveLength(11);
     expect(screen.getByRole('combobox', { name: 'Sort by' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more · 3 left' }));
-    expect(screen.getAllByTestId('topic-row')).toHaveLength(11);
+    expect(screen.queryByRole('button', { name: /more/ })).toBeNull();
   });
 
   it('stars tapped signed out survive a new tab (the email sign-in link), and expire after an hour', async () => {

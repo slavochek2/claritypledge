@@ -55,6 +55,11 @@ export function OrgJoinPage() {
   // by the membership_validate_invited_by trigger. The link joins identically either way.
   const rawFrom = searchParams.get("from");
   const fromProfileId = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
+  // P1389: ?return={in-app path} — a flow that sent the person here (the evening close) gets them
+  // back after joining or on Back. In-app paths only; anything else falls back to the group page.
+  const rawReturn = searchParams.get("return");
+  const returnPath = rawReturn && /^\/[^/\\]/.test(rawReturn) ? rawReturn : undefined;
+  const afterPath = returnPath ?? orgPath;
 
   // Unauthenticated visitors can READ the terms; only the accept action requires
   // an account, so the login redirect happens on click, not on mount.
@@ -114,7 +119,7 @@ export function OrgJoinPage() {
         // Collapsing these two was the original bug: the redirect served the invite
         // case and made the terms link a silent no-op for everyone else.
         if (fromProfileId) {
-          navigate(orgPath, { replace: true });
+          navigate(afterPath, { replace: true });
           return;
         }
         setMyTerms({ version: mine.termsVersion, acceptedAt: mine.acceptedAt });
@@ -126,12 +131,15 @@ export function OrgJoinPage() {
     }
     checkExistingMembership();
     return () => { cancelled = true; };
-  }, [orgId, userId, navigate, orgPath, fromProfileId]);
+  }, [orgId, userId, navigate, afterPath, fromProfileId]);
 
   const handleAccept = useCallback(async () => {
     if (!org || accepting) return;
     if (!user) {
-      const joinPath = `${orgPath}/join${fromProfileId ? `?from=${fromProfileId}` : ""}`;
+      const query = new URLSearchParams();
+      if (fromProfileId) query.set("from", fromProfileId);
+      if (returnPath) query.set("return", returnPath);
+      const joinPath = `${orgPath}/join${query.size ? `?${query}` : ""}`;
       // action=join-org is the explicit signal AuthCallbackPage requires before it
       // will auto-join on a redirect — never on a bare /groups redirect (spec Risk
       // mitigation: auto-join must not be an accidental side effect of navigation).
@@ -154,13 +162,13 @@ export function OrgJoinPage() {
         analytics.track('org_joined', { org_slug: org.slug, terms_version: termsVersion ?? CURRENT_COA_VERSION });
       }
       toast.success(`You've joined ${org.name}`);
-      navigate(orgPath, { replace: true, state: { justJoined: true } });
+      navigate(afterPath, { replace: true, state: { justJoined: true } });
     } catch (err) {
       console.error("Failed to accept the Clarity Group Terms", err);
       toast.error("Couldn't complete your join. Please try again.");
       setAccepting(false);
     }
-  }, [org, accepting, user, navigate, orgPath, fromProfileId]);
+  }, [org, accepting, user, navigate, orgPath, afterPath, returnPath, fromProfileId]);
 
   if (loading || authLoading || checkingMembership) {
     return (
@@ -199,7 +207,7 @@ export function OrgJoinPage() {
         url={`/groups/${org.slug}/join`}
       />
       <div className="mx-auto max-w-2xl space-y-6">
-        <FocusHeader onBack={() => navigate(orgPath)} />
+        <FocusHeader onBack={() => navigate(afterPath)} />
         <div>
           <h1 className="text-center text-2xl font-bold md:text-3xl">
             {myTerms ? `${org.name} — terms` : `Join ${org.name}`}
@@ -265,7 +273,7 @@ export function OrgJoinPage() {
                 <Button
                   variant="outline"
                   className="min-h-11 w-full"
-                  onClick={() => navigate(orgPath)}
+                  onClick={() => navigate(afterPath)}
                 >
                   Back to {org.name}
                 </Button>

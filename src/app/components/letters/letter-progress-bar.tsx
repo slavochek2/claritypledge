@@ -24,6 +24,9 @@ interface LetterProgressBarProps {
    *  second bar on a screen that already shows the main one (the statements counter under
    *  the step header). Default 'default': the letter's own blue — unchanged. */
   tone?: 'default' | 'subtle';
+  /** P1389: how much of the current segment is done (0-1), drawn as one proportional fill —
+   *  no ticks, no ring. Overrides stepCount for the current segment when given. */
+  fraction?: number;
 }
 
 export function LetterProgressBar({
@@ -34,6 +37,7 @@ export function LetterProgressBar({
   isEngagePhase = false,
   label,
   tone = 'default',
+  fraction,
 }: LetterProgressBarProps) {
   const fill = tone === 'subtle' ? 'bg-blue-400' : 'bg-blue-600';
   const track = tone === 'subtle' ? 'bg-gray-200' : 'bg-gray-300';
@@ -62,6 +66,16 @@ export function LetterProgressBar({
           if (i < currentChapter) {
             // Completed chapter — fully filled
             return <div key={i} className={cn('h-2.5 flex-1 rounded-full', fill)} />;
+          }
+          if (i === currentChapter && fraction !== undefined) {
+            return (
+              <div key={i} className={cn('h-2.5 flex-1 rounded-full relative overflow-hidden', track)}>
+                <div
+                  className={cn('absolute inset-y-0 left-0 rounded-full transition-[width] duration-300', fill)}
+                  style={{ width: `${Math.max(12, Math.min(100, fraction * 100))}%` }}
+                />
+              </div>
+            );
           }
           if (i === currentChapter) {
             // Current chapter — step-tick sub-segments when stepCount provided

@@ -43,6 +43,8 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // P1387: /confirm too — the 'Do you have 10 minutes to prepare?' screen is the first step of
     // the preparation, and its pinned Prepare now must not compete with the menu.
     || /^\/(ready|events\/[^/]+\/(ready|room|prepare|confirm))\/?$/.test(pathname)
+    // P1389: the evening close is focused while its steps run; its thank-you (?done=1) has the menus.
+    || (/^\/events\/[^/]+\/close\/?$/.test(pathname) && !letterDone)
     // P1402: the standalone /prepare is focused while its steps run; its end screen (?done=1) is a
     // destination with the menus back (founder UAT 2026-10-04) — and has no pinned bar to cover.
     || (/^\/prepare\/?$/.test(pathname) && !letterDone)

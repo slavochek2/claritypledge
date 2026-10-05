@@ -6,6 +6,35 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [product]: The evening close is feedback, not a pitch — one question per screen, the ask follows what the person has not done yet, and reserving the next evening is the thank-you (P1389)
+
+**Context:** Ten founder test rounds on `/events/:slug/close`, the phone screen every attendee opens at the end of a Clarity Night. Earlier rounds carried a session-gift pitch (problem icons, a value 0-10, "do you know who", a contact form) and a "Can I help you with anything?" box inside the feedback. Founder: *"this is us pitching on their phone within 'feedback'? weird"*; the help offer is *"more powerful if coming as personal message from me to a person rather than end of flow after event."*
+**Decision:** Every screen's main question is the page title (top, centred, largest); text boxes and the 0-10 sit under it; the pinned bar holds only buttons; short screens centre above it. One flow: every ask that still applies is its own step at the end of the same evening — join the community (not a member), then "Let's connect on LinkedIn" (one tap to the host's profile, offered only when that link is public); each is hidden once done, a "Not now" rests 90 days. The offer itself moves to the host's own LinkedIn message. The thank-you leads with "Join the next Clarity Night" (thanks as the small line), one "Reserve my place", app menus back, no "Not now". Topics show every row (no "Show more"), on the close and on /topics: rows behind a button were never seen, so the first page won by position, not preference.
+**Alternatives rejected:** the gift flow inside the close (pitch inside feedback, five screens); asks chosen by evenings attended, one per evening (a first-timer who joined was not asked to connect until a later visit that may never come); a separate "reserve" step before the thanks (two endings); a "Go to feed" button on the thank-you (competes with "Add to calendar").
+**Consequences:** `personal_ask_answers` gains `connect`; `intros`/`need` stay valid only for rows already written. Withdrawal channel for quote permission is still open — not the ops@ inbox (agent-read, receives signup codes). **UNTESTED.** Falsifier: the first real evening's close shows a lower reserve rate or more abandoned closes than the previous paper/QR feedback.
+**References:** [p1389 spec](../features/p1389_clarity_night_closing_sequence.md)
+
+## 2026-10-05 [product]: The close is the evening's only "after" measurement — the seven CMP statements re-checked, then the three on opting in, every evening (P1389)
+
+**Context:** The written evening programme (2026-09-10) ends with a CMP10 stake in the room. The founder corrected the picture: positions are set before or at the start, and at the end each person opens the close on their own phone — the close is the only end-of-evening measurement. An agent recommendation built on the written programme ("show the step only to people who did not re-answer in the room") was withdrawn.
+**Decision:** Step 3 has two halves: "Did your value perception of CMP change?" (the seven, earlier answers pre-set, "No changes" is one tap) then "Where do you stand on CMP in your important conversations?" (the three, with an "N of 3 set" counter, Continue dimmed until all set, Skip). Shown every evening to anyone who answered the seven before.
+**Alternatives rejected:** only the seven (never captures the stance the three exist for); only on someone's first two evenings (loses the change over time that is the point); conditional on not answering in the room (built on a programme step that does not run that way).
+**Consequences:** Drop it for regulars only if the data shows they never change. **UNTESTED.** Falsifier: across the first three evenings, fewer than 1 in 10 re-checks moves any position — then the step costs answers without measuring anything.
+**References:** [p1389 spec](../features/p1389_clarity_night_closing_sequence.md), [clarity-practice-event.md](events/clarity-practice-event.md)
+
+## 2026-10-05 [technical]: An ask the server offers must use the same visibility rule as the data it points to; completion is stored, never inferred from answers (P1389)
+
+**Context:** Codex review of round 10b. The server offered "connect on LinkedIn" whenever the host had a `linkedin_url`, while `get_profile_by_id` (P877) shows that link only for verified + pledged profiles — the client then silently dropped the ask. Separately, skipped text is NULL like unanswered text, so a person who finished with both boxes skipped reopened at the questions.
+**Decision:** `p1389_next_ask` requires the host's profile to be verified and pledged before offering `connect`. `event_feedback.finished_at` is set by `finish_event_close` when the thank-you is reached, and a return visit with it set goes to the thank-you. "Connect" is a real link (`<a target=_blank>`), never `window.open`, so no popup blocker can swallow it after the yes is saved.
+**Alternatives rejected:** returning the link from the close RPC (would widen exposure past P877); inferring completion from which columns are non-null.
+**Consequences:** Any future server-chosen prompt that links to profile data must restate the P877 rule in SQL. A "later evening" in a test that reloads the same event must clear `finished_at`.
+
+## 2026-10-05 [process]: Tell the founder when a reviewer finding is set aside, and verify a written runbook against how the founder actually runs it (Status: proposed)
+
+**Context:** Two frictions in one P1389 session. (1) The visual reviewer flagged a 300-450px white band between question and buttons; the agent judged it acceptable under the round's rule and said nothing — the founder raised it again: *"did you examine visually? … i asked many times not sure i got any answer?"* (2) The agent recommended a CMP-step rule from the written evening programme; the founder: *"no this makes no sense … at end of event (not on projector) but on their own screen they open up /close."*
+**Decision (proposed):** Every reviewer finding the agent does not act on is listed to the founder with one line of why — never silently absorbed. Before a recommendation rests on a documented procedure (an event runbook, a programme), ask or state the assumption ("per the 2026-09-10 programme, the room re-stakes at the end — is that still how it runs?").
+**Consequences:** If adopted, add to the visual-qa rule's reporting step. Falsifier: the founder still re-asks about reviewer findings in the next two UAT rounds.
+
 ## 2026-10-05 [product]: Prep-video text is an edited reading version, not a verbatim transcript; every prep step pins its actions on desktop too
 
 **Context:** On `/prepare` and the event preparation, the text under each clip was the Night #1 transcript verbatim under a "Transcript" heading in muted grey: fillers, restarts, the three meanings of "understanding" buried in prose. Founder: *"right now not optimized for reading."* Separately, on desktop the short choice steps (opt-out question, "Try it now") kept their buttons in the page while video and statement steps were pinned, so Continue moved between steps (founder screenshots: *"why this screen's cta are not at bottom fixed?"*).
@@ -52,7 +81,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** A public `avatars` bucket (2 MB, webp/jpeg/png), with owner-scoped INSERT/SELECT/DELETE policies on `(storage.foldername(name))[1] = auth.uid()::text`, and one URL helper (`src/lib/avatar-upload.ts`) allowlisted in the p1385 test. `avatar_provider = 'upload'` marks a chosen photo, and Google sign-in never replaces it (`src/auth/resolve-avatar-fields.ts`). Remove takes a Google user straight back to their Google picture from the live session, and an email user to initials (founder call, 2026-10-05: initials-until-next-login read as "my Google picture was deleted too").
 **Why not GCS:** P1385's rule exists because of the CSP `media-src` gap. These are images, which `img-src` already allows from `*.supabase.co`. A browser write to GCS needs the signed-URL Cloud Function hop and its secret. Storage RLS gives per-user folders with no extra network hop.
 **Accepted:** the client writes `avatar_url` itself, so a user can point their own avatar at any URL; CSP limits which hosts load. The /live anonymous-profile migration path in AuthCallbackPage does not carry avatar fields (true before P1418; no anonymous sign-ins exist today).
-**References:** [p1418 spec](../features/p1418_custom_profile_picture_upload.md) · `e2e/integration/p1418-avatars-storage-rls.spec.ts`
+**References:** [p1418 spec](../features/done/2026-06-10/p1418_custom_profile_picture_upload.md) · `e2e/integration/p1418-avatars-storage-rls.spec.ts`
 
 ---
 
@@ -105,7 +134,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 6. **Health probes are coalesced:** one in-flight probe is shared, and a failed answer is reused for 2s.
 **Alternatives rejected:** Keep "nothing was saved" and only add a reload hint. That keeps a false statement. Treat every network failure as success. That is false the other way, for the captive-portal case P1369 was built for. Delete the cached feed on an own write instead of patching it. A slow next read would then show "needs connection" instead of the reader's own copy.
 **Consequences:** Point detail and story detail still send position writes without `saveInOrder` or settling. Their failure copy is now honest ("couldn't confirm"), but they do not re-read the outcome. While an outcome is being settled, the optimistic vote stays on screen beside a "checking" toast. It is reverted if the server disagrees or cannot be reached.
-**References:** [P1420](../features/p1420_clear_position_lost_response_stays_lit.md), `src/app/hooks/use-online-write-guard.ts`, `src/lib/offline-read-cache.ts`, `src/app/data/own-position-writes.ts`
+**References:** [P1420](../features/done/2026-06-10/p1420_clear_position_lost_response_stays_lit.md), `src/app/hooks/use-online-write-guard.ts`, `src/lib/offline-read-cache.ts`, `src/app/data/own-position-writes.ts`
 
 ## 2026-10-04 [product]: /prepare is the Clarity explainer for anyone, signed out included; it hides nothing and carries progress one way into event preparation (P1402)
 

@@ -74,15 +74,12 @@ describe('P1347 /topics', () => {
     expect(within(row).getByTestId('topic-why')).toHaveTextContent('If every choice has a cause');
   });
 
-  it('shows 8 topics, then 8 more per tap', async () => {
+  it('shows every topic at once, with no "Show more" (founder, P1389 2026-10-05)', async () => {
     db.rows = Array.from({ length: 20 }, (_, i) => topic(`t${i}`, `Topic ${i}`));
     renderPage();
-    expect(await screen.findAllByTestId('topic-row')).toHaveLength(8);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 8 more' }));
-    expect(screen.getAllByTestId('topic-row')).toHaveLength(16);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 4 more' }));
-    expect(screen.getAllByTestId('topic-row')).toHaveLength(20);
-    expect(screen.queryByRole('button', { name: /more$/ })).toBeNull();
+    expect(await screen.findAllByTestId('topic-row')).toHaveLength(20);
+    expect(screen.queryByRole('button', { name: /more/ })).toBeNull();
+    expect(screen.getByTestId('topic-count')).toHaveTextContent('20 topics');
   });
 
   it('has exactly one way to add ideas: the "Add your own topic" button at the top', async () => {

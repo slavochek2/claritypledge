@@ -146,12 +146,15 @@ export function OrgDirectoryPage() {
   );
 }
 
-function OrgCard({
+/** Exported for P1389's community ask, which shows it static (`asStatic`): joining happens
+ *  inside the evening close, so the card is never a way out of it. */
+export function OrgCard({
   org,
   memberCount,
   participation,
   eventSummary,
   isMine,
+  asStatic = false,
 }: {
   org: Organization;
   /** null = counts could not be loaded; render no count rather than a false 0. */
@@ -159,13 +162,17 @@ function OrgCard({
   participation?: OrgParticipation;
   eventSummary?: OrgEventSummary;
   isMine: boolean;
+  /** P1389: information only (the evening close) — no link, no hover, no "Open". */
+  asStatic?: boolean;
 }) {
   const pastCount = eventSummary?.pastCount ?? 0;
 
   return (
     <div
       data-testid="org-card"
-      className="group relative flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-5 transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2"
+      className={asStatic
+        ? "relative flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-4"
+        : "group relative flex h-full flex-col gap-3 rounded-lg border border-border bg-card p-5 transition-all duration-200 hover:shadow-lg hover:border-blue-500/50 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2"}
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
@@ -176,12 +183,16 @@ function OrgCard({
                 comment it replaces was protecting. The ::after pseudo-element
                 below covers the whole card for pointer users, without dragging
                 avatars/counts into the link's accessible name. */}
-            <Link
-              to={`/groups/${org.slug}`}
-              className="rounded text-lg font-semibold underline-offset-2 after:absolute after:inset-0 after:content-[''] hover:text-blue-600 hover:underline focus-visible:outline-none"
-            >
-              {org.name}
-            </Link>
+            {asStatic ? (
+              <p className="text-lg font-semibold">{org.name}</p>
+            ) : (
+              <Link
+                to={`/groups/${org.slug}`}
+                className="rounded text-lg font-semibold underline-offset-2 after:absolute after:inset-0 after:content-[''] hover:text-blue-600 hover:underline focus-visible:outline-none"
+              >
+                {org.name}
+              </Link>
+            )}
           </div>
         </div>
         {/* The ONLY signed-in delta (UX reference Screen B). Membership is a
@@ -222,7 +233,7 @@ function OrgCard({
         )}
       </p>
 
-      <div className="flex items-center justify-end gap-3 border-t border-border pt-3">
+      {!asStatic && <div className="flex items-center justify-end gap-3 border-t border-border pt-3">
         {/* P1204: purely decorative wayfinding now that the card itself is the
             click target (stretched link above) — an interactive element here
             would be a second, nested interactive target inside the stretched
@@ -238,7 +249,7 @@ function OrgCard({
           Open
           <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
         </span>
-      </div>
+      </div>}
     </div>
   );
 }

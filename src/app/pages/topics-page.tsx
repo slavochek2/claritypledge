@@ -37,8 +37,6 @@ import {
 import { cn } from '@/lib/utils';
 
 const STARS = [1, 2, 3, 4, 5] as const;
-/** Attendee topics, then the host's in backlog order: the first this many are shown. */
-const TOP_COUNT = 8;
 /** Title, then one line: stars · average · faces. Phones put that line under the title. */
 const ROW_GRID = 'grid grid-cols-1 gap-y-0.5 sm:grid-cols-[minmax(0,1fr)_30rem] sm:items-center sm:gap-x-6';
 /** P1414: embedded in a ~600px card column there is no room for the 30rem stars column — keep the phone layout at every width. */
@@ -99,9 +97,8 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   // Taps not yet confirmed by the server, laid OVER fetched data: a refetch that left
   // before a later tap can never wipe that tap, and a failed save rolls back.
-  // A short list first (8 more per tap), so nobody thinks they must rate everything.
-  const step = TOP_COUNT;
-  const [shown, setShown] = useState(step);
+  // Founder (P1389, 2026-10-05): every topic on the page, no "Show more" — a vote is a comparison,
+  // and rows behind a button were never seen, so the first page won by position, not preference.
   const [pending, setPending] = useState<Record<string, number | null>>(() => readGuest());
   // Sorting is the viewer's choice and is applied once per choice, so rows never move under a tap.
   const [sortBy, setSortBy] = useState<SortBy>('suggested');
@@ -299,7 +296,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
       {state.kind === 'ready' && topics.length > 0 && (
         <>
           <ul className="mt-3 flex flex-col divide-y divide-border border-t border-border" data-testid="topic-list">
-            {listed.slice(0, shown).map((t) => (
+            {listed.map((t) => (
               <TopicRow
                 key={t.id}
                 topic={t}
@@ -324,29 +321,13 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
               Hide my photo on my votes
             </label>
           )}
-          {embedded ? (
-            // Embedded: same controls as /topics (founder), minus the pinned bar — "Show 8 more" sits in the section.
-            topics.length > shown && (
-              // Same button as the closing sequence's list (P1389): centred, blue outline, rounded.
-              <div className="mt-4 flex justify-center">
-                <Button type="button" variant="outline" onClick={() => setShown((n) => n + step)} className="min-h-11 rounded-full border-blue-600 px-5 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-                  {/* Same label as P1389's closing list: how many the tap adds, and how many are left. */}
-                  Show {Math.min(step, topics.length - shown)} more · {topics.length - shown} left
-                </Button>
-              </div>
-            )
-          ) : (<>
-          {/* Pinned bar (no bottom menu on this page): more topics, and a way back. */}
+          {!embedded && (<>
+          {/* Pinned bar (no bottom menu on this page): the count, and a way back. */}
           <div className="h-40" aria-hidden />
           <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-sheet">
             <p className="text-sm text-muted-foreground" data-testid="topic-count">
-              Showing {Math.min(shown, topics.length)} of {topics.length} topics
+              {topics.length} {topics.length === 1 ? 'topic' : 'topics'}
             </p>
-            {topics.length > shown && (
-              <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-700" onClick={() => setShown((n) => n + step)}>
-                Show {Math.min(step, topics.length - shown)} more
-              </Button>
-            )}
             {/* Same Back as every other focus page. */}
             <button type="button" onClick={goBack} className="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700">
               <ArrowLeft className="h-4 w-4" aria-hidden /> Back

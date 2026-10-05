@@ -21,6 +21,9 @@
  */
 const IMMERSIVE_LETTER_PATH = /^\/letter\/[^/]+(\/compose)?$/;
 const IMMERSIVE_PREP_PATH = /^\/events\/[^/]+\/prepare\/?$/;
+// P1389: the evening close is a focus flow while its steps run; its thank-you (?done=1) is a
+// destination with the menus back, like the standalone /prepare's (founder UAT, 2026-10-05).
+const CLOSE_PATH = /^\/events\/[^/]+\/close\/?$/;
 // P1402: the standalone /prepare is the same flow without an event — but its end screen (?done=1)
 // is a destination (founder UAT 2026-10-04): the menus come back, for signed-out visitors too.
 const STANDALONE_PREP_PATH = /^\/prepare\/?$/;
@@ -34,6 +37,7 @@ export function isImmersiveLetterRoute(pathname: string, search: string, hasAppM
   return (
     (IMMERSIVE_LETTER_PATH.test(pathname) && !done) ||
     IMMERSIVE_PREP_PATH.test(pathname) ||
-    (STANDALONE_PREP_PATH.test(pathname) && !standaloneDone)
+    (STANDALONE_PREP_PATH.test(pathname) && !standaloneDone) ||
+    (CLOSE_PATH.test(pathname) && !standaloneDone)
   );
 }

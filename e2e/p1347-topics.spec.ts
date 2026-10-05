@@ -100,9 +100,9 @@ test.describe('P1347 /topics', () => {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.screenshot({ path: 'test-results/p1347-seeded-375-bottom.png' });
 
-    // Add a topic opens a dialog.
+    // Suggest a topic opens a dialog.
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.getByRole('button', { name: /add a topic/i }).click();
+    await page.getByRole('button', { name: /suggest a topic/i }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.waitForTimeout(400); // let the open animation finish before the screenshot
     await page.screenshot({ path: 'test-results/p1347-add-375.png' });

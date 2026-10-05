@@ -29,7 +29,7 @@ export const seriesLabel = (event: Pick<EventWithHost, 'title'>) =>
   /clarity night/i.test(event.title) ? 'Clarity Nights' : 'our events';
 
 /** RsvpConfirm's event details block. */
-function EventDetails({ event }: { event: EventWithHost }) {
+export function EventDetails({ event }: { event: EventWithHost }) {
   const start = new Date(event.datetime);
   const end = new Date(start.getTime() + event.durationMinutes * 60 * 1000);
   const location = classifyLocation(event.location);
