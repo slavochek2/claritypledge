@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 123
+**Next ID:** 124
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2070,5 +2070,16 @@ Found 2026-10-06 while writing P1424's e2e guard. On /point/:id?embed=true (no ?
 **due:** week
 
 A profile whose owner has points stayed on its loading skeleton ("Stories (0)") on the test DB, so every getByText of a seeded point timed out. Control run on unchanged main (f856dc899): e2e/p154-position-persistence-profile.spec.ts failed 6/6 at the first getByText; the same pattern hit p151-profile-position-loading, p151-regression, point-position-persistence and manual-points. Found during P1423 under heavy machine load, so first rerun p154 on an idle machine: drop this if it passes there, otherwise check console/network on /p/<slug> for an owner with one public point.
+
+---
+
+## Horizontal scroll at 320px on the story page footer and the letters header
+
+**ID:** INBOX-123
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+At 320px the story page card footer (points count, Add a point, edit, delete, share, open icons) runs past the card and the page scrolls sideways: measured scrollWidth 349 on main, 346 after P1423. The letters page header (three tabs plus New Draft) overflows the same way, and draft metadata wraps mid-phrase. Found by the P1423 visual review; both predate it. Done when /story/<id> and /letters?tab=drafts have scrollWidth equal to 320 at 320px; drop if 320px support is retired.
 
 ---
