@@ -6,6 +6,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [technical]: An installed PWA checks for a new build on resume and offers a tap-to-refresh; "new build" = app-content fingerprint, not the entry hash (P1416)
+
+**Context:** The founder's installed PWA kept running old code after deploys. registerType autoUpdate only applies on a navigation; a resumed standalone app never navigates, and nothing called `registration.update()`. P838 had rejected an update prompt because "users don't relaunch between deploys" — that reasoning does not cover users who resume.
+**Decision:** On resume/visible/focus/pageshow/online, call `registration.update()` and compare the running page's `<meta name="app-build">` with a no-store fetch of `/`. The meta is a build-time hash of the inputs that change what users run (src minus tests, public, index.html, lockfile, vite/tailwind/postcss config). Toast "New version available, tap to refresh." (founder copy), 1.5s after resume, never on /live or /transcribe, never offline, never in an iframe.
+**Alternatives rejected:** comparing the entry script name — Sentry injects the commit SHA into the entry, so every push (docs included, ~500/week) would prompt; a Vercel ignoreCommand to skip docs-only builds — changes deploy behaviour, and a missed path silently withholds a deploy; silent auto-reload — loses half-typed stories.
+**Consequences:** about two thirds of pushes no longer prompt. Leaving a file off the fingerprint costs a missed prompt, never a loop. Real-device verification is a post-deploy check.
+**References:** `src/pwa/app-build-fingerprint.ts`, `src/lib/app-update-check.ts`
+
+## 2026-10-05 [product]: Feed and profile cards open only via "Details", not by tapping the card body (P1415)
+
+**Context:** The founder kept opening cards by accident on phones while aiming at position buttons or scrolling. Whole-card click was legacy (P491); P1366 kept it as a secondary path after adding the Details button.
+**Decision:** Card roots are plain `<article>`s on /feed, /stake and profile lists; only "Details →" and explicit links inside navigate, at every width. Home rail: Next events first; the Groups section shows only the Communication Activism group (slug `cm`) on desktop and is absent on phones.
+**Alternatives rejected:** phone-only change — two rules for one card; keeping whole-card tap — the accidental-navigation cost lands on the most common device.
+**Consequences:** cmd/middle-click on a card body no longer opens a tab (Details is a button). Point cards outside lists (point page, embeds) keep whole-card navigation.
+**References:** P1415 spec
+
+## 2026-10-05 [process]: A three-model review (Opus + Codex + Gemini) found defects each single reviewer missed; cap review rounds by scoping residual races as documented limits
+
+**Context:** Six fixes were reviewed by Opus, Codex gpt-6.1-sol and Gemini 3.8 in parallel. Codex alone found the every-deploy prompt (P1416) and reproduced concurrent cache-patch races (P1420); Gemini found the Tools menu remount (P1421); Opus found the safe-area offset (P1422). Gemini also asserted defects that commands refuted (a non-existent storage endpoint, a tsc error in an untouched file).
+**Decision:** keep three independent reviewers for user-facing fixes; verify every finding by command before forwarding; when re-review rounds keep finding races that main also has (multi-write ordering over an unreliable link), fix regressions and record the rest as accepted limits with a follow-up rather than looping.
+**Consequences:** P1420 shipped after three rounds with server-enforced write ordering (client sequence + conditional upsert/delete) as the named follow-up. Codex 6.1 needed codex-cli 0.160 — an outdated CLI returns the same 400 as an invalid model id.
+
 ## 2026-10-05 [process]: `/ship` dropped a branch commit made after a paused ship; Codex caught two defects the Opus review passed (P1418)
 
 **Context:** P1418's first `git-ops.sh ship` stopped before any cherry-pick (a co-tenant's uncommitted `docs/decisions.md` on main), leaving a journal listing the branch's 4 commits. A 5th commit (Remove falls back to the Google picture) was then added on the branch. The later `--resume` cherry-picked the journal's 4, closed the spec, deleted the branch and worktree, and printed "landed" with no warning. The 5th was found missing only by grepping main for its symbol; it was re-applied from the dangling commit via `commit-to-main`. Separately, an Opus code review reported no high-confidence bugs, and the Codex review then reproduced two real defects with probes: a folder-sweep cleanup that let two tabs delete the live photo, and a profile refresh that wiped unsaved Settings edits.

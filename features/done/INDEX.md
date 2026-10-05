@@ -74,6 +74,8 @@ Last updated: 2026-10-05
 - **P590** (Mar 26) Clarity Docs Design Fixes — change-request for P551; 5 raw-Tailwind button violations from subagent ignoring shadcn theme; visual QA skipped = design violations ship to UAT; creation popover replaces useless mutable dropdown
 
 ## Points & Stories
+- **P1415** (Oct 26) Cards open only via Details; home rail events-first, CA group only — whole-card tap caused accidental phone navigation
+- **P1420** (Oct 26) Clear position on a bad connection — a sent-but-unanswered write is UNKNOWN: settle by re-reading, never claim "not saved"
 
 - **P1374** (Sep 26) One intensity-hint rule site-wide — a flag set by any menu pick stops every hint; broadcast it, one hint per page, pop-up once, never in live
 - **P1376** (Sep 26) /stake lists heads only; tag heading visible — head filter must sit inside the query, before `.range()`; /live was already heads-only via stories
@@ -211,6 +213,7 @@ Last updated: 2026-10-05
 - **P968** (Jun 28) Prepare-letter prediction walk reuses reading components (finishes P665) — Radix `DialogOverlay` is null under `modal={false}` so a dimmed scrim needs `modal` (reverses P688 for the recipient dialog, which now overlays the draft page via compose's `location.state` contract instead of a blank `/compose` page); one primary action per view → Seal in `FixedBottomBar`, Preview demoted to outline; renaming a CTA label ("Next Story"→"Continue") breaks `getByRole` selectors — sweep E2E specs
 
 ## Navigation & Routing
+- **P1421** (Oct 26) Header stable while profile loads — same-shape placeholders, gated on a per-device verified marker cleared on sign-out
 - **P1392** (Oct 26) Feed-first homepage, discovery-call CTA, Events in menu — "/" redirect orphaned the "/"-keyed footer, hero offset and ?referrer invites; grep pathname === "/" before moving a homepage
 - **P1364** (Sep 29) Consistent back navigation — one `useGoBack` declared by `fallback`; Back to feed/stake/profile restores tab, card and open state — a one-shot scroll restore clamps to ~0 while the list is a spinner; own writes must clear the POP cache (drift guard derives writers from migrations).
 - **P1351** (Sep 22) Header main button follows context: tinted "Tools" button, "Tonight's event" on event days — a pure-overlap check passed a button touching the logo; a 4px-gap check caught it.
@@ -246,6 +249,7 @@ Last updated: 2026-10-05
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1422** (Oct 26) /meet track under Tools on phones — sticky offsets must include env(safe-area-inset-top) and the offline strip
 - **P1393** (Oct 02) Design-system sweep — decide visuals from /tree A/B pages; hex sweeps must skip avatar colour data.
 - **P1365** (Sep 28) Desktop event page repeats the RSVP only after a description taller than the viewport — geometry keeps one primary per view without scroll tracking; a repeated CTA needs its own name, loading label and test id
 
@@ -402,6 +406,7 @@ Last updated: 2026-10-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1416** (Oct 26) Installed PWA stale after deploys — resume never navigates; compare an app-content fingerprint, not the Sentry-stamped entry hash
 - **P1385** (Oct 01) Public media defaults to GCS with a CSP check — `publicMediaUrl()` is the only builder; a src/ scan bans hand-built GCS/Supabase-storage URLs and `getPublicUrl(`, since dev sends no CSP
 - **P1369** (Oct 26) Offline-readable pages + offline strip: app-layer IndexedDB read-through (SW never caches Supabase); ordered write queues need a bounded wait
 - **P1370** (Sep 26) Disagreement pipeline hardening after ikigai1 — evidence a gate reads must be tool-written; a caption label is not a track identity
