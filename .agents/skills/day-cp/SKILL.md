@@ -192,8 +192,9 @@ for REGION in us-east4 us-central1 us-east5 europe-west1; do
     # Per-field queries — multi-field --format mis-maps when annotations are empty (verified May 2026)
     GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null)
     MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
-    THR=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['run.googleapis.com/cpu-throttling'])" 2>/dev/null)
-    [ -n "$GPU" ] && echo "GPU_SERVICE: $SVC ($REGION) gpu=$GPU minScale=${MIN:-0} cpu-throttle=${THR:-true}"
+    # A GPU service is flagged on BILLED hours, not on having a GPU: Cloud Run requires
+    # cpu-throttling=false for GPUs, so that annotation carries no signal (cp decisions 2026-10-04).
+    [ -n "$GPU" ] && ./scripts/gpu-warm-check.py "$GCP_PROJECT" "$SVC" 3
     { [ -n "$MIN" ] && [ "$MIN" != "0" ]; } && echo "ALWAYS_ON: $SVC ($REGION) minScale=$MIN (never scales to zero)"
   done
 done
@@ -275,14 +276,16 @@ because no spend cap exists yet to trip. When P1162's caps are created, re-verif
 against a real refusal before treating it as proven.
 
 **Cost tripwire — flag if ANY line appears under `=== COST TRIPWIRE ===`:**
-- `GPU_SERVICE:` → a GPU is attached to a Cloud Run service. GPUs bill ~€0.80/hr while allocated. Confirm it is intended and scales to zero (`minScale=0`, but note `cpu-throttle=false` still bills GPU between requests if kept warm).
+- `GPU_WARM:` → a GPU service was billed more than 3 h in the last 24 h (Cloud Monitoring `billable_instance_time`). GPUs bill ~€0.80/hr while allocated. Normal is ~1 h/day: `tx-job-janitor` wakes `transcribe-session` for ~5 min every 2 h. The May leak read 24 h/day.
+- `GPU_CHECK_FAILED:` → the billed-time query did not run. Report it as unchecked, never as clean.
+- `GPU_SERVICE_OK:` → informational, not a tripwire. Render it in the spend block, not as a leak.
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
 - `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted, by name AND interval: `tx-job-janitor` (P858/P902, every 2 h) and `transcribe-room-sweep` (P1307, hourly since 2026-10-01). Either one firing more often than every 30 min is flagged even though it is listed, because a ping inside the ~15-min idle window keeps a `--no-cpu-throttling` service warm 24/7. Any other scheduler whose target is a `run.app` URL is a leak until shown otherwise. Jobs are selected by target URI, not by name.
 
 **Always output a cost block, even when clean** (silence = "did it leak?" uncertainty, the exact problem this prevents):
 - **Verdict line:**
-  - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_SERVICE:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
-  - All clear → `✓ GPU/cost: no leak (no GPU services, no always-on, no Run-pinging scheduler)`.
+  - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_WARM:` / `GPU_CHECK_FAILED:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
+  - All clear → `✓ GPU/cost: no leak (GPU billed under threshold, no always-on, no Run-pinging scheduler)`, with each `GPU_SERVICE_OK:` hours figure appended.
 - **Spend line (always):** render the `EST_PER_DAY:` / `EST_SINCE_LAST:` output as `Est. spend: ~€X/day · ~€Y since last /day (Nd)`. This is a resource-based estimate (±5%), NOT billed — a warm GPU spikes it ~€19/day above the ~€4/day baseline. For billed-to-the-cent €: weekly `/gcp-spend`.
 
 #### Wave 2: Supabase + Sentry (2 calls max, parallel)
