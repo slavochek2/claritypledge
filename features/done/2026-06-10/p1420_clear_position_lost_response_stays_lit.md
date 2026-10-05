@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 27
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [positions, offline, feed, network]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1420-clear-position-lost-response.spec.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   note: reproduced in the create-bug session (scratch runs S0–S7); the e2e failed 3/3 on main for the asserted reasons before /fix
 root_cause: A position write whose answer was lost was treated as "not saved" (false copy, no reconciliation), one failure blocked the retry without a request, the feed's reconnect re-read swapped the list for a skeleton, and own writes did not patch the IndexedDB offline copy.
 resolution: Unknown-outcome writes are settled by re-reading the viewer's row; a write blocked only by an earlier failure probes first; /feed and /stake re-reads refresh in place; confirmed own position writes patch the offline cache and in-flight reads.
+completed_at: 2026-10-05
 ---
 
 # P1420: "Clear position" on a bad connection leaves the position lit after the server removed it
@@ -168,7 +168,7 @@ Direction only; this filing was reproduction-only.
 
 ## Resolution
 
-All four mechanisms are fixed in this branch. Decision and alternatives: [decisions.md](../docs/decisions.md)
+All four mechanisms are fixed in this branch. Decision and alternatives: [decisions.md](../../../docs/decisions.md)
 2026-10-05 [technical]. That entry also records the new evidence against the P1369 2026-10-01
 assumption that "a request held by a captive portal almost never reaches the server". That
 assumption holds for a captive portal, not for a weak mobile connection, where the request lands and only the answer is lost.
