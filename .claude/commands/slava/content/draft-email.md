@@ -83,7 +83,7 @@ Founder, ClarityPledge
 3. **Iterate** until approved — no limit on rounds
 4. **Send** via `slava@claritypledge.com` using the SMTP script pattern:
    - Server: `w00dd4f1.kasserver.com`, port 465 (SMTPS)
-   - Credentials: `SLAVA_EMAIL` / `SLAVA_EMAIL_PASSWORD` from `.env.local`
+   - Credentials: `SLAVA_EMAIL` from `.env.local`; `SLAVA_EMAIL_PASSWORD` from the keychain (moved 2026-10-05, no longer in `.env.local`): `source scripts/keyring.sh && KEYRING_REASON="draft-email: send <slug>" keyring_require SLAVA_EMAIL_PASSWORD` raises one Allow dialog, then pass it to the script via env, never argv
    - Write to `/tmp/send-email-<slug>.mjs`, run with `node`, delete after
 5. **Confirm** delivery (`250 Ok: queued` = success)
 
