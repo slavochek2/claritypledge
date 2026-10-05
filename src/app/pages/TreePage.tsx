@@ -10,6 +10,26 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/landing-watch',
+    label: 'Landing lab: Watch',
+    description: 'Cinematic, video first. The st1 story and the five barriers as moving type.'
+  },
+  {
+    path: '/tree/landing-do',
+    label: 'Landing lab: Do',
+    description: 'Experiential. Tap a song, guess how many would name it, see the gap.'
+  },
+  {
+    path: '/tree/landing-wild',
+    label: 'Landing lab: Wild',
+    description: 'A 3D scene of two minds and the gap between them. Reveal the hidden number.'
+  },
+  {
+    path: '/tree/landing-first',
+    label: 'Landing lab: Go first',
+    description: 'Story, three meanings, a demonstration, the missing norm, then a fork into four next actions.'
+  },
+  {
     path: '/tree/design-buttons',
     label: 'Design decisions: button rules',
     description: 'Seven button rules, each shown right vs wrong, for approval'

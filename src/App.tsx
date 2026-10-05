@@ -93,6 +93,10 @@ const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(
 const LandingV2 = lazy(() => import("@/app/pages/landing-v2").then(m => ({ default: m.LandingV2 })));
 const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ default: m.LandingV3 })));
 const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ default: m.LandingV4 })));
+const LandingWatch = lazy(() => import("@/app/tree/landing-lab/watch/LandingWatch").then(m => ({ default: m.LandingWatch })));
+const LandingDo = lazy(() => import("@/app/tree/landing-lab/do/LandingDo").then(m => ({ default: m.LandingDo })));
+const LandingWild = lazy(() => import("@/app/tree/landing-lab/wild/LandingWild").then(m => ({ default: m.LandingWild })));
+const LandingFirst = lazy(() => import("@/app/tree/landing-lab/first/LandingFirst").then(m => ({ default: m.LandingFirst })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
@@ -1120,6 +1124,10 @@ export default function ClarityPledgeApp() {
         {import.meta.env.DEV && <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-watch" element={<LazyRoute><LandingWatch /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-do" element={<LazyRoute><LandingDo /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
+        {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/p1336" element={<LazyRoute><P1336OnboardingPrototype /></LazyRoute>} />}
         {import.meta.env.DEV && <Route path="/tree/p1336-c" element={<LazyRoute><P1336OnboardingPrototype variant="c" /></LazyRoute>} />}
