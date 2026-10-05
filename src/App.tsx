@@ -15,6 +15,7 @@ import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { OfflineStatusProvider, useConnectivity } from "@/app/contexts/offline-status-context";
 import { letterCodeRead } from "@/app/data/offline-reads-letters";
 import { OfflinePackPreloader } from "@/app/components/offline/offline-pack-preloader";
+import { AppUpdatePrompt } from "@/app/components/pwa/app-update-prompt";
 import { readThrough } from "@/lib/offline-read-cache";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
 import { isAppServerReachable } from "@/lib/reachability";
@@ -373,6 +374,8 @@ export default function ClarityPledgeApp() {
       <RoomCaptureBarFallback />
       <ListReturnCacheAuthReset />
       <OfflinePackPreloader />
+      {/* P1416: a resumed PWA never navigates; offer the new build when one is live. */}
+      <AppUpdatePrompt />
       <AgentAccountsProvider>
       <TermsAcceptanceGate>
       <Routes>

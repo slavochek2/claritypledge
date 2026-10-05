@@ -6,6 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'node:fs'
 import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
+import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -100,6 +101,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 1400, // heic2any is ~1353kB, lazy-loaded so no perf impact
   },
   plugins: [
+    // P1416: <meta name="app-build"> — a fingerprint of the app's own inputs, so the update prompt
+    // ignores deploys that change nothing users run (docs, skills, tests). Build only.
+    appBuildFingerprintPlugin(__dirname),
     // Dev-only: serve any static deck under public/<name>/ at its clean URL
     // (e.g. /presi, /presi2, future /presiN), matching the Vercel /<name> →
     // /<name>/ redirect + static-file serving. Without this, Vite hands /<name>/
