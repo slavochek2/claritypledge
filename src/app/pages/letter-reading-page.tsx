@@ -354,7 +354,7 @@ export function LetterReadingPage() {
                 setSnapshotsSafe(publicData.snapshots);
                 setDeliverySafe(null);
                 setSenderNameSafe((letterObj.sender_display_name as string) ?? 'Someone');
-                setPublicPredictionsSafe(publicData.predictions);
+                setPublicPredictionsSafe(letterObj.mode as LetterMode, publicData.predictions);
                 setSafe('ready_public');
                 if (!cancelled) setOfflineCachedAt(read.storedAt);
                 return;

@@ -96,7 +96,7 @@ export function FreeModeView({
   const [localSliderValue, setLocalSliderValue] = useState(0);
 
   // Initialize slider from the last committed rating when entering unlocked phase
-  const prevPhaseRef = useRef<FreePhase | undefined>();
+  const prevPhaseRef = useRef<FreePhase | undefined>(undefined);
   useEffect(() => {
     if (freePhase === 'unlocked' && prevPhaseRef.current !== 'unlocked') {
       const myValue = isCreator ? liveState.freeSliderCreator : liveState.freeSliderJoiner;

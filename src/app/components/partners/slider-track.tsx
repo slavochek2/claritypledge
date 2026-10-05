@@ -224,7 +224,7 @@ export function SliderTrack({
   othersLabel,
 }: SliderTrackProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingValue = useRef<number | null>(null);
 
   // Flush pending debounced value on unmount

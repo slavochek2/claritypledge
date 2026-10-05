@@ -37,15 +37,17 @@ function noteSuppression(
  *
  * - Dev: console.error with context + full error object.
  * - Prod: Sentry.captureException with context, code, details, and hint as extras.
+ * - `extra` (optional) adds caller context (e.g. `{ storyId }`); it never overrides the error fields.
  */
 export function logDbError(
   context: string,
-  error: PostgrestError | null | undefined
+  error: PostgrestError | null | undefined,
+  extra?: Record<string, unknown>
 ): void {
   if (!error) return;
 
   if (isDev) {
-    console.error(`[db-error] ${context}:`, error);
+    console.error(`[db-error] ${context}:`, error, ...(extra ? [extra] : []));
     return;
   }
 
@@ -100,6 +102,7 @@ export function logDbError(
 
   Sentry.captureException(new Error(`DB error in ${context}: ${error.message}`), {
     extra: {
+      ...extra,
       context,
       code: error.code,
       details: error.details,

@@ -43,7 +43,7 @@ export function DocStoryPicker({
   const [fetchState, setFetchState] = useState<'loading' | 'done' | 'error'>('loading');
   const [addingStoryId, setAddingStoryId] = useState<string | null>(null);
   const [hasAnyStories, setHasAnyStories] = useState<boolean | null>(null);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Debounce search input by 200ms
   useEffect(() => {
