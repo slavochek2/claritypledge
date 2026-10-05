@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 17
 workstream: events
@@ -10,7 +10,6 @@ tags:
   - closing
   - community
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -20,6 +19,7 @@ related:
   - p1337
   - p1347
   - p1055
+completed_at: 2026-10-05
 ---
 
 # P1389: The evening closes on the phone — feedback, whether positions moved, next week's topic, and one personal ask
@@ -39,7 +39,7 @@ related:
 **Situation:** Clarity Night #1 had a post-event Tally feedback email. It never fired: **13 RSVPs,
 zero rows in `email_send_log`** — the "always scheduled" fix from P509 never ran, and nothing alerted,
 because monitoring had been explicitly rejected as over-engineering
-([decisions.md](../docs/decisions.md) 2026-09-22 [technical]).
+([decisions.md](../../../docs/decisions.md) 2026-09-22 [technical]).
 
 **Complication:** Everything the evening needs to produce happens in the ten minutes before people
 stand up: whether anyone's position moved, what the room wants to discuss next week, and whether
@@ -282,7 +282,7 @@ round. Items 1–4 are the evening's data and have no escape hatch; 5–8 are pe
 1. **Feedback** — the existing Tally question set, ported rather than redesigned.
 2. **Did your position move?** — the cmp statements they answered before the event, then the newly
    added ones. **This is a re-check, not a second survey**: `point_position_history` already records
-   movement, so before/after is free ([decisions.md](../docs/decisions.md), P1055 reasoning).
+   movement, so before/after is free ([decisions.md](../../../docs/decisions.md), P1055 reasoning).
 3. **Topics for next week** — rate the published candidates, and suggest your own with an optional
    link, a name, or a comment. **Not a YouTube-URL field**: a video is the usual starting point, not a
    requirement. Rating UI and publishing belong to [P1347](p1347_topics_page_attendees_rate_next_topics.md);
@@ -327,7 +327,7 @@ the feedback branch in `send-event-emails`) rather than running both.
 - **Nothing here asks the attendee to buy anything or to book a session for themselves.** Step 8 asks
   about *other* organisations and every introduction is approved one at a time. The founder has
   accepted that asking at all costs the clean reading of the champion-pilot prediction
-  ([decisions.md](../docs/decisions.md) 2026-09-21 [product]; research-programme ledger L4) — recorded
+  ([decisions.md](../../../docs/decisions.md) 2026-09-21 [product]; research-programme ledger L4) — recorded
   as a deliberate trade, optimising for a pilot over the measurement.
 - **Position comparisons are within-person before/after only.** Never opt-ins against opt-outs as
   groups — self-selection (P1055 Non-Goals).
@@ -390,6 +390,6 @@ Tests that must stay green: `src/tests/p1414-event-topic-vote.test.tsx`, `src/te
 
 ## Related
 
-- [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) — the rounds this closes
+- [p1337](../../p1337_event_journey_on_screen_steps_rotation_and_ending.md) — the rounds this closes
 - [p1347](p1347_topics_page_attendees_rate_next_topics.md) — topic rating, linked from step 3
-- [p1055](p1055_norm_measurement_instrument.md) — the cmp statement set, the staking flow, and the within-person rule step 2 obeys
+- [p1055](../../p1055_norm_measurement_instrument.md) — the cmp statement set, the staking flow, and the within-person rule step 2 obeys
