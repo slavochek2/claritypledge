@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 124
+**Next ID:** 126
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2081,5 +2081,27 @@ A profile whose owner has points stayed on its loading skeleton ("Stories (0)") 
 **due:** week
 
 At 320px the story page card footer (points count, Add a point, edit, delete, share, open icons) runs past the card and the page scrolls sideways: measured scrollWidth 349 on main, 346 after P1423. The letters page header (three tabs plus New Draft) overflows the same way, and draft metadata wraps mid-phrase. Found by the P1423 visual review; both predate it. Done when /story/<id> and /letters?tab=drafts have scrollWidth equal to 320 at 320px; drop if 320px support is retired.
+
+---
+
+## De-flake p1270-profile-story-media under full-suite load
+
+**ID:** INBOX-124
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+src/tests/p1270-profile-story-media.test.tsx failed 2 tests under full-suite load on 2026-10-06 (findByRole 'Your story' timed out) but passed 3/3 in isolation; one pre-commit retry went green. Reviewers also saw load flakes at HEAD in p1296-card-footer, p1366-card-footer and p1364-list-return-cache. Done when these pass 5 consecutive full-suite runs; droppable if none recur in the next 10 hook runs.
+
+---
+
+## Browser-verify the PositionButtons menu clamp at 320/375px
+
+**ID:** INBOX-125
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/2026-10-06) is unit-tested and mutation-checked but not browser-verified, because opening the menu needs a logged-in test user who already holds a position (a first click casts a vote). Open the Agree menu at 320 and 375px and confirm its right edge stays at least 8px inside the viewport. Droppable if the overnight branch is not merged.
 
 ---
