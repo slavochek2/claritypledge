@@ -164,8 +164,10 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-card-table')).toHaveText(`Table ${mine.table_no}`);
     await expect(card).toHaveAttribute('data-role', mine.role);
     await expect(page.getByTestId('room-run-event')).toHaveCount(0); // host-only link
-    // The rest of the room page is still there and usable — the card is not a gate.
-    await expect(page.getByTestId('room-roster')).toBeVisible();
+    // P1337 walkthrough 6: while seated in a running round the page is your table — the roster
+    // steps aside. The card is still not a gate: the opt-in line stays usable.
+    await expect(page.getByTestId('room-roster')).toHaveCount(0);
+    await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
 
     await page.getByTestId('round-card-confirm').click();
     await expect(page.getByTestId('round-card-confirmed')).toBeVisible();
@@ -177,6 +179,8 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await setTestSession(page, late.email);
     await page.goto(`/events/${event.slug}/meet`);
     await expect(page.getByTestId('round-card-waiting')).toContainText('You join the next round');
+    // Not seated yet: the rest of the room is still theirs to see.
+    await expect(page.getByTestId('room-roster')).toBeVisible();
   });
 
   test('"Seat now" puts a late arrival into the running round without moving anyone', async ({ page }) => {

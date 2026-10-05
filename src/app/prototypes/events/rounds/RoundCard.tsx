@@ -110,6 +110,7 @@ export function RoundCard({
   self,
   roster,
   ended = false,
+  onSeated,
 }: {
   eventId: string;
   eventSlug: string;
@@ -120,6 +121,9 @@ export function RoundCard({
   roster: EventRoomMember[];
   /** After the event: no live round, read once, and only the rounds you sat in. */
   ended?: boolean;
+  /** Told whether this person sits at a table in the round on now — the room page shows only
+   * that table while it is true (founder walkthrough 6). */
+  onSeated?: (seated: boolean) => void;
 }) {
   const { state, refresh } = useEventRounds(eventId, !!self, !ended);
   const round = ended ? null : currentRound(state);
@@ -129,6 +133,11 @@ export function RoundCard({
   const first = table.find(s => s.role === 'first');
   const second = table.find(s => s.role === 'second');
   const hasObserver = seats.some(s => s.role === 'observer');
+
+  const seatedNow = !!round && !!mine;
+  useEffect(() => {
+    onSeated?.(seatedNow);
+  }, [onSeated, seatedNow]);
 
   const now = useNow(!!round);
   const timing = round ? roundTiming(round) : null;

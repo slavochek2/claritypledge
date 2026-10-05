@@ -278,6 +278,9 @@ export function EventRoomMeet() {
   const [barHeight, setBarHeight] = useState(0);
   // P1337 walkthrough 4: once answered, the principle folds to one line; this opens it again.
   const [principleOpen, setPrincipleOpen] = useState(false);
+  // P1337 (founder walkthrough 6): while you sit at a table in a running round, the page is your
+  // table — the roster, the preparation banner and practice rooms step aside.
+  const [seated, setSeated] = useState(false);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -474,7 +477,7 @@ export function EventRoomMeet() {
                 Run this event
               </Link>
             )}
-            <PrepRoomBanner event={event} />
+            {!seated && <PrepRoomBanner event={event} />}
           </div>
         </div>
         {transcriptionFailed && (
@@ -505,6 +508,7 @@ export function EventRoomMeet() {
               self={self}
               roster={roster}
               ended={isFrozen}
+              onSeated={setSeated}
             />
           )}
           {step === 'answered' && (
@@ -566,6 +570,7 @@ export function EventRoomMeet() {
           {/* Roster card — matches EventDetail.tsx's Participants card (`bg-card
               rounded-xl border border-border shadow-sm p-6`), round 4: the roster reads as
               a right-margin card, not a co-equal column. */}
+          {!seated && (
           <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             {roster.length === 0 ? (
               /* The one case a per-group empty state cannot express. `getRoomRoster` returns
@@ -594,6 +599,7 @@ export function EventRoomMeet() {
               </>
             )}
           </div>
+          )}
 
           {/* Practice Rooms — round 4 reverses the round-2 "leave it where it was!" call
               (founder, confirmed again this round): it now lives in `/meet`, under the
@@ -608,7 +614,7 @@ export function EventRoomMeet() {
               here would leave PracticeRooms' 5s poll running indefinitely in any tab left
               open past the freeze boundary (code review, round 4). */}
           {/* P1337: hidden behind a switch (practice-rooms-switch.ts). */}
-          {SHOW_PRACTICE_ROOMS && event && !isFrozen && (
+          {SHOW_PRACTICE_ROOMS && !seated && event && !isFrozen && (
             <PracticeRooms
               eventId={event.id}
               eventSlug={slug ?? event.slug}
