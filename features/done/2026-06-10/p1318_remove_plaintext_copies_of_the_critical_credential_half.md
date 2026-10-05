@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 8
 workstream: keyring
@@ -16,12 +16,12 @@ related:
   - p1239
   - p1214
   - p1148
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-05
 ---
 
 # P1318: Measure the locked path in real use, then remove the plaintext copies of the critical credential half
@@ -233,7 +233,7 @@ tokens are regenerable, so they are recovered by minting a new scoped token, not
 
 ## Related
 
-- [P1316](done/2026-06-10/p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration this finishes; its time-gated items moved here
-- [P1239](done/2026-06-10/p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
-- [P1214](done/2026-06-10/p1214_credential_separation_and_privilege_reduction.md) — credential separation
-- [P1148](p1148_credential_rotation_system.md) — rotation and revocation execution
+- [P1316](p1316_finish_moving_remaining_master_key_consumers.md) — the consumer migration this finishes; its time-gated items moved here
+- [P1239](p1239_encrypt_the_critical_credential_half_with_per_access_unlock.md) — the per-access lock
+- [P1214](p1214_credential_separation_and_privilege_reduction.md) — credential separation
+- [P1148](../../p1148_credential_rotation_system.md) — rotation and revocation execution
