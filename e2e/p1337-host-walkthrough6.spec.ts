@@ -124,4 +124,25 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     const position = await page.getByTestId('host-controls').evaluate(el => getComputedStyle(el).position);
     expect(position).toBe('sticky');
   });
+
+  test('"End the evening" asks once, then every phone moves to Close (walkthrough 8)', async ({ page, browser }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await asHost(page);
+    await page.getByTestId('host-end-evening').click();
+    await expect(page.getByTestId('host-end-confirm')).toContainText('End the evening?');
+    await page.getByRole('button', { name: 'Keep going' }).click();
+    await expect(page.getByTestId('host-end-confirm')).toHaveCount(0);
+    // Keep going ends nothing.
+    expect((await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id).is('ended_at', null)).data?.length).toBe(1);
+    await page.getByTestId('host-end-evening').click();
+    await page.getByTestId('host-end-yes').click();
+    await expect
+      .poll(async () => (await supabaseAdmin.from('event_rounds').select('ended_at').eq('event_id', event.id).is('ended_at', null)).data?.length)
+      .toBe(0);
+    const anaPage = await (await browser.newContext()).newPage();
+    await setTestSession(anaPage, ana.email);
+    await anaPage.goto(`/events/${event.slug}/meet`);
+    await expect(anaPage.getByTestId('room-steps')).toHaveAttribute('data-current', 'close', { timeout: 20_000 });
+    await anaPage.context().close();
+  });
 });

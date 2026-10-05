@@ -53,6 +53,7 @@ import {
   hostSetRoundPresence,
   hostSetRoundSeats,
   hostShortenRound,
+  hostEndRounds,
   roundExists,
   hostStartRound,
   DEFAULT_ROUND_MINUTES,
@@ -833,6 +834,8 @@ export function EventHostPage() {
   const { state, loaded, refresh } = useEventRounds(eventId);
   const [settings, setSettings] = useSettings(eventId);
   const matchOptions = useMatchTagOptions(event?.statementTag);
+  // Walkthrough 8: "End the evening" asks once, inline (no browser dialog), before every phone moves to Close.
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
   const [busy, setBusy] = useState<null | 'grouping' | 'saving'>(null);
@@ -1242,6 +1245,40 @@ export function EventHostPage() {
             >
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
             </Button>
+          )}
+          {round && !confirmEnd && (
+            <button
+              type="button"
+              onClick={() => setConfirmEnd(true)}
+              disabled={!!busy}
+              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+              data-testid="host-end-evening"
+            >
+              End the evening
+            </button>
+          )}
+          {round && confirmEnd && (
+            <div className="mt-2 rounded-lg border border-border p-3 text-sm" data-testid="host-end-confirm">
+              <p>End the evening? Every phone moves to the closing screen.</p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setConfirmEnd(false);
+                    void run(() => hostEndRounds(event.id));
+                  }}
+                  data-testid="host-end-yes"
+                >
+                  End it
+                </Button>
+                <Button type="button" variant="ghost" className="min-h-10" onClick={() => setConfirmEnd(false)}>
+                  Keep going
+                </Button>
+              </div>
+            </div>
           )}
           {error && (
             <p role="alert" className="mt-2 text-sm text-red-600">
