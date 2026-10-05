@@ -308,12 +308,16 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // handler's read, the newer handler owns the schedule and this one stops. (The newer handler
     // reaches its own write only after seconds of cancels and update emails, so this ms-wide
     // read→write gap cannot let it be overtaken.)
-    const { data: current } = await supabase
-      .from('events')
-      .select('datetime, duration_minutes')
-      .eq('id', eventId)
-      .maybeSingle();
-    if (
+    // A FAILED read is not a detected edit (Codex round 7): retry once, and if it still fails fall
+    // back to writing, which is what main always did — aborting would leave the cancelled ids stored
+    // and block every replacement.
+    const readEvent = () => supabase.from('events').select('datetime, duration_minutes').eq('id', eventId).maybeSingle();
+    let reread = await readEvent();
+    if (reread.error) reread = await readEvent();
+    const current = reread.data;
+    if (reread.error) {
+      console.warn(`update: could not re-read event ${eventId} (${reread.error.message}) — writing the schedule anyway`);
+    } else if (
       !current ||
       new Date(current.datetime).getTime() !== eventDatetime.getTime() ||
       (current.duration_minutes ?? 60) !== (event.duration_minutes ?? 60)

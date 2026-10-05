@@ -210,11 +210,14 @@ export async function clearMessageIds(
   const cancelled = opts.alreadyCancelled ?? new Set<string>();
   const since = (opts.since ?? new Date()).getTime();
   for (let attempt = 0; attempt < 4; attempt++) {
-    const { data, error } = await supabase
+    const read = () => supabase
       .from('event_rsvps')
       .select('mailgun_message_ids, reminder_attempted_at, feedback_attempted_at, starting_soon_attempted_at')
       .eq('id', rsvpId)
       .maybeSingle();
+    let res = await read();
+    if (res.error) res = await read(); // one retry: a single failed read must not strand cancelled ids
+    const { data, error } = res;
     if (error) {
       console.error(`clearMessageIds read failed for rsvp ${rsvpId}: ${error.message}`);
       return 'error';

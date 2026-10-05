@@ -188,6 +188,13 @@ an older update handler overwrote a newer edit's schedule → both kinds then sk
 drift check. `handleUpdate` re-reads the event just before its schedule write and stops if the start
 or duration moved since its own read — UNTESTED by an automated test (same reason as above).
 
+Round 7 (Codex, scope rule: only BRANCH-introduced findings block; PRE-EXISTING ones listed): R6-1
+CLOSED. One BRANCH MEDIUM fixed: the two new reads (event re-read before the schedule write, the reset's
+fresh read) gave up on a single failure, stranding cancelled ids. Both now retry once; a still-failing
+event re-read falls back to main's unconditional write. PRE-EXISTING (same on main, recorded, not
+blocking): the ms-wide window between that re-read and the write; a Mailgun cancel that keeps failing
+still lets the replacement queue beside the old email (deliberate, see round 5).
+
 Accepted, not changed (R4-2): a tick that read an RSVP **before** a same-time content edit (title,
 location) and claims **after** it sends the old details — the window is the milliseconds between a
 tick's read and its claim of that row. Same class as P947 decision 5 (a send in flight at the moment
