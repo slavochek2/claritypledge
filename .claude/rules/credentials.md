@@ -19,11 +19,11 @@ operational, not cosmetic.
   answer on **every read**. There is no unlock command, no time window, no state to
   remember, and no way for an agent to grant itself one.
 
-**The plaintext copies are being removed; P1318 is the removal gate.** Most locked keys
-are already gone from `.env.local`/`.env.prod`, so a script that reads the file for one
-finds nothing and must call `keyring_require` instead. Never fall back to a plaintext copy.
-Any copy still on file is waiting on its own decision in P1318, not a sanctioned read
-path: reading it is the unguarded path this rule exists to stop.
+**The plaintext copies are removed (P1318, the removal gate).** No locked key is in
+`.env.local`/`.env.prod` any more, so a script that reads the file for one finds nothing
+and must call `keyring_require` instead. Never fall back to a plaintext copy. Removal
+covers the env files only, so it does not make the keys unreadable. P1318's scope
+statement lists the off-file copies that remain.
 
 ## Which half is this credential in?
 

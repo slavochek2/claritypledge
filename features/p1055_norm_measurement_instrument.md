@@ -198,7 +198,7 @@ Default (no `sort` param) is `created_at DESC`, i.e. **reversed**. That is silen
 
 ## Done-When
 
-**Implementation note (2026-08-13):** `getPublicPointsFeed` (`points-service-real.ts:834`, P543) excludes any Point with zero staked positions from the feed — undocumented here originally. A fresh `cmp10` Point is invisible at every filtered URL until someone stakes on it, regardless of sort order. Script extended to also stake `strongly_agree` for the founder account on all ten, in both environments, immediately after creation — this is what makes the URLs below render at all. Script: [`20260813-p1055-cmp-points.mjs`](../scripts/archive/migrations/20260813-p1055-cmp-points.mjs).
+**Implementation note (2026-08-13):** `getPublicPointsFeed` (`points-service-real.ts:834`, P543) excludes any Point with zero staked positions from the feed — undocumented here originally. A fresh `cmp10` Point is invisible at every filtered URL until someone stakes on it, regardless of sort order. Script extended to also stake `strongly_agree` for the founder account on all ten, in both environments, immediately after creation — this is what makes the URLs below render at all. Script: `20260813-p1055-cmp-points.mjs` (deleted by P1318 on 2026-10-06 because it held prod write access; recover it from git history).
 
 - [x] All ten statements read **cold** by the founder, together, before any Point is created
 - [x] The creation script holds the ten statements as data, is safe to re-run (reuses existing `cmp10` Points instead of duplicating), and is the **same script** for both environments
