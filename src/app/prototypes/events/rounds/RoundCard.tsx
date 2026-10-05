@@ -35,18 +35,14 @@ import {
   type EventRound,
   type RoundSeat,
 } from '@/app/data/event-rounds-service';
-import {
-  POSITION_FIRST_PERSON,
-  POSITION_FULL_LABELS,
-  buildCompareRows,
-  type PositionKey,
-} from '@/lib/compare-positions';
+import { buildCompareRows } from '@/lib/compare-positions';
 import { formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
 import type { SeatRole } from '@/lib/round-grouping';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
-import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
+import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
+import { StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
 import { RoleBadge } from './RoleBadge';
 
 // The stored role says who speaks first; the pair swap after the first speaker's minutes (liveRole).
@@ -73,6 +69,15 @@ const LIVE_LINE: Record<LiveRole, string> = {
 const TOPICS_SHOWN = 5;
 /** The observer's "Say swap" shows for this long after the first speaker's time ends. */
 const SWAP_CUE_MS = 20_000;
+
+function asPerson(member: EventRoomMember | undefined): Person {
+  return {
+    name: member ? (member.displayName.split(' ')[0] ?? member.displayName) : '?',
+    photoUrl: member?.profileAvatarUrl ?? undefined,
+    avatarColor: member?.profileAvatarColor ?? undefined,
+    hasPledged: member?.profileHasPledged ?? false,
+  };
+}
 
 function Face({ member }: { member: EventRoomMember | undefined }) {
   return (
@@ -139,11 +144,17 @@ export function RoundCard({
   );
   const positions = useTagPositions(statementTag, pairProfiles);
 
+  // The compare page's rows (founder walkthrough 6): a speaker sees themself against their
+  // partner; the observer sees the pair, Speaker 1 on the left.
+  const selfMember = member(self?.id);
+  const isPairSpeaker = !!mine && mine.role !== 'observer';
+  const leftMember = isPairSpeaker ? selfMember : firstMember;
+  const rightMember = isPairSpeaker ? (mine?.role === 'first' ? secondMember : firstMember) : secondMember;
   const rows = useMemo(() => {
-    const a = firstMember?.profileId ? positions.byProfile.get(firstMember.profileId) : undefined;
-    const b = secondMember?.profileId ? positions.byProfile.get(secondMember.profileId) : undefined;
+    const a = leftMember?.profileId ? positions.byProfile.get(leftMember.profileId) : undefined;
+    const b = rightMember?.profileId ? positions.byProfile.get(rightMember.profileId) : undefined;
     return a && b ? buildCompareRows(positions.statements, a, b) : [];
-  }, [positions, firstMember, secondMember]);
+  }, [positions, leftMember, rightMember]);
 
   // The table's marked statement, shown at once on a tap while the write lands.
   const markKey = round && mine ? topicKey(round.id, mine.table) : null;
@@ -247,11 +258,6 @@ export function RoundCard({
 
   const isSpeaker = mine.role !== 'observer';
   const partner = mine.role === 'first' ? secondMember : mine.role === 'second' ? firstMember : undefined;
-  // "You: Agree" for your own position, "Chloe: Disagrees" for anyone else's.
-  const stance = (who: EventRoomMember | undefined, position: PositionKey) =>
-    who?.id === self.id
-      ? `You: ${POSITION_FIRST_PERSON[position]}`
-      : `${firstName(who?.displayName ?? '—')}: ${POSITION_FULL_LABELS[position]}`;
   const iHaveNone =
     isSpeaker && !!self.profileId && positions.statements.length > 0 && !positions.byProfile.get(self.profileId)?.size;
 
@@ -364,41 +370,17 @@ export function RoundCard({
             <p className="text-sm font-semibold">What do we talk about?</p>
             {rows.length > 0 ? (
               <>
-                <ul className="mt-2 space-y-2">
-                  {rows.slice(0, TOPICS_SHOWN).map(row => {
-                    const marked = row.pointId === mark;
-                    return (
-                      <li key={row.pointId}>
-                        <button
-                          type="button"
-                          aria-pressed={marked}
-                          onClick={() => void onMark(row.pointId)}
-                          className={cn(
-                            'w-full rounded-lg border p-3 text-left transition-colors',
-                            marked ? 'border-blue-500 bg-blue-50' : 'border-border bg-background hover:border-blue-300',
-                          )}
-                          data-testid="round-card-topic"
-                        >
-                          <span className="flex items-start gap-2">
-                            {/* A radio circle says "pick one" without a line of instructions (visual QA). */}
-                            <span
-                              className={cn(
-                                'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border',
-                                marked ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-400',
-                              )}
-                              aria-hidden
-                            >
-                              {marked && <Check className="h-3 w-3" />}
-                            </span>
-                            <span className="text-sm font-medium leading-snug">{row.statement}</span>
-                          </span>
-                          <span className="mt-1 block text-xs text-muted-foreground">
-                            {stance(firstMember, row.mine)} · {stance(secondMember, row.theirs)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
+                <ul className="mt-2 space-y-3" data-testid="round-card-rows">
+                  {rows.slice(0, TOPICS_SHOWN).map(row => (
+                    <StatementRow
+                      key={row.pointId}
+                      row={row}
+                      me={asPerson(leftMember)}
+                      them={asPerson(rightMember)}
+                      meInFirstPerson={isPairSpeaker}
+                      trailing={<TopicMark marked={row.pointId === mark} onToggle={() => void onMark(row.pointId)} />}
+                    />
+                  ))}
                 </ul>
                 {partner?.profileSlug && (
                   <Link

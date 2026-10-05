@@ -1,0 +1,109 @@
+/**
+ * @file statement-row.tsx
+ * @description P1337: one statement with two people's positions — the compare page's row, and
+ * (founder walkthrough 6) the same row inside the event room's table card. Stance columns reuse
+ * the letters vocabulary (letter-reveal-ordinal.tsx): blue on both sides, never green/red.
+ */
+import type { ReactNode } from 'react';
+import { Check, ChevronRight, Pin } from 'lucide-react';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { cn } from '@/lib/utils';
+import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS, type CompareRow } from '@/lib/compare-positions';
+
+export interface Person {
+  name: string;
+  photoUrl?: string;
+  avatarColor?: string;
+  hasPledged: boolean;
+}
+
+/** letter-reveal-ordinal.tsx StanceColumn — avatar + name above, blue stance pill as the hero. */
+export function StanceColumn({ person, label }: { person: Person; label: string }) {
+  return (
+    <div className="flex-1 min-w-0 flex flex-col items-center gap-3">
+      <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+        <GravatarAvatar
+          name={person.name}
+          photoUrl={person.photoUrl}
+          avatarColor={person.avatarColor}
+          isPledger={person.hasPledged}
+          size="sm"
+          className="!w-6 !h-6 !text-[10px]"
+        />
+        <span className="text-xs text-[#1A1A1A]/50 truncate">{person.name}</span>
+      </div>
+      <span className="inline-block max-w-full text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * One statement with both positions. The card is a link that opens the point in a new tab;
+ * `trailing` sits OUTSIDE the anchor, so a control there never triggers the link.
+ */
+export function StatementRow({
+  row,
+  me,
+  them,
+  trailing,
+  meInFirstPerson = true,
+}: {
+  row: CompareRow;
+  me: Person;
+  them: Person;
+  trailing?: ReactNode;
+  /** false for an onlooker (the table's observer): both columns read in the third person. */
+  meInFirstPerson?: boolean;
+}) {
+  return (
+    <li className="bg-white rounded-xl border border-border">
+      <a
+        href={`/point/${row.pointId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block rounded-xl p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        {/* letter-point-card.tsx — the statement, pinned, in its own contained card */}
+        <div className="rounded-lg border border-border bg-gray-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
+              <Pin size={12} className="rotate-45" />
+            </div>
+            <p className="text-lg font-medium text-[#1A1A1A] flex-1 min-w-0 break-words leading-snug">
+              {row.statement}
+            </p>
+            <ChevronRight size={18} className="shrink-0 mt-1 text-[#1A1A1A]/30" aria-hidden />
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-start gap-4">
+          <StanceColumn person={me} label={(meInFirstPerson ? POSITION_FIRST_PERSON : POSITION_FULL_LABELS)[row.mine]} />
+          <div className="w-px self-stretch bg-gray-200" />
+          <StanceColumn person={them} label={POSITION_FULL_LABELS[row.theirs]} />
+        </div>
+      </a>
+      {trailing && <div className="px-4 pb-4">{trailing}</div>}
+    </li>
+  );
+}
+
+/** Marks the statement this table talks about (one per table, P1337). */
+export function TopicMark({ marked, onToggle }: { marked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={marked}
+      data-testid="compare-topic-mark"
+      className={cn(
+        'w-full inline-flex items-center justify-center gap-2 rounded-full border min-h-[40px] px-4 text-sm font-medium',
+        marked ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-blue-200 text-blue-700',
+      )}
+    >
+      {marked && <Check size={16} />}
+      We&rsquo;re talking about this one
+    </button>
+  );
+}

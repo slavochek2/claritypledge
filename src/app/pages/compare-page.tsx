@@ -12,16 +12,18 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Pin } from 'lucide-react';
+import { ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlug } from '@/app/data/api';
 import { getAnsweredTags, getPositionsFor, getSharedTags, getTagStatements } from '@/app/data/compare-service';
 import { ROUNDS_POLL_MS, getRoundTopic, setRoundTopic } from '@/app/data/event-rounds-service';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { StanceColumn, StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
+
+// The row moved to a shared component (also the event room's table card); kept importable here.
+export { StatementRow };
 import {
-  POSITION_FIRST_PERSON,
   POSITION_FULL_LABELS,
   buildCompareRows,
   type CompareRow,
@@ -30,13 +32,6 @@ import {
 import { cn } from '@/lib/utils';
 import type { Profile } from '@/app/types';
 
-interface Person {
-  name: string;
-  photoUrl?: string;
-  avatarColor?: string;
-  hasPledged: boolean;
-}
-
 function toPerson(profile: Profile, name = profile.name): Person {
   return {
     name,
@@ -44,75 +39,6 @@ function toPerson(profile: Profile, name = profile.name): Person {
     avatarColor: profile.avatarColor,
     hasPledged: profile.hasPledged ?? false,
   };
-}
-
-/** letter-reveal-ordinal.tsx StanceColumn — avatar + name above, blue stance pill as the hero. */
-function StanceColumn({ person, label }: { person: Person; label: string }) {
-  return (
-    <div className="flex-1 min-w-0 flex flex-col items-center gap-3">
-      <div className="flex items-center gap-1.5 min-w-0 max-w-full">
-        <GravatarAvatar
-          name={person.name}
-          photoUrl={person.photoUrl}
-          avatarColor={person.avatarColor}
-          isPledger={person.hasPledged}
-          size="sm"
-          className="!w-6 !h-6 !text-[10px]"
-        />
-        <span className="text-xs text-[#1A1A1A]/50 truncate">{person.name}</span>
-      </div>
-      <span className="inline-block max-w-full text-base font-semibold text-blue-700 bg-blue-100 rounded-full px-4 py-2 text-center leading-snug">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-/**
- * One statement with both positions. The card is a link that opens the point in a new tab;
- * `trailing` sits OUTSIDE the anchor, so a control there never triggers the link.
- */
-export function StatementRow({
-  row,
-  me,
-  them,
-  trailing,
-}: {
-  row: CompareRow;
-  me: Person;
-  them: Person;
-  trailing?: ReactNode;
-}) {
-  return (
-    <li className="bg-white rounded-xl border border-border">
-      <a
-        href={`/point/${row.pointId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block rounded-xl p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-      >
-        {/* letter-point-card.tsx — the statement, pinned, in its own contained card */}
-        <div className="rounded-lg border border-border bg-gray-50 p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
-              <Pin size={12} className="rotate-45" />
-            </div>
-            <p className="text-lg font-medium text-[#1A1A1A] flex-1 min-w-0 break-words leading-snug">
-              {row.statement}
-            </p>
-            <ChevronRight size={18} className="shrink-0 mt-1 text-[#1A1A1A]/30" aria-hidden />
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-start gap-4">
-          <StanceColumn person={me} label={POSITION_FIRST_PERSON[row.mine]} />
-          <div className="w-px self-stretch bg-gray-200" />
-          <StanceColumn person={them} label={POSITION_FULL_LABELS[row.theirs]} />
-        </div>
-      </a>
-      {trailing && <div className="px-4 pb-4">{trailing}</div>}
-    </li>
-  );
 }
 
 /** A statement only the other person answered: the statement and their position, no "You" column. */
@@ -173,24 +99,6 @@ function useTableTopic(roundId: string | null, table: number | null) {
     setRoundTopic(roundId, table, next).catch(() => setTopic(prev));
   };
   return { topic, toggle, active: !!roundId && table != null };
-}
-
-function TopicMark({ marked, onToggle }: { marked: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={marked}
-      data-testid="compare-topic-mark"
-      className={cn(
-        'w-full inline-flex items-center justify-center gap-2 rounded-full border min-h-[40px] px-4 text-sm font-medium',
-        marked ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-blue-200 text-blue-700',
-      )}
-    >
-      {marked && <Check size={16} />}
-      We&rsquo;re talking about this one
-    </button>
-  );
 }
 
 interface BaseResult {
