@@ -182,8 +182,8 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'compare');
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'compare');
     await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no} · with`);
-    // Back to the table, from the card.
-    await page.getByTestId('round-compare-back').click();
+    // Back to the table: the step bar's "Table" (walkthrough 8 removed the card's own link).
+    await page.getByTestId('room-step-table').click();
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');
     await expect(page.getByTestId('round-card-find')).toContainText(`At table ${mine.table_no}`);
   });

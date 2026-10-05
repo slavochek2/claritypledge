@@ -105,7 +105,6 @@ export function RoundCard({
   ended = false,
   view,
   onMoment,
-  onBackToTable,
 }: {
   eventId: string;
   statementTag: string | null | undefined;
@@ -119,7 +118,6 @@ export function RoundCard({
    * "you join the next round" line still shows for someone not seated). */
   view: 'table' | 'compare' | 'hidden';
   onMoment?: (moment: RoundMoment) => void;
-  onBackToTable?: () => void;
 }) {
   const { state, refresh } = useEventRounds(eventId, !!self, !ended);
   const round = ended ? null : currentRound(state);
@@ -180,7 +178,15 @@ export function RoundCard({
   if (!self) return null;
 
   if (!round || !mine) {
-    if (!round) return null;
+    // Walkthrough 8: opted in with nothing to do read as stuck — say what comes next.
+    if (!round) {
+      if (ended || eveningOver || view !== 'hidden') return null;
+      return (
+        <p className="text-base text-muted-foreground" data-testid="round-card-waiting">
+          Waiting for round {state.rounds.length + 1} — the host starts it
+        </p>
+      );
+    }
     return (
       <p className="text-base font-medium" data-testid="round-card-waiting">
         {/* A showcase seats only the people the host chose; everyone else watches. */}
@@ -246,56 +252,41 @@ export function RoundCard({
   );
 
   if (view === 'compare') {
-    const title =
-      leftMember === selfMember
-        ? `You and ${firstWord(rightMember?.displayName)}`
-        : `${firstWord(leftMember?.displayName)} and ${firstWord(rightMember?.displayName)}`;
     const defaultLabel = isPairSpeaker
       ? `You and ${firstWord(partner?.displayName)}`
-      : `${firstWord(firstMember?.displayName)} and ${firstWord(secondMember?.displayName)} (your table)`;
+      : `${firstWord(firstMember?.displayName)} and ${firstWord(secondMember?.displayName)}`;
+    const chosenLabel = chosen ? `You and ${firstWord(chosen.displayName)}` : defaultLabel;
     return (
-      <section
-        className="rounded-xl border border-blue-200 bg-card p-4 shadow-sm"
-        data-testid="round-card"
-        data-role={mine.role}
-        data-view="compare"
-      >
+      <section data-testid="round-card" data-role={mine.role} data-view="compare">
         <p className="text-sm text-muted-foreground" data-testid="round-card-table-line">
           Table {mine.table}
           {mates.length > 0 && <> · with {mates.join(', ')}</>} · {roleLine}
         </p>
         {observerClock}
-        <h2 className="mt-3 text-xl font-semibold break-words" data-testid="round-compare-title">{title}</h2>
-        {setName && <p className="text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>}
-        {othersInRoom.length > 0 && (
-          <label className="mt-3 block text-sm">
-            <span className="text-muted-foreground">Compare with</span>
-            <select
-              className="mt-1 min-h-10 w-full rounded-md border border-border bg-background px-2 text-base md:text-sm"
-              value={withId}
-              onChange={e => setWithId(e.target.value)}
-              data-testid="round-compare-with"
-            >
-              <option value="">{defaultLabel}</option>
-              {othersInRoom.map(m => (
-                <option key={m.id} value={m.id}>
-                  You and {shortName(m.displayName)}
-                </option>
-              ))}
-            </select>
-          </label>
+        {/* Walkthrough 8: one header — the dropdown names who you compare with (your table first,
+            so a wrong pick is one tap back); the step bar's "Table" is the way back. */}
+        {othersInRoom.length > 0 ? (
+          <select
+            aria-label="Compare with"
+            className="mt-3 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-lg font-semibold"
+            value={withId}
+            onChange={e => setWithId(e.target.value)}
+            data-testid="round-compare-with"
+          >
+            <option value="">{defaultLabel}{isPairSpeaker ? '' : ' (your table)'}</option>
+            {othersInRoom.map(m => (
+              <option key={m.id} value={m.id}>
+                You and {shortName(m.displayName)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <h2 className="mt-3 text-lg font-semibold break-words" data-testid="round-compare-title">{chosenLabel}</h2>
         )}
-        <button
-          type="button"
-          onClick={onBackToTable}
-          className="mt-1 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
-          data-testid="round-compare-back"
-        >
-          Back to the table
-        </button>
-        <div className="mt-3" data-testid="round-card-topics">
+        {setName && <p className="mt-1 text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>}
+        <div className="mt-3 rounded-xl bg-muted/70 p-3" data-testid="round-card-topics">
           {rows.length > 0 ? (
-            <ul className="space-y-3" data-testid="round-card-rows">
+            <ul className="space-y-4" data-testid="round-card-rows">
               {rows.map(row => (
                 <StatementRow
                   key={row.pointId}
@@ -369,6 +360,10 @@ export function RoundCard({
           );
         })}
       </ul>
+      {/* Walkthrough 8: a reminder of what the letters mean, matching the printed card. */}
+      <p className="mt-2 text-xs text-muted-foreground" data-testid="round-card-legend">
+        {split ? 'S speaks · L listens, then explains back · O keeps time' : 'S L: you two take turns, the listener explains back · O keeps time'}
+      </p>
       {self.optedIn && isSpeaker && (
         <p className="mt-3 text-sm" data-testid="round-card-rule">
           Hear the number before you disagree.
@@ -389,7 +384,7 @@ export function RoundCard({
           disabled={confirming}
           data-testid="round-card-confirm"
         >
-          I&rsquo;m at table {mine.table}
+          We&rsquo;re seated — show our positions
         </Button>
       )}
     </section>

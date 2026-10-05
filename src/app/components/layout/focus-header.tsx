@@ -14,6 +14,9 @@
  * With `fallback` the label is always "Back": a destination-specific label ("Back to profile",
  * …) is false once the control pops history, so that variant takes no label. Only an in-flow
  * `onBack` caller (a prototype step, a wizard) may still name its step.
+ *
+ * `compact` (P1337 walkthrough 8): the arrow alone, no label and no bottom margin — for a header
+ * row that already carries the page's own chrome (the event room's step bar), as /prepare does.
  */
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,18 +40,27 @@ type FocusHeaderProps =
       'aria-label'?: string;
     };
 
-export function FocusHeader({ fallback, onBack, label, 'aria-label': ariaLabel }: FocusHeaderProps) {
+export function FocusHeader({
+  compact = false,
+  ...props
+}: FocusHeaderProps & { /** Arrow only, no label, no bottom margin. */ compact?: boolean }) {
+  const { fallback, onBack, label, 'aria-label': ariaLabel } = props;
   // Hooks run unconditionally; with `onBack` the fallback is never used.
   const goBack = useGoBack(fallback ?? '/');
   return (
     <Button
       variant="ghost"
       onClick={onBack ?? goBack}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3"
+      className={
+        compact
+          ? 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground hover:text-foreground -ml-2'
+          : 'inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3'
+      }
       aria-label={ariaLabel ?? 'Go back'}
+      data-testid={compact ? 'room-back' : undefined}
     >
-      <ArrowLeft className="w-4 h-4" />
-      {label ?? 'Back'}
+      <ArrowLeft className={compact ? 'h-5 w-5' : 'w-4 h-4'} />
+      {!compact && (label ?? 'Back')}
     </Button>
   );
 }

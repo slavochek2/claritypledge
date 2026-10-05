@@ -408,6 +408,25 @@ button on the left, the room on the right.
   "Talk N min" (2× the speaker minutes, stored as two equal halves; the DB floor makes 2 min the
   shortest talk).
 
+**Founder walkthrough 8, 2026-10-06 — decided ("ok" to all recommendations):**
+1. Back is a small arrow beside the step bar, one header row (the room keeps the site menu, so not
+   inside it as /prepare's own header does).
+2. Opted in with no round yet: "Waiting for round N — the host starts it".
+3. No "Back to the table" — the step bar's Table is the way back.
+4. One compare header: the dropdown names who you compare with (your table first); the big title
+   is gone; the table line stays.
+5. Statement rows as cards on a grey band, positions under the statement.
+6. The table tap reads "We're seated — show our positions".
+7. A small legend under the faces: "S speaks · L listens, then explains back · O keeps time".
+8. Table card size unchanged.
+9. A short fade when the transcription bar changes.
+10. Projector: the table-finding minute is its own labelled part of the progress strip.
+11. Projector: with 1–2 tables, names large and tables side by side.
+12. Showcase choice unchanged.
+13. Host: a quiet "End the evening" under Next round, with a confirmation; every phone moves to
+    Close. Attendees cannot open Close themselves.
+Open: a visible recording-disclosure line under "Transcribe" (founder to decide).
+
 **Rebase onto main (2026-10-05, before walkthrough 7):** the transcription idle state is now a
 state of P1388's one-line short bar — "Not transcribed" + an outlined "Transcribe"; the start
 screen's description moved onto the button (`aria-description`, hover title) because the short bar

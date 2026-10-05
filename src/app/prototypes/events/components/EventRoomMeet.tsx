@@ -71,8 +71,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import {
@@ -491,16 +491,21 @@ export function EventRoomMeet() {
       <div className={cn(PAGE_CONTAINER, 'pt-4')}>
         {/* P1336: the preparation stays one tap away for someone who joined without it — on the
             Back line (UAT 2026-10-01), not as a box under it. */}
-        <div className="flex items-start justify-between gap-3">
+        {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on
+            /prepare), instead of a "Back" line above it. */}
+        <div className="flex items-end gap-1">
           <FocusHeader
-            // After the event /ready forwards straight back here, so Back went in a loop; the
-            // event page is the way out then.
+            compact
+            // After the event /ready forwards straight back here, so a history pop would loop.
             onBack={() => navigate(isFrozen ? `/events/${slug}` : `/events/${slug}/ready`)}
-            label="Back"
             aria-label={isFrozen ? 'Back to the event' : 'Back to readiness'}
           />
-          <div className="flex items-center gap-3">
-            {/* P1337: the host spends the evening in the room too — the rounds are one tap away. */}
+          <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="min-w-0 flex-1" />
+        </div>
+        {/* P1337: the host spends the evening in the room too; P1336: the preparation stays one tap
+            away for someone who joined without it. */}
+        {((event && (session?.user?.id ?? user?.id) === event.hostId) || !seated) && (
+          <div className="mt-2 flex items-center justify-end gap-3">
             {event && (session?.user?.id ?? user?.id) === event.hostId && (
               <Link
                 to={`/events/${slug ?? event.slug}/host`}
@@ -512,10 +517,7 @@ export function EventRoomMeet() {
             )}
             {!seated && <PrepRoomBanner event={event} />}
           </div>
-        </div>
-        {/* P1337 walkthrough 7: the step bar replaces the round status line. */}
-        {/* -mt-3 takes back most of the Back link's own bottom margin: the bar belongs to the header. */}
-        <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="-mt-3" />
+        )}
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build
@@ -545,7 +547,6 @@ export function EventRoomMeet() {
               ended={isFrozen}
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
-              onBackToTable={() => setViewingBack('table')}
             />
           )}
           {viewing === 'close' && (

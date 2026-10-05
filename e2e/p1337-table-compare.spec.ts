@@ -111,17 +111,21 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(page.getByText(/talking about this one/i)).toHaveCount(0);
   });
 
-  test('the compare step: "You and Ben", the set by name, Back to the table, and anyone else in the room', async ({ page }) => {
+  test('the compare step: the dropdown is the header ("You and Ben"), the set by name, anyone else in the room', async ({ page }) => {
     await atTable(page, ana);
-    await expect(page.getByTestId('round-compare-title')).toHaveText('You and Ben');
+    const header = page.getByTestId('round-compare-with');
+    await expect(header.locator('option:checked')).toHaveText('You and Ben');
+    await expect(page.getByTestId('round-compare-back')).toHaveCount(0); // the step bar is the way back
     await expect(page.getByTestId('round-compare-set')).not.toHaveText(`#${TAG}`); // named after the event
     await expect(page.getByTestId('round-card-compare')).toHaveCount(0); // the step bar replaced the button
     const withWho = page.getByTestId('round-compare-with');
     await expect(withWho.locator('option')).toContainText(['You and Ben', 'You and Cy']);
     await withWho.selectOption((await withWho.locator('option', { hasText: 'Cy' }).getAttribute('value'))!);
-    await expect(page.getByTestId('round-compare-title')).toHaveText('You and Cy');
+    await expect(header.locator('option:checked')).toContainText('You and Cy');
     await expect(page.getByTestId('round-card-no-rows')).toBeVisible(); // Cy answered nothing
-    await page.getByTestId('round-compare-back').click();
+    await withWho.selectOption(''); // a wrong pick is one tap back to your table
+    await expect(header.locator('option:checked')).toHaveText('You and Ben');
+    await page.getByTestId('room-step-table').click();
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');
   });
 
@@ -133,7 +137,7 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(first.getByText('Agrees', { exact: true })).toBeVisible(); // Ana's, third person
     await expect(first.getByText('Disagrees', { exact: true })).toBeVisible(); // Ben's
     await expect(first.getByText('Agree', { exact: true })).toHaveCount(0);
-    await expect(page.getByTestId('round-compare-title')).toHaveText('Ana and Ben');
+    await expect(page.getByTestId('round-compare-with').locator('option:checked')).toHaveText('Ana and Ben (your table)');
   });
 
   test('moved mid-round: the card follows to the new table', async ({ page }) => {

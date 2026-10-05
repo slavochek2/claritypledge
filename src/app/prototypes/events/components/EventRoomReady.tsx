@@ -132,20 +132,20 @@ export function EventRoomReady() {
           group below stays max-w-sm and stays vertically centred; only the chrome moves. */}
       {/* P1336: the preparation stays one tap away for someone who joined without it — on the
           Back line (UAT 2026-10-01). */}
-      <div className="mx-auto flex w-full max-w-2xl items-start justify-between gap-3">
+      {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on /prepare). */}
+      <div className="mx-auto flex w-full max-w-2xl items-end gap-1">
         <FocusHeader
+          compact
+          // After the event /ready forwards straight back here, so a history pop would loop.
           onBack={() => navigate(`/events/${slug}`)}
-          /* Visible label is bare "Back" everywhere in the room, on the founder's
-             instruction (2026-08-21: "simplify, call it back everywhere"). The aria-label
-             keeps the destination for screen readers, matching letter-overview-page.tsx,
-             which already pairs label="Back" with a descriptive aria-label. */
-          label="Back"
-          aria-label="Back to event"
+          aria-label={'Back to event'}
         />
+        <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />
+      </div>
+      {/* P1336: the preparation stays one tap away for someone who joined without it. */}
+      <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">
         <PrepRoomBanner event={event} />
       </div>
-      {/* P1337 walkthrough 7: the evening's step bar starts here. */}
-      <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="mx-auto -mt-3 w-full max-w-2xl" />
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="flex w-full max-w-sm flex-col gap-10">
