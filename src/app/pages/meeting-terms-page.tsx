@@ -13,7 +13,7 @@
  *
  * Uses the same certificate shell as the Clarity Organization Terms and the
  * bilateral Partner Agreement (certificate-frame.tsx) — one visual language for
- * every commitment. The level track is portaled into the shared nav's centre slot
+ * every commitment. On desktop the level track is portaled into the shared nav's centre slot
  * so the document starts directly under a single bar; the action is fixed to the
  * bottom in the certificate's navy.
  *
@@ -34,6 +34,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { NAV_CENTER_SLOT_ID } from "@/app/components/layout/simple-navigation";
+import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
 import { cn } from "@/lib/utils";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 import {
@@ -202,9 +203,17 @@ export function MeetingTermsPage() {
   // The track rides in the nav's centre slot: this page's nav row is otherwise empty
   // (it renders `compact`), and a second row below it cost 44px on every viewport.
   // Resolved in a layout effect so the track never paints in one place and jumps.
+  // P1422: desktop only. Below lg the nav row also carries the labeled Tools button, and
+  // the third stop ran under it (29px at 375, 56px at 320) — there the track drops to its
+  // own sticky row beneath the nav (below), as the founder suggested.
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
+  const offlineStripShown = useOfflineStripShown();
   useLayoutEffect(() => {
-    setNavSlot(document.getElementById(NAV_CENTER_SLOT_ID));
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setNavSlot(desktop.matches ? document.getElementById(NAV_CENTER_SLOT_ID) : null);
+    sync();
+    desktop.addEventListener("change", sync);
+    return () => desktop.removeEventListener("change", sync);
   }, []);
 
   const track = <LevelTrack level={level} locked={trackLocked} onSelect={handleSelect} />;
@@ -241,12 +250,16 @@ export function MeetingTermsPage() {
               in the document outline without repeating the words on screen. */}
           <h1 className="sr-only">{PRINCIPLE_TITLE}</h1>
 
-          {/* Fallback: if the nav isn't on screen (a chrome-free embed, or the slot
-              renamed), the track still renders here rather than vanishing. */}
+          {/* Below lg (P1422), and whenever the slot is missing, the track gets its own row
+              stuck under the fixed nav. Its offset follows the nav's own: the iOS status-bar
+              inset, and 1.75rem more while the offline strip pushes the nav down (P1369) —
+              the same offsets as room-capture-bar.tsx. */}
           {navSlot ? (
             createPortal(track, navSlot)
           ) : (
-            <div className="sticky top-16 lg:top-20 z-30 border-b border-border bg-background/95 px-4 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <div className={`sticky ${offlineStripShown
+              ? "top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]"
+              : "top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]"} z-30 border-b border-border bg-background/95 px-4 py-1 backdrop-blur supports-[backdrop-filter]:bg-background/80`}>
               <div className="mx-auto max-w-2xl">{track}</div>
             </div>
           )}
