@@ -545,7 +545,8 @@ test.describe('P1114 event page: tab row', () => {
     await page.getByRole('link', { name: 'Join now' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
     await expect(page.getByTestId('room-ready')).toBeVisible();
-    await expect(page.getByRole('switch'), 'the transcription switch is offered on every return visit').toBeVisible();
+    // P1337 walkthrough 7: no switch here any more — transcription starts from the room's top bar.
+    await expect(page.getByRole('switch')).toHaveCount(0);
   });
 
   test('a signed-out visitor clicking "Join now" reaches the gate, not the room content', async ({ page }) => {

@@ -9,6 +9,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
+import { startTranscribingInRoom } from './helpers/test-event-room';
 
 test.use({ launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] } });
 
@@ -38,11 +39,8 @@ test.describe('P1388: capture controls', () => {
       page.on('console', (m) => { if (/room-capture|slice/i.test(m.text())) console.log(`BROWSER[${m.type()}] ${m.text()}`); });
       await setTestSession(page, attendee.email);
       await page.waitForLoadState('networkidle');
-      await page.goto(`/events/${event.slug}/ready`);
-      await page.getByRole('switch').click();
-      await page.getByRole('button', { name: /continue/i }).click();
+      await startTranscribingInRoom(page, event.slug);
       const bar = page.getByTestId('room-capture-bar');
-      await expect(bar).toBeVisible({ timeout: 15_000 });
 
       // The fake device plays a tone: the meter must light up.
       await expect.poll(async () => Number(await page.getByTestId('capture-level-meter').getAttribute('data-level')), { timeout: 10_000 }).toBeGreaterThan(0);

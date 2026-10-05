@@ -10,6 +10,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 type Err = { message: string } | null;
 let errors: Record<string, Err> = {};
 let authError: { status?: number; message: string } | null = null;
+/** Sessions the user created (P1337: a room capture opens one) — read before the profile delete. */
+let ownSessions: { id: string }[] = [];
 
 // Playwright's test.info() throws outside a Playwright test; soft is what an in-test failure uses.
 const soft = vi.fn(() => ({ toBeTruthy: () => {} }));
@@ -24,9 +26,11 @@ vi.mock('../../e2e/helpers/supabase-admin', () => {
   return {
     supabaseAdmin: {
       from: (table: string) => ({
+        select: () => ({ eq: () => Promise.resolve({ data: table === 'clarity_sessions' ? ownSessions : [], error: null }) }),
         delete: () => ({
           or: () => result(table),
           eq: () => result(table),
+          in: () => result(table),
         }),
       }),
       auth: { admin: { deleteUser: () => Promise.resolve({ error: authError }) } },
@@ -39,6 +43,7 @@ const { deleteTestUser } = await import('../../e2e/helpers/test-user');
 describe('P1345 deleteTestUser', () => {
   beforeEach(() => {
     errors = {};
+    ownSessions = [];
     inPlaywright = false;
     soft.mockClear();
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -69,6 +74,13 @@ describe('P1345 deleteTestUser', () => {
   it('rejects when the stories pre-clean fails', async () => {
     errors.stories = { message: 'trigger raised' };
     await expect(deleteTestUser('u-1')).rejects.toThrow(/stories pre-clean/);
+  });
+
+  it('clears the user\'s own sessions first, and names that step when it fails (P1337)', async () => {
+    ownSessions = [{ id: 's-1' }];
+    await expect(deleteTestUser('u-1')).resolves.toBeUndefined();
+    errors.clarity_sessions = { message: 'fk' };
+    await expect(deleteTestUser('u-1')).rejects.toThrow(/clarity_sessions pre-clean/);
   });
 
   it('inside a Playwright test: does NOT throw (later cleanup still runs) but soft-fails the test', async () => {

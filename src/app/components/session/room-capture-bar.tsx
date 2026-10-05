@@ -213,14 +213,17 @@ export function RoomCaptureBarFallback() {
 
 /**
  * P1337 (founder, 2026-10-05): in the event room only, the transcription banner has an idle state —
- * nothing is running, so it offers one quiet "Transcribe". The tap is the consent (the start
- * screen's switch starts OFF for the same reason: P1307 D12) and runs the start screen's own
- * `startCapture`. Once capture runs, this disappears and today's running banner takes its place;
- * outside the event room nothing changes.
+ * nothing is running, so it offers one quiet "Transcribe". The tap is the consent (nothing is
+ * pre-selected, P1307 D12) and the only place transcription starts in the event room (walkthrough
+ * 7). Once capture runs, this disappears and today's running banner takes its place; outside the
+ * event room nothing changes.
  */
 const IDLE_TEXT = 'Not transcribed';
-/** The start screen's own description of what switching it on does (EventRoomReady). */
-const IDLE_DETAIL = 'Record audio and share transcript with others in the room';
+/**
+ * What the tap does — the switch's description from the old start screen — and the terms reminder
+ * that switch carried (founder, 2026-09-14), now that this tap is the only way in (walkthrough 7).
+ */
+const IDLE_DETAIL = 'Record audio and share transcript with others in the room. Transcription follows our Terms and Privacy Policy.';
 
 export function RoomTranscribeIdleBar({
   eventId,

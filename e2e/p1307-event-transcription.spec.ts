@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 import { supabaseAdmin } from './helpers/supabase-admin';
+import { startTranscribingInRoom } from './helpers/test-event-room';
 
 test.use({
   launchOptions: {
@@ -64,35 +65,29 @@ test.describe('P1307: event transcription', () => {
     await page.goto(`/events/${event.slug}/ready`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('switch')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('room-ready-continue')).toBeVisible({ timeout: 10_000 });
     expect(errors, `console errors on /events/${event.slug}/ready: ${errors.join('; ')}`).toEqual([]);
   });
 
-  test('the switch is OFF by default (D12)', async ({ page }) => {
+  test('the ready screen has no switch; the room offers "Transcribe", nothing pre-selected (D12, walkthrough 7)', async ({ page }) => {
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
     await page.goto(`/events/${event.slug}/ready`);
-
-    const toggle = page.getByRole('switch');
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('Not transcribed')).toBeVisible();
-  });
-
-  test('switch on + Continue lands on /meet with the bar showing', async ({ page }) => {
-    await setTestSession(page, attendee.email);
-    await page.waitForLoadState('networkidle');
-    await page.goto(`/events/${event.slug}/ready`);
-
-    await page.getByRole('switch').click();
-    await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('room-ready-continue')).toBeVisible();
+    await expect(page.getByRole('switch')).toHaveCount(0);
     await page.getByRole('button', { name: /continue/i }).click();
-
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 15_000 });
-    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('room-transcribe-idle')).toContainText('Not transcribed');
+    await expect(page.getByTestId('room-capture-bar')).toHaveCount(0);
   });
 
-  test('switch off + Continue lands on /meet with NO bar, and nothing captured', async ({ page }) => {
+  test('"Transcribe" in the room starts capture: the running bar replaces it', async ({ page }) => {
+    await setTestSession(page, attendee.email);
+    await page.waitForLoadState('networkidle');
+    await startTranscribingInRoom(page, event.slug);
+    await expect(page.getByTestId('room-transcribe-idle')).toHaveCount(0);
+  });
+
+  test('Continue alone lands on /meet with NO bar, and nothing captured', async ({ page }) => {
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
     await page.goto(`/events/${event.slug}/ready`);
@@ -105,33 +100,13 @@ test.describe('P1307: event transcription', () => {
       .from('transcribe_room_members')
       .select('id')
       .eq('profile_id', attendee.user.id);
-    expect(members ?? [], 'switch-off Continue must create no member row with consent for this event').toEqual([]);
-  });
-
-  test('going back to the ready screen and switching on starts capture from there', async ({ page }) => {
-    await setTestSession(page, attendee.email);
-    await page.waitForLoadState('networkidle');
-    await page.goto(`/events/${event.slug}/ready`);
-    await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 15_000 });
-
-    // D10: a return visit must reach /ready again, not skip to /meet, because this person
-    // is not yet being transcribed.
-    await page.goto(`/events/${event.slug}/room`);
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready`), { timeout: 15_000 });
-
-    await page.getByRole('switch').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
+    expect(members ?? [], 'Continue without the Transcribe tap must create no member row with consent for this event').toEqual([]);
   });
 
   async function reachCapturing(page: Page) {
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
-    await page.goto(`/events/${event.slug}/ready`);
-    await page.getByRole('switch').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
+    await startTranscribingInRoom(page, event.slug);
   }
 
   // /dev (KDD 2026-09-14): the bar can show while every slice is refused. The test project

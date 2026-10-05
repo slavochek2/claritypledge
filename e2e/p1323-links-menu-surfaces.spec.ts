@@ -22,6 +22,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
 import { supabaseAdmin } from './helpers/supabase-admin';
+import { startTranscribingInRoom } from './helpers/test-event-room';
 
 test.use({
   launchOptions: {
@@ -77,23 +78,13 @@ test.describe('P1323 — the Links menu across surfaces, with live state', () =>
     if (attendee?.user?.id) await deleteTestUser(attendee.user.id);
   });
 
-  /** Same path as P1307's reachCapturing: ready switch on → Continue → the bar shows. */
+  /** Same path as P1307's reachCapturing: the room's "Transcribe" (walkthrough 7) → the bar shows. */
   async function reachCapturing(page: Page) {
     await setTestSession(page, attendee.email);
     await page.waitForLoadState('networkidle');
-    await page.goto(`/events/${event.slug}/ready`);
-    await page.getByRole('switch').click();
-    await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 20_000 });
-    // Wait for Continue's own redirect to land BEFORE touching the bar. This is NOT hiding a
-    // P1323 defect — it steps around a PRE-EXISTING P1307 race, measured on the pre-P1323 base
-    // commit (Open bounced back to /meet in 4 of 8 runs; 2 of 8 on this branch, same signature):
-    // EventRoomReady's Continue does `await capture.startCapture(...)` and only THEN navigates to
-    // /meet, but the bar renders as soon as capture is running — i.e. while still on /ready. An
-    // Open tap in that window reaches /transcribe/:code and is then overtaken by the late /meet
-    // navigation. Filed separately; remove this wait when that is fixed, and this test will
-    // start catching it.
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/meet`), { timeout: 20_000 });
+    // Capture now starts ON /meet, so the old race (Continue started capture on /ready and
+    // navigated to /meet afterwards, overtaking an early Open tap) has no window any more.
+    await startTranscribingInRoom(page, event.slug);
   }
 
   test('AC-9 + AC-2 + AC-12: the running room has one End, no bar, the indicator, and one adopted trigger', async ({ page }) => {

@@ -29,61 +29,40 @@ function read(path: string): string {
   return readFileSync(path, 'utf-8');
 }
 
-describe('P1307 D2/D12: the ready-screen switch', () => {
-  it('is a role="switch" control with aria-checked reflecting state', () => {
+const IDLE_BAR = R('src/app/components/session/room-capture-bar.tsx');
+
+/**
+ * P1337 founder walkthrough 7 (2026-10-05) moved the consent tap off this screen: transcription
+ * starts in one place only, the room's top bar ("Transcribe"). D12 still holds there — nothing is
+ * pre-selected, and the tap itself is the consent — and the approved strings moved with it.
+ */
+describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Transcribe" tap', () => {
+  it('the event ready screen has no switch and never starts capture', () => {
     const s = read(ROOM_READY);
-    expect(/role=(["'])switch\1/.test(s), 'EventRoomReady.tsx has no role="switch" control — D2 requires a visible switch.').toBe(true);
-    expect(/aria-checked=\{/.test(s), 'the switch must reflect its state via aria-checked, not a static value.').toBe(true);
+    expect(/role=(["'])switch\1/.test(s), 'the switch left /ready (walkthrough 7)').toBe(false);
+    expect(s.includes('startCapture'), 'Continue must never start capture: the tap on the bar is the consent').toBe(false);
   });
 
-  it('defaults OFF for anyone not already being transcribed (D12) — never defaults to true', () => {
-    const s = read(ROOM_READY);
-    // The prototype's own state starts false: `useState(false)` next to the toggle, or
-    // equivalent — this asserts the switch's initial value is never hardcoded true.
-    expect(
-      /transcribeOn[^=]*=\s*useState\(\s*true\s*\)/.test(s) || /aria-checked=\{true\}/.test(s),
-      'EventRoomReady.tsx appears to default the transcription switch ON. D12: "Tapping it on IS the consent" — a pre-checked switch is not valid consent (Planet49, C-673/17).',
-    ).toBe(false);
-  });
-
-  it('renders the four UI Contract strings verbatim', () => {
-    const s = read(ROOM_READY);
+  it('the bar carries the approved strings: "Not transcribed", what the tap does, and the terms reminder', () => {
+    const s = read(IDLE_BAR);
     for (const copy of [
-      'Transcribe for AI insights',
-      'Record audio and share transcript with others in the room',
       'Not transcribed',
-      // Founder, 2026-09-14: was "By continuing, you agree to our" — reworded as a reminder.
-      'Transcription follows our',
+      'Record audio and share transcript with others in the room',
+      // Founder, 2026-09-14: a reminder, not an agreement.
+      'Transcription follows our Terms and Privacy Policy',
     ]) {
-      expect(s.includes(copy), `EventRoomReady.tsx is missing the approved string: "${copy}" (UI Contract).`).toBe(true);
+      expect(s.includes(copy), `room-capture-bar.tsx is missing the approved string: "${copy}"`).toBe(true);
     }
     expect(s.includes('By continuing, you agree to our'), 'the old agreement wording must be gone').toBe(false);
   });
 
-  it('the terms reminder shows only while the switch is on', () => {
-    const s = read(ROOM_READY);
-    expect(
-      /transcribeOn\s*&&\s*\([\s\S]{0,200}Transcription follows our/.test(s),
-      'the "Transcription follows our Terms and Privacy Policy." line must render only when transcribeOn is true (founder, 2026-09-14).',
-    ).toBe(true);
-  });
-
-  it('the sub-line is conditional on switch state — "Not transcribed" when off, the sharing sentence when on', () => {
-    const s = read(ROOM_READY);
-    // Looks for a ternary between the two approved sub-line strings, mirroring the
-    // prototype's own `transcribeOn ? '...share transcript...' : 'Not transcribed'`.
-    expect(
-      /Record audio and share transcript with others in the room[\s\S]{0,40}:\s*['"]Not transcribed['"]|['"]Not transcribed['"][\s\S]{0,40}:\s*['"]Record audio and share transcript/.test(s),
-      'the two sub-line strings must be a conditional pair on the same switch state, not two independently-placed strings.',
-    ).toBe(true);
-  });
-
-  it('does not invent copy for the two open FOUNDER DECISION slots (stall state, room-could-not-be-joined message)', () => {
-    // This file only covers the ready screen's OWN two strings; the stall/could-not-join
-    // copy belongs to the bar and the post-Continue failure path respectively (asserted in
-    // p1307-room-capture-bar.test.tsx and the E2E spec). Documented here as a boundary
-    // note, not duplicated as an assertion against this file.
-    expect(true).toBe(true);
+  it('D12: the idle bar starts capture only from the tap (onClick), never on render or in an effect', () => {
+    const s = read(IDLE_BAR);
+    const bar = s.slice(s.indexOf('export function RoomTranscribeIdleBar'));
+    const calls = bar.match(/startCapture\(/g) ?? [];
+    expect(calls.length, 'exactly one startCapture call in the idle bar').toBe(1);
+    expect(/onClick:\s*\(\)\s*=>\s*\{[\s\S]{0,200}startCapture\(/.test(bar), 'the one call sits inside the button\'s onClick').toBe(true);
+    expect(/useEffect\([\s\S]{0,300}startCapture/.test(bar), 'no effect starts capture').toBe(false);
   });
 });
 

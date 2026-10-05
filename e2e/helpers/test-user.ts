@@ -460,6 +460,16 @@ export async function deleteTestUser(userId: string) {
   if (verificationsError) fail('story_verifications pre-clean', verificationsError);
   const { error: storiesError } = await supabaseAdmin.from('stories').delete().eq('author_id', userId);
   if (storiesError) fail('stories pre-clean', storiesError);
+  // Sessions this user created (a room capture opens one: P1307/P1388) block the profile delete
+  // (clarity_sessions_creator_profile_id_fkey has no cascade). Their story_verifications go first,
+  // as deleteClaritySession does; everything else on a session cascades or is set null.
+  const { data: ownSessions } = await supabaseAdmin.from('clarity_sessions').select('id').eq('creator_profile_id', userId);
+  const ownSessionIds = (ownSessions ?? []).map((r: { id: string }) => r.id);
+  if (ownSessionIds.length) {
+    await supabaseAdmin.from('story_verifications').delete().in('session_id', ownSessionIds);
+    const { error: sessionsError } = await supabaseAdmin.from('clarity_sessions').delete().in('id', ownSessionIds);
+    if (sessionsError) fail('clarity_sessions pre-clean', sessionsError);
+  }
 
   // Delete profile (cascades remaining FK-linked records)
   const { error: profileError } = await supabaseAdmin

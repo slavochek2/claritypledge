@@ -23,6 +23,7 @@
  * already used by test-ready.ts and p1053's seedRoom.
  */
 import { supabaseAdmin } from './supabase-admin';
+import { expect, type Page } from '@playwright/test';
 
 export interface TestRoomMember {
   id: string;
@@ -122,4 +123,17 @@ export async function deleteRoomMembers(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await supabaseAdmin.from('event_room_members').delete().in('id', ids);
   if (error) throw new Error(`deleteRoomMembers failed: ${error.message}`);
+}
+
+/**
+ * P1337 (founder walkthrough 7): transcription starts in one place only — the room's top bar,
+ * "Transcribe", whose tap is the consent. The ready page has no switch any more. Walks the real
+ * flow: /ready → Continue → the room → Transcribe → the running bar.
+ */
+export async function startTranscribingInRoom(page: Page, eventSlug: string): Promise<void> {
+  await page.goto(`/events/${eventSlug}/ready`);
+  await page.getByRole('button', { name: /continue/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/events/${eventSlug}/meet`), { timeout: 15_000 });
+  await page.getByTestId('room-transcribe-start').click();
+  await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
 }
