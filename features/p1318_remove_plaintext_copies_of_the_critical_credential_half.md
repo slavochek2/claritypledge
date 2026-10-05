@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 8
 workstream: keyring
@@ -16,9 +16,10 @@ related:
   - p1239
   - p1214
   - p1148
-delivery_stage: create-spec
+delivery_stage: dev
 pipeline_ran:
   - create-spec
+  - dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -160,6 +161,14 @@ from `.env.prod` — prod paths already read the locked keychain items only. Can
 the env files carry the new variables (p890, p1042, p1168, p1173, p1174, p1211; each failed before).
 Not exercised: a real test function deploy (it would overwrite a co-tenant's test deploy).
 
+### Scope of the removal (draft, 2026-10-05)
+
+Removal covers the two env files only. It does **not** make the locked keys unreadable while P1322's
+off-file copies remain: session transcripts, restic snapshots, the cloud VM, CI secrets (the CI DB-URL
+copy is explicitly out of scope in the registry), and the password-manager escrow. Supabase management
+tokens are regenerable, so they are recovered by minting a new scoped token, not by restoring
+(security-log 2026-09-30).
+
 ## Done-When
 
 - [x] P1322's escrow Done-When holds (recovery drill passed on a clean keychain; `/weekly` runs
@@ -167,21 +176,50 @@ Not exercised: a real test function deploy (it would overwrite a co-tenant's tes
       — *2026-09-21:* holds by founder decision, and the drill clause is waived. The escrow is a
       password-manager copy of both env files. `/weekly` step 2.10.3 runs `keyring.sh verify`. See P1322
       Done-When 1 for what this does and does not prove.
-- [ ] The first real prod migrate, deploy and publish each complete on the locked path with one dialog,
+- [x] The first real prod migrate, deploy and publish each complete on the locked path with one dialog,
       while the plaintext copy still exists; the prompt count starts from that date
+      — *2026-10-05, from `.private/logs/keyring-requests.log`:* prod migrate 2026-09-17 (`migrate.sh
+      --env prod`), prod publish 2026-09-28 (`promote-to-prod ikigai1`), both while the plaintext copy
+      existed. **Deviation:** the first prod deploy on the locked path was 2026-10-02 (P1380), *after*
+      the prod token's plaintext was removed (09-30), and it cost one dialog **per function** (3), not
+      one per deploy. That is stronger evidence the path works and weaker on the dialog count.
 - [ ] Prompt count over one full `/weekly` + `/day-cp` cycle is recorded against P1322's re-derived
       prediction, AND every registered consumer of the locked set has run at least once — above the
       pre-registered stop-number, stop and revisit before removing anything
+      — *2026-10-05, still open:* the count is recorded (Progress, ~20/week against the ~10 stop-number;
+      the founder chose to proceed). The consumer half fails: per the log, **five registered names have
+      never been read through the keychain**: the two Postiz credentials (already removed from
+      `.env.local` on 09-30, so `/promote-blog`, `/insight-post` and `/gen-image` are unproven since),
+      the prod DB URL (no consumer found anywhere), the local DB URL (its only reader, `migrate.sh` on
+      test, still reads the plaintext), and the mailbox password added 2026-10-05.
 - [ ] The archived prod-export script is deleted (or kept with a founder-named reason), and a grep for
       the key across `.claude/commands/slava/`, `scripts/`, `e2e/`, `supabase/`, `tools/` and
       `.github/` returns only files whose verdict is *write* or *warning text only*
+      — *2026-10-05, open, waiting on the founder:* the export script is
+      `scripts/archive/migrations/20260425-copy-prod-to-test.mjs`. It already reads behind the lock
+      (`keyringGet`). Two more archived scripts also read the prod master key through the lock:
+      `20260813-p1055-cmp-points.mjs` and `20260622-number-webinar-titles.ts`. As worded, the grep
+      criterion fails on all three. The decision: delete all three, or reword the criterion to
+      "locked read is acceptable".
 - [ ] The plaintext copies are removed from `.env.local`/`.env.prod`, verified by checking the key
       **names** are gone (never by printing values), and every consumer still runs afterwards
+      — *2026-10-05, names-only check against `.private/docs/keyring-critical.txt` (15 names):*
+      `.env.prod` holds none; `.env.local` still holds **one**, the local (test-project) DB URL, read
+      in plaintext by `migrate.sh` on test. To remove it, `migrate.sh` would move to `keyring_require`,
+      which puts a dialog on every test migrate. The alternative is taking the name off the registry,
+      which is a non-goal here. That is a founder call.
 - [ ] A scope statement records that removal covers the env files only, and that the off-file copies
       (transcripts, restic, cloud VM, CI, second store) were handled or accepted by P1322 — removal is
       not claimed as "keys unreadable" while any accepted copy remains
-- [ ] `.claude/rules/credentials.md` names this spec as the removal gate
+      — *drafted 2026-10-05 (§ Scope of the removal, below); tick once P1322's off-file items are
+      confirmed handled or accepted.*
+- [x] `.claude/rules/credentials.md` names this spec as the removal gate
+      — *2026-10-05:* the stale "both halves hold the same values / P1316" paragraph is replaced (gate run).
 - [ ] Nothing was revoked at any provider by this spec
+      — *2026-10-05, cannot be ticked as worded:* `.private/docs/security-log.md` 2026-09-30 records
+      the founder deleting the legacy Supabase management tokens in the dashboard during this
+      spec's session, once the scoped replacements were measured. The founder did the deleting, not
+      an agent. Either attribute that to P1148 and reword, or accept it as a recorded exception.
 
 ## Open Questions
 

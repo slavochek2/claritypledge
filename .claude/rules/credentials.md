@@ -19,11 +19,11 @@ operational, not cosmetic.
   answer on **every read**. There is no unlock command, no time window, no state to
   remember, and no way for an agent to grant itself one.
 
-**Both halves currently hold the same values.** The plaintext copies have not been
-removed and must not be until P1316's Done-When items pass (it absorbed P1239's remaining items
-on 2026-09-15). So a script that
-reads `.env.local` today still works — which is exactly why this rule exists: nothing
-will fail to tell you that you took the unguarded path.
+**The plaintext copies are being removed; P1318 is the removal gate.** Most locked keys
+are already gone from `.env.local`/`.env.prod`, so a script that reads the file for one
+finds nothing and must call `keyring_require` instead. Never fall back to a plaintext copy.
+Any copy still on file is waiting on its own decision in P1318, not a sanctioned read
+path: reading it is the unguarded path this rule exists to stop.
 
 ## Which half is this credential in?
 
