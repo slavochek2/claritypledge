@@ -650,6 +650,42 @@ approved design).
 real Start-fixing click; the cp monthly inside a real run; where a launched session should start
 (cp repo today; most fixes are code there).
 
+## Founder review of the built page (2026-10-05) — next round, not yet built
+
+Founder, verbatim excerpts: "other and ask a question is same .. its just custom answer" · "it doesnt
+show confidence scoring - how confident in the solution option recommended and in issue root cause ..
+if it breaks more shit than it helps thats bad problem solution fit" · "start fixing (19) - do you
+think" · "what is help requests? who asked for help?" · "whats the diff between systems in monitoring
+and status in daily report ... are there redundancies" · "how come we dont have data from monitoring
+our ai prepaid cards" · "claude and codex ... unite under subscriptions and put into same graph ...
+weekly projections and show reset days for both" · "what we do with reflection statements that were
+processed - do they influence generation of new statements? (dont want to answer same thing again)" ·
+"what happens with my stories and positions".
+
+Recommendations to confirm (orchestrator, 2026-10-05):
+1. One custom option, "Your answer or question…", replaces Ask a question… and Other…; a reply ending
+   in "?" goes to the questions-first part of the prompt.
+2. Confidence = problem-solution fit, required on every finding: "Fit N%" on the recommended option =
+   how likely it fixes the root cause without breaking anything else, with one line on the main risk;
+   plus "Cause: verified / not verified" for the diagnosis. The real run showed most findings carry no
+   number — the runbooks must require it.
+3. Start fixing sends only what the founder opened and answered, plus items whose recommendation is
+   "Give to the agent"; unopened founder-choice items (revoke a key, ship, read a console) stay out
+   and are listed as "not sent: still yours". 19 in one session is too many.
+4. Help requests and Mentions tiles open the Chat digest note (who asked, in which chat, the
+   suggested reply).
+5. Drop the Systems list from Monitoring: Status already lists every check (problems first, worked
+   folded). Monitoring keeps money and subscriptions only.
+6. AI keys with no data: 5 of 7 have no billing rows — unused or not recorded by the export. Filed as
+   an inbox finding; an agent checks the export per project.
+7. Claude + Codex under one "Subscriptions" card: one chart, both weekly quotas with projections to
+   each reset day, resets marked.
+8. Reflection memory: the reflection agent gets the last 14 days of statements with the founder's
+   positions and stories, is told not to repeat answered ones and to push on disagreements; positions
+   and stories are recorded by /day into a reflection log (not only into the Start-fixing prompt).
+9. Readiness: /day goes live only when this branch ships together with the ~/.claude
+   `p1399-day-report` branch; tomorrow's /day after that is the next real test.
+
 ## Open Questions
 
 1. Should the terminal card also offer `/day park <n>` style commands, so decisions can be made
