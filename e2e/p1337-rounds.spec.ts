@@ -265,7 +265,11 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await page.getByTestId('host-settings').locator('summary').click();
     await page.getByRole('button', { name: '2', exact: true }).click();
     // No swap at half time for this round: one talking part, stored with the round.
-    await page.getByTestId('host-split-speakers').uncheck();
+    await page.getByTestId('host-split-off').click(); // "One talk" (walkthrough 7)
+    // The minutes follow it: one "Talk" row, both halves together.
+    await expect(page.getByTestId('host-minutes')).toContainText('Talk');
+    await expect(page.getByTestId('host-minutes')).toContainText('12 min');
+    await expect(page.getByTestId('host-minutes')).not.toContainText('Speaker');
     // Minutes for the next round: two minutes to find tables.
     await page.getByRole('button', { name: 'Tables: one minute more' }).click();
     await page.getByTestId('host-primary').click();

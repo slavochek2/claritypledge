@@ -92,7 +92,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
   test('a round with no swap at half time assigns no starter: the grid reads "Pair"', async ({ page }) => {
     await asHost(page);
     await openSettings(page);
-    await page.getByTestId('host-split-speakers').uncheck();
+    await page.getByTestId('host-split-off').click(); // "One talk" (walkthrough 7)
     await page.getByTestId('host-primary').click();
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 2');
     expect((await lastRound(event.id)).split_speakers).toBe(false);

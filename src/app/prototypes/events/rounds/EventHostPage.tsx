@@ -1276,20 +1276,56 @@ export function EventHostPage() {
                     ))}
                   </div>
                 </div>
+                {/* Walkthrough 7: two named choices instead of a checkbox — the minutes below follow
+                    it ("Speaker N min" each, or one "Talk N min"). */}
+                <div
+                  className="inline-flex w-full rounded-lg bg-muted p-1"
+                  role="group"
+                  aria-label="How the pair talk"
+                  data-testid="host-split-speakers"
+                  data-split={settings.splitSpeakers ? 'true' : 'false'}
+                >
+                  {([
+                    [true, 'Swap at half time', 'host-split-on'],
+                    [false, 'One talk', 'host-split-off'],
+                  ] as const).map(([split, label, testId]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={settings.splitSpeakers === split}
+                      onClick={() => setSettings({ ...settings, splitSpeakers: split })}
+                      data-testid={testId}
+                      className={cn(
+                        'min-h-10 flex-1 rounded-md px-2 text-sm',
+                        settings.splitSpeakers === split ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className="space-y-1" data-testid="host-minutes">
                   {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2).map(f => {
-                    const value = Math.round(settings.minutes[f.key] / 60);
+                    // One talk: the speaker row is the whole talk — both halves, stored as two equal
+                    // parts so the round clock and the server keep one shape (roundTiming adds them).
+                    const talk = f.key === 'speakerS' && !settings.splitSpeakers;
+                    const factor = talk ? 2 : 1;
+                    const label = talk ? 'Talk' : f.label;
+                    const value = Math.round((settings.minutes[f.key] * factor) / 60);
                     const set = (next: number) =>
-                      setSettings({ ...settings, minutes: { ...settings.minutes, [f.key]: Math.min(f.max, Math.max(f.min, next)) * 60 } });
+                      setSettings({
+                        ...settings,
+                        minutes: { ...settings.minutes, [f.key]: (Math.min(f.max * factor, Math.max(f.min * factor, next)) * 60) / factor },
+                      });
                     return (
                       <div key={f.key} className="flex items-center justify-between gap-3">
-                        <span className="text-sm">{f.label}</span>
+                        <span className="text-sm">{label}</span>
                         <div className="inline-flex items-center gap-1">
-                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value - 1)} disabled={value <= f.min} aria-label={`${f.label}: one minute less`}>
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value - 1)} disabled={value <= f.min * factor} aria-label={`${label}: one minute less`}>
                             <Minus className="h-4 w-4" />
                           </Button>
                           <span className="w-14 text-center text-sm tabular-nums">{value} min</span>
-                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value + 1)} disabled={value >= f.max} aria-label={`${f.label}: one minute more`}>
+                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value + 1)} disabled={value >= f.max * factor} aria-label={`${label}: one minute more`}>
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1297,16 +1333,6 @@ export function EventHostPage() {
                     );
                   })}
                 </div>
-                <label className="flex items-center gap-3 text-sm min-h-10">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-blue-500"
-                    checked={settings.splitSpeakers}
-                    onChange={e => setSettings({ ...settings, splitSpeakers: e.target.checked })}
-                    data-testid="host-split-speakers"
-                  />
-                  Swap at half time
-                </label>
                 {(
                   [
                     ['recorders', 'Recorders together'],
