@@ -100,12 +100,22 @@ export function Transcript({ clip }: { clip: ClipKey }) {
   return (
     <section data-testid={id} aria-labelledby={`${id}-heading`} className="mt-4 space-y-3">
       <h2 id={`${id}-heading`} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
-        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Transcript
+        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> In writing
       </h2>
-      <div className="space-y-3 text-base leading-relaxed text-muted-foreground">
-        {TRANSCRIPTS[clip].map((para) => (
-          <p key={para.slice(0, 32)}>{para}</p>
-        ))}
+      <div className="max-w-prose space-y-3 text-base leading-relaxed text-foreground">
+        {TRANSCRIPTS[clip].map((block, i) =>
+          typeof block === 'string' ? (
+            <p key={i}>{block}</p>
+          ) : (
+            <ul key={i} className="list-disc space-y-1.5 pl-5">
+              {block.items.map((item) => (
+                <li key={item.text}>
+                  {item.label && <strong className="font-semibold">{item.label}</strong>} {item.text}
+                </li>
+              ))}
+            </ul>
+          ),
+        )}
       </div>
     </section>
   );

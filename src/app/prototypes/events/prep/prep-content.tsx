@@ -46,27 +46,53 @@ export function clipUrl(clip: ClipKey, kind: 'video' | 'poster'): string {
   return publicMediaUrl(`event-prep/${file}`);
 }
 
-/** Each clip's own words, from the Night #1 transcript at the clip's in/out points. */
-export const TRANSCRIPTS: Record<ClipKey, string[]> = {
+/** A paragraph, or a short list whose items may lead with a bold label. */
+export type TranscriptBlock = string | { items: { label?: string; text: string }[] };
+
+/**
+ * Each clip's words, from the Night #1 transcript at the clip's in/out points, lightly edited for
+ * reading (founder, 2026-10-05): fillers and restarts cut, lists drawn out, no claim added or dropped.
+ */
+export const TRANSCRIPTS: Record<ClipKey, TranscriptBlock[]> = {
   welcome: [
-    "So when I invited people to this event, I got some rejections, and I asked for feedback. Generally speaking, people don't come to public discussions about global things because they think it's a waste of time.",
-    "It's because of these three things. First, people have monologues and don't listen to each other. Second, disagreements split the room, and nobody learns anything. And last but not least, at some point, if events are repeating, people just agree, for example, with the host, or hate the host.",
-    "If you say, how come, what is the crux? Why is it that discussions are not meaningful, or unproductive, or not effective, in public discussions like the one we will have today, or in personal discussions, or professional meetings? I suggest one of the main reasons is a social norm. In many social environments, admitting that you don't understand cognitively, revealing that there is a gap in understanding, is not tolerated, usually punished, because people think: oh, so what are you saying, you're stupid? Or didn't you pay attention?",
-    "And if we reflect on how it affects the dynamic of the discussion: if we don't reveal the gap, we cannot bridge the gap. And I suggest that all of the things I said at the beginning, why people have bad discussions, not meaningful discussions, can be traced to this reason. So today, it's part of the experiment, meaning I developed some tools to see if I can help create this environment, where it's rewarding to reveal the gap in cognitive understanding, so we can bridge it and have a more meaningful discussion, so we can learn from each other.",
+    "When I invited people to this event, some said no, and I asked them why. Generally, people don't come to public discussions about big topics because they think it's a waste of time. It comes down to three things:",
+    {
+      items: [
+        { label: 'Monologues.', text: "People talk and don't listen to each other." },
+        { label: 'Split rooms.', text: 'Disagreements divide the room, and nobody learns anything.' },
+        { label: 'Agree or hate.', text: 'When events repeat, people end up just agreeing with the host, or hating the host.' },
+      ],
+    },
+    "So what is the crux? Why are discussions so often unproductive, in public events like this one, in personal conversations, in professional meetings? I suggest one of the main reasons is a social norm. In many places, admitting that you don't understand, revealing a gap in understanding, isn't tolerated. It's usually punished, because people think: so what, are you stupid? Weren't you paying attention?",
+    "And if we don't reveal the gap, we can't bridge it. I suggest every reason I gave at the start can be traced back to this. So today is an experiment. I developed some tools to see if I can create an environment where revealing a gap in understanding is rewarded, so we can bridge it, have a more meaningful discussion, and learn from each other.",
   ],
   story: [
-    'Now, I tell you quickly the story. This is a person I love, and we had a conflict. And I wanted, because of my focus, I wanted to verify that I understand her. So I repeated back, I explained back, I said, is that what you meant? And she told me, yes, that\'s what I mean. That\'s what I mean. And after a few days, the conflict escalated and she wrote me, I don\'t want to speak to you anymore, because I didn\'t feel understood.',
-    'So is it a lie, a memory issue, or a misunderstanding? Empirically, I found that the word understanding has three meanings. One, there are people who will say, you don\'t understand me until you agree. Okay, this is how you know: when they say you don\'t understand me, or you understand me, they mean agreement. Other people, they mean you don\'t feel what I feel. This is emotional understanding.',
-    'Cognitive understanding means I repeat back your intended meaning, and then I ask you from zero to 10, how much do you think I understand you? Or you ask me how much I understand you. And if it\'s 10, if we both say 10, then we verified, we know exactly that I understood you, right? Because we verified. We might still disagree, and I might not feel what you feel, but we know that I have exactly the mental model that you have.',
+    'Let me tell you a quick story. This is someone I love, and we had a conflict. Because understanding is my focus, I wanted to check that I understood her. So I explained back what she said and asked, "Is that what you meant?" She said, "Yes, that\'s what I mean."',
+    'A few days later the conflict escalated, and she wrote to me: "I don\'t want to speak to you anymore, because I didn\'t feel understood."',
+    'So was it a lie, a memory issue, or a misunderstanding? I found that the word "understanding" has three meanings:',
+    {
+      items: [
+        { label: 'Agreement.', text: 'For some people, "you don\'t understand me" means "you don\'t agree with me."' },
+        { label: 'Emotional understanding.', text: 'For others, it means "you don\'t feel what I feel."' },
+        { label: 'Cognitive understanding.', text: 'I repeat back what you meant, then ask: from 0 to 10, how well do you think I understand you?' },
+      ],
+    },
+    "If we both say 10, we've checked it, and we know I understood you. We might still disagree, and I might not feel what you feel, but I have exactly the picture in my head that you have.",
   ],
   principle: [
-    "This is a lot of text, but the text is not the important thing. It's super simple, it has three parts. I will introduce it. It's a Clarity Meeting Principle, I call it that, and then you can either opt in or opt out. Both are completely fine.",
-    "So what is it? There is your right, my promise, and the exception. Basically, it says we allow each other to ask one specific question. The other person promises to answer. If you opt in, you promise to answer that question. If you, for some very specific reason, cannot answer, you explain why.",
-    'The question is: how much, from 0 to 10, do you think you understand me cognitively?',
+    "There's a lot of text here, but the text isn't the important part. It's simple. I call it the Clarity Meeting Principle, and you can opt in or opt out. Both are completely fine. It has three parts:",
+    {
+      items: [
+        { label: 'Your right.', text: 'We allow each other to ask one specific question.' },
+        { label: 'My promise.', text: 'If you opt in, you promise to answer it.' },
+        { label: 'The exception.', text: "If for some specific reason you can't answer, you explain why." },
+      ],
+    },
+    'The question is: from 0 to 10, how much do you think you understand me cognitively?',
   ],
   research: [
-    "So this is optional. If there are volunteers, then I'd like to suggest that I have microphones. Because there will be discussions, and for me it would be helpful for research and development to take the context of your discussion, analyze it with AI, and see if I can improve for the next event, and also personalize the experience for the future, if you opt into this. And if you don't like it, I can always delete the file.",
-    "So we will have discussions with each other in pairs. And when you have a discussion, if both of you are part of this, then you are both being recorded, and it's diarized, so we identify you as the speakers. And I will use the context of your discussion, which I cannot hear, I cannot be there, to see if I'm actually succeeding to create these meaningful discussions, or maybe not.",
+    "This part is optional. If there are volunteers, I have microphones. Your discussions would help my research and development: I'd analyse them with AI to improve the next event, and, if you opt in, to personalise your experience in the future. If you change your mind, I can always delete the file.",
+    "We'll have discussions in pairs. If both of you opt in, you're both recorded, and the recording is diarized, meaning each of you is identified as a speaker. I can't be in every conversation and I don't listen to them, so the analysis is how I see whether I'm actually succeeding in creating meaningful discussions, or not.",
   ],
 };
 
