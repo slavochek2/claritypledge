@@ -86,7 +86,7 @@ type TopicsPageProps = {
   returnTo?: string;
   /** Embedded only: the host page's spacing, applied to the section so an absent section leaves no divider. */
   className?: string;
-  /** Embedded only: anchor id, so the event page's "Vote below" line can jump here. */
+  /** Embedded only: anchor id for links into the section. */
   id?: string;
   /** Embedded only: whether the section is on screen (it is absent while loading, on error, with no topics). */
   onVisibleChange?: (visible: boolean) => void;
@@ -232,7 +232,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
         <header className="mb-3">
           <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">Vote for this night's topic</h2>
           <p className="mt-1 text-base text-muted-foreground">
-            This night's topic is chosen with you. Rate the ones you'd enjoy talking about, and you'll see how others rated after you rate.
+            Rate the topics you'd enjoy talking about. You'll see how others rated after you rate.
           </p>
         </header>
       ) : (
@@ -330,7 +330,8 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
               // Same button as the closing sequence's list (P1389): centred, blue outline, rounded.
               <div className="mt-4 flex justify-center">
                 <Button type="button" variant="outline" onClick={() => setShown((n) => n + step)} className="min-h-11 rounded-full border-blue-600 px-5 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-                  Show {Math.min(step, topics.length - shown)} more
+                  {/* Same label as P1389's closing list: how many the tap adds, and how many are left. */}
+                  Show {Math.min(step, topics.length - shown)} more · {topics.length - shown} left
                 </Button>
               </div>
             )

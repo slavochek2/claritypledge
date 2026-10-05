@@ -18,7 +18,6 @@ import {
   Ear,
   RefreshCw,
   Share2,
-  Vote,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -110,7 +109,8 @@ export function EventDetail() {
     }
   }, []);
   const [organizer, setOrganizer] = useState<{ name: string; slug: string } | null>(null);
-  // P1414: the embedded vote reports whether it rendered (it is absent while loading, on error, empty).
+  // P1414: the embedded vote reports whether it rendered (absent while loading, on error, empty) —
+  // the desktop Register repeat follows it, so it never shows after an absent section.
   const [voteVisible, setVoteVisible] = useState(false);
 
   // Which slug the currently-held `event` was loaded for. A ref, not state:
@@ -881,17 +881,6 @@ export function EventDetail() {
                   }
                   <span className={`group-hover:underline${locationIsUrl ? ' truncate min-w-0' : ''}`}>
                     {hikeMeetName ? `Meet at ${hikeMeetName}` : getLocationDisplayLabel(locationInfo, event.location)}
-                  </span>
-                </a>
-              )}
-
-              {/* P1414: someone reading only the top must learn the topic is open and where to vote. */}
-              {voteShown && voteVisible && (
-                <a href="#topic-vote" className="mb-4 -mt-1 flex items-center gap-3 text-muted-foreground hover:text-blue-600" data-testid="topic-open-line">
-                  <Vote className="w-5 h-5 flex-shrink-0" aria-hidden />
-                  <span>
-                    <span className="font-medium text-foreground">Topic: not chosen yet.</span>{' '}
-                    <span className="text-blue-600 underline-offset-2 hover:underline">Vote below <span aria-hidden>↓</span></span>
                   </span>
                 </a>
               )}

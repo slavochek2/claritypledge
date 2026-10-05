@@ -1,0 +1,46 @@
+<!--
+  P1414: placeholder banner for a Clarity Night whose topic is not chosen yet — no night number,
+  so one pair of files serves every topic-open night. Two variants: ?v=d (2400x1143, content in the
+  y 431-711 band that survives the desktop crop, same canvas as lineup-banner.html) and ?v=m
+  (1500x770, for events.banner_mobile_url below 768px). Open in a browser at that size and
+  screenshot. Uploaded on test as banners/event/series/clarity-night-vote-{d,m}.png.
+  Sizes were tuned after a first render: desktop text smaller (crop touched the eyebrow),
+  phone text larger (illegible at 320px) — keep the shipped files as the reference.
+-->
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif}
+.canvas{position:relative;overflow:hidden;background:linear-gradient(120deg,#f4f8ff 0%,#fbfaf6 55%,#eef4ff 100%)}
+.d{width:2400px;height:1143px}
+.m{width:1500px;height:770px}
+.band{position:absolute;display:flex;align-items:center;justify-content:center;gap:90px}
+.d .band{left:200px;right:200px;top:431px;height:280px}
+.m .band{left:60px;right:60px;top:135px;height:500px;flex-direction:column;gap:34px}
+.eyebrow{font-weight:800;letter-spacing:6px;color:#2563eb;font-size:34px}
+.title{font-weight:800;color:#1f2933;line-height:1.02}
+.d .title{font-size:104px}
+.m .title{font-size:96px;text-align:center}
+.text{display:flex;flex-direction:column;gap:18px}
+.m .text{align-items:center;gap:22px}
+.stars{display:flex;gap:16px}
+.stars svg{width:96px;height:96px}
+.m .stars svg{width:92px;height:92px}
+.card{background:#fff;border:3px solid #dbe5f5;border-radius:26px;box-shadow:0 10px 30px rgba(31,58,95,.10);padding:26px 30px;display:flex;flex-direction:column;gap:14px;width:330px}
+.line{height:16px;border-radius:8px;background:#e5ebf5}
+.mini{display:flex;gap:8px}.mini svg{width:40px;height:40px}
+.cards{display:flex;flex-direction:column;gap:22px}
+.m .cards{display:none}
+</style></head><body>
+<template id="star"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6-4.9-4.5 6.6-.8z" fill="FILL" stroke="#2563eb" stroke-width="1.6" stroke-linejoin="round"/></svg></template>
+<div id="root"></div>
+<script>
+const star=(f)=>document.getElementById('star').innerHTML.replace('FILL',f?'#2563eb':'#ffffff');
+const stars=(n,k)=>Array.from({length:n},(_,i)=>star(i<k)).join('');
+const card=(k,w)=>`<div class="card"><div class="line" style="width:${w}%"></div><div class="line" style="width:${w-25}%"></div><div class="mini">${stars(5,k)}</div></div>`;
+const variant=new URLSearchParams(location.search).get('v')||'d';
+document.getElementById('root').innerHTML=`<div class="canvas ${variant}"><div class="band">
+<div class="cards">${card(4,90)}${card(2,75)}</div>
+<div class="text"><div class="eyebrow">CLARITY NIGHT</div><div class="title">Vote for a topic<br>you like</div><div class="stars">${stars(5,4)}</div></div>
+<div class="cards">${card(5,80)}${card(3,95)}</div>
+</div></div>`;
+</script></body></html>

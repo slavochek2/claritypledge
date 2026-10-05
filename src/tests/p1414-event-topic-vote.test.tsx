@@ -208,7 +208,6 @@ describe('P1414 event page', () => {
     expect(screen.queryByTestId('topic-vote-embed')).toBeNull();
     expect(screen.queryByText("Vote for this night's topic")).toBeNull();
     // Nothing points at the absent section, and no second Register appears.
-    expect(screen.queryByTestId('topic-open-line')).toBeNull();
     expect(screen.queryByTestId('rsvp-repeat')).toBeNull();
   });
 
@@ -225,18 +224,11 @@ describe('P1414 event page', () => {
     expect(showsTopicVote({ seriesSlug: 'clarity-night', statementTag: undefined, status: 'upcoming' }, true)).toBe(false);
   });
 
-  it('the top says the topic is open and links to the vote; Register repeats after the vote (founder)', async () => {
+  it('Register repeats after the vote (founder); no extra "topic not chosen" line at the top', async () => {
     renderEvent(makeEvent({ ...NIGHT }));
-    const embed = await screen.findByTestId('topic-vote-embed');
-    expect(screen.getByTestId('topic-open-line')).toHaveAttribute('href', '#topic-vote');
-    expect(embed).toHaveAttribute('id', 'topic-vote');
+    await screen.findByTestId('topic-vote-embed');
     expect(screen.getByTestId('rsvp-repeat')).toBeInTheDocument();
-  });
-
-  it('an event with its topic has no "Topic: not chosen yet" line', async () => {
-    renderEvent(makeEvent({ ...NIGHT, statementTag: 'ikigai1' }));
-    await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByTestId('topic-open-line')).toBeNull();
+    expect(screen.queryByText(/Topic: not chosen yet/)).toBeNull();
   });
 
   it('the vote adds no full-width primary: Add a topic is an outline button', async () => {
@@ -286,7 +278,7 @@ describe('P1414 embedded topics page', () => {
     renderEmbed();
     expect(await screen.findAllByTestId('topic-row')).toHaveLength(8);
     expect(screen.getByRole('combobox', { name: 'Sort by' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more · 3 left' }));
     expect(screen.getAllByTestId('topic-row')).toHaveLength(11);
   });
 
