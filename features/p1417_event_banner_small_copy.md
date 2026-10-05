@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [events, banner, performance, mobile]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1417-event-banner-small-copy.test.tsx
   root_cause: "EventCard and BannerDisplay put the stored original straight into <img src>; no small copy exists (render/image 403 FeatureNotEnabled); no onError on EventCard"
@@ -151,8 +151,8 @@ promotion element on the home page, often fails for exactly the phone audience i
 - [x] A small copy older than its original (original replaced at the same path) is treated as
       missing — TEST: original re-uploaded at 08:31:03, copy from 08:28:51 reported `stale` and
       replaced; next run `exists`
-- [ ] [post-deploy] Edge functions `generate-banner` and `generate-event-banner` deployed to PROD
-- [ ] [post-deploy] Backfill on PROD — founder approval required, run BEFORE the frontend deploy
+- [x] [post-deploy] Edge functions `generate-banner` and `generate-event-banner` deployed to PROD
+- [x] [post-deploy] Backfill on PROD — founder approval required, run BEFORE the frontend deploy — done 2026-10-05: both deployed to prod, health PASS; backfill made 20, failed 0, skipped 2 (GCS hike); CN2 copy 200 image/webp 8006 B
 
 ## Resolution
 
@@ -235,13 +235,13 @@ upload, the delete-on-failure and the STALE report.
 Order matters: the backfill only writes keys nothing reads yet, so run it before the frontend
 that starts requesting them — then no phone ever pays the fallback round trip for an existing banner.
 
-- [ ] Edge functions to prod: `./scripts/deploy-functions.sh generate-banner --env prod` and
+- [x] Edge functions to prod: `./scripts/deploy-functions.sh generate-banner --env prod` and
       `./scripts/deploy-functions.sh generate-event-banner --env prod` (from the main checkout,
       so the manifest stamp runs)
-- [ ] Backfill prod: `npx tsx scripts/event-banner-small.ts backfill --env prod --dry-run`, then
+- [x] Backfill prod: `npx tsx scripts/event-banner-small.ts backfill --env prod --dry-run`, then — done 2026-10-05: both deployed to prod, health PASS; backfill made 20, failed 0, skipped 2 (GCS hike); CN2 copy 200 image/webp 8006 B
       without `--dry-run` (one keychain dialog — Allow, never Always Allow)
-- [ ] Frontend deploy
-- [ ] Post-deploy: 375px home page requests `.w800.webp` for the next event; detail page at
+- Frontend deploy
+- Post-deploy: 375px home page requests `.w800.webp` for the next event; detail page at
       desktop loads the original
 
 ## Remaining Skill Edits
@@ -250,11 +250,11 @@ The code save paths all make the copy (`event-photo-prep.sh`, used by publish-ru
 re-create-event step 9, and both banner edge functions). Two skill-text gaps remain and need
 founder approval, so they are tracked here rather than edited:
 
-- [ ] [post-deploy] `.claude/commands/slava/events/re-create-event.md` abort block: also
+- [post-deploy] `.claude/commands/slava/events/re-create-event.md` abort block: also
       `curl -s -X DELETE .../storage/v1/object/event-banners/$SLUG.jpg.w800.webp` with the same
       header-file pattern, in the same shell (one dialog); "both DELETEs are harmless 404s" when
       the photo was skipped. Without it an aborted event leaves an orphan small copy.
-- [ ] [post-deploy] `.claude/commands/slava/events/publish-run.md` 8b: after PATCHing a hand-set
+- [post-deploy] `.claude/commands/slava/events/publish-run.md` 8b: after PATCHing a hand-set
       `banner_mobile_url`, run `npx tsx scripts/event-banner-small.ts one --env prod <banner_mobile_url>`;
       note that event-photo-prep.sh's WARNING / STALE lines print the command to run. Without it a
       hand-set phone banner has no small copy until the next backfill.
