@@ -95,7 +95,10 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
 function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { showUserMenu } = useNavAuthState();
+  const { showUserMenu, isProfilePending } = useNavAuthState();
+  // P1421: the bottom nav renders while a verified user's profile is still loading,
+  // so the padding that clears it must be there too.
+  const showSignedInChrome = showUserMenu || isProfilePending;
 
   // P511: Restore active session from localStorage on mount + track state
   const { hasActiveSession } = useActiveSession();
@@ -157,7 +160,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   // P1387: and only where the BottomNav actually shows — same rule, one source.
-  const needsBottomPadding = showUserMenu && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
+  const needsBottomPadding = showSignedInChrome && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,

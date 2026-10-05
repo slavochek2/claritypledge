@@ -21,6 +21,7 @@ interface NavItem {
   label: string;
   to?: string;
   disabled?: boolean;
+  pending?: boolean; // P1421: profile still loading — inert slot, same box as the real tab
   onClick?: () => void;
   badge?: number; // count shown as a blue pill on the icon; hidden when 0
   badgeNoun?: string; // aria-label suffix, e.g. "unread" → "Letters, 3 unread"
@@ -28,14 +29,15 @@ interface NavItem {
 
 export function BottomNav() {
   const location = useLocation();
-  const { showUserMenu, slug } = useNavAuthState();
+  const { showUserMenu, slug, isProfilePending } = useNavAuthState();
   const { isLive } = useLiveSession();
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
 
-  // Only show for logged-in users
-  if (!showUserMenu) {
+  // Only show for logged-in users. P1421: that includes a known session whose profile is
+  // still loading — on a slow link the bar used to appear ~10s late, under the user's thumb.
+  if (!showUserMenu && !isProfilePending) {
     return null;
   }
 
@@ -65,7 +67,11 @@ export function BottomNav() {
     },
     // P885: Partners needs the user's slug for its link target — omit the item
     // (rather than render a broken link) in the rare case slug is missing.
-    ...(slug
+    // P1421: while the profile loads, Partners and My Profile are pending slots so the five
+    // tabs already hold their final widths (justify-around: a 4→5 change moves every tab).
+    ...(isProfilePending
+      ? [{ icon: UsersIcon, label: "Partners", pending: true }]
+      : slug
       ? [{
           icon: UsersIcon,
           label: "Partners",
@@ -79,11 +85,13 @@ export function BottomNav() {
       label: "Groups",
       to: EVENTS_NAV_TO,
     },
-    {
-      icon: UserIcon,
-      label: "My Profile",
-      to: slug ? `/p/${slug}` : "/me",
-    },
+    isProfilePending
+      ? { icon: UserIcon, label: "My Profile", pending: true }
+      : {
+          icon: UserIcon,
+          label: "My Profile",
+          to: slug ? `/p/${slug}` : "/me",
+        },
   ];
 
   const isActive = (to: string | undefined) => {
@@ -105,6 +113,23 @@ export function BottomNav() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.to);
+
+          if (item.pending) {
+            return (
+              <div
+                key={item.label}
+                aria-hidden="true"
+                data-nav-slot-placeholder={item.label}
+                className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-muted-foreground opacity-50 animate-pulse pointer-events-none select-none"
+              >
+                <span className="relative">
+                  <Icon className="w-5 h-5 stroke-[1.5px]" />
+                </span>
+                <span className="text-xs leading-none font-normal">{item.label}</span>
+                <div className="w-1 h-1 rounded-full mt-0.5 bg-transparent" />
+              </div>
+            );
+          }
 
           if (item.disabled) {
             return (

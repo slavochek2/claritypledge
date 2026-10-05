@@ -41,6 +41,33 @@ const MOBILE_MENU_ID = "mobile-navigation-menu";
  * has no (non-cancelled) RSVP for an event today, and on that event's own pages — the page
  * already is where the button would go, and a second primary would compete with it (P955).
  */
+/**
+ * P1421: an inert stand-in for a signed-in nav item whose target needs the profile (slug).
+ * It is the item's own markup minus the link, so its box is the item's box to the pixel —
+ * a fixed-width skeleton guessed the width and still let the row move.
+ */
+function NavSlotPlaceholder({ icon: Icon, label }: { icon: typeof UserIcon; label: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-nav-slot-placeholder={label}
+      className="flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md text-muted-foreground opacity-50 animate-pulse pointer-events-none select-none"
+    >
+      <Icon className="w-5 h-5" />
+      <span className="text-xs mt-1 font-medium">{label}</span>
+    </div>
+  );
+}
+
+/** P1421: the avatar menu button's box (p-2 around a 40px GravatarAvatar `sm`). */
+function AvatarSlotPlaceholder() {
+  return (
+    <div aria-hidden="true" data-nav-slot-placeholder="avatar" className="p-2">
+      <div className="h-10 w-10 bg-muted rounded-full animate-pulse" />
+    </div>
+  );
+}
+
 function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
   const event = useTonightsEvent();
   const { pathname } = useLocation();
@@ -227,6 +254,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
     isLoading,
     sessionChecked,
     hasSession,
+    isProfilePending,
   } = useNavAuthState();
   const { count: unreadLetterCount } = useUnreadLetterCount();
   const { invite } = useOpenLiveInvite();
@@ -314,7 +342,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // Static routes — no profile data needed, safe to render during profile loading phase.
   // P885: Partners needs the resolved slug, so it only renders when `partnersSlug`
   // is passed (Phase 3a). During profile loading (Phase 2) the slot is omitted.
-  const StaticNavLinks = ({ partnersSlug }: { partnersSlug?: string | null } = {}) => (
+  const StaticNavLinks = ({ partnersSlug, reservePartners = false }: { partnersSlug?: string | null; reservePartners?: boolean } = {}) => (
     <>
       <Link
         to="/feed"
@@ -348,6 +376,11 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
         </span>
         <span className="text-xs mt-1 font-medium">Letters</span>
       </Link>
+      {/* P1421: while the profile loads, a same-markup inert slot holds Partners' width so
+          Groups (and everything after it) is already where it will be once it resolves. */}
+      {reservePartners && !partnersSlug && (
+        <NavSlotPlaceholder icon={UsersIcon} label="Partners" />
+      )}
       {partnersSlug && (
         <Link
           to={`/p/${partnersSlug}/partners`}
@@ -499,8 +532,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </>
               )
-            ) : hasSession && isLoading ? (
-              /* Phase 2: session known, profile fetching (100-500ms) — static links clickable */
+            ) : hasSession && isLoading && !isProfilePending ? (
+              /* Phase 2, no verified-evidence for this user on this device (first sign-in here,
+                 or the profile last resolved unverified / failed): pre-P1421 behaviour, because
+                 this session may still resolve to the logged-out layout. */
               compact ? (
                 <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
               ) : (
@@ -512,12 +547,19 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                   <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
                 </div>
               )
-            ) : showUserMenu ? (
-              /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style) */
+            ) : showUserMenu || isProfilePending ? (
+              /* Phase 3a: Logged-in: Icon nav with labels (LinkedIn-style).
+                 P1421: also while a verified user's profile is still loading (isProfilePending) —
+                 the SAME branch and the same child slots, so (1) every box is already where it
+                 will be when the profile lands (it used to jump ~212px left at 1280 and a click
+                 aimed during the wait hit a neighbour) and (2) React keeps the Tools instance,
+                 so a Tools menu opened during the wait stays open. Profile-dependent slots
+                 (Partners, My Profile, avatar) are same-box inert placeholders until then. */
               <div className="flex items-center gap-3 transition-opacity duration-150">
-                {!compact && <StaticNavLinks partnersSlug={slug} />}
+                {!compact && <StaticNavLinks partnersSlug={showUserMenu ? slug : null} reservePartners={isProfilePending} />}
                 {/* My Profile — /p/:slug/partners belongs to the Partners entry (P885), so exclude it here */}
-                {!compact && (
+                {!compact && isProfilePending && <NavSlotPlaceholder icon={UserIcon} label="My Profile" />}
+                {!compact && !isProfilePending && (
                   <Link
                     to={slug ? `/p/${slug}` : "/me"}
                     className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
@@ -539,6 +581,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     bottom sheet is the phone-in-a-room shape and stays below `lg`. */}
                 <EventLinksButton variant="dropdown" />
                 {/* Menu Trigger - P67: Avatar for verified users */}
+                {isProfilePending || !user ? <AvatarSlotPlaceholder /> : (
                 <DropdownMenu modal={false} onOpenChange={(open) => {
                   if (open) {
                     analytics.track('nav_menu_opened', {
@@ -565,6 +608,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     <NavigationMenuItems onSignOut={handleSignOut} />
                   </DropdownMenuContent>
                 </DropdownMenu>
+                )}
               </div>
             ) : compact ? (
               /* Compact + logged out: the marketing chrome is deliberately gone, but the
@@ -648,12 +692,16 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
           ) : (
             <div className="lg:hidden flex items-center gap-2">
               {/* P1351: no session CTA; the event-day primary only. */}
-              {showUserMenu && !compact && !isPricingPage && <TonightsEventCta device="mobile" />}
+              {(showUserMenu || isProfilePending) && !compact && !isPricingPage && <TonightsEventCta device="mobile" />}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}
               <EventLinksButton />
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}
-              {(showUserMenu || !compact) && (
+              {(showUserMenu || isProfilePending || !compact) && (
                 <button
+                  // P1421: while the profile loads the menu would list the signed-OUT items;
+                  // the slot holds its place but does not open until the profile lands.
+                  disabled={isProfilePending}
+                  aria-busy={isProfilePending || undefined}
                   onClick={() => {
                     const wasOpen = isMobileMenuOpen;
                     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -672,6 +720,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 >
                   {isMobileMenuOpen ? (
                     <XIcon className="w-6 h-6" />
+                  ) : isProfilePending ? (
+                    /* P1421: the avatar's 40px box, not the 24px hamburger — Tools beside it
+                       stays put when the profile lands. */
+                    <div className="w-10 h-10 bg-muted rounded-full animate-pulse" aria-hidden="true" />
                   ) : showUserMenu && user ? (
                     <GravatarAvatar
                       name={user.name}

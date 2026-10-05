@@ -15,7 +15,9 @@
  * 2. Email sent after meeting ends (P51)
  * 3. Taking the pledge
  */
+import { useEffect } from 'react';
 import { useAuth } from '@/auth';
+import { hasNavVerifiedHint, setNavVerifiedHint } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
 
 interface NavAuthState {
@@ -35,6 +37,10 @@ interface NavAuthState {
   // Loading states
   isLoading: boolean;
   sessionChecked: boolean;
+  // P1421: a session exists, its profile is still in flight, AND this device last saw that
+  // user resolve verified. Signed-in chrome then renders its final layout now (profile-
+  // dependent slots as placeholders) so nothing reflows when the profile lands.
+  isProfilePending: boolean;
 
   // Auth actions
   signOut: () => Promise<void>;
@@ -54,6 +60,18 @@ export function useNavAuthState(): NavAuthState {
   const isVerifiedUser = !!user && user.isVerified === true;
   const showUserMenu = sessionChecked && !isLoading && isVerifiedUser;
 
+  const sessionUserId = session?.user?.id ?? null;
+
+  // P1421: record how this session's profile resolved, as evidence for the next load.
+  // A missing/failed/unverified profile clears it — the next load keeps the old behaviour.
+  useEffect(() => {
+    if (!sessionChecked || isLoading || !sessionUserId) return;
+    setNavVerifiedHint(sessionUserId, isVerifiedUser && user?.id === sessionUserId);
+  }, [sessionChecked, isLoading, sessionUserId, isVerifiedUser, user?.id]);
+
+  const isProfilePending =
+    sessionChecked && !!sessionUserId && isLoading && hasNavVerifiedHint(sessionUserId);
+
   // Everyone else sees public CTAs (anonymous OR unverified OR loading)
   const showPublicCTAs = !showUserMenu;
 
@@ -67,6 +85,7 @@ export function useNavAuthState(): NavAuthState {
     isVerified: isVerifiedUser,
     isLoading,
     sessionChecked,
+    isProfilePending,
     signOut,
   };
 }

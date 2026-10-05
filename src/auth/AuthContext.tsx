@@ -17,6 +17,7 @@ import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, 
 import { analytics } from '@/lib/mixpanel';
 import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { clearOfflineReadCache } from '@/lib/offline-read-cache';
+import { clearAllNavVerifiedHints } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
 
 interface AuthState {
@@ -138,6 +139,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // no session: that is an anonymous boot, and its cached reads are the anonymous reader's.
         if (event === 'SIGNED_OUT' || (hadSessionRef.current && !newSession)) {
           void clearOfflineReadCache();
+          // P1421: same paths drop the nav's "this user was verified here" marker.
+          clearAllNavVerifiedHints();
         }
         hadSessionRef.current = !!newSession;
 

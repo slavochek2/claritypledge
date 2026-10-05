@@ -76,9 +76,11 @@ async function fetchTonightsEvent(userId: string): Promise<TonightsEvent | null>
 }
 
 export function useTonightsEvent(): TonightsEvent | null {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [event, setEvent] = useState<TonightsEvent | null>(null);
-  const userId = user?.id ?? null;
+  // P1421: the session's user id is the profile id and is known before the profile loads,
+  // so the header's event button is decided early instead of shifting the row on arrival.
+  const userId = user?.id ?? session?.user?.id ?? null;
 
   useEffect(() => {
     if (!userId) {
