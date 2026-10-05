@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 121
+**Next ID:** 123
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2048,5 +2048,27 @@ git-ops.sh ship --resume cherry-picks only the commits recorded when the journal
 **due:** week
 
 (1) Server-enforced position write ordering, a client sequence plus conditional upsert/delete, closes the P1420 accepted limits. (2) /feed overflows horizontally at 320px (header and Stories/Points+Sort row; pre-existing, noted in P1415). (3) e2e p1364 "tab or sort change then Back" targets a removed sort button, and search-then-Back sees offline-stake prefetch reads while typing. (4) next-p-number.sh gave the same number to parallel agents whose specs were still only in worktrees (P1420 and P1421 collided); reserve numbers in a ledger. (5) P1417 skill text edits for re-create-event abort and publish-run 8b (drafts in the P1417 spec) and P1419 hike banners on GCS still full size. Drop any item already covered by a spec.
+
+---
+
+## Point page embed: 'Expand linked stories' renders no story
+
+**ID:** INBOX-121
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+Found 2026-10-06 while writing P1424's e2e guard. On /point/:id?embed=true (no ?from=), clicking 'Expand linked stories' (label '1 story') renders no QuotedStory, even though the point has a linked public story. Reproduced on main at the P1424 base commit (e2e/p1424-nested-details-only.spec.ts, the test.fixme guard). Suspect: PointCardWithLinks's expansion condition (!isDetailView && storiesExpanded && (liveSessionMode || profileOwner || isEmbed)): check whether isEmbed reaches the card. Once fixed, turn the fixme back into a test.
+
+---
+
+## Profile e2e specs time out when the owner has points (fails on main too)
+
+**ID:** INBOX-122
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+A profile whose owner has points stayed on its loading skeleton ("Stories (0)") on the test DB, so every getByText of a seeded point timed out. Control run on unchanged main (f856dc899): e2e/p154-position-persistence-profile.spec.ts failed 6/6 at the first getByText; the same pattern hit p151-profile-position-loading, p151-regression, point-position-persistence and manual-points. Found during P1423 under heavy machine load, so first rerun p154 on an idle machine: drop this if it passes there, otherwise check console/network on /p/<slug> for an owner with one public point.
 
 ---
