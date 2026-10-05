@@ -4,12 +4,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 const updateProfile = vi.fn();
 const toSquareWebp = vi.fn();
 const uploadAvatar = vi.fn();
-const removeOldAvatars = vi.fn();
+const removeAvatarAt = vi.fn();
 vi.mock('@/app/data/api', () => ({ updateProfile: (...a: unknown[]) => updateProfile(...a) }));
 vi.mock('@/lib/avatar-upload', () => ({
   toSquareWebp: (...a: unknown[]) => toSquareWebp(...a),
   uploadAvatar: (...a: unknown[]) => uploadAvatar(...a),
-  removeOldAvatars: (...a: unknown[]) => removeOldAvatars(...a),
+  removeAvatarAt: (...a: unknown[]) => removeAvatarAt(...a),
 }));
 
 import { ProfilePhotoField } from './profile-photo-field';
@@ -17,9 +17,11 @@ import { PHOTO_COPY } from './profile-photo-copy';
 
 const png = new File(['x'], 'me.png', { type: 'image/png' });
 
-function setup(provider?: string) {
+const OLD = 'https://x.supabase.co/storage/v1/object/public/avatars/u1/old.webp';
+
+function setup(provider?: string, avatarUrl?: string) {
   const onChanged = vi.fn();
-  render(<ProfilePhotoField userId="u1" name="Ann Lee" avatarProvider={provider} isPledger={false} onChanged={onChanged} />);
+  render(<ProfilePhotoField userId="u1" name="Ann Lee" avatarUrl={avatarUrl} avatarProvider={provider} isPledger={false} onChanged={onChanged} />);
   return { onChanged, input: screen.getByTestId('photo-input') };
 }
 
@@ -37,14 +39,14 @@ describe('P1418 ProfilePhotoField', () => {
     expect(screen.queryByRole('button', { name: PHOTO_COPY.remove })).toBeNull();
   });
 
-  it('uploads, saves provider=upload, cleans old files, refreshes the profile', async () => {
-    const { onChanged, input } = setup('google');
+  it('uploads, saves provider=upload, deletes only the replaced photo, refreshes the profile', async () => {
+    const { onChanged, input } = setup('upload', OLD);
     fireEvent.change(input, { target: { files: [png] } });
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(updateProfile).toHaveBeenCalledWith('u1', { avatar_url: 'https://cdn/u1/1.webp', avatar_provider: 'upload' });
-    expect(removeOldAvatars).toHaveBeenCalledWith('u1', 'u1/1.webp');
+    expect(removeAvatarAt).toHaveBeenCalledWith('u1', OLD);
     // profile written before old files are removed
-    expect(updateProfile.mock.invocationCallOrder[0]!).toBeLessThan(removeOldAvatars.mock.invocationCallOrder[0]!);
+    expect(updateProfile.mock.invocationCallOrder[0]!).toBeLessThan(removeAvatarAt.mock.invocationCallOrder[0]!);
   });
 
   it('rejects a non-image with the type message and uploads nothing', async () => {
@@ -63,12 +65,12 @@ describe('P1418 ProfilePhotoField', () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
-  it('Remove clears the photo, then deletes the files', async () => {
-    const { onChanged } = setup('upload');
+  it('Remove clears the photo, then deletes that one file', async () => {
+    const { onChanged } = setup('upload', OLD);
     expect(screen.getByRole('button', { name: PHOTO_COPY.change })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: PHOTO_COPY.remove }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(updateProfile).toHaveBeenCalledWith('u1', { avatar_url: null, avatar_provider: 'generated' });
-    expect(removeOldAvatars).toHaveBeenCalledWith('u1');
+    expect(removeAvatarAt).toHaveBeenCalledWith('u1', OLD);
   });
 });

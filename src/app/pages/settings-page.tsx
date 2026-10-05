@@ -51,9 +51,12 @@ export function SettingsPage() {
     }
   }, [authLoading, session, user]);
 
-  // Populate form with current profile data
+  // Populate form with current profile data — once per user. A later refreshProfile() (e.g. a
+  // photo change, P1418) must not overwrite edits the user hasn't saved yet.
+  const populatedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (user) {
+    if (user && populatedFor.current !== user.id) {
+      populatedFor.current = user.id;
       setName(user.name || "");
       setRole(user.role || "");
       setLinkedinUrl(user.linkedinUrl || "");

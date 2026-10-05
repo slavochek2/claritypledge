@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -628,6 +628,36 @@ describe("SettingsPage", () => {
       expect(signOut).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(screen.getByRole("button", { name: /Delete my account/ })).toBeEnabled();
+    });
+  });
+
+  describe("P1418: a photo change keeps unsaved edits (Codex P2)", () => {
+    it("does not overwrite a typed role when the profile refreshes with a new photo", async () => {
+      const spy = vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
+      const view = renderSettingsPage();
+      const role = await screen.findByLabelText(/Role/);
+      fireEvent.change(role, { target: { value: "Unsaved role" } });
+
+      // refreshProfile() after a photo upload hands the page a NEW user object, same id.
+      spy.mockReturnValue(
+        createAuthMock({
+          user: { ...mockProfile, avatarUrl: "https://x/avatars/u/1.webp", avatarProvider: "upload" },
+          sessionUserId: mockProfile.id,
+        })
+      );
+      view.rerender(
+        <MemoryRouter initialEntries={["/settings"]}>
+          <PwaInstallProvider>
+            <Routes>
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </PwaInstallProvider>
+        </MemoryRouter>
+      );
+
+      expect(screen.getByLabelText(/Role/)).toHaveValue("Unsaved role");
     });
   });
 });

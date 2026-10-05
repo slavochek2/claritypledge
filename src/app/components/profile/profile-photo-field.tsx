@@ -7,7 +7,7 @@ import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { updateProfile } from "@/app/data/api";
-import { toSquareWebp, uploadAvatar, removeOldAvatars } from "@/lib/avatar-upload";
+import { toSquareWebp, uploadAvatar, removeAvatarAt } from "@/lib/avatar-upload";
 import { PHOTO_COPY } from "./profile-photo-copy";
 
 
@@ -51,13 +51,14 @@ export function ProfilePhotoField({
         setError(PHOTO_COPY.badType);
         return;
       }
-      const { url, path } = await uploadAvatar(userId, image);
+      const previousUrl = avatarUrl;
+      const { url } = await uploadAvatar(userId, image);
       const { error: saveError } = await updateProfile(userId, {
         avatar_url: url,
         avatar_provider: "upload",
       });
       if (saveError) throw saveError;
-      await removeOldAvatars(userId, path);
+      await removeAvatarAt(userId, previousUrl);
       await onChanged();
     } catch {
       setError(PHOTO_COPY.failed);
@@ -70,13 +71,14 @@ export function ProfilePhotoField({
   async function handleRemove() {
     setError(null);
     setBusy(true);
+    const previousUrl = avatarUrl;
     try {
       const { error: saveError } = await updateProfile(userId, {
         avatar_url: null,
         avatar_provider: "generated",
       });
       if (saveError) throw saveError;
-      await removeOldAvatars(userId);
+      await removeAvatarAt(userId, previousUrl);
       await onChanged();
     } catch {
       setError(PHOTO_COPY.failed);

@@ -38,13 +38,29 @@ export async function uploadAvatar(userId: string, image: Blob): Promise<{ url: 
   return { url: data.publicUrl, path };
 }
 
-/** Best effort: removes the user's stored photos except `keepPath`. Errors only leave orphans. */
-export async function removeOldAvatars(userId: string, keepPath?: string): Promise<void> {
+/**
+ * The storage path of a photo in our bucket under `userId`'s folder, or null for any other URL
+ * (a Google picture, initials, someone else's folder).
+ */
+export function ownAvatarPath(userId: string, url: string | null | undefined): string | null {
+  const marker = `/object/public/${BUCKET}/`;
+  const at = url?.indexOf(marker) ?? -1;
+  if (!url || at < 0) return null;
+  const path = decodeURIComponent(url.slice(at + marker.length).split('?')[0] ?? '');
+  return path.startsWith(`${userId}/`) && !path.slice(userId.length + 1).includes('/') ? path : null;
+}
+
+/**
+ * Best effort: deletes the one photo being replaced or removed. Never lists and sweeps the
+ * folder, so a concurrent upload from another tab can't have its new photo deleted (Codex P1).
+ * Errors only leave a harmless orphan.
+ */
+export async function removeAvatarAt(userId: string, url: string | null | undefined): Promise<void> {
+  const path = ownAvatarPath(userId, url);
+  if (!path) return;
   try {
-    const { data } = await supabase.storage.from(BUCKET).list(userId);
-    const stale = (data ?? []).map((o) => `${userId}/${o.name}`).filter((p) => p !== keepPath);
-    if (stale.length) await supabase.storage.from(BUCKET).remove(stale);
+    await supabase.storage.from(BUCKET).remove([path]);
   } catch {
-    // Orphaned files are harmless; the profile row is already correct.
+    // Orphaned file; the profile row is already correct.
   }
 }
