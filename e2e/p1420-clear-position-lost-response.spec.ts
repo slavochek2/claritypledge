@@ -17,6 +17,41 @@ let other: TestUser;
 let pointId: string;
 let tag: string;
 
+/*
+ * AC "No console errors during the affected flow". Every console error and uncaught page error is
+ * collected; only lines the test itself induces are allowed, each named here with its reason:
+ *   - the browser's own line for a request the test aborts or delays on purpose;
+ *   - the app's `console.error('Failed to remove position:', …)` — logged by the removal's catch when
+ *     the answer is (deliberately) dropped or held past the 12s bound;
+ *   - the data layer's `[db-error] removePosition: …Failed to fetch` (db-error-logger.ts) — the same
+ *     dropped request, logged once more where the service turns it into a NetworkBlipError.
+ * Anything else fails the test.
+ */
+const INDUCED_CONSOLE_ERRORS: RegExp[] = [
+  /^Failed to load resource: net::ERR_FAILED$/,
+  /^Failed to remove position:/,
+  /^\[db-error\] removePosition: .*Failed to fetch/,
+];
+let consoleErrors: string[] = [];
+let unexpectedConsoleErrors: string[] = [];
+
+test.beforeEach(async ({ page }) => {
+  consoleErrors = [];
+  unexpectedConsoleErrors = [];
+  const note = (text: string) => {
+    consoleErrors.push(text);
+    if (!INDUCED_CONSOLE_ERRORS.some((r) => r.test(text))) unexpectedConsoleErrors.push(text);
+  };
+  page.on('console', (m) => { if (m.type() === 'error') note(m.text()); });
+  page.on('pageerror', (e) => note(`pageerror: ${e.message}`));
+});
+
+test.afterEach(async ({ page }, testInfo) => {
+  void page; // the fixture is destructured only because Playwright requires it before testInfo
+  if (consoleErrors.length) console.log(`[p1420 console] ${testInfo.title}:\n  ${consoleErrors.join('\n  ')}`);
+  expect(unexpectedConsoleErrors, 'console errors not induced by the test').toEqual([]);
+});
+
 test.beforeEach(async () => {
   tag = `p1420${Date.now().toString(36)}`;
   me = await createTestUser({ name: 'P1420Clear' });
@@ -108,6 +143,22 @@ test.describe('P1420: Clear position over a bad connection', () => {
     if (await removeAgain.isVisible().catch(() => false)) await removeAgain.click();
 
     await expect(card(page).locator('button[aria-pressed="true"]')).toHaveCount(0, { timeout: 20_000 });
+  });
+
+  test('answer held past the 12s bound (server applied the removal): settles to removed, no false toast', async ({ page }) => {
+    await setTestSession(page, me.email);
+    await page.route('**/rest/v1/point_positions*', async (route: Route) => {
+      if (route.request().method() !== 'DELETE') return route.continue();
+      const res = await route.fetch();
+      await new Promise((r) => setTimeout(r, 15_000));
+      await route.fulfill({ response: res }).catch(() => {});
+    });
+    await page.goto(`/feed?tab=points&tag=${tag}`);
+    await openRemoveDialog(page);
+    await page.getByRole('button', { name: 'Remove position' }).click();
+    await expect.poll(dbPosition, { timeout: 10_000 }).toBeNull();
+    await expect(card(page).locator('button[aria-pressed="true"]')).toHaveCount(0, { timeout: 40_000 });
+    await expect(page.locator('[data-sonner-toast]').filter({ hasText: /nothing was saved|not removed/i })).toHaveCount(0);
   });
 
   test('slow connection (every answer 5s): the card the reader is acting on is not unmounted and remounted', async ({ page }) => {

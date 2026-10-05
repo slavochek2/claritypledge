@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [positions, offline, feed, network]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1420-clear-position-lost-response.spec.ts
   reproduced_at: '2026-10-05'
@@ -155,7 +155,16 @@ Direction only; this filing was reproduction-only.
       during a 25s observation
 - [x] Regression test passes: `e2e/p1420-clear-position-lost-response.spec.ts` (3 tests; all 3 fail on
       the unfixed code for the asserted reason) + `src/tests/p1420-unknown-write-outcome.test.tsx`
-- [ ] No console errors during the affected flow
+- [x] No console errors during the affected flow. Verified 2026-10-05 by
+      `e2e/p1420-clear-position-lost-response.spec.ts`, which now captures every console error and
+      page error and fails on any the test did not induce. It ran 4/4 across the lost-answer, held-15s
+      and slow-5s flows. The slow-5s flow logged no errors. The lost-answer and held flows logged only
+      lines caused by the request the test drops or holds on purpose:
+      `Failed to load resource: net::ERR_FAILED` (the browser, for the aborted request),
+      `[db-error] removePosition: …Failed to fetch` (db-error-logger, the same request), and
+      `Failed to remove position: NetworkBlipError…` / `…WriteTimeoutError…` (the removal's own catch).
+      No uncaught page errors. The guard does fire: before the `[db-error]` line was on the
+      allowlist, two tests failed on it.
 
 ## Resolution
 
