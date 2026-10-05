@@ -73,4 +73,14 @@ describe('P1418 ProfilePhotoField', () => {
     expect(updateProfile).toHaveBeenCalledWith('u1', { avatar_url: null, avatar_provider: 'generated' });
     expect(removeAvatarAt).toHaveBeenCalledWith('u1', OLD);
   });
+
+  it('deletes the new file when saving the profile fails', async () => {
+    updateProfile.mockResolvedValue({ error: new Error('rls') });
+    const { input, onChanged } = setup('upload', OLD);
+    fireEvent.change(input, { target: { files: [png] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(PHOTO_COPY.failed);
+    expect(removeAvatarAt).toHaveBeenCalledWith('u1', 'https://cdn/u1/1.webp');
+    expect(removeAvatarAt).not.toHaveBeenCalledWith('u1', OLD);
+    expect(onChanged).not.toHaveBeenCalled();
+  });
 });

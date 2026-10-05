@@ -37,8 +37,8 @@ Blast radius: one flow (profile avatar), but rendered on ~30 surfaces that all r
 2. **Client-side resize:** before upload, centre-crop to a square and re-encode to WebP at 512 px using a canvas. That keeps files small and removes EXIF/GPS metadata as a side effect.
 3. **Profile write:** `avatar_url` = public URL, `avatar_provider = 'upload'` (new CHECK value + TS union).
 4. **Sticky across Google login:** in `AuthCallbackPage`, when the existing `avatarProvider === 'upload'`, keep it. Google sync applies only to non-upload avatars.
-5. **Remove:** clears the upload. Google users go back to their Google picture on the next sign-in. Until then, and for email users, initials show (`avatar_url = null`, provider `generated`). Order: write the profile first, then delete the user's old objects (delete errors ignored, leaving harmless orphans). After a write, call `refreshProfile()` so the header updates without a reload.
-6. **Settings UI:** a "Photo" row at the top of Settings with the current avatar, **Upload photo** (or **Change** when a photo is set) and **Remove** (shown only for uploads). A hidden file input with `accept="image/*"`, and an inline error line.
+5. **Remove:** clears the upload. Google users go back to their Google picture on the next sign-in. Until then, and for email users, initials show (`avatar_url = null`, provider `generated`). Order: write the profile first, then delete only the one photo being replaced (never sweep the folder; delete errors leave a harmless orphan). If the save fails, the just-uploaded file is deleted. After a write, call `refreshProfile()` so the header updates without a reload.
+6. **Settings UI:** a "Photo" row at the top of Settings with the current avatar, **Upload photo** (or **Change** when a photo is set) and **Remove** (shown only for uploads). A hidden file input accepting JPG, PNG, WebP and HEIC, and an inline error line.
 
 ## UI Contract (copy, short and clear)
 

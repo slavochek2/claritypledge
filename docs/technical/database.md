@@ -20,6 +20,8 @@ The Clarity Pledge uses Supabase (PostgreSQL) with Row Level Security (RLS). All
 | linkedin_url | text | LinkedIn profile (optional) |
 | reason | text | Why they signed the pledge |
 | avatar_color | text | Profile color theme |
+| avatar_url | text | Photo URL: Google picture, or the user's own upload in the `avatars` bucket (P1418) |
+| avatar_provider | text | `google` · `generated` · `gravatar` · `upload`. `upload` is never replaced by Google sign-in (P1418) |
 | is_verified | boolean | Email verified status |
 | created_at | timestamp | Signup timestamp |
 | updated_at | timestamp | Last update timestamp |
@@ -558,6 +560,10 @@ uniformly-false result cannot be a blind probe.
 fixtures, including that the blindness controls fire. Run it after any change to the
 checker. The known-open backlog lives in `.private/function-grant-baseline.json`
 (gitignored — it names live unpatched functions); it is a backlog, not an allowlist.
+
+### avatars storage bucket (P1418)
+
+Public bucket, 2 MB, webp/jpeg/png. The first bucket the browser writes to: `authenticated` may INSERT, SELECT and DELETE only where `(storage.foldername(name))[1] = auth.uid()::text`. Every other bucket is service_role-write only. Tested in `e2e/integration/p1418-avatars-storage-rls.spec.ts`.
 
 ### profiles policies
 

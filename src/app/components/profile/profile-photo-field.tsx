@@ -57,7 +57,11 @@ export function ProfilePhotoField({
         avatar_url: url,
         avatar_provider: "upload",
       });
-      if (saveError) throw saveError;
+      if (saveError) {
+        // Nothing points at the new file; don't leave it behind.
+        await removeAvatarAt(userId, url);
+        throw saveError;
+      }
       await removeAvatarAt(userId, previousUrl);
       await onChanged();
     } catch {
