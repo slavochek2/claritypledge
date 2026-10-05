@@ -85,7 +85,7 @@ describe('P1347 /topics', () => {
   it('has exactly one way to add ideas: the "Add your own topic" button at the top', async () => {
     renderPage();
     await screen.findAllByTestId('topic-row');
-    expect(screen.getAllByRole('button', { name: /add a topic/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /suggest a topic/i })).toHaveLength(1);
     expect(screen.queryByText(/ideas/i)).toBeNull();
   });
 
@@ -110,6 +110,13 @@ describe('P1347 /topics', () => {
     await waitFor(() => expect(mod.rateTopic).toHaveBeenLastCalledWith(expect.any(String), 5, false));
     await waitFor(() => expect(within(rows[0]).getByTestId('topic-average')).toBeInTheDocument());
     expect(within(within(rows[0]).getByTestId('topic-voters')).queryAllByTestId('gravatar-avatar')).toHaveLength(0); // counted, no face
+  });
+
+  it('P1389/P1414: the photo choice sits at the top, before the topic list', async () => {
+    renderPage();
+    const list = await screen.findByTestId('topic-list');
+    const photo = screen.getByLabelText('Hide my photo on my votes');
+    expect(photo.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('signed out: can tap stars; asked to sign up or log in to save; nothing is sent', async () => {
@@ -181,7 +188,7 @@ describe('P1347 /topics', () => {
   it('signed in: an added topic appears above the host topics', async () => {
     renderPage();
     await screen.findAllByTestId('topic-row');
-    fireEvent.click(screen.getByRole('button', { name: /add a topic/i }));
+    fireEvent.click(screen.getByRole('button', { name: /suggest a topic/i }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Your topic'), { target: { value: 'Should we work 4 days?' } });
     fireEvent.change(within(dialog).getByLabelText('Comment or YouTube link (optional)'), {

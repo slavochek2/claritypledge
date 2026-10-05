@@ -264,6 +264,18 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
               <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground" />
             </label>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* P1389 (founder): the photo choice sits at the top with the list's other settings. */}
+            {user && (
+              <label className="inline-flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={!showPhoto}
+                  onChange={(e) => togglePhoto(!e.target.checked)}
+                  className="h-4 w-4 accent-blue-600"
+                />
+                Hide my photo on my votes
+              </label>
+            )}
             <AddYourOwn onAdded={load} returnTo={returnTo} quiet={embedded} />
             </div>
           </div>
@@ -290,7 +302,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
       )}
 
       {state.kind === 'ready' && topics.length === 0 && (
-        <p className="mt-4 text-base text-muted-foreground">No topics yet. Add the first one.</p>
+        <p className="mt-4 text-base text-muted-foreground">No topics yet. Suggest the first one.</p>
       )}
 
       {state.kind === 'ready' && topics.length > 0 && (
@@ -310,17 +322,6 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
               />
             ))}
           </ul>
-          {user && (
-            <label className="mt-3 inline-flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={!showPhoto}
-                onChange={(e) => togglePhoto(!e.target.checked)}
-                className="h-4 w-4 accent-blue-600"
-              />
-              Hide my photo on my votes
-            </label>
-          )}
           {!embedded && (<>
           {/* Pinned bar (no bottom menu on this page): the count, and a way back. */}
           <div className="h-40" aria-hidden />
@@ -572,11 +573,11 @@ function AddYourOwn({ onAdded, returnTo, quiet }: { onAdded: () => Promise<void>
         className={cn('min-h-11 self-start', !quiet && 'bg-blue-500 text-white hover:bg-blue-700')}
         onClick={() => setOpen(true)}
       >
-        <Plus className="mr-1 h-4 w-4" aria-hidden /> Add a topic
+        <Plus className="mr-1 h-4 w-4" aria-hidden /> Suggest a topic
       </Button>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add a topic</DialogTitle>
+          <DialogTitle>Suggest a topic</DialogTitle>
         </DialogHeader>
         {!user ? (
           <p className="text-base text-foreground">

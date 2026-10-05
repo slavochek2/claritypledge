@@ -231,10 +231,10 @@ describe('P1414 event page', () => {
     expect(screen.queryByText(/Topic: not chosen yet/)).toBeNull();
   });
 
-  it('the vote adds no full-width primary: Add a topic is an outline button', async () => {
+  it('the vote adds no full-width primary: Suggest a topic is an outline button', async () => {
     renderEvent(makeEvent({ ...NIGHT }));
     const embed = await screen.findByTestId('topic-vote-embed');
-    const add = within(embed).getByRole('button', { name: /Add a topic/ });
+    const add = within(embed).getByRole('button', { name: /Suggest a topic/ });
     expect(add.className).not.toMatch(/bg-blue-500/);
     expect(within(embed).queryByRole('button', { name: /Reserve a seat/ })).toBeNull();
   });
