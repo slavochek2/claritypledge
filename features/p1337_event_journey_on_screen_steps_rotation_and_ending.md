@@ -386,6 +386,28 @@ button on the left, the room on the right.
 9. *Seating:* "Find your table · 0:45", counting down inside the card. While seated, the principle
    certificate and the Opt in / Opt out bar step aside.
 
+**Built (walkthrough 7):**
+- *1, 2, 5, 9 — the room flow:* `RoomSteps` (rounds/RoomSteps.tsx) on /ready and the room page:
+  Ready · Principle · Table · Compare · Close. The current step is derived from the round
+  (`RoundCard` reports `{seated, atTable, eveningOver}`): Close when the host ended the rounds or
+  the event closed; Table, then Compare, while seated; otherwise Principle. Steps behind can be
+  tapped (Ready goes back to /ready); Table and Compare cannot be reopened after Close. The card
+  has two faces: the table ("Find your table · 0:45" counting down, role line, faces, "I'm at table
+  N") and the comparison (one line "Table 1 · with Haru, Erin · role", "You and {name}" + set
+  name, "Compare with" any room member with a profile, "Back to the table", all rows). Seated,
+  the certificate, the opt-in bar and the roster show only on Principle. Close is a plain "Thanks
+  for coming" until P1389 plugs in. `e2e/p1337-rounds.spec.ts`, `p1337-table-compare.spec.ts`,
+  `src/tests/p1337-room-steps.test.tsx`.
+- *3, 4:* `TopicMark` and the compare page's topic hook deleted (server data and RPCs untouched);
+  past rounds gone from the attendee card.
+- *6:* "Match on" is a `<select>`: the event's set first and selected ("… (this event)"), then
+  every event's topic and the fixed topic tags (P1401, `getEventTopicTags`), then named sets.
+- *7:* the switch, its terms line and its `startCapture` left `EventRoomReady`; the terms reminder
+  rides on the bar button's description. Tests start capture via `startTranscribingInRoom`.
+- *8:* "Swap at half time" | "One talk" segmented control above the minutes; One talk shows one
+  "Talk N min" (2× the speaker minutes, stored as two equal halves; the DB floor makes 2 min the
+  shortest talk).
+
 **Rebase onto main (2026-10-05, before walkthrough 7):** the transcription idle state is now a
 state of P1388's one-line short bar — "Not transcribed" + an outlined "Transcribe"; the start
 screen's description moved onto the button (`aria-description`, hover title) because the short bar

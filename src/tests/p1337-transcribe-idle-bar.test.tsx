@@ -30,9 +30,9 @@ describe('the idle transcription banner', () => {
     const bar = screen.getByTestId('room-transcribe-idle');
     expect(bar).toHaveTextContent('Not transcribed');
     // P1388: the short bar has no second line — the start screen's description rides on the button.
-    expect(bar).not.toHaveTextContent('Record audio');
+    expect(screen.getByText(/Record audio/)).toHaveClass('sr-only'); // read out, never a visible line
     const button = screen.getByTestId('room-transcribe-start');
-    expect(button).toHaveAttribute('aria-description', expect.stringContaining('Record audio and share transcript with others in the room'));
+    expect(button).toHaveAccessibleDescription(expect.stringContaining('Record audio and share transcript with others in the room'));
     expect(button).toHaveTextContent('Transcribe');
     expect(button.className).toContain('border'); // outlined, not a second filled primary
     expect(button.className).not.toContain('bg-blue-500');

@@ -145,7 +145,7 @@ export function EventRoomReady() {
         <PrepRoomBanner event={event} />
       </div>
       {/* P1337 walkthrough 7: the evening's step bar starts here. */}
-      <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="mx-auto mt-3 w-full max-w-2xl" />
+      <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="mx-auto -mt-3 w-full max-w-2xl" />
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="flex w-full max-w-sm flex-col gap-10">

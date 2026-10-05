@@ -265,25 +265,13 @@ export function RoundCard({
           {mates.length > 0 && <> · with {mates.join(', ')}</>} · {roleLine}
         </p>
         {observerClock}
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold break-words" data-testid="round-compare-title">{title}</h2>
-            {setName && <p className="text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>}
-          </div>
-          <button
-            type="button"
-            onClick={onBackToTable}
-            className="min-h-10 shrink-0 text-sm font-medium text-blue-600"
-            data-testid="round-compare-back"
-          >
-            Back to the table
-          </button>
-        </div>
+        <h2 className="mt-3 text-xl font-semibold break-words" data-testid="round-compare-title">{title}</h2>
+        {setName && <p className="text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>}
         {othersInRoom.length > 0 && (
-          <label className="mt-3 flex items-center gap-2 text-sm">
-            <span className="shrink-0 text-muted-foreground">Compare with</span>
+          <label className="mt-3 block text-sm">
+            <span className="text-muted-foreground">Compare with</span>
             <select
-              className="min-h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base md:text-sm"
+              className="mt-1 min-h-10 w-full rounded-md border border-border bg-background px-2 text-base md:text-sm"
               value={withId}
               onChange={e => setWithId(e.target.value)}
               data-testid="round-compare-with"
@@ -297,7 +285,15 @@ export function RoundCard({
             </select>
           </label>
         )}
-        <div className="mt-4" data-testid="round-card-topics">
+        <button
+          type="button"
+          onClick={onBackToTable}
+          className="mt-1 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
+          data-testid="round-compare-back"
+        >
+          Back to the table
+        </button>
+        <div className="mt-3" data-testid="round-card-topics">
           {rows.length > 0 ? (
             <ul className="space-y-3" data-testid="round-card-rows">
               {rows.map(row => (

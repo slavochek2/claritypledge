@@ -477,7 +477,7 @@ export function EventRoomMeet() {
 
       {/* P1337: transcription is started from the room itself — the banner's idle state, in the
           place the running banner takes once it starts. */}
-      {event && !isFrozen && (
+      {event && !isFrozen && !moment.eveningOver && (
         <RoomTranscribeIdleBar
           eventId={event.id}
           displayName={user?.name || user?.email || 'Participant'}
@@ -514,7 +514,8 @@ export function EventRoomMeet() {
           </div>
         </div>
         {/* P1337 walkthrough 7: the step bar replaces the round status line. */}
-        <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="mt-3" />
+        {/* -mt-3 takes back most of the Back link's own bottom margin: the bar belongs to the header. */}
+        <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="-mt-3" />
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build

@@ -70,7 +70,7 @@ export function RoomSteps({
               >
                 <span
                   className={cn(
-                    'truncate text-[11px] min-[375px]:text-xs leading-tight',
+                    'whitespace-nowrap text-[11px] tracking-tight min-[375px]:text-xs min-[375px]:tracking-normal leading-tight',
                     shown ? 'font-semibold text-foreground' : reached ? 'text-muted-foreground' : 'text-muted-foreground/50',
                   )}
                 >

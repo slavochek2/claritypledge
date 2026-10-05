@@ -44,7 +44,7 @@ test.describe('P1307 a11y: the room\'s "Transcribe" (walkthrough 7 — the switc
     await expect(bar).toHaveAttribute('aria-live', 'polite');
     const start = page.getByRole('button', { name: 'Transcribe' });
     await expect(start).toBeVisible({ timeout: 10_000 });
-    await expect(start).toHaveAttribute('aria-description', /record audio and share transcript/i);
+    await expect(start).toHaveAccessibleDescription(/record audio and share transcript/i);
   });
 
   test('"Transcribe" starts from the keyboard', async ({ page }) => {

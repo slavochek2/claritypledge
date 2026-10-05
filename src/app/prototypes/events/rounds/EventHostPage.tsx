@@ -1176,7 +1176,7 @@ export function EventHostPage() {
         {/* On a phone the controls stay on screen while the host scrolls the room (founder
             walkthrough 6): clock, −1/+1 and Next round. Settings live in their own card below. */}
         <section
-          className="rounded-xl border border-border bg-card p-4 shadow-sm max-lg:sticky max-lg:top-0 max-lg:z-20 lg:sticky lg:top-4 lg:order-2 lg:col-start-2"
+          className="rounded-xl border border-border bg-card p-4 shadow-sm max-lg:sticky max-lg:top-[calc(4rem+env(safe-area-inset-top))] max-lg:z-20 lg:sticky lg:top-[calc(6rem+env(safe-area-inset-top))] lg:order-2 lg:col-start-2"
           data-testid="host-controls"
         >
           <p className="text-sm font-medium text-muted-foreground">
@@ -1293,7 +1293,17 @@ export function EventHostPage() {
                       key={label}
                       type="button"
                       aria-pressed={settings.splitSpeakers === split}
-                      onClick={() => setSettings({ ...settings, splitSpeakers: split })}
+                      onClick={() =>
+                        setSettings({
+                          ...settings,
+                          splitSpeakers: split,
+                          // An odd "Talk" leaves half minutes per speaker; swapping shows whole
+                          // minutes, so store what it shows (Codex review).
+                          minutes: split
+                            ? { ...settings.minutes, speakerS: Math.max(60, Math.round(settings.minutes.speakerS / 60) * 60) }
+                            : settings.minutes,
+                        })
+                      }
                       data-testid={testId}
                       className={cn(
                         'min-h-10 flex-1 rounded-md px-2 text-sm',

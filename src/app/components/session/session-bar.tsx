@@ -8,7 +8,7 @@
  *
  * Markup and classes are P511's ActiveSessionBanner, moved here unchanged.
  */
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { LogOut } from 'lucide-react';
 
 export interface SessionBarAction {
@@ -65,6 +65,7 @@ export function SessionBar({
 }: SessionBarProps) {
   const offline = tone === 'offline';
   const idle = tone === 'idle';
+  const descriptionId = useId();
   const hasActions = !!primary || !!secondary || !!extra;
   return (
     <div
@@ -81,7 +82,13 @@ export function SessionBar({
             : 'relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-2'
       }
     >
-      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+      <div
+        className={
+          idle
+            ? 'max-w-4xl mx-auto flex flex-row items-center justify-between gap-3'
+            : 'max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4'
+        }
+      >
         {offline ? (
           <div>
             <div className="text-sm font-medium text-slate-800">{text}</div>
@@ -112,15 +119,20 @@ export function SessionBar({
                 disabled={primary.disabled}
                 data-testid={primary.testId}
                 title={primary.description}
-                aria-description={primary.description}
+                aria-describedby={primary.description ? descriptionId : undefined}
                 className={
                   idle
-                    ? 'w-full sm:w-auto border border-blue-300 bg-white text-blue-700 text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-50 transition-colors disabled:opacity-50'
+                    ? 'shrink-0 border border-blue-300 bg-white text-blue-700 text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-50 transition-colors disabled:opacity-50'
                     : 'w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50'
                 }
               >
                 {primary.label}
               </button>
+            )}
+            {primary?.description && (
+              <span id={descriptionId} className="sr-only">
+                {primary.description}
+              </span>
             )}
             {/* P1323 R7: ONE End treatment across all four controls. This was the only one
                 red AT REST, and it is the one that persists on every page for the whole
