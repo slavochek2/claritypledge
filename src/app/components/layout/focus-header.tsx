@@ -53,7 +53,7 @@ export function FocusHeader({
       onClick={onBack ?? goBack}
       className={
         compact
-          ? 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-muted-foreground hover:text-foreground -ml-2'
+          ? 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-foreground hover:bg-muted -ml-2'
           : 'inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3'
       }
       aria-label={ariaLabel ?? 'Go back'}

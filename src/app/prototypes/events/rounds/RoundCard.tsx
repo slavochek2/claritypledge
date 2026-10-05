@@ -379,7 +379,7 @@ export function RoundCard({
       ) : phase !== 'over' && (
         <Button
           type="button"
-          className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-700 text-white"
+          className="mt-4 h-auto w-full min-h-12 whitespace-normal py-3 text-base bg-blue-500 hover:bg-blue-700 text-white"
           onClick={() => void onConfirm()}
           disabled={confirming}
           data-testid="round-card-confirm"

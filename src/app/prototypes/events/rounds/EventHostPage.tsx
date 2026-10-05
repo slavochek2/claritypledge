@@ -307,7 +307,13 @@ function PhaseStrip({
         const active = i === current;
         const filled = done ? 100 : active ? Math.round(100 * (1 - clock.phaseRemainingMs / p.ms)) : 0;
         return (
-          <li key={p.phase} className="min-w-0" style={{ flexGrow: p.ms / 60_000, flexBasis: 0 }} aria-current={active ? 'step' : undefined}>
+          <li
+            key={p.phase}
+            className="min-w-0"
+            // On the projector every part keeps room for its label ("Find your table" is one minute).
+            style={{ flexGrow: p.ms / 60_000, flexBasis: 0, minWidth: large ? '11em' : undefined }}
+            aria-current={active ? 'step' : undefined}
+          >
             <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-5' : 'h-2')}>
               <div className={cn('h-full rounded-full transition-[width] duration-1000 ease-linear', done ? 'bg-blue-300' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
             </div>
@@ -316,7 +322,8 @@ function PhaseStrip({
             {large && (
               <p className={cn('mt-1 truncate text-lg sm:text-xl', active ? 'font-semibold text-blue-700' : 'text-muted-foreground')}>
                 {p.label}
-                <span className="font-normal text-muted-foreground"> · {Math.round(p.ms / 60_000)} min</span>
+                {/* The finding minute needs no "· 1 min": the clock beside the strip counts it. */}
+                {p.phase !== 'seating' && <span className="font-normal text-muted-foreground"> · {Math.round(p.ms / 60_000)} min</span>}
               </p>
             )}
           </li>
@@ -446,7 +453,9 @@ function ScreenView({
   const gridStyle: CSSProperties = wide
     ? {
         gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
+        // One or two tables: rows sized to the cards, centred — never stretched tall.
+        gridTemplateRows: tables.length <= 2 ? `repeat(${layout.rows}, auto)` : `repeat(${layout.rows}, minmax(0, 1fr))`,
+        alignContent: tables.length <= 2 ? 'center' : undefined,
         // A lone table or two: cards side by side at a card's width, centred — not stretched across.
         maxWidth: layout.cols * SCREEN_CARD_MAX_EM * layout.fontPx + SCREEN_GAP * (layout.cols - 1),
         width: '100%',
@@ -1262,7 +1271,7 @@ export function EventHostPage() {
               type="button"
               onClick={() => setConfirmEnd(true)}
               disabled={!!busy}
-              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
               data-testid="host-end-evening"
             >
               End the evening
