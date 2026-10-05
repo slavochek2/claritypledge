@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 118
+**Next ID:** 119
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2013,5 +2013,18 @@ The P1399 goals review found the Next Steps are one-off checkboxes with no pace,
 **due:** week
 
 Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P1412 session): the cmp7 step rendered no cards and "Set your position on all 0 points to continue." The points read returned an empty list (not an error), so PreparePage snapshotted [] as the step's cards. Also flagged by the P1402 round review (LOW: a failed or empty read leaves a statements step with no cards and a misleading hint). Fix direction: treat an empty list as "couldn't load" (retry, or a short message) and never hint "0 points". Cause of the empty read unknown (VPN was on; unproven).
+
+---
+
+- [ ] **Event publish: warn when the meeting venue is closed at the meet time** (due: week). 2026-10-05 hike: meet 9:30 at a cafe that opens 10:00 Sun; research noted it in passing, publish went ahead and the description said "coffee after", against the founder's default of coffee/breakfast first at the meet point. Fix: /publish-event (and select-hike) compare venue opening hours to meet time and STOP with a warning; default copy = coffee first.
+
+## Worktree w10 gets Chrome-blocked port 6000
+
+**ID:** INBOX-118
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+Slot w10 maps to dev/e2e port 6000 (5000 + slot*100), which Chrome refuses as ERR_UNSAFE_PORT, so every Playwright run from w10 fails at the first page.goto. The formula is repeated in playwright.config.ts, vite.config.ts and check-worktree-env.sh; skip Chrome-unsafe ports (6000, 6665-6669) in all three. Droppable if slots above w9 are never handed out again.
 
 ---
