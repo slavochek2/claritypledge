@@ -6,10 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [process]: `/ship` dropped a branch commit made after a paused ship; Codex caught two defects the Opus review passed (P1418)
+
+**Context:** P1418's first `git-ops.sh ship` stopped before any cherry-pick (a co-tenant's uncommitted `docs/decisions.md` on main), leaving a journal listing the branch's 4 commits. A 5th commit (Remove falls back to the Google picture) was then added on the branch. The later `--resume` cherry-picked the journal's 4, closed the spec, deleted the branch and worktree, and printed "landed" with no warning. The 5th was found missing only by grepping main for its symbol; it was re-applied from the dangling commit via `commit-to-main`. Separately, an Opus code review reported no high-confidence bugs, and the Codex review then reproduced two real defects with probes: a folder-sweep cleanup that let two tabs delete the live photo, and a profile refresh that wiped unsaved Settings edits.
+**Decision:** After any `ship --resume`, compare `git log main..<branch-tip>` taken before the ship with what landed; never trust "landed" alone when the branch moved after the journal was written. For code that writes shared state (storage, auth), run both the Opus and Codex reviews; neither one alone is the review.
+**Alternatives rejected:** Re-running `/finish` only — the drop happens after review, at merge.
+**Consequences:** `git-ops.sh ship --resume` should refuse (or re-plan) when the branch tip is not the journal's last source commit; filed to the task inbox. Status: proposed.
+**References:** [p1418 spec](../features/done/2026-06-10/p1418_custom_profile_picture_upload.md) · `scripts/git-ops.sh` (ship journal)
+
+---
+
 ## 2026-10-05 [technical]: User-uploaded profile photos live in a Supabase `avatars` bucket, the first one the browser writes to (P1418)
 
 **Context:** Users can now upload their own photo in Settings (Google and email users alike). `.claude/rules/database.md` says "No New Public Media Buckets in Supabase Storage" (P1385), and every earlier bucket is service_role-write only.
-**Decision:** A public `avatars` bucket (2 MB, webp/jpeg/png), with owner-scoped INSERT/SELECT/DELETE policies on `(storage.foldername(name))[1] = auth.uid()::text`, and one URL helper (`src/lib/avatar-upload.ts`) allowlisted in the p1385 test. `avatar_provider = 'upload'` marks a chosen photo, and Google sign-in never replaces it (`src/auth/resolve-avatar-fields.ts`).
+**Decision:** A public `avatars` bucket (2 MB, webp/jpeg/png), with owner-scoped INSERT/SELECT/DELETE policies on `(storage.foldername(name))[1] = auth.uid()::text`, and one URL helper (`src/lib/avatar-upload.ts`) allowlisted in the p1385 test. `avatar_provider = 'upload'` marks a chosen photo, and Google sign-in never replaces it (`src/auth/resolve-avatar-fields.ts`). Remove takes a Google user straight back to their Google picture from the live session, and an email user to initials (founder call, 2026-10-05: initials-until-next-login read as "my Google picture was deleted too").
 **Why not GCS:** P1385's rule exists because of the CSP `media-src` gap. These are images, which `img-src` already allows from `*.supabase.co`. A browser write to GCS needs the signed-URL Cloud Function hop and its secret. Storage RLS gives per-user folders with no extra network hop.
 **Accepted:** the client writes `avatar_url` itself, so a user can point their own avatar at any URL; CSP limits which hosts load. The /live anonymous-profile migration path in AuthCallbackPage does not carry avatar fields (true before P1418; no anonymous sign-ins exist today).
 **References:** [p1418 spec](../features/p1418_custom_profile_picture_upload.md) · `e2e/integration/p1418-avatars-storage-rls.spec.ts`

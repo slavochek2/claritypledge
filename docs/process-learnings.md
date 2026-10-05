@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 119
+**Next ID:** 120
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2026,5 +2026,16 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 **due:** week
 
 Slot w10 maps to dev/e2e port 6000 (5000 + slot*100), which Chrome refuses as ERR_UNSAFE_PORT, so every Playwright run from w10 fails at the first page.goto. The formula is repeated in playwright.config.ts, vite.config.ts and check-worktree-env.sh; skip Chrome-unsafe ports (6000, 6665-6669) in all three. Droppable if slots above w9 are never handed out again.
+
+---
+
+## ship --resume drops branch commits added after the journal
+
+**ID:** INBOX-119
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+git-ops.sh ship --resume cherry-picks only the commits recorded when the journal was first written; a commit added to the branch afterwards is silently dropped while the branch and worktree are deleted (P1418, 2026-10-05). Make resume refuse or re-plan when the branch tip differs from the journal's last source commit. Droppable once that check exists.
 
 ---

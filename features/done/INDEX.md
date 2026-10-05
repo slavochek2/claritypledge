@@ -319,6 +319,7 @@ Last updated: 2026-10-05
 - **P686** (Apr 13) Badge Step 1 — auto-cert from /live: badge-service interface pattern isolates real/mock; `free_mode_success` triggers certification inline; badge page at `/badge/:userId`; export to PNG via html2canvas; profile ring shows partial progress (N/9)
 
 ## Auth & Verification
+- **P1418** (Oct 26) Users upload their own profile picture — first browser-writable bucket (owner-folder RLS); `upload` provider survives Google sign-in
 
 - **P1381** (Oct 26) Founder-only user lookup — `assert_admin()` DB gate for all admin RPCs; auth email, not profiles.email; page past 1000-row cap
 - **P1378** (Sep 26) Clarity Agent listed as a pledger — `has_pledged` defaults true; system profiles must set false explicitly, on create and adopt
