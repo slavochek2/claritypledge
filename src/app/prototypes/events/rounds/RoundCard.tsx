@@ -13,7 +13,9 @@
  *     put away. The observer, who keeps time, gets the countdown on their card. An earlier build
  *     drew a black layer over every phone; the founder removed it ("everybody knows how to
  *     control their phone") — do not bring it back as a default.
- *   - The next round's card asks one line about the last one: "did your position move?".
+ *   - No "did your position move?" (founder walkthrough 5): every change of position is already
+ *     kept with its time (point_position_history), so changing your answer on the statement is
+ *     the signal; the question only cost a tap.
  *   - Earlier rounds list who you sat with; a face opens the comparison, Back returns here.
  *
  * THE TAP IS NEVER A GATE (spec Invariants): not tapping changes nothing, and it can be tapped late.
@@ -28,7 +30,6 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   confirmRoundSeat,
   currentRound,
-  setRoundPositionMoved,
   setRoundTopic,
   topicKey,
   type EventRound,
@@ -55,6 +56,13 @@ const ROLE_LINE: Record<SeatRole, string> = {
   observer: 'You observe and keep time',
 };
 
+// No swap at half time: the pair start this way and trade the badges whenever they like.
+const ROLE_LINE_UNSPLIT: Record<SeatRole, string> = {
+  first: 'You start speaking',
+  second: 'You start listening',
+  observer: 'You observe and keep time',
+};
+
 const LIVE_LINE: Record<LiveRole, string> = {
   speaker: 'You speak',
   listener: 'You listen',
@@ -65,23 +73,6 @@ const LIVE_LINE: Record<LiveRole, string> = {
 const TOPICS_SHOWN = 5;
 /** The observer's "Say swap" shows for this long after the first speaker's time ends. */
 const SWAP_CUE_MS = 20_000;
-
-// Keyed by person and round: on a shared phone one person's answer must not hide another's question.
-function readAnswered(memberId: string, roundId: string): boolean {
-  try {
-    return localStorage.getItem(`p1337-moved:${memberId}:${roundId}`) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeAnswered(memberId: string, roundId: string) {
-  try {
-    localStorage.setItem(`p1337-moved:${memberId}:${roundId}`, '1');
-  } catch {
-    /* the question may be asked again after a reload — harmless */
-  }
-}
 
 function Face({ member }: { member: EventRoomMember | undefined }) {
   return (
@@ -135,7 +126,9 @@ export function RoundCard({
   const hasObserver = seats.some(s => s.role === 'observer');
 
   const now = useNow(!!round);
-  const clock = round ? roundClock(round.startedAt, now, hasObserver, roundTiming(round)) : null;
+  const timing = round ? roundTiming(round) : null;
+  const clock = round && timing ? roundClock(round.startedAt, now, hasObserver, timing) : null;
+  const split = timing?.split ?? true;
   const phase = clock?.phase ?? 'seating';
 
   const member = (id: string | undefined) => roster.find(m => m.id === id);
@@ -162,21 +155,7 @@ export function RoundCard({
   const mark = pendingMark && pendingMark.key === markKey ? pendingMark.pointId : serverMark;
 
   const [confirming, setConfirming] = useState(false);
-  const [justAnswered, setJustAnswered] = useState<string | null>(null);
 
-  // "Did your position move?" asks about the latest finished round you sat in — the one before
-  // this, this one once its time is up, or after the event the last one — if you spoke in it.
-  const movedRound = useMemo((): EventRound | null => {
-    if (!self) return null;
-    for (let i = state.rounds.length - 1; i >= 0; i--) {
-      const r = state.rounds[i] as EventRound;
-      if (round && r.id === round.id && phase !== 'over') continue;
-      const seat = state.seatsByRound.get(r.id)?.find(s => s.id === self.id);
-      if (seat) return seat.role === 'observer' ? null : r;
-    }
-    return null;
-  }, [self, state, round, phase]);
-  const askMoved = !!movedRound && !!self && (justAnswered === movedRound.id || !readAnswered(self.id, movedRound.id));
   // Each tap on a statement gets a number; only the latest tap's write may clear the shown mark.
   const markSeq = useRef(0);
 
@@ -200,34 +179,6 @@ export function RoundCard({
     const q = params.toString();
     return `/compare/${slug}${q ? `?${q}` : ''}`;
   };
-
-  // Remembered only once saved: a failed save asks again next time rather than losing the answer.
-  const onMoved = (roundId: string, moved: boolean) => {
-    setJustAnswered(roundId);
-    void setRoundPositionMoved(roundId, moved)
-      .then(() => writeAnswered(self.id, roundId))
-      .catch(() => { /* optional answer */ });
-  };
-
-  const movedLine = movedRound && askMoved && (
-    <div className="flex items-center justify-between gap-3" data-testid="round-card-moved">
-      {justAnswered === movedRound.id ? (
-        <p className="text-sm text-muted-foreground">Thanks.</p>
-      ) : (
-        <>
-          <p className="text-sm">Round {movedRound.roundNo}: did your position move?</p>
-          <div className="flex shrink-0 gap-1.5">
-            <Button type="button" variant="outline" size="sm" className="min-h-10 px-3" onClick={() => onMoved(movedRound.id, true)}>
-              Yes
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="min-h-10 px-3" onClick={() => onMoved(movedRound.id, false)}>
-              No
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
-  );
 
   const past = pastRounds.length > 0 && (
     <Panel testId="round-past">
@@ -271,7 +222,7 @@ export function RoundCard({
   );
 
   if (!round || !mine) {
-    if (!round && !movedLine && !past) return null;
+    if (!round && !past) return null;
     return (
       <>
         {round && (
@@ -279,7 +230,6 @@ export function RoundCard({
             Round {round.roundNo} · You join the next round
           </p>
         )}
-        {movedLine && <Panel>{movedLine}</Panel>}
         {past}
       </>
     );
@@ -292,8 +242,8 @@ export function RoundCard({
     phase === 'over'
       ? `Round ${round.roundNo} · Time’s up`
       : talking
-        ? `Round ${round.roundNo} · Table ${mine.table} · ${LIVE_LINE[liveRole(mine.role, phase)]}`
-        : `Round ${round.roundNo} · ${mine.confirmedAt ? 'Table' : 'Find table'} ${mine.table} · ${ROLE_LINE[mine.role]}`;
+        ? `Round ${round.roundNo} · Table ${mine.table} · ${!split && mine.role !== 'observer' ? 'You talk' : LIVE_LINE[liveRole(mine.role, phase)]}`
+        : `Round ${round.roundNo} · ${mine.confirmedAt ? 'Table' : 'Find table'} ${mine.table} · ${(split ? ROLE_LINE : ROLE_LINE_UNSPLIT)[mine.role]}`;
 
   const isSpeaker = mine.role !== 'observer';
   const partner = mine.role === 'first' ? secondMember : mine.role === 'second' ? firstMember : undefined;
@@ -348,7 +298,9 @@ export function RoundCard({
         {talking && clock && mine.role === 'observer' && (
           <div className="mt-3 rounded-lg bg-muted px-4 py-3 text-center" data-testid="round-observer-clock">
             <p className="text-sm text-muted-foreground">
-              {clock.phase === 'first'
+              {clock.phase === 'first' && !split
+                ? 'They talk'
+                : clock.phase === 'first'
                 ? `${shortName(firstMember?.displayName ?? '')} speaks`
                 : clock.phase === 'second'
                   ? `${shortName(secondMember?.displayName ?? '')} speaks`
@@ -375,6 +327,12 @@ export function RoundCard({
                 <span className={cn('flex-1 min-w-0 break-words text-sm', isMe ? 'text-muted-foreground' : 'font-medium')}>
                   {isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}
                 </span>
+                {/* Founder walkthrough 4-5: opted-out people sit and talk like everyone else, and
+                    are not bound to give a number — their table-mates see it here, so nobody asks.
+                    The room's opt-in list is public already; this exposes nothing new. */}
+                {!isMe && member(s.id)?.optedIn === false && (
+                  <span className="shrink-0 text-xs text-muted-foreground" data-testid="round-card-opted-out">opted out</span>
+                )}
               </li>
             );
           })}
@@ -465,7 +423,6 @@ export function RoundCard({
           </div>
         )}
 
-        {movedLine && <div className="mt-4 border-t border-border pt-3">{movedLine}</div>}
       </section>
       {past}
 

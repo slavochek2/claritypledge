@@ -26,6 +26,9 @@ export interface RoundTiming {
   firstMs: number;
   secondMs: number;
   observerMs: number;
+  /** false = no swap at half time: the two speakers' time is one talking part ('first'), and
+   * 'second' never runs (founder: "they can use 12 minutes … switching as they wish"). */
+  split: boolean;
 }
 
 export const DEFAULT_TIMING: RoundTiming = {
@@ -33,6 +36,7 @@ export const DEFAULT_TIMING: RoundTiming = {
   firstMs: SPEAKER_MS,
   secondMs: SPEAKER_MS,
   observerMs: OBSERVER_MS,
+  split: true,
 };
 
 /** A round row's stored seconds → timing; rounds started before the columns existed use the defaults. */
@@ -41,13 +45,18 @@ export function roundTiming(round: {
   firstS?: number | null;
   secondS?: number | null;
   observerS?: number | null;
+  splitSpeakers?: boolean | null;
 }): RoundTiming {
   const ms = (s: number | null | undefined, fallback: number) => (s != null ? s * 1000 : fallback);
+  const first = ms(round.firstS, SPEAKER_MS);
+  const second = ms(round.secondS, SPEAKER_MS);
+  const split = round.splitSpeakers !== false;
   return {
     seatingMs: ms(round.seatingS, SEATING_MS),
-    firstMs: ms(round.firstS, SPEAKER_MS),
-    secondMs: ms(round.secondS, SPEAKER_MS),
+    firstMs: split ? first : first + second,
+    secondMs: split ? second : 0,
     observerMs: ms(round.observerS, OBSERVER_MS),
+    split,
   };
 }
 

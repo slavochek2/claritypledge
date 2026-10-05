@@ -288,7 +288,20 @@ button on the left, the room on the right.
   "position moved" memory is per person and written after the save, overlapping topic taps no
   longer clear each other.
 - *Opted-out people keep their role card on* — the necklace card is the round's role, not the
-  principle. Pending founder decision: a quiet "opted out" beside their name on table-mates' cards.
+  principle. Their table-mates see "opted out" beside their name (walkthrough 5).
+
+**Founder walkthrough 5, 2026-10-05 — built:**
+- *"Swap at half time"* is a next-round setting, on by default. Off, the speakers' minutes run as
+  one "Talk" part (6 + 6 = 12): no swap moment, no swap bell, no "Say swap"; the pair trade the
+  badges themselves and the letters stay as they started (migration 20261005090000, test DB).
+- *"Did your position move?" is gone.* Every change of position is already kept with its time
+  (point_position_history); changing your answer on the statement is the signal.
+- *Table-mates see "opted out"* beside an opted-out person's name, so nobody asks them for the number.
+- *Queued, awaiting the founder's answers:* attendee page shows only their own table during rounds
+  (roster and practice rooms hidden), setup folded to one "Opted in · Transcription on · Change"
+  line; Next round shows "Round N started" instead of vanishing for its 10-second lock; −1 min
+  beside +1; a sticky clock bar on phones and past rounds behind one line; a hand-picked showcase
+  table; "Match on #tag" per round.
 
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding

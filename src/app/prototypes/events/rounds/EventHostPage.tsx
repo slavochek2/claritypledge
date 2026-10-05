@@ -96,6 +96,13 @@ const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
  * and read as noise (founder); the clock counts it down on its own.
  */
 function talkingParts(timing: RoundTiming): { phase: RoundPhase; label: string; ms: number }[] {
+  // No swap at half time: the speakers' time is one part, "Talk" (secondMs is 0 and drops out).
+  if (!timing.split) {
+    return [
+      { phase: 'first', label: 'Talk', ms: timing.firstMs },
+      { phase: 'observer', label: 'Observer', ms: timing.observerMs },
+    ];
+  }
   return [
     { phase: 'first', label: 'Speaker 1', ms: timing.firstMs },
     { phase: 'second', label: 'Speaker 2', ms: timing.secondMs },
@@ -119,9 +126,16 @@ interface Settings {
   toggles: GroupingToggles;
   /** Minutes for the next round, stored with it when it starts (never moves a running round). */
   minutes: RoundMinutes;
+  /** "Swap at half time" — off: one talking part, the pair trade the badges themselves. */
+  splitSpeakers: boolean;
 }
 
-const DEFAULT_SETTINGS: Settings = { groupSize: 3, toggles: DEFAULT_TOGGLES, minutes: DEFAULT_ROUND_MINUTES };
+const DEFAULT_SETTINGS: Settings = {
+  groupSize: 3,
+  toggles: DEFAULT_TOGGLES,
+  minutes: DEFAULT_ROUND_MINUTES,
+  splitSpeakers: true,
+};
 
 /** The three minute settings: what they are called, and the range the database accepts. */
 const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number }[] = [
@@ -616,6 +630,7 @@ function TablesGrid({
   seats,
   byId,
   phase,
+  split = true,
   marksFor,
   lifted,
   isOut,
@@ -626,6 +641,8 @@ function TablesGrid({
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
   phase: RoundPhase;
+  /** false: no swap at half time — no column turns bold, the pair trade places themselves. */
+  split?: boolean;
   marksFor?: (memberId: string) => PersonMarks;
   lifted?: string | null;
   isOut?: (id: string) => boolean;
@@ -661,7 +678,7 @@ function TablesGrid({
       <span aria-hidden="true" />
       {columns.map(col => {
         const role = liveRole(col, phase);
-        const speaking = role === 'speaker' && phase !== 'seating' && phase !== 'over';
+        const speaking = split && role === 'speaker' && phase !== 'seating' && phase !== 'over';
         return (
           <p
             key={col}
@@ -932,7 +949,7 @@ export function EventHostPage() {
       setError('Waiting for at least two people in the room.');
       return;
     }
-    void run(() => hostStartRound(event.id, nextNo, settings.groupSize, compute(nextNo), settings.minutes));
+    void run(() => hostStartRound(event.id, nextNo, settings.groupSize, compute(nextNo), settings.minutes, settings.splitSpeakers));
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
@@ -1061,7 +1078,7 @@ export function EventHostPage() {
                   <ClockNumber clock={clock} />
                   {clock.phase !== 'over' && (
                     <p className="mt-1.5 text-sm" data-testid="host-part">
-                      <span className="font-medium">{PART_NAME[clock.phase]}</span>
+                      <span className="font-medium">{clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
                       <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
                     </p>
                   )}
@@ -1150,6 +1167,16 @@ export function EventHostPage() {
                     );
                   })}
                 </div>
+                <label className="flex items-center gap-3 text-sm min-h-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-blue-500"
+                    checked={settings.splitSpeakers}
+                    onChange={e => setSettings({ ...settings, splitSpeakers: e.target.checked })}
+                    data-testid="host-split-speakers"
+                  />
+                  Swap at half time
+                </label>
                 {(
                   [
                     ['recorders', 'Recorders together'],
@@ -1180,6 +1207,7 @@ export function EventHostPage() {
                   seats={seats}
                   byId={byId}
                   phase={clock.phase}
+                  split={timing?.split ?? true}
                   marksFor={marksFor}
                   lifted={lifted}
                   isOut={isOut}

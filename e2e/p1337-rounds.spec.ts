@@ -7,8 +7,9 @@
  * tables of speaker / listener / observer; a two-tap swap and its Undo; "Seat now" for a late arrival; a late arrival sees "You
  * join the next round"; tapping a name and "Out" (on the tile) takes someone out of the next round; the attendee's
  * card, the "I'm at table N" tap and that skipping it blocks nothing; no black layer while the pair
- * talk, the observer's clock on their card; "Did your position move?"; earlier rounds on the room page;
- * "+1 min" and the next round's minutes; the projector view; group size 2 has no observer.
+ * talk, the observer's clock on their card; table-mates see who opted out; earlier rounds on the room
+ * page; "+1 min" and the next round's minutes; "Swap at half time" off; the projector view; group size 2
+ * has no observer. ("Did your position move?" was removed — founder walkthrough 5.)
  *
  * The round clock is driven by moving event_rounds.started_at with the service role rather than
  * waiting real minutes.
@@ -207,26 +208,9 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     else await expect(page.getByTestId('round-observer-clock')).toHaveCount(0);
   });
 
-  test('after the round a speaker is asked whether their position moved', async ({ page }) => {
-    await backdateCurrentRound(event.id, 20 * MIN);
-    // Make Ana a speaker so the question applies, whichever role the grouping gave her.
-    const rows = await seats(event.id);
-    const mine = rows.find(s => s.room_member_id === anaMember)!;
-    if (mine.role === 'observer') {
-      const speaker = rows.find(s => s.table_no === mine.table_no && s.role === 'first')!;
-      const { data: round } = await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id).is('ended_at', null).single();
-      await supabaseAdmin.from('event_round_seats').update({ role: 'observer' }).eq('round_id', round!.id).eq('room_member_id', speaker.room_member_id);
-      await supabaseAdmin.from('event_round_seats').update({ role: 'first' }).eq('round_id', round!.id).eq('room_member_id', anaMember);
-    }
-    await setTestSession(page, ana.email);
-    await page.goto(`/events/${event.slug}/meet`);
-    await expect(page.getByTestId('round-dark')).toHaveCount(0);
-    await expect(page.getByTestId('round-card-moved')).toBeVisible();
-    await page.getByRole('button', { name: 'No' }).click();
-    await expect(page.getByText('Thanks.')).toBeVisible();
-  });
-
   test('the projector shows the round, the tables with roles, and the clock', async ({ page }) => {
+    // Past every part of the round, so the clock reads "Time's up" (this test owns its own setup).
+    await backdateCurrentRound(event.id, 30 * MIN);
     await setTestSession(page, host.email);
     await page.goto(`/events/${event.slug}/host?view=screen`);
     await expect(page.getByTestId('host-screen')).toBeVisible();
@@ -252,6 +236,18 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-past-rounds')).toContainText('Round 1');
   });
 
+  test('table-mates see who opted out, so nobody asks them for the number', async ({ page }) => {
+    // Opt out one person at Ana's table, then look at Ana's card.
+    const rows = await seats(event.id);
+    const mine = rows.find(s => s.room_member_id === anaMember)!;
+    const mate = rows.find(s => s.table_no === mine.table_no && s.room_member_id !== anaMember)!;
+    await supabaseAdmin.from('event_room_members').update({ opted_in: false }).eq('id', mate.room_member_id);
+    await setTestSession(page, ana.email);
+    await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('round-card-opted-out')).toHaveCount(1);
+    await supabaseAdmin.from('event_room_members').update({ opted_in: null }).eq('id', mate.room_member_id);
+  });
+
   test('the room page lists the rounds behind you with who you sat with', async ({ page }) => {
     await setTestSession(page, ana.email);
     await page.goto(`/events/${event.slug}/meet`);
@@ -262,12 +258,14 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await asHost(page);
     await page.getByTestId('host-settings').locator('summary').click();
     await page.getByRole('button', { name: '2', exact: true }).click();
+    // No swap at half time for this round: one talking part, stored with the round.
+    await page.getByTestId('host-split-speakers').uncheck();
     // Minutes for the next round: two minutes to find tables.
     await page.getByRole('button', { name: 'Tables: one minute more' }).click();
     await page.getByTestId('host-primary').click();
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3');
-    const { data: r3 } = await supabaseAdmin.from('event_rounds').select('seating_s, first_s').eq('event_id', event.id).eq('round_no', 3).single();
-    expect(r3).toEqual({ seating_s: 120, first_s: 360 });
+    const { data: r3 } = await supabaseAdmin.from('event_rounds').select('seating_s, first_s, split_speakers').eq('event_id', event.id).eq('round_no', 3).single();
+    expect(r3).toEqual({ seating_s: 120, first_s: 360, split_speakers: false });
     const rows = await seats(event.id);
     expect(rows.some(r => r.role === 'observer')).toBe(false);
     // No fixed count of rounds (founder, 2026-10-04): after the third, the button still says Next round.

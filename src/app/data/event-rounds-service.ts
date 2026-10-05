@@ -35,6 +35,8 @@ export interface EventRound {
   firstS: number | null;
   secondS: number | null;
   observerS: number | null;
+  /** false = no swap at half time (migration 20261005090000). */
+  splitSpeakers: boolean;
 }
 
 export interface RoundSeat extends Seat {
@@ -70,6 +72,7 @@ interface DbRound {
   first_s: number | null;
   second_s: number | null;
   observer_s: number | null;
+  split_speakers: boolean | null;
 }
 
 interface DbSeat {
@@ -84,7 +87,7 @@ interface DbSeat {
 export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase
     .from('event_rounds')
-    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s')
+    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s, split_speakers')
     .eq('event_id', eventId)
     .order('round_no', { ascending: true });
   if (error) throw error;
@@ -98,6 +101,7 @@ export async function getEventRoundsState(eventId: string): Promise<EventRoundsS
     firstS: r.first_s,
     secondS: r.second_s,
     observerS: r.observer_s,
+    splitSpeakers: r.split_speakers !== false,
   }));
   if (mapped.length === 0) return EMPTY_ROUNDS_STATE;
 
@@ -152,6 +156,7 @@ export async function hostStartRound(
   groupSize: number,
   seats: Seat[],
   minutes: RoundMinutes = DEFAULT_ROUND_MINUTES,
+  splitSpeakers = true,
 ): Promise<string> {
   const { data, error } = await supabase.rpc('host_start_round', {
     p_event_id: eventId,
@@ -161,6 +166,7 @@ export async function hostStartRound(
     p_seating_s: minutes.seatingS,
     p_speaker_s: minutes.speakerS,
     p_observer_s: minutes.observerS,
+    p_split_speakers: splitSpeakers,
   });
   if (error) throw error;
   return data as string;

@@ -51,7 +51,7 @@ describe('liveRole', () => {
 describe('round minutes (stored with each round)', () => {
   it('reads a round row\'s seconds, and falls back to 1 / 6 / 6 / 3 for rounds without them', () => {
     expect(roundTiming({ seatingS: 120, firstS: 300, secondS: 300, observerS: 0 })).toEqual({
-      seatingMs: 120_000, firstMs: 300_000, secondMs: 300_000, observerMs: 0,
+      seatingMs: 120_000, firstMs: 300_000, secondMs: 300_000, observerMs: 0, split: true,
     });
     expect(roundTiming({})).toEqual(DEFAULT_TIMING);
   });
@@ -72,5 +72,20 @@ describe('round minutes (stored with each round)', () => {
     expect(after.phase).toBe('second');
     expect(after.phaseRemainingMs - before.phaseRemainingMs).toBe(60_000);
     expect(after.talkRemainingMs - before.talkRemainingMs).toBe(60_000);
+  });
+});
+
+describe('swap at half time turned off', () => {
+  const timing = roundTiming({ seatingS: 60, firstS: 360, secondS: 360, observerS: 180, splitSpeakers: false });
+
+  it('runs the two speakers\' time as one twelve-minute part', () => {
+    expect(timing).toMatchObject({ firstMs: 720_000, secondMs: 0, split: false });
+    expect(roundClock(START, at(SEATING_MS + 7 * 60_000), true, timing).phase).toBe('first');
+    expect(roundClock(START, at(SEATING_MS + 12 * 60_000 + 1000), true, timing).phase).toBe('observer');
+  });
+
+  it('never reaches the second speaker, so nobody\'s role flips mid-talk', () => {
+    for (let m = 0; m < 16; m++) expect(roundClock(START, at(m * 60_000), true, timing).phase).not.toBe('second');
+    expect(liveRole('first', 'first')).toBe('speaker');
   });
 });

@@ -312,6 +312,14 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
     const { data } = await h.from('event_rounds').select('round_no, ended_at').eq('event_id', eventId).order('round_no');
     expect(data!.every(r => r.ended_at)).toBe(true);
+    // "Swap at half time" off: stored with the round, and a minute added during the shared talking
+    // part goes on its end (second_s), whatever part the client names.
+    const unsplit = await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 3, p_group_size: 2, p_seats: pair, p_seating_s: 0, p_speaker_s: 300, p_observer_s: 0, p_split_speakers: false });
+    expect(unsplit.error).toBeNull();
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - 400_000).toISOString() }).eq('id', unsplit.data as string);
+    expect((await h.rpc('host_extend_round', { p_round_id: unsplit.data as string, p_phase: 'first' })).error).toBeNull();
+    const { data: r3 } = await h.from('event_rounds').select('first_s, second_s, split_speakers').eq('id', unsplit.data as string).single();
+    expect(r3).toEqual({ first_s: 300, second_s: 360, split_speakers: false });
     // A finished round takes no more minutes.
     expect((await h.rpc('host_extend_round', { p_round_id: started.data as string, p_phase: 'first' })).error?.code).toBe('22023');
   });
