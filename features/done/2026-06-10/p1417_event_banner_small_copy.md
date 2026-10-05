@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 26
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [events, banner, performance, mobile]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1417-event-banner-small-copy.test.tsx
@@ -23,6 +22,7 @@ reproduce_artifact:
 date_resolved: 2026-10-05
 root_cause: "Event banner <img>s requested the stored original (up to 2.1 MB) with no smaller copy available (Supabase transforms not enabled) and no failure path on the card"
 resolution: "Derived small copy <original>.w800.webp (src/lib/banner-small.ts); BannerImage serves it to phones (no srcset), srcset to wide screens, falls back small to original to placeholder; producers: event-photo-prep.sh, both banner edge functions at save time (wasm WebP), scripts/event-banner-small.ts backfill; stale copies (older than their original) are replaced"
+completed_at: 2026-10-05
 ---
 
 # P1417: Event banner pictures often fail to load on phones (full-size originals, no placeholder)
