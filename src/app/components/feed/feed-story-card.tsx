@@ -205,7 +205,7 @@ export function FeedStoryCard({
          itself and hands focus to the first story it revealed (source-group.tsx). The ring shows
          only for that keyboard path, never on a tap. */
       tabIndex={-1}
-      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+      className={`bg-card rounded-lg shadow-sm border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1212 — parity with profile-page-v2.tsx's StoryCardFull, in the accessibility layer.
          The card is announced by this name, never by its whole subtree (story text, counts,

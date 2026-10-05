@@ -256,15 +256,14 @@ export function PointCardWithLinks({
   };
 
   const isPrivate = point.visibility === 'private';
-  const borderColor = isPrivate ? 'border-l-gray-400' : 'border-l-slate-400';
   const bgTint = isPrivate ? 'bg-muted/60' : 'bg-white';
 
   /* P1415 — a LIST card carries no "the whole card is a link" affordance (pointer, hover border,
      focus ring): it is not one. The point page keeps its plain card; embeds and demos keep main's
      hover, because there the card still opens on click. */
   const cardClassName = isDetailView || inListFooter
-    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    ? `relative ${bgTint} rounded-lg shadow-sm border border-border overflow-hidden`
+    : `relative group ${bgTint} rounded-lg shadow-sm border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
   /** A list card is an article named by its content; elsewhere the root stays as it was. */
   const CardRoot = inListFooter ? 'article' : 'div';
 
@@ -341,6 +340,7 @@ export function PointCardWithLinks({
       {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`point-card-with-links-${point.id}`}
+      data-card="point"
       onClick={cardNavigates ? handleCardClick : undefined}
       onKeyDown={cardNavigates ? (e) => {
         // P1212's guard, which this root never carried (the feed cards and the story card

@@ -3,7 +3,7 @@
  * @description P664: Sent tab redesign — Drafts-consistent card pattern.
  * Cards collapsed by default with Notion-style ▶/▼ expand toggle.
  * Actions behind ⋯ dropdown (Preview letter, Add recipient(s), Copy public link).
- * InlineVisibilityIcon before title, border-l-4 color matching Drafts tab.
+ * InlineVisibilityIcon before title, matching Drafts tab.
  * Replaces AddRecipientButton (bare input) with LetterReceiverModal in add-recipient mode.
  * Replaces PublicLinkRow with "Copy public link" in ⋯ menu.
  */
@@ -188,7 +188,6 @@ function LetterCard({
   }
   const summary = summaryParts.join(' · ');
 
-  const borderClass = isPublic ? 'border-l-blue-500' : 'border-l-gray-400';
   const visibilityProp = isPublic ? 'public' as const : 'private' as const;
 
   const handleCopyPublicLink = async () => {
@@ -230,7 +229,7 @@ function LetterCard({
   return (
     <>
       <div
-        className={`rounded-lg border bg-card border-l-4 ${borderClass} overflow-hidden`}
+        className={`rounded-lg border overflow-hidden ${isPublic ? 'bg-card' : 'bg-muted/60'}`}
       >
         {/* Card header — click area toggles expand */}
         <div

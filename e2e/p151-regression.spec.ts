@@ -223,7 +223,7 @@ test.describe('Position Loading Regression Tests (P151)', () => {
     await expect(page.getByText('Multi-page sync test point')).toBeVisible({ timeout: 10000 });
 
     // TODO: Verify position badge shows "Agrees"
-    const pointCard = page.locator('.border-l-4', { hasText: 'Multi-page sync test point' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Multi-page sync test point' });
     await expect(pointCard).toBeVisible();
     const positionBadge = pointCard.getByText(/Agrees/);
     await expect(positionBadge).toBeVisible();

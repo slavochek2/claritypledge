@@ -555,7 +555,6 @@ function CloseFlow({ event, initial, viewerId }: { event: EventWithHost; initial
                 onSelect={(n) => void chooseScore(n)}
                 onSelectionChange={setPicked}
                 disabled={saving}
-                accent={false}
                 ctaClassName="hidden"
                 className="border-0 bg-transparent p-0 shadow-none"
               />

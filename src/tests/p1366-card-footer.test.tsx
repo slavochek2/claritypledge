@@ -110,8 +110,7 @@ const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =
 /**
  * P1415 superseded P1366's whole-card hover / focus-within highlight: a list card is no longer a
  * link, so nothing on it may say so — no pointer cursor, no border or shadow change on hover or
- * focus-within. (P1366's rule that the highlight must never repaint the `border-l-4` marker bar is
- * moot with no highlight; each caller still asserts its marker colour.)
+ * focus-within. P1423 then removed the left marker bar itself; each caller asserts it is gone.
  */
 function expectNoCardHighlight(className: string) {
   const tokens = className.split(/\s+/);
@@ -361,11 +360,11 @@ describe('P1366 — feed/stake point card', () => {
     expect(list, 'expanded stories keep the statement-column indent (60px = 16 + 44)').toBeTruthy();
   });
 
-  it('no whole-card hover / focus-within highlight (P1415); the left marker keeps its colour', () => {
+  it('no whole-card hover / focus-within highlight (P1415); no left stripe (P1423)', () => {
     renderPoint(makePoint(), []);
     const root = screen.getByRole('article', { name: 'Point: A point statement.' });
     expectNoCardHighlight(root.className);
-    expect(root.className.split(/\s+/)).toContain('border-l-muted-foreground/50');
+    expect(root.className).not.toMatch(/\bborder-l-/);
   });
 });
 
@@ -464,11 +463,11 @@ describe('P1366 — feed/stake story card', () => {
     expect(tokens.filter((t) => /^(sm:)?p[lr]-/.test(t))).toEqual([]);
   });
 
-  it('no whole-card hover / focus-within highlight (P1415); the left marker keeps its colour', () => {
+  it('no whole-card hover / focus-within highlight (P1415); no left stripe (P1423)', () => {
     renderStory();
     const root = screen.getByRole('article', { name: 'Story by Test Author' });
     expectNoCardHighlight(root.className);
-    expect(root.className.split(/\s+/)).toContain('border-l-blue-500');
+    expect(root.className).not.toMatch(/\bborder-l-/);
   });
 });
 
@@ -652,11 +651,12 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expectNoCardHighlight(root.className);
   });
 
-  it('a PRIVATE point card keeps its gray left marker', () => {
+  it('a PRIVATE point card stays visibly private without a stripe (P1423: muted background)', () => {
     const privatePoint = { ...protoPoint(), visibility: 'private' } as unknown as Parameters<typeof PointCardWithLinks>[0]['point'];
     const { container } = renderProfile({ point: privatePoint, linkedStories: [], currentUserId: 'viewer-1' });
     const root = container.querySelector('article')!;
-    expect(root.className.split(/\s+/)).toContain('border-l-gray-400');
+    expect(root.className.split(/\s+/)).toContain('bg-muted/60');
+    expect(root.className).not.toMatch(/\bborder-l-/);
     expectNoCardHighlight(root.className);
   });
 });

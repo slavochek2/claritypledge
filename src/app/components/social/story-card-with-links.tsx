@@ -263,12 +263,11 @@ export function StoryCardWithLinks({
   // Standard rendering (non-quote pattern)
   // P586: gray border for private stories, blue for public
   const isPrivateStory = story.visibility === 'private';
-  const storyBorderColor = isPrivateStory ? 'border-l-gray-400' : 'border-l-blue-500';
   const storyBgTint = isPrivateStory ? 'bg-muted/60' : 'bg-white';
   const storyHoverBorder = isPrivateStory ? 'hover:border-gray-300' : 'hover:border-blue-300';
   const cardClassName = isDetailView
-    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border overflow-hidden`
-    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 ${storyBorderColor} border border-border overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border border-border overflow-hidden`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border border-border overflow-hidden cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`;
 
   return (
     /*

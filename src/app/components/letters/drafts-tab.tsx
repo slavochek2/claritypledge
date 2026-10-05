@@ -141,9 +141,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
             tabIndex={0}
             onClick={() => navigate(`/letters/drafts/${doc.id}`)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/letters/drafts/${doc.id}`); } }}
-            className={`rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors border-l-4 cursor-pointer ${
-              doc.visibility === 'private' ? 'border-l-gray-400' : 'border-l-blue-500'
-            }`}
+            className={`rounded-lg border p-4 hover:bg-accent/50 transition-colors cursor-pointer ${doc.visibility === 'private' ? 'bg-muted/60' : 'bg-card'}`}
           >
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">

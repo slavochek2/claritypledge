@@ -174,7 +174,7 @@ function AppHeader({ onEnd }: { onEnd?: () => void }) {
 
 function StoryCard({ story }: { story: MockStory }) {
   return (
-    <div className="bg-white rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4">
+    <div className="bg-white rounded-lg border border-border shadow-sm p-4">
       <div className="flex items-center gap-2.5 mb-2">
         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
           <span className="text-gray-500 text-sm font-bold">{story.owner === 'me' ? 'V' : 'A'}</span>

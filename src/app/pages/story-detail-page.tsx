@@ -1429,7 +1429,7 @@ export function StoryDetailPage() {
           />
         </div>
       ) : (
-        <div className="rounded-t-lg" style={{ borderTop: `3px solid ${story.authorAvatarColor || '#3b82f6'}` }}>
+        <div>
         <StoryCardDetail
           story={story}
           linkedPoints={story.points}

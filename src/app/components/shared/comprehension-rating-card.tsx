@@ -45,11 +45,9 @@ export interface ComprehensionRatingCardProps {
   /** End labels of the 0-10 row. Default: the comprehension wording (P1389 reuses the card for "recommend"). */
   lowLabel?: string;
   highLabel?: string;
-  /** The blue left stripe. P1389's close turns it off (founder: "why do we need it?"). */
-  accent?: boolean;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, onSelectionChange, initialValue = null, lowLabel = 'Not at all', highLabel = 'Complete cognitive understanding', accent = true }: ComprehensionRatingCardProps) {
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, onSelectionChange, initialValue = null, lowLabel = 'Not at all', highLabel = 'Complete cognitive understanding' }: ComprehensionRatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(initialValue);
 
   const handleSelect = (rating: number) => {
@@ -64,7 +62,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
   };
 
   return (
-    <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm ${accent ? 'border-l-4 border-l-blue-500' : ''} ${className}`}>
+    <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm ${className}`}>
       {question && (
         <h2 className={questionClassName ?? 'text-lg font-semibold text-center'}>
           {question}
