@@ -113,6 +113,15 @@ test.describe('P1337 — the comparison inside the table card', () => {
       .not.toBeNull();
   });
 
+  test('compare opened from the table: "Compare positions", no "Add yours", and the event set by name', async ({ page }) => {
+    await atTable(page, ana);
+    await page.getByTestId('round-card-compare').click();
+    await expect(page).toHaveURL(/\/compare\//);
+    await expect(page.getByRole('link', { name: 'Add yours' })).toHaveCount(0);
+    await expect(page.getByTestId('compare-topic-mark').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: `#${TAG}` })).toHaveCount(0); // named after the event, not the hashtag
+  });
+
   test("the observer sees the pair's positions, neither in the first person", async ({ page }) => {
     const rows = await atTable(page, cy);
     const first = rows.getByRole('listitem').first();
@@ -121,5 +130,16 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(first.getByText('Agrees', { exact: true })).toBeVisible(); // Ana's, third person
     await expect(first.getByText('Disagrees', { exact: true })).toBeVisible(); // Ben's
     await expect(first.getByText('Agree', { exact: true })).toHaveCount(0);
+  });
+
+  test('moved mid-round: compare says where you are now and stops marking the old table', async ({ page }) => {
+    await atTable(page, ana);
+    await page.getByTestId('round-card-compare').click();
+    await expect(page.getByTestId('compare-topic-mark').first()).toBeVisible();
+    // The host moves Ana to table 2.
+    const { data: me } = await supabaseAdmin.from('event_room_members').select('id').eq('event_id', event.id).eq('profile_id', ana.user.id).single();
+    expect((await supabaseAdmin.from('event_round_seats').update({ table_no: 2 }).eq('round_id', roundId).eq('room_member_id', me!.id)).error).toBeNull();
+    await expect(page.getByTestId('compare-moved')).toContainText('Now table 2', { timeout: 20_000 });
+    await expect(page.getByTestId('compare-topic-mark')).toHaveCount(0);
   });
 });

@@ -36,12 +36,13 @@ import {
   type RoundSeat,
 } from '@/app/data/event-rounds-service';
 import { buildCompareRows } from '@/lib/compare-positions';
-import { formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
+import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
 import type { SeatRole } from '@/lib/round-grouping';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
+import { eventTopic } from '../prep/prep-plan';
 import { StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
 import { RoleBadge } from './RoleBadge';
 
@@ -59,11 +60,7 @@ const ROLE_LINE_UNSPLIT: Record<SeatRole, string> = {
   observer: 'You observe and keep time',
 };
 
-const LIVE_LINE: Record<LiveRole, string> = {
-  speaker: 'You speak',
-  listener: 'You listen',
-  observer: 'You observe',
-};
+const LIVE_LINE = LIVE_ROLE_LINE;
 
 /** How many statements the table card lists; the rest are one tap away on the compare page. */
 const TOPICS_SHOWN = 5;
@@ -109,6 +106,7 @@ export function RoundCard({
   eventId,
   eventSlug,
   statementTag,
+  eventTitle,
   self,
   roster,
   ended = false,
@@ -116,6 +114,8 @@ export function RoundCard({
   eventId: string;
   eventSlug: string;
   statementTag: string | null | undefined;
+  /** Names the event's statement set on the compare page. */
+  eventTitle?: string;
   self: EventRoomSelf | null;
   roster: EventRoomMember[];
   /** After the event: no live round, read once, and only the rounds you sat in. */
@@ -183,7 +183,11 @@ export function RoundCard({
     .reverse();
 
   // Compare opens in this tab; its Back returns here (founder walkthrough 4).
-  const backState = { backTo: `/events/${eventSlug}/meet` };
+  const backState = {
+    backTo: `/events/${eventSlug}/meet`,
+    // The event's own set reads as the event's topic on the compare page (founder walkthrough 6).
+    setLabels: statementTag && eventTitle ? { [statementTag]: eventTopic(eventTitle) } : undefined,
+  };
   const compareHref = (slug: string, extra = '') => {
     const params = new URLSearchParams(extra);
     if (statementTag) params.set('tag', statementTag);
@@ -389,7 +393,7 @@ export function RoundCard({
                     className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
                     data-testid="round-card-compare"
                   >
-                    Compare all
+                    Compare positions
                   </Link>
                 )}
               </>

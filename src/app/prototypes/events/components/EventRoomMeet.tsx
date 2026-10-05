@@ -501,6 +501,7 @@ export function EventRoomMeet() {
               eventId={event.id}
               eventSlug={slug ?? event.slug}
               statementTag={event.statementTag}
+              eventTitle={event.title}
               self={self}
               roster={roster}
               ended={isFrozen}

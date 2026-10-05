@@ -123,6 +123,13 @@ export type LiveRole = 'speaker' | 'listener' | 'observer';
  * when the first six minutes end (founder: "speaker, listener, and then within the round they
  * switch"). Before the talking starts and after it ends, a seat reads as what it starts as.
  */
+/** The live role in a person's own words — the room card and the compare page's move bar. */
+export const LIVE_ROLE_LINE: Record<LiveRole, string> = {
+  speaker: 'You speak',
+  listener: 'You listen',
+  observer: 'You observe',
+};
+
 export function liveRole(role: SeatRole, phase: RoundPhase): LiveRole {
   if (role === 'observer') return 'observer';
   const swapped = phase === 'second' || phase === 'observer';

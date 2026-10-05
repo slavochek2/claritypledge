@@ -16,7 +16,17 @@ import { ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlug } from '@/app/data/api';
 import { getAnsweredTags, getPositionsFor, getSharedTags, getTagStatements } from '@/app/data/compare-service';
-import { ROUNDS_POLL_MS, getRoundTopic, setRoundTopic } from '@/app/data/event-rounds-service';
+import {
+  ROUNDS_POLL_MS,
+  currentRound,
+  getEventRoundsState,
+  getRoundEvent,
+  getRoundTopic,
+  setRoundTopic,
+} from '@/app/data/event-rounds-service';
+import { getMyRoomStatus } from '@/app/data/event-room-service';
+import { LIVE_ROLE_LINE, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
+import { setLabel } from '@/lib/set-labels';
 import { SEO } from '@/app/components/seo';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { StanceColumn, StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
@@ -74,6 +84,48 @@ function TheirRow({ pointId, statement, them, position }: { pointId: string; sta
  * the table can tap, last tap wins. A note, not a permission — so a failed write just leaves
  * the previous mark showing.
  */
+/**
+ * Where the viewer sits in the round on NOW (P1337, founder walkthrough 6). Compare opened from a
+ * table carries that round and table in its URL; if the host has since moved the viewer, or a new
+ * round has started, `moved` is true — the page says where they are now and stops marking the old
+ * table's topic (the UX review found it could).
+ */
+function useSeatNow(roundId: string | null, table: number | null) {
+  const [now, setNow] = useState<{ moved: boolean; table?: number; line?: string; slug?: string }>({ moved: false });
+  useEffect(() => {
+    if (!roundId || table == null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    void (async () => {
+      const event = await getRoundEvent(roundId).catch(() => null);
+      if (!event || cancelled) return;
+      const read = async () => {
+        try {
+          const [state, self] = await Promise.all([getEventRoundsState(event.eventId), getMyRoomStatus(event.eventId)]);
+          if (cancelled) return;
+          const round = currentRound(state);
+          const seats = round ? state.seatsByRound.get(round.id) ?? [] : [];
+          const seat = round && self ? seats.find(s => s.id === self.id) : undefined;
+          if (round && seat && round.id === roundId && seat.table === table) return setNow({ moved: false, slug: event.slug });
+          if (!round || !seat) return setNow({ moved: true, slug: event.slug });
+          const hasObserver = seats.some(s => s.role === 'observer');
+          const phase = roundClock(round.startedAt, Date.now(), hasObserver, roundTiming(round)).phase;
+          setNow({ moved: true, table: seat.table, line: LIVE_ROLE_LINE[liveRole(seat.role, phase)], slug: event.slug });
+        } catch {
+          /* keep what is shown */
+        }
+      };
+      await read();
+      if (!cancelled) timer = setInterval(() => void read(), ROUNDS_POLL_MS);
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [roundId, table]);
+  return now;
+}
+
 function useTableTopic(roundId: string | null, table: number | null) {
   const [topic, setTopic] = useState<string | null>(null);
   useEffect(() => {
@@ -127,10 +179,14 @@ export function ComparePage() {
   const viewerId = user?.id;
   const tagParam = searchParams.get('tag');
   const tableParam = Number(searchParams.get('table'));
-  const tableTopic = useTableTopic(
-    searchParams.get('round'),
-    Number.isInteger(tableParam) && tableParam > 0 ? tableParam : null,
-  );
+  const roundParam = searchParams.get('round');
+  const tableNo = Number.isInteger(tableParam) && tableParam > 0 ? tableParam : null;
+  const tableTopic = useTableTopic(roundParam, tableNo);
+  const seatNow = useSeatNow(roundParam, tableNo);
+  // Topic marks belong to the table you sit at now; after a move the old table's are not yours.
+  const canMark = tableTopic.active && !seatNow.moved;
+  // Names for statement sets passed by the page that opened compare (the event's own set).
+  const stateLabels = (useLocation().state as { setLabels?: Record<string, string> } | null)?.setLabels;
 
   // Results carry the key they were fetched for, so a stale result reads as "loading"
   // instead of flashing the previous person's or tag's rows.
@@ -226,7 +282,8 @@ export function ComparePage() {
   const firstName = person.name.split(' ')[0];
 
   // A button, not a small link: it is this page's only way forward when you haven't answered (visual QA).
-  const addYours = activeTag && (
+  // P1337: offered on a profile visit; opened from a round, the table talks, it does not fill in.
+  const addYours = activeTag && !backTo && (
     <Link
       to={`/stake/${encodeURIComponent(activeTag)}`}
       className="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white hover:bg-blue-600"
@@ -256,7 +313,7 @@ export function ComparePage() {
                 me={me}
                 them={them}
                 trailing={
-                  tableTopic.active ? (
+                  canMark ? (
                     <TopicMark marked={tableTopic.topic === row.pointId} onToggle={() => tableTopic.toggle(row.pointId)} />
                   ) : undefined
                 }
@@ -279,10 +336,10 @@ export function ComparePage() {
         )}
         {rows.length === 0 && theirsOnly.length === 0 && (
           mineOnlyCount > 0
-            ? <Muted>{firstName} hasn&rsquo;t answered #{activeTag} yet.</Muted>
+            ? <Muted>{firstName} hasn&rsquo;t answered {setLabel(activeTag, stateLabels)} yet.</Muted>
             : (
               <div className="flex items-center justify-between gap-3">
-                <Muted>Nothing on #{activeTag} answered yet.</Muted>
+                <Muted>Nothing on {setLabel(activeTag, stateLabels)} answered yet.</Muted>
                 {addYours}
               </div>
             )
@@ -301,6 +358,23 @@ export function ComparePage() {
           You and {firstName}
         </h1>
       </header>
+
+      {seatNow.moved && seatNow.table != null && (
+        <div
+          className="mb-4 flex min-h-11 items-center justify-between gap-3 rounded-lg bg-blue-50 px-4 text-sm text-blue-900"
+          role="status"
+          data-testid="compare-moved"
+        >
+          <span>
+            Now table {seatNow.table} · {seatNow.line}
+          </span>
+          {seatNow.slug && (
+            <Link to={`/events/${seatNow.slug}/meet`} className="inline-flex min-h-10 items-center font-medium text-blue-700">
+              Go
+            </Link>
+          )}
+        </div>
+      )}
 
       {chips.length > 0 && (
         <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Statement set">
@@ -326,7 +400,7 @@ export function ComparePage() {
                   : 'bg-white border-border text-[#1A1A1A]/60',
               )}
             >
-              #{tag}
+              {setLabel(tag, stateLabels)}
             </button>
           ))}
         </div>
@@ -342,6 +416,8 @@ export function ComparePage() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div>
+      {/* The page's grey, as a fixed layer behind it: it fills the screen without adding height. */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-gray-50" aria-hidden="true" />
       <div className="mx-auto w-full max-w-lg px-4 py-5">{children}</div>
     </div>
   );

@@ -250,6 +250,18 @@ export async function setRoundTopic(roundId: string, table: number, pointId: str
   if (error) throw error;
 }
 
+/** The event a round belongs to (id and slug), or null. Throws on failure. */
+export async function getRoundEvent(roundId: string): Promise<{ eventId: string; slug: string } | null> {
+  const { data: round, error } = await supabase.from('event_rounds').select('event_id').eq('id', roundId).maybeSingle();
+  if (error) throw error;
+  const eventId = (round as { event_id: string } | null)?.event_id;
+  if (!eventId) return null;
+  const { data: event, error: eventError } = await supabase.from('events').select('slug').eq('id', eventId).maybeSingle();
+  if (eventError) throw eventError;
+  const slug = (event as { slug: string } | null)?.slug;
+  return slug ? { eventId, slug } : null;
+}
+
 /** The statement one table marked, or null. Throws on failure. */
 export async function getRoundTopic(roundId: string, table: number): Promise<string | null> {
   const { data, error } = await supabase

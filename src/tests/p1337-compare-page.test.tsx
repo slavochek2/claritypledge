@@ -39,9 +39,9 @@ function LocationProbe() {
   return <div data-testid="loc">{pathname + search}</div>;
 }
 
-function renderAt(url: string) {
+function renderAt(url: string, state?: unknown) {
   render(
-    <MemoryRouter initialEntries={[url]}>
+    <MemoryRouter initialEntries={[state === undefined ? url : { pathname: url.split('?')[0], search: url.includes('?') ? `?${url.split('?')[1]}` : '', state }]}>
       <Routes>
         <Route path="/compare/:slug" element={<><ComparePage /><LocationProbe /></>} />
         <Route path="/p/:id" element={<LocationProbe />} />
@@ -108,9 +108,28 @@ describe('ComparePage', () => {
 
     renderAt('/compare/ben-tan?tag=cmp7');
 
-    expect(await screen.findByText(/Nothing on #cmp7 answered yet\./)).toBeInTheDocument();
+    // P1337 walkthrough 6: a known set reads by name ("Expected benefits"), not as #cmp7.
+    expect(await screen.findByText(/Nothing on Expected benefits answered yet\./)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Add yours' })).toHaveAttribute('href', '/stake/cmp7');
-    expect(screen.getByRole('button', { name: '#cmp7' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Expected benefits' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('opened from the event room: the event set reads as the event topic, and "Add yours" is not offered', async () => {
+    vi.mocked(compare.getTagStatements).mockResolvedValue([]);
+    vi.mocked(compare.getPositionsFor).mockResolvedValue(new Map());
+
+    renderAt('/compare/ben-tan?tag=night2', { backTo: '/events/x/meet', setLabels: { night2: 'AI and your ikigai' } });
+
+    expect(await screen.findByText(/Nothing on AI and your ikigai answered yet\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'AI and your ikigai' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add yours' })).toBeNull();
+  });
+
+  it('a hashtag with no known name stays a hashtag', async () => {
+    vi.mocked(compare.getTagStatements).mockResolvedValue([]);
+    vi.mocked(compare.getPositionsFor).mockResolvedValue(new Map());
+    renderAt('/compare/ben-tan?tag=gardening');
+    expect(await screen.findByRole('button', { name: '#gardening' })).toBeInTheDocument();
   });
 
   it('with nothing shared, falls back to what the other person answered and shows their positions (walkthrough 4)', async () => {
