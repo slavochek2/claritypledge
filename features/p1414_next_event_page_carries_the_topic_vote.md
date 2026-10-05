@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: story
 rank: 25
 workstream: events
@@ -9,9 +9,8 @@ tags:
   - topics
   - voting
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran:
-  - create-spec
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -64,9 +63,9 @@ iframing it — *"the step embeds the live `/stake` page, so it is never behind"
 
 **It appears only when the event has no topic yet.** The first draft of this spec said "when
 `statement_tag` is empty", which is **wrong** — hikes and guest events have no tag either, so the
-vote would appear on all of them. The in-flight implementation gets this right by keying on the
-series as well: `seriesSlug === 'clarity-night' && !statementTag?.trim()`, excluding past and
-cancelled events.
+vote would appear on all of them. The implementation keys on the series as well
+(`src/app/prototypes/events/topic-vote.ts`): `seriesSlug === 'clarity-night' && !statementTag?.trim()`,
+excluding cancelled events and events that have actually ended (`hasEnded`, not the 12h RSVP grace).
 
 > **BLOCKER, verified on prod 2026-10-04.** No Clarity Night on production has `series_slug` set —
 > both existing nights read `null`; only hikes carry it, because P1403 (which added the column
@@ -75,8 +74,28 @@ cancelled events.
 > would error. Whatever ships must also ensure the series key is written for nights — either the
 > create form sets it, or existing nights are backfilled, or the guard keys on something that is
 > actually populated. An event whose topic is settled still shows nothing, which is the intent.
+>
+> **Status at ship: OPEN, data-side.** The code ships; the vote appears on a night only once its row
+> carries `series_slug = 'clarity-night'` (service role only, P1403 lock). Founder decision pending:
+> add the stamp to `/slava:disagreement:clarity-night-publish`, and set it on the CN#3 row when it is
+> created. The CN#3 placeholder also needs a neutral title, banner and short description — not a
+> reused topic's (founder, 2026-10-05: "we don't know the topic of the event so why do we reuse that?").
 
-`[FOUNDER DECISION: where on the page — above the description, or below it and above Register]`
+**Placement (founder, 2026-10-05):** after the description, in its own tinted box headed "Vote for
+this night's topic", with a line under the venue — "Topic: not chosen yet. Vote below ↓" — so
+someone reading only the top learns the topic is open. "Reserve a seat" repeats after the vote on
+desktop (founder: "when voting is shown we do need a second reserve seat"); the line and the repeat
+appear only once the vote has actually rendered, never pointing at an absent section. Same controls
+as `/topics` (sort, Add a topic top right, 8 then "Show 8 more" as a centred blue rounded button,
+like P1389's closing list); rows stacked to fit the card.
+
+**A signed-out visitor can rate without an account, and that is the strongest argument for the
+embed.** `handleRate` in `topics-page.tsx` keeps a guest rating on the device and saves it on
+sign-in. It was `sessionStorage` (per tab), which the email sign-in link — often opened in a new tab —
+could not see; P1414 moved it to `localStorage` with a 1-hour expiry, and sign-in never overwrites a
+rating the account already has (a shared device must not hand one visitor's stars to the next). So a stranger who lands on the event page can act **immediately** — no account, no sign-in
+wall — and their ratings follow them if they later register. A link to another page spends that
+willingness on a navigation; the embed spends it on a vote.
 
 **A signed-out visitor can rate without an account, and that is the strongest argument for the
 embed.** `handleRate` in `topics-page.tsx` writes a guest rating to local storage and saves it on
@@ -88,7 +107,9 @@ willingness on a navigation; the embed spends it on a vote.
 full-width button (P955 — competing primaries split intent).
 
 **Links inside the embed open in a new tab**, matching `linksInNewTab` in the prep flow and the same
-rule P1337 sets for the compare view: a visitor reading an event page must not lose it.
+rule P1337 sets for the compare view: a visitor reading an event page must not lose it. **Exception:
+sign-in / sign-up links stay in the same tab** and redirect back to the event page — a sign-in flow
+returns the visitor, and a new tab would orphan the page they came from.
 
 ## Risks / Non-Goals
 
@@ -107,12 +128,12 @@ rule P1337 sets for the compare view: a visitor reading an event page must not l
 
 ## Acceptance Criteria
 
-- [ ] An event with no statement tag shows the topic vote on its page, and a signed-in visitor can rate without leaving
-- [ ] An event with a statement tag shows no vote section at all
-- [ ] With no topics published, the section is absent rather than an empty frame
-- [ ] A link inside the embedded section opens in a new tab and the event page stays open
-- [ ] Register remains the only full-width primary action on the page
-- [ ] Rating from the event page produces the same stored vote as rating on `/topics`
+- [x] A Clarity Night with no statement tag shows the topic vote on its page, and a signed-in visitor can rate without leaving — `p1414-event-topic-vote.test.tsx` "rates without leaving"; seen live on the test DB at 320/375/1280px
+- [x] An event with a statement tag shows no vote section at all — test "an event that has its topic"; a hike (no tag either) also shows none, controlled by breaking the gate (test fails)
+- [x] With no topics published, the section is absent rather than an empty frame — test "no topics published" (no heading, no "Vote below" line, no repeat)
+- [x] A link inside the embedded section opens in a new tab and the event page stays open — test "a link to a person opens in a new tab"; sign-in links are the documented same-tab exception
+- [x] Register remains the only full-width primary action on the page — Add a topic is outline (test); the desktop repeat is the same action, shown only after the rendered vote, never in view with the top button
+- [x] Rating from the event page produces the same stored vote as rating on `/topics` — test asserts the identical `rateTopic(id, rating, isPublic)` call
 
 ## Open Questions
 
