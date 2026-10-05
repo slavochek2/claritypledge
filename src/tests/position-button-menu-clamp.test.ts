@@ -9,8 +9,13 @@ import { clampMenuCenter } from '@/app/components/shared/menu-clamp';
 
 const original = window.innerWidth;
 const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true });
+const setClientWidth = (w: number) =>
+  Object.defineProperty(document.documentElement, 'clientWidth', { value: w, configurable: true });
 
-afterEach(() => setWidth(original));
+afterEach(() => {
+  setWidth(original);
+  setClientWidth(0); // jsdom default: no layout
+});
 
 describe('clampMenuCenter', () => {
   it('pulls a right-edge "Agree" menu back inside a 375px viewport', () => {
@@ -34,5 +39,12 @@ describe('clampMenuCenter', () => {
   it('centres in the viewport when the menu is wider than the space', () => {
     setWidth(150);
     expect(clampMenuCenter(10, 170)).toBe(75);
+  });
+
+  it('keeps clear of a classic scrollbar gutter (clientWidth < innerWidth)', () => {
+    setWidth(375);
+    setClientWidth(360); // 15px scrollbar reserved by scrollbar-gutter: stable
+    const c = clampMenuCenter(330, 170);
+    expect(c + 85).toBeLessThanOrEqual(360 - 8);
   });
 });
