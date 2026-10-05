@@ -48,6 +48,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** `/events/new`, P1337 prototype work, decisions.md 2026-10-02 [process] (the two-click probe)
 
 ---
+## 2026-10-05 [technical]: A write that was sent and never answered has an UNKNOWN outcome; settle it from the server, never report "nothing was saved" (P1420)
+
+**Context:** The founder cleared a position on `/feed` on a bad connection. The position stayed lit with no visible change, and a reload showed it removed. Reproduced against the test project. The DELETE reached the server and was applied, then the answer was dropped. The page reported "You're offline. This needs internet, so nothing was saved." with the position still lit. The failure marked Supabase unreachable, so the reader's second tap closed the dialog with no request sent. This is new evidence against the trade-off accepted in the 2026-10-01 P1369 entry below: *"a request held by a captive portal almost never reaches the server."* That holds for a captive portal. On a weak mobile connection the usual failure is the reverse: the request lands and only the answer is lost.
+**Decision:**
+1. **A network failure or timeout after a write was sent means "outcome unknown", not "failed".** The position paths (feed point card, feed story card, the remove dialog) re-read the viewer's row (`pointsService.readMyPosition`, which throws instead of returning null on error) with backoff for about a minute. They then show the server's answer. Until it arrives they say the result is unconfirmed. `writeFailureMessage` no longer claims "nothing was saved" for any sent write.
+2. **One failure no longer blocks the next write without trying.** If only an earlier request's failure says Supabase is unreachable, `canSendWrite` probes `/auth/v1/health` first (4s). The write is refused only if the probe fails too, or the browser itself is offline.
+3. **A re-read of rows already on screen refreshes them in place** on `/feed` and `/stake` (reconnect, a PUSH to the same URL). It no longer swaps them for the skeleton. On a 5s-per-answer connection the skeleton unmounted every card, and any open dialog with it, every 5–10s.
+4. **A confirmed own position write patches the IndexedDB offline copy** of `/feed` and `/stake` in the writer's own partition. It also patches every read that was already in flight when the write landed (`recordOwnWrite`/`applyOwnWrites`, idempotent patches). Before this, own writes cleared only the in-memory Back cache, so a remount could show the pre-removal position.
+5. **One owner for a position write's outcome** (`src/app/data/position-write-outcome.ts`, added after a 3-reviewer round). It does five things:
+   - It keeps one generation per (viewer, point). Each write takes the next number, and every effect of a settle (cache patch, parent callback, saved state, toast) is applied only while that write is still the latest. This holds on every surface: the remove dialog, the feed point card and the story card's quoted points.
+   - It tracks the RAW request, because the 12s bound does not cancel it. While that request is still out, an old value means "not landed yet", so the settle retries instead of saying "not saved".
+   - A settle stops on unmount, on a newer write, or when the stored session's viewer changes.
+   - It shows one shared "Checking…" toast.
+   - Cache patches and writes for one key run in order (`withKeyLock`). Before this, two concurrent patches on one cached feed erased each other.
+6. **Health probes are coalesced:** one in-flight probe is shared, and a failed answer is reused for 2s.
+**Alternatives rejected:** Keep "nothing was saved" and only add a reload hint. That keeps a false statement. Treat every network failure as success. That is false the other way, for the captive-portal case P1369 was built for. Delete the cached feed on an own write instead of patching it. A slow next read would then show "needs connection" instead of the reader's own copy.
+**Consequences:** Point detail and story detail still send position writes without `saveInOrder` or settling. Their failure copy is now honest ("couldn't confirm"), but they do not re-read the outcome. While an outcome is being settled, the optimistic vote stays on screen beside a "checking" toast. It is reverted if the server disagrees or cannot be reached.
+**References:** [P1420](../features/p1420_clear_position_lost_response_stays_lit.md), `src/app/hooks/use-online-write-guard.ts`, `src/lib/offline-read-cache.ts`, `src/app/data/own-position-writes.ts`
 
 ## 2026-10-04 [product]: /prepare is the Clarity explainer for anyone, signed out included; it hides nothing and carries progress one way into event preparation (P1402)
 

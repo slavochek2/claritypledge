@@ -9,11 +9,21 @@
  */
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { useConnectivity } from '@/app/contexts/offline-status-context';
+import { probeSupabase, useConnectivity } from '@/app/contexts/offline-status-context';
 import { isSupabaseUnreachable, networkFailedSince } from '@/lib/network-outcome';
 
 /** [FOUNDER DECISION: copy — PROPOSED; the spec asks for "a clear 'needs internet' message"] */
 export const NEEDS_INTERNET_MESSAGE = "You're offline. This needs internet, so nothing was saved.";
+
+/**
+ * P1420: a write that was SENT but never answered. Its request may well have been applied — on a
+ * bad mobile connection the request usually reaches the server and only the answer is lost — so
+ * "nothing was saved" would be false. Shown while the outcome is re-read from the server.
+ * copy approved by founder 2026-10-05
+ */
+export const UNCONFIRMED_WRITE_MESSAGE = "Connection is weak. Checking whether that was saved…";
+/** The re-read could not reach the server either. copy approved by founder 2026-10-05 */
+export const UNRESOLVED_WRITE_MESSAGE = "Couldn't confirm that was saved. Reload when you're back online to check.";
 
 export function useOnlineWriteGuard(showingCachedCopy = false): () => boolean {
   const { offline } = useConnectivity();
@@ -46,10 +56,31 @@ export function isNetworkWriteFailure(err: unknown, since?: number): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
 }
 
-/** The toast for a failed write: the needs-internet message when the network was the cause. */
+/**
+ * The toast for a failed write. A network failure AFTER the write was sent leaves its outcome
+ * unknown (P1420): the request may have landed. Callers that can re-read the outcome use
+ * `settlePositionWrite` (position-write-outcome.ts) instead; for the rest this never claims "nothing was saved".
+ */
 export function writeFailureMessage(err: unknown, fallback: string, since?: number): string {
-  return isNetworkWriteFailure(err, since) ? NEEDS_INTERNET_MESSAGE : fallback;
+  return isNetworkWriteFailure(err, since) ? UNRESOLVED_WRITE_MESSAGE : fallback;
 }
+
+/** P1420: how long a write waits on its probe before giving up. */
+export const PROBE_BEFORE_WRITE_MS = 4_000;
+
+/**
+ * P1420: may a write proceed? Blocked when the browser says offline. When only an earlier
+ * request's failure says Supabase is unreachable, probe once first — a single dropped answer on a
+ * weak connection must not refuse the very next write without even trying. Shows the
+ * needs-internet message when it blocks.
+ */
+export async function canSendWrite(): Promise<boolean> {
+  const browserOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (!browserOffline && (!isSupabaseUnreachable() || (await probeSupabase(PROBE_BEFORE_WRITE_MS)))) return true;
+  toast.error(NEEDS_INTERNET_MESSAGE);
+  return false;
+}
+
 
 /**
  * How long a vote's save may stay unanswered before it counts as not saved. A captive portal can

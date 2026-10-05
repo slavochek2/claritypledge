@@ -188,12 +188,20 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
   // boundary that actually serves internet traffic, not assumed from the caller.
   const tagIsValid = isSafeTag(tag);
 
+  // P1420: what the rows on screen answer, readable inside fetchData without re-creating it.
+  const dataFetchKeyRef = useRef(dataFetchKey);
+  dataFetchKeyRef.current = dataFetchKey;
+
   const fetchData = useCallback(async () => {
     if (!tag || !isSafeTag(tag)) return;
     const rid = ++requestIdRef.current;
     const requestFetchKey = `${viewerUserId ?? ''}|${tag}`;
     const requestGeneration = listReturnCacheGeneration();
-    setLoading(true);
+    // P1420: a re-read of the rows already on screen refreshes them in place — the skeleton
+    // unmounted every card (and an open Remove dialog) on each reconnect. Not for the filtered
+    // embeds, whose card set is decided once at load.
+    const refreshInPlace = dataFetchKeyRef.current === requestFetchKey && onlyIdsKey === null && !onlyUnstaked;
+    if (!refreshInPlace) setLoading(true);
     setError(null);
     try {
       // ascending = true — oldest-first from the DB, the P1075 server-side
@@ -210,6 +218,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
         const r = stakeRead(tag, viewerUserId);
         const read = await readThrough(r.type, r.id, r.fetch, r.options);
         if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
+        if (refreshInPlace && read.source === 'offline') return; // keep the rows on screen
         rows = applyRead(read);
       }
       if (!rows) return; // offline, nothing stored: the needs-connection body
@@ -227,7 +236,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
       setDataFetchKey(requestFetchKey);
     } catch {
       if (rid !== requestIdRef.current) return;
-      setError('Could not load this list.');
+      if (!refreshInPlace) setError('Could not load this list.');
     } finally {
       if (rid === requestIdRef.current) setLoading(false);
     }

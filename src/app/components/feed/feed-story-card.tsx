@@ -31,10 +31,18 @@ import {
   CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { GroupPlayer } from '@/app/components/shared/source-group';
-import { saveInOrder, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { UNRESOLVED_WRITE_MESSAGE, canSendWrite, isNetworkWriteFailure } from '@/app/hooks/use-online-write-guard';
+import {
+  beginPositionWrite,
+  endPositionWrite,
+  isLatestPositionWrite,
+  recordConfirmedPosition,
+  sendPositionWrite,
+  settlePositionWrite,
+} from '@/app/data/position-write-outcome';
 import { networkMark } from '@/lib/network-outcome';
-import { pointsService } from '@/app/data/points-service';
-import type { Position } from '@/app/types';
+// P1420: the quoted card's selection type (PositionType | null) — not the legacy 3-value `Position`.
+import type { Position } from '@/app/components/shared/prototype-types';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
@@ -128,8 +136,6 @@ export function FeedStoryCard({
     navigate(`/story/${story.id}`);
   };
 
-  const canWrite = useOnlineWriteGuard();
-
   /**
    * P1212: the WRITE half of the position controls this section put on the feed.
    *
@@ -145,19 +151,48 @@ export function FeedStoryCard({
    * card carries the dialog too, a toggle-off keeps its optimistic local state and writes
    * nothing — the same behaviour as before this fix, and only for that one case.
    */
+  // P1420: a settle still running when the card unmounts stops (no reads, no effects).
+  const unmounted = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    unmounted.current = controller;
+    return () => controller.abort();
+  }, []);
+
+  /* Resolves true (saved), false (not saved: take the selection back) or undefined (a newer write
+     on this point owns the outcome: leave the display alone). */
   const handlePointPosition = async (pointId: string, position: Position): Promise<boolean | undefined> => {
     if (!currentUserId || position === null) return;
+    const userId: string = currentUserId;
+    const target = position;
     // P1369: /feed and /stake render cached cards offline. Resolving false makes the quoted
     // card take its optimistic selection back — a vote that did not land never looks saved.
-    if (!canWrite()) return false;
-    const sentAt = networkMark();
+    if (!(await canSendWrite())) return false;
+    const generation = beginPositionWrite(userId, pointId);
     try {
-      // Bounded: a captive portal can leave the request unanswered for good.
-      await saveInOrder(`position:${pointId}`, () => pointsService.setPosition(pointId, currentUserId, position));
-      return true;
-    } catch (err) {
-      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
-      return false;
+      const sentAt = networkMark();
+      try {
+        // Bounded: a captive portal can leave the request unanswered for good.
+        await sendPositionWrite(userId, pointId, target, generation);
+        return isLatestPositionWrite(userId, pointId, generation) ? true : undefined;
+      } catch (err) {
+        if (!isNetworkWriteFailure(err, sentAt)) {
+          if (!isLatestPositionWrite(userId, pointId, generation)) return undefined;
+          toast.error('Failed to save position.');
+          return false;
+        }
+        // P1420: sent, never answered — it may have landed. Ask the server.
+        const outcome = await settlePositionWrite({ userId, pointId, generation, expected: target, signal: unmounted.current.signal });
+        if (outcome.kind === 'superseded') return undefined;
+        if (outcome.kind === 'confirmed') {
+          recordConfirmedPosition(userId, pointId, generation, target);
+          return true;
+        }
+        toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE); // copy approved by founder 2026-10-05
+        return false;
+      }
+    } finally {
+      endPositionWrite(userId, pointId); // bounded bookkeeping (P1420 round 3)
     }
   };
 

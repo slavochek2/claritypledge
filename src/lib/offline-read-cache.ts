@@ -420,11 +420,133 @@ function stamp(): number {
   return lastStamp;
 }
 
-async function write(key: string, type: OfflineResourceType, data: unknown, gen: number): Promise<void> {
+// ─── Own writes (P1420) ──────────────────────────────────────────────────────
+
+/**
+ * A change the viewer's own write made to rows this cache may hold, as a pure, idempotent
+ * function of the stored data (applying it twice must equal applying it once).
+ */
+export type OwnWritePatch = (data: unknown) => unknown;
+
+interface OwnWriteRecord {
+  seq: number;
+  at: number;
+  type: OfflineResourceType;
+  /** Keys this write may touch: `u:<userId>|` — the writer's own partition, any room codes. */
+  ownerPrefix: string;
+  fn: OwnWritePatch;
+  /** What the write is about (e.g. one point) and when it was MADE — not when it arrived. */
+  order?: OwnWriteOrder;
+}
+
+/**
+ * P1420 round 3: patches arrive in completion order, which is not click order. A patch whose write
+ * is older than another recorded write on the same scope (same viewer and point) is never applied:
+ * arriving later must not let an older Disagree overwrite a newer Unsure.
+ */
+export interface OwnWriteOrder {
+  scope: string;
+  generation: number;
+}
+
+
+/** Reads slower than this are not patched; they are far past every deadline in this file. */
+export const OWN_WRITE_PATCH_TTL_MS = 120_000;
+
+let ownWriteSeq = 0;
+let ownWrites: OwnWriteRecord[] = [];
+
+function isSuperseded(w: OwnWriteRecord): boolean {
+  if (!w.order) return false;
+  const { scope, generation } = w.order;
+  return ownWrites.some((o) => o !== w && o.order?.scope === scope && o.order.generation > generation);
+}
+
+/** The own-write sequence now; a read records it when it starts. */
+export function ownWriteMark(): number {
+  return ownWriteSeq;
+}
+
+/** `data`, with every own write recorded after `sinceMark` for this key applied in order. */
+export function applyOwnWrites<T>(type: OfflineResourceType, key: string, data: T, sinceMark: number): T {
+  const now = Date.now();
+  ownWrites = ownWrites.filter((w) => now - w.at < OWN_WRITE_PATCH_TTL_MS);
+  let out: unknown = data;
+  for (const w of ownWrites) {
+    if (w.seq > sinceMark && w.type === type && key.startsWith(w.ownerPrefix) && !isSuperseded(w)) out = w.fn(out);
+  }
+  return out as T;
+}
+
+/**
+ * Record a write the server confirmed, so no cached or in-flight copy of `type` in the writer's
+ * own partition shows the state from before it. Patches every stored entry now (keeping its
+ * `storedAt`: the strip still states the copy's real age) and every read still in flight when
+ * its rows arrive. Errors are swallowed: losing this costs offline accuracy, never the write.
+ */
+export async function recordOwnWrite(
+  type: OfflineResourceType,
+  userId: string,
+  fn: OwnWritePatch,
+  order?: OwnWriteOrder,
+): Promise<void> {
+  const ownerPrefix = `u:${userId}|`;
+  const record: OwnWriteRecord = { seq: ++ownWriteSeq, at: Date.now(), type, ownerPrefix, fn, order };
+  ownWrites.push(record);
+  if (isSuperseded(record)) return; // a newer write on this scope is already recorded
+  if (isOfflineClearPending()) return;
+  const gen = generation;
+  try {
+    const keys = (await store.listType(type)).map((e) => e.key).filter((k) => k.startsWith(ownerPrefix));
+    await Promise.all(
+      keys.map((key) =>
+        withKeyLock(key, async () => {
+          // Re-checked inside the lock: a newer write may have been recorded while this one waited.
+          if (isSuperseded(record)) return;
+          const entry = await store.get(key);
+          if (!entry || gen !== generation) return;
+          await store.put({ ...entry, data: fn(entry.data) });
+        }),
+      ),
+    );
+  } catch (err) {
+    console.warn('[offline-read-cache] own-write patch failed:', err);
+  }
+}
+
+/**
+ * P1420: every read-modify-write and every write of one key runs in order. Without it, two own
+ * writes patching the same cached feed (two different points) each read the entry, patched their
+ * point and put it back — the second put erased the first patch.
+ */
+const keyLocks = new Map<string, Promise<void>>();
+function withKeyLock(key: string, task: () => Promise<void>): Promise<void> {
+  const run = (keyLocks.get(key) ?? Promise.resolve()).then(task, task);
+  const tail = run.catch(() => undefined);
+  keyLocks.set(key, tail);
+  void tail.then(() => {
+    if (keyLocks.get(key) === tail) keyLocks.delete(key);
+  });
+  return run;
+}
+
+/** Test-only: forget recorded own writes. */
+export function _resetOwnWritesForTesting(): void {
+  ownWrites = [];
+}
+
+async function write(key: string, type: OfflineResourceType, data: unknown, gen: number, patchMark?: number): Promise<void> {
+  return withKeyLock(key, () => writeLocked(key, type, data, gen, patchMark));
+}
+
+async function writeLocked(key: string, type: OfflineResourceType, data: unknown, gen: number, patchMark?: number): Promise<void> {
   if (gen !== generation) return; // cleared (sign-out) while this read was in flight
   if (isOfflineClearPending()) return; // a clear is outstanding: nothing new goes in until it lands
   try {
-    await store.put({ key, type, data, storedAt: stamp() });
+    // P1420: own writes recorded after this read started are applied HERE, inside the key's lock,
+    // so a patch recorded between the read and this put is never lost.
+    const stored = patchMark === undefined ? data : applyOwnWrites(type, key, data, patchMark);
+    await store.put({ key, type, data: stored, storedAt: stamp() });
     if (gen !== generation) {
       await store.delete(key);
       return;
@@ -489,6 +611,24 @@ export async function readThrough<T>(
   fetcher: () => Promise<T | null>,
   options: ReadOptions = {},
 ): Promise<ReadResult<T>> {
+  // P1420: a read that started before one of the viewer's own writes landed carries the
+  // pre-write rows. Whatever it shows or stores gets that write applied, so a slow read can
+  // never bring a removed position back.
+  const patchMark = ownWriteMark();
+  const result = await readThroughInner(type, id, fetcher, options, patchMark);
+  if (result.source === 'offline' || result.data == null) return result;
+  const owner = await offlineCacheOwner();
+  if (owner === null) return result;
+  return { ...result, data: applyOwnWrites(type, `${owner}|${type}|${id}`, result.data, patchMark) } as ReadResult<T>;
+}
+
+async function readThroughInner<T>(
+  type: OfflineResourceType,
+  id: string,
+  fetcher: () => Promise<T | null>,
+  options: ReadOptions,
+  patchMark: number,
+): Promise<ReadResult<T>> {
   const deadlineMs = options.deadlineMs ?? NETWORK_DEADLINE_MS;
   const uncachedDeadlineMs = Math.max(options.uncachedDeadlineMs ?? UNCACHED_DEADLINE_MS, deadlineMs);
   const gen = generation;
@@ -521,7 +661,7 @@ export async function readThrough<T>(
     void fetchP.then(async (o) => {
       if (!o.ok || o.data == null || failed()) return;
       const key = await writeKeyP;
-      if (key) void write(key, type, o.data, gen);
+      if (key) void write(key, type, o.data, gen, patchMark);
     });
   };
 
@@ -556,7 +696,7 @@ export async function readThrough<T>(
     if (!outcome.ok) throw outcome.error; // a real error, not connectivity
     const writeKey = await writeKeyP;
     if (outcome.data != null) {
-      if (writeKey) void write(writeKey, type, outcome.data, gen);
+      if (writeKey) void write(writeKey, type, outcome.data, gen, patchMark);
     } else if (writeKey) {
       // Only a read made AS the owner may conclude "not found" for the owner's copy (a private
       // row read before the profile loaded is "not found" for anon, not for its owner).

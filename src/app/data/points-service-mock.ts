@@ -397,6 +397,10 @@ export const mockPointsService: PointsService = {
     // Mock always succeeds
   },
 
+  async readMyPosition(_pointId: string, _userId: string): Promise<PositionType | null> {
+    return null;
+  },
+
   async removePosition(_pointId: string, _userId: string): Promise<void> {
     // Mock always succeeds
   },

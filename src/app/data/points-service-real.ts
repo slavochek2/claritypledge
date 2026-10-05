@@ -437,6 +437,23 @@ export const realPointsService: PointsService = {
     return mapPositionFromDb(rows[0]);
   },
 
+  async readMyPosition(pointId: string, userId: string): Promise<PositionType | null> {
+    log(' readMyPosition:', { pointId, userId });
+
+    const { data: rows, error } = await supabase
+      .from('point_positions')
+      .select('position')
+      .eq('point_id', pointId)
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (error) {
+      throwDbError('readMyPosition', error, `readMyPosition failed: ${error.message}`);
+    }
+
+    return (rows?.[0]?.position as PositionType | undefined) ?? null;
+  },
+
   async getPositionsForPoint(pointId: string): Promise<PointPositionWithUser[]> {
     log(' getPositionsForPoint:', pointId);
 

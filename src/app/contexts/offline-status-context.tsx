@@ -84,19 +84,47 @@ function useSupabaseUnreachable(): boolean {
 const PROBE_TIMEOUT_MS = 8_000;
 
 /**
- * One request that answers "can Supabase be reached?"; any HTTP response means yes. Bounded: on a
+ * One request that answers "can Supabase be reached?"; any HTTP response means yes. Exported for
+ * P1420: a write blocked only by an earlier failure probes first instead of refusing outright. Bounded: on a
  * network that hangs instead of failing, no answer in time is a "no" (and the next probe asks again).
  */
-async function probeSupabase(): Promise<void> {
+/** P1420: after a failed probe, callers within this window reuse its answer instead of asking again. */
+export const PROBE_FAILURE_COOLDOWN_MS = 2_000;
+let probeInFlight: Promise<boolean> | null = null;
+let lastProbeFailedAt = 0;
+
+export function probeSupabase(timeoutMs = PROBE_TIMEOUT_MS): Promise<boolean> {
+  // One shared probe: several writes (or the 20s timer) asking at once send ONE request.
+  if (probeInFlight) return probeInFlight;
+  if (lastProbeFailedAt && Date.now() - lastProbeFailedAt < PROBE_FAILURE_COOLDOWN_MS) return Promise.resolve(false);
+  const probe = runProbe(timeoutMs).then((ok) => {
+    lastProbeFailedAt = ok ? 0 : Date.now();
+    return ok;
+  });
+  probeInFlight = probe.finally(() => {
+    probeInFlight = null;
+  });
+  return probeInFlight;
+}
+
+/** Test-only. */
+export function _resetProbeForTesting(): void {
+  probeInFlight = null;
+  lastProbeFailedAt = 0;
+}
+
+async function runProbe(timeoutMs: number): Promise<boolean> {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  if (!url) return;
+  if (!url) return false;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     await fetch(`${url.replace(/\/$/, '')}/auth/v1/health`, { cache: 'no-store', signal: controller.signal });
     recordNetworkSuccess();
+    return true;
   } catch {
     recordNetworkFailure();
+    return false;
   } finally {
     clearTimeout(timer);
   }

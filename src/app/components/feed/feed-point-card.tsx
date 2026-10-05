@@ -27,14 +27,21 @@ import {
   CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
 import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
-import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { getAnonPosition, setAnonPosition } from '@/app/hooks/useAnonPosition';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { useReturnState } from '@/app/hooks/use-return-state';
-import { saveInOrder, useOnlineWriteGuard, writeFailureMessage } from '@/app/hooks/use-online-write-guard';
+import { UNRESOLVED_WRITE_MESSAGE, canSendWrite, isNetworkWriteFailure } from '@/app/hooks/use-online-write-guard';
+import {
+  beginPositionWrite,
+  endPositionWrite,
+  isLatestPositionWrite,
+  recordConfirmedPosition,
+  sendPositionWrite,
+  settlePositionWrite,
+} from '@/app/data/position-write-outcome';
 import { networkMark } from '@/lib/network-outcome';
 
 interface FeedPointCardProps {
@@ -92,14 +99,33 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
      object) is the only thing that brings it back. */
   const [withdrawn, setWithdrawn] = useState(false);
   // P1369: /feed and /stake render cached cards offline — a vote there must never look saved.
-  const canWrite = useOnlineWriteGuard();
+  // P1420: `canSendWrite` probes first when only an earlier failure says "unreachable".
   /* P1369 review: a failed save takes the vote back only if it was the latest click, and back to
      the last SAVED local vote — not to what showed before that click, which may itself have been
      an unsaved click that also failed (Agree then Disagree, both failing, left Agree lit). */
-  const clickSeq = useRef(0);
   const savedLocal = useRef<PositionType | null>(null);
-  useEffect(() => { setWithdrawn(false); savedLocal.current = null; }, [point.userPosition]);
-  const serverPosition = withdrawn ? null : (point.userPosition?.position ?? null);
+  /* P1420 round 3: the generation of the write `savedLocal` came from. A write that succeeded is
+     the server's state even if a newer click superseded it in the UI, so it still moves the
+     baseline (only forwards): a later failure then rolls back to the TRUE server state. */
+  const savedGeneration = useRef(0);
+  /* P1420: keyed on the fetched position VALUE. Since in-place refresh keeps the card mounted, a
+     refreshed row is a new object every few seconds on a weak connection; resetting on identity
+     would re-light a confirmed withdrawal from any refresh, even one that agrees with it. */
+  const fetchedPosition = point.userPosition?.position ?? null;
+  useEffect(() => { setWithdrawn(false); savedLocal.current = null; }, [fetchedPosition]);
+  const serverPosition = withdrawn ? null : fetchedPosition;
+  /* P1420: a removal whose answer was lost settles up to a minute later, after the rows may have
+     been refreshed in place. The callback must read the position the page counts NOW (a refreshed
+     row may already exclude the viewer) — the render it was created in is stale. */
+  const serverPositionRef = useRef(serverPosition);
+  serverPositionRef.current = serverPosition;
+  // P1420: a settle still running when the card unmounts stops (no reads, no effects).
+  const unmounted = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    unmounted.current = controller;
+    return () => controller.abort();
+  }, []);
 
   // P401: Guard position removal — only shows dialog when linked stories exist
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -109,7 +135,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       // already withdrawn. Reporting a local change instead lowered the wrong bucket, and with
       // nothing fetched it lowered a position that was never counted — dropping a point another
       // person still holds (review of the P1296 fix delta; the bug predates P1296).
-      const removedPosition = serverPosition;
+      const removedPosition = serverPositionRef.current;
       setLocalPosition(null);
       savedLocal.current = null;
       setWithdrawn(true);
@@ -125,6 +151,9 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   const effectivePosition = session?.user
     ? (localPosition ?? serverPosition)
     : anonPosition;
+  // P1420: read after an await (the probe), when the render that started the click may be stale.
+  const effectivePositionRef = useRef(effectivePosition);
+  effectivePositionRef.current = effectivePosition;
 
   useEffect(() => {
     if (localPosition !== null && localPosition === serverPosition) {
@@ -173,6 +202,16 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     ? getPositionCTACopy(getPositionGroup(authedEffective))
     : null;
 
+  /* A confirmed vote is the viewer's position again: it also ends a withdrawal (P1420 round 3).
+     Without this, re-voting after a removal kept `withdrawn` set — the stale fetched position was
+     hidden while still counted, so the count went up twice. */
+  const confirmBaseline = (generation: number, position: PositionType) => {
+    if (generation <= savedGeneration.current) return;
+    savedGeneration.current = generation;
+    savedLocal.current = position;
+    setWithdrawn(false);
+  };
+
   const handlePositionClick = async (position: PositionType) => {
     // P502: Anonymous user → optimistic local position, no redirect
     if (!session?.user) {
@@ -182,9 +221,11 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       return;
     }
 
-    if (!canWrite()) return;
+    const userId = session.user.id;
+    if (!(await canSendWrite())) return;
 
-    const newPosition = effectivePosition === position ? null : position;
+    // From refs, AFTER the probe: a click made meanwhile (or a refresh) may have changed them.
+    const newPosition = effectivePositionRef.current === position ? null : position;
 
     if (newPosition === null) {
       // Toggle-off: use guarded removal to warn about linked stories
@@ -192,21 +233,46 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       return;
     }
 
-    const seq = ++clickSeq.current;
-    setLocalPosition(newPosition);
-
-    const sentAt = networkMark();
+    const generation = beginPositionWrite(userId, point.id);
+    const isLatest = () => isLatestPositionWrite(userId, point.id, generation);
     try {
-      // Bounded: a captive portal can leave the request unanswered for good.
-      await saveInOrder(`position:${point.id}`, () => pointsService.setPosition(point.id, session.user.id, newPosition));
-      savedLocal.current = newPosition;
-      // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
-      // the visual update — no parent callback needed for set-position path
-    } catch (err) {
-      // Revert to the last saved local vote (not to the fetched position: an earlier, saved
-      // change on this card is still the viewer's position). A newer click owns the display.
-      if (seq === clickSeq.current) setLocalPosition(savedLocal.current);
-      toast.error(writeFailureMessage(err, 'Failed to save position.', sentAt));
+      setLocalPosition(newPosition);
+
+      const sentAt = networkMark();
+      try {
+        // Bounded: a captive portal can leave the request unanswered for good.
+        await sendPositionWrite(userId, point.id, newPosition, generation);
+        confirmBaseline(generation, newPosition);
+        // P543: Card's local optimistic state (localPosition + adjustPositionCounts) handles
+        // the visual update — no parent callback needed for set-position path
+      } catch (err) {
+        // Revert to the last saved local vote (not to the fetched position: an earlier, saved
+        // change on this card is still the viewer's position). A newer write owns the display.
+        if (!isNetworkWriteFailure(err, sentAt)) {
+          if (!isLatest()) return;
+          setLocalPosition(savedLocal.current);
+          toast.error('Failed to save position.');
+          return;
+        }
+        // P1420: sent, never answered — it may have landed. Ask the server.
+        const outcome = await settlePositionWrite({
+          userId,
+          pointId: point.id,
+          generation,
+          expected: newPosition,
+          signal: unmounted.current.signal,
+        });
+        if (outcome.kind === 'superseded') return;
+        if (outcome.kind === 'confirmed') {
+          confirmBaseline(generation, newPosition);
+          recordConfirmedPosition(userId, point.id, generation, newPosition);
+          return;
+        }
+        setLocalPosition(savedLocal.current);
+        toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE); // copy approved by founder 2026-10-05
+      }
+    } finally {
+      endPositionWrite(userId, point.id); // bounded bookkeeping (P1420 round 3)
     }
   };
 
@@ -300,7 +366,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                     setAnonPosition(point.id, null);
                     return;
                   }
-                  if (!canWrite()) return;
+                  if (!(await canSendWrite())) return;
                   await guardedRemovePosition(point.id);
                 }}
               />

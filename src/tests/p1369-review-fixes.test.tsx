@@ -13,10 +13,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), loading: vi.fn(), dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastMock }));
 
-const pointsMock = vi.hoisted(() => ({ setPosition: vi.fn(), removePosition: vi.fn() }));
+const pointsMock = vi.hoisted(() => ({ setPosition: vi.fn(), removePosition: vi.fn(), readMyPosition: vi.fn() }));
 vi.mock('@/app/data/points-service', () => ({ pointsService: pointsMock }));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'viewer-1' } }, user: null }) }));
 // Route chunks the pack warms: here they must not load the real pages.
@@ -40,7 +40,12 @@ import {
   recordNetworkFailure,
   _resetNetworkOutcomeForTesting,
 } from '@/lib/network-outcome';
-import { NEEDS_INTERNET_MESSAGE, WRITE_TIMEOUT_MS } from '@/app/hooks/use-online-write-guard';
+import { NEEDS_INTERNET_MESSAGE, UNRESOLVED_WRITE_MESSAGE, WRITE_TIMEOUT_MS } from '@/app/hooks/use-online-write-guard';
+import { SETTLE_RETRY_DELAYS_MS, _resetPositionWritesForTesting } from '@/app/data/position-write-outcome';
+import { _resetProbeForTesting } from '@/app/contexts/offline-status-context';
+
+/** P1420: long enough for every settle re-read attempt (each bounded by the write timeout). */
+const SETTLE_WINDOW_MS = SETTLE_RETRY_DELAYS_MS.reduce((a, b) => a + b, 0) + SETTLE_RETRY_DELAYS_MS.length * (WRITE_TIMEOUT_MS + 100);
 import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { stakeRead, feedRead } from '@/app/data/offline-reads';
@@ -60,12 +65,25 @@ beforeEach(() => {
   toastMock.error.mockReset();
   pointsMock.setPosition.mockReset();
   pointsMock.removePosition.mockReset();
+  // P1420: an unanswered write is settled by re-reading; by default the re-read cannot reach the
+  // server either, so the outcome stays unknown.
+  pointsMock.readMyPosition.mockReset();
+  pointsMock.readMyPosition.mockRejectedValue(new Error('fetch failed'));
+  _resetPositionWritesForTesting();
+  _resetProbeForTesting();
   Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
 });
 
+/** P1420: an earlier failure now earns one probe before a write is refused; make it fail too. */
+let fetchSpy: ReturnType<typeof vi.spyOn> | undefined;
+const probeFails = () => { fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch')); };
+
 afterEach(() => {
   vi.useRealTimers();
+  fetchSpy?.mockRestore();
+  fetchSpy = undefined;
 });
+
 
 const seed = async (type: 'story' | 'event-access', id: string, data: unknown) => {
   await readThrough(type, id, async () => data);
@@ -94,19 +112,28 @@ const agree = () => screen.getAllByTestId('agree-group')[0]!;
 const disagree = () => screen.getAllByTestId('disagree-group')[0]!;
 
 describe('R1: feed/stake point card votes', () => {
-  it('captive portal: the write never reaches the server → needs-internet message, vote not left selected', async () => {
+  // P1420: an unanswered write is settled only for the signed-in viewer who made it.
+  beforeEach(() => signInAs('viewer-1'));
+
+  // P1420 changed the copy: a write that was SENT and failed at the network has an unknown
+  // outcome (it may have landed), so it is re-read and never reported as "nothing was saved".
+  it('captive portal: the write fails at the network and cannot be confirmed → unresolved message, vote not left selected', async () => {
+    vi.useFakeTimers();
     pointsMock.setPosition.mockImplementation(async () => {
       recordNetworkFailure();
       throw new Error('fetch failed');
     });
     renderFeedPointCard();
     await act(async () => { fireEvent.click(agree()); });
-    expect(toastMock.error).toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
+    await act(async () => { await vi.advanceTimersByTimeAsync(SETTLE_WINDOW_MS); });
+    expect(toastMock.error).toHaveBeenCalledWith(UNRESOLVED_WRITE_MESSAGE);
+    expect(toastMock.error).not.toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
     expect(agree()).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('known unreachable: the write is blocked before it is sent', async () => {
     recordNetworkFailure();
+    probeFails();
     renderFeedPointCard();
     await act(async () => { fireEvent.click(agree()); });
     expect(pointsMock.setPosition).not.toHaveBeenCalled();
@@ -114,15 +141,15 @@ describe('R1: feed/stake point card votes', () => {
     expect(agree()).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('a save that never answers does not look saved forever: bounded, then reverted with the needs-internet message', async () => {
+  it('a save that never answers does not look saved forever: bounded, re-read, then reverted with the unresolved message', async () => {
     vi.useFakeTimers();
     pointsMock.setPosition.mockImplementation(() => new Promise(() => {}));
     renderFeedPointCard();
     await act(async () => { fireEvent.click(agree()); });
     expect(agree()).toHaveAttribute('aria-pressed', 'true'); // optimistic, while in flight
-    await act(async () => { await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS + 100); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS + 100 + SETTLE_WINDOW_MS); });
     expect(agree()).toHaveAttribute('aria-pressed', 'false');
-    expect(toastMock.error).toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
+    expect(toastMock.error).toHaveBeenCalledWith(UNRESOLVED_WRITE_MESSAGE);
   });
 
   it('two clicks that both fail leave no vote showing (reverts do not restore an unsaved vote)', async () => {
@@ -348,36 +375,45 @@ import { renderHook } from '@testing-library/react';
 import { useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 describe('R1: removing a vote (guardedRemovePosition confirm)', () => {
+  // P1420: an unanswered write is settled only for the signed-in viewer who made it.
+  beforeEach(() => signInAs('viewer-1'));
+
   const setup = () => {
     const onAfterRemove = vi.fn();
     const hook = renderHook(() => useRemovePositionGuard({ userId: 'viewer-1', onAfterRemove }));
     return { hook, onAfterRemove };
   };
 
-  it('captive portal: the removal never reaches the server → needs-internet message, not removed', async () => {
+  it('captive portal: the removal fails at the network and cannot be confirmed → unresolved message, not removed', async () => {
+    vi.useFakeTimers();
     pointsMock.removePosition.mockImplementation(async () => { recordNetworkFailure(); throw new Error('fetch failed'); });
     const { hook, onAfterRemove } = setup();
     await act(async () => { await hook.result.current.guardedRemovePosition('p1'); });
-    await act(async () => { await hook.result.current.dialogProps.onConfirm(); });
-    expect(toastMock.error).toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
+    act(() => { void hook.result.current.dialogProps.onConfirm(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(SETTLE_WINDOW_MS); });
+    expect(toastMock.error).toHaveBeenCalledWith(UNRESOLVED_WRITE_MESSAGE);
+    expect(toastMock.error).not.toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
     expect(onAfterRemove).not.toHaveBeenCalled();
   });
 
-  it('a removal that never answers is bounded: needs-internet message, spinner stops', async () => {
+  it('a removal that never answers is bounded: spinner stops, then the unresolved message', async () => {
     vi.useFakeTimers();
     pointsMock.removePosition.mockImplementation(() => new Promise(() => {}));
     const { hook, onAfterRemove } = setup();
     await act(async () => { await hook.result.current.guardedRemovePosition('p1'); });
     act(() => { void hook.result.current.dialogProps.onConfirm(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(hook.result.current.dialogProps.isRemoving).toBe(true);
     await act(async () => { await vi.advanceTimersByTimeAsync(WRITE_TIMEOUT_MS + 100); });
     expect(hook.result.current.dialogProps.isRemoving).toBe(false);
-    expect(toastMock.error).toHaveBeenCalledWith(NEEDS_INTERNET_MESSAGE);
+    await act(async () => { await vi.advanceTimersByTimeAsync(SETTLE_WINDOW_MS); });
+    expect(toastMock.error).toHaveBeenCalledWith(UNRESOLVED_WRITE_MESSAGE);
     expect(onAfterRemove).not.toHaveBeenCalled();
   });
 
   it('known unreachable: the removal is not sent', async () => {
     recordNetworkFailure();
+    probeFails();
     const { hook } = setup();
     await act(async () => { await hook.result.current.guardedRemovePosition('p1'); });
     await act(async () => { await hook.result.current.dialogProps.onConfirm(); });

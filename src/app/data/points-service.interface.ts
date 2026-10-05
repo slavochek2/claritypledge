@@ -94,6 +94,13 @@ export interface PointsService {
   getMyPosition(pointId: string, userId: string): Promise<PointPosition | null>;
 
   /**
+   * P1420: the viewer's position as the server has it now, for settling a write whose answer was
+   * lost. Unlike getMyPosition it THROWS when the read fails — null means "no position", never
+   * "could not tell".
+   */
+  readMyPosition(pointId: string, userId: string): Promise<PositionType | null>;
+
+  /**
    * Get all positions on a point with user profiles
    */
   getPositionsForPoint(pointId: string): Promise<PointPositionWithUser[]>;

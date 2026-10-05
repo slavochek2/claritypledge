@@ -180,6 +180,9 @@ export function FeedPage() {
   // request-id since fetchData is also invoked directly (Retry button), not just
   // from the mount effect.
   const fetchIdRef = useRef(0);
+  // P1420: what the rows on screen answer, readable inside fetchData without re-creating it.
+  const dataFetchKeyRef = useRef(dataFetchKey);
+  dataFetchKeyRef.current = dataFetchKey;
 
   // P1075: tag filtering happens server-side now -- both services already implement
   // it (`.contains('tags'/'system_tags', [tag])`), the feed page just never passed
@@ -195,7 +198,12 @@ export function FeedPage() {
     const requestFetchKey = fetchKey;
     const requestGeneration = listReturnCacheGeneration();
     hydratedLinksRef.current = new Set(); // fresh rows get fresh link maps
-    setLoading(true);
+    // P1420: a re-read of the rows already on screen (reconnect, a PUSH to the same URL) refreshes
+    // them IN PLACE. Swapping them for the skeleton unmounted every card — and any dialog open in
+    // one, mid-request — every few seconds on a slow connection. Only a new query (viewer, sort,
+    // tags) shows the skeleton.
+    const refreshInPlace = dataFetchKeyRef.current === requestFetchKey;
+    if (!refreshInPlace) setLoading(true);
     setError(null);
     try {
       const tagFilter = activeTags.length === 1 ? activeTags[0] : undefined;
@@ -205,6 +213,7 @@ export function FeedPage() {
       const r = feedRead(viewerUserId, ascending, tagFilter);
       const read = await readThrough(r.type, r.id, r.fetch, r.options);
       if (isStale()) return;
+      if (refreshInPlace && read.source === 'offline') return; // keep the rows on screen
       const rows = applyRead(read);
       if (!rows) return; // offline, nothing stored: the needs-connection body
       setStories(rows.stories);
@@ -214,7 +223,9 @@ export function FeedPage() {
       dataGenerationRef.current = requestGeneration;
       setDataFetchKey(requestFetchKey);
     } catch {
-      if (!isStale()) setError('Could not load feed. Please try again.');
+      // A failed in-place refresh keeps the rows the reader is using (the strip already says
+      // what they are); only a first load has nothing better to show than the error.
+      if (!isStale() && !refreshInPlace) setError('Could not load feed. Please try again.');
     } finally {
       if (!isStale()) setLoading(false);
     }
