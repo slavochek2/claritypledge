@@ -121,7 +121,8 @@ export function EventDetail() {
   // was never read on this device and the network is unreachable.
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [offlineMiss, setOfflineMiss] = useState(false);
-  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const [slow, setSlow] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt, slow });
   const canWrite = useOnlineWriteGuard(cachedAt !== null);
   const { reconnectTick } = useConnectivity();
   const reconnectKey = cachedAt !== null || offlineMiss ? reconnectTick : 0;
@@ -168,10 +169,21 @@ export function EventDetail() {
             }
           }
           return { eventData, rsvpd };
-        }, { viewerId });
+        }, {
+          viewerId,
+          // P1337: a slow network's late answer replaces the saved copy.
+          onLate: late => {
+            if (cancelled) return;
+            setCachedAt(null);
+            setSlow(false);
+            setEvent(late?.eventData ?? null);
+            setIsRsvpd(late?.rsvpd ?? false);
+          },
+        });
         if (cancelled) return;
         setOfflineMiss(read.source === 'offline');
         setCachedAt(read.source === 'cache' ? read.storedAt : null);
+        setSlow(read.source === 'cache' && !!read.slow);
         const eventData = read.source === 'offline' ? null : (read.data?.eventData ?? null);
         const rsvpd = read.source === 'offline' ? false : (read.data?.rsvpd ?? false);
         // Batch both updates: avoids a flash where RSVPed users on online events

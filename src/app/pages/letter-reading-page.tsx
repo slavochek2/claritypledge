@@ -110,9 +110,10 @@ export function LetterReadingPage() {
   // the offline read cache (partitioned by auth context); offline it reopens read-only from there.
   const [offlineCachedAt, setOfflineCachedAt] = useState<number | null>(null);
   const [offlineMiss, setOfflineMiss] = useState(false);
+  const [offlineSlow, setOfflineSlow] = useState(false);
   const offlineCachedAtRef = useRef<number | null>(null);
   useEffect(() => { offlineCachedAtRef.current = offlineCachedAt; }, [offlineCachedAt]);
-  useOfflinePageReport(offlineCachedAt === null ? null : { kind: 'cached', storedAt: offlineCachedAt });
+  useOfflinePageReport(offlineCachedAt === null ? null : { kind: 'cached', storedAt: offlineCachedAt, slow: offlineSlow });
   const { reconnectTick } = useConnectivity();
   const offlineReconnectKey = offlineCachedAt !== null || offlineMiss ? reconnectTick : 0;
 
@@ -162,6 +163,7 @@ export function LetterReadingPage() {
     setPublicPredictions(new Map((hit.data.predictions ?? []).map(p => [p.story_id, p.prediction])));
     setOfflineMiss(false);
     setOfflineCachedAt(hit.storedAt);
+    setOfflineSlow(false);
     setPageState('ready_public');
   }, [deliveryId]);
 
@@ -238,11 +240,6 @@ export function LetterReadingPage() {
       if (networkFailedSince(mark)) void showOfflineCopy();
       else setSafe(s);
     };
-    /** The one-to-many public read, through the offline cache. */
-    const readPublic = async () => {
-      const r = publicLetterRead(deliveryId);
-      return readThrough(r.type, r.id, r.fetch);
-    };
     const setLetterSafe = (l: ClarityLetter | null) => { if (!cancelled) setLetter(l); };
     const setSnapshotsSafe = (s: LetterStorySnapshot[]) => { if (!cancelled) setSnapshots(s); };
     const setDeliverySafe = (d: LetterDelivery | null) => { if (!cancelled) setDelivery(d); };
@@ -257,6 +254,26 @@ export function LetterReadingPage() {
     ) => {
       const kept = predictionsForMode(mode, preds ?? []);
       if (!cancelled) setPublicPredictions(new Map(kept.map(p => [p.story_id, p.prediction])));
+    };
+    /** The one-to-many public read, through the offline cache. */
+    const readPublic = async () => {
+      const r = publicLetterRead(deliveryId);
+      const read = await readThrough(r.type, r.id, r.fetch, {
+        // P1337: a slow network's late answer replaces the saved copy. A sealed letter's text does
+        // not change, so this is the public reading the live path shows; the strip clears.
+        onLate: late => {
+          if (cancelled || !late?.letter || late.letter.mode !== 'one-to-many') return;
+          if (pageStateRef.current !== 'ready_public') return;
+          setLetter(late.letter as unknown as ClarityLetter);
+          setSnapshots(late.snapshots);
+          setSenderName((late.letter.sender_display_name as string) ?? 'Someone');
+          setPublicPredictionsSafe(late.letter.mode as LetterMode, late.predictions);
+          setOfflineCachedAt(null);
+          setOfflineSlow(false);
+        },
+      });
+      if (!cancelled) setOfflineSlow(read.source === 'cache' && !!read.slow);
+      return read;
     };
 
     const load = async () => {

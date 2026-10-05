@@ -210,6 +210,7 @@ export function LetterRoute() {
     // P856 local aliases first (e.g. /letter/ck), then the RPC (full doc titles only) — both in
     // letterCodeRead, read through the offline cache so a resolved code works offline (P1369).
     const r = letterCodeRead(id);
+    // late: no saved-copy strip here — a resolved code is the same answer late or not.
     readThrough(r.type, r.id, r.fetch).then(
       (read) => {
         if (cancelled) return;

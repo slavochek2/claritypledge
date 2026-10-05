@@ -39,6 +39,7 @@ import {
   isSupabaseUnreachable,
   networkFailedSince,
   networkMark,
+  recordNetworkSuccess,
   recordNetworkTrouble,
   serverTroubleSince,
 } from './network-outcome';
@@ -98,8 +99,18 @@ export const UNCACHED_DEADLINE_MS = 4_500;
 
 export type ReadResult<T> =
   | { source: 'network'; data: T | null }
-  | { source: 'cache'; data: T; storedAt: number }
+  | { source: 'cache'; data: T; storedAt: number; slow?: boolean }
   | { source: 'offline' };
+
+/**
+ * P1337: a cached copy shown only because the network was SLOW (no request failed) is not
+ * "offline" (founder, 2026-10-05: "it says saved copy from 40 minutes ago but the internet
+ * works"). The read keeps waiting in the background, and its own late, complete answer goes to
+ * the page that asked (`ReadOptions.onLate`) — no re-read, so a network that stays slow cannot
+ * turn it into a loop, and the answer keeps that read's place in the page's own ordering. Only an
+ * answer that never comes within SLOW_GIVE_UP_MS counts as unreachable.
+ */
+export const SLOW_GIVE_UP_MS = 15_000;
 
 interface Entry {
   key: string;
@@ -573,7 +584,7 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   ]).finally(() => clearTimeout(timer));
 }
 
-export interface ReadOptions {
+export interface ReadOptions<T = unknown> {
   deadlineMs?: number;
   uncachedDeadlineMs?: number;
   /**
@@ -584,10 +595,22 @@ export interface ReadOptions {
    * mid-flight) is shown and never stored, so it cannot overwrite the owner's own copy.
    */
   viewerId?: string | null;
+  /** How long a read answered from the cache for slowness may stay unanswered before the app
+   * counts as unreachable. Default SLOW_GIVE_UP_MS. */
+  slowGiveUpMs?: number;
+  /**
+   * When this read is answered from the cache for slowness (`{ source: 'cache', slow: true }`),
+   * its own late answer — clean, same viewer, no sign-out meanwhile — is delivered here, so the
+   * page replaces the saved copy with it and the strip clears. `null` is a late "not found"
+   * (deleted, or no longer visible to this viewer): the saved copy is gone, the page shows what
+   * it shows for not found. Never called after a network failure, or when the read was answered
+   * live.
+   */
+  onLate?: (data: T | null) => void;
 }
 
 /** Whether a result fetched for `options.viewerId` may be stored under `owner` (see ReadOptions). */
-function viewerMatchesOwner(owner: string, options: ReadOptions): boolean {
+function viewerMatchesOwner(owner: string, options: ReadOptions<never>): boolean {
   if (!('viewerId' in options)) return true;
   const base = owner.split('|rc:')[0];
   return base === (options.viewerId ? `u:${options.viewerId}` : 'anon');
@@ -609,7 +632,7 @@ export async function readThrough<T>(
   type: OfflineResourceType,
   id: string,
   fetcher: () => Promise<T | null>,
-  options: ReadOptions = {},
+  options: ReadOptions<T> = {},
 ): Promise<ReadResult<T>> {
   // P1420: a read that started before one of the viewer's own writes landed carries the
   // pre-write rows. Whatever it shows or stores gets that write applied, so a slow read can
@@ -626,13 +649,14 @@ async function readThroughInner<T>(
   type: OfflineResourceType,
   id: string,
   fetcher: () => Promise<T | null>,
-  options: ReadOptions,
+  options: ReadOptions<T>,
   patchMark: number,
 ): Promise<ReadResult<T>> {
   const deadlineMs = options.deadlineMs ?? NETWORK_DEADLINE_MS;
   const uncachedDeadlineMs = Math.max(options.uncachedDeadlineMs ?? UNCACHED_DEADLINE_MS, deadlineMs);
   const gen = generation;
   const mark = networkMark();
+  const startedAt = Date.now();
   // The owner is read synchronously here (the identity this read is sent as); only the room-code
   // digest is awaited, and the network request does not wait for it.
   const blocked = isOfflineClearPending(); // a failed sign-out clear: no cached rows at all
@@ -656,13 +680,61 @@ async function readThroughInner<T>(
   /** A request that started during this read never reached the server, or got a 5xx/429/0. */
   const failed = () => networkFailedSince(mark) || serverTroubleSince(mark);
 
-  const storeLate = () => {
-    // A late answer, if it ever arrives complete and clean, still refreshes the cache.
+  /** Set when this read's give-up bound marked the app unreachable (fromCacheSlow). */
+  let gaveUp = false;
+
+  const storeLate = (deliver = false) => {
+    // A late answer, if it ever arrives complete and clean, still refreshes the cache — and, when
+    // the page is showing a copy only because the network was slow, it goes to the page (P1337).
     void fetchP.then(async (o) => {
-      if (!o.ok || o.data == null || failed()) return;
+      if (!o.ok || failed()) {
+        // The page is showing its copy as "updating" and nothing is coming: that is offline after
+        // all (a swallowed 5xx, a failure). Say so, so the strip is honest and the page re-reads on
+        // the next reconnect.
+        if (deliver && gen === generation) recordNetworkTrouble();
+        return;
+      }
+      if (o.data == null && !deliver) return; // a stray late null decides nothing
       const key = await writeKeyP;
-      if (key) void write(key, type, o.data, gen, patchMark);
+      if (gen !== generation) return; // signed out meanwhile: neither stored nor shown
+      // The answer came after this read gave up: the server is reachable after all.
+      if (gaveUp) recordNetworkSuccess();
+      if (key) {
+        // A clean late "not found" (deleted, or no longer visible) removes the saved copy, just
+        // as an on-time one does — but only for a read made as the cache owner (writeKey).
+        if (o.data == null) void store.delete(key).catch(() => undefined);
+        else void write(key, type, o.data, gen, patchMark);
+      }
+      // Same rule as storing: a result fetched for another viewer than the stored session's is
+      // not delivered either (the page has moved on to a different identity).
+      if (!deliver || !options.onLate || !viewerMatchesOwner((await ownerP) ?? '', options)) return;
+      // P1420: the page gets the late rows with the viewer's own writes since this read began
+      // applied, exactly as an on-time answer does — a slow read never brings a removed position back.
+      const owner = await ownerP;
+      const shown = o.data != null && owner ? applyOwnWrites(type, `${owner}|${type}|${id}`, o.data, patchMark) : o.data;
+      try {
+        options.onLate(shown);
+      } catch (err) {
+        console.error('[offline-read-cache] onLate failed:', err);
+      }
     });
+  };
+
+  /** Served from the cache for slowness: unreachable only if no answer comes within the longer bound. */
+  const fromCacheSlow = (cached: Entry): ReadResult<T> => {
+    storeLate(true);
+    let settled = false;
+    const timer = setTimeout(() => {
+      // A timer from before a sign-out never marks the next session unreachable.
+      if (settled || gen !== generation) return;
+      gaveUp = true;
+      recordNetworkTrouble();
+    }, Math.max(0, (options.slowGiveUpMs ?? SLOW_GIVE_UP_MS) - (Date.now() - startedAt))); // from the read's start
+    void fetchP.finally(() => {
+      settled = true;
+      clearTimeout(timer);
+    });
+    return { source: 'cache', data: cached.data as T, storedAt: cached.storedAt, slow: true };
   };
 
   const fromCache = (cached: Entry): ReadResult<T> => {
@@ -679,6 +751,7 @@ async function readThroughInner<T>(
   if (outcome === 'deadline') {
     const cached = await cachedP;
     if (cached) {
+      if (!failed()) return fromCacheSlow(cached);
       storeLate();
       return fromCache(cached);
     }

@@ -56,12 +56,13 @@ test.describe('P602: Accessibility', () => {
 
     const toggle = page.locator('[role="switch"][aria-label="Show latest versions only"]');
     await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    // P1337 (founder, 2026-10-05): lists show the newest versions by default.
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
 
     // Keyboard activate
     await toggle.focus();
     await page.keyboard.press('Space');
-    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
   test('active filter dismiss buttons have descriptive aria-labels', async ({ page }) => {

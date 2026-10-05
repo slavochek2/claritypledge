@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { tolerateIs } from './helpers/tolerate-is';
 import type { PointsService } from '@/app/data/points-service.interface';
 
 /**
@@ -20,7 +21,7 @@ const mockDelete = vi.fn();
 const mockUpsert = vi.fn();
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn(() => ({
-  select: mockSelect,
+  select: (...args: unknown[]) => tolerateIs(mockSelect(...args)),
   insert: mockInsert,
   update: mockUpdate,
   delete: mockDelete,

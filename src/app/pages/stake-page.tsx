@@ -152,7 +152,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
   // P1369 Scope v2: the list reads through the offline cache — cached copy with the strip, or
   // needs-connection, never an endless skeleton.
   const offlineRead = useOfflineReadState();
-  const { apply: applyRead, reconnectKey } = offlineRead;
+  const { apply: applyRead, live: markLive, reconnectKey } = offlineRead;
   // P1212 §5 / P1296 item 2 — the footer counts, batch-fetched per tab exactly as /feed does
   // it. Each map is stored WITH the id set it answers, so a stale map reads as "not loaded"
   // rather than as "none linked" (see linked-content.ts).
@@ -209,38 +209,50 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
       // falls back to the client-side multi-tag filter).
       // P1336: pointsOnly (the preparation's embedded step) reads the points directly — it never
       // asks for stories, and its filtered list never touches /stake's own offline copy.
-      let rows: { points: PointWithUserPosition[]; stories: StoryWithAuthor[] } | null;
+      type Rows = { points: PointWithUserPosition[]; stories: StoryWithAuthor[] };
+      const show = (rows: Rows) => {
+        // P1336: onlyIds lists exactly the session's snapshot of cards; onlyUnstaked keeps the
+        // points the viewer has not taken yet — decided once, at load, so a card does not vanish
+        // the moment it is answered. The cached read stays unfiltered (it is /stake's own copy).
+        const onlySet = onlyIdsKey !== null ? new Set(onlyIdsKey.split(',').filter(Boolean)) : null;
+        setPoints(onlySet
+          ? rows.points.filter(p => onlySet.has(p.id))
+          : onlyUnstaked
+          ? rows.points.filter(p => !p.userPosition && !getAnonPosition(p.id))
+          : rows.points);
+        setStories(rows.stories);
+        dataGenerationRef.current = requestGeneration;
+        setDataFetchKey(requestFetchKey);
+      };
+      let rows: Rows | null;
       if (pointsOnly) {
         const points = await pointsService.getPublicPointsFeed(STAKE_READ_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag), true);
         if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
         rows = { points, stories: [] };
       } else {
         const r = stakeRead(tag, viewerUserId);
-        const read = await readThrough(r.type, r.id, r.fetch, r.options);
+        const read = await readThrough(r.type, r.id, r.fetch, {
+          ...r.options,
+          // P1337: a slow network's late answer replaces the saved copy — unless a newer load ran.
+          onLate: late => {
+            if (rid !== requestIdRef.current || !late) return; // a list never comes back "not found"
+            markLive();
+            show(late);
+          },
+        });
         if (rid !== requestIdRef.current) return; // a slower earlier call resolving late
         if (refreshInPlace && read.source === 'offline') return; // keep the rows on screen
         rows = applyRead(read);
       }
       if (!rows) return; // offline, nothing stored: the needs-connection body
-      // P1336: onlyIds lists exactly the session's snapshot of cards; onlyUnstaked keeps the
-      // points the viewer has not taken yet — decided once, at load, so a card does not vanish
-      // the moment it is answered. The cached read stays unfiltered (it is /stake's own copy).
-      const onlySet = onlyIdsKey !== null ? new Set(onlyIdsKey.split(',').filter(Boolean)) : null;
-      setPoints(onlySet
-        ? rows.points.filter(p => onlySet.has(p.id))
-        : onlyUnstaked
-        ? rows.points.filter(p => !p.userPosition && !getAnonPosition(p.id))
-        : rows.points);
-      setStories(rows.stories);
-      dataGenerationRef.current = requestGeneration;
-      setDataFetchKey(requestFetchKey);
+      show(rows);
     } catch {
       if (rid !== requestIdRef.current) return;
       if (!refreshInPlace) setError('Could not load this list.');
     } finally {
       if (rid === requestIdRef.current) setLoading(false);
     }
-  }, [tag, viewerUserId, applyRead, pointsOnly, onlyUnstaked, onlyIdsKey]);
+  }, [tag, viewerUserId, applyRead, markLive, pointsOnly, onlyUnstaked, onlyIdsKey]);
 
   // AC-9: the ONLY things that refetch are the tag and the viewer. A position
   // change deliberately does NOT appear in any dependency array and no refetch

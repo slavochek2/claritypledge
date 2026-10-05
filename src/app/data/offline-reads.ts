@@ -69,6 +69,10 @@ export interface FeedRows {
   cloudPoints: PointWithUserPosition[];
 }
 
+/** The feed reads every version: its "Latest" switch (on by default, P1337) filters the same rows on
+ * the page, so turning it off needs no refetch. Every other list reads current versions only. */
+const ALL_VERSIONS = false;
+
 /** The feed's first page for one tag filter (or none) and sort. */
 export function feedRead(
   viewerUserId: string | undefined,
@@ -83,15 +87,15 @@ export function feedRead(
       if (tagFilter) {
         const [stories, points, cloudStories, cloudPoints] = await Promise.all([
           storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, tagFilter, ascending),
-          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, tagFilter, viewerUserId, ascending),
+          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, tagFilter, viewerUserId, ascending, undefined, ALL_VERSIONS),
           storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
-          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
+          pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending, undefined, ALL_VERSIONS),
         ]);
         return { stories, points, cloudStories, cloudPoints };
       }
       const [stories, points] = await Promise.all([
         storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
-        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending),
+        pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending, undefined, ALL_VERSIONS),
       ]);
       return { stories, points, cloudStories: stories, cloudPoints: points };
     },

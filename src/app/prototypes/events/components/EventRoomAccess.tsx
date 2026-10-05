@@ -52,7 +52,8 @@ export function useEventRoomAccess(): EventRoomAccess {
   // P1369 Scope v2: the last-seen access (event + registration) is kept offline, per viewer.
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [offline, setOffline] = useState(false);
-  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const [slow, setSlow] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt, slow });
   const { reconnectTick } = useConnectivity();
   const reconnectKey = cachedAt !== null || offline ? reconnectTick : 0;
 
@@ -79,7 +80,17 @@ export function useEventRoomAccess(): EventRoomAccess {
           }
         }
         return { event: found, registered };
-      }, { viewerId: userId });
+      }, {
+        viewerId: userId,
+        // P1337: a slow network's late answer replaces the saved copy.
+        onLate: late => {
+          if (cancelled) return;
+          setCachedAt(null);
+          setSlow(false);
+          setEvent(late?.event ?? null);
+          setIsRegistered(late?.registered ?? false);
+        },
+      });
       if (cancelled) return;
       if (read.source === 'offline') {
         setOffline(true);
@@ -89,6 +100,7 @@ export function useEventRoomAccess(): EventRoomAccess {
       }
       setOffline(false);
       setCachedAt(read.source === 'cache' ? read.storedAt : null);
+      setSlow(read.source === 'cache' && !!read.slow);
       setEvent(read.data?.event ?? null);
       setIsRegistered(read.data?.registered ?? false);
       setLoading(false);
@@ -142,7 +154,8 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
   const startedKeyRef = useRef<string | null>(null);
   // P1369: storedAt of a last-seen row on screen (null = live), reported to the strip.
   const [selfCachedAt, setSelfCachedAt] = useState<number | null>(null);
-  useOfflinePageReport(selfCachedAt === null ? null : { kind: 'cached', storedAt: selfCachedAt });
+  const [selfSlow, setSelfSlow] = useState(false);
+  useOfflinePageReport(selfCachedAt === null ? null : { kind: 'cached', storedAt: selfCachedAt, slow: selfSlow });
 
   /**
    * Ordering of `self` (2026-09-18 adversarial review, three rounds). The room page refreshes
@@ -180,14 +193,27 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     // P1369 Scope v2: the last-seen row is kept offline; offline, no join is attempted.
     const read = await readThrough('event-self', event.id, () => getMyRoomStatus(event.id), {
       viewerId: viewerId === '-' ? null : viewerId,
+      // P1337: a slow network's late answer replaces the saved copy, under THIS read's ticket —
+      // so a write that resolved meanwhile still wins (rule 1 above).
+      onLate: late => {
+        if (!late || late.eventId !== eventIdRef.current) return; // a missing row: the room's next refresh rejoins
+        // It replaces the cached row THIS read applied — only if nothing newer (a write, a later
+        // read) has been applied since; `offer` would refuse it as the same ticket.
+        if (appliedRef.current !== ticket) return;
+        setSelf(late);
+        setSelfCachedAt(null);
+        setSelfSlow(false);
+      },
     });
     if (read.source === 'offline') return false;
     if (read.source === 'cache') {
       offer(ticket, read.data);
       setSelfCachedAt(read.storedAt);
+      setSelfSlow(!!read.slow);
       return false; // not reconciled with the server
     }
     setSelfCachedAt(null);
+    setSelfSlow(false);
     const status = read.data;
     if (status) {
       offer(ticket, status);

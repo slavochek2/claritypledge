@@ -332,8 +332,35 @@ button on the left, the room on the right.
    on the round's tag, everyone else watches; swap-off rounds assign no starter (pair mark, "You
    two decide who starts").
 10. *Setup row — revised after founder feedback:* no "Ready 7" (people don't think in numbers or
-    "ready"), no second microphone indicator (the top bar already shows it). Pending founder pick:
-    transcription started/stopped from the room itself vs a link back to the start screen.
+    "ready"), no second microphone indicator (the top bar already shows it). **Founder pick
+    (2026-10-05):** transcription is started from the room itself — in the event room only, the top
+    transcription banner gains an idle state with a quiet "Transcribe" button; the tap is the
+    consent tap and reuses the start screen's start logic; while running it is today's banner.
+    Outside the event room nothing changes. The opt-in reads as one quiet line, "Opted in · Change".
+
+**Built (walkthrough 6):**
+- *1 — start never hangs:* every host save is bounded at 15 s; a lost answer is checked against the
+  server (`roundExists`) before "That didn't save. Try again."; "Grouping…" then "Saving…"; the
+  start lock reads "Round N started". `e2e/p1337-start-hang.spec.ts`.
+- *2 — offline strip:* slow is not offline. A read past its 4 s deadline with no failed request shows
+  its saved copy as "Saved copy · updating…" and its own late answer replaces it (`readThrough`
+  `onLate`, per page; no re-read, so a network that stays slow cannot loop). Unanswered after 15 s
+  from the read's start, or answered with a failure → "Offline · saved copy from X" as before. A
+  late "not found" removes the copy. Reviewed by Codex (two rounds), an Opus agent and Gemini 3.8
+  Flash — 3 of 3 reported in round 1; the first design (a shared store of late answers plus a
+  re-read) was rejected by all three (loops, stale data shown as live) and replaced; round 2's five
+  findings fixed. Tests: `src/tests/p1337-offline-slow-read.test.ts`,
+  `p1337-offline-late-answer-page.test.tsx`; P1369 tests whose premise was "deadline = offline"
+  updated to the new contract.
+- *3 — newest versions everywhere (policy):* every statement list reads current versions through
+  `currentVersionsOnly` (`src/app/data/point-versions.ts`) — in the query, never after `.range()`.
+  Named exceptions, each marked `// versions:` on the query: one statement by id or slug (an old
+  version still opens, with P800's newer-version banner), writes, the version chain, positions that
+  stay with the version they were given on (a profile's positions, badges), and the feed, whose
+  "Latest" switch is now **on by default** (`?version=all` turns it off; old `?version=latest` links
+  land on the default) and hides a point with a newer version (`supersededBy`) rather than grouping
+  by st number. Drift guard: `src/tests/p1337-current-versions-guard.test.ts` (also requires every
+  offline read to take its late answer). This revises decisions.md 2026-09-30 (P1376) for /feed.
 
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding

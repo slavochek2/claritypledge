@@ -15,6 +15,7 @@ import type {
   PositionType,
   ContentVisibility,
 } from '@/app/types';
+import { currentVersionsOnly } from './point-versions';
 import { supabase } from '@/lib/supabase';
 import { isSystemTag } from '@/lib/feed-utils';
 import { logDbError, throwDbError } from './db-error-logger';
@@ -205,6 +206,7 @@ export const realPointsService: PointsService = {
     }
 
     const { data, error } = await supabase
+      // versions: all — a write
       .from('points')
       .insert({
         statement,
@@ -244,6 +246,7 @@ export const realPointsService: PointsService = {
     log(' getPoint:', pointId);
 
     const { data, error } = await supabase
+      // versions: all — one statement by id (an old version opens with its newer-version banner)
       .from('points')
       .select(
         `
@@ -304,10 +307,11 @@ export const realPointsService: PointsService = {
   async getPointsByValidator(validatorId: string): Promise<PointWithCreator[]> {
     log(' getPointsByValidator:', validatorId);
 
-    const { data, error } = await supabase
-      .from('points')
-      .select(
-        `
+    const { data, error } = await currentVersionsOnly(
+      supabase
+        .from('points')
+        .select(
+          `
         *,
         creator:profiles!points_first_validator_id_fkey (
           id,
@@ -317,7 +321,8 @@ export const realPointsService: PointsService = {
           avatar_url
         )
       `
-      )
+        ),
+    )
       .eq('first_validator_id', validatorId)
       .eq('visibility', 'public')  // P634: never leak private points
       .order('created_at', { ascending: false });
@@ -333,7 +338,8 @@ export const realPointsService: PointsService = {
   async getPointsFeed(limit: number, offset: number): Promise<PointWithCounts[]> {
     log(' getPointsFeed:', { limit, offset });
 
-    const { data, error } = await supabase
+    const { data, error } = await currentVersionsOnly(
+      supabase
       .from('points')
       .select(
         `
@@ -346,7 +352,8 @@ export const realPointsService: PointsService = {
           avatar_url
         )
       `
-      )
+      ),
+    )
       .eq('visibility', 'public')  // Defense-in-depth: feed never shows private points
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -525,6 +532,7 @@ export const realPointsService: PointsService = {
 
     // 2. Fetch the point rows with creator profiles (single query, IN clause)
     const { data: pointRows, error: pointsError } = await supabase
+      // versions: all — positions stay with the version they were given on
       .from('points')
       .select(`
         *,
@@ -680,6 +688,7 @@ export const realPointsService: PointsService = {
     // P634: Always filter to public points on profile — even when viewer is the owner.
     // Private points should never appear in profile context.
     const { data: pointRows, error: pointsError } = await supabase
+      // versions: all — a profile's positions stay with the version they were given on (P800, 2026-09-30)
       .from('points')
       .select(`
         *,
@@ -777,6 +786,7 @@ export const realPointsService: PointsService = {
     log('⚡ getPublicPointsFeed:', { limit, offset, tag, viewerUserId, includeUnstaked, headsOnly });
 
     let query = supabase
+      // versions: current unless the caller passes headsOnly=false (the feed's Latest switch) — see below
       .from('points')
       .select(`
         *,
@@ -790,9 +800,10 @@ export const realPointsService: PointsService = {
       `)
       .eq('visibility', 'public');  // P634: never leak private points into feed
 
-    // P1376: heads only, IN the query. Superseded rows are the oldest, so filtering after
-    // `.range()` would let them fill the window before a head is ever reached.
-    if (headsOnly) query = query.is('superseded_by', null);
+    // P1376/P1337: current versions only, IN the query — the default. Superseded rows are the
+    // oldest, so filtering after `.range()` would let them fill the window before a head is ever
+    // reached. Only the feed opts out: its "Latest" switch filters the same rows on the page.
+    if (headsOnly !== false) query = currentVersionsOnly(query);
 
     if (tag) {
       // P630: Route system tag filters to system_tags column, user tags to tags
@@ -978,7 +989,8 @@ export async function getChainHead(
 
   while (hops < MAX_HOPS) {
     const { data, error } = await client
-      .from('points')
+      // versions: all — the version chain itself
+    .from('points')
       .select('id, superseded_by')
       .eq('id', currentId)
       .maybeSingle();
@@ -1010,7 +1022,8 @@ export async function getVersionChain(
   let backHops = 0;
   while (searchId !== null && backHops < MAX_HOPS) {
     const { data: rows } = await client
-      .from('points')
+      // versions: all — the version chain itself
+    .from('points')
       .select('id, superseded_by, statement, created_at')
       .eq('superseded_by', searchId)
       .limit(1);
@@ -1023,6 +1036,7 @@ export async function getVersionChain(
 
   // Fetch current point
   const { data: currentRows } = await client
+    // versions: all — the version chain itself
     .from('points')
     .select('id, superseded_by, statement, created_at')
     .eq('id', pointId)
@@ -1037,7 +1051,8 @@ export async function getVersionChain(
   let fwdHops = 0;
   while (nextId !== null && fwdHops < MAX_HOPS) {
     const { data: nextRows } = await client
-      .from('points')
+      // versions: all — the version chain itself
+    .from('points')
       .select('id, superseded_by, statement, created_at')
       .eq('id', nextId)
       .limit(1);
@@ -1069,6 +1084,7 @@ export async function resolvePointSlug(slug: string): Promise<string | null> {
 
   // P630: Query system_tags instead of tags for st-group lookup
   const { data, error } = await supabase
+    // versions: all — resolves one statement and picks its newest version below
     .from('points')
     .select('id, system_tags')
     .contains('system_tags', [stTag]);

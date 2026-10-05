@@ -20,7 +20,8 @@ import type { ReadResult } from '@/lib/offline-read-cache';
 export function useOfflineReadState() {
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [offlineMiss, setOfflineMiss] = useState(false);
-  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const [slow, setSlow] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt, slow });
   const { reconnectTick } = useConnectivity();
   const reconnectKey = cachedAt !== null || offlineMiss ? reconnectTick : 0;
 
@@ -31,14 +32,23 @@ export function useOfflineReadState() {
     }
     setOfflineMiss(false);
     setCachedAt(read.source === 'cache' ? read.storedAt : null);
+    setSlow(read.source === 'cache' && !!read.slow);
     return read.data;
+  }, []);
+
+  /** The page put a slow read's late answer on screen (readThrough `onLate`): it is live now. */
+  const live = useCallback(() => {
+    setOfflineMiss(false);
+    setCachedAt(null);
+    setSlow(false);
   }, []);
 
   /** Forget the offline state (a restore from the in-memory Back cache is live data). */
   const reset = useCallback(() => {
     setOfflineMiss(false);
     setCachedAt(null);
+    setSlow(false);
   }, []);
 
-  return { cachedAt, offlineMiss, reconnectKey, apply, reset };
+  return { cachedAt, offlineMiss, reconnectKey, apply, live, reset };
 }

@@ -144,14 +144,18 @@ describe('P1376 — /stake/:tag shows heads only', () => {
     expect(cardTexts()).toEqual(['head A', 'head B']);
   });
 
-  it('/feed behaviour is unchanged: the service still returns superseded rows unless asked for heads only', async () => {
+  // P1337 (founder, 2026-10-05): current versions are now the service's DEFAULT; only the feed
+  // asks for every version (its "Latest" switch filters them on the page).
+  it('the service returns current versions by default, and superseded rows only when asked (the feed)', async () => {
     const v2 = point('st1 v2 wording', { systemTags: ['misunderstanding', 'st1', 'v2'] });
     const v1 = point('st1 v1 wording', { systemTags: ['misunderstanding', 'st1', 'v1'], supersededBy: v2.id as string });
     db.tables.points = [v1, v2];
     db.tables.point_positions = [stake(v1.id as string), stake(v2.id as string)];
 
-    const rows = await realPointsService.getPublicPointsFeed(50, 0, 'misunderstanding', undefined, true);
-    expect(rows.map(r => r.statement).sort()).toEqual(['st1 v1 wording', 'st1 v2 wording']);
+    const current = await realPointsService.getPublicPointsFeed(50, 0, 'misunderstanding', undefined, true);
+    expect(current.map(r => r.statement)).toEqual(['st1 v2 wording']);
+    const all = await realPointsService.getPublicPointsFeed(50, 0, 'misunderstanding', undefined, true, undefined, false);
+    expect(all.map(r => r.statement).sort()).toEqual(['st1 v1 wording', 'st1 v2 wording']);
   });
 });
 

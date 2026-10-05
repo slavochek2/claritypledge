@@ -94,7 +94,8 @@ export function PointDetailPage() {
   const [retryKey, setRetryKey] = useState(0);
   // P1369: storedAt of the offline copy on screen (null = live data), reported to the strip.
   const [cachedAt, setCachedAt] = useState<number | null>(null);
-  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt });
+  const [slow, setSlow] = useState(false);
+  useOfflinePageReport(cachedAt === null ? null : { kind: 'cached', storedAt: cachedAt, slow });
   const canWrite = useOnlineWriteGuard(cachedAt !== null);
   const { reconnectTick } = useConnectivity();
   // P502: Anonymous position state — visual only, no count adjustment
@@ -142,6 +143,7 @@ export function PointDetailPage() {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       let pointId: string | null = id;
       if (!isUuid) {
+        // late: resolves to an id and redirects; the page's own read below carries the strip.
         const slug = await readThrough('point-slug', id, () => resolvePointSlug(id));
         if (cancelled) return;
         if (slug.source === 'offline') {
@@ -170,7 +172,21 @@ export function PointDetailPage() {
         // owner (viewerId), never keyed by `user` — null until the profile loads, so an offline
         // reload (profile never loads) would look under another key and miss.
         const resolvedId = pointId;
-        const read = await readThrough('point', resolvedId, async () => {
+        type Bundle = {
+          pointData: PointWithUserPosition | PointWithCounts;
+          positionData: Awaited<ReturnType<typeof pointsService.getPositionsForPoint>>;
+          storiesData: Map<string, StoryWithAuthor[]>;
+          viewerStoryData: AppStory | null;
+        };
+        const show = ({ pointData, positionData, storiesData, viewerStoryData }: Bundle) => {
+          setPoint(pointData);
+          setPositions(positionData);
+          setLinkedStories(storiesData);
+          setViewerStory(viewerStoryData);
+          // The bundle's own answer, including "no position" (removed on another device).
+          if (user?.id) setUserPosition((pointData as PointWithUserPosition).userPosition?.position ?? null);
+        };
+        const read = await readThrough('point', resolvedId, async (): Promise<Bundle | null> => {
           const [pointData, positionData, storiesData, viewerStoryData] = await Promise.all([
             user?.id
               ? pointsService.getPointWithUserPosition(resolvedId, user.id)
@@ -182,7 +198,17 @@ export function PointDetailPage() {
               : Promise.resolve(null),
           ]);
           return pointData ? { pointData, positionData, storiesData, viewerStoryData } : null;
-        }, { viewerId: user?.id ?? null });
+        }, {
+          viewerId: user?.id ?? null,
+          // P1337: a slow network's late answer replaces the saved copy.
+          onLate: late => {
+            if (cancelled) return;
+            setCachedAt(null);
+            setSlow(false);
+            if (late) show(late);
+            else setError('not_found'); // deleted, or no longer visible
+          },
+        });
         if (cancelled) return;
 
         if (read.source === 'offline') {
@@ -195,18 +221,10 @@ export function PointDetailPage() {
           setLoading(false);
           return;
         }
-        const { pointData, positionData, storiesData, viewerStoryData } = read.data;
         setError(null);
         setCachedAt(read.source === 'cache' ? read.storedAt : null);
-
-        setPoint(pointData);
-        setPositions(positionData);
-        setLinkedStories(storiesData);
-        setViewerStory(viewerStoryData);
-        if (user?.id && (pointData as PointWithUserPosition).userPosition) {
-          const up = (pointData as PointWithUserPosition).userPosition;
-          if (up) setUserPosition(up.position);
-        }
+        setSlow(read.source === 'cache' && !!read.slow);
+        show(read.data);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;

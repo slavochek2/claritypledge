@@ -15,7 +15,7 @@ import { HomeSideRail, HomeTopBlock } from '@/app/components/feed/home-side-rail
 import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { PinnedStory, PINNED_STORY_SLUG } from '@/app/components/feed/pinned-story';
 import { storiesService } from '@/app/data/stories-service';
-import { feedRead } from '@/app/data/offline-reads';
+import { feedRead, type FeedRows } from '@/app/data/offline-reads';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useOfflineReadState } from '@/app/hooks/use-offline-read-state';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
@@ -25,7 +25,7 @@ import { FeedPointCard } from '@/app/components/feed/feed-point-card';
 import { FeedSkeleton } from '@/app/components/feed/feed-skeleton';
 import { SEO } from '@/app/components/seo';
 import { analytics } from '@/lib/mixpanel';
-import { parseTags, serializeTags, filterByTags, collapseToLatest, orderBySequence, isSystemTag } from '@/lib/feed-utils';
+import { parseTags, serializeTags, filterByTags, orderBySequence, isSystemTag } from '@/lib/feed-utils';
 import type { StoryWithAuthor, PointWithUserPosition, PositionType, PointSummary } from '@/app/types';
 import { linkKeyFor, linksFor, type LinkedContentState } from '@/lib/linked-content';
 import { groupBySource } from '@/lib/group-by-source';
@@ -110,7 +110,9 @@ export function FeedPage() {
   // P1392: Stories is the default tab; Points needs ?tab=points.
   const activeTab: FeedTab = tabParam === 'points' ? 'points' : 'stories';
   const ascending = searchParams.get('sort') === 'oldest';
-  const versionLatest = searchParams.get('version') === 'latest';
+  // P1337: newest versions by default; `?version=all` shows earlier wordings. Old links carrying
+  // `?version=latest` still land on the same view.
+  const versionLatest = searchParams.get('version') !== 'all';
 
   // P1364 §5 — a POP (Back, browser back/forward) returns to the list exactly as the reader left
   // it, from the in-memory cache, with no refetch and no spinner. Any other arrival fetches.
@@ -143,7 +145,7 @@ export function FeedPage() {
   // P1369 Scope v2: the first page reads through the offline cache (strip + cached copy, or
   // needs-connection — never an endless skeleton).
   const offlineRead = useOfflineReadState();
-  const { apply: applyRead, reconnectKey } = offlineRead;
+  const { apply: applyRead, live: markLive, reconnectKey } = offlineRead;
 
   // What the list's data was fetched FOR (viewer, sort, tags). The cache is written only when the
   // data on screen answers the current URL — never old rows under a new tag's key mid-fetch.
@@ -211,17 +213,28 @@ export function FeedPage() {
       // BR-8: tag cloud stays computed from ALL public content — with a tag filter active, the
       // read (offline-reads.ts feedRead) fetches the unfiltered set alongside, concurrently.
       const r = feedRead(viewerUserId, ascending, tagFilter);
-      const read = await readThrough(r.type, r.id, r.fetch, r.options);
+      const show = (rows: FeedRows) => {
+        setStories(rows.stories);
+        setPoints(rows.points);
+        setCloudStories(rows.cloudStories);
+        setCloudPoints(rows.cloudPoints);
+        dataGenerationRef.current = requestGeneration;
+        setDataFetchKey(requestFetchKey);
+      };
+      const read = await readThrough(r.type, r.id, r.fetch, {
+        ...r.options,
+        // P1337: a slow network's late answer replaces the saved copy — unless a newer load ran.
+        onLate: late => {
+          if (isStale() || !late) return; // a list never comes back "not found"
+          markLive();
+          show(late);
+        },
+      });
       if (isStale()) return;
       if (refreshInPlace && read.source === 'offline') return; // keep the rows on screen
       const rows = applyRead(read);
       if (!rows) return; // offline, nothing stored: the needs-connection body
-      setStories(rows.stories);
-      setPoints(rows.points);
-      setCloudStories(rows.cloudStories);
-      setCloudPoints(rows.cloudPoints);
-      dataGenerationRef.current = requestGeneration;
-      setDataFetchKey(requestFetchKey);
+      show(rows);
     } catch {
       // A failed in-place refresh keeps the rows the reader is using (the strip already says
       // what they are); only a first load has nothing better to show than the error.
@@ -229,7 +242,7 @@ export function FeedPage() {
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [viewerUserId, ascending, activeTags, fetchKey, applyRead]);
+  }, [viewerUserId, ascending, activeTags, fetchKey, applyRead, markLive]);
 
   // P1212 §5 — point<->story links for the expanders, in ONE query per tab.
   //
@@ -418,11 +431,11 @@ export function FeedPage() {
 
   const filteredPoints = useMemo(() => {
     let result = filterByTags(points, activeTags);
-    if (versionLatest) {
-      result = collapseToLatest(result);
-    } else if (activeTags.length === 1 && isSystemTag(activeTags[0])) {
-      result = orderBySequence(result);
-    }
+    // P1337: "Latest" hides a point that has a newer version — the same rule as every other
+    // list (point-versions.ts). Not st-number grouping: with no tag selected, st1 of one set and
+    // st1 of another are different statements.
+    if (versionLatest) result = result.filter(p => !p.supersededBy);
+    if (activeTags.length === 1 && isSystemTag(activeTags[0])) result = orderBySequence(result);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(p => p.statement.toLowerCase().includes(q));
@@ -490,9 +503,9 @@ export function FeedPage() {
   const handleVersionToggle = () => {
     const params = new URLSearchParams(searchParams);
     if (versionLatest) {
-      params.delete('version');
+      params.set('version', 'all');
     } else {
-      params.set('version', 'latest');
+      params.delete('version');
     }
     analytics.track('feed_version_toggled', { version: versionLatest ? 'all' : 'latest' });
     setSearchParams(params, { replace: true }); // P1364 §6

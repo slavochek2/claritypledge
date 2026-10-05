@@ -7,6 +7,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { throwDbError } from './db-error-logger';
+import { currentVersionsOnly } from './point-versions';
 import type { PositionKey } from '@/lib/compare-positions';
 
 const TAG_PATTERN = /^[a-z0-9][a-z0-9_-]{0,49}$/;
@@ -22,13 +23,12 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-/** Public points carrying `tag` (user or system tag), oldest first. Invalid tag → []. */
+/** Public points carrying `tag` (user or system tag), current versions only, oldest first.
+ * Invalid tag → []. */
 export async function getTagStatements(tag: string): Promise<{ id: string; statement: string }[]> {
   if (!TAG_PATTERN.test(tag)) return [];
 
-  const { data, error } = await supabase
-    .from('points')
-    .select('id, statement')
+  const { data, error } = await currentVersionsOnly(supabase.from('points').select('id, statement'))
     .eq('visibility', 'public')
     .or(`tags.cs.{${tag}},system_tags.cs.{${tag}}`)
     .order('created_at', { ascending: true });
@@ -85,13 +85,14 @@ async function getPositionedPointIds(userId: string): Promise<Set<string>> {
   }
 }
 
-/** Tags on these public points, with how many carry each. Version tags (v1, v2…) are not a set
- * anyone compares on. Most first, then A-Z. */
+/** Tags on these public points (current versions — the compare view lists no earlier wording),
+ * with how many carry each. Version tags (v1, v2…) are not a set anyone compares on. Most first,
+ * then A-Z. */
 async function tagCounts(pointIds: string[], context: string): Promise<{ tag: string; count: number }[]> {
   if (pointIds.length === 0) return [];
   const pages = await Promise.all(
     chunk(pointIds, IN_CHUNK).map(ids =>
-      supabase.from('points').select('tags, system_tags').in('id', ids).eq('visibility', 'public'),
+      currentVersionsOnly(supabase.from('points').select('tags, system_tags')).in('id', ids).eq('visibility', 'public'),
     ),
   );
 

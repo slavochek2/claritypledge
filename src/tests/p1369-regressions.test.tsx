@@ -124,11 +124,15 @@ describe('defect 2: an uncached read on a silently hanging network', () => {
 });
 
 describe('defect 9: a deadline-served answer is network trouble', () => {
-  it('after a cache served by the deadline, the app counts as unreachable until the next success (which is the reconnect)', async () => {
+  // P1337 (founder, 2026-10-05): slow is not offline. A cache served by the deadline counts as
+  // unreachable only once the read stays unanswered past the longer bound (slowGiveUpMs).
+  it('after a cache served by the deadline and left unanswered, the app counts as unreachable until the next success (which is the reconnect)', async () => {
     await seed('story', 's1', { v: 1 });
     expect(isSupabaseUnreachable()).toBe(false);
-    const r = await readThrough('story', 's1', () => new Promise(() => {}), { deadlineMs: 10 });
+    const r = await readThrough('story', 's1', () => new Promise(() => {}), { deadlineMs: 10, slowGiveUpMs: 30 });
     expect(r.source).toBe('cache');
+    expect(isSupabaseUnreachable()).toBe(false);
+    await new Promise((res) => setTimeout(res, 60));
     expect(isSupabaseUnreachable()).toBe(true);
     recordNetworkSuccess();
     expect(isSupabaseUnreachable()).toBe(false);

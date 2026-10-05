@@ -49,7 +49,7 @@ export function OrgDirectoryPage() {
   // P1369 Scope v2: read through the offline cache — the directory as last seen, with the strip,
   // or needs-connection; never an endless loader. The cache partition is the viewer's own.
   const offlineRead = useOfflineReadState();
-  const { apply: applyRead, reconnectKey } = offlineRead;
+  const { apply: applyRead, live: markLive, reconnectKey } = offlineRead;
 
   useEffect(() => {
     let cancelled = false;
@@ -57,16 +57,26 @@ export function OrgDirectoryPage() {
     async function load() {
       try {
         const r = groupsRead();
-        const read = await readThrough(r.type, r.id, r.fetch);
+        const show = (dir: NonNullable<Awaited<ReturnType<typeof r.fetch>>>) => {
+          setLoadError(false);
+          setOrgs(dir.orgs);
+          setMemberCounts(dir.memberCounts);
+          setParticipation(dir.participation);
+          setMyOrgIds(new Set(dir.myOrgIds));
+          setEventSummaries(dir.eventSummaries);
+        };
+        const read = await readThrough(r.type, r.id, r.fetch, {
+          // P1337: a slow network's late answer replaces the saved copy.
+          onLate: late => {
+            if (cancelled || !late) return; // the directory never comes back "not found"
+            markLive();
+            show(late);
+          },
+        });
         if (cancelled) return;
         const dir = applyRead(read);
         if (!dir) return;
-        setLoadError(false);
-        setOrgs(dir.orgs);
-        setMemberCounts(dir.memberCounts);
-        setParticipation(dir.participation);
-        setMyOrgIds(new Set(dir.myOrgIds));
-        setEventSummaries(dir.eventSummaries);
+        show(dir);
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to load organizations", err);
@@ -79,7 +89,7 @@ export function OrgDirectoryPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [reconnectKey, applyRead]);
+  }, [reconnectKey, applyRead, markLive]);
 
   if (!loading && offlineRead.offlineMiss) {
     return <NeedsConnection />;

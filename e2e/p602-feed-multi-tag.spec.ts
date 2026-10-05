@@ -101,26 +101,32 @@ test.describe('P602: Multi-Tag Selection', () => {
 });
 
 test.describe('P602: Version Filter', () => {
-  test('version toggle adds/removes ?version=latest in URL', async ({ page }) => {
+  // P1337 (founder, 2026-10-05): every list shows the newest versions by default; the switch turns
+  // that off (?version=all). Old links carrying ?version=latest still open the default view.
+  test('version toggle: on by default, ?version=all turns it off', async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForSelector('[role="tabpanel"]');
 
     // Find version toggle
     const toggle = page.locator('[role="switch"][aria-label="Show latest versions only"]');
 
-    // Initially OFF
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    // Initially ON, with no parameter
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(page.url()).not.toContain('version=');
 
-    // Click to enable
+    // Click to show every version
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expect(page).toHaveURL(/version=all/);
+
+    // Click to return to the default
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(page.url()).toContain('version=latest');
+    await expect(page).not.toHaveURL(/version=/);
 
-    // Click to disable
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(page.url()).not.toContain('version=');
+    // An old link still lands on the default view
+    await page.goto(`${BASE_URL}?version=latest`);
+    await expect(page.locator('[role="switch"][aria-label="Show latest versions only"]')).toHaveAttribute('aria-checked', 'true');
   });
 
   test('version toggle hidden on Stories tab', async ({ page }) => {

@@ -609,12 +609,16 @@ export function StoryDetailPage() {
   // reported to the offline strip, which shows the OLDEST age on the page.
   const [storyCachedAt, setStoryCachedAt] = useState<number | null>(null);
   const [extrasCachedAt, setExtrasCachedAt] = useState<number | null>(null);
+  // P1337: whether each copy is on screen only because the network was slow.
+  const [storySlow, setStorySlow] = useState(false);
+  const [extrasSlow, setExtrasSlow] = useState(false);
   const { offline, reconnectTick } = useConnectivity();
   const pageCachedAt =
     storyCachedAt === null && extrasCachedAt === null
       ? null
       : Math.min(storyCachedAt ?? Infinity, extrasCachedAt ?? Infinity);
-  useOfflinePageReport(pageCachedAt === null ? null : { kind: 'cached', storedAt: pageCachedAt });
+  const pageSlow = (storyCachedAt === null || storySlow) && (extrasCachedAt === null || extrasSlow);
+  useOfflinePageReport(pageCachedAt === null ? null : { kind: 'cached', storedAt: pageCachedAt, slow: pageSlow });
   const canWrite = useOnlineWriteGuard(pageCachedAt !== null);
   // Waiting for auth is how the page knows the viewer before it reads. Offline with an expired
   // token, auth sits ~25 s retrying the refresh — so once a request has failed, read without it
@@ -700,6 +704,7 @@ export function StoryDetailPage() {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       let storyId: string | null = id;
       if (!isUuid) {
+        // late: resolves to an id and redirects; the page's own read below carries the strip.
         const slug = await readThrough('story-slug', id, () => resolveStorySlug(id));
         if (cancelled) return;
         if (slug.source === 'offline') {
@@ -734,7 +739,81 @@ export function StoryDetailPage() {
 
       try {
         // P1369: network first; the offline read cache answers only when the network did not.
-        const read = await readThrough('story', storyId, () => storiesService.getStoryWithPoints(storyId));
+        let shownPointIds = '';
+        // P132: position data and linked stories for the story's linked points. A function so a
+        // late story answer with different points (P1337) fetches the extras that match it.
+        const loadExtras = async (data: StoryWithPoints) => {
+        if (data.points.length > 0) {
+          try {
+            const pointIds = data.points.map(p => p.id);
+            const viewerIsAuthor = user?.id === data.authorId;
+
+            // Batch fetch position data + other stories for each point. P1369: read through the
+            // offline cache too, so an offline copy shows the counts that were last seen.
+            type Extras = {
+              counts: Map<string, Record<PositionType, number>>;
+              positions: Map<string, PointPosition>;
+              authorPositions: Map<string, PointPosition>;
+              linkedStories: Awaited<ReturnType<typeof storiesService.getStoriesForPoints>>;
+            };
+            const showExtras = ({ counts, positions, authorPositions, linkedStories }: Extras) => {
+              setPositionCounts(counts);
+              setUserPositions(positions);
+              // If viewer is the author, reuse viewer positions to avoid redundant state
+              setStoryAuthorPositions(viewerIsAuthor ? positions : authorPositions);
+              setLinkedStoriesForPoints(linkedStories);
+            };
+            const extras = await readThrough('story-extras', data.id, async (): Promise<Extras> => {
+              const [counts, positions, authorPositions, linkedStories] = await Promise.all([
+                pointsService.getPositionCountsForPoints(pointIds),
+                user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map<string, PointPosition>()),
+                // Always fetch story author's positions for display badges (independent of viewer)
+                pointsService.getMyPositionsForPoints(pointIds, data.authorId),
+                // Fetch other public stories these points appear in (exclude current story)
+                storiesService.getStoriesForPoints(pointIds, data.id),
+              ]);
+              return { counts, positions, authorPositions, linkedStories };
+            }, {
+              viewerId: user?.id ?? null,
+              // P1337: a slow network's late answer replaces the saved copy.
+              onLate: late => {
+                if (cancelled || !late) return;
+                showExtras(late);
+                setExtrasCachedAt(null);
+                setExtrasSlow(false);
+              },
+            });
+            if (cancelled || extras.source === 'offline' || !extras.data) return;
+            setExtrasCachedAt(extras.source === 'cache' ? extras.storedAt : null);
+            setExtrasSlow(extras.source === 'cache' && !!extras.slow);
+            showExtras(extras.data);
+          } catch (err) {
+            console.error('Error loading position data:', err);
+            // Non-fatal - show story without position data
+          }
+        } else {
+          // No linked points: no extras, and no saved copy of them on screen.
+          setExtrasCachedAt(null);
+          setExtrasSlow(false);
+        }
+        };
+
+        const read = await readThrough('story', storyId, () => storiesService.getStoryWithPoints(storyId), {
+          // P1337: a slow network's late answer replaces the saved copy.
+          onLate: late => {
+            if (cancelled) return;
+            setStoryCachedAt(null);
+            setStorySlow(false);
+            if (!late) {
+              setError('not_found'); // deleted, or no longer visible
+              return;
+            }
+            const before = shownPointIds;
+            setStory(late);
+            // The extras follow the story's points: re-read them when the late story's differ.
+            if (late.points.map(p => p.id).join(',') !== before) void loadExtras(late);
+          },
+        });
         if (cancelled) return;
 
         if (read.source === 'offline') {
@@ -750,7 +829,9 @@ export function StoryDetailPage() {
         }
 
         setStory(data);
+        shownPointIds = data.points.map(p => p.id).join(',');
         setStoryCachedAt(read.source === 'cache' ? read.storedAt : null);
+        setStorySlow(read.source === 'cache' && !!read.slow);
         setLoading(false);
 
         // Track view
@@ -764,39 +845,7 @@ export function StoryDetailPage() {
           });
         }
 
-        // P132: Fetch position data and linked stories for linked points
-        if (data.points.length > 0) {
-          try {
-            const pointIds = data.points.map(p => p.id);
-            const viewerIsAuthor = user?.id === data.authorId;
-
-            // Batch fetch position data + other stories for each point. P1369: read through the
-            // offline cache too, so an offline copy shows the counts that were last seen.
-            const extras = await readThrough('story-extras', data.id, async () => {
-              const [counts, positions, authorPositions, linkedStories] = await Promise.all([
-                pointsService.getPositionCountsForPoints(pointIds),
-                user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map<string, PointPosition>()),
-                // Always fetch story author's positions for display badges (independent of viewer)
-                pointsService.getMyPositionsForPoints(pointIds, data.authorId),
-                // Fetch other public stories these points appear in (exclude current story)
-                storiesService.getStoriesForPoints(pointIds, data.id),
-              ]);
-              return { counts, positions, authorPositions, linkedStories };
-            }, { viewerId: user?.id ?? null });
-            if (cancelled || extras.source === 'offline' || !extras.data) return;
-            const { counts, positions, authorPositions, linkedStories } = extras.data;
-            setExtrasCachedAt(extras.source === 'cache' ? extras.storedAt : null);
-
-            setPositionCounts(counts);
-            setUserPositions(positions);
-            // If viewer is the author, reuse viewer positions to avoid redundant state
-            setStoryAuthorPositions(viewerIsAuthor ? positions : authorPositions);
-            setLinkedStoriesForPoints(linkedStories);
-          } catch (err) {
-            console.error('Error loading position data:', err);
-            // Non-fatal - show story without position data
-          }
-        }
+        await loadExtras(data);
       } catch (err) {
         if (cancelled) return;
         console.error('Error loading story:', err);

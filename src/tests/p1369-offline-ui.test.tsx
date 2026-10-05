@@ -14,8 +14,8 @@ import { SessionBar } from '@/app/components/session/session-bar';
 import { formatSeenAge } from '@/lib/format-seen-age';
 import { recordNetworkFailure, recordNetworkSuccess, _resetNetworkOutcomeForTesting } from '@/lib/network-outcome';
 
-function CachedPage({ storedAt }: { storedAt: number }) {
-  useOfflinePageReport({ kind: 'cached', storedAt });
+function CachedPage({ storedAt, slow }: { storedAt: number; slow?: boolean }) {
+  useOfflinePageReport({ kind: 'cached', storedAt, slow });
   return <p>story body</p>;
 }
 
@@ -40,8 +40,11 @@ describe('offline strip', () => {
     expect(screen.queryByTestId('offline-strip')).toBeNull();
   });
 
+  // P1337: a copy shown while requests FAIL is offline; a copy shown because the network is slow
+  // is not (see the slow test below). These tests set the offline premise explicitly.
   it('a page rendered from cache: "Offline · saved copy from {age}", dark, 28px', () => {
     ui(<CachedPage storedAt={Date.now() - 2 * 3600_000} />);
+    act(() => recordNetworkFailure());
     const strip = screen.getByTestId('offline-strip');
     expect(strip.textContent).toBe('Offline · saved copy from 2h ago');
     expect(strip.className).toContain('bg-slate-800');
@@ -57,13 +60,38 @@ describe('offline strip', () => {
         <CachedPage storedAt={Date.now() - 3 * 86400_000} />
       </>,
     );
+    act(() => recordNetworkFailure());
     expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 3 days ago');
   });
 
   it('shows even when navigator says online (captive portal): the page report decides', () => {
     expect(navigator.onLine).toBe(true);
     ui(<CachedPage storedAt={Date.now()} />);
-    expect(screen.getByTestId('offline-strip').textContent).toMatch(/saved copy/);
+    expect(screen.getByTestId('offline-strip').textContent).toMatch(/saved copy/i);
+  });
+
+  it('P1337: a copy shown because the network is slow is never called offline', () => {
+    ui(<CachedPage storedAt={Date.now() - 40 * 60_000} slow />);
+    expect(screen.getByTestId('offline-strip').textContent).toBe('Saved copy · updating…');
+    act(() => recordNetworkFailure());
+    expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 40 min ago');
+  });
+
+  it('P1337: a copy from a failed read stays "Offline" even after a sibling request succeeds', () => {
+    ui(<CachedPage storedAt={Date.now() - 40 * 60_000} />);
+    act(() => recordNetworkFailure());
+    act(() => recordNetworkSuccess());
+    expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 40 min ago');
+  });
+
+  it('P1337: one slow copy and one failed copy on the same page: "Offline"', () => {
+    ui(
+      <>
+        <CachedPage storedAt={Date.now() - 5 * 60_000} slow />
+        <CachedPage storedAt={Date.now() - 40 * 60_000} />
+      </>,
+    );
+    expect(screen.getByTestId('offline-strip').textContent).toBe('Offline · saved copy from 40 min ago');
   });
 
   it('needs-connection body: strip says just "Offline"', () => {

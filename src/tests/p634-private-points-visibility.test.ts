@@ -35,6 +35,7 @@ function createChainMock(terminalData: { data: unknown; error: unknown } | null 
   chain.eq = makeMethod('eq');
   chain.in = makeMethod('in');
   chain.contains = makeMethod('contains');
+  chain.is = makeMethod('is'); // P1337: current versions only
   chain.order = makeMethod('order');
   chain.range = makeMethod('range');
   chain.single = vi.fn(() => {

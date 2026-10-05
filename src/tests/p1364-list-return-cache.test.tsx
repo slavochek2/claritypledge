@@ -223,7 +223,8 @@ describe('P1364 /feed — Back returns to the list as it was left', () => {
     await screen.findAllByTestId('point-card');
     fireEvent.change(screen.getByRole('combobox', { name: /sort by/i }), { target: { value: 'oldest' } }); // P1392 pill
     fireEvent.click(screen.getByRole('switch', { name: /latest versions/i }));
-    await waitFor(() => expect(where()).toBe('/feed?tab=points&sort=oldest&version=latest'));
+    // P1337: newest versions are the default; the switch now turns them OFF (?version=all).
+    await waitFor(() => expect(where()).toBe('/feed?tab=points&sort=oldest&version=all'));
     go(-1);
     expect(screen.getByTestId('start')).toBeTruthy();
   });

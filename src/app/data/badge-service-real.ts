@@ -89,6 +89,7 @@ export class RealBadgeService implements BadgeService {
     // Batch-fetch point details (statement + system_tags)
     const pointIds = [...new Set(badgePoints.map(bp => bp.pointId))];
     const { data: pointRows, error: pointError } = await supabase
+      // versions: all — a badge stays with the version it was earned on
       .from('points')
       .select('id, statement, system_tags')
       .in('id', pointIds);

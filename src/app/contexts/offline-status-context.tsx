@@ -39,7 +39,9 @@ import {
 } from '@/lib/network-outcome';
 import { formatSeenAge } from '@/lib/format-seen-age';
 
-export type OfflinePageReport = { kind: 'cached'; storedAt: number } | { kind: 'needs-connection' };
+/** `slow`: the copy is on screen because the network was slow, not because a request failed
+ * (P1337) — the page replaces it when the late answer arrives. */
+export type OfflinePageReport = { kind: 'cached'; storedAt: number; slow?: boolean } | { kind: 'needs-connection' };
 
 interface OfflineStatusValue {
   reports: ReadonlyMap<number, OfflinePageReport>;
@@ -53,6 +55,8 @@ const OfflineStatusContext = createContext<OfflineStatusValue | null>(null);
 /** Copy — UI Contract. [FOUNDER DECISION: copy — PROPOSED] */
 export const STRIP_OFFLINE_TEXT = 'Offline';
 /** [FOUNDER DECISION 2026-09-30] "Offline · saved copy from {age}"; under a minute: "Offline · saved copy". */
+/** A saved copy shown because the network is slow, not down (P1337): never called offline. */
+export const STRIP_SLOW_TEXT = 'Saved copy · updating…';
 export const stripCachedText = (age: string) => (age === 'just now' ? 'Offline · saved copy' : `Offline · saved copy from ${age}`);
 
 const PROBE_INTERVAL_MS = 20_000;
@@ -206,7 +210,8 @@ export function OfflineStatusProvider({ children }: { children: ReactNode }) {
 
 function sameReport(a: OfflinePageReport | undefined, b: OfflinePageReport): boolean {
   if (!a || a.kind !== b.kind) return false;
-  return a.kind !== 'cached' || a.storedAt === (b as { storedAt: number }).storedAt;
+  if (a.kind !== 'cached' || b.kind !== 'cached') return true;
+  return a.storedAt === b.storedAt && !!a.slow === !!b.slow;
 }
 
 /** Outside the provider (isolated component tests): online, nothing reported. */
@@ -233,10 +238,11 @@ export function useOfflinePageReport(report: OfflinePageReport | null): void {
   if (idRef.current === 0) idRef.current = nextReporterId++;
   const kind = report?.kind ?? null;
   const storedAt = report?.kind === 'cached' ? report.storedAt : null;
+  const slow = report?.kind === 'cached' && !!report.slow;
   useEffect(() => {
     const id = idRef.current;
-    setReport(id, kind === null ? null : kind === 'cached' ? { kind, storedAt: storedAt as number } : { kind });
-  }, [kind, storedAt, setReport]);
+    setReport(id, kind === null ? null : kind === 'cached' ? { kind, storedAt: storedAt as number, slow } : { kind });
+  }, [kind, storedAt, slow, setReport]);
   useEffect(() => {
     const id = idRef.current;
     return () => setReport(id, null);
@@ -266,12 +272,17 @@ export function useOfflineStripText(): string | null {
   const { reports, offline } = useOfflineStatus();
   let oldestCached: number | null = null;
   let needsConnection = false;
+  let allSlow = true;
   for (const r of reports.values()) {
-    if (r.kind === 'cached') oldestCached = oldestCached === null ? r.storedAt : Math.min(oldestCached, r.storedAt);
-    else needsConnection = true;
+    if (r.kind === 'cached') {
+      oldestCached = oldestCached === null ? r.storedAt : Math.min(oldestCached, r.storedAt);
+      if (!r.slow) allSlow = false;
+    } else needsConnection = true;
   }
   const now = useMinuteClock(oldestCached !== null);
-  if (oldestCached !== null) return stripCachedText(formatSeenAge(oldestCached, now));
+  // P1337: slow is not offline. Only when every copy on screen is there for slowness, and no
+  // request is failing right now, does the strip say so instead of "Offline".
+  if (oldestCached !== null) return allSlow && !offline ? STRIP_SLOW_TEXT : stripCachedText(formatSeenAge(oldestCached, now));
   if (needsConnection || offline) return STRIP_OFFLINE_TEXT;
   return null;
 }
