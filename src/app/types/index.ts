@@ -48,7 +48,7 @@ export interface Profile {
   reciprocations: number;
   avatarColor?: string;
   avatarUrl?: string; // P63: URL to avatar image (e.g., from Google OAuth)
-  avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
+  avatarProvider?: 'google' | 'generated' | 'gravatar' | 'upload'; // P63: Source of avatar
   pledgeVersion?: number; // 1=v1, 2=v2 ("without"), 3=v3 ("withholding"), 4=v4 (number-first)
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
   bio?: string | null; // P414: self-description; widened to 2000 chars by P1259
@@ -81,7 +81,7 @@ export interface ProfileSummary {
   isVerified: boolean;
   avatarColor?: string;
   avatarUrl?: string; // P63: URL to avatar image (e.g., from Google OAuth)
-  avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
+  avatarProvider?: 'google' | 'generated' | 'gravatar' | 'upload'; // P63: Source of avatar
   witnessCount?: number;
   reciprocations?: number;
 }
@@ -110,7 +110,7 @@ export interface DbProfile {
   witnesses?: DbWitness[];
   avatar_color?: string;
   avatar_url?: string; // P63: URL to avatar image (e.g., from Google OAuth)
-  avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
+  avatar_provider?: 'google' | 'generated' | 'gravatar' | 'upload'; // P63: Source of avatar
   pledge_version?: number;
   has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
   bio?: string | null; // P414: self-description; widened to 2000 chars by P1259
@@ -135,7 +135,7 @@ export interface DbProfileSummary {
   is_verified: boolean;
   avatar_color?: string;
   avatar_url?: string; // P63: URL to avatar image (e.g., from Google OAuth)
-  avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
+  avatar_provider?: 'google' | 'generated' | 'gravatar' | 'upload'; // P63: Source of avatar
 }
 
 // ============================================================================

@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { resolveAvatarFields } from "./resolve-avatar-fields";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
@@ -344,20 +345,16 @@ export function AuthCallbackPage() {
       // - If Google auth: use Google avatar URL, set provider to 'google'
       // - If existing profile has avatar: preserve it (unless re-authenticating with Google)
       // - Otherwise: use generated avatar with color
-      let avatarUrl = existingProfile?.avatarUrl;
-      let avatarProvider = existingProfile?.avatarProvider;
-      let avatarColor = existingProfile?.avatarColor || user_metadata.avatar_color;
-
-      if (isGoogleAuth && googleAvatarUrl) {
-        // User authenticated with Google - use their Google avatar
-        // This also handles the "auto-update on re-login" decision (Option A from spec)
-        avatarUrl = googleAvatarUrl;
-        avatarProvider = 'google';
-        avatarColor = undefined; // Google users don't need generated color
-      } else if (!avatarProvider) {
-        // New user without Google auth - will use generated avatar
-        avatarProvider = 'generated';
-      }
+      // P1418: an uploaded photo is never replaced by the Google picture.
+      const { avatarUrl, avatarProvider, avatarColor } = resolveAvatarFields(
+        {
+          avatarUrl: existingProfile?.avatarUrl,
+          avatarProvider: existingProfile?.avatarProvider,
+          avatarColor: existingProfile?.avatarColor || user_metadata.avatar_color,
+        },
+        googleAvatarUrl,
+        isGoogleAuth,
+      );
 
       const upsertData = {
         id: authUser.id,

@@ -764,6 +764,8 @@ export async function updateProfile(
     bio?: string; // P414: Short self-description, max 160 chars
     banner_url?: string | null; // P504: AI-generated profile banner
     banner_generation_attempted?: boolean; // P504: Whether banner generation was attempted
+    avatar_url?: string | null; // P1418: user-uploaded photo (or null on Remove)
+    avatar_provider?: 'google' | 'generated' | 'gravatar' | 'upload'; // P1418
   }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase

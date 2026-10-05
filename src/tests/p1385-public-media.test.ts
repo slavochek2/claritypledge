@@ -51,6 +51,8 @@ const ALLOWLIST: Record<string, string> = {
   'src/lib/public-media.ts': 'the helper itself — the one place the origin and bucket are named',
   'src/lib/markdown.ts':
     'P1352 matches (does not build) user-uploaded event-banners image URLs; img-src allows *.supabase.co',
+  'src/lib/avatar-upload.ts':
+    'P1418 user-uploaded profile photos: the browser writes them under storage RLS, which GCS cannot offer without a signing hop; images only, img-src allows *.supabase.co',
 };
 
 function sourceFiles(dir: string): string[] {

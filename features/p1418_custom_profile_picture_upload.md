@@ -1,15 +1,15 @@
 ---
-status: week
+status: qa
 type: story
 rank: 26
 workstream: profile
 created_date: '2026-10-05'
 tags: [profile, avatar, settings, storage]
 disclosure: public
-delivery_stage: challenge-prd
+delivery_stage: verify
 pipeline_plan: [create-spec, challenge-prd, generate-tests, dev, verify]
-pipeline_ran: [create-spec, challenge-prd]
-pipeline_skipped: ["ux -- design settled: one Photo row in Settings with Upload / Remove", "architect -- adversarial /challenge-prd covers the one structural question (storage + RLS)"]
+pipeline_ran: [create-spec, challenge-prd, dev, verify]
+pipeline_skipped: ["generate-tests -- tests written inline during dev (unit, storage RLS integration, browser e2e)", "ux -- design settled: one Photo row in Settings with Upload / Remove", "architect -- adversarial /challenge-prd covers the one structural question (storage + RLS)"]
 flow: dev
 drafted_by: opus
 exec_model: sonnet
@@ -67,12 +67,12 @@ Blast radius: one flow (profile avatar), but rendered on ~30 surfaces that all r
 
 ## Acceptance Criteria
 
-- [ ] Email/password user: Settings → Upload photo → photo shows in Settings, header and own profile page after reload
-- [ ] Google user: upload a photo, sign out, sign in with Google → uploaded photo still shown
-- [ ] Remove → initials (email user) / no uploaded photo (Google user); old file deleted from bucket
-- [ ] Non-image or failed upload shows the one-line error; nothing else changes
-- [ ] Storage RLS: upload to another user's folder is refused (test)
-- [ ] Settings photo row looks right at 375, 320 and desktop
+- [x] Email/password user: Settings → Upload photo → photo shows in Settings, header and own profile page after reload
+- [x] Google user: upload a photo, sign out, sign in with Google → uploaded photo still shown — verified by unit test on the sign-in rule (`resolve-avatar-fields.test.ts`, mutation-checked); real Google OAuth cannot run in e2e. `[post-deploy]` founder re-checks with a real Google account.
+- [x] Remove → initials (email user) / no uploaded photo (Google user); old file deleted from bucket
+- [x] Non-image or failed upload shows the one-line error; nothing else changes
+- [x] Storage RLS: upload to another user's folder is refused (test)
+- [x] Settings photo row looks right at 375, 320 and desktop
 
 ## Resolved Decisions
 

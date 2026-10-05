@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [technical]: User-uploaded profile photos live in a Supabase `avatars` bucket, the first one the browser writes to (P1418)
+
+**Context:** Users can now upload their own photo in Settings (Google and email users alike). `.claude/rules/database.md` says "No New Public Media Buckets in Supabase Storage" (P1385), and every earlier bucket is service_role-write only.
+**Decision:** A public `avatars` bucket (2 MB, webp/jpeg/png), with owner-scoped INSERT/SELECT/DELETE policies on `(storage.foldername(name))[1] = auth.uid()::text`, and one URL helper (`src/lib/avatar-upload.ts`) allowlisted in the p1385 test. `avatar_provider = 'upload'` marks a chosen photo, and Google sign-in never replaces it (`src/auth/resolve-avatar-fields.ts`).
+**Why not GCS:** P1385's rule exists because of the CSP `media-src` gap. These are images, which `img-src` already allows from `*.supabase.co`. A browser write to GCS needs the signed-URL Cloud Function hop and its secret. Storage RLS gives per-user folders with no extra network hop.
+**Accepted:** the client writes `avatar_url` itself, so a user can point their own avatar at any URL; CSP limits which hosts load. The /live anonymous-profile migration path in AuthCallbackPage does not carry avatar fields (true before P1418; no anonymous sign-ins exist today).
+**References:** [p1418 spec](../features/p1418_custom_profile_picture_upload.md) · `e2e/integration/p1418-avatars-storage-rls.spec.ts`
+
+---
+
 ## 2026-10-05 [product]: The observer guards the roles and closes the round; it holds no clock (/presi4)
 
 **Context:** Trios gave the round a third role nobody has ever played. The 2026-09-28 design had the observer call "swap" at six minutes, and the deck drew it that way. Reviewing the slide the founder dropped it: *"maybe we don't do the swap the clock. It's weird."*

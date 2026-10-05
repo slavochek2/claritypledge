@@ -14,6 +14,7 @@ import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { InstallCard } from "@/app/components/pwa/install-card";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
+import { ProfilePhotoField } from "@/app/components/profile/profile-photo-field";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -231,6 +232,19 @@ export function SettingsPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* P1418: Photo */}
+        {user && (
+          <ProfilePhotoField
+            userId={user.id}
+            name={user.name}
+            avatarUrl={user.avatarUrl}
+            avatarColor={user.avatarColor}
+            avatarProvider={user.avatarProvider}
+            isPledger={!!user.hasPledged}
+            onChanged={refreshProfile}
+          />
+        )}
+
         {/* Name */}
         <div>
           <label
