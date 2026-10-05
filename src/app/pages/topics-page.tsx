@@ -48,11 +48,11 @@ const signUpHref = (back: string) => `/signup?redirect=${encodeURIComponent(back
 /**
  * Stars a signed-out visitor tapped, kept until they sign in, then saved.
  * P1414: localStorage, not sessionStorage — the email sign-in link can open in a new tab, which
- * has its own sessionStorage, and the stars were lost. Kept a day, so a shared device does not
- * hand one visitor's stars to whoever signs in next week.
+ * has its own sessionStorage, and the stars were lost. Kept an hour — long enough to open the
+ * sign-in email — so a shared device does not hand one visitor's stars to whoever signs in later.
  */
 const GUEST_STORE = 'p1347-guest-ratings';
-const GUEST_TTL_MS = 24 * 60 * 60 * 1000;
+const GUEST_TTL_MS = 60 * 60 * 1000;
 function readGuest(): Record<string, number> {
   try {
     const raw = JSON.parse(localStorage.getItem(GUEST_STORE) ?? '{}') as { at?: number; r?: Record<string, number> };
@@ -86,9 +86,13 @@ type TopicsPageProps = {
   returnTo?: string;
   /** Embedded only: the host page's spacing, applied to the section so an absent section leaves no divider. */
   className?: string;
+  /** Embedded only: anchor id, so the event page's "Vote below" line can jump here. */
+  id?: string;
+  /** Embedded only: whether the section is on screen (it is absent while loading, on error, with no topics). */
+  onVisibleChange?: (visible: boolean) => void;
 };
 
-export function TopicsPage({ embedded = false, returnTo = '/topics', className }: TopicsPageProps = {}) {
+export function TopicsPage({ embedded = false, returnTo = '/topics', className, id, onVisibleChange }: TopicsPageProps = {}) {
   const { user, isLoading: authLoading } = useAuth();
   const goBack = useGoBack('/');
   const [showPhoto, setShowPhoto] = useState(true);
@@ -119,8 +123,15 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
   useEffect(() => {
     if (!signedInLoaded || state.kind !== 'ready') return;
     const g = readGuest();
-    const ids = Object.keys(g);
-    if (!ids.length) return;
+    // Never overwrite a rating this account already has: the stars may be someone else's.
+    const rated = new Set(state.topics.filter((t) => t.myRating !== null).map((t) => t.id));
+    const ids = Object.keys(g).filter((id) => !rated.has(id));
+    if (!Object.keys(g).length) return;
+    if (!ids.length) {
+      writeGuest({});
+      setPending((p) => Object.fromEntries(Object.entries(p).filter(([id]) => !(id in g))));
+      return;
+    }
     const isPublic = !state.topics.some((t) => t.myIsPublic === false);
     writeGuest({});
     Promise.all(ids.map(async (id) => [id, await rateTopic(id, g[id], isPublic).catch(() => false)] as const)).then((done) => {
@@ -201,11 +212,16 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className }
     setSortedIds([...topics].sort((a, b) => key(b) - key(a)).map((t) => t.id));
   };
 
-  // P1414: embedded, the section is absent rather than a spinner, an error box or an empty frame.
-  if (embedded && (state.kind !== 'ready' || authLoading || topics.length === 0)) return null;
+  // P1414: embedded, the section is absent rather than a spinner, an error box or an empty frame —
+  // and the host page is told, so nothing on it points at a section that is not there.
+  const embedVisible = state.kind === 'ready' && !authLoading && topics.length > 0;
+  useEffect(() => {
+    if (embedded) onVisibleChange?.(embedVisible);
+  }, [embedded, embedVisible, onVisibleChange]);
+  if (embedded && !embedVisible) return null;
 
   return (
-    <div className={embedded ? cn('w-full', className) : 'mx-auto w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10'} data-testid={embedded ? 'topic-vote-embed' : undefined}>
+    <div className={embedded ? cn('w-full', className) : 'mx-auto w-full max-w-4xl px-4 pb-0 pt-6 sm:pt-10'} id={embedded ? id : undefined} data-testid={embedded ? 'topic-vote-embed' : undefined}>
       {!embedded && <SEO
         title="Vote for the next topic"
         description="Vote for the next Clarity Night topic, or add your own."

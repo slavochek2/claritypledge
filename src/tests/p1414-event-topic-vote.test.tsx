@@ -207,16 +207,36 @@ describe('P1414 event page', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByTestId('topic-vote-embed')).toBeNull();
     expect(screen.queryByText("Vote for this night's topic")).toBeNull();
+    // Nothing points at the absent section, and no second Register appears.
+    expect(screen.queryByTestId('topic-open-line')).toBeNull();
+    expect(screen.queryByTestId('rsvp-repeat')).toBeNull();
+  });
+
+  it('signing in never overwrites a rating the account already has (stars may be someone else\'s)', async () => {
+    localStorage.setItem('p1347-guest-ratings', JSON.stringify({ at: Date.now(), r: { a: 1, b: 5 } }));
+    topicsDb.rows = [topic('a', 'Free will', { myRating: 4, myIsPublic: true, ratingAvg: 4, ratingCount: 1, voters: [] }), topic('b', 'Loneliness')];
+    render(<MemoryRouter><TopicsPage embedded returnTo="/events/x" /></MemoryRouter>);
+    await waitFor(() => expect(rateTopic).toHaveBeenCalledWith('b', 5, true));
+    expect(rateTopic).not.toHaveBeenCalledWith('a', 1, expect.anything());
+    localStorage.clear();
   });
 
   it('an ended night (inside the 12h RSVP grace) shows no vote', () => {
     expect(showsTopicVote({ seriesSlug: 'clarity-night', statementTag: undefined, status: 'upcoming' }, true)).toBe(false);
   });
 
-  it('desktop: the quiet Register repeat appears after the vote even with a short description', async () => {
+  it('the top says the topic is open and links to the vote; Register repeats after the vote (founder)', async () => {
     renderEvent(makeEvent({ ...NIGHT }));
-    await screen.findByTestId('topic-vote-embed');
+    const embed = await screen.findByTestId('topic-vote-embed');
+    expect(screen.getByTestId('topic-open-line')).toHaveAttribute('href', '#topic-vote');
+    expect(embed).toHaveAttribute('id', 'topic-vote');
     expect(screen.getByTestId('rsvp-repeat')).toBeInTheDocument();
+  });
+
+  it('an event with its topic has no "Topic: not chosen yet" line', async () => {
+    renderEvent(makeEvent({ ...NIGHT, statementTag: 'ikigai1' }));
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByTestId('topic-open-line')).toBeNull();
   });
 
   it('the vote adds no full-width primary: Add a topic is an outline button', async () => {
@@ -270,7 +290,7 @@ describe('P1414 embedded topics page', () => {
     expect(screen.getAllByTestId('topic-row')).toHaveLength(11);
   });
 
-  it('stars tapped signed out survive a new tab (the email sign-in link), and expire after a day', async () => {
+  it('stars tapped signed out survive a new tab (the email sign-in link), and expire after an hour', async () => {
     signedOut();
     localStorage.clear();
     const { unmount } = renderEmbed();
@@ -280,7 +300,7 @@ describe('P1414 embedded topics page', () => {
     renderEmbed();
     expect(within((await screen.findAllByTestId('topic-row'))[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'true');
     const stored = JSON.parse(localStorage.getItem('p1347-guest-ratings')!);
-    localStorage.setItem('p1347-guest-ratings', JSON.stringify({ ...stored, at: Date.now() - 25 * 60 * 60 * 1000 }));
+    localStorage.setItem('p1347-guest-ratings', JSON.stringify({ ...stored, at: Date.now() - 2 * 60 * 60 * 1000 }));
     cleanupAll();
     renderEmbed();
     expect(within((await screen.findAllByTestId('topic-row'))[0]).getByRole('radio', { name: '3 stars' })).toHaveAttribute('aria-checked', 'false');

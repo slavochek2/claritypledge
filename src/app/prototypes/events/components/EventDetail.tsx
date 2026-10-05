@@ -18,6 +18,7 @@ import {
   Ear,
   RefreshCw,
   Share2,
+  Vote,
 } from 'lucide-react';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
@@ -109,6 +110,8 @@ export function EventDetail() {
     }
   }, []);
   const [organizer, setOrganizer] = useState<{ name: string; slug: string } | null>(null);
+  // P1414: the embedded vote reports whether it rendered (it is absent while loading, on error, empty).
+  const [voteVisible, setVoteVisible] = useState(false);
 
   // Which slug the currently-held `event` was loaded for. A ref, not state:
   // reading it must not itself trigger a render, and it is only ever compared.
@@ -882,6 +885,17 @@ export function EventDetail() {
                 </a>
               )}
 
+              {/* P1414: someone reading only the top must learn the topic is open and where to vote. */}
+              {voteShown && voteVisible && (
+                <a href="#topic-vote" className="mb-4 -mt-1 flex items-center gap-3 text-muted-foreground hover:text-blue-600" data-testid="topic-open-line">
+                  <Vote className="w-5 h-5 flex-shrink-0" aria-hidden />
+                  <span>
+                    <span className="font-medium text-foreground">Topic: not chosen yet.</span>{' '}
+                    <span className="text-blue-600 underline-offset-2 hover:underline">Vote below <span aria-hidden>↓</span></span>
+                  </span>
+                </a>
+              )}
+
               {/* Add to Calendar — hidden pre-RSVP for online events (link would be embedded; P941) */}
               {/* hasEnded, not isPast (P1256): adding a FINISHED event to your calendar is
                   never useful — the export's DTEND is already in the past. On the 12h flag a
@@ -1040,7 +1054,7 @@ export function EventDetail() {
                   to read, the vote is the thing to do here — the live /topics page, embedded. It
                   renders nothing until topics load, and nothing at all if there are none. */}
               {voteShown && (
-                <TopicsPage embedded returnTo={`/events/${event.slug}`} className="mb-6 border-t border-border pt-4" />
+                <TopicsPage embedded returnTo={`/events/${event.slug}`} className="mb-6 scroll-mt-24 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5" id="topic-vote" onVisibleChange={setVoteVisible} />
               )}
 
               {/* Founder 2026-10-04: someone coming back to pass the event on finds the share row
@@ -1062,8 +1076,8 @@ export function EventDetail() {
                 isRsvpd,
                 isPast,
                 isFull,
-                // P1414: the vote list pushes the page end far below the top Register button.
-                descriptionTallerThanViewport: descriptionTallerThanViewport || voteShown,
+                // P1414 (founder): with the vote list, the page ends far below the top button.
+                descriptionTallerThanViewport: descriptionTallerThanViewport || (voteShown && voteVisible),
               }) && (
                 <div className="hidden lg:block mb-6" data-testid="rsvp-repeat">
                   {renderRsvpButton('card_bottom')}
