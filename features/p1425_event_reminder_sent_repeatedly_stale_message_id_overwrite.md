@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [events, email, dispatcher, race]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 flow: fix
 date_resolved: 2026-10-06
 root_cause: every writer of event_rsvps.mailgun_message_ids rewrote the whole jsonb from a stale read, and feedback was attempted >72h ahead (Mailgun rejects), so each cron tick erased the reminder id
