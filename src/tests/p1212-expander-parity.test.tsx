@@ -20,6 +20,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
@@ -200,7 +201,11 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    * app navigates twice and lands on the STORY, not the point. Keyboard users got a different
    * destination from mouse users, and `fireEvent.click` is structurally blind to it.
    */
-  it('Enter on a linked point navigates ONCE, to the point — not on to the story', () => {
+  /* P1424: the point's own control is now its nested `Details →` (the box no longer opens on a
+     tap). The invariant is unchanged: a key press on it navigates ONCE, to the point. A real key
+     press (userEvent), because a native button turns Enter/Space into the click itself. */
+  it('Enter on a linked point navigates ONCE, to the point — not on to the story', async () => {
+    const user = userEvent.setup();
     renderFeedStoryCard({ linkedPoints: POINTS });
     fireEvent.click(screen.getByTestId('feed-story-point-expander'));
 
@@ -209,14 +214,16 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     // testid node. `closest` walks UP and finds the outer story card — a different control,
     // firing on which proves nothing about propagation. First draft of this test did that
     // and reported the fix as failing when it was working.
-    const target = card.querySelector('[role="button"]') ?? card;
-    fireEvent.keyDown(target, { key: 'Enter', code: 'Enter' });
+    const target = card.querySelector<HTMLElement>('[data-testid="nested-details-point"]')!;
+    target.focus();
+    await user.keyboard('{Enter}');
 
     expect(navigate.mock.calls, `expected one navigation, got ${JSON.stringify(navigate.mock.calls)}`).toHaveLength(1);
     expect(navigate).toHaveBeenCalledWith(`/point/${POINTS[0]!.id}`);
   });
 
-  it('Space behaves the same as Enter — one navigation, to the point', () => {
+  it('Space behaves the same as Enter — one navigation, to the point', async () => {
+    const user = userEvent.setup();
     renderFeedStoryCard({ linkedPoints: POINTS });
     fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
@@ -224,9 +231,11 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     // testid node. `closest` walks UP and finds the outer story card — a different control,
     // firing on which proves nothing about propagation. First draft of this test did that
     // and reported the fix as failing when it was working.
-    const target = card.querySelector('[role="button"]') ?? card;
-    fireEvent.keyDown(target, { key: ' ', code: 'Space' });
+    const target = card.querySelector<HTMLElement>('[data-testid="nested-details-point"]')!;
+    target.focus();
+    await user.keyboard(' ');
     expect(navigate.mock.calls).toHaveLength(1);
+    expect(navigate).toHaveBeenCalledWith(`/point/${POINTS[0]!.id}`);
   });
 
   /**
@@ -240,7 +249,8 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
     fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     const card = screen.getAllByTestId('quoted-point-card')[0]!;
-    const controls = card.querySelectorAll('button');
+    // P1424: the nested `Details →` is a button too, but not a position control — excluded.
+    const controls = card.querySelectorAll('button:not([data-testid^="nested-details-"])');
     // toBeGreaterThan(0) was the first form of this assertion and it was too weak: the
     // finding was "profile 3, feed 0", and >0 passes at 1 — so a regression dropping two of
     // the three controls, or one supplying positionCounts without userPosition, stayed
@@ -415,11 +425,16 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
     expect(screen.getByText(POINTS[1]!.statement)).toBeTruthy();
   });
 
+  /* P1424: a linked point opens through its own `Details →`; tapping its text opens nothing. */
   it('navigates to the point, not the story, when a linked point is clicked', () => {
     renderFeedStoryCard({ linkedPoints: POINTS });
     fireEvent.click(screen.getByTestId('feed-story-point-expander'));
     fireEvent.click(screen.getByText(POINTS[1]!.statement));
+    expect(navigate).not.toHaveBeenCalled();
 
+    const second = screen.getAllByTestId('quoted-point-card')[1]!;
+    fireEvent.click(second.querySelector('[data-testid="nested-details-point"]')!);
+    expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('/point/pt-2');
   });
 

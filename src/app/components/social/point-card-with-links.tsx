@@ -38,6 +38,7 @@ import {
   CardFooterActions,
   CardMenu,
   CardSlotLink,
+  NestedDetailsButton,
 } from '@/app/components/shared/card-footer-controls';
 import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
@@ -747,6 +748,7 @@ export function PointCardWithLinks({
                           if (!liveSessionMode) embedNavigate(`/p/${story.authorId}`);
                         }}
                         getStoryAuthor={getStoryAuthor}
+                        openViaDetails={inListFooter}
                       />
                     </ThreadLineItem>
                   ))}
@@ -787,6 +789,7 @@ export function QuotedStory({
   onAuthorClick,
   getStoryAuthor,
   authorPosition,
+  openViaDetails = false,
 }: {
   story: Story;
   /** P1364: the point this quote sits under, so the same story under two points keeps separate open state. */
@@ -809,8 +812,16 @@ export function QuotedStory({
    * constraint requiring a filed story to carry a position (spec, UX Notes).
    */
   authorPosition?: PositionType | null;
+  /**
+   * P1424 — set by the LIST cards only (feed/stake point card, profile point card with
+   * `inListFooter`): the box no longer opens on a body tap, and its own `Details →` (calling
+   * `onClick`) is the only way in, as P1415 made the card body itself. Absent elsewhere — the point
+   * page embed, live sessions — where the box keeps tap-to-open.
+   */
+  openViaDetails?: boolean;
 }) {
   const author = getStoryAuthor?.(story.authorId);
+  const textId = useId(); // P1424: describes the nested `Details →` by this story
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
   // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
@@ -1036,11 +1047,14 @@ export function QuotedStory({
           container, so the attribution row above is not part of the control: clicking a
           name navigates to the profile, clicking the box navigates to the story, and the
           two no longer overlap. `QuotedPointCard` has always been shaped this way. */}
+      {/* P1424: on a list card (`openViaDetails`) the box is NOT a control — no role, tab stop,
+          handlers, pointer cursor or hover state — and its own `Details →` opens the story. */}
       <div
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
+        {...(openViaDetails ? {} : {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
           // P1212's root guard, on this box too. P1296 folded the supporting quotes behind a
           // toggle BUTTON inside this box; without the target check, Enter on that toggle (or
           // on a timecode) was preventDefault()ed here and turned into a navigation, which
@@ -1050,8 +1064,11 @@ export function QuotedStory({
             e.preventDefault();
             onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
           }
-        }}
-        className={`group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+        },
+        })}
+        className={`${openViaDetails
+          ? 'w-full text-left p-3 rounded-lg border border-border bg-gray-50'
+          : 'group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'}${isAgent ? ' agent-card-drained' : ''}`}
         {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       >
       {/* Story media — compact in quoted context.
@@ -1106,7 +1123,7 @@ export function QuotedStory({
            chars before we cut of maybe 3x more?" Filed agent story bodies run 545-858
            characters, so 200 cut every one of them before the argument arrived. */
         return !textExpanded && cleanText.length > 600 ? (
-          <p className="text-sm text-gray-800 break-words">
+          <p id={textId} className="text-sm text-gray-800 break-words">
             {linkifyText(cleanText.slice(0, 600))}
             <span
               data-testid="more-link"
@@ -1118,7 +1135,7 @@ export function QuotedStory({
             > ...more</span>
           </p>
         ) : (
-          <p className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
+          <p id={textId} className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
         );
       })()}
       {/* P1212 §4, on the eighth surface. The text above has had the quote LABEL stripped
@@ -1140,6 +1157,7 @@ export function QuotedStory({
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
+      {openViaDetails && <NestedDetailsButton type="story" onOpen={(e) => onClick(e)} describedBy={textId} />}
       </div>
     </div>
   );

@@ -1904,6 +1904,8 @@ function StoryCardFull({
                     currentUserId={currentUserId}
                     onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
                     onPositionClear={() => onPointPositionSelect?.(point.id, null)}
+                    /* P1424: on this list card the point opens only via its own `Details →`. */
+                    openViaDetails
                   />
                 </ThreadLineItem>
               );

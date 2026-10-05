@@ -467,6 +467,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
                      (point, author) by getStoriesForPoints, so `linked` is already scoped to
                      THIS point. */
                   authorPosition={linked.authorPositionOnPoint}
+                  /* P1424: on this list card the story opens only via its own `Details →`. */
+                  openViaDetails
                 />
               </ThreadLineItem>
             ))}

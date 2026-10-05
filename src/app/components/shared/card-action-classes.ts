@@ -17,3 +17,11 @@ export const CARD_FOCUS_RING =
  */
 export const DETAILS_BUTTON_CLASS =
   `inline-flex h-10 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted ${CARD_FOCUS_RING}`;
+
+/**
+ * P1424: the `Details →` INSIDE a nested item (a quoted point under a story card, a linked story
+ * under a point card). Same outlined shape as the card's own button, smaller type so it reads as
+ * secondary to it — but still a 40px tap target (visual-qa.md), never the prototype's 32px.
+ */
+export const NESTED_DETAILS_BUTTON_CLASS =
+  `inline-flex h-10 shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted ${CARD_FOCUS_RING}`;

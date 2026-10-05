@@ -454,6 +454,8 @@ export function FeedStoryCard({
                   authorHasPledged={story.authorHasPledged ?? false}
                   currentUserId={currentUserId}
                   onPositionSelect={(pos) => handlePointPosition(point.id, pos)}
+                  /* P1424: on this list card the point opens only via its own `Details →`. */
+                  openViaDetails
                   /* P1270 §4 — these six author props caption THE STORY AUTHOR'S stance on
                      the point: `getPointsForStories` fills `point.profileSubjectPosition`
                      from `story_points.author_id`, the same person. Supplying the stance
