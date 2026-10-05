@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ---
 
@@ -406,6 +406,7 @@ Last updated: 2026-10-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1318** (Oct 06) Remove plaintext copies of the critical credential half — locked set = what reaches prod; a test-only credential is de-registered, not locked; env-file removal ≠ unreadable
 - **P1416** (Oct 26) Installed PWA stale after deploys — resume never navigates; compare an app-content fingerprint, not the Sentry-stamped entry hash
 - **P1385** (Oct 01) Public media defaults to GCS with a CSP check — `publicMediaUrl()` is the only builder; a src/ scan bans hand-built GCS/Supabase-storage URLs and `getPublicUrl(`, since dev sends no CSP
 - **P1369** (Oct 26) Offline-readable pages + offline strip: app-layer IndexedDB read-through (SW never caches Supabase); ordered write queues need a bounded wait

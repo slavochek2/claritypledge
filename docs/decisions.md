@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [technical]: The locked set guards what can reach prod — a test-only credential leaves it, unproven consumers are accepted by name, and plaintext removal is not unreadability (P1318)
+
+**Context:** P1318 closed with four loose ends: the local DB URL (test project only) was still registered as locked and still in `.env.local`, read in plaintext by `migrate.sh` on test runs; three archived one-time scripts held prod master-key access through the lock; provider token deletions had happened during the spec despite its "revoke nothing" box; and five registered keys had never been read through the keychain (incl. Postiz, whose plaintext was already gone).
+**Decision:** (1) De-register the test-project DB URL instead of locking it. A dialog on every test migrate buys no prod protection, and the prompt count was already ~2× the stop-number. (2) Delete archived scripts that hold prod access once they have run, and recover them from git history if ever needed. (3) Credit provider-side token deletions to P1148, where revocation belongs. (4) Accept the never-read consumers by name instead of forcing a proving run; Postiz stays unproven until its next real use.
+**Alternatives rejected:** locking the test DB URL (prompt fatigue, which is how "Always Allow" erodes the gate); keeping the archived scripts behind the lock (a dormant prod-write path for no use); a proving Postiz run now (founder: "no need yet").
+**Consequences:** No registered locked name remains in `.env.local`/`.env.prod` (names-only check), and the P1316 canary passes 17/0. Removal covers the env files only. Off-file copies (transcripts, restic, VM, CI, escrow) are P1322's, so the keys are not "unreadable". The first `/promote-blog` after this is the Postiz path's first real test, so expect its Allow dialog.
+**References:** [P1318](../features/done/2026-06-10/p1318_remove_plaintext_copies_of_the_critical_credential_half.md) · [P1148](../features/p1148_credential_rotation_system.md) · [credentials rule](../.claude/rules/credentials.md)
+
+---
+
 ## 2026-10-05 [product]: The evening close is feedback, not a pitch — one question per screen, the ask follows what the person has not done yet, and reserving the next evening is the thank-you (P1389)
 
 **Context:** Ten founder test rounds on `/events/:slug/close`, the phone screen every attendee opens at the end of a Clarity Night. Earlier rounds carried a session-gift pitch (problem icons, a value 0-10, "do you know who", a contact form) and a "Can I help you with anything?" box inside the feedback. Founder: *"this is us pitching on their phone within 'feedback'? weird"*; the help offer is *"more powerful if coming as personal message from me to a person rather than end of flow after event."*
