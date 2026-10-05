@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [pwa, service-worker, deploy, stale-build]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: 2026-10-05
 root_cause: "registerSW.js only registers the worker; a PWA resumed from background makes no navigation, so nothing re-checks sw.js or reloads, and the page keeps running the JS of its last cold start."
 resolution: "AppUpdatePrompt at the app root: on resume (throttled), while visible, on online and on controllerchange it calls registration.update() and compares the page's entry module with the live shell's; a different build shows a tap-to-reload toast in its own Toaster."
@@ -163,7 +163,7 @@ founder approved the prompt and its copy for this case (2026-10-05).
 - [x] Never offered on `/live` or `/transcribe`; offered after leaving them.
 - [x] The offer comes down when the connection drops, and a tap while offline does not reload.
 - [x] Regression test passes: `src/tests/p1416-reproduce.test.tsx`.
-- [ ] [post-deploy] [on-device] Installed PWA on a phone, backgrounded across a deploy, shows the
+- [post-deploy] [on-device] Installed PWA on a phone, backgrounded across a deploy, shows the
       message on resume, and the tap loads the new build.
 
 ## Resolution
