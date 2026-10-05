@@ -362,6 +362,37 @@ button on the left, the room on the right.
   by st number. Drift guard: `src/tests/p1337-current-versions-guard.test.ts` (also requires every
   offline read to take its late answer). This revises decisions.md 2026-09-30 (P1376) for /feed.
 
+**Founder walkthrough 7, 2026-10-05 — decided, queued to build (in this order):**
+1. *Room phone, two moments.* Before "I'm at table N": the table only. After it: the comparison
+   takes the card, and the table shrinks to one line ("Table 1 · with Haru, Erin").
+2. *A step bar at the top of the attendee flow:* Ready · Principle · Table · Compare · Close,
+   tappable back. Principle → Table → Compare repeats each round. Close stays greyed and cannot be
+   tapped until the host ends the evening; then it becomes the current step and opens the closing
+   sequence ([P1389](p1389_clarity_night_closing_sequence.md), spec only — until it is built,
+   Close shows a plain end screen). Inside Close, progress reads "2 of 8", never a second bar.
+   The bar replaces the status line "Round N · Find table N · You …" and the "Compare positions"
+   button.
+3. *Delete "We're talking about this one"* everywhere (table card and compare page). Server data
+   untouched.
+4. *Attendees see no past rounds at all,* during or after the event. The host keeps theirs: one
+   folded line on the host panel.
+5. *Compare step header:* "You and {name}", the set name, a dropdown to compare with anyone else in
+   the room, and Back to the table.
+6. *Host "Match on":* a dropdown of existing tags, the event's tag selected by default. No typing.
+7. *Transcribe in one place only, the top bar.* The switch leaves the event room's /ready; the tap
+   on the bar stays the consent. The general /ready has no switch (checked), so nothing changes there.
+8. *"Swap at half time" becomes a two-option toggle,* "Swap at half time" | "One talk". The minutes
+   follow it: "Speaker N min" for the first; one "Talk N min" (double) for the second.
+9. *Seating:* "Find your table · 0:45", counting down inside the card. While seated, the principle
+   certificate and the Opt in / Opt out bar step aside.
+
+**Rebase onto main (2026-10-05, before walkthrough 7):** the transcription idle state is now a
+state of P1388's one-line short bar — "Not transcribed" + an outlined "Transcribe"; the start
+screen's description moved onto the button (`aria-description`, hover title) because the short bar
+has no second line. Offline late answers (`onLate`) get the viewer's own writes applied (P1420), the
+same as an on-time answer. The event page's room row keeps both founder rules: signed in only
+(2026-10-04) and reachable after the event (walkthrough 4).
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.
