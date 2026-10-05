@@ -82,7 +82,7 @@ const COPY = {
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Thank you',
-  endLine: 'You know how the Clarity process works. Try it with others at an event.',
+  endLine: 'You know what cognitive understanding is and how to check it. Try it with other attendees at an event.',
   endPrimary: 'Explore events',
 };
 
