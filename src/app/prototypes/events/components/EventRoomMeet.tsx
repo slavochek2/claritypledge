@@ -98,6 +98,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { PracticeRooms } from './PracticeRooms';
+import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
 import { RoundCard } from '../rounds/RoundCard';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
@@ -605,7 +606,8 @@ export function EventRoomMeet() {
               surface people keep open for an event's whole duration, so an ungated render
               here would leave PracticeRooms' 5s poll running indefinitely in any tab left
               open past the freeze boundary (code review, round 4). */}
-          {event && !isFrozen && (
+          {/* P1337: hidden behind a switch (practice-rooms-switch.ts). */}
+          {SHOW_PRACTICE_ROOMS && event && !isFrozen && (
             <PracticeRooms
               eventId={event.id}
               eventSlug={slug ?? event.slug}

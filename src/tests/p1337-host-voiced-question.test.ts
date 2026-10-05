@@ -22,3 +22,9 @@ it.each(['app/prototypes/events/components/EventRoomMeet.tsx', 'app/prototypes/e
     expect(s).not.toContain('my intended meaning');
   },
 );
+
+it('P1337 item 5: practice rooms are hidden behind one switch, the code kept', async () => {
+  const { SHOW_PRACTICE_ROOMS } = await import('@/app/prototypes/events/components/practice-rooms-switch');
+  expect(SHOW_PRACTICE_ROOMS).toBe(false);
+  expect(src('app/prototypes/events/components/EventRoomMeet.tsx')).toMatch(/SHOW_PRACTICE_ROOMS && event && !isFrozen && \(\s*<PracticeRooms/);
+});

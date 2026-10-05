@@ -31,6 +31,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { SHOW_PRACTICE_ROOMS } from '../src/app/prototypes/events/components/practice-rooms-switch';
+
+// P1337: practice rooms are hidden from the event room behind a switch; these run again when it is on.
+test.skip(!SHOW_PRACTICE_ROOMS, 'Practice rooms are hidden (practice-rooms-switch.ts)');
 import { supabaseAdmin } from './helpers/supabase-admin';
 import {
   createTestUser,
