@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 25
 workstream: events
@@ -9,7 +9,6 @@ tags:
   - topics
   - voting
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -19,6 +18,7 @@ related:
   - p1347
   - p1389
   - p1336
+completed_at: 2026-10-05
 ---
 
 # P1414: The next event's page carries the topic vote itself, instead of linking away to it
@@ -30,7 +30,7 @@ related:
 > placeholder event — that way we can always reuse the placeholder event."*
 
 **Situation:** Clarity Nights now recur with the topic decided by the room's votes
-([P1347](done/2026-06-10/p1347_topics_page_attendees_rate_next_topics.md), shipped). So the next
+([P1347](p1347_topics_page_attendees_rate_next_topics.md), shipped). So the next
 event is published **before** its topic exists: fixed date and venue, topic open. The first of these
 is Clarity Night #3 (2026-10-20).
 
@@ -58,7 +58,7 @@ already renders `/stake`.** `EventPrepPage.tsx` does exactly this:
 
 It imports the live page component with an `embedded` prop rather than copying its markup or
 iframing it — *"the step embeds the live `/stake` page, so it is never behind"*
-([decisions.md](../docs/decisions.md)). The same move applies here: give the topics page an
+([decisions.md](../../../docs/decisions.md)). The same move applies here: give the topics page an
 `embedded` mode and render it on the event page.
 
 **It appears only when the event has no topic yet.** The first draft of this spec said "when
@@ -138,10 +138,10 @@ returns the visitor, and a new tab would orphan the page they came from.
 ## Open Questions
 
 1. Does a vote cast from an event page tell us anything extra worth recording — that it came from there rather than from `/topics`?
-2. If the embed works, does the closing sequence ([P1389](p1389_clarity_night_closing_sequence.md)) still need its own topics step, or should it link to the next event's page instead?
+2. If the embed works, does the closing sequence ([P1389](../../p1389_clarity_night_closing_sequence.md)) still need its own topics step, or should it link to the next event's page instead?
 
 ## Related
 
-- [p1347](done/2026-06-10/p1347_topics_page_attendees_rate_next_topics.md) — the topics page this embeds
-- [p1389](p1389_clarity_night_closing_sequence.md) — the closing sequence, which asks the room to vote at the event
-- [p1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) — `EventPrepPage.tsx`, the embed pattern to copy
+- [p1347](p1347_topics_page_attendees_rate_next_topics.md) — the topics page this embeds
+- [p1389](../../p1389_clarity_night_closing_sequence.md) — the closing sequence, which asks the room to vote at the event
+- [p1336](p1336_registration_carries_opt_in_prep_and_survey.md) — `EventPrepPage.tsx`, the embed pattern to copy
