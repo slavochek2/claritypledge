@@ -37,6 +37,10 @@ export interface EventRound {
   observerS: number | null;
   /** false = no swap at half time (migration 20261005090000). */
   splitSpeakers: boolean;
+  /** The tag this round was grouped on; null = the event's statement tag (20261005183000). */
+  matchTag: string | null;
+  /** The host chose who sits; everyone not seated watches (20261005183000). */
+  showcase: boolean;
 }
 
 export interface RoundSeat extends Seat {
@@ -73,6 +77,8 @@ interface DbRound {
   second_s: number | null;
   observer_s: number | null;
   split_speakers: boolean | null;
+  match_tag: string | null;
+  showcase: boolean | null;
 }
 
 interface DbSeat {
@@ -87,7 +93,7 @@ interface DbSeat {
 export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase
     .from('event_rounds')
-    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s, split_speakers')
+    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s, split_speakers, match_tag, showcase')
     .eq('event_id', eventId)
     .order('round_no', { ascending: true });
   if (error) throw error;
@@ -102,6 +108,8 @@ export async function getEventRoundsState(eventId: string): Promise<EventRoundsS
     secondS: r.second_s,
     observerS: r.observer_s,
     splitSpeakers: r.split_speakers !== false,
+    matchTag: r.match_tag ?? null,
+    showcase: r.showcase === true,
   }));
   if (mapped.length === 0) return EMPTY_ROUNDS_STATE;
 
@@ -158,6 +166,7 @@ export async function hostStartRound(
   minutes: RoundMinutes = DEFAULT_ROUND_MINUTES,
   splitSpeakers = true,
   signal?: AbortSignal,
+  options: { matchTag?: string | null; showcase?: boolean } = {},
 ): Promise<string> {
   const call = supabase.rpc('host_start_round', {
     p_event_id: eventId,
@@ -168,6 +177,8 @@ export async function hostStartRound(
     p_speaker_s: minutes.speakerS,
     p_observer_s: minutes.observerS,
     p_split_speakers: splitSpeakers,
+    p_match_tag: options.matchTag ?? null,
+    p_showcase: options.showcase ?? false,
   });
   const { data, error } = await (signal ? call.abortSignal(signal) : call);
   if (error) throw error;
@@ -190,6 +201,13 @@ export async function hostExtendRound(
   signal?: AbortSignal,
 ): Promise<void> {
   const call = supabase.rpc('host_extend_round', { p_round_id: roundId, p_phase: phase });
+  const { error } = await (signal ? call.abortSignal(signal) : call);
+  if (error) throw error;
+}
+
+/** "−1 min": a minute off the part running now; never moves time already passed. */
+export async function hostShortenRound(roundId: string, signal?: AbortSignal): Promise<void> {
+  const call = supabase.rpc('host_shorten_round', { p_round_id: roundId });
   const { error } = await (signal ? call.abortSignal(signal) : call);
   if (error) throw error;
 }

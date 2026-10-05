@@ -38,3 +38,21 @@ export function RoleBadge({ role, className, style }: { role: LiveRole; classNam
     </span>
   );
 }
+
+/**
+ * P1337 (founder walkthrough 6): a round with no swap at half time assigns no starter — the pair
+ * hold both cards and decide who starts. Both cards, side by side, the same size as one badge
+ * per card.
+ */
+export function PairBadge({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <span className="inline-flex shrink-0 gap-0.5" aria-label="Speaker and listener: you two decide who starts" data-role-badge="pair">
+      <span className={cn('inline-grid place-items-center rounded-md font-extrabold leading-none', CARD.speaker.className, className)} style={style} aria-hidden>
+        {CARD.speaker.letter}
+      </span>
+      <span className={cn('inline-grid place-items-center rounded-md font-extrabold leading-none', CARD.listener.className, className)} style={style} aria-hidden>
+        {CARD.listener.letter}
+      </span>
+    </span>
+  );
+}

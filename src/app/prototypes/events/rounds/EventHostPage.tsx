@@ -52,6 +52,7 @@ import {
   hostExtendRound,
   hostSetRoundPresence,
   hostSetRoundSeats,
+  hostShortenRound,
   roundExists,
   hostStartRound,
   DEFAULT_ROUND_MINUTES,
@@ -83,7 +84,7 @@ import type { EventRoomMember } from '@/app/types';
 import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
 import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
-import { RoleBadge } from './RoleBadge';
+import { PairBadge, RoleBadge } from './RoleBadge';
 import { SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 
 const START_LOCK_MS = 10_000;
@@ -144,6 +145,8 @@ interface Settings {
   minutes: RoundMinutes;
   /** "Swap at half time" — off: one talking part, the pair trade the badges themselves. */
   splitSpeakers: boolean;
+  /** "Match on #tag": the tag the next round is grouped on (empty = the event's statement tag). */
+  matchTag: string;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -151,6 +154,7 @@ const DEFAULT_SETTINGS: Settings = {
   toggles: DEFAULT_TOGGLES,
   minutes: DEFAULT_ROUND_MINUTES,
   splitSpeakers: true,
+  matchTag: '',
 };
 
 /** The three minute settings: what they are called, and the range the database accepts. */
@@ -477,7 +481,11 @@ function ScreenView({
                     const m = byId.get(s.id);
                     return (
                       <li key={s.id} className="flex items-center gap-[0.5em]">
-                        <RoleBadge role={liveRole(s.role, clock.phase)} style={{ width: '1.6em', height: '1.6em', fontSize: '1em' }} />
+                        {round.splitSpeakers || s.role === 'observer' ? (
+                          <RoleBadge role={liveRole(s.role, clock.phase)} style={{ width: '1.6em', height: '1.6em', fontSize: '1em' }} />
+                        ) : (
+                          <PairBadge style={{ width: '1.6em', height: '1.6em', fontSize: '1em' }} />
+                        )}
                         {/* The avatar's own wrapper is inline-block and unsized: stretch it so the face scales with the type. */}
                         <span
                           className="shrink-0 [&>div]:!block [&>div]:!h-full [&>div]:!w-full"
@@ -695,14 +703,16 @@ function TablesGrid({
       {columns.map(col => {
         const role = liveRole(col, phase);
         const speaking = split && role === 'speaker' && phase !== 'seating' && phase !== 'over';
+        // No swap at half time: no starter is assigned — both speaker columns are "the pair".
+        const pair = !split && col !== 'observer';
         return (
           <p
             key={col}
             className={cn('flex items-center justify-center gap-1.5 text-xs', speaking ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}
             data-testid="round-grid-role"
           >
-            <RoleBadge role={role} className="h-5 w-5 text-[11px]" />
-            <span className="hidden min-[375px]:inline">{COLUMN_LABEL[col]}</span>
+            {pair ? <PairBadge className="h-5 w-5 text-[11px]" /> : <RoleBadge role={role} className="h-5 w-5 text-[11px]" />}
+            <span className="hidden min-[375px]:inline">{pair ? 'Pair' : COLUMN_LABEL[col]}</span>
           </p>
         );
       })}
@@ -855,7 +865,11 @@ export function EventHostPage() {
   const names = useMemo(() => new Map(roster.map(m => [m.id, m.displayName])), [roster]);
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
-  const positions = useTagPositions(isScreen ? null : event?.statementTag, profileIds);
+  // "Match on #tag" (founder walkthrough 6): the next round is grouped on this tag; empty = the event's.
+  const matchTag = settings.matchTag.trim() || event?.statementTag || null;
+  const positions = useTagPositions(isScreen ? null : matchTag, profileIds);
+  // Showcase (founder walkthrough 6, option 7C): the host chooses who sits; everyone else watches.
+  const [chosen, setChosen] = useState<Set<string> | null>(null);
   const recorderProfiles = useMemo(() => new Set(prepRows.filter(r => r.researchState === 'confirmed').map(r => r.profileId)), [prepRows]);
   const prepMarks = useMemo(() => prepMarksByProfile(prepRows), [prepRows]);
   const marksFor = useCallback(
@@ -910,9 +924,9 @@ export function EventHostPage() {
   );
 
   const compute = useCallback(
-    (roundNo: number) =>
+    (roundNo: number, only: Set<string> | null = null) =>
       groupNextRound({
-        people: poolFor(roundNo),
+        people: poolFor(roundNo).filter(p => !only || only.has(p.id)),
         history: historyBefore(roundNo),
         gap,
         // Plan three rounds ahead, or just this one past the third — there is no fixed count.
@@ -978,8 +992,9 @@ export function EventHostPage() {
   }
 
   const startNext = () => {
-    if (poolFor(nextNo).length < 2) {
-      setError('Waiting for at least two people in the room.');
+    const pool = poolFor(nextNo).filter(p => !chosen || chosen.has(p.id));
+    if (pool.length < 2) {
+      setError(chosen ? 'Choose at least two people to sit.' : 'Waiting for at least two people in the room.');
       return;
     }
     const roundNo = nextNo;
@@ -987,9 +1002,17 @@ export function EventHostPage() {
       async signal => {
         setBusy('grouping');
         await new Promise(resolve => setTimeout(resolve, 30));
-        const grouped = compute(roundNo);
+        const grouped = compute(roundNo, chosen);
         setBusy('saving');
-        return hostStartRound(event.id, roundNo, settings.groupSize, grouped, settings.minutes, settings.splitSpeakers, signal);
+        const showcase = !!chosen;
+        const roundTag = settings.matchTag.trim() && settings.matchTag.trim() !== event.statementTag ? settings.matchTag.trim() : null;
+        const id = await hostStartRound(event.id, roundNo, settings.groupSize, grouped, settings.minutes, settings.splitSpeakers, signal, {
+          matchTag: roundTag,
+          showcase,
+        });
+        // A showcase is one round's choice; the next round seats the room again unless chosen again.
+        setChosen(null);
+        return id;
       },
       signal => roundExists(event.id, roundNo, signal),
     );
@@ -1055,6 +1078,12 @@ export function EventHostPage() {
     const phase = clock.phase;
     void run(signal => hostExtendRound(round.id, phase, signal));
   };
+  // "−1 min" (founder walkthrough 6): the server takes a minute off the part running now, never
+  // more than what is left of it.
+  const shorten = () => {
+    if (!round || !clock || clock.phase === 'over') return;
+    void run(signal => hostShortenRound(round.id, signal));
+  };
 
   const canSwap = (id: string) =>
     !!lifted && lifted !== id && seatOf.has(lifted) && seatOf.has(id) && !isOut(lifted) && !isOut(id);
@@ -1108,7 +1137,12 @@ export function EventHostPage() {
       {/* Desktop: the room on the left, the controls on the right (founder, 2026-10-04). On a
           phone the controls come first — the button is what the host reaches for. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-4 lg:order-2" data-testid="host-controls">
+        {/* On a phone the controls stay on screen while the host scrolls the room (founder
+            walkthrough 6): clock, −1/+1 and Next round. Settings live in their own card below. */}
+        <section
+          className="rounded-xl border border-border bg-card p-4 shadow-sm max-lg:sticky max-lg:top-0 max-lg:z-20 lg:sticky lg:top-4 lg:order-2 lg:col-start-2"
+          data-testid="host-controls"
+        >
           <p className="text-sm font-medium text-muted-foreground">
             {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : `Round ${round?.roundNo}`}</span>}
             {(ended || round) && !ended && ' · '}
@@ -1127,17 +1161,30 @@ export function EventHostPage() {
                   )}
                 </div>
                 {clock.phase !== 'over' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-h-10 shrink-0"
-                    onClick={extend}
-                    disabled={!!busy}
-                    data-testid="host-extend"
-                  >
-                    +1 min
-                  </Button>
+                  <div className="flex shrink-0 gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10"
+                      onClick={shorten}
+                      disabled={!!busy}
+                      data-testid="host-shorten"
+                    >
+                      −1 min
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10"
+                      onClick={extend}
+                      disabled={!!busy}
+                      data-testid="host-extend"
+                    >
+                      +1 min
+                    </Button>
+                  </div>
                 )}
               </div>
               <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
@@ -1165,8 +1212,10 @@ export function EventHostPage() {
               {error}
             </p>
           )}
+        </section>
+
           {hasNext && (
-            <details className="group mt-3" data-testid="host-settings">
+            <details className="group mt-3 rounded-xl border border-border bg-card px-4 py-1 shadow-sm lg:order-3 lg:col-start-2" data-testid="host-settings">
               <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
                 Next round settings
                 <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
@@ -1239,12 +1288,84 @@ export function EventHostPage() {
                     {label}
                   </label>
                 ))}
+                <label className="flex items-center gap-3 text-sm min-h-10">
+                  <span className="shrink-0">Match on</span>
+                  <span className="flex min-w-0 flex-1 items-center rounded-md border border-border bg-background px-2">
+                    <span className="text-muted-foreground">#</span>
+                    <input
+                      type="text"
+                      inputMode="text"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-base md:text-sm outline-none"
+                      placeholder={event.statementTag ?? 'tag'}
+                      value={settings.matchTag}
+                      onChange={e => setSettings({ ...settings, matchTag: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 50) })}
+                      data-testid="host-match-tag"
+                    />
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 text-sm min-h-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-blue-500"
+                    checked={!!chosen}
+                    onChange={e => setChosen(e.target.checked ? new Set() : null)}
+                    data-testid="host-choose-toggle"
+                  />
+                  Choose who sits
+                </label>
+                {chosen && (
+                  <div className="space-y-2" data-testid="host-choose">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {chosen.size} chosen · everyone else watches
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-10"
+                        onClick={() => setChosen(new Set(here.filter(m => m.profileId && recorderProfiles.has(m.profileId)).map(m => m.id)))}
+                        data-testid="host-choose-recorders"
+                      >
+                        Recorders
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {here.map(m => {
+                        const on = chosen.has(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() =>
+                              setChosen(prev => {
+                                const next = new Set(prev ?? []);
+                                if (on) next.delete(m.id);
+                                else next.add(m.id);
+                                return next;
+                              })
+                            }
+                            className={cn(
+                              'min-h-10 rounded-full border px-3 text-sm',
+                              on ? 'border-blue-500 bg-blue-50 font-medium text-blue-700' : 'border-border bg-background text-muted-foreground',
+                            )}
+                            data-testid="host-choose-person"
+                          >
+                            {shortName(m.displayName)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </details>
           )}
-        </section>
 
-        <div className="min-w-0 lg:order-1">
+        <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {!ended && (
             <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
               {round && clock && seats.length > 0 && (
@@ -1298,7 +1419,14 @@ export function EventHostPage() {
           )}
 
           {pastRounds.length > 0 && (
-            <section className="mt-6 space-y-2" data-testid="host-past-rounds">
+            // One line until opened (founder walkthrough 6): the rounds behind are rarely needed.
+            <details className="group/past mt-6 rounded-xl border border-border bg-card px-4 py-2" data-testid="host-past-rounds">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
+                <span className="font-medium">Past rounds</span>
+                <span className="text-muted-foreground tabular-nums">{pastRounds.length}</span>
+                <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open/past:rotate-180" />
+              </summary>
+              <div className="space-y-2 pb-2 pt-1">
               {[...pastRounds].reverse().map(r => {
                 const past = state.seatsByRound.get(r.id) ?? [];
                 const tapped = past.filter(s => s.confirmedAt).length;
@@ -1317,7 +1445,8 @@ export function EventHostPage() {
                   </details>
                 );
               })}
-            </section>
+              </div>
+            </details>
           )}
         </div>
       </div>

@@ -44,7 +44,7 @@ import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
 import { eventTopic } from '../prep/prep-plan';
 import { StatementRow, TopicMark, type Person } from '@/app/components/compare/statement-row';
-import { RoleBadge } from './RoleBadge';
+import { PairBadge, RoleBadge } from './RoleBadge';
 
 // The stored role says who speaks first; the pair swap after the first speaker's minutes (liveRole).
 const ROLE_LINE: Record<SeatRole, string> = {
@@ -54,9 +54,10 @@ const ROLE_LINE: Record<SeatRole, string> = {
 };
 
 // No swap at half time: the pair start this way and trade the badges whenever they like.
+// P1337 walkthrough 6: a round with no swap assigns no starter — the pair decide.
 const ROLE_LINE_UNSPLIT: Record<SeatRole, string> = {
-  first: 'You start speaking',
-  second: 'You start listening',
+  first: 'You two decide who starts',
+  second: 'You two decide who starts',
   observer: 'You observe and keep time',
 };
 
@@ -151,7 +152,9 @@ export function RoundCard({
   const pairProfiles = [firstMember?.profileId, secondMember?.profileId, self?.profileId].filter(
     (p): p is string => !!p,
   );
-  const positions = useTagPositions(statementTag, pairProfiles);
+  // "Match on #tag": a round grouped on another tag talks about that tag's statements.
+  const roundTag = round?.matchTag ?? statementTag;
+  const positions = useTagPositions(roundTag, pairProfiles);
 
   // The compare page's rows (founder walkthrough 6): a speaker sees themself against their
   // partner; the observer sees the pair, Speaker 1 on the left.
@@ -199,7 +202,7 @@ export function RoundCard({
   };
   const compareHref = (slug: string, extra = '') => {
     const params = new URLSearchParams(extra);
-    if (statementTag) params.set('tag', statementTag);
+    if (roundTag) params.set('tag', roundTag);
     const q = params.toString();
     return `/compare/${slug}${q ? `?${q}` : ''}`;
   };
@@ -251,7 +254,8 @@ export function RoundCard({
       <>
         {round && (
           <p className="text-base font-medium" data-testid="round-card-waiting">
-            Round {round.roundNo} · You join the next round
+            {/* A showcase seats only the people the host chose; everyone else watches. */}
+            Round {round.roundNo} · {round.showcase ? 'You watch' : 'You join the next round'}
           </p>
         )}
         {past}
@@ -341,7 +345,11 @@ export function RoundCard({
             const isMe = s.id === mine.id;
             return (
               <li key={s.id} className="flex items-center gap-2.5">
-                <RoleBadge role={liveRole(s.role, phase)} className="h-7 w-7 text-base" />
+                {split || s.role === 'observer' ? (
+                  <RoleBadge role={liveRole(s.role, phase)} className="h-7 w-7 text-base" />
+                ) : (
+                  <PairBadge className="h-7 w-7 text-base" />
+                )}
                 <Face member={member(s.id)} />
                 <span className={cn('flex-1 min-w-0 break-words text-sm', isMe ? 'text-muted-foreground' : 'font-medium')}>
                   {isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}
@@ -378,7 +386,7 @@ export function RoundCard({
           </Button>
         )}
 
-        {atTable && (rows.length > 0 || (iHaveNone && statementTag)) && (
+        {atTable && (rows.length > 0 || (iHaveNone && roundTag)) && (
           <div className="mt-5 border-t border-border pt-4" data-testid="round-card-topics">
             <p className="text-sm font-semibold">What do we talk about?</p>
             {rows.length > 0 ? (
@@ -408,11 +416,11 @@ export function RoundCard({
               </>
             ) : (
               <Link
-                to={`/stake/${encodeURIComponent(statementTag ?? '')}`}
+                to={`/stake/${encodeURIComponent(roundTag ?? '')}`}
                 className="mt-2 inline-flex min-h-10 items-center text-sm font-medium text-blue-600"
                 data-testid="round-card-add-positions"
               >
-                Add your positions on #{statementTag}
+                Add your positions on #{roundTag}
               </Link>
             )}
           </div>

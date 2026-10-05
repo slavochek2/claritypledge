@@ -323,4 +323,41 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     // A finished round takes no more minutes.
     expect((await h.rpc('host_extend_round', { p_round_id: started.data as string, p_phase: 'first' })).error?.code).toBe('22023');
   });
+
+  test('walkthrough 6: "−1 min" never moves time passed; a round stores its match tag and showcase', async () => {
+    const h = await clientFor(host);
+    const pair = [{ m: member.a, t: 1, r: 'first' }, { m: member.b, t: 1, r: 'second' }];
+    const base = { p_event_id: eventId, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 0, p_split_speakers: true };
+    // Showcase + match tag: stored with the round; a malformed tag is refused by the column check.
+    expect((await h.rpc('host_start_round', { ...base, p_round_no: 4, p_match_tag: 'Not A Tag', p_showcase: true })).error).not.toBeNull();
+    const r4 = await h.rpc('host_start_round', { ...base, p_round_no: 4, p_match_tag: 'ikigai1', p_showcase: true });
+    expect(r4.error).toBeNull();
+    const id = r4.data as string;
+    const read = async () =>
+      (await supabaseAdmin.from('event_rounds').select('seating_s, first_s, second_s, match_tag, showcase').eq('id', id).single()).data!;
+    expect(await read()).toMatchObject({ match_tag: 'ikigai1', showcase: true });
+
+    // Host only.
+    const ca = await clientFor(a);
+    expect((await ca.rpc('host_shorten_round', { p_round_id: id })).error?.code).toBe('42501');
+    expect((await anon().rpc('host_shorten_round', { p_round_id: id })).error).not.toBeNull();
+
+    // 100 s into the first speaker's 300: a minute off leaves 240.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (60 + 100) * 1000).toISOString() }).eq('id', id);
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    expect(await read()).toMatchObject({ seating_s: 60, first_s: 240, second_s: 300 });
+    // 200 s into a 240 s part: a minute off would end it in the past — it ends now (~200), no earlier.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (60 + 200) * 1000).toISOString() }).eq('id', id);
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    const after = await read();
+    expect(after.first_s).toBeGreaterThanOrEqual(200);
+    expect(after.first_s).toBeLessThan(240);
+    // The speakers' floor: a part never goes under 60 s.
+    await supabaseAdmin.from('event_rounds').update({ first_s: 90, started_at: new Date(Date.now() - (60 + 5) * 1000).toISOString() }).eq('id', id);
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    expect((await read()).first_s).toBe(60);
+    // A finished round takes no minute off.
+    expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error?.code).toBe('22023');
+  });
 });
