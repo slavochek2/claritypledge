@@ -95,6 +95,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [product]: `/presi4` is a 19-slide deck that explains and backs up the evening; the room's own screen runs it
+
+**Context:** `/presi3` ran ~50 slides at Clarity Night #1 and the room had not started a round 48 minutes in; about 15 of those minutes were in-room logistics, not theory (measured from the event recording, `~/video-library/clarity-night-1-ai-safety-sep-2026/transcripts/20260918_180542.txt`). Three specs have since taken over most of what the deck carried: P1336 (preparation, shipped), P1337 (the room's round screen), P1389 (the close, on phones).
+**Decision:** `public/presi4/index.html`, frozen for Clarity Night #2 (2026-10-06). `/presi3` is left untouched as the record of event #1.
+- **The deck is not the round engine.** The round slide and the exception slide are BACKUPS for a night when the phone flow fails, and carry no timer. Slide 16 embeds `/events/<slug>/host?view=screen` — when P1337's screen ships, that frame is the screen and the deck needs no further change.
+- **The arc is 19 slides**; everything cut sits in the backup block in the same file, because nobody yet knows how many people arrive prepared, and a host who must repeat something should have the slide rather than improvise it.
+- **The QR points at the stable series link** `/events/night` (307 → nearest upcoming Clarity Night), not at this event's slug, so the QR, the poster and the deck survive the weekly topic swap. Inline SVG, generated with the repo's own `qrcode.react`.
+- **The goal slide states Point A and Point B as one sentence with one word changed** — *revealing understanding gaps is punished* → *rewarded* — with **no social norm** as the obstacle. People *can* reveal a gap; they don't, because nothing in the room rewards it.
+- **The round is one chat thread that fills on the host's click**, ending with the observer's close. The below-8 prohibition appears nowhere (overruled 2026-09-29); the only rule on screen is that an opted-in person gives their number when asked.
+- **The three recording benefits are back**, with the third reframed as an invitation to help build the live mirror agent rather than a research disclaimer.
+- **Run of show: 95 minutes inside the 120 the room is booked for** — 10 talking · 3 the round explained · 7 showcase · 3 seating · 45 rounds · 4 rotations · 15 Q&A · 8 closing. The only elastic item is the host's own talking.
+**Alternatives rejected:** keeping the stage demo at ~15 min (it is 3 + 3 + 1 now); printing minutes on the agenda (a public promise the host then has to keep); deleting the cut slides instead of demoting them; a QR to this event's slug (dies weekly).
+**Consequences:** `docs/events/facilitator-checklist.md` carries the run of show and the latecomer line. **UNRESOLVED and owned by P1337, not the deck:** whether the host assigns speaker/listener or attendees choose by flipping the badge (the deck assigns, for the showcase only), and whether a 15-minute block or its 6-minute half is called a "round" — the deck should copy whatever the room screen says. **UNTESTED.** Falsifier: at Clarity Night #2 practice still has not started 25 minutes in, or the host has to re-teach from the deck what preparation already covered.
+**References:** `public/presi4/index.html`; [P1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md), [P1337](../features/p1337_event_journey_on_screen_steps_rotation_and_ending.md), [P1338](../features/p1338_clarity_night_deck_cut_theory_and_run_rounds.md), [P1380](../features/done/2026-06-10/p1380_event_starting_soon_email_with_signin.md); decisions.md 2026-09-28, 2026-09-29, 2026-10-02, 2026-10-05 [product]
+
+---
+
 ## 2026-10-05 [product]: The observer guards the roles and closes the round; it holds no clock (/presi4)
 
 **Context:** Trios gave the round a third role nobody has ever played. The 2026-09-28 design had the observer call "swap" at six minutes, and the deck drew it that way. Reviewing the slide the founder dropped it: *"maybe we don't do the swap the clock. It's weird."*

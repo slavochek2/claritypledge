@@ -23,6 +23,27 @@ What you do, in order. The why lives in [clarity-practice-event.md](clarity-prac
 - [ ] Recorders: screen on, phone face up, **iPhone never locked**, Android Chrome battery unrestricted, never unplug mid-round
 - [ ] Start on time; latecomers join next round
 
+## Run of show — 120 min (Clarity Night #2)
+
+| | min |
+|---|---|
+| Slides, you talking (intro → the cards) | 10 |
+| The round, explained (the chat slide) | 3 |
+| Showcase — one round at the front, 3 + 3 + 1 | 7 |
+| Seating people into tables | 3 |
+| Round 1 · rotate · Round 2 · rotate · Round 3 | 15 · 2 · 15 · 2 · 15 |
+| Q&A | 15 |
+| Closing, on their phones | 8 |
+| **Total** | **95** — 25 min of slack inside 120 |
+
+The slack is for the room filling, latecomers and over-runs; it is not spare time to fill.
+**The only elastic item is your own talking** — everything else is the format. A "rotate" is
+the two minutes people spend moving to their next table between rounds.
+
+**If someone arrives after the slides**, point them at the event room and say one sentence:
+*"I explain back your intended meaning, and you rate me 10 out of 10 — that's verified
+cognitive understanding."* Do not replay the deck for them; they join at the next round.
+
 ## Each round
 
 - [ ] Ring the bell → press **Next round**. Mark leavers or swap people only if needed.
