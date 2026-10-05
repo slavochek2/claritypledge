@@ -1123,7 +1123,7 @@ export function QuotedStory({
            chars before we cut of maybe 3x more?" Filed agent story bodies run 545-858
            characters, so 200 cut every one of them before the argument arrived. */
         return !textExpanded && cleanText.length > 600 ? (
-          <p id={textId} className="text-sm text-gray-800 break-words">
+          <p className="text-sm text-gray-800 break-words">
             {linkifyText(cleanText.slice(0, 600))}
             <span
               data-testid="more-link"
@@ -1135,7 +1135,7 @@ export function QuotedStory({
             > ...more</span>
           </p>
         ) : (
-          <p id={textId} className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
+          <p className="text-sm text-gray-800 break-words">{linkifyText(cleanText)}</p>
         );
       })()}
       {/* P1212 §4, on the eighth surface. The text above has had the quote LABEL stripped
@@ -1157,7 +1157,15 @@ export function QuotedStory({
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
       )}
-      {openViaDetails && <NestedDetailsButton type="story" onOpen={(e) => onClick(e)} describedBy={textId} />}
+      {openViaDetails && (
+        <>
+          {/* P1424 review: the button is described by the story's NAME, as P1415 describes the
+              card's own `Details →` ("Story by …"), never by the text <p> — a media-only story has
+              empty text, and a long one ends in " ...more". `hidden`: read only via the reference. */}
+          <span id={textId} hidden>{`Story by ${stripAgentPrefix(author?.name) || 'an author'}`}</span>
+          <NestedDetailsButton type="story" onOpen={(e) => onClick(e)} describedBy={textId} />
+        </>
+      )}
       </div>
     </div>
   );

@@ -17,7 +17,6 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Pin, Ear } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
@@ -31,6 +30,7 @@ import { adjustPositionCounts, toSevenPointCounts } from '@/app/utils/position-h
 import type { PositionType, PointSummary } from '@/app/types';
 import type { Position } from '@/app/components/shared/prototype-types';
 import { NestedDetailsButton } from '@/app/components/shared/card-footer-controls';
+import { useOpenPath } from '@/app/components/shared/links-in-new-tab';
 
 /** Mirrors the route helper the profile page defines locally. */
 const detailRoutes = {
@@ -114,9 +114,11 @@ export function QuotedPointCard({
 }: QuotedPointCardProps) {
   const { isAgentAccountId: isAgentQuoted, isLoading: quotedIdentityPending } = useAgentAccountIds();
   const quotedIsAgent = isAgentQuoted(authorId);
-  const navigate = useNavigate();
   const nameId = useId(); // P1424: describes the nested `Details →` by this point
-  const openPoint = () => navigate(detailRoutes.point(point.id, fromProfileId));
+  // P1424 review (Gemini, Codex): through `useOpenPath`, so a host that opens links in a new tab
+  // (P1336's onboarding / prepare embed) gets a new tab here too — `navigate` replaced the host.
+  const openPath = useOpenPath();
+  const openPoint = () => openPath(detailRoutes.point(point.id, fromProfileId));
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
   );

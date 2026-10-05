@@ -53,6 +53,11 @@ async function assertDetailsOnly(page: Page, box: Locator, listUrl: RegExp, deta
   expect(size!.height, 'the nested Details → is a 40px tap target').toBeGreaterThanOrEqual(40);
   await details.click();
   await expect(page).toHaveURL(detail);
+
+  // Back returns to the list with the nested list still open (P1364 return state).
+  await page.goBack();
+  await expect(page).toHaveURL(listUrl);
+  await expect(box.getByTestId(/^nested-details-/)).toBeVisible({ timeout: 15000 });
 }
 
 test.describe('P1424 — nested items open only via their own Details', () => {
