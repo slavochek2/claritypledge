@@ -20,7 +20,7 @@ import {
   startingSoonEligible,
   type StartingSoonRsvp,
 } from '../_shared/starting-soon.ts';
-import { setMessageIds } from '../_shared/rsvp-message-ids.ts';
+import { clearMessageIds } from '../_shared/rsvp-message-ids.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -33,6 +33,10 @@ import { setMessageIds } from '../_shared/rsvp-message-ids.ts';
  */
 function isCancellableId(id: string | null | undefined): id is string {
   return !!id && id !== 'PENDING' && id !== SENT_NO_ID;
+}
+
+async function cancelIfReal(id: string): Promise<void> {
+  if (isCancellableId(id)) await cancelScheduledEmail(id);
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -193,19 +197,10 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
   await Promise.all(rsvps.map(async (rsvp) => {
     // P1380: handleCancel withdrew the scheduled starting-soon email at Mailgun but its id is
     // still stored, which would block a new one forever. Back on → let the cron schedule again.
-    // P1425: per-key compare-and-set — clears the two starting-soon keys only if starting_soon
-    // still holds what we read, and never rewrites the reminder/feedback ids beside them.
-    const ids = (rsvp.mailgun_message_ids as Record<string, string> | null) ?? {};
-    if (ids.starting_soon != null) {
-      await setMessageIds(
-        supabase,
-        rsvp.id,
-        'starting_soon',
-        ids.starting_soon,
-        { starting_soon: null, starting_soon_for: null },
-        { attemptedAt: null },
-      );
-    }
+    // P1425: the reminder and feedback were withdrawn too, and their ids were left stored — so after
+    // an uncancel the cron (which only sends a kind whose id is absent) never sent them again.
+    // Cleared per key against a fresh read; anything still scheduled at Mailgun is cancelled first.
+    await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal);
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
@@ -284,17 +279,9 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
     if (eventDatetime <= now) return;
 
-    // Null out mailgun_message_ids keys and reset attempted_at — cron re-dispatches with new times.
-    // P1425: the one sanctioned whole-object write of mailgun_message_ids (a deliberate reset, not
-    // a read-modify-write); src/tests/p1425-message-ids-writers.test.ts allows exactly this line.
-    const updatePayload: Record<string, unknown> = {
-      mailgun_message_ids: keepStartingSoon // p1425-sanctioned-reset
-        ? { starting_soon: startingSoonId, starting_soon_for: ids?.starting_soon_for }
-        : {},
-      reminder_attempted_at: null,
-      feedback_attempted_at: null,
-    };
-    if (!keepStartingSoon) updatePayload.starting_soon_attempted_at = null;
+    // New schedule first, ids second: while the old ids are still stored the cron cannot claim
+    // under the old times, and once they are cleared it schedules the new ones.
+    const updatePayload: Record<string, unknown> = {};
 
     if (reminderScheduledAt > now) {
       updatePayload.reminder_scheduled_at = reminderScheduledAt.toISOString();
@@ -312,6 +299,16 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
       .from('event_rsvps')
       .update(updatePayload)
       .eq('id', rsvp.id);
+
+    // P1425: clear per key against a FRESH read. The old reset wrote a whole object built from the
+    // read above — seconds old by now (cancels, the update email) — so a starting-soon id the cron
+    // stored in between was erased and the email went out twice. An id that appeared since the
+    // read is cancelled here; a starting-soon email for this exact start is kept.
+    await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal, {
+      keepStartingSoonFor: event.datetime,
+      alreadyCancelled: new Set([reminderId, feedbackId, keepStartingSoon ? null : startingSoonId]
+        .filter((x): x is string => isCancellableId(x))),
+    });
   }));
 }
 

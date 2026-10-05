@@ -14,6 +14,7 @@ import {
   DISPATCH_WINDOW_MS,
   dispatchFeedback,
   dispatchRsvp,
+  isErrorOutcome,
   STUCK_PENDING_THRESHOLD_MS,
   type RsvpRow,
 } from '../_shared/event-dispatch.ts';
@@ -116,7 +117,7 @@ async function runFeedbackBackfill(
       const outcome = await dispatchFeedback(supabase, rsvp, now, true);
       outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
       if (outcome === 'sent') sent++;
-      else if (outcome === 'failed:mailgun') errors++;
+      else if (isErrorOutcome(outcome)) errors++;
       else skipped++;
       console.log(`backfill rsvp ${rsvp.id}: ${outcome}`);
     } catch (err) {
@@ -178,7 +179,7 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
       // whose own time is inside [now, windowEnd]. Counts emails Mailgun accepted.
       for (const outcome of await dispatchRsvp(supabase, rsvp, now, windowEnd)) {
         if (outcome === 'sent') dispatched++;
-        else if (outcome === 'failed:mailgun') errors++;
+        else if (isErrorOutcome(outcome)) errors++;
       }
     } catch (err) {
       console.error(`dispatch error for rsvp ${rsvp.id}:`, err);
@@ -226,7 +227,7 @@ async function runStartingSoon(
     try {
       const outcome = await dispatchStartingSoon(supabase, rsvp, now);
       if (outcome === 'sent') dispatched++;
-      else if (outcome === 'failed:mailgun') errors++;
+      else if (outcome === 'failed:mailgun' || outcome === 'error:db') errors++;
       console.log(`starting-soon rsvp ${rsvp.id}: ${outcome}`);
     } catch (err) {
       console.error(`starting-soon error for rsvp ${rsvp.id}:`, err);

@@ -27,7 +27,7 @@ import {
   type SupabaseClient,
 } from './email-helpers.ts';
 import { mintEmailLink } from './event-links.ts';
-import { setMessageIds } from './rsvp-message-ids.ts';
+import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
 // Tolerated delta between stored *_scheduled_at and expected time (spec security review).
 const MAX_TIME_DRIFT_MS = 30 * 60 * 1000; // 30 minutes
@@ -72,7 +72,10 @@ export type DispatchOutcome =
   | 'skipped:not-scheduled'
   | 'skipped:host-not-gated'
   | 'skipped:time-drift'
-  | 'skipped:already-claimed';
+  | 'skipped:already-claimed'
+  | 'skipped:already-sent' // a stuck claim whose send WAS recorded: id repaired, nothing re-sent
+  | 'error:db' // the claim RPC or send-log read failed — counted as an error, never as a skip
+  | 'error:threw';
 
 export function isStuckPending(attemptedAt: string | null, now: Date = new Date()): boolean {
   if (!attemptedAt) return false;
@@ -123,12 +126,13 @@ export async function dispatchReminder(
     return 'skipped:time-drift';
   }
 
-  // Atomic claim: reminder → PENDING only while it is absent. A stuck PENDING is not re-claimed
-  // here (unchanged from P947: the claim has always required absent).
-  const claimed = await setMessageIds(supabase, rsvp.id, 'reminder', null, { reminder: 'PENDING' }, {
-    attemptedAt: now.toISOString(),
-  });
-  if (!claimed) return 'skipped:already-claimed';
+  // Atomic claim (P1425: claim token in reminder_attempted_at; a stuck claim is taken over only
+  // after the send log shows its send never went out — P947's claim never re-claimed at all).
+  const claim = await claimMessage(
+    supabase, rsvp, 'reminder', rsvp.mailgun_message_ids?.reminder, rsvp.reminder_attempted_at, now,
+    STUCK_PENDING_THRESHOLD_MS,
+  );
+  if (claim.status !== 'claimed') return claimOutcome(claim.status);
 
   const deliverAt = new Date(rsvp.reminder_scheduled_at);
   // P1380: on a Preparation-on event the reminder is about the preparation if it is not done.
@@ -152,11 +156,11 @@ export async function dispatchReminder(
   const reminder = buildReminder(event, profileData?.name, { prep, prepareUrl });
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
-  // Write the real id over our own PENDING only. If handleUpdate reset the row between claim and
-  // write-back, this matches nothing and the id is not stored: the old Mailgun send fires at the
-  // old time (accepted race; P947 arch decision 5) and the new time re-queues on the next tick.
-  // On a Mailgun failure the key is removed, so the next tick retries.
-  await setMessageIds(supabase, rsvp.id, 'reminder', 'PENDING', { reminder: messageId ?? null });
+  // Write the real id over OUR claim only (PENDING + our token). If handleUpdate reset the row
+  // between claim and write-back, this matches nothing and the id is not stored: the old Mailgun
+  // send fires at the old time (accepted race; P947 arch decision 5) and the new time re-queues on
+  // the next tick. On a Mailgun failure the key is removed, so the next tick retries.
+  await writeBackMessage(supabase, rsvp.id, 'reminder', claim.token, { reminder: messageId ?? null });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
@@ -200,10 +204,11 @@ export async function dispatchFeedback(
     return 'skipped:time-drift';
   }
 
-  const claimed = await setMessageIds(supabase, rsvp.id, 'feedback', null, { feedback: 'PENDING' }, {
-    attemptedAt: now.toISOString(),
-  });
-  if (!claimed) return 'skipped:already-claimed';
+  const claim = await claimMessage(
+    supabase, rsvp, 'feedback', rsvp.mailgun_message_ids?.feedback, rsvp.feedback_attempted_at, now,
+    STUCK_PENDING_THRESHOLD_MS,
+  );
+  if (claim.status !== 'claimed') return claimOutcome(claim.status);
 
   // Fetch host name for feedbackFrom sender
   const { data: host } = await supabase
@@ -217,7 +222,7 @@ export async function dispatchFeedback(
   const feedback = buildFeedback(event, profileData?.name);
   const messageId = await sendEmail({ to: email, ...feedback, from, deliverAt });
 
-  await setMessageIds(supabase, rsvp.id, 'feedback', 'PENDING', { feedback: messageId ?? null });
+  await writeBackMessage(supabase, rsvp.id, 'feedback', claim.token, { feedback: messageId ?? null });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
@@ -230,7 +235,19 @@ export async function dispatchFeedback(
   return messageId ? 'sent' : 'failed:mailgun';
 }
 
-/** One cron tick's work for one row: each kind that is due, reminder first. */
+function claimOutcome(status: 'held' | 'repaired' | 'error'): DispatchOutcome {
+  return status === 'held' ? 'skipped:already-claimed' : status === 'repaired' ? 'skipped:already-sent' : 'error:db';
+}
+
+/** An outcome the cron counts as an error (P1425: a dead RPC must not read as a healthy skip). */
+export function isErrorOutcome(o: DispatchOutcome): boolean {
+  return o === 'failed:mailgun' || o === 'error:db' || o === 'error:threw';
+}
+
+/**
+ * One cron tick's work for one row: each kind that is due, reminder first. A throw in one kind is
+ * recorded and does not hide the other kind's outcome from the cron's counts.
+ */
 export async function dispatchRsvp(
   supabase: SupabaseClient,
   rsvp: RsvpRow,
@@ -239,7 +256,15 @@ export async function dispatchRsvp(
 ): Promise<DispatchOutcome[]> {
   const due = dueKinds(rsvp, now, windowEnd);
   const outcomes: DispatchOutcome[] = [];
-  if (due.reminder) outcomes.push(await dispatchReminder(supabase, rsvp, now));
-  if (due.feedback) outcomes.push(await dispatchFeedback(supabase, rsvp, now));
+  const run = async (kind: string, fn: () => Promise<DispatchOutcome>) => {
+    try {
+      outcomes.push(await fn());
+    } catch (err) {
+      console.error(`dispatch ${kind} threw for rsvp ${rsvp.id}:`, err);
+      outcomes.push('error:threw');
+    }
+  };
+  if (due.reminder) await run('reminder', () => dispatchReminder(supabase, rsvp, now));
+  if (due.feedback) await run('feedback', () => dispatchFeedback(supabase, rsvp, now));
   return outcomes;
 }

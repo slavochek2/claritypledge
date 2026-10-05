@@ -12,8 +12,8 @@
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { FEEDBACK_HOST_ID, type SupabaseClient } from './email-helpers.ts';
-import { DISPATCH_WINDOW_MS, dispatchRsvp, dueKinds, type RsvpRow } from './event-dispatch.ts';
-import { setMessageIds } from './rsvp-message-ids.ts';
+import { DISPATCH_WINDOW_MS, dispatchReminder, dispatchRsvp, dueKinds, isErrorOutcome, type RsvpRow } from './event-dispatch.ts';
+import { claimMessage, clearMessageIds, setMessageIds, writeBackMessage } from './rsvp-message-ids.ts';
 
 const URL_ = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -170,16 +170,16 @@ Deno.test({
   fn: async () => {
     await withEvent(30, async (sb, rsvpId) => {
       const c = sb;
-      assert(await setMessageIds(c, rsvpId, 'reminder', null, { reminder: 'PENDING' }, { attemptedAt: new Date().toISOString() }));
-      assertFalse(await setMessageIds(c, rsvpId, 'reminder', null, { reminder: 'PENDING' })); // already claimed
-      assert(await setMessageIds(c, rsvpId, 'reminder', 'PENDING', { reminder: '<r>' }));
+      assertEquals(await setMessageIds(c, rsvpId, 'reminder', null, { reminder: 'PENDING' }, { attemptedAt: new Date().toISOString() }), 'ok');
+      assertEquals(await setMessageIds(c, rsvpId, 'reminder', null, { reminder: 'PENDING' }), 'conflict'); // already claimed
+      assertEquals(await setMessageIds(c, rsvpId, 'reminder', 'PENDING', { reminder: '<r>' }), 'ok');
       // A feedback claim made by a caller whose read predates the reminder id:
-      assert(await setMessageIds(c, rsvpId, 'feedback', null, { feedback: 'PENDING' }));
-      assert(await setMessageIds(c, rsvpId, 'feedback', 'PENDING', { feedback: null })); // Mailgun failed
+      assertEquals(await setMessageIds(c, rsvpId, 'feedback', null, { feedback: 'PENDING' }), 'ok');
+      assertEquals(await setMessageIds(c, rsvpId, 'feedback', 'PENDING', { feedback: null }), 'ok'); // Mailgun failed
       assertEquals(await ids(sb, rsvpId), { reminder: '<r>' });
       // starting_soon set + cleared as a pair, siblings untouched
-      assert(await setMessageIds(c, rsvpId, 'starting_soon', null, { starting_soon: '<s>', starting_soon_for: 'x' }));
-      assert(await setMessageIds(c, rsvpId, 'starting_soon', '<s>', { starting_soon: null, starting_soon_for: null }, { attemptedAt: null }));
+      assertEquals(await setMessageIds(c, rsvpId, 'starting_soon', null, { starting_soon: '<s>', starting_soon_for: 'x' }), 'ok');
+      assertEquals(await setMessageIds(c, rsvpId, 'starting_soon', '<s>', { starting_soon: null, starting_soon_for: null }, { attemptedAt: null }), 'ok');
       assertEquals(await ids(sb, rsvpId), { reminder: '<r>' });
       // unknown key / unknown patch key are refused by the database
       const bad = await sb.rpc('set_rsvp_message_ids', { p_rsvp_id: rsvpId, p_key: 'confirmation', p_expected: null, p_patch: {} });
@@ -203,4 +203,170 @@ Deno.test({
     });
     assert(error, 'anon call must be refused');
   },
+});
+
+// ── review round 1 (Codex / Gemini / Opus): claim tokens, takeover, resets, error accounting ──
+
+Deno.test({
+  name: 'live: an old write-back cannot land on a NEWER claim (claim token)',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId, eventId) => {
+      const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+      const a = await claimMessage(sb, row, 'reminder', null, null, new Date(Date.now() - 5000), HOUR);
+      assertEquals(a.status, 'claimed');
+      // handleUpdate resets the row, then the next tick claims the replacement reminder
+      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder'], async () => {}), 'ok');
+      const b = await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR);
+      assertEquals(b.status, 'claimed');
+      // A's delayed Mailgun rejection must not clear B's claim …
+      if (a.status !== 'claimed' || b.status !== 'claimed') throw new Error('unreachable');
+      assertEquals(await writeBackMessage(sb, rsvpId, 'reminder', a.token, { reminder: null }), 'conflict');
+      assertEquals((await ids(sb, rsvpId)).reminder, 'PENDING');
+      // … and B's own write-back lands
+      assertEquals(await writeBackMessage(sb, rsvpId, 'reminder', b.token, { reminder: '<b>' }), 'ok');
+      assertEquals((await ids(sb, rsvpId)).reminder, '<b>');
+    });
+  },
+});
+
+async function stickClaim(sb: SupabaseClient, rsvpId: string, hoursAgo: number) {
+  const at = new Date(Date.now() - hoursAgo * HOUR).toISOString();
+  assertEquals(await setMessageIds(sb, rsvpId, 'reminder', null, { reminder: 'PENDING' }, { attemptedAt: at }), 'ok');
+  return at;
+}
+
+Deno.test({
+  name: 'live: stuck claim whose send WAS logged → id repaired from the log, nothing re-sent',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId, eventId) => {
+        await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<fb>' }); // keep feedback out of it
+        await stickClaim(sb, rsvpId, 8);
+        // the original claimer's send went out and was logged, but its write-back never landed
+        const { error } = await sb.from('email_send_log').insert({
+          event_id: eventId, profile_id: FEEDBACK_HOST_ID, email_type: 'reminder', status: 'sent',
+          mailgun_message_id: '<logged@stub>', created_at: new Date(Date.now() - 8 * HOUR + 1000).toISOString(),
+        });
+        if (error) throw error;
+        const outcomes = await tick(sb, rsvpId);
+        assertEquals(outcomes, ['skipped:already-sent']);
+        assertEquals(mg.sent.length, 0);
+        assertEquals((await ids(sb, rsvpId)).reminder, '<logged@stub>');
+      });
+    } finally { mg.restore(); }
+  },
+});
+
+Deno.test({
+  name: 'live: stuck claim with NO logged send → taken over and sent exactly once',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId) => {
+        await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<fb>' });
+        await stickClaim(sb, rsvpId, 8);
+        assertEquals(await tick(sb, rsvpId), ['sent']);
+        assertEquals(await tick(sb, rsvpId), []);
+        assertEquals(mg.sent.length, 1);
+        assertEquals((await ids(sb, rsvpId)).reminder, '<p1425-1@stub>');
+      });
+    } finally { mg.restore(); }
+  },
+});
+
+Deno.test({
+  name: 'live: a FRESH (not stuck) claim is left alone',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId) => {
+        await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<fb>' });
+        await stickClaim(sb, rsvpId, 1);
+        assertEquals(await tick(sb, rsvpId), []); // not due: claim is live
+        assertEquals(mg.sent.length, 0);
+      });
+    } finally { mg.restore(); }
+  },
+});
+
+Deno.test({
+  name: 'live: clearMessageIds (uncancel / edit) clears every kind, cancels ids it had not seen, keeps a same-start starting-soon',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId) => {
+      await setMessageIds(sb, rsvpId, 'reminder', null, { reminder: '<r>' });
+      await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<f>' });
+      await setMessageIds(sb, rsvpId, 'starting_soon', null, { starting_soon: '<s>', starting_soon_for: 'D1' });
+      const cancelled: string[] = [];
+      const cancel = async (id: string) => { cancelled.push(id); };
+      // an edit that kept the start: reminder/feedback cleared, starting-soon kept; '<r>' already cancelled
+      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder', 'feedback', 'starting_soon'], cancel, {
+        keepStartingSoonFor: 'D1', alreadyCancelled: new Set(['<r>']),
+      }), 'ok');
+      assertEquals(await ids(sb, rsvpId), { starting_soon: '<s>', starting_soon_for: 'D1' });
+      assertEquals(cancelled, ['<f>']);
+      // an edit that moved the start (or an uncancel): starting-soon cleared and cancelled
+      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder', 'feedback', 'starting_soon'], cancel, {
+        keepStartingSoonFor: 'D2',
+      }), 'ok');
+      assertEquals(await ids(sb, rsvpId), {});
+      assertEquals(cancelled, ['<f>', '<s>']);
+    });
+  },
+});
+
+Deno.test({
+  name: 'live: after cancel → uncancel the reminder is scheduled again (was: never)',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId) => {
+        assertEquals(await tick(sb, rsvpId), ['sent', 'sent']); // reminder + feedback scheduled
+        // handleCancel withdraws them at Mailgun but leaves the ids; handleUncancel now clears them
+        await clearMessageIds(sb, rsvpId, ['reminder', 'feedback', 'starting_soon'], async () => {});
+        assertEquals(await tick(sb, rsvpId), ['sent', 'sent']);
+        assertEquals(mg.sent.length, 4);
+      });
+    } finally { mg.restore(); }
+  },
+});
+
+// ── pure: an RPC failure is an ERROR, never a skip ───────────────────────────
+
+Deno.test('setMessageIds / dispatchReminder: an RPC error is reported as error, counted by the cron', async () => {
+  const dead = { rpc: () => Promise.resolve({ data: null, error: { message: 'PGRST202 function not found' } }) } as unknown as SupabaseClient;
+  assertEquals(await setMessageIds(dead, 'r', 'reminder', null, { reminder: 'PENDING' }), 'error');
+  const start = new Date(Date.now() + 30 * HOUR);
+  const rsvp = {
+    id: 'r', event_id: 'e', profile_id: 'p',
+    reminder_scheduled_at: new Date(start.getTime() - 24 * HOUR).toISOString(),
+    feedback_scheduled_at: null, reminder_attempted_at: null, feedback_attempted_at: null,
+    mailgun_message_ids: null,
+    profiles: { email: 'test@example.com', name: 'Test' },
+    events: {
+      id: 'e', title: 'T', datetime: start.toISOString(), duration_minutes: 120, timezone: 'UTC',
+      location: 'x', description: null, slug: 's', host_id: 'h', status: 'upcoming', preparation_enabled: false,
+    },
+  } as unknown as RsvpRow;
+  const outcome = await dispatchReminder(dead, rsvp, new Date());
+  assertEquals(outcome, 'error:db');
+  assert(isErrorOutcome(outcome));
 });
