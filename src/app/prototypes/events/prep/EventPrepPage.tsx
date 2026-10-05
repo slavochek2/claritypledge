@@ -17,7 +17,6 @@ import { toast } from 'sonner';
 import { cn, stripAgentPrefix } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
@@ -25,6 +24,7 @@ import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { BAR_INNER_CLASS, MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
 import { StakePage } from '@/app/pages/stake-page';
+import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine, HostAvatar } from '../components/host-asks';
 import { eventsService } from '@/app/data/events-service';
 import { storiesService } from '@/app/data/stories-service';
 import { getAgentAccounts } from '@/app/data/agent-accounts-service';
@@ -479,15 +479,7 @@ function PrepFlow({
   );
   const markPlayed = (clip: VideoKey) => () => setClipPlayed((p) => ({ ...p, [clip]: true }));
 
-  const hostAvatar = (size: 'sm' | 'md' | 'xl') => (
-    <GravatarAvatar
-      name={event.hostName}
-      photoUrl={event.hostAvatarUrl ?? undefined}
-      avatarColor={event.hostAvatarColor}
-      isPledger={event.hostHasPledged ?? false}
-      size={size}
-    />
-  );
+  const hostAvatar = (size: 'sm' | 'md' | 'xl') => <HostAvatar event={event} size={size} />;
 
   const showPrincipleView = screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
   const optedInLine = proof ? socialProofLine('opted in at', proof.optedInPrevious, proof.optedInThis, label) : null;
@@ -546,7 +538,7 @@ function PrepFlow({
           onRatingChange={setPrincipleRating}
           onRatingSubmit={() => void confirmRating()}
           submitLabel="Confirm"
-          question="How much do you think you understand my intended meaning behind this principle?"
+          question={HOST_VOICED_UNDERSTANDING_QUESTION}
           header={
             answer === null ? (
               <h1 className="pt-2 text-center text-2xl font-bold leading-tight text-foreground" data-testid="principle-decision-question">
@@ -565,14 +557,7 @@ function PrepFlow({
           // P1387 (founder, 2026-10-02): who asks sits IN the drawer, next to the answer — a small
           // avatar and one line — and the question is in the host's own voice ("my"), so it relates
           // to the principle above without a long name in it.
-          aboveRating={
-            <div className="flex items-center gap-2 px-2 pb-1 sm:px-5" data-testid="rating-host">
-              {hostAvatar('sm')}
-              <p className="text-sm font-semibold text-foreground">
-                {event.hostName} <span className="font-normal text-muted-foreground">· Your event host</span>
-              </p>
-            </div>
-          }
+          aboveRating={<HostAsksLine event={event} />}
         />
       ) : (
         <main className="mx-auto max-w-2xl space-y-6 px-4 pt-4" style={contentPadding}>

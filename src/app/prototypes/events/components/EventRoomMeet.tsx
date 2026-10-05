@@ -80,6 +80,7 @@ import {
   CertificateOathBody,
 } from '@/app/components/agreements/certificate-frame';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
+import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { sectionsForLevel, type MeetingTermsLevel } from '@/app/content/meeting-terms';
@@ -739,8 +740,12 @@ export function EventRoomMeet() {
                       decide about at the moment the person is being asked for one number.
                       The mis-tap it guarded (Opt in when you meant Opt out) is recoverable
                       without it — submit, then "Change your choice". */
+                <>
+                {/* P1337 (founder, 2026-10-05): the preparation's host-voiced question and its
+                    "host · Your event host" line — the same pieces (host-asks.tsx), not a copy. */}
+                {event && <HostAsksLine event={event} className="flex items-center gap-2 px-2 pt-1 sm:px-5" />}
                 <ComprehensionRatingCard
-                  question={UNDERSTANDING_QUESTION}
+                  question={event ? HOST_VOICED_UNDERSTANDING_QUESTION : UNDERSTANDING_QUESTION}
                   onSelect={handleSubmitRating}
                   disabled={submitting}
                   submitLabel="Submit"
@@ -748,6 +753,7 @@ export function EventRoomMeet() {
                   className="px-2 sm:px-5"
                   questionClassName="text-lg font-semibold text-center leading-snug"
                 />
+                </>
               )}
 
               {step === 'rating' && writeFailed && reconciled && (
