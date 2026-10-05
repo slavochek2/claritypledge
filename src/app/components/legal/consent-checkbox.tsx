@@ -4,7 +4,6 @@
  * Distinct from ConsentNotice (passive) — this requires explicit checkbox interaction.
  */
 
-import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface ConsentCheckboxProps {

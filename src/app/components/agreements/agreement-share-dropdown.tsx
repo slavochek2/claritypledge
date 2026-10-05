@@ -40,7 +40,6 @@ export function AgreementShareDropdown({
   displayId,
   creatorName,
   partnerName,
-  partnerSignedAt,
   termsText,
   agreementVersion,
   currentUserName,
@@ -318,10 +317,8 @@ ${firstName}`,
           ref={exportRef}
           creatorName={creatorName}
           partnerName={partnerName}
-          partnerSignedAt={partnerSignedAt}
           termsText={termsText}
           agreementVersion={agreementVersion}
-          displayId={displayId}
         />
       </div>
     </>

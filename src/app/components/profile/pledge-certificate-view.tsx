@@ -56,7 +56,7 @@ export function ProfileVisitorView({
             <ShareDropdown
               profileUrl={profileUrl}
               profileName={profile.name}
-              slug={profile.slug}
+              slug={profile.slug ?? ''}
               role={profile.role}
               signedAt={profile.signedAt}
               acceptanceCount={profile.witnesses.length}

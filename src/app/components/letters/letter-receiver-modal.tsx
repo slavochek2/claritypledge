@@ -205,7 +205,7 @@ function RecipientRow({
 
   // Determine errors for display (a picker selection satisfies the recipient requirement)
   const emailEmpty = showValidationErrors && !recipient.selected && !recipient.email.trim();
-  const emailInvalid = showValidationErrors && !recipient.selected && recipient.email.trim() && !recipient.email.trim().includes('@');
+  const emailInvalid = !!(showValidationErrors && !recipient.selected && recipient.email.trim() && !recipient.email.trim().includes('@'));
   const nameEmpty = showValidationErrors && !recipient.name.trim() && recipient.email.trim();
   const hasEmailError = !!recipient.emailError || emailEmpty || emailInvalid;
 
@@ -447,18 +447,22 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
 
       const sendResults = await Promise.all(
         filledRows.map(async (row, i) => {
+          const built = builtRecipients[i];
+          if (!built) {
+            return { id: row.id, email: '', success: false as const, error: 'Failed to send' };
+          }
           try {
             await addRecipientToSealed(
               props.letterId,
-              builtRecipients[i].profileId ? null : builtRecipients[i].email,
-              builtRecipients[i].name,
-              builtRecipients[i].profileId
+              built.profileId ? null : built.email,
+              built.name,
+              built.profileId
             );
-            return { id: row.id, email: builtRecipients[i].email || builtRecipients[i].name, success: true as const };
+            return { id: row.id, email: built.email || built.name, success: true as const };
           } catch (err) {
             return {
               id: row.id,
-              email: builtRecipients[i].email,
+              email: built.email,
               success: false as const,
               error: err instanceof Error ? err.message : 'Failed to send',
             };
@@ -481,7 +485,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
         const count = succeeded.length;
         toast.success(
           count === 1
-            ? `Invitation sent to ${succeeded[0].email}`
+            ? `Invitation sent to ${succeeded[0]?.email}`
             : `Invitations sent to ${count} people`
         );
         resetForm();

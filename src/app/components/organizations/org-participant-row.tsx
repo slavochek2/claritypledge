@@ -49,8 +49,8 @@ export function OrgParticipantRow({ participation, className = "" }: OrgParticip
             key={person.profileId}
             person={{
               name: person.name,
-              slug: person.slug,
-              avatarColor: person.avatarColor,
+              slug: person.slug ?? undefined,
+              avatarColor: person.avatarColor ?? undefined,
               avatarUrl: person.avatarUrl,
               hasPledged: person.hasPledged,
             } satisfies PersonRef}

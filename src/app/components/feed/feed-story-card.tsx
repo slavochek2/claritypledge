@@ -312,7 +312,6 @@ export function FeedStoryCard({
                   imageProps={story.imageUrl ? {
                     src: story.imageUrl,
                     authorName: story.authorName,
-                    onClick: () => navigate(`/story/${story.id}`),
                     className: 'mt-2 mb-2',
                   } : undefined}
                 />
