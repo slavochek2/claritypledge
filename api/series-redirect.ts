@@ -21,31 +21,47 @@ const SERIES: Record<string, string> = {
   'spiritual-revolution': 'A Spiritual Revolution%',
 };
 
+// Keys matched on stored fields rather than a title. /next (P1414): the nearest upcoming Clarity
+// Night whose topic is not chosen yet — the placeholder that carries the topic vote. Same rule as
+// showsTopicVote(): the series key, and no statement_tag. With no placeholder it falls back to
+// /night's match, so the link always lands on the next night.
+const FIELD_SERIES: Record<string, { filter: string; fallback: string }> = {
+  next: { filter: 'series_slug=eq.clarity-night&statement_tag=is.null', fallback: 'night' },
+};
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const series = req.query.series as string;
+  const field = FIELD_SERIES[series];
   const pattern = SERIES[series];
 
-  if (!pattern) {
+  if (!field && !pattern) {
     res.redirect(307, '/events');
     return;
   }
 
   try {
-    const graceCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
-    const url = `${SUPABASE_URL}/rest/v1/events?title=ilike.${encodeURIComponent(pattern)}&status=eq.upcoming&datetime=gt.${encodeURIComponent(graceCutoff)}&order=datetime.asc&limit=1&select=slug`;
-    const resp = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY ?? '',
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-    const rows = await resp.json();
-    const slug = Array.isArray(rows) && rows.length > 0 ? rows[0].slug : null;
+    let slug = field ? await nearest(field.filter) : null;
+    const titlePattern = field ? SERIES[field.fallback] : pattern;
+    if (!slug && titlePattern) slug = await nearest(`title=ilike.${encodeURIComponent(titlePattern)}`);
     res.redirect(307, slug ? `/events/${slug}` : '/events');
   } catch {
     res.redirect(307, '/events');
   }
+}
+
+/** The nearest upcoming event matching a PostgREST filter, or null. */
+async function nearest(filter: string): Promise<string | null> {
+  const graceCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+  const url = `${SUPABASE_URL}/rest/v1/events?${filter}&status=eq.upcoming&datetime=gt.${encodeURIComponent(graceCutoff)}&order=datetime.asc&limit=1&select=slug`;
+  const resp = await fetch(url, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY ?? '',
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  const rows = await resp.json();
+  return Array.isArray(rows) && rows.length > 0 ? rows[0].slug : null;
 }

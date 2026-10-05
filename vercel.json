@@ -152,6 +152,11 @@
       "permanent": false
     },
     {
+      "source": "/next",
+      "destination": "/api/series-redirect?series=next",
+      "permanent": false
+    },
+    {
       "source": "/events/night",
       "destination": "/api/series-redirect?series=night",
       "permanent": false
