@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 23
 severity: high
@@ -11,12 +11,12 @@ exec_model: opus
 exec_effort: high
 tags: [events, email, dispatcher, race]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 flow: fix
 date_resolved: 2026-10-06
 root_cause: every writer of event_rsvps.mailgun_message_ids rewrote the whole jsonb from a stale read, and feedback was attempted >72h ahead (Mailgun rejects), so each cron tick erased the reminder id
 resolution: per-key compare-and-set RPC (set_rsvp_message_ids) with claim tokens for every claim, write-back and reset; per-kind 72h window; stuck claims repaired from the send log or taken over; RPC errors counted; guard test bans whole-object writes
+completed_at: 2026-10-05
 ---
 
 # P1425: Event reminder email sent up to 13 times — dispatcher overwrites its own message ids from a stale snapshot
@@ -209,8 +209,8 @@ for starting-soon). A reminder/feedback claim in flight at the moment of an even
 P947's accepted race (the old-details email is not cancellable; the replacement goes out).
 
 Same-class bugs found elsewhere by the sweep, filed separately (different subsystems):
-[P1426](p1426_demo_flow_state_lost_update.md) (`/demo` state lost update, plus dead
-`endClaritySession`) and [P1427](p1427_letter_seal_writes_stale_point_config.md) (letter seal
+[P1426](../../p1426_demo_flow_state_lost_update.md) (`/demo` state lost update, plus dead
+`endClaritySession`) and [P1427](../../p1427_letter_seal_writes_stale_point_config.md) (letter seal
 restores a stale `point_config`). No other instance of "query matches on any kind, code acts on
 all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
 
