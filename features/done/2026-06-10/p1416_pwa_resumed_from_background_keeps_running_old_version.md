@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 26
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [pwa, service-worker, deploy, stale-build]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: 2026-10-05
 root_cause: "registerSW.js only registers the worker; a PWA resumed from background makes no navigation, so nothing re-checks sw.js or reloads, and the page keeps running the JS of its last cold start."
@@ -23,6 +22,7 @@ reproduce_artifact:
   surfaces_in_scope: [app-shell]
   surfaces_deferred: []
   reproduced_at: 2026-10-05
+completed_at: 2026-10-05
 ---
 
 # P1416: Installed PWA resumed from background keeps running the old version after a deploy
