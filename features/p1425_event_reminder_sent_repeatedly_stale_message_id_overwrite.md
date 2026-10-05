@@ -183,6 +183,11 @@ R4-1 and the LOW CLOSED. Fixed:
 | `handleUpdate` ignored a failed schedule write and reset anyway → the dispatcher's drift check skips that row forever | schedule write checked, retried once; on failure the ids are left (same end state as the old combined write failing) and it is logged loudly — UNTESTED by an automated test (the handler is not importable: `index.ts` calls `serve()`) |
 | A failed Mailgun cancel still let the id be cleared → old and new both queued | one retry on 5xx/network. Not adopted: Codex's "keep the id until the cancel succeeds" — a 404 also means *already delivered*, and holding the id would then block every replacement; a duplicate carrying the correct details beats only the stale one |
 
+Round 6 (Codex): every round-5 item CLOSED. One new MEDIUM (pre-existing on main, fixed here):
+an older update handler overwrote a newer edit's schedule → both kinds then skipped forever on the
+drift check. `handleUpdate` re-reads the event just before its schedule write and stops if the start
+or duration moved since its own read — UNTESTED by an automated test (same reason as above).
+
 Accepted, not changed (R4-2): a tick that read an RSVP **before** a same-time content edit (title,
 location) and claims **after** it sends the old details — the window is the milliseconds between a
 tick's read and its claim of that row. Same class as P947 decision 5 (a send in flight at the moment

@@ -303,6 +303,24 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     // leave the new event time beside the old *_scheduled_at, which the dispatcher's drift check
     // then skips forever. On failure the ids are left as they are (the same end state as the old
     // single combined write failing) and the failure is logged loudly.
+    // P1425 (Codex round 6): a second edit's handler may already have written the schedule for a
+    // newer start. Re-read the event just before writing; if the start or duration moved since this
+    // handler's read, the newer handler owns the schedule and this one stops. (The newer handler
+    // reaches its own write only after seconds of cancels and update emails, so this ms-wide
+    // read→write gap cannot let it be overtaken.)
+    const { data: current } = await supabase
+      .from('events')
+      .select('datetime, duration_minutes')
+      .eq('id', eventId)
+      .maybeSingle();
+    if (
+      !current ||
+      new Date(current.datetime).getTime() !== eventDatetime.getTime() ||
+      (current.duration_minutes ?? 60) !== (event.duration_minutes ?? 60)
+    ) {
+      console.warn(`update: event ${eventId} changed again since this handler read it — leaving rsvp ${rsvp.id} to the newer update`);
+      return;
+    }
     let schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
     if (schedErr) schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
     if (schedErr) {
