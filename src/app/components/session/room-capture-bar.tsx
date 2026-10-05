@@ -58,7 +58,7 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
   const short = SHORT[status.kind];
   return (
     <div role="status" aria-label={`Room transcription: ${status.text}`} data-testid="room-capture-bar" data-form="short"
-      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1">
+      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800">{short}</span>
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}

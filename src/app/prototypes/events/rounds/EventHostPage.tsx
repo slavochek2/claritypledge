@@ -86,7 +86,7 @@ import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from
 import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
 import { PairBadge, RoleBadge } from './RoleBadge';
-import { SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
+import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { knownSetTags, setLabel } from '@/lib/set-labels';
 import { eventTopic } from '../prep/prep-plan';
@@ -115,19 +115,23 @@ const TRANSCRIBING_POLL_MS = 15_000;
 const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 
 /**
- * The talking parts of a round, drawn in proportion to the round's own minutes (6 · 6 · 3 by
- * default). The minute at the tables is not on the strip — a sliver that small showed no movement
- * and read as noise (founder); the clock counts it down on its own.
+ * The parts of a round, drawn in proportion to the round's own minutes (1 · 6 · 6 · 3 by default),
+ * the table-finding minute first (walkthrough 8 reverses the earlier "not on the strip").
  */
 function talkingParts(timing: RoundTiming): { phase: RoundPhase; label: string; ms: number }[] {
+  // Walkthrough 8: the table-finding minute is its own labelled part, so the clock always says
+  // what it counts (it read as a bare "25 seconds" on the projector).
+  const seating = { phase: 'seating' as const, label: 'Find your table', ms: timing.seatingMs };
   // No swap at half time: the speakers' time is one part, "Talk" (secondMs is 0 and drops out).
   if (!timing.split) {
     return [
+      seating,
       { phase: 'first', label: 'Talk', ms: timing.firstMs },
       { phase: 'observer', label: 'Observer', ms: timing.observerMs },
     ];
   }
   return [
+    seating,
     { phase: 'first', label: 'Speaker 1', ms: timing.firstMs },
     { phase: 'second', label: 'Speaker 2', ms: timing.secondMs },
     { phase: 'observer', label: 'Observer', ms: timing.observerMs },
@@ -440,7 +444,14 @@ function ScreenView({
   const layout = wide ? screenLayout(tables.length, maxSeats, w, h) : { cols: 1, rows: tables.length, fontPx: 20 };
   const crowded = layout.fontPx < 26;
   const gridStyle: CSSProperties = wide
-    ? { gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))` }
+    ? {
+        gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${layout.rows}, minmax(0, 1fr))`,
+        // A lone table or two: cards side by side at a card's width, centred — not stretched across.
+        maxWidth: layout.cols * SCREEN_CARD_MAX_EM * layout.fontPx + SCREEN_GAP * (layout.cols - 1),
+        width: '100%',
+        marginInline: 'auto',
+      }
     : {};
 
   return (

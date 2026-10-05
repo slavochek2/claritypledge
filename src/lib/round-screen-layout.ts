@@ -6,7 +6,8 @@
  * Try every column count and keep the one that gives the biggest type. A table card is about
  * (3.6 + 2.1 × seats) type-heights tall — header, padding, one row per seat — and about 13.5
  * type-widths wide (role card, face, a short name). Type is capped at 34px (a near-empty room should
- * not shout) and floored at 12px.
+ * not shout) and floored at 12px — except with one or two tables, where names read large (56px; founder
+ * walkthrough 8: one table on the screen looked lost).
  */
 
 export const SCREEN_PAD = 32;
@@ -19,7 +20,11 @@ export interface ScreenLayout {
   fontPx: number;
 }
 
+/** Cards never grow wider than this many type-widths: a lone table stays a card, not a banner. */
+export const SCREEN_CARD_MAX_EM = 18;
+
 export function screenLayout(tables: number, maxSeats: number, w: number, h: number): ScreenLayout {
+  const cap = tables <= 2 ? 56 : 34;
   const availW = w - 2 * SCREEN_PAD;
   const availH = h - 2 * SCREEN_PAD - SCREEN_HEADER;
   let best: ScreenLayout = { cols: 1, rows: Math.max(1, tables), fontPx: 0 };
@@ -27,7 +32,7 @@ export function screenLayout(tables: number, maxSeats: number, w: number, h: num
     const rows = Math.max(1, Math.ceil(tables / cols));
     const cellW = (availW - SCREEN_GAP * (cols - 1)) / cols;
     const cellH = (availH - SCREEN_GAP * (rows - 1)) / rows;
-    const fontPx = Math.min(cellH / (3.6 + 2.1 * maxSeats), cellW / 13.5, 34);
+    const fontPx = Math.min(cellH / (3.6 + 2.1 * maxSeats), cellW / 13.5, cap);
     if (fontPx > best.fontPx) best = { cols, rows, fontPx };
   }
   return { ...best, fontPx: Math.max(12, Math.floor(best.fontPx)) };

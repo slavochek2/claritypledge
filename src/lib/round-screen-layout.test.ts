@@ -15,7 +15,9 @@ describe('screenLayout', () => {
   });
 
   it('a small room reads large; a full room still reads across a room', () => {
-    expect(screenLayout(2, 3, HD.w, HD.h).fontPx).toBe(34);
+    // Walkthrough 8: one or two tables read large; a few more cap at 34px.
+    expect(screenLayout(2, 3, HD.w, HD.h).fontPx).toBeGreaterThan(34);
+    expect(screenLayout(4, 3, HD.w, HD.h).fontPx).toBeLessThanOrEqual(34);
     // 40 people → 13 tables of three: still ≥ 20px type on a 1080p projector.
     expect(screenLayout(14, 3, HD.w, HD.h).fontPx).toBeGreaterThanOrEqual(20);
   });
