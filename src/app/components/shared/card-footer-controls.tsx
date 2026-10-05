@@ -23,8 +23,14 @@
  * controls inside it come from here, so the same control reads, sizes and behaves the same
  * wherever it appears.
  *
- * PROPAGATION — TWO LAYERS, AND THE SECOND ONE IS THE CALLER'S. Each card's root is a link to the
- * story or point, so any click that reaches it navigates. These controls stop their OWN click.
+ * OPENING THE CARD (P1415). `Details →` is the ONLY way a list card opens its page: the card root
+ * is an <article>, not a link, so tapping its body navigates nowhere (on phones the whole-card
+ * tap kept sending readers away by accident). Explicit links inside the card still open what
+ * they name.
+ *
+ * PROPAGATION — TWO LAYERS, AND THE SECOND ONE IS THE CALLER'S. Until P1415 each card's root was
+ * a link to the story or point, so any click that reached it navigated. The guards below are kept
+ * so a control's click never reaches whatever hosts the card. These controls stop their OWN click.
  * They cannot stop clicks inside what they open in a PORTAL — the menu's items and the share
  * sheet — because React still bubbles portal events through the component tree to the card root.
  * (The profile's delete confirmation is the native `window.confirm`, which dispatches no React
@@ -33,8 +39,7 @@
  *     content AND the share sheet are React descendants of it (the sheet is a sibling of the
  *     menu, so it survives the menu closing).
  *   - The footer ROW each card wraps `CardFooterActions` in carries the same wrapper.
- * Keyboard is covered separately by each root's `e.target !== e.currentTarget` guard. So: place
- * the footer controls inside such a row, never directly inside a clickable card.
+ * So: place the footer controls inside such a row.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Check, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
@@ -85,11 +90,15 @@ type CardType = 'story' | 'point';
 export function CardFooterActions({
   type,
   onDetails,
+  describedBy,
   loading = false,
   children,
 }: {
   type: CardType;
   onDetails: () => void;
+  /** P1415: the id of the card root, whose name ("Point: …" / "Story by …") describes `Details →`
+   *  — otherwise a screen reader's button list reads N identical "Details for this point". */
+  describedBy?: string;
   loading?: boolean;
   children?: ReactNode;
 }) {
@@ -99,7 +108,7 @@ export function CardFooterActions({
         {loading && <span aria-hidden="true" className="inline-block h-10" data-testid="card-footer-loading" />}
         {children}
       </div>
-      <CardDetailsButton type={type} onOpen={onDetails} />
+      <CardDetailsButton type={type} onOpen={onDetails} describedBy={describedBy} />
     </div>
   );
 }
@@ -187,11 +196,11 @@ export function CardSlotLink(props: SlotLinkProps) {
 }
 
 /**
- * Opens the card's own page. Not redundant with the card's click: the footer row stops
- * propagation, so it is the one band of the card where clicking goes nowhere without this — and
- * a user who does not realise the card is tappable needs a labelled way in (P1366).
+ * Opens the card's own page — the ONLY way in since P1415 (the card body no longer navigates).
+ * A real <button>, so keyboard and screen-reader users reach it by Tab, labelled
+ * "Details for this story/point" (P1366).
  */
-export function CardDetailsButton({ type, onOpen }: { type: CardType; onOpen: () => void }) {
+export function CardDetailsButton({ type, onOpen, describedBy }: { type: CardType; onOpen: () => void; describedBy?: string }) {
   return (
     <button
       type="button"
@@ -201,6 +210,7 @@ export function CardDetailsButton({ type, onOpen }: { type: CardType; onOpen: ()
       }}
       className={DETAILS_BUTTON}
       aria-label={`Details for this ${type}`}
+      aria-describedby={describedBy}
     >
       Details <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </button>

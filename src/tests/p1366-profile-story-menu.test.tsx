@@ -207,17 +207,14 @@ describe("P1366 — the owner's story card on their own profile", () => {
     confirm.mockRestore();
   });
 
-  it('the card highlight recolours top/right/bottom only — the blue left marker bar is never repainted', async () => {
+  /* P1415 superseded P1366's whole-card highlight: the card is no longer a link, so nothing on it
+     may say so. What the highlight rule protected — the blue left marker bar — still holds. */
+  it('no whole-card hover / focus-within highlight (P1415), and the blue left marker bar is intact', async () => {
     await renderProfile();
-    const tokens = screen.getByRole('button', { name: 'Story by Owner Person', exact: true }).className.split(/\s+/);
+    const tokens = screen.getByRole('article', { name: 'Story by Owner Person' }).className.split(/\s+/);
     expect(tokens).toContain('border-l-blue-500');
-    expect(tokens).not.toContain('hover:border-blue-400');
-    expect(tokens).not.toContain('focus-within:border-blue-400');
-    for (const v of ['hover', 'focus-within']) {
-      for (const side of ['t', 'r', 'b']) expect(tokens).toContain(`${v}:border-${side}-blue-400`);
-      expect(tokens).toContain(`${v}:shadow-md`);
-    }
-    expect(tokens.filter((t) => /^(hover|focus-within):border-(?![trb]-)/.test(t))).toEqual([]);
+    expect(tokens).not.toContain('cursor-pointer');
+    expect(tokens.filter((t) => /^(hover|focus-within):(border|shadow)/.test(t))).toEqual([]);
   });
 
   it("the footer row starts at the card's left edge (px-4), mirroring Details → on the right", async () => {

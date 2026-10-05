@@ -1,9 +1,11 @@
 /**
- * P1392 → P1401: the home page's two pointers — OUR next events and the groups, by name.
- * One content, two placements (founder, 2026-10-04: "very often I want to go immediately to
- * see events or to show a group"; phones showed neither):
- *   - desktop (lg+): the right column, Groups first, then Next events, level with the first card;
- *   - phones/tablets: a compact block at the top of the page, above search.
+ * P1392 → P1401 → P1415: the home page's pointers — OUR next events and the group, by name.
+ * Two placements (founder, 2026-10-04: "very often I want to go immediately to see events or to
+ * show a group"; phones showed neither):
+ *   - desktop (lg+): the right column, Next events first, then Groups, level with the first card.
+ *     Groups lists only the Communication Activism group (P1415);
+ *   - phones/tablets: a compact block at the top of the page, above search — Next events only
+ *     (P1415: no Groups section; groups stay one tap away in the bottom nav).
  * Exactly one placement is mounted for the current width, so each visit fetches once.
  * Nothing here is a filled button — the page's one primary action stays the header CTA (P955).
  * Any failure degrades to a short line; the feed never waits on, or breaks because of, this.
@@ -11,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDaysIcon, LandmarkIcon } from "lucide-react";
-import { homeRead, HOME_MAX_GROUPS, type HomeHighlights } from "@/app/data/offline-reads";
+import { homeRead, HOME_GROUP_SLUG, type HomeHighlights } from "@/app/data/offline-reads";
 import { readThrough } from "@/lib/offline-read-cache";
 import { useConnectivity } from "@/app/contexts/offline-status-context";
 import type { EventWithHost } from "@/app/types";
@@ -22,8 +24,6 @@ import { useAuth } from "@/auth";
 import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "@/app/components/layout/nav-links";
 
 const MAX_EVENTS = 2;
-/** A growing directory must never take over the page; the rest sit behind "All groups". */
-const MAX_GROUPS = HOME_MAX_GROUPS;
 const DESKTOP_QUERY = "(min-width: 1024px)"; // Tailwind lg
 
 function useIsDesktop(): boolean {
@@ -79,7 +79,9 @@ function useHomeHighlights() {
     .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
     .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
     .slice(0, MAX_EVENTS);
-  return { events, groups: data.groups };
+  // P1415: the rail names ONE group (HOME_GROUP_SLUG); every other sits behind "All groups".
+  // `?? []`: a copy saved before `groups` existed must not crash the page.
+  return { events, groups: (data.groups ?? []).filter((g) => g.slug === HOME_GROUP_SLUG) };
 }
 
 /** The SAME card the events pages use (banner picture, date, title, host, place, going) —
@@ -110,16 +112,14 @@ function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; ro
 /** Each group as a small version of the groups-page card: the same initials tile, name,
  *  border and hover — not a pill style of its own. */
 function GroupLinks({ groups }: { groups: Loaded<Organization> }) {
-  // P1406: placeholders the size of the real cards, so nothing shifts when they arrive.
+  // P1406: a placeholder the size of the real card, so nothing shifts when it arrives.
   if (groups === null)
     return (
       <div className="space-y-2" aria-hidden data-testid="groups-placeholder">
-        {Array.from({ length: MAX_GROUPS }, (_, i) => (
-          <div key={i} className="h-[58px] rounded-lg border border-border bg-muted animate-pulse" />
-        ))}
+        <div className="h-[58px] rounded-lg border border-border bg-muted animate-pulse" />
       </div>
     );
-  if (groups === "error" || groups.length === 0) return null; // "All groups" still shows
+  if (groups === "error" || groups.length === 0) return null;
   return (
     <div className="space-y-2">
       {groups.map((g) => (
@@ -167,47 +167,42 @@ export function HomeSideRail() {
 function RailContent() {
   const { events, groups } = useHomeHighlights();
   return (
-    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.6875rem]" aria-label="Groups and events" data-testid="home-side-rail">
-      <section className="space-y-3">
-        <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
-        <GroupLinks groups={groups} />
-        <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
-      </section>
+    <aside className="w-72 shrink-0 space-y-4 lg:mt-[7.6875rem]" aria-label="Events and groups" data-testid="home-side-rail">
       <section className="space-y-3">
         <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
         <EventsList events={events} />
         <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
       </section>
+      {/* P1415 review: no group to name (missing, renamed, private, or the read failed) → no
+          section at all, rather than a lonely heading over "All groups". Loading keeps it. */}
+      {(groups === null || (Array.isArray(groups) && groups.length > 0)) && (
+        <section className="space-y-3">
+          <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
+          <GroupLinks groups={groups} />
+          <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
+        </section>
+      )}
     </aside>
   );
 }
 
-/** Phones and tablets: the same two lists, compact, at the top of the page. */
+/** Phones and tablets: the next events, compact, at the top of the page (no groups — P1415). */
 export function HomeTopBlock() {
   const isDesktop = useIsDesktop();
   return isDesktop ? null : <TopContent />;
 }
 
 function TopContent() {
-  const { events, groups } = useHomeHighlights();
+  const { events } = useHomeHighlights();
+  // Nothing to point at: no block at all, rather than an empty band above search.
+  if ((Array.isArray(events) && events.length === 0) || events === "error") return null;
   return (
-    <section aria-label="Next events and groups" data-testid="home-top-block" className="mb-6 space-y-5">
-      {!(Array.isArray(events) && events.length === 0) && events !== "error" && (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
-          <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
-        </div>
-        <EventsList events={events} row />
+    <section aria-label="Next events" data-testid="home-top-block" className="mb-6 space-y-2">
+      <div className="flex items-center justify-between">
+        <SectionTitle icon={CalendarDaysIcon}>{nextEventsLabel(events)}</SectionTitle>
+        <MoreLink to={EVENTS_LIST_TO}>All events</MoreLink>
       </div>
-      )}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <SectionTitle icon={LandmarkIcon}>Groups</SectionTitle>
-          <MoreLink to={EVENTS_NAV_TO}>All groups</MoreLink>
-        </div>
-        <GroupLinks groups={groups} />
-      </div>
+      <EventsList events={events} row />
     </section>
   );
 }

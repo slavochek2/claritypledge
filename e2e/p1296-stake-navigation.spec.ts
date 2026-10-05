@@ -33,7 +33,7 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     await page.goto(EVENT_LINK);
     await waitForList(page);
     await expect(page.getByTestId('stake-tab-stories')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('button', { name: /^Story by / }).first()).toBeVisible();
+    await expect(page.getByRole('article', { name: /^Story by / }).first()).toBeVisible();
     await expect(page).toHaveURL(/[?&]tab=stories/);
   });
 
@@ -41,7 +41,7 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     await page.goto('/stake/cmp7?tab=stories');
     await expect(page.getByTestId('stake-list').or(page.getByTestId('stake-empty'))).toBeVisible({ timeout: 20000 });
     await expect(page.getByTestId('stake-tabs')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Story by / })).toHaveCount(0);
+    await expect(page.getByRole('article', { name: /^Story by / })).toHaveCount(0);
   });
 
   test('tab switches keep ?event= and add no history entries', async ({ page }) => {
@@ -129,7 +129,7 @@ test.describe('P1296 — /stake is linkable to a tab and leavable', () => {
     const heading = page.getByTestId('story-video-quotes-heading').first();
     await expect(heading).toBeVisible();
     await expect(heading).toHaveText(/^\d+ supporting quotes?$/);
-    const card = page.getByRole('button', { name: /^Story by / }).first();
+    const card = page.getByRole('article', { name: /^Story by / }).first();
     const timecode = card.getByTestId('story-video-quote-timecode').first();
     await expect(timecode).toBeVisible();
     // A control inside the card must act in place, not navigate to the story.

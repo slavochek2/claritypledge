@@ -2,10 +2,10 @@
  * @file feed-story-card.tsx
  * @description P491: Lightweight story card for the public feed.
  * Takes StoryWithAuthor (production type), renders author row, story text, tag pills.
- * Blue left border. Clickable → navigates to /story/:id.
+ * Blue left border. Opens /story/:id through its `Details →` button only (P1415).
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -123,7 +123,8 @@ export function FeedStoryCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleClick = () => {
+  const cardId = useId(); // P1415: describes `Details →` by this card's name
+  const openDetails = () => {
     navigate(`/story/${story.id}`);
   };
 
@@ -161,42 +162,29 @@ export function FeedStoryCard({
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only, and
-         top/right/bottom only — the `border-l-4` marker bar keeps its colour (see feed-point-card). */
-      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${isAgent ? ' agent-card-drained' : ''}`}
+    /* P1415 — the card is NOT a control: tapping its body navigates nowhere, at any width.
+       `Details →` in the footer opens the story; the links inside open what they name. So no
+       role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */
+    <article
+      /* -1, never 0: not a Tab stop, but a focus target — `SourceGroup`'s "Show N more" removes
+         itself and hands focus to the first story it revealed (source-group.tsx). The ring shows
+         only for that keyboard path, never on a tap. */
+      tabIndex={-1}
+      className={`bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1212 — parity with profile-page-v2.tsx's StoryCardFull, in the accessibility layer.
-         A role="button" with no accessible name takes it from its SUBTREE, so without this the
-         same story announces as a cleanly named control on the profile and as one button
-         whose name is the story text plus the counts plus the expander label plus the whole
-         quoted point list on the feed.
+         The card is announced by this name, never by its whole subtree (story text, counts,
+         the expander label and the quoted point list).
          The RAW authorName is deliberate: for an agent it reads `Agent · {Name}`, so a
          screen-reader user hears the marker. Stripping it would delete the disclosure from
          the one channel that carries no chip and no drained card. */
       aria-label={`Story by ${story.authorName}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`feed-story-card-${story.id}`}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check
-        // the handler fires for a keydown on any control nested inside — the point
-        // expander, a position button, a quote timecode, the share sheet (a portal, but
-        // React still bubbles its events through this tree) — and because it calls
-        // preventDefault() it CANCELS that control's own activation before navigating.
-        //
-        // Guarding at the root rather than per-control is the point: the alternative is
-        // remembering to add stopPropagation to every interactive element this card will
-        // ever contain.
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
     >
+      {/* P1415: the card's name, referenced by `Details →` (aria-describedby); `hidden`, so it is
+          read only through that reference. */}
+      <span id={cardId} hidden>{`Story by ${story.authorName}`}</span>
       <div className="p-4">
         {/* Author row */}
         <div className="flex items-start gap-3">
@@ -274,8 +262,8 @@ export function FeedStoryCard({
               /* P1259 change 1 — `mode` comes from the lazy-mount hook: a thumbnail until
                  the card approaches the viewport, a live embed after. The wrapper is the
                  intersection target and the scroll anchor, so it cannot be dropped.
-                 `role="presentation"` + stopPropagation because the card root navigates to
-                 the story: without it, pressing play sends the reader to another page. */
+                 `role="presentation"` + stopPropagation: the card root used to navigate to the
+                 story (until P1415), and pressing play must never reach whatever hosts the card. */
               <div ref={player.containerRef} role="presentation" onClick={(e) => e.stopPropagation()}>
                 <StoryMedia
                   ref={player.playerRef}
@@ -333,8 +321,8 @@ export function FeedStoryCard({
                 P1348 — never folded (StoryVideoQuotes owns that).
                 Timecodes seek this card's player, or the group's player inside a group.
 
-                `stopPropagation` because the card root is a link to the story: without it,
-                clicking a timecode navigates to the story instead. */}
+                `stopPropagation`: the card root used to be a link to the story (until P1415),
+                and a timecode click must never reach whatever hosts the card. */}
             {videoQuotes.quotes.length > 0 && story.videoUrl && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <StoryVideoQuotes
@@ -393,7 +381,7 @@ export function FeedStoryCard({
         onClick={(e) => e.stopPropagation()}
         data-testid="story-card-footer"
       >
-        <CardFooterActions type="story" onDetails={handleClick} loading={linkedPoints === undefined}>
+        <CardFooterActions type="story" onDetails={openDetails} describedBy={cardId} loading={linkedPoints === undefined}>
           {linkedPoints && linkedPoints.length > 0 && (
             <CardExpander
               label={`${linkedPoints.length} ${linkedPoints.length === 1 ? 'point' : 'points'}`}
@@ -445,6 +433,6 @@ export function FeedStoryCard({
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }

@@ -2,11 +2,11 @@
  * @file feed-point-card.tsx
  * @description P491: Lightweight point card for the public feed.
  * Takes PointWithUserPosition (production type), renders pin icon, statement, position buttons, tag pills.
- * Slate left border. Clickable → navigates to /point/:id.
+ * Slate left border. Opens /point/:id through its `Details →` button only (P1415).
  */
 
-import { useState, useMemo, useEffect, useRef, type MouseEvent } from 'react';
-import { useLinksInNewTab, useOpenPath } from '@/app/components/shared/links-in-new-tab';
+import { useState, useMemo, useEffect, useRef, useId } from 'react';
+import { useOpenPath } from '@/app/components/shared/links-in-new-tab';
 import { Pin } from 'lucide-react';
 import { toast } from 'sonner';
 import { linkifyText } from '@/app/utils/linkify';
@@ -64,8 +64,8 @@ interface FeedPointCardProps {
 }
 
 export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false }: FeedPointCardProps) {
+  // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
-  const linksInNewTab = useLinksInNewTab();
   const { session } = useAuth();
   const viewerId = session?.user?.id;
 
@@ -120,12 +120,8 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
     },
   });
 
-  const handleClick = (e?: MouseEvent) => {
-    // P1336 linksInNewTab: a link inside the statement opens its own new tab; the card must
-    // not also navigate this tab. Default mode is unchanged.
-    if (linksInNewTab && e && (e.target as HTMLElement).closest('a')) return;
-    openPath(`/point/${point.id}`);
-  };
+  const openDetails = () => openPath(`/point/${point.id}`);
+  const cardId = useId(); // P1415: describes `Details →` by this card's name
   const effectivePosition = session?.user
     ? (localPosition ?? serverPosition)
     : anonPosition;
@@ -217,14 +213,12 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
   return (
     <>
     <RemovePositionDialog {...dialogProps} />
-    <div
-      role="button"
-      tabIndex={0}
-      /* P1366 — the card's border highlights on hover AND on keyboard focus inside it,
-         confirming the card is clickable. Colour and shadow only: nothing appears or moves.
-         TOP/RIGHT/BOTTOM only: a bare `hover:border-blue-400` also repaints the `border-l-4`
-         marker bar, and `focus-within` persists after a tap on phones. */
-      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+    {/* P1415 — the card is NOT a control: tapping its body navigates nowhere, at any width (on
+        phones the whole-card tap kept sending readers away by accident). `Details →` in the
+        footer opens the point; the links inside the card open what they name. So no
+        role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */}
+    <article
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted-foreground/50 border border-border"
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */
@@ -233,19 +227,10 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
       data-testid={`feed-point-card-${point.id}`}
       /* P1391: the preparation scrolls to the first unanswered card by this id. */
       data-point-id={point.id}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        // P1212: only the CARD ITSELF activates. Without the target check this fires for a
-        // keydown on any nested control — the story expander, a position button, a
-        // QuotedStory, the share sheet — and, because it calls preventDefault(), cancels
-        // that control's own activation before navigating.
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
     >
+      {/* P1415: the card's name, referenced by `Details →` (aria-describedby). `hidden`: read only
+          through that reference, never in the page flow. */}
+      <span id={cardId} hidden>{`Point: ${point.statement}`}</span>
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Pin icon */}
@@ -340,7 +325,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         onClick={(e) => e.stopPropagation()}
         data-testid="point-card-footer"
       >
-        <CardFooterActions type="point" onDetails={handleClick} loading={linkedStories === undefined}>
+        <CardFooterActions type="point" onDetails={openDetails} describedBy={cardId} loading={linkedStories === undefined}>
           {linkedStories && linkedStories.length > 0 && (
             <CardExpander
               label={`${linkedStories.length} ${linkedStories.length === 1 ? 'story' : 'stories'}`}
@@ -423,7 +408,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
           </div>
         )}
       </div>
-    </div>
+    </article>
     </>
   );
 }

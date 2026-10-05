@@ -330,12 +330,13 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
    * is `Agent · {Name}`, so a screen-reader user hears the marker. Stripping the prefix here
    * would delete the disclosure from the one channel that has no chip and no drained card.
    *
-   * This does NOT fix the nested-widget structure (role="button" inside role="button"),
-   * which needs the outer card to stop being a widget and is its own spec.
+   * The nested-widget structure (role="button" inside role="button") was fixed by P1415: the
+   * outer card stopped being a widget and is now an <article> carrying this same name.
    */
   it('the card root has an accessible name, so it is not announced as its whole subtree', () => {
     renderFeedStoryCard({ linkedPoints: POINTS, currentUserId: 'viewer-1' });
-    const root = document.querySelector('[role="button"][tabindex="0"]');
+    // P1415: the root is an <article> (not a control), still named.
+    const root = document.querySelector('article[data-testid^="feed-story-card-"]');
     expect(root, 'the card root must exist').toBeTruthy();
     expect(
       root!.getAttribute('aria-label'),
@@ -350,7 +351,7 @@ describe('P1212 §5 — feed story card: linked-point expander', () => {
         <FeedStoryCard story={makeStory({ authorId: 'agent-1', authorName: 'Agent · Yann LeCun' })} />
       </MemoryRouter>
     );
-    const root = document.querySelector('[role="button"][tabindex="0"]');
+    const root = document.querySelector('article[data-testid^="feed-story-card-"]');
     expect(root!.getAttribute('aria-label')).toContain('Agent ·');
   });
 

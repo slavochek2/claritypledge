@@ -85,14 +85,16 @@ describe('P1401 — next events and groups at every width', () => {
     expect(rail).toMatch(/return isDesktop \? null : <TopContent \/>/);
     expect(rail).toMatch(/return isDesktop \? <RailContent \/> : null/);
   });
-  it('groups are listed by name (capped), events cap at 2 (1 on phones), groups come first on desktop', () => {
+  // P1415: Next events come first on desktop, and the rail names ONE group (slug `cm`) — the
+  // rendered order and filter are pinned in p1415-home-rail.test.tsx.
+  it('events read from the first 2 groups, events cap at 2, one group by slug; events come first on desktop', () => {
     expect(read('src/app/data/offline-reads.ts')).toMatch(/export const HOME_MAX_GROUPS = 2;/);
-    expect(rail).toMatch(/const MAX_GROUPS = HOME_MAX_GROUPS;/);
+    expect(read('src/app/data/offline-reads.ts')).toMatch(/export const HOME_GROUP_SLUG = 'cm';/);
     expect(rail).toMatch(/<EventsList events=\{events\} row \/>/);
     expect(rail).toMatch(/<EventCard event=\{e\}/); // the canonical event card, not a home-only look
     expect(rail).toMatch(/<OrgInitials name=\{g\.name\} \/>/); // the groups-page tile
     const r = rail.slice(rail.indexOf('function RailContent'));
-    expect(r.indexOf('>Groups<')).toBeLessThan(r.indexOf('{nextEventsLabel(events)}<'));
+    expect(r.indexOf('{nextEventsLabel(events)}<')).toBeLessThan(r.indexOf('>Groups<'));
   });
   it('P1407: read through the offline cache; started events dropped at render, not only at fetch', () => {
     expect(rail).toMatch(/readThrough\(r\.type, r\.id, r\.fetch\)/);

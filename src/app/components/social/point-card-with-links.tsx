@@ -5,7 +5,7 @@
  */
 
 import { AgentByline } from '@/app/components/shared/agent-byline';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useId } from 'react';
 import { getAnonPosition, setAnonPosition as setAnonPositionStorage } from '@/app/hooks/useAnonPosition';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
@@ -224,8 +224,13 @@ export function PointCardWithLinks({
   const filteredStories = linkedStories;
   const storiesToShow = filteredStories.slice(0, 3);
 
+  /* P1415 — in a LIST the card is not a control: its body navigates nowhere and `Details →` in the
+     list footer opens the point. Outside a list (point page, embeds, live sessions, demos) there
+     is no `Details →`, so the whole-card click stays there. */
+  const cardNavigates = !isDetailView && !disableNavigation && !inListFooter;
+  const cardId = useId(); // P1415: describes the list footer's `Details →` by this card's name
   const handleCardClick = () => {
-    if (!isDetailView && !disableNavigation) {
+    if (cardNavigates) {
       embedNavigate(`/point/${point.id}`);
     }
   };
@@ -253,16 +258,14 @@ export function PointCardWithLinks({
   const borderColor = isPrivate ? 'border-l-gray-400' : 'border-l-slate-400';
   const bgTint = isPrivate ? 'bg-muted/60' : 'bg-white';
 
-  /* P1366 — in a LIST the card's border highlights on hover and on keyboard focus inside it
-     (colour and shadow only), on the top, right and bottom sides only: the `border-l-4` bar is the
-     private (gray) / public marker, and `focus-within` persists after a tap on phones, so a bare
-     `border-blue-400` erased it. The point page, embeds and demos keep main's hover. */
-  const cardHover = inListFooter
-    ? 'hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md'
-    : 'hover:border-slate-300 hover:shadow-md';
-  const cardClassName = isDetailView
+  /* P1415 — a LIST card carries no "the whole card is a link" affordance (pointer, hover border,
+     focus ring): it is not one. The point page keeps its plain card; embeds and demos keep main's
+     hover, because there the card still opens on click. */
+  const cardClassName = isDetailView || inListFooter
     ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer ${cardHover} transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+  /** A list card is an article named by its content; elsewhere the root stays as it was. */
+  const CardRoot = inListFooter ? 'article' : 'div';
 
   // Quote pattern: reserved for the other person's position. Hidden when viewer === profile owner
   // (the viewer's own stance is already expressed by the highlighted position button inside the point).
@@ -296,7 +299,7 @@ export function PointCardWithLinks({
     ? (isOwnProfile ? 'Your story' : 'Their story')
     : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}`;
   const listFooterActions = inListFooter ? (
-    <CardFooterActions type="point" onDetails={() => embedNavigate(`/point/${point.id}`)}>
+    <CardFooterActions type="point" onDetails={() => embedNavigate(`/point/${point.id}`)} describedBy={cardId}>
       {filteredStories.length > 0 && (
         <CardExpander label={listStoryLabel} expanded={storiesExpanded} onToggle={handleStoriesToggle} />
       )}
@@ -327,15 +330,18 @@ export function PointCardWithLinks({
 
   return (
     <>
-    <div
-      role={!isDetailView && !disableNavigation ? 'button' : undefined}
-      tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
+    <CardRoot
+      role={cardNavigates ? 'button' : undefined}
+      tabIndex={cardNavigates ? 0 : undefined}
       className={`${cardClassName}${isOwnerAgent ? ' agent-card-drained' : ''}`}
+      /* P1415: a list card is an article named like the feed's ("Point: …"), and that name
+         describes its `Details →`. Elsewhere the root stays unnamed, as before. */
+      {...(inListFooter ? { 'aria-label': `Point: ${point.text}` } : {})}
       {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`point-card-with-links-${point.id}`}
-      onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
-      onKeyDown={!isDetailView && !disableNavigation ? (e) => {
+      onClick={cardNavigates ? handleCardClick : undefined}
+      onKeyDown={cardNavigates ? (e) => {
         // P1212's guard, which this root never carried (the feed cards and the story card
         // have it). Without it a keydown on ANY nested control — a position button, the
         // story expander, or since P1296 the share sheet opened from this footer, whose
@@ -348,6 +354,8 @@ export function PointCardWithLinks({
         }
       } : undefined}
     >
+      {/* P1415: the list card's name, referenced by `Details →` (aria-describedby); `hidden`. */}
+      {inListFooter && <span id={cardId} hidden>{`Point: ${point.text}`}</span>}
       {/* Main content */}
       <div className="p-4">
         {showQuotePattern && profileOwner && profileOwner.position ? (
@@ -760,7 +768,7 @@ export function PointCardWithLinks({
             })()}
           </div>
         )}
-    </div>
+    </CardRoot>
     {/* storyCTAOverride: custom node for the story CTA slot when a position is taken.
         (P803, 2026-09-02: the only caller, StoryGuideChat, was removed as dead code —
         no current caller passes this prop; flagged as follow-up collateral, not deleted here.) */}

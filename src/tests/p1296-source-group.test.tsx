@@ -58,7 +58,8 @@ function renderGroup(stories: StoryWithAuthor[]) {
   );
 }
 
-const memberCards = () => screen.getAllByRole('button', { name: /^Story by / });
+// P1415: a member card is an <article> named "Story by …", no longer a role="button".
+const memberCards = () => screen.getAllByRole('article', { name: /^Story by / });
 
 describe('P1296 — what a group looks like', () => {
   it('a heading that states the count and nothing else', () => {

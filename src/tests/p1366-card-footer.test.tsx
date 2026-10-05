@@ -108,23 +108,15 @@ const renderStory = (props: Partial<Parameters<typeof FeedStoryCard>[0]> = {}) =
 /** The expander of prototype K (STORIES_CLASS.i). Solid blue until 2026-10-02, when the founder chose the
  *  light action pill (P1308: one filled primary per screen — a card list is many cards). */
 /**
- * The list-card highlight recolours only the TOP, RIGHT and BOTTOM borders. A bare
- * `hover:border-blue-400` / `focus-within:border-blue-400` also repaints the `border-l-4` bar —
- * the card's type/visibility marker (gray = private point, amber before the design-system sweep) — and `focus-within` persists after a
- * tap on phones, so a private card lost its marker (review finding, verified in Chrome).
+ * P1415 superseded P1366's whole-card hover / focus-within highlight: a list card is no longer a
+ * link, so nothing on it may say so — no pointer cursor, no border or shadow change on hover or
+ * focus-within. (P1366's rule that the highlight must never repaint the `border-l-4` marker bar is
+ * moot with no highlight; each caller still asserts its marker colour.)
  */
-function expectSideHighlight(className: string) {
+function expectNoCardHighlight(className: string) {
   const tokens = className.split(/\s+/);
-  for (const bare of ['hover:border-blue-400', 'focus-within:border-blue-400']) {
-    expect(tokens, `bare ${bare} would repaint the left marker bar`).not.toContain(bare);
-  }
-  for (const v of ['hover', 'focus-within']) {
-    for (const side of ['t', 'r', 'b']) expect(tokens).toContain(`${v}:border-${side}-blue-400`);
-    expect(tokens).toContain(`${v}:shadow-md`);
-  }
-  // no hover / focus-within border colour may reach the left side, in any spelling
-  const leftReaching = tokens.filter((t) => /^(hover|focus-within):border-(?![trb]-)/.test(t));
-  expect(leftReaching).toEqual([]);
+  expect(tokens).not.toContain('cursor-pointer');
+  expect(tokens.filter((t) => /^(hover|focus-within):(border|shadow)/.test(t))).toEqual([]);
 }
 
 function expectSolidExpander(el: HTMLElement) {
@@ -369,10 +361,10 @@ describe('P1366 — feed/stake point card', () => {
     expect(list, 'expanded stories keep the statement-column indent (60px = 16 + 44)').toBeTruthy();
   });
 
-  it('the card highlights its border on hover AND keyboard focus-within — top/right/bottom only, never the left marker', () => {
+  it('no whole-card hover / focus-within highlight (P1415); the left marker keeps its colour', () => {
     renderPoint(makePoint(), []);
-    const root = screen.getByRole('button', { name: 'Point: A point statement.' });
-    expectSideHighlight(root.className);
+    const root = screen.getByRole('article', { name: 'Point: A point statement.' });
+    expectNoCardHighlight(root.className);
     expect(root.className.split(/\s+/)).toContain('border-l-muted-foreground/50');
   });
 });
@@ -472,10 +464,10 @@ describe('P1366 — feed/stake story card', () => {
     expect(tokens.filter((t) => /^(sm:)?p[lr]-/.test(t))).toEqual([]);
   });
 
-  it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {
+  it('no whole-card hover / focus-within highlight (P1415); the left marker keeps its colour', () => {
     renderStory();
-    const root = screen.getByRole('button', { name: 'Story by Test Author' });
-    expectSideHighlight(root.className);
+    const root = screen.getByRole('article', { name: 'Story by Test Author' });
+    expectNoCardHighlight(root.className);
     expect(root.className.split(/\s+/)).toContain('border-l-blue-500');
   });
 });
@@ -625,7 +617,7 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
    */
   it("someone else's profile: the footer row is a card-level row, NOT inside the grey quote box", () => {
     const { container } = renderProfile({ linkedStories: [ownerStory('owner-1')], currentUserId: 'viewer-1' });
-    const root = container.querySelector('[role="button"]')!;
+    const root = container.querySelector('article')!; // P1415: the list card root
     const quoteBox = root.querySelector('.bg-gray-50')!;
     expect(quoteBox).toBeTruthy(); // the quote pattern is what renders here
     const details = screen.getByRole('button', { name: 'Details for this point', exact: true });
@@ -646,7 +638,7 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
       linkedStories: [ownerStory('owner-1')],
       currentUserId: 'owner-1',
     });
-    const root = container.querySelector('[role="button"]')!;
+    const root = container.querySelector('article')!; // P1415: the list card root
     const row = screen.getByRole('button', { name: 'Details for this point', exact: true }).closest('[role="presentation"]')!;
     expect(row.parentElement).toBe(root);
     // FOUNDER DECISION 2026-09-29: the row starts at the card's left edge (in line with the
@@ -654,18 +646,18 @@ describe('P1366 — PointCardWithLinks in the profile list', () => {
     expect(row.className).toBe('px-4 py-2.5 border-t border-border');
   });
 
-  it('the card highlights its border on hover and focus-within — top/right/bottom only, never the left marker', () => {
+  it('no whole-card hover / focus-within highlight (P1415)', () => {
     const { container } = renderProfile({ linkedStories: [], currentUserId: 'viewer-1' });
-    const root = container.querySelector('[role="button"]')!;
-    expectSideHighlight(root.className);
+    const root = container.querySelector('article')!;
+    expectNoCardHighlight(root.className);
   });
 
-  it('a PRIVATE point card keeps its gray left marker: the highlight cannot repaint it', () => {
+  it('a PRIVATE point card keeps its gray left marker', () => {
     const privatePoint = { ...protoPoint(), visibility: 'private' } as unknown as Parameters<typeof PointCardWithLinks>[0]['point'];
     const { container } = renderProfile({ point: privatePoint, linkedStories: [], currentUserId: 'viewer-1' });
-    const root = container.querySelector('[role="button"]')!;
+    const root = container.querySelector('article')!;
     expect(root.className.split(/\s+/)).toContain('border-l-gray-400');
-    expectSideHighlight(root.className);
+    expectNoCardHighlight(root.className);
   });
 });
 

@@ -7,7 +7,7 @@
  * Route: /p/:id
  * Access: Public (all users with confirmed emails)
  */
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, useId } from "react";
 import { useParams, Link, useNavigate, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
 import {
   listReturnCacheGeneration,
@@ -1582,11 +1582,7 @@ function StoryCardFull({
     }
   }, [story.id, session?.access_token]);
 
-  const handleCardClick = () => {
-    if (isEditing) return;
-    navigate(detailRoutes.story(story.id));
-  };
-
+  const cardId = useId(); // P1415: describes `Details →` by this card's name
   const linkedPoints = story.points || [];
   const isOwnStory = currentUserId === story.authorId;
   // P1212 §1 — the label belongs to StoryVideoQuotes' own <h3>, never to the prose. Strip
@@ -1612,36 +1608,22 @@ function StoryCardFull({
         aria-hidden="true"
       />
     )}
-    <div
-      role="button"
-      tabIndex={0}
-      /* P1366 — border highlight on hover AND keyboard focus inside: colour and shadow only, and
-         top/right/bottom only — the `border-l-4` marker bar keeps its colour (see feed-point-card). */
-      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-t-blue-400 hover:border-r-blue-400 hover:border-b-blue-400 hover:shadow-md focus-within:border-t-blue-400 focus-within:border-r-blue-400 focus-within:border-b-blue-400 focus-within:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${storyIsAgent ? ' agent-card-drained' : ''}`}
+    {/* P1415 — the card is NOT a control: tapping its body navigates nowhere, at any width.
+        `Details →` in the footer opens the story; the links inside open what they name. So no
+        role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */}
+    <article
+      /* -1, never 0: not a Tab stop, but a focus target — the profile groups stories by source,
+         and `SourceGroup`'s "Show N more" hands focus to the first story it revealed. The ring
+         shows only on that keyboard path, never on a tap. */
+      tabIndex={-1}
+      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${storyIsAgent ? ' agent-card-drained' : ''}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`profile-story-card-${story.id}`}
       {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}
       aria-label={`Story by ${author.name}`}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
-        handleCardClick();
-      }}
-      onKeyDown={(e) => {
-        // P1212: only the CARD ITSELF activates on Enter/Space. Without this target check
-        // the handler fires for a keydown on any nested control and — because it calls
-        // preventDefault() — CANCELS that control's own activation before navigating. The
-        // quote timecodes §4 added here are anchors: a keyboard reader pressing Enter on
-        // "2:14" had the link cancelled and was sent to the story page instead of the
-        // source video. The data-story-toggle check below it is the narrow, per-control
-        // version of the same guard and is kept for the click path's sake.
-        if (e.target !== e.currentTarget) return;
-        if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleCardClick();
-        }
-      }}
     >
+      {/* P1415: the card's name, referenced by `Details →` (aria-describedby); `hidden`. */}
+      <span id={cardId} hidden>{`Story by ${author.name}`}</span>
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -1791,9 +1773,9 @@ function StoryCardFull({
                     which is an image control, not a media renderer. */}
                 {!groupPlayer && (story.videoUrl || localImageUrl) && (
                   /* P1259 change 1 — `mode` comes from the lazy-mount hook. The wrapper is
-                     the intersection target and the scroll anchor; stopPropagation because
-                     the card root navigates to the story detail page and pressing play
-                     must not leave the page the founder asked us to stay on. */
+                     the intersection target and the scroll anchor; stopPropagation: the card
+                     root used to navigate to the story (until P1415), and pressing play must
+                     never reach whatever hosts the card. */
                   <div ref={player.containerRef} role="presentation" className="mb-2" onClick={(e) => e.stopPropagation()}>
                     <StoryMedia
                       ref={player.playerRef}
@@ -1842,7 +1824,6 @@ function StoryCardFull({
                   <div role="presentation" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      data-story-toggle="true"
                       onClick={() => setStoryExpanded((prev) => !prev)}
                       aria-expanded={storyExpanded}
                       aria-controls={`story-text-${story.id}`}
@@ -1888,7 +1869,7 @@ function StoryCardFull({
         className="px-4 py-2.5 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        <CardFooterActions type="story" onDetails={() => navigate(detailRoutes.story(story.id))}>
+        <CardFooterActions type="story" onDetails={() => navigate(detailRoutes.story(story.id))} describedBy={cardId}>
           {linkedPoints.length > 0 && (
             <CardExpander
               label={`${linkedPoints.length} ${linkedPoints.length === 1 ? 'point' : 'points'}`}
@@ -1930,7 +1911,7 @@ function StoryCardFull({
           </ThreadLineGroup>
         </div>
       )}
-    </div>
+    </article>
     </>
   );
 }

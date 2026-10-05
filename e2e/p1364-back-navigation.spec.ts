@@ -50,9 +50,11 @@ async function scrollToCard(page: Page, index: number) {
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 }
 
-/** Open a card the way a tap does (the card root's own click handler). */
+/** Open a card the way a reader does: its `Details →` button — the only way in since P1415 (the
+ *  card body no longer navigates). `dispatchEvent`, not `click()`: a real click scrolls the
+ *  button into view first and would move the very scroll position these tests measure. */
 async function openCard(page: Page, testId: string) {
-  await page.getByTestId(testId).dispatchEvent('click');
+  await page.getByTestId(testId).getByRole('button', { name: /^Details for this (story|point)$/ }).dispatchEvent('click');
 }
 
 /** Record whether the list skeleton appears at any point from now on (same SPA window). */
@@ -86,7 +88,7 @@ test.describe('P1364 — Back returns to the exact place', () => {
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
-  for (const [detail, listUrl] of [['story', '/feed?tab=stories'], ['point', '/feed']] as const) {
+  for (const [detail, listUrl] of [['story', '/feed?tab=stories'], ['point', '/feed?tab=points']] as const) {
     for (const way of ['top control', 'bottom pill', 'browser back'] as const) {
       test(`feed (${detail}s) scrolled past 10 cards → open a ${detail} → ${way}: same URL, same first card, no skeleton`, async ({ page }) => {
         await page.goto(listUrl);
@@ -149,7 +151,7 @@ test.describe('P1364 — cold arrivals and outside pages', () => {
 
   for (const [detail, url, prefix] of [
     ['story', '/feed?tab=stories', 'feed-story-card-'],
-    ['point', '/feed', 'feed-point-card-'],
+    ['point', '/feed?tab=points', 'feed-point-card-'],
   ] as const) {
     test(`cold /${detail}/:id in a fresh tab → Back → /feed, still inside the site`, async ({ page, context, baseURL }) => {
       const id = await firstCardId(page, url, prefix);
@@ -176,7 +178,7 @@ test.describe('P1364 — cold arrivals and outside pages', () => {
     ]);
     await expect(fresh.getByTestId('stake-list')).toBeVisible({ timeout: 20000 });
     const first = await fresh.locator('[data-testid^="feed-point-card-"]').first().getAttribute('data-testid');
-    await fresh.getByTestId(first!).dispatchEvent('click');
+    await openCard(fresh, first!);
     await expect(fresh).toHaveURL(/\/point\//);
     await fresh.goBack();
     await expect(fresh).toHaveURL(/\/stake\/aisafety1/);
@@ -222,7 +224,7 @@ test.describe('P1364 — feed URL state', () => {
   });
 
   test('typing in search makes no network request and does not move the scroll; the query survives open item → Back', async ({ page }) => {
-    await page.goto('/feed');
+    await page.goto('/feed?tab=points'); // P1392: Stories is the default; point cards need the param
     await waitForCards(page, 3);
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => window.scrollTo(0, 120));
@@ -374,7 +376,7 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
         await expectScrolledPast(page, t.card, before);
         const urlBefore = page.url();
 
-        await page.getByTestId(before!.replace(/~crossing$/, '')).dispatchEvent('click');
+        await openCard(page, before!.replace(/~crossing$/, ''));
         await expect(page).toHaveURL(new RegExp(`/${t.detail}/`));
         await expect(page.getByRole('button', { name: 'Go back', exact: true })).toBeVisible({ timeout: 20000 });
         if (way === 'bottom pill') await expect(page.getByTestId(`${t.detail}-bottom-back`)).toBeVisible({ timeout: 20000 });
@@ -398,7 +400,7 @@ test.describe('P1364 — profile: Back returns to the same tab and card', () => 
 
 test.describe('P1364 — Back remembers which cards were open', () => {
   test('feed: expand a point\'s stories, scroll → open a linked story → Back → that card is still expanded and is the first visible card', async ({ page }) => {
-    await page.goto('/feed');
+    await page.goto('/feed?tab=points'); // P1392: Stories is the default
     await waitForCards(page);
     // A point card with linked stories, far enough down to need scrolling.
     const expanders = page.locator('[data-testid^="feed-point-card-"] [data-testid="feed-point-story-expander"]');

@@ -42,14 +42,15 @@ beforeEach(() => {
 });
 
 describe('P1401 phone block', () => {
-  it('shows our groups by name and the upcoming events as one snapping row, soonest first, no past event', async () => {
+  // P1415: the phone block no longer shows groups (they stay in the bottom nav) — events only.
+  it('shows the upcoming events of our groups as one snapping row, soonest first, no past event — and no groups', async () => {
     render(<MemoryRouter><HomeTopBlock /></MemoryRouter>);
     const cards = await screen.findAllByTestId('event-card');
     expect(cards.map((c) => c.getAttribute('href'))).toEqual(['/events/b', '/events/a']);
     const row = cards[0]!.parentElement!.parentElement!;
     expect(row.className).toMatch(/snap-x/);
     expect(row.className).toMatch(/scroll-px-4/);
-    expect(screen.getByRole('link', { name: /Communication Activism/ })).toHaveAttribute('href', '/groups/cm');
-    expect(screen.getByRole('link', { name: /Clarity Practice Community/ })).toHaveAttribute('href', '/groups/online');
+    expect(screen.queryByRole('link', { name: /Communication Activism/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Clarity Practice Community/ })).toBeNull();
   });
 });

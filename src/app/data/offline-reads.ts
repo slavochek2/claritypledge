@@ -131,6 +131,9 @@ export function groupsRead(): OfflineRead<GroupsDirectory> {
 // ─── / (home: groups + next events) ──────────────────────────────────────────
 
 export const HOME_MAX_GROUPS = 2;
+/** P1415: the one group the home rail names (Communication Activism), by SLUG — never by name or
+ *  rank: a rename once silently reordered the directory (decisions.md 2026-09-07). */
+export const HOME_GROUP_SLUG = 'cm';
 
 export interface HomeHighlights {
   groups: Organization[];
@@ -145,12 +148,17 @@ export function homeRead(): OfflineRead<HomeHighlights> {
     type: 'home',
     id: 'highlights',
     fetch: async () => {
-      const groups = (await organizationsService.listPublicOrganizations()).slice(0, HOME_MAX_GROUPS);
+      const all = await organizationsService.listPublicOrganizations();
+      const ours = all.slice(0, HOME_MAX_GROUPS);
+      // P1415 review: the rail's group must arrive even if a re-rank pushes it out of the top
+      // HOME_MAX_GROUPS — from the same list, no extra query. It does NOT widen "our events".
+      const featured = all.find((o) => o.slug === HOME_GROUP_SLUG);
+      const groups = featured && !ours.includes(featured) ? [...ours, featured] : ours;
       // "Our next event" = the next event of OUR groups (review, P1401): an unscoped query would
       // let any account's event become the one featured here.
       // P1408 (review): no per-group catch — a failing group fails the whole read, so the cache
       // keeps its last good copy instead of saving that group as having no events.
-      const perGroup = await Promise.all(groups.map((o) => eventsService.getUpcomingEvents(o.id)));
+      const perGroup = await Promise.all(ours.map((o) => eventsService.getUpcomingEvents(o.id)));
       return { groups, events: perGroup.flat() };
     },
   };

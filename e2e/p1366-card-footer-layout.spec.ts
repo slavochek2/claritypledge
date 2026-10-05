@@ -209,7 +209,7 @@ async function checkLayout(t: LayoutTarget, width: number) {
     // a card-level row, not inside the grey quote box
     const placement = await details.evaluate((el) => {
       const wrapper = el.closest('[role="presentation"]');
-      const card = el.closest('[role="button"]');
+      const card = el.closest('article'); // P1415: the list card root
       return {
         inQuoteBox: !!el.closest('.bg-gray-50'),
         wrapperIsCardChild: !!wrapper && wrapper.parentElement === card,
@@ -316,9 +316,9 @@ async function runAllWidths(page: Page, target: () => LayoutTarget) {
   await shoot(desktop, DESKTOP.width);
 }
 
-/** A profile point card (PointCardWithLinks): its root is the role=button holding the statement. */
+/** A profile point card (PointCardWithLinks): its root is the <article> holding the statement (P1415). */
 const profilePointCard = (page: Page, statement: string) =>
-  page.locator('[role="button"]').filter({ hasText: statement }).first();
+  page.locator('article').filter({ hasText: statement }).first();
 
 async function openProfileTab(page: Page, slug: string, tab: 'Points' | 'Stories') {
   await page.goto(`/p/${slug}`);
@@ -436,7 +436,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
 
   test('C — own profile, Stories tab: own story card with ⋯ (Share/Edit/Delete) + + Add a point + Details', async ({ page }) => {
     await openProfileTab(page, viewer.slug, 'Stories');
-    const cardFor = () => page.getByRole('button', { name: `Story by ${VIEWER_NAME}`, exact: true });
+    const cardFor = () => page.getByRole('article', { name: `Story by ${VIEWER_NAME}`, exact: true });
     await expect(cardFor()).toBeVisible({ timeout: 20000 });
     await expect(cardFor().getByRole('button', { name: 'Add a point to this story', exact: true })).toBeVisible();
     await runAllWidths(page, () => ({
@@ -477,7 +477,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
 
   test('E — a long owner name next to the ⋯: story card and quote row', async ({ page }) => {
     await openProfileTab(page, longOwner.slug, 'Stories');
-    const storyCard = () => page.getByRole('button', { name: `Story by ${LONG_NAME}`, exact: true });
+    const storyCard = () => page.getByRole('article', { name: `Story by ${LONG_NAME}`, exact: true });
     await expect(storyCard()).toBeVisible({ timeout: 20000 });
     await runAllWidths(page, () => ({
       state: 'E-story',
@@ -502,7 +502,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
   test('F — /feed, signed in, a point with my position and no story: + Add a story + Details', async ({ page }) => {
     await page.goto('/feed');
     await page.getByPlaceholder('Search stories and points...').fill(`P1366 layout F ${RUN}`);
-    const cardFor = () => page.getByRole('button', { name: `Point: ${STMT.F}`, exact: true });
+    const cardFor = () => page.getByRole('article', { name: `Point: ${STMT.F}`, exact: true });
     await expect(cardFor()).toBeVisible({ timeout: 20000 });
     await expect(cardFor().getByRole('button', { name: 'Add a story for this point', exact: true })).toBeVisible({ timeout: 15000 });
     await runAllWidths(page, () => ({
@@ -536,7 +536,7 @@ test.describe('P1366 — card footer layout at 375 / 320', () => {
  * Screenshots only — the anonymous feed as a first-time reader sees it, for visual QA of the
  * list cards in place (no assertions beyond "the cards rendered"). Viewport shots, animations off.
  * The hover shot also records the hovered card's border colours, before and after, in
- * feed-hover-1280.json: the highlight must leave the left marker bar's colour alone.
+ * feed-hover-1280.json. P1415: a list card is not a link, so hovering it changes NO border.
  */
 test.describe('P1366 — anonymous feed screenshots', () => {
   test.describe.configure({ timeout: 120000 });
@@ -544,8 +544,8 @@ test.describe('P1366 — anonymous feed screenshots', () => {
   test('feed Points and Stories tabs at 375 / 320 / 1280, and a hovered card at 1280', async ({ page }) => {
     fs.mkdirSync(OUT_DIR, { recursive: true });
     for (const [tab, url, firstCard] of [
-      ['points', '/feed', '[role="button"][aria-label^="Point: "]'],
-      ['stories', '/feed?tab=stories', '[role="button"][aria-label^="Story by "]'],
+      ['points', '/feed', 'article[aria-label^="Point: "]'],
+      ['stories', '/feed?tab=stories', 'article[aria-label^="Story by "]'],
     ] as const) {
       await page.goto(url);
       await expect(page.locator(firstCard).first()).toBeVisible({ timeout: 20000 });
@@ -559,7 +559,7 @@ test.describe('P1366 — anonymous feed screenshots', () => {
     // one hovered card at 1280
     await page.goto('/feed');
     await setWidth(page, DESKTOP);
-    const card = page.locator('[role="button"][aria-label^="Point: "]').first();
+    const card = page.locator('article[aria-label^="Point: "]').first();
     await expect(card).toBeVisible({ timeout: 20000 });
     await card.scrollIntoViewIfNeeded();
     const borders = () => card.evaluate((el) => {
@@ -568,8 +568,10 @@ test.describe('P1366 — anonymous feed screenshots', () => {
     });
     const before = await borders();
     await card.hover();
-    await expect.poll(async () => (await borders()).top).not.toBe(before.top);
+    // P1415: no whole-card highlight — give a transition time to run, then nothing has moved.
+    await page.waitForTimeout(400);
     const after = await borders();
+    expect(after, 'hovering a list card must not recolour its border (P1415)').toEqual(before);
     fs.writeFileSync(path.join(OUT_DIR, 'feed-hover-1280.json'), JSON.stringify({ before, after }, null, 2));
     await page.screenshot({ path: path.join(OUT_DIR, 'feed-hover-1280.png'), fullPage: false, animations: 'disabled' });
   });
