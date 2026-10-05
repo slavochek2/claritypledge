@@ -100,7 +100,10 @@ export async function claimMessage(
   /** Extra keys written with the claim (starting_soon_for: the start this claim sends for). */
   extra: Patch = {},
 ): Promise<ClaimResult> {
-  const token = claimToken(now);
+  // The token is the moment of THIS claim, not the caller's `now` (captured when its tick began,
+  // before its query): a reset compares tokens against the moment its schedule change returned, and
+  // a claim made after that must never look older than it (Codex round 5).
+  const token = claimToken(new Date());
   const asClaim = (r: CasResult): ClaimResult =>
     r === 'ok' ? { status: 'claimed', token } : r === 'error' ? { status: 'error' } : { status: 'held' };
 

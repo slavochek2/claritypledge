@@ -299,10 +299,16 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
       updatePayload.feedback_scheduled_at = null;
     }
 
-    await supabase
-      .from('event_rsvps')
-      .update(updatePayload)
-      .eq('id', rsvp.id);
+    // P1425: the schedule write is checked. Resetting the ids after a FAILED schedule write would
+    // leave the new event time beside the old *_scheduled_at, which the dispatcher's drift check
+    // then skips forever. On failure the ids are left as they are (the same end state as the old
+    // single combined write failing) and the failure is logged loudly.
+    let schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
+    if (schedErr) schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
+    if (schedErr) {
+      console.error(`update: schedule write failed for rsvp ${rsvp.id} (${schedErr.message}) — emails NOT rescheduled`);
+      return;
+    }
     // Claims made from here on were checked against the new schedule; the reset leaves them alone.
     const scheduleChangedAt = new Date();
 

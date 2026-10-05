@@ -174,6 +174,15 @@ Round 4 (Codex): R3-1, R3-3 and the guard LOW CLOSED. Fixed:
 | R4-1: repair wrote the caller's CURRENT start onto an old send → kept as if for the new start | repair restores the id only; `starting_soon_for` stays what the claim recorded |
 | LOW: `null \|\| {…}` read as a type | type match is `null \|` not followed by `\|` |
 
+Round 5 (Codex, blocking bar: HIGH, or MEDIUM with at most one concurrent actor or one failure):
+R4-1 and the LOW CLOSED. Fixed:
+
+| Finding | Fix |
+|---|---|
+| R3-2 (rest): the claim token was the tick's start time, so a claim made AFTER an edit could look older than the reset's cutoff | the token is taken at the moment of the claim |
+| `handleUpdate` ignored a failed schedule write and reset anyway → the dispatcher's drift check skips that row forever | schedule write checked, retried once; on failure the ids are left (same end state as the old combined write failing) and it is logged loudly — UNTESTED by an automated test (the handler is not importable: `index.ts` calls `serve()`) |
+| A failed Mailgun cancel still let the id be cleared → old and new both queued | one retry on 5xx/network. Not adopted: Codex's "keep the id until the cancel succeeds" — a 404 also means *already delivered*, and holding the id would then block every replacement; a duplicate carrying the correct details beats only the stale one |
+
 Accepted, not changed (R4-2): a tick that read an RSVP **before** a same-time content edit (title,
 location) and claims **after** it sends the old details — the window is the milliseconds between a
 tick's read and its claim of that row. Same class as P947 decision 5 (a send in flight at the moment
@@ -202,6 +211,8 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   **31 passed, 0 failed** (live: incident shape, same-tick both kinds, CAS semantics, anon refused,
   claim token vs reset, stuck→repaired, stuck→taken over once, fresh claim left alone, reset
   helper, cancel→uncancel re-schedules; pure: dueKinds, RPC error → `error:db`).
+- After review round 5: **43 passed, 0 failed** (adds: claim token is claim-time, cancel retries
+  5xx once and never 4xx).
 - After review round 4: **41 passed, 0 failed** (adds: a reset never clears a claim newer than
   itself; repair never relabels an old send's start).
 - After review round 3: **39 passed, 0 failed** (adds: stale-read claim after reschedule/cancel

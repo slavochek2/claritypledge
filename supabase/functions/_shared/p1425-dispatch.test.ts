@@ -11,7 +11,7 @@
 // the real database for several ticks and count what reached "Mailgun".
 import { assert, assertEquals, assertFalse } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { FEEDBACK_HOST_ID, type SupabaseClient } from './email-helpers.ts';
+import { cancelScheduledEmail, FEEDBACK_HOST_ID, type SupabaseClient } from './email-helpers.ts';
 import { DISPATCH_WINDOW_MS, dispatchReminder, dispatchRsvp, dueKinds, isErrorOutcome, type RsvpRow } from './event-dispatch.ts';
 import { claimMessage, claimToken, clearMessageIds, setMessageIds, writeBackMessage } from './rsvp-message-ids.ts';
 
@@ -605,4 +605,35 @@ Deno.test({
       });
     } finally { mg.restore(); }
   },
+});
+
+// ── review round 5 (Codex) ───────────────────────────────────────────────────
+
+Deno.test('claimMessage: the claim token is the moment of the claim, not the caller\'s (earlier) now', async () => {
+  let stamped: string | null = null;
+  const fake = {
+    rpc: (_fn: string, args: Record<string, unknown>) => {
+      stamped = args.p_attempted_at as string;
+      return Promise.resolve({ data: true, error: null });
+    },
+  } as unknown as SupabaseClient;
+  const tickStarted = new Date(Date.now() - 60_000); // the tick captured `now` a minute ago
+  const before = Date.now();
+  const r = await claimMessage(fake, { id: 'r', event_id: 'e', profile_id: 'p' }, 'reminder', null, null, tickStarted, HOUR, 'x');
+  assertEquals(r.status, 'claimed');
+  assert(stamped && new Date(stamped).getTime() >= before - 1, `token ${stamped} predates the claim`);
+});
+
+Deno.test('cancelScheduledEmail: retries once on 5xx, never on 4xx (404 = already delivered)', async () => {
+  const real = globalThis.fetch;
+  const run = async (statuses: number[]) => {
+    let calls = 0;
+    globalThis.fetch = (() => Promise.resolve(new Response('x', { status: statuses[Math.min(calls++, statuses.length - 1)] }))) as typeof fetch;
+    try { await cancelScheduledEmail('<m@stub>'); } finally { globalThis.fetch = real; }
+    return calls;
+  };
+  assertEquals(await run([500, 200]), 2);
+  assertEquals(await run([502, 503]), 2);
+  assertEquals(await run([404]), 1);
+  assertEquals(await run([200]), 1);
 });
