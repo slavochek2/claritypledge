@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 26
 workstream: growth
@@ -7,12 +7,12 @@ created_date: '2026-10-05'
 tags: [feed, home, groups, cards, mobile]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-05
 ---
 
 # P1415: Home rail shows Events first and one group; list cards open only via "Details"
