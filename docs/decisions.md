@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-05 [product]: Prep-video text is an edited reading version, not a verbatim transcript; every prep step pins its actions on desktop too
+
+**Context:** On `/prepare` and the event preparation, the text under each clip was the Night #1 transcript verbatim under a "Transcript" heading in muted grey: fillers, restarts, the three meanings of "understanding" buried in prose. Founder: *"right now not optimized for reading."* Separately, on desktop the short choice steps (opt-out question, "Try it now") kept their buttons in the page while video and statement steps were pinned, so Continue moved between steps (founder screenshots: *"why this screen's cta are not at bottom fixed?"*).
+**Decision:** (1) `TRANSCRIPTS` (prep-content.tsx) holds a lightly edited reading version: fillers and restarts cut, enumerations drawn out as bold-labelled lists, one `**bold**` key line in three paragraphs; no claim added or dropped. Founder approved the story clip's tone first, then all four. (2) No heading over the text; full-contrast, reading width. (3) `StepActions` is pinned at every width on every step, narrowing 2026-10-02 (P1387) and 2026-10-04 further: no step keeps its actions in the page on desktop. The end screen is unchanged (not a StepActions bar; pinned it would sit on the BottomNav). (4) `/prepare` end line: "You know what cognitive understanding is and how to check it. Try it with other attendees at an event."
+**Alternatives rejected:** Keeping verbatim text (reads as a caption log). A verbatim/edited toggle (two texts to keep in sync for a few people who read along). Keeping desktop choice steps in the page (avoids a gap on short steps, but the action moves between steps).
+**Consequences:** Read-along viewers see small wording differences from the audio, accepted. Partly answers P1409's open question ("whether the transcript becomes a reading-optimized version") for English; localization still open there. **UNTESTED.** Falsifier: attendees report the text doesn't match what they heard, or desktop users miss the pinned actions on short steps.
+**References:** [prep-content.tsx](../src/app/prototypes/events/prep/prep-content.tsx), [prep-ui.tsx](../src/app/prototypes/events/prep/prep-ui.tsx)
+
 ## 2026-10-05 [technical]: An installed PWA checks for a new build on resume and offers a tap-to-refresh; "new build" = app-content fingerprint, not the entry hash (P1416)
 
 **Context:** The founder's installed PWA kept running old code after deploys. registerType autoUpdate only applies on a navigation; a resumed standalone app never navigates, and nothing called `registration.update()`. P838 had rejected an update prompt because "users don't relaunch between deploys" — that reasoning does not cover users who resume.
