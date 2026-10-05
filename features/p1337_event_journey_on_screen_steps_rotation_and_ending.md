@@ -303,6 +303,38 @@ button on the left, the room on the right.
   beside +1; a sticky clock bar on phones and past rounds behind one line; a hand-picked showcase
   table; "Match on #tag" per round.
 
+**Founder walkthrough 6, 2026-10-05 — decided, queued to build (in this order):**
+1. *Start never hangs.* Reproduced: with the start request unanswered the button read "Grouping…"
+   after 30 s (`e2e/p1337-start-hang.spec.ts`, failing until fixed); the founder's console showed
+   ERR_NETWORK_CHANGED / ERR_INTERNET_DISCONNECTED mid-press. Fix: "Grouping…" then "Saving…",
+   at most ~15 s, then re-read whether the round started — show it if so, else "That didn't save.
+   Try again." Next round never vanishes for its 10-second lock; it reads "Round N started".
+2. *Offline strip.* A slow answer (> 4 s deadline) shows the saved copy and "Offline" while live
+   data flows, and the late answer never replaces it. Fix: the late, complete answer replaces the
+   saved copy and clears the strip; slow is not called offline. Reviewed by Codex, an Opus agent
+   and Gemini 3.8 before commit (founder asked).
+3. *Latest statement versions only* (points.superseded_by): compare page, the table's statements
+   and the grouping read heads only. Policy proposal for every surface pending (see below).
+4. *Principle question in the room = the preparation's:* host photo, "· Your event host", "How much
+   do you think you understand my intended meaning behind this principle?" — reuse, not a copy.
+5. *Practice rooms hidden* from the room page behind a switch (code kept, one line to unhide).
+6. *What to talk about = the comparison, inside the table card* after "I'm at table N": the compare
+   page's rows (statement, both positions, tap marks the topic); the observer sees the pair's.
+7. *Compare page:* button "Compare positions"; restore the grey background lost in the scroll fix;
+   readable tag names and the event's tag always offered — final call to the designer (consult one
+   Opus agent if useful); "Add yours" shown on profile visits, hidden when opened from a round; a
+   move mid-round shows a thin "Now table 5 · You listen [Go]" bar there and stops topic marks for
+   the old table (UX agent found compare could mark the old table's topic).
+8. *Attendee page during rounds:* only their own table (roster, practice rooms, prep link hidden).
+9. *Host:* −1 min beside +1; on phones a sticky bar (clock, −1/+1, Next round); past rounds in one
+   line; "Match on #tag" per round (stored with the round; the table's statements follow it);
+   showcase "Choose who sits" — tap people or "Recorders" to select them, grouped by disagreement
+   on the round's tag, everyone else watches; swap-off rounds assign no starter (pair mark, "You
+   two decide who starts").
+10. *Setup row — revised after founder feedback:* no "Ready 7" (people don't think in numbers or
+    "ready"), no second microphone indicator (the top bar already shows it). Pending founder pick:
+    transcription started/stopped from the room itself vs a link back to the start screen.
+
 **Roles read Speaker / Listener / Observer, never first / second.** The stored role says who speaks
 first; the pair swap when Speaker 1 ends, and every surface shows the live role (`liveRole`). Adding
 still needs no control — opening the event room puts you in the pool for the next round.
