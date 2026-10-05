@@ -686,6 +686,16 @@ Recommendations to confirm (orchestrator, 2026-10-05):
 9. Readiness: /day goes live only when this branch ships together with the ~/.claude
    `p1399-day-report` branch; tomorrow's /day after that is the next real test.
 
+**Founder decisions on the review (2026-10-06), binding for the next round:** all nine above approved, plus
+(10) a plain-language pass in /day rewrites every card into what it means for the founder (money,
+users, event, time), keeps the facts, moves mechanism into More info, and folds pure agent work into
+one line ("N things an agent can fix"). Choices: **1B** Start fixing sends only answered cards plus
+clear agent work; unopened founder choices stay out, listed "still yours". **2A** one "Fit N%" number
+(fixes the real cause without breaking something else) + one main-risk line + a "cause checked /
+suspected" tag. **3A** the outreach funnel counts the cp board's existing Pipeline columns
+(Contacted → In conversation → Qualified → Committed → Active); no new logging — real zeros until
+outreach starts. **4B** /day switches to the report only after this round ships.
+
 ## Open Questions
 
 1. Should the terminal card also offer `/day park <n>` style commands, so decisions can be made
