@@ -76,9 +76,11 @@ const SELECT = `
   profiles(email, name),
   events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled)`;
 
+type Fx = { start: string; reminderAt: string; feedbackAt: string };
+
 async function withEvent(
   hoursAhead: number,
-  fn: (sb: SupabaseClient, rsvpId: string, eventId: string) => Promise<void>,
+  fn: (sb: SupabaseClient, rsvpId: string, eventId: string, fx: Fx) => Promise<void>,
 ) {
   const sb = createClient<any>(URL_, SERVICE, { auth: { persistSession: false } });
   const start = new Date(Date.now() + hoursAhead * HOUR);
@@ -95,14 +97,19 @@ async function withEvent(
   }).select('id, datetime, duration_minutes').single();
   if (evErr) throw evErr;
   try {
+    const fx: Fx = {
+      start: start.toISOString(),
+      reminderAt: new Date(start.getTime() - 24 * HOUR).toISOString(),
+      feedbackAt: new Date(start.getTime() + 120 * 60_000 + 2 * HOUR).toISOString(),
+    };
     const { data: rsvp, error: rErr } = await sb.from('event_rsvps').insert({
       event_id: ev.id,
       profile_id: FEEDBACK_HOST_ID,
-      reminder_scheduled_at: new Date(start.getTime() - 24 * HOUR).toISOString(),
-      feedback_scheduled_at: new Date(start.getTime() + 120 * 60_000 + 2 * HOUR).toISOString(),
+      reminder_scheduled_at: fx.reminderAt,
+      feedback_scheduled_at: fx.feedbackAt,
     }).select('id').single();
     if (rErr) throw rErr;
-    await fn(sb, rsvp.id, ev.id);
+    await fn(sb, rsvp.id, ev.id, fx);
   } finally {
     await sb.from('email_send_log').delete().eq('event_id', ev.id);
     await sb.from('events').delete().eq('id', ev.id); // cascades the rsvp
@@ -218,13 +225,13 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    await withEvent(30, async (sb, rsvpId, eventId) => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
       const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
-      const a = await claimMessage(sb, row, 'reminder', null, null, new Date(Date.now() - 5000), HOUR);
+      const a = await claimMessage(sb, row, 'reminder', null, null, new Date(Date.now() - 5000), HOUR, fx.reminderAt);
       assertEquals(a.status, 'claimed');
       // handleUpdate resets the row, then the next tick claims the replacement reminder
       assertEquals(await clearMessageIds(sb, rsvpId, ['reminder'], async () => {}), 'ok');
-      const b = await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR);
+      const b = await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR, fx.reminderAt);
       assertEquals(b.status, 'claimed');
       // A's delayed Mailgun rejection must not clear B's claim …
       if (a.status !== 'claimed' || b.status !== 'claimed') throw new Error('unreachable');
@@ -253,11 +260,11 @@ Deno.test({
     try {
       await withEvent(30, async (sb, rsvpId, eventId) => {
         await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<fb>' }); // keep feedback out of it
-        await stickClaim(sb, rsvpId, 8);
+        const claimedAt = await stickClaim(sb, rsvpId, 8);
         // the original claimer's send went out and was logged, but its write-back never landed
         const { error } = await sb.from('email_send_log').insert({
           event_id: eventId, profile_id: FEEDBACK_HOST_ID, email_type: 'reminder', status: 'sent',
-          mailgun_message_id: '<logged@stub>', created_at: new Date(Date.now() - 8 * HOUR + 1000).toISOString(),
+          mailgun_message_id: '<logged@stub>', claim_token: claimedAt,
         });
         if (error) throw error;
         const outcomes = await tick(sb, rsvpId);
@@ -295,13 +302,13 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    await withEvent(30, async (sb, rsvpId, eventId) => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
       assertEquals(await setMessageIds(sb, rsvpId, 'reminder', null, { reminder: 'PENDING' }, { attemptedAt: null }), 'ok');
       const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
       // both ticks read the same stuck state (PENDING, attempted_at NULL)
       const [a, b] = await Promise.all([
-        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(), HOUR),
-        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(Date.now() + 1), HOUR),
+        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(), HOUR, fx.reminderAt),
+        claimMessage(sb, row, 'reminder', 'PENDING', null, new Date(Date.now() + 1), HOUR, fx.reminderAt),
       ]);
       assertEquals([a.status, b.status].filter((s) => s === 'claimed').length, 1);
     });
@@ -413,25 +420,26 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    await withEvent(30, async (sb, rsvpId, eventId) => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
       const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
-      const claim = await claimMessage(sb, row, 'starting_soon', null, null, new Date(), 10 * 60_000, { starting_soon_for: 'D1' });
+      const D1 = fx.start;
+      const claim = await claimMessage(sb, row, 'starting_soon', null, null, new Date(), 10 * 60_000, fx.start, { starting_soon_for: D1 });
       assertEquals(claim.status, 'claimed');
       // title-only edit while the send is in flight
-      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder', 'feedback', 'starting_soon'], async () => {}, { keepStartingSoonFor: 'D1' }), 'ok');
-      assertEquals(await ids(sb, rsvpId), { starting_soon: 'PENDING', starting_soon_for: 'D1' });
+      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder', 'feedback', 'starting_soon'], async () => {}, { keepStartingSoonFor: D1 }), 'ok');
+      assertEquals(await ids(sb, rsvpId), { starting_soon: 'PENDING', starting_soon_for: D1 });
       if (claim.status !== 'claimed') throw new Error('unreachable');
-      assertEquals(await writeBackMessage(sb, rsvpId, 'starting_soon', claim.token, { starting_soon: '<s1>', starting_soon_for: 'D1' }), 'ok');
-      assertEquals(await ids(sb, rsvpId), { starting_soon: '<s1>', starting_soon_for: 'D1' });
+      assertEquals(await writeBackMessage(sb, rsvpId, 'starting_soon', claim.token, { starting_soon: '<s1>', starting_soon_for: D1 }), 'ok');
+      assertEquals(await ids(sb, rsvpId), { starting_soon: '<s1>', starting_soon_for: D1 });
       // a moved start clears it (and the claim's own write-back would then land nowhere)
-      const c2 = await claimMessage(sb, row, 'starting_soon', '<s1>', null, new Date(), 10 * 60_000);
+      const c2 = await claimMessage(sb, row, 'starting_soon', '<s1>', null, new Date(), 10 * 60_000, fx.start);
       assertEquals(c2.status, 'held');
     });
   },
 });
 
 Deno.test({
-  name: 'live: send-log repair ignores a send logged BEFORE this claim (previous schedule)',
+  name: 'live: send-log repair ignores another claim\'s send, even one logged after this claim',
   ignore: !LIVE,
   sanitizeOps: false,
   sanitizeResources: false,
@@ -440,11 +448,12 @@ Deno.test({
     try {
       await withEvent(30, async (sb, rsvpId, eventId) => {
         await setMessageIds(sb, rsvpId, 'feedback', null, { feedback: '<fb>' });
-        // previous schedule's send, logged 30 s BEFORE the (now stuck) claim
+        // another claim's send (previous schedule, finished late): logged AFTER this claim, other token
         const claimedAt = await stickClaim(sb, rsvpId, 1);
         const { error } = await sb.from('email_send_log').insert({
           event_id: eventId, profile_id: FEEDBACK_HOST_ID, email_type: 'reminder', status: 'sent',
-          mailgun_message_id: '<old-schedule@stub>', created_at: new Date(new Date(claimedAt).getTime() - 30_000).toISOString(),
+          mailgun_message_id: '<old-schedule@stub>',
+          claim_token: new Date(new Date(claimedAt).getTime() - 3 * HOUR).toISOString(),
         });
         if (error) throw error;
         assertEquals(await tick(sb, rsvpId), ['sent']); // taken over and sent, NOT "repaired" with the cancelled id
@@ -480,4 +489,73 @@ Deno.test('dispatchReminder: sent but the write-back RPC keeps failing → error
     assertEquals(mg.sent.length, 1);
     assertEquals(calls, 3); // claim + write-back + one retry
   } finally { mg.restore(); }
+});
+
+// ── review round 3 (Codex) ───────────────────────────────────────────────────
+
+Deno.test({
+  name: 'live: a claim from a read taken BEFORE a reschedule / cancel claims nothing',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
+      const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+      // the host moves the event a day later; handleUpdate rewrites *_scheduled_at
+      const moved = new Date(new Date(fx.start).getTime() + 24 * HOUR).toISOString();
+      const newReminder = new Date(new Date(fx.reminderAt).getTime() + 24 * HOUR).toISOString();
+      await sb.from('events').update({ datetime: moved }).eq('id', eventId);
+      await sb.from('event_rsvps').update({ reminder_scheduled_at: newReminder }).eq('id', rsvpId);
+      // a tick still holding the old read
+      assertEquals((await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR, fx.reminderAt)).status, 'held');
+      assertEquals((await claimMessage(sb, row, 'starting_soon', null, null, new Date(), HOUR, fx.start)).status, 'held');
+      assertEquals(await ids(sb, rsvpId), {});
+      // the current schedule claims fine
+      assertEquals((await claimMessage(sb, row, 'starting_soon', null, null, new Date(), HOUR, moved)).status, 'claimed');
+      // a cancelled event cannot be claimed at all
+      await sb.from('events').update({ status: 'cancelled' }).eq('id', eventId);
+      assertEquals((await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR, newReminder)).status, 'held');
+    });
+  },
+});
+
+Deno.test({
+  name: 'live: a delayed reset carrying an old claim token cannot clear a NEWER claim',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    await withEvent(30, async (sb, rsvpId, eventId, fx) => {
+      const row = { id: rsvpId, event_id: eventId, profile_id: FEEDBACK_HOST_ID };
+      const a = await claimMessage(sb, row, 'reminder', null, null, new Date(Date.now() - 5000), HOUR, fx.reminderAt);
+      if (a.status !== 'claimed') throw new Error('claim A failed');
+      // reset Y clears A; B claims
+      assertEquals(await clearMessageIds(sb, rsvpId, ['reminder'], async () => {}), 'ok');
+      const b = await claimMessage(sb, row, 'reminder', null, null, new Date(), HOUR, fx.reminderAt);
+      assertEquals(b.status, 'claimed');
+      // reset X read PENDING + A's token before Y ran; its CAS lands now
+      assertEquals(await setMessageIds(sb, rsvpId, 'reminder', 'PENDING', { reminder: null }, { attemptedAt: null, attemptedWas: a.token }), 'conflict');
+      assertEquals((await ids(sb, rsvpId)).reminder, 'PENDING');
+    });
+  },
+});
+
+Deno.test({
+  name: 'live: logEmailSend records the claim token (what repair matches on)',
+  ignore: !LIVE,
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const mg = stubMailgun();
+    try {
+      await withEvent(30, async (sb, rsvpId, eventId) => {
+        assertEquals(await tick(sb, rsvpId), ['sent', 'sent']);
+        const { data } = await sb.from('event_rsvps').select('reminder_attempted_at').eq('id', rsvpId).single();
+        const { data: log } = await sb.from('email_send_log').select('claim_token, mailgun_message_id')
+          .eq('event_id', eventId).eq('email_type', 'reminder').single();
+        assertEquals(new Date(log!.claim_token).getTime(), new Date(data!.reminder_attempted_at).getTime());
+        assertEquals(log!.claim_token, data!.reminder_attempted_at);
+      });
+    } finally { mg.restore(); }
+  },
 });

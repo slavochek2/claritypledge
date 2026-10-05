@@ -96,7 +96,7 @@ export async function dispatchStartingSoon(
   // records starting_soon_for up front, so an edit that keeps the start keeps an in-flight claim.
   const claim = await claimMessage(
     supabase, rsvp, 'starting_soon', rsvp.mailgun_message_ids?.starting_soon,
-    rsvp.starting_soon_attempted_at, now, STARTING_SOON_STUCK_MS, { starting_soon_for: event.datetime },
+    rsvp.starting_soon_attempted_at, now, STARTING_SOON_STUCK_MS, event.datetime, { starting_soon_for: event.datetime },
   );
   if (claim.status === 'held') return 'skipped:already-claimed';
   if (claim.status === 'repaired') return 'skipped:already-sent';
@@ -132,6 +132,7 @@ export async function dispatchStartingSoon(
     eventId: rsvp.event_id,
     profileId: rsvp.profile_id,
     emailType: 'starting_soon',
+    claimToken: claim.token,
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });

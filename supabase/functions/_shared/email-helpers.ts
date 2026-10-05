@@ -58,6 +58,8 @@ export interface LogEmailSendOpts {
   emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel' | 'starting_soon';
   messageId: string | null;
   errorMessage?: string;
+  /** P1425: the event_rsvps claim token this send was made under (scheduled kinds only). */
+  claimToken?: string;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -632,6 +634,7 @@ export async function logEmailSend(
       status: opts.messageId ? 'sent' : 'failed',
       mailgun_message_id: opts.messageId,
       error_message: opts.errorMessage ?? null,
+      ...(opts.claimToken ? { claim_token: opts.claimToken } : {}),
     });
     if (error) {
       console.error('logEmailSend insert error:', error.message);

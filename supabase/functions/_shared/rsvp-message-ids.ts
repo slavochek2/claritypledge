@@ -33,6 +33,9 @@ export type CasResult = 'ok' | 'conflict' | 'error';
  *     so a caller holding an old read of the row cannot erase a sibling's id
  *   - `attemptedAt` (when given, even as null) is written to the kind's *_attempted_at column
  *   - `attemptedWas` (when given) additionally requires that column to still hold that value
+ *   - `scheduledFor` (claims) requires the schedule the caller computed from to still hold — the
+ *     kind's *_scheduled_at, or the event's start for starting_soon — and the event not cancelled,
+ *     so a tick acting on a read from before an edit or a cancel claims nothing
  *
  * An RPC error is reported as 'error', never as 'conflict': a dead RPC (migration missing, outage)
  * must show up in the cron's error count, not read as "someone else has it".
@@ -43,7 +46,7 @@ export async function setMessageIds(
   key: MessageKind,
   expected: string | null,
   patch: Patch,
-  opts: { attemptedAt?: string | null; attemptedWas?: string | null } = {},
+  opts: { attemptedAt?: string | null; attemptedWas?: string | null; scheduledFor?: string } = {},
 ): Promise<CasResult> {
   const { data, error } = await supabase.rpc('set_rsvp_message_ids', {
     p_rsvp_id: rsvpId,
@@ -54,6 +57,7 @@ export async function setMessageIds(
     p_attempted_at: opts.attemptedAt ?? null,
     p_match_attempted: opts.attemptedWas !== undefined,
     p_attempted_was: opts.attemptedWas ?? null,
+    p_scheduled_for: opts.scheduledFor ?? null,
   });
   if (error) {
     console.error(`set_rsvp_message_ids(${rsvpId}, ${key}) failed: ${error.message}`);
@@ -79,8 +83,9 @@ export function claimToken(now: Date): string {
 }
 
 /**
- * Claim one kind on one RSVP for sending. `current` and `attemptedAt` are what the caller read;
- * the database re-checks both, so a stale read can only lose the claim, never double it.
+ * Claim one kind on one RSVP for sending. `current`, `attemptedAt` and `scheduledFor` are what the
+ * caller read; the database re-checks all three, so a stale read can only lose the claim, never
+ * double it or send under an old schedule.
  */
 export async function claimMessage(
   supabase: SupabaseClient,
@@ -90,6 +95,8 @@ export async function claimMessage(
   attemptedAt: string | null,
   now: Date,
   stuckMs: number,
+  /** The kind's *_scheduled_at as read (starting_soon: the event's start). */
+  scheduledFor: string,
   /** Extra keys written with the claim and kept when a stuck claim is repaired (starting_soon_for). */
   extra: Patch = {},
 ): Promise<ClaimResult> {
@@ -98,7 +105,10 @@ export async function claimMessage(
     r === 'ok' ? { status: 'claimed', token } : r === 'error' ? { status: 'error' } : { status: 'held' };
 
   if (current == null) {
-    return asClaim(await setMessageIds(supabase, rsvp.id, key, null, { ...extra, [key]: 'PENDING' }, { attemptedAt: token }));
+    return asClaim(await setMessageIds(supabase, rsvp.id, key, null, { ...extra, [key]: 'PENDING' }, {
+      attemptedAt: token,
+      scheduledFor,
+    }));
   }
   if (current !== 'PENDING') return { status: 'held' }; // a real id: already sent
 
@@ -106,8 +116,8 @@ export async function claimMessage(
   if (!stuck) return { status: 'held' };
 
   // Stuck. Did the claimer's send actually go out (its write-back failed, or it died after)?
-  // Only a send logged AFTER this claim counts: an earlier one belongs to a previous schedule (an
-  // edit cancelled it and cleared its id), and restoring it would block the replacement for good.
+  // Only a send logged under THIS claim's token counts: any other send belongs to another claim (a
+  // previous schedule an edit cancelled), and restoring its id would block the replacement for good.
   if (attemptedAt && rsvp.profile_id) {
     const { data: logged, error } = await supabase
       .from('email_send_log')
@@ -116,7 +126,7 @@ export async function claimMessage(
       .eq('profile_id', rsvp.profile_id)
       .eq('email_type', key)
       .eq('status', 'sent')
-      .gt('created_at', attemptedAt)
+      .eq('claim_token', attemptedAt)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -139,6 +149,7 @@ export async function claimMessage(
   return asClaim(await setMessageIds(supabase, rsvp.id, key, 'PENDING', { ...extra, [key]: 'PENDING' }, {
     attemptedAt: token,
     attemptedWas: attemptedAt,
+    scheduledFor,
   }));
 }
 
@@ -169,8 +180,9 @@ export async function writeBackMessage(
  *
  * Reads the row fresh and clears each key with a compare-and-set against what it read (retrying
  * on a conflict). A real id that appeared since the caller's own read was scheduled under the old
- * details, so it is handed to `cancel` before its key is cleared. Clearing also nulls the kind's
- * *_attempted_at, so an in-flight claimer's write-back (which must match its token) lands nowhere.
+ * details, so it is handed to `cancel` before its key is cleared. Each clear also requires the
+ * kind's *_attempted_at to be what was read, so a delayed reset cannot clear a NEWER claim made
+ * after its read; clearing nulls that column, so an in-flight claimer's write-back lands nowhere.
  *
  * `keepStartingSoonFor`: a starting-soon email for exactly this start is kept — sent OR still being
  * sent (the claim records `starting_soon_for` up front) — so an edit that left the start alone never
@@ -188,7 +200,7 @@ export async function clearMessageIds(
   for (let attempt = 0; attempt < 4; attempt++) {
     const { data, error } = await supabase
       .from('event_rsvps')
-      .select('mailgun_message_ids')
+      .select('mailgun_message_ids, reminder_attempted_at, feedback_attempted_at, starting_soon_attempted_at')
       .eq('id', rsvpId)
       .maybeSingle();
     if (error) {
@@ -196,6 +208,8 @@ export async function clearMessageIds(
       return 'error';
     }
     const ids = (data?.mailgun_message_ids ?? {}) as Record<string, string | null>;
+    const attempted = (kind: MessageKind) =>
+      ((data as Record<string, string | null> | null)?.[`${kind}_attempted_at`] ?? null);
     let settled = true;
     for (const kind of kinds) {
       const v = ids[kind];
@@ -208,8 +222,9 @@ export async function clearMessageIds(
         cancelled.add(v);
       }
       const patch: Patch = kind === 'starting_soon' ? { starting_soon: null, starting_soon_for: null } : { [kind]: null };
-      let r = await setMessageIds(supabase, rsvpId, kind, v, patch, { attemptedAt: null });
-      if (r === 'error') r = await setMessageIds(supabase, rsvpId, kind, v, patch, { attemptedAt: null });
+      const cas = { attemptedAt: null, attemptedWas: attempted(kind) };
+      let r = await setMessageIds(supabase, rsvpId, kind, v, patch, cas);
+      if (r === 'error') r = await setMessageIds(supabase, rsvpId, kind, v, patch, cas);
       if (r === 'error') return 'error';
       if (r === 'conflict') settled = false;
     }

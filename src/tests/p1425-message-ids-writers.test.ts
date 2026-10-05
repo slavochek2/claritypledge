@@ -21,7 +21,9 @@ import { join, relative, resolve } from 'path';
 const REPO = resolve(__dirname, '../..');
 const CODE_ROOTS = ['supabase/functions', 'src', 'scripts'];
 const SQL_ROOT = 'supabase/migrations';
-const SQL_DEFINER = 'supabase/migrations/20261006120000_p1425_set_rsvp_message_ids.sql';
+// The migrations that (re)define set_rsvp_message_ids are the only SQL allowed to assign the column —
+// derived from their content, so a later redefinition is covered without editing this list.
+const DEFINES_FN = /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+public\.set_rsvp_message_ids\s*\(/i;
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'archive']);
 
 function listFiles(dir: string, ext: RegExp): string[] {
@@ -37,7 +39,8 @@ function listFiles(dir: string, ext: RegExp): string[] {
 
 const COL = 'mailgun_message_ids';
 // A declaration's right-hand side is a type, not a value.
-const TYPE_RHS = /^(Record<|\{\s*\[|string\b|unknown\b|Json\b|any\b|null\s*\||Partial<)/;
+// `{ [k: string]: … }` is an index-signature TYPE; `{ [kind]: id }` is a runtime object (Codex round 3).
+const TYPE_RHS = /^(Record<|\{\s*\[\s*\w+\s*:|string\b|unknown\b|Json\b|any\b|null\s*\||Partial<)/;
 
 /**
  * Blank out comments and string-literal text, keeping offsets (so line numbers stay true). Code
@@ -144,16 +147,17 @@ const codeFiles = CODE_ROOTS.flatMap((r) => listFiles(join(REPO, r), /\.(ts|tsx|
 const sqlFiles = listFiles(join(REPO, SQL_ROOT), /\.sql$/).map((p) => relative(REPO, p));
 const codeHits = codeFiles.flatMap((f) => scanCode(f, readFileSync(join(REPO, f), 'utf8')));
 const sqlHits = sqlFiles.flatMap((f) => scanSql(f, readFileSync(join(REPO, f), 'utf8')));
+const definers = sqlFiles.filter((f) => DEFINES_FN.test(readFileSync(join(REPO, f), 'utf8')));
 
 describe('P1425: mailgun_message_ids is never written as a whole object', () => {
   it('derives a non-empty scope on both paths', () => {
     expect(codeFiles).toContain('supabase/functions/dispatch-event-emails/index.ts');
     expect(codeFiles).toContain('supabase/functions/_shared/rsvp-message-ids.ts');
-    expect(sqlFiles).toContain(SQL_DEFINER);
+    expect(definers).toContain('supabase/migrations/20261006120000_p1425_set_rsvp_message_ids.sql');
   });
 
   it('SQL path is not blind: it finds the assignment inside set_rsvp_message_ids itself', () => {
-    expect(sqlHits.some((h) => h.file === SQL_DEFINER)).toBe(true);
+    for (const d of definers) expect(sqlHits.some((h) => h.file === d)).toBe(true);
   });
 
   it('no JS/TS construct writes the column', () => {
@@ -161,7 +165,7 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
   });
 
   it('no SQL other than set_rsvp_message_ids assigns the column', () => {
-    expect(sqlHits.filter((h) => h.file !== SQL_DEFINER).map((h) => `${h.file}:${h.line}  ${h.text}`)).toEqual([]);
+    expect(sqlHits.filter((h) => !definers.includes(h.file)).map((h) => `${h.file}:${h.line}  ${h.text}`)).toEqual([]);
   });
 
   it('control: whole-object writes injected into the REAL starting-soon.ts are each caught', () => {
@@ -180,6 +184,8 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
     // review round 2 (Codex): a constant-fed computed key, and a write inside a template literal
     expect(inject("  const key = 'mailgun_message_ids';\n  await supabase.from('event_rsvps').update({ [key]: ids });")).toBe(1);
     expect(inject("  const r = `${await supabase.from('event_rsvps').update({ mailgun_message_ids: ids })}`;")).toBe(1);
+    // review round 3 (Codex): a computed key inside the written object is a value, not a type
+    expect(inject("  await supabase.from('event_rsvps').update({ mailgun_message_ids: { [kind]: messageId } });")).toBe(1);
   });
 
   it('control: reads, selects, filters and types are not flagged', () => {
@@ -187,6 +193,7 @@ describe('P1425: mailgun_message_ids is never written as a whole object', () => 
     expect(scanCode('x', ".select('id, mailgun_message_ids, profiles(email)')")).toEqual([]);
     expect(scanCode('x', ".filter('mailgun_message_ids->>reminder', 'is', 'null')")).toEqual([]);
     expect(scanCode('x', '  mailgun_message_ids: Record<string, string> | null;')).toEqual([]);
+    expect(scanCode('x', '  mailgun_message_ids: { [kind: string]: string } | null;')).toEqual([]);
     expect(scanCode('x', 'if (a.mailgun_message_ids == null) {}')).toEqual([]);
     expect(scanCode('x', '// mailgun_message_ids: { ...old }')).toEqual([]);
     expect(scanCode('x', 'const SEL = `id, mailgun_message_ids, profiles(email)`;')).toEqual([]);

@@ -134,7 +134,7 @@ export async function dispatchReminder(
   // after the send log shows its send never went out — P947's claim never re-claimed at all).
   const claim = await claimMessage(
     supabase, rsvp, 'reminder', rsvp.mailgun_message_ids?.reminder, rsvp.reminder_attempted_at, now,
-    STUCK_PENDING_THRESHOLD_MS,
+    STUCK_PENDING_THRESHOLD_MS, rsvp.reminder_scheduled_at,
   );
   if (claim.status !== 'claimed') return claimOutcome(claim.status);
 
@@ -170,6 +170,7 @@ export async function dispatchReminder(
     eventId: rsvp.event_id,
     profileId,
     emailType: 'reminder',
+    claimToken: claim.token,
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
@@ -211,7 +212,7 @@ export async function dispatchFeedback(
 
   const claim = await claimMessage(
     supabase, rsvp, 'feedback', rsvp.mailgun_message_ids?.feedback, rsvp.feedback_attempted_at, now,
-    STUCK_PENDING_THRESHOLD_MS,
+    STUCK_PENDING_THRESHOLD_MS, rsvp.feedback_scheduled_at,
   );
   if (claim.status !== 'claimed') return claimOutcome(claim.status);
 
@@ -233,6 +234,7 @@ export async function dispatchFeedback(
     eventId: rsvp.event_id,
     profileId,
     emailType: 'feedback',
+    claimToken: claim.token,
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });

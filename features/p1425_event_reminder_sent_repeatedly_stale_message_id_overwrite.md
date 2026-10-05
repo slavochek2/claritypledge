@@ -156,6 +156,16 @@ plus new edge races. All re-checked and fixed:
 | F6 log repair (60 s skew) could restore a PREVIOUS schedule's cancelled id | repair counts only sends logged strictly after this claim |
 | F7 guard misses a constant-fed computed key, code inside `${}`, quoted SQL identifier | scanner keeps template interpolations, flags the bare column-name literal, matches `"col" =` |
 
+Round 3 (Codex): F1–F5, F7 CLOSED (F1, F5 within the accepted residuals). Three new MEDIUMs, fixed in
+a second migration `20261006130000` (the first is already applied on test, so it is not edited):
+
+| Finding | Fix |
+|---|---|
+| Repair matched by time: a late old-schedule send logged after a replacement claim was taken as its own | `email_send_log.claim_token`; repair requires an exact token match |
+| A delayed reset (two overlapping update handlers) cleared a NEWER claim | `clearMessageIds` CAS also requires the `*_attempted_at` it read |
+| A tick's claim from a read taken before a reschedule/cancel succeeded → wrong-time send blocks the right one | `p_scheduled_for`: a claim requires its `*_scheduled_at` (starting-soon: the event start) unchanged and the event not cancelled |
+| LOW: guard read `{ [kind]: id }` as a type | only `{ [k: …` counts as a type |
+
 Accepted, not changed: a reminder whose time already passed before any tick ran is not sent late
 (LOW, Opus). Before, it went out late only incidentally, for feedback-gated events via the feedback
 clause; the query never selected past reminders for other events. Residual: a stuck claim whose
@@ -178,6 +188,8 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
   **31 passed, 0 failed** (live: incident shape, same-tick both kinds, CAS semantics, anon refused,
   claim token vs reset, stuck→repaired, stuck→taken over once, fresh claim left alone, reset
   helper, cancel→uncancel re-schedules; pure: dueKinds, RPC error → `error:db`).
+- After review round 3: **39 passed, 0 failed** (adds: stale-read claim after reschedule/cancel
+  claims nothing, delayed reset cannot clear a newer claim, the send log records the claim token).
 - After review round 2: **36 passed, 0 failed** (adds: claim tokens distinct within one ms,
   same-start edit keeps an in-flight starting-soon claim, repair ignores a pre-claim send,
   write-back failure → `error:writeback`).
@@ -193,8 +205,9 @@ all kinds" exists: the only `.or()` in functions/scripts is this dispatcher.
 
 ## Pre-deploy Checklist
 
-### Deploy order (the migration MUST be on prod before the functions)
-- [ ] Migration `20261006120000_p1425_set_rsvp_message_ids.sql` applied to prod (via `/push`)
+### Deploy order (the migrations MUST be on prod before the functions)
+- [ ] Migrations `20261006120000_p1425_set_rsvp_message_ids.sql` and
+  `20261006130000_p1425_claim_schedule_check_and_log_token.sql` applied to prod (via `/push`)
 - [ ] Then `./scripts/deploy-functions.sh dispatch-event-emails --env prod` and `send-event-emails`
   — new code against a DB without the function claims nothing (fails safe) and now reports errors
 
