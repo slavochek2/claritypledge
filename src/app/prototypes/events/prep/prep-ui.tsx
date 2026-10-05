@@ -5,7 +5,6 @@
  * Moved out of EventPrepPage.tsx unchanged so both pages render the same thing.
  */
 import { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Mp4VideoFacade } from '@/app/components/shared/mp4-video-facade';
@@ -105,10 +104,7 @@ function withBold(text: string) {
 export function Transcript({ clip }: { clip: ClipKey }) {
   const id = `transcript-${clip}`;
   return (
-    <section data-testid={id} aria-labelledby={`${id}-heading`} className="mt-4 space-y-3">
-      <h2 id={`${id}-heading`} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
-        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> In writing
-      </h2>
+    <section data-testid={id} aria-label="The video in writing" className="mt-4 space-y-3">
       <div className="max-w-prose space-y-3 text-base leading-relaxed text-foreground">
         {TRANSCRIPTS[clip].map((block, i) =>
           typeof block === 'string' ? (
