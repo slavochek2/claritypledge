@@ -37,6 +37,7 @@ import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
+import { RoomSteps } from '../rounds/RoomSteps';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
@@ -143,6 +144,8 @@ export function EventRoomReady() {
         />
         <PrepRoomBanner event={event} />
       </div>
+      {/* P1337 walkthrough 7: the evening's step bar starts here. */}
+      <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="mx-auto mt-3 w-full max-w-2xl" />
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="flex w-full max-w-sm flex-col gap-10">

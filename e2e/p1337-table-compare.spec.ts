@@ -86,8 +86,9 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await page.goto(`/events/${event.slug}/meet`);
     // Tap "I'm at table 1" unless this person already did in an earlier test.
     const confirm = page.getByTestId('round-card-confirm');
-    const confirmed = page.getByTestId('round-card-confirmed');
-    await expect(confirm.or(confirmed)).toBeVisible();
+    // Already tapped in an earlier test: the card opens on the comparison (walkthrough 7).
+    const comparing = page.locator('[data-testid="round-card"][data-view="compare"]');
+    await expect(confirm.or(comparing)).toBeVisible();
     if (await confirm.isVisible()) await confirm.click();
     return page.getByTestId('round-card-rows');
   }
@@ -110,13 +111,18 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(page.getByText(/talking about this one/i)).toHaveCount(0);
   });
 
-  test('compare opened from the table: "Compare positions", no "Add yours", and the event set by name', async ({ page }) => {
+  test('the compare step: "You and Ben", the set by name, Back to the table, and anyone else in the room', async ({ page }) => {
     await atTable(page, ana);
-    await page.getByTestId('round-card-compare').click();
-    await expect(page).toHaveURL(/\/compare\//);
-    await expect(page.getByRole('link', { name: 'Add yours' })).toHaveCount(0);
-    await expect(page.getByTestId('compare-topic-mark')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: `#${TAG}` })).toHaveCount(0); // named after the event, not the hashtag
+    await expect(page.getByTestId('round-compare-title')).toHaveText('You and Ben');
+    await expect(page.getByTestId('round-compare-set')).not.toHaveText(`#${TAG}`); // named after the event
+    await expect(page.getByTestId('round-card-compare')).toHaveCount(0); // the step bar replaced the button
+    const withWho = page.getByTestId('round-compare-with');
+    await expect(withWho.locator('option')).toContainText(['You and Ben', 'You and Cy']);
+    await withWho.selectOption((await withWho.locator('option', { hasText: 'Cy' }).getAttribute('value'))!);
+    await expect(page.getByTestId('round-compare-title')).toHaveText('You and Cy');
+    await expect(page.getByTestId('round-card-no-rows')).toBeVisible(); // Cy answered nothing
+    await page.getByTestId('round-compare-back').click();
+    await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');
   });
 
   test("the observer sees the pair's positions, neither in the first person", async ({ page }) => {
@@ -127,15 +133,24 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(first.getByText('Agrees', { exact: true })).toBeVisible(); // Ana's, third person
     await expect(first.getByText('Disagrees', { exact: true })).toBeVisible(); // Ben's
     await expect(first.getByText('Agree', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('round-compare-title')).toHaveText('Ana and Ben');
   });
 
-  test('moved mid-round: compare says where you are now and stops marking the old table', async ({ page }) => {
+  test('moved mid-round: the card follows to the new table', async ({ page }) => {
     await atTable(page, ana);
-    await page.getByTestId('round-card-compare').click();
-    await expect(page).toHaveURL(/\/compare\//);
-    // The host moves Ana to table 2.
     const { data: me } = await supabaseAdmin.from('event_room_members').select('id').eq('event_id', event.id).eq('profile_id', ana.user.id).single();
     expect((await supabaseAdmin.from('event_round_seats').update({ table_no: 2 }).eq('round_id', roundId).eq('room_member_id', me!.id)).error).toBeNull();
-    await expect(page.getByTestId('compare-moved')).toContainText('Now table 2', { timeout: 20_000 });
+    await expect(page.getByTestId('round-card-table-line').or(page.getByTestId('round-card-table'))).toContainText('Table 2', { timeout: 20_000 });
+  });
+
+
+  test('the host ends the rounds: Close becomes the step, with the end screen; no table to go back to', async ({ page }) => {
+    expect((await supabaseAdmin.from('event_rounds').update({ ended_at: new Date().toISOString() }).eq('id', roundId)).error).toBeNull();
+    await setTestSession(page, ana.email);
+    await page.goto(`/events/${event.slug}/meet`);
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'close', { timeout: 20_000 });
+    await expect(page.getByTestId('room-close')).toContainText('Thanks for coming');
+    await expect(page.getByTestId('room-step-table')).toBeDisabled();
+    await expect(page.getByTestId('round-past')).toHaveCount(0);
   });
 });

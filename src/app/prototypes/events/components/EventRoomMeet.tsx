@@ -100,7 +100,8 @@ import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { PracticeRooms } from './PracticeRooms';
 import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
-import { RoundCard } from '../rounds/RoundCard';
+import { RoundCard, type RoundMoment } from '../rounds/RoundCard';
+import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
 /** Pause between re-reads while a failed write is unreconciled (see `runWrite`). */
@@ -281,9 +282,12 @@ export function EventRoomMeet() {
   const [barHeight, setBarHeight] = useState(0);
   // P1337 walkthrough 4: once answered, the principle folds to one line; this opens it again.
   const [principleOpen, setPrincipleOpen] = useState(false);
-  // P1337 (founder walkthrough 6): while you sit at a table in a running round, the page is your
-  // table — the roster, the preparation banner and practice rooms step aside.
-  const [seated, setSeated] = useState(false);
+  // P1337: the round's moment, reported by the round card (it owns the poll). While you sit at a
+  // table the page is your table (walkthrough 6); the step bar names the moment (walkthrough 7).
+  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false });
+  const seated = moment.seated;
+  // A step behind the current one the person tapped back to; null = follow the evening.
+  const [viewingBack, setViewingBack] = useState<RoomStep | null>(null);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -401,6 +405,8 @@ export function EventRoomMeet() {
   const stepKey = self?.optedIn == null ? 'choosing' : self.comprehensionRating == null ? 'rating' : 'answered';
   stepKeyRef.current = stepKey;
   useEffect(() => { setWriteFailed(false); }, [stepKey]);
+  // A new moment (seated, at the table, the evening over) brings the page back to it.
+  useEffect(() => { setViewingBack(null); }, [moment.seated, moment.atTable, moment.eveningOver]);
 
   if (loading || (granted && selfLoading)) return null;
   if (accessOffline) return <NeedsConnection />;
@@ -442,9 +448,23 @@ export function EventRoomMeet() {
   // (founder walkthrough 4: "once accepted, attendees shouldn't keep seeing the meeting principle").
   const barHidden = step === 'answered';
 
+  // P1337 walkthrough 7 — where the evening has this person now. Close only when the host ended
+  // the rounds or the event closed; Table, then Compare, while seated in a round.
+  const currentStep: RoomStep =
+    isFrozen || moment.eveningOver ? 'close' : moment.seated ? (moment.atTable ? 'compare' : 'table') : 'principle';
+  const viewing: RoomStep = viewingBack ?? currentStep;
+  const onStep = (next: RoomStep) => {
+    if (next === 'ready') {
+      navigate(`/events/${slug}/ready`);
+      return;
+    }
+    setViewingBack(next === currentStep ? null : next);
+  };
+  const showPrinciple = viewing === 'principle';
+
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.
-    <div data-testid="room-meet" style={barHeight > 0 && !barHidden ? { paddingBottom: barHeight + 16 } : undefined}>
+    <div data-testid="room-meet" style={barHeight > 0 && !barHidden && showPrinciple ? { paddingBottom: barHeight + 16 } : undefined}>
       {/* No level stepper here. The shipped /meet shows "You may ask / Reveal the gap /
           Explain back" because a visitor arriving there is choosing a level and needs to
           see where they are in that ladder. Inside an event room there is no ladder: the
@@ -493,6 +513,8 @@ export function EventRoomMeet() {
             {!seated && <PrepRoomBanner event={event} />}
           </div>
         </div>
+        {/* P1337 walkthrough 7: the step bar replaces the round status line. */}
+        <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="mt-3" />
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build
@@ -515,16 +537,24 @@ export function EventRoomMeet() {
           {event && (
             <RoundCard
               eventId={event.id}
-              eventSlug={slug ?? event.slug}
               statementTag={event.statementTag}
               eventTitle={event.title}
               self={self}
               roster={roster}
               ended={isFrozen}
-              onSeated={setSeated}
+              view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
+              onMoment={setMoment}
+              onBackToTable={() => setViewingBack('table')}
             />
           )}
-          {step === 'answered' && (
+          {viewing === 'close' && (
+            // P1389's closing sequence plugs in here once built; until then, a plain end screen.
+            <section className="rounded-xl border border-border bg-card p-6 text-center" data-testid="room-close">
+              <h2 className="text-2xl font-semibold">Thanks for coming</h2>
+              <p className="mt-2 text-sm text-muted-foreground">The evening has ended.</p>
+            </section>
+          )}
+          {showPrinciple && step === 'answered' && (
             <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
               <button
                 type="button"
@@ -556,7 +586,7 @@ export function EventRoomMeet() {
               )}
             </div>
           )}
-          {(step !== 'answered' || principleOpen) && (
+          {showPrinciple && (step !== 'answered' || principleOpen) && (
             <CertificateFrame
               ariaLabel={PRINCIPLE_TITLE}
               title={PRINCIPLE_TITLE}
@@ -583,7 +613,7 @@ export function EventRoomMeet() {
           {/* Roster card — matches EventDetail.tsx's Participants card (`bg-card
               rounded-xl border border-border shadow-sm p-6`), round 4: the roster reads as
               a right-margin card, not a co-equal column. */}
-          {!seated && (
+          {(showPrinciple || (viewing === 'close' && isFrozen)) && (
           <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             {roster.length === 0 ? (
               /* The one case a per-group empty state cannot express. `getRoomRoster` returns
@@ -657,7 +687,7 @@ export function EventRoomMeet() {
           nothing to do with the decision (this is why `pointer-events` moves to the panel
           alone, not the bar — see below). Below min-[1600px] there is only one column, so
           the full-width bar is correct and nothing changes. */}
-      {!isFrozen && !barHidden && (
+      {!isFrozen && !barHidden && showPrinciple && (
         <FixedBottomBar
           ref={setBarRef}
           className={cn(

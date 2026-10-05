@@ -164,14 +164,28 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-card-table')).toHaveText(`Table ${mine.table_no}`);
     await expect(card).toHaveAttribute('data-role', mine.role);
     await expect(page.getByTestId('room-run-event')).toHaveCount(0); // host-only link
-    // P1337 walkthrough 6: while seated in a running round the page is your table — the roster
-    // steps aside. The card is still not a gate: the opt-in line stays usable.
+    // Walkthrough 7: the step bar says "Table"; the finding minute counts down inside the card.
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'table');
+    await expect(page.getByTestId('round-card-find')).toContainText(/Find your table · \d+:\d\d/);
+    await expect(page.getByTestId('round-status')).toHaveCount(0); // the step bar replaced it
+    // Seated, the page is your table — the roster, the certificate and the opt-in bar step aside.
     await expect(page.getByTestId('room-roster')).toHaveCount(0);
+    await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
+    // The card is still not a gate: the principle is one tap back, and its choice stays usable.
+    await page.getByTestId('room-step-principle').click();
     await expect(page.getByTestId('room-opt-in-yes')).toBeEnabled();
+    await page.getByTestId('room-step-table').click();
 
     await page.getByTestId('round-card-confirm').click();
-    await expect(page.getByTestId('round-card-confirmed')).toBeVisible();
     await expect.poll(async () => (await seats(event.id)).find(s => s.room_member_id === anaMember)!.confirmed_at).not.toBeNull();
+    // After the tap the comparison takes the card; the table shrinks to one line.
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'compare');
+    await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'compare');
+    await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no} · with`);
+    // Back to the table, from the card.
+    await page.getByTestId('round-compare-back').click();
+    await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');
+    await expect(page.getByTestId('round-card-find')).toContainText(`At table ${mine.table_no}`);
   });
 
   test('a late arrival is told they join at the next round', async ({ page }) => {
@@ -207,7 +221,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     // Founder walkthrough 4: no black layer drawn over the phone.
     await expect(page.getByTestId('round-dark')).toHaveCount(0);
     const live = { first: 'You speak', second: 'You listen', observer: 'You observe' }[mine.role as 'first' | 'second' | 'observer'];
-    await expect(page.getByTestId('round-status')).toContainText(live);
+    await expect(page.getByTestId('round-card-table-line')).toContainText(live);
     if (mine.role === 'observer') await expect(page.getByTestId('round-observer-clock')).toBeVisible();
     else await expect(page.getByTestId('round-observer-clock')).toHaveCount(0);
   });
