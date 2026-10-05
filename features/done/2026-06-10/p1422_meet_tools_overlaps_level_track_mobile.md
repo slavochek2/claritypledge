@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 27
 severity: medium
@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [meet, mobile, header, layout]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
+completed_at: 2026-10-05
 ---
 
 # P1422: /meet — header Tools button overlaps the level track on phones
