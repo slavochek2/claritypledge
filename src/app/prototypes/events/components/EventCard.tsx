@@ -5,6 +5,7 @@ import { formatDateShort, formatTime } from '../utils';
 import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 import { AttendeeAvatarStack } from './AttendeeAvatarStack';
 import { displayGoingCount } from '@/app/utils/event-going';
+import { BannerImage } from '@/app/components/shared/banner/BannerImage';
 
 interface EventCardProps {
   event: EventWithHost;
@@ -12,9 +13,11 @@ interface EventCardProps {
   userId?: string;  // Pass from parent (EventsList uses useAuth)
   isUserGoing?: boolean;  // RSVP status checked by parent
   linkPrefix?: string;  // Override link base (e.g., '/prototype/events-mock')
+  /** P1417: 'eager' where the card is above the fold (the home page's next events). */
+  bannerLoading?: 'lazy' | 'eager';
 }
 
-export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = false, linkPrefix = '/events' }: EventCardProps) {
+export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = false, linkPrefix = '/events', bannerLoading = 'lazy' }: EventCardProps) {
   const eventDate = new Date(event.datetime);
   const userIsHost = isLoggedIn && !!userId && event.hostId === userId;
   const isCancelled = event.status === 'cancelled';
@@ -30,13 +33,16 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
       }`}
       data-testid="event-card"
     >
-      {/* Banner image - 16:9, only when bannerUrl is set */}
+      {/* Banner image - 16:9, only when bannerUrl is set. P1417: phones get the small copy; the grey
+          slot shows while it loads and stays if every source fails. */}
       {event.bannerUrl && (
-        <div className="w-full aspect-video overflow-hidden">
-          <img
+        <div className="w-full aspect-video overflow-hidden bg-muted" data-testid="event-card-banner">
+          <BannerImage
             src={event.bannerUrl}
             alt={event.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(min-width: 1024px) 400px, 50vw"
+            loading={bannerLoading}
           />
         </div>
       )}

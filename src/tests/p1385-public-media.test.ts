@@ -53,6 +53,8 @@ const ALLOWLIST: Record<string, string> = {
     'P1352 matches (does not build) user-uploaded event-banners image URLs; img-src allows *.supabase.co',
   'src/lib/avatar-upload.ts':
     'P1418 user-uploaded profile photos: the browser writes them under storage RLS, which GCS cannot offer without a signing hop; images only, img-src allows *.supabase.co',
+  'src/lib/banner-small.ts':
+    "P1417 derives an event banner's small copy from its stored URL, same host and bucket; <img> only, img-src allows *.supabase.co",
 };
 
 function sourceFiles(dir: string): string[] {

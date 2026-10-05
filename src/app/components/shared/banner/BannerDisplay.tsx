@@ -1,9 +1,14 @@
 import { useState, useEffect, type ReactNode } from 'react';
+import { BannerImage, BANNER_WIDE_QUERY } from './BannerImage';
 
-// md breakpoint — same semantics as the h-48 md:h-64 height class below and
-// chiang-mai-page.tsx's DESKTOP_QUERY: mounting only the matching <img> means the
-// browser fetches exactly one banner instead of both (P1354 code review finding #2).
-const DESKTOP_QUERY = '(min-width: 768px)';
+// Mounting only the matching <img> means the browser fetches exactly one banner instead of both
+// (P1354 code review finding #2). P1417: the md breakpoint plus a minimum height, the same rule
+// BannerImage uses, so a phone turned sideways gets the phone banner too. The h-48 md:h-64 height
+// class stays width-only, so a sideways phone gets the phone banner in the md-height slot.
+const DESKTOP_QUERY = BANNER_WIDE_QUERY;
+// P1417: bg-muted shows behind the image while it loads. BannerImage serves event banners' small
+// copy on phones and only reports onFail once every source has failed.
+const IMG_CLASS = 'w-full h-full object-cover rounded-t-xl bg-muted';
 
 interface BannerDisplayProps {
   bannerUrl?: string | null;
@@ -85,31 +90,40 @@ export function BannerDisplay({
       {hasMobileVariant ? (
         isDesktop ? (
           !imgError ? (
-            <img
+            <BannerImage
               src={bannerUrl}
               alt={altText}
-              className="w-full h-full object-cover rounded-t-xl"
-              onError={() => setImgError(true)}
+              className={IMG_CLASS}
+              sizes="100vw"
+              loading="eager"
+              fetchPriority="high"
+              onFail={() => setImgError(true)}
             />
           ) : (
             renderFallback()
           )
         ) : !mobileImgError ? (
-          <img
+          <BannerImage
             src={mobileBannerUrl}
             alt={altText}
-            className="w-full h-full object-cover rounded-t-xl"
-            onError={() => setMobileImgError(true)}
+            className={IMG_CLASS}
+            sizes="100vw"
+            loading="eager"
+            fetchPriority="high"
+            onFail={() => setMobileImgError(true)}
           />
         ) : (
           renderFallback()
         )
       ) : showImage ? (
-        <img
+        <BannerImage
           src={bannerUrl}
           alt={altText}
-          className="w-full h-full object-cover rounded-t-xl"
-          onError={() => setImgError(true)}
+          className={IMG_CLASS}
+          sizes="100vw"
+          loading="eager"
+          fetchPriority="high"
+          onFail={() => setImgError(true)}
         />
       ) : (
         renderFallback()

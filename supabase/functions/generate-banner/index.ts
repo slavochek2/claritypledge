@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { storeSmallCopy, scheduleSmallCopy, removeBannerAndSmallCopy } from '../_shared/banner-small.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -306,7 +307,7 @@ async function uploadToStorage(
   entityType: EntityType,
   entityId: string,
   imageData: GeminiInlineData,
-): Promise<string | null> {
+): Promise<{ publicUrl: string; fileName: string; bytes: Uint8Array } | null> {
   const ext = mimeToExt(imageData.mimeType);
   const fileName = `${entityType}/${entityId}/${crypto.randomUUID()}.${ext}`;
 
@@ -333,7 +334,7 @@ async function uploadToStorage(
     .from(STORAGE_BUCKET)
     .getPublicUrl(fileName);
 
-  return urlData.publicUrl;
+  return { publicUrl: urlData.publicUrl, fileName, bytes };
 }
 
 async function cleanupOldBanner(
@@ -363,9 +364,8 @@ async function cleanupOldBanner(
 
   if (!filePath) return;
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([filePath]);
+  // P1417: the old banner's small copy goes with it (a missing copy is not an error).
+  const { error } = await removeBannerAndSmallCopy(supabase, bucket, filePath);
 
   if (error) {
     // Non-fatal — orphaned files are acceptable
@@ -496,13 +496,22 @@ Deno.serve(async (req: Request) => {
   await recordRateLimitHit(serviceClient, userId);
 
   // ── Upload to Storage ─────────────────────────────────────────────────────
-  const publicUrl = await uploadToStorage(serviceClient, body.entityType, body.entityId, imageData);
+  const stored = await uploadToStorage(serviceClient, body.entityType, body.entityId, imageData);
 
-  if (!publicUrl) {
+  if (!stored) {
     return new Response(
       JSON.stringify({ error: 'Failed to store generated image', code: 'STORAGE_ERROR' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );
+  }
+
+  const publicUrl = stored.publicUrl;
+
+  // ── Small copy for phones (P1417) — event banners only, the ones the app derives a copy for.
+  // Runs after the response (EdgeRuntime.waitUntil), bounded; a failure leaves the original.
+  if (body.entityType === 'event') {
+    scheduleSmallCopy(() =>
+      storeSmallCopy(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STORAGE_BUCKET, stored.fileName, stored.bytes, imageData.mimeType));
   }
 
   // ── Cleanup old banner (from either bucket) ───────────────────────────────

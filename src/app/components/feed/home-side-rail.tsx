@@ -86,6 +86,7 @@ function useHomeHighlights() {
 
 /** The SAME card the events pages use (banner picture, date, title, host, place, going) —
  *  P1401 design pass: the home page must not invent its own look for an event.
+ *  Above the fold at every width, so the banner loads eagerly (P1417).
  *  `row` (phones): a sideways row that snaps card by card, the next card peeking so it is
  *  obvious there is more (the myCNX "swipeable rows" pattern; no swiping inside a card). */
 function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; row?: boolean }) {
@@ -95,7 +96,7 @@ function EventsList({ events, row = false }: { events: Loaded<EventWithHost>; ro
   if (events.length === 0) return <p className="text-sm text-muted-foreground">No events scheduled yet.</p>;
   const cards = events.map((e) => (
     <div key={e.id} className={row && events.length > 1 ? "flex w-[85%] max-w-sm shrink-0 snap-start [&>a]:w-full" : row ? "max-w-sm" : ""}>
-      <EventCard event={e} isLoggedIn={!!user} userId={user?.id} />
+      <EventCard event={e} isLoggedIn={!!user} userId={user?.id} bannerLoading="eager" />
     </div>
   ));
   if (row && events.length > 1) {

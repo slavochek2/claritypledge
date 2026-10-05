@@ -15,6 +15,12 @@
 #                         the plaintext env file still holds a (different) decoy value —
 #                         the fallback this spec forbids would pass every other case
 #   photo-prep exists     an object that already exists costs no dialog at all
+#   photo-prep small      P1417: the small copy is uploaded too, through the SAME single key
+#                         read and a header file; if encoding it fails the original still
+#                         uploads, the run still exits 0, stdout stays exactly two lines, and
+#                         any old small copy is DELETED with the key already held
+#   photo-prep stale      P1417: an existing original whose small copy is older (replaced at the
+#                         same path) prints STALE with the fix command, still with no dialog
 #   stranded no-token     without the scoped token the check exits 2 with a reason code and
 #                         sends NO request, even with the master key present in both the env
 #                         file and the environment
@@ -54,24 +60,44 @@ cat > "$TMP/bin/curl" <<'SH'
 #!/usr/bin/env bash
 # Record argv on one line, and the contents of every `-H @file` header file.
 printf 'ARGV %s\n' "$*" >> "$STUB_CURL_LOG"
-out=""; want_code=0; head=0
+out=""; want_code=0; head=0; url=""; method=GET
 while [ $# -gt 0 ]; do
   case "$1" in
+    -X) method="$2"; shift 2 ;;
     -H) if [ "${2#@}" != "$2" ]; then printf 'HEADERFILE %s\n' "$(tr '\n' ' ' < "${2#@}")" >> "$STUB_CURL_LOG"; fi; shift 2 ;;
     -o) out="$2"; shift 2 ;;
     -w) want_code=1; shift 2 ;;
     -I) head=1; shift ;;
+    http*) url="$1"; shift ;;
     *) shift ;;
   esac
 done
+# P1417: storage INFO endpoint — last_modified for the small copy / the original, when set.
+case "$url" in
+  */info/public/*.w800.webp) [ -n "${STUB_INFO_SMALL:-}" ] && printf '{"last_modified":"%s"}' "$STUB_INFO_SMALL"; exit 0 ;;
+  */info/public/*) [ -n "${STUB_INFO_ORIG:-}" ] && printf '{"last_modified":"%s"}' "$STUB_INFO_ORIG"; exit 0 ;;
+esac
 [ -n "$out" ] && [ "$out" != /dev/null ] && : > "$out"
+# P1417: storage DELETE answers with a body; 400 means not-found OR auth failure, told apart by it.
+if [ "$method" = DELETE ]; then
+  [ -n "$out" ] && [ "$out" != /dev/null ] && printf '%s' "${STUB_DELETE_BODY:-{\"message\":\"Successfully deleted\"}}" > "$out"
+  [ "$want_code" = 1 ] && printf '%s' "${STUB_DELETE_STATUS:-200}"
+  exit 0
+fi
 if [ "$want_code" = 1 ]; then
   if [ "$head" = 1 ]; then printf '%s' "${STUB_HEAD_STATUS:-404}"; else printf '200'; fi
 fi
 exit 0
 SH
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/bin/sips"
-chmod +x "$TMP/bin/curl" "$TMP/bin/sips"
+# P1417: `npx tsx scripts/event-banner-small.ts encode <in> <out>` writes <out>, or fails on demand.
+cat > "$TMP/bin/npx" <<'SH'
+#!/usr/bin/env bash
+[ "${STUB_ENCODE_FAIL:-0}" = 1 ] && { echo "Error: stub encoder refused" >&2; exit 1; }
+[ "$3" = encode ] && printf 'fake webp' > "$5"
+exit 0
+SH
+chmod +x "$TMP/bin/curl" "$TMP/bin/sips" "$TMP/bin/npx"
 
 run_photo() {  # run_photo [extra env...] — sets RC
   : > "$TMP/curl.log"; : > "$TMP/keychain.log"
@@ -96,6 +122,26 @@ if grep -q "plaintext-decoy" "$TMP/curl.log"; then bad "photo-prep read the plai
 else ok "photo-prep: plaintext env copy never sent"; fi
 if [ "$(grep -c "cp.keyring.$KEY" "$TMP/keychain.log")" -eq 1 ]; then ok "photo-prep: exactly one keychain read"
 else bad "photo-prep keychain reads" "$(cat "$TMP/keychain.log")"; fi
+if [ "$(grep '^ARGV' "$TMP/curl.log" | grep -- '-X POST' | grep -c 'test-slug.jpg.w800.webp')" -eq 1 ] \
+   && [ "$(grep '^ARGV' "$TMP/curl.log" | grep -c -- '-X POST')" -eq 2 ] \
+   && [ "$(grep -c '^HEADERFILE.*keychain-decoy-value' "$TMP/curl.log")" -eq 2 ]; then
+  ok "photo-prep: small copy uploaded through a header file on the same key read"
+else bad "photo-prep small upload" "$(cat "$TMP/curl.log")"; fi
+if [ "$(grep -c '' "$TMP/out")" -eq 2 ] && [ ! -s "$TMP/err" ]; then ok "photo-prep: stdout is exactly LOCAL= and PUBLIC=, no warning"
+else bad "photo-prep stdout contract" "out=$(cat "$TMP/out") err=$(cat "$TMP/err")"; fi
+
+# ── event-photo-prep: small copy cannot be encoded ───────────────────────────
+run_photo STUB_ENCODE_FAIL=1
+if [ "$RC" -eq 0 ] && [ "$(grep '^ARGV' "$TMP/curl.log" | grep -c -- '-X POST')" -eq 1 ] \
+   && [ "$(grep -c '' "$TMP/out")" -eq 2 ] && grep -q "WARNING: the small copy was not made (encode failed: Error: stub encoder refused)" "$TMP/err"; then
+  ok "photo-prep: encode failure still uploads the original, exits 0, warns with the reason"
+else bad "photo-prep encode failure" "rc=$RC out=$(cat "$TMP/out") err=$(cat "$TMP/err") curl=$(cat "$TMP/curl.log")"; fi
+if [ "$(grep '^ARGV' "$TMP/curl.log" | grep -- '-X DELETE' | grep -c 'test-slug.jpg.w800.webp')" -eq 1 ] \
+   && [ "$(grep -c '^HEADERFILE.*keychain-decoy-value' "$TMP/curl.log")" -eq 2 ] \
+   && [ "$(grep -c "cp.keyring.$KEY" "$TMP/keychain.log")" -eq 1 ] \
+   && grep -q "no small copy exists now" "$TMP/err"; then
+  ok "photo-prep: a failed small copy deletes any old one, same key read, and says so"
+else bad "photo-prep small delete" "err=$(cat "$TMP/err") curl=$(cat "$TMP/curl.log") keychain=$(cat "$TMP/keychain.log")"; fi
 
 # ── event-photo-prep: declined dialog ────────────────────────────────────────
 run_photo STUB_DECLINE=1
@@ -107,6 +153,25 @@ else bad "photo-prep declined" "rc=$RC curl=$(cat "$TMP/curl.log")"; fi
 run_photo STUB_HEAD_STATUS=200
 if [ "$RC" -eq 0 ] && [ ! -s "$TMP/keychain.log" ]; then ok "photo-prep: existing object costs no dialog"
 else bad "photo-prep exists" "rc=$RC keychain=$(cat "$TMP/keychain.log")"; fi
+
+# ── event-photo-prep: what the DELETE answer means (P1417; bodies measured on TEST) ──
+run_photo STUB_ENCODE_FAIL=1 STUB_DELETE_STATUS=400 STUB_DELETE_BODY='{"statusCode":"404","error":"not_found","message":"Object not found","code":"NoSuchKey"}'
+if [ "$RC" -eq 0 ] && grep -q "no small copy exists now" "$TMP/err"; then ok "photo-prep: NoSuchKey on delete means no copy"
+else bad "photo-prep delete NoSuchKey" "rc=$RC err=$(cat "$TMP/err")"; fi
+run_photo STUB_ENCODE_FAIL=1 STUB_DELETE_STATUS=400 STUB_DELETE_BODY='{"statusCode":"403","error":"Unauthorized","message":"Invalid Compact JWS","code":"AccessDenied"}'
+if [ "$RC" -eq 0 ] && grep -q "an older small copy may remain" "$TMP/err" && ! grep -q "no small copy exists now" "$TMP/err"; then
+  ok "photo-prep: any other 400 on delete is NOT read as no copy"
+else bad "photo-prep delete AccessDenied" "rc=$RC err=$(cat "$TMP/err")"; fi
+
+# ── event-photo-prep: existing original, small copy older than it (P1417) ─────
+run_photo STUB_HEAD_STATUS=200 STUB_INFO_ORIG=2026-10-05T09:00:00Z STUB_INFO_SMALL=2026-09-01T00:00:00Z
+if [ "$RC" -eq 0 ] && [ ! -s "$TMP/keychain.log" ] && grep -q "^STALE: " "$TMP/err" \
+   && grep -q "event-banner-small.ts one --env prod" "$TMP/err" && [ "$(grep -c '' "$TMP/out")" -eq 2 ]; then
+  ok "photo-prep: stale small copy reported with the fix command, no dialog"
+else bad "photo-prep stale" "rc=$RC err=$(cat "$TMP/err") keychain=$(cat "$TMP/keychain.log")"; fi
+run_photo STUB_HEAD_STATUS=200 STUB_INFO_ORIG=2026-09-01T00:00:00Z STUB_INFO_SMALL=2026-10-05T09:00:00Z
+if [ "$RC" -eq 0 ] && [ ! -s "$TMP/err" ]; then ok "photo-prep: fresh small copy, nothing reported"
+else bad "photo-prep fresh" "rc=$RC err=$(cat "$TMP/err")"; fi
 
 # ── check-stranded-signups: no scoped token ──────────────────────────────────
 : > "$TMP/curl.log"
