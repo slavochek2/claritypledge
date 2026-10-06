@@ -92,6 +92,8 @@ export interface RoundMoment {
   atTable: boolean;
   /** The host ended the rounds (no round on now, at least one behind). */
   eveningOver: boolean;
+  /** A round is on now. It keeps the room open past the clock's close (walkthrough 9). */
+  live: boolean;
 }
 
 const firstWord = (name: string | undefined) => (name ? name.split(' ')[0] ?? name : '?');
@@ -119,8 +121,14 @@ export function RoundCard({
   view: 'table' | 'compare' | 'hidden';
   onMoment?: (moment: RoundMoment) => void;
 }) {
-  const { state, refresh } = useEventRounds(eventId, !!self, !ended);
-  const round = ended ? null : currentRound(state);
+  // `ended` is the clock's close (event start + grace). A round the host is still running
+  // outlives it: keep polling while one is on, so the room stays open until the host ends it
+  // (walkthrough 9 — a demo's phone closed mid-round while the host screen ran on).
+  const [liveSeen, setLiveSeen] = useState(false);
+  const { state, refresh } = useEventRounds(eventId, !!self, !ended || liveSeen);
+  const round = currentRound(state);
+  const live = !!round;
+  useEffect(() => { setLiveSeen(live); }, [live]);
   const seats = round ? state.seatsByRound.get(round.id) ?? [] : [];
   const mine = self ? seats.find(s => s.id === self.id) : undefined;
   const table = mine ? seats.filter(s => s.table === mine.table) : [];
@@ -138,8 +146,8 @@ export function RoundCard({
   const atTable = seated && (!!mine?.confirmedAt || phase !== 'seating');
   const eveningOver = !ended && !round && state.rounds.length > 0;
   useEffect(() => {
-    onMoment?.({ seated, atTable, eveningOver });
-  }, [onMoment, seated, atTable, eveningOver]);
+    onMoment?.({ seated, atTable, eveningOver, live });
+  }, [onMoment, seated, atTable, eveningOver, live]);
 
   const member = (id: string | undefined) => roster.find(m => m.id === id);
   const firstMember = member(first?.id);
@@ -180,7 +188,7 @@ export function RoundCard({
   if (!round || !mine) {
     // Walkthrough 8: opted in with nothing to do read as stuck — say what comes next.
     if (!round) {
-      if (ended || eveningOver || view !== 'hidden') return null;
+      if ((ended && !live) || eveningOver || view !== 'hidden') return null;
       return (
         <p className="text-base text-muted-foreground" data-testid="round-card-waiting">
           Waiting for round {state.rounds.length + 1} — the host starts it

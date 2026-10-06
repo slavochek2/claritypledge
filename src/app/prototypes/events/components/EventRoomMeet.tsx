@@ -284,7 +284,7 @@ export function EventRoomMeet() {
   const [principleOpen, setPrincipleOpen] = useState(false);
   // P1337: the round's moment, reported by the round card (it owns the poll). While you sit at a
   // table the page is your table (walkthrough 6); the step bar names the moment (walkthrough 7).
-  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false });
+  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false });
   const seated = moment.seated;
   // A step behind the current one the person tapped back to; null = follow the evening.
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(null);
@@ -414,9 +414,12 @@ export function EventRoomMeet() {
     return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
   }
 
-  const isFrozen = event
+  // The clock's close (start + grace) — unless the host is still running a round
+  // (walkthrough 9: a phone closed mid-round while the host screen ran on).
+  const pastGrace = event
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
     : false;
+  const isFrozen = pastGrace && !moment.live;
 
   const inMembers = roster.filter((m) => m.optedIn === true);
   const outMembers = roster.filter((m) => m.optedIn === false);
@@ -544,16 +547,19 @@ export function EventRoomMeet() {
               eventTitle={event.title}
               self={self}
               roster={roster}
-              ended={isFrozen}
+              ended={pastGrace}
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
             />
           )}
           {viewing === 'close' && (
-            // P1389's closing sequence plugs in here once built; until then, a plain end screen.
+            // The way into P1389's closing sequence (/events/:slug/close).
             <section className="rounded-xl border border-border bg-card p-6 text-center" data-testid="room-close">
               <h2 className="text-2xl font-semibold">Thanks for coming</h2>
-              <p className="mt-2 text-sm text-muted-foreground">The evening has ended.</p>
+              <p className="mt-2 text-sm text-muted-foreground">The evening has ended. Two minutes to tell us how it went?</p>
+              <Button asChild className="mt-4 min-h-11 w-full bg-blue-600 hover:bg-blue-700" data-testid="room-close-feedback">
+                <Link to={`/events/${slug}/close`}>Give feedback</Link>
+              </Button>
             </section>
           )}
           {showPrinciple && step === 'answered' && (
@@ -599,7 +605,7 @@ export function EventRoomMeet() {
             </CertificateFrame>
           )}
 
-          {isFrozen && (
+          {isFrozen && viewing !== 'close' && (
             <div data-testid="room-frozen-notice" className="rounded-lg border border-border bg-muted p-4 text-sm">
               This has closed. Here&apos;s who opted in.
             </div>
@@ -615,7 +621,7 @@ export function EventRoomMeet() {
           {/* Roster card — matches EventDetail.tsx's Participants card (`bg-card
               rounded-xl border border-border shadow-sm p-6`), round 4: the roster reads as
               a right-margin card, not a co-equal column. */}
-          {(showPrinciple || (viewing === 'close' && isFrozen)) && (
+          {showPrinciple && (
           <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             {roster.length === 0 ? (
               /* The one case a per-group empty state cannot express. `getRoomRoster` returns

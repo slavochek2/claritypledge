@@ -421,7 +421,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     ).toEqual([true]);
   });
 
-  test('a frozen room (past EVENT_GRACE_HOURS) still displays who was there, and offers no way to change an answer', async ({ page }) => {
+  test('a frozen room (past EVENT_GRACE_HOURS) opens on Close with the feedback link, and offers no way to change an answer', async ({ page }) => {
     const frozenEvent = await createTestEvent(host.user.id, new Date(Date.now() - (EVENT_GRACE_HOURS + 2) * 60 * 60 * 1000));
     eventIds.push(frozenEvent.id);
     const attendee = await seedRoomMember(frozenEvent.id, { optedIn: true, displayName: 'P1114 Frozen Attendee' });
@@ -430,9 +430,12 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     const visitor = await freshUser('P1114 Frozen Visitor');
     await signInRegistered(page, frozenEvent, visitor);
     await page.goto(`/events/${frozenEvent.slug}/meet`);
-    await expect(page.getByTestId('room-frozen-notice')).toBeVisible();
+    // P1337 walkthrough 9 (founder): a closed room opens on Close — thanks + "Give feedback" into
+    // P1389's closing sequence — instead of the opt-in roster.
+    await expect(page.getByTestId('room-close')).toBeVisible();
+    await expect(page.getByTestId('room-close-feedback')).toHaveAttribute('href', `/events/${frozenEvent.slug}/close`);
     await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
-    await expect(roster(page)).toContainText('P1114 Frozen Attendee');
+    await expect(roster(page)).toHaveCount(0);
   });
 
   test('an organization member sees themselves as NOT opted in until they confirm in the room', async ({ page }) => {
