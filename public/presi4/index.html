@@ -858,6 +858,8 @@
     .ikg .c4{left:21%;bottom:0;background:rgba(234,179,8,.25);align-items:flex-end;padding-bottom:12%}
     .ikg .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
       font-weight:800;font-size:clamp(1.1rem,2.6vw,1.8rem);color:var(--blue);opacity:0}
+    /* the centre word sits on white: blue text on the four-way overlap had almost no contrast */
+    .ikg .mid span{background:#fff;padding:.2em .6em;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
     .ikg[data-bubbles] .c.step{display:flex}.ikg[data-bubbles] .mid.step{display:flex}
     .ikg .step{transform:scale(.6);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
     .ikg .step.on{opacity:1;transform:none}
@@ -877,7 +879,7 @@
       <div class="c c3 step">What the<br>world needs</div>
       <div class="c c2 step">What you&rsquo;re<br>good at</div>
       <div class="c c4 step">What you can<br>be paid for</div>
-      <div class="mid step">Ikigai</div>
+      <div class="mid step"><span>Ikigai</span></div>
     </div>
   </section>
 
@@ -1670,12 +1672,12 @@
           <div class="msg m-l step"><span class="av av-l">B</span><span class="txt"><b class="at-a">@Speaker</b> so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
           <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">I think you understand me at 8. Good enough, let&rsquo;s move on.</span></div>
         <div class="beat-lab step">4 &middot; Swap</div>
-          <div class="msg m-sys step"><span class="txt">Halfway: speaker and listener swap. Same steps, B shares their view.</span></div>
-        <div class="beat-lab step">5 &middot; The observer explains back to both, then feedback</div>
+          <div class="msg m-sys step"><span class="txt">Listener and speaker swap</span></div>
+        <div class="beat-lab step">5 &middot; Round ends</div>
           <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-a">@Person A</b> I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
-          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">You understood me at 9. So we take 7.</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">You understood me at 9.</span></div>
           <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-b">@Person B</b> I think I understood you at 6. Here is what I heard you mean&hellip;</span></div>
-          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">You understood me at 8. So we take 6.</span></div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">You understood me at 8.</span></div>
           <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">What I liked is&hellip; What could be better is&hellip;</span></div>
       </div>
     </div>
