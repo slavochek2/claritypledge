@@ -2208,13 +2208,3 @@ Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
 
 ---
 
-## Tonight's event button opens the event room (founder chose A)
-
-**ID:** INBOX-134
-**Date:** 2026-10-06
-**Status:** proposed
-**due:** week
-
-Founder decision 2026-10-06: keep the header label "Tonight's event" but send it to the event's room instead of the event page, because on the night the room entry is hard to find on the event page. The room already offers unfinished preparation first. Check first what the room shows to someone tapping hours before start; if it is not useful early, go to the event page until close to start time, then the room. Spec it with /create-spec; drop if the event page gains a prominent room entry instead.
-
----
