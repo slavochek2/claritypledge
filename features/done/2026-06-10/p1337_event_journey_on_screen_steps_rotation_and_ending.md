@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 4
 workstream: events
@@ -11,7 +11,6 @@ tags:
   - rotation
   - matching
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -24,6 +23,7 @@ related:
   - p1114
   - p1179
   - p1323
+completed_at: 2026-10-06
 ---
 
 # P1337: At a Clarity Night the room is grouped into trios by how much people disagree, rounds run on the host's bell, and every phone says where to sit and what to talk about
@@ -32,7 +32,7 @@ related:
 
 **Situation:** Clarity Night #1 (2026-09-18) ran pairs. Attendee feedback: a confusing click-flow,
 pairs stuck together all evening, late arrivals forcing repeats, nobody taking the speaker/listener
-roles unprompted ([goals.md](../docs/goals.md)). The recording shows the room had **still not started
+roles unprompted ([goals.md](../../../docs/goals.md)). The recording shows the room had **still not started
 a round at minute 48**, with roughly 15 of those minutes lost to in-room logistics.
 
 **Complication:** Events now recur — **#2 on 2026-10-06, #3 on 2026-10-20** (founder, 2026-10-02:
@@ -41,7 +41,7 @@ from the room's votes). The cadence is **not fixed**, so nothing here may assume
 the closing step shows whatever the next published event is. The format changed on 2026-09-28 to
 **trios** — three rounds
 of 15 minutes, six on one person's meaning, six on the other's, three for the observer, everyone
-rotating through speaker, listener and observer ([decisions.md](../docs/decisions.md) 2026-09-28
+rotating through speaker, listener and observer ([decisions.md](../../../docs/decisions.md) 2026-09-28
 [product]). Partners are no longer a detail of seating: the founder wants people matched to the
 person they **meaningfully disagree with**, not a random neighbour. Without that, the room "talks
 about all and nothing, like Clarity Night #1" (founder, 2026-10-01).
@@ -458,7 +458,7 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 - **The phone is dark during a round** for everyone except the observer.
 - **Consent for recording sits with the recorder** — the room is never asked who does not want to be
   recorded, because refusal must not become a public declaration. This **overrules**
-  [decisions.md](../docs/decisions.md) 2026-09-16 (pair unanimity, "lavalier wearers pair only with
+  [decisions.md](../../../docs/decisions.md) 2026-09-16 (pair unanimity, "lavalier wearers pair only with
   each other"); the visible mic is the notice, and pause is how an objection is honoured.
 - **The round rule is "hear the number before you disagree", for opted-in listeners only** — the
   number does not have to reach 8 (decisions.md 2026-09-29). Opted-in and opted-out people are mixed
@@ -515,7 +515,7 @@ disagreement by comparing positions out loud. Paper is a 1% case, not the mechan
 
 ## Related
 
-- [p1336](done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md) — registration, prep, the positions this spec groups on. **Shipped 2026-10-02**, so the gap signal this spec needs is live, not pending.
-- [p1338](p1338_clarity_night_deck_cut_theory_and_run_rounds.md) — the deck: corrected roles slide, a seating slide the host screen casts into, and a slide carrying the recorder instruction
+- [p1336](p1336_registration_carries_opt_in_prep_and_survey.md) — registration, prep, the positions this spec groups on. **Shipped 2026-10-02**, so the gap signal this spec needs is live, not pending.
+- [p1338](../../p1338_clarity_night_deck_cut_theory_and_run_rounds.md) — the deck: corrected roles slide, a seating slide the host screen casts into, and a slide carrying the recorder instruction
 - [p1347](p1347_topics_page_attendees_rate_next_topics.md) — `/topics`, linked from the ending
 - Prototypes: `/tree/compare-positions`, `/tree/host-controls` (branch `feature/p1337-round-controls`)
