@@ -850,11 +850,11 @@
   <style>
     .ikg{position:relative;width:min(62vh,560px);aspect-ratio:1;margin:clamp(.6rem,2vh,1.4rem) auto 0}
     .ikg .c{position:absolute;width:58%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
-      text-align:center;font-weight:700;font-size:clamp(.8rem,1.7vw,1.15rem);line-height:1.2;padding:9%;box-sizing:border-box;
+      text-align:center;font-weight:700;font-size:clamp(.8rem,1.7vw,1.15rem);line-height:1.2;padding:9%;box-sizing:border-box;white-space:nowrap;
       mix-blend-mode:multiply;opacity:0}
     .ikg .c1{left:21%;top:0;background:rgba(239,68,68,.22);align-items:flex-start;padding-top:12%}
-    .ikg .c2{left:0;top:21%;background:rgba(59,130,246,.22);justify-content:flex-start;text-align:left;padding:0 50% 0 9%}
-    .ikg .c3{right:0;top:21%;background:rgba(34,197,94,.22);justify-content:flex-end;text-align:right;padding:0 9% 0 50%}
+    .ikg .c2{left:0;top:21%;background:rgba(59,130,246,.22);justify-content:flex-start;text-align:left;padding:0 0 0 7%}
+    .ikg .c3{right:0;top:21%;background:rgba(34,197,94,.22);justify-content:flex-end;text-align:right;padding:0 7% 0 0}
     .ikg .c4{left:21%;bottom:0;background:rgba(234,179,8,.25);align-items:flex-end;padding-bottom:12%}
     .ikg .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
       font-weight:800;font-size:clamp(1.1rem,2.6vw,1.8rem);color:var(--blue);opacity:0}
@@ -874,9 +874,9 @@
     <h2 style="margin-bottom:0;font-size:clamp(1.4rem,3.4vw,2.6rem)">What is the most effective way<br>to reach your <span class="accent">ikigai</span>?</h2>
     <div class="ikg" data-bubbles aria-label="Ikigai: four overlapping circles">
       <div class="c c1 step">What you love</div>
-      <div class="c c3 step">What the world needs</div>
-      <div class="c c2 step">What you are good at</div>
-      <div class="c c4 step">What you can be paid for</div>
+      <div class="c c3 step">What the<br>world needs</div>
+      <div class="c c2 step">What you&rsquo;re<br>good at</div>
+      <div class="c c4 step">What you can<br>be paid for</div>
       <div class="mid step">Ikigai</div>
     </div>
   </section>
@@ -1078,7 +1078,7 @@
          like we did in /prepare"). This is the preparation's own wording (P1336 step 2), so a
          person who prepared hears the same sentence twice and a latecomer hears it once. If the
          preparation copy changes, change it here too. -->
-    <p class="cu-line">I explain back your intended meaning, and you rate me 10 out of 10 &mdash; that is <span class="accent">verified</span> cognitive understanding.</p>
+    <p class="cu-line">I explain back your intended meaning, and you rate me 10 out of 10. That is <span class="accent">verified</span> cognitive understanding.</p>
     <div class="st1-card">
       <div class="st1-head">
         <img class="st1-ava" src="st1-author.jpg" alt="Vyacheslav Ladischenski">
@@ -1523,6 +1523,10 @@
       border-radius:50%;color:#fff;font-weight:800;font-size:clamp(.75rem,1.4vw,.95rem)}
     .av-s{background:#C2410C} .av-l{background:#1864AB} .av-o{background:hsl(240 5% 45%)}
     .at-a{color:#C2410C} .at-b{color:#1864AB}
+    /* five beats, one click each (founder, 2026-10-06): a beat shows its whole exchange at once */
+    [data-bubbles] .beat-lab.step.on{display:block}
+    .beat-lab{align-self:center;font-size:clamp(.62rem,1vw,.78rem);font-weight:800;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--blue);margin-top:.35rem}
     .msg .txt{padding:.55rem .85rem;border-radius:14px;line-height:1.35;
       font-size:clamp(1rem,1.75vw,1.4rem);color:var(--wa-ink);box-shadow:0 1px 1px rgba(0,0,0,.06)}
     .m-s .txt{background:hsl(22 92% 96%);border-bottom-left-radius:4px}
@@ -1648,33 +1652,30 @@
         <div>
           <div class="wa-name">Your table</div>
           <div class="wa-seen">A speaks first &middot; B listens first &middot; O observes</div>
-        </div>
       </div>
       <div class="wa-body wa-scroll">
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">The reason I agree on this point is my own experience&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Please, how much from 0 to 10 do you think you understand my intended meaning?</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">6 out of 10.</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks. I&rsquo;d say 3.</span></div>
-        <div class="msg m-sys step"><span class="txt">Minimum number of verified understanding is 3</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">Then let me explain back what I think you mean&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks, now a 5. What&rsquo;s missing to 10 is&hellip;</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">In my experience it is the opposite, and that is why I think&hellip;</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">&#128276; <b class="at-b">@Listener</b> I think you are disagreeing too early and not focusing on the speaker&rsquo;s intended meaning.</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt"><b class="at-a">@Speaker</b> so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">I think you understand me at 8. Good enough, let&rsquo;s move on.</span></div>
-        <div class="msg m-sys step"><span class="txt">Speaker and listener swap</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">My own view is different, because&hellip;</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">How much from 0 to 10 do you think you understand my intended meaning?</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">7 out of 10.</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">I&rsquo;d say 5. Can you explain back what you heard?</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">So what I hear you saying is&hellip;</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">I think you understand me at 8. Let&rsquo;s move on.</span></div>
-        <div class="msg m-sys step"><span class="txt">The observer&rsquo;s turn</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-a">@Person A</b> I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">You understood me at 9.</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-b">@Person B</b> I think I understood you at 6. Here is what I heard you mean&hellip;</span></div>
-        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">You understood me at 8.</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">What I liked is&hellip; What could be better is&hellip;</span></div>
+        <div class="beat-lab step">1 &middot; Ask for a number</div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">The reason I agree on this point is my own experience&hellip;</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Please, how much from 0 to 10 do you think you understand my intended meaning?</span></div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">6 out of 10.</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks. I&rsquo;d say you understand me at 3.</span></div>
+          <div class="msg m-sys step"><span class="txt">Minimum number of verified understanding is 3</span></div>
+        <div class="beat-lab step">2 &middot; Explain back to raise it</div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">Then let me explain back what I think you mean, without judging&hellip;</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks, now a 5. What&rsquo;s missing to 10 is&hellip; Please explain it back again.</span></div>
+        <div class="beat-lab step">3 &middot; The observer&rsquo;s bell</div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">In my experience it is the opposite, and that is why I think&hellip;</span></div>
+          <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">&#128276; <b class="at-b">@Listener</b> I think you are disagreeing too early and not focusing on the speaker&rsquo;s intended meaning.</span></div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt"><b class="at-a">@Speaker</b> so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">I think you understand me at 8. Good enough, let&rsquo;s move on.</span></div>
+        <div class="beat-lab step">4 &middot; Swap</div>
+          <div class="msg m-sys step"><span class="txt">Halfway: speaker and listener swap. Same steps, B shares their view.</span></div>
+        <div class="beat-lab step">5 &middot; The observer explains back to both, then feedback</div>
+          <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-a">@Person A</b> I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
+          <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">You understood me at 9. So we take 7.</span></div>
+          <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-b">@Person B</b> I think I understood you at 6. Here is what I heard you mean&hellip;</span></div>
+          <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">You understood me at 8. So we take 6.</span></div>
+          <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">What I liked is&hellip; What could be better is&hellip;</span></div>
       </div>
     </div>
   </section>
@@ -3063,6 +3064,8 @@
       const items=[...bb.querySelectorAll('.step')];
       const nxt=items.find(el=>!el.classList.contains('on'));
       if(nxt){ nxt.classList.add('on');
+        // a beat label never costs its own click: it arrives with the first message under it
+        if(nxt.classList.contains('beat-lab')&&nxt.nextElementSibling) nxt.nextElementSibling.classList.add('on');
         const sc=bb.querySelector('.wa-scroll');
         if(sc) sc.scrollTo({top:sc.scrollHeight,behavior:'smooth'});
         return; }
