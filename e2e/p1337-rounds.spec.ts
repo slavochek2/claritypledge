@@ -182,9 +182,10 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     // (walkthrough 9: the role reminder stays while the positions are open).
     await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'compare');
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'compare');
-    await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no} ·`);
+    await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no}`);
+    // Compact on Compare: letters and names, no task lines (founder walkthrough 9).
     await expect(page.getByTestId('round-card-mates').locator('[data-me]')).toContainText('You');
-    await expect(page.getByTestId('round-card-task').first()).toBeVisible();
+    await expect(page.getByTestId('round-card-task')).toHaveCount(0);
     // Back to the table: the step bar's "Table" (walkthrough 8 removed the card's own link).
     await page.getByTestId('room-step-table').click();
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');
@@ -215,7 +216,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-card')).toBeVisible();
   });
 
-  test('while the pair talk the page stays theirs; only the observer\'s card carries the clock', async ({ page }) => {
+  test('while the pair talk everyone sees who speaks and the time left', async ({ page }) => {
     await backdateCurrentRound(event.id, 2 * MIN); // a minute into the first speaker's six
     const mine = (await seats(event.id)).find(s => s.room_member_id === anaMember)!;
     await setTestSession(page, ana.email);
@@ -223,10 +224,9 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('round-card')).toBeVisible();
     // Founder walkthrough 4: no black layer drawn over the phone.
     await expect(page.getByTestId('round-dark')).toHaveCount(0);
-    const live = { first: 'You speak', second: 'You listen', observer: 'You observe' }[mine.role as 'first' | 'second' | 'observer'];
-    await expect(page.getByTestId('round-card-table-line')).toContainText(live);
+    // Walkthrough 9: everyone sees who speaks now and the time left; the observer's box carries "Say swap".
     if (mine.role === 'observer') await expect(page.getByTestId('round-observer-clock')).toBeVisible();
-    else await expect(page.getByTestId('round-observer-clock')).toHaveCount(0);
+    else await expect(page.getByTestId('round-phase')).toBeVisible();
   });
 
   test('the projector shows the round, the tables with roles, and the clock', async ({ page }) => {

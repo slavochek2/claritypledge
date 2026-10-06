@@ -287,7 +287,21 @@ export function RoundCard({
 
   // Who sits here and what each does — on Table and, compact, at the top of Compare (walkthrough 9:
   // the role reminder stays while the positions are open). Faces: what you look for walking over.
-  const roleStrip = (
+  // Compact on Compare (founder walkthrough 9): letters and names only — who speaks, who listens.
+  const roleStrip = (compact: boolean) => compact ? (
+    <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1" data-testid="round-card-mates">
+      {table.map(s => {
+        const isMe = s.id === mine.id;
+        const pair = !split && s.role !== 'observer';
+        return (
+          <li key={s.id} className="flex items-center gap-1.5 text-sm" data-me={isMe || undefined}>
+            {pair ? <PairBadge className="h-5 w-5 text-xs" /> : <RoleBadge role={liveRole(s.role, phase)} className="h-5 w-5 text-xs" />}
+            <span className={isMe ? 'font-semibold' : 'font-medium'}>{isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}</span>
+          </li>
+        );
+      })}
+    </ul>
+  ) : (
     <ul className="mt-3 space-y-2" data-testid="round-card-mates">
       {table.map(s => {
         const isMe = s.id === mine.id;
@@ -320,10 +334,10 @@ export function RoundCard({
     const chosenLabel = chosen ? `You and ${firstWord(chosen.displayName)}` : defaultLabel;
     return (
       <section data-testid="round-card" data-role={mine.role} data-view="compare">
-        <p className="text-sm text-muted-foreground" data-testid="round-card-table-line">
-          Table {mine.table} · {roleLine}
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground" data-testid="round-card-table-line">
+          Table {mine.table}
         </p>
-        {roleStrip}
+        {roleStrip(true)}
         {observerClock}
         {/* Walkthrough 8: one header — the dropdown names who you compare with (your table first,
             so a wrong pick is one tap back); the step bar's "Table" is the way back. */}
@@ -345,7 +359,10 @@ export function RoundCard({
         ) : (
           <h2 className="mt-3 text-lg font-semibold break-words" data-testid="round-compare-title">{chosenLabel}</h2>
         )}
-        {setName && <p className="mt-1 text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>}
+        {/* Walkthrough 9: the set's name only when the host matched on a set other than the event's. */}
+        {setName && roundTag !== statementTag && (
+          <p className="mt-1 text-sm text-muted-foreground break-words" data-testid="round-compare-set">{setName}</p>
+        )}
         <div className="mt-3 rounded-xl bg-muted/70 p-3" data-testid="round-card-topics">
           {rows.length > 0 ? (
             <ul className="space-y-4" data-testid="round-card-rows">
@@ -398,7 +415,7 @@ export function RoundCard({
       {observerClock}
       {/* Faces, not only names: this is what you look for walking across the room. The same
           S / L / O letters as the printed card on the table. */}
-      {roleStrip}
+      {roleStrip(false)}
       {self.optedIn && isSpeaker && (
         <p className="mt-3 text-sm" data-testid="round-card-rule">
           Hear the number before you disagree.

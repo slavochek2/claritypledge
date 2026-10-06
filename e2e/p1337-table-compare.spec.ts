@@ -111,12 +111,13 @@ test.describe('P1337 — the comparison inside the table card', () => {
     await expect(page.getByText(/talking about this one/i)).toHaveCount(0);
   });
 
-  test('the compare step: the dropdown is the header ("You and Ben"), the set by name, anyone else in the room', async ({ page }) => {
+  test('the compare step: the dropdown is the header ("You and Ben"), no set line for the event’s own set, anyone else in the room', async ({ page }) => {
     await atTable(page, ana);
     const header = page.getByTestId('round-compare-with');
     await expect(header.locator('option:checked')).toHaveText('You and Ben');
     await expect(page.getByTestId('round-compare-back')).toHaveCount(0); // the step bar is the way back
-    await expect(page.getByTestId('round-compare-set')).not.toHaveText(`#${TAG}`); // named after the event
+    // Walkthrough 9: the set's name shows only when the host matched on another set — not here.
+    await expect(page.getByTestId('round-compare-set')).toHaveCount(0);
     await expect(page.getByTestId('round-card-compare')).toHaveCount(0); // the step bar replaced the button
     const withWho = page.getByTestId('round-compare-with');
     await expect(withWho.locator('option')).toContainText(['You and Ben', 'You and Cy']);

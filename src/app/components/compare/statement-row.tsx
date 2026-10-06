@@ -5,7 +5,7 @@
  * the letters vocabulary (letter-reveal-ordinal.tsx): blue on both sides, never green/red.
  */
 import type { ReactNode } from 'react';
-import { ChevronRight, Pin } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { cn } from '@/lib/utils';
 import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS, type CompareRow } from '@/lib/compare-positions';
@@ -40,8 +40,9 @@ export function StanceColumn({ person, label }: { person: Person; label: string 
 }
 
 /**
- * One statement with both positions. The card is a link that opens the point in a new tab;
- * `trailing` sits OUTSIDE the anchor, so a control there never triggers the link.
+ * One statement with both positions. Only "Details" opens the point (in a new tab) — the card
+ * itself is not a link (founder walkthrough 9: nobody knew the whole card was tappable, and the
+ * stance pills looked like buttons). `trailing` sits below, outside the link.
  */
 export function StatementRow({
   row,
@@ -63,12 +64,7 @@ export function StatementRow({
 }) {
   return (
     <li className="bg-white rounded-xl border border-border">
-      <a
-        href={`/point/${row.pointId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn('block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', compact ? 'p-2.5' : 'p-4')}
-      >
+      <div className={compact ? 'p-2.5' : 'p-4'}>
         {/* letter-point-card.tsx — the statement, pinned, in its own contained card */}
         <div className={cn('rounded-lg border border-border bg-gray-50', compact ? 'p-3' : 'p-4')}>
           <div className={cn('flex items-start', compact ? 'gap-2' : 'gap-3')}>
@@ -78,7 +74,17 @@ export function StatementRow({
             <p className={cn('font-medium text-[#1A1A1A] flex-1 min-w-0 break-words leading-snug', compact ? 'text-base' : 'text-lg')}>
               {row.statement}
             </p>
-            <ChevronRight size={18} className="shrink-0 mt-1 text-[#1A1A1A]/30" aria-hidden />
+          </div>
+          <div className="mt-1 flex justify-end">
+            <a
+              href={`/point/${row.pointId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="-mb-2 -mr-2 inline-flex min-h-10 items-center rounded-md px-2 text-sm font-medium text-blue-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="statement-details"
+            >
+              Details<span className="sr-only"> about this statement (opens in a new tab)</span>
+            </a>
           </div>
         </div>
 
@@ -87,7 +93,7 @@ export function StatementRow({
           <div className="w-px self-stretch bg-gray-200" />
           <StanceColumn person={them} label={POSITION_FULL_LABELS[row.theirs]} />
         </div>
-      </a>
+      </div>
       {trailing && <div className={compact ? 'px-2.5 pb-2.5' : 'px-4 pb-4'}>{trailing}</div>}
     </li>
   );

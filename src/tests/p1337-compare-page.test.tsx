@@ -4,7 +4,7 @@
  * and the one-line states (signed out, own profile, nothing shared).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { ComparePage, StatementRow } from '@/app/pages/compare-page';
 import * as auth from '@/auth';
@@ -73,14 +73,16 @@ describe('ComparePage', () => {
     );
   });
 
-  it('lists the furthest-apart statement first, agreements last, each opening in a new tab', async () => {
+  it('lists the furthest-apart statement first, agreements last, each with a Details link to a new tab', async () => {
     renderAt('/compare/ben-tan');
 
     const far = await screen.findByText('We disagree on this');
     const same = screen.getByText('We agree on this');
     expect(far.compareDocumentPosition(same) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const link = far.closest('a')!;
+    // Walkthrough 9: only Details opens the point; the statement text is not a link.
+    expect(far.closest('a')).toBeNull();
+    const link = within(far.closest('li')!).getByTestId('statement-details');
     expect(link).toHaveAttribute('href', '/point/p-far');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
@@ -179,7 +181,7 @@ describe('ComparePage', () => {
 });
 
 describe('StatementRow trailing slot', () => {
-  it('renders trailing content outside the link, so interacting with it cannot open the point', () => {
+  it('renders trailing content outside the Details link, so interacting with it cannot open the point', () => {
     const person = { name: 'A', hasPledged: false };
     render(
       <ul>
@@ -194,6 +196,7 @@ describe('StatementRow trailing slot', () => {
 
     const button = screen.getByRole('button', { name: 'Talk about this' });
     expect(button.closest('a')).toBeNull();
-    expect(screen.getByText('S').closest('a')).toHaveAttribute('target', '_blank');
+    expect(screen.getByText('S').closest('a')).toBeNull();
+    expect(screen.getByTestId('statement-details')).toHaveAttribute('target', '_blank');
   });
 });
