@@ -178,10 +178,13 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
 
     await page.getByTestId('round-card-confirm').click();
     await expect.poll(async () => (await seats(event.id)).find(s => s.room_member_id === anaMember)!.confirmed_at).not.toBeNull();
-    // After the tap the comparison takes the card; the table shrinks to one line.
+    // After the tap the comparison takes the card; the table and who-does-what stay on top
+    // (walkthrough 9: the role reminder stays while the positions are open).
     await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'compare');
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'compare');
-    await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no} · with`);
+    await expect(page.getByTestId('round-card-table-line')).toContainText(`Table ${mine.table_no} ·`);
+    await expect(page.getByTestId('round-card-mates').locator('[data-me]')).toContainText('You');
+    await expect(page.getByTestId('round-card-task').first()).toBeVisible();
     // Back to the table: the step bar's "Table" (walkthrough 8 removed the card's own link).
     await page.getByTestId('room-step-table').click();
     await expect(page.getByTestId('round-card')).toHaveAttribute('data-view', 'table');

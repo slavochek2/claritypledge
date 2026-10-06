@@ -33,10 +33,9 @@ import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { confirmRoundSeat, currentRound } from '@/app/data/event-rounds-service';
 import { buildCompareRows } from '@/lib/compare-positions';
-import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
+import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
 import type { SeatRole } from '@/lib/round-grouping';
 import { setLabel } from '@/lib/set-labels';
-import { cn } from '@/lib/utils';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
@@ -48,7 +47,7 @@ import { PairBadge, RoleBadge } from './RoleBadge';
 const ROLE_LINE: Record<SeatRole, string> = {
   first: 'You speak first',
   second: 'You listen first',
-  observer: 'You observe and keep time',
+  observer: 'You observe',
 };
 
 // No swap at half time: the pair start this way and trade the badges whenever they like.
@@ -56,8 +55,22 @@ const ROLE_LINE: Record<SeatRole, string> = {
 const ROLE_LINE_UNSPLIT: Record<SeatRole, string> = {
   first: 'You two decide who starts',
   second: 'You two decide who starts',
-  observer: 'You observe and keep time',
+  observer: 'You observe',
 };
+
+// Walkthrough 9 (founder + three UX reviews): each person's job, beside their name — the
+// observer protects the conversation, they do not keep time (the host and projector do).
+const TASK: Record<LiveRole, string> = {
+  speaker: 'says what they mean',
+  listener: 'explains it back until the speaker says “yes, that’s it”',
+  observer: 'notices when someone isn’t heard, then leads the close',
+};
+const TASK_YOU: Record<LiveRole, string> = {
+  speaker: 'say what you mean',
+  listener: 'explain it back until they say “yes, that’s it”',
+  observer: 'notice when someone isn’t heard, then lead the close',
+};
+const TASK_PAIR = 'take turns: one says what they mean, the other explains it back';
 
 
 /** The observer's "Say swap" shows for this long after the first speaker's time ends. */
@@ -214,7 +227,6 @@ export function RoundCard({
           ? 'You talk'
           : LIVE_ROLE_LINE[liveRole(mine.role, phase)]
         : (split ? ROLE_LINE : ROLE_LINE_UNSPLIT)[mine.role];
-  const mates = table.filter(s => s.id !== mine.id).map(s => firstWord(member(s.id)?.displayName));
   const setName = roundTag
     ? setLabel(roundTag, statementTag && eventTitle ? { [statementTag]: eventTopic(eventTitle) } : null)
     : null;
@@ -236,10 +248,14 @@ export function RoundCard({
     }
   };
 
-  // The observer keeps time, so their card carries the clock while the pair talk. Nobody else gets
-  // a timer: the room clock is on the screen, and the phone is theirs to put away.
-  const observerClock = talking && clock && mine.role === 'observer' && (
-    <div className="mt-3 rounded-lg bg-muted px-4 py-3 text-center" data-testid="round-observer-clock">
+  // Walkthrough 9: everyone at the table sees who speaks now and the time left (the reviews found
+  // speakers had no sense of time). The observer keeps the "Say swap" cue and leads the close.
+  const isObserver = mine.role === 'observer';
+  const observerClock = talking && clock && (
+    <div
+      className="mt-3 rounded-lg bg-muted px-4 py-2 text-center"
+      data-testid={isObserver ? 'round-observer-clock' : 'round-phase'}
+    >
       <p className="text-sm text-muted-foreground">
         {clock.phase === 'first' && !split
           ? 'They talk'
@@ -247,16 +263,44 @@ export function RoundCard({
             ? `${shortName(firstMember?.displayName ?? '')} speaks`
             : clock.phase === 'second'
               ? `${shortName(secondMember?.displayName ?? '')} speaks`
-              : 'Your turn'}
+              : isObserver ? 'Your turn: lead the close' : 'The observer leads the close'}
       </p>
-      {clock.phase === 'second' && clock.phaseElapsedMs < SWAP_CUE_MS ? (
-        <p className="mt-1 text-5xl font-semibold" data-testid="round-observer-swap">
+      {isObserver && clock.phase === 'second' && clock.phaseElapsedMs < SWAP_CUE_MS ? (
+        <p className="mt-1 text-4xl font-semibold" data-testid="round-observer-swap">
           Say &ldquo;swap&rdquo;
         </p>
       ) : (
-        <p className="mt-1 text-6xl font-semibold tabular-nums">{formatClock(clock.phaseRemainingMs)}</p>
+        <p className="mt-0.5 text-3xl font-semibold tabular-nums">{formatClock(clock.phaseRemainingMs)}</p>
       )}
     </div>
+  );
+
+  // Who sits here and what each does — on Table and, compact, at the top of Compare (walkthrough 9:
+  // the role reminder stays while the positions are open). Faces: what you look for walking over.
+  const roleStrip = (
+    <ul className="mt-3 space-y-2" data-testid="round-card-mates">
+      {table.map(s => {
+        const isMe = s.id === mine.id;
+        const live = liveRole(s.role, phase);
+        const pair = !split && s.role !== 'observer';
+        const task = pair ? TASK_PAIR : (isMe ? TASK_YOU : TASK)[live];
+        return (
+          <li key={s.id} className="flex items-start gap-2.5" data-me={isMe || undefined}>
+            {pair ? <PairBadge className="h-7 w-7 shrink-0 text-base" /> : <RoleBadge role={live} className="h-7 w-7 shrink-0 text-base" />}
+            <Face member={member(s.id)} />
+            <span className="min-w-0 flex-1 text-sm leading-snug">
+              <span className="font-medium">{isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}</span>
+              {/* Founder walkthrough 4-5: opted-out people sit and talk like everyone else, and
+                  are not bound to give a number — their table-mates see it here, so nobody asks. */}
+              {!isMe && member(s.id)?.optedIn === false && (
+                <span className="text-xs text-muted-foreground" data-testid="round-card-opted-out"> · opted out</span>
+              )}
+              <span className="block text-xs text-muted-foreground" data-testid="round-card-task">{task}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 
   if (view === 'compare') {
@@ -267,9 +311,9 @@ export function RoundCard({
     return (
       <section data-testid="round-card" data-role={mine.role} data-view="compare">
         <p className="text-sm text-muted-foreground" data-testid="round-card-table-line">
-          Table {mine.table}
-          {mates.length > 0 && <> · with {mates.join(', ')}</>} · {roleLine}
+          Table {mine.table} · {roleLine}
         </p>
+        {roleStrip}
         {observerClock}
         {/* Walkthrough 8: one header — the dropdown names who you compare with (your table first,
             so a wrong pick is one tap back); the step bar's "Table" is the way back. */}
@@ -344,34 +388,7 @@ export function RoundCard({
       {observerClock}
       {/* Faces, not only names: this is what you look for walking across the room. The same
           S / L / O letters as the printed card on the table. */}
-      <ul className="mt-3 space-y-2" data-testid="round-card-mates">
-        {table.map(s => {
-          const isMe = s.id === mine.id;
-          return (
-            <li key={s.id} className="flex items-center gap-2.5">
-              {split || s.role === 'observer' ? (
-                <RoleBadge role={liveRole(s.role, phase)} className="h-7 w-7 text-base" />
-              ) : (
-                <PairBadge className="h-7 w-7 text-base" />
-              )}
-              <Face member={member(s.id)} />
-              <span className={cn('flex-1 min-w-0 break-words text-sm', isMe ? 'text-muted-foreground' : 'font-medium')}>
-                {isMe ? 'You' : shortName(member(s.id)?.displayName ?? '—')}
-              </span>
-              {/* Founder walkthrough 4-5: opted-out people sit and talk like everyone else, and
-                  are not bound to give a number — their table-mates see it here, so nobody asks.
-                  The room's opt-in list is public already; this exposes nothing new. */}
-              {!isMe && member(s.id)?.optedIn === false && (
-                <span className="shrink-0 text-xs text-muted-foreground" data-testid="round-card-opted-out">opted out</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {/* Walkthrough 8: a reminder of what the letters mean, matching the printed card. */}
-      <p className="mt-2 text-xs text-muted-foreground" data-testid="round-card-legend">
-        {split ? 'S speaks · L listens, then explains back · O keeps time' : 'S L: you two take turns, the listener explains back · O keeps time'}
-      </p>
+      {roleStrip}
       {self.optedIn && isSpeaker && (
         <p className="mt-3 text-sm" data-testid="round-card-rule">
           Hear the number before you disagree.
