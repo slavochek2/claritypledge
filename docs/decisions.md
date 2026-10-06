@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [product]: `/presi4` slide 17 projects the showcase table from the HOST side, not the founder's phone
+
+**Context:** Slide 17 framed the founder's own `/room` page in a phone outline. It showed the whole room page (step bar, transcribe bar, profile links) and only showed a comparison if the founder was seated at the table. The founder runs the showcase from the host panel, seating three other people at one table, and wants the room to see only where that table disagrees.
+**Decision:** New `/events/:slug/host?view=compare&table=N` (`TableCompareView`): the table's people with their roles, then speaker vs listener on every statement both answered, furthest apart first. Host-only, so it does not depend on who is seated. It shows the round on now, or the last one once the host ends it, so the slide still reads after the showcase. The deck embeds it full-bleed with `&embed=true` (no nav).
+**Alternatives rejected:** a `?view=compare` mode on `/room` (still self-centric: it compares *you* with your partner, and is empty unless the projector account is seated); keeping the phone frame (too small to read on a projector).
+**Consequences:** Like every presi4 embed, it renders only on claritypledge.com, signed in as the host. Verified locally against a live test-DB showcase round (three seated, positions rendered), inside the deck at slide 17; Codex review found no defects.
+**References:** `src/app/prototypes/events/rounds/TableCompareView.tsx`; `src/app/prototypes/events/rounds/EventHostPage.tsx`; `public/presi4/index.html`; `src/tests/presi4-table-compare-view.test.tsx`
+
 ## 2026-10-06 [product]: Clarity Night rounds after walkthrough 9: each person's job, not a clock; the Table step shows only the table; the host alone sees In / Out / Undecided (P1337)
 
 **Context:** The founder's ninth walkthrough of the round flow (P1337), the last one before ship. It mostly removed things: jobs read as timekeeping, the Table step carried Principle's content, and the host's controls and the attendee's Compare page competed for attention.
