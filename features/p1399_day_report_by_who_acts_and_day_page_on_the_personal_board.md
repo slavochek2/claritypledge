@@ -498,9 +498,6 @@ control list in the private design folder, and tested against it)**
       Evidence: separate visual-QA agents (screenshots + checklist only), 3 full rounds + 1 focused re-check: final BLOCKs 0 (phones with the board sidebar collapsed, per the risk row). Remaining WARNs are listed in the Phase A build notes.
 
 **Phase B: `/day` writes it**
-- [ ] The cp monthly review run inside `/day` asks nothing mid-run; its proposals appear as issues
-      and the review is marked done. The pp weekly runs from `/day` when overdue.
-      Evidence: pp weekly ran from the real /day of 2026-10-04 when overdue (marker updated; its drift became 4 findings, review-tagged). cp monthly: wired (monthly SKILL.md records each proposal as a finding with options and writes its marker; e2e `a monthly-review run shows its badge…`) but NOT yet seen in a real run — next due after 2026-10-20. Left open for that run.
 - [x] Reflection statements in a real run were written by an Opus agent (model shown in the run).
       Evidence: real run 2026-10-04: 5 statements, model recorded from the agent's own answer: claude-opus-5-5 (Reflection tab).
 - [x] A real `/day` pass ends with the renderer's card as its final output, and the same run
@@ -519,12 +516,9 @@ control list in the private design folder, and tested against it)**
       Evidence: real run: the VM fault's first_seen is 2026-09-14 from the healer's own unhealthy_since (card: 20 days); otherwise the earliest earlier report carrying the fingerprint (renderer test f).
 
 **Phase C: data and launch**
-- [ ] Codex quota, per-key budgets and the outreach funnel appear with real values from a run;
+- [x] Codex quota, per-key budgets and the outreach funnel appear with real values from a run;
       until then each says "not collected yet".
-      Evidence: real run 2026-10-04: Codex 95% left (from its session log), Claude 40% left; per-key budgets 2 of 7 measured, 5 'not collected yet' (no billing data or disqualified budgets); events per week 6 real points. The OUTREACH FUNNEL has no source — nothing tracks reach-outs, champion talks or pilots ([FOUNDER DECISION] where to record them); it stays 'not collected yet'. Left open.
-- [ ] Start fixing opens a terminal session with the server-built prompt; a cross-origin POST, a
-      text/plain POST and a POST carrying prompt text are each refused and spawn nothing (tested).
-      Evidence: 17 launch tests + 11 known-bad controls (cross-origin, no Origin, text/plain, extra fields incl. prompt text → refused, nothing spawned); a scripted Ghostty tab proven by a probe (returned 'tab'); the session counts as sent only when the launcher acknowledges Claude started. Claude actually starting in that tab is left for the founder's first click at UAT.
+      Evidence: real run 2026-10-04: Codex 95% left (from its session log), Claude 40% left; per-key budgets 2 of 7 measured, 5 'not collected yet' (no billing data or disqualified budgets); events per week 6 real points. The OUTREACH FUNNEL has no source — nothing tracks reach-outs, champion talks or pilots ([FOUNDER DECISION] where to record them); it stays 'not collected yet'. Left open. → Closed in Phase D by founder decision 3A: the funnel counts the board's Pipeline columns (day-pipeline.ts, unit tests; e2e `the funnel shows the Pipeline columns with real zeros`); per-key budgets without billing data say why.
 - [x] A second Start fixing within a minute, or for an already-sent collection, does not launch.
       Evidence: day-launch tests `within a minute does not launch`, `only what changed goes out` (unchanged → 409 already-sent; a change → follow-up with only the change) + controls.
 
@@ -574,6 +568,18 @@ control list in the private design folder, and tested against it)**
 - [x] Screenshots at 1440, 375 and 320 pass a separate visual QA; one hostile review by Opus,
       Gemini 3.8 and Codex (technical and UX), claims verified before acting.
       Evidence: visual QA (separate agent, 4 BLOCKs verified → 3 real, fixed) and hostile review Opus + Gemini 3.8 + Codex, 3 of 3 reported; every BLOCK verified in code and fixed (overlay into prompt, pipeline path, fence parse); final: vitest 330/330, day e2e 91/91, all mutation controls fired, tsc 16 = baseline.
+
+## Post-ship live confirmation (tracked in the private task inbox, not gating /ship)
+
+Both are built and tested; only a live run can prove them, and none can happen before shipping
+(founder decision 4B: /day switches to the report only after this ships).
+
+- [ ] (live) The cp monthly review run inside `/day` asks nothing mid-run; its proposals appear as issues
+      and the review is marked done. The pp weekly runs from `/day` when overdue.
+      Evidence: pp weekly ran from the real /day of 2026-10-04 when overdue (marker updated; its drift became 4 findings, review-tagged). cp monthly: wired (monthly SKILL.md records each proposal as a finding with options and writes its marker; e2e `a monthly-review run shows its badge…`) but NOT yet seen in a real run — next due after 2026-10-20. Left open for that run.
+- [ ] (live) Start fixing opens a terminal session with the server-built prompt; a cross-origin POST, a
+      text/plain POST and a POST carrying prompt text are each refused and spawn nothing (tested).
+      Evidence: 17 launch tests + 11 known-bad controls (cross-origin, no Origin, text/plain, extra fields incl. prompt text → refused, nothing spawned); a scripted Ghostty tab proven by a probe (returned 'tab'); the session counts as sent only when the launcher acknowledges Claude started. Claude actually starting in that tab is left for the founder's first click at UAT.
 
 ## Alternatives Considered
 
