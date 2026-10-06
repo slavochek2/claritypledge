@@ -9,6 +9,7 @@ import type { Feature, Status, FeatureType, Size, Article, ArticleStatus, Opport
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 import { KANBAN_CONFIG } from '../config'
 import { inboxEnabled, registerInboxRoutes } from './inbox'
+import { dayEnabled, registerDayRoutes } from './day'
 
 const app = express()
 // CORS is an ORIGIN ALLOWLIST, not a wildcard. Restored here after being lost:
@@ -600,6 +601,7 @@ app.get('/api/config', (_req, res) => {
     faviconEmoji: KANBAN_FAVICON_EMOJI,
     wipLimits: WIP_LIMITS,
     inboxEnabled: inboxEnabled(),
+    dayEnabled: dayEnabled(),
   })
 })
 
@@ -992,117 +994,8 @@ function openInVSCode(args: string[], res: express.Response) {
 // heading — the generic /api/open above has no way to target a line.
 registerInboxRoutes(app, DEFAULT_PROJECT_ROOT, (target, res) => openInVSCode(['-r', '-g', target], res))
 
-// GET /api/goals - milestone-based goals removed; returns empty
-app.get('/api/goals', async (_req, res) => {
-  res.json({ steps: [], hypothesis: '', question: '' })
-})
-
-// PATCH /api/goals/:index - milestone-based goals removed; noop
-app.patch('/api/goals/:index', async (_req, res) => {
-  res.status(404).json({ error: 'Milestone-based goals removed — use docs/goals.md via /api/goals-strategic' })
-})
-
-// GET /api/goals-strategic - parse docs/goals.md for next steps + dos/don'ts
-app.get('/api/goals-strategic', async (_req, res) => {
-  if (HIDDEN_PAGES.has('goals')) return res.status(404).json({ error: 'Goals page is hidden' })
-  try {
-    const goalsPath = join(DEFAULT_PROJECT_ROOT, 'docs', 'goals.md')
-    const raw = readFileSync(goalsPath, 'utf-8')
-
-    // Parse sections by ## headings
-    const sections: Record<string, string> = {}
-    let currentSection = ''
-    for (const line of raw.split('\n')) {
-      const heading = line.match(/^## (.+)/)
-      if (heading) {
-        currentSection = heading[1].trim()
-        sections[currentSection] = ''
-      } else if (currentSection) {
-        sections[currentSection] += line + '\n'
-      }
-    }
-
-    // Parse next steps (numbered checkboxes)
-    const steps: Array<{ index: number; text: string; done: boolean }> = []
-    const stepsBlock = sections['Next Steps'] || ''
-    for (const line of stepsBlock.split('\n')) {
-      const m = line.match(/^\d+\. \[([ x])\] (.+)/)
-      if (m) steps.push({ index: steps.length, text: m[2].trim(), done: m[1] === 'x' })
-    }
-
-    // Parse dos and don'ts (bullet lists)
-    const dos: string[] = []
-    for (const line of (sections['Dos'] || '').split('\n')) {
-      const m = line.match(/^- (.+)/)
-      if (m) dos.push(m[1].trim())
-    }
-    const donts: string[] = []
-    for (const line of (sections["Don'ts"] || '').split('\n')) {
-      const m = line.match(/^- (.+)/)
-      if (m) donts.push(m[1].trim())
-    }
-
-    // Parse weekly review section
-    let weeklyReview: { date: string; metrics: Record<string, string>; commitment: string; insight: string } | null = null
-    const weeklyBlock = Object.entries(sections).find(([key]) => key.startsWith('Last Weekly Review'))
-    if (weeklyBlock) {
-      const [heading, content] = weeklyBlock
-      const dateMatch = heading.match(/\((\d{4}-\d{2}-\d{2})\)/)
-      const metrics: Record<string, string> = {}
-      const tableLines = content.split('\n').filter(l => l.startsWith('|') && !l.includes('---'))
-      for (const line of tableLines.slice(1)) { // skip header row
-        const cells = line.split('|').map(c => c.trim()).filter(Boolean)
-        if (cells.length >= 2) metrics[cells[0]] = cells[1]
-      }
-      // Extract commitment block (between ``` fences)
-      const commitMatch = content.match(/```\n([\s\S]*?)```/)
-      // Extract insight line
-      const insightMatch = content.match(/\*\*Key insight:\*\*\s*(.+)/)
-      weeklyReview = {
-        date: dateMatch?.[1] || '',
-        metrics,
-        commitment: commitMatch?.[1]?.trim() || '',
-        insight: insightMatch?.[1]?.trim() || '',
-      }
-    }
-
-    // Loud-fail on a structural mismatch. goals.md is rewritten by /day, by this
-    // server, and by hand; when its headings drift away from the four this parser
-    // knows, every list above comes back empty and the UI renders a confident
-    // "no goals" — indistinguishable from an intentionally empty file. Say which
-    // headings we looked for and which we actually found, and let the client show it.
-    const expectedHeadings = ['Next Steps', 'Dos', "Don'ts"]
-    const foundHeadings = Object.keys(sections)
-    const structureNotFound =
-      !weeklyReview && !expectedHeadings.some(h => foundHeadings.includes(h))
-        ? { expected: expectedHeadings, found: foundHeadings }
-        : null
-
-    res.json({ steps, dos, donts, weeklyReview, structureNotFound })
-  } catch {
-    res.json(null)
-  }
-})
-
-// PATCH /api/goals-strategic/:index - toggle a strategic goal done/undone in docs/goals.md
-app.patch('/api/goals-strategic/:index', async (req, res) => {
-  if (HIDDEN_PAGES.has('goals')) return res.status(404).json({ error: 'Goals page is hidden' })
-  try {
-    const stepIndex = parseInt(req.params.index, 10)
-    const { done } = req.body as { done: boolean }
-    const goalsPath = join(DEFAULT_PROJECT_ROOT, 'docs', 'goals.md')
-    let raw = readFileSync(goalsPath, 'utf-8')
-    let i = 0
-    raw = raw.replace(/^(\d+\. )\[([ x])\] (.+)$/gm, (full, num, _check, text) => {
-      if (i++ === stepIndex) return `${num}[${done ? 'x' : ' '}] ${text}`
-      return full
-    })
-    writeFileSync(goalsPath, raw, 'utf-8')
-    res.json({ success: true })
-  } catch {
-    res.status(500).json({ error: 'Failed to update strategic goal' })
-  }
-})
+// P1399: the Day page — /day runs and the founder's decisions. Off unless KANBAN_DAY_DIR is set.
+registerDayRoutes(app)
 
 // GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run
 app.get('/api/weekly', (_req, res) => {

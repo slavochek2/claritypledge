@@ -21,6 +21,7 @@ import {
   type SupabaseClient,
 } from './email-helpers.ts';
 import { isOnlineLocation, mintEmailLink } from './event-links.ts';
+import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
 export const STARTING_SOON_LEAD_MS = 15 * 60 * 1000;
 /** Look-ahead: one 30-min cron interval past the 15-min lead, so every event is seen by a tick. */
@@ -42,7 +43,10 @@ export type StartingSoonOutcome =
   | 'failed:mailgun'
   | 'skipped:no-email'
   | 'skipped:not-eligible'
-  | 'skipped:already-claimed';
+  | 'skipped:already-claimed'
+  | 'skipped:already-sent' // P1425: a stuck claim whose send was recorded; id repaired, not re-sent
+  | 'error:db'
+  | 'error:writeback'; // P1425: sent, but the id could not be stored (the stuck path repairs it)
 
 /** Whether this row's event is one the email is for, right now. Pure — unit-tested. */
 export function startingSoonEligible(
@@ -86,22 +90,17 @@ export async function dispatchStartingSoon(
     return 'skipped:already-claimed';
   }
 
-  const currentIds = rsvp.mailgun_message_ids ?? {};
-  const claimIds = { ...currentIds, starting_soon: 'PENDING' };
-  const wasStuck = currentIds.starting_soon === 'PENDING';
-
-  // Atomic claim. A stuck PENDING is re-claimed only if it is STILL the same stuck claim
-  // (attempted_at unchanged), so two ticks cannot both take over one stuck row.
-  let claim = supabase
-    .from('event_rsvps')
-    .update({ mailgun_message_ids: claimIds, starting_soon_attempted_at: now.toISOString() })
-    .eq('id', rsvp.id);
-  claim = wasStuck
-    ? claim.filter('mailgun_message_ids->>starting_soon', 'eq', 'PENDING')
-        .eq('starting_soon_attempted_at', rsvp.starting_soon_attempted_at)
-    : claim.filter('mailgun_message_ids->>starting_soon', 'is', 'null');
-  const { data: claimed } = await claim.select('id').maybeSingle();
-  if (!claimed) return 'skipped:already-claimed';
+  // Atomic claim (P1425: per-key, with a claim token in starting_soon_attempted_at). A stuck
+  // PENDING is taken over only if it is STILL the same stuck claim, and only after the send log
+  // shows its send never went out — otherwise its id is repaired and nothing is re-sent. The claim
+  // records starting_soon_for up front, so an edit that keeps the start keeps an in-flight claim.
+  const claim = await claimMessage(
+    supabase, rsvp, 'starting_soon', rsvp.mailgun_message_ids?.starting_soon,
+    rsvp.starting_soon_attempted_at, now, STARTING_SOON_STUCK_MS, event.datetime, { starting_soon_for: event.datetime },
+  );
+  if (claim.status === 'held') return 'skipped:already-claimed';
+  if (claim.status === 'repaired') return 'skipped:already-sent';
+  if (claim.status === 'error') return 'error:db';
 
   // Links minted now, redeemed at click: a magic link minted here would be dead by then.
   const online = isOnlineLocation(event.location);
@@ -120,31 +119,26 @@ export async function dispatchStartingSoon(
     deliverAt: startingSoonDeliverAt(event.datetime, now),
   });
 
-  // Write back only over our own PENDING. On a Mailgun failure the key goes back to NULL so
-  // the next tick retries while the event is still ahead.
-  await supabase
-    .from('event_rsvps')
-    // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
-    // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
-    .update({
-      mailgun_message_ids: {
-        ...claimIds,
-        starting_soon: messageId ?? null,
-        starting_soon_for: messageId ? event.datetime : null,
-      },
-    })
-    .eq('id', rsvp.id)
-    .filter('mailgun_message_ids->>starting_soon', 'eq', 'PENDING');
+  // Write back over OUR claim only (PENDING + our token). On a Mailgun failure the key goes back
+  // to absent so the next tick retries while the event is still ahead.
+  // starting_soon_for: the start this email was scheduled for. send-event-emails' update path
+  // keeps a sent email when an edit leaves the start unchanged (no second "starting in 15").
+  const stored = await writeBackMessage(supabase, rsvp.id, 'starting_soon', claim.token, {
+    starting_soon: messageId ?? null,
+    starting_soon_for: messageId ? event.datetime : null,
+  });
 
   await logEmailSend(supabase, {
     eventId: rsvp.event_id,
     profileId: rsvp.profile_id,
     emailType: 'starting_soon',
+    claimToken: claim.token,
     messageId,
     errorMessage: messageId ? undefined : 'Mailgun returned null message ID',
   });
 
-  return messageId ? 'sent' : 'failed:mailgun';
+  if (!messageId) return 'failed:mailgun';
+  return stored === 'error' ? 'error:writeback' : 'sent';
 }
 
 export const STARTING_SOON_SELECT = `

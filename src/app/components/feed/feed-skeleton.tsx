@@ -10,7 +10,7 @@ export function FeedSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="bg-card rounded-lg shadow-sm border-l-4 border-l-muted border border-border p-4 animate-pulse"
+          className="bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border p-4 animate-pulse"
         >
           <div className="flex items-start gap-3">
             {/* Avatar skeleton */}

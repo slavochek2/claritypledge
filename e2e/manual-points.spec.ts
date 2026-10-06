@@ -185,8 +185,8 @@ test.describe('P131: Manual Points - Unlink and Undo', () => {
     await expect(page.getByText(pointText)).toBeVisible({ timeout: 20000 });
 
     // Find the specific point card using more specific selector
-    // Point cards have border-l-4 border-l-slate-400 class
-    const pointCard = page.locator('.border-l-4.border-l-slate-400', { hasText: pointText });
+    // Point cards carry data-card="point" (P1423 removed the slate left stripe they were found by)
+    const pointCard = page.locator('[data-card="point"]', { hasText: pointText });
     await pointCard.hover();
 
     // Click unlink button (X icon)
@@ -236,7 +236,7 @@ test.describe('P131: Manual Points - Unlink and Undo', () => {
     await expect(page.getByRole('heading', { name: /key points \(3\)/i })).toBeVisible();
 
     // Unlink middle point using specific selector
-    const point2Card = page.locator('.border-l-4.border-l-slate-400', { hasText: 'Point 2' });
+    const point2Card = page.locator('[data-card="point"]', { hasText: 'Point 2' });
     await point2Card.hover();
     await point2Card.getByRole('button', { name: /unlink point/i }).click();
 
@@ -308,7 +308,7 @@ test.describe('P131: Manual Points - Permission Checks', () => {
     await expect(page.getByRole('heading', { name: /key points \(1\)/i })).toBeVisible();
 
     // Should NOT see unlink buttons (hover over point)
-    const pointCard = page.locator('.border-l-4.border-l-slate-400', { hasText: 'Public point 1' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Public point 1' });
     await pointCard.hover();
 
     // Unlink button should not exist for non-author
@@ -439,7 +439,7 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
     await expect(page.getByText('Author can see their private story')).toBeVisible();
 
     // Should see unlink button on hover (author controls)
-    const pointCard = page.locator('.border-l-4.border-l-slate-400', { hasText: 'Author point' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Author point' });
     await pointCard.hover();
     await expect(pointCard.getByRole('button', { name: /unlink point/i })).toBeVisible();
   });

@@ -16,6 +16,11 @@
       "permanent": false
     },
     {
+      "source": "/presi4",
+      "destination": "/presi4/",
+      "permanent": false
+    },
+    {
       "source": "/pricing",
       "destination": "/program",
       "permanent": true

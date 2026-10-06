@@ -1,96 +1,117 @@
 /*
- * Notion-style Design System for Kanban
- * Pixel-perfect extraction from Notion's kanban UI
+ * Board design system. The Day page (components/day/day.css) is the reference look: the
+ * ClarityPledge palette, reproduced here once as --cp-* tokens, and the board's older variable
+ * names below are mapped onto them so every component follows without a rewrite.
+ * Colour has three meanings: blue = an action, amber = needs you, green = worked.
+ * Red is for errors only. Light theme only (the Day page has no dark mode either).
+ *
+ * Day keeps its own scoped tokens (.day-root); keep the two palettes in step by hand.
  */
 
 :root {
-  /* Page - Notion uses slightly off-white, cards are pure white */
-  --bg-page: #fbfbfa;
+  /* ClarityPledge tokens — same values as .day-root in components/day/day.css */
+  --cp-bg: #f8fafc; --cp-card: #fff; --cp-fg: #0f172a; --cp-fg2: #475569; --cp-fg3: #64748b;
+  --cp-line: #e2e8f0; --cp-line2: #cbd5e1; --cp-soft: #f1f5f9; --cp-track: #e9eef5;
+  --cp-blue: #2563eb; --cp-blue-d: #1d4ed8; --cp-blue-50: #eff6ff; --cp-blue-200: #bfdbfe; --cp-blue-800: #1e40af;
+  --cp-green: #16a34a; --cp-green-50: #f0fdf4; --cp-green-800: #166534;
+  --cp-amber: #d97706; --cp-amber-50: #fffbeb; --cp-amber-200: #fde68a; --cp-amber-800: #92400e;
+  --cp-red: #dc2626; --cp-red-50: #fef2f2; --cp-red-800: #991b1b;
+  --cp-slate: #475569; --cp-slate-l: #94a3b8;
+  --cp-r: 8px; --cp-r-lg: 12px; --cp-r-sm: 6px;
+  --cp-sh: 0 1px 2px rgb(15 23 42 / .05);
+  --cp-focus: 2px solid var(--cp-blue);
+
+  /* Page */
+  --bg-page: var(--cp-bg);
 
   /* Columns - transparent, no background */
   --bg-column: transparent;
-  --bg-column-hover: rgba(55, 53, 47, 0.03);
+  --bg-column-hover: rgba(15, 23, 42, 0.03);
 
-  /* Cards - Notion style: warm border + soft shadow for lifted feel */
-  --bg-card: #ffffff;
-  --bg-card-hover: rgba(55, 53, 47, 0.03);
-  --bg-card-dragging: #f7f6f3;
-  --shadow-card: rgba(55, 53, 47, 0.09) 0px 0px 0px 1px, rgba(55, 53, 47, 0.024) 0px 1px 2px;
-  --shadow-card-dragging: rgba(55, 53, 47, 0.09) 0px 0px 0px 1px, rgba(55, 53, 47, 0.08) 0px 3px 6px;
-  --radius-card: 4px;
+  /* Cards: white, 1px slate ring + the Day card shadow */
+  --bg-card: var(--cp-card);
+  --bg-card-hover: var(--cp-soft);
+  --bg-card-dragging: var(--cp-blue-50);
+  --shadow-card: 0 0 0 1px var(--cp-line), var(--cp-sh);
+  --shadow-card-dragging: 0 0 0 1px var(--cp-blue-200), 0 4px 10px rgb(15 23 42 / .10);
+  --radius-card: var(--cp-r);
 
-  /* Typography - Notion uses these exact colors */
-  --text-primary: rgb(55, 53, 47);
-  --text-secondary: rgba(55, 53, 47, 0.65);
-  --text-tertiary: rgba(55, 53, 47, 0.5);
-  --text-placeholder: rgba(55, 53, 47, 0.35);
+  /* Typography */
+  --text-primary: var(--cp-fg);
+  --text-secondary: var(--cp-fg2);
+  --text-tertiary: var(--cp-fg3);
+  --text-placeholder: var(--cp-fg3);
 
-  /* Status pill colors (column headers) */
-  --status-gray-bg: rgba(227, 226, 224, 0.5);
-  --status-gray-text: rgba(55, 53, 47, 0.65);
+  /* Lines */
+  --border-subtle: var(--cp-line);
+  --border-control: var(--cp-line2);
 
-  --status-red-bg: rgb(255, 226, 221);
-  --status-red-text: rgb(93, 23, 21);
+  /* Status pill colors (column headers): the 50/800 pairs the Day page uses */
+  --status-gray-bg: var(--cp-line);
+  --status-gray-text: #334155;
 
-  --status-blue-bg: rgb(211, 229, 239);
-  --status-blue-text: rgb(24, 51, 71);
+  --status-red-bg: #fee2e2;
+  --status-red-text: var(--cp-red-800);
 
-  --status-green-bg: rgb(219, 237, 219);
-  --status-green-text: rgb(28, 56, 41);
+  --status-blue-bg: #dbeafe;
+  --status-blue-text: var(--cp-blue-800);
 
-  --status-yellow-bg: rgb(253, 236, 200);
-  --status-yellow-text: rgb(64, 44, 27);
+  --status-green-bg: #dcfce7;
+  --status-green-text: var(--cp-green-800);
 
-  --status-pink-bg: rgb(245, 224, 233);
-  --status-pink-text: rgb(76, 35, 55);
+  --status-yellow-bg: #fef3c7;
+  --status-yellow-text: var(--cp-amber-800);
 
-  /* Tag colors (Notion's exact palette) */
-  --tag-default-bg: rgba(227, 226, 224, 0.5);
-  --tag-default-text: rgba(55, 53, 47, 0.65);
+  --status-pink-bg: #fce7f3;
+  --status-pink-text: #9d174d;
 
-  --tag-gray-bg: rgb(227, 226, 224);
-  --tag-gray-text: rgb(50, 48, 44);
+  /* Tag colors: one family, tinted bg + dark text of the same hue (all >= 7:1) */
+  --tag-default-bg: var(--cp-soft);
+  --tag-default-text: var(--cp-fg2);
 
-  --tag-brown-bg: rgb(238, 224, 218);
-  --tag-brown-text: rgb(68, 42, 30);
+  --tag-gray-bg: var(--cp-line);
+  --tag-gray-text: #334155;
 
-  --tag-orange-bg: rgb(250, 222, 201);
-  --tag-orange-text: rgb(73, 41, 14);
+  --tag-brown-bg: #f1ece7;
+  --tag-brown-text: #57402f;
 
-  --tag-yellow-bg: rgb(253, 236, 200);
-  --tag-yellow-text: rgb(64, 44, 27);
+  --tag-orange-bg: #ffedd5;
+  --tag-orange-text: #9a3412;
 
-  --tag-green-bg: rgb(219, 237, 219);
-  --tag-green-text: rgb(28, 56, 41);
+  --tag-yellow-bg: #fef3c7;
+  --tag-yellow-text: var(--cp-amber-800);
 
-  --tag-blue-bg: rgb(211, 229, 239);
-  --tag-blue-text: rgb(24, 51, 71);
+  --tag-green-bg: #dcfce7;
+  --tag-green-text: var(--cp-green-800);
 
-  --tag-purple-bg: rgb(232, 222, 238);
-  --tag-purple-text: rgb(65, 36, 84);
+  --tag-blue-bg: #dbeafe;
+  --tag-blue-text: var(--cp-blue-800);
 
-  --tag-pink-bg: rgb(245, 224, 233);
-  --tag-pink-text: rgb(76, 35, 55);
+  --tag-purple-bg: #f3e8ff;
+  --tag-purple-text: #6b21a8;
 
-  --tag-red-bg: rgb(255, 226, 221);
-  --tag-red-text: rgb(93, 23, 21);
+  --tag-pink-bg: #fce7f3;
+  --tag-pink-text: #9d174d;
+
+  --tag-red-bg: #fee2e2;
+  --tag-red-text: var(--cp-red-800);
 
   /* Interactive */
-  --bg-hover: rgba(55, 53, 47, 0.08);
-  --bg-active: rgba(55, 53, 47, 0.16);
+  --bg-hover: var(--cp-soft);
+  --bg-active: var(--cp-line);
 
-  /* Sidebar */
+  /* Sidebar: the active page is the Day tab look (white card on the track colour) */
   --sidebar-width: 200px;
   --sidebar-collapsed-width: 44px;
-  --bg-sidebar-item-hover: rgba(55, 53, 47, 0.08);
-  --bg-sidebar-item-active: rgba(55, 53, 47, 0.08);
+  --bg-sidebar-item-hover: var(--cp-soft);
+  --bg-sidebar-item-active: var(--cp-card);
 
   /* Focus table */
-  --bg-table-row-hover: rgba(55, 53, 47, 0.04);
-  --bg-group-header: rgba(55, 53, 47, 0.03);
-  --border-table: rgba(55, 53, 47, 0.09);
+  --bg-table-row-hover: var(--cp-soft);
+  --bg-group-header: var(--cp-soft);
+  --border-table: var(--cp-line);
 
-  /* Spacing - Notion's values */
+  /* Spacing */
   --spacing-2: 2px;
   --spacing-4: 4px;
   --spacing-6: 6px;
@@ -100,8 +121,8 @@
   --spacing-14: 14px;
   --spacing-16: 16px;
 
-  /* Font - Notion's exact stack */
-  --font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  /* Font: the Day page stack */
+  --font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   --font-size-11: 11px;
   --font-size-12: 12px;
@@ -133,6 +154,64 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* One focus ring for every control (blue = an action); Day's own rule is more specific and identical */
+:where(button, a, input, select, textarea, [role="button"]):focus-visible {
+  outline: var(--cp-focus);
+  outline-offset: 2px;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Shared control look: the Day page's secondary button, text input and select */
+.kb-input {
+  font-family: var(--font-family);
+  font-size: var(--font-size-14);
+  color: var(--cp-fg);
+  background: var(--cp-card);
+  border: 1px solid var(--cp-line2);
+  border-radius: var(--cp-r);
+  min-height: 40px;
+  padding: 0 12px;
+}
+.kb-input::placeholder { color: var(--cp-fg3); }
+.kb-input:hover { border-color: var(--cp-fg3); }
+
+.kb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--cp-r);
+  font: 600 14px var(--font-family);
+  border: 1px solid var(--cp-line2);
+  background: var(--cp-card);
+  color: var(--cp-fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kb-btn:hover { background: var(--cp-soft); }
+.kb-btn.primary { background: var(--cp-blue); border-color: var(--cp-blue); color: #fff; }
+.kb-btn.primary:hover { background: var(--cp-blue-d); }
+
+/* Quiet icon-sized control with a 40px hit area (refresh, close, collapse) */
+.kb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--cp-r);
+  background: transparent;
+  color: var(--cp-fg2);
+  cursor: pointer;
+}
+.kb-icon:hover { background: var(--cp-soft); }
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 12px;
@@ -141,20 +220,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.16);
+  background: rgba(15, 23, 42, 0.18);
   border-radius: 6px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(55, 53, 47, 0.24);
+  background: rgba(15, 23, 42, 0.28);
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 ::selection {
-  background: rgba(35, 131, 226, 0.15);
+  background: rgba(37, 99, 235, 0.18);
 }
 
 /* Markdown content styles (Notion-like) */
@@ -193,14 +272,16 @@ body {
 .markdown-content code {
   font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace;
   font-size: 85%;
-  background: rgba(135, 131, 120, 0.15);
-  border-radius: 3px;
+  background: var(--cp-soft);
+  border: 1px solid var(--cp-line);
+  border-radius: var(--cp-r-sm);
   padding: 0.2em 0.4em;
 }
 
 .markdown-content pre {
-  background: rgb(247, 246, 243);
-  border-radius: 3px;
+  background: var(--cp-soft);
+  border: 1px solid var(--cp-line);
+  border-radius: var(--cp-r);
   padding: 1em;
   overflow-x: auto;
   margin: 1em 0;
@@ -212,25 +293,26 @@ body {
 }
 
 .markdown-content blockquote {
-  border-left: 3px solid rgba(55, 53, 47, 0.16);
+  border-left: 3px solid var(--cp-line2);
   padding-left: 1em;
   margin: 1em 0;
   color: var(--text-secondary);
 }
 
 .markdown-content a {
-  color: inherit;
+  color: var(--cp-blue);
   text-decoration: underline;
-  text-decoration-color: rgba(55, 53, 47, 0.4);
+  text-decoration-color: var(--cp-blue);
 }
 
 .markdown-content a:hover {
-  text-decoration-color: inherit;
+  color: var(--cp-blue-d);
+  text-decoration-color: currentColor;
 }
 
 .markdown-content hr {
   border: none;
-  border-top: 1px solid rgba(55, 53, 47, 0.09);
+  border-top: 1px solid var(--cp-line);
   margin: 2em 0;
 }
 
@@ -242,12 +324,12 @@ body {
 
 .markdown-content th,
 .markdown-content td {
-  border: 1px solid rgba(55, 53, 47, 0.09);
+  border: 1px solid var(--cp-line);
   padding: 0.5em 1em;
   text-align: left;
 }
 
 .markdown-content th {
-  background: rgba(55, 53, 47, 0.03);
+  background: var(--cp-soft);
   font-weight: var(--font-weight-medium);
 }

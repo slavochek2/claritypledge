@@ -1616,7 +1616,7 @@ function StoryCardFull({
          and `SourceGroup`'s "Show N more" hands focus to the first story it revealed. The ring
          shows only on that keyboard path, never on a tap. */
       tabIndex={-1}
-      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${storyIsAgent ? ' agent-card-drained' : ''}`}
+      className={`relative group bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2${storyIsAgent ? ' agent-card-drained' : ''}`}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`profile-story-card-${story.id}`}
       {...(storyIsAgent ? { 'data-agent-row': 'true' } : {})}
@@ -1904,6 +1904,8 @@ function StoryCardFull({
                     currentUserId={currentUserId}
                     onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
                     onPositionClear={() => onPointPositionSelect?.(point.id, null)}
+                    /* P1424: on this list card the point opens only via its own `Details →`. */
+                    openViaDetails
                   />
                 </ThreadLineItem>
               );
@@ -1971,9 +1973,10 @@ function PointCardFull({
 
   return (
     <div
+      data-card="point"
       role="button"
       tabIndex={0}
-      className={`group bg-card rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${ownerIsAgent ? ' agent-card-drained' : ''}`}
+      className={`group bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:border-l-slate-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none${ownerIsAgent ? ' agent-card-drained' : ''}`}
       {...(ownerIsAgent ? { 'data-agent-row': 'true' } : {})}
       onClick={handleCardClick}
       onKeyDown={(e) => {

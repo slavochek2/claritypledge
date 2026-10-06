@@ -111,7 +111,7 @@ test.describe('Point Position Persistence', () => {
 
     // Verify position badge is shown (user took position "agree")
     // The PositionBadge component displays "Agrees" in a blue badge
-    const pointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
+    const pointCard = page.locator('[data-card="point"]', { hasText: POINT_STATEMENT });
     await expect(pointCard).toBeVisible();
 
     // Check for the actual position badge text (PositionBadge shows "Agrees" for agree position)
@@ -216,7 +216,7 @@ test.describe('Point Position Persistence', () => {
     await expect(page.getByText(POINT_STATEMENT)).toBeVisible({ timeout: 10000 });
 
     // Verify the initial position badge shows "Agrees"
-    const initialPointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
+    const initialPointCard = page.locator('[data-card="point"]', { hasText: POINT_STATEMENT });
     await expect(initialPointCard.getByText(/Agrees/)).toBeVisible({ timeout: 5000 });
 
     // Click a different position button on the profile page
@@ -236,7 +236,7 @@ test.describe('Point Position Persistence', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     // Verify position still shows as "Disagrees" after page reload
-    const reloadedPointCard = page.locator('.border-l-4', { hasText: POINT_STATEMENT });
+    const reloadedPointCard = page.locator('[data-card="point"]', { hasText: POINT_STATEMENT });
     await expect(reloadedPointCard.getByText(/Disagrees/)).toBeVisible();
   });
 });

@@ -75,6 +75,7 @@ Last updated: 2026-10-06
 
 ## Points & Stories
 - **P1415** (Oct 26) Cards open only via Details; home rail events-first, CA group only — whole-card tap caused accidental phone navigation
+- **P1424** (Oct 26) Nested quoted points/stories open only via their own Details on list cards — prototype A/B/C at 375px decided it; new-tab hosts need useOpenPath, not navigate
 - **P1420** (Oct 26) Clear position on a bad connection — a sent-but-unanswered write is UNKNOWN: settle by re-reading, never claim "not saved"
 
 - **P1374** (Sep 26) One intensity-hint rule site-wide — a flag set by any menu pick stops every hint; broadcast it, one hint per page, pop-up once, never in live
@@ -249,6 +250,7 @@ Last updated: 2026-10-06
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1423** (Oct 26) Cards carry one neutral grey left stripe, none on focus screens — the stripe no longer encodes visibility; private = lock + muted background
 - **P1422** (Oct 26) /meet track under Tools on phones — sticky offsets must include env(safe-area-inset-top) and the offline strip
 - **P1393** (Oct 02) Design-system sweep — decide visuals from /tree A/B pages; hex sweeps must skip avatar colour data.
 - **P1365** (Sep 28) Desktop event page repeats the RSVP only after a description taller than the viewport — geometry keeps one primary per view without scroll tracking; a repeated CTA needs its own name, loading label and test id
@@ -371,6 +373,7 @@ Last updated: 2026-10-06
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1425** (Oct 26) Reminder sent 13× — a shared jsonb written back whole from a stale read erases siblings; one per-key CAS writer, claim tokens, schedule-checked claims
 - **P1414** (Oct 26) Next Clarity Night's page carries the topic vote — gate on series_slug, not a missing tag: hikes have no tag either
 - **P1402** (Oct 26) Standalone /prepare — the explainer anyone can open: never hide a done part; sync signed-out parts to the account, never dated before a running prep
 - **P1388** (Oct 26) Recorder can pause, sees a level meter, short sticky bar — capture fails silently; re-check state after every await, never auto-reopen a lost mic

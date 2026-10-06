@@ -70,7 +70,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     // Verify position buttons are visible
     // Expected: Three position buttons (Agree, Disagree, Unsure) should be rendered
-    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Position buttons should be visible' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Test point: Position buttons should be visible' });
     await expect(pointCard).toBeVisible();
 
     // Find position buttons within the point card (use .first() to avoid matching dropdown)
@@ -110,7 +110,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await expect(page.getByText('Test point: Click should persist')).toBeVisible({ timeout: 10000 });
 
     // Click "Agree" button
-    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Click should persist' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Test point: Click should persist' });
     const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
     await agreeButton.click();
 
@@ -133,7 +133,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     // Verify position still shows after refresh
     await expect(page.getByText('Test point: Click should persist')).toBeVisible();
-    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Click should persist' });
+    const refreshedCard = page.locator('[data-card="point"]', { hasText: 'Test point: Click should persist' });
 
     // Check the segment div which has the bg-blue-600 class when active
     // The segment div has rounded corners (rounded-r-lg for last segment) and min-h classes
@@ -180,7 +180,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
 
-    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Test point: Toggle should remove' });
     const agreeSegment = pointCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
     // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
     await expect(agreeSegment).toHaveClass(/bg-blue-600/, { timeout: 10000 });
@@ -203,7 +203,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
 
-    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
+    const refreshedCard = page.locator('[data-card="point"]', { hasText: 'Test point: Toggle should remove' });
     const refreshedSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
     // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
     await expect(refreshedSegment).not.toHaveClass(/bg-blue-600/, { timeout: 10000 });
@@ -237,7 +237,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await expect(page.getByText('Test point: Counts should update')).toBeVisible({ timeout: 10000 });
 
     // Get initial counts (should be 0 for all)
-    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Counts should update' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Test point: Counts should update' });
 
     // Click "Disagree" button
     const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
@@ -257,7 +257,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.reload();
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
-    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Counts should update' });
+    const refreshedCard = page.locator('[data-card="point"]', { hasText: 'Test point: Counts should update' });
 
     // Check the segment div - Disagree is the first segment (leftmost) with rounded-l-lg
     const disagreeSegment = refreshedCard.locator('.rounded-l-lg').filter({ has: page.locator('button', { hasText: /Disagree/ }) });
@@ -355,7 +355,7 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     // Verify position buttons are NOT visible for unauthenticated users
     // Since currentUserId is undefined, buttons should not render at all
-    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Unauthenticated view' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Test point: Unauthenticated view' });
     const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
     const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
     const unsureButton = pointCard.getByRole('button', { name: /^Unsure/i }).first();

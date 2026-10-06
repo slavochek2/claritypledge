@@ -383,6 +383,24 @@ Paste the evidence; do not ask to move to PROD until all pass.
    `node scripts/events/event-date.mjs check --env prod <new slug>` must exit 0, and the handoff's
    `## Now` block is rewritten for PROD.
 
+### Step 6b — Placeholder check (P1414), before Step 6.1 and again after Step 6.4
+
+A **placeholder** is an upcoming Clarity Night with `series_slug='clarity-night'` and no
+`statement_tag`: its page carries the topic vote, and `claritypledge.com/next` points at the nearest
+one (`api/series-redirect.ts`, `FIELD_SERIES.next`). Query prod for them first.
+
+- **Before creating:** if a placeholder exists on **this night's date**, do not create a second
+  event. Ask the founder to publish into it instead: it keeps the RSVPs and the link already shared.
+  Without that yes, a create leaves a topic-less twin on the same date that `/next` keeps pointing at.
+- **After publishing:** `/next` must resolve to a placeholder **after the last night with a topic**.
+  If none exists, say so and ask the founder for its date. **Never derive the date** ("one week
+  later" is wrong whenever two nights are published ahead). On a yes, create it like Clarity Night #3:
+  title `Clarity Night #<N>: You choose the topic`, the venue of the previous night, a one-sentence
+  description of the evening (no topic), `series_slug='clarity-night'` (service role only, P1403),
+  and both vote banners: `banner_url` / `banner_mobile_url` from prod storage
+  `event-banners/series/clarity-night-vote-{d,m}.png` (template `scripts/events/vote-banner.html`).
+  Then check the page signed out at 375 px: the vote renders only while prod has published topics.
+
 ### Step 7 — Short link, once per topic
 
 Read `SERIES` in `api/series-redirect.ts` first; if the topic has a key, stop here. Otherwise mirror

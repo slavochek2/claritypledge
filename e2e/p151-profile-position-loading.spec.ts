@@ -80,7 +80,7 @@ test.describe('Profile Position Loading (P151)', () => {
 
     // TODO: Verify position badge shows "Agrees" (green badge)
     // TODO: Verify position buttons show user's current position (aria-pressed="true")
-    const pointCard = page.locator('.border-l-4', { hasText: 'Profile test: AI will transform education' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Profile test: AI will transform education' });
     await expect(pointCard).toBeVisible();
 
     // Position badge should be visible (cursor-default distinguishes badge from interactive buttons)
@@ -137,7 +137,7 @@ test.describe('Profile Position Loading (P151)', () => {
     await expect(page.getByText('Point 3: Unsure position')).toBeVisible({ timeout: 10000 });
 
     // At least one position badge should be visible for each
-    const agreeBadge = page.locator('.border-l-4', { hasText: 'Point 1' }).locator('.cursor-default').filter({ hasText: /Agrees/ });
+    const agreeBadge = page.locator('[data-card="point"]', { hasText: 'Point 1' }).locator('.cursor-default').filter({ hasText: /Agrees/ });
     await expect(agreeBadge).toBeVisible();
   });
 
@@ -227,7 +227,7 @@ test.describe('Profile Position Loading (P151)', () => {
     // TODO: Verify clicking position button prompts login (if implemented)
 
     // Position badge should show the owner's position
-    const pointCard = page.locator('.border-l-4', { hasText: 'Public test: Remote work is the future' });
+    const pointCard = page.locator('[data-card="point"]', { hasText: 'Public test: Remote work is the future' });
     await expect(pointCard).toBeVisible();
   });
 

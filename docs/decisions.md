@@ -6,6 +6,105 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [product]: Cards carry one neutral grey left stripe; the stripe no longer says who can see a card (P1423)
+
+**Context:** Cards had a 4px left stripe coloured by type and visibility (blue public story, slate point, grey private). P1389 removed it on the evening-close screens because it pulled the eye from the question to the card, and P1423 first removed it app-wide. Seen live, the cards read as white-on-white with nothing separating them ("everything is so plain").
+**Decision:** The founder compared four treatments side by side on the real feed, profile, letters and events (no stripe, grey page behind white cards, neutral grey stripe, the old blue stripe) and chose **one neutral grey stripe (`border-l-4 border-l-slate-300`) on every list or content card**: stories, points, events, letters, /live content cards, the feed skeleton. Focus screens (the 0-10 rating card, the close, drawer questions) carry none; the story page's author-colour top band is gone. Private is shown by the lock icon plus `bg-muted/60`, now also on private letters. Hover never recolours the stripe (`hover:border-l-slate-300`).
+**Alternatives rejected:** No stripe (cards lose their edge in lists); grey page background (separates cards without a stripe, but changes every list page's surface); the old blue stripe (the distraction P1389 removed).
+**Consequences:** Supersedes the premise of the CardMenu entry below that keeps hover off the left edge "so the `border-l-4` accent (amber = private) keeps its meaning": the mechanism stays, the meaning is gone, and no stripe may be used to encode visibility again. A new card uses the grey stripe unless it is a focus screen. `e2e/p1423-card-stripe.spec.ts` rejects coloured stripes and thick top bands and asserts the grey one is present.
+**References:** [p1423](../features/done/2026-06-10/p1423_remove_left_stripe_on_cards_app_wide.md)
+
+## 2026-10-06 [process]: Reviewers get the merge-base diff; a "nothing bad" scan needs a "something good" assertion; a failing e2e gets a control run on main (P1423)
+
+**Context:** Three things in one ship. (1) A Codex review returned three P1 findings (a deleted presentation, removed privacy text, a dropped skill step), all false: `git diff main` was taken after main had moved, so main's new commits read as deletions on the branch. (2) The new stripe e2e rejected coloured borders and passed when a card's stripe vanished; Codex found it by running the predicate against a no-stripe fixture. (3) The profile specs and /live two-party specs failed on the branch; identical runs on an unchanged-main worktree failed the same way (INBOX-122, INBOX-126), which is what made shipping honest.
+**Decision:** Feed reviewers `git diff $(git merge-base main HEAD) HEAD`, never `git diff main`. A gate that scans for forbidden values also asserts the required value on a known element, and both are proven by mutation (bad value and missing value). When a touched surface's e2e fails, run it on unchanged main before attributing or dismissing the failure, and say in the spec that the invariant was checked by control, not by a green run.
+**Alternatives rejected:** Re-running the failing specs until green (the failure was deterministic on main); trusting the class-only nature of the change without a control.
+**Consequences:** (Status: proposed) worth folding into `/finish` and the review prompts as the default diff command. Unit tests at a 5s timeout fail under a load average above ~100 on this machine; a 30s re-run (5727/5727) separated load from defects.
+**References:** [p1423](../features/done/2026-06-10/p1423_remove_left_stripe_on_cards_app_wide.md), `docs/process-learnings.md` INBOX-122, INBOX-126
+
+## 2026-10-06 [product]: Items nested inside a list card open only via their own "Details →", like the card itself (P1424)
+
+**Context:** P1415 stopped list card bodies from navigating, but the items nested inside them
+still opened on any tap: the quoted points under a story card, and the linked stories under a
+point card. A nested point box contains its own position buttons, so a tap that just missed one
+opened the point. The founder compared three variants on real cards at 375px in a dev-only
+prototype (`/tree/nested-tap`): A, today's behaviour; B, open only via the nested item's own
+Details; C, expand in place with an explicit Open button. The founder chose B.
+
+**Decision:** On list cards (`/feed`, `/stake`, both profile tabs, and the embedded stake in
+`/prepare`, `/events/:slug/prepare` and onboarding), the nested box is not a control. It has no
+role, tab stop, pointer cursor or hover state, and its own compact `Details →` is the only way
+in.
+- The button is 40px tall with `text-xs`, so it stays secondary to the card's own Details. The
+  prototype's 32px was raised to meet the 40px touch-target rule.
+- The behaviour is opt-in (`openViaDetails`). `PointCardWithLinks` reuses P1415's
+  `inListFooter`, so there is one list-mode signal.
+- A nested point opens through `useOpenPath`, so a host that opens links in a new tab gets a
+  new tab here too.
+
+**Alternatives rejected:**
+- C, expand in place: a stray tap still shifts the layout under the finger.
+- Changing nested items everywhere: detail pages (`/point/:id`, `/story/:id`) and the point page
+  embed are single-item views where tapping in is the expected path. They also use a separate,
+  private `QuotedPoint` copy.
+- Leaving `/prepare` out: P1415 had already changed that card's body there, so one card would
+  have had two rules.
+
+**Consequences:**
+- One rule now holds at both levels of a list card. Outside lists, tap-to-open is unchanged.
+- There are now three copies of the nested box: `QuotedPointCard`, `QuotedStory`, and the
+  detail views' private `QuotedPoint`, with different tap rules. Merging them would be its own
+  spec.
+- Not yet verified in the browser: on the point page embed, "Expand linked stories" renders no
+  story on main. That is filed in the task inbox, and the P1424 e2e guard for it is `fixme`.
+- Process: one Opus spec review, then implementation, then adversarial review by Opus, Codex and
+  Gemini (3 of 3 reported). The one finding rated HIGH (new-tab hosts) came from Gemini and was
+  reproduced by Codex. The Opus review passed it.
+
+**References:** [P1424 spec](../features/p1424_nested_card_items_open_only_via_details.md), P1415
+## 2026-10-06 [process]: Product text on a slide is copied from the source file, and the slide says which one
+
+**Context:** `/presi4`'s principle slide read *"A commitment to every member"*. Asked to check it, the agent replaced it with the pledge's *"I hereby commit to everyone — including strangers, people I disagree with, and even those I dislike"* — real text, from `pledge-text.tsx`, and still wrong: that line belongs to `/pledge`, a standing public promise. The Clarity Meeting Principle at `/meet` is scoped to **this conversation** (kicker in `meeting-principle-view.tsx`). Founder, twice: *"it's not to every other member"*, then *"doesn't it say a commitment for this conversation? Take the actual text."*
+**Decision:** When a deck, a poster or any external artifact reproduces text that a live surface also renders, copy it **from the file that renders it**, and write into the artifact which file that is. Two lines of provenance beat a plausible paraphrase. Checking that the *words* exist somewhere in the codebase is not the check — the check is that they are the words **that surface** shows.
+**Alternatives rejected:** paraphrasing for the projector (the room then agrees to one thing on their phone and reads another on the wall); keeping a single "canonical copy" doc for slides (a third copy to drift).
+**Consequences:** the principle slide now carries `/meet`'s kicker, epigraph and the v5 oath clauses, with the source files named in its comment. **UNTESTED.** Falsifier: the next deck copies a product string without naming its source and nobody notices until it is projected.
+**References:** `public/presi4/index.html` (principle slide comment); `src/app/components/agreements/meeting-principle-view.tsx`; `src/app/content/verified-understanding-oath.ts`; `src/app/content/pledge-text.tsx`
+
+---
+
+## 2026-10-06 [technical]: Scheduled event emails change their message ids one key at a time, in the database — never as a whole object (P1425)
+
+**Context:** One attendee received the same 24h reminder 13 times (prod, Clarity Night #2). `event_rsvps.mailgun_message_ids` is one jsonb object shared by every scheduled email kind, and is both the claim (`PENDING`) and the record of a send. Every writer read the row, spread the object it had read, changed its own key and wrote the whole object back. The feedback claim was built from a read taken before the reminder id was stored, so it erased that id; feedback was also attempted beyond Mailgun's 72h `o:deliverytime` limit (the query matched the row on its *reminder* clause), so every 30-minute tick failed, wrote back, erased the reminder id again, and the next tick re-sent the reminder.
+**Decision:** `set_rsvp_message_ids()` (service_role only) is the single writer of the column: a per-key compare-and-set in one UPDATE that changes only the keys it is given. On top of it (`supabase/functions/_shared/rsvp-message-ids.ts`):
+- a claim stamps a unique token (claim time + random µs) into the kind's `*_attempted_at`; a write-back must match PENDING **and** that token, so a late write-back can never land on a newer claim;
+- a claim passes `p_scheduled_for`: the kind's `*_scheduled_at` (starting-soon: the event start) must still be what the caller read and the event not cancelled, so a tick acting on a read from before an edit claims nothing;
+- a kind dispatches only when its **own** scheduled time is in `(now, now+72h]`;
+- a claim stuck past 20 min (was 7h, from the 6-hourly cron era) is repaired from `email_send_log` when its send was logged under the same `claim_token`, otherwise taken over — never re-sent on a guess;
+- resets (`handleUpdate`, `handleUncancel`) re-read the row and clear per key, cancelling ids they had not seen, and never clear a claim newer than themselves;
+- a database failure is an error outcome the cron counts, never a skip.
+`src/tests/p1425-message-ids-writers.test.ts` fails on any JS/TS whole-object write form or SQL assignment of the column outside the defining migrations.
+**Alternatives rejected:** Re-reading the row before each write (still read-then-write; the gap is the bug). Splitting the jsonb into real columns (larger migration, same need for a claim protocol). Holding an id until its Mailgun cancel succeeds (a 404 also means "already delivered", which would block every replacement). An event-content revision column to close the same-time content-edit race (schema change to `events`; recorded as an accepted residual instead).
+**Consequences:** Accepted residuals, all written in the spec: a send whose write-back AND log insert both failed may repeat once; a claim in flight at the moment of an event edit (P947 decision 5, now also the ms-wide read-before/claim-after window); a reminder whose time passed before any tick ran is not sent late. Cancel → uncancel now re-schedules reminder and feedback (before: never sent again). The same "stale spread written back whole" class exists elsewhere and is filed: P1426 (`/demo` session state), P1427 (letter seal `point_config`). Deploy order is binding: both migrations on prod before the two edge functions.
+**References:** [p1425](../features/done/2026-06-10/p1425_event_reminder_sent_repeatedly_stale_message_id_overwrite.md) · `supabase/migrations/20261006120000_p1425_set_rsvp_message_ids.sql` · `supabase/migrations/20261006130000_p1425_claim_schedule_check_and_log_token.sql`
+
+## 2026-10-06 [process]: An adversarial review loop converges only once findings are scoped to what the branch introduced (P1425)
+
+**Context:** P1425 went through seven Codex rounds (plus one Gemini and one Opus pass in round 1). Rounds 1–5 each found real defects and each fix was correct, but every round also attacked behaviour the branch had not touched — the pre-existing `handleUpdate` schedule write, Mailgun cancel failures — and each fix of those added new code for the next round to attack. Round 6's only blocker was pre-existing on main; round 7's only blocker was in round 6's own fix.
+**Decision:** From the second review round on, the brief states the blocking bar (HIGH, or MEDIUM reachable with one concurrent actor or one failure), the accepted-residuals list, and a scope rule: every finding is classified BRANCH (introduced or worsened by this change) or PRE-EXISTING (same on main); only BRANCH findings block, PRE-EXISTING ones are listed and filed. A re-review covers the last fix's diff, not the whole surface again.
+**Alternatives rejected:** Stopping after a fixed number of rounds (stops on the clock, not the evidence — rounds 1–5 all found real duplicate-send paths). Treating every finding as blocking (no fixed point: each fix is new surface).
+**Consequences:** UNTESTED as a convergence rule — one branch observed. Falsifier: a future multi-round review where the BRANCH-only bar is applied from round 2 and still needs more than three rounds to reach no blocking finding.
+**References:** [p1425](../features/done/2026-06-10/p1425_event_reminder_sent_repeatedly_stale_message_id_overwrite.md) § Adversarial Review
+
+## 2026-10-06 [product]: A topic-open Clarity Night carries the vote on its own page, keyed on the series; `/next` always points at it (P1414)
+
+**Context:** Clarity Nights are published before their topic exists; the room's votes pick it (P1347). A placeholder page with no topic had nothing to act on: the vote sat one tap away on `/topics`, and there was no stable link to "the next night" to share before its topic is known.
+**Decision:** The event page embeds the live `/topics` list (`embedded` mode, the prep flow's `/stake` pattern) when `series_slug = 'clarity-night'`, there is no `statement_tag`, and the night has not ended or been cancelled. Heading "Vote for this night's topic", same sort and "Suggest a topic" as `/topics` (outlined there, so "Reserve your seat" stays the page's one primary), 8 rows then a centred "Show N more · M left", and a second Reserve after the vote, shown only once the vote has actually rendered. The placeholder gets a neutral title ("Clarity Night #N: You choose the topic"), its own vote banners and a topic-free description, never a previous topic's. `claritypledge.com/next` resolves to the nearest such placeholder by the same rule (`api/series-redirect.ts`), falling back to the nearest Clarity Night, then `/events`.
+**Alternatives rejected:** (a) Gate on "no `statement_tag`" alone, as first specced: prod hikes and guest events have no tag either, so the vote would have appeared on all of them. (b) A link to `/topics`: spends a cold visitor's willingness on a navigation. (c) A trimmed embed (no sort, 5 topics): founder preferred one layout everywhere. (d) Auto-creating the next placeholder a week ahead: wrong whenever two nights are published ahead, so `/slava:disagreement:clarity-night-publish` Step 6b checks for one and asks the founder for the date instead.
+**Consequences:** Guest stars on `/topics` and the event page moved from `sessionStorage` to `localStorage` (1h expiry) because the email sign-in link can open a new tab; sign-in never overwrites a rating the account already has. **Open:** P1389 shipped its own copy of the list (`topic-parts.tsx`) for the closing screen, still on `sessionStorage`, so the two copies now drift; a copy edit had to be made twice on 2026-10-06. Merging them into one is unfiled. Publishing a night with a topic creates a new event, so a same-date placeholder must be filled rather than twinned (Step 6b). The vote renders only while prod has published topics. **UNTESTED:** falsifier is that a topic-open night gets no votes from people who reach it via `/next`.
+**References:** [p1414 spec](../features/done/2026-06-10/p1414_next_event_page_carries_the_topic_vote.md), `api/series-redirect.ts`, `.claude/commands/slava/disagreement/clarity-night-publish.md` Step 6b
+
+---
+
 ## 2026-10-06 [technical]: The locked set guards what can reach prod — a test-only credential leaves it, unproven consumers are accepted by name, and plaintext removal is not unreadability (P1318)
 
 **Context:** P1318 closed with four loose ends: the local DB URL (test project only) was still registered as locked and still in `.env.local`, read in plaintext by `migrate.sh` on test runs; three archived one-time scripts held prod master-key access through the lock; provider token deletions had happened during the spec despite its "revoke nothing" box; and five registered keys had never been read through the keychain (incl. Postiz, whose plaintext was already gone).
@@ -92,6 +191,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Why not GCS:** P1385's rule exists because of the CSP `media-src` gap. These are images, which `img-src` already allows from `*.supabase.co`. A browser write to GCS needs the signed-URL Cloud Function hop and its secret. Storage RLS gives per-user folders with no extra network hop.
 **Accepted:** the client writes `avatar_url` itself, so a user can point their own avatar at any URL; CSP limits which hosts load. The /live anonymous-profile migration path in AuthCallbackPage does not carry avatar fields (true before P1418; no anonymous sign-ins exist today).
 **References:** [p1418 spec](../features/done/2026-06-10/p1418_custom_profile_picture_upload.md) · `e2e/integration/p1418-avatars-storage-rls.spec.ts`
+
+---
+
+## 2026-10-06 [product]: `/presi4` is a 19-slide deck that explains and backs up the evening; the room's own screen runs it
+
+**Context:** `/presi3` ran ~50 slides at Clarity Night #1 and the room had not started a round 48 minutes in; about 15 of those minutes were in-room logistics, not theory (measured from the event recording, `~/video-library/clarity-night-1-ai-safety-sep-2026/transcripts/20260918_180542.txt`). Three specs have since taken over most of what the deck carried: P1336 (preparation, shipped), P1337 (the room's round screen), P1389 (the close, on phones).
+**Decision:** `public/presi4/index.html`, frozen for Clarity Night #2 (2026-10-06). `/presi3` is left untouched as the record of event #1.
+- **The deck is not the round engine.** The round slide and the exception slide are BACKUPS for a night when the phone flow fails, and carry no timer. Slide 16 embeds `/events/<slug>/host?view=screen` — when P1337's screen ships, that frame is the screen and the deck needs no further change.
+- **The arc is 19 slides**; everything cut sits in the backup block in the same file, because nobody yet knows how many people arrive prepared, and a host who must repeat something should have the slide rather than improvise it.
+- **The QR points at the stable series link** `/events/night` (307 → nearest upcoming Clarity Night), not at this event's slug, so the QR, the poster and the deck survive the weekly topic swap. Inline SVG, generated with the repo's own `qrcode.react`.
+- **The goal slide states Point A and Point B as one sentence with one word changed** — *revealing understanding gaps is punished* → *rewarded* — with **no social norm** as the obstacle. People *can* reveal a gap; they don't, because nothing in the room rewards it.
+- **The round is one chat thread that fills on the host's click**, ending with the observer's close. The below-8 prohibition appears nowhere (overruled 2026-09-29); the only rule on screen is that an opted-in person gives their number when asked.
+- **The three recording benefits are back**, with the third reframed as an invitation to help build the live mirror agent rather than a research disclaimer.
+- **Run of show: 95 minutes inside the 120 the room is booked for** — 10 talking · 3 the round explained · 7 showcase · 3 seating · 45 rounds · 4 rotations · 15 Q&A · 8 closing. The only elastic item is the host's own talking.
+**Alternatives rejected:** keeping the stage demo at ~15 min (it is 3 + 3 + 1 now); printing minutes on the agenda (a public promise the host then has to keep); deleting the cut slides instead of demoting them; a QR to this event's slug (dies weekly).
+**Consequences:** `docs/events/facilitator-checklist.md` carries the run of show and the latecomer line. **UNRESOLVED and owned by P1337, not the deck:** whether the host assigns speaker/listener or attendees choose by flipping the badge (the deck assigns, for the showcase only), and whether a 15-minute block or its 6-minute half is called a "round" — the deck should copy whatever the room screen says. **UNTESTED.** Falsifier: at Clarity Night #2 practice still has not started 25 minutes in, or the host has to re-teach from the deck what preparation already covered.
+**References:** `public/presi4/index.html`; [P1336](../features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md), [P1337](../features/p1337_event_journey_on_screen_steps_rotation_and_ending.md), [P1338](../features/p1338_clarity_night_deck_cut_theory_and_run_rounds.md), [P1380](../features/done/2026-06-10/p1380_event_starting_soon_email_with_signin.md); decisions.md 2026-09-28, 2026-09-29, 2026-10-02, 2026-10-05 [product]
 
 ---
 
@@ -229,6 +345,57 @@ document diff), and choose banner or block with a reason.
 blocks rather than notifies. Voice profiles still lack their own consent prompt — revisit at the ~2026-12-01
 terms review. This is a judgement call, not legal advice.
 **References:** [P1398](../features/done/2026-06-10/p1398_terms_notice_says_what_changed.md) · decisions.md 2026-09-11 (P1300) · 2026-09-14 (P1307 D15)
+## 2026-10-06 [process]: A recommendation states its fit and risk; the agent only acts on what the founder saw (P1399)
+
+**Context:** The founder used the built Day page on a real run and could not judge the cards: most
+showed no confidence, the text described how checks work rather than what was happening to him
+("not sure I understand issues"), and Start fixing would have sent all 19 cards to one session,
+including choices he never opened. Asked what confidence should mean: "if it breaks more shit than
+it helps that's bad problem solution fit."
+**Decision:** (1) Every recommended option carries *Fit* (how likely it fixes the real cause without
+breaking something else), one *main risk* line, and *cause checked / suspected*; the ledger refuses
+a recommendation without them, and a card without them says "Fit not rated" rather than a number.
+(2) Start fixing sends only cards the founder answered (picked, or accepted with Next / Accept) plus
+agent work; unopened founder choices stay "still yours". (3) A plain-language pass rewrites each
+card for the founder, but the hand-off prompt keeps the original wording (the rewrite rides along
+as quoted data), and a rewrite that adds a number or targets changed source text is discarded.
+(4) Reflection reads its own history from the decisions file so it does not repeat answered
+statements. (5) The outreach funnel counts the existing Pipeline columns — no new logging.
+(6) The board's other pages adopt the Day page's design tokens; the old Goals page is deleted.
+**Alternatives rejected:** two numbers (cause confidence + fix confidence) — more to read on every
+card; sending every preselected card — approves unread choices; a separate reflection log —
+duplicates the decisions file; a new outreach log — no outreach runs yet, so it would log nothing.
+**Consequences:** /day and the cp runbooks must ship together (the ledger now requires the ratings);
+the first real run after shipping is the test of the plain-language pass and the reflection memory.
+Next-as-accept is labelled "Accept & next" so accepting is never invisible.
+**References:** [P1399 spec](../features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md) Phase D
+
+## 2026-10-04 [process]: The /day report is one list of issues you answer, built from user stories and a mockup first (P1399)
+
+**Context:** The first Day page was built straight from the spec's structure (groups sorted by who
+acts, readings, done list) and rejected on sight: "cluttered, not according to the tasks, not
+clear, copywriting bad, overview bad". The spec had the right rules but not the founder's jobs.
+**Decision:** (1) A product-manager pass wrote user stories from the founder's own words, a
+fresh agent built a frontend-only mockup on invented data, and twelve review rounds plus two
+hostile visual reviews and one adversarial coverage review settled the design before any wiring.
+(2) The report is one flow: status of every check first, then issues one at a time, each written
+as Point A / Obstacle / Point B with options and one recommended answer (with confidence), then
+one "Start fixing" that assembles every answer into a single agent prompt. "Needs your answer" and
+"give to an agent" were the same thing. (3) Tabs: Daily report, Stats, Monitoring, Reflection; the
+Day page uses the ClarityPledge design system. (4) The page never needs a UI change for a new
+check: every check gets a row, an unknown status reads "Not proven", a failure with no write-up
+becomes an issue, a newer report format falls back to text. (5) Delivered as one spec in three
+phases (page, /day writes the report, missing data + terminal launch) for one orchestrator.
+**Alternatives rejected:** Rebuilding the page in place from feedback (each round would carry the
+rejected layout's assumptions). Two action groups (founder: "isn't it the same?"). A stepped
+wizard (status, worked, issues, start, reflection): five steps for one morning read. Three
+separate specs: the orchestrator's per-phase gates give the same protection.
+**Consequences:** For founder-facing UI, mockup before wiring: rounds cost minutes and the founder
+reacts to a page, not to a spec. Spec reviews found the kept data rules had real bugs ("fixed"
+hid a recurring fault; a dead run made yesterday look current); they are now ACs with known-bad
+controls. Open, not tracked yet: the goals file needs rework into weekly measurable goals (a goals
+review proposed five; targets are founder decisions) and must go through docs-strategy-update.
+**References:** [features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md](../features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md)
 
 ---
 

@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 121
+**Next ID:** 127
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2048,5 +2048,71 @@ git-ops.sh ship --resume cherry-picks only the commits recorded when the journal
 **due:** week
 
 (1) Server-enforced position write ordering, a client sequence plus conditional upsert/delete, closes the P1420 accepted limits. (2) /feed overflows horizontally at 320px (header and Stories/Points+Sort row; pre-existing, noted in P1415). (3) e2e p1364 "tab or sort change then Back" targets a removed sort button, and search-then-Back sees offline-stake prefetch reads while typing. (4) next-p-number.sh gave the same number to parallel agents whose specs were still only in worktrees (P1420 and P1421 collided); reserve numbers in a ledger. (5) P1417 skill text edits for re-create-event abort and publish-run 8b (drafts in the P1417 spec) and P1419 hike banners on GCS still full size. Drop any item already covered by a spec.
+
+---
+
+## Point page embed: 'Expand linked stories' renders no story
+
+**ID:** INBOX-121
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+Found 2026-10-06 while writing P1424's e2e guard. On /point/:id?embed=true (no ?from=), clicking 'Expand linked stories' (label '1 story') renders no QuotedStory, even though the point has a linked public story. Reproduced on main at the P1424 base commit (e2e/p1424-nested-details-only.spec.ts, the test.fixme guard). Suspect: PointCardWithLinks's expansion condition (!isDetailView && storiesExpanded && (liveSessionMode || profileOwner || isEmbed)): check whether isEmbed reaches the card. Once fixed, turn the fixme back into a test.
+
+---
+
+## Profile e2e specs time out when the owner has points (fails on main too)
+
+**ID:** INBOX-122
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+A profile whose owner has points stayed on its loading skeleton ("Stories (0)") on the test DB, so every getByText of a seeded point timed out. Control run on unchanged main (f856dc899): e2e/p154-position-persistence-profile.spec.ts failed 6/6 at the first getByText; the same pattern hit p151-profile-position-loading, p151-regression, point-position-persistence and manual-points. Found during P1423 under heavy machine load, so first rerun p154 on an idle machine: drop this if it passes there, otherwise check console/network on /p/<slug> for an owner with one public point.
+
+---
+
+## Horizontal scroll at 320px on the story page footer and the letters header
+
+**ID:** INBOX-123
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+At 320px the story page card footer (points count, Add a point, edit, delete, share, open icons) runs past the card and the page scrolls sideways: measured scrollWidth 349 on main, 346 after P1423. The letters page header (three tabs plus New Draft) overflows the same way, and draft metadata wraps mid-phrase. Found by the P1423 visual review; both predate it. Done when /story/<id> and /letters?tab=drafts have scrollWidth equal to 320 at 320px; drop if 320px support is retired.
+
+---
+
+## De-flake p1270-profile-story-media under full-suite load
+
+**ID:** INBOX-124
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+src/tests/p1270-profile-story-media.test.tsx failed 2 tests under full-suite load on 2026-10-06 (findByRole 'Your story' timed out) but passed 3/3 in isolation; one pre-commit retry went green. Reviewers also saw load flakes at HEAD in p1296-card-footer, p1366-card-footer and p1364-list-return-cache. Done when these pass 5 consecutive full-suite runs; droppable if none recur in the next 10 hook runs.
+
+---
+
+## Browser-verify the PositionButtons menu clamp at 320/375px
+
+**ID:** INBOX-125
+**Date:** 2026-10-05
+**Status:** proposed
+**due:** week
+
+The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/2026-10-06) is unit-tested and mutation-checked but not browser-verified, because opening the menu needs a logged-in test user who already holds a position (a first click casts a vote). Open the Agree menu at 320 and 375px and confirm its right edge stays at least 8px inside the viewport. Droppable if the overnight branch is not merged.
+
+---
+
+## /live two-party e2e specs fail on main: user-cleanup FK error and missing story search
+
+**ID:** INBOX-126
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+On unchanged main (2a4025545), at normal machine load, live-content-picker, p272-live-verification and live-rating-drawer fail 8/8: seven end in deleteTestUser refusing to delete a profile still referenced by clarity_sessions.creator_profile_id (the helper does not delete the session first), and the content picker never shows the "Search your stories…" field. P1423 hit the same 8 failures on its branch, so its /live invariant could only be checked by control. Done when the helper deletes the user's clarity_sessions before the profile and the picker spec passes; drop if those specs are retired.
 
 ---

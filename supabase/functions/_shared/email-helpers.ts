@@ -58,6 +58,8 @@ export interface LogEmailSendOpts {
   emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel' | 'starting_soon';
   messageId: string | null;
   errorMessage?: string;
+  /** P1425: the event_rsvps claim token this send was made under (scheduled kinds only). */
+  claimToken?: string;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -603,14 +605,30 @@ export async function cancelScheduledEmail(messageId: string): Promise<void> {
   const domain = mailgunDomain();
   const apiKey = mailgunApiKey();
   const base = mailgunBase();
-  const res = await fetch(`${base}/${domain}/messages/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
-    },
-  });
-  if (!res.ok) {
-    console.warn('Mailgun cancel failed:', res.status, await res.text());
+  // P1425: one retry on a 5xx or a network error. A 4xx is final — notably 404 when the message was
+  // already delivered or withdrawn, which must not block the replacement. After a second failure
+  // the caller still clears the id: a duplicate that carries the correct details is preferable to
+  // only the stale one going out (Codex round 5; holding the id would block every replacement).
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(`${base}/${domain}/messages/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+        },
+      });
+      if (res.ok) return;
+      const body = await res.text();
+      if (res.status < 500 || attempt === 2) {
+        console.warn('Mailgun cancel failed:', res.status, body);
+        return;
+      }
+    } catch (err) {
+      if (attempt === 2) {
+        console.warn('Mailgun cancel failed (network):', err);
+        return;
+      }
+    }
   }
 }
 
@@ -632,6 +650,7 @@ export async function logEmailSend(
       status: opts.messageId ? 'sent' : 'failed',
       mailgun_message_id: opts.messageId,
       error_message: opts.errorMessage ?? null,
+      ...(opts.claimToken ? { claim_token: opts.claimToken } : {}),
     });
     if (error) {
       console.error('logEmailSend insert error:', error.message);

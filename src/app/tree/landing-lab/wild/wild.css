@@ -1,0 +1,93 @@
+/* The one control of the "Wild" landing: a native range input, restyled as a line of
+   light with a glowing handle. Native keeps touch, keyboard and screen readers working. */
+.wild-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  /* Width is set by the page: the track is inset by the halo radius (about 20px) so the
+     handle's glow stays out of the 16px screen gutter at either end. */
+  height: 48px;
+  margin: 0;
+  background: transparent;
+  cursor: grab;
+}
+.wild-range:active {
+  cursor: grabbing;
+}
+.wild-range:focus {
+  outline: none;
+}
+
+.wild-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    #60a5fa 0%,
+    #93c5fd var(--wild-fill, 0%),
+    rgba(255, 255, 255, 0.22) var(--wild-fill, 0%)
+  );
+}
+.wild-range::-moz-range-track {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.wild-range::-moz-range-progress {
+  height: 2px;
+  border-radius: 2px;
+  background: #60a5fa;
+}
+
+.wild-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  margin-top: -14px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffffff 0%, #dbeafe 45%, #60a5fa 100%);
+  box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.22), 0 0 14px 2px rgba(96, 165, 250, 0.5);
+}
+.wild-range::-moz-range-thumb {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffffff 0%, #dbeafe 45%, #60a5fa 100%);
+  box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.22), 0 0 14px 2px rgba(96, 165, 250, 0.5);
+}
+
+.wild-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px #03050b, 0 0 0 6px #bfdbfe, 0 0 14px 2px rgba(96, 165, 250, 0.6);
+}
+.wild-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px #03050b, 0 0 0 6px #bfdbfe, 0 0 14px 2px rgba(96, 165, 250, 0.6);
+}
+
+@keyframes wild-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.22), 0 0 12px 2px rgba(96, 165, 250, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(96, 165, 250, 0.12), 0 0 16px 3px rgba(96, 165, 250, 0.6);
+  }
+}
+.wild-range[data-idle="true"]::-webkit-slider-thumb {
+  animation: wild-breathe 2.6s ease-in-out infinite;
+}
+.wild-range[data-idle="true"]::-moz-range-thumb {
+  animation: wild-breathe 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Separate rules: one unknown vendor pseudo-element invalidates a whole selector list. */
+  .wild-range[data-idle="true"]::-webkit-slider-thumb {
+    animation: none;
+  }
+  .wild-range[data-idle="true"]::-moz-range-thumb {
+    animation: none;
+  }
+}

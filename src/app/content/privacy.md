@@ -171,6 +171,16 @@ link) that is shown only to registered attendees; anything you share inside such
 processed by WhatsApp under its own terms, not by us. Group membership and the organizer role
 are stored and visible to other members of that group.
 
+**Feedback after an event.** At the end of an event you can give feedback on your phone: a
+0–10 score, ratings for topics for the next event, whether your view of the event's statements
+changed, what we could improve and what you liked. We store it against your profile and the
+event, and we read it to improve future events; it is not shown to other attendees. If you tick
+"You may quote me by name to invite new people to future events", we may publish what you wrote
+about what you liked, with your name, to promote our events. You can withdraw that permission at
+any time (see Your Rights). We then stop using the quote and remove it where we published it.
+The same screens may ask whether you want to join the event's group or connect with the host on
+LinkedIn; we record your answer so we do not ask again too soon.
+
 ### AI features
 
 - **`/chat` story guide.** The text you type is sent to Google's Gemini API to generate a
@@ -201,8 +211,9 @@ acknowledge your payment.
 
 - **Contact and application forms** on our site are delivered by Web3Forms, which receives
   exactly what you submit.
-- **Event feedback forms** linked from our emails are hosted by Tally, which receives what you
-  submit together with the event identifier.
+- **Event feedback** is collected in the app itself (see Events and groups). Older event emails
+  may still link to a feedback form hosted by Tally, which receives what you submit together with
+  the event identifier.
 - **Intro call booking** is an embedded Google Calendar appointment page; what you enter there
   is processed by Google.
 - **Blog and newsletter.** Our blog runs on Ghost, which we host ourselves on Google Cloud.
@@ -259,6 +270,8 @@ security and operations. We do not build profiles from them.
 | Storing a letter recipient's or agreement partner's email address, and sending it to our email provider | Legitimate interest — Art. 6(1)(f): delivering what a user asked us to send to you; you can have it removed at any time |
 | Product newsletter to account holders | Legitimate interest — Art. 6(1)(f), with an unsubscribe in every issue |
 | Analytics and session recording (Mixpanel), error tracking (Sentry) | Legitimate interest — Art. 6(1)(f); you can object at any time no consent step runs before analytics or session recording start |
+| Event feedback, and the answers at the end of an event | Legitimate interest — Art. 6(1)(f): improving our events |
+| Publishing your quote with your name | Consent — Art. 6(1)(a), given by the tick box; you can withdraw it at any time |
 | Terms acceptance and consent records | Legitimate interest — Art. 6(1)(f), being able to evidence that consent was given (Art. 7(1)) |
 | Public-source content by machine accounts (below) | Legitimate interest — Art. 6(1)(f): commentary on public statements by public figures |
 
@@ -372,10 +385,10 @@ Under the GDPR you can:
 - **Objection** (Art. 21) — object to analytics, session recording, error tracking or the
   newsletter without deleting your account.
 - **Restriction** (Art. 18) — ask us to pause processing while a dispute is resolved.
-- **Withdraw consent** (Art. 7(3)) — for recordings, voice profiles and AI/ML use, at any
-  time. When you withdraw, we delete the recordings, transcripts and voice profile concerned
-  so that they are not used further; withdrawal does not undo processing that already
-  happened.
+- **Withdraw consent** (Art. 7(3)) — for recordings, voice profiles, AI/ML use and quotes you
+  allowed us to publish, at any time. When you withdraw, we delete the recordings, transcripts
+  and voice profile concerned so that they are not used further, and we stop using a quote and
+  remove it where we published it; withdrawal does not undo processing that already happened.
 
 Limits: once identifiers have been removed from training data and a model has been trained,
 the model cannot be untrained; we keep records needed to evidence consent and payments for
@@ -402,6 +415,9 @@ any of it whenever you want, and all of it by deleting your account.
 - **Consent and terms-acceptance records** — kept while your account exists and deleted with
   it; only the audit row described under Erasure survives, and it holds no personal data
   beyond the deleted account's identifier.
+- **Event feedback and your answers at the end of an event** — kept while your account exists
+  and deleted with it. A quote you allowed us to publish stays published until you withdraw
+  permission or delete your account.
 - **Rate-limit records for AI features** (user ID and timestamp) — deleted with your account.
 - **Error data (Sentry)**, **analytics and session recordings (Mixpanel)** — kept for as long
   as each provider retains it under our plan with them; we have not set a shorter period. Ask

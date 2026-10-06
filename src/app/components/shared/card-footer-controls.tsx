@@ -41,7 +41,7 @@
  *   - The footer ROW each card wraps `CardFooterActions` in carries the same wrapper.
  * So: place the footer controls inside such a row.
  */
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { ArrowRight, Check, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ import { analytics } from '@/lib/mixpanel';
 import { MobileTooltip } from './mobile-tooltip';
 import { ShareDialog, type ShareSurface } from './ShareDialog';
 import type { PositionCTACopy } from '@/app/utils/position-helpers';
-import { CARD_FOCUS_RING, DETAILS_BUTTON_CLASS } from './card-action-classes';
+import { CARD_FOCUS_RING, DETAILS_BUTTON_CLASS, NESTED_DETAILS_BUTTON_CLASS } from './card-action-classes';
 
 const FOCUS_RING = CARD_FOCUS_RING;
 
@@ -214,6 +214,39 @@ export function CardDetailsButton({ type, onOpen, describedBy }: { type: CardTyp
     >
       Details <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </button>
+  );
+}
+
+/**
+ * P1424 — opens a NESTED item (a quoted point under a story card, a linked story under a point
+ * card): the only way into it on a list card, where tapping the nested body does nothing, exactly
+ * as P1415 made the card body do nothing. Sits bottom-right inside the nested box.
+ */
+export function NestedDetailsButton({
+  type,
+  onOpen,
+  describedBy,
+}: {
+  type: CardType;
+  onOpen: (e: MouseEvent<HTMLButtonElement>) => void;
+  describedBy?: string;
+}) {
+  return (
+    <div className="mt-2 flex justify-end">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen(e);
+        }}
+        className={NESTED_DETAILS_BUTTON_CLASS}
+        aria-label={`Details for this ${type}`}
+        aria-describedby={describedBy}
+        data-testid={`nested-details-${type}`}
+      >
+        Details <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 

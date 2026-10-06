@@ -65,10 +65,10 @@ function getStatusSummary(features: Feature[]): string {
 const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'backlog': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
   'week': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
-  'today': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  'today': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
-  'qa': { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
+  'qa': { bg: 'var(--status-yellow-bg)', text: 'var(--status-yellow-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'all-done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'draft': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
@@ -80,9 +80,9 @@ const pillStyle: React.CSSProperties = {
   alignItems: 'center',
   height: 20,
   fontSize: 12,
-  padding: '0 6px',
-  borderRadius: 3,
-  fontWeight: 400,
+  padding: '0 8px',
+  borderRadius: 99,
+  fontWeight: 500,
   whiteSpace: 'nowrap',
   lineHeight: 1,
 }
@@ -100,7 +100,7 @@ function DropLine() {
     <div
       style={{
         height: 2,
-        background: 'rgba(35, 131, 226, 0.57)',
+        background: 'var(--cp-blue)',
         borderRadius: 1,
         margin: '1px 0',
       }}
@@ -239,7 +239,7 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator }: FocusPag
           gap: 'var(--spacing-8)',
           padding: 'var(--spacing-6) var(--spacing-8)',
           background: 'var(--bg-group-header)',
-          borderRadius: '4px 4px 0 0',
+          borderRadius: 'var(--cp-r) var(--cp-r) 0 0',
           borderBottom: '1px solid var(--border-table)',
         }}
       >

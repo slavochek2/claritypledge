@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Card } from './Card'
 import { Feature, ColumnId } from '../lib/types'
 import type { DropIndicator } from '../App'
+import { statusStyleFor, wipCountColour } from '../lib/columnColours'
 
 interface ColumnProps {
   id: ColumnId
@@ -24,13 +25,13 @@ interface ColumnProps {
   renderCard?: (feature: Feature) => ReactNode
 }
 
-// Drop indicator line component - Notion style
+// Drop indicator line component
 function DropLine() {
   return (
     <div
       style={{
         height: 2,
-        background: 'rgba(35, 131, 226, 0.57)',
+        background: 'var(--cp-blue)',
         borderRadius: 1,
         margin: '3px 0',
       }}
@@ -38,22 +39,10 @@ function DropLine() {
   )
 }
 
-// Map to Notion's exact status colors
-const getStatusStyle = (color: string) => {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    '#6b7280': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
-    '#3b82f6': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
-    '#ef4444': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
-    '#22c55e': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
-    '#f59e0b': { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
-  }
-  return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
-}
-
 export function Column({ id, title, color, features, limit, dropIndicator, isDragging: _isDragging, onFeatureUpdate, renderCard }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const featureIds = features.map((f) => f.id)
-  const statusStyle = getStatusStyle(color)
+  const statusStyle = statusStyleFor(color)
 
   // Should show indicator at the end of the column (when dropping on empty area or at bottom)
   const showIndicatorAtEnd = dropIndicator && dropIndicator.beforeId === null
@@ -63,7 +52,7 @@ export function Column({ id, title, color, features, limit, dropIndicator, isDra
       ref={setNodeRef}
       style={{
         background: isOver ? 'var(--bg-column-hover)' : 'var(--bg-column)',
-        borderRadius: '3px',
+        borderRadius: 'var(--cp-r)',
         padding: '0 var(--spacing-6)',
         minHeight: 100,
         width: 260,
@@ -71,7 +60,7 @@ export function Column({ id, title, color, features, limit, dropIndicator, isDra
         transition: 'background 0.1s ease',
       }}
     >
-      {/* Column Header - Notion style */}
+      {/* Column Header */}
       <div
         style={{
           display: 'flex',
@@ -87,12 +76,12 @@ export function Column({ id, title, color, features, limit, dropIndicator, isDra
             display: 'inline-flex',
             alignItems: 'center',
             fontSize: 'var(--font-size-14)',
-            fontWeight: 'var(--font-weight-regular)',
+            fontWeight: 'var(--font-weight-semibold)',
             color: statusStyle.text,
             background: statusStyle.bg,
-            padding: '0 var(--spacing-6)',
-            height: 20,
-            borderRadius: '3px',
+            padding: '0 var(--spacing-8)',
+            height: 22,
+            borderRadius: 99,
             lineHeight: 1,
           }}
         >
@@ -103,15 +92,10 @@ export function Column({ id, title, color, features, limit, dropIndicator, isDra
         <span
           style={{
             fontSize: 'var(--font-size-14)',
-            color:
-              limit === undefined || features.length < limit
-                ? 'var(--text-tertiary)'
-                : features.length > limit
-                  ? '#eb5757'
-                  : '#d9730d',
+            color: wipCountColour(features.length, limit),
             fontWeight:
               limit !== undefined && features.length >= limit
-                ? 'var(--font-weight-medium)'
+                ? 'var(--font-weight-semibold)'
                 : 'var(--font-weight-regular)',
           }}
           title={

@@ -1,0 +1,44 @@
+# day-cp-checks.tsv — P1399. The checks the ClarityPledge sub-day reports, one row each.
+#
+# day-cp-steps.tsv beside this file says which STEPS a complete sub-day runs. This file says which
+# CHECKS the founder sees and which step computes each. They are different lists because one step
+# carries several checks: Wave 3 is one bash call holding lint, tests, ops issues, RLS drift,
+# function grants and the privilege floor, and its single ledger row read "cp.w3 ok 0" on the
+# morning RLS drift inside it exited 1 (spec §5).
+#
+# The /day renderer finds this file by name, beside the manifest the dispatcher registered. Every
+# check below gets a row in the day report even if nothing reported a status for it: "not proven"
+# when its step ran, "did not run" when its step did not. A check that stops reporting can never
+# read clean.
+#
+# How a check reports: a `run` body writes `CHECK <id> <status> <detail>` to "$DAY_CHECK_FILE" (never stdout), from an exit code
+# or token the body already prints; Sentry and Mixpanel, which only the agent can see through MCP,
+# are recorded with `"$DAY_STEP" check <id> <status> --detail "..." --step <step-id>`. day-cp.md
+# shows each one in place.
+#
+# Columns, TAB-separated:
+#   check-id    stable id; the fault keys of its findings start with its short name
+#   step-id     the manifest step that computes it
+#   label       what it is, in the founder's terms
+#   group       the Monitoring > Systems group on the Day page
+#   severity    high = its issue is Important; normal otherwise
+#   connection  the service it depends on (sentry, mixpanel, beeper, gcloud) or empty
+#
+# check-id	step-id	label	group	severity	connection
+cp.smoke	cp.w1	Prod smoke test	Servers & blog	high
+cp.blog	cp.w1	Blog	Servers & blog	normal
+cp.backup	cp.w1	Database backup	Backups & mirror	normal	gcloud
+cp.gemini	cp.w1	Gemini production key	Keys	normal
+cp.cost	cp.w1	Cloud cost leak check	Cost-leak tripwire	normal	gcloud
+cp.signups	cp.w2	Unconfirmed sign-ups	Email & sessions	normal
+cp.sessions	cp.w2	Live sessions	Email & sessions	normal
+cp.transcribe	cp.w2	Transcription jobs	Transcription & video	normal
+cp.email	cp.w2	Event email sending	Email & sessions	normal
+cp.sentry	cp.w2s	Sentry errors	Product errors	high	sentry
+cp.mixpanel	cp.w2b	User analytics	Product errors	normal	mixpanel
+cp.baseline	cp.w3	Tests and lint	Code	normal
+cp.ops	cp.w3	Ops alerts (GitHub)	Servers & blog	normal
+cp.rls	cp.w3	Database access rules	Database	high
+cp.grants	cp.w3	Database function permissions	Database	normal
+cp.floor	cp.w3	Database privilege floor	Database	high
+cp.video	cp.vsum	Story video summaries	Transcription & video	normal

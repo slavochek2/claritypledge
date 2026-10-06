@@ -178,7 +178,7 @@ export function LiveStoryCardExpanded({
       // pre-§1 snapshot whose frozen prose already prints at least one of its quotes.
       {...(quotesAlreadyInContent ? { 'data-legacy-quotes-inline': 'true' } : {})}
       {...(isAgent ? { 'data-agent-row': 'true' } : {})}
-      className={`rounded-lg border-l-4 border-l-blue-500 border border-border bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-slate-300 border border-border bg-white shadow-sm shrink-0 overflow-hidden ${className ?? ''}`}
     >
       {/* Main content */}
       <div className="p-4">

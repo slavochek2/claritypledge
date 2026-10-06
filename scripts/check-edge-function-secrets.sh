@@ -90,7 +90,10 @@ parse_functions() {
   #   ?? '' or ?? ""           → required-empty
   #   ?? '<non-empty default>' → optional
   local files
-  files=$(find "$dir" -type f -name '*.ts' 2>/dev/null)
+  # *.test.ts is never deployed (no function imports a test file), and tests legitimately read
+  # local-only variables (P1425: a live Deno test reading VITE_SUPABASE_ANON_KEY blocked every
+  # prod function deploy as a "missing secret").
+  files=$(find "$dir" -type f -name '*.ts' ! -name '*.test.ts' 2>/dev/null)
   [ -z "$files" ] && return 0
 
   for f in $files; do
@@ -176,6 +179,10 @@ const required = Deno.env.get('FAKE_REQUIRED_P834');
 const requiredEmpty = Deno.env.get('FAKE_REQUIRED_EMPTY_P834') ?? '';
 const optional = Deno.env.get('FAKE_OPTIONAL_P834') ?? 'default-value';
 TS_EOF
+  cat > "$TMPDIR_FIXTURE/fake-fn/index.test.ts" <<'TS_EOF'
+// A test file: never deployed, its env reads must not count as required secrets (P1425)
+const testOnly = Deno.env.get('FAKE_TEST_ONLY_P1425');
+TS_EOF
 
   parsed=$(parse_functions "$TMPDIR_FIXTURE")
   _safe_echo "self-test: parser output:"
@@ -197,6 +204,11 @@ TS_EOF
   fi
   if ! echo "$parsed" | grep -q '^optional:FAKE_OPTIONAL_P834:'; then
     _safe_echo "FAIL: FAKE_OPTIONAL_P834 not classified as optional"
+    fail=1
+  fi
+
+  if echo "$parsed" | grep -q 'FAKE_TEST_ONLY_P1425'; then
+    _safe_echo "FAIL: FAKE_TEST_ONLY_P1425 from a *.test.ts file was parsed (tests are never deployed)"
     fail=1
   fi
 

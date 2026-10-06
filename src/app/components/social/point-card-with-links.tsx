@@ -38,6 +38,7 @@ import {
   CardFooterActions,
   CardMenu,
   CardSlotLink,
+  NestedDetailsButton,
 } from '@/app/components/shared/card-footer-controls';
 import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
@@ -255,15 +256,14 @@ export function PointCardWithLinks({
   };
 
   const isPrivate = point.visibility === 'private';
-  const borderColor = isPrivate ? 'border-l-gray-400' : 'border-l-slate-400';
   const bgTint = isPrivate ? 'bg-muted/60' : 'bg-white';
 
   /* P1415 — a LIST card carries no "the whole card is a link" affordance (pointer, hover border,
      focus ring): it is not one. The point page keeps its plain card; embeds and demos keep main's
      hover, because there the card still opens on click. */
   const cardClassName = isDetailView || inListFooter
-    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 ${borderColor} border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden`
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:border-l-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
   /** A list card is an article named by its content; elsewhere the root stays as it was. */
   const CardRoot = inListFooter ? 'article' : 'div';
 
@@ -340,6 +340,7 @@ export function PointCardWithLinks({
       {...(isOwnerAgent ? { 'data-agent-row': 'true' } : {})}
       /* P1364: a stable per-card handle for the Back-position e2e (first card fully in view). */
       data-testid={`point-card-with-links-${point.id}`}
+      data-card="point"
       onClick={cardNavigates ? handleCardClick : undefined}
       onKeyDown={cardNavigates ? (e) => {
         // P1212's guard, which this root never carried (the feed cards and the story card
@@ -747,6 +748,7 @@ export function PointCardWithLinks({
                           if (!liveSessionMode) embedNavigate(`/p/${story.authorId}`);
                         }}
                         getStoryAuthor={getStoryAuthor}
+                        openViaDetails={inListFooter}
                       />
                     </ThreadLineItem>
                   ))}
@@ -787,6 +789,7 @@ export function QuotedStory({
   onAuthorClick,
   getStoryAuthor,
   authorPosition,
+  openViaDetails = false,
 }: {
   story: Story;
   /** P1364: the point this quote sits under, so the same story under two points keeps separate open state. */
@@ -809,8 +812,16 @@ export function QuotedStory({
    * constraint requiring a filed story to carry a position (spec, UX Notes).
    */
   authorPosition?: PositionType | null;
+  /**
+   * P1424 — set by the LIST cards only (feed/stake point card, profile point card with
+   * `inListFooter`): the box no longer opens on a body tap, and its own `Details →` (calling
+   * `onClick`) is the only way in, as P1415 made the card body itself. Absent elsewhere — the point
+   * page embed, live sessions — where the box keeps tap-to-open.
+   */
+  openViaDetails?: boolean;
 }) {
   const author = getStoryAuthor?.(story.authorId);
+  const textId = useId(); // P1424: describes the nested `Details →` by this story
   const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
   const isAgent = isAgentAccountId(story.authorId);
   // P1364 §5: remembered per visit — Back reopens what the reader had open (use-return-state.ts).
@@ -1036,11 +1047,14 @@ export function QuotedStory({
           container, so the attribution row above is not part of the control: clicking a
           name navigates to the profile, clicking the box navigates to the story, and the
           two no longer overlap. `QuotedPointCard` has always been shaped this way. */}
+      {/* P1424: on a list card (`openViaDetails`) the box is NOT a control — no role, tab stop,
+          handlers, pointer cursor or hover state — and its own `Details →` opens the story. */}
       <div
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
+        {...(openViaDetails ? {} : {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
           // P1212's root guard, on this box too. P1296 folded the supporting quotes behind a
           // toggle BUTTON inside this box; without the target check, Enter on that toggle (or
           // on a timecode) was preventDefault()ed here and turned into a navigation, which
@@ -1050,8 +1064,11 @@ export function QuotedStory({
             e.preventDefault();
             onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
           }
-        }}
-        className={`group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2${isAgent ? ' agent-card-drained' : ''}`}
+        },
+        })}
+        className={`${openViaDetails
+          ? 'w-full text-left p-3 rounded-lg border border-border bg-gray-50'
+          : 'group/quote w-full text-left p-3 rounded-lg border border-border bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'}${isAgent ? ' agent-card-drained' : ''}`}
         {...(isAgent ? { 'data-agent-row': 'true' } : {})}
       >
       {/* Story media — compact in quoted context.
@@ -1139,6 +1156,15 @@ export function QuotedStory({
       )}
       {(story.tags ?? []).length > 0 && (
         <TagPills tags={story.tags ?? []} context="detail" className="mt-1.5" />
+      )}
+      {openViaDetails && (
+        <>
+          {/* P1424 review: the button is described by the story's NAME, as P1415 describes the
+              card's own `Details →` ("Story by …"), never by the text <p> — a media-only story has
+              empty text, and a long one ends in " ...more". `hidden`: read only via the reference. */}
+          <span id={textId} hidden>{`Story by ${stripAgentPrefix(author?.name) || 'an author'}`}</span>
+          <NestedDetailsButton type="story" onOpen={(e) => onClick(e)} describedBy={textId} />
+        </>
       )}
       </div>
     </div>

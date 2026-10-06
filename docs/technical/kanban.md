@@ -187,7 +187,7 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 
 **What this kanban adds beyond raw files:**
 - Visual drag-and-drop prioritization (the thing agents can't do)
-- 4 views: Board (kanban columns), Focus (flat sorted table), Goals (strategic checklist), Content (article pipeline)
+- Views: Board (kanban columns), Focus (flat sorted table), Content (article pipeline), Pipeline (CRM), Day (personal board only)
 - Automatic file movement on status change (done → `features/done/{month}/`, rejected → `features/archive/`)
 - Git staging on moves (prevents revert on pull)
 - Card dialog with inline field editing (type, status, rank, size, tags, blocked_by, delivery_stage)
@@ -207,7 +207,7 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 | **Agent Kanban** | VS Code extension | Copilot Chat integration | VS Code only, no standalone views |
 | **Notion MCP** | Cloud database + MCP | Collaboration, search across apps | Token overhead, rate limits, vendor lock-in |
 | **Plane** | Open-source PM + MCP | First-class agent identity, audit trail | Heavy setup for solo use |
-| **This kanban** | Markdown files + React + Express | Focus/Goals/Content views, delivery stages, worktree-aware | No MCP server, no agent summary endpoint, no file watcher |
+| **This kanban** | Markdown files + React + Express | Focus/Content views, delivery stages, worktree-aware | No MCP server, no agent summary endpoint, no file watcher |
 
 ## Opportunities
 

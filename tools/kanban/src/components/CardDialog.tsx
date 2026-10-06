@@ -30,9 +30,9 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   // Status
   backlog: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
   week: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  today: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
+  today: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
   'in-progress': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
-  blocked: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
+  blocked: { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
   done: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
   'all-done': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
   draft: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
@@ -49,7 +49,7 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   l: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
   xl: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   // Status
-  qa: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
+  qa: { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
   // Delivery Stage
   '1-prd-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
   '2-ux-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
@@ -176,9 +176,9 @@ export function CardDialog({
     alignItems: 'center',
     height: 20,
     fontSize: 'var(--font-size-12)',
-    padding: '0 6px',
-    borderRadius: '3px',
-    fontWeight: 'var(--font-weight-regular)',
+    padding: '0 8px',
+    borderRadius: 99,
+    fontWeight: 'var(--font-weight-medium)',
   }
 
   const propertyRowStyle: React.CSSProperties = {
@@ -187,7 +187,7 @@ export function CardDialog({
     minHeight: 28,
     padding: '4px 0',
     cursor: 'pointer',
-    borderRadius: '4px',
+    borderRadius: 'var(--cp-r-sm)',
     marginLeft: -4,
     marginRight: -4,
     paddingLeft: 4,
@@ -233,10 +233,9 @@ export function CardDialog({
           top: '100%',
           left: 0,
           marginTop: 4,
-          background: 'white',
-          borderRadius: '6px',
-          boxShadow:
-            'rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 3px 6px, rgba(15, 15, 15, 0.2) 0px 9px 24px',
+          background: 'var(--cp-card)',
+          borderRadius: 'var(--cp-r)',
+          boxShadow: '0 0 0 1px var(--cp-line), 0 10px 15px -3px rgb(15 23 42 / .12)',
           padding: '6px 0',
           minWidth: 180,
           zIndex: 1002,
@@ -319,8 +318,8 @@ export function CardDialog({
             width: '100%',
             padding: '4px 8px',
             fontSize: 'var(--font-size-14)',
-            border: '1px solid rgba(55, 53, 47, 0.16)',
-            borderRadius: '4px',
+            border: '1px solid var(--cp-line2)',
+            borderRadius: 'var(--cp-r-sm)',
             outline: 'none',
             fontFamily: 'var(--font-family)',
           }}
@@ -498,7 +497,7 @@ export function CardDialog({
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(15, 15, 15, 0.6)',
+          background: 'rgba(15, 23, 42, 0.5)',
           zIndex: 1000,
         }}
       />
@@ -514,10 +513,9 @@ export function CardDialog({
           transform: 'translate(-50%, -50%)',
           width: 'min(900px, 90vw)',
           maxHeight: '85vh',
-          background: 'var(--bg-page)',
-          borderRadius: '8px',
-          boxShadow:
-            'rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 5px 10px, rgba(15, 15, 15, 0.2) 0px 15px 40px',
+          background: 'var(--cp-card)',
+          borderRadius: 'var(--cp-r-lg)',
+          boxShadow: '0 0 0 1px var(--cp-line), 0 20px 40px -8px rgb(15 23 42 / .25)',
           zIndex: 1001,
           display: 'flex',
           flexDirection: 'column',
@@ -544,22 +542,8 @@ export function CardDialog({
               })
             }}
             title="Open in VS Code"
-            style={{
-              width: 28,
-              height: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: 14,
-              color: 'var(--text-secondary)',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            className="kb-icon"
+            style={{ fontSize: 14 }}
           >
             <img
               src={vscodeIcon}
@@ -575,22 +559,8 @@ export function CardDialog({
               e.stopPropagation()
               onClose()
             }}
-            style={{
-              width: 28,
-              height: 28,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'none',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: 18,
-              color: 'var(--text-secondary)',
-              transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            className="kb-icon"
+            style={{ fontSize: 20 }}
           >
             ×
           </button>
@@ -601,16 +571,16 @@ export function CardDialog({
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '0 72px 48px',
+            padding: '0 clamp(16px, 8vw, 72px) 48px',
           }}
         >
           {/* Title */}
           <h1
             style={{
-              fontSize: 32,
-              fontWeight: 'var(--font-weight-semibold)',
+              fontSize: 24,
+              fontWeight: 700,
               color: 'var(--text-primary)',
-              lineHeight: 1.2,
+              lineHeight: 1.3,
               marginBottom: 24,
             }}
           >
@@ -620,7 +590,7 @@ export function CardDialog({
           {/* Editable Properties */}
           <div
             style={{
-              borderTop: '1px solid rgba(55, 53, 47, 0.09)',
+              borderTop: '1px solid var(--cp-line)',
               paddingTop: 12,
               marginBottom: 24,
             }}
@@ -697,7 +667,7 @@ export function CardDialog({
           {/* Markdown content */}
           <div
             style={{
-              borderTop: '1px solid rgba(55, 53, 47, 0.09)',
+              borderTop: '1px solid var(--cp-line)',
               paddingTop: 16,
             }}
           >

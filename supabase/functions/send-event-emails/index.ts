@@ -20,6 +20,7 @@ import {
   startingSoonEligible,
   type StartingSoonRsvp,
 } from '../_shared/starting-soon.ts';
+import { clearMessageIds } from '../_shared/rsvp-message-ids.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -32,6 +33,10 @@ import {
  */
 function isCancellableId(id: string | null | undefined): id is string {
   return !!id && id !== 'PENDING' && id !== SENT_NO_ID;
+}
+
+async function cancelIfReal(id: string): Promise<void> {
+  if (isCancellableId(id)) await cancelScheduledEmail(id);
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -192,13 +197,13 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
   await Promise.all(rsvps.map(async (rsvp) => {
     // P1380: handleCancel withdrew the scheduled starting-soon email at Mailgun but its id is
     // still stored, which would block a new one forever. Back on → let the cron schedule again.
-    const ids = (rsvp.mailgun_message_ids as Record<string, string> | null) ?? {};
-    if (ids.starting_soon != null) {
-      const { starting_soon: _s, starting_soon_for: _f, ...rest } = ids;
-      await supabase
-        .from('event_rsvps')
-        .update({ mailgun_message_ids: rest, starting_soon_attempted_at: null })
-        .eq('id', rsvp.id);
+    // P1425: the reminder and feedback were withdrawn too, and their ids were left stored — so after
+    // an uncancel the cron (which only sends a kind whose id is absent) never sent them again.
+    // Cleared per key against a fresh read; anything still scheduled at Mailgun is cancelled first.
+    const cleared = await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal);
+    if (cleared !== 'ok') {
+      // The withdrawn ids are still stored, so the cron will NOT re-send these emails. Loud on purpose.
+      console.error(`uncancel: could not clear message ids for rsvp ${rsvp.id} (${cleared}) — reminders will not be re-sent`);
     }
 
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
@@ -278,15 +283,9 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
     if (eventDatetime <= now) return;
 
-    // Null out mailgun_message_ids keys and reset attempted_at — cron re-dispatches with new times
-    const updatePayload: Record<string, unknown> = {
-      mailgun_message_ids: keepStartingSoon
-        ? { starting_soon: startingSoonId, starting_soon_for: ids?.starting_soon_for }
-        : {},
-      reminder_attempted_at: null,
-      feedback_attempted_at: null,
-    };
-    if (!keepStartingSoon) updatePayload.starting_soon_attempted_at = null;
+    // New schedule first, ids second: while the old ids are still stored the cron cannot claim
+    // under the old times, and once they are cleared it schedules the new ones.
+    const updatePayload: Record<string, unknown> = {};
 
     if (reminderScheduledAt > now) {
       updatePayload.reminder_scheduled_at = reminderScheduledAt.toISOString();
@@ -300,10 +299,55 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
       updatePayload.feedback_scheduled_at = null;
     }
 
-    await supabase
-      .from('event_rsvps')
-      .update(updatePayload)
-      .eq('id', rsvp.id);
+    // P1425: the schedule write is checked. Resetting the ids after a FAILED schedule write would
+    // leave the new event time beside the old *_scheduled_at, which the dispatcher's drift check
+    // then skips forever. On failure the ids are left as they are (the same end state as the old
+    // single combined write failing) and the failure is logged loudly.
+    // P1425 (Codex round 6): a second edit's handler may already have written the schedule for a
+    // newer start. Re-read the event just before writing; if the start or duration moved since this
+    // handler's read, the newer handler owns the schedule and this one stops. (The newer handler
+    // reaches its own write only after seconds of cancels and update emails, so this ms-wide
+    // read→write gap cannot let it be overtaken.)
+    // A FAILED read is not a detected edit (Codex round 7): retry once, and if it still fails fall
+    // back to writing, which is what main always did — aborting would leave the cancelled ids stored
+    // and block every replacement.
+    const readEvent = () => supabase.from('events').select('datetime, duration_minutes').eq('id', eventId).maybeSingle();
+    let reread = await readEvent();
+    if (reread.error) reread = await readEvent();
+    const current = reread.data;
+    if (reread.error) {
+      console.warn(`update: could not re-read event ${eventId} (${reread.error.message}) — writing the schedule anyway`);
+    } else if (
+      !current ||
+      new Date(current.datetime).getTime() !== eventDatetime.getTime() ||
+      (current.duration_minutes ?? 60) !== (event.duration_minutes ?? 60)
+    ) {
+      console.warn(`update: event ${eventId} changed again since this handler read it — leaving rsvp ${rsvp.id} to the newer update`);
+      return;
+    }
+    let schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
+    if (schedErr) schedErr = (await supabase.from('event_rsvps').update(updatePayload).eq('id', rsvp.id)).error;
+    if (schedErr) {
+      console.error(`update: schedule write failed for rsvp ${rsvp.id} (${schedErr.message}) — emails NOT rescheduled`);
+      return;
+    }
+    // Claims made from here on were checked against the new schedule; the reset leaves them alone.
+    const scheduleChangedAt = new Date();
+
+    // P1425: clear per key against a FRESH read. The old reset wrote a whole object built from the
+    // read above — seconds old by now (cancels, the update email) — so a starting-soon id the cron
+    // stored in between was erased and the email went out twice. An id that appeared since the
+    // read is cancelled here; a starting-soon email for this exact start is kept.
+    const cleared = await clearMessageIds(supabase, rsvp.id, ['reminder', 'feedback', 'starting_soon'], cancelIfReal, {
+      keepStartingSoonFor: event.datetime,
+      since: scheduleChangedAt,
+      alreadyCancelled: new Set([reminderId, feedbackId, keepStartingSoon ? null : startingSoonId]
+        .filter((x): x is string => isCancellableId(x))),
+    });
+    if (cleared !== 'ok') {
+      // The cancelled ids are still stored, so the cron will NOT schedule replacements. Loud on purpose.
+      console.error(`update: could not clear message ids for rsvp ${rsvp.id} (${cleared}) — rescheduled emails will not go out`);
+    }
   }));
 }
 

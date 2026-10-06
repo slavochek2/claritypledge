@@ -14,10 +14,11 @@ import { Column } from './components/Column'
 import { InboxColumn, type InboxResponse } from './components/InboxColumn'
 import { Sidebar, PageId } from './components/Sidebar'
 import { FocusPage } from './components/FocusPage'
-import { GoalsPage } from './components/GoalsPage'
 import { ContentPage } from './components/ContentPage'
 import { PipelinePage } from './components/PipelinePage'
+import { DayPage } from './components/day/DayPage'
 import { Feature, FeatureType, Status } from './lib/types'
+import { resolveStoredPage } from './lib/pages'
 import {
   STORAGE_KEYS,
   setStorageApiPort,
@@ -56,6 +57,8 @@ interface KanbanConfig {
   wipLimits?: Record<string, number>
   // P1317: deferred-work inbox cards. Off for embedders (pp) — see server/inbox.ts.
   inboxEnabled?: boolean
+  // P1399: the Day page. On only when the server has a private day-data dir (pp).
+  dayEnabled?: boolean
 }
 
 interface ColumnConfig {
@@ -69,7 +72,7 @@ interface ColumnConfig {
 const COLUMNS: ColumnConfig[] = [
   { id: 'backlog', title: 'Backlog', color: '#6b7280', defaultHidden: true },
   { id: 'week', title: 'Week', color: '#6b7280' },
-  { id: 'today', title: 'Today', color: '#22c55e' },
+  { id: 'today', title: 'Today', color: '#3b82f6' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
   { id: 'qa', title: 'QA', color: '#f59e0b' },
@@ -88,9 +91,9 @@ const ALL_DONE_COLUMN: ColumnConfig = {
 const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected'])
 
 const ALL_PAGES: { id: PageId; icon: string; label: string }[] = [
+  { id: 'day', icon: '☀️', label: 'Day' },
   { id: 'board', icon: '\u{1F4CB}', label: 'Board' },
   { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
-  { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
   { id: 'content', icon: '✏️', label: 'Content' },
   { id: 'pipeline', icon: '🤝', label: 'Pipeline' },
 ]
@@ -110,6 +113,14 @@ const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
   { id: 'story', label: 'Story', color: 'var(--tag-green-bg)' },
   { id: 'change-request', label: 'Change Request', color: 'var(--tag-purple-bg)' },
 ]
+
+// The Day page exists only where the server says it is enabled (pp); every other page is
+// visible unless the embedder hides it.
+function isPageVisible(id: PageId, config: KanbanConfig): boolean {
+  if (config.hidePages.includes(id)) return false
+  if (id === 'day') return config.dayEnabled === true
+  return true
+}
 
 export default function App() {
   const [config, setConfig] = useState<KanbanConfig | null>(null)
@@ -150,12 +161,12 @@ export default function App() {
   // (stale `kanban-page` values pointing at a now-hidden page fall back to 'board').
   const visiblePages = useMemo(() => {
     if (!config) return new Set<PageId>(ALL_PAGES.map(p => p.id))
-    return new Set<PageId>(ALL_PAGES.filter(p => !config.hidePages.includes(p.id)).map(p => p.id))
+    return new Set<PageId>(ALL_PAGES.filter(p => isPageVisible(p.id, config)).map(p => p.id))
   }, [config])
 
   const filteredPages = useMemo(() => {
-    if (!config) return ALL_PAGES
-    return ALL_PAGES.filter(p => !config.hidePages.includes(p.id))
+    if (!config) return ALL_PAGES.filter(p => p.id !== 'day')
+    return ALL_PAGES.filter(p => isPageVisible(p.id, config))
   }, [config])
 
   // Build API URL with worktree param. Skip the param entirely when worktrees
@@ -239,9 +250,8 @@ export default function App() {
   }, [])
 
   // 2. Once config arrives: bind the storage namespace, migrate legacy keys,
-  // hydrate prefs from localStorage. Validate `currentPage` against the
-  // runtime-visible PAGES set (not the type union) — pp's `'goals'` is in
-  // PageId but not in visiblePages.
+  // hydrate prefs from localStorage. `currentPage` is validated against the
+  // runtime-visible PAGES set (not the type union) — see resolveStoredPage.
   useEffect(() => {
     if (!config) return
     setStorageApiPort(config.apiPort)
@@ -263,12 +273,7 @@ export default function App() {
       setTypeFilter(storedFilter)
     }
 
-    const storedPage = readPref(STORAGE_KEYS.page)
-    if (storedPage && (visiblePages as Set<string>).has(storedPage)) {
-      setCurrentPage(storedPage as PageId)
-    } else {
-      setCurrentPage('board')
-    }
+    setCurrentPage(resolveStoredPage(readPref(STORAGE_KEYS.page), visiblePages))
 
     const storedCollapsed = readPref(STORAGE_KEYS.sidebarCollapsed)
     if (storedCollapsed === 'true') setSidebarCollapsed(true)
@@ -625,18 +630,29 @@ export default function App() {
   }, [features, searchQuery, typeFilter, focusViewMode])
 
   // Notion-style view tab
+  // Segmented control, same look as the Day page tabs: a slate track, the selected segment a white card.
+  const tabTrackStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    background: 'var(--cp-track)',
+    borderRadius: 10,
+    padding: 3,
+  }
   const viewTabStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'inline-flex',
     alignItems: 'center',
-    padding: '4px 8px',
+    minHeight: 40,
+    padding: '0 14px',
     fontSize: 'var(--font-size-14)',
-    fontWeight: 'var(--font-weight-regular)',
-    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-    background: isActive ? 'var(--bg-hover)' : 'transparent',
+    fontWeight: 'var(--font-weight-semibold)',
+    color: isActive ? 'var(--cp-fg)' : 'var(--cp-fg3)',
+    background: isActive ? 'var(--cp-card)' : 'transparent',
+    boxShadow: isActive ? 'var(--cp-sh)' : 'none',
     border: 'none',
-    borderRadius: '3px',
+    borderRadius: 8,
     cursor: 'pointer',
-    transition: 'background 0.1s',
+    whiteSpace: 'nowrap',
   })
 
   if (!config || loading) {
@@ -654,15 +670,8 @@ export default function App() {
         <br />
         <button
           onClick={() => fetchFeatures()}
-          style={{
-            marginTop: 16,
-            padding: '6px 12px',
-            background: 'var(--bg-hover)',
-            border: 'none',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            color: 'var(--text-primary)',
-          }}
+          className="kb-btn primary"
+          style={{ marginTop: 16 }}
         >
           Retry
         </button>
@@ -701,17 +710,8 @@ export default function App() {
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: 180,
-                padding: '4px 8px',
-                fontSize: 'var(--font-size-14)',
-                color: 'var(--text-primary)',
-                background: 'var(--bg-hover)',
-                border: '1px solid rgba(55, 53, 47, 0.16)',
-                borderRadius: '4px',
-                outline: 'none',
-                fontFamily: 'var(--font-family)',
-              }}
+              className="kb-input"
+              style={{ width: 180 }}
             />
 
             {/* Refresh button */}
@@ -723,22 +723,8 @@ export default function App() {
                 if (!config.disableWorktrees) fetchWorktrees('refresh')
               }}
               title="Refresh"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 28,
-                height: 28,
-                background: 'none',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: 16,
-                color: 'var(--text-secondary)',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+              className="kb-icon"
+              style={{ fontSize: 16 }}
             >
               ↻
             </button>
@@ -749,15 +735,8 @@ export default function App() {
             <select
               value={selectedWorktree || ''}
               onChange={(e) => changeWorktree(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                fontSize: 'var(--font-size-14)',
-                color: 'var(--text-primary)',
-                background: 'var(--bg-hover)',
-                border: '1px solid rgba(55, 53, 47, 0.16)',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
+              className="kb-input"
+              style={{ cursor: 'pointer' }}
             >
               {worktrees.map((wt) => {
                 const label = wt.name === 'main'
@@ -804,10 +783,10 @@ export default function App() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     paddingBottom: 'var(--spacing-12)',
-                    borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+                    borderBottom: '1px solid var(--cp-line)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+                  <div style={tabTrackStyle}>
                     <button style={viewTabStyle(viewMode === 'backlog')} onClick={() => changeViewMode('backlog')}>
                       Backlog
                     </button>
@@ -820,7 +799,7 @@ export default function App() {
                   </div>
 
                   {/* Type filter chips */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+                  <div style={tabTrackStyle}>
                     {TYPE_CHIPS.map((chip) => (
                       <button
                         key={chip.id}
@@ -828,15 +807,16 @@ export default function App() {
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          padding: '2px 8px',
-                          fontSize: 'var(--font-size-12)',
-                          fontWeight: 'var(--font-weight-regular)',
-                          color: typeFilter === chip.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          minHeight: 40,
+                          padding: '0 12px',
+                          fontSize: 13,
+                          fontWeight: 'var(--font-weight-semibold)',
+                          color: typeFilter === chip.id ? 'var(--cp-fg)' : 'var(--cp-fg3)',
                           background: typeFilter === chip.id ? chip.color : 'transparent',
                           border: 'none',
-                          borderRadius: '3px',
+                          borderRadius: 8,
                           cursor: 'pointer',
-                          transition: 'all 0.1s',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {chip.label}
@@ -881,10 +861,11 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <div style={{ padding: '0 var(--spacing-16)', flexShrink: 0 }}>
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)',
+                  display: 'flex', alignItems: 'center',
                   paddingBottom: 'var(--spacing-12)',
-                  borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+                  borderBottom: '1px solid var(--cp-line)',
                 }}>
+                 <div style={tabTrackStyle}>
                   {(['backlog', 'active', 'done'] as FocusViewMode[]).map((mode) => (
                     <button
                       key={mode}
@@ -894,6 +875,7 @@ export default function App() {
                       {mode === 'active' ? 'Main Board' : mode.charAt(0).toUpperCase() + mode.slice(1)}
                     </button>
                   ))}
+                 </div>
                 </div>
               </div>
               <div style={{ overflow: 'auto', flex: 1 }}>
@@ -907,9 +889,9 @@ export default function App() {
             </div>
           )}
 
-          {currentPage === 'goals' && (
+          {currentPage === 'day' && (
             <div style={{ overflow: 'auto', flex: 1 }}>
-              <GoalsPage />
+              <DayPage />
             </div>
           )}
 

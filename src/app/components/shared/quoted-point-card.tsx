@@ -16,8 +16,7 @@
  * finds the statement text on screen cannot — the bare-button version passed exactly that.
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { Pin, Ear } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
@@ -30,6 +29,8 @@ import { stripHashtags } from '@/lib/utils';
 import { adjustPositionCounts, toSevenPointCounts } from '@/app/utils/position-helpers';
 import type { PositionType, PointSummary } from '@/app/types';
 import type { Position } from '@/app/components/shared/prototype-types';
+import { NestedDetailsButton } from '@/app/components/shared/card-footer-controls';
+import { useOpenPath } from '@/app/components/shared/links-in-new-tab';
 
 /** Mirrors the route helper the profile page defines locally. */
 const detailRoutes = {
@@ -89,6 +90,12 @@ export interface QuotedPointCardProps {
    * so a Clear row there would do nothing.
    */
   onPositionClear?: () => void;
+  /**
+   * P1424 — set by the LIST cards only (feed/stake story card, profile StoryCardFull): the box no
+   * longer opens on a body tap, and its own `Details →` is the only way in, as P1415 made the card
+   * body itself. Absent elsewhere, where the box keeps tap-to-open.
+   */
+  openViaDetails?: boolean;
 }
 
 export function QuotedPointCard({
@@ -103,10 +110,15 @@ export function QuotedPointCard({
   currentUserId,
   onPositionSelect,
   onPositionClear,
+  openViaDetails = false,
 }: QuotedPointCardProps) {
   const { isAgentAccountId: isAgentQuoted, isLoading: quotedIdentityPending } = useAgentAccountIds();
   const quotedIsAgent = isAgentQuoted(authorId);
-  const navigate = useNavigate();
+  const nameId = useId(); // P1424: describes the nested `Details →` by this point
+  // P1424 review (Gemini, Codex): through `useOpenPath`, so a host that opens links in a new tab
+  // (P1336's onboarding / prepare embed) gets a new tab here too — `navigate` replaced the host.
+  const openPath = useOpenPath();
+  const openPoint = () => openPath(detailRoutes.point(point.id, fromProfileId));
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
   );
@@ -184,33 +196,39 @@ export function QuotedPointCard({
         </div>
       )}
 
-      {/* Quoted Point box — changed from <button> to div[role=button] to fix nested button HTML violation */}
+      {/* Quoted Point box — changed from <button> to div[role=button] to fix nested button HTML violation.
+          P1424: on a list card (`openViaDetails`) the box is NOT a control — no role, tab stop,
+          handlers, pointer cursor or hover state — and its own `Details →` opens the point. */}
       <div
-        role="button"
-        tabIndex={0}
-        // `stopPropagation` on BOTH handlers, and it is this component's job rather than the
-        // caller's. Every surface that expands a story's points wraps them in a card that is
-        // itself a control, so an event that reaches the wrapper navigates a second time and
-        // the LAST navigation wins — the reader asks for the point and lands on the story.
-        //
-        // The click path was already safe by accident: both call sites wrap the list in a
-        // container with `onClick={e => e.stopPropagation()}`. That container does not handle
-        // `onKeyDown`, so keyboard users navigated somewhere mouse users did not, and a test
-        // written with `fireEvent.click` is structurally incapable of seeing it. Found by
-        // adversarial review 2026-09-04; a container-level fix would have to be repeated at
-        // every future call site, so it belongs here.
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate(detailRoutes.point(point.id, fromProfileId));
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
+        {...(openViaDetails ? {} : {
+          role: 'button',
+          tabIndex: 0,
+          // `stopPropagation` on BOTH handlers, and it is this component's job rather than the
+          // caller's. Every surface that expands a story's points wraps them in a card that is
+          // itself a control, so an event that reaches the wrapper navigates a second time and
+          // the LAST navigation wins — the reader asks for the point and lands on the story.
+          //
+          // The click path was already safe by accident: both call sites wrap the list in a
+          // container with `onClick={e => e.stopPropagation()}`. That container does not handle
+          // `onKeyDown`, so keyboard users navigated somewhere mouse users did not, and a test
+          // written with `fireEvent.click` is structurally incapable of seeing it. Found by
+          // adversarial review 2026-09-04; a container-level fix would have to be repeated at
+          // every future call site, so it belongs here.
+          onClick: (e: React.MouseEvent) => {
             e.stopPropagation();
-            navigate(detailRoutes.point(point.id, fromProfileId));
-          }
-        }}
-        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            openPoint();
+          },
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              openPoint();
+            }
+          },
+        })}
+        className={openViaDetails
+          ? 'w-full text-left p-3 rounded-lg border border-border bg-muted'
+          : 'group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'}
       >
         {/* Two-column layout */}
         <div className="flex items-start gap-3">
@@ -221,7 +239,7 @@ export function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
+            <p id={nameId} className="text-sm text-foreground break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
 
             {/* P503: Tag pills */}
             {((point.tags?.length ?? 0) > 0 || (point.systemTags?.length ?? 0) > 0) && (
@@ -243,6 +261,7 @@ export function QuotedPointCard({
           </div>
         </div>
 
+        {openViaDetails && <NestedDetailsButton type="point" onOpen={openPoint} describedBy={nameId} />}
       </div>
     </div>
   );

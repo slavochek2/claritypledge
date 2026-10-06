@@ -24,6 +24,8 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/.{idea,git,cache,output,temp}/**',
+      // Playwright specs (run by playwright.day.config.ts), not vitest
+      'e2e-day/**',
     ],
   },
 })

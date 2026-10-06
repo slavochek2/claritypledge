@@ -1,8 +1,8 @@
 ---
 name: day-cp
-description: ClarityPledge half of the daily run — prod smoke, git/spec health, Supabase + Sentry + Mixpanel user intelligence, repo baseline, RLS and function-grant drift, reflection, goals and branches. Returns HEALTH rows to its caller.
+description: ClarityPledge half of the daily run — prod smoke, git/spec health, Supabase + Sentry + Mixpanel user intelligence, repo baseline, RLS and function-grant drift, reflection, goals and branches. Records a status per check, findings and people for the day report.
 when_to_use: Invoked by the global /day dispatcher, which owns the timestamp, the gcloud gate and the health block. Run directly only to re-check cp health mid-day.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Day — ClarityPledge (/slava:maintain:day-cp)
@@ -20,7 +20,7 @@ inside a public repo.
 | `~/.claude-day-last-run` — read at start, written at end | Do **not** read or write it |
 | `$SINCE` and its floor rule | Do **not** compute your own window |
 | The gcloud auth gate | Assume gcloud is authenticated; if a gcloud call fails anyway, report `⚠ ... NOT checked`, never clean |
-| Rendering the HEALTH block | Emit rows, do not print the block |
+| The day report and its terminal card (P1399) | Record checks, findings and people; print nothing for the founder |
 | Every `~/.claude*` marker | No personal state is read **in this file** (weekly/monthly still read their own — known gap) |
 
 **Inputs from the dispatcher:** `$SINCE` (ISO 8601) and `$DUE_VERDICT` (the Due Board
@@ -28,15 +28,19 @@ rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not 
 fall back to `date -u -v-24H` and **say so in the output**, because every delta below is
 then a 24h delta rather than a since-last-run delta.
 
-**Output to the dispatcher:** the reflection/goals/branches blocks, plus the HEALTH rows
-listed at the end of this file. Return the rows; do not wrap them in a `HEALTH` header — the
-dispatcher concatenates them with its own.
+**Output to the dispatcher:** the reflection and goals blocks (the dispatcher's reflection
+writer reads them), then the `REPORT FOR THE DISPATCHER` block at the end of Step 1. Until P1399
+this was a list of HEALTH rows the dispatcher printed; the founder now reads this sub-day on the
+board, through the checks, findings and people it records, so nothing here is printed for him.
 
 **You run in a subagent (P1328).** The dispatcher spawns this sub-day in its own context so
 its instructions and tool output do not fill the founder's conversation. Two consequences:
-your final reply IS the output — every block this file says to print, verbatim, in order —
-and you cannot wait for the founder. Where a step below says to ask, put the question under a
-closing `QUESTIONS FOR THE FOUNDER` heading instead, and the dispatcher asks it. Subagents do
+your final reply IS the output — the blocks above, for the dispatcher — and you cannot wait for
+the founder. Where a step below has a question for him, record it as a **finding with options**
+(the shape is below), and he answers it on the board; there is no mid-run question and no
+`QUESTIONS FOR THE FOUNDER` heading any more (P1399). A service that needs his sign-in (Sentry,
+Mixpanel) is not a question: it goes in the REPORT block as a connection, which the board shows
+with its own Fix. Subagents do
 get MCP tools (Sentry, Mixpanel) and can spawn their own subagents; both verified 2026-09-17.
 
 ### The step ledger — `$DAY_STEP` (P1324)
@@ -65,6 +69,34 @@ clean morning.
 and move on. Only a wave that never executed is missing, and `day-gates.sh --mode=finish` will
 name it.
 
+**Export `SINCE`, `DUE_VERDICT` and `DAY_STEP` at the start of every Bash call that runs a step**
+(`export SINCE='…' DUE_VERDICT='…' DAY_STEP='…'`). The runner executes each body in a fresh shell,
+which sees only exported variables — a body that reads an unexported `$SINCE` queries an empty
+window, and one that calls an unexported `"$DAY_STEP"` fails.
+
+**Each check reports its own status (P1399).** One wave is one step, and one step used to be one
+ledger row: `cp.w3 ok 0` read clean while the RLS drift inside it exited 1. So each check writes a
+machine line, from its own exit code or token — never from prose — to the file the runner hands
+the body as `$DAY_CHECK_FILE`, and the runner records it as a row of its own. Stdout is never
+parsed for status, because anything a body runs (a test, a dependency, quoted prose) could print a
+line that looks like one. When the token is absent nothing is written, and the board reads that
+check "not proven". Each line is also `tee`d to stdout so you can read it; that copy is never parsed:
+
+```bash
+echo "CHECK <check-id> <ok|problem|not-run|unproven|skipped> <plain detail, under 80 chars>" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+```
+
+Sentry and Mixpanel, which only an MCP call can see, are recorded by you beside their `attest`:
+
+```bash
+"$DAY_STEP" check <check-id> <status> --detail "what came back, in plain words" --step <step-id>
+```
+
+`scripts/day-cp-checks.tsv` lists every check this file reports and the step that computes it, and
+`scripts/test-p1399-day-registry.sh` fails if a check written here is not in it. Do not put `>`, `<`
+or `|` in a detail — these lines are relayed. Run without `$DAY_STEP` (directly, not from `/day`),
+`$DAY_CHECK_FILE` is unset: the status lines still print, and nothing records them.
+
 **If `DAY_STEP` was not passed**, you were invoked directly rather than by `/day`. Run the
 commands as written, and **say so in the output**: nothing this pass does is recorded, exactly
 as an unsupplied `$SINCE` is called out above.
@@ -73,11 +105,30 @@ as an unsupplied `$SINCE` is called out above.
 stranded spec — is recorded where it is found, and the dispatcher files it at its Step 9b:
 
 ```bash
-"$DAY_STEP" finding --check <step-id> --severity high --store private \
-  --title "one line, stable across days — counts and dates go in the BODY" <<'BODY'
-<what was found, and what would settle it>
+"$DAY_STEP" finding --check <check-id> --severity high --store private \
+  --fault-key <check-short>:<fixed-slug> \
+  --title "the fault in plain words — no ages, counts or dates" \
+  --point-a "<where things stand: the consequence>" --obstacle "<what is in the way>" \
+  --point-b "<what fixed looks like>" [--first-seen YYYY-MM-DD] [--evidence verified|unverified] <<'BODY'
+<what the check returned, and what would settle it>
 BODY
 ```
+
+**The fault key is the fingerprint (P1399)** — `<check>:<fault key>`, never the title. Titles that
+carried "62h+" one morning and "13.6 days" the next filed one fault under six fingerprints, and a
+decision the founder made on one could not follow it to the next. A key is a fixed lowercase slug
+(`rls:new-policies`, `spec:qa:p1234`) — never prose, a count or a date, and never a tool's own
+label for the fault (a label can be a misdiagnosis; the key must outlive it). Where a fault is
+one of many of a kind, the suffix is a stable **source id** — a spec number, an issue number, a
+service name, an inbox ID — lowercased, with anything outside `[a-z0-9._:-]` turned into `-`, and
+the whole key cut to 60 characters. `--check` is a check id
+from `scripts/day-cp-checks.tsv` where one fits; a finding about something no check covers (a
+stranded spec, a stash) names the step it came from.
+
+**A finding only the founder can resolve is a question.** Give it its own options, the one you
+recommend, and how it rates: `--option <id>="<label>"` (repeat), `--why "<one line>"`, and for the recommended option one line carrying all three ratings (`finding` refuses a recommendation without them): `--recommend <id> --fit <0-100> --risk "<main risk of the recommended option>" --evidence verified|unverified`.
+**Fit** is how likely the recommended option fixes the real cause without breaking something else (a number you can defend, never a default). **Risk** is the one most likely way it backfires, one line, at most 200 characters. **Evidence** is `verified` when the cause was checked against its source (the board says "Cause checked") and `unverified` when it is suspected ("Cause suspected").
+Never recommend `park` — only the founder parks. Every other finding gets no options; the board offers "Give to the agent" or "Park". (`--fit` replaces the old `--confidence`.)
 
 ---
 
@@ -97,7 +148,14 @@ Combine ALL local operations into a single bash script:
 cd "$(git rev-parse --show-toplevel)"
 
 echo "=== PROD SMOKE ==="
-node scripts/prod-smoke-test.mjs 2>&1 || echo "SMOKE_FAILED"
+SMOKE_OUT="$(node scripts/prod-smoke-test.mjs 2>&1)"; SMOKE_RC=$?
+printf '%s\n' "$SMOKE_OUT"
+[ "$SMOKE_RC" -ne 0 ] && echo "SMOKE_FAILED"
+SMOKE_SUM="$(printf '%s\n' "$SMOKE_OUT" | grep -E '^[0-9]+ passed, [0-9]+ failed' | tail -1)"
+SMOKE_PASS="$(printf '%s' "$SMOKE_SUM" | awk '{print $1}')"; SMOKE_FAIL="$(printf '%s' "$SMOKE_SUM" | awk '{print $3}')"
+if [ -z "$SMOKE_SUM" ]; then echo "CHECK cp.smoke not-run the smoke test did not finish (exit $SMOKE_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$SMOKE_RC" -eq 0 ] && [ "$SMOKE_FAIL" = "0" ]; then echo "CHECK cp.smoke ok $SMOKE_PASS of $SMOKE_PASS smoke checks pass" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.smoke problem $SMOKE_FAIL of $((SMOKE_PASS + SMOKE_FAIL)) smoke checks fail" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== GIT LOG ==="
 git log --oneline --since="$SINCE" --author-date-order
@@ -105,6 +163,9 @@ git log --oneline --since="$SINCE" --author-date-order
 echo "=== GIT BRANCHES ==="
 git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
 git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
+# P1399: commits on local main that origin/main does not have, read from any worktree (branches are
+# shared). The board shows it as a Plan reading; pushing stays the founder's call.
+echo "unpushed_commits=$(git rev-list --count origin/main..main 2>/dev/null || echo unknown)"
 
 echo "=== STRANDED SPECS ==="
 # P1169: work strands in four distinguishable ways. The old scan saw only the
@@ -147,22 +208,35 @@ echo "=== ACTIVITY LOG ==="
 grep -E "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no activity log"
 
 echo "=== CLOUD ==="
-if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q .; then
+GCLOUD_OK=1
+# A real token, not the account list: `auth list` names an account whose credentials have expired.
+if ! gcloud auth print-access-token >/dev/null 2>&1; then
   echo "GCLOUD_NOT_AUTHENTICATED"
+  GCLOUD_OK=0
 else
   gcloud compute instances list --format="value(name,status,zone)" 2>/dev/null || echo "gcloud unavailable"
 fi
-echo -n "ghost_status="
-curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
-echo ""
+GHOST_STATUS="$(curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5)"
+echo "ghost_status=$GHOST_STATUS"
+case "$GHOST_STATUS" in
+  200) echo "CHECK cp.blog ok the blog answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  000|"") echo "CHECK cp.blog problem the blog did not answer within 5 seconds" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.blog problem the blog answered HTTP $GHOST_STATUS" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
 LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ 2>/dev/null | sort | tail -1)
 DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
+BACKUP_AGE=""
 if [ -n "$DATE" ]; then
   DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null)
   if [ -n "$DATE_EPOCH" ]; then
-    echo "backup_age_days=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))"
+    BACKUP_AGE=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))
+    echo "backup_age_days=$BACKUP_AGE"
   fi
 fi
+if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.backup not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ -z "$BACKUP_AGE" ]; then echo "CHECK cp.backup unproven no dated backup could be listed" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== GEMINI PROD KEY (P1162) ==="
 # The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
@@ -171,27 +245,42 @@ echo "=== GEMINI PROD KEY (P1162) ==="
 # check asserts the local copy still matches the deployed digest BEFORE pinging it. Without that
 # assertion a stale local copy reports a false green, which is the exact error P1162 was written on.
 # A dead key is invisible to every spend check above: it spends nothing and looks calm.
-./scripts/check-gemini-prod-key.sh 2>&1
-GEMKEY_RC=$?
+GEMKEY_OUT="$(./scripts/check-gemini-prod-key.sh 2>&1)"; GEMKEY_RC=$?
+printf '%s\n' "$GEMKEY_OUT"
 if [ "$GEMKEY_RC" -ge 2 ]; then
   echo "GEMINI-PROD-KEY-CHECK-DID-NOT-RUN (exit $GEMKEY_RC) — do NOT report clean"
 fi
+# The reading rules below route on this line; until P1399 they named it and nothing printed it.
+echo "gemini_prod_key_exit=$GEMKEY_RC"
 # Offline control pass, same reasoning as the privilege-floor check: a green live run proves the
 # happy path ran, never that the classifier can still tell a tripped cap from a dead key.
 ./scripts/check-gemini-prod-key.sh --self-test 2>&1
-echo "gemini_prod_key_selftest_exit=$?"
+GEMKEY_SELFTEST_RC=$?
+echo "gemini_prod_key_selftest_exit=$GEMKEY_SELFTEST_RC"
+GEMKEY_TOKEN="$(printf '%s\n' "$GEMKEY_OUT" | grep -oE 'KEY_[A-Z_]+' | grep -v '^KEY_PING_OK$' | head -1)"
+if [ "$GEMKEY_RC" -ge 2 ]; then echo "CHECK cp.gemini not-run the production key check could not run (exit $GEMKEY_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMKEY_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.gemini unproven the key classifier failed its self-test" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GEMKEY_RC" -eq 1 ]; then echo "CHECK cp.gemini problem ${GEMKEY_TOKEN:-the production key check found a fault}" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.gemini ok the deployed key matches its digest and answers" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== COST TRIPWIRE ==="
 # Structural leak detection — catches always-on/GPU resources BEFORE cost accrues.
 # (Gross MTD spend is not CLI-readable without BigQuery export; cause-pattern check is the daily signal.
 #  Below also emits EST_PER_DAY — a resource-based €/day estimate, NOT billed actuals. Billed €: weekly /gcp-spend.)
 GCP_PROJECT="gen-lang-client-0869694595"
+# Every `gcloud ... list` is graded on its own exit code (P1399 review): an empty listing piped into a
+# loop or a parser read exactly like "no leaks" when the listing itself had failed. TRIP_FAILED
+# names each listing that failed; any entry makes the check unproven, never ok.
+TRIP_FAILED=""
+TRIPWIRE_OUT="$(mktemp)"
+{
 for REGION in us-east4 us-central1 us-east5 europe-west1; do
-  gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | while read SVC; do
-    [ -z "$SVC" ] && continue
+  SVCS="$(gcloud run services list --project="$GCP_PROJECT" --region="$REGION" --format="value(metadata.name)" 2>/dev/null)"; LIST_RC=$?
+  if [ "$LIST_RC" -ne 0 ]; then TRIP_FAILED="$TRIP_FAILED run-services:$REGION"; echo "RUN_SERVICES_LIST_FAILED: $REGION (exit $LIST_RC)"; continue; fi
+  for SVC in $SVCS; do
     # Per-field queries — multi-field --format mis-maps when annotations are empty (verified May 2026)
-    GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null)
-    MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
+    GPU=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.spec.containers[0].resources.limits['nvidia.com/gpu'])" 2>/dev/null) || TRIP_FAILED="$TRIP_FAILED describe:$SVC"
+    MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null) || TRIP_FAILED="$TRIP_FAILED describe:$SVC"
     # A GPU service is flagged on BILLED hours, not on having a GPU: Cloud Run requires
     # cpu-throttling=false for GPUs, so that annotation carries no signal (cp decisions 2026-10-04).
     [ -n "$GPU" ] && ./scripts/gpu-warm-check.py "$GCP_PROJECT" "$SVC" 3
@@ -199,15 +288,23 @@ for REGION in us-east4 us-central1 us-east5 europe-west1; do
   done
 done
 # Enabled schedulers that target Cloud Run (the keep-warm trap) — selected by target URI and
-# shortest gap between runs; rules in scripts/scheduler-warm-check.py (cp INBOX-P50).
+# shortest gap between runs; rules in scripts/scheduler-warm-check.py (cp INBOX-P50). A listing
+# that failed never reaches the parser: an empty list is "no schedulers", which it is not.
 for REGION in us-east4 us-central1; do
-  SCHED_OUT=$(gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
-    --filter="state=ENABLED" --format="value(name,schedule,httpTarget.uri)" 2>/dev/null \
-    | ./scripts/scheduler-warm-check.py); SCHED_RC=$?
+  JOBS="$(gcloud scheduler jobs list --project="$GCP_PROJECT" --location="$REGION" \
+    --filter="state=ENABLED" --format="value(name,schedule,httpTarget.uri)" 2>/dev/null)"; LIST_RC=$?
+  if [ "$LIST_RC" -ne 0 ]; then
+    TRIP_FAILED="$TRIP_FAILED scheduler:$REGION"
+    echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (listing exit $LIST_RC) — do not report clean"
+    continue
+  fi
+  SCHED_OUT=$({ [ -n "$JOBS" ] && printf '%s\n' "$JOBS"; } | ./scripts/scheduler-warm-check.py); SCHED_RC=$?
   [ -n "$SCHED_OUT" ] && echo "$SCHED_OUT"
-  if [ "$SCHED_RC" -ne 0 ]; then echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (exit $SCHED_RC) — do not report clean"
+  if [ "$SCHED_RC" -ne 0 ]; then TRIP_FAILED="$TRIP_FAILED scheduler-check:$REGION"; echo "SCHEDULER_PINGING_RUN: check did NOT run in $REGION (exit $SCHED_RC) — do not report clean"
   elif [ -n "$SCHED_OUT" ]; then echo "SCHEDULER_PINGING_RUN: ^ enabled job in $REGION — verify it is not keeping a billable instance warm"; fi
 done
+} > "$TRIPWIRE_OUT" 2>&1
+cat "$TRIPWIRE_OUT"
 # €/day estimate + cost since last /day run — resource-based (±5%), NOT billed actuals.
 # Snapshot rate × elapsed window: catches PERSISTENT spend. A leak that started-and-stopped
 # between runs won't show here (only BigQuery billing history would) — that's what the tripwire above is for.
@@ -222,7 +319,12 @@ else
   DAYS_ELAPSED=1
 fi
 export DAYS_ELAPSED
-gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null | python3 -c '
+INSTANCES="$(gcloud compute instances list --project="$GCP_PROJECT" --format="value(name,machineType.basename(),status)" 2>/dev/null)"; LIST_RC=$?
+if [ "$LIST_RC" -ne 0 ]; then
+  TRIP_FAILED="$TRIP_FAILED compute-instances"
+  echo "EST_PER_DAY: not computed — the instance listing failed (exit $LIST_RC)"
+else
+  printf '%s\n' "$INSTANCES" | python3 -c '
 import sys, os
 HR={"e2-micro":0.0084,"e2-small":0.0168,"e2-medium":0.0335,"e2-standard-2":0.0670,"e2-standard-4":0.1340,"e2-standard-8":0.2681,"n1-standard-1":0.0475}
 usd_day=0.16  # disk+storage baseline/day (from /gcp-spend inventory)
@@ -234,20 +336,47 @@ days=float(os.environ.get("DAYS_ELAPSED","1"))
 eur_day=usd_day*0.92  # rough USD->EUR; estimate only
 print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
 '
+fi
+TRIP_N="$(grep -cE '^(GPU_WARM|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
+# A billed-hours query that did not run is unchecked, never clean (scripts/gpu-warm-check.py).
+grep -q '^GPU_CHECK_FAILED:' "$TRIPWIRE_OUT" && TRIP_FAILED="$TRIP_FAILED gpu-hours"
+TRIP_FAILED="$(printf '%s\n' $TRIP_FAILED | sort -u | tr '\n' ' ' | sed 's/ *$//' | cut -c1-50)"
+if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.cost not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$TRIP_N" -gt 0 ]; then echo "CHECK cp.cost problem $TRIP_N possible cost leaks: GPU, always-on or a warm-keeping scheduler" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ -n "$TRIP_FAILED" ]; then echo "CHECK cp.cost unproven listing failed: $TRIP_FAILED" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.cost ok no warm GPU, always-on or warm-keeping scheduler found" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+rm -f "$TRIPWIRE_OUT"
 echo "(empty above = no always-on/GPU cost leaks)"
-
+# The wave's exit is the step's; every finding above is a CHECK line, never a failed step.
+exit 0
 STEP
 ```
 
-Process Wave 1 results before proceeding.
-Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
-Flag cloud only if broken: Ghost non-200, backup >2d old.
+Process Wave 1 results before proceeding. The body has written a status for each of its checks
+(`cp.smoke`, `cp.blog`, `cp.backup`, `cp.gemini`, `cp.cost`). Since P1399 nothing below is shown to
+the founder as a line: where a rule says *show*, *report*, *flag* or *output*, record a finding —
+one per distinct fault, the check's own lines as its body:
+
+| fault | `--check` | `--fault-key` | question for the founder? |
+|---|---|---|---|
+| smoke failing | cp.smoke | `smoke:failing` (severity high; the first failure in Point A) | no |
+| blog not answering | cp.blog | `blog:down` | no |
+| backup more than 2 days old | cp.backup | `backup:stale` | no |
+| Gemini key finding | cp.gemini | `gemini:<token, lowercased with dashes>`, e.g. `gemini:key-digest-mismatch` | no |
+| a tripwire line | cp.cost | `cost:gpu-service:<service>`, `cost:always-on:<service>`, `cost:scheduler-warm:<region>` | no |
+| a spec built and waiting for him (`qa`) | cp.w1 | `spec:qa:<pN>` | **yes**: `--option ship="Ship it (/ship pN)" --option later="Leave it in QA for now"`, recommend from the spec's state, with a confidence |
+| a spec closed but still in `features/` | cp.w1 | `spec:not-moved:<pN>` | no — the agent runs `/slava:maintain:fix-kanban` |
+| a ship started and never finished | cp.w1 | `ship:unfinished:<pN>` (the `--resume` line as Point B) | no |
+
+A stranded spec that is merely `in-progress` is a reading, not a finding. Titles carry no ages or
+counts: "P1234 is built and waiting for you", with the `qa` age in the body and `--first-seen` set
+to the date it reached `qa` when the spec says so.
 
 **gcloud:** if `GCLOUD_NOT_AUTHENTICATED` appears, the dispatcher's gate (Step 0e of
 `~/.claude/commands/day.md`) either did not run or was answered without authenticating.
 **Do not prompt from here** — that is the dispatcher's job and prompting twice is the thing
-the single gate exists to prevent. Report every cloud-dependent row as
-`⚠ ... NOT checked this run (gcloud unauthenticated)` and carry on. Never clean, never silent.
+the single gate exists to prevent. Every cloud-dependent check then reads `not-run` from its own
+CHECK line, and the REPORT block says gcloud was not signed in. Never clean, never silent.
 
 **Gemini prod key** (`=== GEMINI PROD KEY (P1162) ===`) — read `gemini_prod_key_exit=N`:
 
@@ -282,7 +411,7 @@ against a real refusal before treating it as proven.
 - `ALWAYS_ON:` → a service has `minScale ≥ 1` and never idles to zero — paying 24/7.
 - `SCHEDULER_PINGING_RUN:` → an enabled scheduler hits Cloud Run. A poll on a `cpu-throttle=false`/GPU service holds it warm 24/7 (this is the May-2026 €1,600 transcribe-session leak — see decisions). Verify the target isn't being kept alive needlessly. Allowlisted, by name AND interval: `tx-job-janitor` (P858/P902, every 2 h) and `transcribe-room-sweep` (P1307, hourly since 2026-10-01). Either one firing more often than every 30 min is flagged even though it is listed, because a ping inside the ~15-min idle window keeps a `--no-cpu-throttling` service warm 24/7. Any other scheduler whose target is a `run.app` URL is a leak until shown otherwise. Jobs are selected by target URI, not by name.
 
-**Always output a cost block, even when clean** (silence = "did it leak?" uncertainty, the exact problem this prevents):
+**Always record a cost status, even when clean** (silence = "did it leak?" uncertainty, the exact problem this prevents). Since P1399 that is the `cp.cost` CHECK line, and the verdict lines below are the wording of its findings rather than printed lines:
 - **Verdict line:**
   - Any tripwire present → one `⚠ COST LEAK: [line]` per `GPU_WARM:` / `GPU_CHECK_FAILED:` / `ALWAYS_ON:` / `SCHEDULER_PINGING_RUN:` line. These are silent money drains the credit-masked budget won't catch until gross thresholds.
   - All clear → `✓ GPU/cost: no leak (GPU billed under threshold, no always-on, no Run-pinging scheduler)`, with each `GPU_SERVICE_OK:` hours figure appended.
@@ -309,12 +438,21 @@ Run these two in parallel:
    ```
    (Hash `305d49f5287a7c289157a704a0ed3b1e` = `md5('https://mcp.sentry.dev/mcp')` — stable, derived from the server URL, NOT the token. This glob clears ONLY Sentry, never Mixpanel's `3065cf…`. Verified 2026-07-03.)
    Then re-run ToolSearch for `mcp__sentry__search_issues`. If tools appear, proceed — repair was silent (note it in the status line).
-   If tools still absent after clearing: skip with the loud line below, and put under `QUESTIONS FOR THE FOUNDER`: "Sentry auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect sentry (browser OAuth opens) — Wave 2a was skipped this pass." (You run in a subagent and cannot wait for the reconnect; P1328.)
+   If tools still absent after clearing: skip with the loud line below, and report Sentry as `not-connected — auth was stale and cleared, the MCP did not reconnect` in the REPORT block — the board shows it as a connection whose Fix is `/mcp` → reconnect sentry. (You run in a subagent and cannot wait for the reconnect; P1328.)
 3. **No log / different error**: skip with the loud line — don't clear auth blindly.
 
 **Query** (once connected): use `mcp__sentry__search_issues`: org `22minds-llc`, project `javascript-react`, unresolved issues first seen since `$SINCE`. Also look for `live_state_update_failed` in results.
 
-**Always emit exactly one explicit status line** (a skip MUST be visually distinct from "clean" — this is the whole point):
+**Always record exactly one explicit status** (a skip MUST read differently from "clean" — this is the whole point). The four lines below are its wording; since P1399 they are recorded, not printed:
+
+```bash
+"$DAY_STEP" check cp.sentry <ok|problem|not-run> --detail "0 new issues since the last run" --step cp.w2s
+```
+
+Clean or self-healed-and-clean is `ok`; new issues are `problem`, plus **one finding per new issue**
+(`--check cp.sentry --fault-key sentry:<the issue's short id, lowercased> --severity high`, the
+issue title as the title, users affected and event count in the body); skipped is `not-run`, and the
+REPORT block carries why.
 - `✓ Sentry: clean (0 new since last /day)` — connected, no new issues
 - `⚠ Sentry: N new issues — [top title]` — connected, issues found
 - `✓ Sentry: self-healed (cleared stale OAuth), clean` — repair succeeded
@@ -333,13 +471,16 @@ ro() { python3 "$(git rev-parse --show-toplevel)/scripts/supabase-readonly-sql.p
 CUTOFF=$(date -u -v-60M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "60 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 
 echo "=== SIGNUPS ==="
-ro "SELECT id, name, email, created_at FROM public.profiles WHERE created_at > '${SINCE}' AND email <> 'test-agent@claritypledge.com' ORDER BY created_at DESC"
+# P1399: the same query, with the columns the day report's people section needs — slug (to leave out
+# agent accounts), linkedin_url, whether the email was confirmed (auth.users, readable through the
+# read-only role, which bypasses RLS), and the first event they RSVP'd to, as how they arrived.
+ro "SELECT p.id, p.name, p.email, p.slug, p.linkedin_url, p.created_at, (u.email_confirmed_at IS NOT NULL) AS confirmed, (SELECT e.title FROM public.event_rsvps r JOIN public.events e ON e.id = r.event_id WHERE r.profile_id = p.id ORDER BY r.rsvped_at LIMIT 1) AS first_event FROM public.profiles p LEFT JOIN auth.users u ON u.id = p.id WHERE p.created_at > '${SINCE}' AND p.email <> 'test-agent@claritypledge.com' ORDER BY p.created_at DESC"
 
 echo -e "\n=== STORIES ==="
-ro "SELECT author_id, created_at FROM public.stories WHERE created_at > '${SINCE}' ORDER BY created_at DESC"
+ro "SELECT s.author_id, p.name, p.slug, p.linkedin_url, s.created_at FROM public.stories s LEFT JOIN public.profiles p ON p.id = s.author_id WHERE s.created_at > '${SINCE}' ORDER BY s.created_at DESC"
 
 echo -e "\n=== POSITIONS ==="
-ro "SELECT user_id, updated_at FROM public.point_positions WHERE updated_at > '${SINCE}' ORDER BY updated_at DESC"
+ro "SELECT pp.user_id, p.name, p.slug, p.linkedin_url, pp.updated_at FROM public.point_positions pp LEFT JOIN public.profiles p ON p.id = pp.user_id WHERE pp.updated_at > '${SINCE}' ORDER BY pp.updated_at DESC"
 
 echo -e "\n=== VERIFICATIONS ==="
 ro "SELECT speaker_id, listener_id, created_at FROM public.story_verifications WHERE created_at > '${SINCE}'"
@@ -365,8 +506,33 @@ echo -e "\n=== FUNNEL: AGREEMENTS ==="
 FUNNEL_AGREEMENTS=$(ro "SELECT count(*) AS n FROM public.clarity_agreements WHERE status = 'active'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
 echo "$FUNNEL_AGREEMENTS"
 
+echo -e "\n=== UNCONFIRMED SIGN-UPS (P1257 window: older than 24h, newer than 7 days) ==="
+# A count only: the addresses stay out of this output (check-stranded-signups.sh's privacy rule).
+UNCONF=$(ro "SELECT count(*) AS n FROM auth.users WHERE email_confirmed_at IS NULL AND created_at < now() - interval '24 hours' AND created_at > now() - interval '7 days'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(r[0]['n'] if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "unconfirmed_signups=$UNCONF"
+case "$UNCONF" in
+  0) echo "CHECK cp.signups ok every sign-up of the last week confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  ''|*[!0-9]*) echo "CHECK cp.signups not-run the sign-up confirmation query failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.signups problem $UNCONF sign-ups never confirmed their email" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
+
+echo -e "\n=== EVENTS HELD PER WEEK (the 6 full weeks before this one, P1399) ==="
+# Past, not cancelled, by start time. `status` is not a reliable "held" marker (a past event can
+# still read upcoming), so the start time decides; test-account hosts are left out like everywhere
+# here. The current week is left out: it is partial, and plotted as 0 every Monday. One token for
+# the REPORT block: <Monday as YYYY-MM-DD>:<count> pairs, oldest first; "unknown" if the query failed.
+EVENTS_PER_WEEK=$(ro "SELECT to_char(w, 'YYYY-MM-DD') AS week, count(e.id) AS n FROM generate_series(date_trunc('week', now()) - interval '6 weeks', date_trunc('week', now()) - interval '1 week', interval '1 week') AS w LEFT JOIN public.events e ON e.datetime >= w AND e.datetime < w + interval '1 week' AND e.datetime < now() AND COALESCE(e.status, '') <> 'cancelled' AND NOT EXISTS (SELECT 1 FROM public.profiles tp WHERE tp.id = e.host_id AND tp.email = 'test-agent@claritypledge.com') GROUP BY w ORDER BY w" | python3 -c "import json,sys;r=json.load(sys.stdin);print(','.join('%s:%s' % (x['week'], x['n']) for x in r) if isinstance(r,list) and r else 'unknown')" 2>/dev/null || echo "unknown")
+echo "events_per_week=$EVENTS_PER_WEEK"
+
 echo -e "\n=== ORPHANED SESSIONS ==="
-ro "SELECT id, code, created_at, expires_at FROM public.clarity_sessions WHERE joiner_name IS NOT NULL AND expires_at < '${CUTOFF}' AND demo_status <> 'completed' ORDER BY expires_at DESC LIMIT 5"
+ORPH=$(ro "SELECT id, code, created_at, expires_at FROM public.clarity_sessions WHERE joiner_name IS NOT NULL AND expires_at < '${CUTOFF}' AND demo_status <> 'completed' ORDER BY expires_at DESC LIMIT 5")
+echo "$ORPH"
+ORPH_N=$(printf '%s' "$ORPH" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+case "$ORPH_N" in
+  0) echo "CHECK cp.sessions ok no joined live session left without completion" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  ''|*[!0-9]*) echo "CHECK cp.sessions not-run the session query failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.sessions problem $ORPH_N joined live sessions never completed (5 shown at most)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
 
 echo -e "\n=== TRANSCRIPTION HEALTH ==="
 # P874 tier-0 job health. Uses only columns on prod today (status/created_at/updated_at) —
@@ -376,8 +542,15 @@ echo -e "\n=== TRANSCRIPTION HEALTH ==="
 TX_STALE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 TX_LOST=$(date -u -v-5M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "5 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
 echo -n "counts: "; ro "SELECT status FROM public.transcription_jobs" | python3 -c "import json,sys;from collections import Counter;r=json.load(sys.stdin);print('query failed:',r.get('message')) if isinstance(r,dict) else print(dict(Counter(x['status'] for x in r)) or {})" 2>/dev/null || echo "?"
-echo -n "stale_processing(>30m): "; ro "SELECT id FROM public.transcription_jobs WHERE status = 'processing' AND updated_at < '${TX_STALE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
-echo -n "lost_pending(>5m): "; ro "SELECT id FROM public.transcription_jobs WHERE status = 'pending' AND created_at < '${TX_LOST}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?"
+TX_STALE_N=$(ro "SELECT id FROM public.transcription_jobs WHERE status = 'processing' AND updated_at < '${TX_STALE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "stale_processing(>30m): $TX_STALE_N"
+TX_LOST_N=$(ro "SELECT id FROM public.transcription_jobs WHERE status = 'pending' AND created_at < '${TX_LOST}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else '?')" 2>/dev/null || echo "?")
+echo "lost_pending(>5m): $TX_LOST_N"
+case "$TX_STALE_N:$TX_LOST_N" in
+  0:0) echo "CHECK cp.transcribe ok no stale or lost transcription jobs" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *[!0-9:]*|:*|*:) echo "CHECK cp.transcribe not-run the transcription job queries failed" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.transcribe problem $TX_STALE_N stale and $TX_LOST_N lost transcription jobs" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
 
 echo -e "\n=== EVENT EMAIL HEALTH ==="
 # P1256 tier-0. This is the check that would have caught a THREE-MONTH outage on day one:
@@ -400,36 +573,26 @@ echo -e "\n=== EVENT EMAIL HEALTH ==="
 # on schedule 328 times and FAILED all 328, logging an identical `column "Authorization"
 # does not exist` into cron.job_run_details each time. A hard, loud, recorded error —
 # operationally identical to silence, because nothing ever read that table. Read it.
-# THE CRON'S OWN STATUS IS NOT ENOUGH — and this is the correction that matters most.
-# net.http_post is ASYNCHRONOUS: it queues the request and returns, so the tick function
-# completes successfully whatever the HTTP outcome, and pg_cron records "succeeded".
-# Measured 2026-09-07: cron_status succeeded at 08:30 while the response arrived
-# separately in net._http_response. A 401 — a rotated secret, a wrong anon key, a missing
-# Vault entry — therefore produces a GREEN cron row.
-#
-# That is the P1256 outage's own failure mode reintroduced in a quieter form: the old
-# broken job at least errored loudly in SQL 328 times. The replacement cannot fail that
-# way, so cron status alone would report health while nothing was being delivered.
-# Caught in review, before it had a chance to hide a second outage.
-#
-# So assert POSITIVE evidence of delivery instead: the dispatcher's own 200 body is the
-# only thing in the database that emits "mode":"cron", which makes it unambiguous
-# attribution without a URL column (net._http_response has none). Absence of a recent one
-# covers BOTH failure shapes at once — no request queued (missing Vault config) and a
-# request that came back non-2xx.
+# The cron's own status is not evidence of delivery, so this asserts a recent successful
+# dispatch response instead. Why, and the incident behind it: `.private/docs/` (P1256).
 DISPATCH_SQL="SELECT max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%') AS last_ok_dispatch, round(extract(epoch FROM now()-max(created) FILTER (WHERE status_code=200 AND content LIKE '%\"mode\":\"cron\"%'))/60) AS mins_since_ok, count(*) FILTER (WHERE status_code<>200 AND created > now()-interval '6 hours') AS non_2xx_6h FROM net._http_response;"
-ro "$DISPATCH_SQL" || echo "dispatch-delivery check FAILED — read-only query did not run (see message above)"
+DISPATCH_OUT=$(ro "$DISPATCH_SQL"); DISPATCH_RC=$?
+echo "$DISPATCH_OUT"
+[ "$DISPATCH_RC" -eq 0 ] || echo "dispatch-delivery check FAILED — read-only query did not run (see message above)"
 
 # Plain single quotes. This line used to carry '"'"' escapes — the single-quoted-string idiom —
 # inside a DOUBLE-quoted string, where they break the assignment: CRON_SQL came out empty and
 # the API answered `query: Too small`, which printed as a JSON blob with no FAILED marker.
 # The daily cron check had not been running (found 2026-09-15, P1214 parity run).
 CRON_SQL="SELECT j.jobname, j.active, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='failed' AND d.start_time > now() - interval '24 hours') AS failed_24h, (SELECT count(*) FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='succeeded' AND d.start_time > now() - interval '24 hours') AS ok_24h, (SELECT d.return_message FROM cron.job_run_details d WHERE d.jobid=j.jobid AND d.status='failed' ORDER BY d.start_time DESC LIMIT 1) AS last_error FROM cron.job j ORDER BY j.jobname;"
-ro "$CRON_SQL" || echo "cron check FAILED — read-only query did not run (see message above)"
+CRON_OUT=$(ro "$CRON_SQL"); CRON_RC=$?
+echo "$CRON_OUT"
+[ "$CRON_RC" -eq 0 ] || echo "cron check FAILED — read-only query did not run (see message above)"
 
 EMAIL_FLOOR="2026-09-07T00:00:00Z"
 EMAIL_OVERDUE=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "30 minutes ago" +"%Y-%m-%dT%H:%M:%SZ")
-echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; ro "SELECT id FROM public.event_rsvps WHERE feedback_scheduled_at < '${EMAIL_OVERDUE}' AND feedback_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'feedback') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+OVERDUE_FB=$(ro "SELECT id FROM public.event_rsvps WHERE feedback_scheduled_at < '${EMAIL_OVERDUE}' AND feedback_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'feedback') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
+echo "overdue_unsent_feedback(since ${EMAIL_FLOOR}): $OVERDUE_FB"
 # LOWER BOUND, not decoration. Every row from the 2026-06→09 outage has a past
 # reminder_scheduled_at and an empty mailgun_message_ids, and those rows are
 # deliberately NOT recoverable — a "your event is tomorrow" email for an event that
@@ -438,10 +601,46 @@ echo -n "overdue_unsent_feedback(since ${EMAIL_FLOOR}): "; ro "SELECT id FROM pu
 # future outage would add +1 to a number already being ignored. That is the alert-fatigue
 # failure, in a check written because the last outage hid for three months. The floor is
 # the P1256 deploy date: only rows scheduled AFTER the cron was fixed can indict it.
-echo -n "overdue_unsent_reminder(since ${EMAIL_FLOOR}): "; ro "SELECT id FROM public.event_rsvps WHERE reminder_scheduled_at < '${EMAIL_OVERDUE}' AND reminder_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'reminder') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+OVERDUE_RM=$(ro "SELECT id FROM public.event_rsvps WHERE reminder_scheduled_at < '${EMAIL_OVERDUE}' AND reminder_scheduled_at > '${EMAIL_FLOOR}' AND (mailgun_message_ids->>'reminder') IS NULL" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
+echo "overdue_unsent_reminder(since ${EMAIL_FLOOR}): $OVERDUE_RM"
 # Stuck PENDING = the dispatcher claimed a row and then died before writing the Mailgun id
 # back. Distinct from the above: the cron IS running, but a send is failing mid-flight.
-echo -n "stuck_pending_feedback: "; ro "SELECT id FROM public.event_rsvps WHERE (mailgun_message_ids->>'feedback') = 'PENDING' AND feedback_attempted_at < '${EMAIL_OVERDUE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?"
+STUCK_FB=$(ro "SELECT id FROM public.event_rsvps WHERE (mailgun_message_ids->>'feedback') = 'PENDING' AND feedback_attempted_at < '${EMAIL_OVERDUE}'" | python3 -c "import json,sys;r=json.load(sys.stdin);print(len(r) if isinstance(r,list) else 'query failed: '+str(r.get('message')))" 2>/dev/null || echo "?")
+echo "stuck_pending_feedback: $STUCK_FB"
+# One status for the whole block, from the numbers above and the rules below it: silent dispatch
+# (no successful cron dispatch in 90 minutes, or a non-2xx in 6h), a failing cron job, an overdue
+# or stuck row. Any query that did not return is not-run — never read as zero.
+DISPATCH_OUT="$DISPATCH_OUT" CRON_OUT="$CRON_OUT" DISPATCH_RC="$DISPATCH_RC" CRON_RC="$CRON_RC" \
+OVERDUE_FB="$OVERDUE_FB" OVERDUE_RM="$OVERDUE_RM" STUCK_FB="$STUCK_FB" python3 -c '
+import json, os
+e = os.environ.get
+def rows(k):
+    try:
+        r = json.loads(e(k) or "")
+        return r if isinstance(r, list) else None
+    except ValueError:
+        return None
+d, c = rows("DISPATCH_OUT"), rows("CRON_OUT")
+counts = [e("OVERDUE_FB"), e("OVERDUE_RM"), e("STUCK_FB")]
+if e("DISPATCH_RC") != "0" or e("CRON_RC") != "0" or d is None or c is None or not all((x or "").isdigit() for x in counts):
+    print("CHECK cp.email not-run an event email or cron query did not return")
+    raise SystemExit
+why = []
+r = d[0] if d else {}
+mins = r.get("mins_since_ok")
+if mins is None or float(mins) > 90:
+    why.append("no successful dispatch in 90 minutes")
+if int(r.get("non_2xx_6h") or 0) > 0:
+    why.append("dispatch answered non-2xx")
+failing = [j.get("jobname") for j in c if int(j.get("failed_24h") or 0) > 0]
+if failing:
+    why.append("%d scheduled jobs failing" % len(failing))
+if int(counts[0]) + int(counts[1]) > 0:
+    why.append("emails overdue and unsent")
+if int(counts[2]) > 0:
+    why.append("sends stuck pending")
+print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch delivering, no failing job, nothing overdue"))
+' | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 
 echo -e "\n=== FUNNEL CSV ==="
 # Pin to the MAIN checkout, not a worktree — .private/ is gitignored, so a worktree
@@ -450,6 +649,10 @@ MAIN_GIT_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
 METRICS_DIR="$(dirname "$MAIN_GIT_DIR")/.private/metrics"
 mkdir -p "$METRICS_DIR"
 CSV_FILE="$METRICS_DIR/funnel-daily.csv"
+# P1399: the funnel as a day-report reading, with the change since the last earlier day's row.
+FUNNEL_PREV=$(grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | grep -v "^$(date -u +%Y-%m-%d)," | tail -1)
+echo "funnel_today=${FUNNEL_SIGNUPS},${FUNNEL_STORY_USERS},${FUNNEL_POSITION_USERS},${FUNNEL_AGREEMENTS}"
+echo "funnel_previous_row=${FUNNEL_PREV:-none}"
 # Strip any trailing blank line before reading the tail — an empty last line never
 # equals today's date, which would otherwise defeat the dedup below on every run.
 LAST_CSV_DATE=$(grep -v '^[[:space:]]*$' "$CSV_FILE" 2>/dev/null | tail -1 | cut -d, -f1)
@@ -478,6 +681,20 @@ STEP
 
 **This append is mandatory, not optional — it runs inline in the Wave 2b bash script above, using the funnel counts it already computed.** If `CSV_APPEND_SKIPPED` or `⚠ FUNNEL CSV STALE` appears in output, flag it (a query failed, or a prior run silently didn't append) rather than continuing past it. Filter out `test-agent@claritypledge.com` from all results.
 
+**Since P1399 the wave reports its own checks** (`cp.signups`, `cp.sessions`, `cp.transcribe`,
+`cp.email`) and the rules below decide the findings rather than printed lines:
+
+| fault | `--check` | `--fault-key` |
+|---|---|---|
+| sign-ups that never confirmed | cp.signups | `signups:unconfirmed` (the count in the body, never an address) |
+| orphaned live sessions | cp.sessions | `sessions:orphaned` |
+| stale / lost transcription jobs | cp.transcribe | `transcribe:stale-jobs`, `transcribe:lost-jobs` |
+| silent dispatch, a failing cron job, overdue or stuck emails | cp.email | `email:dispatch-silent`, `email:cron-failing:<jobname>`, `email:overdue-unsent`, `email:stuck-pending` |
+| a funnel CSV row skipped or stale | cp.w2 | `funnel:csv-skipped`, `funnel:csv-stale` |
+| a read-only query failed (`message` instead of rows) | cp.w2 | `supabase:readonly-query-failed` |
+
+Keep `unconfirmed_signups=N` for the REPORT block.
+
 **Closed 2026-09-15 (P1214):** the four funnel counts used to take client-side `len()` of an unpaginated PostgREST response, which plateaus silently at the `max-rows` cap. They now `count(*)` in SQL through the read-only helper, which has no row cap.
 
 If response is a JSON object with `message` key (not array): `⚠ User activity: query failed — <message>`. The usual cause is a missing or expired `SUPABASE_READONLY_TOKEN` (the scoped `Database: Read` token, ~90-day lifetime). **Never "fix" this by switching the block back to the prod master key** — that restores write authority to a read-only report (P1214).
@@ -495,10 +712,8 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 `mins_since_ok` should be under ~60 (the job runs every 30 min). Over ~90 minutes, or
 `last_ok_dispatch` null, means **nothing is being delivered** — report
 `⚠ EVENT EMAIL DISPATCH SILENT: no successful dispatch in N minutes`. `non_2xx_6h > 0`
-names the shape: an auth failure (rotated CRON_SECRET, wrong anon key) returns 401 here
-while pg_cron still reports success, because `net.http_post` is asynchronous and the tick
-returns before the response exists. **Never conclude the dispatcher is healthy from a green
-cron row alone** — that combination is precisely what a rotated secret looks like.
+means dispatches are being refused. **Never conclude the dispatcher is healthy from a green
+cron row alone** (the history is in `.private/docs/`, P1256).
 
 **Then read the cron rows — they catch a different failure: the job not running at all.**
 Any job with `failed_24h > 0` is broken NOW, and `last_error` says how. A job with
@@ -541,7 +756,9 @@ delivery time, so a row should never still be unclaimed after its moment has pas
 
 Cross-reference: user IDs in activity but NOT in new signups = **returning users**.
 
-Show the Supabase summary (Wave 2b enriches this with Mixpanel narratives):
+Assemble the Supabase summary (Wave 2b enriches this with Mixpanel narratives). Since P1399 it is
+not printed: each person in it becomes one record of the people section (step `cp.people`, after
+Wave 2c), and the founder reads them on the board:
 ```
 USER INTELLIGENCE (since last /day)
   New:       N signups
@@ -557,10 +774,10 @@ Quiet period (no real users): `Quiet: no real user activity since last /day (fou
 
 The daily CSV row was already appended earlier in this wave's bash script (`=== FUNNEL CSV ===` block) — no separate step needed here. If a previous entry exists, show deltas in the funnel line.
 
-Show: `✓ Sessions: no orphans` or `⚠ ORPHANED SESSIONS: N sessions with joined users but no completion (possible deadlocks) — check Sentry for live_state errors`
+Sessions: the `cp.sessions` CHECK line carries it; a non-zero count is the `sessions:orphaned` finding — possible deadlocks, check Sentry for live_state errors.
 
 
-**Record it:**
+**Record it** (the Sentry check is recorded first, above):
 ```bash
 "$DAY_STEP" attest cp.w2s --evidence "how many Sentry issues since $SINCE, and the worst one"
 ```
@@ -592,10 +809,15 @@ Three-phase per-user intelligence. Enriches the Supabase data from Wave 2 with b
    ```
    (The `3065cf…` hash is stable — derived from the Mixpanel server URL, not the token. Verified 2026-06-06.)
    Then re-run ToolSearch for `mcp__mixpanel__Run-Query`. If tools appear now, proceed — repair was silent.
-   If tools still absent after clearing: skip all three phases with `⚠ Mixpanel MCP unavailable — user narratives skipped`, and put under `QUESTIONS FOR THE FOUNDER`: "Mixpanel auth was stale and cleared, but the MCP didn't reconnect. Run `/mcp` → reconnect mixpanel (browser OAuth opens) — Wave 2b was skipped this pass." (You run in a subagent and cannot wait for the reconnect; P1328.)
+   If tools still absent after clearing: skip all three phases with `⚠ Mixpanel MCP unavailable — user narratives skipped`, and report Mixpanel as `not-connected — auth was stale and cleared, the MCP did not reconnect` in the REPORT block; the board shows it with its Fix, `/mcp` → reconnect mixpanel. (You run in a subagent and cannot wait for the reconnect; P1328.)
 3. **No log / different error**: skip with `⚠ Mixpanel MCP unavailable — user narratives skipped` — don't clear auth blindly.
 
-**Always emit exactly one explicit Mixpanel status line** — a connection failure MUST read differently from a legitimately-idle day (the two look identical otherwise, which is the confusion this prevents):
+**Always record exactly one explicit Mixpanel status** — a connection failure MUST read differently from a legitimately-idle day (the two look identical otherwise, which is the confusion this prevents). The lines below are its wording; since P1399 it is recorded, not printed — checked or self-healed is `ok`, the quiet day is `skipped`, not configured or unreachable is `not-run` (and a REPORT-block connection), and a magic-link gap is `problem` plus the finding `--check cp.mixpanel --fault-key mixpanel:magic-link-gap`:
+
+```bash
+"$DAY_STEP" check cp.mixpanel <ok|skipped|problem|not-run> --detail "4 users looked up" --step cp.w2b
+```
+
 - `✓ Mixpanel: checked (N users drilled)` — connected, real users narrated
 - `✓ Mixpanel: not called — no real users this run (nothing to drill, not a failure)` — the quiet-day case; connection was never needed
 - `✓ Mixpanel: self-healed (cleared stale OAuth), N drilled` — repair succeeded
@@ -677,7 +899,7 @@ For each user with Mixpanel drill results, produce a per-user narrative using th
 - `[engaged]` — returning user with new actions (positions, stories, sessions)
 - Do NOT use "churned" — with <10 users and <7 days of data, "paused" is more honest
 
-**Final output format:**
+**Final output format** (the content each person's record carries — Step `cp.people` below; not printed):
 ```
 USER INTELLIGENCE (since last /day)
   New: N signups
@@ -713,7 +935,7 @@ Synthesize into a single line per person:
 - Role/context if findable: "UWaterloo robotics student, Tesla internships. Pre-company."
 - If nothing surfaces: "No public record found."
 
-Output appended to the USER INTELLIGENCE block:
+The line becomes that person's `background` in the people section (Step `cp.people`):
 ```
   · [Signup A] — finance background, pivot to nonprofit/education. No startup record.
   · [Signup B] — engineering student, pre-company stage.
@@ -734,6 +956,65 @@ If Wave 2 found no new real-user signups this step does not apply — record tha
 "$DAY_STEP" skip cp.w2c --reason "Wave 2 reported no new real-user signups this window"
 ```
 
+#### People — recorded for the day report (P1399)
+
+The board's people list is the USER INTELLIGENCE block as data: one record per **real** person who
+signed up or came back since `$SINCE`. Never the founder's, test or agent accounts — Phase 1's
+classification against `.private/docs/founder-accounts.md`, plus any name starting `Agent · ` or
+slug starting `agent-` (the reserved machine namespaces). One block per person, fields one per line,
+a blank line between people; leave out any field you do not actually have — never guess one. An
+empty list (`[]`) is recorded too: a quiet day is a fact, and an absent section would read "not
+collected".
+
+- `id` — the profile id · `name` · `joined_at` — `created_at` from SIGNUPS (new people only)
+- `source` — `Event: <first_event>` when SIGNUPS returned one, else leave it out
+- `confirmed` — `yes` / `no` from SIGNUPS
+- `did` / `stopped_at` — Phase 3's narrative, one line each · `returning` — `yes` for a returning user
+- `linkedin_url` · `background` — Wave 2c's line
+
+```bash
+"$DAY_STEP" run cp.people <<'STEP'
+python3 -c '
+import json, re, sys
+people, cur, seen = [], {}, set()
+def flush():
+    global cur
+    if cur.get("id") and cur.get("name") and cur["id"] not in seen:
+        seen.add(cur["id"])
+        people.append(cur)
+    elif cur:
+        sys.exit("a person block needs an id and a name, once each")
+    cur = {}
+for line in sys.stdin.read().splitlines():
+    if not line.strip():
+        flush()
+        continue
+    k, sep, v = line.partition(":")
+    k, v = k.strip(), v.strip()
+    if not sep or not v or v.startswith("<"):
+        continue
+    if k in ("confirmed", "returning"):
+        cur[k] = v.lower() in ("yes", "true")
+    elif k in ("id", "name", "joined_at", "source", "did", "stopped_at", "linkedin_url", "background"):
+        cur[k] = v
+flush()
+for p in people:
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,80}", p["id"]):
+        sys.exit("not a profile id: " + p["id"][:20])
+    if p.get("returning") is False:
+        del p["returning"]
+json.dump(people, sys.stdout)
+' <<'PEOPLE' | "$DAY_STEP" data people
+<one block per person, as above; nothing at all when nobody real signed up or came back>
+PEOPLE
+STEP
+```
+
+The step fails, visibly, if a block has no id or name or the runner refuses the section. The
+runner records a step once, so fix the block and send the same pipeline again *without* the `run`
+wrapper (`… | "$DAY_STEP" data people`) rather than leave the board without people. Count them for
+the REPORT block.
+
 #### Wave 3: Repo health + file reads (2-3 calls, after processing Wave 1-2)
 
 **a) Repo health** (1 bash call):
@@ -741,11 +1022,25 @@ If Wave 2 found no new real-user signups this step does not apply — record tha
 "$DAY_STEP" run cp.w3 <<'STEP'
 cd "$(git rev-parse --show-toplevel)"
 echo "=== LINT ==="
-npm run lint 2>&1 | grep -c "error" || echo "0"
+LINT_OUT="$(npm run lint 2>&1)"; LINT_RC=$?
+LINT_N="$(printf '%s\n' "$LINT_OUT" | grep -c "error")"
+echo "$LINT_N"
 echo "=== TEST ==="
-npm test -- --run 2>&1 | tail -5
+TEST_OUT="$(npm test -- --run 2>&1)"; TEST_RC=$?
+printf '%s\n' "$TEST_OUT" | tail -5
+TESTS_PASSED="$(printf '%s\n' "$TEST_OUT" | sed -n 's/^ *Tests  *\([0-9][0-9]*\) passed.*/\1/p' | tail -1)"
+if [ "$LINT_RC" -eq 0 ] && [ "$TEST_RC" -eq 0 ]; then echo "CHECK cp.baseline ok ${TESTS_PASSED:-all} tests pass, lint clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.baseline problem lint exit $LINT_RC with $LINT_N error lines, tests exit $TEST_RC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== OPS ISSUES ==="
-gh issue list --state open --limit 50 || echo "OPS-ISSUES-CHECK-FAILED (exit $?)"
+OPS_OUT="$(gh issue list --state open --limit 50 2>&1)"; OPS_RC=$?
+printf '%s\n' "$OPS_OUT"
+if [ "$OPS_RC" -ne 0 ]; then echo "OPS-ISSUES-CHECK-FAILED (exit $OPS_RC)"; echo "CHECK cp.ops not-run the GitHub issue list could not be read (exit $OPS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else
+  # Every open issue in this repo is a scheduled gate's alert (P866 find-or-append pattern).
+  OPS_N="$(printf '%s\n' "$OPS_OUT" | grep -c .)"
+  if [ "$OPS_N" -eq 0 ]; then echo "CHECK cp.ops ok no open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  else echo "CHECK cp.ops problem $OPS_N open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+fi
 echo "=== RLS DRIFT ==="
 # Pin to the MAIN checkout, same reason as the funnel CSV below: the baseline lives
 # under .private/ (gitignored, so absent in worktrees), and a worktree on an older
@@ -765,16 +1060,26 @@ if [ "$RLS_RC" -ge 2 ]; then
   echo "RLS-DRIFT-CHECK-DID-NOT-RUN (exit $RLS_RC) — do NOT report clean"
 fi
 echo "rls_drift_exit=$RLS_RC"
+case "$RLS_RC" in
+  0) echo "CHECK cp.rls ok no policy outside the recorded baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  1) echo "CHECK cp.rls problem new policies on a live database, not in the baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.rls not-run the RLS drift check did not run (exit $RLS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
 echo "=== FUNCTION GRANT DRIFT ==="
 # Same main-checkout pinning and same three-way exit contract as the RLS check
 # above. Separate script because it reads a different catalog (EXECUTE grants on
 # pg_proc, not pg_policies) — the RLS check is blind to the entire P1063 class.
-python3 "$RLS_MAIN_ROOT/scripts/function-grant-drift-check.py" --summary 2>&1
+FGD_OUT="$(python3 "$RLS_MAIN_ROOT/scripts/function-grant-drift-check.py" --summary 2>&1)"
 FGD_RC=$?
+printf '%s\n' "$FGD_OUT"
 if [ "$FGD_RC" -ge 2 ]; then
   echo "FUNCTION-GRANT-CHECK-DID-NOT-RUN (exit $FGD_RC) — do NOT report clean"
 fi
 echo "function_grant_exit=$FGD_RC"
+if [ "$FGD_RC" -ge 2 ]; then echo "CHECK cp.grants not-run the function grant check did not run (exit $FGD_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$FGD_RC" -eq 1 ]; then echo "CHECK cp.grants problem a function became callable without sign-in, or the databases disagree" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif printf '%s\n' "$FGD_OUT" | grep -q 'BLIND'; then echo "CHECK cp.grants unproven grants match, but the guard probe could not run" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.grants ok no function grant outside the recorded baseline" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== PRIVILEGE FLOOR (P1207) ==="
 # Third catalog, third blind spot closed. The RLS check reads pg_policies and the function-grant
 # check reads EXECUTE on pg_proc; NEITHER reads table/column privileges or pg_default_acl, so
@@ -792,10 +1097,30 @@ echo "privilege_floor_exit=$PF_RC"
 # detector still able to TELL the difference? An adversarial review defeated the first version
 # of this detector with `true AND true`, so a green live run is not evidence the check works.
 python3 "$RLS_MAIN_ROOT/scripts/check-p1207-privilege-floor.py" --self-test 2>&1
-echo "privilege_floor_selftest_exit=$?"
+PF_SELFTEST_RC=$?
+echo "privilege_floor_selftest_exit=$PF_SELFTEST_RC"
+if [ "$PF_RC" -ge 2 ]; then echo "CHECK cp.floor not-run the privilege floor check did not run (exit $PF_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$PF_SELFTEST_RC" -ne 0 ]; then echo "CHECK cp.floor unproven the detector failed its self-test, so its verdict proves nothing" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$PF_RC" -eq 1 ]; then echo "CHECK cp.floor problem a banned privilege is back on prod" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else echo "CHECK cp.floor ok no banned privilege on prod" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+# The wave's exit is the step's; every finding above is a CHECK line, never a failed step.
+exit 0
 STEP
 ```
-Show: `✓ Repo baseline: clean` or `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work`
+Each check above has printed its status (`cp.baseline`, `cp.ops`, `cp.rls`, `cp.grants`, `cp.floor`).
+Since P1399 the reading rules below decide **findings**, not printed lines — where one says *report*,
+*surface* or *flag*, record:
+
+| fault | `--check` | `--fault-key` |
+|---|---|---|
+| lint errors / failing tests | cp.baseline | `baseline:lint-errors`, `baseline:tests-failing` — "fix before starting new work" is its Point B |
+| an open ops alert issue | cp.ops | `ops:issue-<number>` — the issue's title and its fix command; `--first-seen` = the issue's creation date |
+| NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) |
+| NEW function grant drift / guards not refusing anon | cp.grants | `grants:new-anon-execute`, `grants:guard-not-refusing` |
+| a privilege-floor violation / a failed self-test | cp.floor | `floor:violations`, `floor:selftest-failed` |
+
+Known-open backlog counts stay what they were — **not** findings, and not re-litigated daily. Every
+security finding stays `--store private` (it names live, unpatched objects).
 
 **RLS drift** (`=== RLS DRIFT ===`, P1048): read-only three-way diff of live prod vs live test vs migration files. This is the check that would have caught P1046, where four permissive policies sat live on prod — one of them an unauthenticated read of private data — invisible to every file-based audit in the repo. It runs here rather than in CI because it needs both projects' credentials and they already exist locally; putting a full-account Supabase token into GitHub Actions to buy a daily email was judged the wrong trade (P1048).
 
@@ -845,48 +1170,84 @@ summary (founder, 2026-09-29; anon reads cannot see shared-link or author-only s
 ```bash
 "$DAY_STEP" run cp.vsum <<'STEP'
 cd "$(git rev-parse --show-toplevel)"
-node scripts/video-summary.mjs heal 5; rc=$?
+VS_OUT="$(node scripts/video-summary.mjs heal 5 2>&1)"; rc=$?
+printf '%s\n' "$VS_OUT"
 [ $rc -ne 0 ] && echo "VIDEO-SUMMARY-HEAL-FAILED (exit $rc)"
+VS_READY="$(printf '%s\n' "$VS_OUT" | sed -n 's/^READY FOR YOUR YES (\([0-9]*\)).*/\1/p' | tail -1)"
+VS_FAILED="$(printf '%s\n' "$VS_OUT" | sed -n 's/^FAILED (\([0-9]*\)).*/\1/p' | tail -1)"
+case "$rc" in
+  0) echo "CHECK cp.video ok summary heal ran, ${VS_READY:-0} summaries wait for your yes" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  1) echo "CHECK cp.video problem ${VS_FAILED:-some} video summaries failed to draft or check" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  *) echo "CHECK cp.video not-run the summary heal could not run (exit $rc)" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+esac
 exit $rc
 STEP
 ```
 
-Report the three counts. Put `READY FOR YOUR YES` under `QUESTIONS FOR THE FOUNDER`: *"N video
-summaries are written and checked — review them on localhost (feed → Read video summary) and say yes
-to publish."* **This step stops at the question — it never confirms or promotes.** On the yes, in the
+The counts are in the `cp.video` CHECK line. `READY FOR YOUR YES` (one or more) is a question only the
+founder can answer — record it as a finding, not a mid-run question: `--check cp.video --fault-key
+video:ready-for-yes --severity medium --title "Video summaries are written and checked, waiting for
+your yes" --option read="Read them on localhost first (feed, Read video summary)" --option publish="Publish them"
+--recommend read --fit 80 --risk "He may skim the summaries and publish text he has not really read" --evidence verified`
+(verified: the step itself wrote and checked the summaries), the ids and titles in the body. Never
+recommend `publish`: publishing is his call after reading, never a preselected default.
+**This step stops at the question — it never confirms or promotes.** On the yes, in the
 main session: `confirm <id> --approved-in-chat` for each, then one
-`promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` (the step exits non-zero) are findings — never render
-them as clean. `COOLING DOWN` rows failed within 7 days and are not retried until then; list them.
+`promote <ids…>`. `FAILED` rows and `VIDEO-SUMMARY-HEAL-FAILED` (the step exits non-zero) are findings
+(`--fault-key video:heal-failed`) — never render them as clean. `COOLING DOWN` rows failed within 7 days and are not retried until then; list them.
 
-#### HEALTH rows this sub-day returns
+#### Every check reported — and the REPORT block for the dispatcher (P1399)
 
-Return these rows to the dispatcher. Same rules as ever: a SKIPPED row must read
-differently from a clean one, and a row is **never omitted** — an absent row is
-indistinguishable from a healthy one, which is the confusion every line below exists
-to prevent.
+Until P1399 this sub-day returned HEALTH rows for the dispatcher to print. The rule those rows
+carried still holds — a skipped check must read differently from a clean one, and a check is
+**never omitted**, because an absent row is indistinguishable from a healthy one — but the
+mechanism moved: every check in `scripts/day-cp-checks.tsv` now has a status of its own, and a
+registered check nobody reported reads "not proven" on the board.
+
+Before moving on, walk that registry once. Every check should have written or recorded a status
+(the Sentry and Mixpanel ones are yours to record); every `problem` should have a finding with a
+fault key; Sentry's `not-run` and Mixpanel's `not called (no users)` stay distinct (`not-run` vs
+`skipped`). The GCP credits, AI keys and Agent VM checks are **not** yours — they are personal and
+the dispatcher records them.
+
+```bash
+"$DAY_STEP" attest cp.health --evidence "N of 17 checks reported a status; M problems, each with a finding; not reported: ..."
+```
+
+The outreach pipeline is counted by a script, not read by you. Run it **from the repo root** — it
+prints one line of counts (no names) from the board's Pipeline columns, and copy that line as the
+`pipeline:` line of the block below:
+
+```bash
+npx tsx tools/kanban/scripts/day-pipeline.ts
+# pipeline: contacted=N in-conversation=N qualified=N committed=N active=N   (or: pipeline: none)
+```
+
+End your reply with this block — the dispatcher reads it and records it (its Step 9d); nothing in
+it is printed for the founder. Leave a line out rather than guess it:
 
 ```
-  [✓/✗] Prod smoke
-  [✓/⚠] Sentry       ← the explicit Wave 2a status line; SKIPPED must show here, never omitted
-  [✓/⚠] Mixpanel     ← the explicit Wave 2b status line; "not called (no users)" ≠ "SKIPPED (failed)"
-  [✓/⚠] Sessions
-  [✓/⚠] Ops issues (drift / prod-health alerts)
-  [✓/⚠] RLS drift    ← known-open counts are ✓; any NEW finding is ⚠ and names the policy.
-                        "NOT checked" (exit 2 / no output) must show here, never omitted.
-  [user activity summary line]
-  [nothing if cloud ok / ⚠ per issue]
+REPORT FOR THE DISPATCHER
+  sentry: <ok|not-connected|failed> — <why, when not ok>
+  mixpanel: <ok|not-connected|failed> — <why, when not ok>
+  gcloud: <ok|not-connected> — <not-connected when Wave 1 printed GCLOUD_NOT_AUTHENTICATED>
+  reviews: <weekly|monthly|none — the review Step 5 ran inside this pass>
+  unpushed_commits: <N, from Wave 1's unpushed_commits= line>
+  unconfirmed_signups: <N, from Wave 2's unconfirmed_signups= line>
+  funnel_signups: <N> (<+change since funnel_previous_row, when it is a row>)
+  funnel_story_authors: <N> (<+change>)
+  funnel_position_users: <N> (<+change>)
+  funnel_agreements: <N> (<+change>)
+  pipeline: <the line day-pipeline.ts printed: contacted=N in-conversation=N qualified=N committed=N active=N, or none; leave the line out when the script did not run>
+  events_per_week: <Wave 2's events_per_week= value as printed; leave the line out when it is unknown>
+  people: <N recorded>
 ```
 
-The GCP credits, AI keys and Agent VM rows are **not** yours — they are personal checks
-and the dispatcher emits them. Do not print placeholders for them.
+The four funnel lines come from Wave 2's `funnel_today=` (signups, story authors, position users,
+agreements, in that order) and the change from `funnel_previous_row=` (its columns 2–5); a `?` or
+`none` leaves the change, or the line, out.
 
 ---
-
-
-**Record it:**
-```bash
-"$DAY_STEP" attest cp.health --evidence "how many HEALTH rows are being returned to the dispatcher"
-```
 
 ### 2. Reflection (since last /day)
 
@@ -910,9 +1271,13 @@ Scan git log since `$SINCE` for commits touching:
 - `scripts/` (new or significant rewrites)
 - `docs/technical/`
 
-If infra-touching commits exist AND no KDD capture since last run → include KDD REMINDER in output.
+If infra-touching commits exist AND no KDD capture since last run → include KDD REMINDER in output,
+and record it as a finding so it reaches the board as agent work: `--check cp.reflect --fault-key
+kdd:uncaptured --severity low --title "Infra changes since the last run have no KDD capture"`. A
+`NEEDS REVISION` verdict from the CLAUDE.md gate is the same: `--fault-key claude-md:needs-revision`.
 
-**2c. Synthesize and output**
+**2c. Synthesize and output** — the output is the first part of your reply to the dispatcher, whose
+reflection writer turns it into the board's statements (P1399). It is not printed for the founder.
 
 **Language rules (critical):**
 - Translate into user value and business impact. Never use ticket numbers (P413), engineering terms (RLS, schema, migration, e2e), or internal jargon.
@@ -979,7 +1344,8 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
 5. Parse `## Dos` and `## Don'ts` — compact reminders.
 6. **If none of `## Next Steps`, `## Dos`, `## Don'ts` exist in the file, do NOT print an empty WHAT'S NEXT block.** Print instead:
    `WHAT'S NEXT: unavailable — docs/goals.md has no Next Steps/Dos/Don'ts sections (found: <list the ## headings that ARE there>). The parser and the doc have drifted.`
-   An empty block reads as "nothing queued"; the two states must not look alike. Same signal the kanban Goals page returns as `structureNotFound` (`tools/kanban/server/api.ts`, `/api/goals-strategic`).
+   An empty block reads as "nothing queued"; the two states must not look alike. Record it too:
+   `--check cp.goals --fault-key goals:unparseable --severity low`.
 
 ```
 WHAT'S NEXT (from goals.md):
@@ -1030,7 +1396,12 @@ If non-empty, print all entries (max 10; if more, note "N more — run `git stas
 ```
 Note: stash message includes the branch it was created on — apply only if you are on that branch.
 
-Ask: "Apply, drop, or continue?" — under `QUESTIONS FOR THE FOUNDER` (you run in a subagent and cannot wait; the dispatcher asks).
+The question "Apply, drop, or continue?" is the founder's, so it is a finding with options (you run in
+a subagent and cannot wait, and since P1399 there is no question heading): `--check cp.branch
+--fault-key stash:present --severity low --title "Stashed changes are waiting" --option apply="Apply
+them on their branch" --option drop="Drop them" --option keep="Keep them for now"
+--recommend keep --fit 50 --risk "A stash kept for months may hold work that is lost or no longer applies" --evidence unverified`
+(unverified: the list shows what is stashed, not whether it still matters), the stash list in the body.
 
 ---
 ### 5. Due Board — act on the dispatcher's verdict
@@ -1051,7 +1422,8 @@ DUE BOARD
   monthly   — last done Mar 30 (64d ago)  OVERDUE (>28d)  → next /day run
 ```
 
-Empty verdict → print nothing (no empty board). Otherwise print the rows verbatim, then:
+Empty verdict → nothing to do. Otherwise (the rows are no longer printed — P1399; the board shows
+the review's issues and its badge instead):
 
 1. **Max one review per run.** If both are OVERDUE, run the one with more days past its
    threshold and name the other: "monthly is also overdue — it'll run on the next /day."
@@ -1066,7 +1438,16 @@ Empty verdict → print nothing (no empty board). Otherwise print the rows verba
    "skip" from inside the subagent; the founder stops the pass there. If the founder says "skip", stop. Markers are written only
    on review completion (by the review skill itself), so a skipped run stays overdue and
    resurfaces on the next `/day`.
-4. **Never-run rows are not auto-run** — the dispatcher marks those `never run`; offer only.
+4. **Never-run rows are not auto-run** — the dispatcher marks those `never run`; offer only, as a
+   finding (`--check cp.due --fault-key due:<weekly|monthly>-never-run --option run="Run it on the
+   next /day" --option later="Not now" --recommend run --fit 70 --risk "A review that has never run may open with a large backlog of proposals" --evidence verified`).
+5. **Inside `/day` the review asks nothing (P1399).** Both skills check for `$DAY_STEP`: when it is
+   set, `/slava:maintain:monthly` records each proposed change, and `/slava:maintain:weekly` each
+   process-debt close offer, as a finding with options tagged `--review monthly|weekly`, and the
+   founder answers on the board. Name the review that ran in the REPORT block's `reviews:` line —
+   the dispatcher records it, so the board shows the run's review badge — and put the review's
+   ACTIONS and pattern lines (or its programme-health verdict) at the end of your reflection
+   block: they are the reflection writer's input.
 
 Reviews are auto-run rather than printed as commands because printed commands never got
 copy-pasted and the reviews simply did not happen (P900).
@@ -1078,6 +1459,69 @@ copy-pasted and the reviews simply did not happen (P900).
 ```bash
 "$DAY_STEP" attest cp.due --evidence "the Due Board verdict and what was done about it"
 ```
+
+### 6. Notes — what used to be printed, kept for the board (P1399)
+
+Some of this sub-day's output is not a check, a finding or a person, and when the terminal stopped
+printing it, it reached nobody. It is recorded as notes, which the board shows one step away — plain
+text, at most 4000 characters each (longer is cut), one note per heading below, and only the ones
+this pass has content for:
+
+| id | title | content |
+|---|---|---|
+| `shipped` | Shipped since the last run | Step 2c's SINCE LAST /day, BUSINESS, INSIGHT and CHALLENGE lines, in user-value words |
+| `whats-next` | What's next | Step 3's WHAT'S NEXT (or its "unavailable" line), DO and DON'T |
+| `branches` | Branches and specs | Step 4's BRANCHES block and the stranded-spec list from Wave 1 |
+| `cloud-spend` | Cloud spend estimate | Wave 1's `EST_PER_DAY` / `EST_SINCE_LAST` line, as "about €X a day, €Y since the last run (an estimate from running resources, not billed)" |
+| `weekly-review` | Weekly review | the review's measurements: Metrics, product pulse, user health, SEO pulse, GCP spend, Evidence Signals (review `weekly`) |
+| `monthly-review` | Monthly review | the synthesis' measurements and the programme-health verdict (review `monthly`) |
+
+A header line `@@ <id> [weekly|monthly] :: <title>` starts each note; every line after it, up to the
+next header, is its body.
+
+```bash
+"$DAY_STEP" run cp.notes <<'STEP'
+python3 -c '
+import json, re, sys
+IDS = ("shipped", "whats-next", "branches", "cloud-spend", "weekly-review", "monthly-review")
+notes, cur = [], None
+for line in sys.stdin.read().splitlines():
+    m = re.match(r"^@@ ([a-z-]+)(?: (weekly|monthly))? :: (.+)$", line)
+    if m:
+        if m.group(1) not in IDS:
+            sys.exit("not a note id: " + m.group(1))
+        cur = {"id": m.group(1), "title": m.group(3).strip(), "lines": []}
+        if m.group(2):
+            cur["review"] = m.group(2)
+        notes.append(cur)
+    elif cur is not None:
+        cur["lines"].append(line)
+out = []
+for n in notes:
+    body = "\n".join(n.pop("lines")).strip()
+    if not body or body.startswith("<"):
+        continue
+    n["body"] = body if len(body) <= 4000 else body[:3990] + "\n(cut)"
+    out.append(n)
+if len({n["id"] for n in out}) != len(out):
+    sys.exit("a note id appears twice")
+json.dump(out, sys.stdout)
+' <<'NOTES' | "$DAY_STEP" data notes
+@@ shipped :: Shipped since the last run
+<lines>
+@@ whats-next :: What's next
+<lines>
+@@ branches :: Branches and specs
+<lines>
+@@ cloud-spend :: Cloud spend estimate
+<line>
+NOTES
+STEP
+```
+
+Add the `@@ weekly-review weekly :: Weekly review` or `@@ monthly-review monthly :: Monthly review`
+note when Step 5 ran one. The dispatcher adds its own notes to the same section later (it merges by
+id), so record this one even when the pass goes on to fail.
 
 ## Event-to-Journey Mapping (Wave 2b reference)
 
@@ -1108,7 +1552,8 @@ Used by Phase 3 (Narrate) to translate Mixpanel event names into journey stages.
 ## Notes
 
 - Never show done steps in goals. Only what's coming.
-- No step here waits for the founder (this runs in a subagent). Questions go under `QUESTIONS FOR THE FOUNDER`: the stash decision (step 4c), and a Sentry or Mixpanel MCP that did not reconnect (Waves 2a/2b).
+- No step here waits for the founder (this runs in a subagent). His decisions are findings with options (P1399): the stash (step 4c), a spec waiting in QA (Wave 1), video summaries ready for his yes, and the reviews' proposals. A Sentry or Mixpanel MCP that did not reconnect is a connection in the REPORT block, not a question.
+- **A new check needs three things (P1399):** a row in `scripts/day-cp-checks.tsv`, a `CHECK` line written to `$DAY_CHECK_FILE` from its exit code or token, and a fault key for what it finds.
 - Run data gathering in sequential waves (Wave 1: local/git, Wave 2: Supabase+Sentry,
   Wave 2b: Mixpanel, Wave 2c: Signup Intel, Wave 3: lint/test+file reads). Max 2-3 tool
   calls per wave to prevent permission prompt floods.

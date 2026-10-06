@@ -2,7 +2,7 @@
 name: weekly
 description: Weekly ops monitor — context hygiene, metrics, background scans, closing ACTIONS list. No founder input except the step 2.5 process-debt close, which defaults to keep. Auto-run by /day's Due Board when overdue.
 when_to_use: "Weekly. Auto-invoked by /day when >7d since last run, or run directly."
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Weekly Review
@@ -10,6 +10,10 @@ version: 2.0.0
 Context hygiene + ops monitor. Gathers evidence and derives an ACTIONS list. Coaching/accountability lives in `/claude-conversations-to-pp` and `-to-cp`, not here (P900).
 
 **One exception to "asks nothing":** step 2.5 offers to close process-debt entries. That is an action decision on a concrete queue item, not the reflection/accountability prompting P900 removed — and it defaults to keep, so an unattended run still completes (P1081).
+
+**Inside `/day` (`$DAY_STEP` is set — P1399) not even that is asked:** step 2.5's offer becomes one
+finding per entry, answered on the Day page, and step 5's ACTIONS become findings too. Run directly,
+the review is unchanged.
 
 ---
 
@@ -308,6 +312,34 @@ For each in-scope entry:
 - If 2+ entries share a root cause → that's a chronic pattern, not a one-off.
 
 #### The close offer
+
+**Inside `/day` (`$DAY_STEP` is set), there is no prompt** (P1399): nobody can answer inside the
+sub-day's subagent. Record each in-scope entry as a finding the founder answers on the Day page, and
+change nothing in the store here — the session Start fixing opens carries out a picked resolve or
+drop, by the rules below:
+
+```bash
+"$DAY_STEP" finding --check cp.weekly --severity low --review weekly --topic "Weekly review" \
+  --fault-key weekly:inbox-<the ID, lowercased, e.g. inbox-31 or inbox-p4> \
+  --title "<the entry's title, without its [day:…] tag>" \
+  --point-a "open since <its Date>" --obstacle "<why it is still open, from the entry>" \
+  --point-b "resolved with a recorded decision, dropped with a reason, or kept on purpose" \
+  --option keep="Keep it open" --option resolve="Resolve it (record what was decided)" \
+  --option drop="Drop it (say why)" --recommend keep --fit 50 --risk "Keeping a finished entry open leaves a stale item on the board" --evidence unverified <<'BODY'
+<the entry, from ./scripts/inbox.sh show>
+BODY
+```
+
+Recommend `keep` because this step's own rules forbid inferring that an entry "looks done" (so the evidence is `unverified`: the entry was not checked against whether it is finished). `--fit` is how likely the recommended option fixes the real cause without breaking something else, `--risk` the one most likely way it backfires (one line, at most 200 characters), `--evidence` whether the cause was checked against its source. A
+**private** entry (`INBOX-P…`) keeps the default private store, and its title stays out of anything
+public.
+
+**Loop guard: skip any entry whose title carries a `[day:…]` tag.** `/day` files every finding into
+this inbox at its Step 9b — including these — so an entry tagged `[day:…]` is already on the board
+under its own fingerprint, and offering to close it would file a finding about a finding, one more
+generation every week.
+
+Run directly (no `$DAY_STEP`), the offer is as below.
 
 After listing the in-scope entries, present **one** list and **one** prompt — never one prompt per
 entry. **Entries are named by their ID** (P1317) — there is one number system, not list ordinals:
@@ -857,6 +889,14 @@ Sources (collect from the steps above):
 - KDD EV-gate recalibration trigger (2.4.5)
 - Memory hygiene over-limit/stale (2.14)
 - Broken CLAUDE.md links / stale docs (1)
+
+**Inside `/day`**, each action is also a finding — work for an agent session, no options:
+`--check cp.weekly --review weekly --topic "Weekly review" --severity low --fault-key
+weekly:action:<source step>:<source id>`, the action as the title. The key names where the action
+came from, never its wording: the step it was collected from (`2.11`, `2.8`, `2.10`, `2.14`, `1`)
+and that item's own stable id — the email's message id, the flag token, the file path — lowercased,
+anything outside `[a-z0-9._-]` turned into `-`, the key cut to 60 characters. Skip an action that only restates a finding already recorded this pass
+(a process-debt count, which step 2.5 recorded per entry).
 
 Format:
 ```
