@@ -6,6 +6,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [process]: Product text on a slide is copied from the source file, and the slide says which one
+
+**Context:** `/presi4`'s principle slide read *"A commitment to every member"*. Asked to check it, the agent replaced it with the pledge's *"I hereby commit to everyone — including strangers, people I disagree with, and even those I dislike"* — real text, from `pledge-text.tsx`, and still wrong: that line belongs to `/pledge`, a standing public promise. The Clarity Meeting Principle at `/meet` is scoped to **this conversation** (kicker in `meeting-principle-view.tsx`). Founder, twice: *"it's not to every other member"*, then *"doesn't it say a commitment for this conversation? Take the actual text."*
+**Decision:** When a deck, a poster or any external artifact reproduces text that a live surface also renders, copy it **from the file that renders it**, and write into the artifact which file that is. Two lines of provenance beat a plausible paraphrase. Checking that the *words* exist somewhere in the codebase is not the check — the check is that they are the words **that surface** shows.
+**Alternatives rejected:** paraphrasing for the projector (the room then agrees to one thing on their phone and reads another on the wall); keeping a single "canonical copy" doc for slides (a third copy to drift).
+**Consequences:** the principle slide now carries `/meet`'s kicker, epigraph and the v5 oath clauses, with the source files named in its comment. **UNTESTED.** Falsifier: the next deck copies a product string without naming its source and nobody notices until it is projected.
+**References:** `public/presi4/index.html` (principle slide comment); `src/app/components/agreements/meeting-principle-view.tsx`; `src/app/content/verified-understanding-oath.ts`; `src/app/content/pledge-text.tsx`
+
+---
+
 ## 2026-10-06 [technical]: Scheduled event emails change their message ids one key at a time, in the database — never as a whole object (P1425)
 
 **Context:** One attendee received the same 24h reminder 13 times (prod, Clarity Night #2). `event_rsvps.mailgun_message_ids` is one jsonb object shared by every scheduled email kind, and is both the claim (`PENDING`) and the record of a send. Every writer read the row, spread the object it had read, changed its own key and wrote the whole object back. The feedback claim was built from a read taken before the reminder id was stored, so it erased that id; feedback was also attempted beyond Mailgun's 72h `o:deliverytime` limit (the query matched the row on its *reminder* clause), so every 30-minute tick failed, wrote back, erased the reminder id again, and the next tick re-sent the reminder.
