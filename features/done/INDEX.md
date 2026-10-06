@@ -75,6 +75,7 @@ Last updated: 2026-10-06
 
 ## Points & Stories
 - **P1415** (Oct 26) Cards open only via Details; home rail events-first, CA group only — whole-card tap caused accidental phone navigation
+- **P1424** (Oct 26) Nested quoted points/stories open only via their own Details on list cards — prototype A/B/C at 375px decided it; new-tab hosts need useOpenPath, not navigate
 - **P1420** (Oct 26) Clear position on a bad connection — a sent-but-unanswered write is UNKNOWN: settle by re-reading, never claim "not saved"
 
 - **P1374** (Sep 26) One intensity-hint rule site-wide — a flag set by any menu pick stops every hint; broadcast it, one hint per page, pop-up once, never in live

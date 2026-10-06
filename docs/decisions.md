@@ -6,6 +6,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [product]: Items nested inside a list card open only via their own "Details →", like the card itself (P1424)
+
+**Context:** P1415 stopped list card bodies from navigating, but the items nested inside them
+still opened on any tap: the quoted points under a story card, and the linked stories under a
+point card. A nested point box contains its own position buttons, so a tap that just missed one
+opened the point. The founder compared three variants on real cards at 375px in a dev-only
+prototype (`/tree/nested-tap`): A, today's behaviour; B, open only via the nested item's own
+Details; C, expand in place with an explicit Open button. The founder chose B.
+
+**Decision:** On list cards (`/feed`, `/stake`, both profile tabs, and the embedded stake in
+`/prepare`, `/events/:slug/prepare` and onboarding), the nested box is not a control. It has no
+role, tab stop, pointer cursor or hover state, and its own compact `Details →` is the only way
+in.
+- The button is 40px tall with `text-xs`, so it stays secondary to the card's own Details. The
+  prototype's 32px was raised to meet the 40px touch-target rule.
+- The behaviour is opt-in (`openViaDetails`). `PointCardWithLinks` reuses P1415's
+  `inListFooter`, so there is one list-mode signal.
+- A nested point opens through `useOpenPath`, so a host that opens links in a new tab gets a
+  new tab here too.
+
+**Alternatives rejected:**
+- C, expand in place: a stray tap still shifts the layout under the finger.
+- Changing nested items everywhere: detail pages (`/point/:id`, `/story/:id`) and the point page
+  embed are single-item views where tapping in is the expected path. They also use a separate,
+  private `QuotedPoint` copy.
+- Leaving `/prepare` out: P1415 had already changed that card's body there, so one card would
+  have had two rules.
+
+**Consequences:**
+- One rule now holds at both levels of a list card. Outside lists, tap-to-open is unchanged.
+- There are now three copies of the nested box: `QuotedPointCard`, `QuotedStory`, and the
+  detail views' private `QuotedPoint`, with different tap rules. Merging them would be its own
+  spec.
+- Not yet verified in the browser: on the point page embed, "Expand linked stories" renders no
+  story on main. That is filed in the task inbox, and the P1424 e2e guard for it is `fixme`.
+- Process: one Opus spec review, then implementation, then adversarial review by Opus, Codex and
+  Gemini (3 of 3 reported). The one finding rated HIGH (new-tab hosts) came from Gemini and was
+  reproduced by Codex. The Opus review passed it.
+
+**References:** [P1424 spec](../features/p1424_nested_card_items_open_only_via_details.md), P1415
 ## 2026-10-06 [process]: Product text on a slide is copied from the source file, and the slide says which one
 
 **Context:** `/presi4`'s principle slide read *"A commitment to every member"*. Asked to check it, the agent replaced it with the pledge's *"I hereby commit to everyone — including strangers, people I disagree with, and even those I dislike"* — real text, from `pledge-text.tsx`, and still wrong: that line belongs to `/pledge`, a standing public promise. The Clarity Meeting Principle at `/meet` is scoped to **this conversation** (kicker in `meeting-principle-view.tsx`). Founder, twice: *"it's not to every other member"*, then *"doesn't it say a commitment for this conversation? Take the actual text."*
