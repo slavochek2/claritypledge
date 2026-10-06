@@ -68,12 +68,14 @@
  * times between steps, and a fixed padding sized for one clips the last roster row under
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useOfflineStripShown } from '@/app/contexts/offline-status-context';
+import { roomHeadOffset, useMeasuredHeight } from './room-head-offset';
 import { useAuth } from '@/auth';
 import {
   CertificateFrame,
@@ -246,6 +248,9 @@ export function EventRoomMeet() {
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
   const { user, session } = useAuth();
   const { barVisible: captureBarVisible } = useRoomCapture();
+  const offlineStrip = useOfflineStripShown();
+  const captureBarPx = useMeasuredHeight('[data-testid="room-capture-bar"]', captureBarVisible);
+  const headOffset = roomHeadOffset(offlineStrip, captureBarPx);
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
@@ -490,15 +495,11 @@ export function EventRoomMeet() {
       {/* P1337: transcription is started from the room itself — the banner's idle state, in the
           place the running banner takes once it starts. */}
       {/* Walkthrough 9: the transcribe bar and the step bar stay on screen while Compare's rows
-          scroll. Pinned under the fixed nav — and, while transcription runs, under the running
-          bar the layout already pins there (its short form is 49px: 40px controls + py-1 + border). */}
+          scroll. Pinned under the fixed nav, below the offline strip's push and the running
+          capture bar at its measured height (P1429 A4 — see room-head-offset.ts). */}
       <div
-        className={cn(
-          'sticky z-20 bg-background',
-          captureBarVisible
-            ? 'top-[calc(4rem+49px+env(safe-area-inset-top))] lg:top-[calc(5rem+49px+env(safe-area-inset-top))]'
-            : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]',
-        )}
+        className="sticky z-20 bg-background top-[calc(4rem+var(--room-head-offset)+env(safe-area-inset-top))] lg:top-[calc(5rem+var(--room-head-offset)+env(safe-area-inset-top))]"
+        style={{ '--room-head-offset': headOffset } as CSSProperties}
         data-testid="room-sticky-head"
       >
       {event && !isFrozen && !moment.eveningOver && (
