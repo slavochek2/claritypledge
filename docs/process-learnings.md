@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 127
+**Next ID:** 135
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2114,5 +2114,107 @@ The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/
 **due:** week
 
 On unchanged main (2a4025545), at normal machine load, live-content-picker, p272-live-verification and live-rating-drawer fail 8/8: seven end in deleteTestUser refusing to delete a profile still referenced by clarity_sessions.creator_profile_id (the helper does not delete the session first), and the content picker never shows the "Search your stories…" field. P1423 hit the same 8 failures on its branch, so its /live invariant could only be checked by control. Done when the helper deletes the user's clarity_sessions before the profile and the picker spec passes; drop if those specs are retired.
+
+---
+
+## A new browser error: invalid regular expression on an event prepare page [day:0e1b7e7c]
+
+**ID:** INBOX-127
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-06 (check: cp.sentry, severity: medium).
+
+Sentry JAVASCRIPT-REACT-3N: SyntaxError invalid group specifier name, 2 events, 0 users, culprit /events/<slug>/prepare. First seen shortly before this run.
+
+---
+
+## The GPU billed-hours check cannot run from the day script [day:da4cc7eb]
+
+**ID:** INBOX-128
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-06 (check: cp.cost, severity: low).
+
+Run directly via python3 today: transcribe-session billed 0.91h in 24h (threshold 3h), so spend is fine. Only the check wiring is broken.
+
+---
+
+## The sign-in canary reports Google sign-in may be broken [day:584cdc87]
+
+**ID:** INBOX-129
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-06 (check: cp.ops, severity: high).
+
+gh issue 18 "Auth canary failing — Google sign-in may be broken", opened 2026-10-06T06:22Z. Overnight signups still succeeded (2 confirmed), so it may be the canary itself.
+
+---
+
+## Stranded signups alert is open and escalated [day:ad204c1c]
+
+**ID:** INBOX-130
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-06 (check: cp.ops, severity: medium).
+
+gh issue 15 "Stranded signups", labels p1155-escalated-2d, p1155-escalated-7d, last updated 2026-10-04. cp.signups reads 0 unconfirmed in the 24h to 7d window.
+
+---
+
+## P1181 is built and waiting for you [day:8d2338f0]
+
+**ID:** INBOX-131
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
+
+features/p1181_community_scoped_visibility.md status qa, filed 2026-08-28 (39 days).
+
+---
+
+## P1274 is closed but still sits in features [day:137604a3]
+
+**ID:** INBOX-132
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-10-06 (check: cp.w1, severity: low).
+
+features/p1274_the_three_p1053_review_lenses_that_never_ran.md. Agent runs /slava:maintain:fix-kanban.
+
+---
+
+## A ship of P1389 started and never finished [day:614b4121]
+
+**ID:** INBOX-133
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
+
+./scripts/git-ops.sh ship p1389 --resume
+
+---
+
+## Tonight's event button opens the event room (founder chose A)
+
+**ID:** INBOX-134
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+Founder decision 2026-10-06: keep the header label "Tonight's event" but send it to the event's room instead of the event page, because on the night the room entry is hard to find on the event page. The room already offers unfinished preparation first. Check first what the room shows to someone tapping hours before start; if it is not useful early, go to the event page until close to start time, then the room. Spec it with /create-spec; drop if the event page gains a prominent room entry instead.
 
 ---
