@@ -19,6 +19,7 @@ vi.mock('@/app/data/topic-voting', async (orig) => {
     rateTopic: vi.fn(async () => true),
     clearTopicRating: vi.fn(async () => true),
     setMyVotesPublic: vi.fn(async () => true),
+    getMyPhotoChoice: vi.fn(async () => null), // P1429: no stored choice yet
     addTopic: vi.fn(async () => 'ok'),
   };
 });

@@ -22,6 +22,7 @@ vi.mock('@/app/data/topic-voting', async (orig) => {
       return true;
     }),
     setMyVotesPublic: vi.fn(async () => true),
+    getMyPhotoChoice: vi.fn(async () => null), // P1429: no stored choice yet
     clearTopicRating: vi.fn(async (id: string) => {
       const row = db.rows.find((r) => r.id === id)!;
       Object.assign(row, { myRating: null, myIsPublic: null, ratingCount: null, ratingAvg: null, voters: null });
