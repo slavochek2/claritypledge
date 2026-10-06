@@ -82,6 +82,7 @@ import {
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
 import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
+import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { sectionsForLevel, type MeetingTermsLevel } from '@/app/content/meeting-terms';
@@ -244,6 +245,7 @@ export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
   const { user, session } = useAuth();
+  const { barVisible: captureBarVisible } = useRoomCapture();
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
@@ -487,6 +489,18 @@ export function EventRoomMeet() {
 
       {/* P1337: transcription is started from the room itself — the banner's idle state, in the
           place the running banner takes once it starts. */}
+      {/* Walkthrough 9: the transcribe bar and the step bar stay on screen while Compare's rows
+          scroll. Pinned under the fixed nav — and, while transcription runs, under the running
+          bar the layout already pins there (its short form is 49px: 40px controls + py-1 + border). */}
+      <div
+        className={cn(
+          'sticky z-20 bg-background',
+          captureBarVisible
+            ? 'top-[calc(4rem+49px+env(safe-area-inset-top))] lg:top-[calc(5rem+49px+env(safe-area-inset-top))]'
+            : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]',
+        )}
+        data-testid="room-sticky-head"
+      >
       {event && !isFrozen && !moment.eveningOver && (
         <RoomTranscribeIdleBar
           eventId={event.id}
@@ -498,7 +512,7 @@ export function EventRoomMeet() {
       {/* Page chrome sits above the columns, at the container's own left edge, rather than
           inside the certificate column — so it does not shift sideways when the layout
           splits into three at min-[1600px]. */}
-      <div className={cn(PAGE_CONTAINER, 'pt-4')}>
+      <div className={cn(PAGE_CONTAINER, 'pt-3 pb-2')}>
         {/* P1336: the preparation stays one tap away for someone who joined without it — on the
             Back line (UAT 2026-10-01), not as a box under it. */}
         {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on
@@ -512,6 +526,9 @@ export function EventRoomMeet() {
           />
           <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="min-w-0 flex-1" />
         </div>
+      </div>
+      </div>
+      <div className={PAGE_CONTAINER}>
         {/* P1337: the host spends the evening in the room too; P1336: the preparation stays one tap
             away for someone who joined without it. */}
         {((event && (session?.user?.id ?? user?.id) === event.hostId) || !seated) && (
