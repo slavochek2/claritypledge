@@ -84,15 +84,34 @@ export async function answerPersonalAsk(
     p_answer: answer,
     p_detail: detail ?? null,
   });
-  if (error) console.error('[close] answer_personal_ask failed:', error.code, error.message);
-  return !error;
+  if (!error) return true;
+  console.error('[close] answer_personal_ask failed:', error.code, error.message);
+  return answeredMeanwhile(eventId, ask);
 }
 
 /** Join the community from the close: the membership and the yes in one server transaction. */
 export async function joinCommunityFromClose(eventId: string): Promise<boolean> {
   const { error } = await supabase.rpc('join_community_from_close', { p_event_id: eventId });
-  if (error) console.error('[close] join_community_from_close failed:', error.code, error.message);
-  return !error;
+  if (!error) return true;
+  console.error('[close] join_community_from_close failed:', error.code, error.message);
+  return answeredMeanwhile(eventId, 'community');
+}
+
+/**
+ * P1429 A5: after a failed save, is the ask answered after all? A tap whose write landed but whose
+ * response was lost is retried, and the server refuses the retry — with 22023 "this ask is not
+ * offered", because an ask answered tonight leaves the offered list (p1389_offered_asks) before the
+ * 23505 check is reached. So the error code is not the signal; the re-read is. An ask no longer
+ * offered has been answered (here or in another tab), so the page moves on. A failed re-read keeps
+ * the save failed.
+ */
+async function answeredMeanwhile(eventId: string, ask: PersonalAsk): Promise<boolean> {
+  try {
+    const state = await getEventClose(eventId);
+    return state.isAttendee && !state.asks.includes(ask);
+  } catch {
+    return false;
+  }
 }
 
 /** The slug of the group the community ask invites this person to (null when there is none). */
