@@ -173,3 +173,55 @@ export function PrepMarks({ marks }: { marks: PrepMarkState | undefined }) {
     </span>
   );
 }
+
+export type OptIn = 'in' | 'out' | 'undecided';
+
+/**
+ * P1337 walkthrough 9 (founder): the host sees each person's principle answer on the EVENT page —
+ * never in the room, which is on the projector. The answer is the preparation's, which the room
+ * writes back to (P1336), so it is current either way. No row or no answer = Undecided.
+ */
+export function optInsByProfile(rows: HostPrepRow[]): Map<string, OptIn> {
+  const out = new Map<string, OptIn>();
+  for (const r of rows) if (r.optedIn != null) out.set(r.profileId, r.optedIn ? 'in' : 'out');
+  return out;
+}
+
+export function useHostOptIns(eventId: string | undefined, enabled: boolean): ReadonlyMap<string, OptIn> {
+  const [optIns, setOptIns] = useState<ReadonlyMap<string, OptIn>>(new Map());
+  useEffect(() => {
+    setOptIns(new Map());
+    if (!eventId || !enabled) return;
+    let cancelled = false;
+    getPrepHostView(eventId)
+      .then(rows => { if (!cancelled) setOptIns(optInsByProfile(rows)); })
+      .catch(() => { /* nothing shown is better than a wrong tag */ });
+    return () => { cancelled = true; };
+  }, [eventId, enabled]);
+  return optIns;
+}
+
+const OPT_IN_LABEL = { in: 'In', out: 'Out', undecided: 'Undecided' } as const;
+
+export function OptInTag({ state }: { state: OptIn }) {
+  return (
+    <span
+      className={
+        'shrink-0 rounded-full border px-2 py-0.5 text-xs ' +
+        (state === 'in' ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-border text-muted-foreground')
+      }
+      title={state === 'undecided' ? 'Has not answered the principle yet' : `Opted ${state} of the principle`}
+      data-testid="host-opt-in-tag"
+      data-state={state}
+    >
+      {OPT_IN_LABEL[state]}
+    </span>
+  );
+}
+
+/** "5 in · 1 out · 2 undecided" over the people listed. */
+export function optInLine(optIns: ReadonlyMap<string, OptIn>, profileIds: string[]): string {
+  const n = { in: 0, out: 0, undecided: 0 };
+  for (const id of profileIds) n[optIns.get(id) ?? 'undecided'] += 1;
+  return `${n.in} in · ${n.out} out · ${n.undecided} undecided`;
+}

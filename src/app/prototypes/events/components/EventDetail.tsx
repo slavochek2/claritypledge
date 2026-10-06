@@ -41,7 +41,7 @@ import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { showsTopicVote } from '../topic-vote';
 import { TopicsPage } from '@/app/pages/topics-page';
-import { PrepMarks, micLine, useHostPrepMarks } from '../prep/PrepMarks';
+import { OptInTag, PrepMarks, micLine, optInLine, useHostOptIns, useHostPrepMarks } from '../prep/PrepMarks';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
@@ -340,6 +340,7 @@ export function EventDetail() {
   // P1386: the host's ✓ prepared / 🎙 mic marks in Participants (replaces P1336's Preparation card).
   const hostPrepMarks = useHostPrepMarks(event?.id, !!isHost && !!event?.preparationEnabled);
   const hostMicLine = micLine(hostPrepMarks);
+  const hostOptIns = useHostOptIns(event?.id, !!isHost && !!event?.preparationEnabled);
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -1156,6 +1157,12 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               {/* P1386: host only — how many USB-C mics to bring, shown only when one is needed. */}
+              {/* P1337 walkthrough 9: host only — the principle answers, counted. */}
+              {isHost && event.preparationEnabled && (event.attendees ?? []).length > 0 && (
+                <p className="text-sm text-muted-foreground -mt-2 mb-3" data-testid="host-opt-in-line">
+                  {optInLine(hostOptIns, (event.attendees ?? []).map(a => a.profileId))}
+                </p>
+              )}
               {hostMicLine && (
                 <p className="text-sm text-foreground -mt-2 mb-3" data-testid="prep-mic-line">{hostMicLine}</p>
               )}
@@ -1170,7 +1177,14 @@ export function EventDetail() {
                     avatarUrl={attendee.avatarUrl}
                     isPledger={attendee.hasPledged}
                     earCount={attendee.earCount}
-                    trailing={hostPrepMarks.has(attendee.profileId) ? <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} /> : undefined}
+                    trailing={
+                      isHost && event.preparationEnabled ? (
+                        <span className="flex items-center gap-2">
+                          {hostPrepMarks.has(attendee.profileId) && <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} />}
+                          <OptInTag state={hostOptIns.get(attendee.profileId) ?? 'undecided'} />
+                        </span>
+                      ) : hostPrepMarks.has(attendee.profileId) ? <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} /> : undefined
+                    }
                   />
                 ))}
               </div>
