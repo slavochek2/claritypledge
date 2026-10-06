@@ -105,4 +105,29 @@ describe('P1429 A1: hiding your photo survives a late or stale vote', () => {
     const write = await c.from('topic_vote_prefs').upsert({ user_id: voter.user.id, show_photo: true });
     expect(write.error).not.toBeNull();
   });
+
+  // Review round 3 (Gemini): with no choice ever stored, a hidden first vote must not be undone by a
+  // later vote that arrives with the default "show" — the first vote now stores the choice.
+  it('a hidden first vote stores the choice: a later default vote stays hidden', async () => {
+    const quiet = await createTestUser({ name: 'P1429 Quiet' });
+    try {
+      const c = await signedIn(quiet);
+      expect((await c.rpc('rate_topic', { p_topic_id: ids[1]!, p_rating: 2, p_is_public: false })).error).toBeNull();
+      expect((await c.rpc('rate_topic', { p_topic_id: ids[1]!, p_rating: 5 })).error).toBeNull();
+      expect((await c.rpc('rate_topic', { p_topic_id: ids[2]!, p_rating: 3 })).error).toBeNull();
+      expect(await isPublic(quiet.user.id, ids[1]!)).toBe(false);
+      expect(await isPublic(quiet.user.id, ids[2]!)).toBe(false);
+      expect((await c.rpc('get_my_topic_photo_choice')).data).toBe(false);
+    } finally {
+      await deleteTestUser(quiet.user.id);
+    }
+  });
+
+  it('a missing show/hide value is refused, never read as "show"', async () => {
+    const c = await signedIn(voter);
+    const before = await isPublic(voter.user.id, ids[0]!);
+    const r = await c.rpc('set_my_topic_votes_public', { p_is_public: null });
+    expect(r.error?.code).toBe('22023');
+    expect(await isPublic(voter.user.id, ids[0]!)).toBe(before);
+  });
 });
