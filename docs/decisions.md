@@ -329,6 +329,31 @@ document diff), and choose banner or block with a reason.
 blocks rather than notifies. Voice profiles still lack their own consent prompt — revisit at the ~2026-12-01
 terms review. This is a judgement call, not legal advice.
 **References:** [P1398](../features/done/2026-06-10/p1398_terms_notice_says_what_changed.md) · decisions.md 2026-09-11 (P1300) · 2026-09-14 (P1307 D15)
+## 2026-10-06 [process]: A recommendation states its fit and risk; the agent only acts on what the founder saw (P1399)
+
+**Context:** The founder used the built Day page on a real run and could not judge the cards: most
+showed no confidence, the text described how checks work rather than what was happening to him
+("not sure I understand issues"), and Start fixing would have sent all 19 cards to one session,
+including choices he never opened. Asked what confidence should mean: "if it breaks more shit than
+it helps that's bad problem solution fit."
+**Decision:** (1) Every recommended option carries *Fit* (how likely it fixes the real cause without
+breaking something else), one *main risk* line, and *cause checked / suspected*; the ledger refuses
+a recommendation without them, and a card without them says "Fit not rated" rather than a number.
+(2) Start fixing sends only cards the founder answered (picked, or accepted with Next / Accept) plus
+agent work; unopened founder choices stay "still yours". (3) A plain-language pass rewrites each
+card for the founder, but the hand-off prompt keeps the original wording (the rewrite rides along
+as quoted data), and a rewrite that adds a number or targets changed source text is discarded.
+(4) Reflection reads its own history from the decisions file so it does not repeat answered
+statements. (5) The outreach funnel counts the existing Pipeline columns — no new logging.
+(6) The board's other pages adopt the Day page's design tokens; the old Goals page is deleted.
+**Alternatives rejected:** two numbers (cause confidence + fix confidence) — more to read on every
+card; sending every preselected card — approves unread choices; a separate reflection log —
+duplicates the decisions file; a new outreach log — no outreach runs yet, so it would log nothing.
+**Consequences:** /day and the cp runbooks must ship together (the ledger now requires the ratings);
+the first real run after shipping is the test of the plain-language pass and the reflection memory.
+Next-as-accept is labelled "Accept & next" so accepting is never invisible.
+**References:** [P1399 spec](../features/p1399_day_report_by_who_acts_and_day_page_on_the_personal_board.md) Phase D
+
 ## 2026-10-04 [process]: The /day report is one list of issues you answer, built from user stories and a mockup first (P1399)
 
 **Context:** The first Day page was built straight from the spec's structure (groups sorted by who
