@@ -31,13 +31,13 @@ import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { confirmRoundSeat, currentRound } from '@/app/data/event-rounds-service';
+import { EMPTY_ROUNDS_STATE, confirmRoundSeat, currentRound, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { buildCompareRows } from '@/lib/compare-positions';
 import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
 import type { SeatRole } from '@/lib/round-grouping';
 import { setLabel } from '@/lib/set-labels';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
-import { shortName, useEventRounds, useNow } from './use-event-rounds';
+import { roundsPolling, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
 import { eventTopic } from '../prep/prep-plan';
 import { StatementRow, type Person } from '@/app/components/compare/statement-row';
@@ -139,8 +139,12 @@ export function RoundCard({
   // `ended` is the clock's close (event start + grace). A round the host is still running
   // outlives it: keep polling while one is on, so the room stays open until the host ends it
   // (walkthrough 9 — a demo's phone closed mid-round while the host screen ran on).
+  // Past the close, a phone on Close still watches for the host's Reopen (P1429 A3).
   const [liveSeen, setLiveSeen] = useState(false);
-  const { state, refresh } = useEventRounds(eventId, !!self, !ended || liveSeen);
+  const [rounds, setRounds] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
+  const polling = roundsPolling({ ended, liveSeen, state: rounds, now: Date.now() });
+  const { state, refresh } = useEventRounds(eventId, !!self, polling.active, polling);
+  useEffect(() => { setRounds(state); }, [state]);
   const round = currentRound(state);
   const live = !!round;
   useEffect(() => { setLiveSeen(live); }, [live]);

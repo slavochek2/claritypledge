@@ -15,8 +15,30 @@ import {
   type EventRoundsState,
 } from '@/app/data/event-rounds-service';
 
+/** P1429 A3: after the evening, how long a phone keeps watching for the host's Reopen, and how often. */
+export const REOPEN_WATCH_MS = 6 * 60 * 60 * 1000;
+export const REOPEN_POLL_MS = 60_000;
+
+/**
+ * How an attendee's phone reads the rounds. Before the clock's close (event start + grace), or
+ * while a round is on, every few seconds. Past the close with no round on, the phone sits on Close;
+ * it keeps reading once a minute while the tab is visible, for up to 6 hours after the last round
+ * ended, so a Reopen still reaches it (P1429 A3). Otherwise it reads once and stops.
+ */
+export function roundsPolling({ ended, liveSeen, state, now }: { ended: boolean; liveSeen: boolean; state: EventRoundsState; now: number }) {
+  if (!ended || liveSeen) return { active: true, intervalMs: ROUNDS_POLL_MS, visibleOnly: false };
+  const endedAt = state.rounds[state.rounds.length - 1]?.endedAt;
+  const watching = !!endedAt && now - new Date(endedAt).getTime() < REOPEN_WATCH_MS;
+  return { active: watching, intervalMs: REOPEN_POLL_MS, visibleOnly: true };
+}
+
 /** `live` false reads once and stops — after the event nothing changes, so nothing polls. */
-export function useEventRounds(eventId: string | undefined, enabled = true, live = true) {
+export function useEventRounds(
+  eventId: string | undefined,
+  enabled = true,
+  live = true,
+  { intervalMs = ROUNDS_POLL_MS, visibleOnly = false }: { intervalMs?: number; visibleOnly?: boolean } = {},
+) {
   const [state, setState] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
   const [loaded, setLoaded] = useState(false);
   const current = useRef<{ eventId: string; loop: Promise<void>; token: object } | null>(null);
@@ -67,9 +89,16 @@ export function useEventRounds(eventId: string | undefined, enabled = true, live
     if (!eventId || !enabled) return;
     void refresh();
     if (!live) return;
-    const id = setInterval(() => void refresh(), ROUNDS_POLL_MS);
-    return () => clearInterval(id);
-  }, [eventId, enabled, live, refresh]);
+    const hidden = () => visibleOnly && document.visibilityState === 'hidden';
+    const id = setInterval(() => { if (!hidden()) void refresh(); }, intervalMs);
+    // A watched tab coming back into view reads at once instead of waiting out the interval.
+    const onVisible = () => { if (!hidden()) void refresh(); };
+    if (visibleOnly) document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      if (visibleOnly) document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [eventId, enabled, live, intervalMs, visibleOnly, refresh]);
 
   return { state, loaded, refresh };
 }
