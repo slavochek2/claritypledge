@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 20
 workstream: events
 created_date: '2026-10-06'
 tags: [events, navigation, header]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-06
 ---
 
 # P1428: "Tonight's event" opens the event's room
