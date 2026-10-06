@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 20
 workstream: infrastructure
 created_date: '2026-10-04'
 tags: [day, kanban, reporting, founder-workflow]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-06
 ---
 
 # P1399: The /day report is sorted by who has to act, and the personal board shows it
