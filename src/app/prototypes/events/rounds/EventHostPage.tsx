@@ -1196,10 +1196,10 @@ export function EventHostPage() {
       {/* Desktop: the room on the left, the controls on the right (founder, 2026-10-04). On a
           phone the controls come first — the button is what the host reaches for. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
-        {/* On a phone the controls stay on screen while the host scrolls the room (founder
-            walkthrough 6): clock, −1/+1 and Next round. Settings live in their own card below. */}
+        {/* On a phone the whole page scrolls as one (founder walkthrough 9: a pinned clock card
+            took most of the screen and only parts moved). Settings live in their own card below. */}
         <section
-          className="rounded-xl border border-border bg-card p-4 shadow-sm max-lg:sticky max-lg:top-[calc(4rem+env(safe-area-inset-top))] max-lg:z-20 lg:sticky lg:top-[calc(6rem+env(safe-area-inset-top))] lg:order-2 lg:col-start-2"
+          className="rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-[calc(6rem+env(safe-area-inset-top))] lg:order-2 lg:col-start-2"
           data-testid="host-controls"
         >
           <p className="text-sm font-medium text-muted-foreground">
@@ -1209,15 +1209,12 @@ export function EventHostPage() {
           </p>
           {clock && timing && (
             <div className="mt-1 space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+              {/* Clock and −1/+1 share one row that never wraps; the part line sits below at full
+                  width. When they shared a wrapping row, the ticking text's width moved the buttons
+                  up and down every second (founder walkthrough 9). */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <ClockNumber clock={clock} />
-                  {clock.phase !== 'over' && (
-                    <p className="mt-1.5 text-sm" data-testid="host-part">
-                      <span className="font-medium">{clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
-                      <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
-                    </p>
-                  )}
                 </div>
                 {clock.phase !== 'over' && (
                   <div className="flex shrink-0 gap-1.5">
@@ -1246,6 +1243,12 @@ export function EventHostPage() {
                   </div>
                 )}
               </div>
+              {clock.phase !== 'over' && (
+                <p className="text-sm" data-testid="host-part">
+                  <span className="font-medium">{clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
+                  <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
+                </p>
+              )}
               <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
             </div>
           )}
