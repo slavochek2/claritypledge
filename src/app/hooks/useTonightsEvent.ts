@@ -14,10 +14,14 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
+import { arrivalWindowOpen } from '@/app/prototypes/events/arrival/arrival-text';
 
 export interface TonightsEvent {
   slug: string;
   title: string;
+  datetime: string;
+  durationMinutes: number | null;
+  preparationEnabled: boolean;
 }
 
 interface CandidateEvent {
@@ -26,6 +30,8 @@ interface CandidateEvent {
   datetime: string;
   timezone: string | null;
   status: string | null;
+  duration_minutes?: number | null;
+  preparation_enabled?: boolean | null;
 }
 
 /** Calendar date (YYYY-MM-DD) of `instant` in `timeZone`; falls back to UTC on a bad zone. */
@@ -48,7 +54,31 @@ export function pickTonightsEvent(events: CandidateEvent[], now: Date): Tonights
     .filter(e => e.status !== 'cancelled')
     .filter(e => dateInZone(new Date(e.datetime), e.timezone) === dateInZone(now, e.timezone))
     .sort((a, b) => a.datetime.localeCompare(b.datetime));
-  return today[0] ? { slug: today[0].slug, title: today[0].title } : null;
+  const e = today[0];
+  return e
+    ? {
+        slug: e.slug,
+        title: e.title,
+        datetime: e.datetime,
+        durationMinutes: e.duration_minutes ?? null,
+        preparationEnabled: !!e.preparation_enabled,
+      }
+    : null;
+}
+
+/**
+ * P1428: where "Tonight's event" leads. The room, for an event that runs one (preparation on)
+ * while the room's own arrival window is open — an hour before the start until the end, the same
+ * window in which the room asks "Have you arrived?". Otherwise the event page: hours before, after
+ * it ended, or for an event with no room flow (a hike), the page with the time and place is right.
+ */
+export function tonightsEventHref(event: TonightsEvent, now: Date = new Date()): string {
+  const page = `/events/${event.slug}`;
+  const inWindow = arrivalWindowOpen(
+    { datetime: event.datetime, durationMinutes: event.durationMinutes ?? undefined },
+    now,
+  );
+  return event.preparationEnabled && inWindow ? `${page}/room` : page;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -65,7 +95,7 @@ async function fetchTonightsEvent(userId: string): Promise<TonightsEvent | null>
   const to = new Date(now.getTime() + 36 * 3600 * 1000).toISOString();
   const { data, error } = await supabase
     .from('event_rsvps')
-    .select('event:events!inner(slug, title, datetime, timezone, status)')
+    .select('event:events!inner(slug, title, datetime, timezone, status, duration_minutes, preparation_enabled)')
     .eq('profile_id', userId)
     .gte('event.datetime', from)
     .lte('event.datetime', to);

@@ -31,7 +31,7 @@ import { NavigationMenuItems } from "./navigation-menu-items";
 import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
-import { useTonightsEvent } from "@/app/hooks/useTonightsEvent";
+import { useTonightsEvent, tonightsEventHref } from "@/app/hooks/useTonightsEvent";
 import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -79,10 +79,9 @@ function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
   // the avatar to 357px on a 320px screen. The label stays the accessible name via sr-only.
   const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[360px]:w-auto min-[360px]:px-4";
   return (
-    // P1428: straight into the room — it asks "Have you arrived?" first and offers unfinished
-    // preparation, so an early tap is handled there; the event page buried the way in.
+    // P1428: into the room while it is the place to be (see tonightsEventHref), else the page.
     <Link
-      to={`${eventPath}/room`}
+      to={tonightsEventHref(event)}
       title={event.title}
       data-testid="tonights-event-cta"
       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${size}`}

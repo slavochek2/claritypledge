@@ -50,8 +50,16 @@ vi.mock('@/app/hooks/useNextWebinar', () => ({
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 // P1351: the event-day primary. Null unless a test sets it.
-const tonight = vi.hoisted(() => ({ current: null as null | { slug: string; title: string } }));
-vi.mock('@/app/hooks/useTonightsEvent', () => ({ useTonightsEvent: () => tonight.current }));
+const tonight = vi.hoisted(() => ({ current: null as null | import('@/app/hooks/useTonightsEvent').TonightsEvent }));
+vi.mock('@/app/hooks/useTonightsEvent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/hooks/useTonightsEvent')>()),
+  useTonightsEvent: () => tonight.current,
+}));
+/** A Clarity Night (preparation on) starting 30 minutes from now — the room's arrival window is open. */
+const nightNow = () => ({
+  slug: 'night-2', title: 'Clarity Night #2', preparationEnabled: true, durationMinutes: 120,
+  datetime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+});
 
 async function renderNav(route: string, { loggedIn = false, withLinks = false } = {}) {
   mockAuthState.current = {
@@ -142,7 +150,7 @@ describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day'
   beforeEach(() => { tonight.current = null; });
 
   it('shows and links to the event\'s room when there is one today (P1428)', async () => {
-    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    tonight.current = nightNow();
     await renderNav('/feed', { loggedIn: true });
     const ctas = screen.getAllByTestId('tonights-event-cta');
     expect(ctas.length).toBeGreaterThan(0);
@@ -150,7 +158,7 @@ describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day'
   });
 
   it('is hidden on that event\'s own pages (one primary per view)', async () => {
-    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    tonight.current = nightNow();
     for (const route of ['/events/night-2', '/events/night-2/room', '/events/night-2/ready', '/events/night-2/meet', '/events/night-2/arriving', '/pricing']) {
       const { unmount } = await renderNav(route, { loggedIn: true });
       expect(screen.queryAllByTestId('tonights-event-cta'), route).toHaveLength(0);
@@ -161,7 +169,7 @@ describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day'
   it('is absent without an event, and for logged-out visitors', async () => {
     await renderNav('/feed', { loggedIn: true });
     expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
-    tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
+    tonight.current = nightNow();
     await renderNav('/feed');
     expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
   });

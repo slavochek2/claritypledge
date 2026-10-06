@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-06'
 tags: [events, navigation, header]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -36,14 +36,22 @@ Reversibility: high — one line. Decision density: made (below).
 
 ## Solution
 
-The button keeps its label and opens `/events/<slug>/room` instead of the event page. The room
-already handles every arrival: it asks "Have you arrived?" first (**Not yet** opens the "See you
-soon" page), offers unfinished preparation before entry, and shows the register wall to anyone
-not registered. It still hides on the event's own pages, the room included.
+The button keeps its label. It opens `/events/<slug>/room` **while the room is the place to be**:
+the event runs a room flow (preparation on) and the room's own arrival window is open, from an hour
+before the start until the end. That is the same window in which the room asks "Have you arrived?".
+Otherwise it opens the event page as before: hours before the start, after the event ended, and for
+events with no room flow (a hike). It still hides on the event's own pages, the room included.
 
 Founder decision 2026-10-06, option A of three: keep "Tonight's event" and open the room.
 Rejected: B, rename to "Event room" (says nothing about today; "room" means little to a
 first-timer; existing materials name the button); C, leave it on the event page.
+
+**Corrected during the build (adversarial review, Opus + Codex):** the first version linked to the
+room all day, on the claim that "the room asks Have you arrived? first, so early taps are handled".
+That claim was wrong: the question only appears inside the window and only for preparation events.
+A hike attendee would have landed on a conversation-practice screen, and a tap after the end on the
+ready screen of a finished event. The window rule replaces it; the founder's "keep it simple, the
+event page later in the day" fallback from the decision conversation is what it implements.
 
 ## Invariants
 
@@ -56,7 +64,8 @@ first-timer; existing materials name the button); C, leave it on the event page.
 
 | Risk | Label | Note |
 |---|---|---|
-| Someone taps hours before start and lands in the room flow | ACCEPT | The room's first screen asks "Have you arrived?"; Not yet opens "See you soon" |
+| Someone taps hours before start, or after the end | MITIGATE | Outside the arrival window the button opens the event page |
+| A tab left open across the window start keeps the old link until the header re-renders | ACCEPT | Any navigation re-renders it; the event page still offers the way in |
 | Analytics comparisons across the change | ACCEPT | Same event name and properties; the destination changed on a known date |
 
 **Non-Goals**
@@ -65,11 +74,14 @@ first-timer; existing materials name the button); C, leave it on the event page.
 
 ## Acceptance Criteria
 
-- [ ] On event day, a registered attendee tapping "Tonight's event" (phone and desktop) lands in
-      the room flow for that event, not the event page
-- [ ] The button is still absent on the event page and its sub-pages (room, ready, meet,
-      arriving, prepare, close)
-- [ ] Existing header tests pass with the new destination
+- [x] On event day, inside the arrival window of a preparation event, a registered attendee
+      tapping "Tonight's event" lands in the room flow; earlier, after the end, or for an event
+      without a room flow, on the event page — `e2e/p1351-header-contexts.spec.ts` (both
+      destinations, real browser, 3/3) and `src/tests/p1351-tonights-event.test.ts` (window edges)
+- [x] The button is still absent on the event page and its sub-pages — `p1087-nav-groups` asserts
+      the page, room, ready, meet and arriving (the rule is a prefix match, so prepare and close too)
+- [x] Existing header tests pass with the new destination — 29/29 unit, e2e 3/3; the room-href
+      test fails when the old href is restored (control run)
 - [ ] Adversarial review (Opus, Codex) run; each finding verified, fixed or answered
 
 ## Related

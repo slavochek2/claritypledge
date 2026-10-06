@@ -13,6 +13,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
+import { supabaseAdmin } from './helpers/supabase-admin';
 
 const WIDTHS = [
   { name: '320', width: 320, height: 568 },
@@ -154,7 +155,17 @@ test.describe('P1351 — header primary action across contexts', () => {
     const tonight = page.getByTestId('tonights-event-cta').filter({ visible: true });
     await page.goto('/feed');
     await tonight.click();
-    // P1428: the button opens the room flow (arrival question, preparation, ready or meet).
+    // P1428: two hours out and no preparation — not yet the room's time, so the event page.
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}$`));
+
+    // P1428: a Clarity Night (preparation on) starting in 30 minutes — the room's arrival window is
+    // open, so the button opens the room flow. A fresh load drops the hook's 5-minute cache.
+    const { error } = await supabaseAdmin.from('events')
+      .update({ preparation_enabled: true, datetime: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
+      .eq('id', event.id);
+    expect(error).toBeNull();
+    await page.goto('/feed');
+    await tonight.click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/(room|ready|meet|prepare|arriving)`));
   });
 });
