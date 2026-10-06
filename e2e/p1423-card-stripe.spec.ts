@@ -35,6 +35,19 @@ async function cardStripes(page: Page): Promise<string[]> {
   );
 }
 
+/** The card that holds `text` carries the neutral grey stripe — the scan above only rejects
+ *  coloured ones, so a card whose stripe vanished would pass it (Codex review). */
+async function expectGreyStripe(page: Page, text: string) {
+  const edge = await page.getByText(text).first().evaluate((node) => {
+    for (let el: Element | null = node as Element; el; el = el.parentElement) {
+      const s = getComputedStyle(el);
+      if (parseFloat(s.borderLeftWidth) >= 3) return `${s.borderLeftWidth} ${s.borderLeftColor}`;
+    }
+    return 'none';
+  });
+  expect(edge, `stripe on the card holding "${text}"`).toBe('4px rgb(203, 213, 225)');
+}
+
 async function checkPage(page: Page, name: string, url: string, ready: () => Promise<void>) {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
@@ -74,6 +87,7 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
   });
 
   test.beforeEach(async ({ page }) => {
+    test.setTimeout(120_000); // three widths per page on a shared, often loaded machine
     await setTestSession(page, owner.email);
   });
 
@@ -82,7 +96,6 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
   // this spec's to fix. The private point's background is pinned by
   // src/tests/p1366-card-footer.test.tsx instead.
   test('profile stories: grey stripe only', async ({ page }) => {
-    test.setTimeout(120_000); // seeds its own user, then loads the profile at three widths
     const storyOwner = await createTestUser({ name: 'Stripe Story Owner' });
     const ids = [
       (await createTestStory(storyOwner.user.id, { content: `Profile public ${tag}`, visibility: 'public' })).id,
@@ -96,6 +109,7 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
       // A profile lists public stories only (the private one is seeded to prove it stays off it),
       // so no private card renders here; the private story card is checked on its own page.
       await expect(page.getByText(`Profile private ${tag}`)).toHaveCount(0);
+      await expectGreyStripe(page, `Profile public ${tag}`);
     } finally {
       for (const id of ids) await deleteTestStory(id).catch(() => {});
       await deleteTestUser(storyOwner.user.id);
@@ -106,9 +120,11 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
     await checkPage(page, 'story-page', `/story/${storyIds[1]}`, async () => {
       await expect(page.getByText(`Private story ${tag}`).first()).toBeVisible({ timeout: 20000 });
     });
+    await expectGreyStripe(page, `Private story ${tag}`);
     await checkPage(page, 'point-page', `/point/${pointIds[0]}`, async () => {
       await expect(page.getByText(`Public point ${tag}`).first()).toBeVisible({ timeout: 20000 });
     });
+    await expectGreyStripe(page, `Public point ${tag}`);
   });
 
   test('letter drafts: grey stripe only; the private draft keeps its lock and muted background', async ({ page }) => {
@@ -122,5 +138,7 @@ test.describe('P1423 — cards carry only the neutral grey stripe', () => {
     await expect(publicDraft.getByRole('img', { name: PRIVATE_LABEL })).toHaveCount(0);
     await expect(privateDraft).toHaveClass(/bg-muted\/60/);
     await expect(publicDraft).not.toHaveClass(/bg-muted\/60/);
+    await expectGreyStripe(page, `Private letter ${tag}`);
+    await expectGreyStripe(page, `Public letter ${tag}`);
   });
 });
