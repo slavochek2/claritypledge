@@ -129,7 +129,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect.poll(position).toBe('sticky');
   });
 
-  test('with time left, Next round asks once; End the evening sits apart from it (walkthrough 9)', async ({ page }) => {
+  test('with time left, Next round asks once; End the evening is a small link under it (walkthrough 9)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await asHost(page);
     const before = (await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id)).data?.length ?? 0;
@@ -138,9 +138,8 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await page.getByTestId('host-next-confirm').getByRole('button', { name: 'Keep going' }).click();
     await expect(page.getByTestId('host-next-confirm')).toHaveCount(0);
     expect((await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id)).data?.length).toBe(before);
-    // Not inside the controls card any more: below the settings, out of thumb's reach of Next round.
-    await expect(page.getByTestId('host-controls').getByTestId('host-end-evening')).toHaveCount(0);
-    await expect(page.getByTestId('host-end-area').getByTestId('host-end-evening')).toBeVisible();
+    // Founder: a small centred link right under Next round, behind its own confirm.
+    await expect(page.getByTestId('host-controls').getByTestId('host-end-area').getByTestId('host-end-evening')).toBeVisible();
   });
 
   test('"End the evening" asks once, then every phone moves to Close (walkthrough 8)', async ({ page, browser }) => {

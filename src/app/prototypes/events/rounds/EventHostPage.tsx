@@ -1290,6 +1290,45 @@ export function EventHostPage() {
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
             </Button>
           )}
+          {round && (
+            // Walkthrough 9 (founder): small and centred right under Next round, behind its confirm.
+            <div className="mt-1 text-center" data-testid="host-end-area">
+          {round && !confirmEnd && (
+            <button
+              type="button"
+              onClick={() => setConfirmEnd(true)}
+              disabled={!!busy}
+              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+              data-testid="host-end-evening"
+            >
+              End the evening
+            </button>
+          )}
+          {round && confirmEnd && (
+            <div className="mt-2 rounded-lg border border-border p-3 text-left text-sm" data-testid="host-end-confirm">
+              <p>End the evening? Every phone moves to the closing screen.</p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setConfirmEnd(false);
+                    void run(() => hostEndRounds(event.id));
+                  }}
+                  data-testid="host-end-yes"
+                >
+                  End it
+                </Button>
+                <Button type="button" variant="ghost" className="min-h-10" onClick={() => setConfirmEnd(false)}>
+                  Keep going
+                </Button>
+              </div>
+            </div>
+          )}
+            </div>
+          )}
           {error && (
             <p role="alert" className="mt-2 text-sm text-red-600">
               {error}
@@ -1482,45 +1521,6 @@ export function EventHostPage() {
                 )}
               </div>
             </details>
-          )}
-          {round && (
-            // Walkthrough 9: away from Next round, so a thumb meant for it cannot land here.
-            <div className="mt-3 px-1 lg:order-4 lg:col-start-2" data-testid="host-end-area">
-          {round && !confirmEnd && (
-            <button
-              type="button"
-              onClick={() => setConfirmEnd(true)}
-              disabled={!!busy}
-              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-              data-testid="host-end-evening"
-            >
-              End the evening
-            </button>
-          )}
-          {round && confirmEnd && (
-            <div className="mt-2 rounded-lg border border-border p-3 text-sm" data-testid="host-end-confirm">
-              <p>End the evening? Every phone moves to the closing screen.</p>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-10"
-                  disabled={!!busy}
-                  onClick={() => {
-                    setConfirmEnd(false);
-                    void run(() => hostEndRounds(event.id));
-                  }}
-                  data-testid="host-end-yes"
-                >
-                  End it
-                </Button>
-                <Button type="button" variant="ghost" className="min-h-10" onClick={() => setConfirmEnd(false)}>
-                  Keep going
-                </Button>
-              </div>
-            </div>
-          )}
-            </div>
           )}
 
         <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
