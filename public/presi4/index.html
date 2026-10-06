@@ -1770,6 +1770,35 @@
   </section>
 
 
+    <style>
+    /* a phone outline around a live frame or a static screen (founder, 2026-10-06) */
+    .phone{width:300px;aspect-ratio:9/19;border:10px solid #18181b;border-radius:34px;overflow:hidden;
+      background:#fff;box-shadow:0 24px 60px -24px rgba(0,0,0,.45);margin:clamp(.6rem,2vh,1.2rem) auto 0;position:relative}
+    .phone iframe{width:390px;height:824px;border:0;transform-origin:0 0;transform:scale(.718)}
+    .ph-steps{display:flex;justify-content:space-between;gap:.2rem;padding:.9rem .6rem .5rem;font-size:.62rem;font-weight:700;color:#a1a1aa}
+    .ph-steps span{flex:1;text-align:center;padding:.3rem 0;border-bottom:2px solid #e4e4e7}
+    .ph-steps .now{color:var(--blue);border-color:var(--blue)}
+    .ph-body{padding:1.2rem .9rem;text-align:center;font-size:.8rem;color:#52525b}
+    .ph-btn{display:inline-block;margin-top:1rem;background:var(--blue);color:#fff;font-weight:700;border-radius:10px;padding:.6rem 1.2rem;font-size:.85rem;
+      animation:phpulse 1.8s ease-in-out infinite}
+    @keyframes phpulse{50%{box-shadow:0 0 0 8px rgba(59,130,246,.18)}}
+    .big5{font-size:clamp(2.6rem,7vw,5rem);font-weight:800;color:var(--blue);line-height:1;letter-spacing:-.03em;white-space:nowrap}
+    .phone.ph-short{width:250px;aspect-ratio:9/13}
+    .ph-short .ph-body{padding-top:3.2rem;font-size:.9rem}
+  </style>
+  <!-- YOUR PHONE, LIVE — founder, 2026-10-06: "between 16 and 17 ... the comparison page between the
+       speaker and listener ... on mobile, in the middle a mobile screen ... as if I am one of them".
+       The projector is signed in as the founder, so this frame is the founder's own room page: seat
+       yourself at the one table as the speaker first, and tap "show our positions" inside it.
+       Like every embed here it renders only when the deck is served from claritypledge.com. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - This is my phone, at the table, as the speaker. After we sit down we compare positions.
+    -->
+    <h2 style="margin-bottom:0;font-size:clamp(1.3rem,3vw,2.2rem)">Compare your <span class="accent">positions</span></h2>
+    <div class="phone"><iframe src="https://claritypledge.com/events/clarity-night-2-ai-and-your-ikigai-sinek-tan-naval-watts-and-brooks-2026-10-06-ijjx/room" title="The founder's phone in the room" loading="lazy"></iframe></div>
+  </section>
+
   <!-- 18 · THE ROOM, LIVE — the P1337 screen itself, embedded (founder, 2026-10-04: "keep in
        mind 'screen' of 1337 — we need to bring it too, this is the main thing").
 
@@ -1820,9 +1849,17 @@
     <!-- NOTES
       - Everyone on their phone, now. Five minutes. This is how the next evening gets better.
     -->
-    <div class="kicker">5 minutes &middot; on your phone</div>
-    <h2 style="font-size:clamp(1.8rem,4.6vw,3.4rem)">Tap <span class="accent">Close</span> and give feedback</h2>
-    <p class="lead" style="margin-top:.8rem">Your answers decide what the next evening looks like.</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:clamp(1.5rem,5vw,4rem);flex-wrap:wrap">
+      <div style="text-align:left">
+        <div class="big5">5 minutes</div>
+        <h2 style="font-size:clamp(1.6rem,4vw,3rem);margin:.4rem 0 .5rem">Tap <span class="accent">Close</span></h2>
+        <p class="lead" style="margin:0">Give honest feedback. Help us improve.</p>
+      </div>
+      <div class="phone ph-short" style="margin:0">
+        <div class="ph-steps"><span>Ready</span><span>Principle</span><span>Table</span><span>Compare</span><span class="now">Close</span></div>
+        <div class="ph-body"><b style="color:#18181b;font-size:.95rem">The evening is over</b><br>How was it?<br><span class="ph-btn">Give feedback</span></div>
+      </div>
+    </div>
   </section>
 
   <!-- PHOTO — founder, 2026-10-06: "then we need a photo slide". -->
