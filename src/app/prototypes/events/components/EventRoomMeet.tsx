@@ -284,7 +284,7 @@ export function EventRoomMeet() {
   const [principleOpen, setPrincipleOpen] = useState(false);
   // P1337: the round's moment, reported by the round card (it owns the poll). While you sit at a
   // table the page is your table (walkthrough 6); the step bar names the moment (walkthrough 7).
-  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false });
+  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
   const seated = moment.seated;
   // A step behind the current one the person tapped back to; null = follow the evening.
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(null);
@@ -445,7 +445,7 @@ export function EventRoomMeet() {
         : 'Opted out'
       : step === 'rating'
         ? ''
-        : 'You have not answered yet.';
+        : ''; // Walkthrough 9: the question above the principle already asks; no status line.
 
   // Once answered, the answer lives on the folded principle line, not in a bar over the page
   // (founder walkthrough 4: "once accepted, attendees shouldn't keep seeing the meeting principle").
@@ -454,7 +454,11 @@ export function EventRoomMeet() {
   // P1337 walkthrough 7 — where the evening has this person now. Close only when the host ended
   // the rounds or the event closed; Table, then Compare, while seated in a round.
   const currentStep: RoomStep =
-    isFrozen || moment.eveningOver ? 'close' : moment.seated ? (moment.atTable ? 'compare' : 'table') : 'principle';
+    isFrozen || moment.eveningOver
+      ? 'close'
+      : moment.seated
+        ? moment.atTable ? 'compare' : 'table'
+        : step === 'answered' && !writeFailed ? 'table' : 'principle'; // walkthrough 9: answered → wait at Table (a failed save stays to show it)
   const viewing: RoomStep = viewingBack ?? currentStep;
   const onStep = (next: RoomStep) => {
     if (next === 'ready') {
@@ -464,6 +468,9 @@ export function EventRoomMeet() {
     setViewingBack(next === currentStep ? null : next);
   };
   const showPrinciple = viewing === 'principle';
+  // Walkthrough 9: waiting at Table before a round keeps your answer and who's here in view,
+  // under the waiting card — the roster is what you look at while the room fills.
+  const showAnswered = showPrinciple || (viewing === 'table' && moment.waiting && step === 'answered');
 
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.
@@ -562,7 +569,7 @@ export function EventRoomMeet() {
               </Button>
             </section>
           )}
-          {showPrinciple && step === 'answered' && (
+          {showAnswered && step === 'answered' && (
             <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
               <button
                 type="button"
@@ -594,7 +601,13 @@ export function EventRoomMeet() {
               )}
             </div>
           )}
-          {showPrinciple && (step !== 'answered' || principleOpen) && (
+          {showPrinciple && step !== 'answered' && (
+            // Walkthrough 9 (founder's words): the decision, asked at the top.
+            <h1 className="pt-2 text-center text-2xl font-semibold leading-tight text-balance" data-testid="room-principle-question">
+              Do you want to try this principle with the people at this event?
+            </h1>
+          )}
+          {(showPrinciple ? step !== 'answered' || principleOpen : showAnswered && principleOpen) && (
             <CertificateFrame
               ariaLabel={PRINCIPLE_TITLE}
               title={PRINCIPLE_TITLE}
@@ -621,7 +634,7 @@ export function EventRoomMeet() {
           {/* Roster card — matches EventDetail.tsx's Participants card (`bg-card
               rounded-xl border border-border shadow-sm p-6`), round 4: the roster reads as
               a right-margin card, not a co-equal column. */}
-          {showPrinciple && (
+          {showAnswered && (
           <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             {roster.length === 0 ? (
               /* The one case a per-group empty state cannot express. `getRoomRoster` returns

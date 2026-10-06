@@ -107,6 +107,8 @@ export interface RoundMoment {
   eveningOver: boolean;
   /** A round is on now. It keeps the room open past the clock's close (walkthrough 9). */
   live: boolean;
+  /** Before a round, or sitting this one out: the Table step shows what comes next. */
+  waiting: boolean;
 }
 
 const firstWord = (name: string | undefined) => (name ? name.split(' ')[0] ?? name : '?');
@@ -158,9 +160,10 @@ export function RoundCard({
   const seated = !!round && !!mine;
   const atTable = seated && (!!mine?.confirmedAt || phase !== 'seating');
   const eveningOver = !ended && !round && state.rounds.length > 0;
+  const waiting = !seated && !eveningOver && !(ended && !live);
   useEffect(() => {
-    onMoment?.({ seated, atTable, eveningOver, live });
-  }, [onMoment, seated, atTable, eveningOver, live]);
+    onMoment?.({ seated, atTable, eveningOver, live, waiting });
+  }, [onMoment, seated, atTable, eveningOver, live, waiting]);
 
   const member = (id: string | undefined) => roster.find(m => m.id === id);
   const firstMember = member(first?.id);
@@ -199,20 +202,27 @@ export function RoundCard({
   if (!self) return null;
 
   if (!round || !mine) {
-    // Walkthrough 8: opted in with nothing to do read as stuck — say what comes next.
-    if (!round) {
-      if ((ended && !live) || eveningOver || view !== 'hidden') return null;
-      return (
-        <p className="text-base text-muted-foreground" data-testid="round-card-waiting">
-          Waiting for round {state.rounds.length + 1} — the host starts it
-        </p>
-      );
-    }
+    // Walkthrough 9: waiting lives on the Table step, not inside Principle — a card that says
+    // what comes next and keeps the rule in view (founder + three UX reviews).
+    // A round already on while you still answer the principle (a late arrival): say so there too.
+    if (!waiting || !(view === 'table' || (view === 'hidden' && round))) return null;
     return (
-      <p className="text-base font-medium" data-testid="round-card-waiting">
-        {/* A showcase seats only the people the host chose; everyone else watches. */}
-        Round {round.roundNo} · {round.showcase ? 'You watch' : 'You join the next round'}
-      </p>
+      <section className="rounded-xl border border-border bg-card p-5" data-testid="round-card-waiting">
+        <h2 className="text-xl font-semibold">
+          {/* A showcase seats only the people the host chose; everyone else watches. */}
+          {!round
+            ? `Round ${state.rounds.length + 1} starts soon`
+            : round.showcase
+              ? `Round ${round.roundNo} · You watch`
+              : `Round ${round.roundNo} · You join the next round`}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {!round ? 'The host starts it. Your table and role appear here.' : 'Your table appears here when the next round starts.'}
+        </p>
+        <p className="mt-4 rounded-lg bg-muted px-4 py-3 text-sm" data-testid="round-card-waiting-rule">
+          At the table: say what you mean; listen, then explain it back until they say &ldquo;yes, that&rsquo;s it&rdquo;.
+        </p>
+      </section>
     );
   }
   if (view === 'hidden') return null;
