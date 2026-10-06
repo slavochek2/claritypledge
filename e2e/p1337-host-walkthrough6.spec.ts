@@ -142,7 +142,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(page.getByTestId('host-controls').getByTestId('host-end-area').getByTestId('host-end-evening')).toBeVisible();
   });
 
-  test('"End the evening" asks once, then every phone moves to Close (walkthrough 8)', async ({ page, browser }) => {
+  test('"End the evening" asks once, every phone moves to Close, and Reopen brings them back (walkthroughs 8-9)', async ({ page, browser }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await asHost(page);
     await page.getByTestId('host-end-evening').click();
@@ -160,6 +160,10 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await setTestSession(anaPage, ana.email);
     await anaPage.goto(`/events/${event.slug}/meet`);
     await expect(anaPage.getByTestId('room-steps')).toHaveAttribute('data-current', 'close', { timeout: 20_000 });
+    // Walkthrough 9: ending is undoable — Reopen starts a fresh round and every phone leaves Close.
+    await page.getByTestId('host-reopen').click();
+    await expect(page.getByTestId('host-round-title')).toHaveText(/^Round \d+$/, { timeout: 20_000 });
+    await expect(anaPage.getByTestId('room-steps')).not.toHaveAttribute('data-current', 'close', { timeout: 20_000 });
     await anaPage.context().close();
   });
 });

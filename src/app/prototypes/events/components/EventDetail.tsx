@@ -41,7 +41,7 @@ import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { showsTopicVote } from '../topic-vote';
 import { TopicsPage } from '@/app/pages/topics-page';
-import { OptInTag, PrepMarks, micLine, optInLine, useHostOptIns, useHostPrepMarks } from '../prep/PrepMarks';
+import { PrepMarks, groupByOptIn, micLine, useHostOptIns, useHostPrepMarks } from '../prep/PrepMarks';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
@@ -1157,17 +1157,12 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               {/* P1386: host only — how many USB-C mics to bring, shown only when one is needed. */}
-              {/* P1337 walkthrough 9: host only — the principle answers, counted. */}
-              {isHost && event.preparationEnabled && (event.attendees ?? []).length > 0 && (
-                <p className="text-sm text-muted-foreground -mt-2 mb-3" data-testid="host-opt-in-line">
-                  {optInLine(hostOptIns, (event.attendees ?? []).map(a => a.profileId))}
-                </p>
-              )}
               {hostMicLine && (
                 <p className="text-sm text-foreground -mt-2 mb-3" data-testid="prep-mic-line">{hostMicLine}</p>
               )}
-              <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => (
+              {(() => {
+                const attendees = event.attendees ?? [];
+                const row = (attendee: (typeof attendees)[number], rating?: number | null) => (
                   <PersonRow
                     key={attendee.profileId}
                     profileId={attendee.profileId}
@@ -1178,16 +1173,37 @@ export function EventDetail() {
                     isPledger={attendee.hasPledged}
                     earCount={attendee.earCount}
                     trailing={
-                      isHost && event.preparationEnabled ? (
+                      hostPrepMarks.has(attendee.profileId) || rating != null ? (
                         <span className="flex items-center gap-2">
                           {hostPrepMarks.has(attendee.profileId) && <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} />}
-                          <OptInTag state={hostOptIns.get(attendee.profileId) ?? 'undecided'} />
+                          {rating != null && (
+                            <span className="whitespace-nowrap text-xs text-muted-foreground" data-testid="host-opt-in-rating">
+                              understood {rating}/10
+                            </span>
+                          )}
                         </span>
-                      ) : hostPrepMarks.has(attendee.profileId) ? <PrepMarks marks={hostPrepMarks.get(attendee.profileId)} /> : undefined
+                      ) : undefined
                     }
                   />
-                ))}
-              </div>
+                );
+                // P1337 walkthrough 9 (founder): host only — grouped like the room's roster, with the
+                // host's own marks; everyone else sees the plain list.
+                if (!isHost || !event.preparationEnabled) {
+                  return <div className="space-y-2">{attendees.map(a => row(a))}</div>;
+                }
+                return (
+                  <div className="space-y-5" data-testid="host-opt-in-groups">
+                    {groupByOptIn(attendees, hostOptIns).map(g =>
+                      g.people.length === 0 ? null : (
+                        <div key={g.key} className="space-y-2" data-testid={`host-opt-in-${g.key}`}>
+                          <h3 className="text-sm font-semibold text-foreground">{g.title} ({g.people.length})</h3>
+                          <div className="space-y-2">{g.people.map(a => row(a, hostOptIns.get(a.profileId)?.rating))}</div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

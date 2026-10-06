@@ -1259,6 +1259,20 @@ export function EventHostPage() {
               Round {round.roundNo} started
             </p>
           )}
+          {ended && nextNo <= MAX_ROUNDS && (
+            // Walkthrough 9 (founder): ending is undoable. Reopening starts a fresh round, so every
+            // phone leaves Close for its new table; past rounds, answers and feedback stay as they are.
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full min-h-12 text-base"
+              onClick={startNext}
+              disabled={!!busy || !loaded}
+              data-testid="host-reopen"
+            >
+              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : `Reopen: start round ${nextNo}`}
+            </Button>
+          )}
           {primary && round && confirmNext && clock && clock.phase !== 'over' && (
             // Walkthrough 9 (reviews): time is still on the clock — one more tap, never a dialog.
             <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
