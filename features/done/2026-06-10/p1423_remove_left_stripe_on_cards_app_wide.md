@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 21
 workstream: design-system
 created_date: '2026-10-05'
 tags: [design-system, cards, visual-consistency]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
 depends_on: [p1389]
+completed_at: 2026-10-06
 ---
 
 # P1423: Remove the coloured left stripe from cards, app-wide
