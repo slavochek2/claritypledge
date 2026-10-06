@@ -373,10 +373,16 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         console.warn('[kanban] day: terminal launch did not start a session, copy fallback offered')
         return res.status(502).json({ error: 'The terminal could not be opened', fallback: 'copy' })
       }
-      appendLine(dir, { ...base, state: 'started', at: dayClock().toISOString(), how: result.how })
+      // The session is already open: a failed receipt must not report a failure (the pending line
+      // reserved above still counts as sent, so nothing can launch twice).
+      try {
+        appendLine(dir, { ...base, state: 'started', at: dayClock().toISOString(), how: result.how })
+      } catch (err) {
+        console.warn(`[kanban] day: session started but its receipt was not written (${(err as NodeJS.ErrnoException).code ?? 'error'})`)
+      }
       res.json({ launched: true, how: result.how, count: c.count, followUp: !!sent.lastAt })
-    } catch {
-      console.error('[kanban] POST /api/day/start failed')
+    } catch (err) {
+      console.error(`[kanban] POST /api/day/start failed (${(err as NodeJS.ErrnoException).code ?? 'error'})`)
       res.status(500).json({ error: 'Failed to start a session' })
     } finally {
       launching = false

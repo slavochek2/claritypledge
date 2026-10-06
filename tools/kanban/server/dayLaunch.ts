@@ -39,7 +39,12 @@ export const osascriptLauncher: Launcher = (promptFile, ackFile, workdir) =>
       [join(SCRIPTS, 'day-launch.applescript'), join(SCRIPTS, 'day-launch.sh'), promptFile, ackFile, workdir],
       { timeout: 15_000 },
       (err, stdout) => {
-        if (err) return resolve({ ok: false })
+        if (err) {
+          // A code only (never the arguments or output): tells "not permitted" from a timeout.
+          const e = err as NodeJS.ErrnoException & { killed?: boolean }
+          console.warn(`[kanban] day: osascript failed (${e.killed ? 'timeout' : (e.code ?? 'error')})`)
+          return resolve({ ok: false })
+        }
         resolve({ ok: true, how: String(stdout).trim() === 'window' ? 'window' : 'tab' })
       },
     )

@@ -699,11 +699,11 @@ actions need an explicit yes in the session. Not adopted, with reason: Gemini's 
 shell-injection and path-traversal claims (each refuted in code); "Next marks resolved" (the founder's
 approved design).
 
-**Still open after these phases:** the outreach funnel's source ([FOUNDER DECISION]); the first
+**Still open after these phases:** the outreach funnel's source (closed in Phase D: decision 3A); the first
 real Start-fixing click; the cp monthly inside a real run; where a launched session should start
 (cp repo today; most fixes are code there).
 
-## Founder review of the built page (2026-10-05) — next round, not yet built
+## Founder review of the built page (2026-10-05) — built in Phase D
 
 Founder, verbatim excerpts: "other and ask a question is same .. its just custom answer" · "it doesnt
 show confidence scoring - how confident in the solution option recommended and in issue root cause ..
@@ -751,8 +751,7 @@ outreach starts. **4B** /day switches to the report only after this round ships.
 
 ## Open Questions
 
-1. Should the terminal card also offer `/day park <n>` style commands, so decisions can be made
-   without opening the board? Founder said "terminal can write it too" was fine. Phase 2 detail.
+1. ~~Terminal `/day park <n>` commands~~ — not built; the board is the one place decisions are made. Revisit only if the founder asks.
 
 ## Related
 
