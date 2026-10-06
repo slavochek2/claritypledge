@@ -6,6 +6,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [product]: Cards carry one neutral grey left stripe; the stripe no longer says who can see a card (P1423)
+
+**Context:** Cards had a 4px left stripe coloured by type and visibility (blue public story, slate point, grey private). P1389 removed it on the evening-close screens because it pulled the eye from the question to the card, and P1423 first removed it app-wide. Seen live, the cards read as white-on-white with nothing separating them ("everything is so plain").
+**Decision:** The founder compared four treatments side by side on the real feed, profile, letters and events (no stripe, grey page behind white cards, neutral grey stripe, the old blue stripe) and chose **one neutral grey stripe (`border-l-4 border-l-slate-300`) on every list or content card**: stories, points, events, letters, /live content cards, the feed skeleton. Focus screens (the 0-10 rating card, the close, drawer questions) carry none; the story page's author-colour top band is gone. Private is shown by the lock icon plus `bg-muted/60`, now also on private letters. Hover never recolours the stripe (`hover:border-l-slate-300`).
+**Alternatives rejected:** No stripe (cards lose their edge in lists); grey page background (separates cards without a stripe, but changes every list page's surface); the old blue stripe (the distraction P1389 removed).
+**Consequences:** Supersedes the premise of the CardMenu entry below that keeps hover off the left edge "so the `border-l-4` accent (amber = private) keeps its meaning": the mechanism stays, the meaning is gone, and no stripe may be used to encode visibility again. A new card uses the grey stripe unless it is a focus screen. `e2e/p1423-card-stripe.spec.ts` rejects coloured stripes and thick top bands and asserts the grey one is present.
+**References:** [p1423](../features/done/2026-06-10/p1423_remove_left_stripe_on_cards_app_wide.md)
+
+## 2026-10-06 [process]: Reviewers get the merge-base diff; a "nothing bad" scan needs a "something good" assertion; a failing e2e gets a control run on main (P1423)
+
+**Context:** Three things in one ship. (1) A Codex review returned three P1 findings (a deleted presentation, removed privacy text, a dropped skill step), all false: `git diff main` was taken after main had moved, so main's new commits read as deletions on the branch. (2) The new stripe e2e rejected coloured borders and passed when a card's stripe vanished; Codex found it by running the predicate against a no-stripe fixture. (3) The profile specs and /live two-party specs failed on the branch; identical runs on an unchanged-main worktree failed the same way (INBOX-122, INBOX-126), which is what made shipping honest.
+**Decision:** Feed reviewers `git diff $(git merge-base main HEAD) HEAD`, never `git diff main`. A gate that scans for forbidden values also asserts the required value on a known element, and both are proven by mutation (bad value and missing value). When a touched surface's e2e fails, run it on unchanged main before attributing or dismissing the failure, and say in the spec that the invariant was checked by control, not by a green run.
+**Alternatives rejected:** Re-running the failing specs until green (the failure was deterministic on main); trusting the class-only nature of the change without a control.
+**Consequences:** (Status: proposed) worth folding into `/finish` and the review prompts as the default diff command. Unit tests at a 5s timeout fail under a load average above ~100 on this machine; a 30s re-run (5727/5727) separated load from defects.
+**References:** [p1423](../features/done/2026-06-10/p1423_remove_left_stripe_on_cards_app_wide.md), `docs/process-learnings.md` INBOX-122, INBOX-126
+
 ## 2026-10-06 [product]: Items nested inside a list card open only via their own "Details →", like the card itself (P1424)
 
 **Context:** P1415 stopped list card bodies from navigating, but the items nested inside them

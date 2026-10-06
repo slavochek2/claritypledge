@@ -250,6 +250,7 @@ Last updated: 2026-10-06
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1423** (Oct 26) Cards carry one neutral grey left stripe, none on focus screens — the stripe no longer encodes visibility; private = lock + muted background
 - **P1422** (Oct 26) /meet track under Tools on phones — sticky offsets must include env(safe-area-inset-top) and the offline strip
 - **P1393** (Oct 02) Design-system sweep — decide visuals from /tree A/B pages; hex sweeps must skip avatar colour data.
 - **P1365** (Sep 28) Desktop event page repeats the RSVP only after a description taller than the viewport — geometry keeps one primary per view without scroll tracking; a repeated CTA needs its own name, loading label and test id
