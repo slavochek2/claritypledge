@@ -174,7 +174,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
       ? !state.topics.some((t) => t.myIsPublic === false)
       : undefined;
   // P1429: the stored choice wins — it holds even with no votes to read it from.
-  const storedChoice = useMyPhotoChoice(user?.id);
+  const { choice: storedChoice, remember: rememberChoice } = useMyPhotoChoice(user?.id);
   useEffect(() => {
     if (storedChoice != null) setShowPhoto(storedChoice);
     else if (knownPublic !== undefined && knownPublic !== null) setShowPhoto(knownPublic);
@@ -182,8 +182,10 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
 
   const togglePhoto = async (next: boolean) => {
     setShowPhoto(next);
-    if (await setMyVotesPublic(next)) await load();
-    else setShowPhoto(!next);
+    if (await setMyVotesPublic(next)) {
+      rememberChoice(next);
+      await load();
+    } else setShowPhoto(!next);
   };
 
   // The order is fixed for the visit: ranked once on first load, so a row never jumps

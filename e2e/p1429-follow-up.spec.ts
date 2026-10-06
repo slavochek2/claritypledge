@@ -108,6 +108,36 @@ test.describe('P1429', () => {
     await expect(page.getByLabel('Hide my photo on my votes')).toBeChecked({ timeout: 20_000 });
   });
 
+  test('A1: with votes on the page, ticking Hide stays ticked (and unticking stays unticked)', async ({ page }) => {
+    const voter = await user('P1429 Toggler');
+    const title = `P1429 toggle ${Date.now()}`;
+    const { data: topic } = await supabaseAdmin.from('topic_candidates').insert({ title, why: 'Test.', is_published: true, sort_order: -5001 }).select('id').single();
+    // A choice made on an earlier visit ("show"), so the page loads with a stored choice to go stale.
+    expect((await supabaseAdmin.from('topic_vote_prefs').insert({ user_id: voter.user.id, show_photo: true })).error).toBeNull();
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await setTestSession(page, voter.email);
+      await page.goto('/topics');
+      const row = page.getByTestId('topic-row').filter({ hasText: title });
+      await expect(row).toBeVisible({ timeout: 20_000 });
+      const voted = page.waitForResponse((r) => r.url().includes('/rpc/rate_topic') && r.ok());
+      await row.getByRole('radio', { name: '4 stars' }).click();
+      await voted;
+      const box = page.getByLabel('Hide my photo on my votes');
+      for (const hide of [true, false, true]) {
+        const saved = page.waitForResponse((r) => r.url().includes('/rpc/set_my_topic_votes_public') && r.ok());
+        const reread = page.waitForResponse((r) => r.url().includes('/rpc/get_open_topics') && r.ok());
+        if (hide) await box.check(); else await box.uncheck();
+        await saved;
+        await reread; // the votes come back with the new choice; the box must not flip back
+        await page.waitForTimeout(300);
+        if (hide) await expect(box).toBeChecked(); else await expect(box).not.toBeChecked();
+      }
+    } finally {
+      await supabaseAdmin.from('topic_candidates').delete().eq('id', topic!.id);
+    }
+  });
+
   test('A2: the host sees a room-only answer under Opted in with its number', async ({ page }) => {
     const host = await user('P1429 Host');
     const roomOnly = await user('P1429 Room Only');
