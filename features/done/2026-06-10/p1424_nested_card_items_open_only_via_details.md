@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 22
 workstream: growth
@@ -7,12 +7,12 @@ created_date: '2026-10-06'
 tags: [feed, cards, mobile, profile]
 disclosure: public
 intent: cold-start
-delivery_stage: ship
 pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-06
 ---
 
 # P1424: Nested items inside list cards open only via their own "Details →"
