@@ -1438,6 +1438,10 @@
     <div class="embed-nav">
       <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
       <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+      <!-- Founder (2026-10-06): the room's ready page loads everyone's marks once; this reloads
+           ONLY the embedded page, staying where you are in it, so new answers appear without
+           restarting the deck. -->
+      <button type="button" data-embed-nav="reload" aria-label="Refresh the embedded page" title="Refresh">&#8635;</button>
     </div>
   </section>
 
@@ -3166,7 +3170,12 @@
     document.querySelectorAll('[data-embed-nav]').forEach(b=>{
       b.addEventListener('click',ev=>{
         ev.stopPropagation(); ev.preventDefault();
-        (b.dataset.embedNav==='prev')?prev():next();
+        if(b.dataset.embedNav==='reload'){
+          const f=b.closest('.slide')?.querySelector('iframe');
+          // Same-origin on claritypledge.com: reload keeps the page you navigated to inside the
+          // frame. Anywhere else, fall back to reloading the frame's starting page.
+          if(f){ try{ f.contentWindow.location.reload(); }catch(_){ f.src=f.src; } }
+        } else (b.dataset.embedNav==='prev')?prev():next();
         b.blur(); window.focus();
       });
     });
