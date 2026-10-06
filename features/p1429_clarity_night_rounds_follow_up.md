@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 20
 workstream: events
 created_date: '2026-10-06'
 tags: [events, rounds, privacy, review-findings]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -87,16 +87,67 @@ Every item is a defect fix.
 
 ## Acceptance Criteria
 
-- [ ] A1: a failing test first. Then a star vote still saving when "Hide my photo" is tapped leaves the
+- [x] A1: a failing test first. Then a star vote still saving when "Hide my photo" is tapped leaves the
       photo hidden, and so does a vote from a second tab.
-- [ ] A1: votes flushed after sign-in respect a photo already hidden.
-- [ ] A2: someone who answered only in the room appears under Opted in or Opted out, with N/10, on the
+- [x] A1: votes flushed after sign-in respect a photo already hidden.
+- [x] A2: someone who answered only in the room appears under Opted in or Opted out, with N/10, on the
       host's event page. /meet renders nothing new.
-- [ ] A3: a phone on Close more than 12h after the start moves off Close within about 60s of Reopen.
-- [ ] A4: with the offline strip showing, and while transcribing, the step bar stays fully visible
+- [x] A3: a phone on Close more than 12h after the start moves off Close within about 60s of Reopen.
+- [x] A4: with the offline strip showing, and while transcribing, the step bar stays fully visible
       while scrolling Compare at 375px.
-- [ ] A5: when a "Not now" or "Join" lands but its response is lost, the retry moves on instead of
+- [x] A5: when a "Not now" or "Join" lands but its response is lost, the retry moves on instead of
       showing "Could not save".
+
+**Evidence (dev, 2026-10-06, test DB):**
+- A1 — `src/tests/integration/p1429-topic-photo-race.test.ts` failed first (`expected true to be false`:
+  the late vote re-exposed the voter), then 5/5. Concurrency: `p1429-topic-photo-concurrent.test.ts`
+  (a star and Hide sent together on two connections) exposed the voter in 13/40 and 6/40 races before
+  the per-user lock, 0/120 after. Browser: `e2e/p1429-follow-up.spec.ts` holds the vote in flight,
+  ticks Hide, releases it — `is_public=false`, box still ticked after reload; and hiding before any
+  vote shows ticked on return (failed first).
+- A2 — `p1429-host-view-room-answer.test.ts` (room-only answer returned with its 7, no prep row
+  created, still host-only) and `p1337-host-opt-in-groups.test.ts` failed first, then pass. Browser:
+  the host sees "P1429 Room Only" under Opted in with "understood 7/10"; an attendee sees no groups.
+  /meet reads `useHostPrepMarks`, which never reads the new fields.
+- A3 — `src/tests/p1429-reopen-reaches-phones.test.ts` (polling rule; a hidden tab skips reads; a
+  Reopen is seen on the minute). Browser: event started 13h ago, phone on Close, a new round inserted,
+  the page clock run 61s — Close is gone.
+- A4 — `src/tests/p1429-room-head-offset.test.tsx`; browser `e2e/p1429-pinned-head.spec.ts`: seated
+  in a round on Compare (14 statements), transcribing, offline, scrolled at 375, 320 and 1280px — the
+  step bar is below the capture bar every time. Control: with the old measure the step bar sat at
+  92px under a bar ending at 188px (fails).
+- A5 — `src/tests/p1429-close-lost-response.test.ts`; `p1429-close-retry.test.ts` failed first (the
+  server refused the retry with 22023), then 3/3. Browser: the first "Not now" response is dropped
+  after reaching the server; the page moves to the end, no "Could not save", one row stored.
+- Reviews: Codex, Opus and Gemini, then a Codex check of the fixes and a third Gemini pass on the SQL
+  (Gemini timed out on the full diff twice; the halves went through). Every finding was either fixed
+  with a test that failed first, or rejected with the reason in the session log.
+- Suites: `npm test` 545 files passed (2 skipped); the P1429 + P1347 database tests 20/20; browser
+  p1429 (both), p1389 close, p1337 rounds and table-compare, p1336 schema 61/62 — the one failure,
+  p1347-topics "a signed-in vote saves…", fails identically on `main` (d292b71e1) and is not this work.
+  Final re-run of rounds, close, p1336 schema and both p1429 browser files: 55/55, no flakes.
+
+## Built — where it departs from the Solution above
+
+- **A1 backfill is "hidden if ANY vote is hidden", not "the latest vote"** — the race this fixes leaves
+  the latest vote public, so "latest" would have kept the very voters it exposed. The migration also
+  re-hides any vote of a person whose stored choice is hidden.
+- **A1 gained a per-user lock** shared by `rate_topic` and `set_my_topic_votes_public` (review, Codex +
+  Opus): reading the stored choice was not enough while both calls were in flight.
+- **A1 gained `get_my_topic_photo_choice()`** (review, Opus): the photo box now starts from the stored
+  choice, so someone who hid it before voting sees it ticked; a saved choice replaces it at once, so
+  the box no longer flips back after Hide (review round 2, Codex — reproduced in the browser first).
+- **A1: the first vote stores the choice, and the switch refuses a missing value** (review round 3,
+  Gemini): with nothing stored, a later vote sent with the default "show" re-exposed a hidden first
+  vote; and a missing value used to mean "show". Both failed first on the test DB.
+- **A5 is server-side, not "treat 23505 as success"**: a real retry is refused with 22023 "this ask is
+  not offered" (an ask answered tonight leaves the offered list before the 23505 check), so a 23505
+  rule would never have fired. A first client fix inferred success from the re-read; review (Codex +
+  Opus) showed it reported "You've joined" when a "Not now" in another tab had ended the ask. Now
+  the server answers a repeat of a write that already holds — the same answer stored; for Join, the
+  membership present — with success, and the page retries once.
+- **A4 measures the capture bar's slot**, not the bar: offline the bar is a different, two-line
+  element with its own test id (found by the browser test, then by both reviewers).
 
 ## Related
 
