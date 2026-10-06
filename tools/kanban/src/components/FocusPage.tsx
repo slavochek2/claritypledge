@@ -66,7 +66,7 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'backlog': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
   'week': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
   'today': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
-  'blocked': { bg: 'var(--status-yellow-bg)', text: 'var(--status-yellow-text)' },
+  'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'qa': { bg: 'var(--status-yellow-bg)', text: 'var(--status-yellow-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },

@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Card } from './Card'
 import { Feature, ColumnId } from '../lib/types'
 import type { DropIndicator } from '../App'
+import { statusStyleFor, wipCountColour } from '../lib/columnColours'
 
 interface ColumnProps {
   id: ColumnId
@@ -38,24 +39,10 @@ function DropLine() {
   )
 }
 
-// Map a column's base colour to its status pill
-const getStatusStyle = (color: string) => {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    // blue = an action, amber = needs you (blocked, QA), green = worked; red is not used for a column
-    '#6b7280': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
-    '#3b82f6': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
-    '#ef4444': { bg: 'var(--status-yellow-bg)', text: 'var(--status-yellow-text)' },
-    '#22c55e': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
-    '#f59e0b': { bg: 'var(--status-yellow-bg)', text: 'var(--status-yellow-text)' },
-    '#8b5cf6': { bg: 'var(--tag-purple-bg)', text: 'var(--tag-purple-text)' },
-  }
-  return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
-}
-
 export function Column({ id, title, color, features, limit, dropIndicator, isDragging: _isDragging, onFeatureUpdate, renderCard }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const featureIds = features.map((f) => f.id)
-  const statusStyle = getStatusStyle(color)
+  const statusStyle = statusStyleFor(color)
 
   // Should show indicator at the end of the column (when dropping on empty area or at bottom)
   const showIndicatorAtEnd = dropIndicator && dropIndicator.beforeId === null
@@ -105,12 +92,7 @@ export function Column({ id, title, color, features, limit, dropIndicator, isDra
         <span
           style={{
             fontSize: 'var(--font-size-14)',
-            color:
-              limit === undefined || features.length < limit
-                ? 'var(--text-tertiary)'
-                : features.length > limit
-                  ? 'var(--cp-amber-800)'
-                  : 'var(--cp-fg)',
+            color: wipCountColour(features.length, limit),
             fontWeight:
               limit !== undefined && features.length >= limit
                 ? 'var(--font-weight-semibold)'

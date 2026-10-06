@@ -208,6 +208,7 @@
 .d-bnav { grid-area: nav; display: flex; align-items: center; gap: 4px; }
 .d-nbtn { min-width: 46px; height: 46px; padding: 0 10px; border: 1px solid var(--blue); background: var(--card); border-radius: var(--r); font-size: 15px; font-weight: 600; line-height: 1; color: var(--blue-800); display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
 .d-nbtn .d-nl { display: none; }
+.d-nbtn .d-ns { display: inline; }
 .d-nbtn:hover:not(:disabled) { background: var(--blue-50); }
 .d-nbtn:disabled { border-color: var(--line); color: var(--line2); background: var(--card); }
 .d-bpos { font-size: 13px; font-weight: 600; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -403,6 +404,7 @@
   .d-bprog { padding: 0 8px; }
   .d-nbtn { min-width: 56px; padding: 0 14px; }
   .d-nbtn .d-nl { display: inline; }
+  .d-nbtn .d-ns { display: none; }
   .d-bpos { min-width: 58px; font-size: 14px; }
   .d-pbrow { width: auto; }
   .d-pbseg { flex: initial; min-width: 90px; }

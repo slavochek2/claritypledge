@@ -137,6 +137,22 @@ describe('day-reflection-history: --reject-repeats', () => {
     expect(r.code).toBe(0)
   })
 
+  it('REPEATS — an opposite angle (start vs stop, with / without "not") is not a repeat; the identical statement still is', () => {
+    report('2026-10-04T05-00-00Z', '2026-10-04T05:00:00Z', [
+      { id: 'p1', text: 'Stop answering founder questions by writing new features in the evening to feel busy.' },
+      { id: 'p2', text: 'Weekly events are not a hobby until one produces a champion talk this month.' },
+    ])
+    decisions([dec('2026-10-04T05-00-00Z', 'p1', { position: 2 }), dec('2026-10-04T05-00-00Z', 'p2', { position: 1 })])
+    expect(reject(input('Start answering founder questions by writing new features in the evening to feel busy.')).code).toBe(0)
+    expect(reject(input('Weekly events are a hobby until one produces a champion talk this month.')).code).toBe(0)
+    expect(reject(input('Never answer founder questions by writing new features in the evening to feel busy.')).code).toBe(0)
+    // the identical statements are still refused, with nothing on stdout
+    const r = reject(input('Stop answering founder questions by writing new features in the evening to feel busy.'))
+    expect(r.code).toBe(1)
+    expect(r.out).toBe('')
+    expect(reject(input('Weekly events are NOT a hobby until one produces a champion talk this month!')).code).toBe(1)
+  })
+
   it('REPEATS — only an ANSWERED statement counts, and only inside the window', () => {
     answered()
     expect(reject(input('Weekly events are a hobby until one produces a champion talk.')).code).toBe(0) // never answered

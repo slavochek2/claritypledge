@@ -400,6 +400,12 @@ export function DayPage() {
     [tab, issues.length, issueIdx, reflIdx, statements.length, mode],
   )
 
+  /** The current card is an unanswered founder choice: Next will accept its recommendation. */
+  const accepting = useMemo(() => {
+    const cur = tab === 'report' && !readOnly && mode !== 'agent' ? issues[nav?.i ?? -1] : undefined
+    return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && !accepted.has(cur.fp)
+  }, [tab, readOnly, mode, issues, nav, choice, accepted])
+
   const page = useCallback(
     (dir: -1 | 1) => {
       if (!nav) return
@@ -418,6 +424,14 @@ export function DayPage() {
     },
     [nav, tab, issues, readOnly, choice, setIssueIdx],
   )
+
+  /** The last founder card has nowhere to page to: Accept records the answer and stays. */
+  const acceptHere = useCallback(() => {
+    const cur = issues[nav?.i ?? -1]
+    if (!cur || readOnly) return
+    setResolved((s) => new Set(s).add(cur.fp))
+    setAccepted((s) => new Set(s).add(cur.fp))
+  }, [issues, nav, readOnly])
 
   const review = useCallback(() => {
     setAgentMode(true)
@@ -665,8 +679,16 @@ export function DayPage() {
                   <span className="d-bpos">
                     {nav.i + 1} of {nav.n}
                   </span>
-                  <button type="button" className="d-nbtn" aria-label={`Next ${nav.lab}`} title="Next (→)" disabled={nav.i >= nav.n - 1} onClick={() => page(1)}>
-                    <span className="d-nl">Next</span>›
+                  <button type="button" className="d-nbtn" aria-label={`${accepting ? (nav.i < nav.n - 1 ? 'Accept and next' : 'Accept') : 'Next'} ${nav.lab}`} title={accepting ? 'Accept this answer and go on (→)' : 'Next (→)'} disabled={nav.i >= nav.n - 1 && !accepting} onClick={() => (nav.i >= nav.n - 1 ? acceptHere() : page(1))}>
+                    {accepting ? (
+                      <>
+                        <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
+                        <span className="d-ns">Accept</span>
+                      </>
+                    ) : (
+                      <span className="d-nl">Next</span>
+                    )}
+                    ›
                   </button>
                 </div>
               ) : (
@@ -697,6 +719,11 @@ export function DayPage() {
                 {!readOnly && tab === 'report' && mode === 'yours' && firstYours && (
                   <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
                     {yoursLeft.length} still yours
+                  </button>
+                )}
+                {tab === 'report' && mode === 'agent' && yours.length > 0 && (
+                  <button type="button" className="d-still" data-back-yours data-short="yours" onClick={backToYours}>
+                    Back to yours
                   </button>
                 )}
                 {!readOnly && nav && (

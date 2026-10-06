@@ -30,6 +30,7 @@
 // Pure functions are exported for the tests; `run` does the I/O, and `main` only wires it to the
 // process.
 
+import { createHash } from 'crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { basename, join, resolve } from 'path'
@@ -450,7 +451,22 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
 // The plain-language overlay (Phase D, founder decision 10): the `plain` data section rewrites a
 // card into what it means for the founder. The original wording is kept in `technical`.
 
-export interface PlainRow { fp: string; title: string; point_a: string; obstacle: string; point_b: string }
+export interface PlainRow { fp: string; title: string; point_a: string; obstacle: string; point_b: string; src?: string }
+
+type Wording = { title: string; point_a: string; obstacle: string; point_b: string }
+
+/** A short hash of a card's original wording: --phase issues prints it, the plain pass echoes it back. */
+export const srcOf = (o: Wording): string => createHash('sha256').update([o.title, o.point_a, o.obstacle, o.point_b].join('\u0000')).digest('hex').slice(0, 12)
+
+const NUMBER = /\d+(?:[.,]\d+)*/g
+const numbersIn = (t: string) => (t.match(NUMBER) ?? []).map((n) => n.replace(/[.,]+$/, ''))
+
+/** A plain row is applied only to the wording it was written from, and may not add a number the original does not have. */
+function plainFits(o: Wording & { evidence_text?: string }, r: PlainRow): boolean {
+  if (r.src !== srcOf(o)) return false
+  const known = new Set(numbersIn([o.title, o.point_a, o.obstacle, o.point_b, o.evidence_text ?? ''].join(' ')))
+  return numbersIn([r.title, r.point_a, r.obstacle, r.point_b].join(' ')).every((n) => known.has(n))
+}
 
 /** The overlay's rows, or null when it is not something the board can apply as given. Extra fields are ignored. */
 export function readPlain(v: unknown): PlainRow[] | null {
@@ -459,6 +475,10 @@ export function readPlain(v: unknown): PlainRow[] | null {
   for (const r of v) {
     if (!isObj(r) || typeof r.fp !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(r.fp)) return null
     const row: Partial<PlainRow> = { fp: r.fp }
+    if (r.src !== undefined) {
+      if (typeof r.src !== 'string' || !/^[0-9a-f]{12}$/.test(r.src)) return null
+      row.src = r.src
+    }
     for (const [k, max] of [['title', PLAIN_TITLE_MAX], ['point_a', PLAIN_BODY_MAX], ['obstacle', PLAIN_BODY_MAX], ['point_b', PLAIN_BODY_MAX]] as const) {
       const t = typeof r[k] === 'string' ? (r[k] as string).trim() : ''
       if (!t || t.length > max) return null
@@ -476,10 +496,15 @@ const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'poin
  * nobody wrote up is a card too: it is written into the report with its overlay, under the same
  * fingerprint, so the board does not make it twice. Returns how many rows matched no card.
  */
-export function applyPlain(report: DayReport, rows: PlainRow[], earlier: Pick<DayReport, 'started_at' | 'issues'>[]): number {
+export function applyPlain(report: DayReport, rows: PlainRow[], earlier: Pick<DayReport, 'started_at' | 'issues'>[]): { unmatched: number; rejected: number } {
   const byFp = new Map(rows.map((r) => [r.fp, r])) // the later row wins
   const used = new Set<string>()
+  const rejected = new Set<string>()
   const overlay = (i: DayIssue, r: PlainRow) => {
+    if (!plainFits(i, r)) {
+      rejected.add(r.fp)
+      return
+    }
     i.technical = { title: i.title, point_a: i.point_a, obstacle: i.obstacle, point_b: i.point_b }
     i.title = r.title
     i.point_a = r.point_a
@@ -491,20 +516,22 @@ export function applyPlain(report: DayReport, rows: PlainRow[], earlier: Pick<Da
     const r = byFp.get(i.fp)
     if (r) overlay(i, r)
   }
-  const unwritten = [...byFp.keys()].filter((fp) => !used.has(fp))
+  const unwritten = [...byFp.keys()].filter((fp) => !used.has(fp) && !rejected.has(fp))
   if (unwritten.length) {
+    // A card the board makes from a check nobody wrote up has no stored issue to carry the overlay,
+    // and the report is the only thing the board reads, so it is written once, under its own fingerprint.
     for (const view of allIssues(report)) {
       const r = byFp.get(view.fp)
-      if (!view.synthetic || !r || used.has(view.fp)) continue
+      if (!view.synthetic || !r || used.has(view.fp) || rejected.has(view.fp)) continue
       const issue = { options: [] } as unknown as DayIssue
       for (const k of ISSUE_KEYS) if (view[k] !== undefined) (issue as unknown as Obj)[k] = view[k]
       if (view.important) issue.important = true
       issue.first_seen = firstSeen(view.fp, undefined, earlier, report.started_at)
       overlay(issue, r)
-      report.issues.push(issue)
+      if (used.has(view.fp)) report.issues.push(issue)
     }
   }
-  return byFp.size - used.size
+  return { unmatched: byFp.size - used.size - rejected.size, rejected: rejected.size }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -560,7 +587,7 @@ export function buildReport(inp: RenderInputs): DayReport {
 }
 
 /** The report, and how many plain-language rows matched no card (counted, never silently dropped). */
-export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number } {
+export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number; plainRejected: number } {
   const { ledger, registries, phase } = inp
   const { checks, misplaced } = buildChecks({ ledger, registries, phase })
   const extra: DayCheck[] = []
@@ -613,8 +640,8 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   if (data.reflection) report.reflection = data.reflection as DayReport['reflection']
   if (data.people) report.people = data.people as DayReport['people']
   if (data.notes) report.notes = data.notes as DayReport['notes']
-  const plainUnmatched = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : 0
-  return { report, plainUnmatched }
+  const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
+  return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected }
 }
 
 /** Problems (fixed vocabulary) that stop the report from being written; empty = it validates. */
@@ -917,6 +944,7 @@ export function run(argv: string[], io: IO): number {
     const cards = view.issues.map((i) => ({
       fp: i.fp,
       topic: i.topic,
+      src: srcOf(i),
       title: i.title,
       point_a: i.point_a,
       obstacle: i.obstacle,
@@ -927,7 +955,7 @@ export function run(argv: string[], io: IO): number {
     io.out(`${JSON.stringify(cards, null, 2)}\n`)
     return 0
   }
-  const { report, plainUnmatched } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now })
+  const { report, plainUnmatched, plainRejected } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now })
   const problems = validateReport(report)
   if (problems.length) {
     say(`the report would not validate (${problems.slice(0, 5).join(',')})`)
@@ -945,6 +973,7 @@ export function run(argv: string[], io: IO): number {
   }
   say(`report written (${report.state})`)
   if (plainUnmatched) say(`${plural(plainUnmatched, 'plain-language row')} matched no issue`)
+  if (plainRejected) say(`${plural(plainRejected, 'plain-language row')} ${plainRejected === 1 ? 'was' : 'were'} not applied`)
 
   if (args.print !== 'none') {
     const view = buildView(report, readDecisions(args.dayDir), [...earlier, report].map(traceOf))

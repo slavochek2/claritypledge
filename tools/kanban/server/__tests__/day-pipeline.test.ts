@@ -3,7 +3,7 @@ import { execFile } from 'child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
-import { countPipeline, pipelineLine } from '../../scripts/day-pipeline'
+import { countPipeline, defaultOpportunitiesDir, pipelineLine } from '../../scripts/day-pipeline'
 
 /**
  * P1399 Phase D (founder decision 3A): the outreach funnel is the cp board's own Pipeline
@@ -60,3 +60,31 @@ describe('day-pipeline: one line per run, counts only', () => {
     expect((await go(join(dir, 'missing'))).stdout).toBe('pipeline: none\n')
   }, 30_000)
 })
+
+describe('day-pipeline: the default folder comes from the script, not the working directory', () => {
+  const repoRoot = resolve(__dirname, '../../../..')
+  const saved = process.env.KANBAN_PROJECT_ROOT
+  afterEach(() => {
+    if (saved === undefined) delete process.env.KANBAN_PROJECT_ROOT
+    else process.env.KANBAN_PROJECT_ROOT = saved
+  })
+
+  it('PIPELINE — run from a different cwd, the repo root is still found', () => {
+    delete process.env.KANBAN_PROJECT_ROOT
+    const before = process.cwd()
+    try {
+      process.chdir(tmpdir())
+      expect(defaultOpportunitiesDir()).toBe(join(repoRoot, '.private', 'crm', 'opportunities'))
+      process.chdir(repoRoot)
+      expect(defaultOpportunitiesDir()).toBe(join(repoRoot, '.private', 'crm', 'opportunities'))
+    } finally {
+      process.chdir(before)
+    }
+  })
+
+  it('PIPELINE — KANBAN_PROJECT_ROOT still wins', () => {
+    process.env.KANBAN_PROJECT_ROOT = dir
+    expect(defaultOpportunitiesDir()).toBe(join(dir, '.private', 'crm', 'opportunities'))
+  })
+})
+

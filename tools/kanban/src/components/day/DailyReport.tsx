@@ -3,7 +3,7 @@
 // reports clicks.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { OWN, daysOpen, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, daysOpen, technicalDetail, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
@@ -155,7 +155,7 @@ function StatusPanel({ report, view, readOnly, canCollapse, onCollapse, stripOpe
     <Phrases
       items={[
         `${good.length} worked`,
-        need > 0 && <span className="d-needtx">{need} need you</span>,
+        need > 0 && <span className="d-needtx">{need === 1 ? '1 check needs attention' : `${need} checks need attention`}</span>,
         withNew && newPeople > 0 && `${newPeople} new`,
       ]}
     />
@@ -320,6 +320,7 @@ function IssueCard(p: Props) {
   const focusRef = useRef<HTMLTextAreaElement | null>(null)
   const issue = issues[Math.min(p.index, issues.length - 1)]
   const sel = issue ? p.selected(issue) : null
+  const tech = issue ? technicalDetail(issue) : null
 
   // Focus the custom answer's box only when it is picked — never when paging lands here.
   useEffect(() => {
@@ -487,21 +488,21 @@ function IssueCard(p: Props) {
                 <dd>{issue.more_info}</dd>
               </div>
             )}
-            {issue.technical && (
+            {tech && (
               <div>
                 <dt>Technical detail</dt>
                 <dd className="d-tech" data-technical>
                   <span>
-                    <b>Title</b> {issue.technical.title}
+                    <b>Title</b> {tech.title}
                   </span>
                   <span>
-                    <b>Point A</b> {issue.technical.point_a}
+                    <b>Point A</b> {tech.point_a}
                   </span>
                   <span>
-                    <b>Obstacle</b> {issue.technical.obstacle}
+                    <b>Obstacle</b> {tech.obstacle}
                   </span>
                   <span>
-                    <b>Point B</b> {issue.technical.point_b}
+                    <b>Point B</b> {tech.point_b}
                   </span>
                 </dd>
               </div>

@@ -529,38 +529,51 @@ control list in the private design folder, and tested against it)**
       Evidence: day-launch tests `within a minute does not launch`, `only what changed goes out` (unchanged → 409 already-sent; a change → follow-up with only the change) + controls.
 
 **Phase D: founder review round (2026-10-06 decisions; tests first, each with a known-bad control)**
-- [ ] One custom option, "Your answer or question…", replaces Ask a question… and Other…; a reply
+- [x] One custom option, "Your answer or question…", replaces Ask a question… and Other…; a reply
       ending in "?" is a question and goes to the questions-first part of the prompt; decision lines
       written by the old Ask/Other still read correctly.
-- [ ] The recommended option shows "Fit N%" (fixes the real cause without breaking something else),
+      Evidence: e2e `Phase D: one custom option` (3) + unit OWN/legacy ask-other tests; old sent keys honoured (unit).
+- [x] The recommended option shows "Fit N%" (fixes the real cause without breaking something else),
       one "Main risk" line, and a "Cause checked" / "Cause suspected" tag; an issue without a fit says
       "Fit not rated", never a made-up number. `finding --recommend` is refused without `--fit` and
       `--risk`, and every runbook finding that recommends carries both (registry test).
-- [ ] Start fixing sends only answered cards (picked, or accepted with Next) plus cards whose
+      Evidence: e2e `Phase D: fit, risk and cause`; private day-step.test.sh 121/0 refuses --recommend without --fit/--risk/--evidence; cp registry test 19/0 scans day-cp, weekly, monthly (control: one --risk deleted from a real copy → RED).
+- [x] Start fixing sends only answered cards (picked, or accepted with Next) plus cards whose
       recommendation is to give it to the agent; an unopened founder-choice card is not in the prompt
       and is counted on the page as "still yours".
-- [ ] The Help requests and Mentions tiles open the chat-digest note.
-- [ ] Monitoring has no Systems list (every check stays in Status); Monitoring is money and
+      Evidence: unit 1B tests (old collect as known-bad control → RED); e2e `Next accepts…`, `Accept` on the last card, bar height at 1440/375/320; Next reads "Accept & next" on unanswered founder cards (review: Opus).
+- [x] The Help requests and Mentions tiles open the chat-digest note.
+      Evidence: e2e `Stats: Help requests and Mentions open their note…`; 9d readings carry note chat-digest (report-sections test).
+- [x] Monitoring has no Systems list (every check stays in Status); Monitoring is money and
       subscriptions only.
-- [ ] Claude and Codex share one "Subscriptions" card and chart: % left over the week from this
+      Evidence: e2e `Monitoring is money and subscriptions only…`; Status headline now "N checks need attention".
+- [x] Claude and Codex share one "Subscriptions" card and chart: % left over the week from this
       week's runs, a dashed projection to each reset, each reset marked and named.
-- [ ] AI keys with no billing data say why ("no billing data: unused, or not in the export"), and an
+      Evidence: e2e Subscriptions overview/detail/pace/single-reading/merged-reset tests; unit quotaHistory window tests.
+- [x] AI keys with no billing data say why ("no billing data: unused, or not in the export"), and an
       inbox item asks an agent to check the export per project.
-- [ ] The Stats funnel counts the cp board's Pipeline columns (Contacted → In conversation →
+      Evidence: e2e `keys with no data say why`; inbox item INBOX-P61 annotated with the founder's question.
+- [x] The Stats funnel counts the cp board's Pipeline columns (Contacted → In conversation →
       Qualified → Committed → Active) with real numbers, zeros included.
-- [ ] Reflection memory: the Opus statement writer receives the last 14 days of statements with the
+      Evidence: unit day-pipeline tests (dir resolved from the script, not cwd — review fix); e2e `the funnel shows the Pipeline columns with real zeros`.
+- [x] Reflection memory: the Opus statement writer receives the last 14 days of statements with the
       founder's positions and stories; a new statement that repeats an answered one is refused and
       the agent is asked again (positions and stories live in the decisions file, read back here).
-- [ ] Plain-language pass: before the report is written, one agent rewrites each card's title,
+      Evidence: unit day-reflection-history tests (opposite angle not a repeat; identical refused; threshold control); day.md 9r passes the history inline and pipes through --reject-repeats (report-sections tests).
+- [x] Plain-language pass: before the report is written, one agent rewrites each card's title,
       Point A, Obstacle and Point B into what it means for the founder; the original wording moves to
       More info › Technical detail; an overlay for an unknown card is ignored; no overlay = original.
-- [ ] Cards whose recommendation is agent work are folded into one line ("N things an agent can
+      Evidence: unit applyPlain tests (overlay applied; originals in technical; unknown fp ignored; new number or changed source → original kept); prompt uses original wording, plain title fenced as data (review: Codex/Opus/Gemini); day.md 9p hard step + fence-tolerant validator.
+- [x] Cards whose recommendation is agent work are folded into one line ("N things an agent can
       fix") that opens them as the same cards; the pager walks the founder's cards.
-- [ ] The Goals page and its API are gone from the board (both boards), and the board's other pages
+      Evidence: e2e `Phase D: agent work folded` (5) + Back to yours in the bar on phones.
+- [x] The Goals page and its API are gone from the board (both boards), and the board's other pages
       use the Day page's type, colours, buttons and cards without losing any function (board e2e
       suite unchanged, before/after screenshots reviewed).
-- [ ] Screenshots at 1440, 375 and 320 pass a separate visual QA; one hostile review by Opus,
+      Evidence: board unit + p147 e2e unchanged (4 pass / 2 pre-existing); unit pages.test (goals falls back) + columnColours tests (Blocked red, WIP overflow red, Pipeline/Content neutral); before/after shots reviewed by the Opus reviewer.
+- [x] Screenshots at 1440, 375 and 320 pass a separate visual QA; one hostile review by Opus,
       Gemini 3.8 and Codex (technical and UX), claims verified before acting.
+      Evidence: visual QA (separate agent, 4 BLOCKs verified → 3 real, fixed) and hostile review Opus + Gemini 3.8 + Codex, 3 of 3 reported; every BLOCK verified in code and fixed (overlay into prompt, pipeline path, fence parse); final: vitest 330/330, day e2e 91/91, all mutation controls fired, tsc 16 = baseline.
 
 ## Alternatives Considered
 

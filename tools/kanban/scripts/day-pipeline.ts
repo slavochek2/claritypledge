@@ -14,14 +14,17 @@
 
 import { readFileSync, readdirSync } from 'fs'
 import { join, resolve } from 'path'
-import { pathToFileURL } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { parseFrontmatter } from '../lib/frontmatter'
 
 export const STAGES = ['contacted', 'in-conversation', 'qualified', 'committed', 'active'] as const
 type Stage = (typeof STAGES)[number]
 
-/** Same default as server/api.ts DEFAULT_OPPORTUNITIES_DIR. */
-export const defaultOpportunitiesDir = () => join(process.env.KANBAN_PROJECT_ROOT ?? join(process.cwd(), '..', '..'), '.private', 'crm', 'opportunities')
+/** This script's own repo root (tools/kanban/scripts → three levels up), like server/dayLaunch.ts: never the working directory. */
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
+
+/** The board's opportunities folder; KANBAN_PROJECT_ROOT, as the board's server reads it, still wins. */
+export const defaultOpportunitiesDir = () => join(process.env.KANBAN_PROJECT_ROOT ?? REPO_ROOT, '.private', 'crm', 'opportunities')
 
 export function countPipeline(dir: string): Record<Stage, number> | null {
   let names: string[]

@@ -4,7 +4,7 @@
 // marker shows a reset. The chart measures its card, so it fills the width with true-size text.
 
 import { useLayoutEffect, useRef, useState } from 'react'
-import { projectQuota, QUOTA_COLOURS, resetLabel, WEEK_MS, type QuotaLine } from './quota'
+import { groupResets, projectQuota, QUOTA_COLOURS, resetGroupLabel, WEEK_MS, type QuotaLine } from './quota'
 
 export interface Series {
   data: (number | null | undefined)[]
@@ -170,14 +170,8 @@ export function SubscriptionsChart({ lines }: { lines: QuotaLine[] }) {
   const days: number[] = []
   for (let d = new Date(start).setHours(24, 0, 0, 0); d <= end; d += 24 * 3_600_000) days.push(d)
   const step = Math.max(1, Math.ceil(days.length / Math.max(2, Math.floor(pw / 44))))
-  // resets closer than 10% of the axis share one marker and one label, so labels never overlap
-  const sorted = [...lines].sort((a, b) => a.resetsAt - b.resetsAt)
-  const resets: QuotaLine[][] = []
-  for (const l of sorted) {
-    const g = resets[resets.length - 1]
-    if (g && l.resetsAt - g[0].resetsAt < 0.1 * (end - start)) g.push(l)
-    else resets.push([l])
-  }
+  // resets within two hours of each other share one marker; its label names each time when they differ
+  const resets = groupResets(lines)
 
   // End labels: the highest line's goes above-right of its last reading (its projection falls away
   // from there); the others go below-left (their own line comes from above-left). Two labels never
@@ -213,7 +207,7 @@ export function SubscriptionsChart({ lines }: { lines: QuotaLine[] }) {
         <g key={g.map((l) => l.id).join(' ')} data-reset={g.map((l) => l.id).join(' ')}>
           <line x1={X(g[0].resetsAt)} x2={X(g[0].resetsAt)} y1={MS.t - 6 - (resets.length - 1 - row) * ROW} y2={height - MS.b} stroke="#94a3b8" strokeDasharray="2 3" />
           <text x={X(g[0].resetsAt) - 4} y={MS.t - 10 - (resets.length - 1 - row) * ROW + 4} textAnchor="end" fontSize="12" fontWeight="600" fill="#475569">
-            {`${g.map((l) => l.label).join(' and ')} ${g.length > 1 ? 'reset' : 'resets'} ${resetLabel(g[0].resetsAt)}`}
+            {resetGroupLabel(g)}
           </text>
         </g>
       ))}

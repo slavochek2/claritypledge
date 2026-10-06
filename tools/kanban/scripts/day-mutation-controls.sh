@@ -255,7 +255,11 @@ control "Phase D: the overlay becomes the displayed text" "the overlay becomes t
 control "Phase D: the original wording is kept in technical" "the overlay becomes the displayed" \
   $D 's/    i\.technical = \{[^\n]*\n//' $R
 control "Phase D: an overlay row for an unknown fp is counted" "ignored and counted" \
-  $D 's/return byFp\.size - used\.size/return 0/' $R
+  $D 's/unmatched: byFp\.size - used\.size - rejected\.size/unmatched: 0/' $R
+control "Phase D: a plain row for changed wording is not applied" "PLAIN guard" \
+  $D 's/  if \(r\.src !== srcOf\(o\)\) return false/  if (false) return false/' $R
+control "Phase D: a plain row may not add a number" "PLAIN guard" \
+  $D 's/\.every\(\(n\) => known\.has\(n\)\)/.every(() => true)/' $R
 control "Phase D: a malformed overlay is a problem check" "a malformed overlay is a day.data.plain" \
   $D 's/    case .plain.:\n      return readPlain\(v\) !== null/    case "plain":\n      return true/' $R
 control "Phase D: the overlay's length limits hold" "a malformed overlay is a day.data.plain" \
@@ -263,7 +267,7 @@ control "Phase D: the overlay's length limits hold" "a malformed overlay is a da
 control "Phase D: a check nobody wrote up takes the overlay too" "a check nobody wrote up is a card" \
   $D 's/if \(unwritten\.length\) \{/if (false) {/' $R
 control "Phase D: --phase issues writes nothing" "phase issues prints" \
-  $D 's/    return 0\n  \}\n  const \{ report, plainUnmatched \}/  }\n  const { report, plainUnmatched }/' $R
+  $D 's/    return 0\n  \}\n  const \{ report, plainUnmatched, plainRejected \}/  }\n  const { report, plainUnmatched, plainRejected }/' $R
 control "Phase D: --phase issues shows the producer's own words" "phase issues prints" \
   $D 's/    dataFiles\.delete\(.plain.\)\n//' $R
 control "Phase D: --phase issues cuts the evidence to 600" "phase issues cuts" \
@@ -272,7 +276,29 @@ control "Phase D: a cloud key keeps its why, cut to 120" "KEYWHY" \
   src/lib/day.ts 's/const line = oneLine\(why, MAX_KEY_WHY\)/const line = typeof why === "string" ? why : undefined/'
 control "Phase D: --phase issues needs no other arguments" "bare runbook invocation" \
   scripts/day-render.ts 's/    ledger: join\(homedir\(\), .\.claude-day-ledger.\),/    ledger: join(homedir(), ".claude-day-ledger-x"),/' "$R"
+Q=server/__tests__/day-quota.test.ts
+control "Phase D: resets merge only within two hours" "RESETS — two resets within 2 hours" \
+  src/components/day/quota.ts 's/l\.resetsAt - g\[0\]\.resetsAt <= MERGE_RESETS_MS/true/' "$Q"
+control "Phase D: a merged reset names each time when they differ" "the merged label names each time" \
+  src/components/day/quota.ts 's/  if \(sameDay\) return/  if (false) return/' "$Q"
+control "Phase D: the technical detail needs a material difference" "Technical detail only" \
+  src/lib/day.ts 's/  return novel \? t : null/  return t/'
+control "Phase D: a new id, path or number shows the technical detail" "an id, a path or a number" \
+  src/lib/day.ts 's/  const novel = specifics/  const novel = false \&\& specifics/'
+control "Phase D: the prompt carries the original wording" "original wording" \
+  src/lib/day.ts 's/=> i\.technical \?\? \{ title: i\.title/=> undefined ?? { title: i.title/'
+control "Phase D: a Phase C send is not repeated" "a Phase C send is not repeated" \
+  src/lib/day.ts 's/\(raw !== undefined && raw !== x\.option_id/(false \&\& raw !== x.option_id/'
+C=src/lib/__tests__/columnColours.test.ts
+control "Phase D: Blocked keeps its own red pill" "COLOURS" \
+  src/lib/columnColours.ts 's/\[COLUMN_COLOURS\.red\]: \{ bg: .var\(--status-red-bg\).,/[COLUMN_COLOURS.red]: { bg: "var(--status-yellow-bg)",/' "$C"
+control "Phase D: Qualified is not amber" "COLOURS" \
+  src/components/PipelinePage.tsx "s/color: '#64748b'/color: '#f59e0b'/" "$C"
 # 7. the pipeline funnel
+control "Phase D: the pipeline folder is found from any working directory" "the repo root is still found" \
+  scripts/day-pipeline.ts 's/process\.env\.KANBAN_PROJECT_ROOT \?\? REPO_ROOT/process.env.KANBAN_PROJECT_ROOT ?? join(process.cwd(), "..", "..")/' "$P"
+control "Phase D: an opposite angle is not a repeat" "opposite angle" \
+  scripts/day-reflection-history.ts 's/  if \(pa\.size !== pb\.size \|\| \[\.\.\.pa\]\.some\(\(w\) => !pb\.has\(w\)\)\) return 0\n//' "$H"
 control "Phase D: closed is not a funnel column" "counts each Pipeline column" \
   scripts/day-pipeline.ts 's/    if \(stage === .closed.\) continue\n//' "$P"
 control "Phase D: no or unknown stage counts as contacted" "counts each Pipeline column" \

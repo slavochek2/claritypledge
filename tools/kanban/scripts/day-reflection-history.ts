@@ -82,12 +82,22 @@ export function historyBlock(dayDir: string, days: number, now: string): string 
   return L.join('\n')
 }
 
-const words = (s: string): string[] => s.toLowerCase().match(/[a-z0-9]+/g) ?? []
+/** Words that turn a statement around. A pair that differs in them is the opposite angle, not a repeat. */
+const POLARITY = new Set(['not', 'no', 'never', 'stop', 'start', 'keep', 'quit', 'more', 'less'])
+const isPolarity = (w: string) => POLARITY.has(w) || w.endsWith("n't")
+
+const rawWords = (s: string): string[] => s.toLowerCase().replace(/[\u2018\u2019]/g, "'").match(/[a-z0-9]+(?:'[a-z]+)*/g) ?? []
+const words = (s: string): string[] => rawWords(s)
 
 function similarity(a: string[], b: string[]): number {
   if (a.join(' ') === b.join(' ')) return 1
-  const A = new Set(a)
-  const B = new Set(b)
+  // Polarity words are dropped before scoring, but a different set of them means a different claim.
+  const pa = new Set(a.filter(isPolarity))
+  const pb = new Set(b.filter(isPolarity))
+  if (pa.size !== pb.size || [...pa].some((w) => !pb.has(w))) return 0
+  const A = new Set(a.filter((w) => !isPolarity(w)))
+  const B = new Set(b.filter((w) => !isPolarity(w)))
+  if (!A.size && !B.size) return 1
   let inter = 0
   for (const w of A) if (B.has(w)) inter++
   return inter / (A.size + B.size - inter)

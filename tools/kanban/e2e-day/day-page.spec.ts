@@ -43,7 +43,7 @@ const agentOf = (v: { view: { issues: ViewIssue[] } }) => v.view.issues.filter(i
 
 const card = (page: Page) => page.locator('.d-focus')
 const cardTitle = (page: Page) => card(page).locator('h2')
-const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Next/ })
+const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^(Next|Accept)/ })
 const prevBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Previous/ })
 const startBtn = (page: Page) => page.getByRole('button', { name: /^Start fixing \(\d+\)$/ })
 /** A value that must exist, or the test fails right here with a name. */
@@ -134,6 +134,9 @@ test.describe('status panel', () => {
     await expect(panel.locator('[data-check="keyspend"] .d-w')).toHaveText('Not proven · no result')
     await expect(panel.locator('[data-check="video"] .d-w')).toHaveText('Skipped · not scheduled today')
     // "need you" does not count Chat groups twice: the Beeper row already carries it
+    // it counts checks, so it says so: never "need you" (that reads as the founder-card count)
+    await expect(panel.locator('.d-sum2 .d-needtx')).toHaveText(/^\d+ checks? needs? attention$/)
+    await expect(panel.locator('.d-sum2')).not.toContainText('need you')
     const needYou = await numberIn(panel.locator('.d-sum2 .d-needtx'), 'need-you count')
     const { view } = await runView(page)
     const expected = view.checks.filter((c: { status: string; covered_by?: string }) => c.status !== 'ok' && c.status !== 'skipped' && !c.covered_by).length + 2
@@ -254,7 +257,8 @@ test.describe('issues', () => {
       await expect(cardTitle(page)).toHaveText(yours[i].title)
       if (i < yours.length - 1) await nextBtn(page).click()
     }
-    await expect(nextBtn(page)).toBeDisabled()
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept /) // the last card has nowhere to page to: an enabled Accept, not a dead Next
+    await expect(nextBtn(page)).toBeEnabled()
   })
 
   test('Previous / Next and ← → move between cards and write nothing', async ({ page }) => {
@@ -600,16 +604,28 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('.d-qbar')).toHaveCount(0)
   })
 
-  test('Subscriptions: resets within a day of each other share ONE marker with one label', async ({ page }) => {
-    await openDay(page) // seed: claude resets Thu 00:00Z, codex 12:00Z
+  test('Subscriptions: resets within two hours of each other share ONE marker whose label names each time; further apart they stay two', async ({ page }) => {
+    // seed: claude resets Thu 00:00Z, codex 12:00Z: twelve hours apart is two markers
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
+    await expect(page.locator('[data-subs-chart] [data-reset]')).toHaveCount(2)
+    // 90 minutes apart: one marker, each time named, each projection still ends at its own reset
+    await patchRun(page, (b) => {
+      const codex = b.report?.monitoring?.quotas?.find((q) => q.id === 'codex')
+      if (codex) codex.resets_at = '2026-10-08T01:30:00Z'
+    })
+    await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
     await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
     const svg = page.locator('[data-subs-chart]')
     await expect(svg.locator('[data-reset]')).toHaveCount(1)
     await expect(svg.locator('[data-reset] text')).toHaveCount(1)
-    await expect(svg.locator('[data-reset] text')).toHaveText(/^Claude and Codex reset \w{3} \d{1,2} \w{3}$/)
+    await expect(svg.locator('[data-reset] text')).toHaveText(/^Claude \d{2}:\d{2} and Codex \d{2}:\d{2} reset \w{3} \d{1,2} \w{3}$/)
     await expect(svg.locator('[data-proj="claude"]')).toHaveCount(1)
     await expect(svg.locator('[data-proj="codex"]')).toHaveCount(1)
+    const endX = async (id: string) => Number(((await svg.locator(`[data-proj="${id}"]`).getAttribute('points')) ?? '').trim().split(/\s+/).pop()?.split(',')[0])
+    expect(await endX('codex')).toBeGreaterThan(await endX('claude')) // 90 minutes later, not clipped at the shared marker
   })
 
   test('Subscriptions: a pace that runs out before the reset hits 0 and the verdict says so; a slow pace ends above 0 at its reset', async ({ page }) => {
@@ -1347,6 +1363,48 @@ test.describe('Phase D: fit, risk and cause on the card', () => {
 })
 
 test.describe('Phase D: Next accepts, Start fixing sends what you answered, the rest is still yours', () => {
+  test('on an unanswered founder card the button reads "Accept & next"; answered cards and agent cards keep "Next"', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    expect(yours.length).toBeGreaterThan(2)
+    // unanswered founder choice: accepting is visible, in the label too
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept and next /)
+    await expect(nextBtn(page)).toContainText('Accept')
+    await nextBtn(page).click()
+    // the second card: an explicit pick makes it an answered card, so the button is plain Next again
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept and next /)
+    await card(page).locator('.d-opt').first().locator('input').click()
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+    // back on the first, which was accepted: answered, so Next
+    await prevBtn(page).click()
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+    await expect(nextBtn(page)).not.toContainText('Accept')
+    // agent cards are not the founder's to accept
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+  })
+
+  test('the last founder card can be accepted: an enabled Accept, no paging, and Start fixing includes it', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    const base = agentOf(v).length
+    for (let k = 0; k < yours.length - 1; k++) await nextBtn(page).click()
+    await expect(page.locator('.d-bpos')).toHaveText(`${yours.length} of ${yours.length}`)
+    const btn = nextBtn(page)
+    await expect(btn).toBeEnabled()
+    await expect(btn).toHaveAttribute('aria-label', /^Accept /)
+    const count = await startBtn(page).textContent()
+    await btn.click()
+    await expect(page.locator('.d-bpos')).toHaveText(`${yours.length} of ${yours.length}`) // no paging
+    expect(await startBtn(page).textContent()).not.toBe(count)
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + yours.length})`)
+    // the bar returns to its normal state: the last card, answered, has a disabled Next
+    await expect(nextBtn(page)).toBeDisabled()
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+  })
+
   test('Next accepts in the page only; the button counts exactly what is sent; "N still yours" jumps to the first unopened card', async ({ page }) => {
     await openDay(page)
     const v = await runView(page)
@@ -1500,6 +1558,27 @@ test.describe('Phase D: agent work folded', () => {
     await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
     await expect(agentLine(page)).toHaveText(`${agents.length} things an agent can fix — they go with Start fixing · Review`)
   })
+
+  for (const [width, height] of [[1440, 900], [375, 812], [320, 640]] as const) {
+    test(`agent mode keeps "Back to yours" in the bottom bar without changing its height at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await openDay(page)
+      if (width < 900) await collapseSidebar(page)
+      const bar = page.locator('[data-bottom-bar]')
+      await expect(bar.locator('[data-back-yours]')).toHaveCount(0) // on the founder's own cards it is not needed
+      const h0 = (await rectOf(bar, 'bar')).height
+      await agentLine(page).getByRole('button', { name: 'Review' }).click()
+      const back = bar.locator('[data-back-yours]')
+      await expect(back).toBeVisible()
+      expect((await rectOf(back, 'back')).height, 'touch target').toBeGreaterThanOrEqual(40)
+      expect(Math.abs((await rectOf(bar, 'bar')).height - h0)).toBeLessThan(0.5)
+      const bs = await rectOf(back, 'back')
+      expect(bs.x + bs.width).toBeLessThanOrEqual(width + 0.5)
+      await back.click()
+      await expect(bar.locator('[data-back-yours]')).toHaveCount(0)
+      await expect(agentLine(page)).toBeVisible()
+    })
+  }
 
   test('a check row in Status opens its agent card, and Back to yours leaves it', async ({ page }) => {
     await openDay(page)

@@ -599,7 +599,8 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
 
   const OVERLAY_FP = 'cp.rls:rls:live'
   const ORIGINAL = { title: 'Database rules are live before review', point_a: '2 policies on live, 0 in migrations.', obstacle: 'Not reviewed.', point_b: 'Live rules match main.' }
-  const PLAIN = { fp: OVERLAY_FP, title: 'Tuesday’s guests could be locked out', point_a: 'Two access rules went live without a second pair of eyes.', obstacle: 'Nobody has checked they match the plan.', point_b: 'Guests get in on Tuesday.', extra_field: 'ignored' }
+  const srcOf = (o: { title: string; point_a: string; obstacle: string; point_b: string }) => createHash('sha256').update([o.title, o.point_a, o.obstacle, o.point_b].join('\u0000')).digest('hex').slice(0, 12)
+  const PLAIN = { fp: OVERLAY_FP, src: srcOf(ORIGINAL), title: 'Tuesday’s guests could be locked out', point_a: 'Two access rules went live without a second pair of eyes.', obstacle: 'Nobody has checked they match the plan.', point_b: 'Guests get in on Tuesday.', extra_field: 'ignored' }
 
   /** One written finding (cp.rls) and one check nobody wrote up (cp.lint → a synthesised issue). */
   function plainWorld(overlay?: unknown) {
@@ -616,6 +617,13 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
     writeLedger(w, body)
   }
   const issueOf = (r: DayReport | undefined, fp: string) => r?.issues.find((i) => i.fp === fp)
+
+  /** The src the plain pass is handed for the synthesised lint card (read from --phase issues, as the runbook does). */
+  const lintSrc = () => {
+    plainWorld()
+    const cards = JSON.parse(render(w, 'issues').out) as { fp: string; src: string }[]
+    return cards.find((c) => c.fp === 'check:cp.lint')!.src
+  }
 
   it('PLAIN — no overlay: the original text, and no "technical" field', () => {
     plainWorld()
@@ -648,6 +656,31 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
     expect(err).toContain('day-render: 2 plain-language rows matched no issue\n')
   })
 
+  it('PLAIN guard — a row that adds a number, or echoes a stale or missing src, keeps the original and is counted', () => {
+    const cases: [string, Record<string, unknown>][] = [
+      ['a new number in the plain wording', { ...PLAIN, point_b: 'Guests get in on Tuesday, all 40 of them.' }],
+      ['a stale src (the original changed since)', { ...PLAIN, src: '0123456789ab' }],
+      ['no src at all', { ...PLAIN, src: undefined }],
+    ]
+    for (const [name, row] of cases) {
+      rmSync(`${w.ledger}.data`, { recursive: true, force: true })
+      plainWorld([row])
+      const { code, report, err } = render(w, 'end')
+      expect(code, name).toBe(0)
+      const i = issueOf(report, OVERLAY_FP)!
+      expect(i, name).toMatchObject(ORIGINAL)
+      expect(i.technical, name).toBeUndefined()
+      expect(report!.checks.some((c) => c.id === 'day.data.plain'), name).toBe(false)
+      expect(err, name).toContain('day-render: 1 plain-language row was not applied\n')
+      expect(err, name).not.toContain('matched no issue')
+    }
+  })
+
+  it('PLAIN guard — a number that is in the original (evidence included) is fine', () => {
+    plainWorld([{ ...PLAIN, point_a: 'Two access rules went live; 2 of them have no review.' }])
+    expect(issueOf(render(w, 'end').report, OVERLAY_FP)!.title).toBe(PLAIN.title)
+  })
+
   it('PLAIN — a malformed overlay is a day.data.plain problem check, and the original text stays', () => {
     const bad: unknown[] = [
       '[{"fp": "cp.rls:rls:live", oops', // not JSON
@@ -671,7 +704,7 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
   })
 
   it('PLAIN — a check nobody wrote up is a card too: its overlay is applied and its fingerprint stays', () => {
-    plainWorld([{ fp: 'check:cp.lint', title: 'Code style problems', point_a: 'A few style warnings.', obstacle: 'They pile up.', point_b: 'A clean build.' }])
+    plainWorld([{ fp: 'check:cp.lint', title: 'Code style problems', point_a: 'A few style warnings.', obstacle: 'They pile up.', point_b: 'A clean build.', src: lintSrc() }])
     const { report } = render(w, 'end')
     const cards = buildView(report!, [], []).issues.filter((x) => x.fp === 'check:cp.lint')
     expect(cards).toHaveLength(1) // exactly one card for it, not a written one plus a synthesised twin
@@ -685,7 +718,9 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
 
   it('PLAIN — --phase issues prints the cards as JSON for the plain-language pass, and writes nothing', () => {
     richWorld()
-    writeData(w, 'plain', [{ ...PLAIN, fp: 'cp.rls:rls:live' }])
+    // an overlay the board WOULD apply (it echoes the card's own src): the pass must still see the original
+    const src = (JSON.parse(render(w, 'issues').out) as { fp: string; src: string }[]).find((c) => c.fp === 'cp.rls:rls:live')!.src
+    writeData(w, 'plain', [{ ...PLAIN, fp: 'cp.rls:rls:live', src }])
     const body = readFileSync(w.ledger, 'utf-8')
     writeFileSync(w.ledger, `${body}${data('plain')}\n`)
     const ledgerBefore = readFileSync(w.ledger, 'utf-8')
@@ -698,9 +733,10 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
     const cards = JSON.parse(out) as { fp: string; topic: string; title: string; point_a: string; obstacle: string; point_b: string; options: { label: string; recommended?: boolean }[]; evidence_text?: string }[]
     expect(Array.isArray(cards)).toBe(true)
     expect(cards.length).toBeGreaterThan(6)
+    for (const c of cards) expect((c as unknown as { src: string }).src, c.fp).toBe(srcOf(c))
     const rls = cards.find((c) => c.fp === 'cp.rls:rls:live')!
     expect(rls.title).toBe('Database rules are live before review') // the original: the plain pass reads the technical text, never its own earlier rewrite
-    expect(Object.keys(rls).sort()).toEqual(['evidence_text', 'fp', 'obstacle', 'options', 'point_a', 'point_b', 'title', 'topic'])
+    expect(Object.keys(rls).sort()).toEqual(['evidence_text', 'fp', 'obstacle', 'options', 'point_a', 'point_b', 'src', 'title', 'topic'])
     expect(rls.options.some((o) => o.recommended === true)).toBe(true)
     expect(rls.options.every((o) => typeof o.label === 'string')).toBe(true)
     expect(cards.some((c) => c.fp.startsWith('check:'))).toBe(true) // the cards nobody wrote up are in
@@ -744,7 +780,7 @@ describe('day-render: Phase D — fit, risk, and the plain-language overlay', ()
 })
 
 describe('day-render: privacy', () => {
-  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\)|marked \d+ unfinished earlier runs? incomplete|\d+ plain-language rows? matched no issue)$/
+  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\)|marked \d+ unfinished earlier runs? incomplete|\d+ plain-language rows? matched no issue|\d+ plain-language rows? (was|were) not applied)$/
 
   // NODE_NO_WARNINGS: tsx triggers Node's own fixed-text deprecation notice (DEP0205); the
   // assertion is about the renderer's lines, which carry no content.

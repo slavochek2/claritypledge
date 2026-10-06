@@ -224,7 +224,7 @@ Report: docs touched, gate report (pass/fix/warn with artifacts), the decision e
 
 **Fix `goals.md` in this same edit** (Gates 1 + 3 only) when the drift was caused by the sync you just applied — a status or lead you changed in a gated doc that `goals.md` still contradicts. If you leave it unfixed, say so explicitly in the Step-6 report and why. **Hand off only `.private/docs/gtm-launch-icp-worksheet.md`** (CHARTER rule 1 — private, contains names): "the private residue needs updating to match the strategy docs; no skill owns it — update it directly."
 
-**Why this changed (2026-07-23):** the prior rule was detect-and-hand-off for `goals.md` too. `decisions.md` records two such hand-offs; neither produced the edit, and a stale page-lead copy survived in `goals.md` for nine days after the wedge flip. **Honest limit:** this binds only the path that runs *inside this skill*. `/day` and the kanban `PATCH /api/goals` endpoint write `goals.md` outside it, ungated.
+**Why this changed (2026-07-23):** the prior rule was detect-and-hand-off for `goals.md` too. `decisions.md` records two such hand-offs; neither produced the edit, and a stale page-lead copy survived in `goals.md` for nine days after the wedge flip. **Honest limit:** this binds only the path that runs *inside this skill*. `/day` writes `goals.md` outside it, ungated (the kanban endpoint that did too was removed with the Goals page).
 
 ---
 

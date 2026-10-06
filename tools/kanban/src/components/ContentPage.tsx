@@ -24,7 +24,7 @@ interface ContentColumn {
 const CONTENT_COLUMNS: ContentColumn[] = [
   { id: 'idea',      title: 'Idea',      color: '#6b7280' },
   { id: 'draft',     title: 'Draft',     color: '#3b82f6' },
-  { id: 'editing',   title: 'Editing',   color: '#f59e0b' },
+  { id: 'editing',   title: 'Editing',   color: '#64748b' },
   { id: 'ready',     title: 'Ready',     color: '#8b5cf6' },
   { id: 'published', title: 'Published', color: '#22c55e' },
   { id: 'promoted',  title: 'Promoted',  color: '#22c55e' },

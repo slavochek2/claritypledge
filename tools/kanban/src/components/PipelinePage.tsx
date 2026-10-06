@@ -24,7 +24,7 @@ interface PipelineColumn {
 const PIPELINE_COLUMNS: PipelineColumn[] = [
   { id: 'contacted',       title: 'Contacted',       color: '#6b7280' },
   { id: 'in-conversation', title: 'In Conversation',  color: '#3b82f6' },
-  { id: 'qualified',       title: 'Qualified',        color: '#f59e0b' },
+  { id: 'qualified',       title: 'Qualified',        color: '#64748b' },
   { id: 'committed',       title: 'Committed',        color: '#8b5cf6' },
   { id: 'active',          title: 'Active',           color: '#22c55e' },
   { id: 'closed',          title: 'Closed',           color: '#6b7280' },
