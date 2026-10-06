@@ -776,6 +776,10 @@
      the deck works without it. Loads under the claritypledge.com CSP and offline.
      Add ?plain to the URL to disable all motion (guaranteed-safe venue fallback). -->
 <script defer src="gsap.min.js"></script>
+<style>/* /presi4 2026-10-06: principle clauses arrive one click at a time (founder) */
+  .cert[data-bubbles] .step{opacity:0;transform:translateY(8px);transition:opacity .5s ease,transform .5s ease}
+  .cert[data-bubbles] .step.on{opacity:1;transform:none}
+</style>
 </head>
 <body>
 <div class="deck" id="deck">
@@ -902,6 +906,44 @@
       <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h"><span class="ritual-lab">Conversations in threes</span></p></div>
       <div class="ritual-step"><span class="agn-n">4</span><p class="ritual-h"><span class="ritual-lab">Questions and answers</span></p></div>
       <div class="ritual-step"><span class="agn-n">5</span><p class="ritual-h"><span class="ritual-lab">Closing</span></p></div>
+    </div>
+  </section>
+
+  <!-- IKIGAI — founder, 2026-10-06: "a slide on the Ikigai [from the] event page... four circles...
+       an animated Venn". Circles enter one by one, then the centre word. CSS only, re-runs on
+       every entry because .slide.active restarts the animation. -->
+  <style>
+    .ikg{position:relative;width:min(62vh,560px);aspect-ratio:1;margin:clamp(.6rem,2vh,1.4rem) auto 0}
+    .ikg .c{position:absolute;width:58%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      text-align:center;font-weight:700;font-size:clamp(.8rem,1.7vw,1.15rem);line-height:1.2;padding:9%;box-sizing:border-box;
+      mix-blend-mode:multiply;opacity:0}
+    .ikg .c1{left:21%;top:0;background:rgba(239,68,68,.22);align-items:flex-start;padding-top:12%}
+    .ikg .c2{left:0;top:21%;background:rgba(59,130,246,.22);justify-content:flex-start;text-align:left;padding:0 50% 0 9%}
+    .ikg .c3{right:0;top:21%;background:rgba(34,197,94,.22);justify-content:flex-end;text-align:right;padding:0 9% 0 50%}
+    .ikg .c4{left:21%;bottom:0;background:rgba(234,179,8,.25);align-items:flex-end;padding-bottom:12%}
+    .ikg .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:clamp(1.1rem,2.6vw,1.8rem);color:var(--blue);opacity:0}
+    .slide.active .ikg .c{animation:ikin .7s cubic-bezier(.2,.7,.2,1) forwards}
+    .slide.active .ikg .c1{animation-delay:.2s}.slide.active .ikg .c2{animation-delay:.7s}
+    .slide.active .ikg .c3{animation-delay:1.2s}.slide.active .ikg .c4{animation-delay:1.7s}
+    .slide.active .ikg .mid{animation:ikmid .8s ease 2.4s forwards}
+    @keyframes ikin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+    @keyframes ikmid{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion:reduce){.ikg .c,.ikg .mid{opacity:1!important;animation:none!important}}
+  </style>
+  <section class="slide soft">
+    <!-- NOTES
+      - Tonight's question lives in the middle: where AI changes what you love, what you are
+        good at, what the world needs and what you can be paid for.
+    -->
+    <div class="kicker">Tonight's topic</div>
+    <h2 style="margin-bottom:0">What is your <span class="accent">ikigai</span>?</h2>
+    <div class="ikg" aria-label="Ikigai: four overlapping circles">
+      <div class="c c1">What you love</div>
+      <div class="c c2">What you are good at</div>
+      <div class="c c3">What the world needs</div>
+      <div class="c c4">What you can be paid for</div>
+      <div class="mid">Ikigai</div>
     </div>
   </section>
 
@@ -1074,7 +1116,7 @@
          changed — punished → rewarded — which is the whole evening in one line, and the reason
          nobody reveals a gap is not that they can't: "they can, but they don't." -->
     <div class="kicker">Point A &rarr; Point B</div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">What is our <span class="accent">goal</span>?</h2>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">A shared <span class="accent">challenge</span> we face</h2>
     <div class="fd">
       <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle: ego, fear, laziness and deniability. A blue arrow labelled the skill to reveal the gap curves around the obstacle from A to B.">
         <defs>
@@ -1101,6 +1143,67 @@
         <circle cx="95" cy="92" r="9" fill="rgba(113,113,122,.55)"/>
         <circle cx="585" cy="92" r="9" fill="#3b82f6"/>
       </svg>
+    </div>
+  </section>
+
+
+  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - REBUILT 2026-09-16. The arc used to show three flat clauses; the founder rejected them
+        ("the current three doesn't make sense to me") and named the right three: the TRIGGER
+        (you can ask me the question), the PROMISE (I'll answer), and the EXCEPTION. Those are
+        "Your right" / "My promise" / "The exception" — the shape the full terms already had.
+      - The text is VERBATIM the join page's oath, promoted here from the old backing slide,
+        which has been deleted so there is one copy. Do NOT reword it for the room: this deck's
+        own rule is "same oath text as the join page; never fork it for a talk." If it reads too
+        dense on the projector, DROP a paragraph — do not rewrite one.
+      - "Reveal gaps easily. Bridge them safely." was deleted from this slide by the founder.
+      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
+      - Org-scope terms: one person can commit today without recruiting a counterparty.
+    -->
+    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.45rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
+    <div class="cert-wrap">
+      <div class="cert" data-bubbles>
+        <div class="cert-head">
+          <h3>Clarity Meeting Principle</h3>
+        </div>
+        <!-- CORRECTED TWICE on 2026-10-06, and the second correction is the one that counts.
+             The slide first read "A commitment to every member" (Group-terms framing, wrong).
+             The agent then replaced it with the PLEDGE's commitment line, "I hereby commit to
+             everyone — including strangers…" — ALSO WRONG, and wrong in a worse way, because
+             that line belongs to /pledge, a standing public promise. Founder: "Clarity Meeting
+             Principle doesn't say I commit to everyone... doesn't it say a commitment for this
+             conversation? Take the actual text."
+
+             THIS IS NOW WHAT /meet RENDERS, in its order and its words, read off
+             `meeting-principle-view.tsx` (kicker + epigraph) and `verified-understanding-oath.ts`
+             v5 (the three clauses, which the slide already matched):
+               title   — Clarity Meeting Principle
+               kicker  — A COMMITMENT FOR THIS CONVERSATION
+               epigraph— We all crave being understood. Let's commit to listen.
+             The scope is THIS CONVERSATION, not everyone and not every member. That is the
+             difference between a principle you adopt for an evening and a pledge you carry for
+             life, and the room is being asked for the first one. If /meet changes, change this
+             slide with it; it is a copy, and copies drift. -->
+        <p class="cert-kicker">A commitment for this conversation</p>
+        <p class="cert-epigraph"><i>We all crave being understood. Let&rsquo;s commit to listen.</i></p>
+        <div class="cert-clause step">
+          <h4>Your right</h4>
+          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
+        </div>
+        <div class="cert-clause">
+          <div class="step"><h4>My promise</h4>
+          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
+          </div>
+          <div class="step"><p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
+          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p></div>
+        </div>
+        <div class="cert-clause step">
+          <h4>The exception</h4>
+          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1239,22 +1342,9 @@
         by switching it off. Do not quote a retention period from this stage; point at the
         terms. [FOUNDER DECISION: whether to state a retention period out loud]
     -->
-    <div class="kicker">Some tables are recorded tonight</div>
-    <h2 style="font-size:clamp(1.3rem,3.2vw,2.4rem)">What audio <span class="accent">transcription</span> is for</h2>
-    <div class="cards four" style="margin-top:2rem">
-      <div class="card">
-        <svg class="rnd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <h3>For the next room</h3><p>Otherwise I am guessing from how the evening felt.</p>
-      </div>
-      <div class="card">
-        <svg class="rnd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
-        <h3>For you</h3><p>The next discussion is built around what this one actually said.</p>
-      </div>
-      <div class="card">
-        <svg class="rnd-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6.5L4.5 19A2 2 0 0 0 6.2 22h11.6a2 2 0 0 0 1.7-3L14 9.5V3"/><path d="M7.5 15h9"/></svg>
-        <h3>For what comes next</h3><p>A live agent that files your stories and helps you verify understanding &mdash; built from evenings like this one.</p>
-      </div>
-    </div>
+    <div class="kicker">What audio transcription is for</div>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem)">Mirror agents that <span class="accent">build bridges</span><br>between different views</h2>
+    <p class="lead" style="margin-top:.8rem">Opt in, and tonight helps build them.</p>
     <!-- THE BAR, MERGED IN (founder, 2026-10-05: "any way to put visually the visuals from
          slide 10 into slide 9?"). The separate "start it, pause it, stop it" slide is gone;
          the two states sit small under the three reasons, so why and how are one beat.
@@ -1334,87 +1424,6 @@
       <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
     </div>
   </section>
-
-  <!-- 15 · TONIGHT'S POINTS, LIVE — the #ikigai1 stake page (6 points, 21 stories, promoted to
-       prod 2026-09-29; decisions.md 2026-09-29 [process]). The pipeline files more points than
-       the evening uses on purpose: the host runs ABOUT THREE and holds the rest as backup, and
-       switches if one is not resonating (docs/events/clarity-practice-event.md § How many).
-       FULL SCREEN on purpose (founder, round 7): "then I can open and navigate to stories and
-       back". Same-origin only; EMPTY locally — the only real test is claritypledge.com/presi4. -->
-<section class="slide embed-full">
-    <!-- NOTES
-      - Links → ikigai1 (the phone button is labelled "Links", event-links-menu.tsx). Read each point in one sentence; open a story only if the room is stuck.
-      - Everyone takes a position on the points you are running, before the stage demo.
-      - Six are filed; run about three. Name the three you picked out loud so nobody hunts the others.
-      - Keyboard stops working once you click inside — use the round buttons bottom-left.
-    -->
-    <iframe src="https://claritypledge.com/stake/ikigai1?event=clarity-night-2-ai-and-your-ikigai-sinek-tan-naval-watts-and-brooks-2026-10-06-ijjx"
-            title="ikigai1 — tonight's contested points, live" loading="lazy"></iframe>
-    <div class="embed-nav">
-      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
-      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
-    </div>
-  </section>
-
-  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
-  <section class="slide soft">
-    <!-- NOTES
-      - REBUILT 2026-09-16. The arc used to show three flat clauses; the founder rejected them
-        ("the current three doesn't make sense to me") and named the right three: the TRIGGER
-        (you can ask me the question), the PROMISE (I'll answer), and the EXCEPTION. Those are
-        "Your right" / "My promise" / "The exception" — the shape the full terms already had.
-      - The text is VERBATIM the join page's oath, promoted here from the old backing slide,
-        which has been deleted so there is one copy. Do NOT reword it for the room: this deck's
-        own rule is "same oath text as the join page; never fork it for a talk." If it reads too
-        dense on the projector, DROP a paragraph — do not rewrite one.
-      - "Reveal gaps easily. Bridge them safely." was deleted from this slide by the founder.
-      - Read "Your right" and "My promise" aloud; the exception makes it honest, not absolute.
-      - Org-scope terms: one person can commit today without recruiting a counterparty.
-    -->
-    <h2 style="font-size:clamp(1.1rem,2.5vw,1.85rem);margin-bottom:.45rem">Make it normal to admit <span class="accent">&ldquo;I don&rsquo;t understand&rdquo;</span></h2>
-    <div class="cert-wrap">
-      <div class="cert">
-        <div class="cert-head">
-          <h3>Clarity Meeting Principle</h3>
-        </div>
-        <!-- CORRECTED TWICE on 2026-10-06, and the second correction is the one that counts.
-             The slide first read "A commitment to every member" (Group-terms framing, wrong).
-             The agent then replaced it with the PLEDGE's commitment line, "I hereby commit to
-             everyone — including strangers…" — ALSO WRONG, and wrong in a worse way, because
-             that line belongs to /pledge, a standing public promise. Founder: "Clarity Meeting
-             Principle doesn't say I commit to everyone... doesn't it say a commitment for this
-             conversation? Take the actual text."
-
-             THIS IS NOW WHAT /meet RENDERS, in its order and its words, read off
-             `meeting-principle-view.tsx` (kicker + epigraph) and `verified-understanding-oath.ts`
-             v5 (the three clauses, which the slide already matched):
-               title   — Clarity Meeting Principle
-               kicker  — A COMMITMENT FOR THIS CONVERSATION
-               epigraph— We all crave being understood. Let's commit to listen.
-             The scope is THIS CONVERSATION, not everyone and not every member. That is the
-             difference between a principle you adopt for an evening and a pledge you carry for
-             life, and the room is being asked for the first one. If /meet changes, change this
-             slide with it; it is a copy, and copies drift. -->
-        <p class="cert-kicker">A commitment for this conversation</p>
-        <p class="cert-epigraph"><i>We all crave being understood. Let&rsquo;s commit to listen.</i></p>
-        <div class="cert-clause">
-          <h4>Your right</h4>
-          <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>My promise</h4>
-          <p>I'll give you an <b>honest number</b>, from 0 (not at all) to 10 (I assume I fully understand you). At any time you can give me your own number, for how much you assume I cognitively understand you.</p>
-          <p>If I explain back what I understood, <b>without judging or criticizing</b>, you can tell me what I missed, and ask me to explain it back again.</p>
-          <p class="cert-key">I'll accept <b>the lower of our two numbers</b> as my verified understanding of your intended meaning.</p>
-        </div>
-        <div class="cert-clause">
-          <h4>The exception</h4>
-          <p>If I can't give you an honest number in the moment, I'll explain why.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
 
   <!-- 15 · THE CARDS — NEW in /presi4 (founder, 2026-10-04: "should we reuse our cards? ...
        should we put them into a slide where I explain how they work?"). YES: these are the
@@ -1598,8 +1607,7 @@
       - THREE, NOT TWO: the trio is the unit. An odd person out joins a trio as a second
         observer rather than sitting alone (P1337 handles the arithmetic).
     -->
-    <div class="kicker">3 rounds &middot; 15 min &middot; you do all three roles</div>
-    <h2 style="font-size:clamp(1.5rem,3.4vw,2.6rem);margin-bottom:0">How a <span class="accent">round</span> works</h2>
+        <h2 style="font-size:clamp(1.5rem,3.4vw,2.6rem);margin-bottom:0">How a <span class="accent">round</span> works</h2>
     <!-- THE ROUND, AS ONE CHAT THREAD that fills on your click (founder, 2026-10-05: "put them
          into one chat... we have these other screens where we have people in the chat, so we
          can reuse the chat and use this whole height... things appear and they are
@@ -1634,14 +1642,14 @@
         <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Please &mdash; how much from 0 to 10 do you think you understand my intended meaning?</span></div>
         <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">6 out of 10.</span></div>
         <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Thanks. I&rsquo;d say 3.</span></div>
-        <div class="msg m-sys step"><span class="txt">min number 3 &mdash; verified so far</span></div>
+        <div class="msg m-sys step"><span class="txt">Minimum number of verified understanding is 3</span></div>
         <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">Then let me explain back what I think you mean&hellip;</span></div>
         <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Thanks &mdash; now a 5. What&rsquo;s missing to 10 is&hellip;</span></div>
         <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">In my experience it is the opposite, and that is why I think&hellip;</span></div>
         <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">&#128276; @Listener &mdash; you&rsquo;re the listener in this half.</span></div>
         <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">@Speaker so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
         <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">That&rsquo;s an 8. Good enough &mdash; let&rsquo;s move on.</span></div>
-        <div class="msg m-sys step"><span class="txt">Round over</span></div>
+        <div class="msg m-sys step"><span class="txt">Speaker and listener swap &mdash; then the observer&rsquo;s turn</span></div>
         <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">What I liked is&hellip; What could be better is&hellip;</span></div>
         <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">@Speaker &mdash; I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
         <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">You understood me at 9.</span></div>
@@ -1780,6 +1788,22 @@
         (why people don't verify, the barrier cards, the Venn, levels of commitment).
     -->
     <h2 style="font-size:clamp(3rem,10vw,7rem);letter-spacing:-.02em">Q<span class="accent">&amp;</span>A</h2>
+  </section>
+
+  <!-- GO TO CLOSE — founder, 2026-10-06: "after Q&A we need a slide that motivates them to go to
+       close and give feedback, five minutes". The phone's Close step (P1389) is where it happens. -->
+  <section class="slide soft">
+    <!-- NOTES
+      - Everyone on their phone, now. Five minutes. This is how the next evening gets better.
+    -->
+    <div class="kicker">5 minutes &middot; on your phone</div>
+    <h2 style="font-size:clamp(1.8rem,4.6vw,3.4rem)">Tap <span class="accent">Close</span> and give feedback</h2>
+    <p class="lead" style="margin-top:.8rem">Your answers decide what the next evening looks like.</p>
+  </section>
+
+  <!-- PHOTO — founder, 2026-10-06: "then we need a photo slide". -->
+  <section class="slide grid-bg">
+    <h2 style="font-size:clamp(2.6rem,8vw,6rem);letter-spacing:-.02em">Group <span class="accent">photo</span> &#128248;</h2>
   </section>
 
   <!-- 10 · THE ASK — one action: the landing's single primary CTA ("Book a free alignment audit." → /intro, microcopy "Starts with a 15-min call."), URL as a button ≥32px. The other two paths are a footer line. Round 2 (critic): the three-card "Let's collaborate!" is gone. -->
