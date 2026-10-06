@@ -20,7 +20,7 @@
       "send-letter-emails": "6b252721ba9e74d00861d6dfec3f5b29fb42c0e84ca32c576ed7a1645609b717",
       "transcribe-slice": "5181aa86ef72dfbf98b5d246947653519e8cdd433dcc0a73071ddd1157c72f00"
     },
-    "functions_deployed_at": "2026-10-06T06:34:53Z",
+    "functions_deployed_at": "2026-10-06T09:22:28Z",
     "migrations": [
       "20250101",
       "20250117",
