@@ -337,12 +337,14 @@ eur_day=usd_day*0.92  # rough USD->EUR; estimate only
 print(f"EST_PER_DAY: ~EUR{round(eur_day,2)}/day  |  EST_SINCE_LAST: ~EUR{round(eur_day*days,2)} over {round(days,1)}d (current resources x elapsed; a warm GPU adds ~EUR19/day)")
 '
 fi
-TRIP_N="$(grep -cE '^(GPU_SERVICE|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
+TRIP_N="$(grep -cE '^(GPU_WARM|ALWAYS_ON):|^SCHEDULER_PINGING_RUN: \^' "$TRIPWIRE_OUT")"
+# A billed-hours query that did not run is unchecked, never clean (scripts/gpu-warm-check.py).
+grep -q '^GPU_CHECK_FAILED:' "$TRIPWIRE_OUT" && TRIP_FAILED="$TRIP_FAILED gpu-hours"
 TRIP_FAILED="$(printf '%s\n' $TRIP_FAILED | sort -u | tr '\n' ' ' | sed 's/ *$//' | cut -c1-50)"
 if [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.cost not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ "$TRIP_N" -gt 0 ]; then echo "CHECK cp.cost problem $TRIP_N possible cost leaks: GPU, always-on or a warm-keeping scheduler" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ -n "$TRIP_FAILED" ]; then echo "CHECK cp.cost unproven listing failed: $TRIP_FAILED" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-else echo "CHECK cp.cost ok no GPU, always-on or warm-keeping scheduler found" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+else echo "CHECK cp.cost ok no warm GPU, always-on or warm-keeping scheduler found" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 rm -f "$TRIPWIRE_OUT"
 echo "(empty above = no always-on/GPU cost leaks)"
 # The wave's exit is the step's; every finding above is a CHECK line, never a failed step.
