@@ -1,0 +1,125 @@
+---
+status: week
+type: story
+rank: 21
+workstream: events
+created_date: '2026-10-06'
+tags: [events, rounds, host]
+disclosure: public
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: opus
+exec_effort: high
+driver: heuristic
+---
+
+# P1430: Clarity Night host flow — group preview, Demo round, step bar, Host tab
+
+## Problem
+
+After the first live use of rounds (P1337), the founder's walkthrough 9 and three UX reviews (Opus,
+Codex, Gemini) agreed on the next host and attendee changes. They were held back to ship on the
+event day.
+
+> Founder: "choose who sits is a very specific function … this is like group size level"; "should
+> they be like reviewing and saying yes or not"; "this run event maybe … should be like another tab"
+
+## Founder decisions (walkthrough 9, 2026-10-06, recorded in this conversation; not in the P1337 spec)
+
+- **Presets:** "Choose who sits" on → tables 30s (stepping in 30s), speaker 3 min, observer 1 min.
+  Standard → tables 1 min, speaker 6 min, observer 3 min.
+- **Who sits:** volunteers first, plus a "Suggest pair (biggest gap)" among the chosen (agent
+  recommendation; the founder replied "ok" to the batch).
+- **The host-picked round is called "Demo"**, followed by Round 1 (agent recommendation, approved
+  with "ok").
+- **Settings in three groups:**
+  - *Who plays:* all tables, or one demo table.
+  - *Format:* group size, swap or one talk, minutes.
+  - *Matching:* checkboxes with hints, shown only for all tables.
+- **Preview groups before starting** (recommended by all three reviewers; approved with "ok").
+- **Host as its own event tab:** Details · Room · Host (founder's idea).
+- **Step bar:** done steps get a check, the current step is bold and thicker, steps ahead are grey.
+
+## Appetite
+
+Blast radius: medium. It changes the host flow and round numbering. Reversibility: code, plus
+possibly one migration (Demo flag). Decision density: low; decisions above. Two copy calls remain
+open.
+
+## Solution
+
+1. **Demo = the existing showcase round, renamed and extended.**
+   - `event_rounds.showcase` and the host's "choose who sits" already are the host-picked round
+     (phones read "You watch").
+   - **Numbering model:** `round_no` stays the storage order (CHECK 1..9, unique per event, start
+     requires max+1). Every surface derives a display number as `round_no − demos before it`, and a
+     Demo reads "Demo".
+   - Surfaces that change:
+     - RoundCard ("Round N · You watch", the waiting card).
+     - EventHostPage: the title, "Round N started", the past rounds list, and the start labels.
+     - The projector.
+     - Partner planning (`historyBefore`, `sitsOutRound`, `totalRounds`).
+   - The 9-round cap counts Demo and Reopen rounds; say so in the host UI when it is reached.
+   - A Demo uses the event's own statement set ("Match on" is hidden for it).
+2. **Settings regrouped** as above, with the presets switching when "one demo table" is chosen.
+3. **Preview before Start:**
+   - "Next round" (or Start) shows the proposed tables; the host can swap, shuffle or start.
+   - Start publishes the previewed arrangement. If anyone in it has left, or someone new has arrived,
+     the preview refreshes and says who changed.
+   - If another host device starts first, this device's preview closes and shows the running round.
+   - The time-left confirm comes before the preview.
+4. **Step bar states:**
+   - Done: a check plus a muted label.
+   - Current: bold, a thicker bar, `aria-current`.
+   - Ahead: grey.
+   - Steps that cannot open are `aria-disabled` and look it.
+   - At ≤360px only the current label shows.
+5. **Small fixes:**
+   - Names truncate at 320px only when there is truly no room. Test with the longest name in the
+     test seed.
+   - 44px targets for the back arrow and host steppers.
+   - The full "Match on" name shows.
+6. **Host tab:**
+   - The Details / Room strip gains Host, visible to the host only. The strip is route links, not
+     Radix tabs.
+   - "Run this event" on the event page and in the room goes away.
+   - Hiding the tab is display only; the /host route guard remains the real check.
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| A display-number bug shows the wrong round to the room | MITIGATE | One helper used by every surface listed; e2e per surface |
+| A Demo plus Reopens hit the 9-round cap mid-evening | ACCEPT | 9 is far above a 2-hour evening's rounds; the UI says when reached |
+| The preview adds a step every round | ACCEPT | Founder approved; Start stays one tap from the preview |
+
+**Non-Goals**
+- Do NOT add attendee history of past rounds.
+- Do NOT change the 9-round database cap.
+
+## Acceptance Criteria
+
+- [ ] The host sees the proposed tables before a round starts, and the round that starts matches them
+- [ ] If someone leaves between preview and Start, the preview updates and names them
+- [ ] A host-picked round reads "Demo" on the host page, the past rounds list and phones; the next
+      round reads Round 1
+- [ ] Someone marked to sit out "Round 1" sits out the counted round, not the Demo
+- [ ] Choosing "one demo table" switches minutes to 30s / 3 / 1; switching back restores 1 / 6 / 3
+- [ ] Step bar: done steps show a check, the current one is bold and thicker, steps that cannot open
+      are greyed and not tappable, at 320px, 375px and desktop
+- [ ] The event page shows a Host tab to the host only; a non-host opening /host is refused
+
+## Open Questions
+
+1. [FOUNDER DECISION: copy] Hint lines under each matching option (recorders together, disagreement
+   gap, haven't met yet).
+2. [FOUNDER DECISION: ear badge] Explain it, or drop it from the room roster? (`RosterRow` already has
+   a `showEarBadge` prop, so dropping it is one line.)
+3. [FOUNDER DECISION] "understood N/10" on the mobile roster was removed in 2026-08-21 visual QA
+   because it cut names to "A…" at 320px. Bring it back?
+
+## Related
+
+- P1337 (shipped): rounds; showcase round; walkthroughs 1–8
+- P1429: the five review fixes (split from this spec)
