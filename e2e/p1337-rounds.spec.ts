@@ -18,7 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
-import { seedRoomMember } from './helpers/test-event-room';
+import { pressHostPrimary, seedRoomMember } from './helpers/test-event-room';
 
 const MIN = 60_000;
 
@@ -108,7 +108,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
 
   test('Start round 1 seats everyone at tables of three: first, second, observer', async ({ page }) => {
     await asHost(page);
-    await page.getByTestId('host-primary').click();
+    await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
     await expect(page.getByTestId('round-grid-name')).toHaveCount(6);
     // Roles are columns with the printed cards' letters, not a label on every tile.
@@ -249,7 +249,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await leaver.click();
     await page.getByTestId('host-mark-left').click();
     await expect(leaver).toHaveAttribute('data-out', 'true');
-    await page.getByTestId('host-primary').click();
+    await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 2');
     const rows = await seats(event.id);
     expect(rows.some(r => r.room_member_id === fillers[4])).toBe(false);
@@ -289,7 +289,7 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-minutes')).not.toContainText('Speaker');
     // Minutes for the next round: two minutes to find tables.
     await page.getByRole('button', { name: 'Tables: one minute more' }).click();
-    await page.getByTestId('host-primary').click();
+    await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3');
     const { data: r3 } = await supabaseAdmin.from('event_rounds').select('seating_s, first_s, split_speakers').eq('event_id', event.id).eq('round_no', 3).single();
     expect(r3).toEqual({ seating_s: 120, first_s: 360, split_speakers: false });

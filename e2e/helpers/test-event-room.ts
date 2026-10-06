@@ -137,3 +137,13 @@ export async function startTranscribingInRoom(page: Page, eventSlug: string): Pr
   await page.getByTestId('room-transcribe-start').click();
   await expect(page.getByTestId('room-capture-bar')).toBeVisible({ timeout: 15_000 });
 }
+
+/**
+ * P1337 walkthrough 9: while time is left in a round, Next round asks once more ("m:ss left in
+ * this round. Start the next one now?"). Presses the host's primary button and confirms when asked.
+ */
+export async function pressHostPrimary(page: Page): Promise<void> {
+  await page.getByTestId('host-primary').click();
+  const yes = page.getByTestId('host-next-yes');
+  if (await yes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await yes.click();
+}

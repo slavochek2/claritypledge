@@ -856,6 +856,7 @@ export function EventHostPage() {
   const matchOptions = useMatchTagOptions(event?.statementTag);
   // Walkthrough 8: "End the evening" asks once, inline (no browser dialog), before every phone moves to Close.
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmNext, setConfirmNext] = useState(false);
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
   const [busy, setBusy] = useState<null | 'grouping' | 'saving'>(null);
@@ -1175,8 +1176,8 @@ export function EventHostPage() {
       </button>
     </span>
   ) : null;
-  // No "End evening": the host decides how many rounds to run (founder, 2026-10-04). The last
-  // round simply reads "Time's up", and the room page stops showing rounds once the event ends.
+  // The host decides how many rounds to run; "End the evening" (walkthrough 8) sits at the
+  // bottom of the controls column, away from this button (walkthrough 9).
   const hasNext = !ended && nextNo <= MAX_ROUNDS;
   const primary = hasNext ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext } : null;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
@@ -1258,50 +1259,36 @@ export function EventHostPage() {
               Round {round.roundNo} started
             </p>
           )}
-          {primary && (!justStarted || busy) && (
+          {primary && round && confirmNext && clock && clock.phase !== 'over' && (
+            // Walkthrough 9 (reviews): time is still on the clock — one more tap, never a dialog.
+            <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
+              <p>{formatClock(roundLeftMs)} left in this round. Start the next one now?</p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  className="min-h-11 bg-blue-500 hover:bg-blue-600 text-white"
+                  disabled={!!busy}
+                  onClick={() => { setConfirmNext(false); primary.action(); }}
+                  data-testid="host-next-yes"
+                >
+                  Start next round
+                </Button>
+                <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirmNext(false)}>
+                  Keep going
+                </Button>
+              </div>
+            </div>
+          )}
+          {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && (
             <Button
               type="button"
               className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
-              onClick={primary.action}
+              onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
               disabled={!!busy || !loaded}
               data-testid="host-primary"
             >
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
             </Button>
-          )}
-          {round && !confirmEnd && (
-            <button
-              type="button"
-              onClick={() => setConfirmEnd(true)}
-              disabled={!!busy}
-              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-              data-testid="host-end-evening"
-            >
-              End the evening
-            </button>
-          )}
-          {round && confirmEnd && (
-            <div className="mt-2 rounded-lg border border-border p-3 text-sm" data-testid="host-end-confirm">
-              <p>End the evening? Every phone moves to the closing screen.</p>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-10"
-                  disabled={!!busy}
-                  onClick={() => {
-                    setConfirmEnd(false);
-                    void run(() => hostEndRounds(event.id));
-                  }}
-                  data-testid="host-end-yes"
-                >
-                  End it
-                </Button>
-                <Button type="button" variant="ghost" className="min-h-10" onClick={() => setConfirmEnd(false)}>
-                  Keep going
-                </Button>
-              </div>
-            </div>
           )}
           {error && (
             <p role="alert" className="mt-2 text-sm text-red-600">
@@ -1495,6 +1482,45 @@ export function EventHostPage() {
                 )}
               </div>
             </details>
+          )}
+          {round && (
+            // Walkthrough 9: away from Next round, so a thumb meant for it cannot land here.
+            <div className="mt-3 px-1 lg:order-4 lg:col-start-2" data-testid="host-end-area">
+          {round && !confirmEnd && (
+            <button
+              type="button"
+              onClick={() => setConfirmEnd(true)}
+              disabled={!!busy}
+              className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+              data-testid="host-end-evening"
+            >
+              End the evening
+            </button>
+          )}
+          {round && confirmEnd && (
+            <div className="mt-2 rounded-lg border border-border p-3 text-sm" data-testid="host-end-confirm">
+              <p>End the evening? Every phone moves to the closing screen.</p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-10"
+                  disabled={!!busy}
+                  onClick={() => {
+                    setConfirmEnd(false);
+                    void run(() => hostEndRounds(event.id));
+                  }}
+                  data-testid="host-end-yes"
+                >
+                  End it
+                </Button>
+                <Button type="button" variant="ghost" className="min-h-10" onClick={() => setConfirmEnd(false)}>
+                  Keep going
+                </Button>
+              </div>
+            </div>
+          )}
+            </div>
           )}
 
         <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">

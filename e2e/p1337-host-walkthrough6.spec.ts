@@ -9,7 +9,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
-import { seedRoomMember } from './helpers/test-event-room';
+import { pressHostPrimary, seedRoomMember } from './helpers/test-event-room';
 
 async function lastRound(eventId: string) {
   const { data } = await supabaseAdmin
@@ -64,7 +64,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await page.getByTestId('host-choose-person').filter({ hasText: 'Bo' }).click();
     await page.getByTestId('host-choose-person').filter({ hasText: 'Cid' }).click();
     await expect(page.getByTestId('host-choose')).toContainText('2 chosen');
-    await page.getByTestId('host-primary').click();
+    await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
 
     const r1 = await lastRound(event.id);
@@ -93,7 +93,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await asHost(page);
     await openSettings(page);
     await page.getByTestId('host-split-off').click(); // "One talk" (walkthrough 7)
-    await page.getByTestId('host-primary').click();
+    await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 2');
     expect((await lastRound(event.id)).split_speakers).toBe(false);
     await expect(page.getByTestId('round-grid-role').first()).toContainText('Pair');
@@ -127,6 +127,20 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     expect(await position()).not.toBe('sticky');
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect.poll(position).toBe('sticky');
+  });
+
+  test('with time left, Next round asks once; End the evening sits apart from it (walkthrough 9)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 740 });
+    await asHost(page);
+    const before = (await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id)).data?.length ?? 0;
+    await page.getByTestId('host-primary').click();
+    await expect(page.getByTestId('host-next-confirm')).toContainText('left in this round');
+    await page.getByTestId('host-next-confirm').getByRole('button', { name: 'Keep going' }).click();
+    await expect(page.getByTestId('host-next-confirm')).toHaveCount(0);
+    expect((await supabaseAdmin.from('event_rounds').select('id').eq('event_id', event.id)).data?.length).toBe(before);
+    // Not inside the controls card any more: below the settings, out of thumb's reach of Next round.
+    await expect(page.getByTestId('host-controls').getByTestId('host-end-evening')).toHaveCount(0);
+    await expect(page.getByTestId('host-end-area').getByTestId('host-end-evening')).toBeVisible();
   });
 
   test('"End the evening" asks once, then every phone moves to Close (walkthrough 8)', async ({ page, browser }) => {
