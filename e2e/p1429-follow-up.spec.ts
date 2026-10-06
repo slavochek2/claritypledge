@@ -94,6 +94,20 @@ test.describe('P1429', () => {
     }
   });
 
+  test('A1: the photo box shows the stored choice, even before any vote', async ({ page }) => {
+    const shy = await user('P1429 Shy');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setTestSession(page, shy.email);
+    await page.goto('/topics');
+    const box = page.getByLabel('Hide my photo on my votes');
+    await expect(box).not.toBeChecked({ timeout: 20_000 });
+    const saved = page.waitForResponse((r) => r.url().includes('/rpc/set_my_topic_votes_public') && r.ok());
+    await box.check();
+    await saved;
+    await page.reload();
+    await expect(page.getByLabel('Hide my photo on my votes')).toBeChecked({ timeout: 20_000 });
+  });
+
   test('A2: the host sees a room-only answer under Opted in with its number', async ({ page }) => {
     const host = await user('P1429 Host');
     const roomOnly = await user('P1429 Room Only');

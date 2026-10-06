@@ -96,6 +96,16 @@ export async function clearTopicRating(topicId: string): Promise<boolean> {
   return !error;
 }
 
+/** The person's stored photo choice (true = show), or null before they ever chose (P1429). */
+export async function getMyPhotoChoice(): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc('get_my_topic_photo_choice');
+  if (error) {
+    console.error('[topics] get_my_topic_photo_choice failed:', error.code);
+    return null;
+  }
+  return typeof data === 'boolean' ? data : null;
+}
+
 /** Applies "show my photo" to every vote this person has cast. */
 export async function setMyVotesPublic(isPublic: boolean): Promise<boolean> {
   const { error } = await supabase.rpc('set_my_topic_votes_public', { p_is_public: isPublic });

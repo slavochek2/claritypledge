@@ -23,6 +23,7 @@ import {
   setMyVotesPublic,
   type OpenTopic,
 } from '@/app/data/topic-voting';
+import { useMyPhotoChoice } from '@/app/components/topics/use-my-photo-choice';
 import { cn } from '@/lib/utils';
 
 const STARS = [1, 2, 3, 4, 5] as const;
@@ -432,9 +433,12 @@ export function TopicVotingList({
     state.kind === 'ready' && state.topics.some((t) => t.myIsPublic !== null)
       ? !state.topics.some((t) => t.myIsPublic === false)
       : undefined;
+  // P1429: the stored choice wins — it holds even with no votes to read it from.
+  const storedChoice = useMyPhotoChoice(user?.id);
   useEffect(() => {
-    if (knownPublic !== undefined && knownPublic !== null) setShowPhoto(knownPublic);
-  }, [knownPublic]);
+    if (storedChoice != null) setShowPhoto(storedChoice);
+    else if (knownPublic !== undefined && knownPublic !== null) setShowPhoto(knownPublic);
+  }, [storedChoice, knownPublic]);
 
   const togglePhoto = async (next: boolean) => {
     setShowPhoto(next);
