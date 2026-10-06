@@ -28,6 +28,7 @@ import {
   decisionTargetExists,
   parseDecisions,
   parseReport,
+  quotaHistory,
   runWarnings,
   validateDecisionInput,
   traceOf,
@@ -265,6 +266,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
         collectedCount: collect(view, sent.items).count,
+        quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
         lastSentAt: sent.lastAt ?? null,
         warnings: runWarnings(run.parsed.report, now().toISOString(), isLatest),
       })
@@ -306,7 +308,6 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
           const step = report.connections.find((c) => c.id === d.target)?.fix_step
           if (step) out.step = step
         }
-        if (d.kind === 'option' && d.option_id === 'ask') out.is_question = true
         return JSON.stringify(out)
       })
       mkdirSync(dir, { recursive: true })

@@ -128,6 +128,29 @@ describe('day launch: POST /api/day/start (rule 9)', () => {
     expect(logs.join('\n')).not.toContain(SECRET)
   })
 
+  it('1B — Start fixing sends agent work and answered cards; an unopened founder choice stays out', async () => {
+    expect((await start({ run_id: RUN })).status).toBe(200)
+    const p = calls[0].prompt
+    expect(p).toContain('Prod key liveness') // agent work
+    for (const t of ['Replies waiting on your event post', 'Rehearse online before the first pilot?', 'Cloud credit balance is a guess']) expect(p).not.toContain(t)
+    await decide([{ kind: 'option', target: 'credits:baseline', option_id: 'read' }])
+    t += 120_000
+    expect((await start({ run_id: RUN })).status).toBe(200) // the answered card is the one change
+    expect(calls[1].prompt).toContain('Cloud credit balance is a guess')
+    expect(calls[1].prompt).not.toContain('Prod key liveness')
+  })
+
+  it('1B — with only unopened founder choices left there is nothing to send', async () => {
+    const only = synthReport()
+    only.checks = only.checks.filter((c) => c.status === 'ok' || c.status === 'skipped')
+    only.issues = only.issues.filter((i) => ['replies:event-post', 'spec:letters-waiting', 'credits:baseline', 'question:rehearsal'].includes(i.fp))
+    await writeFile(join(dir, 'reports', `${RUN}.json`), JSON.stringify(only))
+    const r = await start({ run_id: RUN })
+    expect(r.status).toBe(409)
+    expect(await r.json()).toMatchObject({ reason: 'nothing' })
+    expect(calls).toHaveLength(0)
+  })
+
   it('the send is reserved (pending) BEFORE anything is spawned', async () => {
     expect((await start({ run_id: RUN })).status).toBe(200)
     expect(calls[0].ledgerAtLaunch).toMatch(/"kind":"sent".*"state":"pending"/)

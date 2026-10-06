@@ -355,7 +355,7 @@ founder decides change by change on the Day page:
   --title "<the change, in plain words>" \
   --point-a "<what happens today>" --obstacle "<the pattern the agents found>" \
   --point-b "<what the change would make true>" \
-  --option apply="Apply this change" --option skip="Not now" --recommend apply --confidence 70 <<'BODY'
+  --option apply="Apply this change" --option skip="Not now" --recommend apply --fit 70 --risk "A drafted change applied unread may weaken a rule that was working" --evidence unverified <<'BODY'
 PROPOSED CHANGE: File / Section / Type
 Draft text:
 <exact text>
@@ -363,7 +363,7 @@ Rationale: <1 sentence>
 BODY
 ```
 
-Set `--confidence` (0-100) to how sure you are the change helps. The fault key comes from the change's **target**, never from its wording: the `File` and
+Set `--fit` (0-100) to how likely the change fixes the pattern without breaking something else, `--risk` to the one most likely way it backfires (one line, at most 200 characters), and `--evidence` to `verified` only when the pattern was checked against its source, else `unverified`. The fault key comes from the change's **target**, never from its wording: the `File` and
 `Section` of the proposal, lowercased, every character outside `[a-z0-9._-]` turned into `-`, the
 key cut to 60 characters (`monthly:claude.md:debugging`). The same target re-proposed next month
 keeps its fingerprint, so a "Not now" the founder gave carries over. `--store public` only when the draft names nothing private (it targets a public file, so it usually

@@ -74,10 +74,10 @@ async function openEntry(key: string) {
 const badge = (bg: string, color: string): React.CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
-  padding: '0 6px',
+  padding: '0 8px',
   height: 18,
   fontSize: 'var(--font-size-12)',
-  borderRadius: '3px',
+  borderRadius: 99,
   background: bg,
   color,
   whiteSpace: 'nowrap',
@@ -99,9 +99,9 @@ function Card({ card }: { card: InboxCard }) {
         minHeight: 44,
         padding: 'var(--spacing-8)',
         background: 'var(--bg-card, #fff)',
-        border: unparseable ? '1px solid #eb5757' : '1px solid rgba(55, 53, 47, 0.09)',
-        borderRadius: '4px',
-        boxShadow: 'rgba(15, 15, 15, 0.1) 0 1px 2px',
+        border: unparseable ? '1px solid var(--cp-amber)' : '1px solid var(--cp-line)',
+        borderRadius: 'var(--cp-r)',
+        boxShadow: 'var(--cp-sh)',
         cursor: 'pointer',
         font: 'inherit',
         color: 'var(--text-primary)',
@@ -167,7 +167,7 @@ export function InboxColumn({ inbox, error, searchQuery }: InboxColumnProps) {
       data-testid="inbox-column"
       style={{
         background: 'var(--bg-column)',
-        borderRadius: '3px',
+        borderRadius: 'var(--cp-r)',
         padding: '0 var(--spacing-6)',
         minHeight: 100,
         width: 260,
@@ -182,9 +182,10 @@ export function InboxColumn({ inbox, error, searchQuery }: InboxColumnProps) {
             fontSize: 'var(--font-size-14)',
             color: 'var(--status-gray-text)',
             background: 'var(--status-gray-bg)',
-            padding: '0 var(--spacing-6)',
-            height: 20,
-            borderRadius: '3px',
+            padding: '0 var(--spacing-8)',
+            fontWeight: 'var(--font-weight-semibold)',
+            height: 22,
+            borderRadius: 99,
           }}
         >
           Inbox

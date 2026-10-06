@@ -2,16 +2,17 @@
 // (pager · progress · Start fixing). Spec §3 and §7 are the contract.
 //
 // Writes (rule 5): picking an option, rating, a story (on blur, if changed), a budget raise or
-// undo, a connection Fix, Ask/Other text (on blur), Bring back, and the preselected batch on
-// Start fixing / copy. Paging NEVER writes; "resolved" from Next lives in React state only.
+// undo, a connection Fix, the custom answer's text (on blur), Bring back, and the batch on
+// Start fixing / copy (the cards accepted with Next + the agent work). Paging NEVER writes;
+// "resolved" and "accepted" from Next live in React state only.
 //
 // PRIVACY: report content lives only in React state. Nothing is put in localStorage or
 // sessionStorage, and nothing is logged.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { ASK, OTHER, pendingPreselected, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
+import { OWN, PARK, isAgentWork, pendingPreselected, stillYours, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, startRun, type DayIndex, type RunPayload } from './api'
-import { DailyReport, type FreeKind } from './DailyReport'
+import { DailyReport } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
@@ -32,8 +33,7 @@ const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', monit
 /** "08:12" in the founder's local time. */
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
-const draftKey = (fp: string, kind: FreeKind) => `${fp}\u0000${kind}`
-const isFree = (id: string | undefined): id is FreeKind => id === ASK || id === OTHER
+const isFree = (id: string | undefined): id is typeof OWN => id === OWN
 type WriteResult = { ok: true } | { ok: false; status: number; message: string }
 
 /** True when a key press is typing, so ← → and 1–9 must be left alone. */
@@ -59,9 +59,14 @@ export function DayPage() {
   const [run, setRun] = useState<RunPayload | null>(null)
   const [runErr, setRunErr] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('report')
-  const [issueIdx, setIssueIdx] = useState(0)
+  /** where the pager is in each set: the founder's cards, and the agent work after Review */
+  const [idx, setIdx] = useState({ yours: 0, agent: 0 })
+  const [agentMode, setAgentMode] = useState(false)
   const [reflIdx, setReflIdx] = useState(0)
   const [resolved, setResolved] = useState<Set<string>>(new Set())
+  /** fingerprints whose preselected answer the founder accepted with Next: page state, never written by paging */
+  const [accepted, setAccepted] = useState<Set<string>>(new Set())
+  const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [toast, setToast] = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null)
@@ -135,9 +140,11 @@ export function DayPage() {
   useEffect(() => {
     if (!runId) return
     setRun(null)
-    setIssueIdx(0)
+    setIdx({ yours: 0, agent: 0 })
+    setAgentMode(false)
     setReflIdx(0)
     setResolved(new Set())
+    setAccepted(new Set())
     setChoice({})
     setDrafts({})
     setOpening(false)
@@ -148,12 +155,19 @@ export function DayPage() {
   const ok = run?.kind === 'ok' ? run : null
   const view: DayView | null = ok?.view ?? null
   const readOnly = !ok || !ok.isLatest
-  const issues = useMemo(() => view?.issues ?? [], [view])
+  const everyIssue = useMemo(() => view?.issues ?? [], [view])
+  /** Phase D: the pager walks the founder's cards; agent work is one line away (Review). With no founder cards it opens on the agent work. */
+  const yours = useMemo(() => everyIssue.filter((i) => !isAgentWork(i)), [everyIssue])
+  const agentCards = useMemo(() => everyIssue.filter(isAgentWork), [everyIssue])
+  const mode: 'yours' | 'agent' = (agentMode && agentCards.length > 0) || yours.length === 0 ? 'agent' : 'yours'
+  const issues = mode === 'agent' ? agentCards : yours
+  const issueIdx = idx[mode]
+  const setIssueIdx = useCallback((i: number) => setIdx((s) => ({ ...s, [mode]: i })), [mode])
   const statements = ok?.report.reflection?.statements ?? []
 
   useEffect(() => {
     if (issueIdx > 0 && issueIdx >= issues.length) setIssueIdx(Math.max(0, issues.length - 1))
-  }, [issues.length, issueIdx])
+  }, [issues.length, issueIdx, setIssueIdx])
 
   // ---- writes ---------------------------------------------------------------------------
 
@@ -191,50 +205,46 @@ export function DayPage() {
     [choice, readOnly],
   )
 
-  /** Ask/Other picked but nothing written yet: not an answer. */
+  /** The custom answer picked but no text yet: not an answer. */
   const freeEmpty = useCallback(
-    (i: IssueView): FreeKind | null => {
-      const kind = choice[i.fp]
-      if (!isFree(kind)) return null
-      const text = (drafts[draftKey(i.fp, kind)] ?? (i.decision?.option_id === kind ? i.decision.text ?? '' : '')).trim()
-      return text ? null : kind
+    (i: IssueView): boolean => {
+      if (!isFree(choice[i.fp])) return false
+      return !(drafts[i.fp] ?? (i.decision?.option_id === OWN ? i.decision.text ?? '' : '')).trim()
     },
     [choice, drafts],
   )
 
-  const draftOf = useCallback(
-    (i: IssueView, kind: FreeKind) => drafts[draftKey(i.fp, kind)] ?? (i.decision?.option_id === kind ? i.decision.text ?? '' : ''),
-    [drafts],
-  )
+  const draftOf = useCallback((i: IssueView) => drafts[i.fp] ?? (i.decision?.option_id === OWN ? i.decision.text ?? '' : ''), [drafts])
 
   const choose = useCallback(
     (i: IssueView, optionId: string) => {
       if (readOnly) return
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
-      if (!isFree(optionId)) setResolved((s) => new Set(s).add(i.fp))
-      if (!isFree(optionId)) void write([{ kind: 'option', target: i.fp, option_id: optionId }])
+      if (isFree(optionId)) setOwnFocus((n) => n + 1)
+      else {
+        setResolved((s) => new Set(s).add(i.fp))
+        void write([{ kind: 'option', target: i.fp, option_id: optionId }])
+      }
     },
     [readOnly, write],
   )
 
-  /** Ask/Other text not yet in the file (never an Ask/Other without text). */
+  /** Custom-answer text not yet in the file (never a custom answer without text). */
   const unsavedFree = useCallback(
     (v: DayView): DecisionInput[] =>
       v.issues.flatMap((i) => {
-        const kind = choice[i.fp]
-        if (!isFree(kind)) return []
-        const text = (drafts[draftKey(i.fp, kind)] ?? '').trim()
-        if (!text || (i.decision?.option_id === kind && i.decision.text === text)) return []
-        return [{ kind: 'option' as const, target: i.fp, option_id: kind, text }]
+        if (!isFree(choice[i.fp])) return []
+        const text = (drafts[i.fp] ?? '').trim()
+        if (!text || (i.decision?.option_id === OWN && i.decision.text === text)) return []
+        return [{ kind: 'option' as const, target: i.fp, option_id: OWN, text }]
       }),
     [choice, drafts],
   )
 
   const draftBlur = useCallback(
-    (i: IssueView, kind: FreeKind) => {
+    (i: IssueView) => {
       if (!view || readOnly) return
-      const d = unsavedFree({ ...view, issues: [i] }).filter((x) => x.option_id === kind)
-      void write(d)
+      void write(unsavedFree({ ...view, issues: [i] }))
     },
     [view, readOnly, unsavedFree, write],
   )
@@ -275,19 +285,51 @@ export function DayPage() {
     [readOnly, view, write],
   )
 
+  // ---- what Start fixing sends (decision 1B) --------------------------------------------
+
+  /** Open the card for a fingerprint, in whichever set it belongs to. */
+  const jumpTo = useCallback(
+    (fp: string) => {
+      const a = agentCards.findIndex((x) => x.fp === fp)
+      const y = yours.findIndex((x) => x.fp === fp)
+      if (y >= 0) {
+        setAgentMode(false)
+        setIdx((s) => ({ ...s, yours: y }))
+      } else if (a >= 0) {
+        setAgentMode(true)
+        setIdx((s) => ({ ...s, agent: a }))
+      }
+      setTab('report')
+    },
+    [agentCards, yours],
+  )
+
+  /** The founder's answer is on the page but not in the file yet: accepted with Next, or typed text. */
+  const queuedLocally = useCallback(
+    (i: IssueView) => {
+      if (i.decision || isAgentWork(i)) return false
+      const kind = choice[i.fp]
+      if (isFree(kind)) return !!(drafts[i.fp] ?? '').trim()
+      return kind !== undefined || (accepted.has(i.fp) && i.options[i.recommended_index]?.id !== PARK)
+    },
+    [choice, drafts, accepted],
+  )
+  /** The button counts what will actually be sent: the server's count + what is only on the page. */
+  const sendCount = (ok?.collectedCount ?? 0) + (view ? view.issues.filter(queuedLocally).length : 0)
+  /** Unopened founder choices: not sent, listed as "still yours". */
+  const yoursLeft = view ? stillYours(view).filter((i) => !queuedLocally(i)) : []
+
   // ---- Start fixing / copy (rule 3) -------------------------------------------------------
 
   const startRef = useRef<(mode: 'start' | 'copy') => Promise<void>>(async () => {})
   const startFixing = useCallback(
     async (mode: 'start' | 'copy') => {
       if (!runId || readOnly || busy || !view) return
-      // An Ask/Other with no text is not an answer: send the founder back to it.
-      const emptyAt = view.issues.findIndex((i) => freeEmpty(i))
-      if (emptyAt >= 0) {
-        const kind = freeEmpty(view.issues[emptyAt])
-        say(kind === ASK ? 'Write your question first, or pick another answer' : 'Write your answer first, or pick another answer')
-        setTab('report')
-        setIssueIdx(emptyAt)
+      // A custom answer with no text is not an answer: send the founder back to it.
+      const empty = view.issues.find((i) => freeEmpty(i))
+      if (empty) {
+        say('Write your answer or question first, or pick another answer')
+        jumpTo(empty.fp)
         return
       }
       setBusy(true)
@@ -300,7 +342,7 @@ export function DayPage() {
         }
         const free = unsavedFree(fresh.view)
         const freeFps = new Set(Object.entries(choice).filter(([, v]) => isFree(v)).map(([fp]) => fp))
-        const preselected = pendingPreselected(fresh.view).filter((d) => !freeFps.has(d.target))
+        const preselected = pendingPreselected(fresh.view, accepted).filter((d) => !freeFps.has(d.target))
         const batch = [...free, ...preselected]
         if (batch.length) await postDecisions(runId, batch)
         if (mode === 'copy') {
@@ -337,7 +379,7 @@ export function DayPage() {
         await reload(runId)
       }
     },
-    [runId, readOnly, busy, view, freeEmpty, unsavedFree, choice, reload, say, checkNewer],
+    [runId, readOnly, busy, view, freeEmpty, unsavedFree, choice, accepted, jumpTo, reload, say, checkNewer],
   )
   startRef.current = startFixing
 
@@ -351,11 +393,11 @@ export function DayPage() {
   const nav = useMemo(
     () =>
       tab === 'report' && issues.length
-        ? { i: Math.min(issueIdx, issues.length - 1), n: issues.length, lab: 'issue' }
+        ? { i: Math.min(issueIdx, issues.length - 1), n: issues.length, lab: mode === 'agent' ? 'agent card' : 'issue' }
         : tab === 'reflection' && statements.length
           ? { i: Math.min(reflIdx, statements.length - 1), n: statements.length, lab: 'statement' }
           : null,
-    [tab, issues.length, issueIdx, reflIdx, statements.length],
+    [tab, issues.length, issueIdx, reflIdx, statements.length, mode],
   )
 
   const page = useCallback(
@@ -364,13 +406,27 @@ export function DayPage() {
       const to = nav.i + dir
       if (to < 0 || to >= nav.n) return
       if (tab === 'report') {
-        if (dir === 1 && issues[nav.i]) setResolved((s) => new Set(s).add(issues[nav.i].fp))
+        const left = issues[nav.i]
+        if (dir === 1 && left) {
+          setResolved((s) => new Set(s).add(left.fp))
+          // Next accepts the preselected answer (page state only); an empty custom answer is not one
+          if (!readOnly && !isFree(choice[left.fp])) setAccepted((s) => new Set(s).add(left.fp))
+        }
         setIssueIdx(to)
       } else setReflIdx(to)
       toTop()
     },
-    [nav, tab, issues],
+    [nav, tab, issues, readOnly, choice, setIssueIdx],
   )
+
+  const review = useCallback(() => {
+    setAgentMode(true)
+    toTop()
+  }, [])
+  const backToYours = useCallback(() => {
+    setAgentMode(false)
+    toTop()
+  }, [])
 
   // ---- keyboard: ← → page, 1–9 choose, 1 2 3 rate ---------------------------------------
 
@@ -395,7 +451,14 @@ export function DayPage() {
     const n = Number(e.key)
     if (tab === 'report' && nav) {
       const issue = issues[nav.i]
-      const opt = issue?.options[n - 1]
+      if (!issue) return
+      // the custom answer is numbered after the listed options
+      if (n === issue.options.length + 1) {
+        e.preventDefault()
+        choose(issue, OWN)
+        return
+      }
+      const opt = issue.options[n - 1]
       if (!opt) return
       e.preventDefault()
       if (selected(issue) !== opt.id || !issue.decision) choose(issue, opt.id)
@@ -435,6 +498,7 @@ export function DayPage() {
     if (isFree(kind)) return !freeEmpty(i) && i.decision?.option_id === kind
     return !!i.decision || resolved.has(i.fp)
   }).length
+  const firstYours = yoursLeft[0]
   const rated = statements.filter((s) => view?.reflection[s.id]).length
 
   return (
@@ -536,20 +600,25 @@ export function DayPage() {
                   report={ok.report}
                   view={view}
                   readOnly={readOnly}
+                  issues={issues}
                   index={issueIdx}
-                  onIndex={setIssueIdx}
+                  agent={{ count: agentCards.length, showing: mode === 'agent', canGoBack: yours.length > 0, onReview: review, onBack: backToYours }}
+                  onJump={jumpTo}
                   selected={selected}
                   draftOf={draftOf}
                   onChoose={choose}
-                  onDraft={(i, kind, text) => setDrafts((d) => ({ ...d, [draftKey(i.fp, kind)]: text }))}
+                  onDraft={(i, text) => setDrafts((d) => ({ ...d, [i.fp]: text }))}
                   onDraftBlur={draftBlur}
+                  ownFocus={ownFocus}
                   onFix={fix}
                   onUndoFix={undoFix}
                   onBringBack={bringBack}
                 />
               )}
               {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} />}
-              {tab === 'monitoring' && <MonitoringTab report={ok.report} view={view} readOnly={readOnly} onRaise={raise} onUndoRaise={undoRaise} />}
+              {tab === 'monitoring' && (
+                <MonitoringTab report={ok.report} view={view} readOnly={readOnly} quotaHistory={ok.quotaHistory} onRaise={raise} onUndoRaise={undoRaise} />
+              )}
               {tab === 'reflection' && (
                 <ReflectionTab
                   statements={statements}
@@ -625,6 +694,11 @@ export function DayPage() {
                     </span>
                   </>
                 ) : null}
+                {!readOnly && tab === 'report' && mode === 'yours' && firstYours && (
+                  <button type="button" className="d-still" data-still-yours data-short={`yours: ${yoursLeft.length}`} onClick={() => jumpTo(firstYours.fp)}>
+                    {yoursLeft.length} still yours
+                  </button>
+                )}
                 {!readOnly && nav && (
                   <span className="d-hint" aria-hidden="true">
                     ← → move
@@ -641,18 +715,18 @@ export function DayPage() {
                         <span className="d-spin" aria-hidden="true" />
                         Opening…
                       </span>
-                    ) : ok.lastSentAt && ok.collectedCount === 0 ? (
+                    ) : ok.lastSentAt && sendCount === 0 ? (
                       <span className="d-bstat" data-launch="sent" title={`Sent to your terminal at ${clock(ok.lastSentAt)}`}>
                         <span className="d-tl">Sent to your terminal at {clock(ok.lastSentAt)}</span>
                         <span className="d-ts">Sent {clock(ok.lastSentAt)}</span>
                       </span>
                     ) : ok.lastSentAt ? (
                       <button type="button" className="d-btn primary sm" disabled={busy} onClick={() => void startFixing('start')}>
-                        Send {ok.collectedCount} change{ok.collectedCount === 1 ? '' : 's'}
+                        Send {sendCount} change{sendCount === 1 ? '' : 's'}
                       </button>
                     ) : (
-                      <button type="button" className="d-btn primary sm" disabled={busy || ok.collectedCount === 0} onClick={() => void startFixing('start')}>
-                        Start fixing ({ok.collectedCount})
+                      <button type="button" className="d-btn primary sm" disabled={busy || sendCount === 0} onClick={() => void startFixing('start')}>
+                        Start fixing ({sendCount})
                       </button>
                     )}
                     <button
@@ -660,7 +734,7 @@ export function DayPage() {
                       className="d-iconbtn"
                       aria-label="Copy prompt"
                       title="Copy prompt"
-                      disabled={busy || (ok.collectedCount === 0 && !ok.lastSentAt)}
+                      disabled={busy || (sendCount === 0 && !ok.lastSentAt)}
                       onClick={() => void startFixing('copy')}
                     >
                       <CopyIcon />

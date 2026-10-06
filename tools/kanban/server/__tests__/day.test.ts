@@ -13,16 +13,21 @@ import {
   compareIssues,
   daysOpen,
   decisionTargetExists,
+  isAgentWork,
+  OWN,
   parseDecisions,
   parseReport,
   pendingPreselected,
+  quotaHistory,
   runWarnings,
+  stillYours,
   validateDecisionInput,
   type DayDecision,
+  type DayQuota,
   type DayReport,
   type IssueView,
 } from '../../src/lib/day'
-import { SECRET, synthEarlier, synthReport, synthWeekly } from './fixtures/day-fixture'
+import { SECRET, synthEarlier, synthEarlier2, synthReport, synthWeekly } from './fixtures/day-fixture'
 
 /**
  * P1399 — the Day page, schema v2. Synthetic fixtures only (fixtures/day-fixture.ts): no real
@@ -392,10 +397,10 @@ describe('day v2: decisions (rule 4) and their scope (rule 1)', () => {
 })
 
 describe('day v2: Start fixing collects, paging writes nothing (rule 5)', () => {
-  it('counts flow issues not parked + reflection + budgets + connection fixes', () => {
+  it('counts answered flow issues + agent work not parked + reflection + budgets + connection fixes', () => {
     const r = ok(synthReport())
     let c = collect(buildView(r, []))
-    expect(c.count).toBe(13)
+    expect(c.count).toBe(9) // 1B: the 9 agent-work cards; the 4 founder choices are not sent unopened
     const lines = [
       line({ target: 'sentry:room-ended', option_id: 'park' }),
       line({ kind: 'reflection', target: 'c1', position: 2, story: 'true' }),
@@ -403,15 +408,15 @@ describe('day v2: Start fixing collects, paging writes nothing (rule 5)', () => 
       line({ kind: 'connection', target: 'sentry', step: 'Sign in' }),
     ]
     c = collect(buildView(r, lines))
-    expect(c.count).toBe(12 + 1 + 1 + 1)
+    expect(c.count).toBe(8 + 1 + 1 + 1)
     expect(c.issues.some((x) => x.issue.fp === 'sentry:room-ended')).toBe(false)
   })
 
-  it('pendingPreselected returns the recommended option for each flow issue with no decision', () => {
+  it('pendingPreselected returns the recommended option for each agent-work issue with no decision', () => {
     const r = ok(synthReport())
     const v = buildView(r, [line({ target: 'spec:letters-waiting', option_id: 'after' })])
     const p = pendingPreselected(v)
-    expect(p).toHaveLength(12)
+    expect(p).toHaveLength(9)
     expect(p.find((d) => d.target === 'spec:letters-waiting')).toBeUndefined()
     expect(p.find((d) => d.target === 'rules:live-not-on-main')!.option_id).toBe('agent')
     expect(p.every((d) => d.kind === 'option' && d.option_id !== 'park')).toBe(true)
@@ -465,6 +470,259 @@ describe('day v2: small rules', () => {
     expect(r.reviews).toEqual(['weekly'])
     expect(allIssues(r).find((i) => i.fp === 'weekly:reach-target')!.review).toBe('weekly')
     expect(r.reflection!.statements.some((s) => s.review === 'weekly')).toBe(true)
+  })
+})
+
+describe('day v2 Phase D: one custom option (OWN)', () => {
+  it('OWN is the one id for "Your answer or question…"', () => {
+    expect(OWN).toBe('own')
+  })
+
+  it('OWN — a custom answer needs its text (≤ 2000); the legacy ask/other ids are accepted and become own', () => {
+    const own = validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'own', text: '  Which rules?  ' })
+    expect(own).toEqual({ ok: true, decision: { kind: 'option', target: 'x:y', option_id: 'own', text: 'Which rules?', is_question: true } })
+    expect(validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'own' }).ok).toBe(false)
+    expect(validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'own', text: 'x'.repeat(2001) }).ok).toBe(false)
+    expect(validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'ask', text: 'Which?' })).toMatchObject({ ok: true, decision: { option_id: 'own', is_question: true } })
+    expect(validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'other', text: 'I read it: 410' })).toMatchObject({ ok: true, decision: { option_id: 'own', is_question: false } })
+  })
+
+  it('OWN — a reply ending in "?" is a question; any other reply is an answer', () => {
+    const q = (text: string) => (validateDecisionInput({ kind: 'option', target: 'x:y', option_id: 'own', text }) as unknown as { decision: DayDecision }).decision.is_question
+    expect(q('Which two rules?')).toBe(true)
+    expect(q('Which two rules?  \n')).toBe(true)
+    expect(q('Ship it, but why? Tell me later.')).toBe(false)
+    expect(q('I will read it today')).toBe(false)
+  })
+
+  it('OWN — decision lines written by the old Ask / Other still read correctly', () => {
+    const at = '2026-10-04T08:00:00Z'
+    const text = [
+      { kind: 'option', target: 'a:1', option_id: 'ask', text: 'Which rules', run_id: RUN, at },
+      { kind: 'option', target: 'a:2', option_id: 'other', text: 'I read it: 410', run_id: RUN, at },
+      { kind: 'option', target: 'a:3', option_id: 'other', text: 'Is it safe?', run_id: RUN, at },
+      { kind: 'option', target: 'a:4', option_id: 'own', text: 'New style?', run_id: RUN, at },
+    ].map((l) => JSON.stringify(l)).join('\n')
+    const { lines, badLines } = parseDecisions(text)
+    expect(badLines).toBe(0)
+    expect(lines.map((l) => [l.option_id, l.is_question])).toEqual([['own', true], ['own', false], ['own', true], ['own', true]])
+  })
+
+  it('OWN — the page may name own on an issue that does not offer it; the target must still exist', () => {
+    const r = ok(synthReport())
+    expect(decisionTargetExists(r, { kind: 'option', target: 'rules:live-not-on-main', option_id: 'own', text: 'x' })).toBe(true)
+    expect(decisionTargetExists(r, { kind: 'option', target: 'nope:x', option_id: 'own', text: 'x' })).toBe(false)
+  })
+
+  it('OWN — a report cannot offer an own option itself (page-only id)', () => {
+    const raw = synthReport()
+    raw.issues[0].options.push({ id: 'own', label: 'Smuggled' })
+    expect(ok(raw).issues[0].options.map((o) => o.id)).not.toContain('own')
+  })
+
+  it('OWN — the prompt puts questions first and the other custom answers under "I decided" with their text', () => {
+    const r = ok(synthReport())
+    const lines = [
+      line({ target: 'rules:live-not-on-main', option_id: 'own', text: 'Which two rules exactly?', is_question: true }),
+      line({ target: 'credits:baseline', option_id: 'own', text: 'I read it: 410', is_question: false }),
+    ]
+    const p = buildPrompt(r, buildView(r, lines))
+    const q = p.indexOf('Answer my questions first')
+    expect(q).toBeGreaterThan(0)
+    expect(p.indexOf('My question: Which two rules exactly?')).toBeGreaterThan(q)
+    const decided = p.indexOf('I decided')
+    expect(decided).toBeGreaterThan(q)
+    expect(p.indexOf('Cloud credit balance is a guess → I read it: 410')).toBeGreaterThan(decided)
+    expect(p).not.toContain('My question: I read it')
+  })
+})
+
+describe('day v2 Phase D: fit, main risk, cause tag', () => {
+  const one = (extra: Record<string, unknown>) => {
+    const raw = synthReport()
+    Object.assign(raw.issues[0], extra)
+    return ok(raw).issues[0]
+  }
+
+  it('FIT — risk is read as one trimmed line of at most 200 characters; a non-string is dropped', () => {
+    expect(one({ risk: '  Might break the sign-in page.  ' }).risk).toBe('Might break the sign-in page.')
+    expect(one({ risk: 'line one\nline two' }).risk).toBe('line one line two')
+    expect(one({ risk: 'x'.repeat(500) }).risk).toHaveLength(200)
+    expect(one({ risk: 42 }).risk).toBeUndefined()
+    expect(one({ risk: '   ' }).risk).toBeUndefined()
+  })
+
+  it('FIT — the prompt carries "Fit N% · main risk: …" when present, and only what is present', () => {
+    const alone = (extra: Record<string, unknown>, drop: string[] = []) => {
+      const raw = synthReport()
+      raw.issues = [raw.issues[0]]
+      Object.assign(raw.issues[0], extra)
+      const first = raw.issues[0] as unknown as Record<string, unknown>
+      for (const k of drop) first[k] = undefined
+      const r = ok(raw)
+      return buildPrompt(r, buildView(r, []))
+    }
+    expect(alone({ recommendation_confidence: 85, risk: 'Could lock out a live guest.' })).toContain('Fit 85% · main risk: Could lock out a live guest.')
+    const fitOnly = alone({ recommendation_confidence: 60 }, ['risk'])
+    expect(fitOnly).toContain('Fit 60%')
+    expect(fitOnly).not.toMatch(/main risk/i)
+    const neither = alone({}, ['risk', 'recommendation_confidence'])
+    expect(neither).not.toMatch(/Fit \d+%/)
+    expect(neither).not.toMatch(/main risk/i)
+  })
+})
+
+describe('day v2 Phase D: what Start fixing sends (decision 1B)', () => {
+  const FOUNDER = ['replies:event-post', 'spec:letters-waiting', 'credits:baseline', 'question:rehearsal']
+
+  it('1B — isAgentWork: the recommended option hands the issue to the agent', () => {
+    const v = buildView(ok(synthReport()), [])
+    const by = (fp: string) => v.issues.find((i) => i.fp === fp)!
+    expect(isAgentWork(by('rules:live-not-on-main'))).toBe(true)
+    expect(isAgentWork(by('check:tests'))).toBe(true) // a check nobody wrote up: routine agent work
+    for (const fp of FOUNDER) expect(isAgentWork(by(fp)), fp).toBe(false)
+  })
+
+  it('1B — collect sends an issue only when it has a non-park answer on this run, or no answer and is agent work', () => {
+    const r = ok(synthReport())
+    const v0 = buildView(r, [])
+    const c0 = collect(v0)
+    expect(c0.issues).toHaveLength(9)
+    for (const fp of FOUNDER) expect(c0.issues.some((x) => x.issue.fp === fp), `${fp} unopened is not sent`).toBe(false)
+    // answered founder-choice cards go in, with the answer
+    const c1 = collect(buildView(r, [line({ target: 'spec:letters-waiting', option_id: 'after' }), line({ target: 'credits:baseline', option_id: 'read' })]))
+    expect(c1.issues).toHaveLength(11)
+    expect(c1.issues.find((x) => x.issue.fp === 'spec:letters-waiting')).toMatchObject({ option_id: 'after', written: true })
+    // a parked agent-work card is out; an answered-then-removed founder card is back out
+    const c2 = collect(buildView(r, [line({ target: 'rules:live-not-on-main', option_id: 'park' }), line({ target: 'spec:letters-waiting', option_id: 'after' }), line({ target: 'spec:letters-waiting', remove: true })]))
+    expect(c2.issues).toHaveLength(8)
+    expect(c2.issues.some((x) => x.issue.fp === 'spec:letters-waiting')).toBe(false)
+  })
+
+  it('1B — stillYours lists the unanswered cards whose recommendation is not agent work (they are not sent)', () => {
+    const r = ok(synthReport())
+    expect(stillYours(buildView(r, [])).map((i) => i.fp).sort()).toEqual([...FOUNDER].sort())
+    const v = buildView(r, [line({ target: 'spec:letters-waiting', option_id: 'after' })])
+    expect(stillYours(v).map((i) => i.fp)).not.toContain('spec:letters-waiting')
+    expect(stillYours(v)).toHaveLength(3)
+    // an agent-work card is never "still yours"
+    expect(stillYours(buildView(r, [])).some((i) => isAgentWork(i))).toBe(false)
+  })
+
+  it('1B — pendingPreselected writes agent work plus the cards the founder accepted with Next; never Park, never an answered card', () => {
+    const v = buildView(ok(synthReport()), [line({ target: 'credits:baseline', option_id: 'read' })])
+    expect(pendingPreselected(v).map((d) => d.target).sort()).toEqual(
+      v.issues.filter((i) => isAgentWork(i)).map((i) => i.fp).sort(),
+    )
+    const accepted = new Set(['spec:letters-waiting', 'credits:baseline', 'not-in-run'])
+    const p = pendingPreselected(v, accepted)
+    expect(p.find((d) => d.target === 'spec:letters-waiting')).toMatchObject({ kind: 'option', option_id: 'ship' })
+    expect(p.some((d) => d.target === 'credits:baseline')).toBe(false) // already answered
+    expect(p.some((d) => d.target === 'not-in-run')).toBe(false)
+    expect(p.some((d) => d.target === 'replies:event-post')).toBe(false) // not accepted
+    expect(p).toHaveLength(10)
+    expect(p.every((d) => d.option_id !== 'park')).toBe(true)
+  })
+})
+
+describe('day v2 Phase D: readings link to notes', () => {
+  it('NOTE — a reading keeps its note id only when it is ID-shaped', () => {
+    const raw = synthReport()
+    raw.stats = {
+      readings: [
+        { id: 'a', label: 'A', collected: true, value: 1, note: 'chat-digest' },
+        { id: 'b', label: 'B', collected: true, value: 1, note: '../etc/passwd' },
+        { id: 'c', label: 'C', collected: true, value: 1, note: 42 as unknown as string },
+        { id: 'd', label: 'D', collected: true, value: 1, note: 'has space' },
+        { id: 'e', label: 'E', collected: true, value: 1 },
+      ],
+    }
+    const readings = ok(raw).stats!.readings!
+    expect(readings.map((r) => r.note)).toEqual(['chat-digest', undefined, undefined, undefined, undefined])
+  })
+})
+
+describe('day v2 Phase D: cloud keys carry a why', () => {
+  it('KEYWHY — a key keeps its why (one line, at most 120); a non-string is dropped', () => {
+    const raw = synthReport()
+    const keys = raw.monitoring!.cloud!.keys!
+    keys[0] = { ...keys[0], why: 'no billing data: unused, or not in the billing export' }
+    keys[1] = { ...keys[1], why: 'x'.repeat(300) }
+    keys[2] = { ...keys[2], why: 42 as unknown as string }
+    const out = ok(raw).monitoring!.cloud!.keys!
+    expect(out[0].why).toBe('no billing data: unused, or not in the billing export')
+    expect(out[1].why).toHaveLength(120)
+    expect(out[2].why).toBeUndefined()
+  })
+})
+
+describe('day v2 Phase D: subscriptions history (quotaHistory)', () => {
+  const at = (iso: string, quotas: DayQuota[], pass = iso) =>
+    ok(synthReport({ pass_id: `p-${pass}`, started_at: iso, monitoring: { quotas } }))
+  const q = (id: string, pct: number | undefined, extra: Record<string, unknown> = {}) => ({ id, label: id, collected: pct !== undefined, remaining_pct: pct, ...extra })
+  const RESET = '2026-10-08T00:00:00Z' // window: 2026-10-01T00:00:00Z … this run
+
+  it('window — [resets_at − 7 days, this run], both ends inclusive; the previous window and later runs are out', () => {
+    const run = at('2026-10-04T05:00:00Z', [q('claude', 60, { resets_at: RESET })])
+    const reports = [
+      at('2026-09-30T23:59:59Z', [q('claude', 99)]), // previous window
+      at('2026-10-01T00:00:00Z', [q('claude', 95)]), // the boundary: in
+      at('2026-10-03T05:00:00Z', [q('claude', 80)]),
+      at('2026-10-04T05:00:00Z', [q('claude', 61)], 'same-instant'), // same instant as this run: in
+      at('2026-10-05T05:00:00Z', [q('claude', 40)]), // later than this run: out
+    ]
+    const h = quotaHistory(run, [...reports, run])
+    expect(h.claude.map((p) => p.remaining_pct)).toEqual([95, 80, 60, 61]) // oldest first; a tie keeps pass order
+    expect(h.claude.map((p) => p.at)).toEqual(['2026-10-01T00:00:00Z', '2026-10-03T05:00:00Z', '2026-10-04T05:00:00Z', '2026-10-04T05:00:00Z'])
+  })
+
+  it('this run is included once, even when it is also in the list; a quota without resets_at has no history', () => {
+    const run = at('2026-10-04T05:00:00Z', [q('claude', 60, { resets_at: RESET }), q('codex', 50)])
+    const h = quotaHistory(run, [run, at('2026-10-03T05:00:00Z', [q('claude', 80), q('codex', 70)])])
+    expect(h.claude.map((p) => p.remaining_pct)).toEqual([80, 60])
+    expect(h.codex).toBeUndefined()
+  })
+
+  it('uncollected quotas and readings are skipped, never drawn as 0', () => {
+    const run = at('2026-10-04T05:00:00Z', [q('claude', 60, { resets_at: RESET }), q('codex', undefined, { resets_at: RESET })])
+    const h = quotaHistory(run, [at('2026-10-03T05:00:00Z', [q('claude', undefined), q('codex', 70)]), at('2026-10-02T05:00:00Z', [q('claude', 88)])])
+    expect(h.claude.map((p) => p.remaining_pct)).toEqual([88, 60])
+    expect(h.codex).toBeUndefined() // this run did not collect it
+  })
+
+  it('a run with no quotas has an empty history', () => {
+    expect(quotaHistory(ok(synthReport({ monitoring: {} })), [])).toEqual({})
+  })
+})
+
+describe('day v2 Phase D: the synthetic run exercises the new rules', () => {
+  it('FIXTURE — fit + risk + verified; one without a fit; ≥ 3 agent-work and ≥ 3 founder-choice; plain overlay on ≥ 2', () => {
+    const v = buildView(ok(synthReport()), [])
+    expect(v.issues.some((i) => i.recommendation_confidence !== undefined && !!i.risk && i.evidence === 'verified')).toBe(true)
+    expect(v.issues.some((i) => i.recommendation_confidence === undefined && !i.synthetic)).toBe(true)
+    expect(v.issues.filter((i) => isAgentWork(i)).length).toBeGreaterThanOrEqual(3)
+    expect(stillYours(v).length).toBeGreaterThanOrEqual(3)
+    const plain = v.issues.filter((i) => i.technical)
+    expect(plain.length).toBeGreaterThanOrEqual(2)
+    for (const i of plain) expect(i.technical!.title).not.toBe(i.title)
+  })
+
+  it('FIXTURE — readings link to the chat digest; the funnel is the pipeline; no reach-outs series', () => {
+    const r = ok(synthReport())
+    for (const id of ['mentions', 'help_requests']) expect(r.stats!.readings!.find((x) => x.id === id)?.note).toBe('chat-digest')
+    expect(r.notes!.some((n) => n.id === 'chat-digest')).toBe(true)
+    expect(r.stats!.funnel!.steps.map((s) => s.label)).toEqual(['Contacted', 'In conversation', 'Qualified', 'Committed', 'Active'])
+    expect(r.stats!.funnel!.collected).toBe(true)
+    expect(r.stats!.funnel!.steps.some((s) => s.value === 0)).toBe(true) // real zeros
+    expect(r.stats!.series!.some((s) => s.id === 'reachouts')).toBe(false)
+  })
+
+  it('FIXTURE — Claude and Codex are both collected with a reset day, and two earlier runs give ≥ 3 points each', () => {
+    const run = ok(synthReport())
+    const quotas = run.monitoring!.quotas!
+    for (const id of ['claude', 'codex']) expect(quotas.find((x) => x.id === id)).toMatchObject({ collected: true, resets_at: expect.any(String) })
+    const h = quotaHistory(run, [ok(synthEarlier()), ok(synthEarlier2())])
+    for (const id of ['claude', 'codex']) expect(h[id].length, id).toBeGreaterThanOrEqual(3)
   })
 })
 
@@ -664,8 +922,38 @@ describe('day v2 API (synthetic day dir)', () => {
     await post({ run_id: RUN, decisions: [{ kind: 'option', target: 'rules:live-not-on-main', option_id: 'ask', text: 'Which two?' }] })
     const body = await (await fetch(`${API}/api/day/prompt`)).json()
     expect(body.run_id).toBe(RUN)
-    expect(body.count).toBe(13)
+    expect(body.count).toBe(9)
     expect(body.prompt).toContain('Which two?')
+  })
+
+  it('1B — the run, the prompt and Start fixing follow collect: unopened founder choices are not counted or sent', async () => {
+    await seed({ [RUN]: synthReport() })
+    const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
+    expect(run.collectedCount).toBe(9)
+    const p0 = await (await fetch(`${API}/api/day/prompt`)).json()
+    expect(p0.count).toBe(9)
+    expect(p0.prompt).toContain('Prod key liveness')
+    expect(p0.prompt).not.toContain('Replies waiting on your event post')
+    expect(p0.prompt).not.toContain('Rehearse online before the first pilot?')
+    await post({ run_id: RUN, decisions: [{ kind: 'option', target: 'replies:event-post', option_id: 'reply' }] })
+    const p1 = await (await fetch(`${API}/api/day/prompt`)).json()
+    expect(p1.count).toBe(10)
+    expect(p1.prompt).toContain('Replies waiting on your event post')
+  })
+
+  it('SUBSCRIPTIONS — a run carries the quota history of its week, oldest first, this run included', async () => {
+    await seed({ [RUN]: synthReport(), '2026-10-03T05-05-00Z': synthEarlier(), '2026-10-02T05-10-00Z': synthEarlier2() })
+    const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
+    expect(Object.keys(run.quotaHistory).sort()).toEqual(['claude', 'codex'])
+    for (const id of ['claude', 'codex']) {
+      const h = run.quotaHistory[id] as { at: string; remaining_pct: number }[]
+      expect(h.length).toBeGreaterThanOrEqual(3)
+      expect(h.map((x) => x.at)).toEqual([...h.map((x) => x.at)].sort())
+      expect(h[h.length - 1].at).toBe('2026-10-04T05:37:45Z')
+    }
+    // an earlier run sees only what had happened by then
+    const earlier = await (await fetch(`${API}/api/day/runs/2026-10-03T05-05-00Z`)).json()
+    expect(earlier.quotaHistory.claude.every((x: { at: string }) => x.at <= '2026-10-03T05:05:00Z')).toBe(true)
   })
 
   it('privacy: report and decision content never reaches the logs', async () => {

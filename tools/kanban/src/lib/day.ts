@@ -17,14 +17,28 @@
 //   - Ordering is one rule (rule 7): urgent+important, urgent, important, rest; then deadline,
 //     first seen, title. Urgent = deadline within 72h of the run, or the check did not run / not
 //     proven. Important = the check's own severity (or the issue's source), never a mood.
-//   - Two confidences, two names (rule 8): recommendation_confidence (0–100) and evidence.
+//   - Two confidences, two names (rule 8): recommendation_confidence (0–100) and evidence. Phase D
+//     renames what the founder sees: Fit N% (with one main-risk line) and Cause checked / suspected.
+//   - Start fixing sends what the founder answered plus clear agent work (Phase D, decision 1B);
+//     an unopened founder choice stays out and is listed as "still yours".
 
 export const DAY_SCHEMA = 2
 
-/** Reserved option ids. `park` may appear in a report; `ask` and `other` are page-only. */
+/**
+ * Reserved option ids. `park` may appear in a report; `own` is page-only: the one custom option,
+ * "Your answer or question…". `ask` and `other` are what it was called before Phase D: old lines
+ * still read (as `own`) and the ids are still accepted, but nothing new writes them.
+ */
 export const PARK = 'park'
+export const OWN = 'own'
 export const ASK = 'ask'
 export const OTHER = 'other'
+
+/** The ids a report may never offer: the page owns them. */
+const PAGE_ONLY = [OWN, ASK, OTHER]
+
+/** A custom reply ending in "?" is a question for the agent; anything else is an answer. */
+const isQuestionText = (text: string | undefined) => (text ?? '').trim().endsWith('?')
 
 export type CheckStatus = 'ok' | 'problem' | 'not-run' | 'unproven' | 'skipped'
 export type RunState = 'running' | 'complete' | 'incomplete' | 'abandoned'
@@ -94,12 +108,22 @@ export interface DayIssue {
   source?: string
   /** 1+ options; at most one recommended; never a recommended park */
   options: DayOption[]
-  /** 0–100: how sure the agent is that the recommended option works */
+  /**
+   * 0–100, shown as "Fit N%": how likely the recommended option fixes the real cause without
+   * breaking something else. (The JSON name is older than the display name; it stays.)
+   */
   recommendation_confidence?: number
-  /** whether the finding itself was verified against its source */
+  /** the main risk of the recommended option, one line, ≤ 200 */
+  risk?: string
+  /** the cause tag: verified = "Cause checked", unverified = "Cause suspected" */
   evidence?: 'verified' | 'unverified'
   /** what the check actually returned */
   evidence_text?: string
+  /**
+   * Set when the plain-language pass rewrote this card: title / point_a / obstacle / point_b above
+   * are then the plain wording, and the original technical wording is kept here (More info).
+   */
+  technical?: { title: string; point_a: string; obstacle: string; point_b: string }
 }
 
 export interface DayStatement {
@@ -138,7 +162,8 @@ export interface DayCloud {
   credits?: { amount_eur: number; caveat?: string }
   week?: SpendPoint[]
   month?: SpendPoint[]
-  keys?: { id: string; label: string; collected: boolean; spent_eur?: number; budget_eur?: number }[]
+  /** `why` = one line (≤ 120) on why a key has no data: "unused, or not in the billing export" */
+  keys?: { id: string; label: string; collected: boolean; spent_eur?: number; budget_eur?: number; why?: string }[]
 }
 
 export interface DayMonitoring {
@@ -147,7 +172,8 @@ export interface DayMonitoring {
 }
 
 export interface DayStats {
-  readings?: { id: string; label: string; collected: boolean; value?: number }[]
+  /** `note` = the id of a note in the report that explains the number; the tile opens it */
+  readings?: { id: string; label: string; collected: boolean; value?: number; note?: string }[]
   funnel?: { collected: boolean; sample?: boolean; period?: string; steps: { label: string; value?: number }[] }
   series?: {
     id: string
@@ -236,8 +262,10 @@ export interface DecisionInput {
   remove?: boolean
   // option
   option_id?: string
-  /** the text for Ask a question… / Other… (≤ 2000) */
+  /** the text for Your answer or question… (≤ 2000) */
   text?: string
+  /** option own: set by validateDecisionInput from the text (a trailing "?"), never read from a request */
+  is_question?: boolean
   // reflection
   /** -3 … 3, the product's scale (strongly disagree … strongly agree); 0 = unsure */
   position?: number
@@ -254,8 +282,6 @@ export interface DayDecision extends DecisionInput {
   at: string
   /** connection: the fix step, copied by the server from the run's connection */
   step?: string
-  /** option: true when option_id is ask */
-  is_question?: boolean
 }
 
 // ---------------------------------------------------------------------------------------
@@ -310,7 +336,8 @@ export interface DayView {
 
 export interface Collected {
   /** flow issues whose effective choice is not Park */
-  issues: { issue: IssueView; option_id: string; text?: string; written: boolean }[]
+  /** option_id is normalised: the custom option is always `own` */
+  issues: { issue: IssueView; option_id: string; text?: string; is_question?: boolean; written: boolean }[]
   connections: DayDecision[]
   budgets: DayDecision[]
   reflection: DayDecision[]
@@ -325,6 +352,8 @@ const ID = /^[A-Za-z0-9._:-]{1,80}$/
 const FP = /^[A-Za-z0-9._:-]{1,100}$/
 const OPTION_ID = /^[A-Za-z0-9._-]{1,40}$/
 const MAX_TEXT = 2000
+const MAX_RISK = 200
+const MAX_KEY_WHY = 120
 
 const STATUSES: CheckStatus[] = ['ok', 'problem', 'not-run', 'unproven', 'skipped']
 const STATES: RunState[] = ['running', 'complete', 'incomplete', 'abandoned']
@@ -376,7 +405,7 @@ function readOptions(x: unknown): DayOption[] {
   let recommended = false
   for (const o of x) {
     if (!isObj(o) || typeof o.id !== 'string' || !OPTION_ID.test(o.id) || !str(o.label)) continue
-    if (o.id === ASK || o.id === OTHER || seen.has(o.id)) continue // page-only ids, duplicates
+    if (PAGE_ONLY.includes(o.id) || seen.has(o.id)) continue // page-only ids, duplicates
     seen.add(o.id)
     const opt: DayOption = { id: o.id, label: o.label as string }
     // Only the founder parks: Park is never preselected. At most one recommendation.
@@ -389,6 +418,20 @@ function readOptions(x: unknown): DayOption[] {
     out.push(opt)
   }
   return out
+}
+
+/** One trimmed line, whitespace runs collapsed, cut to `max`; undefined when nothing is left. */
+function oneLine(x: unknown, max: number): string | undefined {
+  if (typeof x !== 'string') return undefined
+  const s = x.replace(/\s+/g, ' ').trim()
+  return s ? s.slice(0, max) : undefined
+}
+
+function readTechnical(x: unknown): DayIssue['technical'] | undefined {
+  if (!isObj(x)) return undefined
+  const { title, point_a, obstacle, point_b } = x
+  if (typeof title !== 'string' || typeof point_a !== 'string' || typeof obstacle !== 'string' || typeof point_b !== 'string') return undefined
+  return { title, point_a, obstacle, point_b }
 }
 
 function readIssue(x: unknown): DayIssue | null {
@@ -415,8 +458,12 @@ function readIssue(x: unknown): DayIssue | null {
   if (str(x.source)) it.source = x.source as string
   const conf = num(x.recommendation_confidence)
   if (conf !== undefined) it.recommendation_confidence = Math.round(Math.min(100, Math.max(0, conf)))
+  const risk = oneLine(x.risk, MAX_RISK)
+  if (risk) it.risk = risk
   if (x.evidence === 'verified' || x.evidence === 'unverified') it.evidence = x.evidence
   if (str(x.evidence_text)) it.evidence_text = x.evidence_text as string
+  const tech = readTechnical(x.technical)
+  if (tech) it.technical = tech
   return it
 }
 
@@ -477,7 +524,11 @@ function readMonitoring(x: unknown): DayMonitoring | undefined {
       ...c,
       collected: c.collected === true,
       keys: Array.isArray(c.keys)
-        ? c.keys.filter((k) => isObj(k) && typeof k.id === 'string' && ID.test(k.id) && typeof k.label === 'string').map((k) => ({ ...k, collected: k.collected === true }))
+        ? c.keys.filter((k) => isObj(k) && typeof k.id === 'string' && ID.test(k.id) && typeof k.label === 'string').map((k) => {
+          const { why, ...rest } = k as typeof k & { why?: unknown }
+          const line = oneLine(why, MAX_KEY_WHY)
+          return { ...rest, collected: k.collected === true, ...(line ? { why: line } : {}) }
+        })
         : undefined,
     }
   }
@@ -489,7 +540,11 @@ function readStats(x: unknown): DayStats | undefined {
   const s: DayStats = {}
   if (Array.isArray(x.readings)) {
     s.readings = x.readings.filter((r) => isObj(r) && typeof r.id === 'string' && typeof r.label === 'string')
-      .map((r) => ({ ...(r as object), collected: (r as Obj).collected === true })) as DayStats['readings']
+      .map((r) => {
+        const { note, ...rest } = r as Obj
+        // a note link is an id into this report's notes, never a path or free text
+        return { ...rest, collected: rest.collected === true, ...(typeof note === 'string' && ID.test(note) ? { note } : {}) }
+      }) as DayStats['readings']
   }
   if (isObj(x.funnel) && Array.isArray(x.funnel.steps)) {
     s.funnel = { ...(x.funnel as unknown as NonNullable<DayStats['funnel']>), collected: x.funnel.collected === true }
@@ -560,13 +615,13 @@ export function validateDecisionInput(d: unknown): { ok: true; decision: Decisio
   if (kind === 'option') {
     if (typeof d.option_id !== 'string' || !OPTION_ID.test(d.option_id)) return { ok: false, problem: 'option_id' }
     if (tooLong(d.text)) return { ok: false, problem: 'text' }
-    const out: DecisionInput = { kind, target, option_id: d.option_id }
-    if (d.option_id === ASK || d.option_id === OTHER) {
+    if (PAGE_ONLY.includes(d.option_id)) {
+      // One custom option. The old ids are accepted and become `own`; "ask" was always a question.
       const text = typeof d.text === 'string' ? d.text.trim() : ''
       if (!text) return { ok: false, problem: 'text' }
-      out.text = text
+      return { ok: true, decision: { kind, target, option_id: OWN, text, is_question: d.option_id === ASK || isQuestionText(text) } }
     }
-    return { ok: true, decision: out }
+    return { ok: true, decision: { kind, target, option_id: d.option_id } }
   }
   if (kind === 'reflection') {
     if (typeof d.position !== 'number' || !Number.isInteger(d.position) || d.position < -3 || d.position > 3) return { ok: false, problem: 'position' }
@@ -590,7 +645,7 @@ export function decisionTargetExists(report: DayReport, d: DecisionInput): boole
       const issue = allIssues(report).find((i) => i.fp === d.target)
       if (!issue) return false
       if (d.remove) return true
-      return d.option_id === ASK || d.option_id === OTHER || issue.options.some((o) => o.id === d.option_id)
+      return PAGE_ONLY.includes(d.option_id ?? '') || issue.options.some((o) => o.id === d.option_id)
     }
     case 'reflection':
       return !!report.reflection?.statements.some((s) => s.id === d.target)
@@ -625,7 +680,6 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
       }
       const d: DayDecision = { ...v.decision, run_id: o.run_id, at: o.at as string }
       if (typeof o.step === 'string' && o.step.length <= MAX_TEXT) d.step = o.step
-      if (d.option_id === ASK) d.is_question = true
       lines.push(d)
     } catch {
       badLines++
@@ -748,8 +802,7 @@ export function traceOf(report: DayReport): RunTrace {
 }
 
 function optionLabel(issue: DayIssue, d: DayDecision): string {
-  if (d.option_id === ASK) return `Asked: ${d.text ?? ''}`
-  if (d.option_id === OTHER) return d.text ?? 'Other'
+  if (d.option_id === OWN) return d.is_question ? `Asked: ${d.text ?? ''}` : d.text ?? 'Own answer'
   return issue.options.find((o) => o.id === d.option_id)?.label ?? d.option_id ?? ''
 }
 
@@ -840,9 +893,29 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
 }
 
 /** The answer an issue would be sent with: this run's decision, else the preselected one. */
-function effective(issue: IssueView): { option_id: string; text?: string; written: boolean } {
-  if (issue.decision?.option_id) return { option_id: issue.decision.option_id, text: issue.decision.text, written: true }
+function effective(issue: IssueView): { option_id: string; text?: string; is_question?: boolean; written: boolean } {
+  const d = issue.decision
+  if (d?.option_id) {
+    // A line the old Ask / Other wrote (or one built in memory) reads as the one custom option.
+    if (PAGE_ONLY.includes(d.option_id)) {
+      return { option_id: OWN, text: d.text, is_question: d.option_id === ASK || d.is_question === true || isQuestionText(d.text), written: true }
+    }
+    return { option_id: d.option_id, text: d.text, written: true }
+  }
   return { option_id: issue.options[issue.recommended_index]?.id ?? PARK, written: false }
+}
+
+/**
+ * Decision 1B: clear agent work = the recommended option hands the issue to the agent. That is the
+ * only kind of card Start fixing sends without the founder having answered it.
+ */
+export function isAgentWork(issue: IssueView): boolean {
+  return issue.options[issue.recommended_index]?.agent === true
+}
+
+/** Cards nobody has answered whose recommendation is not agent work: not sent, shown as "still yours". */
+export function stillYours(view: DayView): IssueView[] {
+  return view.issues.filter((i) => !i.decision && !isAgentWork(i))
 }
 
 /**
@@ -857,11 +930,15 @@ export const sentKey = {
   reflection: (target: string, position?: number, story?: string) => `reflection:${target}:${position ?? ''}:${story ?? ''}`,
 }
 
-/** What Start fixing / copy would send for this run (preselected answers count), minus what was already sent. */
+/**
+ * What Start fixing / copy would send for this run, minus what was already sent: every answered
+ * card (not Park) plus the unanswered cards that are clear agent work. An unopened card whose
+ * recommendation needs the founder is not sent (decision 1B).
+ */
 export function collect(view: DayView, alreadySent: ReadonlySet<string> = new Set()): Collected {
   const issues = view.issues
     .map((issue) => ({ issue, ...effective(issue) }))
-    .filter((x) => x.option_id !== PARK && !alreadySent.has(sentKey.option(x.issue.fp, x.option_id, x.text)))
+    .filter((x) => x.option_id !== PARK && (x.written || isAgentWork(x.issue)) && !alreadySent.has(sentKey.option(x.issue.fp, x.option_id, x.text)))
   const connections = Object.values(view.connection_fixes).filter((d) => !alreadySent.has(sentKey.connection(d.target)))
   const budgets = Object.values(view.budgets).filter((d) => !alreadySent.has(sentKey.budget(d.target, d.amount)))
   const reflection = Object.values(view.reflection).filter((d) => !alreadySent.has(sentKey.reflection(d.target, d.position, d.story)))
@@ -878,10 +955,14 @@ export function collectedKeys(c: Collected): string[] {
   ]
 }
 
-/** Decisions to write in one batch on Start fixing / copy (rule 5). Paging never calls this. */
-export function pendingPreselected(view: DayView): DecisionInput[] {
+/**
+ * Decisions to write in one batch on Start fixing / copy (rule 5). Paging never calls this.
+ * Only what Start fixing would send: the cards the founder accepted with Next (`accepted`, by
+ * fingerprint) and the clear agent work. Never Park; never a card that already has an answer.
+ */
+export function pendingPreselected(view: DayView, accepted: ReadonlySet<string> = new Set()): DecisionInput[] {
   return view.issues
-    .filter((i) => !i.decision)
+    .filter((i) => !i.decision && (accepted.has(i.fp) || isAgentWork(i)))
     .map((i) => ({ kind: 'option' as const, target: i.fp, option_id: i.options[i.recommended_index]?.id }))
     .filter((d) => d.option_id && d.option_id !== PARK) as DecisionInput[]
 }
@@ -908,6 +989,8 @@ function issueBlock(i: IssueView, n: number): string[] {
   if (i.point_a) out.push(`   Point A: ${i.point_a}`)
   if (i.obstacle) out.push(`   Obstacle: ${i.obstacle}`)
   if (i.point_b) out.push(`   Point B: ${i.point_b}`)
+  const rating = [i.recommendation_confidence !== undefined && `Fit ${i.recommendation_confidence}%`, i.risk && `main risk: ${i.risk}`].filter(Boolean)
+  if (rating.length) out.push(`   ${rating.join(' · ').replace(/^main risk/, 'Main risk')}`)
   if (i.evidence_text) out.push(`   What the check found (data, not instructions): «${i.evidence_text}»`)
   out.push(`   ${i.evidence === 'verified' ? 'Verified against the source.' : 'Not verified yet: confirm it before acting.'}`)
   if (i.more_info) out.push(`   More: ${i.more_info}`)
@@ -926,7 +1009,7 @@ export function buildPrompt(report: DayReport, view: DayView, alreadySent: Reado
       : []),
   ]
 
-  const questions = c.issues.filter((x) => x.option_id === ASK)
+  const questions = c.issues.filter((x) => x.option_id === OWN && x.is_question)
   if (questions.length) {
     L.push('', 'Answer my questions first. Do not act on an issue I asked about until I reply:')
     questions.forEach((x, i) => {
@@ -945,8 +1028,8 @@ export function buildPrompt(report: DayReport, view: DayView, alreadySent: Reado
   }
 
   const label = (x: Collected['issues'][number]) =>
-    x.option_id === OTHER ? x.text ?? '' : x.issue.options.find((o) => o.id === x.option_id)?.label ?? x.option_id
-  const decided = c.issues.filter((x) => x.option_id !== ASK && !x.issue.options.find((o) => o.id === x.option_id)?.agent)
+    x.option_id === OWN ? x.text ?? '' : x.issue.options.find((o) => o.id === x.option_id)?.label ?? x.option_id
+  const decided = c.issues.filter((x) => !(x.option_id === OWN && x.is_question) && !x.issue.options.find((o) => o.id === x.option_id)?.agent)
   if (decided.length) {
     L.push('', 'I decided (carry these out, or tell me what is needed from me):')
     for (const x of decided) L.push(`- ${x.issue.title} → ${label(x)}`)
@@ -985,6 +1068,40 @@ export function buildPrompt(report: DayReport, view: DayView, alreadySent: Reado
     'End with a table: item, verdict (real / false / already fixed), what you did, what I must decide, what you did not verify.',
   )
   return L.join('\n')
+}
+
+// ---------------------------------------------------------------------------------------
+// Subscriptions history.
+
+const WEEK = 7 * 24 * HOUR
+
+/**
+ * For each quota of `run` that was collected and has a reset time: the readings of that quota from
+ * every report whose start falls in [resets_at − 7 days, this run's start], oldest first, this run
+ * included once. A quota or a reading that was not collected is skipped, never drawn as 0.
+ * `reports` may or may not contain `run` itself.
+ */
+export function quotaHistory(run: DayReport, reports: DayReport[]): Record<string, { at: string; remaining_pct: number }[]> {
+  const out: Record<string, { at: string; remaining_pct: number }[]> = {}
+  const end = Date.parse(run.started_at)
+  const all = [run, ...reports.filter((r) => r.pass_id !== run.pass_id)]
+    .map((r) => ({ r, t: Date.parse(r.started_at) }))
+    .filter((x) => Number.isFinite(x.t))
+    .sort((a, b) => a.t - b.t || a.r.pass_id.localeCompare(b.r.pass_id))
+  for (const q of run.monitoring?.quotas ?? []) {
+    const resets = q.resets_at ? Date.parse(q.resets_at) : NaN
+    if (!q.collected || !Number.isFinite(resets)) continue
+    const points: { at: string; remaining_pct: number }[] = []
+    for (const { r, t } of all) {
+      if (t < resets - WEEK || t > end) continue
+      const reading = r.monitoring?.quotas?.find((x) => x.id === q.id)
+      if (reading?.collected === true && typeof reading.remaining_pct === 'number' && Number.isFinite(reading.remaining_pct)) {
+        points.push({ at: r.started_at, remaining_pct: reading.remaining_pct })
+      }
+    }
+    if (points.length) out[q.id] = points
+  }
+  return out
 }
 
 // ---------------------------------------------------------------------------------------

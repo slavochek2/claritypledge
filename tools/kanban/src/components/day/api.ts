@@ -26,6 +26,8 @@ export type RunPayload =
       decisionsBadLines: number
       /** items not yet sent to a terminal */
       collectedCount: number
+      /** per quota id: its readings from this week's runs, oldest first (the Subscriptions chart) */
+      quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
       /** when Start fixing last reached a terminal on this run, if ever */
       lastSentAt?: string | null
       warnings: ('stale' | 'unfinished')[]

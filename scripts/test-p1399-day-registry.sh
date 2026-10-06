@@ -138,5 +138,84 @@ if grep -qF "CHECK ${FIRST} " "$CP_SKILL"; then mutate "registered check ${FIRST
 else bad "control could not run: no real report line for ${FIRST}"; fi
 
 echo
+echo "== P1399 phase D: every recommending finding rates itself; the FACTS block carries the pipeline =="
+# A recommendation without --fit, --risk and --evidence is refused by day-step.sh finding, so a
+# runbook line that teaches one without them teaches a command that fails on the morning it runs.
+# Checked per LINE (after joining backslash continuations): the three flags sit on the --recommend line.
+recommend_missing() {  # FILE — prints one line per recommending line missing a flag; exit 1 if any
+  python3 - "$1" <<'PYR'
+import re, sys
+text = re.sub(r"\\\n\s*", " ", open(sys.argv[1], encoding="utf-8").read())
+bad = 0
+for ln in text.splitlines():
+    if "--recommend" in ln:
+        for need in ("--fit", "--risk", "--evidence"):
+            if need not in ln:
+                print("missing %s: %s" % (need, ln.strip()[:100])); bad += 1
+sys.exit(1 if bad else 0)
+PYR
+}
+if out="$(recommend_missing "$CP_SKILL" 2>&1)"; then ok "day-cp.md: every --recommend line carries --fit, --risk and --evidence"
+else bad "day-cp.md: a recommending line lacks a rating:"; printf '%s\n' "$out" | sed 's/^/         /'; fi
+for review in weekly monthly; do
+  RS="$ROOT/.claude/commands/slava/maintain/$review/SKILL.md"
+  if [ ! -f "$RS" ]; then bad "$review/SKILL.md not found"; continue; fi
+  if out="$(recommend_missing "$RS" 2>&1)"; then ok "$review/SKILL.md: every --recommend line carries --fit, --risk and --evidence"
+  else bad "$review/SKILL.md: a recommending line lacks a rating:"; printf '%s\n' "$out" | sed 's/^/         /'; fi
+  cp "$RS" "$TMP/rev.md"
+  if python3 - "$TMP/rev.md" <<'PYM'
+import re, sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+lines = s.split("\n")
+for i, ln in enumerate(lines):
+    if "--recommend" in ln and re.search(r'--risk "[^"]*"', ln):
+        lines[i] = re.sub(r'--risk "[^"]*"\s*', "", ln, count=1)
+        open(p, "w", encoding="utf-8").write("\n".join(lines)); sys.exit(0)
+sys.exit(3)
+PYM
+  then
+    if recommend_missing "$TMP/rev.md" >/dev/null 2>&1; then bad "control did NOT fail: real $review/SKILL.md with --risk deleted"
+    else ok "control fails as it must: real $review/SKILL.md with --risk deleted"; fi
+  else bad "control could not run: $review/SKILL.md has no recommending line with --risk"; fi
+done
+if [ -f "$D_SKILL" ]; then
+  if out="$(recommend_missing "$D_SKILL" 2>&1)"; then ok "day.md: every --recommend line carries --fit, --risk and --evidence"
+  else bad "day.md: a recommending line lacks a rating:"; printf '%s\n' "$out" | sed 's/^/         /'; fi
+fi
+for flag in '--risk "[^"]*"' '--fit [0-9]*' '--evidence [a-z|]*'; do
+  cp "$CP_SKILL" "$TMP/rec.md"
+  if python3 - "$TMP/rec.md" "$flag" <<'PYM'
+import re, sys
+p, pat = sys.argv[1], sys.argv[2]
+s = open(p, encoding="utf-8").read()
+# delete the flag from the first line that has --recommend: a REAL recommending line, mutated
+lines = s.split("\n")
+for i, ln in enumerate(lines):
+    if "--recommend" in ln and re.search(pat, ln):
+        lines[i] = re.sub(pat + r"\s*", "", ln, count=1)
+        open(p, "w", encoding="utf-8").write("\n".join(lines)); sys.exit(0)
+sys.exit(3)
+PYM
+  then
+    if recommend_missing "$TMP/rec.md" >/dev/null 2>&1; then bad "control did NOT fail: a real recommending line with ${flag%% *} deleted"
+    else ok "control fails as it must: a real recommending line with ${flag%% *} deleted"; fi
+  else bad "control could not run: no recommending line carries ${flag%% *}"; fi
+done
+
+# The FACTS block carries the cp Pipeline counts, and the retired Goals page is no longer cited.
+facts_problems() {  # FILE — prints a line per problem; exit 1 if any
+  local f="$1" n=0
+  grep -q 'day-pipeline.ts' "$f" && grep -Eq '^ *pipeline: ' "$f" || { echo "no 'pipeline:' FACTS line from day-pipeline.ts"; n=1; }
+  if grep -q 'goals-strategic' "$f"; then echo "still cites /api/goals-strategic (the Goals page is being deleted)"; n=1; fi
+  return $n
+}
+if out="$(facts_problems "$CP_SKILL")"; then ok "day-cp.md: FACTS documents the pipeline: line and cites no Goals API"
+else bad "day-cp.md FACTS block:"; printf '%s\n' "$out" | sed 's/^/         /'; fi
+cp "$CP_SKILL" "$TMP/g.md"; printf '\nThe Goals page returns the same signal (`/api/goals-strategic`).\n' >> "$TMP/g.md"
+if facts_problems "$TMP/g.md" >/dev/null 2>&1; then bad "control did NOT fail: a planted Goals-API sentence"; else ok "control fails as it must: a planted Goals-API sentence"; fi
+grep -v 'day-pipeline.ts' "$CP_SKILL" > "$TMP/g2.md"
+if facts_problems "$TMP/g2.md" >/dev/null 2>&1; then bad "control did NOT fail: day-pipeline.ts removed"; else ok "control fails as it must: day-pipeline.ts removed from day-cp.md"; fi
+
+echo
 echo "== ${pass} passed, ${fail} failed =="
 [ "$fail" -eq 0 ]

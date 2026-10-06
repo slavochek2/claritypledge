@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type PageId = 'day' | 'board' | 'focus' | 'goals' | 'content' | 'pipeline'
+export type PageId = 'day' | 'board' | 'focus' | 'content' | 'pipeline'
 
 interface SidebarProps {
   currentPage: PageId
@@ -14,7 +14,6 @@ interface SidebarProps {
 
 export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse, pages }: SidebarProps) {
   const [hoveredPage, setHoveredPage] = useState<PageId | null>(null)
-  const [hoveredToggle, setHoveredToggle] = useState(false)
 
   return (
     <div
@@ -34,7 +33,7 @@ export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse
           justifyContent: collapsed ? 'center' : 'space-between',
           padding: collapsed ? '0' : '0 var(--spacing-12)',
           marginBottom: 'var(--spacing-4)',
-          height: 20,
+          height: 40,
         }}
       >
         {!collapsed && (
@@ -53,22 +52,8 @@ export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse
         )}
         <button
           onClick={onToggleCollapse}
-          onMouseEnter={() => setHoveredToggle(true)}
-          onMouseLeave={() => setHoveredToggle(false)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 20,
-            height: 20,
-            border: 'none',
-            background: hoveredToggle ? 'var(--bg-hover)' : 'transparent',
-            borderRadius: '3px',
-            cursor: 'pointer',
-            color: 'var(--text-tertiary)',
-            fontSize: 12,
-            transition: 'background 0.1s',
-          }}
+          className="kb-icon"
+          style={{ fontSize: 14, color: 'var(--text-tertiary)' }}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? '\u{00BB}' : '\u{00AB}'}
@@ -90,22 +75,24 @@ export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse
               alignItems: 'center',
               justifyContent: collapsed ? 'center' : 'flex-start',
               gap: collapsed ? 0 : 'var(--spacing-8)',
-              width: collapsed ? 36 : 'calc(100% - 8px)',
+              width: collapsed ? 40 : 'calc(100% - 8px)',
+              minHeight: 40,
               padding: collapsed ? 'var(--spacing-6)' : 'var(--spacing-6) var(--spacing-12)',
               fontSize: 'var(--font-size-14)',
-              fontWeight: isActive ? 'var(--font-weight-medium)' : 'var(--font-weight-regular)',
-              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 'var(--font-weight-semibold)',
+              color: isActive ? 'var(--cp-fg)' : 'var(--cp-fg3)',
+              boxShadow: isActive ? '0 0 0 1px var(--cp-line), var(--cp-sh)' : 'none',
               background: isActive
                 ? 'var(--bg-sidebar-item-active)'
                 : isHovered
                   ? 'var(--bg-sidebar-item-hover)'
                   : 'transparent',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: 'var(--cp-r)',
               cursor: 'pointer',
               textAlign: 'left',
               transition: 'background 0.1s, width 0.15s ease',
-              margin: collapsed ? '0 auto' : '0 var(--spacing-4)',
+              margin: collapsed ? '0 auto var(--spacing-2)' : '0 var(--spacing-4) var(--spacing-2)',
               boxSizing: 'border-box',
               whiteSpace: 'nowrap',
               overflow: 'hidden',

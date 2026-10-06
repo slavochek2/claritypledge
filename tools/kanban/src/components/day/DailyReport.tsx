@@ -3,26 +3,42 @@
 // reports clicks.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ASK, OTHER, daysOpen, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, daysOpen, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
 
-export type FreeKind = typeof ASK | typeof OTHER
+/** Phase D: the pager walks the founder's cards; the cards an agent can fix are one line away. */
+export interface AgentWork {
+  /** how many agent cards there are */
+  count: number
+  /** the pager is on the agent cards */
+  showing: boolean
+  /** there are founder cards to go back to */
+  canGoBack: boolean
+  onReview: () => void
+  onBack: () => void
+}
 
 interface Props {
   report: DayReport
   view: DayView
   readOnly: boolean
+  /** the cards the pager walks now: the founder's, or the agent work after Review */
+  issues: IssueView[]
   index: number
-  onIndex: (i: number) => void
-  /** the option shown selected ('' = none): optimistic click, Ask/Other, the written decision, else the recommended one */
+  agent: AgentWork
+  /** open the card for this fingerprint, whichever set it is in */
+  onJump: (fp: string) => void
+  /** the option shown selected ('' = none): optimistic click, the custom answer, the written decision, else the recommended one */
   selected: (issue: IssueView) => string
-  draftOf: (issue: IssueView, kind: FreeKind) => string
+  draftOf: (issue: IssueView) => string
   onChoose: (issue: IssueView, optionId: string) => void
-  onDraft: (issue: IssueView, kind: FreeKind, text: string) => void
-  onDraftBlur: (issue: IssueView, kind: FreeKind) => void
+  onDraft: (issue: IssueView, text: string) => void
+  onDraftBlur: (issue: IssueView) => void
+  /** bumped each time the custom answer is picked: focus its box */
+  ownFocus: number
   onFix: (c: ConnectionView) => void
   onUndoFix: (c: ConnectionView) => void
   onBringBack: (fp: string) => void
@@ -43,8 +59,7 @@ export function DailyReport(p: Props) {
   const collapsed = settled && !force
 
   const jump = (fp: string) => {
-    const i = view.issues.findIndex((x) => x.fp === fp)
-    if (i >= 0) p.onIndex(i)
+    p.onJump(fp)
     setStripOpen(false)
   }
 
@@ -300,32 +315,59 @@ function firstSeen(issue: IssueView, runStartedAt: string): string {
 }
 
 function IssueCard(p: Props) {
-  const { view, report, readOnly } = p
+  const { report, readOnly, issues, agent } = p
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({})
   const focusRef = useRef<HTMLTextAreaElement | null>(null)
-  /** Focus the text box only on the click that selects Ask/Other — never when paging lands here. */
-  const wantFocus = useRef(false)
-  const issue = view.issues[Math.min(p.index, view.issues.length - 1)]
+  const issue = issues[Math.min(p.index, issues.length - 1)]
   const sel = issue ? p.selected(issue) : null
 
+  // Focus the custom answer's box only when it is picked — never when paging lands here.
   useEffect(() => {
-    if (wantFocus.current && (sel === ASK || sel === OTHER)) focusRef.current?.focus({ preventScroll: true })
-    wantFocus.current = false
-  }, [sel, issue?.fp])
+    if (p.ownFocus) focusRef.current?.focus({ preventScroll: true })
+  }, [p.ownFocus])
+
+  const agentRow = agent.showing ? (
+    <div className="d-aline" data-agent-pager>
+      <span>
+        Agent work · {Math.min(p.index, issues.length - 1) + 1} of {issues.length}
+      </span>
+      {agent.canGoBack && (
+        <button type="button" className="d-link d-tap" onClick={agent.onBack}>
+          Back to yours
+        </button>
+      )}
+    </div>
+  ) : agent.count > 0 ? (
+    <div className="d-aline" data-agent-line>
+      <span>
+        {plural(agent.count, 'thing')} an agent can fix — they go with Start fixing ·{' '}
+        <button type="button" className="d-link d-tap" onClick={agent.onReview}>
+          Review
+        </button>
+      </span>
+    </div>
+  ) : null
 
   if (!issue) {
     return (
-      <div className="d-card d-row">
-        <span className="d-ic ok">✓</span>
-        <b>No issues today</b>
-      </div>
+      <>
+        {agentRow}
+        <div className="d-card d-row">
+          <span className="d-ic ok">✓</span>
+          <b>No issues today</b>
+        </div>
+      </>
     )
   }
 
   const days = daysOpen(issue.first_seen, report.started_at)
-  const rec = issue.options[issue.recommended_index]
   const more = !!moreOpen[issue.fp]
   const name = `opt-${issue.fp}`
+  const fit = issue.recommendation_confidence
+  const fitRated = typeof fit === 'number'
+  // A saved custom answer shows on an earlier (read-only) run too, as text.
+  const ownText = p.draftOf(issue)
+  const showOwnRow = !readOnly || issue.decision?.option_id === OWN
 
   const option = (value: string, inner: ReactNode, n?: number, below?: ReactNode) => (
     <div className="d-opt" key={value} data-option={value}>
@@ -337,9 +379,11 @@ function IssueCard(p: Props) {
           value={value}
           checked={sel === value}
           disabled={readOnly}
-          onChange={() => {
-            if (value === ASK || value === OTHER) wantFocus.current = true
-            p.onChoose(issue, value)
+          onChange={() => p.onChoose(issue, value)}
+          // Clicking the answer that is already selected is no change event; it still accepts it
+          // (the last card has no Next). `sel` is the value before this click.
+          onClick={() => {
+            if (sel === value && value !== OWN && !issue.decision) p.onChoose(issue, value)
           }}
         />
         <span className="d-obody">{inner}</span>
@@ -353,115 +397,136 @@ function IssueCard(p: Props) {
     </div>
   )
 
-  const freeBox = (kind: FreeKind) =>
-    sel === kind ? (
-      <textarea
-        ref={focusRef}
-        className="d-ftxt"
-        maxLength={2000}
-        aria-label={kind === ASK ? 'Your question' : 'Your answer'}
-        placeholder={kind === ASK ? 'The agent answers this first' : 'Your answer'}
-        value={p.draftOf(issue, kind)}
-        onChange={(e) => p.onDraft(issue, kind, e.target.value)}
-        onBlur={() => p.onDraftBlur(issue, kind)}
-      />
+  const ownBox =
+    sel === OWN ? (
+      readOnly ? (
+        <div className="d-ownro" data-own-text>
+          {ownText}
+        </div>
+      ) : (
+        <textarea
+          ref={focusRef}
+          className="d-ftxt"
+          maxLength={2000}
+          aria-label="Your answer or question"
+          placeholder="Ending with ? makes it a question the agent answers first"
+          value={ownText}
+          onChange={(e) => p.onDraft(issue, e.target.value)}
+          onBlur={() => p.onDraftBlur(issue)}
+        />
+      )
     ) : null
 
   return (
-    <article className="d-card d-focus" data-issue={issue.fp}>
-      <div className="d-ihead">
-        <span className="d-topic">
-          {issue.review && <span className="d-runbadge sm">{reviewLabel(issue.review)}</span>}
-          <span>{issue.topic}</span>
-        </span>
-        <span className="d-pills">
-          {issue.came_back && <span className="d-back">Came back</span>}
-          {issue.urgent && <span className="d-pill urg">Urgent</span>}
-          {issue.important && <span className="d-pill imp">Important</span>}
-          {days ? <span className="d-age">{plural(days, 'day')}</span> : null}
-        </span>
-      </div>
-      {issue.answered_before && (
-        <div className="d-before" data-answered-before>
-          You answered on {shortDate(issue.answered_before.at)}: {issue.answered_before.label}. Still reported.
+    <>
+      {agentRow}
+      <article className="d-card d-focus" data-issue={issue.fp}>
+        <div className="d-ihead">
+          <span className="d-topic">
+            {issue.review && <span className="d-runbadge sm">{reviewLabel(issue.review)}</span>}
+            <span>{issue.topic}</span>
+          </span>
+          <span className="d-pills">
+            {issue.came_back && <span className="d-back">Came back</span>}
+            {issue.evidence && <span className="d-cause">{issue.evidence === 'verified' ? 'Cause checked' : 'Cause suspected'}</span>}
+            {issue.urgent && <span className="d-pill urg">Urgent</span>}
+            {issue.important && <span className="d-pill imp">Important</span>}
+            {days ? <span className="d-age">{plural(days, 'day')}</span> : null}
+          </span>
         </div>
-      )}
-      <h2>{issue.title}</h2>
-      <dl className="d-abc">
-        <div>
-          <dt>Point A</dt>
-          <dd>{issue.point_a}</dd>
-        </div>
-        <div>
-          <dt>Obstacle</dt>
-          <dd>{issue.obstacle}</dd>
-        </div>
-        <div>
-          <dt>Point B</dt>
-          <dd>{issue.point_b}</dd>
-        </div>
-      </dl>
-      <button type="button" className="d-morebtn" aria-expanded={more} onClick={() => setMoreOpen((m) => ({ ...m, [issue.fp]: !more }))}>
-        <span className="d-tri">▶</span>More info
-      </button>
-      {more && (
-        <dl className="d-moreinfo">
-          {rec?.why && (
-            <div>
-              <dt>Why recommended</dt>
-              <dd>{rec.why}</dd>
-            </div>
-          )}
-          <div>
-            <dt>First seen</dt>
-            <dd>{firstSeen(issue, report.started_at)}</dd>
+        {issue.answered_before && (
+          <div className="d-before" data-answered-before>
+            You answered on {shortDate(issue.answered_before.at)}: {issue.answered_before.label}. Still reported.
           </div>
-          {issue.source && (
-            <div>
-              <dt>Source</dt>
-              <dd>{issue.source}</dd>
-            </div>
-          )}
-          {issue.evidence_text && (
-            <div>
-              <dt>What the check found</dt>
-              <dd>{issue.evidence_text}</dd>
-            </div>
-          )}
-          {issue.evidence && (
-            <div>
-              <dt>Checked</dt>
-              <dd>{issue.evidence === 'verified' ? 'Verified against the source' : 'Not verified yet'}</dd>
-            </div>
-          )}
-          {issue.more_info && (
-            <div>
-              <dt>Details</dt>
-              <dd>{issue.more_info}</dd>
-            </div>
-          )}
-        </dl>
-      )}
-      {readOnly && !issue.decision && <div className="d-unanswered">Not answered on this run</div>}
-      <div className={`d-opts ${readOnly ? 'ro' : ''}`} role="radiogroup" aria-label="Options">
-        {issue.options.map((o, i) =>
-          option(
-            o.id,
-            <>
-              <span className="d-l">{o.label}</span>
-              {i === issue.recommended_index && (
-                <span className="d-rec">
-                  Recommended{typeof issue.recommendation_confidence === 'number' ? ` · ${issue.recommendation_confidence}%` : ''}
-                </span>
-              )}
-            </>,
-            i + 1,
-          ),
         )}
-        {!readOnly && option(ASK, <span className="d-l">Ask a question…</span>, undefined, freeBox(ASK))}
-        {!readOnly && option(OTHER, <span className="d-l">Other…</span>, undefined, freeBox(OTHER))}
-      </div>
-    </article>
+        <h2>{issue.title}</h2>
+        <dl className="d-abc">
+          <div>
+            <dt>Point A</dt>
+            <dd>{issue.point_a}</dd>
+          </div>
+          <div>
+            <dt>Obstacle</dt>
+            <dd>{issue.obstacle}</dd>
+          </div>
+          <div>
+            <dt>Point B</dt>
+            <dd>{issue.point_b}</dd>
+          </div>
+        </dl>
+        <button type="button" className="d-morebtn" aria-expanded={more} onClick={() => setMoreOpen((m) => ({ ...m, [issue.fp]: !more }))}>
+          <span className="d-tri">▶</span>More info
+        </button>
+        {more && (
+          <dl className="d-moreinfo">
+            {issue.options[issue.recommended_index]?.why && (
+              <div>
+                <dt>Why recommended</dt>
+                <dd>{issue.options[issue.recommended_index].why}</dd>
+              </div>
+            )}
+            <div>
+              <dt>First seen</dt>
+              <dd>{firstSeen(issue, report.started_at)}</dd>
+            </div>
+            {issue.source && (
+              <div>
+                <dt>Source</dt>
+                <dd>{issue.source}</dd>
+              </div>
+            )}
+            {issue.evidence_text && (
+              <div>
+                <dt>What the check found</dt>
+                <dd>{issue.evidence_text}</dd>
+              </div>
+            )}
+            {issue.more_info && (
+              <div>
+                <dt>Details</dt>
+                <dd>{issue.more_info}</dd>
+              </div>
+            )}
+            {issue.technical && (
+              <div>
+                <dt>Technical detail</dt>
+                <dd className="d-tech" data-technical>
+                  <span>
+                    <b>Title</b> {issue.technical.title}
+                  </span>
+                  <span>
+                    <b>Point A</b> {issue.technical.point_a}
+                  </span>
+                  <span>
+                    <b>Obstacle</b> {issue.technical.obstacle}
+                  </span>
+                  <span>
+                    <b>Point B</b> {issue.technical.point_b}
+                  </span>
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+        {readOnly && !issue.decision && <div className="d-unanswered">Not answered on this run</div>}
+        <div className={`d-opts ${readOnly ? 'ro' : ''}`} role="radiogroup" aria-label="Options">
+          {issue.options.map((o, i) =>
+            option(
+              o.id,
+              <>
+                <span className="d-l">{o.label}</span>
+                {i === issue.recommended_index && (
+                  <span className={`d-rec ${fitRated ? '' : 'dim'}`}>{fitRated ? `Recommended · Fit ${fit}%` : 'Recommended · Fit not rated'}</span>
+                )}
+                {i === issue.recommended_index && issue.risk && <span className="d-risk">Main risk: {issue.risk}</span>}
+              </>,
+              i + 1,
+            ),
+          )}
+          {showOwnRow && option(OWN, <span className="d-l">Your answer or question…</span>, issue.options.length + 1, ownBox)}
+        </div>
+      </article>
+    </>
   )
 }
 

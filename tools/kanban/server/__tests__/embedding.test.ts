@@ -30,7 +30,7 @@ beforeAll(async () => {
   process.env.KANBAN_PROJECT_ROOT = TEST_ROOT
   process.env.KANBAN_FEATURES_DIR = TEST_FEATURES_DIR_NAME
   process.env.KANBAN_DISABLE_WORKTREES = 'true'
-  process.env.KANBAN_HIDE_PAGES = 'goals,content'
+  process.env.KANBAN_HIDE_PAGES = 'focus,content'
   process.env.KANBAN_HIDE_COLUMNS = 'qa'
   // Keep /api/open from raising the user's real VS Code window (see security.test.ts)
   process.env.KANBAN_OPEN_DRY_RUN = 'true'
@@ -104,24 +104,10 @@ describe('Embedding: env-var config surface', () => {
     const cfg = await res.json()
     expect(cfg.featuresDir).toBe(TEST_FEATURES_DIR_NAME)
     expect(cfg.disableWorktrees).toBe(true)
-    expect(cfg.hidePages).toEqual(expect.arrayContaining(['goals', 'content']))
+    expect(cfg.hidePages).toEqual(expect.arrayContaining(['focus', 'content']))
     expect(cfg.hideColumns).toEqual(['qa'])
     expect(typeof cfg.apiPort).toBe('number')
     expect(typeof cfg.frontendPort).toBe('number')
-  })
-
-  it('hidden goals page: GET /api/goals-strategic returns 404', async () => {
-    const res = await fetch(`${API_BASE_URL}/api/goals-strategic`)
-    expect(res.status).toBe(404)
-  })
-
-  it('hidden goals page: PATCH /api/goals-strategic/0 returns 404 (prevents stale-client writes)', async () => {
-    const res = await fetch(`${API_BASE_URL}/api/goals-strategic/0`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ done: true }),
-    })
-    expect(res.status).toBe(404)
   })
 
   it('hidden content page: GET /api/articles returns 404', async () => {

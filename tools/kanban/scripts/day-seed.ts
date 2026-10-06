@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync
 import { homedir } from 'os'
 import { join, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
-import { synthEarlier, synthMonthly, synthReport, synthWeekly } from '../server/__tests__/fixtures/day-fixture'
+import { synthEarlier, synthEarlier2, synthMonthly, synthReport, synthWeekly } from '../server/__tests__/fixtures/day-fixture'
 import type { DayReport } from '../src/lib/day'
 
 export const VARIANTS = [
@@ -39,6 +39,7 @@ export const VARIANTS = [
 export type Variant = (typeof VARIANTS)[number]
 
 const MARKER = '.day-seed'
+export const EARLIER2_ID = '2026-10-02T05-10-00Z'
 export const EARLIER_ID = '2026-10-03T05-05-00Z'
 export const LATEST_ID = '2026-10-04T05-37-45Z'
 export const NEWER_ID = '2026-10-05T05-00-00Z'
@@ -87,6 +88,7 @@ export function seedDay(dir: string, variant: Variant = 'default'): string {
   if (variant === 'empty') return target
 
   const put = (id: string, body: unknown) => writeFileSync(join(reports, `${id}.json`), typeof body === 'string' ? body : JSON.stringify(body, null, 2))
+  put(EARLIER2_ID, synthEarlier2())
   put(EARLIER_ID, synthEarlier())
 
   let latest: DayReport | Record<string, unknown> = synthReport()

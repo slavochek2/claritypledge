@@ -4,6 +4,7 @@
 // marker shows a reset. The chart measures its card, so it fills the width with true-size text.
 
 import { useLayoutEffect, useRef, useState } from 'react'
+import { projectQuota, QUOTA_COLOURS, resetLabel, WEEK_MS, type QuotaLine } from './quota'
 
 export interface Series {
   data: (number | null | undefined)[]
@@ -139,6 +140,138 @@ export function Legend({ items }: { items: { label: string; kind: 'solid' | 'das
           {it.label}
         </span>
       ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------------------
+// Subscriptions: every quota on ONE time axis. x = time from the earliest window start
+// (resets_at − 7 days) to the latest reset; y = % left, 0–100. Per quota: a solid line through
+// its readings, a dashed projection from the last reading to its reset at the same pace
+// (clamped at 0), a dashed vertical reset marker with its name. Two non-status colours, a
+// different marker shape each, and a label at the end of each line, so colour is never the only cue.
+
+const dayTick = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short' })
+
+const MS = { t: 48, r: 14, b: 30, l: 44 }
+const ROW = 14
+
+export function SubscriptionsChart({ lines }: { lines: QuotaLine[] }) {
+  const [ref, W] = useWidth()
+  const height = 230
+  const start = Math.min(...lines.map((l) => l.resetsAt - WEEK_MS))
+  const end = Math.max(...lines.map((l) => l.resetsAt), ...lines.flatMap((l) => l.points.map((p) => p.t)))
+  const pw = W - MS.l - MS.r
+  const ph = height - MS.t - MS.b
+  const X = (t: number) => MS.l + ((t - start) / (end - start || 1)) * pw
+  const Y = (v: number) => MS.t + ph * (1 - Math.max(0, Math.min(100, v)) / 100)
+  const pt = (p: { t: number; v: number }) => `${X(p.t)},${Y(p.v)}`
+  // a tick per day, thinned to what fits (≈ 44px each)
+  const days: number[] = []
+  for (let d = new Date(start).setHours(24, 0, 0, 0); d <= end; d += 24 * 3_600_000) days.push(d)
+  const step = Math.max(1, Math.ceil(days.length / Math.max(2, Math.floor(pw / 44))))
+  // resets closer than 10% of the axis share one marker and one label, so labels never overlap
+  const sorted = [...lines].sort((a, b) => a.resetsAt - b.resetsAt)
+  const resets: QuotaLine[][] = []
+  for (const l of sorted) {
+    const g = resets[resets.length - 1]
+    if (g && l.resetsAt - g[0].resetsAt < 0.1 * (end - start)) g.push(l)
+    else resets.push([l])
+  }
+
+  // End labels: the highest line's goes above-right of its last reading (its projection falls away
+  // from there); the others go below-left (their own line comes from above-left). Two labels never
+  // share a spot, and a label that would leave the plot flips to the other side.
+  const labelAt = new Map<string, { x: number; y: number; anchor: 'start' | 'end' }>()
+  const order = [...lines].sort((a, b) => Y(a.points[a.points.length - 1].v) - Y(b.points[b.points.length - 1].v))
+  order.forEach((l, rank) => {
+    const last = l.points[l.points.length - 1]
+    const lx = X(last.t)
+    const wide = (l.label.length + 5) * 7
+    const above = rank === 0 && lx + 8 + wide <= W - MS.r
+    if (above) labelAt.set(l.id, { x: lx + 8, y: Y(last.v) - 9, anchor: 'start' })
+    else if (lx - 8 - wide >= MS.l) labelAt.set(l.id, { x: lx - 8, y: Y(last.v) + 17, anchor: 'end' })
+    else labelAt.set(l.id, { x: lx + 8, y: Y(last.v) + 17, anchor: 'start' })
+  })
+
+  return (
+    <svg ref={ref} viewBox={`0 0 ${W} ${height}`} width={W} height={height} role="img" aria-label="Subscriptions: % left this week" className="d-svg" data-subs-chart>
+      {[0, 50, 100].map((v) => (
+        <g key={v}>
+          <line x1={MS.l} x2={W - MS.r} y1={Y(v)} y2={Y(v)} stroke="#e2e8f0" data-y={v} />
+          <text x={MS.l - 8} y={Y(v) + 4} textAnchor="end" fontSize="13" fill="#64748b">{`${v}%`}</text>
+        </g>
+      ))}
+      {days.map((d, i) =>
+        i % step === 0 ? (
+          <text key={d} x={X(d)} y={height - 8} textAnchor="middle" fontSize="13" fill="#64748b">
+            {dayTick(d)}
+          </text>
+        ) : null,
+      )}
+      {resets.map((g, row) => (
+        <g key={g.map((l) => l.id).join(' ')} data-reset={g.map((l) => l.id).join(' ')}>
+          <line x1={X(g[0].resetsAt)} x2={X(g[0].resetsAt)} y1={MS.t - 6 - (resets.length - 1 - row) * ROW} y2={height - MS.b} stroke="#94a3b8" strokeDasharray="2 3" />
+          <text x={X(g[0].resetsAt) - 4} y={MS.t - 10 - (resets.length - 1 - row) * ROW + 4} textAnchor="end" fontSize="12" fontWeight="600" fill="#475569">
+            {`${g.map((l) => l.label).join(' and ')} ${g.length > 1 ? 'reset' : 'resets'} ${resetLabel(g[0].resetsAt)}`}
+          </text>
+        </g>
+      ))}
+      {lines.map((l, i) => {
+        const colour = QUOTA_COLOURS[i % QUOTA_COLOURS.length]
+        const proj = projectQuota(l)
+        const last = l.points[l.points.length - 1]
+        const at = labelAt.get(l.id) ?? { x: X(last.t), y: Y(last.v), anchor: 'end' as const }
+        return (
+          <g key={l.id}>
+            {l.points.length > 1 && <polyline data-line={l.id} points={l.points.map(pt).join(' ')} fill="none" stroke={colour} strokeWidth="2.5" />}
+            {proj && <polyline data-proj={l.id} points={proj.pts.map(pt).join(' ')} fill="none" stroke={colour} strokeWidth="2.5" strokeDasharray="5 5" />}
+            {l.points.map((p, k) =>
+              i % 2 === 0 ? (
+                <circle key={k} cx={X(p.t)} cy={Y(p.v)} r="3.5" fill="#fff" stroke={colour} strokeWidth="2">
+                  <title>{`${l.label} ${new Date(p.t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: ${p.v}%`}</title>
+                </circle>
+              ) : (
+                <rect key={k} x={X(p.t) - 3.5} y={Y(p.v) - 3.5} width="7" height="7" fill="#fff" stroke={colour} strokeWidth="2">
+                  <title>{`${l.label} ${new Date(p.t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: ${p.v}%`}</title>
+                </rect>
+              ),
+            )}
+            <text data-endlabel={l.id} x={at.x} y={at.y} textAnchor={at.anchor} fontSize="12" fontWeight="700" fill={colour}>
+              {`${l.label} ${last.v}%`}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+/** Legend with the same swatches as the lines: colour, marker shape, and dashed = projection. */
+export function SubscriptionsLegend({ lines }: { lines: { id: string; label: string }[] }) {
+  return (
+    <div className="d-legend" data-subs-legend>
+      {lines.map((l, i) => (
+        <span key={l.id}>
+          <svg width="26" height="10" aria-hidden="true" className="d-lsw">
+            <line x1="0" x2="26" y1="5" y2="5" stroke={QUOTA_COLOURS[i % QUOTA_COLOURS.length]} strokeWidth="2.5" />
+            {i % 2 === 0 ? (
+              <circle cx="13" cy="5" r="3.5" fill="#fff" stroke={QUOTA_COLOURS[i % QUOTA_COLOURS.length]} strokeWidth="2" />
+            ) : (
+              <rect x="9.5" y="1.5" width="7" height="7" fill="#fff" stroke={QUOTA_COLOURS[i % QUOTA_COLOURS.length]} strokeWidth="2" />
+            )}
+          </svg>
+          {l.label}
+        </span>
+      ))}
+      <span>
+        <i className="dash" />
+        Projection, same pace
+      </span>
+      <span>
+        <i className="tgt" />
+        Reset
+      </span>
     </div>
   )
 }

@@ -69,47 +69,36 @@ export function OpportunityDialog({ opp, worktreePath, onClose }: OpportunityDia
         aria-label="Close dialog"
         onClick={onClose}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') onClose() }}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(15, 15, 15, 0.4)', zIndex: 1000 }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', zIndex: 1000 }}
       />
       <div
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          background: 'var(--bg-card)', borderRadius: 8, width: 'min(560px, 92vw)',
+          background: 'var(--cp-card)', borderRadius: 'var(--cp-r-lg)', width: 'min(560px, 92vw)',
           maxHeight: '85vh', overflowY: 'auto', padding: 24,
-          boxShadow: '0 8px 32px rgba(15,15,15,0.2)', zIndex: 1001,
+          boxShadow: '0 0 0 1px var(--cp-line), 0 20px 40px -8px rgb(15 23 42 / .25)', zIndex: 1001,
         }}
       >
         {/* Toolbar — VS Code + close, mirrors CardDialog */}
-        <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 }}>
+        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
           <button
             onClick={openInEditor}
             title="Open in VS Code"
             aria-label="Open in VS Code"
-            style={{
-              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'none', border: 'none', borderRadius: 4, cursor: 'pointer',
-              color: 'var(--text-secondary)', transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            className="kb-icon"
           >
             <img src={vscodeIcon} alt="VS Code" width="16" height="16" style={{ opacity: 0.7 }} />
           </button>
           <button
             onClick={onClose}
             aria-label="Close"
-            style={{
-              width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: 'none', background: 'none', borderRadius: 4, fontSize: 18, lineHeight: 1,
-              cursor: 'pointer', color: 'var(--text-tertiary)', transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            className="kb-icon"
+            style={{ fontSize: 20, lineHeight: 1 }}
           >×</button>
         </div>
 
         {/* Name */}
-        <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 600, color: 'var(--text-primary)' }}>
+        <h2 style={{ margin: '0 0 16px', paddingRight: 88, fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>
           {opp.name}
         </h2>
 
@@ -123,7 +112,7 @@ export function OpportunityDialog({ opp, worktreePath, onClose }: OpportunityDia
         </div>
 
         {/* Notes (markdown body) */}
-        <div style={{ borderTop: '1px solid var(--border-subtle, #eee)', paddingTop: 16 }}>
+        <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
           <div style={{ marginBottom: 8 }}>
             <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Notes</span>
           </div>

@@ -63,15 +63,15 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
   const visibleTags = feature.tags.slice(0, MAX_VISIBLE_TAGS)
   const hiddenTagCount = feature.tags.length - MAX_VISIBLE_TAGS
 
-  // Notion's exact tag style - 20px height, 12px font
+  // Tag chip: 20px tall pill, 12px font
   const tagStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     height: 20,
     fontSize: 12,
-    padding: '0 6px',
-    borderRadius: 3,
-    fontWeight: 400,
+    padding: '0 8px',
+    borderRadius: 99,
+    fontWeight: 500,
     whiteSpace: 'nowrap',
     lineHeight: 1,
   }
@@ -117,7 +117,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
       <div
         style={{
           fontSize: 14,
-          fontWeight: 400,
+          fontWeight: 500,
           color: 'var(--text-primary)',
           lineHeight: 1.5,
           wordBreak: 'break-word',
@@ -145,12 +145,12 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: '#f7f6f3',
+            background: 'var(--cp-soft)',
             border: 'none',
             cursor: 'pointer',
             fontSize: 12,
-            borderRadius: 4,
-            boxShadow: 'rgba(55, 53, 47, 0.1) 0px 0px 0px 1px',
+            borderRadius: 6,
+            boxShadow: '0 0 0 1px var(--cp-line2)',
           }}
           title="Open in VS Code"
         >
@@ -164,7 +164,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         </button>
       )}
 
-      {/* Properties — each property type on its own row like Notion */}
+      {/* Properties — each property type on its own row */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {/* Rank + Size */}
         {(feature.rank !== undefined || feature.size) && (

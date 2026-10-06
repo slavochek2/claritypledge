@@ -1,11 +1,11 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest'
 import { createHash } from 'crypto'
 import { execFile } from 'child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { buildView, daysOpen, parseDecisions, parseReport, traceOf, type DayReport } from '../../src/lib/day'
-import { cleanStepLabel, fileIdOf, firstSeen, renderCard, run } from '../../scripts/day-render'
+import { cleanStepLabel, fileIdOf, firstSeen, readSidecar, renderCard, run } from '../../scripts/day-render'
 
 /**
  * P1399 Phase B — the /day renderer (scripts/day-render.ts). Synthetic ledgers, manifests and
@@ -117,7 +117,7 @@ function writeReportFile(w: World, r: DayReport) {
 
 const reportPath = (w: World, pass = PASS) => join(w.dayDir, 'reports', `${fileIdOf(pass)}.json`)
 
-function render(w: World, phase: 'start' | 'end', extra: string[] = []) {
+function render(w: World, phase: 'start' | 'end' | 'issues', extra: string[] = []) {
   let out = ''
   let err = ''
   const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9052', ...extra], {
@@ -516,7 +516,7 @@ describe('day-render: the card', () => {
     const urgent = view.issues.filter((i) => i.urgent).length
     expect(urgent).toBe(2)
     expect(view.counts.total).toBe(6)
-    expect(lines[1]).toBe(`${view.issues.length} issues · 1 needs you · 2 urgent · 2 of 6 checks worked · 1 parked`)
+    expect(lines[1]).toBe(`${view.issues.length} issues · 1 needs you · ${view.issues.length - 1} an agent can fix · 2 urgent · 2 of 6 checks worked · 1 parked`)
     expect(view.issues.length).toBeGreaterThan(6)
     const shown = lines.filter((l) => /^ {2}\d+\. /.test(l)).map((l) => l.replace(/^ {2}\d+\. ((Urgent|Important)( · Important)? — )?/, ''))
     expect(shown).toEqual(view.issues.slice(0, 6).map((i) => i.title))
@@ -560,7 +560,7 @@ describe('day-render: the card', () => {
     // eslint-disable-next-line no-control-regex
     expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f<>|]/)
     expect(out).toContain('Bad [31mred [0m btitle/b x y')
-    expect(out).toContain('\n1 issue · 6 of 6 checks worked\n')
+    expect(out).toContain('\n1 issue · 1 an agent can fix · 6 of 6 checks worked\n')
   })
 
   it('--print detail lists every issue and every check with its status word; --print none prints nothing', () => {
@@ -573,8 +573,178 @@ describe('day-render: the card', () => {
   })
 })
 
+describe('day-render: Phase D — fit, risk, and the plain-language overlay', () => {
+  const side = (extra: Record<string, unknown>) => readSidecar(JSON.stringify({ check: 'c', fault_key: 'k', title: 't', ...extra }))!
+
+  it('FIT — a sidecar carries a one-line risk (≤ 200) and reads "fit" as an alias of "confidence"', () => {
+    expect(side({ fit: 70 }).confidence).toBe(70)
+    expect(side({ fit: 140 }).confidence).toBe(100)
+    expect(side({ confidence: 55, fit: 70 }).confidence).toBe(55) // the older name wins when both are given
+    expect(side({ risk: '  Could lock a guest out.  ' }).risk).toBe('Could lock a guest out.')
+    expect(side({ risk: 'a\nb' }).risk).toBe('a b')
+    expect(side({ risk: 'x'.repeat(500) }).risk).toHaveLength(200)
+    expect(side({ risk: 7 }).risk).toBeUndefined()
+    expect(side({ risk: '  ' }).risk).toBeUndefined()
+  })
+
+  it('FIT — fit and risk land on the issue, and the board reads them back', () => {
+    const hex = hexOf('cp.rls', 'fit:one')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'low', hex, 'T', true)])
+    writeFinding(w, hex, 'b', { check: 'cp.rls', fault_key: 'fit:one', title: 'T', fit: 82, risk: 'Could break the sign-in page.', evidence: 'verified' })
+    const { report } = render(w, 'end')
+    expect(report!.issues[0]).toMatchObject({ recommendation_confidence: 82, risk: 'Could break the sign-in page.', evidence: 'verified' })
+    const back = parseReport(JSON.parse(readFileSync(reportPath(w), 'utf-8')))
+    expect(back.kind === 'ok' && back.report.issues[0].risk).toBe('Could break the sign-in page.')
+  })
+
+  const OVERLAY_FP = 'cp.rls:rls:live'
+  const ORIGINAL = { title: 'Database rules are live before review', point_a: '2 policies on live, 0 in migrations.', obstacle: 'Not reviewed.', point_b: 'Live rules match main.' }
+  const PLAIN = { fp: OVERLAY_FP, title: 'Tuesday’s guests could be locked out', point_a: 'Two access rules went live without a second pair of eyes.', obstacle: 'Nobody has checked they match the plan.', point_b: 'Guests get in on Tuesday.', extra_field: 'ignored' }
+
+  /** One written finding (cp.rls) and one check nobody wrote up (cp.lint → a synthesised issue). */
+  function plainWorld(overlay?: unknown) {
+    const hex = hexOf('cp.rls', 'rls:live')
+    const body = cleanBody(w)
+      .map((l) => (l.startsWith(`CHECK${T}cp.rls${T}`) ? check('cp.rls', 'problem', 'cp.w3', '2 rules live') : l))
+      .map((l) => (l.startsWith(`CHECK${T}cp.lint${T}`) ? check('cp.lint', 'problem', 'cp.w3', '3 warnings') : l))
+    body.push(find('cp.rls', 'high', hex, ORIGINAL.title, true))
+    writeFinding(w, hex, `${MARKER} evidence`, { check: 'cp.rls', fault_key: 'rls:live', ...ORIGINAL })
+    if (overlay !== undefined) {
+      writeData(w, 'plain', overlay)
+      body.push(data('plain'))
+    }
+    writeLedger(w, body)
+  }
+  const issueOf = (r: DayReport | undefined, fp: string) => r?.issues.find((i) => i.fp === fp)
+
+  it('PLAIN — no overlay: the original text, and no "technical" field', () => {
+    plainWorld()
+    const i = issueOf(render(w, 'end').report, OVERLAY_FP)!
+    expect(i).toMatchObject(ORIGINAL)
+    expect(i.technical).toBeUndefined()
+  })
+
+  it('PLAIN — the overlay becomes the displayed title and points; the originals are kept in "technical"; extra fields are ignored', () => {
+    plainWorld([PLAIN])
+    const { code, report } = render(w, 'end')
+    expect(code).toBe(0)
+    const i = issueOf(report, OVERLAY_FP)!
+    expect(i).toMatchObject({ title: PLAIN.title, point_a: PLAIN.point_a, obstacle: PLAIN.obstacle, point_b: PLAIN.point_b })
+    expect(i.technical).toEqual(ORIGINAL)
+    expect(JSON.stringify(report)).not.toContain('extra_field')
+    expect(report!.checks.some((c) => c.id.startsWith('day.data'))).toBe(false)
+    // the board reads it back from the written file, and the fingerprint did not move
+    const back = parseReport(JSON.parse(readFileSync(reportPath(w), 'utf-8')))
+    expect(back.kind === 'ok' && back.report.issues.find((x) => x.fp === OVERLAY_FP)?.technical).toEqual(ORIGINAL)
+  })
+
+  it('PLAIN — an overlay row for an fp that is not in the run is ignored and counted, never a problem', () => {
+    plainWorld([PLAIN, { ...PLAIN, fp: 'cp.nothing:here' }, { ...PLAIN, fp: 'cp.other:there' }])
+    const { code, report, err } = render(w, 'end')
+    expect(code).toBe(0)
+    expect(issueOf(report, OVERLAY_FP)!.title).toBe(PLAIN.title)
+    expect(report!.issues.map((i) => i.fp)).not.toContain('cp.nothing:here')
+    expect(report!.checks.some((c) => c.id === 'day.data.plain')).toBe(false)
+    expect(err).toContain('day-render: 2 plain-language rows matched no issue\n')
+  })
+
+  it('PLAIN — a malformed overlay is a day.data.plain problem check, and the original text stays', () => {
+    const bad: unknown[] = [
+      '[{"fp": "cp.rls:rls:live", oops', // not JSON
+      { ...PLAIN }, // not an array
+      [{ ...PLAIN, title: 'x'.repeat(121) }], // title over 120
+      [{ ...PLAIN, obstacle: 'x'.repeat(301) }], // another field over 300
+      [{ ...PLAIN, point_b: undefined }], // a missing field
+      [PLAIN, { fp: 'a:b', title: 'only a title' }], // one bad row spoils the overlay: never half-applied silently
+      [{ ...PLAIN, fp: 'has space' }],
+    ]
+    for (const overlay of bad) {
+      rmSync(`${w.ledger}.data`, { recursive: true, force: true })
+      plainWorld(overlay)
+      const { code, report } = render(w, 'end')
+      expect(code, JSON.stringify(overlay)).toBe(0)
+      expect(byId(report, 'day.data.plain'), JSON.stringify(overlay)).toMatchObject({ status: 'problem', detail: 'could not be read' })
+      const i = issueOf(report, OVERLAY_FP)!
+      expect(i).toMatchObject(ORIGINAL)
+      expect(i.technical).toBeUndefined()
+    }
+  })
+
+  it('PLAIN — a check nobody wrote up is a card too: its overlay is applied and its fingerprint stays', () => {
+    plainWorld([{ fp: 'check:cp.lint', title: 'Code style problems', point_a: 'A few style warnings.', obstacle: 'They pile up.', point_b: 'A clean build.' }])
+    const { report } = render(w, 'end')
+    const cards = buildView(report!, [], []).issues.filter((x) => x.fp === 'check:cp.lint')
+    expect(cards).toHaveLength(1) // exactly one card for it, not a written one plus a synthesised twin
+    const i = issueOf(report, 'check:cp.lint')!
+    expect(i.title).toBe('Code style problems')
+    expect(i.technical!.title).toMatch(/^Lint: /)
+    expect(i.check).toBe('cp.lint')
+    expect(i.options.map((o) => o.id)).toEqual(['agent', 'park'])
+    expect(i.options.find((o) => o.recommended)!.agent).toBe(true)
+  })
+
+  it('PLAIN — --phase issues prints the cards as JSON for the plain-language pass, and writes nothing', () => {
+    richWorld()
+    writeData(w, 'plain', [{ ...PLAIN, fp: 'cp.rls:rls:live' }])
+    const body = readFileSync(w.ledger, 'utf-8')
+    writeFileSync(w.ledger, `${body}${data('plain')}\n`)
+    const ledgerBefore = readFileSync(w.ledger, 'utf-8')
+    const { code, out, err, report } = render(w, 'issues')
+    expect(code).toBe(0)
+    expect(report).toBeUndefined()
+    expect(existsSync(join(w.dayDir, 'reports'))).toBe(false)
+    expect(readFileSync(w.ledger, 'utf-8')).toBe(ledgerBefore)
+    expect(err).toBe('')
+    const cards = JSON.parse(out) as { fp: string; topic: string; title: string; point_a: string; obstacle: string; point_b: string; options: { label: string; recommended?: boolean }[]; evidence_text?: string }[]
+    expect(Array.isArray(cards)).toBe(true)
+    expect(cards.length).toBeGreaterThan(6)
+    const rls = cards.find((c) => c.fp === 'cp.rls:rls:live')!
+    expect(rls.title).toBe('Database rules are live before review') // the original: the plain pass reads the technical text, never its own earlier rewrite
+    expect(Object.keys(rls).sort()).toEqual(['evidence_text', 'fp', 'obstacle', 'options', 'point_a', 'point_b', 'title', 'topic'])
+    expect(rls.options.some((o) => o.recommended === true)).toBe(true)
+    expect(rls.options.every((o) => typeof o.label === 'string')).toBe(true)
+    expect(cards.some((c) => c.fp.startsWith('check:'))).toBe(true) // the cards nobody wrote up are in
+    expect(cards.map((c) => c.fp)).not.toContain('cp.w1:parked:thing') // parked: not on the card
+  })
+
+  it('PLAIN — --phase issues cuts the evidence to 600 characters', () => {
+    const hex = hexOf('cp.rls', 'long')
+    writeLedger(w, [...cleanBody(w), find('cp.rls', 'low', hex, 'T', true)])
+    writeFinding(w, hex, 'e'.repeat(1500), { check: 'cp.rls', fault_key: 'long', title: 'T' })
+    const cards = JSON.parse(render(w, 'issues').out) as { evidence_text: string }[]
+    expect(cards[0].evidence_text.length).toBeLessThanOrEqual(600)
+    expect(cards[0].evidence_text.length).toBeGreaterThan(500)
+  })
+
+  it('PLAIN — the bare runbook invocation works: only --phase issues, ledger and day dir from the defaults (real process)', async () => {
+    richWorld()
+    const home = mkdtempSync(join(tmpdir(), 'day-home-'))
+    try {
+      writeFileSync(join(home, '.claude-day-ledger'), readFileSync(w.ledger, 'utf-8'))
+      cpSync(`${w.ledger}.findings`, join(home, '.claude-day-ledger.findings'), { recursive: true })
+      cpSync(`${w.ledger}.data`, join(home, '.claude-day-ledger.data'), { recursive: true })
+      const kanban = resolve(__dirname, '../..')
+      const go = (extra: string[]) =>
+        new Promise<string>((res, rej) =>
+          execFile(join(kanban, 'node_modules/.bin/tsx'), ['scripts/day-render.ts', '--phase', 'issues', ...extra], { cwd: kanban, env: { ...process.env, HOME: home, NODE_NO_WARNINGS: '1' } }, (err, stdout) => (err ? rej(err) : res(stdout))),
+        )
+      const bare = JSON.parse(await go([])) as { fp: string }[]
+      expect(bare.length).toBeGreaterThan(6)
+      expect(JSON.parse(await go(['--print', 'card']))).toEqual(bare) // --print is accepted and ignored
+      expect(existsSync(join(home, '.claude-day'))).toBe(false) // nothing written
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it('PLAIN — --phase issues with no ledger is a usage error that prints nothing', () => {
+    const r = run(['--ledger', join(w.root, 'missing'), '--day-dir', w.dayDir, '--phase', 'issues'], { out: () => undefined, err: () => undefined })
+    expect(r).toBe(2)
+  })
+})
+
 describe('day-render: privacy', () => {
-  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\)|marked \d+ unfinished earlier runs? incomplete)$/
+  const STDERR_VOCAB = /^day-render: (report written \((running|complete|incomplete|abandoned)\)|usage: .*|no ledger at the given path|the ledger has no pass id|the report would not validate \([a-z_,-]+\)|could not write the report \([A-Z]+\)|some earlier reports could not be read \(\d+\)|marked \d+ unfinished earlier runs? incomplete|\d+ plain-language rows? matched no issue)$/
 
   // NODE_NO_WARNINGS: tsx triggers Node's own fixed-text deprecation notice (DEP0205); the
   // assertion is about the renderer's lines, which carry no content.

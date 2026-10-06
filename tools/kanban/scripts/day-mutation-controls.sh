@@ -69,7 +69,7 @@ control "Rule 7: urgent within 72h" "urgent = deadline within 72h" \
 control "Prompt opens verify-first" "opens with verify-first" \
   src/lib/day.ts "s/'Before fixing anything, check each item is still real\. /'Please fix these. /"
 control "Prompt puts questions first" "opens with verify-first" \
-  src/lib/day.ts 's/(  const questions = c\.issues\.filter\(\(x\) => x\.option_id === ASK\)\n)/  const questions: typeof c.issues = []\n/'
+  src/lib/day.ts 's/const questions = c\.issues\.filter\(\(x\) => x\.option_id === OWN && x\.is_question\)/const questions: typeof c.issues = []/'
 control "Rule 2: unreadable newest is still the latest" "unreadable newest" \
   server/day.ts "s/\.filter\(\(r\): r is LoadedRun => r !== null\)/.filter((r): r is LoadedRun => r !== null \&\& r.parsed.kind === 'ok')/"
 control "Rule 2: newest by started_at, running included" "state running is the latest" \
@@ -168,7 +168,7 @@ control "Render: a review finding's topic is its review" "TOPIC" \
 control "Render: notes land as given" "DATA — every section" \
   $D "s/  if \(data\.notes\) report\.notes = data\.notes as DayReport\['notes'\]\n//" $R
 control "Render: need you = the recommended answer is not the agent's" "CARD — ≤ 25 lines" \
-  $D 's/\.filter\(\(i\) => !i\.options\[i\.recommended_index\]\?\.agent\)/.filter((i) => i.options[i.recommended_index]?.agent)/' $R
+  $D 's/\.filter\(\(i\) => !isAgentWork\(i\)\)\.length/.filter((i) => isAgentWork(i)).length/' $R
 control "Render: missing checks read as having no result" "CARD — the first issue line" \
   $D "s/'has' : 'have'\} no result/'has' : 'have'} not run/" $R
 control "Render: plurals are right" "plurals are right" \
@@ -205,6 +205,92 @@ control "Launch: only the latest run" "only the latest run can be launched" \
 control "Launch: sent lines are not decisions" "sent lines are not decisions" \
   src/lib/day.ts "s/      if \(o\.kind === 'sent'\) continue\n//" "$L"
 
+# Phase D (founder review round, 2026-10-06): each rule below is broken in the throwaway copy and the
+# test that guards it must go red. day.test.ts unless a test file is named.
+P=server/__tests__/day-pipeline.test.ts
+H=server/__tests__/day-reflection-history.test.ts
+L=server/__tests__/day-launch.test.ts
+# 1. one custom option
+control "Phase D: a trailing ? makes a custom reply a question" "a reply ending in" \
+  src/lib/day.ts 's/\.trim\(\)\.endsWith\(.\?.\)/.trim().endsWith("!")/'
+control "Phase D: old Ask / Other lines read as the one custom option" "old Ask / Other still read" \
+  src/lib/day.ts 's/option_id: OWN, text, is_question/option_id: d.option_id, text, is_question/'
+control "Phase D: custom questions go first in the prompt" "the prompt puts questions first and the other custom" \
+  src/lib/day.ts 's/const questions = c\.issues\.filter\(\(x\) => x\.option_id === OWN && x\.is_question\)/const questions: typeof c.issues = []/'
+# 2. fit, risk, cause
+control "Phase D: the prompt carries Fit and the main risk" "the prompt carries" \
+  src/lib/day.ts 's/  if \(rating\.length\) out\.push\([^\n]*\n//'
+control "Phase D: a risk is one line of at most 200 characters" "risk is read as one trimmed line" \
+  src/lib/day.ts 's/return s \? s\.slice\(0, max\) : undefined/return s || undefined/'
+control "Phase D: a sidecar's fit is read as the confidence" "a sidecar carries a one-line risk" \
+  scripts/day-render.ts 's/\[o\.confidence, o\.fit\]/[o.confidence]/' "$R"
+# 3. what Start fixing sends (1B): the OLD collect sent every preselected issue
+control "Phase D 1B: the old collect (every preselected issue) is caught" "1B — collect sends" \
+  src/lib/day.ts 's/\(x\.written \|\| isAgentWork\(x\.issue\)\) && //'
+control "Phase D 1B: Start fixing does not send an unopened founder choice" "1B — Start fixing sends agent work" \
+  src/lib/day.ts 's/\(x\.written \|\| isAgentWork\(x\.issue\)\) && //' "$L"
+control "Phase D 1B: the run, the prompt and the count follow collect" "1B — the run, the prompt" \
+  src/lib/day.ts 's/\(x\.written \|\| isAgentWork\(x\.issue\)\) && //'
+control "Phase D 1B: only accepted cards and agent work are written on Start" "pendingPreselected writes agent work" \
+  src/lib/day.ts 's/\(accepted\.has\(i\.fp\) \|\| isAgentWork\(i\)\)/true/'
+control "Phase D 1B: an answered card is not still yours" "stillYours lists" \
+  src/lib/day.ts 's/!i\.decision && !isAgentWork\(i\)/!isAgentWork(i)/'
+control "Phase D 1B: the card counts the agent-work split" "CARD — ≤ 25 lines" \
+  $D 's/    agentWork && `\$\{agentWork\} an agent can fix`,\n//' $R
+# 4. readings link to notes
+control "Phase D: a reading's note link must be ID-shaped" "a reading keeps its note id" \
+  src/lib/day.ts 's/typeof note === .string. && ID\.test\(note\)/typeof note === "string"/'
+# 5. subscriptions history
+control "Phase D: quota history has a lower bound (the previous window is out)" "window — " \
+  src/lib/day.ts 's/t < resets - WEEK \|\| t > end/t > end/'
+control "Phase D: quota history has an upper bound (a later run is out)" "window — " \
+  src/lib/day.ts 's/t < resets - WEEK \|\| t > end/t < resets - WEEK/'
+control "Phase D: an uncollected quota has no history" "uncollected quotas and readings are skipped" \
+  src/lib/day.ts 's/!q\.collected \|\| //'
+control "Phase D: the run route carries the quota history" "SUBSCRIPTIONS" \
+  server/day.ts 's/        quotaHistory: quotaHistory\([^\n]*\n//'
+# 6. plain-language overlay
+control "Phase D: the overlay becomes the displayed text" "the overlay becomes the displayed" \
+  $D 's/    if \(r\) overlay\(i, r\)/    if (false) overlay(i, r)/' $R
+control "Phase D: the original wording is kept in technical" "the overlay becomes the displayed" \
+  $D 's/    i\.technical = \{[^\n]*\n//' $R
+control "Phase D: an overlay row for an unknown fp is counted" "ignored and counted" \
+  $D 's/return byFp\.size - used\.size/return 0/' $R
+control "Phase D: a malformed overlay is a problem check" "a malformed overlay is a day.data.plain" \
+  $D 's/    case .plain.:\n      return readPlain\(v\) !== null/    case "plain":\n      return true/' $R
+control "Phase D: the overlay's length limits hold" "a malformed overlay is a day.data.plain" \
+  $D 's/PLAIN_TITLE_MAX = 120/PLAIN_TITLE_MAX = 1200/' $R
+control "Phase D: a check nobody wrote up takes the overlay too" "a check nobody wrote up is a card" \
+  $D 's/if \(unwritten\.length\) \{/if (false) {/' $R
+control "Phase D: --phase issues writes nothing" "phase issues prints" \
+  $D 's/    return 0\n  \}\n  const \{ report, plainUnmatched \}/  }\n  const { report, plainUnmatched }/' $R
+control "Phase D: --phase issues shows the producer's own words" "phase issues prints" \
+  $D 's/    dataFiles\.delete\(.plain.\)\n//' $R
+control "Phase D: --phase issues cuts the evidence to 600" "phase issues cuts" \
+  $D 's/MAX_EVIDENCE_FOR_PLAIN_PASS = 600/MAX_EVIDENCE_FOR_PLAIN_PASS = 6000/' $R
+control "Phase D: a cloud key keeps its why, cut to 120" "KEYWHY" \
+  src/lib/day.ts 's/const line = oneLine\(why, MAX_KEY_WHY\)/const line = typeof why === "string" ? why : undefined/'
+control "Phase D: --phase issues needs no other arguments" "bare runbook invocation" \
+  scripts/day-render.ts 's/    ledger: join\(homedir\(\), .\.claude-day-ledger.\),/    ledger: join(homedir(), ".claude-day-ledger-x"),/' "$R"
+# 7. the pipeline funnel
+control "Phase D: closed is not a funnel column" "counts each Pipeline column" \
+  scripts/day-pipeline.ts 's/    if \(stage === .closed.\) continue\n//' "$P"
+control "Phase D: no or unknown stage counts as contacted" "counts each Pipeline column" \
+  scripts/day-pipeline.ts 's/: .contacted.\]\+\+/: "active"]++/' "$P"
+control "Phase D: a missing folder is none, not zeros" "empty folder is real zeros" \
+  scripts/day-pipeline.ts 's/  \} catch \{\n    return null\n  \}\n  const counts/  } catch {\n    names = []\n  }\n  const counts/' "$P"
+# 8. reflection memory
+control "Phase D: a near-identical statement is a repeat (threshold disabled)" "Jaccard of the word sets" \
+  scripts/day-reflection-history.ts 's/const REPEAT_JACCARD = 0\.8/const REPEAT_JACCARD = 2/' "$H"
+control "Phase D: a different statement is not a repeat (threshold too low)" "below 0.8 passes" \
+  scripts/day-reflection-history.ts 's/const REPEAT_JACCARD = 0\.8/const REPEAT_JACCARD = 0.1/' "$H"
+control "Phase D: only an answered statement counts as a repeat" "only an ANSWERED statement" \
+  scripts/day-reflection-history.ts 's/\.filter\(\(p\) => p\.position !== undefined\)//' "$H"
+control "Phase D: the window bounds what the agent remembers" "only the window" \
+  scripts/day-reflection-history.ts 's/started < start \|\| started > end/started > end/' "$H"
+control "Phase D: an answer belongs to its own run" "scoped to their run" \
+  scripts/day-reflection-history.ts 's/ && d\.run_id === r\.passId//' "$H"
+
 # Rule 10: plant a product import in the board and require the guard to fire.
 fresh
 printf "import { createClient } from '@supabase/supabase-js'\nexport const probe = createClient\n" >"$WORK/k/src/lib/__probe.ts"
@@ -214,6 +300,9 @@ if run_test "imports no product code"; then echo "MISSED          Rule 10: produ
 fresh
 if run_test ""; then echo "GREEN           unmodified copy: all day tests pass"; else echo "UNEXPECTED RED  unmodified copy"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
 if run_test "" "$R"; then echo "GREEN           unmodified copy: all day-render tests pass"; else echo "UNEXPECTED RED  unmodified copy (day-render)"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
+for f in server/__tests__/day-launch.test.ts server/__tests__/day-pipeline.test.ts server/__tests__/day-reflection-history.test.ts; do
+  if run_test "" "$f"; then echo "GREEN           unmodified copy: $f passes"; else echo "UNEXPECTED RED  unmodified copy ($f)"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
+done
 
 echo
 if [ "$fails" -eq 0 ]; then echo "All controls fired."; exit 0; fi

@@ -33,7 +33,7 @@ All ten vars are read at server boot. Defaults preserve this repo's behavior —
 | `KANBAN_PORT_FRONTEND` | `9050` | Vite dev server port. | `config.ts:23` |
 | `KANBAN_PORT_API` | `9051` | Express API port. Vite proxies `/api/*` here. | `config.ts:25` |
 | `KANBAN_DISABLE_WORKTREES` | unset | When `"true"`, skip the `git worktree list` scan; returns a single stub for the project root. Most embedders want this. | `server/api.ts:31` |
-| `KANBAN_HIDE_PAGES` | `""` | CSV of page names to hide. Matching endpoints (currently `content` → `/api/articles*`, `goals` → `/api/goals-strategic*`) return 404 (prevents stale-client PATCHes). Other page names hide UI only. | `server/api.ts:26` |
+| `KANBAN_HIDE_PAGES` | `""` | CSV of page names to hide. Matching endpoints (currently `content` → `/api/articles*`) return 404 (prevents stale-client PATCHes). Other page names hide UI only. | `server/api.ts:26` |
 | `KANBAN_HIDE_COLUMNS` | `""` | CSV of column names to hide in the UI. | `server/api.ts:29` |
 | `KANBAN_LOG_FILE` | `/tmp/kanban.log` | Log path for the dev-server `tee`. Set per-project so multiple instances don't clobber each other. | `scripts/run-once.sh:28` |
 | `KANBAN_TITLE` | `Clarity Kanban` | Browser tab title + sidebar header. Set per-project so tabs are distinguishable. | `server/api.ts:35` |

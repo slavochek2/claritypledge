@@ -7,6 +7,7 @@ import { join } from 'path'
 import { DAY_E2E_DIR, OFF, ON } from '../playwright.day.config'
 import { EARLIER_ID, LATEST_ID, NEWER_ID, seedDay, type Variant } from '../scripts/day-seed'
 import { CHECKS, synthReport } from '../server/__tests__/fixtures/day-fixture'
+import type { DayReport } from '../src/lib/day'
 
 const DECISIONS = join(DAY_E2E_DIR, 'decisions.jsonl')
 const fileText = () => (existsSync(DECISIONS) ? readFileSync(DECISIONS, 'utf-8') : '')
@@ -30,10 +31,15 @@ async function reopen(page: Page) {
   await expect(page.locator('.d-focus')).toBeVisible()
 }
 
+type ViewIssue = { fp: string; title: string; options: { id: string; label: string; agent?: boolean }[]; recommended_index: number }
 async function runView(page: Page, id = LATEST_ID) {
   const r = await page.request.get(`/api/day/runs/${id}`)
-  return (await r.json()) as { view: { issues: { fp: string; title: string; options: { id: string; label: string }[] }[] }; collectedCount: number }
+  return (await r.json()) as { view: { issues: ViewIssue[]; checks: { status: string; covered_by?: string }[] }; collectedCount: number }
 }
+/** Phase D: a card is agent work when its recommended option hands it to the agent; the pager walks the others. */
+const isAgent = (i: ViewIssue) => i.options[i.recommended_index]?.agent === true
+const yoursOf = (v: { view: { issues: ViewIssue[] } }) => v.view.issues.filter((i) => !isAgent(i))
+const agentOf = (v: { view: { issues: ViewIssue[] } }) => v.view.issues.filter(isAgent)
 
 const card = (page: Page) => page.locator('.d-focus')
 const cardTitle = (page: Page) => card(page).locator('h2')
@@ -55,6 +61,29 @@ async function collapseSidebar(page: Page) {
   await expect.poll(async () => Math.round((await rectOf(page.locator('.day-root'), 'day root')).x)).toBe(44)
 }
 const startCount = (page: Page) => numberIn(startBtn(page), 'Start fixing count')
+const OWN_LABEL = 'Your answer or question…'
+const ownRow = (page: Page) => card(page).locator('.d-optrow').filter({ hasText: OWN_LABEL })
+const ownBox = (page: Page) => card(page).getByRole('textbox', { name: 'Your answer or question' })
+const stillYours = (page: Page) => page.locator('[data-still-yours]')
+const agentLine = (page: Page) => page.locator('[data-agent-line]')
+const agentPager = (page: Page) => page.locator('[data-agent-pager]')
+/** The seed's Stats has one series; this adds one the run did not collect (a placeholder to measure). */
+const withUncollectedSeries = (b: RunBody) =>
+  b.report?.stats?.series?.unshift({ id: 'reachouts', label: 'Reach-outs per week', collected: false, target: 10, target_proposed: true, points: [] })
+/** Patch what the page reads for a run (the server's real answer, edited): for states the seed does not have. */
+interface RunBody {
+  report?: DayReport
+  view?: { issues: ViewIssue[] }
+  quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
+}
+async function patchRun(page: Page, edit: (body: RunBody) => void) {
+  await page.route('**/api/day/runs/*', async (route) => {
+    const res = await route.fetch()
+    const body = await res.json()
+    edit(body)
+    await route.fulfill({ response: res, json: body })
+  })
+}
 
 test.describe('sidebar', () => {
   test('the Day entry is present when the day dir is set', async ({ page }) => {
@@ -199,31 +228,31 @@ test.describe('new people', () => {
 })
 
 test.describe('issues', () => {
-  test('cards follow the view order; the card shows A / Obstacle / B, the preselected recommendation, Ask and Other', async ({ page }) => {
+  test('the pager walks the founder’s cards in view order; the card shows A / Obstacle / B and the preselected recommendation', async ({ page }) => {
     await openDay(page)
-    const { view } = await runView(page)
-    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${view.issues.length}`)
-    await expect(cardTitle(page)).toHaveText('Database rules are live before review')
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    expect(yours.length).toBeGreaterThan(1)
+    expect(yours.length).toBeLessThan(v.view.issues.length)
+    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
+    await expect(cardTitle(page)).toHaveText(yours[0].title)
     await expect(card(page).locator('.d-pill.urg')).toHaveText('Urgent')
-    await expect(card(page).locator('.d-pill.imp')).toHaveText('Important')
     await expect(card(page).locator('dt')).toHaveText(['Point A', 'Obstacle', 'Point B'])
-    const rec = card(page).locator('.d-opt').filter({ hasText: 'Give to the agent' })
-    await expect(rec).toContainText('Recommended · 85%')
+    const rec = card(page).locator('.d-opt').filter({ hasText: 'I’ll reply today' })
+    await expect(rec).toContainText('Recommended')
     await expect(rec.locator('input')).toBeChecked()
 
     await card(page).getByRole('button', { name: /More info/ }).click()
-    await expect(card(page).locator('.d-moreinfo')).toContainText('Verified against the source')
-    await expect(card(page).locator('.d-moreinfo')).toContainText('2 policies on live, 0 in migrations')
+    await expect(card(page).locator('.d-moreinfo')).toContainText('Asked 2 days ago.')
 
-    await card(page).locator('.d-optrow').filter({ hasText: 'Ask a question…' }).click()
-    await expect(card(page).getByRole('textbox', { name: 'Your question' })).toBeVisible()
-    await card(page).locator('.d-optrow').filter({ hasText: 'Other…' }).click()
-    await expect(card(page).getByRole('textbox', { name: 'Your answer' })).toBeVisible()
-    expect(fileText()).toBe('') // Ask/Other without text writes nothing
+    // Ask/Other are one option: a text box that writes nothing until it has text
+    await ownRow(page).click()
+    await expect(ownBox(page)).toBeVisible()
+    expect(fileText()).toBe('')
 
-    for (let i = 0; i < view.issues.length; i++) {
-      await expect(cardTitle(page)).toHaveText(view.issues[i].title)
-      if (i < view.issues.length - 1) await nextBtn(page).click()
+    for (let i = 0; i < yours.length; i++) {
+      await expect(cardTitle(page)).toHaveText(yours[i].title)
+      if (i < yours.length - 1) await nextBtn(page).click()
     }
     await expect(nextBtn(page)).toBeDisabled()
   })
@@ -231,35 +260,36 @@ test.describe('issues', () => {
   test('Previous / Next and ← → move between cards and write nothing', async ({ page }) => {
     await openDay(page)
     const { view } = await runView(page)
+    const yours = yoursOf({ view })
     // put one line in the file so "unchanged" is about bytes, not just existence
-    await card(page).locator('.d-optrow').filter({ hasText: 'Roll back now' }).click()
+    await card(page).locator('.d-optrow').filter({ hasText: 'Agent drafts, you send' }).click()
     await expect.poll(() => lines().length).toBe(1)
     const before = fileText()
 
     await nextBtn(page).click()
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
     await cardTitle(page).click() // a neutral spot: focus leaves the controls
     await page.keyboard.press('ArrowRight')
-    await expect(cardTitle(page)).toHaveText(view.issues[2].title)
+    await expect(cardTitle(page)).toHaveText(yours[2].title)
     await page.keyboard.press('ArrowLeft')
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
     await prevBtn(page).click()
-    await expect(cardTitle(page)).toHaveText(view.issues[0].title)
+    await expect(cardTitle(page)).toHaveText(yours[0].title)
     // arrows on a focused radio page too, instead of changing the answer
-    await card(page).locator('.d-opt').filter({ hasText: 'Roll back now' }).locator('input').focus()
+    await card(page).locator('.d-opt').filter({ hasText: 'Agent drafts, you send' }).locator('input').focus()
     await page.keyboard.press('ArrowRight')
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
     // typing in a text box is left alone
-    await card(page).locator('.d-optrow').filter({ hasText: 'Other…' }).click()
+    await ownRow(page).click()
     await page.keyboard.press('ArrowRight')
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
 
     await page.waitForTimeout(300)
     expect(fileText()).toBe(before)
-    await expect(page.locator('[data-progress]')).toContainText(`of ${view.issues.length} resolved`)
+    await expect(page.locator('[data-progress]')).toContainText(`of ${yours.length} resolved`)
   })
 
-  test('the bottom bar does not move when More info or Other expands', async ({ page }) => {
+  test('the bottom bar does not move when More info or the custom answer expands', async ({ page }) => {
     await openDay(page)
     const bar = page.locator('[data-bottom-bar]')
     const next = nextBtn(page)
@@ -276,8 +306,8 @@ test.describe('issues', () => {
       expect(Math.abs(n.x - n0.x)).toBeLessThan(1)
     }
     await same()
-    await card(page).locator('.d-optrow').filter({ hasText: 'Other…' }).click()
-    await expect(card(page).getByRole('textbox', { name: 'Your answer' })).toBeVisible()
+    await ownRow(page).click()
+    await expect(ownBox(page)).toBeVisible()
     await same()
     // the bar sits at the bottom of the viewport
     expect(Math.round(b0.y + b0.height)).toBe(must(page.viewportSize(), 'viewport').height)
@@ -304,34 +334,37 @@ test.describe('issues', () => {
 
   test('picking an option appends exactly one line, and a reload keeps it', async ({ page }) => {
     await openDay(page)
-    await card(page).locator('.d-optrow').filter({ hasText: 'Roll back now' }).click()
+    await card(page).locator('.d-optrow').filter({ hasText: 'Agent drafts, you send' }).click()
     await expect.poll(() => lines().length).toBe(1)
-    expect(lines()[0]).toMatchObject({ kind: 'option', target: 'rules:live-not-on-main', option_id: 'rollback', run_id: '2026-10-04T05-37-45Z' })
+    expect(lines()[0]).toMatchObject({ kind: 'option', target: 'replies:event-post', option_id: 'draft', run_id: '2026-10-04T05-37-45Z' })
     await reopen(page)
-    await expect(card(page).locator('.d-opt').filter({ hasText: 'Roll back now' }).locator('input')).toBeChecked()
+    await expect(card(page).locator('.d-opt').filter({ hasText: 'Agent drafts, you send' }).locator('input')).toBeChecked()
     await expect(page.locator('[data-progress]')).toContainText('1 of')
   })
 
   test('keys 1–9 pick the Nth option and write one line', async ({ page }) => {
     await openDay(page)
-    const { view } = await runView(page)
+    const first = yoursOf(await runView(page))[0]
     await cardTitle(page).click() // a neutral spot: focus leaves the controls
     await page.keyboard.press('2')
     await expect(card(page).locator('.d-opt').nth(1).locator('input')).toBeChecked()
     await expect.poll(() => lines().length).toBe(1)
-    expect(lines()[0]).toMatchObject({ kind: 'option', target: view.issues[0].fp, option_id: view.issues[0].options[1].id })
+    expect(lines()[0]).toMatchObject({ kind: 'option', target: first.fp, option_id: first.options[1].id })
     await expect(card(page).locator('.d-key').first()).toHaveText('1')
   })
 
-  test('Start fixing writes the preselected batch and copies a verify-first prompt with the question first', async ({ page, context }) => {
+  test('Start fixing writes what is sent (accepted cards, agent work, your own text), copies a verify-first prompt with the question first', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${ON.web}` })
     await openDay(page)
-    const { view, collectedCount } = await runView(page)
-    await nextBtn(page).click()
-    await card(page).locator('.d-optrow').filter({ hasText: 'Ask a question…' }).click()
+    const v = await runView(page)
+    const [c0, c1, c2] = yoursOf(v)
+    await nextBtn(page).click() // accepts the first card's preselected answer
+    await ownRow(page).click()
     const QUESTION = 'Is the room error the same bug as last week?'
-    await card(page).getByRole('textbox', { name: 'Your question' }).fill(QUESTION)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${collectedCount})`)
+    await ownBox(page).fill(QUESTION)
+    // the button counts what will be sent: the agent work + the accepted card + the own text
+    const expected = agentOf(v).length + 2
+    await expect(startBtn(page)).toHaveText(`Start fixing (${expected})`)
 
     await startBtn(page).click()
     // the suite's server never opens a terminal (KANBAN_DAY_LAUNCH=off): the real 502 path offers Copy
@@ -346,13 +379,17 @@ test.describe('issues', () => {
     expect(clip.split('\n')[0]).toContain('still real')
     const q = clip.indexOf(QUESTION)
     expect(q).toBeGreaterThan(0)
-    expect(q).toBeLessThan(clip.indexOf(view.issues[0].title))
+    expect(q).toBeLessThan(clip.indexOf(c0.title))
 
     // the server also journals the launch attempt (kind 'sent': pending → failed); count the answers
     const written = lines().filter((d) => d.kind === 'option')
-    expect(written).toHaveLength(view.issues.length) // one batch: the ask + every preselected answer
+    expect(written).toHaveLength(expected) // one batch, nothing twice
+    expect(written.map((d) => d.target).sort()).toEqual([c0.fp, c1.fp, ...agentOf(v).map((i) => i.fp)].sort())
+    // known-bad control: the card nobody opened is not in the batch
+    expect(written.map((d) => d.target)).not.toContain(c2.fp)
     expect(lines().filter((d) => d.kind === 'sent').map((d) => d.state)).toEqual(['pending', 'failed'])
-    expect(written.filter((d) => d.option_id === 'ask')).toEqual([expect.objectContaining({ text: QUESTION, is_question: true })])
+    expect(written.filter((d) => d.option_id === 'own')).toEqual([expect.objectContaining({ target: c1.fp, text: QUESTION, is_question: true })])
+    expect(written.filter((d) => d.option_id === 'ask' || d.option_id === 'other')).toEqual([])
     expect(new Set(written.map((d) => d.at)).size).toBeLessThanOrEqual(2)
   })
 
@@ -377,7 +414,7 @@ test.describe('earlier runs and warnings', () => {
     await expect(card(page)).toContainText('Not answered on this run')
     await expect(card(page).locator('input[type=radio]').first()).toBeHidden()
     await expect(page.locator('[data-progress]')).toHaveCount(0)
-    await expect(card(page).getByText('Ask a question…')).toHaveCount(0)
+    await expect(card(page).getByText(OWN_LABEL)).toHaveCount(0)
     await expect(page.locator('.d-status').getByRole('button', { name: 'Fix' })).toHaveCount(0)
     await expect(page.locator('.d-status').getByRole('link', { name: 'Fix' })).toHaveCount(0)
     await expect(startBtn(page)).toHaveCount(0)
@@ -420,7 +457,7 @@ test.describe('earlier runs and warnings', () => {
 
   test('a malformed row is dropped with a visible note', async ({ page }) => {
     await openDay(page, 'malformed')
-    await expect(page.locator('.d-note')).toContainText('in this run couldn’t be read.')
+    await expect(page.locator('.d-note').filter({ hasText: 'in this run couldn’t be read.' })).toHaveCount(1)
     await expect(card(page)).toBeVisible()
   })
 
@@ -433,27 +470,25 @@ test.describe('earlier runs and warnings', () => {
 })
 
 test.describe('monitoring, stats, reflection', () => {
-  test('Monitoring: Systems lists every non-money check; a budget raise joins Start fixing and can be undone', async ({ page }) => {
+  test('Monitoring is money and subscriptions only: no Systems, no Money checks list; a budget raise joins Start fixing and can be undone', async ({ page }) => {
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
-    const sys = page.locator('[data-systems]')
-    for (const c of CHECKS) await expect(sys.locator(`[data-check="${c.id}"]`)).toHaveCount(c.group === 'Money' ? 0 : 1)
-    await expect(sys.locator('[data-check="keyspend"] .d-w')).toHaveText('Not proven · no result')
-    await expect(page.locator('.d-srcc').first()).toContainText('+ 2 money checks under Google Cloud')
-
-    await page.getByRole('button', { name: /^Codex/ }).click()
-    await expect(page.locator('.d-main')).toContainText('not collected yet')
-    await page.getByRole('button', { name: /^Claude/ }).click()
-    await expect(page.locator('.d-main')).toContainText('5-hour window')
-    await expect(page.locator('.d-main')).toContainText('Runs out Tue')
+    // two overview cards; the old Systems / Claude / Codex cards are gone
+    await expect(page.locator('.d-srcc .d-n')).toHaveText(['Google Cloud', 'Subscriptions'])
+    await expect(page.locator('[data-systems]')).toHaveCount(0)
+    await expect(page.locator('[data-money-checks]')).toHaveCount(0)
+    await expect(page.locator('.d-main')).not.toContainText('Systems')
+    await expect(page.locator('.d-main')).not.toContainText('Money checks')
+    // every check still has its one home: Status in Daily report (known-good control for the removal)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
+    await page.locator('.d-status').getByRole('button', { name: /Worked \(\d+\)/ }).click()
+    for (const c of CHECKS) await expect(page.locator(`.d-status [data-check="${c.id}"]`)).toHaveCount(1)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
 
     await page.getByRole('button', { name: /^Google Cloud/ }).click()
     await expect(page.locator('.d-credits')).toHaveText('Credits ~€585 · unverified (baseline 37 days old)')
-    // every check appears somewhere in Monitoring: the money ones here
-    for (const c of CHECKS.filter((c) => c.group === 'Money')) {
-      await expect(page.locator(`[data-money-checks] [data-check="${c.id}"]`)).toHaveCount(1)
-    }
-    await expect(page.locator('[data-key]').first()).toContainText('no data')
+    await expect(page.getByRole('tab', { name: 'Week' })).toBeVisible() // the cloud card keeps its own toggle
+    await expect(page.locator('[data-key="key-search"]')).toContainText('no billing data')
     const n0 = await startCount(page)
     await page.getByRole('button', { name: /Account budget €400\/month/ }).click()
     const input = page.getByLabel('New monthly budget in euros')
@@ -473,20 +508,246 @@ test.describe('monitoring, stats, reflection', () => {
     expect(lines().at(-1)).toMatchObject({ kind: 'budget', target: 'account', remove: true })
   })
 
-  test('Stats: readings show; what is not collected says so, never 0', async ({ page }) => {
+  test('320px: the Monitoring overview cards stack, and no card text breaks mid-word', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await openDay(page)
+    await collapseSidebar(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    const tiles = page.locator('.d-srcc')
+    await expect(tiles).toHaveCount(2)
+    for (const i of [0, 1]) expect((await rectOf(tiles.nth(i), 'card')).width).toBeGreaterThanOrEqual(240)
+    const title = tiles.filter({ hasText: 'Subscriptions' }).locator('.d-n')
+    expect(await title.evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length })).toBe(1)
+    await expect(tiles.first().locator('.d-v')).toHaveText('€70 / €400')
+    expect(await tiles.first().locator('.d-v').evaluate((e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getClientRects().length })).toBe(1)
+  })
+
+  test('Subscriptions overview: one card, one line per quota; a quota that was not collected says so', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    const tile = page.locator('.d-srcc').filter({ hasText: 'Subscriptions' })
+    const day = (iso: string) => page.evaluate((x) => new Date(x).toLocaleDateString('en-GB', { weekday: 'short' }), iso)
+    await expect(tile.locator('[data-sub="claude"]')).toHaveText(`Claude 60% left · resets ${await day('2026-10-08T00:00:00Z')}`)
+    await expect(tile.locator('[data-sub="codex"]')).toHaveText(`Codex 72% left · resets ${await day('2026-10-08T12:00:00Z')}`)
+    await patchRun(page, (b) => {
+      const codex = b.report?.monitoring?.quotas?.find((q) => q.id === 'codex')
+      if (codex) codex.collected = false
+    })
+    await page.reload()
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await expect(page.locator('[data-sub="codex"]')).toHaveText('Codex not collected yet')
+    await expect(page.locator('[data-sub="claude"]')).toContainText('Claude 60% left')
+  })
+
+  test('Subscriptions detail: ONE chart with both quotas, a dashed projection to each reset, each reset marked and named, no Week/Month toggle', async ({ page }) => {
+    // resets 3.5 days apart, so the two markers stay two (close ones merge: next test)
+    await patchRun(page, (b) => {
+      const codex = b.report?.monitoring?.quotas?.find((q) => q.id === 'codex')
+      if (codex) codex.resets_at = '2026-10-11T12:00:00Z'
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
+    await expect(page.getByRole('tab', { name: 'Week' })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'Month' })).toHaveCount(0)
+    await expect(page.locator('[data-subs-chart]')).toHaveCount(1)
+    await expect(page.locator('.d-main svg[role=img]')).toHaveCount(1)
+    const svg = page.locator('[data-subs-chart]')
+    for (const id of ['claude', 'codex']) {
+      // a solid line through the readings, a dashed projection after it
+      const line = svg.locator(`[data-line="${id}"]`)
+      await expect(line).toHaveCount(1)
+      expect(await line.getAttribute('stroke-dasharray')).toBeNull()
+      expect((await line.getAttribute('points'))?.trim().split(/\s+/).length).toBe(3) // three runs this week
+      const proj = svg.locator(`[data-proj="${id}"]`)
+      await expect(proj).toHaveCount(1)
+      expect(await proj.getAttribute('stroke-dasharray')).toBeTruthy()
+      // the projection starts where the solid line ends
+      const lp = (await line.getAttribute('points'))?.trim().split(/\s+/) ?? []
+      const pp = (await proj.getAttribute('points'))?.trim().split(/\s+/) ?? []
+      expect(pp[0]).toBe(lp.at(-1))
+      // a reset marker, named, with its day
+      const marker = svg.locator(`[data-reset="${id}"]`)
+      await expect(marker).toHaveCount(1)
+      await expect(marker.locator('line')).toHaveAttribute('stroke-dasharray', /.+/)
+      const when = await page.evaluate((x) => new Date(x).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''), id === 'claude' ? '2026-10-08T00:00:00Z' : '2026-10-11T12:00:00Z')
+      await expect(marker.locator('text')).toHaveText(`${id === 'claude' ? 'Claude' : 'Codex'} resets ${when}`)
+      // labelled at its end, so colour is not the only cue
+      await expect(svg.locator(`[data-endlabel="${id}"]`)).toContainText(id === 'claude' ? 'Claude' : 'Codex')
+    }
+    // the projection reaches its own reset line (claude's before codex's: the two markers are 12h apart)
+    const x = async (sel: string, attr = 'x1') => Number(await svg.locator(sel).getAttribute(attr))
+    const claudeReset = await x('[data-reset="claude"] line')
+    const codexReset = await x('[data-reset="codex"] line')
+    expect(claudeReset).toBeLessThan(codexReset)
+    const last = async (id: string) => Number(((await svg.locator(`[data-proj="${id}"]`).getAttribute('points')) ?? '').trim().split(/\s+/).at(-1)?.split(',')[0])
+    expect(Math.abs((await last('claude')) - claudeReset)).toBeLessThan(1)
+    expect(Math.abs((await last('codex')) - codexReset)).toBeLessThan(1)
+    // two distinguishable colours, none of them a status colour
+    const stroke = (id: string) => svg.locator(`[data-line="${id}"]`).getAttribute('stroke')
+    const [c1, c2] = [await stroke('claude'), await stroke('codex')]
+    expect(c1).not.toBe(c2)
+    for (const c of [c1, c2]) expect(['#16a34a', '#d97706', '#dc2626', '#2563eb']).not.toContain(c?.toLowerCase())
+    // a legend names both; Claude's 5-hour window is text below the chart
+    const legend = page.locator('[data-subs-legend]')
+    await expect(legend).toContainText('Claude')
+    await expect(legend).toContainText('Codex')
+    await expect(legend).toContainText('Projection')
+    await expect(page.locator('[data-window5h]')).toHaveText(/^Claude 5-hour window: 35% left · resets \d{2}:\d{2}$/)
+    expect(await page.locator('[data-window5h]').evaluate((e) => e.compareDocumentPosition(document.querySelector('[data-subs-chart]') as Element) & Node.DOCUMENT_POSITION_PRECEDING)).toBeTruthy()
+    // nothing in the old per-quota detail is left
+    await expect(page.locator('.d-qbar')).toHaveCount(0)
+  })
+
+  test('Subscriptions: resets within a day of each other share ONE marker with one label', async ({ page }) => {
+    await openDay(page) // seed: claude resets Thu 00:00Z, codex 12:00Z
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
+    const svg = page.locator('[data-subs-chart]')
+    await expect(svg.locator('[data-reset]')).toHaveCount(1)
+    await expect(svg.locator('[data-reset] text')).toHaveCount(1)
+    await expect(svg.locator('[data-reset] text')).toHaveText(/^Claude and Codex reset \w{3} \d{1,2} \w{3}$/)
+    await expect(svg.locator('[data-proj="claude"]')).toHaveCount(1)
+    await expect(svg.locator('[data-proj="codex"]')).toHaveCount(1)
+  })
+
+  test('Subscriptions: a pace that runs out before the reset hits 0 and the verdict says so; a slow pace ends above 0 at its reset', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (!b.quotaHistory) return
+      b.quotaHistory.claude = [
+        { at: '2026-10-02T05:10:00Z', remaining_pct: 90 },
+        { at: '2026-10-04T05:37:45Z', remaining_pct: 30 },
+      ]
+      const claude = b.report?.monitoring?.quotas?.find((q) => q.id === 'claude')
+      if (claude) claude.remaining_pct = 30
+      b.quotaHistory.codex = [
+        { at: '2026-10-02T05:10:00Z', remaining_pct: 94 },
+        { at: '2026-10-04T05:37:45Z', remaining_pct: 90 },
+      ]
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
+    const svg = page.locator('[data-subs-chart]')
+    const pts = async (id: string) =>
+      (((await svg.locator(`[data-proj="${id}"]`).getAttribute('points')) ?? '').trim().split(/\s+/).map((p) => p.split(',').map(Number))) as [number, number][]
+    const y0 = Number(await svg.locator('line[data-y="0"]').getAttribute('y1'))
+    const claude = await pts('claude')
+    const codex = await pts('codex')
+    const claudeEnd = must(claude.at(-1), 'claude projection end')
+    const codexEnd = must(codex.at(-1), 'codex projection end')
+    const claudeReset = Number(await svg.locator('[data-reset~="claude"] line').getAttribute('x1'))
+    // claude: down to 0 before the reset, then flat at 0 to the reset line (clamped, never below 0)
+    expect(claude.length).toBeGreaterThanOrEqual(3)
+    expect(Math.abs(claudeEnd[1] - y0)).toBeLessThan(0.5)
+    for (let i = 1; i < claude.length; i++) expect(claude[i][1]).toBeGreaterThanOrEqual(claude[i - 1][1] - 0.5) // never rises
+    for (const [, y] of claude) expect(y).toBeLessThanOrEqual(y0 + 0.5)
+    expect(claude[1][0]).toBeLessThan(claudeReset - 5)
+    expect(Math.abs(claudeEnd[0] - claudeReset)).toBeLessThan(1)
+    await expect(page.locator('[data-verdict="claude"]')).toContainText('runs out')
+    await expect(page.locator('[data-verdict="claude"]')).toHaveClass(/need/)
+    // codex: slow, ends above 0
+    expect(codexEnd[1]).toBeGreaterThan(codex[0][1]) // still falling
+    expect(y0 - codexEnd[1]).toBeGreaterThan(20)
+    await expect(page.locator('[data-verdict="codex"]')).not.toContainText('runs out')
+  })
+
+  test('Subscriptions: a quota with a single reading draws no projection and says why', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.quotaHistory) b.quotaHistory.codex = [{ at: '2026-10-04T05:37:45Z', remaining_pct: 72 }]
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.locator('.d-srcc').filter({ hasText: 'Subscriptions' }).click()
+    const svg = page.locator('[data-subs-chart]')
+    await expect(svg.locator('[data-proj="codex"]')).toHaveCount(0)
+    await expect(svg.locator('[data-reset~="codex"]')).toHaveCount(1) // the reset is still marked
+    await expect(page.locator('[data-verdict="codex"]')).toContainText('one reading')
+  })
+
+  test('keys with no data say why when the report says so, else "not collected yet"', async ({ page }) => {
+    await patchRun(page, (b) => {
+      const keys = b.report?.monitoring?.cloud?.keys
+      if (!keys) return
+      const search = keys.find((k) => k.id === 'key-search')
+      if (search) Object.assign(search, { why: 'no billing data: unused, or not in the export' })
+      const t = keys.find((k) => k.id === 'key-translate')
+      if (t) {
+        t.collected = false
+        delete t.spent_eur
+      }
+    })
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
+    await page.getByRole('button', { name: /^Google Cloud/ }).click()
+    await expect(page.locator('[data-key="key-search"]')).toContainText('no billing data: unused, or not in the export')
+    await expect(page.locator('[data-key="key-search"]')).not.toContainText('not collected yet')
+    await expect(page.locator('[data-key="key-translate"]')).toContainText('not collected yet')
+    await expect(page.locator('[data-key="key-gemini"]')).toContainText('€16 of €60')
+  })
+
+  test('Stats: the funnel shows the Pipeline columns with real zeros; what is not collected says so', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const funnel = page.locator('[data-funnel]')
+    const rows = funnel.locator('.d-fr')
+    await expect(rows.locator('span:first-child')).toHaveText(['Contacted', 'In conversation', 'Qualified', 'Committed', 'Active'])
+    await expect(rows.locator('.d-fn')).toHaveText(['4', '2', '0', '0', '0'])
+    await expect(funnel).not.toContainText('not collected yet') // a zero is a number, not a gap
+    // known-bad control: the same funnel marked not collected shows labels only, never the numbers
+    await patchRun(page, (b) => {
+      if (b.report?.stats?.funnel) b.report.stats.funnel.collected = false
+    })
+    await page.reload()
+    await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    await expect(page.locator('[data-funnel]')).toContainText('not collected yet')
+    await expect(page.locator('[data-funnel] .d-fn')).toHaveText(['—', '—', '—', '—', '—'])
+    await expect(page.locator('[data-funnel] .d-fb')).toHaveCount(0)
+  })
+
+  test('Stats: readings show; a series the run did not collect says so; order is funnel, lines, readings', async ({ page }) => {
+    await patchRun(page, withUncollectedSeries)
     await openDay(page)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     await expect(page.locator('[data-reading="mentions"]')).toContainText('1')
-    await expect(page.locator('[data-funnel]')).toContainText('not collected yet')
-    await expect(page.locator('[data-funnel] .d-fb')).toHaveCount(0) // no sample bars
-    await expect(page.locator('[data-funnel]')).not.toContainText(/\b0\b/)
-    // funnel first, then the lines, then the readings
+    await expect(page.locator('[data-reading="unconfirmed"]')).toContainText('3')
     const order = await page.locator('[data-funnel], [data-series], [data-reading]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.funnel !== undefined ? 'funnel' : (e as HTMLElement).dataset.series ? 'series' : 'reading'))
     expect(order[0]).toBe('funnel')
     expect(order.lastIndexOf('series')).toBeLessThan(order.indexOf('reading'))
     await expect(page.locator('[data-series="reachouts"]')).toContainText('not collected yet')
     await expect(page.locator('[data-series="reachouts"]')).toContainText('target 10 · proposed')
     await expect(page.locator('[data-series="events"] svg')).toBeVisible()
+  })
+
+  test('Stats: Help requests and Mentions open their note and scroll to it; a tile without a note stays plain', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
+    const help = page.locator('[data-reading="help_requests"]')
+    const mentions = page.locator('[data-reading="mentions"]')
+    const plain = page.locator('[data-reading="unconfirmed"]')
+    expect(await help.evaluate((e) => e.tagName)).toBe('BUTTON')
+    expect(await mentions.evaluate((e) => e.tagName)).toBe('BUTTON')
+    expect(await plain.evaluate((e) => e.tagName)).not.toBe('BUTTON') // known-bad control: no note, no button
+    const note = page.locator('[data-note="chat-digest"]')
+    await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'false')
+    await expect(note.locator('.d-notebody')).toHaveCount(0)
+    await help.click()
+    await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
+    await expect(note.locator('.d-notebody')).toContainText('Person E asked how to join from a phone')
+    // scrolled to: the note's title is below the sticky header and above the bottom bar
+    await expect.poll(async () => {
+      const t = await rectOf(note.getByRole('button').first(), 'note title')
+      const top = await rectOf(page.locator('.d-topbar'), 'header')
+      const bar = await rectOf(page.locator('[data-bottom-bar]'), 'bar')
+      return t.y >= top.y + top.height - 1 && t.y + t.height <= bar.y + 1
+    }).toBe(true)
+    // Mentions opens the same note and keeps it open
+    await mentions.click()
+    await expect(note.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
+    // the other notes are untouched
+    await expect(page.locator('[data-note="shipped"] .d-notebody')).toHaveCount(0)
   })
 
   test('Reflection: a position opens the story box; keys 1 2 3 rate and cycle; Remove position undoes', async ({ page }) => {
@@ -528,7 +789,8 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('.d-subrow .d-runbadge')).toHaveText('Weekly review')
     await page.locator('.d-status button[data-check]').first().waitFor()
     const { view } = await runView(page)
-    const i = view.issues.findIndex((x) => x.fp === 'weekly:reach-target')
+    const i = yoursOf({ view }).findIndex((x) => x.fp === 'weekly:reach-target')
+    expect(i).toBeGreaterThanOrEqual(0)
     for (let k = 0; k < i; k++) await nextBtn(page).click()
     await expect(card(page).locator('.d-topic .d-runbadge')).toHaveText('Weekly review')
     await page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' }).click()
@@ -541,7 +803,7 @@ test.describe('monitoring, stats, reflection', () => {
     await expect(page.locator('.d-subrow .d-runbadge')).toHaveText('Monthly review')
     await page.locator('.d-status button[data-check]').first().waitFor()
     const { view } = await runView(page)
-    const i = view.issues.findIndex((x) => x.fp === 'monthly:archive-stale-specs')
+    const i = yoursOf({ view }).findIndex((x) => x.fp === 'monthly:archive-stale-specs')
     expect(i).toBeGreaterThanOrEqual(0)
     for (let k = 0; k < i; k++) await nextBtn(page).click()
     await expect(card(page).locator('.d-topic .d-runbadge')).toHaveText('Monthly review')
@@ -552,43 +814,44 @@ test.describe('monitoring, stats, reflection', () => {
 })
 
 test.describe('review round 1', () => {
-  test('an empty Ask is not an answer: not resolved, and Start fixing sends you back to it', async ({ page }) => {
+  test('an empty custom answer is not an answer: not resolved, and Start fixing sends you back to it', async ({ page }) => {
     await openDay(page)
+    const n = yoursOf(await runView(page)).length
     await nextBtn(page).click()
     await nextBtn(page).click()
-    // Next marked the two cards left behind as resolved; the empty Ask must not add a third
-    await expect(page.locator('[data-progress]')).toHaveText(/^2 of/)
-    await card(page).locator('.d-optrow').filter({ hasText: 'Ask a question…' }).click()
-    await expect(card(page).getByRole('textbox', { name: 'Your question' })).toBeFocused()
+    // Next marked the two cards left behind as resolved; the empty box must not add a third
+    await expect(page.locator('[data-progress]')).toHaveText(new RegExp(`^2 of ${n}`))
+    await ownRow(page).click()
+    await expect(ownBox(page)).toBeFocused()
     await expect(page.locator('[data-progress]')).toHaveText(/^2 of/)
     await prevBtn(page).click()
     await prevBtn(page).click()
     await expect(page.locator('.d-bpos')).toHaveText(/^1 of/)
     await startBtn(page).click()
-    await expect(page.locator('.d-toast')).toHaveText('Write your question first, or pick another answer')
+    await expect(page.locator('.d-toast')).toHaveText('Write your answer or question first, or pick another answer')
     await expect(page.locator('.d-bpos')).toHaveText(/^3 of/)
     expect(fileText()).toBe('')
     // with text it counts once saved
-    await card(page).getByRole('textbox', { name: 'Your question' }).fill('Which guests hit it?')
+    await ownBox(page).fill('Which guests hit it?')
     await cardTitle(page).click()
     await expect.poll(() => lines().length).toBe(1)
     await expect(page.locator('[data-progress]')).toHaveText(/^3 of/)
   })
 
-  test('paging past an issue answered with Ask is not trapped in its text box; ↑ ↓ on a radio change nothing', async ({ page }) => {
+  test('paging past an issue answered with your own text is not trapped in its text box; ↑ ↓ on a radio change nothing', async ({ page }) => {
     await openDay(page)
-    const { view } = await runView(page)
-    await card(page).locator('.d-optrow').filter({ hasText: 'Ask a question…' }).click()
-    await card(page).getByRole('textbox', { name: 'Your question' }).fill('Is rollback safe?')
+    const yours = yoursOf(await runView(page))
+    await ownRow(page).click()
+    await ownBox(page).fill('Is the draft safe to send?')
     await cardTitle(page).click()
     await expect.poll(() => lines().length).toBe(1)
     await page.keyboard.press('ArrowRight')
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
     await page.keyboard.press('ArrowLeft')
-    await expect(cardTitle(page)).toHaveText(view.issues[0].title)
-    await expect(card(page).getByRole('textbox', { name: 'Your question' })).not.toBeFocused()
+    await expect(cardTitle(page)).toHaveText(yours[0].title)
+    await expect(ownBox(page)).not.toBeFocused()
     await page.keyboard.press('ArrowRight')
-    await expect(cardTitle(page)).toHaveText(view.issues[1].title)
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
 
     const before = fileText()
     const radio = card(page).locator('.d-opt').nth(0).locator('input')
@@ -628,7 +891,7 @@ test.describe('review round 1', () => {
       join(DAY_E2E_DIR, 'reports', `${NEWER_ID}.json`),
       JSON.stringify(synthReport({ pass_id: NEWER_ID, started_at: '2026-10-05T05:00:00Z', finished_at: '2026-10-05T05:30:00Z' })),
     )
-    await card(page).locator('.d-optrow').filter({ hasText: 'Roll back now' }).click()
+    await card(page).locator('.d-optrow').filter({ hasText: 'Agent drafts, you send' }).click()
     await expect(page.locator('[data-newer]')).toContainText('A newer run is here.')
     expect(fileText()).toBe('')
     await page.locator('[data-newer]').getByRole('button', { name: 'Open it' }).click()
@@ -674,6 +937,7 @@ test.describe('review round 2', () => {
 
   test('phone: tabs on one row, folds are ≥ 40px tall, chart x labels never overlap, y ticks are whole numbers', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 760 })
+    await patchRun(page, withUncollectedSeries)
     await openDay(page)
     await collapseSidebar(page)
     const tops = await page.locator('.d-tabs [role=tab]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)))
@@ -850,7 +1114,7 @@ test.describe('Start fixing opens a terminal (Phase C)', () => {
     const h0 = (await rectOf(page.locator('[data-bottom-bar]'), 'bar')).height
     const at = '2026-10-05T06:12:00Z'
     await sentState(page, at, 0)
-    await pick(page, 'Roll back now') // any write re-reads the run, now patched
+    await pick(page, 'Agent drafts, you send') // any write re-reads the run, now patched
     await expect(page.locator('[data-launch="sent"] .d-ts')).toHaveText(`Sent ${await clockOf(page, at)}`)
     await expect(page.locator('[data-launch="sent"] .d-tl')).toBeHidden()
     expect((await rectOf(page.locator('[data-bottom-bar]'), 'bar')).height).toBeLessThanOrEqual(h0 + 0.5)
@@ -904,7 +1168,7 @@ test.describe('notes ("From this run")', () => {
     await page.locator('.d-tabs').getByRole('tab', { name: 'Stats' }).click()
     const notes = page.locator('.d-notes')
     await expect(notes.locator('.d-h3')).toHaveText('From this run')
-    await expect(notes.locator('[data-note]')).toHaveCount(3)
+    await expect(notes.locator('[data-note]')).toHaveCount(4)
     const shipped = notes.locator('[data-note="shipped"]')
     const fold = shipped.getByRole('button')
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
@@ -950,6 +1214,338 @@ test.describe('notes ("From this run")', () => {
   })
 })
 
+test.describe('Phase D: one custom option', () => {
+  test('"Your answer or question…" replaces Ask and Other: one text box, written as own; a trailing ? makes it a question; it gets the next number key', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await expect(card(page).locator('.d-opt[data-option="own"]')).toHaveCount(1)
+    await expect(card(page).getByText('Ask a question…')).toHaveCount(0)
+    await expect(card(page).getByText('Other…', { exact: true })).toHaveCount(0)
+    await expect(ownRow(page)).toHaveCount(1)
+    await expect(card(page).locator('textarea')).toHaveCount(0)
+    // the own option takes the number after the last listed one
+    await expect(card(page).locator('.d-opt[data-option="own"] .d-key')).toHaveText(String(yours[0].options.length + 1))
+
+    await ownRow(page).click()
+    await expect(card(page).locator('textarea')).toHaveCount(1)
+    await expect(ownBox(page)).toHaveAttribute('placeholder', 'Ending with ? makes it a question the agent answers first')
+    await ownBox(page).fill('Use the Tuesday template.')
+    await cardTitle(page).click()
+    await expect.poll(() => lines().length).toBe(1)
+    expect(lines()[0]).toMatchObject({ kind: 'option', target: yours[0].fp, option_id: 'own', text: 'Use the Tuesday template.' })
+    expect(lines()[0].is_question).toBeFalsy()
+    await ownBox(page).fill('Who asked?')
+    await cardTitle(page).click()
+    await expect.poll(() => lines().length).toBe(2)
+    expect(lines().at(-1)).toMatchObject({ option_id: 'own', text: 'Who asked?', is_question: true })
+    expect(lines().filter((d) => d.option_id === 'ask' || d.option_id === 'other')).toEqual([])
+  })
+
+  test('the number key for the own option focuses its box, and digits typed there are text, not picks', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await cardTitle(page).click()
+    await page.keyboard.press(String(yours[0].options.length + 1))
+    await expect(ownBox(page)).toBeFocused()
+    await page.keyboard.type('Is 2 enough?')
+    await expect(ownBox(page)).toHaveValue('Is 2 enough?')
+    await cardTitle(page).click()
+    await expect.poll(() => lines().length).toBe(1)
+    expect(lines()[0]).toMatchObject({ option_id: 'own', text: 'Is 2 enough?', is_question: true })
+  })
+
+  test('a read-only old run that has an ask / other decision still shows its text', async ({ page }) => {
+    await openDay(page)
+    const line = (target: string, option_id: string, text: string, at: string) =>
+      JSON.stringify({ kind: 'option', target, run_id: EARLIER_ID, at, option_id, text })
+    writeFileSync(
+      DECISIONS,
+      [
+        line('replies:event-post', 'ask', 'old question?', '2026-10-03T06:00:00Z'),
+        line('sentry:room-ended', 'other', 'old other answer', '2026-10-03T06:01:00Z'),
+      ].join('\n') + '\n',
+    )
+    await page.getByRole('button', { name: 'Previous run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
+    await expect(card(page).locator('[data-own-text]')).toHaveText('old question?')
+    await expect(card(page).locator('textarea')).toHaveCount(0)
+    expect(await card(page).locator('input[type=radio]:enabled').count()).toBe(0)
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await nextBtn(page).click()
+    await expect(cardTitle(page)).toHaveText('Some guests may be turned away on Tuesday')
+    await expect(card(page).locator('[data-own-text]')).toHaveText('old other answer')
+    // known-bad control: a card with no decision shows no own text
+    await prevBtn(page).click()
+    await expect(card(page).locator('[data-own-text]')).toHaveCount(0)
+  })
+})
+
+test.describe('Phase D: fit, risk and cause on the card', () => {
+  test('the recommended option says "Fit N%" or "Fit not rated", with one Main risk line under it; the head says whether the cause was checked', async ({ page }) => {
+    await openDay(page)
+    const rec = (label: string) => card(page).locator('.d-opt').filter({ hasText: label })
+    // 1 · no fit rated: never a made-up number; the cause was checked
+    await expect(cardTitle(page)).toHaveText('Replies waiting on your event post')
+    await expect(rec('I’ll reply today').locator('.d-rec')).toHaveText('Recommended · Fit not rated')
+    await expect(card(page).locator('.d-risk')).toHaveCount(0)
+    await expect(card(page).locator('.d-cause')).toHaveText('Cause checked')
+    // 2 · fit 95, no risk written
+    await nextBtn(page).click()
+    await expect(rec('I’ll read it today').locator('.d-rec')).toHaveText('Recommended · Fit 95%')
+    await expect(card(page).locator('.d-risk')).toHaveCount(0)
+    await expect(card(page).locator('.d-cause')).toHaveText('Cause checked')
+    // the tag is neutral: neither the worked green nor the needs-you amber
+    const colours = await card(page).locator('.d-cause').evaluate((e) => {
+      const c = getComputedStyle(e)
+      return [c.color, c.backgroundColor, c.borderTopColor]
+    })
+    for (const c of colours) expect(['rgb(22, 163, 74)', 'rgb(22, 101, 52)', 'rgb(217, 119, 6)', 'rgb(146, 64, 14)', 'rgb(255, 251, 235)', 'rgb(240, 253, 244)']).not.toContain(c)
+    // 3 · fit 70
+    await nextBtn(page).click()
+    await expect(rec('Ship today').locator('.d-rec')).toHaveText('Recommended · Fit 70%')
+    await card(page).getByRole('button', { name: /More info/ }).click()
+    await expect(card(page).locator('.d-moreinfo dt')).not.toContainText(['Technical detail']) // this card was not rewritten
+    // 4 · fit 70, a main risk right under the recommended option, no cause tag (nothing was said about it)
+    await nextBtn(page).click()
+    await expect(cardTitle(page)).toHaveText('Do a practice run before the first pilot?')
+    const r = rec('One 45-min run with 4 people')
+    await expect(r.locator('.d-rec')).toHaveText('Recommended · Fit 70%')
+    await expect(r.locator('.d-risk')).toHaveText('Main risk: Four people’s time for a problem that may not exist.')
+    await expect(card(page).locator('.d-risk')).toHaveCount(1) // one line, only under the recommended option
+    await expect(card(page).locator('.d-cause')).toHaveCount(0)
+    // the fit is muted when not rated, plain when rated (known-bad control: both are not the same style)
+    await card(page).getByRole('button', { name: /More info/ }).click()
+    const dts = card(page).locator('.d-moreinfo dt')
+    await expect(dts).not.toContainText(['Checked']) // the duplicate "Checked" row is gone
+    await expect(dts.filter({ hasText: 'Technical detail' })).toHaveCount(1)
+    const tech = card(page).locator('.d-moreinfo [data-technical]')
+    await expect(tech).toContainText('Title')
+    await expect(tech).toContainText('Rehearse online before the first pilot?')
+    await expect(tech).toContainText('Point A')
+    await expect(tech).toContainText('No rehearsal planned.')
+    await expect(tech).toContainText('Obstacle')
+    await expect(tech).toContainText('A pilot lost to a bug voids the test.')
+    await expect(tech).toContainText('Point B')
+    await expect(tech).toContainText('First pilot runs cleanly.')
+  })
+
+  test('an agent card carries the same: Fit, Main risk, and "Cause suspected" when the cause is unverified', async ({ page }) => {
+    await openDay(page)
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await expect(cardTitle(page)).toHaveText('Database rules are live before review')
+    const rec = card(page).locator('.d-opt').filter({ hasText: 'Give to the agent' })
+    await expect(rec.locator('.d-rec')).toHaveText('Recommended · Fit 85%')
+    await expect(rec.locator('.d-risk')).toHaveText('Main risk: A rollback could drop the rules Tuesday’s event needs.')
+    await expect(card(page).locator('.d-cause')).toHaveText('Cause checked')
+    await nextBtn(page).click()
+    await expect(cardTitle(page)).toHaveText('Some guests may be turned away on Tuesday')
+    await expect(card(page).locator('.d-cause')).toHaveText('Cause suspected')
+    await expect(card(page).locator('.d-opt').filter({ hasText: 'Give to the agent' }).locator('.d-rec')).toHaveText('Recommended · Fit 75%')
+    // a synthesised card (no evidence field in the report) and an old-schema card show no made-up cause
+    await expect(card(page).locator('.d-rec')).toHaveCount(1)
+  })
+})
+
+test.describe('Phase D: Next accepts, Start fixing sends what you answered, the rest is still yours', () => {
+  test('Next accepts in the page only; the button counts exactly what is sent; "N still yours" jumps to the first unopened card', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    const base = agentOf(v).length
+    expect(base).toBeGreaterThan(0)
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
+
+    await nextBtn(page).click()
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
+    await nextBtn(page).click()
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
+    await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
+    // paging back and forth changes nothing and writes nothing (rule 5)
+    await prevBtn(page).click()
+    await prevBtn(page).click()
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
+    await page.waitForTimeout(300)
+    expect(fileText()).toBe('')
+
+    // the link jumps to the first card nobody opened: not the two that were accepted
+    await stillYours(page).click()
+    await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length}`)
+    await expect(cardTitle(page)).toHaveText(yours[2].title)
+
+    // sending writes exactly the counted set, with each card's own preselected answer
+    await startBtn(page).click()
+    await expect(page.locator('.d-toast')).toContainText('Couldn’t start a session in the terminal.')
+    const written = lines().filter((d) => d.kind === 'option')
+    expect(written.map((d) => d.target).sort()).toEqual([yours[0].fp, yours[1].fp, ...agentOf(v).map((i) => i.fp)].sort())
+    for (const d of written) {
+      const i = v.view.issues.find((x) => x.fp === d.target)
+      expect(d.option_id).toBe(i?.options[i.recommended_index].id)
+      expect(d.option_id).not.toBe('park')
+    }
+    // known-bad control: the two unopened cards were not sent
+    expect(written.map((d) => d.target)).not.toContain(yours[2].fp)
+    expect(written.map((d) => d.target)).not.toContain(yours[3].fp)
+    await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
+  })
+
+  test('clicking the answer that is already selected counts it (the last card has no Next); an explicit pick counts too', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await card(page).locator('.d-opt').filter({ hasText: 'I’ll reply today' }).locator('input').click()
+    await expect.poll(() => lines().length).toBe(1)
+    expect(lines()[0]).toMatchObject({ target: yours[0].fp, option_id: 'reply' })
+    await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
+    await nextBtn(page).click()
+    await card(page).locator('.d-optrow').filter({ hasText: 'Park: stop asking' }).click()
+    await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
+  })
+
+  test('an unsaved custom answer is counted and not "still yours"; an empty one is neither', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    const base = agentOf(v).length
+    await ownRow(page).click()
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
+    await ownBox(page).fill('A real answer')
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
+  })
+
+  for (const [width, height] of [[1440, 900], [375, 812], [320, 640]] as const) {
+    test(`the bar does not change height or overlap between its states at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height })
+      await openDay(page)
+      if (width < 900) await collapseSidebar(page)
+      const yours = yoursOf(await runView(page))
+      const bar = page.locator('[data-bottom-bar]')
+      const h0 = (await rectOf(bar, 'bar')).height
+      await expect(stillYours(page)).toBeVisible()
+      expect((await rectOf(stillYours(page), 'still yours')).height, 'hit area').toBeGreaterThanOrEqual(40)
+      // nothing in the bar overlaps: progress, still-yours link, Start fixing
+      const boxes = async () => {
+        const out: [string, { x: number; y: number; width: number; height: number }][] = []
+        for (const [n, l] of [['progress', page.locator('[data-progress]')], ['still', stillYours(page)], ['start', startBtn(page)]] as const) {
+          if (await l.count()) out.push([n, await rectOf(l.first(), n)])
+        }
+        return out
+      }
+      const bs = await boxes()
+      for (let i = 0; i < bs.length; i++) {
+        expect(bs[i][1].x + bs[i][1].width, `${bs[i][0]} inside the viewport`).toBeLessThanOrEqual(width + 0.5)
+        for (let j = i + 1; j < bs.length; j++) {
+          const [a, b] = [bs[i][1], bs[j][1]]
+          const overlap = a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+          expect(overlap, `${bs[i][0]} / ${bs[j][0]}`).toBe(false)
+        }
+      }
+      // accept every card: the link goes away, the bar keeps its height
+      for (let k = 0; k < yours.length - 1; k++) await nextBtn(page).click()
+      await card(page).locator('.d-opt').filter({ hasText: 'Recommended' }).locator('input').click() // the last card has no Next
+      await expect(stillYours(page)).toHaveCount(0)
+      expect(Math.abs((await rectOf(bar, 'bar')).height - h0)).toBeLessThan(0.5)
+      // and the full-width state with More info open does not move it either
+      await card(page).getByRole('button', { name: /More info/ }).click()
+      expect(Math.abs((await rectOf(bar, 'bar')).height - h0)).toBeLessThan(0.5)
+    })
+  }
+})
+
+test.describe('Phase D: agent work folded', () => {
+  test('one line above the card; Review walks the agent cards with the same card and keys; Back to yours returns', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    const agents = agentOf(v)
+    await expect(agentLine(page)).toHaveText(`${agents.length} things an agent can fix — they go with Start fixing · Review`)
+    // the line sits above the card; the pager walks only the founder's cards
+    expect((await rectOf(agentLine(page), 'agent line')).y + (await rectOf(agentLine(page), 'agent line')).height).toBeLessThanOrEqual((await rectOf(card(page), 'card')).y + 1)
+    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
+    await expect(agentPager(page)).toHaveCount(0)
+    await nextBtn(page).click()
+    await nextBtn(page).click()
+    await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
+
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${agents.length}`)
+    await expect(stillYours(page)).toHaveCount(0) // "Back to yours" is the way back; the count would mix sets
+    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${agents.length}`)
+    await expect(cardTitle(page)).toHaveText(agents[0].title)
+    await expect(agentLine(page)).toHaveCount(0)
+    await expect(page.locator('[data-progress]')).toHaveText(`0 of ${agents.length} resolved`)
+    await page.keyboard.press('ArrowRight')
+    await expect(agentPager(page)).toContainText(`Agent work · 2 of ${agents.length}`)
+    await expect(cardTitle(page)).toHaveText(agents[1].title)
+    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${agents.length} resolved`)
+    await page.keyboard.press('ArrowLeft')
+    await expect(cardTitle(page)).toHaveText(agents[0].title)
+
+    // the founder can change an agent card's answer: Park is option 3 on this card
+    await cardTitle(page).click()
+    await page.keyboard.press('3')
+    await expect.poll(() => lines().length).toBe(1)
+    expect(lines()[0]).toMatchObject({ kind: 'option', target: agents[0].fp, option_id: 'park' })
+    // a Park made on this run keeps the card in the pager (it shows Park selected); it is simply not sent
+    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${agents.length}`)
+    await expect(card(page).locator('.d-opt').nth(2).locator('input')).toBeChecked()
+    await expect(startBtn(page)).toHaveText(`Start fixing (${agents.length - 1 + 2})`) // the parked card is out; the two accepted founder cards are in
+    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${agents.length} resolved`)
+
+    await agentPager(page).getByRole('button', { name: 'Back to yours' }).click()
+    await expect(agentPager(page)).toHaveCount(0)
+    await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length}`) // where we left off
+    await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
+    await expect(agentLine(page)).toHaveText(`${agents.length} things an agent can fix — they go with Start fixing · Review`)
+  })
+
+  test('a check row in Status opens its agent card, and Back to yours leaves it', async ({ page }) => {
+    await openDay(page)
+    await page.locator('.d-status button[data-check="bk-c"]').click()
+    await expect(agentPager(page)).toBeVisible()
+    await expect(cardTitle(page)).toContainText('Backup · repo C')
+    await agentPager(page).getByRole('button', { name: 'Back to yours' }).click()
+    await expect(agentPager(page)).toHaveCount(0)
+  })
+
+  test('with no founder cards the pager opens on the agent work, with no way back', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.view) b.view.issues = b.view.issues.filter((i: ViewIssue) => isAgent(i))
+    })
+    await openDay(page)
+    const n = await page.evaluate(async (id) => ((await (await fetch(`/api/day/runs/${id}`)).json()).view.issues as ViewIssue[]).length, LATEST_ID)
+    await expect(agentPager(page)).toContainText(`Agent work · 1 of ${n}`)
+    await expect(page.locator('.d-bpos')).toHaveText(`1 of ${n}`)
+    await expect(agentPager(page).getByRole('button', { name: 'Back to yours' })).toHaveCount(0)
+    await expect(agentLine(page)).toHaveCount(0)
+    await expect(card(page)).toBeVisible()
+  })
+
+  test('with no agent work the line is hidden', async ({ page }) => {
+    await patchRun(page, (b) => {
+      if (b.view) b.view.issues = b.view.issues.filter((i: ViewIssue) => !isAgent(i))
+    })
+    await openDay(page)
+    await expect(card(page)).toBeVisible()
+    await expect(agentLine(page)).toHaveCount(0)
+    await expect(agentPager(page)).toHaveCount(0)
+  })
+
+  test('on a phone the line and the agent pager fit without horizontal scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await openDay(page)
+    await collapseSidebar(page)
+    const over = () => page.evaluate(() => (document.querySelector('.day-root') as HTMLElement).scrollWidth - (document.querySelector('.day-root') as HTMLElement).clientWidth)
+    expect(await over()).toBeLessThanOrEqual(0)
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await expect(agentPager(page)).toBeVisible()
+    expect(await over()).toBeLessThanOrEqual(0)
+    expect((await rectOf(agentPager(page).getByRole('button', { name: 'Back to yours' }), 'back')).height).toBeGreaterThanOrEqual(40)
+  })
+})
+
 test.describe('narrow widths', () => {
   for (const width of [375, 320]) {
     test(`no horizontal scroll inside the page at ${width}px; Status is a strip that opens`, async ({ page }) => {
@@ -980,8 +1576,8 @@ test.describe('narrow widths', () => {
       await page.setViewportSize({ width, height: 700 })
       await openDay(page)
       await collapseSidebar(page)
-      await card(page).locator('.d-optrow').filter({ hasText: 'Other…' }).click()
-      const box = card(page).getByRole('textbox', { name: 'Your answer' })
+      await ownRow(page).click()
+      const box = ownBox(page)
       await expect(box).toBeVisible()
       await page.evaluate(() => {
         const sc = document.querySelector('.day-root')?.parentElement

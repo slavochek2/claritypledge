@@ -1,117 +1,81 @@
-// P1399: Monitoring — overview cards (Systems, Google Cloud, each quota); the selected one shows
-// its detail below. A budget raise is a decision that joins Start fixing.
+// P1399: Monitoring — money and subscriptions only (every check lives in Daily report › Status).
+// Two overview cards (Google Cloud, Subscriptions); the selected one shows its detail below. A
+// budget raise is a decision that joins Start fixing.
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import type { DayCloud, DayQuota, DayReport, DayView } from '../../lib/day'
-import { Legend, LineChart } from './charts'
-import { CheckRow, Phrases } from './status'
+import { Legend, LineChart, SubscriptionsChart, SubscriptionsLegend } from './charts'
+import { projectQuota, resetLabel, type QuotaLine } from './quota'
+import { Phrases } from './status'
 
 interface Props {
   report: DayReport
   view: DayView
   readOnly: boolean
+  /** this week's readings per quota id, from the server */
+  quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
   /** resolves to an error message, or null when the raise was recorded */
   onRaise: (target: string, amount: number) => Promise<string | null>
   onUndoRaise: (target: string) => void
 }
 
-const checkStatusKnown = (s: string) => ['ok', 'problem', 'unproven', 'not-run', 'skipped'].includes(s)
-const isMoney = (g?: string) => (g ?? '').trim().toLowerCase() === 'money'
 const eur = (v: number) => `€${Math.round(v)}`
 /** A missing number is never shown as €0. */
 const eurOr = (v: number | undefined) => (typeof v === 'number' ? eur(v) : '—')
+const weekday = (iso?: string) => (iso && !Number.isNaN(Date.parse(iso)) ? new Date(iso).toLocaleDateString('en-GB', { weekday: 'short' }) : null)
 
 export function MonitoringTab(p: Props) {
-  const { report, view } = p
+  const { report } = p
   const quotas = report.monitoring?.quotas ?? []
   const cloud = report.monitoring?.cloud
-  const [src, setSrc] = useState<string>('systems')
+  const [src, setSrc] = useState<'gcloud' | 'subs'>('gcloud')
   const [per, setPer] = useState<'week' | 'month'>('week')
-
-  const sys = view.checks.filter((c) => !isMoney(c.group))
-  const nOk = sys.filter((c) => c.status === 'ok').length
-  const nProb = sys.filter((c) => c.status === 'problem').length
-  const nUnp = sys.filter((c) => c.status === 'unproven' || c.status === 'not-run' || !checkStatusKnown(c.status)).length
-  const nSkip = sys.filter((c) => c.status === 'skipped').length
-  const nMoney = view.checks.filter((c) => isMoney(c.group)).length
-  // Only the parts that need the founder are amber; "skipped" is neutral.
-  const parts: ReactNode[] = [
-    nProb ? <span className="need">{`${nProb} problem${nProb === 1 ? '' : 's'}`}</span> : null,
-    nUnp ? <span className="need">{`${nUnp} not proven`}</span> : null,
-    nSkip ? `${nSkip} skipped` : null,
-  ].filter(Boolean)
-  const sysSub = (
-    <>
-      {parts.length ? <Phrases items={parts} /> : 'nothing needs you'}
-      {nMoney > 0 && <span className="d-s2">{`+ ${nMoney} money check${nMoney === 1 ? '' : 's'} under Google Cloud`}</span>}
-    </>
-  )
-
-  const cards: { k: string; n: string; v: string; s: ReactNode }[] = [
-    { k: 'systems', n: 'Systems', v: `${nOk} of ${sys.length} worked`, s: sysSub },
-    cloud?.collected
-      ? {
-          k: 'gcloud',
-          n: 'Google Cloud',
-          v: `${eurOr(cloud.spent_month_eur)} / ${eurOr(cloud.budget_eur)}`,
-          s: cloud.credits ? (
-            <Phrases items={[`Credits ~${eur(cloud.credits.amount_eur)}`, cloud.credits.caveat?.split(' (')[0]]} />
-          ) : (
-            'this month'
-          ),
-        }
-      : { k: 'gcloud', n: 'Google Cloud', v: '—', s: 'not collected yet' },
-    ...quotas.map((q) =>
-      q.collected
-        ? {
-            k: `q:${q.id}`,
-            n: q.label,
-            v: typeof q.remaining_pct === 'number' ? `${q.remaining_pct}% left` : '—',
-            s: (
-              <span className={q.needs_attention ? 'need' : ''}>
-                <Phrases items={[q.verdict, q.window_5h && `5-hour window ${q.window_5h.remaining_pct}% left`]} />
-              </span>
-            ),
-          }
-        : { k: `q:${q.id}`, n: q.label, v: '—', s: 'not collected yet' },
-    ),
-  ]
-  const current = cards.find((c) => c.k === src) ?? cards[0]
-  const quota = quotas.find((q) => `q:${q.id}` === current.k)
 
   return (
     <>
       <div className="d-src">
-        {cards.map((c) => (
-          <button type="button" key={c.k} className="d-srcc" aria-pressed={current.k === c.k} onClick={() => setSrc(c.k)}>
-            <span className="d-n">{c.n}</span>
-            <span className="d-v">{c.v}</span>
-            <span className="d-s">{c.s}</span>
-          </button>
-        ))}
+        <button type="button" className="d-srcc" aria-pressed={src === 'gcloud'} onClick={() => setSrc('gcloud')}>
+          <span className="d-n">Google Cloud</span>
+          <span className="d-v">{cloud?.collected ? `${eurOr(cloud.spent_month_eur)} / ${eurOr(cloud.budget_eur)}` : '—'}</span>
+          <span className="d-s">
+            {cloud?.collected ? (
+              cloud.credits ? <Phrases items={[`Credits ~${eur(cloud.credits.amount_eur)}`, cloud.credits.caveat?.split(' (')[0]]} /> : 'this month'
+            ) : (
+              'not collected yet'
+            )}
+          </span>
+        </button>
+        <button type="button" className="d-srcc" aria-pressed={src === 'subs'} onClick={() => setSrc('subs')}>
+          <span className="d-n">Subscriptions</span>
+          {quotas.length === 0 && <span className="d-s">not collected yet</span>}
+          {quotas.map((q) => (
+            <span className="d-sub1" key={q.id} data-sub={q.id}>
+              {q.collected && typeof q.remaining_pct === 'number'
+                ? `${q.label} ${q.remaining_pct}% left${weekday(q.resets_at) ? ` · resets ${weekday(q.resets_at)}` : ''}`
+                : `${q.label} not collected yet`}
+            </span>
+          ))}
+        </button>
       </div>
-      {current.k === 'systems' ? (
-        <Systems view={view} />
+      {src === 'gcloud' ? (
+        <>
+          <div className="d-dhead">
+            <h2>Google Cloud</h2>
+            {cloud?.collected && <Segs per={per} onPer={setPer} />}
+          </div>
+          <Cloud cloud={cloud} per={per} {...p} />
+        </>
       ) : (
         <>
           <div className="d-dhead">
-            <h2>{current.n}</h2>
-            {(quota ? quota.collected : cloud?.collected) && <Segs per={per} onPer={setPer} />}
+            <h2>Subscriptions</h2>
           </div>
-          {current.k === 'gcloud' ? (
-            <>
-              <Cloud cloud={cloud} per={per} {...p} />
-              <MoneyChecks view={view} />
-            </>
-          ) : quota ? (
-            <Quota q={quota} per={per} />
-          ) : null}
+          <Subscriptions quotas={quotas} history={p.quotaHistory} runStartedAt={report.started_at} />
         </>
       )}
     </>
   )
 }
-
 
 function Segs({ per, onPer }: { per: 'week' | 'month'; onPer: (p: 'week' | 'month') => void }) {
   return (
@@ -122,52 +86,6 @@ function Segs({ per, onPer }: { per: 'week' | 'month'; onPer: (p: 'week' | 'mont
         </button>
       ))}
     </div>
-  )
-}
-
-function Systems({ view }: { view: DayView }) {
-  const sys = view.checks.filter((c) => !isMoney(c.group))
-  const groups: string[] = []
-  for (const c of sys) {
-    const g = c.group?.trim() || 'Other'
-    if (!groups.includes(g)) groups.push(g)
-  }
-  if (groups.includes('Other')) groups.push(groups.splice(groups.indexOf('Other'), 1)[0])
-  return (
-    <>
-      <div className="d-dhead">
-        <h2>Systems</h2>
-        <span className="d-sub">{sys.length} checks</span>
-      </div>
-      <div className="d-card" data-systems>
-        {groups.map((g) => (
-          <div className="d-sysg" key={g}>
-            <div className="d-sgl">{g}</div>
-            {sys
-              .filter((c) => (c.group?.trim() || 'Other') === g)
-              .map((c) => (
-                <CheckRow key={c.id} c={c} />
-              ))}
-          </div>
-        ))}
-      </div>
-    </>
-  )
-}
-
-/** The money checks Systems leaves out, so every check appears somewhere in Monitoring. */
-function MoneyChecks({ view }: { view: DayView }) {
-  const money = view.checks.filter((c) => isMoney(c.group))
-  if (!money.length) return null
-  return (
-    <>
-      <h3 className="d-h3">Money checks</h3>
-      <div className="d-card d-sysg" data-money-checks>
-        {money.map((c) => (
-          <CheckRow key={c.id} c={c} />
-        ))}
-      </div>
-    </>
   )
 }
 
@@ -243,18 +161,24 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
           <div className="d-card">
             {keys.map((k) => {
               const nod = !k.collected || typeof k.spent_eur !== 'number'
+              // the report may say why a key has no data (Phase D); else "not collected yet"
+              const why = (k as { why?: string }).why
               const r = nod || !k.budget_eur ? 0 : (k.spent_eur as number) / k.budget_eur
               const need = nod || r > 0.8
               return (
                 <div key={k.id} data-key={k.id}>
                   <button type="button" className="d-keyrow" aria-expanded={open === k.id} disabled={readOnly} onClick={() => toggle(k.id)}>
                     <span className="d-kn">{k.label}</span>
-                    <span className={`d-kv ${need ? 'need' : ''}`}>
-                      {nod ? 'no data' : `${eur(k.spent_eur as number)}${k.budget_eur !== undefined ? ` of ${eur(k.budget_eur)}` : ''}`}
-                    </span>
-                    <span className={`d-kbar ${need ? 'need' : ''}`}>
-                      <span style={{ width: `${Math.min(100, r * 100)}%` }} />
-                    </span>
+                    {nod ? (
+                      <span className="d-kwhy need">{why ?? 'not collected yet'}</span>
+                    ) : (
+                      <>
+                        <span className={`d-kv ${need ? 'need' : ''}`}>{`${eur(k.spent_eur as number)}${k.budget_eur !== undefined ? ` of ${eur(k.budget_eur)}` : ''}`}</span>
+                        <span className={`d-kbar ${need ? 'need' : ''}`}>
+                          <span style={{ width: `${Math.min(100, r * 100)}%` }} />
+                        </span>
+                      </>
+                    )}
                   </button>
                   {open === k.id && <Raise target={k.id} current={k.budget_eur} view={view} onRaise={onRaise} onUndoRaise={onUndoRaise} />}
                 </div>
@@ -340,84 +264,76 @@ function Raise({
   )
 }
 
-function Quota({ q, per }: { q: DayQuota; per: 'week' | 'month' }) {
-  if (!q.collected) {
+/** The readings of each collected quota this week; falls back to the run's own reading when the server sent no history. */
+function linesOf(quotas: DayQuota[], history: Props['quotaHistory'], runStartedAt: string): QuotaLine[] {
+  const out: QuotaLine[] = []
+  for (const q of quotas) {
+    const resetsAt = q.resets_at ? Date.parse(q.resets_at) : NaN
+    if (!q.collected || !Number.isFinite(resetsAt)) continue
+    let points = (history?.[q.id] ?? []).map((h) => ({ t: Date.parse(h.at), v: h.remaining_pct })).filter((x) => Number.isFinite(x.t))
+    if (!points.length && typeof q.remaining_pct === 'number' && Number.isFinite(Date.parse(runStartedAt))) points = [{ t: Date.parse(runStartedAt), v: q.remaining_pct }]
+    if (points.length) out.push({ id: q.id, label: q.label, resetsAt, points })
+  }
+  return out
+}
+
+function Subscriptions({ quotas, history, runStartedAt }: { quotas: DayQuota[]; history: Props['quotaHistory']; runStartedAt: string }) {
+  const lines = linesOf(quotas, history, runStartedAt)
+  const time = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null)
+  if (!lines.length) {
     return (
       <div className="d-card d-pad">
-        <b>{q.label} quota</b> <span className="d-prop">not collected yet</span>
+        <b>Subscriptions</b> <span className="d-prop">not collected yet</span>
       </div>
     )
   }
-  const time = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : null)
-  const week = q.week ?? []
-  let markerI = week.length - 1
-  if (q.resets_at) {
-    const wd = new Date(q.resets_at).toLocaleDateString('en-GB', { weekday: 'short' })
-    const idx = week.map((p) => p.x).lastIndexOf(wd)
-    if (idx >= 0) markerI = idx
+  const verdict = (l: QuotaLine) => {
+    if (l.points.length < 2) return { text: `${l.label}: one reading so far, no projection yet.`, need: false }
+    const pr = projectQuota(l)
+    if (!pr) return { text: `${l.label}: reset ${resetLabel(l.resetsAt)}.`, need: false }
+    if (pr.runsOutAt !== null) return { text: `${l.label} runs out ${resetLabel(pr.runsOutAt)}, before it resets ${resetLabel(l.resetsAt)}.`, need: true }
+    return { text: `${l.label}: ${Math.round(pr.atReset)}% left at the reset on ${resetLabel(l.resetsAt)}, at this pace.`, need: false }
   }
   return (
     <>
-      {q.window_5h && (
-        <div className="d-card d-pad d-win5">
-          <div className="d-ct">
-            <span>5-hour window</span>
-            <span>
-              {q.window_5h.remaining_pct}% left{time(q.window_5h.resets_at) ? ` · resets ${time(q.window_5h.resets_at)}` : ''}
-            </span>
-          </div>
-          <div className={`d-qbar ${q.window_5h.remaining_pct < 40 ? 'need' : ''}`}>
-            <span style={{ width: `${Math.max(0, Math.min(100, q.window_5h.remaining_pct))}%` }} />
-          </div>
+      <div className="d-card d-chart">
+        <div className="d-ct">
+          <span>% left this week</span>
         </div>
-      )}
-      {per === 'week' ? (
-        week.length > 0 ? (
-          <div className="d-card d-chart">
-            <div className="d-ct">
-              <span>Remaining this week</span>
-              <span>{q.verdict}</span>
-            </div>
-            <LineChart
-              label={`${q.label} remaining this week`}
-              xs={week.map((p) => p.x)}
-              series={[{ data: week.map((p) => p.remaining) }, { data: week.map((p) => p.projected), dash: true }]}
-              max={100}
-              fmt={(v) => `${v}%`}
-              marker={q.resets_at && week.length ? { i: markerI, label: 'Reset' } : undefined}
-            />
-            <Legend
-              items={[
-                { label: 'Remaining', kind: 'solid' },
-                { label: 'Projection', kind: 'dash' },
-              ]}
-            />
-          </div>
-        ) : (
-          <div className="d-card d-pad d-nc">Weekly history not collected yet</div>
-        )
-      ) : q.month?.length ? (
-        <div className="d-card d-chart">
-          <div className="d-ct">
-            <span>Left at each reset</span>
-            <span>{q.month_verdict}</span>
-          </div>
-          <LineChart
-            label={`${q.label} left at each reset`}
-            xs={q.month.map((p) => p.x)}
-            series={[{ data: q.month.map((p) => p.left_at_reset) }]}
-            max={100}
-            fmt={(v) => `${v}%`}
-          />
+        <SubscriptionsChart lines={lines} />
+        <SubscriptionsLegend lines={lines} />
+        <div className="d-verd">
+          {lines.map((l) => {
+            const v = verdict(l)
+            return (
+              <p key={l.id} data-verdict={l.id} className={v.need ? 'need' : ''}>
+                {v.text}
+              </p>
+            )
+          })}
+          {quotas
+            .filter((q) => !lines.some((l) => l.id === q.id))
+            .map((q) => (
+              <p key={q.id} data-verdict={q.id}>
+                {q.label}: not collected yet.
+              </p>
+            ))}
         </div>
-      ) : (
-        <div className="d-card d-pad d-nc">Monthly history not collected yet</div>
-      )}
-      {q.tip && (
-        <div className="d-tip">
-          <b>How to use less</b> {q.tip}
-        </div>
-      )}
+      </div>
+      {quotas
+        .filter((q) => q.collected && q.window_5h)
+        .map((q) => (
+          <div className="d-win5t" key={q.id} data-window5h>
+            {`${q.label} 5-hour window: ${q.window_5h?.remaining_pct}% left${time(q.window_5h?.resets_at) ? ` · resets ${time(q.window_5h?.resets_at)}` : ''}`}
+          </div>
+        ))}
+      {quotas
+        .filter((q) => q.collected && q.tip)
+        .map((q) => (
+          <div className="d-tip" key={q.id}>
+            <b>{q.label}: how to use less</b> {q.tip}
+          </div>
+        ))}
     </>
   )
 }

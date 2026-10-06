@@ -231,7 +231,8 @@ export function ContentPage({ currentWorktree }: ContentPageProps) {
       <br />
       <button
         onClick={() => { setLoading(true); fetchArticles(true) }}
-        style={{ marginTop: 16, padding: '6px 12px', background: 'var(--bg-hover)', border: 'none', borderRadius: '3px', cursor: 'pointer', color: 'var(--text-primary)' }}
+        className="kb-btn primary"
+        style={{ marginTop: 16 }}
       >
         Retry
       </button>
@@ -247,7 +248,7 @@ export function ContentPage({ currentWorktree }: ContentPageProps) {
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingBottom: 'var(--spacing-12)',
-          borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+          borderBottom: '1px solid var(--cp-line)',
         }}>
           <span style={{ fontSize: 'var(--font-size-14)', color: 'var(--text-secondary)' }}>
             Article Pipeline
@@ -255,14 +256,8 @@ export function ContentPage({ currentWorktree }: ContentPageProps) {
           <button
             onClick={() => { setLoading(true); fetchArticles(true) }}
             title="Refresh"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, background: 'none', border: 'none',
-              borderRadius: '4px', cursor: 'pointer', fontSize: 16,
-              color: 'var(--text-secondary)', transition: 'background 0.1s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            className="kb-icon"
+            style={{ fontSize: 16 }}
           >
             ↻
           </button>

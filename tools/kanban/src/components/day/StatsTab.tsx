@@ -1,24 +1,31 @@
 // P1399: Stats — the outreach funnel, weekly lines against targets, then readings. Anything the run
 // did not collect says "not collected yet"; it is never drawn as 0.
 
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import type { DayNote, DayStats } from '../../lib/day'
 import { Legend, LineChart } from './charts'
 
 const NotCollected = () => <span className="d-prop">not collected yet</span>
 
 export function StatsTab({ stats, notes }: { stats?: DayStats; notes?: DayNote[] }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  /** A reading tile that has a note opens it in "From this run" and scrolls there. */
+  const openNote = (id: string) => {
+    setOpen((o) => ({ ...o, [id]: true }))
+    // after the fold has rendered open
+    window.requestAnimationFrame(() => document.querySelector(`[data-note="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start' }))
+  }
+  const known = new Set((notes ?? []).map((n) => n.id))
   return (
     <>
-      <StatsBody stats={stats} />
-      <Notes notes={notes} />
+      <StatsBody stats={stats} noteIds={known} onOpenNote={openNote} />
+      <Notes notes={notes} open={open} setOpen={setOpen} />
     </>
   )
 }
 
 /** Detail one step away ("From this run"): one fold per note, plain text, nothing when absent. */
-function Notes({ notes }: { notes?: DayNote[] }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({})
+function Notes({ notes, open, setOpen }: { notes?: DayNote[]; open: Record<string, boolean>; setOpen: Dispatch<SetStateAction<Record<string, boolean>>> }) {
   if (!notes?.length) return null
   return (
     <section className="d-notes" aria-label="From this run">
@@ -42,7 +49,7 @@ function Notes({ notes }: { notes?: DayNote[] }) {
   )
 }
 
-function StatsBody({ stats }: { stats?: DayStats }) {
+function StatsBody({ stats, noteIds, onOpenNote }: { stats?: DayStats; noteIds: Set<string>; onOpenNote: (id: string) => void }) {
   if (!stats || (!stats.readings?.length && !stats.funnel && !stats.series?.length)) {
     return (
       <div className="d-card d-pad">
@@ -87,12 +94,27 @@ function StatsBody({ stats }: { stats?: DayStats }) {
       )}
       {!!stats.readings?.length && (
         <div className="d-grid d-rd d-mt12">
-          {stats.readings.map((r) => (
-            <div className="d-card d-pad" key={r.id} data-reading={r.id}>
-              <div className="d-sn">{r.label}</div>
-              {r.collected && typeof r.value === 'number' ? <div className="d-sv">{r.value}</div> : <div className="d-nc">not collected yet</div>}
-            </div>
-          ))}
+          {stats.readings.map((r) => {
+            const body = (
+              <>
+                <div className="d-sn">{r.label}</div>
+                {r.collected && typeof r.value === 'number' ? <div className="d-sv">{r.value}</div> : <div className="d-nc">not collected yet</div>}
+              </>
+            )
+            // a tile whose note exists is a button; anything else stays plain
+            return r.note && noteIds.has(r.note) ? (
+              <button type="button" className="d-card d-pad d-rbtn" key={r.id} data-reading={r.id} onClick={() => onOpenNote(r.note as string)}>
+                {body}
+                <span className="d-go" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ) : (
+              <div className="d-card d-pad" key={r.id} data-reading={r.id}>
+                {body}
+              </div>
+            )
+          })}
         </div>
       )}
     </>

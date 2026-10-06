@@ -126,9 +126,9 @@ from `scripts/day-cp-checks.tsv` where one fits; a finding about something no ch
 stranded spec, a stash) names the step it came from.
 
 **A finding only the founder can resolve is a question.** Give it its own options, the one you
-recommend, and how sure you are: `--option <id>="<label>"` (repeat), `--recommend <id>`,
-`--confidence 0-100`, `--why "<one line>"`. Never recommend `park` — only the founder parks.
-Every other finding gets no options; the board offers "Give to the agent" or "Park".
+recommend, and how it rates: `--option <id>="<label>"` (repeat), `--why "<one line>"`, and for the recommended option one line carrying all three ratings (`finding` refuses a recommendation without them): `--recommend <id> --fit <0-100> --risk "<main risk of the recommended option>" --evidence verified|unverified`.
+**Fit** is how likely the recommended option fixes the real cause without breaking something else (a number you can defend, never a default). **Risk** is the one most likely way it backfires, one line, at most 200 characters. **Evidence** is `verified` when the cause was checked against its source (the board says "Cause checked") and `unverified` when it is suspected ("Cause suspected").
+Never recommend `park` — only the founder parks. Every other finding gets no options; the board offers "Give to the agent" or "Park". (`--fit` replaces the old `--confidence`.)
 
 ---
 
@@ -1185,8 +1185,9 @@ STEP
 The counts are in the `cp.video` CHECK line. `READY FOR YOUR YES` (one or more) is a question only the
 founder can answer — record it as a finding, not a mid-run question: `--check cp.video --fault-key
 video:ready-for-yes --severity medium --title "Video summaries are written and checked, waiting for
-your yes" --option read="Read them on localhost first (feed, Read video summary)" --option
-publish="Publish them" --recommend read --confidence 80`, the ids and titles in the body. Never
+your yes" --option read="Read them on localhost first (feed, Read video summary)" --option publish="Publish them"
+--recommend read --fit 80 --risk "He may skim the summaries and publish text he has not really read" --evidence verified`
+(verified: the step itself wrote and checked the summaries), the ids and titles in the body. Never
 recommend `publish`: publishing is his call after reading, never a preselected default.
 **This step stops at the question — it never confirms or promotes.** On the yes, in the
 main session: `confirm <id> --approved-in-chat` for each, then one
@@ -1211,6 +1212,15 @@ the dispatcher records them.
 "$DAY_STEP" attest cp.health --evidence "N of 17 checks reported a status; M problems, each with a finding; not reported: ..."
 ```
 
+The outreach pipeline is counted by a script, not read by you. Run it **from the repo root** — it
+prints one line of counts (no names) from the board's Pipeline columns, and copy that line as the
+`pipeline:` line of the block below:
+
+```bash
+npx tsx tools/kanban/scripts/day-pipeline.ts
+# pipeline: contacted=N in-conversation=N qualified=N committed=N active=N   (or: pipeline: none)
+```
+
 End your reply with this block — the dispatcher reads it and records it (its Step 9d); nothing in
 it is printed for the founder. Leave a line out rather than guess it:
 
@@ -1226,6 +1236,7 @@ REPORT FOR THE DISPATCHER
   funnel_story_authors: <N> (<+change>)
   funnel_position_users: <N> (<+change>)
   funnel_agreements: <N> (<+change>)
+  pipeline: <the line day-pipeline.ts printed: contacted=N in-conversation=N qualified=N committed=N active=N, or none; leave the line out when the script did not run>
   events_per_week: <Wave 2's events_per_week= value as printed; leave the line out when it is unknown>
   people: <N recorded>
 ```
@@ -1332,7 +1343,7 @@ If git log is empty: "No commits since last /day." Reflect on non-code work from
 6. **If none of `## Next Steps`, `## Dos`, `## Don'ts` exist in the file, do NOT print an empty WHAT'S NEXT block.** Print instead:
    `WHAT'S NEXT: unavailable — docs/goals.md has no Next Steps/Dos/Don'ts sections (found: <list the ## headings that ARE there>). The parser and the doc have drifted.`
    An empty block reads as "nothing queued"; the two states must not look alike. Record it too:
-   `--check cp.goals --fault-key goals:unparseable --severity low`. Same signal the kanban Goals page returns as `structureNotFound` (`tools/kanban/server/api.ts`, `/api/goals-strategic`).
+   `--check cp.goals --fault-key goals:unparseable --severity low`.
 
 ```
 WHAT'S NEXT (from goals.md):
@@ -1386,8 +1397,9 @@ Note: stash message includes the branch it was created on — apply only if you 
 The question "Apply, drop, or continue?" is the founder's, so it is a finding with options (you run in
 a subagent and cannot wait, and since P1399 there is no question heading): `--check cp.branch
 --fault-key stash:present --severity low --title "Stashed changes are waiting" --option apply="Apply
-them on their branch" --option drop="Drop them" --option keep="Keep them for now" --recommend keep
---confidence 50`, the stash list in the body.
+them on their branch" --option drop="Drop them" --option keep="Keep them for now"
+--recommend keep --fit 50 --risk "A stash kept for months may hold work that is lost or no longer applies" --evidence unverified`
+(unverified: the list shows what is stashed, not whether it still matters), the stash list in the body.
 
 ---
 ### 5. Due Board — act on the dispatcher's verdict
@@ -1426,7 +1438,7 @@ the review's issues and its badge instead):
    resurfaces on the next `/day`.
 4. **Never-run rows are not auto-run** — the dispatcher marks those `never run`; offer only, as a
    finding (`--check cp.due --fault-key due:<weekly|monthly>-never-run --option run="Run it on the
-   next /day" --option later="Not now" --recommend run`).
+   next /day" --option later="Not now" --recommend run --fit 70 --risk "A review that has never run may open with a large backlog of proposals" --evidence verified`).
 5. **Inside `/day` the review asks nothing (P1399).** Both skills check for `$DAY_STEP`: when it is
    set, `/slava:maintain:monthly` records each proposed change, and `/slava:maintain:weekly` each
    process-debt close offer, as a finding with options tagged `--review monthly|weekly`, and the

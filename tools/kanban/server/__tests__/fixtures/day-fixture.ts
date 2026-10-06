@@ -39,18 +39,20 @@ export const ISSUES: DayIssue[] = [
     title: 'Database rules are live before review', first_seen: '2026-10-03',
     point_a: '2 rules are live but not on main.', obstacle: 'Not reviewed; Tuesday’s event needs them.', point_b: 'Live rules match reviewed code.',
     options: [agent('Agent can compare and merge before Tuesday.'), { id: 'rollback', label: 'Roll back now' }, park],
-    recommendation_confidence: 85, evidence: 'verified', evidence_text: '2 policies on live, 0 in migrations', source: 'Database access rules check',
+    recommendation_confidence: 85, risk: 'A rollback could drop the rules Tuesday’s event needs.', evidence: 'verified', evidence_text: '2 policies on live, 0 in migrations', source: 'Database access rules check',
   },
   {
-    fp: 'sentry:room-ended', topic: 'Events', deadline: '2026-10-06', title: '“Room has ended” error on the event page',
-    point_a: 'Seen 3 times yesterday.', obstacle: 'Cause unknown.', point_b: 'Guests join cleanly on Tuesday.',
-    options: [agent('It’s the page guests use Tuesday.'), park], recommendation_confidence: 75, evidence: 'unverified', source: 'Sentry',
+    fp: 'sentry:room-ended', topic: 'Events', deadline: '2026-10-06', title: 'Some guests may be turned away on Tuesday',
+    point_a: 'Three guests saw an error yesterday that said their room had ended.', obstacle: 'Nobody knows yet why the room closes early.', point_b: 'Everyone who comes on Tuesday gets in.',
+    options: [agent('It’s the page guests use Tuesday.'), park], recommendation_confidence: 75, risk: 'The fix may hide the error without curing it.', evidence: 'unverified', source: 'Sentry',
+    // the plain-language pass rewrote this card; the technical wording is one step away
+    technical: { title: '“Room has ended” error on the event page', point_a: 'Seen 3 times yesterday.', obstacle: 'Cause unknown.', point_b: 'Guests join cleanly on Tuesday.' },
   },
   {
     fp: 'replies:event-post', topic: 'Events', deadline: '2026-10-05', first_seen: '2026-10-02', title: 'Replies waiting on your event post',
     point_a: '2 questions about Tuesday.', obstacle: 'Only you can reply.', point_b: 'Both answered before Tuesday.',
     options: [{ id: 'reply', label: 'I’ll reply today', recommended: true, why: 'Asked 2 days ago.' }, { id: 'draft', label: 'Agent drafts, you send', agent: true }, park],
-    recommendation_confidence: 90, evidence: 'verified',
+    evidence: 'verified', // no fit rated: the page says "Fit not rated", never a made-up number
   },
   {
     fp: 'spec:letters-waiting', topic: 'Product', important: true, first_seen: '2026-08-28', title: `Ship community letters? ${SECRET}`,
@@ -65,10 +67,11 @@ export const ISSUES: DayIssue[] = [
     recommendation_confidence: 95, evidence: 'verified',
   },
   {
-    fp: 'question:rehearsal', topic: 'Question', important: true, title: 'Rehearse online before the first pilot?',
-    point_a: 'No rehearsal planned.', obstacle: 'A pilot lost to a bug voids the test.', point_b: 'First pilot runs cleanly.',
+    fp: 'question:rehearsal', topic: 'Question', important: true, title: 'Do a practice run before the first pilot?',
+    point_a: 'No practice run is planned.', obstacle: 'If a bug ruins the pilot, the test counts for nothing.', point_b: 'The first pilot runs without surprises.',
     options: [{ id: 'rehearse', label: 'One 45-min run with 4 people', recommended: true, why: 'Cheap way to catch session bugs.' }, { id: 'none', label: 'Let the first pilot be the rehearsal' }, park],
-    recommendation_confidence: 70, source: 'Sub-day question',
+    recommendation_confidence: 70, risk: 'Four people’s time for a problem that may not exist.', source: 'Sub-day question',
+    technical: { title: 'Rehearse online before the first pilot?', point_a: 'No rehearsal planned.', obstacle: 'A pilot lost to a bug voids the test.', point_b: 'First pilot runs cleanly.' },
   },
 ]
 
@@ -101,7 +104,13 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
           month_verdict: 'Ran out 1 of 4 weeks',
           tip: 'Most use is long review loops; run reviews on Sonnet.',
         },
-        { id: 'codex', label: 'Codex', collected: false },
+        {
+          id: 'codex', label: 'Codex', collected: true, remaining_pct: 72, resets_at: '2026-10-08T12:00:00Z', verdict: 'On pace',
+          week: [
+            { x: 'Thu', remaining: 100 }, { x: 'Fri', remaining: 94 }, { x: 'Sat', remaining: 85 }, { x: 'Sun', remaining: 72, projected: 72 },
+            { x: 'Mon', projected: 58 }, { x: 'Tue', projected: 44 }, { x: 'Wed', projected: 30 }, { x: 'Thu', projected: 18 },
+          ],
+        },
       ],
       cloud: {
         collected: true, budget_eur: 400, spent_week_eur: 19, spent_month_eur: 70, projected_month_eur: 95,
@@ -114,7 +123,7 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
           { id: 'key-transcribe', label: 'Transcription', collected: true, spent_eur: 34, budget_eur: 80 },
           { id: 'key-translate', label: 'Translation', collected: true, spent_eur: 5, budget_eur: 40 },
           { id: 'key-summaries', label: 'Summaries', collected: true, spent_eur: 19, budget_eur: 60 },
-          { id: 'key-search', label: 'Search', collected: false, budget_eur: 20 },
+          { id: 'key-search', label: 'Search', collected: false, budget_eur: 20, why: 'no billing data: unused, or not in the billing export' },
           { id: 'key-bot', label: 'Bot replies', collected: true, spent_eur: 28, budget_eur: 32 },
         ],
       },
@@ -122,15 +131,15 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
     stats: {
       readings: [
         { id: 'unconfirmed', label: 'Sign-ups not confirmed', collected: true, value: 3 },
-        { id: 'mentions', label: 'Mentions', collected: true, value: 1 },
-        { id: 'help', label: 'Help requests', collected: true, value: 5 },
+        { id: 'mentions', label: 'Mentions', collected: true, value: 1, note: 'chat-digest' },
+        { id: 'help_requests', label: 'Help requests', collected: true, value: 5, note: 'chat-digest' },
       ],
+      // the cp board's Pipeline columns, counted now; zeros are real until outreach starts
       funnel: {
-        collected: false, period: 'last 30 days',
-        steps: [{ label: 'Reach-outs' }, { label: 'Champion talks' }, { label: 'Qualified opportunities' }, { label: 'Pilot agreed' }, { label: 'Pilot event held' }],
+        collected: true, period: 'now',
+        steps: [{ label: 'Contacted', value: 4 }, { label: 'In conversation', value: 2 }, { label: 'Qualified', value: 0 }, { label: 'Committed', value: 0 }, { label: 'Active', value: 0 }],
       },
       series: [
-        { id: 'reachouts', label: 'Reach-outs per week', collected: false, target: 10, target_proposed: true, points: [] },
         {
           id: 'events', label: 'Events per week', collected: true, target: 1,
           points: [{ x: '7 Sep', value: 1 }, { x: '14 Sep', value: 0 }, { x: '21 Sep', value: 1 }, { x: '28 Sep', value: 1 }, { x: '5 Oct', value: 0 }],
@@ -144,6 +153,7 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
     ],
     notes: [
       { id: 'shipped', title: 'Shipped since the last run', body: 'Event page: room-ended message reworded.\nBoard: Day page phase A.' },
+      { id: 'chat-digest', title: 'Chat digest', body: 'Mentions: 1. Person D asked in the Tuesday group if there is a seat left. Suggested reply: “Yes, two seats; link below.”\nHelp requests: 5. Person E asked how to join from a phone (suggested reply: the join guide). Person F could not hear the host (suggested reply: check the audio settings; offer a 5-minute call).' },
       { id: 'next', title: 'What is next', body: '1. Review the two live database rules.\n2. Send the pilot invite draft.' },
       { id: 'week-measures', title: 'Weekly review: measurements', body: 'Reach-outs: 6 (target 10)\nChampion talks: 2', review: 'weekly' },
     ],
@@ -160,11 +170,24 @@ export function synthReport(over: Partial<DayReport> = {}): DayReport {
   }
 }
 
+function withQuotas(r: DayReport, claude: number, codex: number): DayReport {
+  const pct: Record<string, number> = { claude, codex }
+  for (const q of r.monitoring?.quotas ?? []) if (q.id in pct) q.remaining_pct = pct[q.id]
+  return r
+}
+
 /** An earlier, smaller run for the day switcher. */
 export function synthEarlier(): DayReport {
   const r = synthReport({ pass_id: '2026-10-03T05-05-00Z', started_at: '2026-10-03T05:05:00Z', finished_at: '2026-10-03T05:40:00Z', unpushed_commits: 9 })
   r.issues = r.issues.slice(0, 3)
-  return r
+  return withQuotas(r, 81, 85)
+}
+
+/** The run before that, still inside the subscriptions' week, so the history has three points. */
+export function synthEarlier2(): DayReport {
+  const r = synthReport({ pass_id: '2026-10-02T05-10-00Z', started_at: '2026-10-02T05:10:00Z', finished_at: '2026-10-02T05:45:00Z', unpushed_commits: 7 })
+  r.issues = r.issues.slice(0, 2)
+  return withQuotas(r, 92, 94)
 }
 
 /** A weekly-review run: adds review issues and a review statement. */

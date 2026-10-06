@@ -157,7 +157,7 @@
 .d-moreinfo { margin-top: 8px; display: grid; gap: 6px; font-size: 14px; padding: 12px 14px; background: var(--soft); border-radius: var(--r); }
 .d-moreinfo dt { color: var(--fg3); font-size: 12px; font-weight: 600; }
 .d-moreinfo dd { overflow-wrap: anywhere; }
-.d-opts { display: grid; gap: 8px; margin-top: 16px; }
+.d-opts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
 .d-opt { border: 1px solid var(--line); border-radius: var(--r); background: var(--card); }
 .d-optrow { display: flex; gap: 12px; align-items: flex-start; padding: 11px 14px; cursor: pointer; min-height: 44px; }
 .d-opt:hover { border-color: var(--line2); }
@@ -172,12 +172,24 @@
 .d-opt input { margin: 3px 0 0; accent-color: var(--blue); width: 18px; height: 18px; flex-shrink: 0; }
 .d-obody { flex: 1; min-width: 0; }
 .d-l { font-weight: 600; overflow-wrap: anywhere; }
-.d-rec { display: inline-block; font-size: 12px; font-weight: 600; color: var(--fg2); background: #fff; border: 1px solid var(--line2); padding: 0 8px; border-radius: 99px; margin-left: 6px; white-space: nowrap; }
+.d-rec { display: inline-block; font-size: 12px; font-weight: 600; color: var(--fg2); background: #fff; border: 1px solid var(--line2); padding: 0 8px; border-radius: 99px; margin-left: 6px; }
 .d-ftxt { display: block; margin: 0 14px 12px 44px; width: calc(100% - 58px); font: inherit; font-size: 14px; border: 1px solid var(--line2); border-radius: 6px; padding: 8px 10px; min-height: 60px; resize: vertical; background: #fff; color: var(--fg); }
 .d-parked { overflow: hidden; }
 .d-fold { width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 14px; }
 .d-parked .d-row { border-top: 1px solid var(--line); font-size: 14px; }
 .d-parked .d-tx { display: flex; flex-direction: column; }
+
+/* Phase D: agent line, cause tag, fit and risk, technical detail, the custom answer */
+.d-issues > * { min-width: 0; }
+.d-aline > span { min-width: 0; }
+.d-aline { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; min-height: 40px; font-size: 13px; color: var(--fg2); }
+.d-aline .d-link { font-size: 13px; }
+.d-cause { font-size: 12px; font-weight: 600; color: var(--fg2); background: var(--soft); border: 1px solid var(--line2); border-radius: 99px; padding: 1px 9px; white-space: nowrap; }
+.d-rec.dim { color: var(--fg3); background: var(--soft); border-color: var(--line); font-weight: 500; }
+.d-risk { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; color: var(--fg3); overflow-wrap: anywhere; }
+.d-tech { display: grid; gap: 2px; }
+.d-tech b { font-weight: 600; color: var(--fg3); font-size: 12px; margin-right: 6px; }
+.d-ownro { margin: 0 14px 12px 44px; font-size: 14px; color: var(--fg2); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* key hints: quiet, desktop with a pointer only */
 .d-key, .d-keyhint, .d-hint { display: none; }
@@ -200,6 +212,8 @@
 .d-nbtn:disabled { border-color: var(--line); color: var(--line2); background: var(--card); }
 .d-bpos { font-size: 13px; font-weight: 600; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .d-bprog { grid-area: prog; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg2); white-space: nowrap; min-width: 0; }
+.d-still { border: 0; background: none; line-height: 16px; padding: 12px 6px; margin: -12px -6px; font-size: 12px; color: var(--fg2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex-shrink: 0; }
+.d-still:hover { color: var(--fg); }
 .d-bline { flex: 1; height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; min-width: 40px; }
 .d-bline span { display: block; height: 100%; background: var(--slate); }
 .d-bact { grid-area: act; display: flex; gap: 6px; justify-content: flex-end; align-items: center; min-width: 0; }
@@ -217,6 +231,13 @@
 
 /* monitoring */
 .d-src { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.d-sub1 { font-size: 13px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.d-kwhy { grid-column: 1 / -1; font-size: 13px; }
+.d-verd { margin-top: 6px; display: grid; gap: 2px; font-size: 13px; color: var(--fg2); }
+.d-verd p { margin: 0; }
+.d-verd .need { color: var(--amber-800); font-weight: 600; }
+.d-win5t { margin-top: 12px; font-size: 14px; color: var(--fg2); }
+.d-lsw { vertical-align: middle; margin-right: 5px; }
 .d-srcc { overflow-wrap: anywhere; text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: var(--r-lg); padding: 12px 14px; box-shadow: var(--sh); min-height: 96px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .d-srcc:hover { border-color: var(--line2); }
 .d-srcc[aria-pressed=true] { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
@@ -278,6 +299,9 @@
 .d-rd { grid-template-columns: minmax(0, 1fr); }
 .d-mt12 { margin-top: 12px; }
 .d-rd .d-pad { padding: 10px; }
+.d-rbtn { text-align: left; width: 100%; display: block; position: relative; }
+.d-rbtn:hover { border-color: var(--line2); }
+.d-rbtn .d-go { position: absolute; top: 8px; right: 12px; }
 .d-sn { font-size: 11px; font-weight: 600; color: var(--fg2); }
 .d-sv { font-size: 20px; font-weight: 700; }
 .d-funnel { margin-top: 0; }
@@ -291,6 +315,7 @@
 .d-ncline { margin: 2px 0 6px; }
 
 .d-notes { margin-top: 16px; }
+.d-note-item { scroll-margin-top: 112px; scroll-margin-bottom: 96px; }
 .d-note-item + .d-note-item { border-top: 1px solid var(--line); }
 .d-note-item .d-fold { min-height: 44px; }
 .d-notetitle { flex: 1; min-width: 0; }
@@ -343,6 +368,7 @@
 
 /* phones: keep the sticky header and the bottom bar short (≈640px-tall screens) */
 @container day (max-width: 419px) {
+  .d-src { grid-template-columns: minmax(0, 1fr); }
   .d-tl { display: none; }
   .d-ts { display: inline; }
   .d-tabs button { font-size: 13px; padding: 0 2px; height: 40px; }
@@ -363,6 +389,9 @@
   /* "0/13" instead of "0 of 13 resolved"; the full text stays in the DOM for readers */
   [data-progress][data-short] { font-size: 0; }
   [data-progress][data-short]::after { content: attr(data-short); font-size: 12px; }
+ /* "yours: 4" instead of "4 still yours": the bar keeps its two rows and nothing sits under Start fixing */
+  .d-still[data-short] { font-size: 0; }
+  .d-still[data-short]::after { content: attr(data-short); font-size: 12px; }
 }
 
 @container day (min-width: 500px) {
@@ -375,7 +404,6 @@
   .d-nbtn { min-width: 56px; padding: 0 14px; }
   .d-nbtn .d-nl { display: inline; }
   .d-bpos { min-width: 58px; font-size: 14px; }
-  .d-src { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .d-pbrow { width: auto; }
   .d-pbseg { flex: initial; min-width: 90px; }
   .d-pb { padding: 8px 12px; }
@@ -395,8 +423,9 @@
   .d-sh.can .d-shtitle { visibility: visible; }
   .d-sum2 { display: block; }
   .d-focus { padding: 24px; }
-  .d-src { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .d-statgrid { grid-template-columns: 1fr 1fr; }
   .d-svg { max-height: 190px; }
   .d-statgrid .d-svg { max-height: 170px; }
+  /* the Subscriptions chart is drawn at its true size: shrinking it would shrink its labels */
+  .d-svg[data-subs-chart] { max-height: none; }
 }

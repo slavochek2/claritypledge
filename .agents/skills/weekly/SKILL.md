@@ -325,12 +325,12 @@ drop, by the rules below:
   --point-a "open since <its Date>" --obstacle "<why it is still open, from the entry>" \
   --point-b "resolved with a recorded decision, dropped with a reason, or kept on purpose" \
   --option keep="Keep it open" --option resolve="Resolve it (record what was decided)" \
-  --option drop="Drop it (say why)" --recommend keep --confidence 50 <<'BODY'
+  --option drop="Drop it (say why)" --recommend keep --fit 50 --risk "Keeping a finished entry open leaves a stale item on the board" --evidence unverified <<'BODY'
 <the entry, from ./scripts/inbox.sh show>
 BODY
 ```
 
-`--recommend keep` because this step's own rules forbid inferring that an entry "looks done". A
+Recommend `keep` because this step's own rules forbid inferring that an entry "looks done" (so the evidence is `unverified`: the entry was not checked against whether it is finished). `--fit` is how likely the recommended option fixes the real cause without breaking something else, `--risk` the one most likely way it backfires (one line, at most 200 characters), `--evidence` whether the cause was checked against its source. A
 **private** entry (`INBOX-P…`) keeps the default private store, and its title stays out of anything
 public.
 

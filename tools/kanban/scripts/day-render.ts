@@ -2,7 +2,7 @@
 // registries, the findings and the data sections, and writes the run's report (schema v2) into
 // the private day-data folder. Then prints the terminal card.
 //
-//   npx tsx scripts/day-render.ts --phase start|end [--ledger PATH] [--day-dir PATH]
+//   npx tsx scripts/day-render.ts --phase start|end|issues [--ledger PATH] [--day-dir PATH]
 //        [--print card|detail|none] [--now ISO] [--kanban-url URL]
 //
 // Exit codes: 0 ok · 1 the report could not be written · 2 usage, or no ledger · 3 the report
@@ -36,7 +36,9 @@ import { basename, join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import {
   PARK,
+  allIssues,
   buildView,
+  isAgentWork,
   parseDecisions,
   parseReport,
   traceOf,
@@ -60,10 +62,13 @@ const OPTION_ID = /^[A-Za-z0-9._-]{1,40}$/
 const FILE_KEY = /^[A-Za-z0-9]{1,64}$/
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/
 const STATUSES: CheckStatus[] = ['ok', 'problem', 'not-run', 'unproven', 'skipped']
-const SECTIONS = ['connections', 'people', 'monitoring', 'stats', 'reflection', 'reviews', 'run', 'notes'] as const
+const SECTIONS = ['connections', 'people', 'monitoring', 'stats', 'reflection', 'reviews', 'run', 'notes', 'plain'] as const
 type Section = (typeof SECTIONS)[number]
 
 const MAX_EVIDENCE = 2000
+const MAX_EVIDENCE_FOR_PLAIN_PASS = 600
+const PLAIN_TITLE_MAX = 120
+const PLAIN_BODY_MAX = 300
 const CARD_ISSUES = 6
 const RUN_GROUP = 'Daily run'
 const REVIEW_TOPIC: Record<Review, string> = { weekly: 'Weekly review', monthly: 'Monthly review' }
@@ -312,7 +317,10 @@ export interface Sidecar {
   important?: boolean
   options?: DayOption[]
   recommend?: string
+  /** read from `confidence`, or its alias `fit` (the founder reads it as "Fit N%") */
   confidence?: number
+  /** the main risk of the recommended option: one line, ≤ 200 */
+  risk?: string
   why?: string
   evidence?: 'verified' | 'unverified'
   point_a?: string
@@ -336,7 +344,9 @@ export function readSidecar(raw: string): Sidecar | null {
   if (isoDay(o.deadline)) s.deadline = o.deadline as string
   if (isoDay(o.first_seen)) s.first_seen = (o.first_seen as string).slice(0, 10)
   if (typeof o.important === 'boolean') s.important = o.important
-  if (typeof o.confidence === 'number' && Number.isFinite(o.confidence)) s.confidence = Math.round(Math.min(100, Math.max(0, o.confidence)))
+  const fit = [o.confidence, o.fit].find((v) => typeof v === 'number' && Number.isFinite(v)) as number | undefined
+  if (fit !== undefined) s.confidence = Math.round(Math.min(100, Math.max(0, fit)))
+  if (typeof o.risk === 'string' && o.risk.replace(/\s+/g, ' ').trim()) s.risk = o.risk.replace(/\s+/g, ' ').trim().slice(0, 200)
   if (o.evidence === 'verified' || o.evidence === 'unverified') s.evidence = o.evidence
   if (o.review === 'weekly' || o.review === 'monthly') s.review = o.review
   if (Array.isArray(o.options)) {
@@ -344,7 +354,7 @@ export function readSidecar(raw: string): Sidecar | null {
     const opts: DayOption[] = []
     for (const x of o.options) {
       if (!isObj(x) || typeof x.id !== 'string' || !OPTION_ID.test(x.id) || !text(x.label)) continue
-      if (x.id === 'ask' || x.id === 'other' || seen.has(x.id)) continue // page-only ids, duplicates
+      if (x.id === 'own' || x.id === 'ask' || x.id === 'other' || seen.has(x.id)) continue // page-only ids, duplicates
       seen.add(x.id)
       opts.push({ id: x.id, label: x.label as string, ...(x.agent === true ? { agent: true } : {}) })
     }
@@ -427,12 +437,74 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
     const source = check?.label ?? step?.label
     if (source) issue.source = source
     if (side?.confidence !== undefined) issue.recommendation_confidence = side.confidence
+    if (side?.risk) issue.risk = side.risk
     if (side?.evidence) issue.evidence = side.evidence
     if (body) issue.evidence_text = truncate(body, MAX_EVIDENCE)
     byFp.delete(fp)
     byFp.set(fp, issue)
   }
   return { issues: [...byFp.values()], unusable }
+}
+
+// ---------------------------------------------------------------------------------------
+// The plain-language overlay (Phase D, founder decision 10): the `plain` data section rewrites a
+// card into what it means for the founder. The original wording is kept in `technical`.
+
+export interface PlainRow { fp: string; title: string; point_a: string; obstacle: string; point_b: string }
+
+/** The overlay's rows, or null when it is not something the board can apply as given. Extra fields are ignored. */
+export function readPlain(v: unknown): PlainRow[] | null {
+  if (!Array.isArray(v)) return null
+  const rows: PlainRow[] = []
+  for (const r of v) {
+    if (!isObj(r) || typeof r.fp !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(r.fp)) return null
+    const row: Partial<PlainRow> = { fp: r.fp }
+    for (const [k, max] of [['title', PLAIN_TITLE_MAX], ['point_a', PLAIN_BODY_MAX], ['obstacle', PLAIN_BODY_MAX], ['point_b', PLAIN_BODY_MAX]] as const) {
+      const t = typeof r[k] === 'string' ? (r[k] as string).trim() : ''
+      if (!t || t.length > max) return null
+      row[k] = t
+    }
+    rows.push(row as PlainRow)
+  }
+  return rows
+}
+
+const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'point_a', 'obstacle', 'point_b', 'more_info', 'source', 'options', 'recommendation_confidence', 'risk', 'evidence', 'evidence_text'] as const
+
+/**
+ * Apply the overlay to the report's issues (in place). A card the board would make from a check
+ * nobody wrote up is a card too: it is written into the report with its overlay, under the same
+ * fingerprint, so the board does not make it twice. Returns how many rows matched no card.
+ */
+export function applyPlain(report: DayReport, rows: PlainRow[], earlier: Pick<DayReport, 'started_at' | 'issues'>[]): number {
+  const byFp = new Map(rows.map((r) => [r.fp, r])) // the later row wins
+  const used = new Set<string>()
+  const overlay = (i: DayIssue, r: PlainRow) => {
+    i.technical = { title: i.title, point_a: i.point_a, obstacle: i.obstacle, point_b: i.point_b }
+    i.title = r.title
+    i.point_a = r.point_a
+    i.obstacle = r.obstacle
+    i.point_b = r.point_b
+    used.add(r.fp)
+  }
+  for (const i of report.issues) {
+    const r = byFp.get(i.fp)
+    if (r) overlay(i, r)
+  }
+  const unwritten = [...byFp.keys()].filter((fp) => !used.has(fp))
+  if (unwritten.length) {
+    for (const view of allIssues(report)) {
+      const r = byFp.get(view.fp)
+      if (!view.synthetic || !r || used.has(view.fp)) continue
+      const issue = { options: [] } as unknown as DayIssue
+      for (const k of ISSUE_KEYS) if (view[k] !== undefined) (issue as unknown as Obj)[k] = view[k]
+      if (view.important) issue.important = true
+      issue.first_seen = firstSeen(view.fp, undefined, earlier, report.started_at)
+      overlay(issue, r)
+      report.issues.push(issue)
+    }
+  }
+  return byFp.size - used.size
 }
 
 // ---------------------------------------------------------------------------------------
@@ -457,6 +529,8 @@ export function dataUsable(section: Section, v: unknown): boolean {
       return isObj(v)
     case 'reflection':
       return isObj(v) && Array.isArray(v.statements) && (v.model === undefined || !!text(v.model)) && noDrops({ reflection: v })
+    case 'plain':
+      return readPlain(v) !== null
     case 'reviews':
       return Array.isArray(v) && v.every((r) => r === 'weekly' || r === 'monthly')
     case 'run':
@@ -482,6 +556,11 @@ export interface RenderInputs {
 const runProblem = (label: string, detail: string): Omit<DayCheck, 'id'> => ({ label, status: 'problem', detail, group: RUN_GROUP })
 
 export function buildReport(inp: RenderInputs): DayReport {
+  return buildReportDetailed(inp).report
+}
+
+/** The report, and how many plain-language rows matched no card (counted, never silently dropped). */
+export function buildReportDetailed(inp: RenderInputs): { report: DayReport; plainUnmatched: number } {
   const { ledger, registries, phase } = inp
   const { checks, misplaced } = buildChecks({ ledger, registries, phase })
   const extra: DayCheck[] = []
@@ -534,7 +613,8 @@ export function buildReport(inp: RenderInputs): DayReport {
   if (data.reflection) report.reflection = data.reflection as DayReport['reflection']
   if (data.people) report.people = data.people as DayReport['people']
   if (data.notes) report.notes = data.notes as DayReport['notes']
-  return report
+  const plainUnmatched = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : 0
+  return { report, plainUnmatched }
 }
 
 /** Problems (fixed vocabulary) that stop the report from being written; empty = it validates. */
@@ -582,11 +662,14 @@ export interface CardOptions { kanbanUrl: string; timeZone?: string }
 
 export function renderCard(report: DayReport, view: DayView, opts: CardOptions): string {
   const urgent = view.issues.filter((i) => i.urgent).length
-  // "need you" = the recommended answer is not the agent's: only the founder can move it.
-  const needYou = view.issues.filter((i) => !i.options[i.recommended_index]?.agent).length
+  // The same split Start fixing uses: a card the recommendation hands to the agent is agent work;
+  // every other card needs the founder.
+  const agentWork = view.issues.filter((i) => isAgentWork(i)).length
+  const needYou = view.issues.filter((i) => !isAgentWork(i)).length
   const counts = [
     plural(view.issues.length, 'issue'),
     needYou && `${needYou} ${needYou === 1 ? 'needs' : 'need'} you`,
+    agentWork && `${agentWork} an agent can fix`,
     urgent && `${urgent} urgent`,
     `${view.counts.worked} of ${plural(view.counts.total, 'check')} worked`,
     view.parked.length && `${view.parked.length} parked`,
@@ -776,8 +859,8 @@ export function closeKilledRuns(dayDir: string, passId: string): number {
 // ---------------------------------------------------------------------------------------
 // The command.
 
-interface Args { ledger: string; dayDir: string; phase: 'start' | 'end'; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string }
-const USAGE = 'usage: --phase start|end [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL]'
+interface Args { ledger: string; dayDir: string; phase: 'start' | 'end' | 'issues'; print: 'card' | 'detail' | 'none'; now: string; kanbanUrl: string }
+const USAGE = 'usage: --phase start|end|issues [--ledger PATH] [--day-dir PATH] [--print card|detail|none] [--now ISO] [--kanban-url URL]'
 
 export function parseArgs(argv: string[]): Args | null {
   const a: Partial<Args> = {
@@ -793,7 +876,7 @@ export function parseArgs(argv: string[]): Args | null {
     switch (argv[i]) {
       case '--ledger': a.ledger = v; break
       case '--day-dir': a.dayDir = v; break
-      case '--phase': if (v !== 'start' && v !== 'end') return null; a.phase = v; break
+      case '--phase': if (v !== 'start' && v !== 'end' && v !== 'issues') return null; a.phase = v; break
       case '--print': if (v !== 'card' && v !== 'detail' && v !== 'none') return null; a.print = v; break
       case '--now': if (!isoDay(v)) return null; a.now = v; break
       case '--kanban-url': a.kanbanUrl = v; break
@@ -825,7 +908,26 @@ export function run(argv: string[], io: IO): number {
   const { reports: earlier, unreadable } = readReports(args.dayDir, ledger.header.pass_id ?? '')
   if (unreadable) say(`some earlier reports could not be read (${unreadable})`)
 
-  const report = buildReport({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now })
+  if (args.phase === 'issues') {
+    // The input of the plain-language pass: the cards as they would be, in the producer's own
+    // words (an earlier rewrite is left out). It reads; it writes nothing.
+    dataFiles.delete('plain')
+    const draft = buildReport({ ledger, registries, findingFiles, dataFiles, earlier, phase: 'end', now: args.now })
+    const view = buildView(draft, readDecisions(args.dayDir), [...earlier, draft].map(traceOf))
+    const cards = view.issues.map((i) => ({
+      fp: i.fp,
+      topic: i.topic,
+      title: i.title,
+      point_a: i.point_a,
+      obstacle: i.obstacle,
+      point_b: i.point_b,
+      options: i.options.map((o, n) => ({ label: o.label, ...(n === i.recommended_index ? { recommended: true } : {}) })),
+      ...(i.evidence_text ? { evidence_text: truncate(i.evidence_text, MAX_EVIDENCE_FOR_PLAIN_PASS) } : {}),
+    }))
+    io.out(`${JSON.stringify(cards, null, 2)}\n`)
+    return 0
+  }
+  const { report, plainUnmatched } = buildReportDetailed({ ledger, registries, findingFiles, dataFiles, earlier, phase: args.phase, now: args.now })
   const problems = validateReport(report)
   if (problems.length) {
     say(`the report would not validate (${problems.slice(0, 5).join(',')})`)
@@ -842,6 +944,7 @@ export function run(argv: string[], io: IO): number {
     return 1
   }
   say(`report written (${report.state})`)
+  if (plainUnmatched) say(`${plural(plainUnmatched, 'plain-language row')} matched no issue`)
 
   if (args.print !== 'none') {
     const view = buildView(report, readDecisions(args.dayDir), [...earlier, report].map(traceOf))
