@@ -1,10 +1,10 @@
 /**
  * P1337 item 10 (founder, 2026-10-05): in the event room the transcription banner has an idle
- * state — "Not transcribed" and one quiet "Transcribe". The tap is the consent and runs the start
+ * state — "Not transcribing", an ⓘ, and one quiet "Transcribe". The tap is the consent and runs the start
  * screen's startCapture; while anything runs for this event (paused included) it is not shown.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 
 const capture = {
   phase: 'idle' as string,
@@ -28,7 +28,9 @@ describe('the idle transcription banner', () => {
   it('offers one quiet "Transcribe" on main\'s one-line short bar, the description on the button', () => {
     render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} />);
     const bar = screen.getByTestId('room-transcribe-idle');
-    expect(bar).toHaveTextContent('Not transcribed');
+    expect(bar).toHaveTextContent('Not transcribing');
+    // Walkthrough 9: the ⓘ is there before anyone starts.
+    expect(within(bar).getByTestId('capture-info')).toBeInTheDocument();
     // P1388: the short bar has no second line — the start screen's description rides on the button.
     expect(screen.getByText(/Record audio/)).toHaveClass('sr-only'); // read out, never a visible line
     const button = screen.getByTestId('room-transcribe-start');

@@ -76,7 +76,7 @@ test.describe('P1307: event transcription', () => {
     await expect(page.getByTestId('room-ready-continue')).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByTestId('room-transcribe-idle')).toContainText('Not transcribed');
+    await expect(page.getByTestId('room-transcribe-idle')).toContainText('Not transcribing');
     await expect(page.getByTestId('room-capture-bar')).toHaveCount(0);
   });
 

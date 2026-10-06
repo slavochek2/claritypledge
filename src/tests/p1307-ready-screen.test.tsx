@@ -43,10 +43,10 @@ describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Tr
     expect(s.includes('startCapture'), 'Continue must never start capture: the tap on the bar is the consent').toBe(false);
   });
 
-  it('the bar carries the approved strings: "Not transcribed", what the tap does, and the terms reminder', () => {
+  it('the bar carries the approved strings: "Not transcribing" (walkthrough 9), what the tap does, and the terms reminder', () => {
     const s = read(IDLE_BAR);
     for (const copy of [
-      'Not transcribed',
+      'Not transcribing',
       'Record audio and share transcript with others in the room',
       // Founder, 2026-09-14: a reminder, not an agreement.
       'Transcription follows our Terms and Privacy Policy',

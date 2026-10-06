@@ -218,7 +218,7 @@ export function RoomCaptureBarFallback() {
  * 7). Once capture runs, this disappears and today's running banner takes its place; outside the
  * event room nothing changes.
  */
-const IDLE_TEXT = 'Not transcribed';
+const IDLE_TEXT = 'Not transcribing';
 /**
  * What the tap does — the switch's description from the old start screen — and the terms reminder
  * that switch carried (founder, 2026-09-14), now that this tap is the only way in (walkthrough 7).
@@ -245,6 +245,9 @@ export function RoomTranscribeIdleBar({
       testId="room-transcribe-idle"
       ariaLabel="Room transcription"
       text={IDLE_TEXT}
+      // Walkthrough 9: the same ⓘ as the running bar — what is recorded and where it goes, one tap
+      // away before anyone starts, without a line of small print on every page.
+      adornment={<CaptureInfoButton />}
       primary={{
         label: starting ? 'Starting…' : 'Transcribe',
         description: IDLE_DETAIL,
