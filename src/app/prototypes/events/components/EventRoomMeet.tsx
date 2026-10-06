@@ -249,7 +249,7 @@ export function EventRoomMeet() {
   const { user, session } = useAuth();
   const { barVisible: captureBarVisible } = useRoomCapture();
   const offlineStrip = useOfflineStripShown();
-  const captureBarPx = useMeasuredHeight('[data-testid="room-capture-bar"]', captureBarVisible);
+  const captureBarPx = useMeasuredHeight('[data-testid="room-capture-slot"]', captureBarVisible);
   const headOffset = roomHeadOffset(offlineStrip, captureBarPx);
   const navigate = useNavigate();
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be

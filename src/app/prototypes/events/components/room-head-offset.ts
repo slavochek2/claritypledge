@@ -4,9 +4,10 @@
  *
  * Below the nav there may be, stacked: the offline strip's push (the nav moves down 1.75rem while
  * it shows — simple-navigation.tsx; the capture bar slot follows the same signal), and the running
- * capture bar, pinned under the nav. The bar's height is MEASURED rather than assumed: its short
- * form is 49px, but a wrapped status line or a reconnect control makes it taller, and a fixed
- * number left the step bar sliding under it.
+ * capture bar, pinned under the nav. The bar's height is MEASURED rather than assumed — on its slot
+ * (`room-capture-slot`), so every form counts: the short form is 49px, but offline it becomes the
+ * two-line "Transcribing, but offline" bar with its own test id, and a fixed number (or a measure
+ * of one form only) left the step bar sliding under it.
  */
 import { useLayoutEffect, useState } from 'react';
 

@@ -31,14 +31,14 @@ describe('useMeasuredHeight', () => {
   afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; });
 
   function Probe({ active }: { active: boolean }) {
-    const h = useMeasuredHeight('[data-testid="room-capture-bar"]', active);
+    const h = useMeasuredHeight('[data-testid="room-capture-slot"]', active);
     return <output data-testid="h">{h}</output>;
   }
 
   it('reads the bar\'s real height and follows it as it changes; 0 when inactive', () => {
     vi.stubGlobal('ResizeObserver', FakeObserver);
     const bar = document.createElement('div');
-    bar.setAttribute('data-testid', 'room-capture-bar');
+    bar.setAttribute('data-testid', 'room-capture-slot');
     bar.getBoundingClientRect = () => ({ height: 49 } as DOMRect);
     document.body.appendChild(bar);
 

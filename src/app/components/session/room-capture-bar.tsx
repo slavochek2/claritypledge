@@ -161,7 +161,8 @@ export function RoomCaptureBarSlot() {
   // browsing the feed always sees that capture is running (D9) and can pause it.
   // Offline, the nav sits 1.75rem lower under the offline strip (simple-navigation.tsx).
   return barVisible ? (
-    <div className={`sticky z-30 ${offline
+    // data-testid: the event room measures this slot (any form of the bar) to pin its own head below it (P1429 A4).
+    <div data-testid="room-capture-slot" className={`sticky z-30 ${offline
       ? 'top-[calc(5.75rem+env(safe-area-inset-top))] lg:top-[calc(6.75rem+env(safe-area-inset-top))]'
       : 'top-[calc(4rem+env(safe-area-inset-top))] lg:top-[calc(5rem+env(safe-area-inset-top))]'}`}>
       <RoomCaptureBar short />
