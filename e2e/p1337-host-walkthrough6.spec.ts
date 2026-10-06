@@ -33,7 +33,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     ana = await createTestUser({ email: generateTestEmail(), name: 'Ana Watcher' });
     event = await createTestEvent(host.user.id, new Date(), { title: 'P1337 host walkthrough 6 e2e' });
     await rsvpToEvent(event.id, ana.user.id);
-    await seedRoomMember(event.id, { displayName: 'Ana Watcher', profileId: ana.user.id });
+    await seedRoomMember(event.id, { displayName: 'Ana Watcher', profileId: ana.user.id, optedIn: true, comprehensionRating: 7 });
     for (const name of ['Bo Brook', 'Cid Cole', 'Dot Dale']) await seedRoomMember(event.id, { displayName: name });
   });
 

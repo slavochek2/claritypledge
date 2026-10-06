@@ -201,10 +201,15 @@ export function useHostOptIns(eventId: string | undefined, enabled: boolean): Re
     setOptIns(new Map());
     if (!eventId || !enabled) return;
     let cancelled = false;
-    getPrepHostView(eventId)
-      .then(rows => { if (!cancelled) setOptIns(optInsByProfile(rows)); })
-      .catch(() => { /* nothing shown is better than a wrong group */ });
-    return () => { cancelled = true; };
+    // Re-read every 30s: answers change during the evening while this page stays open (Codex
+    // review). A failed read keeps what is shown.
+    const read = () =>
+      getPrepHostView(eventId)
+        .then(rows => { if (!cancelled) setOptIns(optInsByProfile(rows)); })
+        .catch(() => { /* keep what is shown */ });
+    void read();
+    const every = setInterval(read, 30_000);
+    return () => { cancelled = true; clearInterval(every); };
   }, [eventId, enabled]);
   return optIns;
 }

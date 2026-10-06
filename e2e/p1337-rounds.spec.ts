@@ -193,11 +193,14 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
   });
 
   test('a late arrival is told they join at the next round', async ({ page }) => {
-    await seedRoomMember(event.id, { displayName: 'Lee Late', profileId: late.user.id });
+    // Answered the principle (walkthrough 9: the waiting card lives on Table, after the answer).
+    await seedRoomMember(event.id, { displayName: 'Lee Late', profileId: late.user.id, optedIn: true, comprehensionRating: 7 });
     await setTestSession(page, late.email);
     await page.goto(`/events/${event.slug}/meet`);
     await expect(page.getByTestId('round-card-waiting')).toContainText('You join the next round');
-    // Not seated yet: the rest of the room is still theirs to see.
+    // Table shows the table only (founder walkthrough 9): who opted in stays on Principle.
+    await expect(page.getByTestId('room-roster')).toHaveCount(0);
+    await page.getByTestId('room-step-principle').click();
     await expect(page.getByTestId('room-roster')).toBeVisible();
   });
 

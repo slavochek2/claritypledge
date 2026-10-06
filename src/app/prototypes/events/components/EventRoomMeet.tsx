@@ -470,9 +470,9 @@ export function EventRoomMeet() {
     setViewingBack(next === currentStep ? null : next);
   };
   const showPrinciple = viewing === 'principle';
-  // Walkthrough 9: waiting at Table before a round keeps your answer and who's here in view,
-  // under the waiting card — the roster is what you look at while the room fills.
-  const showAnswered = showPrinciple || (viewing === 'table' && moment.waiting && step === 'answered');
+  // Walkthrough 9 (founder): Table shows the table only — your answer, Change and who opted in
+  // stay on Principle, one tap back.
+  const showAnswered = showPrinciple;
 
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.

@@ -943,6 +943,9 @@ export function EventHostPage() {
   // changed label stays locked for the first seconds of a round.
   const now = useNow(!!round);
   const justStarted = !!round && now - new Date(round.startedAt).getTime() < START_LOCK_MS;
+  // Codex review: a confirm opened for one round never carries into the next (another device
+  // may have started it), so one tap cannot skip a round.
+  useEffect(() => { setConfirmNext(false); }, [round?.id]);
 
   // Undo applies to one round only.
   useEffect(() => {
@@ -1273,7 +1276,7 @@ export function EventHostPage() {
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : `Reopen: start round ${nextNo}`}
             </Button>
           )}
-          {primary && round && confirmNext && clock && clock.phase !== 'over' && (
+          {primary && round && confirmNext && !justStarted && clock && clock.phase !== 'over' && (
             // Walkthrough 9 (reviews): time is still on the clock — one more tap, never a dialog.
             <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
               <p>{formatClock(roundLeftMs)} left in this round. Start the next one now?</p>

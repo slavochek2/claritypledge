@@ -212,6 +212,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await page.goto(`/events/${event.slug}/meet`);
     // P1337 walkthrough 9: once answered, the room waits on the Table step; the answer and the
     // roster live one tap back, on Principle.
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'table');
     await page.getByTestId('room-step-principle').click();
     await expect(page.getByTestId('room-roster-in')).toContainText('P1114 All Answered Person');
     await expect(page.getByTestId('room-roster-undecided')).toHaveCount(0);
@@ -301,6 +302,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     await page.getByRole('button', { name: 'Submit' }).click();
     // P1337 walkthrough 9: once answered, the room waits on the Table step; the answer and the
     // roster live one tap back, on Principle.
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'table');
     await page.getByTestId('room-step-principle').click();
     await expect(page.getByTestId('room-my-opt-in-status')).toContainText('Opted out');
     await page.getByTestId('room-change-choice').click();
@@ -316,6 +318,7 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     // STEP 3 — the founder's exact labels: one quiet line, "Opted in · Change" (P1337, 2026-10-05).
     // P1337 walkthrough 9: once answered, the room waits on the Table step; the answer and the
     // roster live one tap back, on Principle.
+    await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'table');
     await page.getByTestId('room-step-principle').click();
     await expect(page.getByTestId('room-my-opt-in-status')).toContainText('Opted in');
     await expect(page.getByTestId('room-change-choice')).toHaveText('Change');

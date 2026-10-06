@@ -204,8 +204,9 @@ export function RoundCard({
   if (!round || !mine) {
     // Walkthrough 9: waiting lives on the Table step, not inside Principle — a card that says
     // what comes next and keeps the rule in view (founder + three UX reviews).
-    // A round already on while you still answer the principle (a late arrival): say so there too.
-    if (!waiting || !(view === 'table' || (view === 'hidden' && round))) return null;
+    // Only on Table: while the principle is still unanswered, nothing sits above its question
+    // (founder walkthrough 9) — answering moves you to Table, where this card waits.
+    if (!waiting || view !== 'table') return null;
     return (
       <section className="rounded-xl border border-border bg-card p-5" data-testid="round-card-waiting">
         <h2 className="text-xl font-semibold">
