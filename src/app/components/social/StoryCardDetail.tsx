@@ -283,7 +283,7 @@ export function StoryCardDetail({
   }
 
   // Standard rendering (non-quote pattern)
-  // P586: gray border for private stories, blue for public
+  // Private = bg-muted/60 tint + lock; the left stripe is the neutral grey on every card (P1423)
   const isPrivateStory = story.visibility === 'private';
   const storyBgTint = isPrivateStory ? 'bg-muted/60' : 'bg-card';
   const storyHoverBorder = isPrivateStory ? 'hover:border-gray-300' : 'hover:border-blue-300';

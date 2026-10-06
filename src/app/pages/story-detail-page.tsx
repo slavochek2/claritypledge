@@ -1429,7 +1429,6 @@ export function StoryDetailPage() {
           />
         </div>
       ) : (
-        <div>
         <StoryCardDetail
           story={story}
           linkedPoints={story.points}
@@ -1472,7 +1471,6 @@ export function StoryDetailPage() {
           onRemoveImage={isAuthor ? handleRemoveImage : undefined}
           onUnlinkPoint={isAuthor ? handleUnlinkClick : undefined}
         />
-        </div>
       )}
 
       {/* P131/P424/P427: Author-only section */}

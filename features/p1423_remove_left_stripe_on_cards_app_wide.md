@@ -19,6 +19,11 @@ depends_on: [p1389]
 
 ## Problem
 
+> **Superseded in part (2026-10-06):** the founder saw the stripe removed and chose **option B**,
+> one neutral grey stripe on list and content cards. Read *Founder Decision* below; where this
+> section says "remove" for a list or content card, the shipped action is the grey stripe.
+
+
 **Situation:** Cards across the app carry a 4px coloured left stripe: blue on public stories,
 letters and events and on the 0-10 rating card, slate on points, grey on private items and
 cancelled events. P1389 (the evening close) already removed it on its own screens — the 0-10 card
@@ -46,6 +51,11 @@ Decision density: low — the founder decided to remove it; one scope line below
 
 ## Solution
 
+> **Superseded in part (2026-10-06):** the founder saw the stripe removed and chose **option B**,
+> one neutral grey stripe on list and content cards. Read *Founder Decision* below; where this
+> section says "remove" for a list or content card, the shipped action is the grey stripe.
+
+
 Remove the left stripe from every **card** that uses it as decoration or as a second signal of a
 state the card already shows another way. Keep every left border that is **typography or
 structure**, which only shares the CSS.
@@ -55,7 +65,7 @@ the branch base before building):
 
 | Surface | What the stripe says | Action |
 |---|---|---|
-| `shared/comprehension-rating-card.tsx` | decoration (blue) | remove; P1389's `accent` prop becomes the default-off, or the prop is deleted |
+| `shared/comprehension-rating-card.tsx` | decoration (blue) | none (focus screen); the `accent` prop is deleted and its one caller, `EventClosePage`, updated |
 | `prototypes/events/components/EventCard.tsx` | blue = live, grey = cancelled | remove; cancelled keeps its opacity and label |
 | `feed/feed-story-card.tsx`, `social/story-card-with-links.tsx`, `social/StoryCardDetail.tsx` | blue = public, grey = private | remove; private keeps its visibility icon and muted background |
 | `feed/feed-point-card.tsx`, `social/point-card-with-links.tsx`, `pages/point-detail-page.tsx:634` | slate = point, grey = private | remove (same) |
@@ -63,7 +73,9 @@ the branch base before building):
 | `partners/live-content-cards.tsx` (5), `partners/live-story-card-expanded.tsx` | blue = story, muted = point | remove |
 | `pages/profile-page-v2.tsx:1619, 1976` | blue = story, slate = point | remove |
 | `letters/sent-tab.tsx`, `letters/drafts-tab.tsx` | blue = public, grey = private | remove; visibility stays on the inline visibility icon |
-| `pages/design-private-page.tsx`, `pages/prototypes/new-live-prototype.tsx` | design demos of the above | remove, so the demo shows the real card |
+| `pages/prototypes/new-live-prototype.tsx` | design demo of the above | grey stripe, as the real card |
+| `pages/design-private-page.tsx` | dated record of the private-marker decision | **keep**: its stripes are the subject of the record |
+| `pages/story-detail-page.tsx` (story card wrapper) | 3px top band in the author's colour | remove (not a `border-l-*`; found by the visual review) |
 | `utils/linkify.ts`, `shared/story-video-quotes.tsx`, `pages/full-article-page.tsx:397`, `pages/landing-v2.tsx`, `pages/clarity-demo-page.tsx` | quotation (blockquote) | **keep** |
 | `pages/full-article-page.tsx:292, 312` | table of contents: current section | **keep** |
 | `shared/source-group.tsx`, `shared/agent-profile-disclosure.tsx`, `pages/point-detail-page.tsx:404` | grouping / indented detail | **keep** |
@@ -72,9 +84,8 @@ the branch base before building):
 Where a card's hover state coloured only the stripe side, hover moves to the whole border, as on
 cards that never had a stripe.
 
-[FOUNDER DECISION: scope — "remove everywhere" read as every row marked *remove* above, including
-the public/private colour on stories, points and letters (private stays visible through its icon
-and muted background). If any of those colours should stay, name it.]
+Scope resolved 2026-10-06: see *Founder Decision* (option B). The public/private colour is gone;
+every list and content card carries the same neutral grey stripe.
 
 ## Invariants
 
@@ -86,6 +97,9 @@ and muted background). If any of those colours should stay, name it.]
 - **`/live` keeps passing its two-party e2e.** decisions.md (P852 entry): a global restyle of
   `ComprehensionRatingCard` "would change `/live` and trip its two-party E2E guard". Run those
   specs; fix the code, not the test, if a selector depended on the stripe.
+  *Status at ship:* unproven by a green run. Those specs fail 8/8 identically on unchanged main
+  (user-cleanup FK error, missing story search; `docs/process-learnings.md` INBOX-126), so this
+  change was checked by control run, and no /live selector keys on a stripe class.
 
 ## Risks / Non-Goals
 
@@ -93,14 +107,15 @@ and muted background). If any of those colours should stay, name it.]
 |---|---|---|
 | A private card becomes indistinguishable from a public one | MITIGATE | Invariant 1: screenshot a private story, point and letter in list and detail |
 | A test or selector keys on a stripe class | MITIGATE | grep `border-l-` in `src/tests` and `e2e` first; update only selectors, never assertions about meaning |
-| Cards look flat without the stripe | ACCEPT | The founder's intent; the visual reviewer judges consistency, not the absence itself |
-| P1389 not shipped yet, so the base lacks its `accent` prop and static EventCard | DEFER | Build on main after P1389 ships (`depends_on`) |
+| Cards look flat without the stripe | RESOLVED | It happened; the founder chose option B (neutral grey stripe) |
+| P1389 not shipped yet | RESOLVED | P1389 shipped before this was built |
 
 **Non-Goals**
 - Do NOT change quotations, the article table of contents, grouping lines or decorative art (the
   *keep* rows).
 - Do NOT redesign cards (padding, shadows, radius, type) beyond what removing the stripe forces.
-- Do NOT add a new private/public marker; the existing icon and background are the signal.
+- Do NOT add a new private/public marker; the existing icon and background are the signal. (Private
+  letters gained the muted background stories and points already use: the same marker, not a new one.)
 
 ## Founder Decision (2026-10-06): option B, one neutral grey stripe
 
@@ -117,7 +132,7 @@ keeps its stripes on purpose: they are the subject of that record.
 
 ## Done-When
 
-- [x] No card renders a coloured stripe; list and content cards carry the neutral grey one —
+- [x] No card renders a coloured stripe (except the kept `/tree/design-private` record); list and content cards carry the neutral grey one —
       `e2e/p1423-card-stripe.spec.ts` 3/3 at 375, 320 and 1280 on profile, story page, point page
       and letter drafts, asserting the grey stripe is present and no coloured left stripe or thick
       top band exists; it fails on a blue stripe and on a missing stripe (both controls run). Feed
@@ -130,7 +145,7 @@ keeps its stripes on purpose: they are the subject of that record.
       `src/tests/p1366-card-footer.test.tsx`; private letter draft: lock + muted background (e2e).
       Profiles list public stories only, so no private card renders there.
 - [x] Unit tests pass (5727/5727 with a 30s timeout; pre-commit green). The touched e2e specs that
-      fail do so identically on unchanged main (control runs): the profile specs (INBOX-122) and
+      fail do so identically on unchanged main (control runs): the profile specs (`docs/process-learnings.md` INBOX-122) and
       /live's two-party specs (INBOX-126, user-cleanup FK error + missing story search), so the
       /live invariant is verified by control, not by a green run.
 - [x] Opus visual review (screenshots only, 18/18 read), Codex and Gemini reviews run on both the
