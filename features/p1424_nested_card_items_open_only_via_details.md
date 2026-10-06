@@ -7,8 +7,8 @@ created_date: '2026-10-06'
 tags: [feed, cards, mobile, profile]
 disclosure: public
 intent: cold-start
-delivery_stage: dev
-pipeline_ran: [create-spec, challenge-prd, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, challenge-prd, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
