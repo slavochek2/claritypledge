@@ -63,39 +63,39 @@ describe('P1429 A1: hiding your photo survives a late or stale vote', () => {
   it('a vote landing after "Hide my photo" with the stale public flag stays hidden', async () => {
     const tabA = await signedIn(voter);
     const tabB = await signedIn(voter); // a second tab or device, still holding "show"
-    expect((await tabA.rpc('rate_topic', { p_topic_id: ids[0], p_rating: 4, p_is_public: true })).error).toBeNull();
+    expect((await tabA.rpc('rate_topic', { p_topic_id: ids[0]!, p_rating: 4, p_is_public: true })).error).toBeNull();
 
     // "Hide my photo" lands first...
     expect((await tabA.rpc('set_my_topic_votes_public', { p_is_public: false })).error).toBeNull();
-    expect(await isPublic(voter.user.id, ids[0])).toBe(false);
+    expect(await isPublic(voter.user.id, ids[0]!)).toBe(false);
 
     // ...then the slow vote from tap time, re-voting the same topic, and a vote from the other tab.
-    expect((await tabA.rpc('rate_topic', { p_topic_id: ids[0], p_rating: 5, p_is_public: true })).error).toBeNull();
-    expect((await tabB.rpc('rate_topic', { p_topic_id: ids[1], p_rating: 3, p_is_public: true })).error).toBeNull();
+    expect((await tabA.rpc('rate_topic', { p_topic_id: ids[0]!, p_rating: 5, p_is_public: true })).error).toBeNull();
+    expect((await tabB.rpc('rate_topic', { p_topic_id: ids[1]!, p_rating: 3, p_is_public: true })).error).toBeNull();
 
-    expect(await isPublic(voter.user.id, ids[0])).toBe(false);
-    expect(await isPublic(voter.user.id, ids[1])).toBe(false);
+    expect(await isPublic(voter.user.id, ids[0]!)).toBe(false);
+    expect(await isPublic(voter.user.id, ids[1]!)).toBe(false);
   });
 
   it('votes flushed after sign-in respect a photo already hidden', async () => {
     const c = await signedIn(voter);
     // The guest flush sends whatever the page computed; a hidden choice still wins.
-    expect((await c.rpc('rate_topic', { p_topic_id: ids[2], p_rating: 2, p_is_public: true })).error).toBeNull();
-    expect(await isPublic(voter.user.id, ids[2])).toBe(false);
+    expect((await c.rpc('rate_topic', { p_topic_id: ids[2]!, p_rating: 2, p_is_public: true })).error).toBeNull();
+    expect(await isPublic(voter.user.id, ids[2]!)).toBe(false);
   });
 
   it('showing the photo again shows it on later votes too', async () => {
     const c = await signedIn(voter);
     expect((await c.rpc('set_my_topic_votes_public', { p_is_public: true })).error).toBeNull();
-    expect((await c.rpc('rate_topic', { p_topic_id: ids[2], p_rating: 4, p_is_public: false })).error).toBeNull();
-    expect(await isPublic(voter.user.id, ids[2])).toBe(true);
-    expect(await isPublic(voter.user.id, ids[0])).toBe(true);
+    expect((await c.rpc('rate_topic', { p_topic_id: ids[2]!, p_rating: 4, p_is_public: false })).error).toBeNull();
+    expect(await isPublic(voter.user.id, ids[2]!)).toBe(true);
+    expect(await isPublic(voter.user.id, ids[0]!)).toBe(true);
   });
 
   it('before any choice was made, the vote carries the page flag (hidden if asked)', async () => {
     const c = await signedIn(fresh);
-    expect((await c.rpc('rate_topic', { p_topic_id: ids[0], p_rating: 3, p_is_public: false })).error).toBeNull();
-    expect(await isPublic(fresh.user.id, ids[0])).toBe(false);
+    expect((await c.rpc('rate_topic', { p_topic_id: ids[0]!, p_rating: 3, p_is_public: false })).error).toBeNull();
+    expect(await isPublic(fresh.user.id, ids[0]!)).toBe(false);
   });
 
   it('the preference table is not readable or writable from a client', async () => {

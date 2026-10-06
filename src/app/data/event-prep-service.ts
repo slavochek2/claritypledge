@@ -85,6 +85,9 @@ export interface HostPrepRow {
   micSetup: MicSetup | null;
   positionsDone: number;
   positionsTotal: number;
+  /** P1429: the answer given in the room, for someone who answered there (null if not in it). */
+  roomOptedIn: boolean | null;
+  roomRating: number | null;
 }
 
 interface DbPrep {
@@ -246,6 +249,8 @@ interface DbHostRow {
   mic_setup: MicSetup | null;
   positions_done: number;
   positions_total: number;
+  room_opted_in?: boolean | null;
+  room_rating?: number | null;
 }
 
 export async function getPrepHostView(eventId: string): Promise<HostPrepRow[]> {
@@ -268,5 +273,7 @@ export async function getPrepHostView(eventId: string): Promise<HostPrepRow[]> {
     micSetup: r.mic_setup,
     positionsDone: r.positions_done,
     positionsTotal: r.positions_total,
+    roomOptedIn: r.room_opted_in ?? null,
+    roomRating: r.room_rating ?? null,
   }));
 }

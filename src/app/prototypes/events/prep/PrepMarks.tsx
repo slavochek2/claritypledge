@@ -184,13 +184,15 @@ export interface HostOptIn {
 /**
  * P1337 walkthrough 9 (founder): the host sees the principle answers on the EVENT page, grouped like
  * the room's roster (Opted in / Opted out / Undecided, each with its number) — never in the room
- * itself, which is on the projector. The answer is the preparation's, which the room writes back
- * to (P1336), so it is current either way. No row or no answer = Undecided.
+ * itself, which is on the projector. The room's answer wins when there is one: the room writes back
+ * to an existing preparation (P1336), but someone who answered only in the room has none (P1429).
+ * No answer anywhere = Undecided.
  */
 export function optInsByProfile(rows: HostPrepRow[]): Map<string, HostOptIn> {
   const out = new Map<string, HostOptIn>();
   for (const r of rows) {
-    if (r.optedIn != null) out.set(r.profileId, { state: r.optedIn ? 'in' : 'out', rating: r.principleRating });
+    if (r.roomOptedIn != null) out.set(r.profileId, { state: r.roomOptedIn ? 'in' : 'out', rating: r.roomRating });
+    else if (r.optedIn != null) out.set(r.profileId, { state: r.optedIn ? 'in' : 'out', rating: r.principleRating });
   }
   return out;
 }
