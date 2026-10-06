@@ -229,7 +229,7 @@ function LetterCard({
   return (
     <>
       <div
-        className={`rounded-lg border overflow-hidden ${isPublic ? 'bg-card' : 'bg-muted/60'}`}
+        className={`rounded-lg border border-l-4 border-l-slate-300 overflow-hidden ${isPublic ? 'bg-card' : 'bg-muted/60'}`}
       >
         {/* Card header — click area toggles expand */}
         <div

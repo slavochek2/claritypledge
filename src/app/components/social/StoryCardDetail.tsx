@@ -289,8 +289,8 @@ export function StoryCardDetail({
   const storyHoverBorder = isPrivateStory ? 'hover:border-gray-300' : 'hover:border-blue-300';
   // Note: removed overflow-hidden to prevent dropdown menus from being clipped
   const cardClassName = isDetailView
-    ? `relative ${storyBgTint} rounded-lg shadow-sm border border-border`
-    : `relative group ${storyBgTint} rounded-lg shadow-sm border border-border cursor-pointer ${storyHoverBorder} hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
+    ? `relative ${storyBgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border`
+    : `relative group ${storyBgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border cursor-pointer ${storyHoverBorder} hover:border-l-slate-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none`;
 
   return (
     <div

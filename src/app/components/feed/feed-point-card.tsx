@@ -284,7 +284,7 @@ export function FeedPointCard({ point, activeTag, onPointRemoved, linkedStories,
         footer opens the point; the links inside the card open what they name. So no
         role="button", tab stop, pointer cursor or "the whole card is a link" hover border. */}
     <article
-      className="bg-card rounded-lg shadow-sm border border-border"
+      className="bg-card rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border"
       /* P1212 — see feed-story-card.tsx. Without a name this root is announced as its whole
          subtree, and §5 put an expandable list of QuotedStory cards inside it, so the
          concatenation now includes every linked story's author and prose. */

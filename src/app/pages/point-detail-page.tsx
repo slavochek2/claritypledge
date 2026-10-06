@@ -631,7 +631,7 @@ export function PointDetailPage() {
       <PointVersionHistory pointId={point.id} />
 
       {/* Point card with full features */}
-      <div data-card="point" className="bg-card border border-border rounded-lg shadow-sm overflow-hidden mb-4">
+      <div data-card="point" className="bg-card border border-border border-l-4 border-l-slate-300 rounded-lg shadow-sm overflow-hidden mb-4">
         <div className="p-4">
           {/* Two-column layout */}
           <div className="flex gap-3">

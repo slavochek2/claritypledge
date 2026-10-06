@@ -68,7 +68,7 @@ export function LiveStoryCard({
         type="button"
         onClick={onExpand}
         disabled={disabled || isSubmitting}
-        className="w-full text-left bg-card rounded-lg border border-border shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full text-left bg-card rounded-lg border-l-4 border-l-slate-300 border border-border shadow-sm p-4 hover:border-blue-300 hover:border-l-slate-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         data-testid={`live-story-card-${story.id}`}
       >
         {/* Avatar + Story Preview */}
@@ -121,7 +121,7 @@ export function LiveStoryCard({
   // Expanded state
   return (
     <div
-      className="w-full bg-card rounded-lg border border-border shadow-sm p-4"
+      className="w-full bg-card rounded-lg border-l-4 border-l-slate-300 border border-border shadow-sm p-4"
       data-testid={`live-story-card-${story.id}-expanded`}
     >
       {/* Avatar + Full Story Text (scrollable if long) */}
@@ -225,7 +225,7 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
       type="button"
       onClick={() => onSelect(point.id, point.statement)}
       disabled={disabled}
-      className="w-full text-left bg-card rounded-lg border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full text-left bg-card rounded-lg border-l-4 border-l-slate-300 border border-border shadow-sm p-4 hover:border-muted-foreground/70 hover:border-l-slate-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-point-card-${point.id}`}
     >
       <p className="text-sm font-medium text-foreground line-clamp-2 break-words">{linkifyText(displayStatement)}</p>
@@ -502,7 +502,7 @@ export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPr
 
   return (
     <div
-      className="w-full max-w-sm bg-card rounded-lg border border-border shadow-sm p-4"
+      className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-slate-300 border border-border shadow-sm p-4"
       data-testid="story-card-preview"
     >
       {/* Avatar + Story Preview */}
@@ -553,7 +553,7 @@ interface PointCardPreviewProps {
 export function PointCardPreview({ point }: PointCardPreviewProps) {
   return (
     <div
-      className="w-full max-w-sm bg-card rounded-lg border border-border shadow-sm p-4"
+      className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-slate-300 border border-border shadow-sm p-4"
       data-testid="point-card-preview"
     >
       <p className="text-sm font-semibold text-foreground">{linkifyText(stripHashtags(point.statement, point.tags))}</p>

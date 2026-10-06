@@ -262,8 +262,8 @@ export function PointCardWithLinks({
      focus ring): it is not one. The point page keeps its plain card; embeds and demos keep main's
      hover, because there the card still opens on click. */
   const cardClassName = isDetailView || inListFooter
-    ? `relative ${bgTint} rounded-lg shadow-sm border border-border overflow-hidden`
-    : `relative group ${bgTint} rounded-lg shadow-sm border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
+    ? `relative ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden`
+    : `relative group ${bgTint} rounded-lg shadow-sm border-l-4 border-l-slate-300 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:border-l-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2`;
   /** A list card is an article named by its content; elsewhere the root stays as it was. */
   const CardRoot = inListFooter ? 'article' : 'div';
 

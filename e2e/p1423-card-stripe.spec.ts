@@ -1,9 +1,10 @@
 /**
- * P1423: cards carry no coloured left stripe, and a private card stays visibly private without it.
+ * P1423 (option B): cards carry one neutral grey left stripe, never a coloured one, and a private
+ * card stays visibly private through its lock and muted background.
  *
  * Seeds an owner with a public and a private story, point and letter draft (plus a stories-only
- * owner for the profile), then walks the signed-in surfaces that render them. On each page every element with a left border of 3px or
- * more must be a quotation (blockquote) — the one *keep* row these surfaces can render.
+ * owner for the profile), then walks the signed-in surfaces that render them. On each page any
+ * thick left border must be the neutral grey (or a quotation), and nothing may draw a thick top band.
  * Screenshots land in test-results/p1423/ for the visual review.
  */
 import { test, expect, type Page } from '@playwright/test';
@@ -17,15 +18,18 @@ const WIDTHS = [375, 320, 1280];
 /** InlineVisibilityIcon's accessible name for a private item (visibility-badge.tsx). */
 const PRIVATE_LABEL = 'Only people you share with can see this.';
 
-/** Elements with a thick left or top border that are not quotations — the stripes P1423 removed
- *  (the story page also drew a 3px top band in the author's colour). */
+/** Thick borders P1423 rules out: a coloured left stripe (cards carry one neutral grey,
+ *  slate-300 = rgb(203, 213, 225); quotations keep theirs) and any thick top band (the story page
+ *  drew one in the author's colour). */
 async function cardStripes(page: Page): Promise<string[]> {
   return page.evaluate(() =>
     [...document.querySelectorAll('body *')]
       .filter((el) => {
         const s = getComputedStyle(el);
         const thick = (style: string, width: string) => style !== 'none' && parseFloat(width) >= 3;
-        return el.tagName !== 'BLOCKQUOTE' && (thick(s.borderLeftStyle, s.borderLeftWidth) || thick(s.borderTopStyle, s.borderTopWidth));
+        if (el.tagName === 'BLOCKQUOTE') return false;
+        const colouredLeft = thick(s.borderLeftStyle, s.borderLeftWidth) && s.borderLeftColor !== 'rgb(203, 213, 225)';
+        return colouredLeft || thick(s.borderTopStyle, s.borderTopWidth);
       })
       .map((el) => `${el.tagName}.${String((el as HTMLElement).className).slice(0, 100)}`),
   );
@@ -41,7 +45,7 @@ async function checkPage(page: Page, name: string, url: string, ready: () => Pro
   }
 }
 
-test.describe('P1423 — no left stripe on cards', () => {
+test.describe('P1423 — cards carry only the neutral grey stripe', () => {
   let owner: TestUser;
   const storyIds: string[] = [];
   const pointIds: string[] = [];
@@ -77,7 +81,7 @@ test.describe('P1423 — no left stripe on cards', () => {
   // the test DB, on unchanged main as well (p154's profile spec failed 6/6 there), which is not
   // this spec's to fix. The private point's background is pinned by
   // src/tests/p1366-card-footer.test.tsx instead.
-  test('profile stories: no stripe', async ({ page }) => {
+  test('profile stories: grey stripe only', async ({ page }) => {
     test.setTimeout(120_000); // seeds its own user, then loads the profile at three widths
     const storyOwner = await createTestUser({ name: 'Stripe Story Owner' });
     const ids = [
@@ -98,7 +102,7 @@ test.describe('P1423 — no left stripe on cards', () => {
     }
   });
 
-  test('story and point pages: no stripe', async ({ page }) => {
+  test('story and point pages: grey stripe only', async ({ page }) => {
     await checkPage(page, 'story-page', `/story/${storyIds[1]}`, async () => {
       await expect(page.getByText(`Private story ${tag}`).first()).toBeVisible({ timeout: 20000 });
     });
@@ -107,7 +111,7 @@ test.describe('P1423 — no left stripe on cards', () => {
     });
   });
 
-  test('letter drafts: no stripe; the private draft keeps its lock and muted background', async ({ page }) => {
+  test('letter drafts: grey stripe only; the private draft keeps its lock and muted background', async ({ page }) => {
     await checkPage(page, 'letters-drafts', '/letters?tab=drafts', async () => {
       await expect(page.getByText(`Private letter ${tag}`)).toBeVisible({ timeout: 20000 });
     });

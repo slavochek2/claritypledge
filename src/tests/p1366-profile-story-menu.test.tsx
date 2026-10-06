@@ -208,11 +208,11 @@ describe("P1366 — the owner's story card on their own profile", () => {
   });
 
   /* P1415 superseded P1366's whole-card highlight: the card is no longer a link, so nothing on it
-     may say so. P1423 removed the blue left marker bar the highlight rule protected. */
-  it('no whole-card hover / focus-within highlight (P1415), and no left stripe (P1423)', async () => {
+     may say so. P1423 made the left marker bar the highlight rule protected one neutral grey. */
+  it('no whole-card hover / focus-within highlight (P1415), and the neutral grey left stripe (P1423)', async () => {
     await renderProfile();
     const tokens = screen.getByRole('article', { name: 'Story by Owner Person' }).className.split(/\s+/);
-    expect(tokens.filter((t) => t.startsWith('border-l-'))).toEqual([]);
+    expect(tokens).toContain('border-l-slate-300');
     expect(tokens).not.toContain('cursor-pointer');
     expect(tokens.filter((t) => /^(hover|focus-within):(border|shadow)/.test(t))).toEqual([]);
   });

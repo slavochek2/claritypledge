@@ -26,10 +26,10 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
   return (
     <Link
       to={`${linkPrefix}/${event.slug}`}
-      className={`group block rounded-xl overflow-hidden bg-card transition-all duration-200 border border-border ${
+      className={`group block rounded-xl overflow-hidden bg-card transition-all duration-200 border border-border border-l-4 border-l-slate-300 ${
         isCancelled
           ? 'opacity-60 hover:opacity-80'
-          : 'hover:shadow-lg hover:border-blue-300'
+          : 'hover:shadow-lg hover:border-blue-300 hover:border-l-slate-300'
       }`}
       data-testid="event-card"
     >
