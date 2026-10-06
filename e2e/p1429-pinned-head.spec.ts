@@ -63,7 +63,7 @@ test.describe('P1429 A4: the room head under the offline strip and the capture b
     for (const u of [host, guest, partner]) if (u?.user?.id) await deleteTestUser(u.user.id);
   });
 
-  test('offline and transcribing at 375px, the step bar sits below the strip and the bar while Compare scrolls', async ({ page, context }) => {
+  test('offline and transcribing at 375, 320 and 1280px, the step bar sits below the strip and the bar while Compare scrolls', async ({ page, context }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.setViewportSize({ width: 375, height: 667 });
@@ -74,20 +74,24 @@ test.describe('P1429 A4: the room head under the offline strip and the capture b
     await expect(page.getByTestId('offline-strip')).toBeVisible({ timeout: 15_000 });
 
     const box = async (id: string) => (await page.getByTestId(id).first().boundingBox())!;
-    for (const y of [0, 400, 1200]) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      await page.waitForTimeout(200);
-      // The head only pins once the page has scrolled under it: a page too short to scroll proves nothing.
-      if (y > 0) expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
-      const strip = await box('offline-strip');
-      const bar = await box('room-capture-slot');
-      const head = await box('room-sticky-head');
-      const steps = (await page.getByRole('navigation', { name: 'Your evening' }).boundingBox())!;
-      expect(steps.y, `the step bar itself is below the capture bar at scroll ${y}`).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
-      expect(bar.y, `capture bar below the strip at scroll ${y}`).toBeGreaterThanOrEqual(strip.y + strip.height - 1);
-      expect(head.y, `step bar below the capture bar at scroll ${y}`).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    // Phone, the narrowest phone, and desktop (where the nav row is taller: 5rem).
+    for (const [w, h] of [[375, 667], [320, 640], [1280, 800]] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      for (const y of [0, 400, 1200]) {
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.waitForTimeout(200);
+        // The head only pins once the page has scrolled under it: a page too short to scroll proves nothing.
+        if (y > 0) expect(await page.evaluate(() => window.scrollY), `${w}px scrolled`).toBeGreaterThan(100);
+        const strip = await box('offline-strip');
+        const bar = await box('room-capture-slot');
+        const head = await box('room-sticky-head');
+        const steps = (await page.getByRole('navigation', { name: 'Your evening' }).boundingBox())!;
+        expect(bar.y, `${w}px: capture bar below the strip at scroll ${y}`).toBeGreaterThanOrEqual(strip.y + strip.height - 1);
+        expect(head.y, `${w}px: step bar below the capture bar at scroll ${y}`).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+        expect(steps.y, `${w}px: the step bar itself is below the capture bar at scroll ${y}`).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+      }
+      await page.screenshot({ path: `test-results/p1429/a4-offline-transcribing-${w}.png` });
     }
-    await page.screenshot({ path: 'test-results/p1429/a4-offline-transcribing-375.png' });
     await context.setOffline(false);
     expect(errors).toEqual([]);
   });
