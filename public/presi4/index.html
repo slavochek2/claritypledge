@@ -1790,17 +1790,27 @@
     .phone.ph-short{width:250px;aspect-ratio:9/13}
     .ph-short .ph-body{padding-top:3.2rem;font-size:.9rem}
   </style>
-  <!-- YOUR PHONE, LIVE — founder, 2026-10-06: "between 16 and 17 ... the comparison page between the
-       speaker and listener ... on mobile, in the middle a mobile screen ... as if I am one of them".
-       The projector is signed in as the founder, so this frame is the founder's own room page: seat
-       yourself at the one table as the speaker first, and tap "show our positions" inside it.
-       Like every embed here it renders only when the deck is served from claritypledge.com. -->
-  <section class="slide soft">
+  <!-- 17 · THE SHOWCASE TABLE, COMPARED — founder, 2026-10-06: "only the compare page and only with
+       the people currently at the table ... I will go to the host and then I will select three people
+       and we will have only one room and I want to show the disagreements between them".
+       Loads /host?view=compare&table=1&embed=true: no nav, no step bar, no profile — table 1's three
+       people with their roles, then the speaker's and the listener's positions side by side. It is a
+       HOST view, so it works whether or not you sit at the table yourself, and it keeps showing the
+       last round after you end the showcase. Replaces the phone-framed /room embed (that showed the
+       whole room page and only worked if you were seated). Renders only on claritypledge.com, signed in
+       as the host. -->
+  <section class="slide embed-full">
     <!-- NOTES
-      - This is my phone, at the table, as the speaker. After we sit down we compare positions.
+      - Seat the three from the host panel first (showcase), then come to this slide.
+      - Point at the rows where they are furthest apart: that is the conversation.
+      - Blank or "Only the host can run this event" = signed out in this browser.
     -->
-    <h2 style="margin-bottom:0;font-size:clamp(1.3rem,3vw,2.2rem)">Compare your <span class="accent">positions</span></h2>
-    <div class="phone"><iframe src="https://claritypledge.com/events/clarity-night-2-ai-and-your-ikigai-sinek-tan-naval-watts-and-brooks-2026-10-06-ijjx/room" title="The founder's phone in the room" loading="lazy"></iframe></div>
+    <iframe src="https://claritypledge.com/events/clarity-night-2-ai-and-your-ikigai-sinek-tan-naval-watts-and-brooks-2026-10-06-ijjx/host?view=compare&amp;table=1&amp;embed=true"
+            title="The showcase table — where the speaker and the listener stand" loading="lazy"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+    </div>
   </section>
 
   <!-- 18 · THE ROOM, LIVE — the P1337 screen itself, embedded (founder, 2026-10-04: "keep in

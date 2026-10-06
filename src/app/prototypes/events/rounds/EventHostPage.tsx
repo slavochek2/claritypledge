@@ -86,6 +86,7 @@ import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from
 import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
 import { PairBadge, RoleBadge } from './RoleBadge';
+import { TableCompareView } from './TableCompareView';
 import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { knownSetTags, setLabel } from '@/lib/set-labels';
@@ -839,7 +840,10 @@ export function EventHostPage() {
   const { user, session, sessionChecked } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const isScreen = params.get('view') === 'screen';
+  // /presi4 slide 17: `view=compare` projects one table's comparison; it skips the host polling
+  // like the screen view does.
+  const isCompare = params.get('view') === 'compare';
+  const isScreen = params.get('view') === 'screen' || isCompare;
   // The signed-in id comes from the session, not the profile (as in EventRoomAccess): arriving
   // through a sign-in link, the profile loads after the event, and checking `user` alone showed
   // the host "Only the host can run this event" until a reload.
@@ -1046,6 +1050,19 @@ export function EventHostPage() {
 
   const ended = evening === 'ended';
 
+  if (isCompare) {
+    const shown = round ?? lastRound ?? null;
+    return (
+      <TableCompareView
+        round={shown}
+        seats={shown ? state.seatsByRound.get(shown.id) ?? [] : []}
+        byId={byId}
+        tableNo={Number(params.get('table')) || 1}
+        statementTag={event.statementTag}
+        eventTitle={event.title}
+      />
+    );
+  }
   if (isScreen) {
     return <ScreenView round={round} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
