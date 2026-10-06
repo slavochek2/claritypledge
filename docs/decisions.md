@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-06 [process]: Overnight batch: find, fix in worktrees, review per fix, then a cross-model review of the combined diff, merged as one branch
+
+**Context:** Spare overnight credits; the founder asked for "everything better with very little effort", merged into one reviewed branch. The run was: a read-only sweep across six areas (types/lint, bugs, security, mobile, tests, specs) with each area's findings re-run by a second agent; five fix groups in isolated worktrees, each exported as a patch and reviewed independently; patches applied one at a time to `overnight/2026-10-06`, the pre-commit hook running the full suite on each commit; then Opus, Codex and Gemini each reviewed the combined diff; finally `main` was merged in, the suite re-run, and `main` fast-forwarded.
+**Decision:** Keep this shape for future batch runs. Phase 1 stays read-only and every finding needing a founder decision (copy, UX on error, CI policy, spec closure) goes into a decisions list, never into a fix. Patches land on one integration branch committed by the main session, never by subagents. Land by fast-forwarding `main` from a branch that already contains `main`, so the shared checkout's index (another session had files staged) is never touched.
+**What the evidence showed:**
+- The second agent in each area cut the findings sharply: the tests area kept 0 of its 6.
+- The per-fix reviewers all said merge, yet the cross-model pass still found the one real defect: the menu clamp used `innerWidth`, which includes a scrollbar that `scrollbar-gutter: stable` reserves. This matches the earlier entry where the external reviewer was the one that changed the code.
+- Gemini's two findings were both refuted against the code, so a cross-model finding must be re-run before it is acted on (epistemic gate 9).
+- A guard test (P1177) caught a direct `Sentry.captureException` that the fix had added. The existing gates were worth more than another reviewer.
+**Limits found:** The PositionButtons menu could not be checked in a browser. On data the user hasn't voted on, the first click casts a vote, and the dev server reads production data. That check needs a test account (INBOX-125). The pre-commit full suite flaked once under load in p1270 (INBOX-124); it was retried once and reported, not retried until green.
+**Alternatives rejected:** one agent per finding (too many agents for mostly mechanical fixes); merging on the shared checkout (git aborts a non-fast-forward merge when another session's changes are staged, and clearing the index is not cleanup).
+**Consequences:** The edge-function CORS narrowing on main takes effect only on the next edge-function deploy, and it narrows the hole without closing it (Vercel project names are first-come). Pinning it to the team scope is a founder decision. Open founder decisions from this run: a baseline or ratchet for the `tsconfig.app.json` typecheck in CI; what the error state should be for `checkEmailExists` and `checkOpenInviteForReceiver`; closing P1271, P1274 and P1201.
+**References:** commits 00acc2d27..9c5f8940d · `src/app/components/shared/menu-clamp.ts` · `supabase/functions/_shared/cors.ts` · [epistemic.md](../.claude/rules/epistemic.md) gates 7, 9, 9b · [git.md](../.claude/rules/git.md)
+
 ## 2026-10-06 [product]: Cards carry one neutral grey left stripe; the stripe no longer says who can see a card (P1423)
 
 **Context:** Cards had a 4px left stripe coloured by type and visibility (blue public story, slate point, grey private). P1389 removed it on the evening-close screens because it pulled the eye from the question to the card, and P1423 first removed it app-wide. Seen live, the cards read as white-on-white with nothing separating them ("everything is so plain").
