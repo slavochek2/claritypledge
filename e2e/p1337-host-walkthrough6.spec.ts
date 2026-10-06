@@ -118,11 +118,15 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(page.getByTestId('host-match-tag').locator('option:checked')).toContainText('(this event)');
   });
 
-  test('on a phone the controls stay on screen while the room scrolls', async ({ page }) => {
+  // Walkthrough 9 reversed walkthrough 6: on a phone the page scrolls as one; desktop keeps the
+  // controls column pinned.
+  test('on a phone the controls scroll with the page; on desktop they stay pinned', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 700 });
     await asHost(page);
-    const position = await page.getByTestId('host-controls').evaluate(el => getComputedStyle(el).position);
-    expect(position).toBe('sticky');
+    const position = () => page.getByTestId('host-controls').evaluate(el => getComputedStyle(el).position);
+    expect(await position()).not.toBe('sticky');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(position).toBe('sticky');
   });
 
   test('"End the evening" asks once, then every phone moves to Close (walkthrough 8)', async ({ page, browser }) => {
