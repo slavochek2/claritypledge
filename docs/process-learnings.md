@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 126
+**Next ID:** 127
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2103,5 +2103,16 @@ src/tests/p1270-profile-story-media.test.tsx failed 2 tests under full-suite loa
 **due:** week
 
 The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/2026-10-06) is unit-tested and mutation-checked but not browser-verified, because opening the menu needs a logged-in test user who already holds a position (a first click casts a vote). Open the Agree menu at 320 and 375px and confirm its right edge stays at least 8px inside the viewport. Droppable if the overnight branch is not merged.
+
+---
+
+## /live two-party e2e specs fail on main: user-cleanup FK error and missing story search
+
+**ID:** INBOX-126
+**Date:** 2026-10-06
+**Status:** proposed
+**due:** week
+
+On unchanged main (2a4025545), at normal machine load, live-content-picker, p272-live-verification and live-rating-drawer fail 8/8: seven end in deleteTestUser refusing to delete a profile still referenced by clarity_sessions.creator_profile_id (the helper does not delete the session first), and the content picker never shows the "Search your stories…" field. P1423 hit the same 8 failures on its branch, so its /live invariant could only be checked by control. Done when the helper deletes the user's clarity_sessions before the profile and the picker spec passes; drop if those specs are retired.
 
 ---
