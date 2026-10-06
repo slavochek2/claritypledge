@@ -169,9 +169,9 @@ test.describe('P1429', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await setTestSession(page, guest.email);
     // The write reaches the server; its response never comes back.
-    let lost = 0;
+    let calls = 0;
     await page.route('**/rest/v1/rpc/answer_personal_ask', async (route: Route) => {
-      if (lost++ === 0) {
+      if (calls++ === 0) {
         await route.fetch();
         await route.abort('failed');
       } else await route.continue();
@@ -184,7 +184,8 @@ test.describe('P1429', () => {
     await page.screenshot({ path: `${SHOTS}/a5-moved-on-390.png` });
     const { data: rows } = await supabaseAdmin.from('personal_ask_answers').select('ask, answer').eq('user_id', guest.user.id);
     expect(rows).toEqual([{ ask: 'connect', answer: 'no' }]);
-    expect(lost).toBe(1);
+    // The page retried the same write once; the server answered the repeat with success.
+    expect(calls).toBe(2);
   });
 });
 

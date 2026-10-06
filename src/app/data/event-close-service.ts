@@ -78,40 +78,34 @@ export async function answerPersonalAsk(
   answer: AskAnswer,
   detail?: string,
 ): Promise<boolean> {
-  const { error } = await supabase.rpc('answer_personal_ask', {
+  return savedOnceRetried('answer_personal_ask', {
     p_event_id: eventId,
     p_ask: ask,
     p_answer: answer,
     p_detail: detail ?? null,
   });
-  if (!error) return true;
-  console.error('[close] answer_personal_ask failed:', error.code, error.message);
-  return answeredMeanwhile(eventId, ask);
 }
 
 /** Join the community from the close: the membership and the yes in one server transaction. */
 export async function joinCommunityFromClose(eventId: string): Promise<boolean> {
-  const { error } = await supabase.rpc('join_community_from_close', { p_event_id: eventId });
-  if (!error) return true;
-  console.error('[close] join_community_from_close failed:', error.code, error.message);
-  return answeredMeanwhile(eventId, 'community');
+  return savedOnceRetried('join_community_from_close', { p_event_id: eventId });
 }
 
 /**
- * P1429 A5: after a failed save, is the ask answered after all? A tap whose write landed but whose
- * response was lost is retried, and the server refuses the retry — with 22023 "this ask is not
- * offered", because an ask answered tonight leaves the offered list (p1389_offered_asks) before the
- * 23505 check is reached. So the error code is not the signal; the re-read is. An ask no longer
- * offered has been answered (here or in another tab), so the page moves on. A failed re-read keeps
- * the save failed.
+ * P1429 A5: a write whose response is lost is retried once, at once. Both close RPCs answer a
+ * repeat of a write that already holds with success (the same answer stored; for Join, the
+ * membership present — migration 20261006191000), so the retry turns "the write landed, the
+ * response did not" into a plain success. Anything else — no connection, or a different answer
+ * given in another tab — still fails, and the page says so: the server, not a guess, decides
+ * whether the save held.
  */
-async function answeredMeanwhile(eventId: string, ask: PersonalAsk): Promise<boolean> {
-  try {
-    const state = await getEventClose(eventId);
-    return state.isAttendee && !state.asks.includes(ask);
-  } catch {
-    return false;
+async function savedOnceRetried(fn: 'answer_personal_ask' | 'join_community_from_close', args: Record<string, unknown>): Promise<boolean> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const { error } = await supabase.rpc(fn, args);
+    if (!error) return true;
+    console.error(`[close] ${fn} failed (attempt ${attempt}):`, error.code, error.message);
   }
+  return false;
 }
 
 /** The slug of the group the community ask invites this person to (null when there is none). */

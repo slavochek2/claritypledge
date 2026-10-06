@@ -1,9 +1,9 @@
 /**
  * P1429 A5: a "Not now" / "Join" in the closing sequence that lands but whose response is lost.
- * The retry is refused by the server — and NOT with 23505 as first assumed: p1389_offered_asks
- * drops an ask answered tonight, so the retry fails earlier with 22023 "this ask is not offered".
- * The page showed "Could not save" and stayed. After a failed save the client re-reads the close
- * state; an ask no longer offered has been answered, so the save counts and the page moves on.
+ * The page retries once; the server answers a repeat of a write that already holds with success
+ * (migration 20261006191000), so the retry moves the page on. Anything the server still refuses —
+ * no connection, or a different answer given in another tab — stays a failure: a refused Join is
+ * never shown as "You've joined" (review round, Codex + Opus).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -12,7 +12,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...
 
 import { answerPersonalAsk, joinCommunityFromClose } from '@/app/data/event-close-service';
 
-const closeRow = (asks: string[]) => ({ data: [{ is_attendee: true, asks, finished: false }], error: null });
+const lost = { data: null, error: { code: '', message: 'TypeError: Failed to fetch' } };
+const ok = { data: true, error: null };
 const notOffered = { data: null, error: { code: '22023', message: 'this ask is not offered' } };
 
 describe('a lost response is not a failed save', () => {
@@ -21,31 +22,31 @@ describe('a lost response is not a failed save', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('"Not now" retried after it landed moves on', async () => {
-    rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'get_event_close' ? closeRow([]) : notOffered));
+  it('"Not now" whose response was lost: the retry holds and the page moves on', async () => {
+    rpc.mockResolvedValueOnce(lost).mockResolvedValueOnce(ok);
     await expect(answerPersonalAsk('ev', 'connect', 'no')).resolves.toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[1]).toEqual(rpc.mock.calls[0]); // the same write, repeated
   });
 
-  it('"Join" retried after it landed moves on', async () => {
-    rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'get_event_close' ? closeRow(['connect']) : notOffered));
+  it('"Join" whose response was lost: the retry holds', async () => {
+    rpc.mockResolvedValueOnce(lost).mockResolvedValueOnce({ data: 'org-id', error: null });
     await expect(joinCommunityFromClose('ev')).resolves.toBe(true);
   });
 
-  it('a real failure still fails: the ask is still open', async () => {
-    rpc.mockImplementation((fn: string) =>
-      Promise.resolve(fn === 'get_event_close' ? closeRow(['community', 'connect']) : { data: null, error: { code: 'PGRST', message: 'network' } }));
-    await expect(answerPersonalAsk('ev', 'connect', 'no')).resolves.toBe(false);
+  it('a Join the server keeps refusing (a "Not now" in another tab) is never reported as joined', async () => {
+    rpc.mockResolvedValue(notOffered);
     await expect(joinCommunityFromClose('ev')).resolves.toBe(false);
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
-  it('a failed re-read keeps it failed (offline)', async () => {
-    rpc.mockImplementation((fn: string) =>
-      Promise.resolve(fn === 'get_event_close' ? { data: null, error: { code: 'x', message: 'offline' } } : notOffered));
+  it('no connection at all stays a failure', async () => {
+    rpc.mockResolvedValue(lost);
     await expect(answerPersonalAsk('ev', 'connect', 'no')).resolves.toBe(false);
   });
 
-  it('a first-time success is unchanged and does not re-read', async () => {
-    rpc.mockResolvedValue({ data: true, error: null });
+  it('a first-time success is unchanged: one call', async () => {
+    rpc.mockResolvedValue(ok);
     await expect(answerPersonalAsk('ev', 'connect', 'yes')).resolves.toBe(true);
     expect(rpc).toHaveBeenCalledTimes(1);
   });
