@@ -141,17 +141,17 @@ describe('P1351 — the logged-out phone menu renders no source comment as text'
 describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day', () => {
   beforeEach(() => { tonight.current = null; });
 
-  it('shows and links to the event when there is one today', async () => {
+  it('shows and links to the event\'s room when there is one today (P1428)', async () => {
     tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
     await renderNav('/feed', { loggedIn: true });
     const ctas = screen.getAllByTestId('tonights-event-cta');
     expect(ctas.length).toBeGreaterThan(0);
-    for (const c of ctas) expect(c).toHaveAttribute('href', '/events/night-2');
+    for (const c of ctas) expect(c).toHaveAttribute('href', '/events/night-2/room');
   });
 
   it('is hidden on that event\'s own pages (one primary per view)', async () => {
     tonight.current = { slug: 'night-2', title: 'Clarity Night #2' };
-    for (const route of ['/events/night-2', '/events/night-2/room', '/pricing']) {
+    for (const route of ['/events/night-2', '/events/night-2/room', '/events/night-2/ready', '/events/night-2/meet', '/events/night-2/arriving', '/pricing']) {
       const { unmount } = await renderNav(route, { loggedIn: true });
       expect(screen.queryAllByTestId('tonights-event-cta'), route).toHaveLength(0);
       unmount();

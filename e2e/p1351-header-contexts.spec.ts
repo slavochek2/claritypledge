@@ -154,7 +154,8 @@ test.describe('P1351 — header primary action across contexts', () => {
     const tonight = page.getByTestId('tonights-event-cta').filter({ visible: true });
     await page.goto('/feed');
     await tonight.click();
-    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}$`));
+    // P1428: the button opens the room flow (arrival question, preparation, ready or meet).
+    await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/(room|ready|meet|prepare|arriving)`));
   });
 });
 
