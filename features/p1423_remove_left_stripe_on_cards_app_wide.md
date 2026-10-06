@@ -6,8 +6,8 @@ workstream: design-system
 created_date: '2026-10-05'
 tags: [design-system, cards, visual-consistency]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -102,18 +102,43 @@ and muted background). If any of those colours should stay, name it.]
 - Do NOT redesign cards (padding, shadows, radius, type) beyond what removing the stripe forces.
 - Do NOT add a new private/public marker; the existing icon and background are the signal.
 
+## Founder Decision (2026-10-06): option B, one neutral grey stripe
+
+After seeing the stripe removed everywhere, the founder found the cards too plain ("everything is
+white ... nothing there") and compared four treatments side by side on the real feed, profile,
+letters and events: no stripe, a grey page behind white cards, a neutral grey stripe, and the old
+blue stripe. He picked **B: a single `border-l-4 border-l-slate-300` on every list or content card**
+(stories, points, events, letters drafts and sent, /live content cards, the feed skeleton).
+Focus screens (the 0-10 rating card, the evening close, drawer questions) carry none, which was the
+original complaint. The story page's 3px author-colour top band is removed too. The stripe no longer
+encodes visibility; private shows through its lock and `bg-muted/60`, now also on private letters.
+Hover never recolours the stripe (`hover:border-l-slate-300`). The dated `/tree/design-private` page
+keeps its stripes on purpose: they are the subject of that record.
+
 ## Done-When
 
-- [ ] No card in the *remove* rows renders a coloured left stripe — screenshots at 375, 320 and
-      desktop of: feed (story, point, skeleton), a story page, a point page, a profile, letters
-      sent and drafts, events list (live and cancelled), the 0-10 rating card in a letter and on
-      /meet, /live content cards
-- [ ] Every *keep* row renders unchanged (article quote and table of contents, a story's video
-      quotes, a source group)
-- [ ] A private story, point and letter is still visibly private in list and detail views
-- [ ] Unit tests and the touched surfaces' e2e pass, including /live's two-party specs
-- [ ] Opus visual review (screenshots only), Codex code review and Gemini review run, each finding
-      verified against the code, fixed or answered
+- [x] No card renders a coloured stripe; list and content cards carry the neutral grey one —
+      `e2e/p1423-card-stripe.spec.ts` 3/3 at 375, 320 and 1280 on profile, story page, point page
+      and letter drafts, asserting the grey stripe is present and no coloured left stripe or thick
+      top band exists; it fails on a blue stripe and on a missing stripe (both controls run). Feed
+      and events screenshotted at all three widths. Not screenshotted: /live cards, the rating card,
+      sent letters, the skeleton, a cancelled event (class-only changes there).
+- [x] Every *keep* row renders unchanged — the e2e exempts only blockquotes, and the feed's video
+      quotes still render their grey quote line; no keep-row file is in the diff.
+- [x] A private story, point and letter is still visibly private — private story page: lock +
+      muted background (e2e screenshots); private point: `bg-muted/60` pinned by
+      `src/tests/p1366-card-footer.test.tsx`; private letter draft: lock + muted background (e2e).
+      Profiles list public stories only, so no private card renders there.
+- [x] Unit tests pass (5727/5727 with a 30s timeout; pre-commit green). The touched e2e specs that
+      fail do so identically on unchanged main (control runs): the profile specs (INBOX-122) and
+      /live's two-party specs (INBOX-126, user-cleanup FK error + missing story search), so the
+      /live invariant is verified by control, not by a green run.
+- [x] Opus visual review (screenshots only, 18/18 read), Codex and Gemini reviews run on both the
+      no-stripe version and option B, plus an Opus adversarial review of B: each finding checked
+      against the code. Fixed: story-page top band, private letters muted, design page left intact,
+      the e2e now asserts the grey stripe's presence, 120s test budget. Answered as not defects:
+      `accent` prop callers (tsc clean), profile private stories (never listed), private points on
+      the feed and point page (never had a private colour), and the diff-vs-moved-main artifact.
 
 ## Alternatives Considered
 
