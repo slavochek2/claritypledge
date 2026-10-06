@@ -240,7 +240,9 @@
 
   .t-sub{font-size:clamp(1rem,2.1vw,1.7rem);color:var(--muted-fg);font-weight:500;margin:0}
   .t-ask{font-size:clamp(1.2rem,2.7vw,2.1rem);font-weight:700;color:var(--blue);margin:.55em 0 0}
-  .cert-epigraph{text-align:center;color:var(--muted-fg);margin:0 0 .5em}
+  .cert-kicker{text-align:center;margin:0 0 .35em;font-size:.72em;letter-spacing:.2em;
+    text-transform:uppercase;color:rgba(26,26,26,.6)}
+  .cert-epigraph{text-align:center;color:rgba(26,26,26,.7);font-style:italic;margin:0 0 .6em}
   .cu-line{max-width:46ch;margin:.2rem auto 1.1rem;text-align:center;line-height:1.35;
     font-size:clamp(1rem,1.8vw,1.45rem);color:var(--muted-fg);font-weight:500}
   /* QR */
@@ -1375,16 +1377,26 @@
         <div class="cert-head">
           <h3>Clarity Meeting Principle</h3>
         </div>
-        <!-- CORRECTED 2026-10-06 (founder: "it's not to every other member... right now it's
-             not the Clarity Meeting Principle — did we deviate?"). It had. The slide read
-             "A commitment to every member", which is Group-terms framing; the Clarity Meeting
-             Principle shown at /meet is the current pledge (pledge v5, oath body
-             VERIFIED_UNDERSTANDING_OATH[5]), and its commitment line is to EVERYONE — the
-             strangers and the people you dislike are the point of it. Both lines below are
-             verbatim from `src/app/content/pledge-text.tsx`; the three clauses already matched
-             the oath. If the pledge version changes, change this slide with it. -->
+        <!-- CORRECTED TWICE on 2026-10-06, and the second correction is the one that counts.
+             The slide first read "A commitment to every member" (Group-terms framing, wrong).
+             The agent then replaced it with the PLEDGE's commitment line, "I hereby commit to
+             everyone — including strangers…" — ALSO WRONG, and wrong in a worse way, because
+             that line belongs to /pledge, a standing public promise. Founder: "Clarity Meeting
+             Principle doesn't say I commit to everyone... doesn't it say a commitment for this
+             conversation? Take the actual text."
+
+             THIS IS NOW WHAT /meet RENDERS, in its order and its words, read off
+             `meeting-principle-view.tsx` (kicker + epigraph) and `verified-understanding-oath.ts`
+             v5 (the three clauses, which the slide already matched):
+               title   — Clarity Meeting Principle
+               kicker  — A COMMITMENT FOR THIS CONVERSATION
+               epigraph— We all crave being understood. Let's commit to listen.
+             The scope is THIS CONVERSATION, not everyone and not every member. That is the
+             difference between a principle you adopt for an evening and a pledge you carry for
+             life, and the room is being asked for the first one. If /meet changes, change this
+             slide with it; it is a copy, and copies drift. -->
+        <p class="cert-kicker">A commitment for this conversation</p>
         <p class="cert-epigraph"><i>We all crave being understood. Let&rsquo;s commit to listen.</i></p>
-        <p class="cert-intro">I hereby commit to <b>everyone</b> &mdash; including strangers, people I disagree with, and even those I dislike:</p>
         <div class="cert-clause">
           <h4>Your right</h4>
           <p>When we speak, please feel free to ask <b>how well I assume I cognitively understand</b> the intended meaning behind what you say.</p>
