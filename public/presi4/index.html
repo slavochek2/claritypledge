@@ -777,7 +777,7 @@
      Add ?plain to the URL to disable all motion (guaranteed-safe venue fallback). -->
 <script defer src="gsap.min.js"></script>
 <style>/* /presi4 2026-10-06: principle clauses arrive one click at a time (founder) */
-  .cert[data-bubbles] .step{opacity:0;transform:translateY(8px);transition:opacity .5s ease,transform .5s ease}
+  .cert[data-bubbles] .step{display:block;opacity:0;transform:translateY(8px);transition:opacity .5s ease,transform .5s ease}
   .cert[data-bubbles] .step.on{opacity:1;transform:none}
 </style>
 </head>
@@ -845,6 +845,42 @@
     </div>
   </section>
 
+  <!-- IKIGAI — founder, 2026-10-06: "a slide on the Ikigai [from the] event page... four circles...
+       an animated Venn". One circle per click (love, world needs, good at, paid for), then the centre word. -->
+  <style>
+    .ikg{position:relative;width:min(62vh,560px);aspect-ratio:1;margin:clamp(.6rem,2vh,1.4rem) auto 0}
+    .ikg .c{position:absolute;width:58%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      text-align:center;font-weight:700;font-size:clamp(.8rem,1.7vw,1.15rem);line-height:1.2;padding:9%;box-sizing:border-box;
+      mix-blend-mode:multiply;opacity:0}
+    .ikg .c1{left:21%;top:0;background:rgba(239,68,68,.22);align-items:flex-start;padding-top:12%}
+    .ikg .c2{left:0;top:21%;background:rgba(59,130,246,.22);justify-content:flex-start;text-align:left;padding:0 50% 0 9%}
+    .ikg .c3{right:0;top:21%;background:rgba(34,197,94,.22);justify-content:flex-end;text-align:right;padding:0 9% 0 50%}
+    .ikg .c4{left:21%;bottom:0;background:rgba(234,179,8,.25);align-items:flex-end;padding-bottom:12%}
+    .ikg .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:clamp(1.1rem,2.6vw,1.8rem);color:var(--blue);opacity:0}
+    .ikg[data-bubbles] .c.step{display:flex}.ikg[data-bubbles] .mid.step{display:flex}
+    .ikg .step{transform:scale(.6);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+    .ikg .step.on{opacity:1;transform:none}
+    @keyframes ikin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+    @keyframes ikmid{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion:reduce){.ikg .c,.ikg .mid{opacity:1!important;animation:none!important}}
+  </style>
+  <section class="slide soft">
+    <!-- NOTES
+      - Tonight's question lives in the middle: where AI changes what you love, what you are
+        good at, what the world needs and what you can be paid for.
+    -->
+    <div class="kicker">Tonight's topic</div>
+    <h2 style="margin-bottom:0;font-size:clamp(1.4rem,3.4vw,2.6rem)">What is the most effective way<br>to reach your <span class="accent">ikigai</span>?</h2>
+    <div class="ikg" data-bubbles aria-label="Ikigai: four overlapping circles">
+      <div class="c c1 step">What you love</div>
+      <div class="c c3 step">What the world needs</div>
+      <div class="c c2 step">What you are good at</div>
+      <div class="c c4 step">What you can be paid for</div>
+      <div class="mid step">Ikigai</div>
+    </div>
+  </section>
+
   <!-- 2 · AGENDA — the evening's five moves, taken from the EVENT PAGE's own "Agenda"
        section (claritypledge.com/events/<slug>, read live 2026-09-16) and shortened only
        for projection. Anyone who registered has already read this; putting it second is
@@ -909,44 +945,7 @@
     </div>
   </section>
 
-  <!-- IKIGAI — founder, 2026-10-06: "a slide on the Ikigai [from the] event page... four circles...
-       an animated Venn". Circles enter one by one, then the centre word. CSS only, re-runs on
-       every entry because .slide.active restarts the animation. -->
-  <style>
-    .ikg{position:relative;width:min(62vh,560px);aspect-ratio:1;margin:clamp(.6rem,2vh,1.4rem) auto 0}
-    .ikg .c{position:absolute;width:58%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;
-      text-align:center;font-weight:700;font-size:clamp(.8rem,1.7vw,1.15rem);line-height:1.2;padding:9%;box-sizing:border-box;
-      mix-blend-mode:multiply;opacity:0}
-    .ikg .c1{left:21%;top:0;background:rgba(239,68,68,.22);align-items:flex-start;padding-top:12%}
-    .ikg .c2{left:0;top:21%;background:rgba(59,130,246,.22);justify-content:flex-start;text-align:left;padding:0 50% 0 9%}
-    .ikg .c3{right:0;top:21%;background:rgba(34,197,94,.22);justify-content:flex-end;text-align:right;padding:0 9% 0 50%}
-    .ikg .c4{left:21%;bottom:0;background:rgba(234,179,8,.25);align-items:flex-end;padding-bottom:12%}
-    .ikg .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      font-weight:800;font-size:clamp(1.1rem,2.6vw,1.8rem);color:var(--blue);opacity:0}
-    .slide.active .ikg .c{animation:ikin .7s cubic-bezier(.2,.7,.2,1) forwards}
-    .slide.active .ikg .c1{animation-delay:.2s}.slide.active .ikg .c2{animation-delay:.7s}
-    .slide.active .ikg .c3{animation-delay:1.2s}.slide.active .ikg .c4{animation-delay:1.7s}
-    .slide.active .ikg .mid{animation:ikmid .8s ease 2.4s forwards}
-    @keyframes ikin{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
-    @keyframes ikmid{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
-    @media (prefers-reduced-motion:reduce){.ikg .c,.ikg .mid{opacity:1!important;animation:none!important}}
-  </style>
-  <section class="slide soft">
-    <!-- NOTES
-      - Tonight's question lives in the middle: where AI changes what you love, what you are
-        good at, what the world needs and what you can be paid for.
-    -->
-    <div class="kicker">Tonight's topic</div>
-    <h2 style="margin-bottom:0">What is your <span class="accent">ikigai</span>?</h2>
-    <div class="ikg" aria-label="Ikigai: four overlapping circles">
-      <div class="c c1">What you love</div>
-      <div class="c c2">What you are good at</div>
-      <div class="c c3">What the world needs</div>
-      <div class="c c4">What you can be paid for</div>
-      <div class="mid">Ikigai</div>
-    </div>
-  </section>
-
+  
   <section class="slide soft">
     <!-- NOTES
       - This is the problem tonight exists for. The screen gives three phrases; the sentences
@@ -1116,7 +1115,7 @@
          changed — punished → rewarded — which is the whole evening in one line, and the reason
          nobody reveals a gap is not that they can't: "they can, but they don't." -->
     <div class="kicker">Point A &rarr; Point B</div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">A shared <span class="accent">challenge</span> we face</h2>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem);margin-bottom:.2rem">Do you accept our <span class="accent">shared challenge</span>?</h2>
     <div class="fd">
       <svg viewBox="0 0 680 250" role="img" aria-label="Point A and Point B sit on a straight path blocked in the middle by an obstacle: ego, fear, laziness and deniability. A blue arrow labelled the skill to reveal the gap curves around the obstacle from A to B.">
         <defs>
@@ -1236,17 +1235,17 @@
       <div class="ring ring-1">
         <div class="ring-lab">
           <div class="ring-t">General Integrity</div>
-          <div class="ring-d">You hold your values &mdash; or they are not values.</div>
+          <div class="ring-d">You consistently choose to follow your values.</div>
         </div>
         <div class="ring ring-2">
           <div class="ring-lab">
             <div class="ring-t">Intellectual Integrity</div>
-            <div class="ring-d">You admit it when you are wrong.</div>
+            <div class="ring-d">You admit it when you are not following your values.</div>
           </div>
           <div class="ring ring-3">
             <div class="ring-lab">
               <div class="ring-t">Intellectual Honesty</div>
-              <div class="ring-d">You are honest with yourself when you have not verified what the other person meant.</div>
+              <div class="ring-d">You are honest with yourself when you have not verified that you understand the view of someone who disagrees with you.</div>
             </div>
           </div>
         </div>
@@ -1343,25 +1342,38 @@
         terms. [FOUNDER DECISION: whether to state a retention period out loud]
     -->
     <div class="kicker">What audio transcription is for</div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem)">Mirror agents that <span class="accent">build bridges</span><br>between different views</h2>
-    <p class="lead" style="margin-top:.8rem">Opt in, and tonight helps build them.</p>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem)">Try mirror agents that <span class="accent">build bridges</span></h2>
+    <p class="lead" style="margin-top:.8rem;max-width:46ch;text-wrap:balance">Less time and effort to reach verified understanding, despite differences in opinions, interests and values.</p>
     <!-- THE BAR, MERGED IN (founder, 2026-10-05: "any way to put visually the visuals from
          slide 10 into slide 9?"). The separate "start it, pause it, stop it" slide is gone;
          the two states sit small under the three reasons, so why and how are one beat.
          Static copy of the shipped room-capture bar — strings verbatim from capture-status.ts.
          Pause/resume is P1388. WHERE IT STARTS is the next slide: the live event page driven
          to /ready, where the Transcribe switch sits. -->
-    <div class="bar2 bar2-sm">
-      <div class="bar2-row bar2-on">
+    <!-- ONE LIVE BANNER (founder, 2026-10-06): the event room's own banner from P1337 — idle
+         "Not transcribed" + Transcribe; tap it and it runs, with pause and stop. Strings copied
+         from room-capture-bar.tsx / capture-status.ts; clicking it does not advance the slide. -->
+    <div class="bar2 bar2-sm" data-live>
+      <div class="bar2-row bar2-off" data-st="idle">
+        <span class="bar2-txt">Not transcribed</span>
+        <span class="bar2-btns"><button class="bar2-go" data-to="run">Transcribe</button></span>
+      </div>
+      <div class="bar2-row bar2-on" data-st="run" hidden>
         <span class="bar2-dot"></span>
         <span class="bar2-txt">Transcribing for AI insights</span>
-        <span class="bar2-btns"><span class="bar2-ic">&#10074;&#10074;</span><span class="bar2-ic">&#9633;</span></span>
+        <span class="bar2-btns"><button class="bar2-ic" data-to="pause" aria-label="Pause">&#10074;&#10074;</button><button class="bar2-ic" data-to="idle" aria-label="Stop">&#9632;</button></span>
       </div>
-      <div class="bar2-row bar2-off">
-        <span class="bar2-txt">Paused &mdash; not recording</span>
-        <span class="bar2-btns"><span class="bar2-ic">&#9654;</span><span class="bar2-ic">&#9633;</span></span>
+      <div class="bar2-row bar2-off" data-st="pause" hidden>
+        <span class="bar2-txt">Paused, not recording</span>
+        <span class="bar2-btns"><button class="bar2-ic" data-to="run" aria-label="Resume">&#9654;</button><button class="bar2-ic" data-to="idle" aria-label="Stop">&#9632;</button></span>
       </div>
     </div>
+    <style>
+      .bar2-go{font:inherit;font-weight:700;color:#fff;background:var(--blue);border:0;border-radius:8px;padding:.45em 1.1em;cursor:pointer}
+      button.bar2-ic{cursor:pointer;font-family:inherit;color:inherit}
+      .bar2-row[hidden]{display:none}
+      @keyframes bar2pulse{50%{opacity:.35}} .bar2-on .bar2-dot{animation:bar2pulse 1.6s ease-in-out infinite}
+    </style>
   </section>
 
 
@@ -1464,7 +1476,7 @@
         here, change it there — the room can read both at once.
     -->
     <div class="kicker">How the cards help</div>
-    <h2>Keep focus on the speaker&rsquo;s <span class="accent">intended meaning</span></h2>
+    <h2>Listen for the speaker&rsquo;s <span class="accent">intended meaning</span></h2>
     <div class="cards2">
       <div class="cd s">
         <div class="big">S</div><div class="role">SPEAKER</div>
@@ -1510,6 +1522,7 @@
     .av{display:grid;place-items:center;flex:none;width:clamp(1.8rem,3.2vw,2.3rem);height:clamp(1.8rem,3.2vw,2.3rem);
       border-radius:50%;color:#fff;font-weight:800;font-size:clamp(.75rem,1.4vw,.95rem)}
     .av-s{background:#C2410C} .av-l{background:#1864AB} .av-o{background:hsl(240 5% 45%)}
+    .at-a{color:#C2410C} .at-b{color:#1864AB}
     .msg .txt{padding:.55rem .85rem;border-radius:14px;line-height:1.35;
       font-size:clamp(1rem,1.75vw,1.4rem);color:var(--wa-ink);box-shadow:0 1px 1px rgba(0,0,0,.06)}
     .m-s .txt{background:hsl(22 92% 96%);border-bottom-left-radius:4px}
@@ -1631,28 +1644,37 @@
              carries the long version. -->
     <div class="wa-round" data-bubbles>
       <div class="wa-head">
-        <span class="wa-roles"><span class="wa-rt wa-rt-s">S</span><span class="wa-rt wa-rt-l">L</span><span class="wa-rt wa-rt-o">O</span></span>
+        <span class="wa-roles"><span class="wa-rt wa-rt-s">A</span><span class="wa-rt wa-rt-l">B</span><span class="wa-rt wa-rt-o">O</span></span>
         <div>
           <div class="wa-name">Your table</div>
-          <div class="wa-seen">speaker &middot; listener &middot; observer</div>
+          <div class="wa-seen">A speaks first &middot; B listens first &middot; O observes</div>
         </div>
       </div>
       <div class="wa-body wa-scroll">
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">The reason I agree on this point is my own experience&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Please &mdash; how much from 0 to 10 do you think you understand my intended meaning?</span></div>
-        <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">6 out of 10.</span></div>
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Thanks. I&rsquo;d say 3.</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">The reason I agree on this point is my own experience&hellip;</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Please, how much from 0 to 10 do you think you understand my intended meaning?</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">6 out of 10.</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks. I&rsquo;d say 3.</span></div>
         <div class="msg m-sys step"><span class="txt">Minimum number of verified understanding is 3</span></div>
-        <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">Then let me explain back what I think you mean&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Thanks &mdash; now a 5. What&rsquo;s missing to 10 is&hellip;</span></div>
-        <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">In my experience it is the opposite, and that is why I think&hellip;</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">&#128276; @Listener &mdash; you&rsquo;re the listener in this half.</span></div>
-        <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">@Speaker so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">That&rsquo;s an 8. Good enough &mdash; let&rsquo;s move on.</span></div>
-        <div class="msg m-sys step"><span class="txt">Speaker and listener swap &mdash; then the observer&rsquo;s turn</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">Then let me explain back what I think you mean&hellip;</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">Thanks, now a 5. What&rsquo;s missing to 10 is&hellip;</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">In my experience it is the opposite, and that is why I think&hellip;</span></div>
+        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">&#128276; <b class="at-b">@Listener</b> I think you are disagreeing too early and not focusing on the speaker&rsquo;s intended meaning.</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt"><b class="at-a">@Speaker</b> so what I hear you saying is&hellip; and I want to ask you&hellip;</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">I think you understand me at 8. Good enough, let&rsquo;s move on.</span></div>
+        <div class="msg m-sys step"><span class="txt">Speaker and listener swap</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">My own view is different, because&hellip;</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">How much from 0 to 10 do you think you understand my intended meaning?</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">7 out of 10.</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">I&rsquo;d say 5. Can you explain back what you heard?</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">So what I hear you saying is&hellip;</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">I think you understand me at 8. Let&rsquo;s move on.</span></div>
+        <div class="msg m-sys step"><span class="txt">The observer&rsquo;s turn</span></div>
+        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-a">@Person A</b> I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
+        <div class="msg m-s step"><span class="av av-s">A</span><span class="txt">You understood me at 9.</span></div>
+        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt"><b class="at-b">@Person B</b> I think I understood you at 6. Here is what I heard you mean&hellip;</span></div>
+        <div class="msg m-l step"><span class="av av-l">B</span><span class="txt">You understood me at 8.</span></div>
         <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">What I liked is&hellip; What could be better is&hellip;</span></div>
-        <div class="msg m-o step"><span class="av av-o">O</span><span class="txt">@Speaker &mdash; I think I understood you at 7. Here is what I heard you mean&hellip;</span></div>
-        <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">You understood me at 9.</span></div>
       </div>
     </div>
   </section>
@@ -1700,14 +1722,14 @@
       <div class="wa-round">
         <div class="wa-body">
           <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">How much do you think you understand me, 0 to 10?</span></div>
-          <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">Sorry &mdash; I wasn&rsquo;t paying attention. I can&rsquo;t give you a number yet.</span></div>
+          <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">Sorry, I wasn&rsquo;t paying attention. I can&rsquo;t give you a number yet.</span></div>
           <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">Thanks for saying so. Let me say it again.</span></div>
         </div>
       </div>
       <div class="wa-round">
         <div class="wa-body">
           <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">2 out of 10.</span></div>
-          <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">2 is more than 0 &mdash; curious what you got so far.</span></div>
+          <div class="msg m-s step"><span class="av av-s">S</span><span class="txt">2 is more than 0. Curious what you got so far.</span></div>
         <div class="msg m-l step"><span class="av av-l">L</span><span class="txt">What I got is&hellip;</span></div>
         </div>
       </div>
@@ -3102,9 +3124,14 @@
     else if(e.key==='f'){document.documentElement.requestFullscreen?.()}
   });
   document.getElementById('deck').addEventListener('click',e=>{
-    if(e.target.closest('a')) return;
+    if(e.target.closest('a,[data-live]')) return;
     (e.clientX < window.innerWidth*0.25)?prev():next();
   });
+  // the live transcription banner: three states, one visible at a time
+  document.querySelectorAll('[data-live]').forEach(b=>b.addEventListener('click',e=>{
+    const t=e.target.closest('[data-to]'); if(!t) return;
+    b.querySelectorAll('[data-st]').forEach(r=>r.hidden=r.dataset.st!==t.dataset.to);
+  }));
   show(0);
 
   /* ══════════════════ MOTION LAYER (progressive enhancement) ══════════════════
@@ -3293,7 +3320,9 @@
         // every stat to its true final value so re-entry never targets a stale, lower one
         document.querySelectorAll('.bignum[data-target]').forEach(b=>{b.textContent=b.dataset.target+'%';});
         document.querySelectorAll('.moneyup[data-target]').forEach(m=>{m.textContent='€'+m.dataset.target+'k';});
-        gsap.set(slide.querySelectorAll('*'),{clearProps:'transform,filter'});  // reset incoming subtree
+        // reset incoming subtree — VISIBLE elements only: on a display:none node GSAP measures by
+        // re-appending it to its parent, which moved an inline @mention to the end of its bubble
+        gsap.set([...slide.querySelectorAll('*')].filter(el=>el.getClientRects().length),{clearProps:'transform,filter'});
         if(mobile) return;                      // phones: instant cut, static content
         const tl=curTl=gsap.timeline();         // NO slide-frame fade — instant cut; motion lives in the content
         if(slide.querySelector('.bignum')) countUp(slide,tl);
