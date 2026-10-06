@@ -82,7 +82,10 @@ event page later in the day" fallback from the decision conversation is what it 
       the page, room, ready, meet and arriving (the rule is a prefix match, so prepare and close too)
 - [x] Existing header tests pass with the new destination — 29/29 unit, e2e 3/3; the room-href
       test fails when the old href is restored (control run)
-- [ ] Adversarial review (Opus, Codex) run; each finding verified, fixed or answered
+- [x] Adversarial review (Opus, Codex) run twice; each finding verified. Pass 1 found the all-day
+      room link wrong for hikes and post-event taps: fixed by the window rule. Pass 2 (final
+      version): no defect; both new columns verified on prod and test; the stale link on an idle
+      tab is accepted (Risks)
 
 ## Related
 
