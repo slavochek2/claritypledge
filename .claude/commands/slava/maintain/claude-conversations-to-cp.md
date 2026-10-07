@@ -14,7 +14,24 @@ Analyzes Claude conversations (or alternative sources) and proposes updates to c
 
 ## Last-Run Tracking
 
-**Marker file:** `.private/claude-conversations-to-cp-last-run.txt`
+**One marker per source.** A single shared marker cannot say which source it covers: a Gemini
+run that wrote it would hide unread Claude chats, and a Gemini backfill that skipped it (2026-09-22)
+left no record at all, so the next Gemini run started a 1,145-title triage of already-processed
+chats (2026-10-07).
+
+| Source | Marker file |
+|--------|-------------|
+| default (Claude.ai export) | `.private/claude-conversations-to-cp-last-run.txt` (unchanged path) |
+| `--source /path` | `.private/conversations-to-cp-last-run/<key>.txt` — key = the path resolved absolute, `$HOME/` stripped, `/` → `__` (e.g. `Projects__private__<repo>.txt`). A path that resolves to the default Claude export uses the default marker. |
+| `--source gdrive:ID` | `.private/conversations-to-cp-last-run/gdrive-<ID>.txt` |
+
+Read and write ONLY the marker for the source of this run — never another source's. On read, the
+marker's `source:` line must name the same resolved path; a mismatch = corrupted marker.
+
+**Incremental only for dated sources.** A marker is read and written only when the files carry
+`**Updated:**` frontmatter (Claude.ai and Gemini imports). gdrive, JSONL and plain-text sources have
+no reliable per-file date here: they run on the explicit window only and never write a marker —
+say so in the report.
 
 After each successful run (step 5 completes — edits applied OR user declines), write:
 ```
@@ -26,7 +43,22 @@ window: 7d
 
 **Smart default:** If no explicit time arg is passed AND the marker file exists, use `since last run` as the window instead of `7d`. Report: `"Last run: 2026-03-10 (7 days ago). Analyzing conversations since then. Pass '14d' to override."`
 
-If the marker is missing or corrupted, fall back to `7d` silently.
+If the marker is missing or corrupted, fall back to `7d` and say so (never silently) — and for a `--source` with no marker,
+and first check whether a prior run exists: `~/.agents/bin/hist "conversations-to-cp" | grep -F -- "<source basename>"`
+and `grep -n "<source basename>" docs/decisions.md`. A prior run is only evidence of coverage if its
+record names the date range it covered AND that it completed; then use the end of that range as the
+previous `last_run` for this run's window and for the advance check below. Otherwise treat it as never run.
+
+**`last_run` is the collection cutoff, not the completion time.** Record the timestamp at the moment
+files are collected in step 0 and write THAT — a chat updated while the run waits for approval is
+then picked up next time instead of skipped.
+
+**Advance the marker only on verified coverage.** Write it only if (a) the window start was at or
+before the previous `last_run` (or no marker existed), and (b) every in-window file was either
+classified personal by the relevance filter or fully read — no failed chunk, no silent agent
+(count reports against agents spawned). A `14d` run after a 30-day gap
+did not read days 15–30 — moving the marker past them would hide them forever. In that case leave
+the marker and report: "Marker not advanced — window did not cover since [last_run]." 
 
 ## Usage
 
@@ -154,15 +186,16 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     </parse_args>
 
     <read_marker>
-      - Read `.private/claude-conversations-to-cp-last-run.txt`
+      - Read this source's marker (see Last-Run Tracking table — never another source's)
       - If exists and parseable: extract `last_run` timestamp
       - If no explicit time arg was passed: use `last_run` as the start of the window. Report: "Last run: [date] ([N] days ago). Analyzing conversations since then. Pass '14d' to override."
-      - If marker missing or corrupted: fall back to 7d silently
+      - If marker missing or corrupted: fall back to 7d and report it (see Last-Run Tracking for the prior-run check on --source)
+      - Record `collection_cutoff` = now (ISO). This, not the completion time, is what the marker stores.
       - If explicit time arg was passed (e.g. "14d"): ignore marker, use the explicit window
     </read_marker>
 
     <guard name="pp-path-block">
-      <if condition="--source path contains '/Projects/private' AND path is NOT ~/Projects/private/claude-conversations">
+      <if condition="--source path contains '/Projects/private' AND path is NOT the default Claude export dir AND the path's YYYY-MM/*.md files are NOT a Gemini import (first file's header carries `**Source:** Gemini`)">
         <action>Stop. Report: "Source path appears to be a private (pp) directory other than claude-conversations. This skill is cp-only. Use /claude-conversations-to-pp for personal/private sources."</action>
       </if>
     </guard>
@@ -177,7 +210,7 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
       <action>Glob for .md files in ~/Projects/private/claude-conversations/ recursively — these are exported Claude.ai conversations in markdown format</action>
       <action>Filter by the `**Created:**` / `**Updated:**` frontmatter dates — a file is in the window if EITHER falls inside it. **Never filter by file mtime.** The importer's `--rebuild` rewrites every file in the archive, so mtime reads as "today" for all 661 files and the filter silently degrades to "ingest everything". Verified 2026-09-09: mtime matched 661 files, frontmatter matched 44. Use `grep -m1 '^\*\*Updated:\*\*'` per file.</action>
       <action>If marker exists with last_run timestamp and no explicit time arg was passed: further exclude files whose `Updated:` date is older than last_run — these were already processed in a previous run. (Compare on `Updated:`, not `Created:` — a conversation created before the window but continued inside it is new work.)</action>
-      <action>Extract [/cp] markers from ALL files BEFORE relevance filtering: grep all files for `[/cp` regex. For each hit, extract the marker text and 2-3 surrounding sentences for context. Store as [MARKER] signals with source file and line. Report: "Found N [/cp] markers across M files." These are processed as first-class signals even if the containing file is classified as personal.</action>
+      <action>Extract [/cp] markers from ALL in-window files (personal ones included) BEFORE relevance filtering: grep all files for `[/cp` regex. For each hit, extract the marker text and 2-3 surrounding sentences for context. Store as [MARKER] signals with source file and line. Report: "Found N [/cp] markers across M files." These are processed as first-class signals even if the containing file is classified as personal.</action>
       <action>Early relevance filter: read the title (first H1) and first user message of each file. Classify as CP-relevant or personal. Skip files that are clearly personal (relationships, personal finance, philosophy unrelated to CP). Report: "Found N files, M relevant to ClarityPledge, skipping K personal." Only fully read the relevant files.</action>
       <action>Count relevant files</action>
     </if>
@@ -188,7 +221,9 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
     </if>
 
     <if source="/path">
-      <action>Glob all files in the directory recursively</action>
+      <action>Glob all files in the directory recursively. For a Gemini import (header `**Source:** Gemini`): only `YYYY-MM/*.md` (skip `_raw/`, `_store/`, `_attachments/`); the format is the Claude.ai one above with `### 🤖 Gemini` in place of `### 🤖 Claude`.</action>
+      <action>If files carry `**Updated:**` frontmatter, apply the same frontmatter-date window and marker filter as the default source — never mtime.</action>
+      <action>Apply the same [/cp] marker grep (all in-window files) and early relevance filter as the default source.</action>
       <action>Count files</action>
     </if>
 
@@ -381,12 +416,12 @@ JSONL format: each line is a JSON object. Conversation messages have `type: "use
            ```
         4. Report: "Enriched [N]: {a-spec → destination} per entry."
       </action>
-      <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used</action>
+      <action>Write this source's marker (Last-Run Tracking table; only on verified coverage; dated sources only) with `last_run: <collection_cutoff>`, files_processed count, source, and window used</action>
       <action>Output summary: "Applied [N] strategy changes. Filed [M] content ideas (step 2). Modified: [file list]."</action>
       <action>Suggest: "These are strategy doc changes worth committing. Run /kdd if any decisions surfaced. Want to commit?"</action>
     </on_confirm>
     <on_reject>
-      <action>Write marker: `.private/claude-conversations-to-cp-last-run.txt` with current ISO timestamp, files_processed count, source, and window used (analysis was done, just no edits applied)</action>
+      <action>Write this source's marker (Last-Run Tracking table; only on verified coverage; dated sources only) with `last_run: <collection_cutoff>`, files_processed count, source, and window used (analysis was done, just no edits applied)</action>
       <action>Report "No changes applied. (Content candidates filed in step 2 remain.)"</action>
     </on_reject>
   </step>
