@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 23
 severity: low
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [events, header, mobile, e2e]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, dev, ship]
+completed_at: 2026-10-07
 ---
 
 # P1434: "Today's event" header button crowds the logo at 375px; header E2E leaks other events
