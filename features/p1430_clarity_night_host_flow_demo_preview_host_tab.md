@@ -110,14 +110,11 @@ open.
       are greyed and not tappable, at 320px, 375px and desktop
 - [ ] The event page shows a Host tab to the host only; a non-host opening /host is refused
 
-## Open Questions
+## Open Questions — answered 2026-10-07
 
-1. [FOUNDER DECISION: copy] Hint lines under each matching option (recorders together, disagreement
-   gap, haven't met yet).
-2. [FOUNDER DECISION: ear badge] Explain it, or drop it from the room roster? (`RosterRow` already has
-   a `showEarBadge` prop, so dropping it is one line.)
-3. [FOUNDER DECISION] "understood N/10" on the mobile roster was removed in 2026-08-21 visual QA
-   because it cut names to "A…" at 320px. Bring it back?
+1. ~~Hint lines under each matching option~~ — **No hints.** Founder: "I know what those are … as far as I am the only person using it, doesn't matter."
+2. Ear badge — **drop it from the host's grouped participant rows on the event page, keep the number** (founder: "yes do that"). Tracked separately from this spec, since it fixes names cut to "P14…" at 375px today.
+3. "understood N/10" — **kept** on the host's rows; dropping the ear badge is what gives the name its room.
 
 ## Related
 
