@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [product]: Day page — Accept is saved at once; paging never accepts (P1432)
+
+**Context:** Coming back to the Day page, the founder could not tell which cards he had answered:
+"when i come back next day not sure which answered and which not". Answered and unanswered cards
+looked identical (both preselect the recommendation), and "Accept & next" kept the accept in page
+state until Start fixing, so a reload silently dropped it.
+**Decision:** (1) "Accept & next" / "Accept" is its own button, split from Next, and writes the
+recommended answer immediately, like picking it. Next, Previous, ← and → only move; a card paged
+past stays unanswered and does not count as resolved. Accept never parks. (2) Every card shows one
+state line (not answered yet / your answer · saved / sent to the agent / answered on an earlier day
+· reported again), and a list above the pager shows each card's state. (3) "Sent" is per item,
+from the run's started/pending launch receipts; a failed launch never counts, and a changed answer
+is unsent again.
+**Alternatives rejected:** keeping Next as the accept (Next and → shared one handler, so arrows
+recorded answers); browser storage for page state (the decisions file is the only store, privacy
+invariant); a bulk "accept all" (approves unread choices, against decision 1B above).
+**Consequences:** This narrows 2026-10-06 point (2): "accepted with Next" no longer exists; Start
+fixing batches only unanswered agent work, since founder answers are already in the file. Open:
+leaving the custom-answer box by clicking Next still saves typed text (pre-existing, conflicts with
+"paging never writes" as worded); a Park on the current run reads "answered"; Reflection has no
+per-statement saved/sent line yet.
+**References:** [p1432](../features/done/2026-06-10/p1432_day_page_shows_which_cards_are_answered.md)
+
+---
+
 ## 2026-10-07 [process]: The pre-commit "migration not applied" remedy is wrong inside a worktree (Status: proposed)
 
 **Context:** KDD meta-reflection, day-2026-10-06 triage. An agent used a raw `git worktree add` for work with no P-number. `scripts/create-worktree.sh <slot> <branch>` already handles that case (no P-number needed, and it links `.env.local` and `node_modules`), and `docs/technical/worktree-setup.md` says never to use the raw command. The missing `.env.local` was an agent error, not a tool gap. The agent-skills mirror drift would have failed in any checkout. One real gap remains: when a staged migration is not in the manifest, `pre-commit-checks.sh` says "Run ./scripts/migrate.sh, then re-stage deploy-manifest.json". Inside a worktree that cannot work, because `stamp-deploy-manifest.sh` refuses to run there. The sequence that does work (P940, worktree-setup.md) is not mentioned.

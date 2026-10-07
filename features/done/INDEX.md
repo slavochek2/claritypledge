@@ -412,6 +412,7 @@ Last updated: 2026-10-07
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1432** (Oct 26) Day page shows which cards are answered — Accept writes at once; Next only moves; "Sent" per item from launch receipts, failed never counts
 - **P1318** (Oct 06) Remove plaintext copies of the critical credential half — locked set = what reaches prod; a test-only credential is de-registered, not locked; env-file removal ≠ unreadable
 - **P1416** (Oct 26) Installed PWA stale after deploys — resume never navigates; compare an app-content fingerprint, not the Sentry-stamped entry hash
 - **P1385** (Oct 01) Public media defaults to GCS with a CSP check — `publicMediaUrl()` is the only builder; a src/ scan bans hand-built GCS/Supabase-storage URLs and `getPublicUrl(`, since dev sends no CSP
