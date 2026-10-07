@@ -6,6 +6,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [technical]: P1430 — the Demo is a name, not a number; a start is checked against the arrangement that was previewed
+
+**Context:** P1430 renamed the host-picked round ("choose who sits", `event_rounds.showcase`) to "Demo" and made the round after it read "Round 1". It also added a preview of the tables before Start. Three reviews (Opus, Codex, Gemini) found races in the start path.
+**Decision:**
+- `round_no` stays storage order (CHECK 1..9, unique, start = max+1). Every surface derives its name with `src/lib/round-numbering.ts`: a Demo reads "Demo", and any other round reads `round_no − Demos before it`. No migration.
+- `sits_out_round` means the **counted** round the room reads. A Demo seats only the chosen people, so the mark does not apply to it.
+- Grouping keeps Demo seats in the history (those people have met). It adds Demos back into `totalRounds` so they don't use up the three-round plan.
+- Start re-reads presence just before saving, not from the last 4-second poll. If the answer is lost or the start is refused, recovery compares the saved round's seats (`getRoundSeatKeys`) with the previewed ones. Matching seats mean ours landed. Different seats mean another host device started the round first, and the host is told so. Merely finding a round with that number proves nothing.
+- Start stays locked until the board shows the round this device started (`pendingNo`), so a slow refresh can't offer Start again or report our own round as another device's.
+- The Demo's minutes (30 s / 3 / 1) live in component state only and are never saved. One demo table is capped at the group size.
+**Alternatives rejected:** a `display_no` / `is_demo` column, which needs a migration and adds a second source of truth to keep in sync; trusting the poll's presence at Start (Codex HIGH); `roundExists` as proof that our start landed (Codex and Opus).
+**Consequences:** Any new surface that names a round must call `roundLabel` / `nextRoundLabel`, never `Round ${roundNo}`. The past-rounds list missed this once and an e2e test caught it. One residual remains: `host_start_round` does not check `left_at` itself, so a mark-out from another device in the last milliseconds can still be seated. Closing that needs the RPC to reject seats for members who left (Status: proposed, not tracked).
+**References:** [p1430 spec](../features/p1430_clarity_night_host_flow_demo_preview_host_tab.md), `src/lib/round-numbering.ts`, `e2e/p1430-host-preview.spec.ts`
+
+---
+
+---
+
 ## 2026-10-07 [product]: Day page — the card list sits beside the card; the page opens on what still needs you (P1435)
 
 **Context:** After P1432 the Daily report put a list of every card above the card. At 1280×720 the 16-row list filled the screen and the decision started ~1000px down: "I see a huge amount of progress. I need to scroll down and then read." Reflection had no overview, so the founder could not tell which statements were rated.
