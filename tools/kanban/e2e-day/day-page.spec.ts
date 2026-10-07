@@ -1955,6 +1955,16 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
   })
 
+  test('3 pressed twice at once cycles Agree to Agree+, never writes Agree twice', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    await page.locator('.d-pst').click()
+    await page.keyboard.press('3')
+    await page.keyboard.press('3') // no wait: the first save has not been reloaded yet
+    await expect.poll(() => lines().filter((d) => d.kind === 'reflection').map((d) => d.position)).toEqual([2, 3])
+    await expect(page.locator('.d-pb.on')).toHaveText('Agree+')
+  })
+
   test('when every statement is rated the list says so, in green', async ({ page }) => {
     await openDay(page)
     await reflTab(page).click()

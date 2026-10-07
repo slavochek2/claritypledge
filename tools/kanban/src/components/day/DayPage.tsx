@@ -81,6 +81,8 @@ export function DayPage() {
   const rootRef = useRef<HTMLDivElement>(null)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
   const stories = useRef<Record<string, string>>({})
+  /** P1435: positions just written, until the reload after them lands (see setPosition) */
+  const pending = useRef(new Map<string, number | null>())
   const toastTimer = useRef<number>()
   // The selected run, readable from async callbacks: a response for any other run is dropped.
   const runIdRef = useRef<string | null>(null)
@@ -149,6 +151,7 @@ export function DayPage() {
     setDrafts({})
     setOpening(false)
     stories.current = {}
+    pending.current = new Map()
     void reload(runId).then((r) => {
       // P1435: open on the first card, and the first statement, that still needs the founder
       if (r?.kind !== 'ok' || !r.isLatest || runIdRef.current !== runId) return
@@ -271,23 +274,45 @@ export function DayPage() {
   const undoRaise = useCallback((target: string) => void write([{ kind: 'budget', target, remove: true }]), [write])
 
   const storyOf = useCallback((id: string) => stories.current[id] ?? view?.reflection[id]?.story ?? '', [view])
+  /**
+   * P1435: a position just written, until the reload after it lands. The view only learns of a
+   * write after the save AND the reload, so a quick second key press read the old position and
+   * wrote the same level again instead of cycling.
+   */
+  const posOf = useCallback(
+    (id: string) => {
+      if (pending.current.has(id)) return pending.current.get(id) ?? null
+      const v = view?.reflection[id]?.position
+      return typeof v === 'number' ? v : null
+    },
+    [view],
+  )
+  const remember = useCallback(
+    (id: string, position: number | null, done: Promise<unknown>) => {
+      pending.current.set(id, position)
+      void done.then(() => {
+        if (pending.current.get(id) === position) pending.current.delete(id)
+      })
+    },
+    [],
+  )
   const setPosition = useCallback(
     (id: string, position: number) => {
       if (readOnly) return
       const story = storyOf(id)
-      void write([{ kind: 'reflection', target: id, position, ...(story ? { story } : {}) }])
+      remember(id, position, write([{ kind: 'reflection', target: id, position, ...(story ? { story } : {}) }]))
     },
-    [readOnly, storyOf, write],
+    [readOnly, storyOf, write, remember],
   )
-  const removePosition = useCallback((id: string) => void write([{ kind: 'reflection', target: id, remove: true }]), [write])
+  const removePosition = useCallback((id: string) => remember(id, null, write([{ kind: 'reflection', target: id, remove: true }])), [write, remember])
   const setStory = useCallback(
     (id: string, story: string) => {
-      const pos = view?.reflection[id]?.position
-      if (readOnly || typeof pos !== 'number') return
+      const pos = posOf(id)
+      if (readOnly || pos === null) return
       stories.current[id] = story
       void write([{ kind: 'reflection', target: id, position: pos, ...(story ? { story } : {}) }])
     },
-    [readOnly, view, write],
+    [readOnly, posOf, write],
   )
 
   // ---- what Start fixing sends (decision 1B) --------------------------------------------
@@ -500,7 +525,7 @@ export function DayPage() {
     } else if (tab === 'reflection' && nav && n <= 3) {
       const s = statements[nav.i]
       const side = (['disagree', 'unsure', 'agree'] as const)[n - 1]
-      const cur = view?.reflection[s.id]?.position
+      const cur = posOf(s.id)
       e.preventDefault()
       if (typeof cur === 'number' && sideOf(cur) === side) {
         if (side !== 'unsure') setPosition(s.id, cycle(cur))
