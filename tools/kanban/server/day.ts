@@ -199,11 +199,16 @@ function readSent(dir: string): SentLaunch[] {
   return [...byId.values()]
 }
 
-/** What was already sent from this run: the items (so only changes go next time) and when, last. */
-function sentForRun(dir: string, report: DayReport): { items: Set<string>; lastAt?: string; all: SentLaunch[] } {
+/**
+ * What was already sent from this run: the items (so only changes go next time), when each was first
+ * sent (P1432: the card says "Sent"), and when the last launch was. Failed launches never count.
+ */
+function sentForRun(dir: string, report: DayReport): { items: Set<string>; itemsAt: Record<string, string>; lastAt?: string; all: SentLaunch[] } {
   const all = readSent(dir).filter((l) => l.state === 'pending' || l.state === 'started')
-  const mine = all.filter((l) => l.run_id === report.pass_id)
-  return { items: new Set(mine.flatMap((l) => l.items)), lastAt: mine.map((l) => l.at).sort().pop(), all }
+  const mine = all.filter((l) => l.run_id === report.pass_id).sort((a, b) => a.at.localeCompare(b.at))
+  const itemsAt: Record<string, string> = {}
+  for (const l of mine) for (const k of l.items) itemsAt[k] ??= l.at
+  return { items: new Set(Object.keys(itemsAt)), itemsAt, lastAt: mine[mine.length - 1]?.at, all }
 }
 
 function appendLine(dir: string, line: object): void {
@@ -256,7 +261,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if (run.parsed.kind !== 'ok') return res.json({ id, isLatest, kind: 'unreadable' })
       const { lines, badLines } = readDecisions(dir)
       const view = buildView(run.parsed.report, lines, traces(list.runs))
-      const sent = isLatest ? sentForRun(dir, run.parsed.report) : { items: new Set<string>(), lastAt: undefined }
+      // An earlier run shows what was sent from it too (P1432); the bar's lastSentAt stays latest-only.
+      const sent = sentForRun(dir, run.parsed.report)
       res.json({
         id,
         isLatest,
@@ -265,9 +271,10 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         view,
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
-        collectedCount: collect(view, sent.items).count,
+        collectedCount: collect(view, isLatest ? sent.items : new Set<string>()).count,
         quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
-        lastSentAt: sent.lastAt ?? null,
+        lastSentAt: isLatest ? sent.lastAt ?? null : null,
+        sentItems: sent.itemsAt,
         warnings: runWarnings(run.parsed.report, now().toISOString(), isLatest),
       })
     } catch {

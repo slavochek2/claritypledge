@@ -1,10 +1,10 @@
 // P1399: the Day page shell — tabs, the day switcher, warnings, and the sticky bottom bar
 // (pager · progress · Start fixing). Spec §3 and §7 are the contract.
 //
-// Writes (rule 5): picking an option, rating, a story (on blur, if changed), a budget raise or
-// undo, a connection Fix, the custom answer's text (on blur), Bring back, and the batch on
-// Start fixing / copy (the cards accepted with Next + the agent work). Paging NEVER writes;
-// "resolved" and "accepted" from Next live in React state only.
+// Writes (rule 5): picking an option, "Accept & next" / "Accept" (P1432: written at once, like a
+// pick), rating, a story (on blur, if changed), a budget raise or undo, a connection Fix, the custom
+// answer's text (on blur), Bring back, and the batch on Start fixing / copy (the unanswered agent
+// work). Paging NEVER writes and never accepts: Previous, Next, ← and → only move.
 //
 // PRIVACY: report content lives only in React state. Nothing is put in localStorage or
 // sessionStorage, and nothing is logged.
@@ -63,9 +63,6 @@ export function DayPage() {
   const [idx, setIdx] = useState({ yours: 0, agent: 0 })
   const [agentMode, setAgentMode] = useState(false)
   const [reflIdx, setReflIdx] = useState(0)
-  const [resolved, setResolved] = useState<Set<string>>(new Set())
-  /** fingerprints whose preselected answer the founder accepted with Next: page state, never written by paging */
-  const [accepted, setAccepted] = useState<Set<string>>(new Set())
   const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -143,8 +140,6 @@ export function DayPage() {
     setIdx({ yours: 0, agent: 0 })
     setAgentMode(false)
     setReflIdx(0)
-    setResolved(new Set())
-    setAccepted(new Set())
     setChoice({})
     setDrafts({})
     setOpening(false)
@@ -221,10 +216,7 @@ export function DayPage() {
       if (readOnly) return
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
       if (isFree(optionId)) setOwnFocus((n) => n + 1)
-      else {
-        setResolved((s) => new Set(s).add(i.fp))
-        void write([{ kind: 'option', target: i.fp, option_id: optionId }])
-      }
+      else void write([{ kind: 'option', target: i.fp, option_id: optionId }])
     },
     [readOnly, write],
   )
@@ -304,15 +296,15 @@ export function DayPage() {
     [agentCards, yours],
   )
 
-  /** The founder's answer is on the page but not in the file yet: accepted with Next, or typed text. */
+  /** The founder's answer is on the page but not in the file yet: typed text, or a pick still being written. */
   const queuedLocally = useCallback(
     (i: IssueView) => {
       if (i.decision || isAgentWork(i)) return false
       const kind = choice[i.fp]
       if (isFree(kind)) return !!(drafts[i.fp] ?? '').trim()
-      return kind !== undefined || (accepted.has(i.fp) && i.options[i.recommended_index]?.id !== PARK)
+      return kind !== undefined && kind !== PARK
     },
-    [choice, drafts, accepted],
+    [choice, drafts],
   )
   /** The button counts what will actually be sent: the server's count + what is only on the page. */
   const sendCount = (ok?.collectedCount ?? 0) + (view ? view.issues.filter(queuedLocally).length : 0)
@@ -342,7 +334,7 @@ export function DayPage() {
         }
         const free = unsavedFree(fresh.view)
         const freeFps = new Set(Object.entries(choice).filter(([, v]) => isFree(v)).map(([fp]) => fp))
-        const preselected = pendingPreselected(fresh.view, accepted).filter((d) => !freeFps.has(d.target))
+        const preselected = pendingPreselected(fresh.view).filter((d) => !freeFps.has(d.target))
         const batch = [...free, ...preselected]
         if (batch.length) await postDecisions(runId, batch)
         if (mode === 'copy') {
@@ -379,7 +371,7 @@ export function DayPage() {
         await reload(runId)
       }
     },
-    [runId, readOnly, busy, view, freeEmpty, unsavedFree, choice, accepted, jumpTo, reload, say, checkNewer],
+    [runId, readOnly, busy, view, freeEmpty, unsavedFree, choice, jumpTo, reload, say, checkNewer],
   )
   startRef.current = startFixing
 
@@ -400,38 +392,46 @@ export function DayPage() {
     [tab, issues.length, issueIdx, reflIdx, statements.length, mode],
   )
 
-  /** The current card is an unanswered founder choice: Next will accept its recommendation. */
+  /** The current card is an unanswered founder choice whose recommendation is not Park: Accept is offered. */
   const accepting = useMemo(() => {
     const cur = tab === 'report' && !readOnly && mode !== 'agent' ? issues[nav?.i ?? -1] : undefined
-    return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && !accepted.has(cur.fp)
-  }, [tab, readOnly, mode, issues, nav, choice, accepted])
+    return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
+  }, [tab, readOnly, mode, issues, nav, choice])
 
+  /** Pure paging: never writes, never accepts (rule 5). */
   const page = useCallback(
     (dir: -1 | 1) => {
       if (!nav) return
       const to = nav.i + dir
       if (to < 0 || to >= nav.n) return
-      if (tab === 'report') {
-        const left = issues[nav.i]
-        if (dir === 1 && left) {
-          setResolved((s) => new Set(s).add(left.fp))
-          // Next accepts the preselected answer (page state only); an empty custom answer is not one
-          if (!readOnly && !isFree(choice[left.fp])) setAccepted((s) => new Set(s).add(left.fp))
-        }
-        setIssueIdx(to)
-      } else setReflIdx(to)
+      if (tab === 'report') setIssueIdx(to)
+      else setReflIdx(to)
       toTop()
     },
-    [nav, tab, issues, readOnly, choice, setIssueIdx],
+    [nav, tab, setIssueIdx],
   )
 
-  /** The last founder card has nowhere to page to: Accept records the answer and stays. */
-  const acceptHere = useCallback(() => {
-    const cur = issues[nav?.i ?? -1]
-    if (!cur || readOnly) return
-    setResolved((s) => new Set(s).add(cur.fp))
-    setAccepted((s) => new Set(s).add(cur.fp))
-  }, [issues, nav, readOnly])
+  /**
+   * "Accept & next" / "Accept" (P1432): writes the recommended answer at once, exactly like picking
+   * it, then moves on. An answered card writes nothing; Accept never parks (only the founder parks,
+   * by picking Park); a failed write keeps the card where it is, unanswered, with the error shown.
+   */
+  const acceptingNow = useRef(false)
+  const accept = useCallback(async () => {
+    if (!accepting || !nav || acceptingNow.current) return
+    const cur = issues[nav.i]
+    const rec = cur?.options[cur.recommended_index]?.id
+    if (!cur || !rec || rec === PARK) return
+    // a second click before the re-render must not write a second line
+    acceptingNow.current = true
+    try {
+      setChoice((c) => ({ ...c, [cur.fp]: rec }))
+      const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
+      if (r.ok && runIdRef.current === runId) page(1)
+    } finally {
+      acceptingNow.current = false
+    }
+  }, [accepting, nav, issues, write, page, runId])
 
   const review = useCallback(() => {
     setAgentMode(true)
@@ -507,10 +507,11 @@ export function DayPage() {
   const latestId = index.latestId ?? runs[0].id
   const reviews = ok?.report.reviews ?? summary?.reviews ?? []
   const when = dayLabel(ok?.report.started_at ?? summary?.startedAt)
+  // Resolved = answered in the file (or a pick being written); a card only paged past is not.
   const resolvedN = issues.filter((i) => {
     const kind = choice[i.fp]
     if (isFree(kind)) return !freeEmpty(i) && i.decision?.option_id === kind
-    return !!i.decision || resolved.has(i.fp)
+    return !!i.decision || kind !== undefined
   }).length
   const firstYours = yoursLeft[0]
   const rated = statements.filter((s) => view?.reflection[s.id]).length
@@ -627,6 +628,7 @@ export function DayPage() {
                   onFix={fix}
                   onUndoFix={undoFix}
                   onBringBack={bringBack}
+                  sent={ok.sentItems ?? {}}
                 />
               )}
               {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} />}
@@ -679,17 +681,15 @@ export function DayPage() {
                   <span className="d-bpos">
                     {nav.i + 1} of {nav.n}
                   </span>
-                  <button type="button" className="d-nbtn" aria-label={`${accepting ? (nav.i < nav.n - 1 ? 'Accept and next' : 'Accept') : 'Next'} ${nav.lab}`} title={accepting ? 'Accept this answer and go on (→)' : 'Next (→)'} disabled={nav.i >= nav.n - 1 && !accepting} onClick={() => (nav.i >= nav.n - 1 ? acceptHere() : page(1))}>
-                    {accepting ? (
-                      <>
-                        <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
-                        <span className="d-ns">Accept</span>
-                      </>
-                    ) : (
-                      <span className="d-nl">Next</span>
-                    )}
-                    ›
+                  <button type="button" className="d-nbtn" aria-label={`Next ${nav.lab}`} title="Next (→)" disabled={nav.i >= nav.n - 1} onClick={() => page(1)}>
+                    <span className="d-nl">Next</span>›
                   </button>
+                  {accepting && (
+                    <button type="button" className="d-nbtn d-accept" data-accept aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'} title="Save the recommended answer" disabled={busy} onClick={() => void accept()}>
+                      <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
+                      <span className="d-ns">Accept</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div />

@@ -43,7 +43,9 @@ const agentOf = (v: { view: { issues: ViewIssue[] } }) => v.view.issues.filter(i
 
 const card = (page: Page) => page.locator('.d-focus')
 const cardTitle = (page: Page) => card(page).locator('h2')
-const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^(Next|Accept)/ })
+const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Next/ })
+/** P1432: Accept is its own button, split from Next; it writes the recommended answer at once. */
+const acceptBtn = (page: Page) => page.locator('[data-bottom-bar] [data-accept]')
 const prevBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Previous/ })
 const startBtn = (page: Page) => page.getByRole('button', { name: /^Start fixing \(\d+\)$/ })
 /** A value that must exist, or the test fails right here with a name. */
@@ -257,8 +259,10 @@ test.describe('issues', () => {
       await expect(cardTitle(page)).toHaveText(yours[i].title)
       if (i < yours.length - 1) await nextBtn(page).click()
     }
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept /) // the last card has nowhere to page to: an enabled Accept, not a dead Next
-    await expect(nextBtn(page)).toBeEnabled()
+    // the last card has nowhere to page to: Next is disabled, and Accept (its own button) is enabled
+    await expect(nextBtn(page)).toBeDisabled()
+    await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept')
+    await expect(acceptBtn(page)).toBeEnabled()
   })
 
   test('Previous / Next and ← → move between cards and write nothing', async ({ page }) => {
@@ -362,7 +366,8 @@ test.describe('issues', () => {
     await openDay(page)
     const v = await runView(page)
     const [c0, c1, c2] = yoursOf(v)
-    await nextBtn(page).click() // accepts the first card's preselected answer
+    await acceptBtn(page).click() // writes the first card's preselected answer at once (P1432), then moves on
+    await expect.poll(() => lines().length).toBe(1)
     await ownRow(page).click()
     const QUESTION = 'Is the room error the same bug as last week?'
     await ownBox(page).fill(QUESTION)
@@ -394,7 +399,8 @@ test.describe('issues', () => {
     expect(lines().filter((d) => d.kind === 'sent').map((d) => d.state)).toEqual(['pending', 'failed'])
     expect(written.filter((d) => d.option_id === 'own')).toEqual([expect.objectContaining({ target: c1.fp, text: QUESTION, is_question: true })])
     expect(written.filter((d) => d.option_id === 'ask' || d.option_id === 'other')).toEqual([])
-    expect(new Set(written.map((d) => d.at)).size).toBeLessThanOrEqual(2)
+    // the Accept (P1432: written at once), the own text on blur, then the one batch
+    expect(new Set(written.map((d) => d.at)).size).toBeLessThanOrEqual(3)
   })
 
   test('the copy icon copies the same prompt', async ({ page, context }) => {
@@ -833,9 +839,9 @@ test.describe('review round 1', () => {
   test('an empty custom answer is not an answer: not resolved, and Start fixing sends you back to it', async ({ page }) => {
     await openDay(page)
     const n = yoursOf(await runView(page)).length
-    await nextBtn(page).click()
-    await nextBtn(page).click()
-    // Next marked the two cards left behind as resolved; the empty box must not add a third
+    await acceptBtn(page).click()
+    await acceptBtn(page).click()
+    // Accept wrote the two cards left behind; the empty box must not add a third
     await expect(page.locator('[data-progress]')).toHaveText(new RegExp(`^2 of ${n}`))
     await ownRow(page).click()
     await expect(ownBox(page)).toBeFocused()
@@ -846,11 +852,11 @@ test.describe('review round 1', () => {
     await startBtn(page).click()
     await expect(page.locator('.d-toast')).toHaveText('Write your answer or question first, or pick another answer')
     await expect(page.locator('.d-bpos')).toHaveText(/^3 of/)
-    expect(fileText()).toBe('')
+    expect(lines()).toHaveLength(2) // the two accepts, nothing for the empty box
     // with text it counts once saved
     await ownBox(page).fill('Which guests hit it?')
     await cardTitle(page).click()
-    await expect.poll(() => lines().length).toBe(1)
+    await expect.poll(() => lines().length).toBe(3)
     await expect(page.locator('[data-progress]')).toHaveText(/^3 of/)
   })
 
@@ -1362,50 +1368,51 @@ test.describe('Phase D: fit, risk and cause on the card', () => {
   })
 })
 
-test.describe('Phase D: Next accepts, Start fixing sends what you answered, the rest is still yours', () => {
-  test('on an unanswered founder card the button reads "Accept & next"; answered cards and agent cards keep "Next"', async ({ page }) => {
+test.describe('Phase D: Accept writes, Start fixing sends what you answered, the rest is still yours', () => {
+  test('on an unanswered founder card "Accept & next" sits beside Next; answered cards and agent cards have no Accept', async ({ page }) => {
     await openDay(page)
     const v = await runView(page)
     const yours = yoursOf(v)
     expect(yours.length).toBeGreaterThan(2)
-    // unanswered founder choice: accepting is visible, in the label too
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept and next /)
-    await expect(nextBtn(page)).toContainText('Accept')
-    await nextBtn(page).click()
-    // the second card: an explicit pick makes it an answered card, so the button is plain Next again
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Accept and next /)
+    // unanswered founder choice: Accept is its own button; Next stays plain paging
+    await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept and next')
+    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+    await acceptBtn(page).click()
+    // the second card: an explicit pick makes it an answered card, so Accept goes away
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await expect(acceptBtn(page)).toBeVisible()
     await card(page).locator('.d-opt').first().locator('input').click()
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
-    // back on the first, which was accepted: answered, so Next
+    await expect(acceptBtn(page)).toHaveCount(0)
+    // back on the first, which was accepted: answered, so no Accept
     await prevBtn(page).click()
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
-    await expect(nextBtn(page)).not.toContainText('Accept')
+    await expect(acceptBtn(page)).toHaveCount(0)
     // agent cards are not the founder's to accept
     await agentLine(page).getByRole('button', { name: 'Review' }).click()
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+    await expect(acceptBtn(page)).toHaveCount(0)
   })
 
-  test('the last founder card can be accepted: an enabled Accept, no paging, and Start fixing includes it', async ({ page }) => {
+  test('the last founder card can be accepted: an enabled Accept, no paging, written at once, and Start fixing includes it', async ({ page }) => {
     await openDay(page)
     const v = await runView(page)
     const yours = yoursOf(v)
     const base = agentOf(v).length
     for (let k = 0; k < yours.length - 1; k++) await nextBtn(page).click()
     await expect(page.locator('.d-bpos')).toHaveText(`${yours.length} of ${yours.length}`)
-    const btn = nextBtn(page)
-    await expect(btn).toBeEnabled()
-    await expect(btn).toHaveAttribute('aria-label', /^Accept /)
-    const count = await startBtn(page).textContent()
-    await btn.click()
+    expect(fileText()).toBe('') // paging wrote nothing
+    await expect(acceptBtn(page)).toBeEnabled()
+    await expect(acceptBtn(page)).toHaveAttribute('aria-label', 'Accept')
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(1)
     await expect(page.locator('.d-bpos')).toHaveText(`${yours.length} of ${yours.length}`) // no paging
-    expect(await startBtn(page).textContent()).not.toBe(count)
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + yours.length})`)
-    // the bar returns to its normal state: the last card, answered, has a disabled Next
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+    // the bar returns to its normal state: the last card, answered, has a disabled Next and no Accept
     await expect(nextBtn(page)).toBeDisabled()
-    await expect(nextBtn(page)).toHaveAttribute('aria-label', /^Next /)
+    await expect(acceptBtn(page)).toHaveCount(0)
   })
 
-  test('Next accepts in the page only; the button counts exactly what is sent; "N still yours" jumps to the first unopened card', async ({ page }) => {
+  // P1432 replaces "Next accepts in the page only": Accept writes one line per card at once; → and Next write nothing.
+  test('"Accept & next" writes one option line per card at once; → and Next write nothing; "N still yours" jumps to the first unanswered card', async ({ page }) => {
     await openDay(page)
     const v = await runView(page)
     const yours = yoursOf(v)
@@ -1414,38 +1421,44 @@ test.describe('Phase D: Next accepts, Start fixing sends what you answered, the 
     await expect(startBtn(page)).toHaveText(`Start fixing (${base})`)
     await expect(stillYours(page)).toHaveText(`${yours.length} still yours`)
 
-    await nextBtn(page).click()
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(1)
     await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
     await expect(stillYours(page)).toHaveText(`${yours.length - 1} still yours`)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(2)
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
+    expect(lines().map((d) => d.target)).toEqual([yours[0].fp, yours[1].fp])
+    for (const d of lines()) {
+      const i = must(v.view.issues.find((x) => x.fp === d.target), 'issue')
+      expect(d).toMatchObject({ kind: 'option', option_id: i.options[i.recommended_index].id })
+    }
+    // paging writes nothing and accepts nothing (rule 5): → and plain Next past the third card
+    const before = fileText()
+    await cardTitle(page).click()
+    await page.keyboard.press('ArrowRight')
+    await expect(cardTitle(page)).toHaveText(yours[3].title)
+    await prevBtn(page).click()
     await nextBtn(page).click()
+    await page.waitForTimeout(300)
+    expect(fileText()).toBe(before)
     await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
     await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
-    // paging back and forth changes nothing and writes nothing (rule 5)
-    await prevBtn(page).click()
-    await prevBtn(page).click()
-    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 2})`)
-    await page.waitForTimeout(300)
-    expect(fileText()).toBe('')
 
-    // the link jumps to the first card nobody opened: not the two that were accepted
+    // the link jumps to the first card nobody answered: not the two that were accepted
     await stillYours(page).click()
     await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length}`)
     await expect(cardTitle(page)).toHaveText(yours[2].title)
+    await expect(card(page).locator('[data-state]')).toHaveAttribute('data-state', 'open')
 
-    // sending writes exactly the counted set, with each card's own preselected answer
+    // sending adds only the agent work; the two accepts are already in the file
     await startBtn(page).click()
     await expect(page.locator('.d-toast')).toContainText('Couldn’t start a session in the terminal.')
     const written = lines().filter((d) => d.kind === 'option')
     expect(written.map((d) => d.target).sort()).toEqual([yours[0].fp, yours[1].fp, ...agentOf(v).map((i) => i.fp)].sort())
-    for (const d of written) {
-      const i = v.view.issues.find((x) => x.fp === d.target)
-      expect(d.option_id).toBe(i?.options[i.recommended_index].id)
-      expect(d.option_id).not.toBe('park')
-    }
-    // known-bad control: the two unopened cards were not sent
+    // known-bad control: the two cards only paged past were not sent
     expect(written.map((d) => d.target)).not.toContain(yours[2].fp)
     expect(written.map((d) => d.target)).not.toContain(yours[3].fp)
-    await expect(stillYours(page)).toHaveText(`${yours.length - 2} still yours`)
   })
 
   test('clicking the answer that is already selected counts it (the last card has no Next); an explicit pick counts too', async ({ page }) => {
@@ -1501,8 +1514,10 @@ test.describe('Phase D: Next accepts, Start fixing sends what you answered, the 
         }
       }
       // accept every card: the link goes away, the bar keeps its height
-      for (let k = 0; k < yours.length - 1; k++) await nextBtn(page).click()
-      await card(page).locator('.d-opt').filter({ hasText: 'Recommended' }).locator('input').click() // the last card has no Next
+      for (let k = 0; k < yours.length; k++) {
+        await acceptBtn(page).click()
+        await expect.poll(() => lines().length).toBe(k + 1)
+      }
       await expect(stillYours(page)).toHaveCount(0)
       expect(Math.abs((await rectOf(bar, 'bar')).height - h0)).toBeLessThan(0.5)
       // and the full-width state with More info open does not move it either
@@ -1523,8 +1538,8 @@ test.describe('Phase D: agent work folded', () => {
     expect((await rectOf(agentLine(page), 'agent line')).y + (await rectOf(agentLine(page), 'agent line')).height).toBeLessThanOrEqual((await rectOf(card(page), 'card')).y + 1)
     await expect(page.locator('.d-bpos')).toHaveText(`1 of ${yours.length}`)
     await expect(agentPager(page)).toHaveCount(0)
-    await nextBtn(page).click()
-    await nextBtn(page).click()
+    await acceptBtn(page).click()
+    await acceptBtn(page).click()
     await expect(page.locator('[data-progress]')).toHaveText(`2 of ${yours.length} resolved`)
 
     await agentLine(page).getByRole('button', { name: 'Review' }).click()
@@ -1537,15 +1552,16 @@ test.describe('Phase D: agent work folded', () => {
     await page.keyboard.press('ArrowRight')
     await expect(agentPager(page)).toContainText(`Agent work · 2 of ${agents.length}`)
     await expect(cardTitle(page)).toHaveText(agents[1].title)
-    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${agents.length} resolved`)
+    // P1432: a card only paged past is not resolved
+    await expect(page.locator('[data-progress]')).toHaveText(`0 of ${agents.length} resolved`)
     await page.keyboard.press('ArrowLeft')
     await expect(cardTitle(page)).toHaveText(agents[0].title)
 
     // the founder can change an agent card's answer: Park is option 3 on this card
     await cardTitle(page).click()
     await page.keyboard.press('3')
-    await expect.poll(() => lines().length).toBe(1)
-    expect(lines()[0]).toMatchObject({ kind: 'option', target: agents[0].fp, option_id: 'park' })
+    await expect.poll(() => lines().length).toBe(3) // the two Accepts above (P1432: written at once), then this pick
+    expect(lines()[2]).toMatchObject({ kind: 'option', target: agents[0].fp, option_id: 'park' })
     // a Park made on this run keeps the card in the pager (it shows Park selected); it is simply not sent
     await expect(agentPager(page)).toContainText(`Agent work · 1 of ${agents.length}`)
     await expect(card(page).locator('.d-opt').nth(2).locator('input')).toBeChecked()
@@ -1680,5 +1696,163 @@ test.describe('toast actions', () => {
     await copy.waitFor()
     const box = await copy.boundingBox()
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(40)
+  })
+})
+
+test.describe('P1432: every card says whether it is answered, and Accept is saved at once', () => {
+  const stateOf = (page: Page) => card(page).locator('[data-state]')
+  const listRow = (page: Page, fp: string) => page.locator(`[data-list-card="${fp}"]`)
+  /** A launch receipt the way the server writes one: pending, then started (or failed). */
+  const receipt = (id: string, items: string[], last: 'started' | 'failed', at = new Date().toISOString()) =>
+    [
+      JSON.stringify({ kind: 'sent', id, run_id: LATEST_ID, state: 'pending', at, items, count: items.length }),
+      JSON.stringify({ kind: 'sent', id, run_id: LATEST_ID, state: last, at }),
+    ].join('\n') + '\n'
+  const optionKey = (fp: string, optionId: string) => `option:${fp}:${optionId}:`
+
+  test('"Accept & next" survives a reload: the card says "Your answer", the list and progress agree; Start fixing includes it until that answer was sent', async ({ page }) => {
+    await openDay(page)
+    const v = await runView(page)
+    const yours = yoursOf(v)
+    const base = agentOf(v).length
+    const first = yours[0]
+    const rec = first.options[first.recommended_index]
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'open')
+    await expect(stateOf(page)).toHaveText(`Not answered yet · recommended: ${rec.label}`)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(1)
+
+    await reopen(page)
+    await expect(cardTitle(page)).toHaveText(first.title)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
+    await expect(stateOf(page)).toHaveText(/^✓Your answer · saved \d\d:\d\d$/)
+    await expect(page.locator('[data-progress]')).toHaveText(`1 of ${yours.length} resolved`)
+    await expect(listRow(page, first.fp)).toHaveAttribute('data-list-state', 'answered')
+    await expect(listRow(page, yours[1].fp)).toHaveAttribute('data-list-state', 'open')
+    await expect(startBtn(page)).toHaveText(`Start fixing (${base + 1})`)
+
+    // the same answer already sent: it is not counted again, and the card says Sent
+    writeFileSync(DECISIONS, fileText() + receipt('launch-1', [optionKey(first.fp, rec.id)], 'started'))
+    await reopen(page)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'sent')
+    await expect(stateOf(page)).toHaveText(/^✓Sent to the agent \d\d:\d\d$/)
+    await expect(listRow(page, first.fp)).toHaveAttribute('data-list-state', 'sent')
+  })
+
+  test('Sent only for a started or pending launch holding the current answer: a failed launch never shows Sent; changing the answer makes it unsent', async ({ page }) => {
+    await openDay(page)
+    const first = yoursOf(await runView(page))[0]
+    const rec = first.options[first.recommended_index]
+    const other = must(first.options.find((o) => o.id !== rec.id && o.id !== 'park'), 'another option')
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(1)
+    // known-bad control: a failed launch holding this exact answer
+    writeFileSync(DECISIONS, fileText() + receipt('launch-f', [optionKey(first.fp, rec.id)], 'failed'))
+    await reopen(page)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
+    writeFileSync(DECISIONS, fileText() + receipt('launch-s', [optionKey(first.fp, rec.id)], 'started'))
+    await reopen(page)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'sent')
+    // a new answer after the send is not what was sent
+    await card(page).locator('.d-optrow').filter({ hasText: other.label }).click()
+    await expect.poll(() => lines().filter((d) => d.kind === 'option').length).toBe(2)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
+  })
+
+  test('a second Accept writes nothing; a double click writes one line', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await acceptBtn(page).dblclick()
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await page.waitForTimeout(400)
+    expect(lines()).toHaveLength(1)
+    await prevBtn(page).click()
+    await expect(acceptBtn(page)).toHaveCount(0) // answered: nothing left to accept
+  })
+
+  test('Accept never parks: a card whose recommendation is Park offers no Accept and stays unanswered', async ({ page }) => {
+    await patchRun(page, (b) => {
+      const i = must(b.view?.issues.find((x) => !isAgent(x)), 'a founder card')
+      const park = i.options.findIndex((o) => o.id === 'park')
+      if (park < 0) i.options.push({ id: 'park', label: 'Park: stop asking' })
+      i.recommended_index = park < 0 ? i.options.length - 1 : park
+    })
+    await openDay(page)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'open')
+    await expect(acceptBtn(page)).toHaveCount(0)
+    await page.waitForTimeout(200)
+    expect(fileText()).toBe('')
+  })
+
+  test('a failed Accept shows the same error as a failed pick and leaves the card unanswered, where it was', async ({ page }) => {
+    await openDay(page)
+    await page.route('**/api/day/decisions', (r) => r.fulfill({ status: 500, json: { error: 'Failed to record decisions' } }))
+    await acceptBtn(page).click()
+    await expect(page.locator('.d-toast')).toHaveText('Not saved: Failed to record decisions')
+    await expect(page.locator('.d-bpos')).toHaveText(/^1 of/)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'open')
+    await expect(acceptBtn(page)).toBeVisible()
+    expect(fileText()).toBe('')
+  })
+
+  test('next day: a fault answered on an earlier run says so on the new run; the earlier run says answered / not answered per card', async ({ page }) => {
+    await openDay(page)
+    const earlier = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string }; view: { issues: ViewIssue[] } }
+    const latest = yoursOf(await runView(page))
+    const both = must(latest.find((i) => earlier.view.issues.some((e) => e.fp === i.fp)), 'a fault on both runs')
+    const opt = must(both.options.find((o) => o.id !== 'park'), 'an option')
+    const at = new Date(Date.parse(earlier.report.started_at) + 3_600_000).toISOString()
+    writeFileSync(DECISIONS, JSON.stringify({ kind: 'option', target: both.fp, option_id: opt.id, run_id: earlier.report.pass_id, at }) + '\n')
+
+    await reopen(page)
+    await listRow(page, both.fp).click()
+    await expect(cardTitle(page)).toHaveText(both.title)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'before')
+    await expect(stateOf(page)).toHaveText(`You answered on 3 Oct: ${opt.label} · reported again`)
+    await expect(listRow(page, both.fp)).toHaveAttribute('data-list-state', 'before')
+
+    // the earlier run, read-only: that card answered, another not
+    await page.getByRole('button', { name: 'Previous run' }).click()
+    await expect(page.locator('[data-run-date]')).toHaveText('Sat 3 Oct')
+    expect(yoursOf({ view: earlier.view }).map((i) => i.fp)).toEqual([both.fp]) // that run's only founder card opens first
+    await expect(cardTitle(page)).toHaveText(both.title)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
+    await expect(stateOf(page)).toHaveText(/^✓Answered on this run · \d\d:\d\d$/)
+    // the agent work nobody answered on that run
+    await agentLine(page).getByRole('button', { name: 'Review' }).click()
+    await expect(stateOf(page)).toHaveText('Not answered on this run')
+  })
+
+  test('the list shows every card with its state and jumps to it; parked cards are one row that opens Parked', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    const list = page.locator('[data-card-list]')
+    await expect(list.locator('[data-list-card]')).toHaveCount(yours.length)
+    // parked on an earlier run: it leaves the pager and becomes one "1 parked" row
+    const earlier = (await (await page.request.get(`/api/day/runs/${EARLIER_ID}`)).json()) as { report: { pass_id: string; started_at: string } }
+    const at = new Date(Date.parse(earlier.report.started_at) + 3_600_000).toISOString()
+    writeFileSync(DECISIONS, JSON.stringify({ kind: 'option', target: yours[0].fp, option_id: 'park', run_id: earlier.report.pass_id, at }) + '\n')
+    await reopen(page)
+    await expect(list.locator('[data-list-card]')).toHaveCount(yours.length - 1)
+    await expect(list.locator('[data-list-parked]')).toHaveText(/1 parked/)
+    await list.locator('[data-list-parked]').click()
+    await expect(page.locator('.d-parked .d-fold')).toHaveAttribute('aria-expanded', 'true')
+    await list.locator('[data-list-card]').nth(2).click()
+    await expect(page.locator('.d-bpos')).toHaveText(`3 of ${yours.length - 1}`)
+    await expect(list.locator('[data-list-card]').nth(2)).toHaveAttribute('aria-current', 'true')
+    expect(lines()).toHaveLength(1) // opening Parked and jumping write nothing
+  })
+
+  test('phone: the list folds to its count and opens with a toggle', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openDay(page)
+    await collapseSidebar(page)
+    const yours = yoursOf(await runView(page))
+    const tog = page.locator('[data-card-list] .d-cltog')
+    await expect(tog).toHaveText(`▶${yours.length} cards · 0 answered`)
+    await expect(page.locator('[data-list-card]').first()).toBeHidden()
+    expect((await rectOf(tog, 'toggle')).height).toBeGreaterThanOrEqual(40)
+    await tog.click()
+    await expect(page.locator('[data-list-card]').first()).toBeVisible()
   })
 })

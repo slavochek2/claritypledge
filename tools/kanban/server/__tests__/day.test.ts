@@ -18,6 +18,8 @@ import {
   parseDecisions,
   parseReport,
   pendingPreselected,
+  cardState,
+  sentKey,
   quotaHistory,
   runWarnings,
   stillYours,
@@ -424,6 +426,41 @@ describe('day v2: Start fixing collects, paging writes nothing (rule 5)', () => 
   })
 })
 
+describe('P1432: every card says its state', () => {
+  const FOUNDER = 'replies:event-post'
+  const AGENT = 'rules:live-not-on-main'
+  const card = (lines: DayDecision[], fp: string, earlier: DayDecision[] = []) => {
+    const v = buildView(ok(synthReport()), [...earlier, ...lines])
+    return v.issues.find((i) => i.fp === fp)!
+  }
+
+  it('open → answered → sent; changing the answer after a send makes it unsent again', () => {
+    expect(cardState(card([], FOUNDER))).toEqual({ kind: 'open', recommended: 'I’ll reply today' })
+    const answered = card([line({ target: FOUNDER, option_id: 'draft', at: '2026-10-04T09:14:00Z' })], FOUNDER)
+    expect(cardState(answered)).toEqual({ kind: 'answered', at: '2026-10-04T09:14:00Z' })
+    const sent = { [sentKey.option(FOUNDER, 'draft')]: '2026-10-04T09:20:00Z' }
+    expect(cardState(answered, sent)).toEqual({ kind: 'sent', at: '2026-10-04T09:20:00Z' })
+    // known-bad control: a receipt for a different answer of the same card does not make it sent
+    const changed = card([line({ target: FOUNDER, option_id: 'draft' }), line({ target: FOUNDER, option_id: 'reply', at: '2026-10-04T09:30:00Z' })], FOUNDER)
+    expect(cardState(changed, sent)).toEqual({ kind: 'answered', at: '2026-10-04T09:30:00Z' })
+  })
+
+  it('an unanswered founder card is never "sent", even when its recommendation was sent on some other card key', () => {
+    const sent = { [sentKey.option(FOUNDER, 'reply')]: '2026-10-04T09:20:00Z' }
+    expect(cardState(card([], FOUNDER), sent).kind).toBe('open')
+  })
+
+  it('agent work: unanswered reads "agent", and sent once its recommendation went out', () => {
+    expect(cardState(card([], AGENT)).kind).toBe('agent')
+    expect(cardState(card([], AGENT), { [sentKey.option(AGENT, 'agent')]: '2026-10-04T09:20:00Z' })).toEqual({ kind: 'sent', at: '2026-10-04T09:20:00Z' })
+  })
+
+  it('Park is never "sent"', () => {
+    const parked = card([line({ target: FOUNDER, option_id: 'park' })], FOUNDER)
+    expect(cardState(parked, { [sentKey.option(FOUNDER, 'park')]: '2026-10-04T09:20:00Z' }).kind).toBe('answered')
+  })
+})
+
 describe('day v2: the prompt', () => {
   it('opens with verify-first, puts the founder’s questions first, and contains every collected decision', () => {
     const r = ok(synthReport())
@@ -610,18 +647,12 @@ describe('day v2 Phase D: what Start fixing sends (decision 1B)', () => {
     expect(stillYours(buildView(r, [])).some((i) => isAgentWork(i))).toBe(false)
   })
 
-  it('1B — pendingPreselected writes agent work plus the cards the founder accepted with Next; never Park, never an answered card', () => {
+  it('1B — pendingPreselected writes only unanswered agent work (P1432: founder cards are written when answered); never Park, never an answered card', () => {
     const v = buildView(ok(synthReport()), [line({ target: 'credits:baseline', option_id: 'read' })])
-    expect(pendingPreselected(v).map((d) => d.target).sort()).toEqual(
-      v.issues.filter((i) => isAgentWork(i)).map((i) => i.fp).sort(),
-    )
-    const accepted = new Set(['spec:letters-waiting', 'credits:baseline', 'not-in-run'])
-    const p = pendingPreselected(v, accepted)
-    expect(p.find((d) => d.target === 'spec:letters-waiting')).toMatchObject({ kind: 'option', option_id: 'ship' })
+    const p = pendingPreselected(v)
+    expect(p.map((d) => d.target).sort()).toEqual(v.issues.filter((i) => isAgentWork(i) && !i.decision).map((i) => i.fp).sort())
+    expect(p.some((d) => d.target === 'spec:letters-waiting')).toBe(false) // a founder card, not answered: not sent
     expect(p.some((d) => d.target === 'credits:baseline')).toBe(false) // already answered
-    expect(p.some((d) => d.target === 'not-in-run')).toBe(false)
-    expect(p.some((d) => d.target === 'replies:event-post')).toBe(false) // not accepted
-    expect(p).toHaveLength(10)
     expect(p.every((d) => d.option_id !== 'park')).toBe(true)
   })
 })
@@ -1014,6 +1045,26 @@ describe('day v2 API (synthetic day dir)', () => {
     const p1 = await (await fetch(`${API}/api/day/prompt`)).json()
     expect(p1.count).toBe(10)
     expect(p1.prompt).toContain('Replies waiting on your event post')
+  })
+
+  it('P1432 — the run carries each sent item with when it was first sent; a failed launch never counts', async () => {
+    await seed({ [RUN]: synthReport() })
+    const k1 = sentKey.option('replies:event-post', 'draft')
+    const k2 = sentKey.option('rules:live-not-on-main', 'agent')
+    const k3 = sentKey.option('spec:letters-waiting', 'after')
+    const sent = (id: string, state: string, at: string, items?: string[]) => JSON.stringify({ kind: 'sent', id, run_id: RUN, state, at, ...(items ? { items } : {}) })
+    await writeFile(
+      join(dir, 'decisions.jsonl'),
+      [
+        sent('a', 'pending', '2026-10-04T09:20:00Z', [k1, k2]),
+        sent('a', 'started', '2026-10-04T09:20:05Z'),
+        sent('b', 'pending', '2026-10-04T09:40:00Z', [k2, k3]),
+        sent('b', 'failed', '2026-10-04T09:40:20Z'),
+      ].join('\n') + '\n',
+    )
+    const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
+    expect(run.sentItems).toEqual({ [k1]: '2026-10-04T09:20:00Z', [k2]: '2026-10-04T09:20:00Z' })
+    expect(run.lastSentAt).toBe('2026-10-04T09:20:00Z')
   })
 
   it('SUBSCRIPTIONS — a run carries the quota history of its week, oldest first, this run included', async () => {

@@ -30,6 +30,8 @@ export type RunPayload =
       quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
       /** when Start fixing last reached a terminal on this run, if ever */
       lastSentAt?: string | null
+      /** P1432: each item key sent from this run (started or pending launches) → when it was first sent */
+      sentItems?: Record<string, string>
       warnings: ('stale' | 'unfinished')[]
     }
   | { id: string; isLatest: boolean; kind: 'other-schema'; text: string }

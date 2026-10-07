@@ -2,8 +2,8 @@
 // flow, one card at a time. Paging lives in the shell's bottom bar; this file renders and
 // reports clicks.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { OWN, daysOpen, technicalDetail, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { OWN, cardState, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
@@ -42,12 +42,101 @@ interface Props {
   onFix: (c: ConnectionView) => void
   onUndoFix: (c: ConnectionView) => void
   onBringBack: (fp: string) => void
+  /** P1432: each item key sent from this run → when it was first sent (started / pending launches) */
+  sent: Readonly<Record<string, string>>
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const shortDate = (iso: string) => {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+/** "09:14" in the founder's local time. */
+const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+
+// ---------------------------------------------------------------------------------------
+// P1432: every card says its state — on the card, and in the list above it.
+
+/** The card's state line. An earlier run is read-only, so it says what was decided ON it. */
+function stateText(st: CardState, readOnly: boolean): string {
+  switch (st.kind) {
+    case 'sent':
+      return `Sent to the agent ${clock(st.at)}`
+    case 'answered':
+      return readOnly ? `Answered on this run · ${clock(st.at)}` : `Your answer · saved ${clock(st.at)}`
+    case 'before':
+      return `You answered on ${shortDate(st.at)}: ${st.label} · reported again`
+    case 'agent':
+      return readOnly ? 'Not answered on this run' : `Goes with Start fixing · recommended: ${st.recommended}`
+    case 'open':
+      return readOnly ? 'Not answered on this run' : `Not answered yet · recommended: ${st.recommended}`
+  }
+}
+
+/** The list's one word per card. */
+const STATE_WORD: Record<CardState['kind'], string> = {
+  sent: 'Sent',
+  answered: 'Answered',
+  before: 'Answered before',
+  agent: 'Agent',
+  open: 'Not answered',
+}
+const isDone = (st: CardState) => st.kind === 'sent' || st.kind === 'answered'
+
+function StateLine({ st, readOnly }: { st: CardState; readOnly: boolean }) {
+  return (
+    <div className={`d-state ${isDone(st) ? 'done' : st.kind}`} data-state={st.kind} {...(st.kind === 'before' ? { 'data-answered-before': '' } : {})}>
+      <span className="d-sdot" aria-hidden="true">
+        {isDone(st) ? '✓' : ''}
+      </span>
+      <span>{stateText(st, readOnly)}</span>
+    </div>
+  )
+}
+
+/**
+ * Every card of the set the pager walks, with its state; a click opens it. Parked cards live
+ * outside the pager, so they are one row that opens the Parked section. On a phone the list folds
+ * to its count.
+ */
+function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; parked: number; onJump: (fp: string) => void; onParked: () => void }) {
+  const [open, setOpen] = useState(false)
+  if (p.issues.length + p.parked < 2) return null
+  const states = p.issues.map((i) => cardState(i, p.sent))
+  const done = states.filter(isDone).length
+  const cur = Math.min(p.index, p.issues.length - 1)
+  return (
+    <nav className={`d-card d-clist ${open ? 'open' : ''}`} aria-label="Cards" data-card-list>
+      <button type="button" className="d-fold d-cltog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="d-tri">▶</span>
+        {plural(p.issues.length, 'card')} · {done} answered
+      </button>
+      <ul className="d-clrows">
+        {p.issues.map((i, k) => (
+          <li key={i.fp}>
+            <button type="button" className="d-clrow" aria-current={k === cur ? 'true' : undefined} data-list-card={i.fp} data-list-state={states[k].kind} onClick={() => p.onJump(i.fp)}>
+              <span className={`d-sdot ${isDone(states[k]) ? 'done' : states[k].kind}`} aria-hidden="true">
+                {isDone(states[k]) ? '✓' : ''}
+              </span>
+              <span className="d-clt" title={i.title}>
+                {i.title}
+              </span>
+              <span className="d-clw">{STATE_WORD[states[k].kind]}</span>
+            </button>
+          </li>
+        ))}
+        {p.parked > 0 && (
+          <li>
+            <button type="button" className="d-clrow" data-list-parked onClick={p.onParked}>
+              <span className="d-sdot parked" aria-hidden="true" />
+              <span className="d-clt">{p.parked} parked</span>
+              <span className="d-clw">Parked</span>
+            </button>
+          </li>
+        )}
+      </ul>
+    </nav>
+  )
 }
 
 export function DailyReport(p: Props) {
@@ -56,6 +145,8 @@ export function DailyReport(p: Props) {
   const settled = broken.every((c) => c.fix_queued)
   const [force, setForce] = useState(false)
   const [stripOpen, setStripOpen] = useState(false)
+  const [parkedOpen, setParkedOpen] = useState(false)
+  const parkedRef = useRef<HTMLDivElement>(null)
   const collapsed = settled && !force
 
   const jump = (fp: string) => {
@@ -88,8 +179,19 @@ export function DailyReport(p: Props) {
         />
       )}
       <section className="d-issues" aria-label="Issues">
+        <CardList
+          issues={p.issues}
+          index={p.index}
+          sent={p.sent}
+          parked={view.parked.length}
+          onJump={p.onJump}
+          onParked={() => {
+            setParkedOpen(true)
+            requestAnimationFrame(() => parkedRef.current?.scrollIntoView({ block: 'nearest' }))
+          }}
+        />
         <IssueCard {...p} />
-        <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} />
+        <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />
       </section>
     </div>
   )
@@ -435,11 +537,7 @@ function IssueCard(p: Props) {
             {days ? <span className="d-age">{plural(days, 'day')}</span> : null}
           </span>
         </div>
-        {issue.answered_before && (
-          <div className="d-before" data-answered-before>
-            You answered on {shortDate(issue.answered_before.at)}: {issue.answered_before.label}. Still reported.
-          </div>
-        )}
+        <StateLine st={cardState(issue, p.sent)} readOnly={readOnly} />
         <h2>{issue.title}</h2>
         <dl className="d-abc">
           <div>
@@ -509,7 +607,6 @@ function IssueCard(p: Props) {
             )}
           </dl>
         )}
-        {readOnly && !issue.decision && <div className="d-unanswered">Not answered on this run</div>}
         <div className={`d-opts ${readOnly ? 'ro' : ''}`} role="radiogroup" aria-label="Options">
           {issue.options.map((o, i) =>
             option(
@@ -531,12 +628,11 @@ function IssueCard(p: Props) {
   )
 }
 
-function Parked({ view, readOnly, onBringBack }: { view: DayView; readOnly: boolean; onBringBack: (fp: string) => void }) {
-  const [open, setOpen] = useState(false)
+function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: DayView; readOnly: boolean; onBringBack: (fp: string) => void; open: boolean; setOpen: (o: boolean) => void; boxRef: RefObject<HTMLDivElement> }) {
   if (!view.parked.length) return null
   return (
-    <div className="d-card d-parked">
-      <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+    <div className="d-card d-parked" ref={boxRef}>
+      <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="d-tri">▶</span>Parked ({view.parked.length})
       </button>
       {open &&

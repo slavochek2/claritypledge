@@ -966,14 +966,46 @@ export function collectedKeys(c: Collected): string[] {
 
 /**
  * Decisions to write in one batch on Start fixing / copy (rule 5). Paging never calls this.
- * Only what Start fixing would send: the cards the founder accepted with Next (`accepted`, by
- * fingerprint) and the clear agent work. Never Park; never a card that already has an answer.
+ * Only the clear agent work nobody answered: a founder card is written the moment it is answered
+ * (an option, or "Accept & next" — P1432), so nothing of the founder's waits in page state.
+ * Never Park; never a card that already has an answer.
  */
-export function pendingPreselected(view: DayView, accepted: ReadonlySet<string> = new Set()): DecisionInput[] {
+export function pendingPreselected(view: DayView): DecisionInput[] {
   return view.issues
-    .filter((i) => !i.decision && (accepted.has(i.fp) || isAgentWork(i)))
+    .filter((i) => !i.decision && isAgentWork(i))
     .map((i) => ({ kind: 'option' as const, target: i.fp, option_id: i.options[i.recommended_index]?.id }))
     .filter((d) => d.option_id && d.option_id !== PARK) as DecisionInput[]
+}
+
+/**
+ * P1432: what a card's state line says. `sent` maps each sent item key (sentKey) to when it was first
+ * sent, from this run's started / pending receipts — never a failed one.
+ *  - sent: the answer it would be sent with now is in a receipt (changing the answer makes it unsent)
+ *  - answered: a decision on this run, not sent yet
+ *  - before: no answer on this run, but one on an earlier run, and the fault is still reported
+ *  - agent: unanswered agent work, which Start fixing sends without an answer (decision 1B)
+ *  - open: unanswered, the founder's to answer
+ */
+export type CardState =
+  | { kind: 'sent'; at: string }
+  | { kind: 'answered'; at: string }
+  | { kind: 'before'; at: string; label: string }
+  | { kind: 'agent'; recommended: string }
+  | { kind: 'open'; recommended: string }
+
+export function cardState(issue: IssueView, sent: Readonly<Record<string, string>> = {}): CardState {
+  const x = effective(issue)
+  const recommended = issue.options[issue.recommended_index]?.label ?? ''
+  if (x.option_id !== PARK && (x.written || isAgentWork(issue))) {
+    const keys = [sentKey.option(issue.fp, x.option_id, x.text)]
+    const raw = issue.decision?.option_id
+    if (raw !== undefined && raw !== x.option_id) keys.push(sentKey.option(issue.fp, raw, x.text))
+    const at = keys.map((k) => sent[k]).find(Boolean)
+    if (at) return { kind: 'sent', at }
+  }
+  if (issue.decision) return { kind: 'answered', at: issue.decision.at }
+  if (issue.answered_before) return { kind: 'before', at: issue.answered_before.at, label: issue.answered_before.label }
+  return isAgentWork(issue) ? { kind: 'agent', recommended } : { kind: 'open', recommended }
 }
 
 // ---------------------------------------------------------------------------------------

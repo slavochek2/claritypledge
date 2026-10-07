@@ -140,8 +140,31 @@
 .d-focus { padding: 20px; }
 .d-ihead { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .d-topic { font-size: 12px; font-weight: 600; color: var(--fg3); display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.d-before { font-size: 13px; color: var(--fg2); margin-top: 8px; }
-.d-unanswered { margin-top: 16px; font-size: 13px; color: var(--fg3); }
+/* P1432: the card's state line, and the card list above the card */
+.d-state { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 13px; line-height: 18px; color: var(--fg2); }
+.d-state.done { color: var(--green-800, #166534); font-weight: 600; }
+.d-state.open { color: var(--fg); }
+.d-state.open .d-sdot { border-color: var(--fg3); }
+.d-sdot { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--line2); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; }
+.d-sdot.done, .d-state.done .d-sdot { border-color: transparent; background: var(--green, #16a34a); color: #fff; }
+.d-sdot.before, .d-state.before .d-sdot { border-style: dashed; }
+.d-sdot.agent, .d-state.agent .d-sdot { border-color: var(--blue); }
+.d-sdot.parked { background: var(--line); border-color: var(--line); }
+.d-clist { padding: 0; overflow: hidden; }
+.d-clrows { list-style: none; margin: 0; padding: 4px 0; }
+.d-clrow { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 6px 16px; text-align: left; font-size: 14px; color: var(--fg); }
+.d-clrow:hover { background: var(--blue-50); }
+/* the current card: a bar on the left edge, so "current" never reads as "answered" (the ✓) */
+.d-clrow[aria-current="true"] { box-shadow: inset 3px 0 0 var(--blue); font-weight: 600; }
+/* two lines before it is cut: on a phone one line no longer says which card it is */
+.d-clt { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 18px; }
+.d-clw { flex: none; font-size: 12px; color: var(--fg3); }
+.d-clist .d-cltog { display: none; }
+@media (max-width: 899px) {
+  .d-clist .d-cltog { display: flex; min-height: 44px; }
+  .d-clist:not(.open) .d-clrows { display: none; }
+  .d-clist.open .d-clrows { border-top: 1px solid var(--line); }
+}
 .d-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .d-pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
 .d-pill.urg { background: var(--amber); color: #fff; }
@@ -211,6 +234,7 @@
 .d-nbtn .d-ns { display: inline; }
 .d-nbtn:hover:not(:disabled) { background: var(--blue-50); }
 .d-nbtn:disabled { border-color: var(--line); color: var(--line2); background: var(--card); }
+.d-nbtn.d-accept { background: var(--blue-50); }
 .d-bpos { font-size: 13px; font-weight: 600; min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .d-bprog { grid-area: prog; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--fg2); white-space: nowrap; min-width: 0; }
 .d-still { border: 0; background: none; line-height: 16px; padding: 12px 6px; margin: -12px -6px; font-size: 12px; color: var(--fg2); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; flex-shrink: 0; }
