@@ -13,8 +13,12 @@ if [ -z "$f" ] || [ ! -f "$f" ] || [ -z "$ack" ]; then
   echo "Day: the prompt file is missing. Copy the prompt from the Day page instead."
   exit 1
 fi
+# Ghostty starts this with an almost empty environment and a login shell, which reads ~/.zprofile
+# but not ~/.zshrc — where the installer puts ~/.local/bin on PATH. So the usual install folders are
+# added explicitly (found on the first real click, 2026-10-07: "claude is not on PATH").
 exec "${SHELL:-/bin/zsh}" -lc '
-  command -v claude >/dev/null 2>&1 || { echo "Day: claude is not on PATH in your login shell. Copy the prompt from the Day page instead."; exit 1; }
+  PATH="$HOME/.local/bin:$HOME/.claude/local:/opt/homebrew/bin:/usr/local/bin:$PATH"
+  command -v claude >/dev/null 2>&1 || { echo "Day: claude was not found (looked on PATH and in ~/.local/bin). Copy the prompt from the Day page instead."; exit 1; }
   : > "$2" || exit 1
   exec claude --model opus "Your task from the Day page is in the file $1 — read it, delete it, then do what it says."
 ' day-launch "$f" "$ack"
