@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 ---
 
@@ -373,6 +373,7 @@ Last updated: 2026-10-06
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1429** (Oct 7) Clarity Night review fixes: a privacy choice lives in the DB under a per-user lock (a vote and Hide raced 13/40 before); a lost-response retry is answered by an idempotent RPC, never inferred from a re-read (the spec's assumed 23505 was really 22023)
 - **P1337** (Oct 6) Clarity Night rounds: trios by disagreement on the host's bell. Each role is a task beside the name (the observer leads the close, not the clock); Table shows only the table; In / Out / Undecided is host-only
 - **P1428** (Oct 6) "Tonight's event" opens the event's room, only inside its arrival window
 - **P1425** (Oct 26) Reminder sent 13× — a shared jsonb written back whole from a stale read erases siblings; one per-key CAS writer, claim tokens, schedule-checked claims
