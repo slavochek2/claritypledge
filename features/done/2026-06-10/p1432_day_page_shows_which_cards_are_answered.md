@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 23
 workstream: infrastructure
 created_date: '2026-10-07'
 tags: [kanban, day, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-07
 ---
 
 # P1432: The Day page shows which cards are answered, and Accept is saved at once
