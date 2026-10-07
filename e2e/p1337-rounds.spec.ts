@@ -3,7 +3,7 @@
  * @description P1337 — the host runs an evening from /events/:slug/host, and each attendee's room
  * page says where to sit. Live against the test DB.
  *
- * Covers: the host-only gate and the "Run this event" entry; Start round groups the room into
+ * Covers: the host-only gate and the Host tab entry (P1430); Start round groups the room into
  * tables of speaker / listener / observer; a two-tap swap and its Undo; "Seat now" for a late arrival; a late arrival sees "You
  * join the next round"; tapping a name and "Out" (on the tile) takes someone out of the next round; the attendee's
  * card, the "I'm at table N" tap and that skipping it blocks nothing; no black layer while the pair
@@ -99,11 +99,19 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await ctx.close();
   });
 
-  test('"Run this event" on the event page is the host’s entry', async ({ page }) => {
+  test('the event page\'s Host tab is the host’s entry; an attendee has no Host tab (P1430)', async ({ page, browser }) => {
     await setTestSession(page, host.email);
     await page.goto(`/events/${event.slug}`);
-    await page.getByTestId('run-this-event').click();
+    await page.getByTestId('event-tab-host').click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/host$`));
+
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    await setTestSession(other, ana.email);
+    await other.goto(`/events/${event.slug}`);
+    await expect(other.getByText('Details', { exact: true })).toBeVisible();
+    await expect(other.getByTestId('event-tab-host')).toHaveCount(0);
+    await ctx.close();
   });
 
   test('Start round 1 seats everyone at tables of three: first, second, observer', async ({ page }) => {
@@ -163,7 +171,6 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     const mine = (await seats(event.id)).find(s => s.room_member_id === anaMember)!;
     await expect(page.getByTestId('round-card-table')).toHaveText(`Table ${mine.table_no}`);
     await expect(card).toHaveAttribute('data-role', mine.role);
-    await expect(page.getByTestId('room-run-event')).toHaveCount(0); // host-only link
     // Walkthrough 7: the step bar says "Table"; the finding minute counts down inside the card.
     await expect(page.getByTestId('room-steps')).toHaveAttribute('data-current', 'table');
     await expect(page.getByTestId('round-card-find')).toContainText(/Find your table · \d+:\d\d/);
@@ -290,8 +297,10 @@ test.describe('P1337 rounds — host panel and the attendee card', () => {
     await expect(page.getByTestId('host-minutes')).toContainText('Talk');
     await expect(page.getByTestId('host-minutes')).toContainText('12 min');
     await expect(page.getByTestId('host-minutes')).not.toContainText('Speaker');
-    // Minutes for the next round: two minutes to find tables.
-    await page.getByRole('button', { name: 'Tables: one minute more' }).click();
+    // Minutes for the next round: two minutes to find tables (P1430: the Tables row steps in 30 s).
+    await page.getByRole('button', { name: 'Tables: 30 seconds more' }).click();
+    await page.getByRole('button', { name: 'Tables: 30 seconds more' }).click();
+    await expect(page.getByTestId('host-minutes-seatingS')).toHaveText('2 min');
     await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3');
     const { data: r3 } = await supabaseAdmin.from('event_rounds').select('seating_s, first_s, split_speakers').eq('event_id', event.id).eq('round_no', 3).single();

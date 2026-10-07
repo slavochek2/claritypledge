@@ -10,6 +10,7 @@
  *     the closing sequence (P1389 — until that is built, a plain end screen). Inside Close,
  *     progress reads "2 of 8", never a second bar.
  */
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type RoomStep = 'ready' | 'principle' | 'table' | 'compare' | 'close';
@@ -48,11 +49,15 @@ export function RoomSteps({
   onSelect: (step: RoomStep) => void;
   className?: string;
 }) {
+  // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
+  // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
+  // and looks it. At 360px and below only the shown step keeps its label; the rest are bars.
   return (
     <nav aria-label="Your evening" className={className} data-testid="room-steps" data-current={current}>
       <ol className="grid grid-cols-5 gap-1">
         {ROOM_STEPS.map(({ key, label }) => {
           const open = canOpenStep(key, current);
+          const done = order(key) < order(current);
           const reached = order(key) <= order(current);
           const shown = key === viewing;
           return (
@@ -60,25 +65,37 @@ export function RoomSteps({
               <button
                 type="button"
                 disabled={!open}
+                aria-disabled={!open || undefined}
                 onClick={() => onSelect(key)}
                 aria-current={shown ? 'step' : undefined}
+                aria-label={done && !shown ? `${label}, done` : undefined}
                 data-testid={`room-step-${key}`}
+                data-state={shown ? 'current' : done ? 'done' : reached ? 'reached' : 'ahead'}
                 className={cn(
-                  'flex min-h-11 w-full flex-col items-stretch justify-end gap-1 rounded-md px-0.5 pt-1 text-center disabled:cursor-default',
+                  'flex min-h-11 w-full flex-col items-stretch justify-end gap-1 rounded-md px-0.5 pt-1 text-center disabled:cursor-not-allowed',
                   open && !shown && 'hover:bg-muted',
                 )}
               >
                 <span
                   className={cn(
-                    'whitespace-nowrap text-[11px] tracking-tight min-[375px]:text-xs min-[375px]:tracking-normal leading-tight',
-                    shown ? 'font-semibold text-foreground' : reached ? 'text-muted-foreground' : 'text-muted-foreground/50',
+                    'inline-flex items-center justify-center gap-0.5 whitespace-nowrap text-[11px] tracking-tight min-[375px]:text-xs min-[375px]:tracking-normal leading-tight',
+                    shown
+                      ? 'font-semibold text-foreground'
+                      : reached
+                        ? 'text-muted-foreground'
+                        : 'text-muted-foreground/50',
+                    !shown && 'max-[360px]:sr-only',
                   )}
                 >
+                  {done && !shown && <Check className="h-3 w-3 shrink-0 text-blue-500" aria-hidden="true" />}
                   {label}
                 </span>
                 <span
                   aria-hidden="true"
-                  className={cn('h-1 rounded-full', reached ? 'bg-blue-500' : 'bg-muted', shown && 'ring-2 ring-blue-200')}
+                  className={cn(
+                    'rounded-full',
+                    shown ? 'h-1.5 bg-blue-600' : reached ? 'h-1 bg-blue-300' : 'h-1 bg-muted',
+                  )}
                 />
               </button>
             </li>

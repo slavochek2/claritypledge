@@ -749,6 +749,17 @@ export function EventDetail() {
             >
               {roomRowLabel}
             </Link>
+            {/* P1430: the host panel is the event's third tab — shown to the host only. Hiding it is
+                display only: the /host route refuses anyone who is not events.host_id. */}
+            {isHost && (
+              <Link
+                to={`/events/${slug}/host`}
+                className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+                data-testid="event-tab-host"
+              >
+                Host
+              </Link>
+            )}
           </div>
         )}
 
@@ -847,15 +858,6 @@ export function EventDetail() {
                       </Button>
                     </div>
                   </div>
-                  {/* P1337: the host panel — rounds, tables, who's here. */}
-                  <Button
-                    size="sm"
-                    onClick={() => navigate(`/events/${slug}/host`)}
-                    className="mt-3 w-full min-h-10 bg-blue-500 hover:bg-blue-600 text-white"
-                    data-testid="run-this-event"
-                  >
-                    Run this event
-                  </Button>
                 </div>
               )}
 

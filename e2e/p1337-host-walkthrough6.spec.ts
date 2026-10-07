@@ -14,7 +14,7 @@ import { pressHostPrimary, seedRoomMember } from './helpers/test-event-room';
 async function lastRound(eventId: string) {
   const { data } = await supabaseAdmin
     .from('event_rounds')
-    .select('id, round_no, first_s, match_tag, showcase, split_speakers')
+    .select('id, round_no, seating_s, first_s, match_tag, showcase, split_speakers')
     .eq('event_id', eventId)
     .order('round_no', { ascending: false })
     .limit(1)
@@ -53,36 +53,38 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     if (!(await settings.evaluate(el => (el as HTMLDetailsElement).open))) await settings.locator('summary').click();
   }
 
-  test('"Choose who sits" runs a showcase: only the chosen are seated, the match tag is stored, the rest watch', async ({ page, browser }) => {
+  test('"One demo table" runs the Demo: only the chosen are seated on the event\'s set, the rest watch', async ({ page, browser }) => {
     await asHost(page);
     await openSettings(page);
     // Walkthrough 7: a dropdown of existing sets, no typing.
     const matchOn = page.getByTestId('host-match-tag');
     await expect(matchOn.locator('option[value="understanding"]')).toHaveCount(1);
     await matchOn.selectOption('understanding');
-    await page.getByTestId('host-choose-toggle').check();
+    // P1430: "Who plays" — one demo table hides the matching; a Demo uses the event's own set.
+    await page.getByTestId('host-who-demo').click();
+    await expect(page.getByTestId('host-match-tag')).toHaveCount(0);
     await page.getByTestId('host-choose-person').filter({ hasText: 'Bo' }).click();
     await page.getByTestId('host-choose-person').filter({ hasText: 'Cid' }).click();
     await expect(page.getByTestId('host-choose')).toContainText('2 chosen');
     await pressHostPrimary(page);
-    await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
+    await expect(page.getByTestId('host-round-title')).toHaveText('Demo');
 
     const r1 = await lastRound(event.id);
-    expect(r1).toMatchObject({ round_no: 1, match_tag: 'understanding', showcase: true });
+    expect(r1).toMatchObject({ round_no: 1, match_tag: null, showcase: true });
     const { data: seated } = await supabaseAdmin.from('event_round_seats').select('room_member_id').eq('round_id', r1.id);
     expect(seated).toHaveLength(2);
 
     const anaPage = await (await browser.newContext()).newPage();
     await setTestSession(anaPage, ana.email);
     await anaPage.goto(`/events/${event.slug}/meet`);
-    await expect(anaPage.getByTestId('round-card-waiting')).toContainText('You watch');
+    await expect(anaPage.getByTestId('round-card-waiting')).toContainText('Demo · You watch');
     await anaPage.context().close();
   });
 
   test('"−1 min" takes a minute off the part running now', async ({ page }) => {
     const r1 = await lastRound(event.id);
-    // 100 s into the first speaker's part.
-    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (60 + 100) * 1000).toISOString() }).eq('id', r1.id);
+    // 100 s into the first speaker's part (after the round's own table-finding time — 30 s on a Demo).
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (r1.seating_s + 100) * 1000).toISOString() }).eq('id', r1.id);
     await asHost(page);
     await expect(page.getByTestId('host-shorten')).toBeVisible();
     await page.getByTestId('host-shorten').click();
@@ -94,7 +96,8 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await openSettings(page);
     await page.getByTestId('host-split-off').click(); // "One talk" (walkthrough 7)
     await pressHostPrimary(page);
-    await expect(page.getByTestId('host-round-title')).toHaveText('Round 2');
+    // P1430: the Demo is not counted — the round after it is Round 1 (stored as round_no 2).
+    await expect(page.getByTestId('host-round-title')).toHaveText('Round 1');
     expect((await lastRound(event.id)).split_speakers).toBe(false);
     await expect(page.getByTestId('round-grid-role').first()).toContainText('Pair');
     // A showcase is one round's choice: round 2 seats the whole room again.

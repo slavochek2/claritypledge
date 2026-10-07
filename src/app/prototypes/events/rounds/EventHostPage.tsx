@@ -1,8 +1,12 @@
 /**
  * @file EventHostPage.tsx
- * @description P1337 §6 — `/events/:slug/host`, the host panel. Reached by "Run this event" on
- * the event page and in the room; gated on being the event's host (events.host_id), never on
- * is_admin.
+ * @description P1337 §6 — `/events/:slug/host`, the host panel. Reached by the event page's Host
+ * tab (P1430; shown to the host only); gated on being the event's host (events.host_id), never on
+ * is_admin. Hiding the tab is display only — this route's gate is the real check.
+ *
+ * P1430: Start / Next round first PROPOSES the tables (RoundPreview); nothing is saved until
+ * "Start now". The host-picked round (showcase) is the Demo and is not counted — names come from
+ * src/lib/round-numbering.ts on every surface.
  *
  * The host is standing, one-handed, in a dim room with people waiting. Two actions per round:
  * ring the (physical) bell, press the one button. Everything else is optional — swap two people
@@ -33,7 +37,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Minus, Monitor, Plus, Undo2, X } from 'lucide-react';
+import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Minus, Monitor, Plus, Shuffle, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -91,6 +95,7 @@ import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout
 import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { knownSetTags, setLabel } from '@/lib/set-labels';
 import { eventTopic } from '../prep/prep-plan';
+import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 
 const START_LOCK_MS = 10_000;
 /** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
@@ -169,12 +174,27 @@ const DEFAULT_SETTINGS: Settings = {
   matchTag: '',
 };
 
-/** The three minute settings: what they are called, and the range the database accepts. */
-const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number }[] = [
-  { key: 'seatingS', label: 'Tables', min: 0, max: 30 },
-  { key: 'speakerS', label: 'Speaker', min: 1, max: 60 },
-  { key: 'observerS', label: 'Observer', min: 0, max: 60 },
+/** The three time settings, in seconds: what they are called, the range the database accepts, and
+ * the step (P1430: finding a table steps in 30 s — a Demo table is found in 30 s). */
+const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number; step: number }[] = [
+  { key: 'seatingS', label: 'Tables', min: 0, max: 30 * 60, step: 30 },
+  { key: 'speakerS', label: 'Speaker', min: 60, max: 60 * 60, step: 60 },
+  { key: 'observerS', label: 'Observer', min: 0, max: 60 * 60, step: 60 },
 ];
+
+/** P1430 presets (founder walkthrough 9): one demo table runs short, every table runs standard.
+ * Switching "Who plays" sets the minutes; switching back restores the standard ones. */
+const DEMO_MINUTES: RoundMinutes = { seatingS: 30, speakerS: 180, observerS: 60 };
+const STANDARD_MINUTES: RoundMinutes = DEFAULT_ROUND_MINUTES;
+/** A Demo seats only the chosen: pair them on disagreement, nothing else to balance. */
+const DEMO_TOGGLES: GroupingToggles = { gap: true, recorders: false, unmet: false };
+
+/** "30 s", "6 min", "1½ min". */
+function formatSeconds(s: number): string {
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  return s % 60 === 0 ? `${m} min` : `${m}½ min`;
+}
 
 /** Per-host convenience: survives a reload of the panel, never needed for the evening to run. */
 function useSettings(eventId: string | undefined): [Settings, (s: Settings) => void] {
@@ -430,12 +450,15 @@ function useRoundBell(round: EventRound | null, phase: RoundPhase | undefined, b
 
 function ScreenView({
   round,
+  rounds,
   seats,
   byId,
   room,
   ended,
 }: {
   round: EventRound | null;
+  /** Every round so far — a round's name ("Demo", "Round 2") depends on the ones before it. */
+  rounds: EventRound[];
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
   room: EventRoomMember[];
@@ -487,7 +510,7 @@ function ScreenView({
             className={cn('flex gap-x-10 gap-y-4', wide ? 'items-center' : 'flex-col')}
             style={wide ? { height: SCREEN_HEADER - SCREEN_GAP } : undefined}
           >
-            <h1 className="shrink-0 text-3xl sm:text-4xl font-semibold text-muted-foreground">Round {round.roundNo}</h1>
+            <h1 className="shrink-0 text-3xl sm:text-4xl font-semibold text-muted-foreground">{roundLabel(rounds, round)}</h1>
             <div className="min-w-0 flex-1 print:hidden">
               <PhaseStrip clock={clock} timing={roundTiming(round)} hasObserver={hasObserver} large />
             </div>
@@ -533,7 +556,7 @@ function ScreenView({
       ) : (
         <div className="grid min-h-[80vh] place-items-center text-center">
           <div>
-            <h1 className="text-5xl sm:text-7xl font-semibold">{ended ? 'Evening ended' : 'Round 1 starts soon'}</h1>
+            <h1 className="text-5xl sm:text-7xl font-semibold">{ended ? 'Evening ended' : `${nextRoundLabel(rounds, false)} starts soon`}</h1>
             {!ended && room.length > 0 && (
               <ul className="mx-auto mt-10 flex max-w-5xl flex-wrap justify-center gap-4" aria-label="In the room">
                 {room.map(m => (
@@ -810,6 +833,148 @@ function PeopleGroup({
   );
 }
 
+/* ── Preview: the proposed tables, before the round starts (P1430) ────────── */
+
+/** The round the host is about to start, as proposed — nothing is saved until Start. */
+interface Preview {
+  /** Storage order of the round it becomes (round_no). */
+  roundNo: number;
+  demo: boolean;
+  seats: Seat[];
+  /** Who the arrangement was built from, to notice who left or arrived since. */
+  ids: string[];
+  /** 0 = the deterministic grouping; each Shuffle adds one. */
+  shuffle: number;
+  /** "Ana left · Ben arrived": said once the arrangement was rebuilt for them. */
+  changed: string | null;
+}
+
+function RoundPreview({
+  label,
+  preview,
+  byId,
+  marksFor,
+  busy,
+  onSwap,
+  onShuffle,
+  onStart,
+  onBack,
+}: {
+  label: string;
+  preview: Preview;
+  byId: Map<string, EventRoomMember>;
+  marksFor: (memberId: string) => PersonMarks;
+  busy: null | 'grouping' | 'saving';
+  onSwap: (a: string, b: string) => void;
+  onShuffle: () => void;
+  onStart: () => void;
+  onBack: () => void;
+}) {
+  const [lifted, setLifted] = useState<string | null>(null);
+  useEffect(() => setLifted(null), [preview.seats]);
+  const onTap = (id: string) => {
+    if (!lifted) return setLifted(id);
+    if (lifted === id) return setLifted(null);
+    onSwap(lifted, id);
+    setLifted(null);
+  };
+  return (
+    <div className="mt-3" data-testid="host-preview" data-demo={preview.demo ? 'true' : undefined}>
+      <p className="text-base font-semibold" data-testid="host-preview-title">
+        {label}: these tables?
+      </p>
+      <p className="text-sm text-muted-foreground">Tap two names to swap them.</p>
+      {preview.changed && (
+        <p role="status" className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900" data-testid="host-preview-changed">
+          {preview.changed}. Tables updated.
+        </p>
+      )}
+      <div className="mt-3">
+        <TablesGrid
+          seats={preview.seats}
+          byId={byId}
+          phase="seating"
+          marksFor={marksFor}
+          lifted={lifted}
+          canSwap={id => !!lifted && lifted !== id}
+          onTap={onTap}
+        />
+      </div>
+      <Button
+        type="button"
+        className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
+        onClick={onStart}
+        disabled={!!busy}
+        data-testid="host-preview-start"
+      >
+        {busy === 'saving' ? 'Starting…' : 'Start now'}
+      </Button>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <Button type="button" variant="ghost" className="min-h-11" onClick={onBack} disabled={!!busy} data-testid="host-preview-back">
+          Back
+        </Button>
+        <Button type="button" variant="outline" className="min-h-11 gap-1.5" onClick={onShuffle} disabled={!!busy} data-testid="host-preview-shuffle">
+          <Shuffle className="h-4 w-4" /> Shuffle
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SettingsGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+/** Two named choices side by side (a pressed-button pair, as "Swap at half time / One talk" was). */
+function Segmented<V extends string>({
+  label,
+  testId,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  testId: string;
+  value: V;
+  options: readonly (readonly [V, string, string])[];
+  onChange: (value: V) => void;
+}) {
+  return (
+    <div className="inline-flex w-full rounded-lg bg-muted p-1" role="group" aria-label={label} data-testid={testId} data-value={value}>
+      {options.map(([v, text, id]) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={value === v}
+          onClick={() => onChange(v)}
+          data-testid={id}
+          className={cn('min-h-10 flex-1 rounded-md px-2 text-sm', value === v ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** "Ana left · Ben arrived" between two sets of people, or null when nobody changed. */
+function whoChanged(before: string[], after: string[], names: Map<string, string>): string | null {
+  const was = new Set(before);
+  const now = new Set(after);
+  const left = before.filter(id => !now.has(id)).map(id => firstName(names.get(id) ?? 'Someone'));
+  const came = after.filter(id => !was.has(id)).map(id => firstName(names.get(id) ?? 'Someone'));
+  const parts = [
+    left.length ? `${left.join(', ')} left` : '',
+    came.length ? `${came.join(', ')} arrived` : '',
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
+}
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 
@@ -923,11 +1088,19 @@ export function EventHostPage() {
   const names = useMemo(() => new Map(roster.map(m => [m.id, m.displayName])), [roster]);
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
-  // "Match on #tag" (founder walkthrough 6): the next round is grouped on this tag; empty = the event's.
-  const matchTag = settings.matchTag.trim() || event?.statementTag || null;
-  const positions = useTagPositions(isScreen ? null : matchTag, profileIds);
-  // Showcase (founder walkthrough 6, option 7C): the host chooses who sits; everyone else watches.
+  // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
+  // sits; everyone else watches. null = every table plays.
   const [chosen, setChosen] = useState<Set<string> | null>(null);
+  // "Match on #tag" (founder walkthrough 6): the next round is grouped on this tag; empty = the
+  // event's. A Demo always uses the event's own set (P1430: "Match on" is hidden for it).
+  const matchTag = (chosen ? '' : settings.matchTag.trim()) || event?.statementTag || null;
+  const positions = useTagPositions(isScreen ? null : matchTag, profileIds);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  // A start of our own is in flight: the poll that sees the new round must not read it as "another
+  // device started it".
+  const startingRef = useRef(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pairHint, setPairHint] = useState<string | null>(null);
   const recorderProfiles = useMemo(() => new Set(prepRows.filter(r => r.researchState === 'confirmed').map(r => r.profileId)), [prepRows]);
   const prepMarks = useMemo(() => prepMarksByProfile(prepRows), [prepRows]);
   const marksFor = useCallback(
@@ -967,17 +1140,21 @@ export function EventHostPage() {
     [roster, positions],
   );
 
+  // P1430: `sits_out_round` names a COUNTED round (what the host and the room read), so marking
+  // someone out of "Round 1" never takes them out of the Demo before it. A Demo (displayNo null)
+  // seats only the chosen, so the mark does not apply to it.
   const poolFor = useCallback(
-    (roundNo: number) =>
+    (displayNo: number | null) =>
       members
         .filter(m => {
           const p = presence.get(m.id);
-          return !p?.leftAt && p?.sitsOutRound !== roundNo;
+          return !p?.leftAt && (displayNo === null || p?.sitsOutRound !== displayNo);
         })
         .map(m => ({ id: m.id, recorder: !!m.profileId && recorderProfiles.has(m.profileId) })),
     [members, presence, recorderProfiles],
   );
 
+  // Every round behind, the Demo included: people who sat together there have met.
   const historyBefore = useCallback(
     (roundNo: number) =>
       state.rounds.filter(r => r.roundNo < roundNo).map(r => state.seatsByRound.get(r.id) ?? []),
@@ -985,18 +1162,25 @@ export function EventHostPage() {
   );
 
   const compute = useCallback(
-    (roundNo: number, only: Set<string> | null = null) =>
-      groupNextRound({
-        people: poolFor(roundNo).filter(p => !only || only.has(p.id)),
-        history: historyBefore(roundNo),
+    (roundNo: number, only: Set<string> | null, shuffle: number) => {
+      const demosBefore = state.rounds.filter(r => r.showcase && r.roundNo < roundNo).length;
+      const displayNo = only ? null : roundNo - demosBefore;
+      const history = historyBefore(roundNo);
+      return groupNextRound({
+        people: poolFor(displayNo).filter(p => !only || only.has(p.id)),
+        history,
         gap,
-        // Plan three rounds ahead, or just this one past the third — there is no fixed count.
-        totalRounds: Math.max(ROUNDS_PER_EVENING, roundNo),
+        // Plan three counted rounds ahead, or just this one past the third — there is no fixed
+        // count. The Demos in the history are added back, so they do not eat into the plan; a Demo
+        // plans only itself.
+        totalRounds: displayNo === null ? history.length + 1 : Math.max(ROUNDS_PER_EVENING, displayNo) + demosBefore,
         groupSize: settings.groupSize,
-        toggles: settings.toggles,
-        seed: eventId ?? '',
-      }),
-    [poolFor, historyBefore, gap, settings, eventId],
+        toggles: only ? DEMO_TOGGLES : settings.toggles,
+        // Shuffle 0 keeps the seed: pressing Next round twice with nothing changed proposes the same tables.
+        seed: shuffle ? `${eventId ?? ''}:shuffle:${shuffle}` : eventId ?? '',
+      });
+    },
+    [state.rounds, poolFor, historyBefore, gap, settings, eventId],
   );
 
   // Every save is bounded: no answer within SAVE_DEADLINE_MS and the request is dropped. A lost
@@ -1036,6 +1220,40 @@ export function EventHostPage() {
     [refresh],
   );
 
+  /** Who the round `roundNo` would seat: the room (less anyone out), or only the chosen for a Demo. */
+  const poolIds = useCallback(
+    (roundNo: number, only: Set<string> | null) => {
+      const demosBefore = state.rounds.filter(r => r.showcase && r.roundNo < roundNo).length;
+      return poolFor(only ? null : roundNo - demosBefore)
+        .filter(p => !only || only.has(p.id))
+        .map(p => p.id);
+    },
+    [state.rounds, poolFor],
+  );
+
+  // The preview follows the room (P1430): someone who left or arrived rebuilds it and is named; a
+  // round started on another host device closes it and says so.
+  useEffect(() => {
+    if (!preview) return;
+    if (state.rounds.length + 1 !== preview.roundNo) {
+      if (!startingRef.current) {
+        const started = state.rounds[state.rounds.length - 1];
+        setNotice(started ? `${roundLabel(state.rounds, started)} was started on another device.` : null);
+      }
+      setPreview(null);
+      return;
+    }
+    const ids = poolIds(preview.roundNo, preview.demo ? chosen : null);
+    const changed = whoChanged(preview.ids, ids, names);
+    if (!changed || startingRef.current) return;
+    if (ids.length < 2) {
+      setPreview(null);
+      setError(`${changed}. Fewer than two people to seat.`);
+      return;
+    }
+    setPreview({ ...preview, ids, seats: compute(preview.roundNo, preview.demo ? chosen : null, preview.shuffle), changed });
+  }, [preview, state.rounds, poolIds, chosen, compute, names]);
+
   if (loading || !sessionChecked) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!event || !isHost) {
     return (
@@ -1064,38 +1282,107 @@ export function EventHostPage() {
     );
   }
   if (isScreen) {
-    return <ScreenView round={round} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
+    return <ScreenView round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
 
-  const startNext = () => {
-    const pool = poolFor(nextNo).filter(p => !chosen || chosen.has(p.id));
-    if (pool.length < 2) {
+  // The grouping is synchronous and can take a second or two on a phone: let "Grouping…" paint first.
+  const group = (build: () => void) => {
+    setBusy('grouping');
+    setTimeout(() => {
+      try {
+        build();
+      } finally {
+        setBusy(null);
+      }
+    }, 30);
+  };
+
+  // P1430: Start (or Next round) proposes the tables first; nothing is saved until "Start now".
+  const openPreview = () => {
+    setNotice(null);
+    setError(null);
+    const roundNo = nextNo;
+    const ids = poolIds(roundNo, chosen);
+    if (ids.length < 2) {
       setError(chosen ? 'Choose at least two people to sit.' : 'Waiting for at least two people in the room.');
       return;
     }
-    const roundNo = nextNo;
+    group(() => setPreview({ roundNo, demo: !!chosen, seats: compute(roundNo, chosen, 0), ids, shuffle: 0, changed: null }));
+  };
+
+  const shufflePreview = () => {
+    if (!preview) return;
+    const shuffle = preview.shuffle + 1;
+    group(() => setPreview({ ...preview, shuffle, seats: compute(preview.roundNo, preview.demo ? chosen : null, shuffle), changed: null }));
+  };
+
+  // A Demo is one round's choice: the next round seats the room again, at the standard minutes.
+  const afterStart = (demo: boolean) => {
+    setPreview(null);
+    if (!demo) return;
+    setChosen(null);
+    setPairHint(null);
+    setSettings({ ...settings, minutes: STANDARD_MINUTES });
+  };
+
+  const startPreview = () => {
+    if (!preview) return;
+    const only = preview.demo ? chosen : null;
+    // The room may have moved since the last poll was applied: never start an arrangement that
+    // seats someone who left, or leaves out someone who arrived.
+    const ids = poolIds(preview.roundNo, only);
+    const changed = whoChanged(preview.ids, ids, names);
+    if (changed) {
+      setPreview({ ...preview, ids, seats: compute(preview.roundNo, only, preview.shuffle), changed });
+      return;
+    }
+    const { roundNo, seats: planned, demo } = preview;
+    const roundTag =
+      !demo && settings.matchTag.trim() && settings.matchTag.trim() !== event.statementTag ? settings.matchTag.trim() : null;
+    startingRef.current = true;
     void run(
       async signal => {
-        setBusy('grouping');
-        await new Promise(resolve => setTimeout(resolve, 30));
-        const grouped = compute(roundNo, chosen);
-        setBusy('saving');
-        const showcase = !!chosen;
-        const roundTag = settings.matchTag.trim() && settings.matchTag.trim() !== event.statementTag ? settings.matchTag.trim() : null;
-        const id = await hostStartRound(event.id, roundNo, settings.groupSize, grouped, settings.minutes, settings.splitSpeakers, signal, {
+        const id = await hostStartRound(event.id, roundNo, settings.groupSize, planned, settings.minutes, settings.splitSpeakers, signal, {
           matchTag: roundTag,
-          showcase,
+          showcase: demo,
         });
-        // A showcase is one round's choice; the next round seats the room again unless chosen again.
-        setChosen(null);
+        afterStart(demo);
         return id;
       },
       // A lost answer for a start that did land: the same reset (Codex review).
       signal => roundExists(event.id, roundNo, signal).then(ok => {
-        if (ok) setChosen(null);
+        if (ok) afterStart(demo);
         return ok;
       }),
-    );
+    ).finally(() => {
+      startingRef.current = false;
+    });
+  };
+
+  // "Suggest pair": the two among the chosen whose positions are furthest apart (founder walkthrough 9).
+  const suggestPair = () => {
+    if (!chosen) return;
+    const ids = [...chosen];
+    let best: { a: string; b: string; gap: number } | null = null;
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const g = gap(ids[i], ids[j]);
+        if (g !== null && (!best || g > best.gap)) best = { a: ids[i], b: ids[j], gap: g };
+      }
+    }
+    if (!best) {
+      setPairHint('No two of them have answered the same statements yet.');
+      return;
+    }
+    setChosen(new Set([best.a, best.b]));
+    setPairHint(`Biggest gap: ${shortName(names.get(best.a) ?? '')} and ${shortName(names.get(best.b) ?? '')}.`);
+  };
+
+  const setWhoPlays = (demo: boolean) => {
+    if (demo === !!chosen) return;
+    setChosen(demo ? new Set() : null);
+    setPairHint(null);
+    setSettings({ ...settings, minutes: demo ? DEMO_MINUTES : STANDARD_MINUTES });
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
@@ -1199,15 +1486,20 @@ export function EventHostPage() {
   // The host decides how many rounds to run; "End the evening" (walkthrough 8) sits at the
   // bottom of the controls column, away from this button (walkthrough 9).
   const hasNext = !ended && nextNo <= MAX_ROUNDS;
-  const primary = hasNext ? { label: round ? 'Next round' : `Start round ${nextNo}`, action: startNext } : null;
+  // P1430: the next round's name — "Demo" when the host chose who sits, else the next counted round.
+  const nextLabel = nextRoundLabel(state.rounds, !!chosen);
+  const startLabel = chosen ? 'Start the Demo' : `Start ${nextLabel.toLowerCase()}`;
+  const primary = hasNext ? { label: round ? 'Next round' : startLabel, action: openPreview } : null;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
+  // The table's 9 rounds count every Demo and every Reopen (spec Non-Goal: the cap stays).
+  const atCap = nextNo > MAX_ROUNDS;
 
   return (
     <div className="mx-auto w-full max-w-lg lg:max-w-6xl px-4 pt-4 pb-16" data-testid="host-panel">
       <div className="flex items-start justify-between gap-3">
         <FocusHeader onBack={() => navigate(`/events/${slug}`)} label="Back" aria-label="Back to the event" />
         {/* Outline, not filled: the one filled button on this page is Next round (founder asked). */}
-        <Button asChild variant="outline" size="sm" className="min-h-10 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800">
+        <Button asChild variant="outline" size="sm" className="min-h-11 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800">
           <a href={`/events/${slug}/host?view=screen`} target="_blank" rel="noopener noreferrer" data-testid="host-screen-link">
             <Monitor className="h-4 w-4" /> Screen
           </a>
@@ -1220,11 +1512,15 @@ export function EventHostPage() {
         {/* On a phone the whole page scrolls as one (founder walkthrough 9: a pinned clock card
             took most of the screen and only parts moved). Settings live in their own card below. */}
         <section
-          className="rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-[calc(6rem+env(safe-area-inset-top))] lg:order-2 lg:col-start-2"
+          className={cn(
+            'rounded-xl border border-border bg-card p-4 shadow-sm lg:order-2 lg:col-start-2',
+            // The preview can be taller than the screen: pinned, its Start would be out of reach.
+            !preview && 'lg:sticky lg:top-[calc(6rem+env(safe-area-inset-top))]',
+          )}
           data-testid="host-controls"
         >
           <p className="text-sm font-medium text-muted-foreground">
-            {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : `Round ${round?.roundNo}`}</span>}
+            {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : ''}</span>}
             {(ended || round) && !ended && ' · '}
             {!ended && <span data-testid="host-room-count">{here.length} in the room</span>}
           </p>
@@ -1273,10 +1569,24 @@ export function EventHostPage() {
               <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
             </div>
           )}
+          {preview && (
+            <RoundPreview
+              label={preview.demo ? 'Demo' : nextRoundLabel(state.rounds, false)}
+              preview={preview}
+              byId={byId}
+              marksFor={marksFor}
+              busy={busy}
+              onSwap={(a, b) => setPreview({ ...preview, seats: swapSeats(preview.seats, a, b), changed: null })}
+              onShuffle={shufflePreview}
+              onStart={startPreview}
+              onBack={() => setPreview(null)}
+            />
+          )}
+          {!preview && (<>
           {primary && justStarted && !busy && round && (
             // The start lock: a few seconds with nothing to press, and the button's place says why.
             <p className="mt-4 flex min-h-12 items-center justify-center text-base text-muted-foreground" data-testid="host-just-started">
-              Round {round.roundNo} started
+              {roundLabel(state.rounds, round)} started
             </p>
           )}
           {ended && nextNo <= MAX_ROUNDS && (
@@ -1286,17 +1596,17 @@ export function EventHostPage() {
               type="button"
               variant="outline"
               className="mt-4 w-full min-h-12 text-base"
-              onClick={startNext}
+              onClick={openPreview}
               disabled={!!busy || !loaded}
               data-testid="host-reopen"
             >
-              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : `Reopen: start round ${nextNo}`}
+              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : `Reopen: ${startLabel.charAt(0).toLowerCase()}${startLabel.slice(1)}`}
             </Button>
           )}
           {primary && round && confirmNext && !justStarted && clock && clock.phase !== 'over' && (
             // Walkthrough 9 (reviews): time is still on the clock — one more tap, never a dialog.
             <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
-              <p>{formatClock(roundLeftMs)} left in this round. Start the next one now?</p>
+              <p>{formatClock(roundLeftMs)} left in this round. Set up the next one now?</p>
               <div className="mt-2 flex gap-2">
                 <Button
                   type="button"
@@ -1305,7 +1615,7 @@ export function EventHostPage() {
                   onClick={() => { setConfirmNext(false); primary.action(); }}
                   data-testid="host-next-yes"
                 >
-                  Start next round
+                  Yes, next round
                 </Button>
                 <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirmNext(false)}>
                   Keep going
@@ -1324,7 +1634,18 @@ export function EventHostPage() {
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
             </Button>
           )}
-          {round && (
+          </>)}
+          {atCap && (
+            <p className="mt-4 text-sm text-muted-foreground" data-testid="host-round-cap">
+              {MAX_ROUNDS} rounds is the most one event holds. The Demo and reopened rounds count.
+            </p>
+          )}
+          {notice && !preview && (
+            <p role="status" className="mt-3 text-sm text-muted-foreground" data-testid="host-notice">
+              {notice}
+            </p>
+          )}
+          {round && !preview && (
             // Walkthrough 9 (founder): small and centred right under Next round, behind its confirm.
             <div className="mt-1 text-center" data-testid="host-end-area">
           {round && !confirmEnd && (
@@ -1370,188 +1691,213 @@ export function EventHostPage() {
           )}
         </section>
 
-          {hasNext && (
+          {hasNext && !preview && (
             <details className="group mt-3 rounded-xl border border-border bg-card px-4 py-1 shadow-sm lg:order-3 lg:col-start-2" data-testid="host-settings">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
                 Next round settings
                 <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
               </summary>
-              <div className="mt-2 space-y-3 border-t border-border pt-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm">Group size</span>
-                  <div className="inline-flex rounded-lg bg-muted p-1">
-                    {([2, 3, 4] as const).map(size => (
-                      <button
-                        key={size}
-                        type="button"
-                        aria-pressed={settings.groupSize === size}
-                        onClick={() => setSettings({ ...settings, groupSize: size })}
-                        className={cn(
-                          'min-h-10 min-w-10 rounded-md text-sm',
-                          settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
-                        )}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Walkthrough 7: two named choices instead of a checkbox — the minutes below follow
-                    it ("Speaker N min" each, or one "Talk N min"). */}
-                <div
-                  className="inline-flex w-full rounded-lg bg-muted p-1"
-                  role="group"
-                  aria-label="How the pair talk"
-                  data-testid="host-split-speakers"
-                  data-split={settings.splitSpeakers ? 'true' : 'false'}
-                >
-                  {([
-                    [true, 'Swap at half time', 'host-split-on'],
-                    [false, 'One talk', 'host-split-off'],
-                  ] as const).map(([split, label, testId]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      aria-pressed={settings.splitSpeakers === split}
-                      onClick={() =>
-                        setSettings({
-                          ...settings,
-                          splitSpeakers: split,
-                          // An odd "Talk" leaves half minutes per speaker; swapping shows whole
-                          // minutes, so store what it shows (Codex review).
-                          minutes: split
-                            ? { ...settings.minutes, speakerS: Math.max(60, Math.round(settings.minutes.speakerS / 60) * 60) }
-                            : settings.minutes,
-                        })
-                      }
-                      data-testid={testId}
-                      className={cn(
-                        'min-h-10 flex-1 rounded-md px-2 text-sm',
-                        settings.splitSpeakers === split ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
+              {/* P1430 (founder walkthrough 9): three groups — who plays, the format, the matching. */}
+              <div className="mt-2 space-y-5 border-t border-border pb-3 pt-3">
+                <SettingsGroup title="Who plays">
+                  <Segmented
+                    label="Who plays"
+                    testId="host-who-plays"
+                    value={chosen ? 'demo' : 'all'}
+                    options={[
+                      ['all', 'All tables', 'host-who-all'],
+                      ['demo', 'One demo table', 'host-who-demo'],
+                    ]}
+                    onChange={v => setWhoPlays(v === 'demo')}
+                  />
+                  {chosen && (
+                    <div className="space-y-2" data-testid="host-choose">
+                      <p className="text-xs text-muted-foreground">{chosen.size} chosen · everyone else watches</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {/* Volunteers (confirmed recorders) first: they are who the host asks. */}
+                        {[...here]
+                          .sort((a, b) => Number(!!b.profileId && recorderProfiles.has(b.profileId)) - Number(!!a.profileId && recorderProfiles.has(a.profileId)))
+                          .map(m => {
+                            const on = chosen.has(m.id);
+                            const volunteer = !!m.profileId && recorderProfiles.has(m.profileId);
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => {
+                                  setPairHint(null);
+                                  setChosen(prev => {
+                                    const next = new Set(prev ?? []);
+                                    if (on) next.delete(m.id);
+                                    else next.add(m.id);
+                                    return next;
+                                  });
+                                }}
+                                className={cn(
+                                  'inline-flex min-h-11 items-center gap-1 rounded-full border px-3 text-sm',
+                                  on ? 'border-blue-500 bg-blue-50 font-medium text-blue-700' : 'border-border bg-background text-muted-foreground',
+                                )}
+                                data-testid="host-choose-person"
+                                data-volunteer={volunteer ? 'true' : undefined}
+                              >
+                                {volunteer && <Mic className="h-3.5 w-3.5" aria-label="Volunteer" />}
+                                {shortName(m.displayName)}
+                              </button>
+                            );
+                          })}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11"
+                          onClick={() => {
+                            setPairHint(null);
+                            setChosen(new Set(here.filter(m => m.profileId && recorderProfiles.has(m.profileId)).map(m => m.id)));
+                          }}
+                          data-testid="host-choose-recorders"
+                        >
+                          Volunteers
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11"
+                          onClick={suggestPair}
+                          disabled={chosen.size < 2}
+                          data-testid="host-suggest-pair"
+                        >
+                          Suggest pair (biggest gap)
+                        </Button>
+                      </div>
+                      {pairHint && (
+                        <p className="text-xs text-muted-foreground" data-testid="host-pair-hint">
+                          {pairHint}
+                        </p>
                       )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="space-y-1" data-testid="host-minutes">
-                  {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2).map(f => {
-                    // One talk: the speaker row is the whole talk — both halves, stored as two equal
-                    // parts so the round clock and the server keep one shape (roundTiming adds them).
-                    const talk = f.key === 'speakerS' && !settings.splitSpeakers;
-                    const factor = talk ? 2 : 1;
-                    const label = talk ? 'Talk' : f.label;
-                    const value = Math.round((settings.minutes[f.key] * factor) / 60);
-                    const set = (next: number) =>
+                    </div>
+                  )}
+                </SettingsGroup>
+
+                <SettingsGroup title="Format">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm">Group size</span>
+                    <div className="inline-flex rounded-lg bg-muted p-1">
+                      {([2, 3, 4] as const).map(size => (
+                        <button
+                          key={size}
+                          type="button"
+                          aria-pressed={settings.groupSize === size}
+                          onClick={() => setSettings({ ...settings, groupSize: size })}
+                          className={cn(
+                            'min-h-10 min-w-11 rounded-md text-sm',
+                            settings.groupSize === size ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground',
+                          )}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Walkthrough 7: two named choices instead of a checkbox — the minutes below follow
+                      it ("Speaker N min" each, or one "Talk N min"). */}
+                  <Segmented
+                    label="How the pair talk"
+                    testId="host-split-speakers"
+                    value={settings.splitSpeakers ? 'split' : 'one'}
+                    options={[
+                      ['split', 'Swap at half time', 'host-split-on'],
+                      ['one', 'One talk', 'host-split-off'],
+                    ]}
+                    onChange={v => {
+                      const split = v === 'split';
                       setSettings({
                         ...settings,
-                        minutes: { ...settings.minutes, [f.key]: (Math.min(f.max * factor, Math.max(f.min * factor, next)) * 60) / factor },
+                        splitSpeakers: split,
+                        // An odd "Talk" leaves half minutes per speaker; swapping shows whole
+                        // minutes, so store what it shows (Codex review).
+                        minutes: split
+                          ? { ...settings.minutes, speakerS: Math.max(60, Math.round(settings.minutes.speakerS / 60) * 60) }
+                          : settings.minutes,
                       });
-                    return (
-                      <div key={f.key} className="flex items-center justify-between gap-3">
-                        <span className="text-sm">{label}</span>
-                        <div className="inline-flex items-center gap-1">
-                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value - 1)} disabled={value <= f.min * factor} aria-label={`${label}: one minute less`}>
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="w-14 text-center text-sm tabular-nums">{value} min</span>
-                          <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0" onClick={() => set(value + 1)} disabled={value >= f.max * factor} aria-label={`${label}: one minute more`}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {(
-                  [
-                    ['recorders', 'Recorders together'],
-                    ['gap', 'Disagreement gap'],
-                    ['unmet', 'Haven’t met yet'],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="flex items-center gap-3 text-sm min-h-10">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-blue-500"
-                      checked={settings.toggles[key]}
-                      onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
-                    />
-                    {label}
-                  </label>
-                ))}
-                <label className="flex items-center gap-3 text-sm min-h-10">
-                  <span className="shrink-0">Match on</span>
-                  <select
-                    className="min-h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base md:text-sm"
-                    value={settings.matchTag.trim() || event.statementTag || ''}
-                    onChange={e => setSettings({ ...settings, matchTag: e.target.value === event.statementTag ? '' : e.target.value })}
-                    data-testid="host-match-tag"
-                  >
-                    {!event.statementTag && <option value="">Choose a set</option>}
-                    {/* A tag stored from before the list (or since removed from it) stays selectable. */}
-                    {[...new Set([...matchOptions, settings.matchTag.trim()].filter(Boolean))].map(tag => (
-                      <option key={tag} value={tag}>
-                        {tag === event.statementTag ? `${eventTopic(event.title)} (this event)` : setLabel(tag)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-3 text-sm min-h-10">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-blue-500"
-                    checked={!!chosen}
-                    onChange={e => setChosen(e.target.checked ? new Set() : null)}
-                    data-testid="host-choose-toggle"
+                    }}
                   />
-                  Choose who sits
-                </label>
-                {chosen && (
-                  <div className="space-y-2" data-testid="host-choose">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {chosen.size} chosen · everyone else watches
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="min-h-10"
-                        onClick={() => setChosen(new Set(here.filter(m => m.profileId && recorderProfiles.has(m.profileId)).map(m => m.id)))}
-                        data-testid="host-choose-recorders"
-                      >
-                        Recorders
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {here.map(m => {
-                        const on = chosen.has(m.id);
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() =>
-                              setChosen(prev => {
-                                const next = new Set(prev ?? []);
-                                if (on) next.delete(m.id);
-                                else next.add(m.id);
-                                return next;
-                              })
-                            }
-                            className={cn(
-                              'min-h-10 rounded-full border px-3 text-sm',
-                              on ? 'border-blue-500 bg-blue-50 font-medium text-blue-700' : 'border-border bg-background text-muted-foreground',
-                            )}
-                            data-testid="host-choose-person"
-                          >
-                            {shortName(m.displayName)}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-1" data-testid="host-minutes">
+                    {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2).map(f => {
+                      // One talk: the speaker row is the whole talk — both halves, stored as two equal
+                      // parts so the round clock and the server keep one shape (roundTiming adds them).
+                      const factor = f.key === 'speakerS' && !settings.splitSpeakers ? 2 : 1;
+                      const label = factor === 2 ? 'Talk' : f.label;
+                      const value = settings.minutes[f.key] * factor;
+                      const set = (next: number) =>
+                        setSettings({
+                          ...settings,
+                          minutes: { ...settings.minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor },
+                        });
+                      const unit = f.step < 60 ? `${f.step} seconds` : 'one minute';
+                      return (
+                        <div key={f.key} className="flex items-center justify-between gap-3">
+                          <span className="text-sm">{label}</span>
+                          <div className="inline-flex items-center gap-1">
+                            <Button type="button" variant="outline" size="sm" className="h-11 w-11 p-0" onClick={() => set(value - f.step * factor)} disabled={value <= f.min * factor} aria-label={`${label}: ${unit} less`}>
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-16 text-center text-sm tabular-nums" data-testid={`host-minutes-${f.key}`}>
+                              {formatSeconds(value)}
+                            </span>
+                            <Button type="button" variant="outline" size="sm" className="h-11 w-11 p-0" onClick={() => set(value + f.step * factor)} disabled={value >= f.max * factor} aria-label={`${label}: ${unit} more`}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                </SettingsGroup>
+
+                {/* Matching only means something when the whole room is grouped; a Demo seats the
+                    chosen on the event's own set. */}
+                {!chosen && (
+                  <SettingsGroup title="Matching">
+                    {(
+                      [
+                        ['recorders', 'Recorders together'],
+                        ['gap', 'Disagreement gap'],
+                        ['unmet', 'Haven’t met yet'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <label key={key} className="flex min-h-11 items-center gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-blue-500"
+                          checked={settings.toggles[key]}
+                          onChange={e => setSettings({ ...settings, toggles: { ...settings.toggles, [key]: e.target.checked } })}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                    {/* Label above, so the select gets the full width and long set names show whole. */}
+                    <label className="block text-sm">
+                      <span className="mb-1 block">Match on</span>
+                      <select
+                        className="min-h-11 w-full rounded-md border border-border bg-background px-2 text-base md:text-sm"
+                        value={settings.matchTag.trim() || event.statementTag || ''}
+                        onChange={e => setSettings({ ...settings, matchTag: e.target.value === event.statementTag ? '' : e.target.value })}
+                        data-testid="host-match-tag"
+                      >
+                        {!event.statementTag && <option value="">Choose a set</option>}
+                        {/* A tag stored from before the list (or since removed from it) stays selectable. */}
+                        {[...new Set([...matchOptions, settings.matchTag.trim()].filter(Boolean))].map(tag => (
+                          <option key={tag} value={tag}>
+                            {tag === event.statementTag ? `${eventTopic(event.title)} (this event)` : setLabel(tag)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </SettingsGroup>
                 )}
               </div>
             </details>
@@ -1625,7 +1971,7 @@ export function EventHostPage() {
                 return (
                   <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
                     <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
-                      <span className="font-medium">Round {r.roundNo}</span>
+                      <span className="font-medium">{roundLabel(state.rounds, r)}</span>
                       <span className="text-muted-foreground tabular-nums">
                         {tapped} of {past.length} tapped in
                       </span>

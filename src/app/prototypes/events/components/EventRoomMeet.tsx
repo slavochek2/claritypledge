@@ -246,7 +246,7 @@ export function RosterGroup({
 export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { barVisible: captureBarVisible } = useRoomCapture();
   const offlineStrip = useOfflineStripShown();
   const captureBarPx = useMeasuredHeight('[data-testid="room-capture-slot"]', captureBarVisible);
@@ -530,20 +530,11 @@ export function EventRoomMeet() {
       </div>
       </div>
       <div className={PAGE_CONTAINER}>
-        {/* P1337: the host spends the evening in the room too; P1336: the preparation stays one tap
-            away for someone who joined without it. */}
-        {((event && (session?.user?.id ?? user?.id) === event.hostId) || !seated) && (
+        {/* P1336: the preparation stays one tap away for someone who joined without it. The host's
+            way to the host panel is the event's Host tab (P1430), not a link here. */}
+        {!seated && (
           <div className="mt-2 flex items-center justify-end gap-3">
-            {event && (session?.user?.id ?? user?.id) === event.hostId && (
-              <Link
-                to={`/events/${slug ?? event.slug}/host`}
-                className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600"
-                data-testid="room-run-event"
-              >
-                Run this event
-              </Link>
-            )}
-            {!seated && <PrepRoomBanner event={event} />}
+            <PrepRoomBanner event={event} />
           </div>
         )}
         {transcriptionFailed && (

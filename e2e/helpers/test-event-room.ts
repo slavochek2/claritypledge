@@ -140,10 +140,19 @@ export async function startTranscribingInRoom(page: Page, eventSlug: string): Pr
 
 /**
  * P1337 walkthrough 9: while time is left in a round, Next round asks once more ("m:ss left in
- * this round. Start the next one now?"). Presses the host's primary button and confirms when asked.
+ * this round. Set up the next one now?"). P1430: the button then proposes the tables, and the
+ * round starts only on "Start now". Presses the host's primary button, confirms when asked, and
+ * starts the proposed tables.
  */
-export async function pressHostPrimary(page: Page): Promise<void> {
+export async function openHostPreview(page: Page): Promise<void> {
   await page.getByTestId('host-primary').click();
   const yes = page.getByTestId('host-next-yes');
   if (await yes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await yes.click();
+  await expect(page.getByTestId('host-preview')).toBeVisible({ timeout: 15_000 });
+}
+
+export async function pressHostPrimary(page: Page): Promise<void> {
+  await openHostPreview(page);
+  await page.getByTestId('host-preview-start').click();
+  await expect(page.getByTestId('host-preview')).toHaveCount(0, { timeout: 30_000 });
 }

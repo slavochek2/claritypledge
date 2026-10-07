@@ -40,4 +40,24 @@ describe('RoomSteps', () => {
     fireEvent.click(screen.getByTestId('room-step-table'));
     expect(onSelect).toHaveBeenCalledWith('table');
   });
+
+  // P1430: done · current · ahead, and steps that cannot open say so.
+  it('done steps are marked done, the shown step is current, steps ahead are disabled for assistive tech too', () => {
+    render(<RoomSteps current="compare" viewing="compare" onSelect={() => {}} />);
+    expect(screen.getByTestId('room-step-ready')).toHaveAttribute('data-state', 'done');
+    expect(screen.getByTestId('room-step-ready')).toHaveAccessibleName('Ready, done');
+    expect(screen.getByTestId('room-step-table')).toHaveAttribute('data-state', 'done');
+    expect(screen.getByTestId('room-step-compare')).toHaveAttribute('data-state', 'current');
+    expect(screen.getByTestId('room-step-compare')).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByTestId('room-step-close')).toHaveAttribute('data-state', 'ahead');
+    expect(screen.getByTestId('room-step-close')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('room-step-table')).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('looking back at a done step makes it the bold one; where the evening is stays reached', () => {
+    render(<RoomSteps current="compare" viewing="table" onSelect={() => {}} />);
+    expect(screen.getByTestId('room-step-table')).toHaveAttribute('data-state', 'current');
+    expect(screen.getByTestId('room-step-compare')).toHaveAttribute('data-state', 'reached');
+  });
 });
+

@@ -36,6 +36,7 @@ import { buildCompareRows } from '@/lib/compare-positions';
 import { LIVE_ROLE_LINE, formatClock, liveRole, roundClock, roundTiming, type LiveRole } from '@/lib/round-clock';
 import type { SeatRole } from '@/lib/round-grouping';
 import { setLabel } from '@/lib/set-labels';
+import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { roundsPolling, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useTagPositions } from './use-tag-positions';
@@ -214,12 +215,13 @@ export function RoundCard({
     return (
       <section className="rounded-xl border border-border bg-card p-5" data-testid="round-card-waiting">
         <h2 className="text-xl font-semibold">
-          {/* A showcase seats only the people the host chose; everyone else watches. */}
+          {/* A Demo (the host chose who sits) seats only the chosen; everyone else watches. It is not
+              counted: the round after it is Round 1 (P1430). */}
           {!round
-            ? `Round ${state.rounds.length + 1} starts soon`
+            ? `${nextRoundLabel(state.rounds, false)} starts soon`
             : round.showcase
-              ? `Round ${round.roundNo} · You watch`
-              : `Round ${round.roundNo} · You join the next round`}
+              ? 'Demo · You watch'
+              : `${roundLabel(state.rounds, round)} · You join the next round`}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {!round ? 'The host starts it. Your table and role appear here.' : 'Your table appears here when the next round starts.'}

@@ -13,7 +13,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, type TestEvent } from './helpers/test-event';
-import { seedRoomMember } from './helpers/test-event-room';
+import { openHostPreview, seedRoomMember } from './helpers/test-event-room';
 
 test.describe('P1337 — Start never hangs on "Grouping…"', () => {
   test.describe.configure({ mode: 'serial' });
@@ -40,9 +40,10 @@ test.describe('P1337 — Start never hangs on "Grouping…"', () => {
   test('a start request that never answers ends in a clear message, not an endless "Grouping…"', async ({ page }) => {
     await asHost(page);
     await page.route('**/rest/v1/rpc/host_start_round', () => { /* held: no answer, like a dropped connection */ });
-    await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-primary')).toContainText(/Grouping|Saving/);
-    await expect(page.getByTestId('host-primary')).not.toContainText(/Grouping|Saving/, { timeout: 30_000 });
+    await openHostPreview(page);
+    await page.getByTestId('host-preview-start').click();
+    await expect(page.getByTestId('host-preview-start')).toContainText('Starting');
+    await expect(page.getByTestId('host-preview-start')).not.toContainText('Starting', { timeout: 30_000 });
     await expect(page.getByRole('alert')).toBeVisible();
     const { count } = await supabaseAdmin.from('event_rounds').select('id', { count: 'exact', head: true }).eq('event_id', event.id);
     expect(count).toBe(0);
@@ -55,7 +56,8 @@ test.describe('P1337 — Start never hangs on "Grouping…"', () => {
       await route.fetch();
       /* answer dropped */
     });
-    await page.getByTestId('host-primary').click();
+    await openHostPreview(page);
+    await page.getByTestId('host-preview-start').click();
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 1', { timeout: 30_000 });
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
