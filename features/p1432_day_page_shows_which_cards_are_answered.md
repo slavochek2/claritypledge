@@ -87,14 +87,14 @@ state words below are proposals; the founder approved the direction ("ok do").
 
 ## Acceptance Criteria
 
-- [ ] After "Accept & next" on a founder card and reloading, the card shows "Your answer"; Start fixing includes it unless that same answer was already sent (e2e; known-bad control = the current page-state-only accept → RED).
-- [ ] → and plain Next write nothing and accept nothing; the card stays "Not answered yet".
-- [ ] A card shows "Sent" only after a started/pending send containing its current answer; a failed launch never shows Sent; changing the answer after a send shows it unsent (unit + e2e).
-- [ ] A second Accept writes nothing; Accept on a Park recommendation does not park; a failed write leaves the card unanswered with the error shown.
-- [ ] On a new run, a fault answered on an earlier run shows "You answered on <date> … reported again"; the earlier run shows answered / not answered per card.
-- [ ] An unanswered card is visibly different from an answered one: each card shows its state line (e2e asserts the three states).
-- [ ] The list above the cards shows each card's state and jumps to it; progress survives reload.
-- [ ] Previous / Next / ← / → write nothing on any card (file compared byte for byte).
+- [x] After "Accept & next" on a founder card and reloading, the card shows "Your answer"; Start fixing includes it unless that same answer was already sent (e2e; known-bad control = the current page-state-only accept → RED).
+- [x] → and plain Next write nothing and accept nothing; the card stays "Not answered yet".
+- [x] A card shows "Sent" only after a started/pending send containing its current answer; a failed launch never shows Sent; changing the answer after a send shows it unsent (unit + e2e).
+- [x] A second Accept writes nothing; Accept on a Park recommendation does not park; a failed write leaves the card unanswered with the error shown.
+- [x] On a new run, a fault answered on an earlier run shows "You answered on <date> … reported again"; the earlier run shows answered / not answered per card.
+- [x] An unanswered card is visibly different from an answered one: each card shows its state line (e2e asserts the three states).
+- [x] The list above the cards shows each card's state and jumps to it; progress survives reload.
+- [x] Previous / Next / ← / → write nothing on any card (file compared byte for byte).
 - [ ] Screenshots at 1440, 375 and 320 pass a separate visual QA.
 
 ## Related
