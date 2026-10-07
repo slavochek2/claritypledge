@@ -647,15 +647,7 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                     AC-1/AC-2 both pass without touching it, because /stake/:tag and
                     /transcribe/:code reach the other three branches. AC-17 covers it. */}
                 <UseCasesMenu pathname={location.pathname} />
-                {/* P1351 (founder): no "Pricing" link while ON /pricing — it only duplicated the page. */}
-                {!isPricingPage && (
-                  <Link
-                    to="/pricing"
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Pricing
-                  </Link>
-                )}
+                {/* 2026-10-07 (founder): no Pricing link in the header — see nav-links.ts. */}
                 {/* P844: Hide CTA on event detail pages */}
                 {/* P916: route-aware logged-out CTA — Apply on "/", Try a Clarity Letter elsewhere */}
                 {!hideMarketingCta && (

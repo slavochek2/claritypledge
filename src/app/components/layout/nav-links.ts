@@ -2,7 +2,6 @@ import {
   BriefcaseIcon,
   UsersIcon,
   TargetIcon,
-  TagIcon,
   LandmarkIcon,
   AwardIcon,
   ScrollTextIcon,
@@ -120,8 +119,9 @@ export const PUBLIC_NAV_GROUPS = [
       { to: EVENTS_LIST_TO, label: "Events", Icon: CalendarDaysIcon },
       { to: EVENTS_NAV_TO, label: "Groups", Icon: LandmarkIcon },
       { to: "/pledgers", label: "Pledgers", Icon: AwardIcon },
-      // P1392 (founder): Pricing last.
-      { to: "/pricing", label: "Pricing", Icon: TagIcon },
+      // 2026-10-07 (founder): Pricing removed from the menu. The individual €295 membership no
+      // longer matches the direction (institutions pay); /pricing stays reachable by URL until
+      // the paid offer is re-decided.
     ],
   },
   {

@@ -121,9 +121,11 @@ describe('P1310 — the signed-in menu is the same menu', () => {
     for (const heading of ['Use cases', 'Product', 'Learn', 'Your account']) {
       expect(screen.getByText(heading)).toBeInTheDocument();
     }
-    for (const label of ['Pricing', 'Feed', 'Groups', 'For co-founders']) {
+    for (const label of ['Feed', 'Groups', 'For co-founders']) {
       expect(screen.getByRole('link', { name: new RegExp(label, 'i') })).toBeInTheDocument();
     }
+    // 2026-10-07 (founder): Pricing is no longer in the menu; /pricing stays reachable by URL.
+    expect(screen.queryByRole('link', { name: /^pricing$/i })).not.toBeInTheDocument();
     // …without losing the account actions that were already there.
     const account = screen.getByRole('group', { name: 'Your account' });
     for (const label of ['Session History', 'Settings', 'Log Out']) {
