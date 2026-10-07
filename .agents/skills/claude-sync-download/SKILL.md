@@ -16,7 +16,8 @@ export click, Gmail poll) stay inline — they need MCP/tool context. Steps 3–
 
 ## Export shape (changed 2026-09)
 
-An export is no longer one zip. It is **five single-use downloads** plus a manifest:
+An export is no longer one zip. It is **six single-use downloads** plus a manifest
+(`frames` added 2026-10):
 
 | File | Contents | Imported |
 |------|----------|----------|
@@ -24,7 +25,8 @@ An export is no longer one zip. It is **five single-use downloads** plus a manif
 | `projects-NNN.zip` | project docs + custom instructions | ✅ `projects/` |
 | `memories-NNN.zip` | memory files + conversations memory | ✅ `memories/` |
 | `design_chats-NNN.zip` | design chats | ✅ `design-chats/` |
-| `light_metadata-NNN.zip` | `users.json`, `login_history.json` | ❌ no durable value |
+| `frames-NNN.zip` | published claude.ai Artifacts, every version (~170MB) | ✅ `frames/` — metadata + active version only, `artifact-type/` runtime skipped |
+| `light_metadata-NNN.zip` | `users.json`, `login_history.json` | ❌ no durable value — skip the download |
 
 Each `export_url` works **exactly once**. The legacy single `data-*-batch-*.zip` is
 still handled by the importer as a fallback.
@@ -69,10 +71,12 @@ Claude.ai emails a download link; do not wait in the browser.
 Use `mcp__slavochek-gmail__*` (personal Gmail — see global CLAUDE.md profile).
 Poll `search_emails { query: "your data is ready" }` every 60s up to 10 min.
 **Skip any email older than the Step 1 trigger time** (stale prior-run emails share the subject).
-From the newest valid email, extract **every** download URL
-(`https://claude.ai/export/<uuid>/download/<hash>`) — an export is now five of them.
-If the mail links a `manifest-*.json` instead, download that and pass its path to the
-script; it will read the URLs out of it.
+The newest valid email links **one** URL (`https://claude.ai/export/<uuid>/download/<hash>`).
+Opening it downloads `manifest-*.json`, not data — read the per-category `export_url`s out
+of it (`data_files[].export_url`) and open each one (see Troubleshooting: navigate the
+authenticated Chrome tab, not `open`). A category the importer does not know is not
+imported and its zip stays in `~/Downloads` — add it to `CATEGORIES` in
+`import-conversations.py` rather than ignoring it.
 
 ## Steps 3–4: Download + sync  *(script)*
 
@@ -86,7 +90,7 @@ export format claude.ai may return:
 - **Legacy** — one `data-*.zip`; copied to `~/Downloads`.
 - **Manifest** (current, since ~2026-09) — a `manifest-*.json` listing N **single-use**
   per-category zip URLs (`conversations`, `projects`, `memories`, `design_chats`,
-  `light_metadata`). The script opens each in Chrome; each lands directly in
+  `frames`, `light_metadata`). The script opens each in Chrome; each lands directly in
   `~/Downloads/` (flat, not a subfolder — `import-conversations.py` globs `DOWNLOADS/*.zip`
   directly). Don't move them into a `data-*-batch-*/` folder — that pattern is the legacy
   single-zip fallback only, and the importer never looks for per-category files there.

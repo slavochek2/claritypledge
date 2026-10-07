@@ -5,8 +5,8 @@
 #
 # Contract:  $@ = one or more claude.ai export download URLs, OR a single path to the
 #            manifest-*.json the export mail links to (whose export_url fields are used).
-#            Since 2026-09 an export is FIVE files (conversations, projects, memories,
-#            design_chats, light_metadata), each URL usable exactly once.
+#            Since 2026-09 an export is per-category files (conversations, projects,
+#            memories, design_chats, frames, light_metadata), each URL usable exactly once.
 # DRY_RUN=1  skips `open`, the download wait, and the importer — validates args only.
 set -euo pipefail
 
@@ -72,6 +72,7 @@ find_zips() {
   find "$DESKTOP" "$DOWNLOADS" -maxdepth 1 \
     \( -name 'conversations-*.zip' -o -name 'projects-*.zip' \
        -o -name 'memories-*.zip' -o -name 'design_chats-*.zip' \
+       -o -name 'frames-*.zip' \
        -o -name 'light_metadata-*.zip' -o -name 'data-*.zip' \) \
     -newer "$MARKER" 2>/dev/null | sort
 }
