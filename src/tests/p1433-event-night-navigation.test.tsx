@@ -227,3 +227,16 @@ describe('P1433 D4 — room re-entry resumes at the table (supersedes P1307 D10)
     expect(screen.getByTestId('prep-gate')).toBeInTheDocument();
   });
 });
+
+describe('P1433 review — the public pick opens on its own while the page sits still', () => {
+  it('an event 2h out: absent now, present once its window opens (no navigation, no refetch)', async () => {
+    vi.useFakeTimers();
+    const start = new Date('2026-10-06T09:00:00Z');
+    vi.setSystemTime(start);
+    const rows = [{ slug: 'later', title: 'L', datetime: '2026-10-06T11:00:00Z', timezone: 'UTC', status: 'upcoming', duration_minutes: 60, preparation_enabled: true }];
+    expect(pickWindowEvent(rows, new Date())).toBeNull();
+    vi.setSystemTime(new Date('2026-10-06T10:00:30Z'));
+    expect(pickWindowEvent(rows, new Date())?.slug).toBe('later');
+    vi.useRealTimers();
+  });
+});

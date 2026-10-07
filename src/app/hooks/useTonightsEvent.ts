@@ -158,9 +158,11 @@ const EVENT_COLUMNS = 'slug, title, datetime, timezone, status, duration_minutes
  */
 async function fetchPublicWindowCandidates(): Promise<CandidateEvent[]> {
   const now = Date.now();
-  // Start up to an hour ahead; started up to a day ago (duration + 3h fits in that for any night).
+  // Started up to a day ago (duration + 3h fits in that for any night), or starts within the next
+  // day — a page opened hours early must still find the event when its window opens (P1433 review,
+  // Codex: a one-hour upper bound missed an event 61 minutes out until the cache expired).
   const from = new Date(now - 24 * 3600 * 1000).toISOString();
-  const to = new Date(now + TODAYS_EVENT_OPENS_BEFORE_MS).toISOString();
+  const to = new Date(now + 24 * 3600 * 1000).toISOString();
   const { data, error } = await supabase
     .from('events')
     .select(EVENT_COLUMNS)
@@ -233,6 +235,16 @@ export function useTonightsEvent(): TonightsEvent | null {
     publicCandidates().then(list => { if (active) setCandidates(list); });
     return () => { active = false; };
   }, [userId]);
+
+  // Re-decide once a minute while there is anything to decide about, so a window that opens or
+  // closes while the page sits still shows up without a navigation (P1433 review).
+  const [, setTick] = useState(0);
+  const anything = !!registered || candidates.length > 0;
+  useEffect(() => {
+    if (!anything) return;
+    const id = setInterval(() => setTick(t => t + 1), 60 * 1000);
+    return () => clearInterval(id);
+  }, [anything]);
 
   // The person's own event wins; otherwise the public in-window pick, re-decided each render so
   // the window's edges are honoured without a refetch.
