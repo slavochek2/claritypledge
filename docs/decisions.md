@@ -19,6 +19,35 @@ dropped in the same session, or created in a non-exposed schema (not `public`). 
 notes as "out of scope" still needs a follow-up item, not just a mention.
 **References:** [p1333](../features/done/2026-06-10/p1333_test_db_readiness_column_grant_drift.md)
 
+## 2026-10-07 [process]: Header E2E — isolate the public event query, clock-safe fixture, system Chrome when bundled Chromium fails (P1434)
+
+**Context:** P1433 shipped with its header E2E never run (Playwright's bundled Chromium aborted on
+this macOS). Running it found a real defect the unit tests and a by-hand measurement missed:
+signed in at 375px, "Today's event" sat under 4px from the logo. The previous measurement covered
+360 and 375 signed out only. The same run also failed for an environmental reason: P1433 D2 shows
+any prep-enabled event in its window to a visitor, so a leftover demo event on the shared test DB
+leaked into the signed-out assertions. Codex's review added a third failure: after 22:00 UTC, an
+event set two hours ahead in UTC is no longer "today".
+**Decision:** (1) The label shows from 390px, a value the E2E's 4px collision check measured. The
+check now runs at 320/360/375/390/412/desktop. (2) Header E2Es route-filter the public in-window
+events query to the run's own event, so the real query still runs but other events can't leak in.
+(3) Test events that must be "today" are created in an `Etc/GMT±N` zone where it's about noon.
+(4) When the bundled Chromium fails, run the suite with a scratch config: `channel: 'chrome'`,
+video and trace off (ffmpeg is also missing). That uses the installed Chrome without installing
+anything. It's a fresh launch, not `launchPersistentContext` on the real profile, which is the
+pattern that corrupted extensions (entry below, "promote-app-sola").
+**Also fixed (review):** `useTonightsEvent` returned the registered event before checking whose
+lookup it answered, so the previous account's event showed after sign-out or during an account
+switch. It now returns that event only for the account it was looked up for.
+**Alternatives rejected:** Deleting stray test events before each run (destructive on a shared DB,
+and races concurrent runs). Skipping the signed-out checks when a foreign event exists (hides
+coverage). Reinstalling Playwright browsers (an install, and it didn't address the abort).
+**Consequences:** A layout breakpoint gets picked from a measured E2E run, signed in and signed
+out, never from one hand-measured width. Pre-existing issues the reviews found are filed as
+INBOX-142.
+**References:** [p1434](../features/p1434_todays_event_button_crowds_logo_at_375.md),
+`e2e/p1351-header-contexts.spec.ts`
+
 ## 2026-10-07 [product]: Day page — Accept is saved at once; paging never accepts (P1432)
 
 **Context:** Coming back to the Day page, the founder could not tell which cards he had answered:
