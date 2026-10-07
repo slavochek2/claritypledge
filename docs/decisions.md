@@ -215,7 +215,7 @@ per-statement saved/sent line yet.
 **Decisions:**
 - *Stop opening specs until closed outnumber opened (73 opened vs 61 closed)* — Unsure; founder questions the metric. Spec throughput counts activity, not corroborated predictions (research-programme.md), so it is likely the wrong signal for a strategic card. UNTESTED. Falsifier: a period where opened > closed coincides with a stalled hypothesis.
 - *Finish or abort the half-done P1389 ship before any new branch* — Rejected as a reflection item: reflection is for strategy, not today's operations. Also factually stale: P1389 was closed 2026-10-06 (7690d8a90); only an `.aborted` journal file remained.
-- *Book the next event before more event features (zero events in two weeks)* — Unsure. Founder's motivation was shaken by the 2026-10-06 event; the next step is a debrief of that event, not a booking rule. Also factually wrong: an event was held 2026-10-06. Open question: what the event showed.
+- *Book the next event before more event features (zero events in two weeks)* — Unsure. The next step is a debrief of that event, not a booking rule. Also factually wrong: an event was held 2026-10-06. Open question: what the event showed.
 - *Run the overdue restore test this week* — Agree. Agent attempt 2026-10-07 was blocked by the secret-path hook; founder runs it.
 - *Commit or delete uncommitted work in 11 repos* — Rejected as a duplicate of the same day's operational cards.
 
