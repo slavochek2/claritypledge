@@ -6,6 +6,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [process]: e2e login waits on `networkidle`, so a busy machine reads as a feature bug (Status: proposed)
+
+**Context:** P1430 /dev: five e2e runs failed inside `setTestSession` (`e2e/helpers/test-user.ts`, `waitForLoadState('networkidle')` on `/`) before any feature code ran. Load average was 10–23, with about 50 Playwright/Chrome processes from other sessions. Three acceptance criteria stayed unverified until the machine was quieter. The same fragility already appears in INBOX-98 (15 tests failing on main) and in `docs/technical/e2e-testing-guide.md`, which says "anchor to specific element visibility".
+**Decision (proposed):** (a) `setTestSession` waits for `domcontentloaded` plus an auth-ready signal (the injected session in storage, or a signed-in element) instead of network quiet. (b) Before e2e, `/dev` checks machine load and the Playwright browser cache. When the machine is overloaded, it reports the affected ACs as "unverified (machine load)" rather than as failures. The threshold must be measured, not guessed.
+**Alternatives rejected:** more retries or longer timeouts. Today they turned real setup stalls into "flaky passes" and hid the cause.
+**Consequences:** (a) covers 238 test files, but not the roughly 1,500 `networkidle` calls inside tests. Merge with INBOX-98. Follow-up spec needed. **UNTESTED.** Falsifier: after (a), setup still times out on a quiet machine.
+
+---
+
 ## 2026-10-07 [technical]: P1430 — the Demo is a name, not a number; a start is checked against the arrangement that was previewed
 
 **Context:** P1430 renamed the host-picked round ("choose who sits", `event_rounds.showcase`) to "Demo" and made the round after it read "Round 1". It also added a preview of the tables before Start. Three reviews (Opus, Codex, Gemini) found races in the start path.

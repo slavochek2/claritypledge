@@ -761,11 +761,12 @@ function TablesGrid({
         return (
           <p
             key={col}
-            className={cn('flex items-center justify-center gap-1.5 text-xs', speaking ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}
+            className={cn('flex min-w-0 items-center justify-center gap-1.5 text-xs', speaking ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}
             data-testid="round-grid-role"
           >
             {pair ? <PairBadge className="h-5 w-5 text-[11px]" /> : <RoleBadge role={role} className="h-5 w-5 text-[11px]" />}
-            <span className="hidden min-[375px]:inline">{pair ? 'Pair' : COLUMN_LABEL[col]}</span>
+            {/* One line always: in the narrower preview card "Speaker 2" wrapped at 375px. */}
+            <span className="hidden min-w-0 truncate min-[375px]:inline">{pair ? 'Pair' : COLUMN_LABEL[col]}</span>
           </p>
         );
       })}
