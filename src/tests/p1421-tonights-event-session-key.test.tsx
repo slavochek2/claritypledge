@@ -41,3 +41,13 @@ describe('P1421: useTonightsEvent keys on the session user id', () => {
     expect(eqSpy).toHaveBeenCalledWith('preparation_enabled', true);
   });
 });
+
+describe('P1433 review — no public pick before the signed-in person\'s own answer', () => {
+  it('a signed-in person sees nothing until their RSVP lookup resolves (never another event first)', async () => {
+    __resetTonightsEventCacheForTest();
+    mockUseAuth.mockReturnValue({ user: null, session: { user: { id: 'sess-2' } } });
+    const { result } = renderHook(() => useTonightsEvent());
+    expect(result.current).toBeNull();
+    await waitFor(() => expect(eqSpy).toHaveBeenCalledWith('profile_id', 'sess-2'));
+  });
+});

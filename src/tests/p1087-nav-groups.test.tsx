@@ -205,6 +205,14 @@ describe('P1351/P1433 — "Today\'s event" is the event-day primary', () => {
     expect(marketingCta()).toHaveLength(0);
   });
 
+  it('P1433 D2: signed in but NOT registered — sees it in the window too', async () => {
+    tonight.current = { ...nightNow(), registered: false };
+    await renderNav('/feed', { loggedIn: true });
+    const ctas = screen.getAllByTestId('tonights-event-cta');
+    expect(ctas.length).toBeGreaterThan(0);
+    for (const c of ctas) expect(c).toHaveAttribute('href', '/events/night-2/room');
+  });
+
   it('P1433 D2: signed-out on a compact room page still sees it', async () => {
     tonight.current = { ...nightNow(), registered: false };
     await renderNav('/events/night-2/ready', { compact: true });

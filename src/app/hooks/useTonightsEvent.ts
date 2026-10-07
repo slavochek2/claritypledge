@@ -214,6 +214,10 @@ function useAuthOrSignedOut(): Pick<ReturnType<typeof useAuth>, 'user' | 'sessio
 export function useTonightsEvent(): TonightsEvent | null {
   const { user, session } = useAuthOrSignedOut();
   const [registered, setRegistered] = useState<TonightsEvent | null>(null);
+  // Which user's RSVP lookup has answered. Until the signed-in person's own answer is in, no
+  // public pick is shown — else a warm public cache flashes another event's button before theirs
+  // (P1433 review, Gemini).
+  const [resolvedFor, setResolvedFor] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateEvent[]>([]);
   // P1421: the session's user id is the profile id and is known before the profile loads,
   // so the header's event button is decided early instead of shifting the row on arrival.
@@ -229,7 +233,11 @@ export function useTonightsEvent(): TonightsEvent | null {
         entry = { at: Date.now(), promise: fetchTonightsEvent(userId).catch(() => null) };
         cache.set(userId, entry);
       }
-      entry.promise.then(e => { if (active) setRegistered(e); });
+      entry.promise.then(e => {
+        if (!active) return;
+        setRegistered(e);
+        setResolvedFor(userId);
+      });
     }
     // P1433 D2: everyone, signed in or out, may be shown an in-window prep-enabled event.
     publicCandidates().then(list => { if (active) setCandidates(list); });
@@ -248,5 +256,7 @@ export function useTonightsEvent(): TonightsEvent | null {
 
   // The person's own event wins; otherwise the public in-window pick, re-decided each render so
   // the window's edges are honoured without a refetch.
-  return registered ?? pickWindowEvent(candidates, new Date());
+  if (registered) return registered;
+  if (userId && resolvedFor !== userId) return null;
+  return pickWindowEvent(candidates, new Date());
 }

@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 24
 workstream: events
 created_date: '2026-10-07'
 tags: [events, navigation, header, room]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -96,20 +96,34 @@ this needs no new UI. This supersedes P1307 D10.
 
 ## Acceptance Criteria
 
-- [ ] A registered, signed-in person on the event day sees "Today's event" on the feed, on the
+- [x] A registered, signed-in person on the event day sees "Today's event" on the feed, on the
       event page, on `/events/:slug/meet` and on a stake page. The button is absent only on the
       page it links to.
-- [ ] Inside the window (1h before start to 3h after end) it links to `/events/:slug/room` for a
+- [x] Inside the window (1h before start to 3h after end) it links to `/events/:slug/room` for a
       prep-enabled event. Outside the window it links to the event page.
-- [ ] A signed-out visitor inside the window of a prep-enabled event sees "Today's event" instead
+- [x] A signed-out visitor inside the window of a prep-enabled event sees "Today's event" instead
       of the usual primary CTA. Outside the window, or for a prep-off event, they see the usual CTA.
-- [ ] A prep-off event shows the button only to registered people and links to the event page.
-- [ ] "Go back" on a page opened fresh (no earlier in-app page) during the window opens the event
+- [x] A prep-off event shows the button only to registered people and links to the event page.
+- [x] "Go back" on a page opened fresh (no earlier in-app page) during the window opens the event
       room. Outside the window it falls back as before. With an in-app history it pops as before.
-- [ ] A person returning to `/events/:slug/room` with readiness already set lands on `/meet`.
+- [x] A person returning to `/events/:slug/room` with readiness already set lands on `/meet`.
       A first visit lands on `/ready`.
-- [ ] Unit tests cover each rule above. Lint, typecheck and the pre-commit checks pass. Screenshots
+- [x] Unit tests cover each rule above. Lint, typecheck and the pre-commit checks pass. Screenshots
       at 320, 375 and desktop pass the visual-QA checklist.
+
+## Verification (dev, 2026-10-07)
+
+- Unit: `src/tests/p1433-event-night-navigation.test.tsx` (window, D2 pick, D3 fallback + Back wiring,
+  D4 re-entry incl. arrival/prep invariants), `p1087-nav-groups` (header on every page, compact,
+  signed-out replaces marketing CTA, signed-in non-registered), `p1351`, `p1421`. Full suite: 548 files pass.
+- Browser (local, test DB, signed out): header button at 320 (icon), 375 (label), desktop; links to `/room` in
+  the window; marketing CTA gone. Signed-in paths are unit-verified; the in-browser signed-in pass is the
+  founder's UAT. Label shows from 375px (was 360): measured signed in, "Today's event" left 4px to the logo at 360.
+- E2E `p1351-header-contexts` updated for D1/D2 but **not run**: Playwright's Chromium aborts (SIGABRT) on
+  this macOS; needs a browser reinstall.
+- Reviews: Codex (2 MEDIUM: early-open query bound — fixed; `/intro` logo-only header — kept, logo-only
+  pages carry no controls), Gemini (2 HIGH, 2 MEDIUM: compact mobile branch — false, no such branch; query
+  bound — same fix; registered/public flash — fixed; signed-in non-registered test — added).
 
 ## Related
 
