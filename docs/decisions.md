@@ -31,6 +31,22 @@ per-statement saved/sent line yet.
 
 ---
 
+## 2026-10-07 [product]: On an event night the way back into the room is on every page, and a return resumes at the table (P1433)
+
+**Context:** At Clarity Night 2026-10-06 people who left the room for a point, a stake page or the feed struggled to get back. The header button was hidden on the event's own pages, on every `compact` room page and for anyone signed out; "Go back" from a fresh entry fell back to `/feed`; every return to the room restarted at Ready (P1307 D10).
+**Decision:** The header button is always "Today's event". For a prep-enabled event it opens the room from 1h before the start to 3h after the end, otherwise the event page. It shows on every page with the header except the page it links to (pricing and logo-only headers keep their exceptions). A person not registered, signed in or out, sees it only for a prep-enabled event in that window, and there it replaces the marketing CTA (one primary). During the window a Back with no in-app page to return to lands in the room, except from inside the event's own pages, where it would loop (/room → /ready). A return visit to the room (readiness already set) goes straight to the table. The arrival and prep gates still come first.
+**Alternatives rejected:** Keeping D10's "everyone passes Ready". Since P1337 the transcription consent is the table's own Transcribe tap, so Ready no longer carries a consent step. Applying the room fallback only where a page's fallback is `/feed`: rejected because the stranded case is the same on every page.
+**Consequences:** Supersedes the 2026-09-22 rule "never on that event's own pages" and P1307 D10. A signed-out visitor anywhere sees any prep-enabled event in its window (events are publicly readable). Every Back control now reads `useTonightsEvent`, which tolerates a missing AuthProvider. Below 375px the button is icon-only (the longer label crowded the logo at 360 when signed in). **Falsifier:** at the next event night, room re-entries still route through Ready, or people still return via the logo → feed → button path.
+**References:** [P1433](../features/p1433_event_night_navigation_todays_event_back_and_room_reentry.md)
+
+## 2026-10-07 [process]: /pick-flow is deprecated; work goes straight to /dev (bugs: /reproduce → /fix)
+
+**Context:** The founder (2026-10-07): "for newer models its not really useful any more".
+**Decision:** The skill is archived at `.claude/commands/slava/archive/pick-flow.md` with a do-not-use description. CLAUDE.md, the rules, the route-brief hook and the skills that pointed to it now route straight to `/dev`. The retirement lines are declared in `validate-command-refs.py` KNOWN_RETIRED.
+**Alternatives rejected:** Deleting the skill outright, which would lose the history that the `pipeline_plan` fields on old specs refer to.
+**Consequences:** `flow:`, `pipeline_plan` and `pipeline_skipped` are legacy and optional. Remaining stale mentions, left on purpose because they are historical: `unbundle.md` L79-80, `reproduce` fix_shape note, and the global `new-repo.md`.
+**References:** commit a4ee700c5
+
 ## 2026-10-07 [process]: The pre-commit "migration not applied" remedy is wrong inside a worktree (Status: proposed)
 
 **Context:** KDD meta-reflection, day-2026-10-06 triage. An agent used a raw `git worktree add` for work with no P-number. `scripts/create-worktree.sh <slot> <branch>` already handles that case (no P-number needed, and it links `.env.local` and `node_modules`), and `docs/technical/worktree-setup.md` says never to use the raw command. The missing `.env.local` was an agent error, not a tool gap. The agent-skills mirror drift would have failed in any checkout. One real gap remains: when a staged migration is not in the manifest, `pre-commit-checks.sh` says "Run ./scripts/migrate.sh, then re-stage deploy-manifest.json". Inside a worktree that cannot work, because `stamp-deploy-manifest.sh` refuses to run there. The sequence that does work (P940, worktree-setup.md) is not mentioned.
