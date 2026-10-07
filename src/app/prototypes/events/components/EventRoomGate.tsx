@@ -80,7 +80,7 @@ export function EventRoomGate() {
   const { gate: arrivalGate, answered: arrivalAnswered } = useArrivalGate(event, granted);
   const [joinedWithoutPrep, setJoinedWithoutPrep] = useState(false);
   const enterRoom = granted && arrivalGate === false && (prepGate === false || joinedWithoutPrep);
-  const { loading: selfLoading } = useEventRoomSelf(event, enterRoom);
+  const { self, loading: selfLoading } = useEventRoomSelf(event, enterRoom);
   const { isCapturingForEvent } = useRoomCapture();
 
   if (loading) return null;
@@ -95,11 +95,13 @@ export function EventRoomGate() {
   }
   if (selfLoading) return null;
 
-  // P1307 D10: everyone passes the ready screen, so everyone is offered the transcription
-  // switch. Only a person ALREADY being transcribed for this event goes straight to /meet.
-  // A readiness value from an earlier visit no longer skips /ready — the slider shows it
-  // instead. (Replaces P1114's "return visit with readiness already set lands on /meet".)
+  // P1433 D4 (supersedes P1307 D10): the first visit goes through Ready; a return visit — a
+  // readiness value already set — goes straight back to the table, the person's current step.
+  // D10 sent every return through /ready to offer the transcription switch; since P1337 that
+  // switch is the table screen's own "Transcribe" bar, so skipping Ready skips no consent step.
+  // Someone already being transcribed has necessarily been to the table, so goes there too.
   const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
-  const destination = alreadyTranscribed ? 'meet' : 'ready';
+  const returning = self?.readinessValue != null;
+  const destination = alreadyTranscribed || returning ? 'meet' : 'ready';
   return <Navigate to={`/events/${slug}/${destination}`} replace />;
 }

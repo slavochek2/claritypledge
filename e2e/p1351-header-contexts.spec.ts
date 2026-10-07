@@ -4,8 +4,10 @@
  * context the spec names, at 320 / 375 / desktop, and asserts:
  *   - no "Start a Clarity Session" button in any header;
  *   - a labeled "Tools" trigger wherever the menu is enabled (product surface, or signed in);
- *   - "Tonight's event" only for a signed-in attendee on the event day, never on that event's
- *     own pages;
+ *   - "Today's event" (P1433: renamed) for a signed-in attendee on the event day, on every page
+ *     except the one it links to (P1433 D1 — the event's own pages and room pages included);
+ *   - P1433 D2: a signed-out visitor sees it, instead of the marketing CTA, only for a
+ *     prep-enabled event inside its window;
  *   - at most one blue primary button in the header;
  *   - every header control on screen, and the Tools trigger unwrapped and >= 44px tall.
  * Set P1351_SHOTS=<dir> to also save a screenshot per context and width (for visual review).
@@ -17,7 +19,7 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 
 const WIDTHS = [
   { name: '320', width: 320, height: 568 },
-  // 360: the most common Android width, and the breakpoint where Tonight's event gains its label.
+  // 360: the most common Android width (Today's event is icon-only below 375, P1433).
   { name: '360', width: 360, height: 640 },
   { name: '375', width: 375, height: 667 },
   { name: 'desktop', width: 1280, height: 800 },
@@ -126,7 +128,7 @@ test.describe('P1351 — header primary action across contexts', () => {
     }
   });
 
-  test('signed in on the event day: Tonight\'s event everywhere except that event\'s own pages', async ({ page }) => {
+  test('signed in on the event day: Today\'s event everywhere except the page it links to (P1433)', async ({ page }) => {
     await setTestSession(page, attendee.email);
     for (const w of WIDTHS) {
       await setViewport(page, w.width, w.height);
@@ -136,10 +138,12 @@ test.describe('P1351 — header primary action across contexts', () => {
       await page.goto('/pricing');
       // Not on pricing: the page's own paid offer is the only blue primary there (P1087).
       await checkHeader(page, 'loggedin-event-pricing', w, true, false);
+      // Two hours out, preparation off: the button links to the event page, so it hides there
+      // and shows everywhere else in the event, the room flow included (P1433 D1).
       await page.goto(`/events/${event.slug}`);
       await checkHeader(page, 'loggedin-event-detail', w, true, false);
       await page.goto(`/events/${event.slug}/room`);
-      await checkHeader(page, 'loggedin-event-room', w, true, false);
+      await checkHeader(page, 'loggedin-event-room', w, true, true);
     }
     await setViewport(page, 375, 667);
     await page.goto('/feed');
@@ -167,6 +171,28 @@ test.describe('P1351 — header primary action across contexts', () => {
     await page.goto('/feed');
     await tonight.click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/(room|ready|meet|prepare|arriving)`));
+  });
+
+  test('P1433 D2: signed out — Today\'s event replaces the marketing CTA only in a prep-enabled window', async ({ page }) => {
+    // In its window: a prep-enabled event starting in 30 minutes.
+    const { error } = await supabaseAdmin.from('events')
+      .update({ preparation_enabled: true, datetime: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
+      .eq('id', event.id);
+    expect(error).toBeNull();
+    for (const w of WIDTHS) {
+      await setViewport(page, w.width, w.height);
+      await page.goto('/manifesto');
+      await checkHeader(page, 'loggedout-window-public', w, false, true);
+      const cta = page.getByTestId('tonights-event-cta').filter({ visible: true });
+      await expect(cta).toHaveAttribute('href', `/events/${event.slug}/room`);
+      await expect(page.getByTitle('Book a 15-min discovery call').filter({ visible: true })).toHaveCount(0);
+    }
+    // Control: preparation off — a visitor does not see it (registered-only).
+    const off = await supabaseAdmin.from('events').update({ preparation_enabled: false }).eq('id', event.id);
+    expect(off.error).toBeNull();
+    await setViewport(page, 1280, 800);
+    await page.goto('/manifesto');
+    await checkHeader(page, 'loggedout-prepoff-public', WIDTHS[3], false, false);
   });
 });
 

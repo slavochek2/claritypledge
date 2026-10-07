@@ -46,6 +46,7 @@
  */
 import { useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { eventNightBackFallback, useTonightsEvent } from './useTonightsEvent';
 
 /** sessionStorage key: per tab, survives reload. */
 export const TAB_HAD_PREDECESSOR_STORAGE_KEY = 'p1364:tabFirstEntryHadPredecessor';
@@ -180,9 +181,16 @@ export function watchForDeadBack(onDead: () => void): () => void {
   return cancel;
 }
 
-export function useGoBack(fallbackPath: string): () => void {
+/**
+ * P1433 D3: while an event night is on (useTonightsEvent's window), a Back with nowhere in-app to
+ * go lands in the event room instead of the page's own fallback (usually /feed). Popping is
+ * untouched — "back to where you came from" still wins whenever there is somewhere to go.
+ */
+export function useGoBack(pageFallback: string): () => void {
   const navigate = useNavigate();
   const location = useLocation();
+  const todaysEvent = useTonightsEvent();
+  const fallbackPath = eventNightBackFallback(todaysEvent, location.pathname) ?? pageFallback;
   const arrivedColdRef = useRef<boolean | null>(null);
   if (arrivedColdRef.current === null) arrivedColdRef.current = location.key === 'default';
   const locationRef = useRef(location);

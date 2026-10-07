@@ -33,10 +33,11 @@ describe('P1421: useTonightsEvent keys on the session user id', () => {
     await waitFor(() => expect(eqSpy).toHaveBeenCalledWith('profile_id', 'sess-1'));
   });
 
-  it('no session and no profile: no query', async () => {
+  it('no session and no profile: no RSVP query (P1433: only the public in-window one)', async () => {
     mockUseAuth.mockReturnValue({ user: null, session: null });
     renderHook(() => useTonightsEvent());
     await new Promise((r) => setTimeout(r, 20));
-    expect(eqSpy).not.toHaveBeenCalled();
+    expect(eqSpy).not.toHaveBeenCalledWith('profile_id', expect.anything());
+    expect(eqSpy).toHaveBeenCalledWith('preparation_enabled', true);
   });
 });

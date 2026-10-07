@@ -31,7 +31,7 @@ import { NavigationMenuItems } from "./navigation-menu-items";
 import { AUDIENCE_LINKS, EVENTS_NAV_TO, isEventsNavActive } from "./nav-links";
 import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
-import { useTonightsEvent, tonightsEventHref } from "@/app/hooks/useTonightsEvent";
+import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from "@/app/hooks/useTonightsEvent";
 import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
@@ -68,35 +68,40 @@ function AvatarSlotPlaceholder() {
   );
 }
 
-function TonightsEventCta({ device }: { device: "desktop" | "mobile" }) {
-  const event = useTonightsEvent();
+/**
+ * P1351/P1428/P1433: the event-day primary — "Today's event". The caller decides it once
+ * (useTonightsEvent) so the header can also drop the marketing CTA it replaces (P1433 D2).
+ * Shown on every page that has the header, the event's own pages and `compact` room pages
+ * included (P1433 D1), except the page it points to.
+ */
+/** P1433 D1 (founder): always this label, every width that shows a label. */
+const TODAYS_EVENT_LABEL = "Today's event";
+
+function TonightsEventCta({ device, event }: { device: "desktop" | "mobile"; event: TonightsEvent | null }) {
   const { pathname } = useLocation();
   if (!event) return null;
-  const eventPath = `/events/${event.slug}`;
-  if (pathname === eventPath || pathname.startsWith(`${eventPath}/`)) return null;
-  // Mobile, below 360px: icon-only 40x40 (the P1323 precedent for the old session button).
-  // Measured by e2e/p1351-header-contexts: with the label, logo + this + Tools + avatar pushed
-  // the avatar to 357px on a 320px screen. The label stays the accessible name via sr-only.
-  const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[360px]:w-auto min-[360px]:px-4";
+  const href = tonightsEventHref(event);
+  if (pathname === href) return null;
+  // Mobile, below 375px: icon-only 40x40 (the P1323 precedent for the old session button).
+  // P1433: "Today's event" is ~50px wider than the old "Tonight"; measured signed in at 360 it
+  // left the button 4px from the logo, at 375 11px. The label stays the accessible name via sr-only.
+  const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[375px]:w-auto min-[375px]:px-4";
   return (
-    // P1428: into the room while it is the place to be (see tonightsEventHref), else the page.
     <Link
-      to={tonightsEventHref(event)}
+      to={href}
       title={event.title}
       data-testid="tonights-event-cta"
       className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 text-sm font-semibold text-white shadow transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${size}`}
-      onClick={() => analytics.track("nav_cta_clicked", { cta: "tonights_event", device })}
+      onClick={() => analytics.track("nav_cta_clicked", { cta: "tonights_event", device, registered: !!event.registered })}
     >
       <CalendarCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
       {device === "mobile" ? (
-        // Phones: "Tonight" from 360px (the full label overlapped the logo at 360-375, visual QA),
-        // icon-only below. The full name stays the accessible name either way.
         <>
-          <span className="hidden min-[360px]:inline whitespace-nowrap" aria-hidden="true">Tonight</span>
-          <span className="sr-only">Tonight&apos;s event</span>
+          <span className="hidden min-[375px]:inline whitespace-nowrap" aria-hidden="true">{TODAYS_EVENT_LABEL}</span>
+          <span className="sr-only">{TODAYS_EVENT_LABEL}</span>
         </>
       ) : (
-        <span>Tonight&apos;s event</span>
+        <span>{TODAYS_EVENT_LABEL}</span>
       )}
     </Link>
   );
@@ -262,6 +267,9 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   const lettersBadgeCount = unreadLetterCount + (invite ? 1 : 0);
   // P885: badge count for the Partners nav entry (incoming pending invitations)
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
+  // P1433: decided once here — the button, and (for someone not registered) the marketing CTA
+  // it replaces, so the header never shows two primaries (P955).
+  const todaysEvent = useTonightsEvent();
 
   // P844: Hide the "Start a Clarity Session" CTA on event detail pages so it doesn't compete with the RSVP primary action.
   // Match: exactly one segment after `/events/` and not the reserved `new` / `list` aliases.
@@ -311,7 +319,10 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
   // The /groups index is untouched: a directory with no competing action.
   const isGroupDetailPage = location.pathname.split('/').filter(Boolean).length >= 2
     && location.pathname.startsWith('/groups/');
-  const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage;
+  // P1433 D2: in an event's window, "Today's event" REPLACES the marketing CTA for a visitor.
+  // Not on pricing: P1351 keeps the event button off pricing (its paid offer is the primary).
+  const showTodaysEvent = !!todaysEvent && !isPricingPage;
+  const hideMarketingCta = isEventDetailPage || isPricingPage || isGroupDetailPage || showTodaysEvent;
   // P1351: `hideSessionCta` is retired with the session button itself. The header's only
   // signed-in primary is now TonightsEventCta, which hides itself on its own event's pages.
 
@@ -576,7 +587,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 {/* P1351: the session button is gone from the header (it lives in Tools). The only
                     blue button a signed-in person sees here is their event, on its day. */}
                 {/* P1351: not on pricing — a second blue beside the paid offer is the P1087 competition. */}
-                {!compact && !isPricingPage && <TonightsEventCta device="desktop" />}
+                {/* P1433 D1: compact room pages too; the button hides itself on the page it points to. */}
+                {showTodaysEvent && <TonightsEventCta device="desktop" event={todaysEvent} />}
                 {/* P1179: Links — sibling of the avatar, same slot at every width.
                     Desktop gets the anchored dropdown, matching "Use cases"; the
                     bottom sheet is the phone-in-a-room shape and stays below `lg`. */}
@@ -618,6 +630,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                  branch (the mobile group below already renders it for both states). It
                  returns null off a Links route, so this stays empty everywhere else. */
               <div className="flex items-center gap-3">
+                {/* P1433 D2: a visitor in the event's window — on the room pages too. */}
+                {showTodaysEvent && <TonightsEventCta device="desktop" event={todaysEvent} />}
                 <EventLinksButton variant="dropdown" />
               </div>
             ) : (
@@ -646,6 +660,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
                 {!hideMarketingCta && (
                   <LoggedOutPrimaryCta device="desktop" sizeClass="h-10" />
                 )}
+                {/* P1433 D2: in the window it takes the marketing CTA's place (hideMarketingCta). */}
+                {showTodaysEvent && <TonightsEventCta device="desktop" event={todaysEvent} />}
                 {/* P1351 round 3 (founder): Tools sits between the main CTA and Log in — with the
                     tools a visitor uses, not among the marketing links. */}
                 <EventLinksButton variant="dropdown" />
@@ -693,7 +709,8 @@ export function SimpleNavigation({ compact, logoOnly }: { compact?: boolean; log
           ) : (
             <div className="lg:hidden flex items-center gap-2">
               {/* P1351: no session CTA; the event-day primary only. */}
-              {(showUserMenu || isProfilePending) && !compact && !isPricingPage && <TonightsEventCta device="mobile" />}
+              {/* P1433: everyone it is decided for, compact pages included. */}
+              {showTodaysEvent && <TonightsEventCta device="mobile" event={todaysEvent} />}
               {/* P1179: Links — sibling of the avatar, same slot at every width */}
               <EventLinksButton />
               {/* Avatar (logged in) or hamburger (logged out) — hide hamburger in compact mode */}

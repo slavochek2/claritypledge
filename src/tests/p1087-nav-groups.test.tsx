@@ -61,7 +61,7 @@ const nightNow = () => ({
   datetime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
 });
 
-async function renderNav(route: string, { loggedIn = false, withLinks = false } = {}) {
+async function renderNav(route: string, { loggedIn = false, withLinks = false, compact = false } = {}) {
   mockAuthState.current = {
     ...mockAuthState.current,
     showUserMenu: loggedIn,
@@ -79,7 +79,7 @@ async function renderNav(route: string, { loggedIn = false, withLinks = false } 
   return render(
     <MemoryRouter initialEntries={[route]}>
       <EventLinksMenu enabled={withLinks}>
-        <SimpleNavigation />
+        <SimpleNavigation compact={compact} />
       </EventLinksMenu>
     </MemoryRouter>
   );
@@ -146,32 +146,75 @@ describe('P1351 — the logged-out phone menu renders no source comment as text'
   });
 });
 
-describe('P1351 — "Tonight\'s event" is the signed-in primary on an event day', () => {
+describe('P1351/P1433 — "Today\'s event" is the event-day primary', () => {
   beforeEach(() => { tonight.current = null; });
 
-  it('shows and links to the event\'s room when there is one today (P1428)', async () => {
+  it('shows "Today\'s event" and links to the event\'s room in the window (P1428, P1433 D1)', async () => {
     tonight.current = nightNow();
     await renderNav('/feed', { loggedIn: true });
     const ctas = screen.getAllByTestId('tonights-event-cta');
     expect(ctas.length).toBeGreaterThan(0);
-    for (const c of ctas) expect(c).toHaveAttribute('href', '/events/night-2/room');
+    for (const c of ctas) {
+      expect(c).toHaveAttribute('href', '/events/night-2/room');
+      expect(c).toHaveTextContent("Today's event");
+      expect(c).not.toHaveTextContent('Tonight');
+    }
   });
 
-  it('is hidden on that event\'s own pages (one primary per view)', async () => {
+  it('P1433 D1: shows on the event\'s own pages, compact room pages included', async () => {
     tonight.current = nightNow();
-    for (const route of ['/events/night-2', '/events/night-2/room', '/events/night-2/ready', '/events/night-2/meet', '/events/night-2/arriving', '/pricing']) {
+    for (const route of ['/events/night-2', '/events/night-2/ready', '/events/night-2/meet', '/events/night-2/arriving', '/events/night-2/prepare', '/stake/ikigai1']) {
+      for (const compact of [false, true]) {
+        const { unmount } = await renderNav(route, { loggedIn: true, compact });
+        expect(screen.queryAllByTestId('tonights-event-cta').length, `${route} compact=${compact}`).toBeGreaterThan(0);
+        unmount();
+      }
+    }
+  });
+
+  it('P1433 D1: hidden only on the page it points to (and on pricing, P1351)', async () => {
+    tonight.current = nightNow();
+    for (const route of ['/events/night-2/room', '/pricing']) {
       const { unmount } = await renderNav(route, { loggedIn: true });
       expect(screen.queryAllByTestId('tonights-event-cta'), route).toHaveLength(0);
       unmount();
     }
+    // Outside the window it points to the event page — hidden there, shown in the room.
+    tonight.current = { ...nightNow(), datetime: new Date(Date.now() + 6 * 3600 * 1000).toISOString() };
+    let r = await renderNav('/events/night-2', { loggedIn: true });
+    expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
+    r.unmount();
+    r = await renderNav('/events/night-2/meet', { loggedIn: true });
+    for (const c of screen.getAllByTestId('tonights-event-cta')) expect(c).toHaveAttribute('href', '/events/night-2');
+    r.unmount();
   });
 
-  it('is absent without an event, and for logged-out visitors', async () => {
+  it('is absent without an event', async () => {
     await renderNav('/feed', { loggedIn: true });
     expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
-    tonight.current = nightNow();
-    await renderNav('/feed');
+  });
+
+  it('P1433 D2: a signed-out visitor in the window gets it INSTEAD of the marketing CTA', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    tonight.current = { ...nightNow(), registered: false };
+    await renderNav('/manifesto');
+    expect(screen.getAllByTestId('tonights-event-cta').length).toBeGreaterThan(0);
+    expect(marketingCta()).toHaveLength(0);
+    // The mobile panel's CTA is replaced too — one primary (P955).
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(marketingCta()).toHaveLength(0);
+  });
+
+  it('P1433 D2: signed-out on a compact room page still sees it', async () => {
+    tonight.current = { ...nightNow(), registered: false };
+    await renderNav('/events/night-2/ready', { compact: true });
+    expect(screen.getAllByTestId('tonights-event-cta').length).toBeGreaterThan(0);
+  });
+
+  it('P1433 D2: with no event the visitor keeps the usual CTA (control)', async () => {
+    await renderNav('/manifesto');
     expect(screen.queryAllByTestId('tonights-event-cta')).toHaveLength(0);
+    expect(marketingCta().length).toBeGreaterThan(0);
   });
 });
 

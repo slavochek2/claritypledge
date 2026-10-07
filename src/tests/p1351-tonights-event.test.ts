@@ -50,8 +50,16 @@ describe('P1428 tonightsEventHref — the room only while it is the place to be'
     expect(tonightsEventHref(night, at('2026-09-29T08:00:00Z'))).toBe('/events/night-2');
   });
 
-  it('opens the event page once the event has ended', () => {
-    expect(tonightsEventHref(night, at('2026-09-29T14:30:00Z'))).toBe('/events/night-2');
+  // P1433 D1: the room stays the destination for three hours after the end (it shows close and
+  // feedback then); only after that does the button fall back to the event page.
+  it('keeps opening the room up to three hours after the end (P1433)', () => {
+    expect(tonightsEventHref(night, at('2026-09-29T14:30:00Z'))).toBe('/events/night-2/room');
+    expect(tonightsEventHref(night, at('2026-09-29T17:00:00Z'))).toBe('/events/night-2/room');
+  });
+
+  it('opens the event page once the window has closed (P1433)', () => {
+    expect(tonightsEventHref(night, at('2026-09-29T17:00:01Z'))).toBe('/events/night-2');
+    expect(tonightsEventHref(night, at('2026-09-29T10:59:59Z'))).toBe('/events/night-2');
   });
 
   it('opens the event page for an event without a room flow (a hike), even mid-event', () => {
