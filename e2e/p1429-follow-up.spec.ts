@@ -159,6 +159,14 @@ test.describe('P1429', () => {
     await expect(inGroup).toContainText('understood 7/10');
     await expect(page.getByTestId('host-opt-in-out')).toContainText('P1429 Prep Out');
     await expect(page.getByTestId('host-opt-in-undecided')).toHaveCount(0);
+    // Founder 2026-10-07: no ear badge on the host's grouped rows, so the name keeps its room at 375px
+    // (it was cut to "P14…" beside the badge and "understood 7/10").
+    await expect(page.getByTestId('host-opt-in-groups').getByTestId('ear-badge')).toHaveCount(0);
+    for (const name of ['P1429 Room Only', 'P1429 Prep Out']) {
+      const el = page.getByTestId('host-opt-in-groups').getByText(name, { exact: true });
+      await expect(el).toBeVisible();
+      expect(await el.evaluate((e) => e.scrollWidth <= e.clientWidth), `${name} is not cut off`).toBe(true);
+    }
     await inGroup.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `${SHOTS}/a2-host-groups-375.png`, fullPage: true });
 

@@ -1162,7 +1162,7 @@ export function EventDetail() {
               )}
               {(() => {
                 const attendees = event.attendees ?? [];
-                const row = (attendee: (typeof attendees)[number], rating?: number | null) => (
+                const row = (attendee: (typeof attendees)[number], rating?: number | null, hostGrouped = false) => (
                   <PersonRow
                     key={attendee.profileId}
                     profileId={attendee.profileId}
@@ -1172,6 +1172,9 @@ export function EventDetail() {
                     avatarUrl={attendee.avatarUrl}
                     isPledger={attendee.hasPledged}
                     earCount={attendee.earCount}
+                    // Founder 2026-10-07: the host's grouped rows carry no ear badge, so the name
+                    // keeps its room beside the marks and "understood N/10" on a phone.
+                    showEarBadge={!hostGrouped}
                     trailing={
                       hostPrepMarks.has(attendee.profileId) || rating != null ? (
                         <span className="flex items-center gap-2">
@@ -1197,7 +1200,7 @@ export function EventDetail() {
                       g.people.length === 0 ? null : (
                         <div key={g.key} className="space-y-2" data-testid={`host-opt-in-${g.key}`}>
                           <h3 className="text-sm font-semibold text-foreground">{g.title} ({g.people.length})</h3>
-                          <div className="space-y-2">{g.people.map(a => row(a, hostOptIns.get(a.profileId)?.rating))}</div>
+                          <div className="space-y-2">{g.people.map(a => row(a, hostOptIns.get(a.profileId)?.rating, true))}</div>
                         </div>
                       ),
                     )}
