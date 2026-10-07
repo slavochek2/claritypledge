@@ -62,6 +62,11 @@ export function DayPage() {
   /** where the pager is in each set: the founder's cards, and the agent work after Review */
   const [idx, setIdx] = useState({ yours: 0, agent: 0 })
   const [agentMode, setAgentMode] = useState(false)
+  // read by an Accept whose save finished after the founder moved on
+  const idxRef = useRef(idx)
+  idxRef.current = idx
+  const agentModeRef = useRef(agentMode)
+  agentModeRef.current = agentMode
   const [reflIdx, setReflIdx] = useState(0)
   const [ownFocus, setOwnFocus] = useState(0)
   const [choice, setChoice] = useState<Record<string, string>>({})
@@ -417,9 +422,11 @@ export function DayPage() {
    * by picking Park); a failed write keeps the card where it is, unanswered, with the error shown.
    */
   const acceptingNow = useRef(false)
-  const accept = useCallback(async () => {
-    if (!accepting || !nav || acceptingNow.current) return
-    const cur = issues[nav.i]
+  /** `clicks` is the browser's click count: the second click of a double click must not accept the card the first moved to, unseen */
+  const accept = useCallback(async (clicks = 1) => {
+    if (!accepting || !nav || acceptingNow.current || clicks > 1) return
+    const at = nav.i
+    const cur = issues[at]
     const rec = cur?.options[cur.recommended_index]?.id
     if (!cur || !rec || rec === PARK) return
     // a second click before the re-render must not write a second line
@@ -427,11 +434,17 @@ export function DayPage() {
     try {
       setChoice((c) => ({ ...c, [cur.fp]: rec }))
       const r = await write([{ kind: 'option', target: cur.fp, option_id: rec }])
-      if (r.ok && runIdRef.current === runId) page(1)
+      // move on only if the founder is still on that card: paging during the save wins
+      if (r.ok && runIdRef.current === runId && at + 1 < issues.length) {
+        if (idxRef.current.yours === at && !agentModeRef.current) {
+          setIdx((s) => ({ ...s, yours: at + 1 }))
+          toTop()
+        }
+      }
     } finally {
       acceptingNow.current = false
     }
-  }, [accepting, nav, issues, write, page, runId])
+  }, [accepting, nav, issues, write, runId])
 
   const review = useCallback(() => {
     setAgentMode(true)
@@ -685,7 +698,7 @@ export function DayPage() {
                     <span className="d-nl">Next</span>›
                   </button>
                   {accepting && (
-                    <button type="button" className="d-nbtn d-accept" data-accept aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'} title="Save the recommended answer" disabled={busy} onClick={() => void accept()}>
+                    <button type="button" className="d-nbtn d-accept" data-accept aria-label={nav.i < nav.n - 1 ? 'Accept and next' : 'Accept'} title="Save the recommended answer" disabled={busy} onClick={(e) => void accept(e.detail)}>
                       <span className="d-nl">{nav.i < nav.n - 1 ? 'Accept & next' : 'Accept'}</span>
                       <span className="d-ns">Accept</span>
                     </button>

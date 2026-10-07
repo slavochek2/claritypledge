@@ -1770,6 +1770,34 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect(acceptBtn(page)).toHaveCount(0) // answered: nothing left to accept
   })
 
+  test('paging during a slow Accept wins: the save never pulls the pager back', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await page.route('**/api/day/decisions', async (r) => {
+      await new Promise((res) => setTimeout(res, 800))
+      await r.continue()
+    })
+    await acceptBtn(page).click()
+    await cardTitle(page).click()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(cardTitle(page)).toHaveText(yours[2].title)
+    await expect.poll(() => lines().length).toBe(1)
+    await page.waitForTimeout(300)
+    await expect(cardTitle(page)).toHaveText(yours[2].title)
+  })
+
+  test('a slow double click on Accept never accepts the next card unseen', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    // a slow double click: the first click saves and moves on before the second lands on the next card's Accept
+    await acceptBtn(page).click({ clickCount: 2, delay: 250 })
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await page.waitForTimeout(400)
+    expect(lines()).toHaveLength(1)
+    await expect(stateOf(page)).toHaveAttribute('data-state', 'open')
+  })
+
   test('Accept never parks: a card whose recommendation is Park offers no Accept and stays unanswered', async ({ page }) => {
     await patchRun(page, (b) => {
       const i = must(b.view?.issues.find((x) => !isAgent(x)), 'a founder card')
