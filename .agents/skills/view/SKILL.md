@@ -13,7 +13,7 @@ version: 1.1.0
 > retiring costs nothing to reverse and the open question is whether producing a design artifact
 > beats it. **What would settle it:** run both on the same feature and compare. Until someone does,
 > it stays out of recommended flows. See `docs/decisions.md` 2026-08-20 and
-> `.claude/commands/slava/build/pick-flow/SKILL.md` § Retired from routing.
+> `.claude/commands/slava/archive/pick-flow.md` § Retired from routing.
 
 # View Component Polish
 

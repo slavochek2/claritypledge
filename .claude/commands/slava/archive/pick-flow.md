@@ -1,15 +1,9 @@
 ---
 name: pick-flow
-description: >
-  Recommends a development flow by classifying the task, naming real risks,
-  and picking steps that address those risks. Principles over scoring tables.
-when_to_use: >
-  When starting work and unsure which development flow to use. Triggered by "/pick-flow",
-  "what flow should I use?", or whenever the user is about to start a task and the right
-  process is unclear. Proactively offer at the start of any non-trivial task (P-number
-  mentioned, bug described, "what do we do next" asked). Skip for one-liner fixes, typo
-  edits, or when the user has already named the exact commands to run.
+description: "DEPRECATED 2026-10-07 — do not use; go straight to /dev (bugs: /reproduce → /fix)"
+when_to_use: "Never — deprecated."
 version: 3.2.0
+archived_reason: "deprecated 2026-10-07 by founder — newer models choose the flow themselves; go straight to /dev (or /fix for bugs)"
 ---
 
 # pick-flow

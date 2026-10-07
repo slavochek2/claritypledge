@@ -112,7 +112,7 @@ promotion is a **move**, in this order:
 
 ## When to Use
 
-✅ **Use for:** any feature, infrastructure change, refactor, research task or migration · anything needing a P-number · when `/pick-flow` says "no spec exists — create one first".
+✅ **Use for:** any feature, infrastructure change, refactor, research task or migration · anything needing a P-number · when a P-number is needed and no spec exists yet.
 
 ❌ **Don't:** bug fixes → `/create-bug` · redesigns of shipped features → `/change-request` · a typo or whitespace fix with zero behavioral impact → no spec.
 

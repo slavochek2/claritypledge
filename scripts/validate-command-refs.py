@@ -113,6 +113,9 @@ KNOWN_RETIRED = {
     ".claude/rules/features.md:/quick-feature": "P1122 — /quick-feature was absorbed into "
         "/create-spec; the flow: quick-feature value is legacy/read-only, this line documents "
         "the retired command it's named after.",
+    "CLAUDE.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
+    ".claude/rules/features.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
+    ".claude/rules/model-effort.md:/pick-flow": "2026-10-07 — /pick-flow deprecated by the founder; this line records its retirement, it does not route to it.",
 }
 
 

@@ -277,7 +277,7 @@ This repo is public (AGPL-3.0). Use `.private/` (gitignored) for: customer/perso
 
 ### Sequential Flow
 
-Run `/pick-flow` to choose a development flow. It classifies the task, names risks, and picks steps that address them. Quality steps are **in by default** — opt out explicitly ([decisions.md](docs/decisions.md) 2026-04-02). `/pick-flow` owns the routing table; it is never restated here.
+No flow-picker (`/pick-flow` deprecated 2026-10-07 — models choose the flow themselves). Go straight to `/dev` (bugs: `/reproduce` → `/fix`). Quality steps are **in by default** — opt out explicitly ([decisions.md](docs/decisions.md) 2026-04-02).
 
 ### Skill Invocation — After Approval
 

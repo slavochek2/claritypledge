@@ -6,7 +6,7 @@
 #   "where are we / what now"     75 asks across 38 sessions   -> should have been /status
 #   "which model / which effort"  14 asks across 12 sessions   -> should have been the
 #                                                                 model+effort call
-#   "do we need a review agent"   ~33 asks                     -> should have been /pick-flow
+#   "do we need a review agent"   ~33 asks                     -> should have been /pick-flow (since deprecated 2026-10-07)
 # A fourth class (compact / plan mode / subagents, ~60 occurrences) has no rule at all.
 # The same repo already proved the remedy twice: block-pw-tail-pipe.sh, and the global
 # decision-brief.sh, which reached ~95.8% recall on asks its advisory rule missed 0/30.
@@ -15,7 +15,7 @@
 # sibling". Sibling, for three reasons: (1) decision-brief injects ONE contract whose
 # wording is duplicated in five places across two repos and has already drifted once —
 # P1116's non-goals forbid touching it; (2) these asks need routing, not that contract;
-# (3) every target here (/status, /pick-flow, .claude/rules/model-effort.md) is a cp
+# (3) every target here (/status, .claude/rules/model-effort.md) is a cp
 # artifact, so a cp-scoped, version-controlled hook is strictly better than an untracked
 # global one — it also retires this spec's "edits a file outside this repo" risk.
 #
@@ -78,8 +78,8 @@ read -r -d '' R_MODEL <<'EOF'
 EOF
 
 read -r -d '' R_FLOW <<'EOF'
-- REVIEW / FLOW ASK -> run /pick-flow (slava:build:pick-flow) and answer with the flow it
-  picks, including whether a review step is warranted. Pick the right review: an artifact
+- REVIEW / FLOW ASK -> /pick-flow is deprecated; answer directly (go straight to /dev,
+  bugs /reproduce -> /fix), including whether a review step is warranted. Pick the right review: an artifact
   that already EXISTS (a diff, a shipped mechanism, a design) is
   /slava:think:adversarial-review; a proposal not yet acted on is /slava:think:falsify;
   line-level bugs in a diff are /code-review. Do not answer "yes lets review" without

@@ -11,8 +11,8 @@ At the start of any non-trivial task, before doing the work, volunteer a one-lin
 **Universal capability and delegation policy lives in `~/.agents/model-routing.md`.** In Claude,
 the harness adapter is `/recommend-model-effort` (`~/.claude/commands/recommend-model-effort.md`):
 Claude subscription lanes, its live quota, native model roster, and the optional external Gemini
-executor. This rule is only the Claude always-on trigger. The cp-specific per-command list remains
-in `/pick-flow` under "Model + effort".
+executor. This rule is only the Claude always-on trigger. (The former cp per-command list lived in the
+deprecated `/pick-flow`; use `/recommend-model-effort`.)
 
 **Three cp facts that rule doesn't cover:**
 

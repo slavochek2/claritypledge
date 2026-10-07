@@ -53,7 +53,7 @@ If yes → bundle. If they'd all land in one coherent commit → not a bundle, d
    - `do-now` — mechanical, unambiguous, no design decision (copy swap, move a button,
      rename). Safe to just do.
    - `needs-spec` — real feature work / design decision / multi-file blast radius.
-     Route to `/create-spec` or `/pick-flow`, don't freehand it.
+     Route to `/create-spec` (or `/dev` if a spec exists), don't freehand it.
    - `question` — needs an answer from the founder before anything can be done.
      Includes anything with a `[FOUNDER DECISION]` (CTA text, pricing, naming, tone).
 4. **Show the list and stop.** Do not start coding until the founder confirms or

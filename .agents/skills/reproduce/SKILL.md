@@ -5,7 +5,7 @@ description: >
   tool-aware reproduction, and a failing test that proves the bug exists.
 when_to_use: >
   After /create-bug (or when a bug spec exists) and before /fix.
-  Triggered by "/reproduce", "/reproduce pN", or when /pick-flow recommends it.
+  Triggered by "/reproduce", "/reproduce pN", or when a bug spec exists.
   Skip only for trivial one-liner bugs where root cause is self-evident from the code.
 version: 1.0.0
 ---
