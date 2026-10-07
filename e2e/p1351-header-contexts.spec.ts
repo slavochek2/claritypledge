@@ -19,13 +19,30 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 
 const WIDTHS = [
   { name: '320', width: 320, height: 568 },
-  // 360: the most common Android width (Today's event is icon-only below 375, P1433).
+  // 360: the most common Android width (Today's event is icon-only below 390, P1433).
   { name: '360', width: 360, height: 640 },
   { name: '375', width: 375, height: 667 },
+  // 390 / 412: the common iPhone and Android widths, either side of the label breakpoint.
+  { name: '390', width: 390, height: 844 },
+  { name: '412', width: 412, height: 915 },
   { name: 'desktop', width: 1280, height: 800 },
 ] as const;
 
 const SHOTS = process.env.P1351_SHOTS;
+
+/**
+ * P1433 D2: a signed-out or non-registered visitor sees ANY prep-enabled event in its window, so
+ * on the shared test DB another run's event (or a leftover demo) leaks into these assertions. Keep
+ * the real query, but let only this run's own event through (none, when `slug` is null).
+ */
+async function isolatePublicEvents(page: Page, slug: string | null) {
+  await page.route('**/rest/v1/events?*', async route => {
+    if (!route.request().url().includes('preparation_enabled=eq.true')) return route.continue();
+    const res = await route.fetch();
+    const body = await res.json();
+    await route.fulfill({ response: res, json: Array.isArray(body) ? body.filter((r: { slug?: string }) => r.slug === slug) : body });
+  });
+}
 
 async function setViewport(page: Page, width: number, height: number) {
   await page.setViewportSize({ width, height });
@@ -62,7 +79,7 @@ async function checkHeader(page: Page, ctx: string, w: (typeof WIDTHS)[number], 
   }
 
   const tonight = nav.getByTestId('tonights-event-cta').filter({ visible: true });
-  await expect(tonight, `${label}: Tonight's event`).toHaveCount(expectTonight ? 1 : 0, { timeout: 20_000 });
+  await expect(tonight, `${label}: Today's event`).toHaveCount(expectTonight ? 1 : 0, { timeout: 20_000 });
 
   // At most one blue primary in the header.
   const blue = await nav.evaluate(el => [...el.querySelectorAll('a, button')].filter(n => {
@@ -106,9 +123,13 @@ test.describe('P1351 — header primary action across contexts', () => {
 
   test.beforeAll(async () => {
     attendee = await createTestUser({ name: 'P1351 Attendee' });
-    // Two hours from now, in UTC, so "today in the event's zone" is unambiguous for the run.
+    // Two hours from now, in a fixed-offset zone where it is around noon, so "today in the event's
+    // zone" holds at any hour the suite runs (in UTC it failed after 22:00 — P1434 review, Codex).
+    // IANA's Etc/GMT sign is inverted: Etc/GMT-5 is UTC+5.
+    const offset = Math.max(-12, Math.min(14, 12 - new Date().getUTCHours()));
+    const timezone = offset === 0 ? 'UTC' : `Etc/GMT${offset > 0 ? '-' : '+'}${Math.abs(offset)}`;
     event = await createTestEvent(attendee.user.id, new Date(Date.now() + 2 * 3600 * 1000), {
-      title: 'P1351 E2E Night', timezone: 'UTC',
+      title: 'P1351 E2E Night', timezone,
     });
     await rsvpToEvent(event.id, attendee.user.id);
   });
@@ -119,6 +140,7 @@ test.describe('P1351 — header primary action across contexts', () => {
   });
 
   test('logged out: public page has no Tools; product page has a labeled Tools', async ({ page }) => {
+    await isolatePublicEvents(page, event.slug);
     for (const w of WIDTHS) {
       await setViewport(page, w.width, w.height);
       await page.goto('/manifesto');
@@ -129,6 +151,7 @@ test.describe('P1351 — header primary action across contexts', () => {
   });
 
   test('signed in on the event day: Today\'s event everywhere except the page it links to (P1433)', async ({ page }) => {
+    await isolatePublicEvents(page, event.slug);
     await setTestSession(page, attendee.email);
     for (const w of WIDTHS) {
       await setViewport(page, w.width, w.height);
@@ -174,6 +197,7 @@ test.describe('P1351 — header primary action across contexts', () => {
   });
 
   test('P1433 D2: signed out — Today\'s event replaces the marketing CTA only in a prep-enabled window', async ({ page }) => {
+    await isolatePublicEvents(page, event.slug);
     // In its window: a prep-enabled event starting in 30 minutes.
     const { error } = await supabaseAdmin.from('events')
       .update({ preparation_enabled: true, datetime: new Date(Date.now() + 30 * 60 * 1000).toISOString() })
@@ -192,7 +216,7 @@ test.describe('P1351 — header primary action across contexts', () => {
     expect(off.error).toBeNull();
     await setViewport(page, 1280, 800);
     await page.goto('/manifesto');
-    await checkHeader(page, 'loggedout-prepoff-public', WIDTHS[3], false, false);
+    await checkHeader(page, 'loggedout-prepoff-public', WIDTHS.find(w => w.name === 'desktop')!, false, false);
   });
 });
 
@@ -203,6 +227,7 @@ test.describe('P1351 — signed in, no event', () => {
   test.afterAll(async () => { if (user?.user?.id) await deleteTestUser(user.user.id); });
 
   test('Tools on product AND public pages; no blue primary; Tools reaches /live', async ({ page }) => {
+    await isolatePublicEvents(page, null);
     await setTestSession(page, user.email);
     for (const w of WIDTHS) {
       await setViewport(page, w.width, w.height);

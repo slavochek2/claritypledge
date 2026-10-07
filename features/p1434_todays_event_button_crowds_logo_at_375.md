@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 23
 severity: low
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [events, header, mobile, e2e]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: dev
+pipeline_ran: [create-bug, dev]
 ---
 
 # P1434: "Today's event" header button crowds the logo at 375px; header E2E leaks other events
@@ -65,6 +65,22 @@ the public window query to the run's own event, and add widths 390 and 412.
 
 ## Acceptance Criteria
 
-- [ ] Signed in on an event day, no header controls closer than 4px at 320, 360, 375, 390, 412 and desktop (`e2e/p1351-header-contexts` passes)
-- [ ] At 390px and up the button shows the "Today's event" label; below that, icon only
-- [ ] The header E2E passes regardless of other prep-enabled events in the test DB
+- [x] Signed in on an event day, no header controls closer than 4px at 320, 360, 375, 390, 412 and desktop (`e2e/p1351-header-contexts` passes)
+- [x] At 390px and up the button shows the "Today's event" label; below that, icon only
+- [x] The header E2E passes regardless of other prep-enabled events in the test DB
+- [x] (review) The header never shows a previous account's event — not after sign-out, not while a
+      newly signed-in account's lookup is pending (`src/tests/p1434-tonights-event-account-switch.test.tsx`)
+- [x] (review) The header E2E passes at any hour of the day (event created in a zone where it is ~noon)
+
+## Verification (dev, 2026-10-07)
+
+- E2E `e2e/p1351-header-contexts.spec.ts`: 4/4 pass at 320, 360, 375, 390, 412, desktop. Before the
+  fix: `loggedin-event-feed @ 375` collision. Run with system Chrome (`channel: 'chrome'`, video off):
+  Playwright's bundled Chromium and headless shell crash or are missing on this macOS.
+- Unit: p1434 (account switch — failed before the fix), p1433, p1421, p1351, p1087: 111/111.
+- Browser (local, test DB, signed out, in the window of a demo event): button replaces the marketing
+  CTA; clicking opens `/events/<slug>/room`; the button hides there.
+- Reviews (3 of 3 reported): Opus 0 HIGH/MEDIUM. Codex: stale account (fixed), E2E after 22:00 UTC
+  (fixed), mounted header never refetches past midnight (pre-existing since P1351 — filed). Gemini:
+  sign-out flash (fixed, same root cause), button on `/ready`/`/meet` (as decided in P1433 D1),
+  earliest event wins (P1433 ACCEPT), `StaticNavLinks` declared in render (pre-existing — filed).

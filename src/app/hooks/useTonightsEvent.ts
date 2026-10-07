@@ -256,7 +256,9 @@ export function useTonightsEvent(): TonightsEvent | null {
 
   // The person's own event wins; otherwise the public in-window pick, re-decided each render so
   // the window's edges are honoured without a refetch.
-  if (registered) return registered;
+  // P1434: `registered` answers `resolvedFor`'s lookup — never return it for anyone else (signed
+  // out, or another account whose own lookup is still pending).
   if (userId && resolvedFor !== userId) return null;
+  if (registered && resolvedFor === userId) return registered;
   return pickWindowEvent(candidates, new Date());
 }

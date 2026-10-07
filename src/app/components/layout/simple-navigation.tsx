@@ -82,10 +82,11 @@ function TonightsEventCta({ device, event }: { device: "desktop" | "mobile"; eve
   if (!event) return null;
   const href = tonightsEventHref(event);
   if (pathname === href) return null;
-  // Mobile, below 375px: icon-only 40x40 (the P1323 precedent for the old session button).
-  // P1433: "Today's event" is ~50px wider than the old "Tonight"; measured signed in at 360 it
-  // left the button 4px from the logo, at 375 11px. The label stays the accessible name via sr-only.
-  const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[375px]:w-auto min-[375px]:px-4";
+  // Mobile, below 390px: icon-only 40x40 (the P1323 precedent for the old session button).
+  // P1433: "Today's event" is ~50px wider than the old "Tonight". e2e/p1351-header-contexts
+  // measured it signed in (logo + this + Tools + avatar) under 4px from the logo at 375; it clears
+  // from 390 (iPhone width). The label stays the accessible name via sr-only.
+  const size = device === "desktop" ? "h-10 px-6" : "h-10 w-10 min-[390px]:w-auto min-[390px]:px-4";
   return (
     <Link
       to={href}
@@ -97,7 +98,7 @@ function TonightsEventCta({ device, event }: { device: "desktop" | "mobile"; eve
       <CalendarCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
       {device === "mobile" ? (
         <>
-          <span className="hidden min-[375px]:inline whitespace-nowrap" aria-hidden="true">{TODAYS_EVENT_LABEL}</span>
+          <span className="hidden min-[390px]:inline whitespace-nowrap" aria-hidden="true">{TODAYS_EVENT_LABEL}</span>
           <span className="sr-only">{TODAYS_EVENT_LABEL}</span>
         </>
       ) : (
