@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 136
+**Next ID:** 137
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2216,5 +2216,16 @@ Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
 **due:** month
 
 Worktrees lack tools/kanban/node_modules, so kanban tests, scripts/inbox.sh and the gen-thumbnail / video-question-beats / video-brand-pass assets fail in any worktree (test-p1324-day-ledger.sh already works around it). A plain symlink in setup-worktree.sh is NO-GO (Codex review 2026-10-07, verified in code): (1) scripts/lib/worktree-changes.sh exempts only top-level node_modules/test-results, so a nested link, or nested tools/kanban/test-results (hit on the P1432 ship), makes /ship retain the worktree; (2) `ln -sf` over an existing directory symlink creates a link INSIDE the shared install on re-run; (3) a branch that changes tools/kanban/package.json must not share main's install. Separately safe: .gitignore `node_modules/` → `node_modules` (Codex ran 12 matcher assertions), which clears the `?? node_modules` noise in w1/w3/w6. Done when: a small spec ships an idempotent link helper, nested exemptions, a dependency-change opt-out, and a sentinel teardown test.
+
+---
+
+## Drop the ear badge on the host's grouped participant rows (P1430 decision 2)
+
+**ID:** INBOX-136
+**Date:** 2026-10-07
+**Status:** proposed
+**due:** week
+
+Founder-approved: on the event page, the host's grouped participant rows pass showEarBadge false so names stop truncating to three letters at 375px; keep "understood N/10". One-line change in EventDetail plus an assertion in the P1429 A2 e2e (no ear badge inside the host groups, name not cut off). Not landed because the browser test could not run. Droppable if P1430 is built and covers it.
 
 ---
