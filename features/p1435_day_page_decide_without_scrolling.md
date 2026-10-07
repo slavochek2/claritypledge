@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: story
 rank: 23
 workstream: tooling
