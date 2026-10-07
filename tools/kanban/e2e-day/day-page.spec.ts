@@ -1944,6 +1944,7 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await expect(rows.first()).toContainText('Unsure')
     await expect(rows.first()).toHaveAttribute('data-list-state', 'rated')
     await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 4 statements')
+    await expect(page.locator('[data-list-summary]')).not.toHaveClass(/done/)
     await rows.nth(2).click()
     await expect(page.locator('.d-bpos')).toHaveText('3 of 4')
     await expect(rows.nth(2)).toHaveAttribute('aria-current', 'true')
@@ -1951,6 +1952,18 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
     await reopen(page)
     await reflTab(page).click()
     await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
+  })
+
+  test('when every statement is rated the list says so, in green', async ({ page }) => {
+    await openDay(page)
+    await reflTab(page).click()
+    for (let k = 0; k < 4; k++) {
+      await page.locator('[data-list-statement]').nth(k).click()
+      await page.locator('.d-pcard [data-side=agree]').click()
+      await expect(page.locator('[data-list-statement]').nth(k)).toHaveAttribute('data-list-state', 'rated')
+    }
+    await expect(page.locator('[data-list-summary]')).toHaveText('✓ All 4 rated')
+    await expect(page.locator('[data-list-summary]')).toHaveClass(/done/)
   })
 
   for (const width of [375, 320]) {

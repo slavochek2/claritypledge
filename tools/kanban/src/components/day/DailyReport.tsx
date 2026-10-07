@@ -116,6 +116,7 @@ function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; 
       }))}
       current={Math.min(p.index, p.issues.length - 1)}
       summary={need === 0 ? `All ${plural(p.issues.length, 'card')} answered` : `${need} still need you · ${plural(p.issues.length, 'card')}`}
+      allDone={need === 0}
       onPick={(k) => p.onJump(p.issues[k].fp)}
       extra={p.parked > 0 ? { title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked } : undefined}
     />

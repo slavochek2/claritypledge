@@ -21,12 +21,14 @@ interface Props {
   current: number
   /** what still needs the founder, e.g. "3 still need you · 16 cards" */
   summary: string
+  /** nothing needs the founder: the summary says so in green */
+  allDone: boolean
   onPick: (k: number) => void
   /** one row after the list that is not a card (the parked row) */
   extra?: { title: string; word: string; attrs: Record<string, string>; onClick: () => void }
 }
 
-export function ListPane({ label, rows, current, summary, onPick, extra }: Props) {
+export function ListPane({ label, rows, current, summary, allDone, onPick, extra }: Props) {
   const [open, setOpen] = useState(false)
   return (
     <nav className={`d-card d-clist ${open ? 'open' : ''}`} aria-label={label} data-card-list>
@@ -34,7 +36,8 @@ export function ListPane({ label, rows, current, summary, onPick, extra }: Props
         <span className="d-tri">▶</span>
         {summary}
       </button>
-      <div className="d-clhead" data-list-summary>
+      <div className={`d-clhead ${allDone ? 'done' : ''}`} data-list-summary>
+        {allDone && '✓ '}
         {summary}
       </div>
       <ul className="d-clrows">

@@ -113,6 +113,7 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
             })}
             current={Math.min(index, statements.length - 1)}
             summary={unrated === 0 ? `All ${statements.length} rated` : `${unrated} not rated · ${statements.length} statements`}
+            allDone={unrated === 0}
             onPick={onJump}
           />
         )}

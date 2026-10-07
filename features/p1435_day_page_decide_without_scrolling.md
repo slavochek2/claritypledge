@@ -52,8 +52,9 @@ Blast radius: one page of the local kanban (the Day page). Reversibility: git re
 - [x] At 1280×720 the Reflection statement and its position buttons are visible beside a list of every statement — e2e `Reflection: a list beside the statement…`; real run screenshot
 - [x] Each Reflection row shows the position word, or "Not rated" (Unsure = 0 is a position); clicking a row opens that statement — same e2e
 - [x] At 375 and 320 px both lists fold to one line that says how many still need you; a pick folds it again; no horizontal scroll — e2e `375px/320px: both lists fold…`; scrollWidth checked on the real run at 375 and 320
+- [x] When nothing needs the founder the list header says so in green (✓ All N answered / rated) — e2e `when every statement is rated…`
 - [x] The page opens on the first card, and the first statement, that still needs the founder; opening writes nothing — e2e `the page opens on the first card that still needs you`
-- [x] Existing day unit and e2e tests pass: e2e 106/106, kanban vitest 335/335, eslint clean. Known-bad controls: with the side-by-side rule and the landing disabled, the three wide/landing tests fail. Three P1432 tests that reloaded and read "the card" now open card 1 from the list (landing changed by this spec).
+- [x] Existing day unit and e2e tests pass: e2e 107/107, kanban vitest 335/335, eslint clean. Known-bad controls: with the side-by-side rule and the landing disabled, the three wide/landing tests fail. Three P1432 tests that reloaded and read "the card" now open card 1 from the list (landing changed by this spec).
 
 ## Related
 

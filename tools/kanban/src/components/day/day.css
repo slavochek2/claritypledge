@@ -173,6 +173,7 @@
   .d-clist .d-cltog { display: none; }
   .d-clist:not(.open) .d-clrows { display: block; }
   .d-clhead { display: block; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg2); border-bottom: 1px solid var(--line); }
+  .d-clhead.done { color: var(--green-800, #166534); }
   .d-clrow { font-size: 13px; padding: 6px 12px; }
   .d-md > .d-pwrap, .d-mdmain.d-pwrap { margin: 0; max-width: 640px; }
   /* the decision fits the first screen: less air above and inside the card, never smaller text */
