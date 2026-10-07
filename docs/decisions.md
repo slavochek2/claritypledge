@@ -6,6 +6,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [process]: The pre-commit "migration not applied" remedy is wrong inside a worktree (Status: proposed)
+
+**Context:** KDD meta-reflection, day-2026-10-06 triage. An agent used a raw `git worktree add` for work with no P-number. `scripts/create-worktree.sh <slot> <branch>` already handles that case (no P-number needed, and it links `.env.local` and `node_modules`), and `docs/technical/worktree-setup.md` says never to use the raw command. The missing `.env.local` was an agent error, not a tool gap. The agent-skills mirror drift would have failed in any checkout. One real gap remains: when a staged migration is not in the manifest, `pre-commit-checks.sh` says "Run ./scripts/migrate.sh, then re-stage deploy-manifest.json". Inside a worktree that cannot work, because `stamp-deploy-manifest.sh` refuses to run there. The sequence that does work (P940, worktree-setup.md) is not mentioned.
+
+**Decision (proposed):** When that check fails and the top level is under `.claude/worktrees/`, print the P940 sequence, or a pointer to it, instead of the main-checkout remedy.
+
+**Alternatives rejected:** `git-ops.sh claim --adhoc`: duplicates `create-worktree.sh`. A new ad-hoc worktree doc section: repeats the existing doc. One open caveat: `create-worktree.sh` may not write a git-ops slot lock, which would let a slot-liveness sweep treat the worktree as orphaned. That is the only argument for the rejected option. Not checked.
+
+**Consequences:** Follow-up: a small pre-commit message change, not yet tracked.
+
+**References:** `scripts/pre-commit-checks.sh` ("not yet applied to test DB") · `scripts/stamp-deploy-manifest.sh:22-24` · `docs/technical/worktree-setup.md` (P940 note)
+
+---
+
 ## 2026-10-07 [technical]: A voter's photo choice lives in the database, under a per-user lock — never in the page's flag (P1429)
 
 **Context:** Topic votes carry `is_public` (the voter's face beside the topic). `rate_topic` wrote whatever flag the page sent, so a vote leaving before "Hide my photo" and landing after it, a second tab, or the guest-votes flush after sign-in each put a hidden voter back on show. Review then found three more ways through: a vote and Hide in flight together (13/40 and 6/40 races exposed the voter on the test DB), a hidden first vote with nothing stored undone by a later default "show" vote, and a missing value read as "show".
