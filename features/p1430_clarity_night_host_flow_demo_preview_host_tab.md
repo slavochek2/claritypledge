@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 21
 workstream: events
 created_date: '2026-10-06'
 tags: [events, rounds, host]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -100,12 +100,12 @@ open.
 
 ## Acceptance Criteria
 
-- [ ] The host sees the proposed tables before a round starts, and the round that starts matches them
-- [ ] If someone leaves between preview and Start, the preview updates and names them
+- [x] The host sees the proposed tables before a round starts, and the round that starts matches them
+- [x] If someone leaves between preview and Start, the preview updates and names them
 - [ ] A host-picked round reads "Demo" on the host page, the past rounds list and phones; the next
       round reads Round 1
-- [ ] Someone marked to sit out "Round 1" sits out the counted round, not the Demo
-- [ ] Choosing "one demo table" switches minutes to 30s / 3 / 1; switching back restores 1 / 6 / 3
+- [x] Someone marked to sit out "Round 1" sits out the counted round, not the Demo
+- [x] Choosing "one demo table" switches minutes to 30s / 3 / 1; switching back restores 1 / 6 / 3
 - [ ] Step bar: done steps show a check, the current one is bold and thicker, steps that cannot open
       are greyed and not tappable, at 320px, 375px and desktop
 - [ ] The event page shows a Host tab to the host only; a non-host opening /host is refused
@@ -120,3 +120,18 @@ open.
 
 - P1337 (shipped): rounds; showcase round; walkthroughs 1–8
 - P1429: the five review fixes (split from this spec)
+
+## Dev notes (2026-10-07)
+
+- Evidence: `e2e/p1430-host-preview.spec.ts` 5/5 green (preview = started round table-for-table; a
+  leaver is named and not seated; Demo then Round 1 with the sit-out applied to Round 1; presets;
+  another device's start closes the preview). Unit: `p1430-round-numbering`, `p1337-room-steps`.
+- Still unticked: AC3 (phones' "Demo · You watch" e2e), AC6 (step bar screenshots at 320/375), AC7
+  (non-host refusal re-run) — written and updated, but their runs stalled at login under machine load
+  (~55 Playwright processes from other sessions). Re-run `e2e/p1337-host-walkthrough6.spec.ts` and
+  `e2e/p1337-rounds.spec.ts` on a quiet machine.
+- Residual (Codex HIGH, narrowed not closed): Start re-reads presence just before saving, but
+  `host_start_round` does not check `left_at` itself, so a mark-out from another device in the last
+  milliseconds can still be seated. Closing it needs the RPC to reject seats for members who left
+  (a migration) — not done here.
+
