@@ -6,10 +6,11 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 
 ## Next Steps
 
-1. [ ] Event #2 on Tue 2026-10-06. Until then, physical-event improvement only.
-2. [ ] From 2026-09-30: champion outreach and online pilots; physical events continue as the lab.
-3. [ ] Run 1-2 low-stakes online rehearsals before the first organization pilot.
-4. [ ] Before a pilot, agree success criteria with the champion, and never include a follow-up request.
+1. [x] Event #2 ran 2026-10-06. **Founder-run public nights are paused** — [decisions.md](decisions.md) 2026-10-07 [product].
+2. [ ] Choose whom in the network to approach (incl. a change-management/AI-integration contact and a hackathon/community organizer).
+3. [ ] Time-box 1–2 days of pivot thinking: P1431, P1400 reframed as outreach to event organizers, the team/hackathon route.
+4. [ ] Outreach and discovery conversations until one **group** (works or decides together repeatedly) with a **real need** (names, in its own words, where misunderstanding costs it) **books a dated session** on its own topic, unchased. 5 conversations with 0 bookings ⟹ change the pitch.
+5. [ ] Before a pilot, agree success criteria with the champion, and never include a follow-up request.
 
 **[SUPERSEDED 2026-07-20 → wedge flip]** — applying the supersession already recorded in the callout below; the ladder it describes is the key-hire/coaching motion, retained-not-current. Was: 2026-07-11 — **paid 1:1 coaching is now the active first paid rung** (was: free interview → ~$99 PoC group). The group can't be sold without a lead pipeline; **1:1 coaching (€1500/3mo, ladischenski.com) is the bridge that funds the runway AND builds that pipeline**. The free audit still tests the founder wince; the paid coaching is the *pull* answer. Rationale: [decisions.md](decisions.md) 2026-07-11 [product] (sell-1:1-now bridge) + 2026-06-10 [product] (brand split).
 
