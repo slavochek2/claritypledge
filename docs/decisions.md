@@ -6,6 +6,19 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [technical]: Dropped orphan scratch table on test after Supabase RLS alert
+
+**Context:** Supabase emailed a critical `rls_disabled_in_public` alert for the test project. The
+only public table without RLS was `_p1212_v`: 7 rows of P1212 verification results (`step`,
+`result`), readable and writable by `anon`, with no dependents and no app readers. P1333 had already
+listed it as out-of-scope test/prod drift and left it.
+**Decision:** Dropped it (founder-approved). Re-check showed 0 public tables without RLS on test.
+**Alternatives rejected:** enabling RLS on it (silences the alert but keeps dead data around).
+**Consequences:** Scratch tables created on a shared Supabase project for a one-off check must be
+dropped in the same session, or created in a non-exposed schema (not `public`). Drift that a spec
+notes as "out of scope" still needs a follow-up item, not just a mention.
+**References:** [p1333](../features/done/2026-06-10/p1333_test_db_readiness_column_grant_drift.md)
+
 ## 2026-10-07 [product]: Day page — Accept is saved at once; paging never accepts (P1432)
 
 **Context:** Coming back to the Day page, the founder could not tell which cards he had answered:
