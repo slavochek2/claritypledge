@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 21
 workstream: events
 created_date: '2026-10-06'
 tags: [events, rounds, host]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-07
 ---
 
 # P1430: Clarity Night host flow — group preview, Demo round, step bar, Host tab
