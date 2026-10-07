@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 23
 workstream: infrastructure
@@ -95,7 +95,7 @@ state words below are proposals; the founder approved the direction ("ok do").
 - [x] An unanswered card is visibly different from an answered one: each card shows its state line (e2e asserts the three states).
 - [x] The list above the cards shows each card's state and jumps to it; progress survives reload.
 - [x] Previous / Next / ← / → write nothing on any card (file compared byte for byte).
-- [ ] Screenshots at 1440, 375 and 320 pass a separate visual QA.
+- [x] Screenshots at 1440, 375 and 320 pass a separate visual QA. (2026-10-07: QA re-check left minor design points — list state words equal weight, unanswered line lighter than answered, 320px unfolded list not captured; founder accepted them by saying "ship".)
 
 ## Related
 
