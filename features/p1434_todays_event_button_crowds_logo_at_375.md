@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: medium
 tags: [events, header, mobile, e2e]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-bug, dev]
+delivery_stage: ship
+pipeline_ran: [create-bug, dev, ship]
 ---
 
 # P1434: "Today's event" header button crowds the logo at 375px; header E2E leaks other events
