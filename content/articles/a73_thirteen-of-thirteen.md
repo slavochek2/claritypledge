@@ -43,3 +43,9 @@ Every workshop and community builder counts show-of-hands buy-in. The general le
 - **Verified 2026-09-21 from prod room data: all 11 attendees opted in, 0 opted out** (not 13; the room's 12th member was the host's own account, which is also where the 9 opt-in toggles came from, so they are not attendee behaviour). The title needs to become eleven of eleven.
 - Whether "joined the group" means the paid community or a free group is not recorded. It decides whether the pre-registered prediction has any reading at all.
 - Related: [hypotheses.md](../../docs/hypotheses.md) H-ChampionYield (the pre-registered prediction), a60 (instrument contaminated by its invitation), a51 (facilitator fails first).
+
+## Enrichment (2026-10-07)
+Source: 2026-10-06 Deflating evening after optimistic event
+Applied to: a-spec body
+
+**Second event, opposite mood, same lesson about strangers.** Event #2 (a free workshop on AI and ikigai) drew people with no connection to each other, most of whom came because they knew the host. Some said focusing on each other made sense. Others complained that the evening favoured listening over the topic and didn't go deep enough. The host noticed he was weighting the negatives, and he had the full recording to check that against. Candidate generalisation: **a method whose value is shown by a shared stake can't show it in a room with none**. Unconnected attendees have nothing in common to misunderstand that costs them anything, so listening looks like a tax on the topic. The design question this leaves for the article: can listening visibly make the topic discussion *deeper* instead of competing with it? Pairs with the role-assignment finding above: both say strangers don't run the protocol on their own. Unverified: the complainers versus the "makes sense" group were never counted from the transcript.
