@@ -43,6 +43,7 @@ const agentOf = (v: { view: { issues: ViewIssue[] } }) => v.view.issues.filter(i
 
 const card = (page: Page) => page.locator('.d-focus')
 const cardTitle = (page: Page) => card(page).locator('h2')
+const listRow = (page: Page, fp: string) => page.locator(`[data-list-card="${fp}"]`)
 const nextBtn = (page: Page) => page.locator('[data-bottom-bar]').getByRole('button', { name: /^Next/ })
 /** P1432: Accept is its own button, split from Next; it writes the recommended answer at once. */
 const acceptBtn = (page: Page) => page.locator('[data-bottom-bar] [data-accept]')
@@ -346,6 +347,7 @@ test.describe('issues', () => {
     await expect.poll(() => lines().length).toBe(1)
     expect(lines()[0]).toMatchObject({ kind: 'option', target: 'replies:event-post', option_id: 'draft', run_id: '2026-10-04T05-37-45Z' })
     await reopen(page)
+    await listRow(page, 'replies:event-post').click() // P1435: a reload opens on the first card still open
     await expect(card(page).locator('.d-opt').filter({ hasText: 'Agent drafts, you send' }).locator('input')).toBeChecked()
     await expect(page.locator('[data-progress]')).toContainText('1 of')
   })
@@ -1701,7 +1703,6 @@ test.describe('toast actions', () => {
 
 test.describe('P1432: every card says whether it is answered, and Accept is saved at once', () => {
   const stateOf = (page: Page) => card(page).locator('[data-state]')
-  const listRow = (page: Page, fp: string) => page.locator(`[data-list-card="${fp}"]`)
   /** A launch receipt the way the server writes one: pending, then started (or failed). */
   const receipt = (id: string, items: string[], last: 'started' | 'failed', at = new Date().toISOString()) =>
     [
@@ -1723,6 +1724,9 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await expect.poll(() => lines().length).toBe(1)
 
     await reopen(page)
+    // P1435: the page opens on the first card that still needs you; the answered one is a click away
+    await expect(cardTitle(page)).toHaveText(yours[1].title)
+    await listRow(page, first.fp).click()
     await expect(cardTitle(page)).toHaveText(first.title)
     await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
     await expect(stateOf(page)).toHaveText(/^✓Your answer · saved \d\d:\d\d$/)
@@ -1734,6 +1738,7 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     // the same answer already sent: it is not counted again, and the card says Sent
     writeFileSync(DECISIONS, fileText() + receipt('launch-1', [optionKey(first.fp, rec.id)], 'started'))
     await reopen(page)
+    await listRow(page, first.fp).click()
     await expect(stateOf(page)).toHaveAttribute('data-state', 'sent')
     await expect(stateOf(page)).toHaveText(/^✓Sent to the agent \d\d:\d\d$/)
     await expect(listRow(page, first.fp)).toHaveAttribute('data-list-state', 'sent')
@@ -1749,9 +1754,11 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     // known-bad control: a failed launch holding this exact answer
     writeFileSync(DECISIONS, fileText() + receipt('launch-f', [optionKey(first.fp, rec.id)], 'failed'))
     await reopen(page)
+    await listRow(page, first.fp).click()
     await expect(stateOf(page)).toHaveAttribute('data-state', 'answered')
     writeFileSync(DECISIONS, fileText() + receipt('launch-s', [optionKey(first.fp, rec.id)], 'started'))
     await reopen(page)
+    await listRow(page, first.fp).click()
     await expect(stateOf(page)).toHaveAttribute('data-state', 'sent')
     // a new answer after the send is not what was sent
     await card(page).locator('.d-optrow').filter({ hasText: other.label }).click()
@@ -1877,10 +1884,96 @@ test.describe('P1432: every card says whether it is answered, and Accept is save
     await collapseSidebar(page)
     const yours = yoursOf(await runView(page))
     const tog = page.locator('[data-card-list] .d-cltog')
-    await expect(tog).toHaveText(`▶${yours.length} cards · 0 answered`)
+    await expect(tog).toHaveText(`▶${yours.length} still need you · ${yours.length} cards`)
     await expect(page.locator('[data-list-card]').first()).toBeHidden()
     expect((await rectOf(tog, 'toggle')).height).toBeGreaterThanOrEqual(40)
     await tog.click()
     await expect(page.locator('[data-list-card]').first()).toBeVisible()
   })
+})
+
+test.describe('P1435: see what needs you and decide without scrolling', () => {
+  const inView = async (page: Page, sel: string) => {
+    const r = await page.locator(sel).first().boundingBox()
+    const bar = await page.locator('[data-bottom-bar]').boundingBox()
+    return !!r && !!bar && r.y >= 0 && r.y + r.height <= bar.y
+  }
+  const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
+
+  test('1280x720: the card title, its first option and the card list are all on screen without scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await expect(listRow(page, yours[0].fp)).toBeVisible()
+    expect(await inView(page, '.d-focus h2'), 'card title').toBe(true)
+    expect(await inView(page, '.d-focus .d-optrow'), 'first option').toBe(true)
+    expect(await inView(page, '[data-list-summary]'), 'list summary').toBe(true)
+    // side by side: the list is left of the card, not above it
+    const l = must(await page.locator('[data-card-list]').boundingBox(), 'list')
+    const c = must(await card(page).boundingBox(), 'card')
+    expect(l.x + l.width).toBeLessThanOrEqual(c.x)
+    await expect(page.locator('[data-list-summary]')).toHaveText(`${yours.length} still need you · ${yours.length} cards`)
+  })
+
+  test('the page opens on the first card that still needs you', async ({ page }) => {
+    await openDay(page)
+    const yours = yoursOf(await runView(page))
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(1)
+    await acceptBtn(page).click()
+    await expect.poll(() => lines().length).toBe(2)
+    await reopen(page)
+    await expect(cardTitle(page)).toHaveText(yours[2].title)
+    await expect(listRow(page, yours[2].fp)).toHaveAttribute('aria-current', 'true')
+    expect(lines()).toHaveLength(2) // landing writes nothing
+  })
+
+  test('Reflection: a list beside the statement says each position or "Not rated", and a click opens it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await openDay(page)
+    await reflTab(page).click()
+    const rows = page.locator('[data-list-statement]')
+    await expect(rows).toHaveCount(4)
+    await expect(page.locator('[data-list-summary]')).toHaveText('4 not rated · 4 statements')
+    await expect(rows.first()).toContainText('Not rated')
+    expect(await inView(page, '.d-pst'), 'statement').toBe(true)
+    expect(await inView(page, '.d-pbrow'), 'position buttons').toBe(true)
+    // Unsure is a position (0), never "Not rated"
+    await page.locator('.d-pcard [data-side=unsure]').click()
+    await expect.poll(() => lines().at(-1)?.position).toBe(0)
+    await expect(rows.first()).toContainText('Unsure')
+    await expect(rows.first()).toHaveAttribute('data-list-state', 'rated')
+    await expect(page.locator('[data-list-summary]')).toHaveText('3 not rated · 4 statements')
+    await rows.nth(2).click()
+    await expect(page.locator('.d-bpos')).toHaveText('3 of 4')
+    await expect(rows.nth(2)).toHaveAttribute('aria-current', 'true')
+    // a reload opens on the first statement not rated
+    await reopen(page)
+    await reflTab(page).click()
+    await expect(page.locator('.d-bpos')).toHaveText('2 of 4')
+  })
+
+  for (const width of [375, 320]) {
+    test(`${width}px: both lists fold to one line with what still needs you; a pick folds it again; no horizontal scroll`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 760 })
+      await openDay(page)
+      await collapseSidebar(page)
+      const yours = yoursOf(await runView(page))
+      const tog = page.locator('[data-card-list] .d-cltog')
+      await expect(tog).toHaveText(`▶${yours.length} still need you · ${yours.length} cards`)
+      await expect(listRow(page, yours[0].fp)).toBeHidden()
+      await tog.click()
+      await listRow(page, yours[1].fp).click()
+      await expect(cardTitle(page)).toHaveText(yours[1].title)
+      await expect(listRow(page, yours[1].fp)).toBeHidden()
+      await reflTab(page).click()
+      await expect(page.locator('[data-card-list] .d-cltog')).toHaveText('▶4 not rated · 4 statements')
+      await expect(page.locator('[data-list-statement]').first()).toBeHidden()
+      const over = await page.evaluate(() => {
+        const r = document.querySelector('.day-root')
+        return r ? r.scrollWidth - r.clientWidth : -1
+      })
+      expect(over).toBeLessThanOrEqual(0)
+    })
+  }
 })

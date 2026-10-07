@@ -10,7 +10,7 @@
 // sessionStorage, and nothing is logged.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { OWN, PARK, isAgentWork, pendingPreselected, stillYours, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
+import { OWN, PARK, cardState, isAgentWork, isAnswered, pendingPreselected, stillYours, type ConnectionView, type DayView, type DecisionInput, type IssueView } from '../../lib/day'
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { MonitoringTab } from './MonitoringTab'
@@ -149,7 +149,15 @@ export function DayPage() {
     setDrafts({})
     setOpening(false)
     stories.current = {}
-    void reload(runId)
+    void reload(runId).then((r) => {
+      // P1435: open on the first card, and the first statement, that still needs the founder
+      if (r?.kind !== 'ok' || !r.isLatest || runIdRef.current !== runId) return
+      const sent = r.sentItems ?? {}
+      const y = r.view.issues.filter((i) => !isAgentWork(i)).findIndex((i) => !isAnswered(cardState(i, sent)))
+      if (y > 0) setIdx((s) => ({ ...s, yours: y }))
+      const k = (r.report.reflection?.statements ?? []).findIndex((x) => typeof r.view.reflection[x.id]?.position !== 'number')
+      if (k > 0) setReflIdx(k)
+    })
   }, [runId, reload])
 
   const ok = run?.kind === 'ok' ? run : null
@@ -657,6 +665,10 @@ export function DayPage() {
                   onPosition={setPosition}
                   onRemove={removePosition}
                   onStory={setStory}
+                  onJump={(k) => {
+                    setReflIdx(k)
+                    toTop()
+                  }}
                 />
               )}
             </>

@@ -159,11 +159,28 @@
 /* two lines before it is cut: on a phone one line no longer says which card it is */
 .d-clt { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 18px; }
 .d-clw { flex: none; font-size: 12px; color: var(--fg3); }
-.d-clist .d-cltog { display: none; }
-@media (max-width: 899px) {
-  .d-clist .d-cltog { display: flex; min-height: 44px; }
-  .d-clist:not(.open) .d-clrows { display: none; }
-  .d-clist.open .d-clrows { border-top: 1px solid var(--line); }
+/* P1435: narrow — the list folds to one line above the card; wide — it is the column beside it */
+.d-issues { container: issues / inline-size; }
+.d-md { display: grid; gap: 12px; align-content: start; }
+.d-md > * { min-width: 0; }
+.d-mdmain { min-width: 0; display: grid; gap: 12px; align-content: start; }
+.d-clist .d-cltog { display: flex; min-height: 44px; }
+.d-clist:not(.open) .d-clrows { display: none; }
+.d-clist.open .d-clrows { border-top: 1px solid var(--line); }
+.d-clhead { display: none; }
+@container issues (min-width: 720px) {
+  .d-md { grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .d-clist .d-cltog { display: none; }
+  .d-clist:not(.open) .d-clrows { display: block; }
+  .d-clhead { display: block; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg2); border-bottom: 1px solid var(--line); }
+  .d-clrow { font-size: 13px; padding: 6px 12px; }
+  .d-md > .d-pwrap, .d-mdmain.d-pwrap { margin: 0; max-width: 640px; }
+  /* the decision fits the first screen: less air above and inside the card, never smaller text */
+  .d-mdmain { gap: 8px; }
+  .d-mdmain .d-aline { min-height: 32px; }
+  .d-mdmain .d-focus { padding: 18px 22px; }
+  .d-mdmain .d-focus h2 { margin: 4px 0 10px; }
+  .d-mdmain .d-state { margin-top: 6px; }
 }
 .d-pills { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .d-pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }

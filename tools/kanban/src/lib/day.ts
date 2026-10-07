@@ -1008,6 +1008,9 @@ export function cardState(issue: IssueView, sent: Readonly<Record<string, string
   return isAgentWork(issue) ? { kind: 'agent', recommended } : { kind: 'open', recommended }
 }
 
+/** The founder is done with this card: their answer is saved, or it was sent to the agent (P1435). */
+export const isAnswered = (st: CardState) => st.kind === 'sent' || st.kind === 'answered'
+
 // ---------------------------------------------------------------------------------------
 // The prompt.
 

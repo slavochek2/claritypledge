@@ -3,11 +3,12 @@
 // reports clicks.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { OWN, cardState, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { checkStatus, connectionStatus, needsYou } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
+import { ListPane } from './ListPane'
 
 /** Phase D: the pager walks the founder's cards; the cards an agent can fix are one line away. */
 export interface AgentWork {
@@ -81,7 +82,7 @@ const STATE_WORD: Record<CardState['kind'], string> = {
   agent: 'Agent',
   open: 'Not answered',
 }
-const isDone = (st: CardState) => st.kind === 'sent' || st.kind === 'answered'
+const isDone = isAnswered
 
 function StateLine({ st, readOnly }: { st: CardState; readOnly: boolean }) {
   return (
@@ -95,47 +96,29 @@ function StateLine({ st, readOnly }: { st: CardState; readOnly: boolean }) {
 }
 
 /**
- * Every card of the set the pager walks, with its state; a click opens it. Parked cards live
- * outside the pager, so they are one row that opens the Parked section. On a phone the list folds
- * to its count.
+ * Every card of the set the pager walks, with its state (P1432); beside the card on a wide area
+ * (P1435). Parked cards live outside the pager, so they are one row that opens the Parked section.
  */
 function CardList(p: { issues: IssueView[]; index: number; sent: Props['sent']; parked: number; onJump: (fp: string) => void; onParked: () => void }) {
-  const [open, setOpen] = useState(false)
   if (p.issues.length + p.parked < 2) return null
   const states = p.issues.map((i) => cardState(i, p.sent))
-  const done = states.filter(isDone).length
-  const cur = Math.min(p.index, p.issues.length - 1)
+  const need = states.filter((st) => !isDone(st)).length
   return (
-    <nav className={`d-card d-clist ${open ? 'open' : ''}`} aria-label="Cards" data-card-list>
-      <button type="button" className="d-fold d-cltog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span className="d-tri">▶</span>
-        {plural(p.issues.length, 'card')} · {done} answered
-      </button>
-      <ul className="d-clrows">
-        {p.issues.map((i, k) => (
-          <li key={i.fp}>
-            <button type="button" className="d-clrow" aria-current={k === cur ? 'true' : undefined} data-list-card={i.fp} data-list-state={states[k].kind} onClick={() => p.onJump(i.fp)}>
-              <span className={`d-sdot ${isDone(states[k]) ? 'done' : states[k].kind}`} aria-hidden="true">
-                {isDone(states[k]) ? '✓' : ''}
-              </span>
-              <span className="d-clt" title={i.title}>
-                {i.title}
-              </span>
-              <span className="d-clw">{STATE_WORD[states[k].kind]}</span>
-            </button>
-          </li>
-        ))}
-        {p.parked > 0 && (
-          <li>
-            <button type="button" className="d-clrow" data-list-parked onClick={p.onParked}>
-              <span className="d-sdot parked" aria-hidden="true" />
-              <span className="d-clt">{p.parked} parked</span>
-              <span className="d-clw">Parked</span>
-            </button>
-          </li>
-        )}
-      </ul>
-    </nav>
+    <ListPane
+      label="Cards"
+      rows={p.issues.map((i, k) => ({
+        key: i.fp,
+        title: i.title,
+        done: isDone(states[k]),
+        kind: states[k].kind,
+        word: STATE_WORD[states[k].kind],
+        attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
+      }))}
+      current={Math.min(p.index, p.issues.length - 1)}
+      summary={need === 0 ? `All ${plural(p.issues.length, 'card')} answered` : `${need} still need you · ${plural(p.issues.length, 'card')}`}
+      onPick={(k) => p.onJump(p.issues[k].fp)}
+      extra={p.parked > 0 ? { title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked } : undefined}
+    />
   )
 }
 
@@ -179,19 +162,23 @@ export function DailyReport(p: Props) {
         />
       )}
       <section className="d-issues" aria-label="Issues">
-        <CardList
-          issues={p.issues}
-          index={p.index}
-          sent={p.sent}
-          parked={view.parked.length}
-          onJump={p.onJump}
-          onParked={() => {
-            setParkedOpen(true)
-            requestAnimationFrame(() => parkedRef.current?.scrollIntoView({ block: 'nearest' }))
-          }}
-        />
-        <IssueCard {...p} />
-        <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />
+        <div className="d-md">
+          <CardList
+            issues={p.issues}
+            index={p.index}
+            sent={p.sent}
+            parked={view.parked.length}
+            onJump={p.onJump}
+            onParked={() => {
+              setParkedOpen(true)
+              requestAnimationFrame(() => parkedRef.current?.scrollIntoView({ block: 'nearest' }))
+            }}
+          />
+          <div className="d-mdmain">
+            <IssueCard {...p} />
+            <Parked view={view} readOnly={readOnly} onBringBack={p.onBringBack} open={parkedOpen} setOpen={setParkedOpen} boxRef={parkedRef} />
+          </div>
+        </div>
       </section>
     </div>
   )

@@ -6,8 +6,8 @@ workstream: tooling
 created_date: '2026-10-07'
 tags: [kanban, day-page, ux, reflection]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -48,11 +48,12 @@ Blast radius: one page of the local kanban (the Day page). Reversibility: git re
 
 ## Acceptance Criteria
 
-- [ ] At 1280×720 the Daily report card's title and first option are visible without scrolling, and so is the card list
-- [ ] At 1280×720 the Reflection statement and its position buttons are visible beside a list of every statement
-- [ ] Each Reflection row shows the position word, or "Not rated"; clicking a row opens that statement
-- [ ] At 375 and 320 px both lists fold to one line that says how many still need you; there is no horizontal scroll
-- [ ] Existing day unit and e2e tests pass; new e2e tests cover each criterion above
+- [x] At 1280×720 the Daily report card's title and first option are visible without scrolling, beside the card list — e2e `1280x720: the card title, its first option and the card list…` (fixture). On the founder's real run (long Point A/B text) title, state, A/Obstacle/B and the recommended option's label are visible; that option's lower edge sits under the bottom bar, so a long card still needs a few px of scroll.
+- [x] At 1280×720 the Reflection statement and its position buttons are visible beside a list of every statement — e2e `Reflection: a list beside the statement…`; real run screenshot
+- [x] Each Reflection row shows the position word, or "Not rated" (Unsure = 0 is a position); clicking a row opens that statement — same e2e
+- [x] At 375 and 320 px both lists fold to one line that says how many still need you; a pick folds it again; no horizontal scroll — e2e `375px/320px: both lists fold…`; scrollWidth checked on the real run at 375 and 320
+- [x] The page opens on the first card, and the first statement, that still needs the founder; opening writes nothing — e2e `the page opens on the first card that still needs you`
+- [x] Existing day unit and e2e tests pass: e2e 106/106, kanban vitest 335/335, eslint clean. Known-bad controls: with the side-by-side rule and the landing disabled, the three wide/landing tests fail. Three P1432 tests that reloaded and read "the card" now open card 1 from the list (landing changed by this spec).
 
 ## Related
 
