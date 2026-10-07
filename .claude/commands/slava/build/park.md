@@ -51,6 +51,30 @@ Before any other work in this skill:
    ```
    Update journal: `spec_stamped_main: true`.
 
+4b. **Write the ship trigger into the spec — REQUIRED, not optional.** Directly under the spec's
+   title, a quoted block naming the date, who parked it, where the work lives, why it was not
+   shipped, and above all **the observable condition that should bring it back**:
+
+   ```markdown
+   > **Parked YYYY-MM-DD (founder).** Built and passing its closure gate on branch `feature/pN-...`;
+   > worktree removed, branch kept. Not shipped because <reason>.
+   > **Ship trigger:** <the observable thing that must happen first>. Ship with `/ship pN`.
+   ```
+
+   Without a trigger, parked work has no way back except someone remembering it — and `/day` prints
+   this line verbatim, so a missing trigger shows up as "(no ship trigger recorded — add one)".
+
+4c. **Offer to archive the branch on the remote.** A parked branch lives on one laptop; the commits
+   are finished, reviewed work and the disk is the only copy. Pushing the **feature branch** to
+   `origin` touches neither `main` nor production.
+
+   **A push is never pre-approved** (`.claude/rules/git.md`) — ask in one line, and record the
+   answer in the park block ("branch archived on origin" / "local only, by choice"):
+
+   ```bash
+   git push origin feature/pN-<slug>    # only after the founder says so, in that turn
+   ```
+
 5. **KDD capture (optional)** — if user wants learnings captured:
    - Run `/kdd` — invoke `/slava:maintain:kdd` to capture decisions into `docs/decisions.md`
    - Commit KDD changes to main via:
@@ -73,7 +97,9 @@ Before any other work in this skill:
 
 ```
 P{N} parked. Stamp and KDD committed to main.
-Feature branch feature/p{N}-xxx deleted.
+Worktree removed, slot released. Branch feature/p{N}-xxx KEPT (abandon never deletes it).
+Archived on origin: yes / no — local only.
+Ship trigger: <the condition written into the spec>.
 Run /ship p{N} when ready to merge the feature code to main.
 ```
 
@@ -87,7 +113,12 @@ Run /ship p{N} when ready to merge the feature code to main.
 
 ## What it does NOT do
 
-- Does not change `status:` — it stays whatever it was (`in-progress`, `qa`, etc.)
+- Does not change `status:` — it stays whatever it was (`in-progress`, `qa`, etc.). `/day` knows
+  this: it skips `delivery_stage: park` when listing specs that are "waiting for you", and lists
+  parked ones separately with their ship trigger and no call to action. Before that filter existed,
+  P1181 asked to be shipped every morning for 16 days.
+- Does not delete the branch. Step 6 removes the **worktree** and releases the slot;
+  `git-ops.sh abandon` keeps the branch and its commits.
 - Does not merge anything
 - Does not run reviews or tests
 - Does not move the spec to `features/done/`

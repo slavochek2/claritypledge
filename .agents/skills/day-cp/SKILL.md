@@ -174,11 +174,24 @@ echo "=== STRANDED SPECS ==="
 echo "-- still building --"
 grep -rl "^status: in-progress" features/p*.md 2>/dev/null || echo "none"
 echo "-- built, waiting for you (qa) --"
+# A PARKED spec keeps `status: qa` by design — /park deliberately never changes status
+# (park.md "What it does NOT do"). Without this filter every park the founder ever makes
+# nags "ready to /ship?" every single day, forever, and the only way to silence it is to
+# ship or to lie about the status. Parked specs get their own no-action section below.
+QA_LIVE=""
 for f in $(grep -rl "^status: qa" features/p*.md 2>/dev/null); do
+  grep -q "^delivery_stage: park" "$f" && continue
   d=$(grep -m1 "^created_date:" "$f" | tr -d "'\"" | awk '{print $2}')
   echo "$(basename "$f")  (filed $d)"
+  QA_LIVE="x"
 done
-[ -z "$(grep -rl '^status: qa' features/p*.md 2>/dev/null)" ] && echo "none"
+[ -z "$QA_LIVE" ] && echo "none"
+echo "-- parked: waiting on a written trigger, NO action wanted --"
+for f in $(grep -rl "^delivery_stage: park" features/p*.md 2>/dev/null); do
+  t=$(grep -m1 -o 'Ship trigger:.*' "$f" | cut -c1-110)
+  echo "$(basename "$f")  ${t:-(no ship trigger recorded — add one)}"
+done
+[ -z "$(grep -rl '^delivery_stage: park' features/p*.md 2>/dev/null)" ] && echo "none"
 echo "-- closed but never moved out of features/ --"
 grep -rlE "^status: (done|all-done)" features/p*.md 2>/dev/null || echo "none"
 echo "-- ship started and never finished --"
@@ -1378,9 +1391,10 @@ BRANCHES
 ```
 
 Rules: `status: qa` → "ready to /ship?" (branch or not — since P1169 `/ship` closes direct-to-main
-specs too). `in-progress` → "in-progress". `done`/`all-done` still in `features/` → "run
-/slava:maintain:fix-kanban". Unfinished ship journal → print its `--resume` line verbatim. No spec →
-"stale?"
+specs too), **unless `delivery_stage: park`** — a parked spec keeps its old status by design, so it
+is listed under "parked" with its ship trigger and is never asked about. `in-progress` →
+"in-progress". `done`/`all-done` still in `features/` → "run /slava:maintain:fix-kanban". Unfinished
+ship journal → print its `--resume` line verbatim. No spec → "stale?"
 
 **Report the `qa` age.** A spec that has been *built, waiting for you* for a week is the signal;
 that it exists is not. Sort oldest first.
