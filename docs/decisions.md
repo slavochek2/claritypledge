@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [product]: Day page — the card list sits beside the card; the page opens on what still needs you (P1435)
+
+**Context:** After P1432 the Daily report put a list of every card above the card. At 1280×720 the 16-row list filled the screen and the decision started ~1000px down: "I see a huge amount of progress. I need to scroll down and then read." Reflection had no overview, so the founder could not tell which statements were rated.
+**Decision:** (1) When the issues area is ≥720px wide (a container query, not the viewport: the board sidebar and the open status panel both take width), the list is the left column and the card the right. Narrower, the list folds to one line led by what still needs you ("3 still need you · 16 cards"), and folds again after a pick. (2) Reflection reuses the same list (`ListPane`): each statement with its position, or "Not rated"; Unsure (0) is a position. (3) On a run's first load the page opens on the first founder card, and the first statement, still open; it writes nothing. (4) "✓ All N answered / rated" in green when nothing needs you. (5) A position just written is remembered until its reload lands: the key handler read the view, which updates only after save + reload, so pressing 3 twice quickly wrote Agree twice instead of cycling to Agree+.
+**Alternatives rejected:** a sticky list that scrolls on its own (breaks the P1399 "no inner scroll areas" contract, which a test enforces); moving the "N things an agent can fix" line below the card to gain height (a P1399 test pins it above the card); auto-advancing after a rating (paging never writes, so moving must stay the founder's act).
+**Consequences:** On a real card with long Point A/B text the recommended option's lower edge still sits under the bottom bar at 1280×720; a long card needs a few px of scroll. Open, not done: a one-frame flash of card 1 before the landing applies (landing runs after setRun); no e2e for "an earlier run does not land".
+**References:** [p1435](../features/done/2026-06-10/p1435_day_page_decide_without_scrolling.md), narrows [P1432](../features/done/2026-06-10/p1432_day_page_shows_which_cards_are_answered.md) point (2)
+
 ## 2026-10-07 [product]: The host's grouped participant rows carry no ear badge (INBOX-136)
 
 **Context:** On the event page the host sees participants grouped Opted in / Opted out / Undecided (P1337), each row with the prep and mic marks and "understood N/10". At 375px the ear badge took the remaining width and cut every name to three letters ("P14…").
