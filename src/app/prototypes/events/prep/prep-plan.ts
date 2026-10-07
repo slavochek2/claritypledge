@@ -188,6 +188,7 @@ export function remainingSteps(plan: PlanStep[], stepsDone: PrepStepKey[]): Plan
  */
 export function eventTopic(title: string): string {
   const withoutSeries = title.replace(/^[^:]{0,40}#\s*\d+\s*:\s*/, '').trim();
-  const firstSentence = withoutSeries.split(/(?<=[.?!])\s+/)[0] ?? withoutSeries;
+  // Lookahead, not lookbehind: Safari < 16.4 cannot parse a lookbehind, and the whole page fails to load.
+  const firstSentence = withoutSeries.match(/^[\s\S]*?[.?!](?=\s)/)?.[0] ?? withoutSeries;
   return firstSentence.replace(/[.]$/, '').trim() || title;
 }

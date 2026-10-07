@@ -22,7 +22,16 @@ import type { Route } from "./machine";
 
 /** Splits a paragraph into its sentences, keeping each one byte for byte. */
 export function sentences(paragraph: string): string[] {
-  return paragraph.split(/(?<=[.?!])\s+/);
+  // A cut at each whitespace run after . ? or !, written without lookbehind (Safari < 16.4 cannot parse it).
+  const out: string[] = [];
+  const gap = /[.?!](\s+)/g;
+  let start = 0;
+  for (let m = gap.exec(paragraph); m; m = gap.exec(paragraph)) {
+    out.push(paragraph.slice(start, m.index + 1));
+    start = m.index + m[0].length;
+  }
+  out.push(paragraph.slice(start));
+  return out;
 }
 
 /** One sentence by position. Fails loudly if the founder's paragraph ever changes shape. */

@@ -128,3 +128,6 @@ cron_health_snapshot()                        # the pg_cron health check reads e
 # and the public profile card (name, slug, avatar) of prepared / opted-in people only; never an
 # opt-out, a score, an answer or volunteer data (spec P1336 "Public counts/avatars").
 get_event_prep_social_proof(uuid)             # public counts + faces on the prepare page (P1336) — src/app/data/event-prep-service.ts:219
+
+# --- 2026-10-07, P1347 topics page (day triage) ---
+get_open_topics()                             # the public /topics page lists topics before anyone signs in (P1347) — src/app/data/topic-voting.ts:77

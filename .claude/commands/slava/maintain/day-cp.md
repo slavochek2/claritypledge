@@ -283,7 +283,9 @@ for REGION in us-east4 us-central1 us-east5 europe-west1; do
     MIN=$(gcloud run services describe "$SVC" --project="$GCP_PROJECT" --region="$REGION" --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null) || TRIP_FAILED="$TRIP_FAILED describe:$SVC"
     # A GPU service is flagged on BILLED hours, not on having a GPU: Cloud Run requires
     # cpu-throttling=false for GPUs, so that annotation carries no signal (cp decisions 2026-10-04).
-    [ -n "$GPU" ] && ./scripts/gpu-warm-check.py "$GCP_PROJECT" "$SVC" 3
+    # Through python3, not the exec bit, and a non-zero exit (126 = not executable, a crash)
+    # becomes a GPU_CHECK_FAILED line, so the grep below never reads a check that did not run as clean.
+    [ -n "$GPU" ] && { python3 scripts/gpu-warm-check.py "$GCP_PROJECT" "$SVC" 3 || echo "GPU_CHECK_FAILED: $SVC exit $? — do not report clean"; }
     { [ -n "$MIN" ] && [ "$MIN" != "0" ]; } && echo "ALWAYS_ON: $SVC ($REGION) minScale=$MIN (never scales to zero)"
   done
 done

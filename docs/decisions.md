@@ -6,6 +6,19 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [process]: /day 2026-10-06 reflection — five challenges and the founder's verdicts
+
+**Context:** The 2026-10-06 /day reflection put five challenges to the founder. Recorded with verdicts as given (gate 8: record under uncertainty).
+
+**Decisions:**
+- *Push or delete the unpushed commits after the event* — Unsure. Founder is pushing now; no agent action. UNTESTED. Falsifier: next /day still shows commits ahead of origin.
+- *Fix the Google sign-in canary before promoting the next event* — Agree. Triage 2026-10-07: prod reached Google consent in every run; the one red run (2026-10-06 06:22Z) was the TEST project's authorize endpoint returning no redirect, and later runs plus a local run are green. No code fix warranted. Falsifier: a second red run, or any red run naming prod.
+- *Stop polishing slides; outreach still has zero qualified leads* — Agree. Slides are done.
+- *Retire the 180-item backlog by deleting everything older than 30 days* — Unsure, because it is unclear which entries carry weight. Rejected: deletion by age, which could drop live pre-commitments. Chosen instead: a separate, founder-present triage session, keep/close per entry. UNTESTED. Falsifier: the triage closes under 20% of entries, meaning age was not the noise signal.
+- *QA or discard the feature that has waited 39 days* — Unsure which feature is meant. Left as is (P1181 stays in QA, decided the same day). Open question: name the 39-day item.
+
+---
+
 ## 2026-10-06 [product]: `/presi4` slide 17 projects the showcase table from the HOST side, not the founder's phone
 
 **Context:** Slide 17 framed the founder's own `/room` page in a phone outline. It showed the whole room page (step bar, transcribe bar, profile links) and only showed a comparison if the founder was seated at the table. The founder runs the showcase from the host panel, seating three other people at one table, and wants the room to see only where that table disagrees.
