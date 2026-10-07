@@ -165,6 +165,8 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(anaPage.getByTestId('room-steps')).toHaveAttribute('data-current', 'close', { timeout: 20_000 });
     // Walkthrough 9: ending is undoable — Reopen starts a fresh round and every phone leaves Close.
     await page.getByTestId('host-reopen').click();
+    // P1430: Reopen proposes the tables first, like every start.
+    await page.getByTestId('host-preview-start').click();
     await expect(page.getByTestId('host-round-title')).toHaveText(/^Round \d+$/, { timeout: 20_000 });
     await expect(anaPage.getByTestId('room-steps')).not.toHaveAttribute('data-current', 'close', { timeout: 20_000 });
     await anaPage.context().close();

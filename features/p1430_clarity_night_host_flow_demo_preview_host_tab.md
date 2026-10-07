@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 21
 workstream: events
@@ -102,13 +102,13 @@ open.
 
 - [x] The host sees the proposed tables before a round starts, and the round that starts matches them
 - [x] If someone leaves between preview and Start, the preview updates and names them
-- [ ] A host-picked round reads "Demo" on the host page, the past rounds list and phones; the next
+- [x] A host-picked round reads "Demo" on the host page, the past rounds list and phones; the next
       round reads Round 1
 - [x] Someone marked to sit out "Round 1" sits out the counted round, not the Demo
 - [x] Choosing "one demo table" switches minutes to 30s / 3 / 1; switching back restores 1 / 6 / 3
-- [ ] Step bar: done steps show a check, the current one is bold and thicker, steps that cannot open
+- [x] Step bar: done steps show a check, the current one is bold and thicker, steps that cannot open
       are greyed and not tappable, at 320px, 375px and desktop
-- [ ] The event page shows a Host tab to the host only; a non-host opening /host is refused
+- [x] The event page shows a Host tab to the host only; a non-host opening /host is refused
 
 ## Open Questions — answered 2026-10-07
 
@@ -126,10 +126,10 @@ open.
 - Evidence: `e2e/p1430-host-preview.spec.ts` 5/5 green (preview = started round table-for-table; a
   leaver is named and not seated; Demo then Round 1 with the sit-out applied to Round 1; presets;
   another device's start closes the preview). Unit: `p1430-round-numbering`, `p1337-room-steps`.
-- Still unticked: AC3 (phones' "Demo · You watch" e2e), AC6 (step bar screenshots at 320/375), AC7
-  (non-host refusal re-run) — written and updated, but their runs stalled at login under machine load
-  (~55 Playwright processes from other sessions). Re-run `e2e/p1337-host-walkthrough6.spec.ts` and
-  `e2e/p1337-rounds.spec.ts` on a quiet machine.
+- Re-run on a quieter machine (video off; ffmpeg missing locally): p1430 + p1337 rounds/walkthrough6/
+  start-hang — 29 green in the full run (7 only on retry, after slow logins), then walkthrough6 8/8 alone after updating its Reopen step (Reopen now
+  previews too). Screenshots: host desktop (Demo preview/running), host 375 (confirm → Round 1 preview),
+  attendee 375 ("Demo · You watch", step bar with checks) and 320 (only the current step's label).
 - Residual (Codex HIGH, narrowed not closed): Start re-reads presence just before saving, but
   `host_start_round` does not check `left_at` itself, so a mark-out from another device in the last
   milliseconds can still be seated. Closing it needs the RPC to reject seats for members who left
