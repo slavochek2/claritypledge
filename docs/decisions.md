@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [technical]: Regex lookbehind is banned repo-wide, not per file — the P983 guard covered one file and the bug shipped twice more
+
+**Context:** Sentry JAVASCRIPT-REACT-3N (2026-10-06): the event prepare page hit its error boundary on iOS 16.2. `eventTopic()` in `prep-plan.ts` split on a lookbehind, and Safari before 16.4 rejects a lookbehind when it parses the module, so the whole page fails to load, not just one call. P983 (2026-07-08) fixed the same class in `linkify.ts`, but its guard test read only that one file. A second lookbehind (`sentences()` in `landing-lab/first/copy.ts`) had shipped the same way.
+
+**Decision:** `src/tests/no-regex-lookbehind.test.ts` scans every non-test `.ts`/`.tsx` under `src/` for a lookbehind token and asserts that more than 100 files were scanned, so a broken file walk cannot pass empty. Both sites were rewritten: a lookahead match for the first sentence, and an explicit `exec` loop for the sentence split. Parity cases compare each rewrite against the old lookbehind, run in Node. Codex review also ran 177,156 generated inputs and found no difference. Gotcha: the guard reads raw text, so a comment that spells the token out fails it, which happened while writing this fix. Comments must describe the construct in words.
+
+**Alternatives rejected:** (a) A per-file canary like P983's: that is the gap that let this ship. (b) An ESLint rule: no installed rule covers it, and a source-text test is what P983 already uses. (c) Raising the browser target: iOS 16.2 is a real guest device (2026-10-06).
+
+**Consequences:** Any new lookbehind anywhere in `src/` fails `npm test`. Named groups are still allowed. Files outside `src/` (scripts, edge functions) are not scanned because they don't run in Safari.
+
+**References:** commit 2e2ed9c1a · 2026-07-08 [technical] P983 linkify entry
+
+---
+
+## 2026-10-07 [process]: An alert-only workflow reads "success" even when its check failed — read the step outcome, not the run conclusion
+
+**Context:** The 2026-10-06 /day raised GitHub issue 18 ("Auth canary failing"), but `gh run list` showed that run as `success`. `auth-canary.yml` (like `prod-health-smoke.yml`) marks its check step `continue-on-error`, so GitHub records the step's *conclusion* as success while its *outcome* is failure, and the issue step fires on `steps.canary.outcome`. The real failure was only in the step log: the TEST project's authorize endpoint returned no redirect once, while prod reached Google consent in every run.
+
+**Decision:** When triaging an alert issue from these workflows, read the check step's log (`gh run view <id> --log`, then grep for the result lines). Never use the run conclusion or `--log-failed`, which prints nothing because no step "failed". Issue 18 was a one-off on the test project; no code change.
+
+**Alternatives rejected:** Removing `continue-on-error`: it exists so a false positive doesn't post a red X (P1031 rationale, kept).
+
+**Consequences:** A "success" run next to an open alert issue is expected, not a contradiction. A repeat red run naming prod is the signal to act.
+
+**References:** `.github/workflows/auth-canary.yml` · run 37423334309 · issue 18
+
+---
+
 ## 2026-10-07 [process]: /day 2026-10-06 reflection — five challenges and the founder's verdicts
 
 **Context:** The 2026-10-06 /day reflection put five challenges to the founder. Recorded with verdicts as given (gate 8: record under uncertainty).
