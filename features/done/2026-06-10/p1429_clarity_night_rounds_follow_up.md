@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 20
 workstream: events
 created_date: '2026-10-06'
 tags: [events, rounds, privacy, review-findings]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-07
 ---
 
 # P1429: Clarity Night — the five review findings held back at ship
