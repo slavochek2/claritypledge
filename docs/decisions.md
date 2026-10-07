@@ -6,6 +6,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-07 [product]: The host's grouped participant rows carry no ear badge (INBOX-136)
+
+**Context:** On the event page the host sees participants grouped Opted in / Opted out / Undecided (P1337), each row with the prep and mic marks and "understood N/10". At 375px the ear badge took the remaining width and cut every name to three letters ("P14…").
+**Decision:** Drop the ear badge on the host's grouped rows only; keep "understood N/10". Everyone else's participant list, the event room roster and every other surface keep the badge, where it stands for reputation.
+**Alternatives rejected:** Dropping the number (it is what the host acts on during the evening); dropping the badge sitewide (it means something on feed, stories and profiles).
+**Consequences:** Shipped without a browser check — the e2e assertion (no badge in the host groups, names not cut off) is written but has not run, because the test browser is missing on the dev machine. **UNTESTED.** Falsifier: on a phone, a host still sees names truncated in those groups.
+**References:** `src/app/prototypes/events/components/EventDetail.tsx`; `e2e/p1429-follow-up.spec.ts` (A2); [P1430](../features/p1430_clarity_night_host_flow_demo_preview_host_tab.md) Open Questions 2–3
+
 ## 2026-10-07 [technical]: Dropped orphan scratch table on test after Supabase RLS alert
 
 **Context:** Supabase emailed a critical `rls_disabled_in_public` alert for the test project. The
