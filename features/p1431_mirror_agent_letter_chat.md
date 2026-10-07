@@ -33,6 +33,24 @@ position and confirm … and only one thing at a time". And it is the real featu
 **Question:** What is the in-app surface where a person's mirror agent walks them, one step at a
 time, from their conversation transcript to a sent letter — and where does it live in the app?
 
+**Why it matters beyond the event night (2026-10-07, founder, `UNTESTED`).** The 2026-10-06 night
+showed that teaching the method live does not scale: a demo planned for 5-8 minutes ran 28. If the
+agent does the heavy lifting, people do not need to be taught first. They talk, the agent drafts the
+letter, they answer it (which is where the numbers come in), talk again, and the loop repeats, within
+a team as well as across a disagreement. A non-target listener explained the product back
+unprompted (2026-10-05) as "each person has a mirror agent; it finds the gaps and builds a bridge
+between them, step by step, as far as you want to follow." That is shorter than our own pitch and
+maps onto points and positions. Agent-to-agent bridging stays a non-goal (below): pitch it as the
+direction, never as built. Fast filing from any transcript also means the surface can sit behind
+other transcription sources later, not only P1390.
+
+**Relation to verify-first hackathons (2026-10-07, `UNTESTED`).** Being explored as a vehicle: teams
+verify the user's problem and each other's understanding before building. For the founder's vision
+this surface is **not optional**, because it removes the coaching bottleneck. For a first pilot
+sprint it **is** optional: the sprint must work on the method alone, with this chat used by teams
+that opt in. **Falsifier:** at a pilot sprint, opt-in teams using the chat reach a shared problem
+statement (all members 8+) no more often, or no faster, than teams doing the check without it.
+
 ## Appetite
 
 Blast radius: high — the navigation decision (whole app moves to a left sidebar) touches every page.
