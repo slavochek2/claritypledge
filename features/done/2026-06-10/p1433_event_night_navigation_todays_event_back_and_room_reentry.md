@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 24
 workstream: events
 created_date: '2026-10-07'
 tags: [events, navigation, header, room]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-07
 ---
 
 # P1433: Event-night navigation: "Today's event" everywhere, Back returns to the room, re-entry resumes
