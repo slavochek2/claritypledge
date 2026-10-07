@@ -60,6 +60,8 @@ import {
   hostEndRounds,
   roundExists,
   hostStartRound,
+  getRoundSeatKeys,
+  seatKeys,
   DEFAULT_ROUND_MINUTES,
   type EventRound,
   type RoundMinutes,
@@ -873,6 +875,8 @@ function RoundPreview({
   const [lifted, setLifted] = useState<string | null>(null);
   useEffect(() => setLifted(null), [preview.seats]);
   const onTap = (id: string) => {
+    // Start has captured the arrangement: a swap now would show tables that are not the ones saved.
+    if (busy) return;
     if (!lifted) return setLifted(id);
     if (lifted === id) return setLifted(null);
     onSwap(lifted, id);
@@ -896,7 +900,7 @@ function RoundPreview({
           phase="seating"
           marksFor={marksFor}
           lifted={lifted}
-          canSwap={id => !!lifted && lifted !== id}
+          canSwap={id => !busy && !!lifted && lifted !== id}
           onTap={onTap}
         />
       </div>
@@ -1101,6 +1105,13 @@ export function EventHostPage() {
   const startingRef = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pairHint, setPairHint] = useState<string | null>(null);
+  // A Demo's minutes live only while "One demo table" is on — never in the saved settings, so a
+  // reload cannot leave "All tables" running at Demo timings (Opus review).
+  const [demoMinutes, setDemoMinutes] = useState<RoundMinutes>(DEMO_MINUTES);
+  // The round this device just started, until the board shows it: Start stays locked meanwhile,
+  // and its arrival is never read as "started on another device" (Opus review).
+  const [pendingNo, setPendingNo] = useState<number | null>(null);
+  const pendingRef = useRef<number | null>(null);
   const recorderProfiles = useMemo(() => new Set(prepRows.filter(r => r.researchState === 'confirmed').map(r => r.profileId)), [prepRows]);
   const prepMarks = useMemo(() => prepMarksByProfile(prepRows), [prepRows]);
   const marksFor = useCallback(
@@ -1140,14 +1151,18 @@ export function EventHostPage() {
     [roster, positions],
   );
 
+  // The minutes the next round starts with: the Demo's while "One demo table" is on, else the saved ones.
+  const minutes = chosen ? demoMinutes : settings.minutes;
+  const setMinutes = (next: RoundMinutes) => (chosen ? setDemoMinutes(next) : setSettings({ ...settings, minutes: next }));
+
   // P1430: `sits_out_round` names a COUNTED round (what the host and the room read), so marking
   // someone out of "Round 1" never takes them out of the Demo before it. A Demo (displayNo null)
   // seats only the chosen, so the mark does not apply to it.
   const poolFor = useCallback(
-    (displayNo: number | null) =>
+    (displayNo: number | null, from: Map<string, RoundPresence> = presence) =>
       members
         .filter(m => {
-          const p = presence.get(m.id);
+          const p = from.get(m.id);
           return !p?.leftAt && (displayNo === null || p?.sitsOutRound !== displayNo);
         })
         .map(m => ({ id: m.id, recorder: !!m.profileId && recorderProfiles.has(m.profileId) })),
@@ -1222,9 +1237,9 @@ export function EventHostPage() {
 
   /** Who the round `roundNo` would seat: the room (less anyone out), or only the chosen for a Demo. */
   const poolIds = useCallback(
-    (roundNo: number, only: Set<string> | null) => {
+    (roundNo: number, only: Set<string> | null, from?: Map<string, RoundPresence>) => {
       const demosBefore = state.rounds.filter(r => r.showcase && r.roundNo < roundNo).length;
-      return poolFor(only ? null : roundNo - demosBefore)
+      return poolFor(only ? null : roundNo - demosBefore, from)
         .filter(p => !only || only.has(p.id))
         .map(p => p.id);
     },
@@ -1236,9 +1251,9 @@ export function EventHostPage() {
   useEffect(() => {
     if (!preview) return;
     if (state.rounds.length + 1 !== preview.roundNo) {
-      if (!startingRef.current) {
-        const started = state.rounds[state.rounds.length - 1];
-        setNotice(started ? `${roundLabel(state.rounds, started)} was started on another device.` : null);
+      const started = state.rounds[state.rounds.length - 1];
+      if (!startingRef.current && started && started.roundNo !== pendingRef.current) {
+        setNotice(`${roundLabel(state.rounds, started)} was started on another device.`);
       }
       setPreview(null);
       return;
@@ -1253,6 +1268,14 @@ export function EventHostPage() {
     }
     setPreview({ ...preview, ids, seats: compute(preview.roundNo, preview.demo ? chosen : null, preview.shuffle), changed });
   }, [preview, state.rounds, poolIds, chosen, compute, names]);
+
+  // The board has caught up with the round this device started: Start unlocks.
+  useEffect(() => {
+    if (pendingNo !== null && state.rounds.length >= pendingNo) {
+      setPendingNo(null);
+      pendingRef.current = null;
+    }
+  }, [pendingNo, state.rounds.length]);
 
   if (loading || !sessionChecked) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!event || !isHost) {
@@ -1307,6 +1330,11 @@ export function EventHostPage() {
       setError(chosen ? 'Choose at least two people to sit.' : 'Waiting for at least two people in the room.');
       return;
     }
+    // One demo table means one table (Codex review): more people than a table seats would split it.
+    if (chosen && ids.length > settings.groupSize) {
+      setError(`One demo table seats ${settings.groupSize}. Choose fewer people, or a bigger group.`);
+      return;
+    }
     group(() => setPreview({ roundNo, demo: !!chosen, seats: compute(roundNo, chosen, 0), ids, shuffle: 0, changed: null }));
   };
 
@@ -1316,43 +1344,56 @@ export function EventHostPage() {
     group(() => setPreview({ ...preview, shuffle, seats: compute(preview.roundNo, preview.demo ? chosen : null, shuffle), changed: null }));
   };
 
-  // A Demo is one round's choice: the next round seats the room again, at the standard minutes.
-  const afterStart = (demo: boolean) => {
+  // A Demo is one round's choice: the next round seats the room again (its minutes were never saved).
+  const afterStart = (roundNo: number, demo: boolean) => {
+    pendingRef.current = roundNo;
+    setPendingNo(roundNo);
     setPreview(null);
     if (!demo) return;
     setChosen(null);
     setPairHint(null);
-    setSettings({ ...settings, minutes: STANDARD_MINUTES });
   };
 
-  const startPreview = () => {
-    if (!preview) return;
+  const startPreview = async () => {
+    if (!preview || busy) return;
     const only = preview.demo ? chosen : null;
-    // The room may have moved since the last poll was applied: never start an arrangement that
-    // seats someone who left, or leaves out someone who arrived.
-    const ids = poolIds(preview.roundNo, only);
+    const label = preview.demo ? 'Demo' : nextRoundLabel(state.rounds, false);
+    // Re-read who is here at the moment of Start, not as of the last 4-second poll (Codex review):
+    // never start an arrangement that seats someone who left, or leaves out someone who arrived.
+    setBusy('saving');
+    const fresh = await withDeadline(getRoundPresence(event.id), 3_000).catch(() => presence);
+    setBusy(null);
+    const ids = poolIds(preview.roundNo, only, fresh);
     const changed = whoChanged(preview.ids, ids, names);
     if (changed) {
-      setPreview({ ...preview, ids, seats: compute(preview.roundNo, only, preview.shuffle), changed });
+      setPresence(fresh); // the preview effect rebuilds the tables and names who changed
       return;
     }
     const { roundNo, seats: planned, demo } = preview;
+    const plannedKeys = seatKeys(planned);
     const roundTag =
       !demo && settings.matchTag.trim() && settings.matchTag.trim() !== event.statementTag ? settings.matchTag.trim() : null;
     startingRef.current = true;
     void run(
       async signal => {
-        const id = await hostStartRound(event.id, roundNo, settings.groupSize, planned, settings.minutes, settings.splitSpeakers, signal, {
+        const id = await hostStartRound(event.id, roundNo, settings.groupSize, planned, minutes, settings.splitSpeakers, signal, {
           matchTag: roundTag,
           showcase: demo,
         });
-        afterStart(demo);
+        afterStart(roundNo, demo);
         return id;
       },
-      // A lost answer for a start that did land: the same reset (Codex review).
-      signal => roundExists(event.id, roundNo, signal).then(ok => {
-        if (ok) afterStart(demo);
-        return ok;
+      // The answer was lost, or the start was refused: did OUR arrangement land? A round with other
+      // seats is another host device's start, not ours (Codex + Opus review).
+      signal => getRoundSeatKeys(event.id, roundNo, signal).then(keys => {
+        if (!keys) return false;
+        if (keys.join() === plannedKeys.join()) {
+          afterStart(roundNo, demo);
+        } else {
+          setPreview(null);
+          setNotice(`${label} was started on another device.`);
+        }
+        return true;
       }),
     ).finally(() => {
       startingRef.current = false;
@@ -1382,7 +1423,8 @@ export function EventHostPage() {
     if (demo === !!chosen) return;
     setChosen(demo ? new Set() : null);
     setPairHint(null);
-    setSettings({ ...settings, minutes: demo ? DEMO_MINUTES : STANDARD_MINUTES });
+    if (demo) setDemoMinutes(DEMO_MINUTES);
+    else setSettings({ ...settings, minutes: STANDARD_MINUTES });
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
@@ -1597,7 +1639,7 @@ export function EventHostPage() {
               variant="outline"
               className="mt-4 w-full min-h-12 text-base"
               onClick={openPreview}
-              disabled={!!busy || !loaded}
+              disabled={!!busy || !loaded || pendingNo !== null}
               data-testid="host-reopen"
             >
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : `Reopen: ${startLabel.charAt(0).toLowerCase()}${startLabel.slice(1)}`}
@@ -1628,7 +1670,7 @@ export function EventHostPage() {
               type="button"
               className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
               onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
-              disabled={!!busy || !loaded}
+              disabled={!!busy || !loaded || pendingNo !== null}
               data-testid="host-primary"
             >
               {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
@@ -1712,19 +1754,24 @@ export function EventHostPage() {
                   />
                   {chosen && (
                     <div className="space-y-2" data-testid="host-choose">
-                      <p className="text-xs text-muted-foreground">{chosen.size} chosen · everyone else watches</p>
+                      <p className="text-xs text-muted-foreground" data-testid="host-choose-count">
+                        {chosen.size} of {settings.groupSize} chosen · everyone else watches
+                      </p>
                       <div className="flex flex-wrap gap-1.5">
                         {/* Volunteers (confirmed recorders) first: they are who the host asks. */}
                         {[...here]
                           .sort((a, b) => Number(!!b.profileId && recorderProfiles.has(b.profileId)) - Number(!!a.profileId && recorderProfiles.has(a.profileId)))
                           .map(m => {
                             const on = chosen.has(m.id);
+                            // One table: once it is full, only a chosen name can be tapped (to free a seat).
+                            const full = !on && chosen.size >= settings.groupSize;
                             const volunteer = !!m.profileId && recorderProfiles.has(m.profileId);
                             return (
                               <button
                                 key={m.id}
                                 type="button"
                                 aria-pressed={on}
+                                disabled={full}
                                 onClick={() => {
                                   setPairHint(null);
                                   setChosen(prev => {
@@ -1737,6 +1784,7 @@ export function EventHostPage() {
                                 className={cn(
                                   'inline-flex min-h-11 items-center gap-1 rounded-full border px-3 text-sm',
                                   on ? 'border-blue-500 bg-blue-50 font-medium text-blue-700' : 'border-border bg-background text-muted-foreground',
+                                  full && 'cursor-not-allowed opacity-50',
                                 )}
                                 data-testid="host-choose-person"
                                 data-volunteer={volunteer ? 'true' : undefined}
@@ -1814,15 +1862,10 @@ export function EventHostPage() {
                     ]}
                     onChange={v => {
                       const split = v === 'split';
-                      setSettings({
-                        ...settings,
-                        splitSpeakers: split,
-                        // An odd "Talk" leaves half minutes per speaker; swapping shows whole
-                        // minutes, so store what it shows (Codex review).
-                        minutes: split
-                          ? { ...settings.minutes, speakerS: Math.max(60, Math.round(settings.minutes.speakerS / 60) * 60) }
-                          : settings.minutes,
-                      });
+                      setSettings({ ...settings, splitSpeakers: split });
+                      // An odd "Talk" leaves half minutes per speaker; swapping shows whole
+                      // minutes, so store what it shows (Codex review).
+                      if (split) setMinutes({ ...minutes, speakerS: Math.max(60, Math.round(minutes.speakerS / 60) * 60) });
                     }}
                   />
                   <div className="space-y-1" data-testid="host-minutes">
@@ -1831,12 +1874,9 @@ export function EventHostPage() {
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
                       const factor = f.key === 'speakerS' && !settings.splitSpeakers ? 2 : 1;
                       const label = factor === 2 ? 'Talk' : f.label;
-                      const value = settings.minutes[f.key] * factor;
+                      const value = minutes[f.key] * factor;
                       const set = (next: number) =>
-                        setSettings({
-                          ...settings,
-                          minutes: { ...settings.minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor },
-                        });
+                        setMinutes({ ...minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor });
                       const unit = f.step < 60 ? `${f.step} seconds` : 'one minute';
                       return (
                         <div key={f.key} className="flex items-center justify-between gap-3">

@@ -65,7 +65,7 @@ test.describe('P1337 — host panel, walkthrough 6', () => {
     await expect(page.getByTestId('host-match-tag')).toHaveCount(0);
     await page.getByTestId('host-choose-person').filter({ hasText: 'Bo' }).click();
     await page.getByTestId('host-choose-person').filter({ hasText: 'Cid' }).click();
-    await expect(page.getByTestId('host-choose')).toContainText('2 chosen');
+    await expect(page.getByTestId('host-choose')).toContainText('2 of 3 chosen');
     await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Demo');
 

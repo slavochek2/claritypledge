@@ -194,6 +194,25 @@ export async function roundExists(eventId: string, roundNo: number, signal?: Abo
   return (data ?? []).length > 0;
 }
 
+/** P1430: the seats of round `roundNo` as sorted "member:table:role" keys, or null when there is no
+ * such round. A start whose answer was lost compares these with the arrangement it sent: the same
+ * keys mean ours landed; different keys mean another host device started that round first. */
+export async function getRoundSeatKeys(eventId: string, roundNo: number, signal?: AbortSignal): Promise<string[] | null> {
+  const query = supabase.from('event_rounds').select('id').eq('event_id', eventId).eq('round_no', roundNo).limit(1);
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
+  if (error) throw error;
+  const id = (data as { id: string }[] | null)?.[0]?.id;
+  if (!id) return null;
+  const seatsQuery = supabase.from('event_round_seats').select('room_member_id, table_no, role').eq('round_id', id);
+  const { data: seats, error: seatsError } = await (signal ? seatsQuery.abortSignal(signal) : seatsQuery);
+  if (seatsError) throw seatsError;
+  return seatKeys((seats as { room_member_id: string; table_no: number; role: SeatRole }[]).map(s => ({ id: s.room_member_id, table: s.table_no, role: s.role })));
+}
+
+export function seatKeys(seats: Seat[]): string[] {
+  return seats.map(s => `${s.id}:${s.table}:${s.role}`).sort();
+}
+
 /** "+1 min" on the running round: one more minute on the part running now. */
 export async function hostExtendRound(
   roundId: string,

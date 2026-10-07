@@ -80,6 +80,10 @@ test.describe('P1430 — preview, Demo, presets', () => {
     // Tables steps in 30 s.
     await page.getByRole('button', { name: 'Tables: 30 seconds more' }).click();
     await expect(page.getByTestId('host-minutes-seatingS')).toHaveText('1 min');
+    // One demo table is one table: at group size 3, a fourth name cannot be added.
+    for (const name of ['Ava', 'Bo', 'Cid']) await page.getByTestId('host-choose-person').filter({ hasText: name }).click();
+    await expect(page.getByTestId('host-choose-count')).toContainText('3 of 3 chosen');
+    await expect(page.getByTestId('host-choose-person').filter({ hasText: 'Dot' })).toBeDisabled();
     await page.getByTestId('host-who-all').click();
     expect(await minutes()).toEqual(['1 min', '6 min', '3 min']);
     await expect(page.getByTestId('host-match-tag')).toBeVisible();
