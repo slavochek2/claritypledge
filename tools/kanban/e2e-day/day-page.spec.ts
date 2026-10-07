@@ -1896,7 +1896,8 @@ test.describe('P1435: see what needs you and decide without scrolling', () => {
   const inView = async (page: Page, sel: string) => {
     const r = await page.locator(sel).first().boundingBox()
     const bar = await page.locator('[data-bottom-bar]').boundingBox()
-    return !!r && !!bar && r.y >= 0 && r.y + r.height <= bar.y
+    const vh = must(page.viewportSize(), 'viewport').height
+    return !!r && !!bar && r.y >= 0 && r.y + r.height <= Math.min(bar.y, vh)
   }
   const reflTab = (page: Page) => page.locator('.d-tabs').getByRole('tab', { name: 'Reflection' })
 

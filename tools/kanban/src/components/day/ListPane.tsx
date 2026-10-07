@@ -3,7 +3,7 @@
 // card, so the card starts at the top of the page; on a narrow one it folds to one line that leads
 // with what still needs the founder, and folds again after a pick.
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 export interface ListRow {
   key: string
@@ -30,9 +30,10 @@ interface Props {
 
 export function ListPane({ label, rows, current, summary, allDone, onPick, extra }: Props) {
   const [open, setOpen] = useState(false)
+  const rowsId = useId()
   return (
     <nav className={`d-card d-clist ${open ? 'open' : ''}`} aria-label={label} data-card-list>
-      <button type="button" className="d-fold d-cltog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="d-fold d-cltog" aria-expanded={open} aria-controls={rowsId} onClick={() => setOpen((o) => !o)}>
         <span className="d-tri">▶</span>
         {summary}
       </button>
@@ -40,7 +41,7 @@ export function ListPane({ label, rows, current, summary, allDone, onPick, extra
         {allDone && '✓ '}
         {summary}
       </div>
-      <ul className="d-clrows">
+      <ul className="d-clrows" id={rowsId}>
         {rows.map((r, k) => (
           <li key={r.key}>
             <button
