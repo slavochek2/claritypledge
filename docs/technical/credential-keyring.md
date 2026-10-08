@@ -254,6 +254,15 @@ Creating the item and setting its empty ACL happen in one call — doing it in t
 makes macOS treat it as *modifying* an item and prompt during enrollment
 (measured: `OSStatus -128`).
 
+## The gate-override approval item (P1444)
+
+Not a credential: a dedicated keychain item whose only job is to raise the per-access dialog when
+`./scripts/git-ops.sh ship pN --override --reason "..."` needs the founder's one-click approval for
+a red closure gate. Enrol once with `./scripts/keyring.sh approve-enroll`; check it with
+`./scripts/keyring.sh approve-verify`. Its access list is verified before and after every read, so
+"Always Allow" is refused. It is friction plus a human-presence check, not proven unforgeable
+against UI scripting (P1444 spec).
+
 ## What is NOT covered
 
 - **The CI-side copy** of the direct-DB credential. It is read from the CI
