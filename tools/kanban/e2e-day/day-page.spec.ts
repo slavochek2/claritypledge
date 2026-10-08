@@ -1309,9 +1309,13 @@ test.describe('Phase D: one custom option', () => {
     await expect(card(page).locator('[data-own-text]')).toHaveText('old question?')
     await expect(card(page).locator('textarea')).toHaveCount(0)
     expect(await card(page).locator('input[type=radio]:enabled').count()).toBe(0)
-    // P1445 E: that run's agent work is a read-only list — titles and state, nothing to answer
+    // a card recommended for the agent that the founder answered himself is HIS: it stays in the pager
+    // with his text (P1445 E, Codex review), never hidden in the agent list
+    await nextBtn(page).click()
+    await expect(cardTitle(page)).toHaveText('Some guests may be turned away on Tuesday')
+    await expect(card(page).locator('[data-own-text]')).toHaveText('old other answer')
     await openAgentList(page)
-    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Some guests may be turned away on Tuesday' })).toHaveCount(1)
+    await expect(agentList(page).locator('[data-agent-item]').filter({ hasText: 'Some guests may be turned away on Tuesday' })).toHaveCount(0)
     await expect(agentList(page).locator('input, textarea')).toHaveCount(0)
   })
 })
@@ -2372,6 +2376,8 @@ test.describe('P1445 D: the reflection card is CP\'s point card, with "Agent on 
     expect(await clear.evaluate((e) => getComputedStyle(e).color)).toBe('rgb(220, 38, 38)')
     // the card frame is CP's too: its left stripe (border-l-4 border-l-slate-300) is drawn
     expect(await card.locator('article').evaluate((e) => [getComputedStyle(e).borderLeftWidth, getComputedStyle(e).borderLeftStyle])).toEqual(['4px', 'solid'])
+    // CP's bg-card resolves to CP's white, not to the board's own --card (Opus review)
+    expect(await card.locator('article').evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)')
     await clear.click()
     await expect(card.locator('[aria-pressed=true]')).toHaveCount(0)
   })

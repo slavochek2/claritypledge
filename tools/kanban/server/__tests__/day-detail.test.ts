@@ -26,3 +26,17 @@ describe('restates / cardDetail', () => {
     expect(d.dropped).toEqual([])
   })
 })
+
+describe('P1445 F, Codex review: a field that adds a fact is never dropped', () => {
+  it.each([
+    ['Backup is encrypted', 'Backup is not encrypted'],
+    ["Backup is encrypted", "Backup isn't encrypted"],
+    ['Budget is 10 EUR', 'Budget is 20 EUR'],
+    ['The nightly backup job failed', 'The nightly backup job failed yesterday'],
+  ])('title %j, field %j → kept', (title, field) => {
+    expect(restates(field, title)).toBe(false)
+  })
+  it('CONTROL — the same words reordered still restate', () => {
+    expect(restates('Encrypted, the backup is.', 'Backup is encrypted')).toBe(true)
+  })
+})

@@ -235,8 +235,11 @@ export function DayPage() {
    * P1445 E: a card that needs no founder action is not a card. The pager walks only the founder's
    * cards (each one has Accept); agent work is a list under the card, still sent by Start fixing.
    */
-  const yours = useMemo(() => everyIssue.filter((i) => !isAgentWork(i)), [everyIssue])
-  const agentCards = useMemo(() => everyIssue.filter(isAgentWork), [everyIssue])
+  // A card recommended for the agent that the founder answered otherwise (his own question, Park, a
+  // different option) is his: it stays a card, never hidden in the list (Codex review).
+  const agentOnly = (i: IssueView) => isAgentWork(i) && (!i.decision || i.options.find((o) => o.id === i.decision?.option_id)?.agent === true)
+  const yours = useMemo(() => everyIssue.filter((i) => !agentOnly(i)), [everyIssue])
+  const agentCards = useMemo(() => everyIssue.filter(agentOnly), [everyIssue])
   const issues = yours
   const issueIdx = idx.yours
   const setIssueIdx = useCallback((i: number) => setIdx({ yours: i }), [])

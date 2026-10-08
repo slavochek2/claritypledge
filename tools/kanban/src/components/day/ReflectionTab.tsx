@@ -143,6 +143,8 @@ export function ReflectionTab({ statements, view, readOnly, index, onPosition, o
               {s.review && <span className="d-runbadge sm">{s.review === 'weekly' ? 'Weekly review' : 'Monthly review'}</span>}
               <div className="mt-2" role="group" aria-label="Your position" data-position-control>
                 <PositionButtons
+                  // a statement of its own: a menu left open never carries over to the next one (Codex review)
+                  key={s.id}
                   userPosition={pos === null ? null : toName(pos)}
                   counts={NO_COUNTS}
                   onPositionClick={(p) => onPosition(s.id, fromName(p))}

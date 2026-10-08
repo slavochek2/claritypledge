@@ -17,7 +17,9 @@ export const APPROVED = [
 const FORBIDDEN = /supabase|mixpanel|analytics|sentry|posthog|(^|\/)auth|contexts?\/|\/hooks\/|\/services?\/|\/api\/|\/lib\/(api|db|telemetry)/i
 
 const EXT = ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.tsx']
-const IMPORT = /(?:^|\n)\s*(import|export)\s+(type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g
+// static import / export-from at a line start OR after a `;` or `}` on the same line; dynamic import()
+// with any spacing and any quote (Codex review: `import (…)`, template literals and `x; export … from` slipped through)
+const IMPORT = /(?:^|[\n;{}])\s*(import|export)\s+(type\s+)?(?:[^'"`;]*?\s+from\s+)?['"`]([^'"`]+)['"`]|\b(?:import|require)\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)*['"`]([^'"`]+)['"`]|\bimport\.meta\.glob\s*\(\s*['"`]([^'"`]+)['"`]/g
 
 function resolveFile(base: string): string | null {
   for (const e of EXT) {
@@ -42,7 +44,7 @@ export function boundaryOffenders(boardSrc: string, repo: string, approved = APP
     const text = readFileSync(file, 'utf-8')
     for (const m of text.matchAll(IMPORT)) {
       if (m[2]) continue // import type / export type: erased at build
-      const spec = m[3] ?? m[4]
+      const spec = m[3] ?? m[4] ?? m[5]
       const who = relative(repo, file)
       if (FORBIDDEN.test(spec)) {
         out.push(`${who} → ${spec}: product state`)

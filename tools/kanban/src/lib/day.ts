@@ -1534,16 +1534,22 @@ export function runWarnings(report: Pick<DayReport, 'state' | 'started_at'>, now
 const DETAIL_STOP = new Set(
   'the a an and or of to in on at for with by is are was were be been it its this that these those as from into not no but so if then than there their our your we you they he she i'.split(' '),
 )
-const contentWords = (s: string): string[] => (s.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => w.length > 2 && !DETAIL_STOP.has(w))
-/** At least this share of a field's content words already said → the field restates. */
-const RESTATE_SHARE = 0.8
+/** Negations change what a sentence says: they always count, however short. */
+const NEGATION = new Set(['not', 'no', 'never', 'without', 'nor', 'none', 'cannot', 'isn', 'wasn', 'aren', 'doesn', 'didn', 'won', 'can'])
+/** Content words, every number (any length) and every negation — the things a fact is made of. */
+const contentWords = (s: string): string[] =>
+  (s.toLowerCase().replace(/n['’]t\b/g, ' not').match(/[a-z0-9]+(?:[.,][0-9]+)*/g) ?? []).filter((w) => /[0-9]/.test(w) || NEGATION.has(w) || (w.length > 2 && !DETAIL_STOP.has(w)))
 
-/** Does `field` say nothing beyond `said`? An empty field restates trivially. */
+/**
+ * Does `field` say nothing beyond `said`? Only when EVERY word, number and negation in it was already
+ * said (Codex review: a share threshold dropped "not encrypted", "20 EUR" and "yesterday"). An empty
+ * field restates trivially.
+ */
 export function restates(field: string, ...said: string[]): boolean {
   const w = contentWords(field)
   if (!w.length) return true
   const known = new Set(said.flatMap(contentWords))
-  return w.filter((x) => known.has(x)).length / w.length >= RESTATE_SHARE
+  return w.every((x) => known.has(x))
 }
 
 export type DetailKey = 'point_a' | 'obstacle' | 'point_b' | 'evidence_text' | 'more_info'

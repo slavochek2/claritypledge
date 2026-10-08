@@ -425,7 +425,7 @@ function IssueCard(p: Props) {
       <>
         <div className="d-card d-row">
           <span className="d-ic ok">✓</span>
-          <b>No issues today</b>
+          <b>{p.agent.items.length ? "Nothing needs you" : "No issues today"}</b>
         </div>
       </>
     )

@@ -1147,6 +1147,33 @@ describe('P1445 D (replaces P1399 rule 10): the board reaches CP only through ap
     }
   })
 
+  it('FAILING CONTROL — spaced, template-literal and same-line export-from imports are caught too (Codex review)', async () => {
+    const tmp = await mkdtemp(join(repo, 'tools/kanban/.boundary-'))
+    try {
+      await mkdir(join(tmp, 'src'), { recursive: true })
+      await writeFile(join(tmp, 'src/a.ts'), "const m = import ('@/lib/mixpanel')\n")
+      await writeFile(join(tmp, 'src/b.ts'), 'const m = import(`@/lib/supabase`)\n')
+      await writeFile(join(tmp, 'src/c.ts'), "const x = 1; export { analytics } from '@/lib/mixpanel'\n")
+      // Opus review: require, a comment inside import(), an import after a statement, import.meta.glob
+      await writeFile(join(tmp, 'src/d.ts'), "const r = require('@/lib/mixpanel')\n")
+      await writeFile(join(tmp, 'src/e.ts'), "const m = import(/* webpackChunkName: 'x' */ '@/lib/supabase')\n")
+      await writeFile(join(tmp, 'src/f.ts'), "export const z = 1; import { s } from '@/lib/supabase'\n")
+      await writeFile(join(tmp, 'src/g.ts'), "const all = import.meta.glob('@/lib/supabase')\n")
+      const out = boundaryOffenders(join(tmp, 'src'), repo)
+      expect(out.map((l) => l.replace(/^.*\/(\w\.ts)/, '$1')).sort()).toEqual([
+        'a.ts → @/lib/mixpanel: product state',
+        'b.ts → @/lib/supabase: product state',
+        'c.ts → @/lib/mixpanel: product state',
+        'd.ts → @/lib/mixpanel: product state',
+        'e.ts → @/lib/supabase: product state',
+        'f.ts → @/lib/supabase: product state',
+        'g.ts → @/lib/supabase: product state',
+      ])
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
   it('FAILING CONTROL — an approved renderer that imports product state is caught transitively', async () => {
     const tmp = await mkdtemp(join(repo, 'tools/kanban/.boundary-'))
     try {

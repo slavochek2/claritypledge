@@ -23,7 +23,8 @@ export function cpTokens(): Plugin {
       const m = /:root\s*\{([^}]*)\}/.exec(css)
       if (!m) throw new Error('cp-tokens: no :root block in CP src/index.css')
       this.addWatchFile(`${CP_SRC}/index.css`)
-      return `.cp-scope {${m[1]}}\n`
+      // on .cp-reset too: the card's wrapper sits inside .day-root, whose own --card would win otherwise
+      return `.cp-scope, .cp-reset {${m[1]}}\n`
     },
   }
 }
