@@ -28,7 +28,7 @@ If local schema doesn't match prod, that's a migration bug — not a reason to q
 | Table list | `mcp__supabase__list_tables` | No |
 | Migration status | `mcp__supabase__list_migrations` | No |
 | Live row counts/data | `curl` GET against REST API (state env explicitly) | No |
-| Data mutations | `curl` POST/PATCH against REST API (state env explicitly) | Yes — always ask user |
+| Data mutations | `curl` POST/PATCH against REST API (state env explicitly); find the credential via CLAUDE.md § Private vs Public Files | Yes — always ask user |
 | Ad-hoc SQL | `mcp__supabase__execute_sql` | Yes — **schema discovery: never; debugging/RLS: when curl can't** |
 
 **Key rule:** Everything read-only should require zero approval prompts. If you're about to use a tool that needs user approval just to *look* at something, you're using the wrong tool.
