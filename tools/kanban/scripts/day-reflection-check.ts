@@ -47,8 +47,12 @@ const MAX_STORY = 900
 const MAX_QUOTE = 300
 const MAX_SOURCES = 6
 const REF = /^[DCSF][1-9][0-9]{0,3}$/
+/** a quote shorter than this proves nothing (one letter is a substring of almost anything) */
+const MIN_QUOTE_WORDS = 3
+const ID = /^r[1-9][0-9]?$/
 
-export interface AgentSource { ref: string; quote: string }
+/** ref: the grounding id (D1, C2 …) — kept so a merged file can be checked again; source: the stable reference, set by --quotes */
+export interface AgentSource { ref: string; quote: string; source?: string }
 export interface AgentView { name: string; position: number; story: string; sources: AgentSource[]; checker?: 'pass' }
 export interface Statement { id: string; text: string; review?: 'weekly' | 'monthly'; agent: AgentView }
 export interface Reflection { model: string; statements: Statement[] }
@@ -56,12 +60,19 @@ export interface Reflection { model: string; statements: Statement[] }
 const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 /** spacing, markdown bold and code ticks do not change what a sentence says */
 const norm = (s: string) => s.replace(/\*\*|`/g, '').replace(/\s+/g, ' ').trim()
+const escapeRx0 = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** the quote appears in the text as whole words (not "o" inside "login") */
+const contains = (text: string, quote: string) => new RegExp(`(?:^|[^A-Za-z0-9])${escapeRx0(quote)}(?:$|[^A-Za-z0-9])`).test(text)
 
 class Refused extends Error {}
 
 // ------------------------------------------------------------------ --parse
 
-export function parseReply(reply: string): Reflection {
+/**
+ * rewrite: the ids the writer was asked to redo (round 2). The reply then holds exactly those
+ * statements, each carrying its own "id", and keeps it — so its second verdict lines up with its first.
+ */
+export function parseReply(reply: string, rewrite?: string[]): Reflection {
   let model = 'unknown'
   const rest: string[] = []
   for (const line of reply.split('\n')) {
@@ -78,9 +89,18 @@ export function parseReply(reply: string): Reflection {
   }
   if (!isObj(o) || !Array.isArray(o.statements)) throw new Refused('the JSON has no "statements" list')
   const raw = o.statements
-  if (raw.length < 3 || raw.length > 5) throw new Refused(`need 3 to 5 statements, got ${raw.length}`)
+  if (rewrite) {
+    if (raw.length !== rewrite.length) throw new Refused(`the rewrite must hold exactly ${rewrite.join(', ')}, got ${raw.length} statements`)
+  } else if (raw.length < 3 || raw.length > 5) throw new Refused(`need 3 to 5 statements, got ${raw.length}`)
+  const ids = new Set<string>()
   const statements = raw.map((x, i): Statement => {
-    const id = `r${i + 1}`
+    let id = `r${i + 1}`
+    if (rewrite) {
+      const own = isObj(x) && typeof x.id === 'string' ? x.id : ''
+      if (!rewrite.includes(own) || ids.has(own)) throw new Refused(`statement ${i + 1} of the rewrite must carry one of the ids ${rewrite.join(', ')} once`)
+      id = own
+      ids.add(own)
+    }
     if (!isObj(x) || typeof x.text !== 'string' || !x.text.trim()) throw new Refused(`${id}: no statement text`)
     const text = x.text.replace(/\s+/g, ' ').trim()
     if (text.length > MAX_STATEMENT) throw new Refused(`${id}: statement over ${MAX_STATEMENT} characters: ${text.slice(0, 40)}`)
@@ -95,6 +115,7 @@ export function parseReply(reply: string): Reflection {
     const sources = a.sources.map((s, k): AgentSource => {
       if (!isObj(s) || typeof s.ref !== 'string' || !REF.test(s.ref.trim())) throw new Refused(`${id}: source ${k + 1} has no id like D1, C2, S3 or F4`)
       if (typeof s.quote !== 'string' || !norm(s.quote)) throw new Refused(`${id}: source ${s.ref} has no quote`)
+      if (norm(s.quote).split(' ').length < MIN_QUOTE_WORDS) throw new Refused(`${id}: the quote from ${s.ref} is under ${MIN_QUOTE_WORDS} words`)
       if (s.quote.length > MAX_QUOTE) throw new Refused(`${id}: the quote from ${s.ref} is over ${MAX_QUOTE} characters`)
       return { ref: s.ref.trim(), quote: s.quote.trim() }
     })
@@ -210,28 +231,37 @@ export async function checkQuotes(r: Reflection, sources: Record<string, Source>
           miss(`unavailable (no section "${src.heading.slice(0, 60)}" in ${src.source} decisions)`)
           continue
         }
-        found = norm(`${sec.heading}\n${sec.body}`).includes(want)
+        found = contains(norm(`${sec.heading}\n${sec.body}`), want)
       } else if (src.kind === 'conversation') {
         if (typeof hits === 'string') {
           miss(`unavailable (${hits})`)
           continue
         }
         const turns = hits.filter((h) => h.session === src.session && h.ts === src.ts && h.role === 'user')
-        found = turns.some((h) => norm(h.text).includes(want))
+        found = turns.some((h) => contains(norm(h.text), want))
       } else if (src.kind === 'story') {
         const e = stories().find((x) => x.run_id === src.run_id && x.target === src.target && x.hash === src.hash)
         if (!e) {
           miss('unavailable (the story was edited or removed since)')
           continue
         }
-        found = norm(e.story).includes(want)
-      } else found = norm(src.title).includes(want)
+        found = contains(norm(e.story), want)
+      } else found = contains(norm(src.title), want)
       if (!found) miss('not found in that source')
-      else resolved.push({ ref: stableRef(src), quote: q.quote })
+      else resolved.push({ ref: q.ref, quote: q.quote, source: stableRef(src) })
     }
     out.statements.push({ ...st, agent: { ...st.agent, sources: resolved } })
   }
   return { out, misses }
+}
+
+// ------------------------------------------------------------------ --merge
+
+/** Round 2: the rewritten statements (already through step 4) replace theirs in the base, by id. */
+export function merge(base: Reflection, rewritten: Reflection): Reflection {
+  const by = new Map(rewritten.statements.map((s) => [s.id, s]))
+  for (const id of by.keys()) if (!base.statements.some((s) => s.id === id)) throw new Refused(`${id} is not in the base candidate`)
+  return { ...base, statements: base.statements.map((s) => by.get(s.id) ?? s) }
 }
 
 // ------------------------------------------------------------------ --finalize
@@ -246,7 +276,10 @@ export function finalize(r: Reflection, verdicts: unknown): { out: Reflection; d
       throw new Refused(`${st.id} has no checker verdict: never published unchecked`)
     const fails = v.filter((x) => /^fail/i.test(x.trim())).length
     const last = (v[v.length - 1] as string).trim().toLowerCase()
-    if (last.startsWith('pass')) kept.push({ ...st, agent: { ...st.agent, checker: 'pass' } })
+    if (last.startsWith('pass')) {
+      if (!st.agent.sources.length || st.agent.sources.some((q) => !q.source)) throw new Refused(`${st.id} has a source the quote check never resolved: run --quotes first`)
+      kept.push({ ...st, agent: { ...st.agent, checker: 'pass', sources: st.agent.sources.map((q) => ({ ref: q.source as string, quote: q.quote })) } })
+    }
     else if (fails >= 2) dropped.push(st)
     else throw new Refused(`${st.id} failed the checker once and was not checked again after a rewrite: never published unchecked`)
   }
@@ -255,7 +288,7 @@ export function finalize(r: Reflection, verdicts: unknown): { out: Reflection; d
 
 // ------------------------------------------------------------------ cli
 
-const USAGE = 'usage: --parse | --quotes --sources FILE --day-dir DIR [--hist BIN] | --finalize --verdicts FILE'
+const USAGE = 'usage: --parse [--rewrite r2,r4] | --merge --base FILE | --quotes --sources FILE --day-dir DIR [--hist BIN] | --finalize --verdicts FILE'
 
 export async function run(argv: string[], stdin: string, io: IO): Promise<number> {
   const say = (m: string) => io.err(`day-reflection-check: ${m}\n`)
@@ -264,8 +297,29 @@ export async function run(argv: string[], stdin: string, io: IO): Promise<number
     return i >= 0 ? argv[i + 1] : undefined
   }
   try {
-    if (argv[0] === '--parse' && argv.length === 1) {
-      io.out(JSON.stringify(parseReply(stdin)))
+    if (argv[0] === '--parse' && (argv.length === 1 || (argv.length === 3 && argv[1] === '--rewrite'))) {
+      const ids = argv[2]?.split(',').map((x) => x.trim())
+      if (ids && (!ids.length || !ids.every((x) => ID.test(x)))) {
+        say('--rewrite takes statement ids like r2,r4')
+        return 2
+      }
+      io.out(JSON.stringify(parseReply(stdin, ids)))
+      return 0
+    }
+    if (argv[0] === '--merge') {
+      const bf = opt('--base')
+      if (!bf) {
+        say(USAGE)
+        return 2
+      }
+      let base: Reflection
+      try {
+        base = readReflection(readFileSync(bf, 'utf-8'))
+      } catch (e) {
+        say(e instanceof Refused ? `--base: ${e.message}` : `cannot read --base ${bf}`)
+        return 2
+      }
+      io.out(JSON.stringify(merge(base, readReflection(stdin))))
       return 0
     }
     if (argv[0] === '--quotes') {

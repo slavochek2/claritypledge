@@ -60,9 +60,11 @@ read files: paste the facts, `history.txt` and `grounding0.txt` **inline**.
 The drafts' own words are the best query for what is already known about them:
 
 ```bash
-TERMS="$(tr 'A-Z' 'a-z' <<'DRAFTS' | grep -oE '[a-z]{5,}' | sort -u | head -20 | paste -sd, -)"
+cat > "$W/drafts.txt" <<'DRAFTS'
 <the drafts, exactly as returned>
 DRAFTS
+# a heredoc inside $( ) is split into commands by zsh: read the drafts from the file instead
+TERMS="$(tr 'A-Z' 'a-z' < "$W/drafts.txt" | grep -oE '[a-z]{5,}' | sort -u | paste -sd, -)"
 (cd "$KB" && npx tsx scripts/day-reflection-context.ts --day-dir "$HOME/.claude-day" \
    --findings "$W/findings.txt" --terms "$TERMS" --sources-out "$W/sources.json") > "$W/grounding.txt"
 ```
@@ -114,17 +116,29 @@ inline: each statement with the agent's position, story and sources (ref + quote
 > the opposite side; or the story mostly restates the statement. One line per statement, nothing else.
 
 Record the verdicts as `{"r1":["pass"],"r2":["fail: …"]}` in `$W/verdicts.json`. For every fail,
-send the writer the checker's reason and ask for that statement again (round 2); run step 4 on the
-reply, merge the rewritten statements into `candidate.json`, and check them again with the **same**
-checker, appending the second verdict (`"r2":["fail: …","pass"]`). A statement gets at most two
-rounds.
+send the writer the checker's reasons and ask for **only those statements** again (round 2), in the
+same JSON shape with each statement's `"id"` kept (`{"statements":[{"id":"r2","text":…,"agent":…}]}`).
+Run them through step 4 with `--parse --rewrite r2,…` in place of `--parse`, into `$W/rewrite.json`,
+then merge and re-check the whole file:
+
+```bash
+(cd "$KB" && npx tsx scripts/day-reflection-check.ts --merge --base "$W/candidate.json") < "$W/rewrite.json" \
+  | (cd "$KB" && npx tsx scripts/day-reflection-check.ts --quotes --sources "$W/sources.json" --day-dir "$HOME/.claude-day") \
+  > "$W/candidate2.json" && mv "$W/candidate2.json" "$W/candidate.json"
+```
+
+Check the rewritten statements again with the **same** checker and append the second verdict
+(`"r2":["fail: …","pass"]`). A statement gets at most two rounds. Quotes are copied from the source
+text itself: a quote must not run across a `…` the grounding line added, and must be at least three
+words, matched as whole words.
 
 ## 6. Record
 
 ```bash
-(cd "$KB" && npx tsx scripts/day-reflection-check.ts --finalize --verdicts "$W/verdicts.json") < "$W/candidate.json" \
-  2> "$W/dropped.txt" | ~/.claude/scripts/day-step.sh data reflection
-cat "$W/dropped.txt"
+(cd "$KB" && npx tsx scripts/day-reflection-check.ts --finalize --verdicts "$W/verdicts.json") \
+  < "$W/candidate.json" > "$W/final.json" 2> "$W/dropped.txt"; FIN=$?
+cat "$W/dropped.txt"   # exit 0: "dropped rN …" lines · exit 1: all dropped · exit 2: a REFUSAL (unchecked), not a drop
+[ "$FIN" -eq 0 ] && ~/.claude/scripts/day-step.sh data reflection < "$W/final.json"
 ~/.claude/scripts/day-step.sh attest disp.9r --evidence "writer <MODEL line>; N kept, checker verdicts r1 pass …; <dropped.txt lines or 'none dropped'>; <the Coverage line>; <MISSING lines or 'nothing missing'>"
 ```
 

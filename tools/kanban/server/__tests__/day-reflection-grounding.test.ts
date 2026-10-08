@@ -147,8 +147,8 @@ describe('P1445 C: --parse', () => {
   it.each([
     ['no source', three([]), 'r1: the story cites no source'],
     ['a source without a quote', three([{ ref: 'D1', quote: '  ' }]), 'r1: source D1 has no quote'],
-    ['a position outside the scale', [{ text: 'a', agent: { ...agent([{ ref: 'D1', quote: 'q' }]), position: 4 } }, ...three([{ ref: 'D1', quote: 'q' }]).slice(1)], 'r1: agent position must be an integer from -3 to 3'],
-    ['two statements', three([{ ref: 'D1', quote: 'q' }]).slice(1), 'need 3 to 5 statements, got 2'],
+    ['a position outside the scale', [{ text: 'a', agent: { ...agent([{ ref: 'D1', quote: 'a quoted phrase' }]), position: 4 } }, ...three([{ ref: 'D1', quote: 'a quoted phrase' }]).slice(1)], 'r1: agent position must be an integer from -3 to 3'],
+    ['two statements', three([{ ref: 'D1', quote: 'a quoted phrase' }]).slice(1), 'need 3 to 5 statements, got 2'],
   ])('refuses %s (exit 1, the reason on stderr)', async (_n, st, why) => {
     const r = await check(['--parse'], reply(st as object[]))
     expect(r.code).toBe(1)
@@ -175,13 +175,15 @@ describe('P1445 C: --quotes (the mechanical quote check)', () => {
       { ref: 'D1', quote: "statements never repeat an item already on that day's board" },
       { ref: c, quote: 'my motivation, honestly' },
       { ref: s, quote: 'shook my motivation' },
-      { ref: 'F1', quote: 'no billing data' },
+      { ref: 'F1', quote: 'report no billing data' },
     ])
     const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
     expect(r.err).toBe('')
     expect(r.code).toBe(0)
-    const refs = JSON.parse(r.out).statements[0].agent.sources.map((x: { ref: string }) => x.ref)
-    expect(refs).toEqual([
+    const got = JSON.parse(r.out).statements[0].agent.sources
+    // the grounding id stays (a merged file can be checked again); the stable reference is beside it
+    expect(got.map((x: { ref: string }) => x.ref)).toEqual(['D1', c, s, 'F1'])
+    expect(got.map((x: { source: string }) => x.source)).toEqual([
       'cp decisions 2026-10-07 [process]: Reflection statements are strategy, never task micromanagement',
       'conversation sess-post-event at 2026-10-07T08:07:49',
       'founder story 2026-10-07T05-00-00Z/r1',
@@ -193,20 +195,20 @@ describe('P1445 C: --quotes (the mechanical quote check)', () => {
     const { hist } = await grounding([turn('2026-10-07T08:07:49', 'sess-post-event', 'my motivation, honestly.')])
     const parsed = await parsedWith([
       { ref: 'D1', quote: 'statements must always repeat the board' },
-      { ref: 'D99', quote: 'anything' },
+      { ref: 'D99', quote: 'anything at all here' },
     ])
     const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
     expect(r.code).toBe(1)
     expect(r.out).toBe('')
     const lines = r.err.split('\n').filter(Boolean)
     expect(lines).toContain('r1: quote from D1 not found in that source: "statements must always repeat the board"')
-    expect(lines).toContain('r1: quote from D99 cites an id the grounding block never had: "anything"')
+    expect(lines).toContain('r1: quote from D99 cites an id the grounding block never had: "anything at all here"')
   })
 
   it('a conversation the history tool cannot reach is "unavailable", not "not found"', async () => {
     const { sources } = await grounding([turn('2026-10-07T08:07:49', 'sess-post-event', 'my motivation, honestly.')])
     const c = Object.keys(sources).find((k) => sources[k].session === 'sess-post-event')!
-    const parsed = await parsedWith([{ ref: c, quote: 'my motivation' }])
+    const parsed = await parsedWith([{ ref: c, quote: 'my motivation, honestly' }])
     const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', fakeHist([], 2)], parsed)
     expect(r.code).toBe(1)
     expect(r.err).toContain(`r1: quote from ${c} unavailable (hist failed (exit 2))`)
@@ -215,9 +217,9 @@ describe('P1445 C: --quotes (the mechanical quote check)', () => {
 
 describe('P1445 C: --finalize (the checker verdicts)', () => {
   async function quoted() {
-    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'billing' }])))).out
+    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'no billing data' }])))).out
     const o = JSON.parse(parsed)
-    for (const s of o.statements) s.agent.sources = [{ ref: 'issue card: Three keys report no billing data', quote: 'billing' }]
+    for (const s of o.statements) s.agent.sources = [{ ref: 'F1', quote: 'no billing data', source: 'issue card: Three keys report no billing data' }]
     return JSON.stringify(o)
   }
   const verdicts = (v: object) => {
@@ -261,5 +263,58 @@ describe('P1445 C: the report keeps only a checked agent view', () => {
     expect(read({ ...base, checker: 'pass' })?.agent).toEqual(base)
     expect(read(base)).toEqual({ id: 'r1', text: 'A statement.' })
     expect(read({ ...base, checker: 'pass', position: 5 })).toEqual({ id: 'r1', text: 'A statement.' })
+  })
+})
+
+describe('P1445 review fixes: round 2, re-checking, short quotes', () => {
+  it('a quote under 3 words is refused at --parse (one letter matched anything before)', async () => {
+    const r = await check(['--parse'], reply(three([{ ref: 'F1', quote: 'o' }])))
+    expect(r.code).toBe(1)
+    expect(r.err).toBe('day-reflection-check: r1: the quote from F1 is under 3 words\n')
+  })
+
+  it('a quote must match whole words: "report no bill" is not in "report no billing data"', async () => {
+    const hist = fakeHist([])
+    await cli(contextRun, ctxArgs(hist))
+    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'report no bill' }])))).out
+    const r = await check(['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist], parsed)
+    expect(r.code).toBe(1)
+  })
+
+  it('--rewrite keeps the ids it was asked for, --merge puts them back, and the merged file passes --quotes again', async () => {
+    const hist = fakeHist([])
+    await cli(contextRun, ctxArgs(hist))
+    const q = ['--quotes', '--sources', join(root, 'sources.json'), '--day-dir', dayDir, '--hist', hist]
+    const base = (await check(q, (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'report no billing data' }])))).out)).out
+    writeFileSync(join(root, 'base.json'), base)
+    const redo = `MODEL: m\n${JSON.stringify({ statements: [{ id: 'r2', text: 'Rewritten second statement.', agent: agent([{ ref: 'F2', quote: 'nightly backup is late' }]) }] })}`
+    const one = await check(['--parse', '--rewrite', 'r2'], redo)
+    expect(one.code).toBe(0)
+    expect(JSON.parse(one.out).statements.map((x: { id: string }) => x.id)).toEqual(['r2'])
+    const merged = await check(['--merge', '--base', join(root, 'base.json')], (await check(q, one.out)).out)
+    expect(merged.code).toBe(0)
+    const m = JSON.parse(merged.out)
+    expect(m.statements.map((x: { id: string; text: string }) => `${x.id} ${x.text}`)).toEqual([
+      'r1 Rehearse with a small group before the next public evening.',
+      'r2 Rewritten second statement.',
+      'r3 Charge for the second session.',
+    ])
+    const again = await check(q, merged.out)
+    expect(again.err).toBe('')
+    expect(again.code).toBe(0)
+  })
+
+  it('--rewrite refuses a statement without one of the asked ids', async () => {
+    const r = await check(['--parse', '--rewrite', 'r2'], `MODEL: m\n${JSON.stringify({ statements: [{ id: 'r5', text: 'x', agent: agent([{ ref: 'F1', quote: 'a b c' }]) }] })}`)
+    expect(r.code).toBe(1)
+    expect(r.err).toContain('must carry one of the ids r2 once')
+  })
+
+  it('--finalize refuses a source the quote check never resolved', async () => {
+    const parsed = (await check(['--parse'], reply(three([{ ref: 'F1', quote: 'no billing data' }])))).out
+    writeFileSync(join(root, 'v.json'), JSON.stringify({ r1: ['pass'], r2: ['pass'], r3: ['pass'] }))
+    const r = await check(['--finalize', '--verdicts', join(root, 'v.json')], parsed)
+    expect(r.code).toBe(2)
+    expect(r.err).toContain('never resolved')
   })
 })

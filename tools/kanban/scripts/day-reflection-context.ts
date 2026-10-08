@@ -220,7 +220,8 @@ function parseArgs(argv: string[]): Args | null {
         a.findings = v
         break
       case '--terms':
-        a.terms = v.split(',').map((t) => t.trim().toLowerCase()).filter((t) => /^[a-z0-9][a-z0-9' -]*$/.test(t))
+        // the caller passes every draft word: stopwords go here, never by an alphabetical cut upstream
+        a.terms = [...new Set(v.split(',').map((t) => t.trim().toLowerCase()))].filter((t) => /^[a-z0-9][a-z0-9' -]*$/.test(t) && !STOP.has(t)).slice(0, MAX_TERMS * 2)
         break
       case '--hist':
         a.hist = v
