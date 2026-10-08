@@ -14,6 +14,8 @@ exec_effort: high
 
 # P1431: Mirror-agent letter chat — your agent turns a conversation into your letter
 
+> **2026-10-08: prototype complete — continued in [P1437](p1437_conversation_groups_agents_check_understanding.md).** Open questions answered there: the agent is "Bob's agent"; hide "0 verified"/ear on drafts; no opposite point (the other person posts their own side); keep 8+. Avatar: own photo with a robot badge now, generated robot version later. Close via `/ship`.
+
 ## Problem
 
 **Situation:** At an event, two people talk for a round. The room's transcript exists (P1390), and the

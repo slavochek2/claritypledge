@@ -14,6 +14,8 @@ tags:
 
 # P593: Post-Session Clarity Pipeline
 
+> **FOLDED 2026-10-08 into [P1437](p1437_conversation_groups_agents_check_understanding.md)** (founder). Kept: the private draft state and the email nudge. Dropped: the letter written as the other person. Close this spec.
+
 > **HELD 2026-08-14 — do not archive yet.** Adversarial review refuted the original archive rationale. P1074 delivers **none** of this spec's mechanics: sifter extraction, a `draft` privacy level (confirmed absent — `story_visibility` is `public|shared|private` only), or the refine/approve/publish flow. It is also a **live dependency**: `p981_story_point_splitter.md` cites it three times, incl. *"Do NOT assume net-new infrastructure before auditing... p572, p593."* Revisit only after P1074's Stage 1 records a yes/no.
 
 ## Problem Statement

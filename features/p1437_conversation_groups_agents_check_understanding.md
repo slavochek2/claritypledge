@@ -158,10 +158,113 @@ you" agent messages, reusing the P1431 cards. Plus a recorded founder decision o
 3. [FOUNDER DECISION: structure] One group per relationship (recommended) or per source?
 4. P1431's open questions (agent naming, avatar, draft card, anti-point, 8+ bar) still stand.
 
+## Decided 2026-10-08 (later session) — do not re-ask
+
+- **P1431 is complete** as a prototype; this spec builds on top of it (same cards, rating, voice, sidebar).
+- **P593 is folded in here.** Keep its two ideas: a private **draft** state for points/stories, and an
+  **email nudge** ("your agent has drafts for you"). Drop its letter written *as the other person* — here
+  the other person speaks for themselves.
+- **Naming:** the agent is **"Bob's agent"** (agent marker stays, per P1104).
+- **Voice paraphrase is in v2,** transcribed immediately (reuse the /transcribe pipeline).
+- **The founder's reservation about P1431 is the reason for this spec:** with letters, people talk, leave
+  for the app, write, wait for an answer, then talk again — "that's a break". Here the conversation stays a
+  chat and understanding is checked inside it.
+- **Hiring is a scenario, the job page comes later** (see "Hiring" below).
+
+### How it works (example: two friends, Bob and Mira)
+
+1. Bob imports his chat with Mira and invites her; she joins the group by accepting its terms.
+2. I propose a **point** from her words (a statement anyone may propose).
+3. **Her agent predicts her position, privately to her;** she corrects or confirms, or writes her own point.
+   She decides whether I see her agent's prediction.
+4. I ask "how come?" — **her agent drafts her story for her to approve,** or **my agent drafts my guess of her
+   story** (the reverse letter) = my paraphrase.
+5. **She rates my paraphrase 0-10** and says what is missing (text or voice).
+6. Later I ask her to paraphrase one of my stories — same check, reversed.
+
+**"Turning" a message:** the original message stays; it gets a **thread inside it** (page-in-page) holding
+its point and story cards; anyone comments on a card with normal messages.
+
+| Action | Me | My agent | Her / her agent |
+|---|---|---|---|
+| Normal messages | anyone | posts only what I approve | same |
+| Turn **my** message into points/stories | yes | drafts, I approve | no |
+| Author **her** story or position | no | no | only she (her agent drafts for her) |
+| Propose a point from her words | yes | suggests, I approve | she takes a position or rewords |
+| Paraphrase her | yes | drafts, I edit and send | she rates 0-10 |
+| Ask her to paraphrase me | yes | may suggest when | she answers |
+| Predict positions | not hers | privately, for me | her agent, privately for her |
+
+Delegation: my agent can do anything in my column, as a draft I approve; never anything in hers.
+
+### Scenarios for v2 (mock data)
+
+- **Friends / family** — the Bob and Mira chat above (imported).
+- **Hiring** — employer and candidate meet in a chat with terms; they use it to choose each other and keep it
+  when the job starts; the team group joins later (everyone accepts the group terms).
+- **Team** — a group with several people and their agents.
+
+### Next prototype (v2) — IN / OUT
+
+Rule: bring in only what tests "do people want their misunderstandings checked inside a chat".
+
+IN:
+- Sidebar lists groups (placeholder name) with threads marked by source (live / call recording / WhatsApp —
+  labels only).
+- Transcript lines in the thread; point at a line ("not sure about this").
+- Agent messages "only visible to you".
+- Propose a point → her agent's private prediction → her position; the story drafts; the paraphrase and the
+  0-10 rating, text or voice (instant transcript); "your agent was right 2 of 3".
+- Message → inner thread with cards and comments.
+- One mock **"Connect your agent"** screen, to see how it would look.
+- Existing points/story/letter steps reachable from a thread.
+
+OUT: agent-to-agent talk; real imports or connectors; real agent connection; the local job page; a Chat|Feed
+switcher (the one left sidebar already holds Home and chats; revisit if testers get lost); video.
+
+### Agents: hosted vs connected
+
+- **A connector inside Claude/ChatGPT is not enough** for this: an agent that answers in the chat must be
+  present while the user is away, so it must run somewhere.
+- **Default: we host a vanilla agent per person,** who can give it context. Possibly a paid tier
+  [FOUNDER DECISION: pricing].
+- **Bring-your-own:** an agent the person runs (container on their VM, e.g. DeepSeek Harness) connects with a key tied to one agent account they own, revocable. Needs **P1215** (an
+  agent acts as its user), which is blocked by **P1321** (security gate). Not needed for P1431 or for the
+  hosted agent — server-side drafting with owner approval is our own code, not outside access.
+
+### Later
+
+- **Audio and video messages** ("circles", as on Telegram).
+- **Start a Clarity Live call from a thread** — audio first, then video (see P876 WebRTC spike); take any
+  story from the chat and verify it live.
+- Orientation: the experience sits between Slack, Buzz and Telegram.
+
+### Hiring: steelman, attack, verdict
+
+- **Steelman:** hiring opens a high-stakes relationship. A chat with terms ("when it gets rough we break it
+  down and paraphrase") serves selection, then continues as the working relationship, then seeds a team
+  group: a clarity organization. Each hire brings two people, each team more. Email carries none of this.
+- **Attack:** (1) a job board is a liquidity marketplace, a separate hard business; (2) quick jobs (short
+  gigs) are the least relationship-heavy hires; (3) the
+  licensing question is open; (4) a second product before the core is tested.
+- **Verdict:** connected through **the chat, not the board.** The product is the relationship chat; hiring is
+  a strong use case and the local job page a **distribution channel** that creates first connections. Build
+  the page later as a thin page reusing groups, terms and profiles — after the chat prototype tests well and
+  the lawyer answers.
+
+### Buzz (Block, Jack Dorsey, July 2026)
+
+Same format (humans and their agents in one chat, agents with their own identity). Different reason: Buzz
+gives no reason why agents are in the conversation beyond doing work; here **your agent helps you two
+understand each other** — useful out of the box. People will not move family chats; they will start serious
+new relationships here (a hire, a team, a partner).
+
 ## Related
 
 - [P1431](p1431_mirror_agent_letter_chat.md) — the first piece: private agent chat, transcript → letter.
-- [P593](p593_post_session_clarity_pipeline.md) — post-session pipeline; reconcile before `/architect`.
+- [P593](p593_post_session_clarity_pipeline.md) — folded into this spec 2026-10-08.
+- P1215 / P1321 — agent acts as its user / the security gate before it; needed only for bring-your-own agents.
+- P876 — WebRTC video spike (later: calls from a thread).
 - P1104 (done) — agents must be visually distinguishable.
 - decisions.md — "Buzz is the consumer, not the substrate" (agents interacting in front of humans).
 - P1390 — the live transcript that feeds threads.

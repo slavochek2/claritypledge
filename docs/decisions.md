@@ -8,6 +8,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-08 [product]: Understanding is checked inside the chat, not through letters; hiring is a use case of the chat, the job page a channel (P1437)
+
+**Context:** The P1431 prototype (your agent turns a transcript into a letter) works, but the founder named its cost: people talk, leave for the app, write a letter, wait for the answer, then talk again — "that's a break". Exploring alternatives produced P1437: groups where any conversation (live, recorded calls, WhatsApp, typing) is a thread, people and their agents are members, and understanding is checked inside the thread (point → private position prediction → story draft → paraphrase rated 0-10, text or voice). A partner meeting the same day proposed a quick-jobs marketplace.
+
+**Decisions:**
+- P1431 is complete; P1437 builds on it. P593 (post-session pipeline) is folded into P1437, keeping the draft state and the email nudge.
+- Only the owner authors their own stories and positions; anyone may propose a point; anyone may paraphrase another and the other rates it. Agents act only as drafts their owner approves.
+- Hiring: steelman — hiring opens a high-stakes relationship; a chat with terms serves selection, then the working relationship, then seeds a team group (a clarity organization), and spreads two people per hire. Attack — a job board is a liquidity marketplace, quick gigs are the least relationship-heavy hires, licensing question is open, and it is a second product before the core is tested. **Verdict: connected through the chat, not the board.** The job page is a distribution channel, built later as a thin page on groups/terms/profiles, after the chat prototype tests well and the legal answer arrives. `UNTESTED` — falsifier: employers and candidates decline to use a chat with terms, or use it only for the hire and abandon it after.
+- Agents that answer in a chat must run while the user is away: we host a vanilla agent per person by default; bring-your-own agents need P1215 (blocked by P1321). Neither is needed for P1431's backend.
+
+**Alternatives rejected:** keep letters as the main route (the break); build the job board now (marketplace before the core); Claude/ChatGPT connectors as the agent's presence (not present when the user is away).
+
+---
+
 ## 2026-10-08 [process]: /day 2026-10-08 reflection — five challenges and the founder's verdicts
 
 **Context:** The 2026-10-08 /day reflection put five challenges to the founder. Recorded with verdicts as given (gate 8: record under uncertainty). The founder's answer to the fifth became P1440.
