@@ -19,6 +19,13 @@ Subcommands (service = the keychain service name; account = $USER):
   acl <service>...    prints trusted-app count per item — never prompts
   delete <service>    removes the item
 
+Override approval (P1444) — a dedicated item whose VALUE is meaningless; reading
+it is the point, because the read raises the keychain dialog:
+  approval-enroll     create/replace the approval item (random value, empty ACL)
+  approval-acl        acl for the approval item — never prompts
+  approval-get [why]  announce, then read it (the dialog); nothing on stdout;
+                      exit 0 only on Allow with a non-empty value
+
 Exit codes: 0 ok · 1 not found/usage · 2 denied or auth failure · 3 framework error
 """
 import ctypes
@@ -163,6 +170,10 @@ def cmd_add(service):
     value = sys.stdin.buffer.read()
     if value.endswith(b"\n"):
         value = value[:-1]
+    return _add_value(service, value)
+
+
+def _add_value(service, value):
     if not value:
         sys.stderr.write("keychain: refusing to store an empty value for %s\n" % service)
         return 1
@@ -434,6 +445,43 @@ def cmd_get(service, reason=None):
     return 0
 
 
+# The override-approval item (P1444). Generic by design: it names a purpose, never
+# a credential, and its value is random bytes nobody needs to know. Defined ONCE,
+# here, so the enrolment (keyring.sh) and the read (gate-override.sh) cannot drift
+# apart onto two different items.
+APPROVAL_SERVICE = "cp.keyring.gate-override-approval"
+
+
+def cmd_approval_enroll():
+    return _add_value(APPROVAL_SERVICE, os.urandom(32).hex().encode())
+
+
+def cmd_approval_get(reason=None):
+    """The one-click override: the same announcement and the same per-access
+    dialog as `get`, but the value is checked and discarded, never printed —
+    approval is the successful read, not the bytes."""
+    try:
+        _announce(_request_context(APPROVAL_SERVICE, reason))
+    except Exception:
+        pass
+    st, item, length, data = _find(APPROVAL_SERVICE, want_password=True)
+    if st == ERR_USER_CANCELED or st == ERR_AUTH_FAILED:
+        sys.stderr.write("keychain: approval DENIED\n")
+        return 2
+    if st == ERR_ITEM_NOT_FOUND:
+        sys.stderr.write("keychain: the approval item is not enrolled\n")
+        return 1
+    if st != 0:
+        sys.stderr.write("keychain: approval read failed (OSStatus %d)\n" % st)
+        return 3
+    nbytes = length.value
+    sec.SecKeychainItemFreeContent(None, data)
+    if nbytes <= 0:
+        sys.stderr.write("keychain: the approval item decrypted to nothing — refusing\n")
+        return 3
+    return 0
+
+
 def cmd_exists(service):
     st, _, _, _ = _find(service, want_password=False)
     return 0 if st == 0 else 1
@@ -630,6 +678,12 @@ def main(argv):
         return cmd_acl(args)
     if verb == "delete" and len(args) == 1:
         return cmd_delete(args[0])
+    if verb == "approval-enroll" and not args:
+        return cmd_approval_enroll()
+    if verb == "approval-acl" and not args:
+        return cmd_acl([APPROVAL_SERVICE])
+    if verb == "approval-get" and len(args) in (0, 1):
+        return cmd_approval_get(args[0] if args else None)
     sys.stderr.write(__doc__)
     return 1
 

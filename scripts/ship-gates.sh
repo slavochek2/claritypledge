@@ -10,6 +10,8 @@
 #         — or, for a spec declaring absorbed_by: pN, recorded on its absorber (P1309)
 #   2.7   code-review artifact present (git-common-dir/.finish-reviewed)
 #   2.7b  artifact freshness (warn only)
+#   ADMIN a spec with nothing to gate (comment / withdrawn / retracted) skips 2.5
+#         and 2.7 when scripts/lib/admin-close.sh finds it eligible (P1444)
 #   3.5   pre-deploy checklist has no unchecked "- [ ]" items
 #   3.65  every deferral phrase names a P-number (inline or in branch commits)
 #
@@ -280,6 +282,44 @@ if printf '%s\n' "$_spec_fm" | $GREP -qE '^absorbed_by:'; then
   fi
 fi
 
+# ── Administrative closure (P1444) — ONE verdict, read by gates 2.5 and 2.7 ──
+# A spec with nothing to gate — a `type: comment` note, a withdrawn spec, the
+# legacy `retracted` tag — can never pass 2.5 or 2.7, and before P1444 every such
+# close needed a founder override. scripts/lib/admin-close.sh decides from
+# repository evidence whether this close may skip both: the classification must
+# already be on origin/main (a relabel inside the closing range refuses), the spec
+# must record no implementation, and no feature/pN-* or fix/pN-* ref, local or
+# remote, may be ahead of main. Its header lists exactly what that does NOT prove.
+#
+# Scope, deliberately narrow:
+#   * Local no-branch resolution only. Never in --spec-file mode: CI re-derives the
+#     verdict itself from the closing commit's blobs with the TRUSTED-base copy of
+#     the library, and must never source the pushed copy through this script.
+#   * Never when a feature branch resolved: a spec with a branch has a branch to
+#     gate, and git-ops.sh refuses an administrative verdict on its branch route.
+#   * A missing library means no administrative route — the normal gates then
+#     refuse, which is the fail-closed direction.
+# The machine line `[GATE ADMIN] ELIGIBLE: pN` carries nothing from a file; git-ops
+# reads only that line, and only on a clean pass, then re-derives the verdict itself.
+admin_ok=""
+if [[ -z "$spec_file_override" && -z "$feature_branch" && -n "$spec_content" && -n "${spec_file:-}" ]]; then
+  if [[ -f "${REPO_ROOT}/scripts/lib/admin-close.sh" ]]; then
+    # shellcheck source=scripts/lib/admin-close.sh
+    . "${REPO_ROOT}/scripts/lib/admin-close.sh"
+    if admin_classify "$spec_content"; then
+      if admin_check_local "$REPO_ROOT" "$pn" "$spec_file" "$spec_content"; then
+        admin_ok=1
+        echo "[GATE ADMIN] administrative closure: ${pn} is ${ADMIN_MARKER} here and on origin/main, records no implementation, and no branch for it is ahead of main"
+        echo "[GATE ADMIN] ELIGIBLE: ${pn}"
+      else
+        echo "[GATE ADMIN] NOT ELIGIBLE: ${ADMIN_REASON} — the normal gates apply"
+      fi
+    fi
+  elif printf '%s\n' "$spec_content" | sed -n '1,40p' | $GREP -qE '^(type:[[:space:]]*comment|withdrawn:|tags:.*retracted)'; then
+    echo "[GATE ADMIN] NOT ELIGIBLE: scripts/lib/admin-close.sh is missing, so administrative closure is unavailable — the normal gates apply"
+  fi
+fi
+
 # ── Gate 1.5: disclosure promotability (P1255) ──────────────────────────────
 # REPORT ONLY. It never sets `fail`, and that is the whole design.
 #
@@ -396,7 +436,9 @@ collect_completion() {
 }
 
 if gate_enabled "2.5"; then
-if [[ -z "$spec_content" ]]; then
+if [[ -n "$admin_ok" ]]; then
+  echo "[GATE 2.5] SKIP: administrative closure; no completion asserted"
+elif [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
   fail=1
 else
@@ -498,7 +540,9 @@ fi
 # no single source and no test (decisions.md 2026-08-28 [process]). Both arms
 # now tolerate the optional space.
 
-if gate_enabled "2.7"; then
+if gate_enabled "2.7" && [[ -n "$admin_ok" ]]; then
+  echo "[GATE 2.7] SKIP: administrative closure; no implementation review required"
+elif gate_enabled "2.7"; then
 git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir)"
 finish_file="${git_common_dir}/.finish-reviewed"
 

@@ -9,9 +9,13 @@
 # itself here.
 #
 # Load-bearing design notes (mirrors goal-gate.yml deliberately):
-#  - The gate script is fetched FROM origin/main (the already-trusted copy), not
-#    the pushed copy, so a change that weakens ship-gates.sh cannot weaken the
-#    gate that judges it.
+#  - The gate script (and, since P1444, scripts/lib/admin-close.sh) is fetched
+#    from the event range's BASE — what main was before this change — never from
+#    the pushed copy, so a change that weakens either cannot weaken the gate that
+#    judges it. A base without ship-gates.sh fails the job.
+#  - P1444: a close that fails gate 2.5 may still pass as an ADMINISTRATIVE close
+#    (comment / withdrawn / retracted spec), re-derived from the committed blobs of
+#    the closing commit, its parent and the range base. No trailer is read for it.
 #  - Gate 2.5 ONLY. Gate 2.7 reads .finish-reviewed, which lives in git-common-dir
 #    and is untracked — it does not exist on a runner. Running it here would fail
 #    every close for a reason unrelated to the close, and a check that always
@@ -65,9 +69,10 @@ jobs:
           PUSH_AFTER: ${{ github.event.after }}
         run: |
           set -euo pipefail
-          # A close = a spec file ADDED under features/done/.
-          # --diff-filter=A on the done/ side catches the rename's destination
-          # without depending on rename detection being on.
+          # A close = a spec file ADDED under features/done/ (UAT copies excluded:
+          # they travel with their spec and are not closes of their own).
+          # --no-renames + --diff-filter=A on the done/ side catches the move's
+          # destination without depending on rename detection.
           #
           # THE RANGE IS THE WHOLE GATE. The first version used
           # `origin/main...HEAD` for every event. On a push to main that is EMPTY
@@ -78,23 +83,39 @@ jobs:
           # only did so because the runner's origin/main ref briefly lagged the
           # push: a race, not a design.
           #
-          # A required check that is green because it looked at nothing is worse
-          # than no check — it is the advisory-control failure this whole spec
-          # exists to end, wearing a green tick. So: for a push, use the range the
-          # push actually delivered; for a PR, the merge-base form is correct.
+          # ONE RANGE, BASE..TIP, for everything downstream (P1444): discovery,
+          # the closing-commit lookup, the administrative re-derivation's
+          # provenance, and the trusted policy scripts are all read against the
+          # same BASE. The closing-commit lookup used to switch back to
+          # `origin/main...HEAD`, which on a push to main is empty — so the override
+          # trailer was read from no commit at all.
+          #   push with a reachable before: BASE = before (what main was).
+          #   new branch, unreachable before, pull_request: BASE = merge-base with
+          #   origin/main (equal to what the three-dot form diffed against).
+          TIP="$(git rev-parse HEAD)"
+          BASE=""
           if [ "$EVENT_NAME" = "push" ] \
              && [ -n "${PUSH_BEFORE:-}" ] \
              && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
              && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
-            RANGE="${PUSH_BEFORE}..${PUSH_AFTER}"
+            BASE="$(git rev-parse "${PUSH_BEFORE}^{commit}")"
+            TIP="$(git rev-parse "${PUSH_AFTER}^{commit}")"
           else
-            # New branch, force-push with an unreachable base, or a pull_request.
-            RANGE="origin/main...HEAD"
+            BASE="$(git merge-base origin/main HEAD)" || BASE=""
           fi
-          echo "Selection range: $RANGE (event: $EVENT_NAME)"
-          CLOSED=$(git diff --name-only --diff-filter=A "$RANGE" -- 'features/done/**' 2>/dev/null \
-                   | grep -E '/p[0-9]+[^/]*\.md$' || true)
+          if [ -z "$BASE" ]; then
+            echo "::error::closure-gate could not establish the event range's base — refusing to report a green that examined nothing."
+            exit 1
+          fi
+          RANGE="${BASE}..${TIP}"
+          echo "Range: $RANGE (event: $EVENT_NAME)"
+          # git diff runs on its own line so a failure fails the job; piping it
+          # straight into `grep || true` used to turn a git error into "no closes".
+          DIFF="$(git diff --no-renames --name-only --diff-filter=A "$RANGE" -- 'features/done/**')"
+          CLOSED="$(printf '%s\n' "$DIFF" | grep -E '/p[0-9]+[^/]*\.md$' | grep -vE '/uat/' || true)"
           {
+            echo "range=$RANGE"
+            echo "base=$BASE"
             echo "paths<<EOF"
             echo "$CLOSED"
             echo "EOF"
@@ -105,19 +126,40 @@ jobs:
             echo "Specs closed here:"; echo "$CLOSED"
           fi
 
-      - name: Gate each closure (trusted-base script, gate 2.5)
+      - name: Gate each closure (trusted-base policy — gate 2.5, or an administrative close re-derived from blobs)
         if: steps.closed.outputs.paths != ''
         env:
           CLOSED: ${{ steps.closed.outputs.paths }}
+          RANGE: ${{ steps.closed.outputs.range }}
+          BASE: ${{ steps.closed.outputs.base }}
         run: |
           set -euo pipefail
           set -o pipefail   # mandatory: `script | tee` otherwise returns tee's 0
+          # POLICY COMES FROM THE RANGE'S BASE, never from the pushed tree. The first
+          # version fetched origin/main — which on a push to main IS the pushed
+          # commit — and fell back to the pushed copy when the base had none. Both
+          # let a change judge itself. A base without the gate script now FAILS.
+          #
           # MUST live under the workspace's own scripts/ dir: ship-gates.sh resolves
           # its repo root as `dirname "$0"/..`, so a copy in /tmp resolves to `/`.
           TRUSTED="$GITHUB_WORKSPACE/scripts/.trusted-ship-gates.sh"
-          git show origin/main:scripts/ship-gates.sh > "$TRUSTED" 2>/dev/null \
-            || cp scripts/ship-gates.sh "$TRUSTED"   # first landing of the script itself
+          if ! git show "$BASE:scripts/ship-gates.sh" > "$TRUSTED" 2>/dev/null; then
+            echo "::error::closure-gate: the range base $BASE has no scripts/ship-gates.sh — refusing to judge closes with the pushed copy."
+            exit 1
+          fi
           chmod +x "$TRUSTED"
+          # The administrative-closure library (P1444), also from the base. Absent
+          # there (the push that first lands it), the administrative route simply
+          # does not exist for this range — a failing close then fails. Never the
+          # pushed copy.
+          TRUSTED_ADMIN="$GITHUB_WORKSPACE/scripts/.trusted-admin-close.sh"
+          ADMIN_AVAILABLE=0
+          if git show "$BASE:scripts/lib/admin-close.sh" > "$TRUSTED_ADMIN" 2>/dev/null; then
+            ADMIN_AVAILABLE=1
+          else
+            rm -f "$TRUSTED_ADMIN"
+            echo "Administrative closure is not available at the range base; failing closes are judged by gate 2.5 and the override trailer only."
+          fi
 
           # PROVE THE GATE CAN SEE THE REPO BEFORE TRUSTING ITS VERDICT.
           # The first version of this step wrote the trusted copy to /tmp and ran it
@@ -129,16 +171,11 @@ jobs:
           # ("a gate proven in place is not proven through the path CI actually runs
           # it from"), which this repeated three days later in a different workflow.
           #
-          # Two changes: the copy now lives under the workspace's own scripts/ dir so
-          # the root resolves correctly, and a canary spec is run through it first. A
-          # gate that cannot find the repo must fail the JOB loudly, never quietly
-          # score every spec as non-compliant.
           # The self-check must DISCRIMINATE. A first draft asserted only that a
           # "GATE 2.5" line appeared — but the broken /tmp configuration prints
           # "[GATE 2.5] FAIL: spec not found" too, so that probe returned the same
           # verdict for the known-good and known-bad arms and would have waved the
-          # broken gate through. Same all-arms-agree blindness this session already
-          # hit once, grepping a binary without -a.
+          # broken gate through.
           #
           # Assert the symptom that actually differs: a gate that cannot resolve its
           # repo emits git's "not a git repository". Output is captured, never piped
@@ -163,19 +200,43 @@ jobs:
             echo "::group::closure-gate $pn ($spec)"
             if bash "$TRUSTED" "$pn" --spec-file "$spec" --only 2.5 2>&1 | tee "gate-$pn.txt"; then
               echo "PASS: $pn"
-            else
-              # The commit that performed this close carries the override record
-              # if a human authorized it. Read the trailer from that commit only,
-              # never from the branch at large.
-              closing_commit=$(git log --format='%H' --diff-filter=A origin/main...HEAD -- "$spec" | head -1)
-              reason=$(git log -1 --format='%B' "$closing_commit" 2>/dev/null | grep -m1 '^Gate-Override-Reason:' || true)
-              if [ -n "$reason" ]; then
-                echo "::warning::$pn closed on a FAILING gate under human override — ${reason#Gate-Override-Reason: }"
-                echo "OVERRIDE: $pn ($closing_commit)"
-              else
-                echo "::error::$pn was closed but does not pass the closure gate, and carries no Gate-Override trailer."
-                rc=1
+              echo "::endgroup::"
+              continue
+            fi
+            # The commit that performed this close, looked up in the SAME range
+            # that discovered it. `sed -n 1p` reads all of its input, so it cannot
+            # SIGPIPE the producer under pipefail the way `head -1` can.
+            closing_commit="$(git log --no-renames --diff-filter=A --format='%H' "$RANGE" -- "$spec" | sed -n '1p')"
+            if [ -z "$closing_commit" ]; then
+              echo "::error::$pn: no commit in $RANGE adds $spec — cannot attribute the close."
+              rc=1; echo "::endgroup::"; continue
+            fi
+            # P1444 ADMINISTRATIVE CLOSE, re-derived from committed blobs with the
+            # base's library: the closing commit's parent and its own blob must both
+            # classify the spec as comment/withdrawn/retracted with no implementation
+            # recorded, the spec must already be classified at BASE (a relabel inside
+            # the range refuses), the commit may touch only the spec and its UAT file,
+            # and no feature/pN-* or fix/pN-* ref may be ahead of it. NO trailer or
+            # message text is read for this verdict.
+            if [ "$ADMIN_AVAILABLE" = 1 ]; then
+              if admin_out="$(bash -c '. "$1" && if admin_check_commit "$2" "$3" "$4" "$5"; then echo "$ADMIN_MARKER"; else echo "$ADMIN_REASON"; exit 1; fi' \
+                                _ "$TRUSTED_ADMIN" "$GITHUB_WORKSPACE" "$pn" "$closing_commit" "$BASE" 2>&1)"; then
+                echo "ADMIN: $pn closed administratively ($admin_out) in $closing_commit — re-derived from blobs; gates 2.5 and 2.7 do not apply"
+                echo "::endgroup::"; continue
               fi
+              echo "Not an administrative close: $admin_out"
+            fi
+            # A human override is carried by a trailer on that same commit. KNOWN
+            # RESIDUAL, unchanged by P1444: a trailer is writable by whoever makes
+            # the commit, so this converts a false close into a loud, permanent
+            # claim rather than preventing it (see the header).
+            reason=$(git log -1 --format='%B' "$closing_commit" 2>/dev/null | grep -m1 '^Gate-Override-Reason:' || true)
+            if [ -n "$reason" ]; then
+              echo "::warning::$pn closed on a FAILING gate under human override — ${reason#Gate-Override-Reason: }"
+              echo "OVERRIDE: $pn ($closing_commit)"
+            else
+              echo "::error::$pn was closed but does not pass the closure gate, is not an administrative close, and carries no Gate-Override trailer."
+              rc=1
             fi
             echo "::endgroup::"
           done <<< "$CLOSED"

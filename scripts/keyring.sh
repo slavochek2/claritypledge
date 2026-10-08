@@ -24,6 +24,8 @@
 #     ./scripts/keyring.sh list              registered critical key names
 #     ./scripts/keyring.sh requests [N]      who asked for what, and why — last N requests
 #     ./scripts/keyring.sh withdraw KEY      remove a key from the keychain (rollback)
+#     ./scripts/keyring.sh approve-enroll    create the override-approval item (P1444, once)
+#     ./scripts/keyring.sh approve-verify    is the approval item still gated? (no dialog)
 #
 # Every read announces itself BEFORE the dialog appears: a line in the request
 # log, a line on stderr, and a macOS notification naming the key, the reason, the
@@ -280,14 +282,15 @@ _keyring_live_requests() {
   local pids pid line cwd key spec
   # Match only the interpreter actually doing the read. A parent shell carries the
   # same string in its own argv and would otherwise be reported as a second request.
-  pids=$(ps -Ao pid=,command= | grep '[k]eychain\.py get' \
+  pids=$(ps -Ao pid=,command= | grep -E '[k]eychain\.py (approval-)?get' \
          | awk '$2 ~ /[Pp]ython/ {print $1}')
   [ -n "$pids" ] || return 0
   echo
   echo "ASKING RIGHT NOW — a dialog is open:"
   for pid in $pids; do
     line=$(ps -o command= -p "$pid" 2>/dev/null) || continue
-    key=$(echo "$line" | sed -n 's/.*keychain\.py get cp\.keyring\.\([^ ]*\).*/\1/p')
+    key=$(echo "$line" | sed -n -e 's/.*keychain\.py get cp\.keyring\.\([^ ]*\).*/\1/p' \
+                                -e 's/.*keychain\.py approval-get.*/gate-override-approval/p')
     cwd=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | tail -1)
     spec=$(git -C "${cwd:-.}" rev-parse --abbrev-ref HEAD 2>/dev/null \
            | sed -n 's|^\(feature\|fix\)/\(p[0-9]*\).*|\2|p')
@@ -296,6 +299,35 @@ _keyring_live_requests() {
   done
   echo
   echo "  Recognise it? Allow. Don't? Deny — nothing breaks that can't be re-run."
+}
+
+# The override-approval item (P1444). Not a credential: its value is random and
+# never read by anyone — reading it is what raises the one-click keychain dialog
+# that approves `git-ops.sh ship pN --override --reason "..."`. keychain.py owns
+# the item's name, so enrolment here and the read in gate-override.sh cannot
+# drift onto two different items. Enrolment creates the item in one call with an
+# empty access list, exactly like `enroll`, so it never prompts.
+_keyring_cmd_approve_enroll() {
+  if python3 "$KEYRING_PY" approval-enroll; then
+    echo "ENROLLED the override-approval item. Every ship --override now raises one"
+    echo "keychain dialog: Allow approves that close, Deny refuses. Never Always Allow —"
+    echo "it disables the approval, and every override then refuses until you re-run this."
+  else
+    echo "FAILED to enroll the override-approval item" >&2
+    return 1
+  fi
+}
+
+_keyring_cmd_approve_verify() {
+  python3 "$KEYRING_PY" approval-acl
+  local rc=$?
+  case $rc in
+    0) echo "PASS — the override-approval item still requires a dialog on every read." ;;
+    1) echo "MISSING — not enrolled: ./scripts/keyring.sh approve-enroll" ;;
+    2) echo "FAIL — the approval item trusts an application (\"Always Allow\"); re-enroll it." ;;
+    *) echo "INDETERMINATE — the access list could not be judged; overrides refuse until it can." ;;
+  esac
+  return $rc
 }
 
 _keyring_cmd_withdraw() {
@@ -315,6 +347,8 @@ if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
     list)     keyring_keys ;;
     requests) shift; _keyring_cmd_requests "$@" ;;
     withdraw) shift; _keyring_cmd_withdraw "$@" ;;
-    *) sed -n '2,30p' "${BASH_SOURCE[0]:-$0}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    approve-enroll) _keyring_cmd_approve_enroll ;;
+    approve-verify) _keyring_cmd_approve_verify ;;
+    *) sed -n '2,32p' "${BASH_SOURCE[0]:-$0}" | sed 's/^# \{0,1\}//'; exit 1 ;;
   esac
 fi

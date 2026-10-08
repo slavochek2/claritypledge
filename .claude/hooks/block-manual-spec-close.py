@@ -187,8 +187,10 @@ def main():
             "Close it through the gated path instead:\n"
             "    ./scripts/git-ops.sh ship <pN>\n"
             "\n"
-            "If the gate refuses and the refusal is wrong, the founder can override it\n"
-            "from a real terminal:  ./scripts/git-ops.sh ship <pN> --override\n"
+            "If the gate refuses and the refusal is wrong, the founder approves an\n"
+            "override with one click (a keychain dialog):\n"
+            "    ./scripts/git-ops.sh ship <pN> --override --reason \"why the gate is wrong\"\n"
+            "A comment, withdrawn or retracted spec with no branch closes without one (P1444).\n"
             % offender
         )
         sys.exit(2)

@@ -6,8 +6,8 @@
 # have not watched PASS legitimate work is unmeasured. One direction alone is
 # how you ship a control that is either decoration or an obstacle.
 #
-#   A. Override is not forgeable — no tty refuses, a real pty accepts, junk is
-#      rejected even at a real pty.
+#   A. Override (P1444): reason cleaning, --reason required, and a pty grants
+#      nothing — the approval step refuses with no keychain present.
 #   B. Closure gate blocks an unticked spec and passes a ticked one.
 #   C. Closure gate FAILS CLOSED when its own script is missing.
 #   D. --spec-file fails closed on an unreadable path (never falls back).
@@ -82,53 +82,43 @@ pty_feed() {
 }
 
 # ── A. Override ─────────────────────────────────────────────────────────────
+# P1444 replaced the /dev/tty prompt with one keychain dialog. The tty cases that
+# lived here (A1-A3 prompt mechanics, A4 "the pty bypass WORKS") described a path
+# that no longer exists. What replaces them pins the new contract at the level
+# this suite can reach WITHOUT ever touching a real keychain: the scratch repos
+# below carry no scripts/lib/keychain.py, so every approval fails closed before
+# any dialog could exist. The decision function itself (approve / deny / defeated /
+# indeterminate access list) is covered with injected readers in
+# scripts/test-p1444-closure-gate.sh.
 cat > "$SCRATCH/ovr.sh" <<'EOF'
 #!/usr/bin/env bash
 set -u
 . "$1/scripts/lib/gate-override.sh"
-gate_override_tty_available && echo "AVAIL=yes" || echo "AVAIL=no"
-if r="$(gate_override_capture p9999 "closure gate")"; then echo "CAPTURED=[$r]"; else echo "REFUSED"; fi
+if r="$(gate_override_clean_reason "$2")"; then echo "CLEAN=[$r]"; else echo "REFUSED"; fi
 EOF
 chmod +x "$SCRATCH/ovr.sh"
 
 if [[ -z "$PTY_FLAVOUR" ]]; then
-  fail "A0: no usable script(1) on this platform — the override cases below cannot run, and must not be read as verdicts"
+  fail "A0: no usable script(1) on this platform — A4 below cannot run, and must not be read as a verdict"
 else
   pass "A0: pty helper available (flavour: $PTY_FLAVOUR)"
 fi
 
-out="$("$SCRATCH/ovr.sh" "$REPO_ROOT" 2>/dev/null)"
-if [[ "$out" == *"AVAIL=no"* && "$out" == *"REFUSED"* ]]; then
-  pass "A1: no controlling terminal (agent shell) — override refused"
+out="$("$SCRATCH/ovr.sh" "$REPO_ROOT" "$(printf 'criteria 3-6 retired,\nreason in prose')" 2>/dev/null)"
+if [[ "$out" == "CLEAN=[criteria 3-6 retired,reason in prose]" ]]; then
+  pass "A1: a substantive reason is accepted, with the newline that would forge a second trailer removed"
 else
-  fail "A1: override did not refuse without a tty: $out"
+  fail "A1: reason cleaning: $out"
 fi
 
-out="$(pty_feed "criteria 3-6 retired, reason in prose" "'$SCRATCH/ovr.sh' '$REPO_ROOT'")"
-if [[ "$out" == *"AVAIL=yes"* && "$out" == *"CAPTURED=[criteria 3-6 retired, reason in prose]"* ]]; then
-  pass "A2: prompt mechanics — a pty + substantive reason is accepted"
+out="$("$SCRATCH/ovr.sh" "$REPO_ROOT" "  ok   " 2>/dev/null)"
+if [[ "$out" == "REFUSED" ]]; then
+  pass "A2: a 2-char reason is refused"
 else
-  fail "A2: override did not accept at a real pty: $out"
+  fail "A2: a 2-char reason was accepted: $out"
 fi
 
-out="$(pty_feed "ok" "'$SCRATCH/ovr.sh' '$REPO_ROOT'")"
-if [[ "$out" == *"AVAIL=yes"* && "$out" == *"REFUSED"* ]]; then
-  pass "A3: prompt mechanics — a 2-char reason is refused even at a pty"
-else
-  fail "A3: a 2-char reason was accepted: $out"
-fi
-
-# A4. KNOWN LIMITATION, pinned on purpose (2026-09-08 adversarial review).
-#
-# An agent CAN close a spec on a red gate by wrapping its own command in
-# script(1). This case asserts that the bypass WORKS, which is an unusual thing
-# to assert — the point is that the limitation is documented and regression-
-# tested rather than quietly believed away. If someone later devises a local
-# defence, this case goes red and forces the docs in gate-override.sh to be
-# updated with it, instead of the old false claim silently coming back.
-#
-# The real boundary is .github/workflows/closure-gate.yml, which must be a
-# REQUIRED status check on main to be worth anything. It is not one yet.
+# A3/A4 scratch: the override path with NO approval helper present.
 A4_R="$SCRATCH/a4"; mkdir -p "$A4_R"
 mk_repo_a4() {
   mkdir -p "$1/scripts/lib" "$1/features/done/2026-09-08"
@@ -146,15 +136,36 @@ mk_repo_a4() {
   printf '{"type": "code", "pn": "p777", "branch": "feature/p777-demo", "sha": "x", "timestamp": "t"}\n' >> "$1/.git/.finish-reviewed"
 }
 mk_repo_a4 "$A4_R"
-pty_feed "agent typed this, no human present" \
-  "cd '$A4_R' && bash scripts/git-ops.sh ship p777 --override" >"$SCRATCH/a4.log" 2>&1
-if ls "$A4_R"/features/done/*/p777_demo.md >/dev/null 2>&1; then
-  pass "A4: KNOWN LIMITATION holds — an agent CAN pass the override via script(1); this prompt is friction + audit, not a boundary"
+# Hermeticity guard, asserted rather than assumed: with keychain.py present this
+# path would reach the REAL login keychain.
+if [[ -e "$A4_R/scripts/lib/keychain.py" ]]; then
+  fail "A3/A4: the scratch repo carries keychain.py — refusing to run a case that could raise a real dialog"
 else
-  if grep -q 'PTY_UNAVAILABLE\|unexpected number of arguments' "$SCRATCH/a4.log" 2>/dev/null; then
-    fail "A4: the pty helper could not run — this is a BROKEN CANARY, not evidence the bypass is closed"
+  ( cd "$A4_R" && bash scripts/git-ops.sh ship p777 --override ) >"$SCRATCH/a3.log" 2>&1; rc=$?
+  if [[ $rc -eq 2 ]] && grep -q -- '--reason' "$SCRATCH/a3.log" && [[ -f "$A4_R/features/p777_demo.md" ]]; then
+    pass "A3: --override without --reason is a usage error (exit 2) — nothing prompts, nothing closes"
   else
-    fail "A4: the script(1) bypass no longer works — GOOD NEWS, but gate-override.sh's documented limitation is now stale; update it and this case"
+    fail "A3: --override without --reason did not refuse up front (exit $rc)"; sed 's/^/    /' "$SCRATCH/a3.log" >&2
+  fi
+
+  # A4. The bypass that defeated P1246's prompt — an agent wrapping its own command
+  # in script(1) — must now grant NOTHING. Asserting the spec stays open is not
+  # enough on its own (a broken helper also leaves it open), so the log must show
+  # the run reached the approval step and was refused THERE.
+  #
+  # KNOWN LIMITATION, not testable here and stated rather than implied away: nobody
+  # has shown the keychain dialog cannot be answered by UI scripting on this
+  # machine. gate-override.sh's header carries that label.
+  pty_feed "" "cd '$A4_R' && bash scripts/git-ops.sh ship p777 --override --reason 'agent typed this, no human present'" \
+    >"$SCRATCH/a4.log" 2>&1
+  if grep -q 'PTY_UNAVAILABLE\|unexpected number of arguments' "$SCRATCH/a4.log" 2>/dev/null; then
+    fail "A4: the pty helper could not run — this is a BROKEN CANARY, not a verdict"
+  elif ls "$A4_R"/features/done/*/p777_demo.md >/dev/null 2>&1; then
+    fail "A4: an agent closed a red-gate spec through a pty — the override is forgeable again"; sed 's/^/    /' "$SCRATCH/a4.log" >&2
+  elif grep -q 'approval refused' "$SCRATCH/a4.log" && grep -q 'override NOT approved' "$SCRATCH/a4.log"; then
+    pass "A4: a pty no longer grants an override — the run reached the approval step and was refused there"
+  else
+    fail "A4: the spec stayed open but not at the approval step — inconclusive"; sed 's/^/    /' "$SCRATCH/a4.log" >&2
   fi
 fi
 
@@ -218,8 +229,9 @@ fi
 # Names the recovery AND the override command. git.md records that an un-named
 # recovery recipe gets re-invented badly (a `git commit --amend` on the shared
 # checkout), so the refusal has to carry both.
-if grep -q -- '--override' "$SCRATCH/b1.log" && grep -q 'Fix the artifact' "$SCRATCH/b1.log"; then
-  pass "B2: the refusal names both the fix and the override recipe, rather than leaving them to be re-derived"
+if grep -q -- '--override --reason' "$SCRATCH/b1.log" && grep -q 'Fix the artifact' "$SCRATCH/b1.log" \
+   && grep -q 'ONE CLICK' "$SCRATCH/b1.log" && ! grep -qiE 'dev/tty|real terminal|in your terminal' "$SCRATCH/b1.log"; then
+  pass "B2: the refusal names the fix and the one-click override recipe, and no longer sends anyone to a terminal"
 else
   fail "B2: refusal did not name the fix and the override path"
 fi

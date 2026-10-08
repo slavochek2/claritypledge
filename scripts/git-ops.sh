@@ -76,8 +76,8 @@ fi
 if [[ -f "$REPO_ROOT/scripts/lib-datetime.sh" ]]; then
   source "$REPO_ROOT/scripts/lib-datetime.sh"
 fi
-# TTY-only gate override (P1246). See scripts/lib/gate-override.sh for why the
-# escape hatch is a controlling terminal and not a flag file or env var.
+# Gate override (P1246; approval by keychain dialog since P1444). See
+# scripts/lib/gate-override.sh for what the approval is and is NOT worth.
 # P1326: the dirty-tree guard on destructive paths. If the helper is missing the
 # guard must not silently disappear — define a stand-in that reports every
 # worktree as changed, so abandon/adopt refuse rather than destroy.
@@ -89,6 +89,12 @@ else
 fi
 if [[ -f "$REPO_ROOT/scripts/lib/gate-override.sh" ]]; then
   source "$REPO_ROOT/scripts/lib/gate-override.sh"
+fi
+# Administrative closure (P1444). Sourced when present; the one path that uses it
+# (the no-branch close) refuses when it is missing — gate the operation, never the
+# whole tool (same reasoning as lib-required-checks.sh below).
+if [[ -f "$REPO_ROOT/scripts/lib/admin-close.sh" ]]; then
+  source "$REPO_ROOT/scripts/lib/admin-close.sh"
 fi
 # Required-status-check derivation (P1290). The `main` ruleset's required contexts are
 # QUERIED, never hardcoded — a hardcoded list is what let push-docs promote while a
@@ -3306,10 +3312,14 @@ SHIP_GATE_OVERRIDE_REASON=""
 # message is pushed, immutable in practice, and shows up in `git log` next to
 # the close it justifies. Anyone auditing "which specs were closed on a red
 # gate?" greps one string across history.
+#
+# P1444: the approval line names HOW the override was approved. It is a record for
+# a human reading history, not a credential — closure-gate.yml must never treat
+# any trailer as proof (see gate-override.sh: what this approval is NOT worth).
 ship_close_message() {
   local subject="$1"
   if [[ -n "$SHIP_GATE_OVERRIDE_REASON" ]]; then
-    printf '%s\n\nGate-Override: closure gate failed; closed by human override.\nGate-Override-Reason: %s\n' \
+    printf '%s\n\nGate-Override: closure gate failed; closed by human override.\nGate-Override-Reason: %s\nGate-Override-Approval: keychain dialog\n' \
       "$subject" "$SHIP_GATE_OVERRIDE_REASON"
   else
     printf '%s\n' "$subject"
@@ -3335,6 +3345,10 @@ ship_run_gates() {
   # P1309: set when gate 2.5 passed on an ABSORBING spec's record — the
   # no-branch route then looks for that spec's 'ready for QA' stamp, not pN's.
   SHIP_GATE_ABSORBER=""
+  # P1444: set when ship-gates found the close administrative (2.5 and 2.7
+  # skipped). Read only on a clean pass and only from the dedicated machine line;
+  # every route that acts on it re-derives the verdict itself.
+  SHIP_GATE_ADMIN=""
 
   local gates_script="$REPO_ROOT/scripts/ship-gates.sh"
   # Fails CLOSED (P1246 invariant: "Unreadable spec, missing script, unresolvable
@@ -3359,6 +3373,11 @@ ship_run_gates() {
     SHIP_GATE_ABSORBER="$(printf '%s\n' "$gate_out" \
       | sed -n 's/^\[GATE 2\.5\] ABSORBER: \(p[0-9][0-9]*\)$/\1/p' \
       | sed -n '1p')"
+    local _admin_pn
+    _admin_pn="$(printf '%s\n' "$gate_out" \
+      | sed -n 's/^\[GATE ADMIN\] ELIGIBLE: \(p[0-9][0-9]*\)$/\1/p' \
+      | sed -n '1p')"
+    [[ "$_admin_pn" == "$pn" ]] && SHIP_GATE_ADMIN=1
     return 0
   fi
 
@@ -3368,30 +3387,25 @@ ship_run_gates() {
     die "$(gate_override_refusal_text "$pn")"
   fi
 
-  if ! gate_override_tty_available; then
-    die "ship: --override requires an interactive terminal.
-
-  This session has no controlling terminal (/dev/tty is not openable), which is
-  how an agent shell looks by default.
-
-  This check is friction and an audit trail, NOT a wall you are unable to climb:
-  a pty wrapper such as script(1) defeats it (verified 2026-09-08). Do not reach
-  for one. An override you obtain that way is indistinguishable in the log from a
-  founder's decision, which is precisely the self-attestation this gate exists to
-  end. Report the gate failure and let the founder decide.
-
-  Founder: run the same command from a real terminal window."
-  fi
-
-  local reason=""
-  if ! reason="$( gate_override_capture "$pn" "closure gate" )"; then
+  # P1444: the override is approved by ONE keychain dialog, not by typing at
+  # /dev/tty — a pty wrapper answered that prompt (decisions.md 2026-09-08), so it
+  # is no longer an authorization path at all. gate_override_decide verifies the
+  # approval item's access list, reads it (the dialog: Allow approves, Deny
+  # refuses), and verifies the access list again. Every other outcome refuses.
+  # What this approval is and is NOT worth is in gate-override.sh's header.
+  if ! command -v gate_override_decide >/dev/null 2>&1; then
     [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
-    die "ship: override aborted at the prompt — $pn not closed."
+    die "ship: scripts/lib/gate-override.sh is missing or did not load — no override is possible. $pn not closed."
+  fi
+  local reason=""
+  if ! reason="$( gate_override_decide "$pn" "$SHIP_OVERRIDE_REASON_RAW" )"; then
+    [[ -n "$fresh_journal" ]] && rm -f "$fresh_journal"
+    die "ship: override NOT approved — $pn not closed (see the reason above)."
   fi
 
   gate_override_record "$pn" "closure" "$reason"
   SHIP_GATE_OVERRIDE_REASON="$reason"
-  echo "ship: GATE OVERRIDE accepted for $pn — recorded in the closure commit and in gate-overrides.log" >&2
+  echo "ship: GATE OVERRIDE approved for $pn by keychain dialog — recorded in the closure commit and in gate-overrides.log" >&2
   return 0
 }
 
@@ -3399,15 +3413,21 @@ cmd_ship() {
   local pn=""
   local resume=0
   local want_override=0
+  local _have_reason=0
+  SHIP_OVERRIDE_REASON_RAW=""
   local _gate_skip=0
   local mark_source="" mark_landed=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --resume) resume=1; shift ;;
-      # P1246. Does NOT skip the gates — it makes a FAILING gate promptable on
-      # /dev/tty. An agent shell has no /dev/tty, so passing this flag from one
-      # changes nothing except the wording of the refusal.
+      # P1246/P1444. Does NOT skip the gates — it makes a FAILING gate
+      # approvable by one keychain dialog (gate-override.sh), with the reason
+      # given up front so the dialog can name it. Nothing here reads /dev/tty.
       --override) want_override=1; shift ;;
+      --reason)
+        [[ $# -ge 2 ]] || { echo "usage: git-ops ship <p-number> --override --reason \"WHY, 12+ chars\"" >&2; exit 2; }
+        SHIP_OVERRIDE_REASON_RAW="$2"; _have_reason=1; shift 2 ;;
+      --reason=*) SHIP_OVERRIDE_REASON_RAW="${1#--reason=}"; _have_reason=1; shift ;;
       # Safe manual convergence for the P972 crash-window detect-and-refuse path:
       # records an operator-confirmed landing without hand-editing the journal.
       --mark-landed)
@@ -3419,13 +3439,29 @@ cmd_ship() {
       -*)       echo "git-ops ship: unknown flag '$1'" >&2; exit 2 ;;
       *)
         if [[ -n "$pn" ]]; then
-          echo "usage: git-ops ship <p-number> [--resume] [--override]" >&2; exit 2
+          echo "usage: git-ops ship <p-number> [--resume] [--override --reason \"WHY\"]" >&2; exit 2
         fi
         pn="$1"; shift ;;
     esac
   done
   if [[ -z "$pn" ]]; then
-    echo "usage: git-ops ship <p-number> [--resume] [--override]" >&2; exit 2
+    echo "usage: git-ops ship <p-number> [--resume] [--override --reason \"WHY\"]" >&2; exit 2
+  fi
+  # P1444: the reason travels with the request, so it is checked before anything
+  # else runs — a refusal for a bad reason must never come after a dialog.
+  if (( _have_reason == 1 && want_override == 0 )); then
+    echo "git-ops ship: --reason only applies with --override" >&2; exit 2
+  fi
+  if (( want_override == 1 )); then
+    if (( _have_reason == 0 )); then
+      echo "git-ops ship: --override needs --reason \"WHY THE GATE IS WRONG, 12+ chars\" — the reason is shown before the approval dialog and committed publicly with the close" >&2
+      exit 2
+    fi
+    if ! command -v gate_override_clean_reason >/dev/null 2>&1 \
+       || ! gate_override_clean_reason "$SHIP_OVERRIDE_REASON_RAW" >/dev/null; then
+      echo "git-ops ship: --reason must say something — at least 12 characters after control characters are removed" >&2
+      exit 2
+    fi
   fi
   if [[ ! "$pn" =~ ^p[0-9]+$ ]]; then
     die "ship: p-number must match ^p[0-9]+$ (got '$pn')"
@@ -3560,6 +3596,23 @@ cmd_ship() {
         _stamp_ok="absorbed-by-${SHIP_GATE_ABSORBER}"
         echo "ship: $pn is absorbed by $SHIP_GATE_ABSORBER — its code-presence evidence is that spec's close on main, verified by gate 2.5." >&2
       fi
+      # P1444: an administrative closure (comment / withdrawn / retracted spec)
+      # asserts that NO implementation exists, so there is no code whose presence a
+      # 'ready for QA' stamp could record — demanding one would be demanding a
+      # record of work that did not happen. Skipped on THIS route only, and only
+      # when git-ops re-derives the verdict itself: the gate's output line selects
+      # the check, it never substitutes for it. Re-checked under main.lock below.
+      local _admin_close=0
+      if [[ -n "$SHIP_GATE_ADMIN" ]]; then
+        command -v admin_check_local >/dev/null 2>&1 \
+          || die "ship: ship-gates judged $pn an administrative closure, but scripts/lib/admin-close.sh did not load here — refusing."
+        if ! admin_check_local "$REPO_ROOT" "$pn" "$spec_file" "$(cat "$REPO_ROOT/$spec_file")"; then
+          die "ship: ship-gates judged $pn an administrative closure, but git-ops's own check disagrees: $ADMIN_REASON — refusing."
+        fi
+        _admin_close=1
+        _stamp_ok="administrative"
+        echo "ship: $pn closes administratively ($ADMIN_MARKER) — no 'ready for QA' stamp is required on this route only." >&2
+      fi
       [[ -z "$_stamp_ok" ]] && while IFS= read -r _cand; do
         [[ -z "$_cand" ]] && continue
         _subj="$( cd "$REPO_ROOT" && git log -1 --format='%s' "$_cand" 2>/dev/null || true )"
@@ -3687,8 +3740,28 @@ cmd_ship() {
       # created (rc 1); running it on rc 3 would write to a shared index we have
       # just been told is moving, and print a recovery recipe for a commit that
       # already exists. Do neither — hand the operator the real state.
+      # P1444: an administrative close is re-derived HERE, under main.lock and
+      # immediately before the commit, against the bytes about to be committed (the
+      # staged closed copy) and the exact staged path set. A branch pushed, a relabel
+      # landed or a stray file staged since the pre-lock check all refuse.
+      local _close_subject="chore: close $pn (direct-to-main) — $title"
+      if (( _admin_close == 1 )); then
+        local _adm_staged="" _adm_fail=""
+        if ! _adm_staged="$( cd "$REPO_ROOT" && git show ":$spec_dest" 2>/dev/null )"; then
+          _adm_fail="the staged closed copy is unreadable"
+        elif ! admin_check_local "$REPO_ROOT" "$pn" "$spec_file" "$_adm_staged"; then
+          _adm_fail="$ADMIN_REASON"
+        elif ! admin_paths_ok "$pn" "$spec_file" < <( cd "$REPO_ROOT" && git diff --cached --name-status --no-renames ); then
+          _adm_fail="$ADMIN_REASON"
+        fi
+        if [[ -n "$_adm_fail" ]]; then
+          ( cd "$REPO_ROOT" && git reset -q HEAD -- "$spec_dest" "$spec_file" 2>/dev/null ) || true
+          die "ship: administrative closure re-check under main.lock FAILED: $_adm_fail — unstaged the partial rename; spec is at $spec_dest in the working tree. Recover with 'git mv $spec_dest $spec_file' then re-run ship after resolving the cause."
+        fi
+        _close_subject="chore: close $pn (administrative) — $title"
+      fi
       local _csx_rc=0
-      commit_staged_exact "$(ship_close_message "chore: close $pn (direct-to-main) — $title")" "$spec_dest" "$spec_file" || _csx_rc=$?
+      commit_staged_exact "$(ship_close_message "$_close_subject")" "$spec_dest" "$spec_file" || _csx_rc=$?
       if [[ "$_csx_rc" -eq 3 ]]; then
         die "ship: the spec-close commit LANDED but records the wrong files (no-branch closure) — nothing was unstaged and nothing was rolled back. Inspect 'git show --stat HEAD' and any co-tenant work it may have absorbed BEFORE re-running ship or touching the index."
       elif [[ "$_csx_rc" -ne 0 ]]; then
@@ -3794,6 +3867,14 @@ cmd_ship() {
     local _fresh_journal=""
     (( journal_exists == 0 )) && _fresh_journal="$journal"
     ship_run_gates "$pn" "$want_override" "$_fresh_journal"
+    # P1444: an administrative verdict exists only for a spec with no branch ahead
+    # of main, and its stamp/route handling lives on the no-branch route. Reaching
+    # here with one means a branch exists for pN (e.g. fix/pN-* at main's tip, which
+    # ship-gates does not resolve) — refuse rather than close a branch ungated.
+    if [[ -n "$SHIP_GATE_ADMIN" ]]; then
+      [[ -n "$_fresh_journal" ]] && rm -f "$_fresh_journal"
+      die "ship: $pn has a branch ($branch) but ship-gates judged it an administrative closure, which skips gates 2.5 and 2.7 — refusing on the branch route. Delete the branch if it holds no work, then re-run."
+    fi
   fi
 
   # Guard: refuse if branch touches git-ops.sh itself.
@@ -4587,6 +4668,13 @@ SUBCOMMANDS (P788 extension — T06)
                                --resume continues from a crashed run; any
                                recorded landed_sha missing from main history
                                causes an immediate refusal.
+                               --override --reason "WHY": on a red closure gate,
+                               ask for ONE keychain dialog (Allow approves this
+                               close, Deny refuses); the reason is committed with
+                               Gate-Override trailers. Founder decision only.
+                               No branch + a comment/withdrawn/retracted spec
+                               classified on origin/main closes administratively:
+                               gates 2.5/2.7 and the stamp are skipped (P1444).
 
   push-docs                    Automate the P919 staging hop for doc/KDD commits
                                that are ahead of origin/main (no P-number needed).
