@@ -3967,12 +3967,14 @@ export async function getEventAttendeeCount(eventId: string): Promise<number> {
  * Checks if a user has RSVP'd to an event
  */
 export async function isUserRsvpd(eventId: string, profileId: string): Promise<boolean> {
+  // P1441: maybeSingle() answers "no row" with null instead of a 406 that the browser logs as a
+  // console error on every new signup's auto-RSVP (events-service-real already does this).
   const { data, error } = await supabase
     .from('event_rsvps')
     .select('id')
     .eq('event_id', eventId)
     .eq('profile_id', profileId)
-    .single();
+    .maybeSingle();
 
   if (error && error.code !== 'PGRST116') {
     console.error('[Events API] Error checking RSVP:', error);

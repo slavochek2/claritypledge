@@ -136,13 +136,16 @@ Defensive guard, founder-approved (option A), since the trigger was not reproduc
 
 ## Acceptance Criteria
 
-- [ ] A new signup confirming by email is RSVP'd once and lands on the confirmation page (`e2e/p1441-signup-auto-rsvp.spec.ts`)
-- [ ] One signup produces exactly one profile write and one auto-RSVP attempt (`src/tests/p1441-auth-callback.test.tsx`)
-- [ ] With the client session lost and not recoverable, Reserve shows "Please sign in again to reserve your seat." and opens login with `redirect=/events/<slug>&action=rsvp`, and no "may be full" message appears
-- [ ] After that sign-in, the RSVP completes without another tap
-- [ ] With the client session lost, cancel shows "Please sign in again to cancel your seat.", the seat is not shown as released, and signing in does not re-book
-- [ ] A cancel that fails for any other reason shows "Couldn't cancel your seat. Please try again." on the event page instead of closing silently [FOUNDER DECISION: copy]
-- [ ] A cancel that deletes no row shows the failure state, never "cancelled"
-- [ ] A browser where another tab signed in as a different account is never signed out by this recovery
-- [ ] A failed auto-RSVP insert appears in Sentry as `DB error in rsvpToEvent`
-- [ ] No console errors during the normal signup → RSVP flow
+Evidence: `e2e/p1441-uat.spec.ts` (6 states, Chromium, local dev + TEST DB; screenshots at 1280 / 375 / 320, independent visual-QA verdict PASS) and the full vitest run, 2026-10-08.
+
+- [x] A new signup confirming by email is RSVP'd once and lands on the confirmation page — UAT (a) + `e2e/p1441-signup-auto-rsvp.spec.ts`: `/confirm` reached, exactly 1 row
+- [x] One signup produces exactly one profile write and one auto-RSVP attempt — `src/tests/p1441-auth-callback.test.tsx` (unit; failed "called 2 times" before the fix)
+- [x] With the client session lost and not recoverable, Reserve shows "Please sign in again to reserve your seat." and opens login with `redirect=/events/<slug>&action=rsvp`, and no "may be full" message appears — UAT (b1): URL, notice text, no "may be full", 0 rows
+- [x] After that sign-in, the RSVP completes without another tap — UAT (b2): `/confirm`, 1 row. The sign-in link is generated to the exact shape `signInWithEmail` sends; the real email delivery was not exercised
+- [x] With the client session lost, cancel shows "Please sign in again to cancel your seat.", the seat is not shown as released, and signing in does not re-book — UAT (d1/d2): no `action` in the login URL, notice text, booking count stays 1
+- [x] A cancel that fails for any other reason shows "Couldn't cancel your seat. Please try again." on the event page instead of closing silently — UAT (e)
+- [x] A cancel that deletes no row while the seat is still held shows the failure state, never "cancelled" — UAT (e): "Can't make it" still shown, 1 row. (A zero-row cancel whose row is confirmed already gone reports cancelled: unit tests in `src/tests/p1441-session-guard.test.ts`)
+- [x] After a successful cancel, the canceller leaves the Participants list without a reload — UAT (c) + `src/tests/p1441-cancel-participants.test.tsx` (found by visual QA)
+- [ ] A browser where another tab signed in as a different account is never signed out by this recovery — unit-tested only (`p1441-auth-callback.test.tsx`, "SOMEONE ELSE"); two real tabs not exercised in a browser
+- [ ] A failed auto-RSVP insert appears in Sentry as `DB error in rsvpToEvent` — unit-tested only (`p1441-session-guard.test.ts` asserts `logDbError`); Sentry is production-only, so not observable locally
+- [x] No console errors during the normal signup → RSVP flow — UAT (a) asserts none (it caught a 406 from `isUserRsvpd`'s `.single()`, fixed with `maybeSingle()`)

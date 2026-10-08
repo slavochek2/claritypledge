@@ -512,6 +512,10 @@ export function EventDetail() {
     setIsActionLoading(false);
     if (success) {
       setIsRsvpd(false);
+      // P1441 (UAT): the list came from the page load, so drop the canceller now — otherwise the
+      // page shows "Reserve a seat" with them still listed under Participants.
+      const me = user.id;
+      setEvent((prev) => (prev ? { ...prev, attendees: (prev.attendees ?? []).filter((a) => a.profileId !== me) } : prev));
     } else if (isNetworkWriteFailure(null, sentAt)) {
       // P1369: the RSVP is still there — say why, rather than closing the dialog silently.
       toast.error(NEEDS_INTERNET_MESSAGE);
