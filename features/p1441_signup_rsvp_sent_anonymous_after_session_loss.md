@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 26
 severity: high
@@ -11,8 +11,20 @@ exec_model: opus
 exec_effort: high
 tags: [auth, rsvp, rls, signup]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [reproduce, create-bug]
+delivery_stage: fix
+pipeline_ran: [reproduce, create-bug, fix]
+reproduce_artifact:
+  test_file: src/tests/p1441-session-guard.test.ts
+  extra_test_files: [src/tests/p1441-auth-callback.test.tsx, src/tests/p1441-cancel-participants.test.tsx, e2e/p1441-uat.spec.ts]
+  root_cause: "supabase-js getSession() returned no session (client storage lost it) while AuthContext kept its copy, so RSVP inserts went out with the anon key and failed RLS (401/42501); what removes the client session in prod is not reproduced. Secondary: AuthCallbackPage re-ran processAuth on user/session change; cancelRsvp reported an anonymous 0-row DELETE as success; api.ts rsvpToEvent did not report insert failures to Sentry"
+  confidence: medium
+  surfaces_in_scope: [auth-callback-auto-rsvp, event-detail-reserve, event-detail-cancel, event-close-reserve, event-arrival-cancel]
+  surfaces_deferred: []
+  reproduced_at: 2026-10-08
+  evidence: "prod Sentry JAVASCRIPT-REACT-3Q breadcrumbs (requests flip from authenticated 200 to anonymous 401 ~1.6 s after verifyOtp); P1441 vitest canaries run against the pre-fix base 6532efae3 with only src/lib/session-guard.ts added: 22 of 43 fail on the bug symptoms, 43 of 43 pass at the fix"
+date_resolved: 2026-10-08
+root_cause: "The supabase client lost its stored session while AuthContext kept its copy, so seat writes went out anonymous and failed RLS (prod trigger not reproduced)"
+resolution: "Session guard before every seat write (one quiet re-sync, else Please sign in again with the RSVP intent kept, never signOut); server 401/42501 and zero-row cancels mapped; unreachable auth server reported as a network failure; callback runs once; auto-RSVP failures reach Sentry; canceller leaves Participants"
 ---
 
 # P1441: New signup's RSVP is sent anonymously after the browser loses its session; the page still shows them signed in
@@ -133,6 +145,11 @@ Defensive guard, founder-approved (option A), since the trigger was not reproduc
 - **Callback:** a run-once ref. Auto-RSVP failures go to Sentry.
 - **Follow-up if it recurs:** the guard leaves Sentry and Mixpanel signals, and finding the real
   trigger needs WebKit or a device.
+
+**Known trade-offs** (accepted at `/finish` review, not fixed):
+- The quiet re-sync hands the client the app's own copy. If another tab signed out and this tab never heard about it, the copy can be written back. The person then stays signed in here until that access token expires. Same-tab sign-outs are covered by the generation check.
+- `AuthCallbackPage` marks a sign-in processed before the profile upsert, so a failed upsert is not retried on that page load. A recovery after a lost session that finds a different account in the browser lands a new signup on the event page with no explanation.
+- An auth server the guard cannot reach (a retryable refresh failure) fails the seat write as a network failure, not "sign in again". The server's 401 + 42501 mapping remains the backstop for a write that does go out anonymous.
 
 ## Acceptance Criteria
 

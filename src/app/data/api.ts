@@ -18,7 +18,7 @@ import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
 import { logDbError } from './db-error-logger';
-import { clientHoldsUser, ensureClientSessionFor, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
+import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { getSeatSecret, setSeatSecret, clearSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
@@ -4097,7 +4097,7 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
   // the person as "event full". Checked right before the insert (not before the reads above),
   // and the server's 401 answer is mapped too, since the session can still vanish in between.
   // The caller turns SessionMismatchError into "please sign in again".
-  if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+  if (!(await guardSeatWrite(profileId))) return false;
 
   // Insert RSVP
   const { error, status } = await supabase
@@ -4125,7 +4125,7 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
 export async function cancelRsvp(eventId: string, profileId: string): Promise<boolean> {
   // P1441: never report "cancelled" unless the row is gone. An anonymous DELETE is not an error —
   // RLS filters it to zero rows — so the old code returned true while the seat stayed booked.
-  if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+  if (!(await guardSeatWrite(profileId))) return false;
 
   const { data, error, status } = await supabase
     .from('event_rsvps')
@@ -4146,7 +4146,9 @@ export async function cancelRsvp(eventId: string, profileId: string): Promise<bo
   if (!data || data.length === 0) {
     // Zero rows because the session vanished after the check reads as "sign in again". Checked
     // without a re-sync: a repaired session here would still leave this delete un-retried.
-    if (!(await clientHoldsUser(profileId))) throw new SessionMismatchError(profileId);
+    const held = await clientHoldsUser(profileId);
+    if (held === 'unreachable') return false;
+    if (!held) throw new SessionMismatchError(profileId);
     // Still signed in, so zero rows means there was nothing to delete (a double tap, another
     // tab). Report "cancelled" only once a read confirms the row is gone — event_rsvps is
     // readable by everyone, so this read is true whatever the session.

@@ -43,9 +43,25 @@ export function noteAppSession(session: Session | null): void {
   appSessionGen += 1;
 }
 
-async function clientUserId(): Promise<string | null> {
+/**
+ * getSession() could not reach the auth server. Near expiry it refreshes first, and a retryable
+ * failure (network, 5xx) comes back as `{ session: null, error }` while the stored session is kept
+ * (auth-js __loadSession). That is "we cannot tell right now", never "nobody is signed in" —
+ * treating it as a lost session sent people on a flaky connection to the sign-in page.
+ */
+const UNREACHABLE = Symbol('unreachable');
+
+function isRetryableAuthError(error: { name?: string; status?: number } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.name === 'AuthRetryableFetchError') return true;
+  const status = error.status;
+  return status === 0 || (typeof status === 'number' && status >= 500);
+}
+
+async function clientUserId(): Promise<string | null | typeof UNREACHABLE> {
   try {
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+    if (!data?.session && isRetryableAuthError(error)) return UNREACHABLE;
     return data?.session?.user?.id ?? null;
   } catch {
     return null;
@@ -54,10 +70,12 @@ async function clientUserId(): Promise<string | null> {
 
 /**
  * Resolves 'ok' when the client will send requests as `profileId` (possibly after a re-sync),
- * 'mismatch' otherwise. Never throws.
+ * 'unreachable' when the auth server could not be reached to tell, 'mismatch' otherwise.
+ * Never throws.
  */
-export async function ensureClientSessionFor(profileId: string): Promise<'ok' | 'mismatch'> {
+export async function ensureClientSessionFor(profileId: string): Promise<'ok' | 'mismatch' | 'unreachable'> {
   const current = await clientUserId();
+  if (current === UNREACHABLE) return 'unreachable';
   if (current === profileId) return 'ok';
   // The client holding SOMEONE ELSE is a real sign-in (another tab, another account) — never
   // overwrite it from this tab's copy. Only a client holding nobody is re-synced.
@@ -76,7 +94,9 @@ export async function ensureClientSessionFor(profileId: string): Promise<'ok' | 
   }
   // Re-read right before writing: another tab may have signed someone in since the first read.
   // This narrows that window; it cannot close it (auth-js exposes no lock to hold across both).
-  if ((await clientUserId()) !== null) return 'mismatch';
+  const again = await clientUserId();
+  if (again === UNREACHABLE) return 'unreachable';
+  if (again !== null) return 'mismatch';
   // A sign-out (or any session change) reported while we awaited makes the copy stale: never
   // restore an account the person has just left.
   if (gen !== appSessionGen) return 'mismatch';
@@ -89,7 +109,9 @@ export async function ensureClientSessionFor(profileId: string): Promise<'ok' | 
   } catch {
     return 'mismatch';
   }
-  return (await clientUserId()) === profileId ? 'ok' : 'mismatch';
+  const after = await clientUserId();
+  if (after === UNREACHABLE) return 'unreachable';
+  return after === profileId ? 'ok' : 'mismatch';
 }
 
 /**
@@ -107,8 +129,21 @@ export async function clientHasSession(): Promise<boolean> {
 }
 
 /** Whether the client holds exactly this user, WITHOUT attempting a re-sync. */
-export async function clientHoldsUser(profileId: string): Promise<boolean> {
-  return (await clientUserId()) === profileId;
+export async function clientHoldsUser(profileId: string): Promise<boolean | 'unreachable'> {
+  const id = await clientUserId();
+  return id === UNREACHABLE ? 'unreachable' : id === profileId;
+}
+
+/**
+ * The pre-write check every seat write runs. Resolves true to proceed, false when the auth server
+ * could not be reached (the caller reports it as the network failure it is); throws
+ * SessionMismatchError when the client cannot act as `profileId`.
+ */
+export async function guardSeatWrite(profileId: string): Promise<boolean> {
+  const verdict = await ensureClientSessionFor(profileId);
+  if (verdict === 'unreachable') return false;
+  if (verdict !== 'ok') throw new SessionMismatchError(profileId);
+  return true;
 }
 
 /**

@@ -182,6 +182,14 @@ describe('P1441: session guard', () => {
     expect(mockSetSession).not.toHaveBeenCalled();
   });
 
+  it('a refresh that could not reach the server is "unreachable", not a lost session (/finish review)', async () => {
+    const { guard } = await load();
+    guard.noteAppSession(sessionOf(USER) as never);
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: { name: 'AuthRetryableFetchError', status: 0 } });
+    await expect(guard.ensureClientSessionFor(USER)).resolves.toBe('unreachable');
+    expect(mockSetSession).not.toHaveBeenCalled();
+  });
+
   it('reports mismatch when the re-sync is rejected', async () => {
     const { guard } = await load();
     guard.noteAppSession(sessionOf(USER) as never);
@@ -220,6 +228,13 @@ describe.each([
     mockInsert.mockResolvedValue({ data: null, status: 401, error: { code: '42501', message: 'new row violates row-level security policy' } });
     await expect(rsvp('evt-1', USER)).rejects.toBeInstanceOf(guard.SessionMismatchError);
     expect(logDbError).not.toHaveBeenCalled();
+  });
+
+  it('an unreachable auth server is a network failure (false), never "sign in again", and sends nothing (/finish review)', async () => {
+    const rsvp = await getRsvp();
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: { name: 'AuthRetryableFetchError', status: 0 } });
+    await expect(rsvp('evt-1', USER)).resolves.toBe(false);
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it('inserts after a successful re-sync', async () => {
@@ -266,6 +281,22 @@ describe.each([
     mockDeleteResult.mockReset();
     mockSetSession.mockResolvedValue({ data: {}, error: null });
     (await load()).guard.noteAppSession(null);
+  });
+
+  it('an unreachable auth server fails the cancel (false) without a delete or "sign in again" (/finish review)', async () => {
+    const cancel = await getCancel();
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: { name: 'AuthRetryableFetchError', status: 0 } });
+    await expect(cancel('evt-1', USER)).resolves.toBe(false);
+    expect(mockDeleteResult).not.toHaveBeenCalled();
+  });
+
+  it('a zero-row cancel whose re-check cannot reach the auth server is a plain failure, not "sign in again"', async () => {
+    const cancel = await getCancel();
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: sessionOf(USER) } })
+      .mockResolvedValue({ data: { session: null }, error: { name: 'AuthRetryableFetchError', status: 0 } });
+    mockDeleteResult.mockReturnValue({ data: [], error: null, status: 200 });
+    await expect(cancel('evt-1', USER)).resolves.toBe(false);
   });
 
   it('a lost session sends no delete and throws SessionMismatchError', async () => {

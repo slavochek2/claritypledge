@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { extractBannerKeywords, fetchUnsplashBanner, generateAIBanner } from '@/app/prototypes/events/banner-utils';
 import { logDbError, throwDbError } from './db-error-logger';
-import { clientHoldsUser, ensureClientSessionFor, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
+import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
 
@@ -827,7 +827,6 @@ export const realEventsService: EventsService = {
   async rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
     log(' rsvpToEvent:', { eventId, profileId });
 
-
     // KNOWN LIMITATION: Capacity check is not fully atomic with insert.
     // Under high concurrent load, it's possible for two RSVPs to both pass
     // the capacity check and both insert, exceeding max_attendees by 1.
@@ -873,7 +872,7 @@ export const realEventsService: EventsService = {
     // the person as "event full". Checked right before the insert (not before the reads above),
     // and the server's 401 answer is mapped too, since the session can still vanish in between.
     // The caller turns SessionMismatchError into "please sign in again".
-    if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+    if (!(await guardSeatWrite(profileId))) return false;
 
     // Insert RSVP
     const { error, status } = await supabase
@@ -910,7 +909,7 @@ export const realEventsService: EventsService = {
 
     // P1441: never report "cancelled" unless the row is gone. An anonymous DELETE is not an error —
     // RLS filters it to zero rows — so the old code returned true while the seat stayed booked.
-    if ((await ensureClientSessionFor(profileId)) !== 'ok') throw new SessionMismatchError(profileId);
+    if (!(await guardSeatWrite(profileId))) return false;
 
     const { data, error, status } = await supabase
       .from('event_rsvps')
@@ -931,7 +930,9 @@ export const realEventsService: EventsService = {
     if (!data || data.length === 0) {
       // Zero rows because the session vanished after the check reads as "sign in again". Checked
       // without a re-sync: a repaired session here would still leave this delete un-retried.
-      if (!(await clientHoldsUser(profileId))) throw new SessionMismatchError(profileId);
+      const held = await clientHoldsUser(profileId);
+      if (held === 'unreachable') return false;
+      if (!held) throw new SessionMismatchError(profileId);
       // Still signed in, so zero rows means there was nothing to delete (a double tap, another
       // tab). Report "cancelled" only once a read confirms the row is gone — event_rsvps is
       // readable by everyone, so this read is true whatever the session.

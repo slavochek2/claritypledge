@@ -77,8 +77,8 @@ export function AuthCallbackPage() {
     }
 
     const processAuth = async () => {
-      // P1441: once a sign-in has been processed here, later re-runs (a refreshed `user`, a new
-      // session object, or the deliberate local sign-out on a lost session) do nothing.
+      // P1441: once a sign-in has been processed here, later re-runs (a refreshed `user` or a
+      // new session object) do nothing.
       if (processedUserIdRef.current !== null) return;
       if (!session) {
         // P1011: discriminate rather than suppress. `session` comes from useAuth,
