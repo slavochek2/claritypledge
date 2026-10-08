@@ -114,6 +114,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Before writing to decisions.md:** run `[ -f .git/CHERRY_PICK_HEAD ] && echo "BLOCKED" || echo "OK"`. If BLOCKED — stop: "cherry-pick in progress — resolve it first (`git cherry-pick --continue` or `--abort`), then re-run /kdd." Do not attempt the Edit while a cherry-pick is in progress; the file is in an unmerged state and the write will fail or corrupt it.
 
+   **Privacy split — classify every entry BEFORE writing it (P1438).** `docs/decisions.md` is public. For each entry, decide one of:
+   - **public-only** — nothing in it names a person, partner or organisation non-publicly, quotes what someone said, carries deal terms, or is something you would not want a competitor to read (pricing figures, GTM sequencing). Write it to `docs/decisions.md` as usual.
+   - **split** — the decision itself is public-safe but its reasons are not. Write the name-free half (context, decision, alternatives, falsifier) to `docs/decisions.md`, ending with `**Details private:** .private/docs/decisions.md YYYY-MM-DD "<heading>"`. Write the named half to `.private/docs/decisions.md` (main checkout — see below) with `**Public entry:** docs/decisions.md YYYY-MM-DD "<public heading>"`.
+   - **private-only** — the whole decision is sensitive. Write it to `.private/docs/decisions.md` only, with `**Public entry:** none`. Add a short public entry only if it changes the product.
+   - **not cp business** (personal life, the founder's own machines) — write nothing; tell the founder to run `/kdd-private`.
+
+   Headings in BOTH logs are name-free (names go in the body only), so a pointer to a heading never leaks a name. Link raw evidence (event folders, CRM notes) from the private entry; never move or copy it. Exact pricing stays in `.private/docs/business/pricing-decisions.md` — link it.
+
+   **Where `.private/` is:** it exists only in the main checkout and is its own git repo. From a worktree, resolve it with `"$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private"`. If it is absent, STOP the private half and tell the founder — never put the named half in the public file as a fallback.
+
    **For decisions.md** (append at TOP, after header):
    ```markdown
    ## YYYY-MM-DD [tag]: Decision Title
@@ -153,10 +163,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Keep them accurate to current implementation
    - These are Claude's context shortcuts — save future re-reading
 
-4.4. **Commit immediately after writing** — do not leave KDD changes staged or unstaged:
+4.4. **Commit immediately after writing — but only after the privacy gate passes.** Run step 6.25's privacy & security gate on the public files NOW, before this commit (P1438: it used to run after, so a misclassified name reached public history before any review). Then stage and run `./scripts/audit-privacy.sh --staged` — it now also blocks names held in `.private/` (known-names check). Non-zero = fix the public entry, never bypass. The regex scan cannot catch a name it has never seen, so your own read of the public half is still the primary gate.
+
+   **Two repos:** commit the private half separately from inside `.private/` (`git add docs/decisions.md` there — explicit path only, it routinely holds other sessions' edits), after `gitleaks protect --staged` per `.private/INDEX.md`. Report both: `public: <sha or none> · private: <sha or none>`.
+
+   Do not leave KDD changes staged or unstaged:
 
    ```bash
    git add docs/decisions.md features/done/INDEX.md  # decisions.md + INDEX only — NOT the gated strategy docs (those are docs-strategy-update's commit)
+   git diff --cached                                  # step 6.25 judgment read happens HERE, on what is actually staged
+   ./scripts/audit-privacy.sh --staged || exit 1      # regex + known-names check; non-zero = fix the entry, never bypass
    git commit -m "docs: [topic] KDD — [one-line summary]"
    ```
 
@@ -229,9 +245,9 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
-6.25. **Privacy & security disclosure gate:**
+6.25. **Privacy & security disclosure gate** — runs from step 4.4, BEFORE the commit; listed here for reference. Re-run it here only for files written after 4.4 (housekeeping):
 
-   **Universal rule:** This is a public repo. Never write client names, phone numbers, WhatsApp links, session details, or any personally identifiable information into docs, decisions, or feature specs. Use generic references ("a client", "the feedback form") instead of names. Private details belong in `.private/` only.
+   **Universal rule:** This is a public repo. Never write client names, phone numbers, WhatsApp links, session details, or any personally identifiable information into docs, decisions, or feature specs. Use generic references ("a client", "the feedback form") instead of names. Named decisions go to `.private/docs/decisions.md` (step 4 privacy split); other private details belong elsewhere in `.private/`.
 
    Run `/maintain:privacy` before committing if the session involved:
    - **claude-conversations:** doc updates synthesized from personal claude.ai conversations (reading from `~/projects/private/claude-conversations/` or user mentioned a conversation by name)

@@ -8,7 +8,7 @@
 
 For ANY piece of information, **first match wins** — it then has exactly ONE home, and every other doc points to it instead of copying it.
 
-1. **Identifying** — a person's name, contact, or provenance? → **`.private/`** (always; overrides everything below — the only irreversible failure on a public repo).
+1. **Identifying** — a person's name, contact, or provenance? → **`.private/`** (always; overrides everything below — the only irreversible failure on a public repo). A *decision* with identifying or commercially sensitive reasons → `.private/docs/decisions.md`, with a name-free public half in `decisions.md` when the decision itself is public-safe (`/kdd` privacy split, P1438).
 2. **Definition of a term**? → **`definitions.md`** (glossary only — no status words, no GTM claims). *Exception — a concept whose full model needs edge cases + reasoning + an evolving, still-UNTESTED operational layer a glossary can't hold (currently two: the story/point model, and the arbiter-failure model — see [arbiter-failure-model.md](arbiter-failure-model.md), extracted 2026-08-28 when a third consumer skill found the operational layer living inside one of the consumers): its own concept-model doc, **[story-point-model.md](story-point-model.md)**, with `definitions.md` keeping a plain-meaning entry + pointer. Consumer skills (`/align`, sifters) read the model from that one file.*
 3. **Why we decided, with a falsifier + alternatives, dated**? → **`decisions.md`** (append-only log).
 4. **A falsifiable bet under test** (falsifier + priority + evidence)? → **`hypotheses.md`** (living scoreboard).

@@ -221,6 +221,7 @@ Before running the eight dimensions, read these project context files:
 docs/hypotheses.md        — Active hypotheses (does this spec test one?)
 docs/lean-canvas.md       — Business model alignment
 docs/decisions.md         — Past decisions (does this spec conflict?)
+                            + run scripts/search-decisions.sh "<spec nouns>" for private rulings (P1438)
 docs/definitions.md       — Terminology accuracy
 docs/philosophy.md        — Mission alignment
 ```

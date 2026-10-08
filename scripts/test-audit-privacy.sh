@@ -277,6 +277,50 @@ assert_range_blocks "email co-commit guard [BASE email-allowlist non-empty, lack
   "add file with newly-allowlisted third-party email" "docs/notes.md" "contact stranger@notlisted.invalid" "" \
   "example.com"
 
+# Known-names check (P1438): a throwaway repo with its own .private/ fixture. Fake names only.
+# One known member per derivation path (seed file, CRM filename) so a source that silently yields
+# nothing cannot pass green (epistemic.md gate 7e); plus clean and substring controls.
+names_case() {
+  # mode: staged (content staged as a file) | range (content as a commit MESSAGE, HEAD~1..HEAD)
+  # seed: "full" (seed + CRM file) | "none" (.private/ exists, no name sources)
+  local label="$1" content="$2" want="$3" mode="${4:-staged}" seed="${5:-full}" repo rc
+  repo=$(mktemp -d)
+  git -C "$repo" init -q
+  git -C "$repo" config user.email "test@example.com"; git -C "$repo" config user.name "Test"
+  mkdir -p "$repo/.private/docs" "$repo/.private/crm/opportunities"
+  if [ "$seed" = "full" ]; then
+    printf '# seed\n  Zorblat Quenwick  \n' > "$repo/.private/docs/privacy-names.txt"
+    : > "$repo/.private/crm/opportunities/pelmora-vashti.md"
+    : > "$repo/.private/crm/opportunities/solo.md"
+  fi
+  if [ "$mode" = "range" ]; then
+    echo base > "$repo/a.md"; git -C "$repo" add a.md; git -C "$repo" commit -qm base
+    echo next > "$repo/a.md"; git -C "$repo" add a.md; git -C "$repo" commit -qm "$content"
+    (cd "$repo" && "$AUDIT" HEAD~1..HEAD >/dev/null 2>&1); rc=$?
+  else
+    printf '%s\n' "$content" > "$repo/note.md"
+    git -C "$repo" add note.md
+    (cd "$repo" && "$AUDIT" --staged >/dev/null 2>&1); rc=$?
+  fi
+  rm -rf "$repo"
+  # Exact exit code: 1 = blocked, 0 = clean. Exit 2 (script error) never counts as a block.
+  if [ "$rc" = "$want" ]; then echo "  ✓ $label"; PASS=$((PASS+1)); else echo "  ✗ $label (exit $rc, wanted $want)"; FAIL=$((FAIL+1)); fi
+}
+set +e
+names_case "known name from seed file blocks (seed line padded with spaces)" "met Zorblat Quenwick today" 1
+names_case "hyphenated spelling blocks" "see zorblat-quenwick notes" 1
+names_case "comma-separated spelling blocks" "Zorblat, Quenwick said" 1
+names_case "tab-separated spelling blocks" "$(printf 'Zorblat\tQuenwick')" 1
+names_case "en-dash spelling blocks" "Zorblat–Quenwick" 1
+names_case "NBSP spelling blocks" "$(printf 'Zorblat\xc2\xa0Quenwick')" 1
+names_case "name derived from CRM filename blocks" "talked to Pelmora Vashti" 1
+names_case "known name in a COMMIT MESSAGE blocks (range mode)" "notes from Zorblat Quenwick call" 1 range
+names_case "single-token CRM filename is NOT derived" "solo work today" 0
+names_case "name-free text passes" "a local event organiser" 0
+names_case "name embedded in a longer word passes" "Zorblat Quenwickshire" 0
+names_case "no name sources: passes (warns on stderr)" "met Zorblat Quenwick today" 0 staged none
+set -e
+
 echo ""
 echo "=== Summary ==="
 echo "Passed: $PASS"

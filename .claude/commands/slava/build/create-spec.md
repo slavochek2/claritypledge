@@ -332,7 +332,7 @@ Search **three** surfaces. `decisions.md` is the one that gets skipped and the o
 ```bash
 # Use the DEFECT'S OWN VOCABULARY, not your framing of it. Two or three distinct phrasings.
 grep -ril "{key concept}" features/ 2>/dev/null | head -10          # open + done specs
-grep -rn  "{key concept}" docs/decisions.md 2>/dev/null | head -10  # prior decisions AND the specs they filed
+scripts/search-decisions.sh "{key concept}" 10                     # prior decisions, public AND private logs (P1438)
 grep -ril "{key concept}" src/ scripts/ 2>/dev/null | head -10      # already handled in code
 ```
 
@@ -351,9 +351,11 @@ The verdict above answers *does a spec for this already exist*. It does **not** 
 Job 2 widens the term list to the **concrete nouns the work will touch** — the file, table, column, script, function or service names in your own draft Solution. Read the draft, list its proper nouns, grep each. Do **not** grep decision vocabulary (`MUST`, `never`, `rejected`): against a file this size those return noise, not rulings.
 
 ```bash
-grep -rn "{subject terms}" docs/decisions.md | head -10   # job 1 — duplicate verdict
-grep -rn "{nouns from your Solution}" docs/decisions.md | head -20   # job 2 — rulings
+scripts/search-decisions.sh "{subject terms}" 10              # job 1 — duplicate verdict
+scripts/search-decisions.sh "{nouns from your Solution}" 20    # job 2 — rulings
 ```
+
+**Both logs, every time (P1438).** `scripts/search-decisions.sh` searches `docs/decisions.md` and the private `.private/docs/decisions.md` (rulings whose reasons name people). Its first line says whether the private log was searched — **copy that line into your report verbatim**; `PRIVATE LOG: NOT AVAILABLE` means private rulings are unknown, not absent. A `private:` hit is a real ruling: route it into the spec as `private ruling YYYY-MM-DD` with a name-free one-line summary — **never quote private text into the spec**, which is public.
 
 Report job 2 separately — **`RULINGS: <n> found — <one line each>`** or **`RULINGS: none — searched "<terms>"`** — and route anything found into `## Invariants` or `## Risks`, cited by date. Observed 2026-08-26: the run that filed P1158 searched subject terms, returned `NONE`, and harvested no rulings. One grep reporting one verdict is how that happens.
 

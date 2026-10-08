@@ -4,6 +4,8 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+> **A private companion log exists:** `.private/docs/decisions.md` (main checkout only, never on GitHub) holds decisions whose reasons name people or are commercially sensitive. Entries here that end with `**Details private:**` point to it by date + heading. Searching for prior rulings? Use `scripts/search-decisions.sh "<terms>"`, which covers both logs and says when the private one could not be reached; grepping this file alone misses private rulings silently (P1438).
+
 ---
 
 ## 2026-10-07 [product]: Topic selection is a private evidence-backed backlog the host draws from; the star vote measured appetite, not disagreement (P1436)
@@ -22,6 +24,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ## 2026-10-07 [product]: Pause founder-run public Clarity Nights; refocus on groups with a real need, outreach first
 
 **Context:** Clarity Night #2 (2026-10-06) ran with 9 attendees. The same gap has now appeared at every public event: people come for a topic and receive a listening practice. Impact stayed inside the room (one attendee reported a felt shift in how they listen), nothing carried it out, and attendees are not event runners or team leads with a reason to keep using it. The planned "host 5 minutes at an event you already attend" ask (P1400 gate) was not made. Details and data are private (founder's event retro).
+**Details private:** .private/docs/decisions.md 2026-10-07 "Pause founder-run public nights — private details"
 **Decision:** Pause founder-run public nights. Accept that public community events have not spread the practice so far (a cross-event pattern, not one night). Not concluded: that the practice lacks value where people need it. Next: choose whom to approach in the network, time-box 1–2 days of pivot thinking (P1431, P1400 reframed as outreach to event organizers rather than attendees, the team/hackathon route), then make outreach and discovery conversations the main activity.
 **Success test:** one **group** (people who already work or decide together repeatedly) with a **real need** (names, in its own words, a current situation where misunderstanding costs it something) that **wants to try it** (books a dated session on its own topic, unchased). Falsifier, carried from goals.md: 5 champion conversations with 0 pilots agreed ⟹ change the pitch.
 **Alternatives rejected:** (a) one more improved public night to test spread — rejected because this audience structurally lacks carriers, so it cannot answer the question; (b) building a meta-events or "listening battle" prototype first — building before anyone has said yes; (c) stopping entirely — leaves the need-driven question untested. Adversarial review (Codex, Gemini) returned MODIFY on both: pause yes, but "this audience cannot carry it" was too strong from one night; reconciled by the cross-event pattern.

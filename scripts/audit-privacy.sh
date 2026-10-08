@@ -189,7 +189,65 @@ scan_unknown_emails() {
   printf '%s' "$hits"
 }
 
+# Known-names check (P1438). Arbitrary person names cannot be regex-detected, so this matches the
+# names cp's own private files already hold. Sources live in the MAIN checkout's .private/ (its own
+# gitignored repo; absent in worktrees, clones and CI), resolved through git-common-dir:
+#   - .private/docs/privacy-names.txt — hand-kept seed, one name per line, '#' comments
+#   - .private/crm/opportunities/*.md — derived: filenames of 2+ hyphen tokens ("first-last")
+# Single-token names are matched only from the seed file (a derived "kai" would flag every "Kai").
+# Absent sources => skipped with a stderr note, never a silent pass. Hit output prints the NAME,
+# which is fine: it goes to the local terminal only.
+resolve_private_dir() {
+  local common
+  common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [ -d "$(dirname "$common")/.private" ] && printf '%s' "$(dirname "$common")/.private"
+}
+known_names() {
+  local priv="$1" f base
+  if [ -f "$priv/docs/privacy-names.txt" ]; then
+    grep -vE '^[[:space:]]*(#|$)' "$priv/docs/privacy-names.txt" \
+      | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true
+  fi
+  for f in "$priv"/crm/opportunities/*.md; do
+    [ -e "$f" ] || continue
+    base="$(basename "$f" .md)"
+    case "$base" in *-*) printf '%s\n' "$base" | tr '-' ' ' ;; esac
+  done
+}
+# Literal bytes (bash 3.2 $'' supports \x, grep ERE does not): NBSP and U+2010..U+2015 dashes.
+NAME_SEP="([[:space:][:punct:]]|"$'\xc2\xa0'
+for _b in 90 91 92 93 94 95; do NAME_SEP="${NAME_SEP}|"$'\xe2\x80'"$(printf "\\x$_b")"; done
+NAME_SEP="${NAME_SEP}){1,3}"
+scan_known_names() {
+  local content="$1" priv name pat hits=""
+  priv="$(resolve_private_dir)" || priv=""
+  if [ -z "$priv" ]; then
+    echo "audit-privacy: .private/ not found — known-names check skipped" >&2
+    return 0
+  fi
+  local names
+  names="$(known_names "$priv" | sort -u)"
+  if [ -z "$names" ]; then
+    echo "audit-privacy: .private/ has no known names (privacy-names.txt, crm/opportunities) — known-names check found nothing to match" >&2
+    return 0
+  fi
+  while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    # Between tokens: any run of 1-3 whitespace/punctuation chars (space, tab, hyphen, comma,
+    # underscore, dashes, NBSP). Word-bounded both ends. Not covered: a name split across lines,
+    # decomposed-Unicode spellings — the agent's own read stays the primary gate.
+    pat=$(printf '%s' "$name" | sed -E 's/[][\.*^$+?(){}|/]/\\&/g; s/[[:space:]]+/ /g')
+    pat="${pat// /$NAME_SEP}"
+    if grep -qiE "(^|[^[:alnum:]_])${pat}([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); then
+      hits="${hits}known name from .private: ${name}"$'\n'
+    fi
+  done <<< "$names"
+  printf '%s' "$hits"
+}
+
 HITS=$(scan_content "$ADDED")
+NAME_HITS=$(scan_known_names "$ADDED")
+[ -n "$NAME_HITS" ] && HITS="${HITS}${NAME_HITS}"
 
 # Diff-only third-party email check: never on commit messages (--msg / MSGS) — they carry
 # Co-Authored-By trailers that would otherwise be flagged with no allowlist applied.
@@ -202,6 +260,8 @@ fi
 if [ -n "$MSGS" ]; then
   MSG_HITS=$(scan_content "$MSGS")
   [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"
+  MSG_NAME_HITS=$(scan_known_names "$MSGS")
+  [ -n "$MSG_NAME_HITS" ] && HITS="${HITS}${MSG_NAME_HITS}"
 fi
 
 if [ -n "$HITS" ]; then
