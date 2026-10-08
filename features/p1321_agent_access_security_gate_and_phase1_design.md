@@ -123,6 +123,12 @@ Sequential, in one worktree:
 - [ ] Production migration history read (read-only) before and after the run is identical; staged production migrations, if any, are listed
 - [ ] A re-audit report exists with a written Criterion 1 answer, controls shown for every empty result
 - [ ] Phase-1 architecture document exists with two blind review rounds recorded, and zero unresolved critical or high findings
+  - **Evidence (2026-10-09): NOT MET — design PARKED.** Two blind rounds are recorded in
+    `docs/technical/agent-access-phase1-architecture.md` § Review. Round 2 (1 of 1 reports received)
+    returned **NO** with 1 critical and 5 high findings, all **open** (C1, H1–H5 in that table; M1–M7,
+    L1–L4 also open). No revision was made: P1215 is deferred and nothing can be built on this design
+    until Criterion 1 is **Yes**, which the re-audit still answers **No**. Unparking requires revision 2
+    against C1/H1–H5 and a third blind round by a reviewer who has not seen rounds 1–2.
 - [ ] `features/verification/p1321/assumptions.md` exists and every entry has a date, the call made, and why
 
 ## Resolved Decisions

@@ -121,3 +121,25 @@ exploited. They are live in production and predate this branch. Two of them show
 outcomes can still be reached by sibling paths. Specifics are in the private security log. A
 critical live defect needs its own embargoed spec and a production fix decision, and both are the
 founder's call. Criterion 1 stays **No**.
+
+## 18. 2026-10-09 — Phase-1 design parked; round-2 findings recorded as open evidence
+
+**Call:** no revision of the design this session; the Done-When item carries the round-2 verdict
+and the condition for unparking. **Why:** P1215 is deferred and Criterion 1 is still No, so a
+revision would be work no build can use yet, and a revision judged by its author is not a review.
+
+## 19. 2026-10-09 — Three integration specs still expect anonymous EXECUTE that entry 2 revoked
+
+**Call:** left unchanged; raised with the founder. **Why:** `p581-letters-migration`,
+`p651-letter-onboarding-migration` and `p699-letter-results-migration` call `get_letter_by_token` /
+`get_letter_results` as anon and now get 42501 on test. Re-checked: `getLetterByToken`
+(letters-service.ts) has no caller, and the results page redirects a signed-out visitor to login
+before calling `getLetterResults`. So the revoke stays client-safe and the tests encode the old
+contract — changing a test changes the spec, which is ask-first.
+
+## 20. 2026-10-09 — Production apply split by the R1 coupling
+
+**Call:** R1 (20261008220000) is not applied to prod with the others. **Why:** its coupled frontend
+4b29965e1 is on this branch only, not on origin/main, so `migrate.sh --env prod` hard-blocks it until
+that commit is deployed. 20261008210000, …230000, …231000 and …232000 carry no coupling and can be
+applied with `--only`, on the founder's go.
