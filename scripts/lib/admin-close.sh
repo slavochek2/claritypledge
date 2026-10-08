@@ -10,8 +10,7 @@
 # closes anything itself.
 #
 # ELIGIBILITY — every condition must hold; the first failure is the verdict:
-#   1. CLASSIFIED: frontmatter says `type: comment` (while the switch below allows
-#      it), or carries a dated `withdrawn:` field, or a `retracted` tag. Frontmatter
+#   1. CLASSIFIED: frontmatter carries a dated `withdrawn:` field, or a `retracted` tag. Frontmatter
 #      only, parsed strictly: a duplicated, quoted or unparseable classification key
 #      refuses rather than being guessed at.
 #   2. PROVENANCE: the classification is already present on the ACCEPTED BASE —
@@ -60,12 +59,12 @@
 # Output contract (shell-safety.md): reasons carry no >, < or | — any value taken
 # from a ref name or a file is passed through _ac_safe first.
 
-# ── FOUNDER DECISION (P1444 review M1) — THE ONE SWITCH ────────────────────────
-# Whether a `type: comment` spec qualifies on that label alone. 1 = yes, as the
-# spec was written (2026-10-08). Flipping this line to 0 narrows the route to
-# withdrawn / retracted specs only; nothing else changes. Measured at review time:
-# 13 of 14 open type: comment specs would be agent-closable while this is 1.
-ADMIN_TYPE_COMMENT_ELIGIBLE=1
+# ── THE ONE SWITCH (P1444 review M1) ────────────────────────────────────────────
+# Whether a `type: comment` spec qualifies on that label alone. Founder decision
+# 2026-10-08: NO — only withdrawn / retracted specs close administratively (13 of
+# 14 open comment specs would otherwise be agent-closable). Setting this to 1
+# re-admits `type: comment`; nothing else changes.
+ADMIN_TYPE_COMMENT_ELIGIBLE=0
 
 _AC_GREP=/usr/bin/grep
 [[ -x "$_AC_GREP" ]] || _AC_GREP=grep

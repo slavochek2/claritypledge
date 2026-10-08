@@ -94,7 +94,8 @@ ship() {
 # R1 — administrative closure, through git-ops.sh ship
 # ════════════════════════════════════════════════════════════════════════════
 
-# L1 — the P1274 shape: type: comment, created as such, pushed, no branch.
+# L1 — the P1274 shape: type: comment WITH the retracted tag, pushed, no branch.
+# Qualifies through the tag (founder decision 2026-10-08: the comment label alone does not).
 d="$(mk l1)"; spec "$d" p5001 'type: comment\ntags: [security, retracted]\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5001" push
 ship "$d" p5001; rc=$?
@@ -106,7 +107,7 @@ if [[ $rc -eq 0 ]] && closed "$d" p5001 \
    && [[ "$ns" == "A $SPRINT/p5001_demo.md D features/p5001_demo.md " ]] \
    && [[ "$subj" == "chore: close p5001 (administrative) — "* ]] \
    && ! git -C "$d" log -1 --format=%B | grep -q '^Gate-Override'; then
-  pass "L1: a pushed type: comment spec with no branch closes (exit 0): both SKIP lines, no stamp, no review, no override, stdin closed, commit = exactly the move"
+  pass "L1: a pushed retracted spec with no branch closes (exit 0): both SKIP lines, no stamp, no review, no override, stdin closed, commit = exactly the move"
 else
   fail "L1: administrative close did not complete as specified (exit $rc; paths: $ns; subject: $subj)"; show "$SCRATCH/ship.log"
 fi
@@ -130,6 +131,17 @@ else
   fail "L1c: retracted-tag spec did not close (exit $rc)"; show "$SCRATCH/ship.log"
 fi
 
+# L1d — founder decision 2026-10-08: `type: comment` ALONE no longer qualifies.
+d="$(mk l1d)"; spec "$d" p5003 'type: comment\npipeline_ran: [create-spec]'
+commit "$d" "docs: add p5003" push
+h0="$(head_of "$d")"; ship "$d" p5003; rc=$?
+if [[ $rc -ne 0 ]] && ! closed "$d" p5003 && [[ "$(head_of "$d")" == "$h0" ]] \
+   && grep -q 'type: comment alone does not qualify' "$SCRATCH/ship.log"; then
+  pass "L1d: a type: comment spec with no withdrawn/retracted marker is refused (exit $rc) and the gate says why"
+else
+  fail "L1d: a comment-only spec closed administratively (exit $rc)"; show "$SCRATCH/ship.log"
+fi
+
 # Negative control for the whole arm: a REAL spec in the same position (pushed,
 # no branch, no stamp, no review) must still be refused — the arm must not have
 # loosened the gates for specs it does not cover.
@@ -144,7 +156,7 @@ else
 fi
 
 # L2 — a local feature branch carrying a code commit ahead of main.
-d="$(mk l2)"; spec "$d" p5010 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l2)"; spec "$d" p5010 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5010" push
 ( cd "$d" && git checkout -q -b feature/p5010-sneak && echo code > src.ts && git add src.ts \
   && git commit -qm "p5010: code" && git checkout -q main ) >/dev/null 2>&1
@@ -158,7 +170,7 @@ fi
 
 # L2b — the branch exists only on the REMOTE, so git-ops takes the no-branch
 # route and only the administrative check's ref scan can see it.
-d="$(mk l2b)"; spec "$d" p5011 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l2b)"; spec "$d" p5011 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5011" push
 ( cd "$d" && git checkout -q -b feature/p5011-sneak && echo code > src.ts && git add src.ts \
   && git commit -qm "p5011: code" && git push -q origin feature/p5011-sneak && git checkout -q main \
@@ -177,7 +189,7 @@ fi
 # guard exists for the day they diverge; to watch it FIRE (gate 7) this scratch
 # repo's ship-gates.sh is a stub that claims ELIGIBLE for a spec with a real fix/
 # branch carrying code.
-d="$(mk l2c)"; spec "$d" p5012 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l2c)"; spec "$d" p5012 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5012" push
 ( cd "$d" && git checkout -q -b fix/p5012-x && echo code > src.ts && git add src.ts \
   && git commit -qm "p5012: code" && git checkout -q main ) >/dev/null 2>&1
@@ -195,7 +207,7 @@ fi
 # relabelled type: comment in a local, unpushed commit, then closed.
 d="$(mk l3)"; spec "$d" p5020 'type: task\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5020" push
-spec "$d" p5020 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: p5020 is just a note now"
+spec "$d" p5020 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: p5020 is just a note now"
 h0="$(head_of "$d")"; ship "$d" p5020; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5020 && [[ "$(head_of "$d")" == "$h0" ]] \
    && grep -q 'NOT ELIGIBLE: the spec at origin/main is not classified' "$SCRATCH/ship.log"; then
@@ -217,7 +229,7 @@ fi
 # L3b — the relabel is only in the working tree (uncommitted).
 d="$(mk l3b)"; spec "$d" p5021 'type: task\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5021" push
-spec "$d" p5021 'type: comment\npipeline_ran: [create-spec]'
+spec "$d" p5021 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 h0="$(head_of "$d")"; ship "$d" p5021; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5021 && [[ "$(head_of "$d")" == "$h0" ]] \
    && grep -q 'NOT ELIGIBLE: the spec as committed on main is not classified' "$SCRATCH/ship.log"; then
@@ -227,7 +239,7 @@ else
 fi
 
 # L3c — a comment spec born and closed inside the range (never pushed).
-d="$(mk l3c)"; spec "$d" p5022 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l3c)"; spec "$d" p5022 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5022"
 h0="$(head_of "$d")"; ship "$d" p5022; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5022 && [[ "$(head_of "$d")" == "$h0" ]] \
@@ -239,7 +251,7 @@ fi
 
 # L4 — the closing change may touch only the spec (and its UAT file). A stray
 # staged file is caught by the under-lock re-check, before any commit exists.
-d="$(mk l4)"; spec "$d" p5030 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l4)"; spec "$d" p5030 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5030" push
 ( cd "$d" && echo stray > stray.txt && git add stray.txt ) >/dev/null 2>&1
 h0="$(head_of "$d")"; ship "$d" p5030; rc=$?
@@ -251,7 +263,7 @@ else
 fi
 
 # L5 — a comment spec that records its own dev run is not "nothing to gate".
-d="$(mk l5)"; spec "$d" p5040 'type: comment\npipeline_ran: [create-spec, dev]'
+d="$(mk l5)"; spec "$d" p5040 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec, dev]'
 commit "$d" "docs: add p5040" push
 h0="$(head_of "$d")"; ship "$d" p5040; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5040 && grep -q 'records its own implementation' "$SCRATCH/ship.log"; then
@@ -263,7 +275,7 @@ fi
 # L6 — RACE: a branch ahead of main appears AFTER the pre-lock check. The
 # under-lock re-check must see it. SHIP_DEBUG_NOBRANCH_SLEEP_SECS is the existing
 # test knob that widens the post-lock window (it sleeps; it skips nothing).
-d="$(mk l6)"; spec "$d" p5050 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l6)"; spec "$d" p5050 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5050" push
 code_commit="$( cd "$d" && git checkout -q -b tmp-p5050 && echo code > src.ts && git add src.ts \
   && git commit -qm 'p5050: code' >/dev/null 2>&1 && git rev-parse HEAD && git checkout -q main \
@@ -284,7 +296,7 @@ else
 fi
 
 # L7 — fail closed: the library missing means no administrative route.
-d="$(mk l7 noadmin)"; spec "$d" p5060 'type: comment\npipeline_ran: [create-spec]'
+d="$(mk l7 noadmin)"; spec "$d" p5060 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
 commit "$d" "docs: add p5060" push
 ship "$d" p5060; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5060 && grep -q 'admin-close.sh is missing' "$SCRATCH/ship.log"; then
@@ -598,7 +610,7 @@ else
   # C1 — the local L1 close, judged by CI over the push range it would deliver.
   before="$(git -C "$L1_REPO" rev-parse origin/main)"; after="$(head_of "$L1_REPO")"
   ci_run "$L1_REPO" push "$before" "$after"; rc=$?
-  if [[ $rc -eq 0 ]] && grep -q "ADMIN: p5001 closed administratively (type: comment)" "$SCRATCH/ci.log"; then
+  if [[ $rc -eq 0 ]] && grep -q "ADMIN: p5001 closed administratively (tag: retracted)" "$SCRATCH/ci.log"; then
     pass "C1: CI re-derives git-ops' administrative close from blobs and passes it (job exit 0)"
     echo "    --- CI log (C1) ---"; grep -E 'Range:|Specs closed|GATE 2.5|ADMIN:' "$SCRATCH/ci.log" | sed 's/^/    /'
   else
@@ -616,7 +628,7 @@ else
   # C2 — relabel inside the pushed range, then a hand close.
   d="$(mk c2)"; spec "$d" p5300 'type: task\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5300" push
   before="$(head_of "$d")"
-  spec "$d" p5300 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: relabel"
+  spec "$d" p5300 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: relabel"
   hand_close "$d" p5300
   ci_run "$d" push "$before" "$(head_of "$d")"; rc=$?
   if [[ $rc -ne 0 ]] && grep -q 'Not an administrative close: the spec at the range base is not classified' "$SCRATCH/ci.log" \
@@ -627,7 +639,7 @@ else
   fi
 
   # C3 — a closing commit that also touches another path.
-  d="$(mk c3)"; spec "$d" p5301 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5301" push
+  d="$(mk c3)"; spec "$d" p5301 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5301" push
   before="$(head_of "$d")"; hand_close "$d" p5301 src-change.ts
   ci_run "$d" push "$before" "$(head_of "$d")"; rc=$?
   if [[ $rc -ne 0 ]] && grep -q 'the closing change touches src-change.ts' "$SCRATCH/ci.log"; then
@@ -637,7 +649,7 @@ else
   fi
 
   # C3b — the UAT file may move with its spec (gate 7c: the allowed shape passes).
-  d="$(mk c3b)"; spec "$d" p5302 'type: comment\npipeline_ran: [create-spec]'
+  d="$(mk c3b)"; spec "$d" p5302 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
   echo uat > "$d/features/uat/p5302.md"; commit "$d" "docs: add p5302" push
   before="$(head_of "$d")"
   ( cd "$d" && mkdir -p "$SPRINT/uat" && git mv features/uat/p5302.md "$SPRINT/uat/p5302.md" ) >/dev/null 2>&1
@@ -650,7 +662,7 @@ else
   fi
 
   # C4 — a feature branch ahead of the closing commit, visible as a remote ref.
-  d="$(mk c4)"; spec "$d" p5303 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5303" push
+  d="$(mk c4)"; spec "$d" p5303 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5303" push
   before="$(head_of "$d")"
   ( cd "$d" && git checkout -q -b feature/p5303-x && echo c > c.ts && git add c.ts && git commit -qm "p5303: code" \
     && git push -q origin feature/p5303-x && git checkout -q main && git fetch -q origin ) >/dev/null 2>&1
@@ -686,7 +698,7 @@ else
 
   # C7 — the base has no admin library (the push that first lands it): the
   # administrative route does not exist for that range, and the close fails.
-  d="$(mk c7 noadmin)"; spec "$d" p5306 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5306" push
+  d="$(mk c7 noadmin)"; spec "$d" p5306 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5306" push
   before="$(head_of "$d")"
   cp "$W/scripts/lib/admin-close.sh" "$d/scripts/lib/"; ( cd "$d" && git add scripts/lib/admin-close.sh && git commit -qm "land lib" ) >/dev/null 2>&1
   hand_close "$d" p5306
@@ -722,7 +734,7 @@ fi
 fmx() { printf -- '---\n%b\n---\nBody.\n' "$1"; }
 lib_rc() {  # lib_rc <function> <content> [off] — the function's exit code
   bash -c '. "$1/scripts/lib/admin-close.sh" || exit 99
-           [ "$4" = off ] && ADMIN_TYPE_COMMENT_ELIGIBLE=0
+           [ "$4" = on ] && ADMIN_TYPE_COMMENT_ELIGIBLE=1
            "$2" "$3" >/dev/null 2>&1; echo "$?"' _ "$W" "$1" "$2" "${3:-}" 2>/dev/null | tail -1
 }
 p_case() {  # p_case <id> <function> <want: 0|nonzero> <frontmatter> <label> [off]
@@ -744,11 +756,11 @@ p_case P6  admin_records_impl 0   'type: comment\npipeline_ran: ["create-spec", 
 p_case P6b admin_records_impl 0   "type: comment\npipeline_ran: ['dev.1']"     'a quoted dev.1 re-run records an implementation (Gemini #3)'
 p_case P6c admin_records_impl 0   'type: comment\n"pipeline_ran": [dev]'       'a quoted pipeline_ran key is ambiguous and counts as an implementation (fail closed)'
 p_case P7  admin_classify 0       'type: task\nwithdrawn: "2026-01-01 #1"'     'a quoted withdrawn value containing # keeps its date (Gemini #7)'
-p_case P8  admin_classify 0       'type: comment'                               'control: plain type: comment classifies'
+p_case P8  admin_classify nonzero 'type: comment'                               'DEFAULT (founder 2026-10-08): type: comment alone does not qualify'
 p_case P8b admin_classify 0       'type: task\ntags: [security, retracted]'    'control: inline tag list with retracted classifies'
-p_case P8c admin_records_impl nonzero 'type: comment\npipeline_ran: [create-spec]' 'control: create-spec alone records no implementation'
-p_case P9  admin_classify nonzero 'type: comment'                               'M1 switch OFF: type: comment no longer qualifies' off
-p_case P9b admin_classify 0       'type: task\nwithdrawn: 2026-10-01'          'M1 switch OFF: a withdrawn spec still qualifies' off
+p_case P8c admin_records_impl nonzero 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]' 'control: create-spec alone records no implementation'
+p_case P9  admin_classify 0       'type: comment'                               'switch flipped to 1: type: comment qualifies again' on
+p_case P9b admin_classify 0       'type: task\nwithdrawn: 2026-10-01'          'switch flipped to 1: a withdrawn spec still qualifies' on
 
 # Pushes in this block go to the scratch bare remote created by mk(), never anywhere else.
 spush() { git -C "$1" push -q origin "${2:-main}" >/dev/null 2>&1; }
@@ -777,7 +789,7 @@ else
   fail "L8b: a stamped spec closed administratively (exit $rc)"; show "$SCRATCH/ship.log"
 fi
 
-d="$(mk l8c)"; spec "$d" p5072 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5072" push
+d="$(mk l8c)"; spec "$d" p5072 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5072" push
 printf '{"type": "code", "pn": "p5072", "branch": "main", "sha": "0", "timestamp": "t"}\n' >> "$d/.git/.finish-reviewed"
 ship "$d" p5072; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5072 && grep -q 'implementation evidence' "$SCRATCH/ship.log"; then
@@ -787,7 +799,7 @@ else
 fi
 
 # L9 (Opus M2) — origin/main does not carry the library yet (P1444 not pushed).
-d="$(mk l9 noadmin)"; spec "$d" p5080 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5080" push
+d="$(mk l9 noadmin)"; spec "$d" p5080 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5080" push
 cp "$W/scripts/lib/admin-close.sh" "$d/scripts/lib/"
 ( cd "$d" && git add scripts/lib/admin-close.sh && git commit -qm "land the library locally" ) >/dev/null 2>&1
 h0="$(head_of "$d")"; ship "$d" p5080; rc=$?
@@ -800,7 +812,7 @@ fi
 
 # L10 (Codex #11) — a branch appears INSIDE the commit's pre-commit hook window,
 # after the last pre-commit check. The commit lands; ship must not report success.
-d="$(mk l10)"; spec "$d" p5090 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5090" push
+d="$(mk l10)"; spec "$d" p5090 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5090" push
 late="$( cd "$d" && git checkout -q -b tmp-p5090 && echo code > src.ts && git add src.ts \
   && git commit -qm 'p5090: code' >/dev/null 2>&1 && git rev-parse HEAD && git checkout -q main && git branch -q -D tmp-p5090 )"
 printf '#!/bin/sh\ngit update-ref refs/remotes/origin/feature/p5090-late %s\n' "$late" > "$d/.git/hooks/pre-commit"
@@ -814,7 +826,7 @@ fi
 
 # L11 (Codex #9) — an empty feature branch at main's tip: still refused (the branch
 # route has nothing to ship), but the refusal now names the administrative remedy.
-d="$(mk l11)"; spec "$d" p5091 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5091" push
+d="$(mk l11)"; spec "$d" p5091 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5091" push
 ( cd "$d" && git branch -q feature/p5091-empty ) >/dev/null 2>&1
 ship "$d" p5091; rc=$?
 if [[ $rc -ne 0 ]] && ! closed "$d" p5091 && grep -q 'delete the empty branch' "$SCRATCH/ship.log"; then
@@ -825,7 +837,7 @@ fi
 
 # L12 (Gemini #2, case 2) — local main BEHIND origin/main and a remote branch that
 # carries nothing but origin/main's commits: not ahead of main, so not a refusal.
-d="$(mk l12)"; spec "$d" p5092 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5092" push
+d="$(mk l12)"; spec "$d" p5092 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5092" push
 ( cd "$SCRATCH" && git clone -q "$SCRATCH/l12.git" l12-peer && cd l12-peer && git config user.email c@t \
   && git config user.name c && echo other > other.txt && git add other.txt && git commit -qm "unrelated" ) >/dev/null 2>&1
 spush "$SCRATCH/l12-peer" main; spush "$SCRATCH/l12-peer" main:feature/p5092-rebased
@@ -887,7 +899,7 @@ else
   # main, never the side branch's previous tip.
   d="$(mk c9)"; spec "$d" p5320 'type: task\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5320" push
   ( cd "$d" && git checkout -q -b release/x ) >/dev/null 2>&1
-  spec "$d" p5320 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: relabel"
+  spec "$d" p5320 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: relabel"
   t1="$(git -C "$d" rev-parse HEAD)"; hand_close "$d" p5320; t2="$(git -C "$d" rev-parse HEAD)"
   ci_run "$d" push "$t1" "$t2" refs/heads/release/x; rc=$?
   git -C "$d" checkout -q main >/dev/null 2>&1
@@ -910,7 +922,7 @@ else
 
   # C11 (Codex #3) — the close made ON a feature branch that also carries work:
   # branches are judged against main, not against the closing commit.
-  d="$(mk c11)"; spec "$d" p5322 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5322" push
+  d="$(mk c11)"; spec "$d" p5322 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5322" push
   ( cd "$d" && git checkout -q -b feature/p5322-work && echo wip > wip.ts && git add wip.ts && git commit -qm "wip" ) >/dev/null 2>&1
   hand_close "$d" p5322
   spush "$d" feature/p5322-work; git -C "$d" fetch -q origin >/dev/null 2>&1
@@ -935,7 +947,7 @@ else
     fail "C12: a quoted path escaped closure discovery (exit $rc)"; show "$SCRATCH/ci.log"
   fi
   d="$(mk c12b)"; f="features/p5324_née.md"
-  printf -- '---\nstatus: backlog\ntype: comment\npipeline_ran: [create-spec]\n---\n# p5324\n' > "$d/$f"
+  printf -- '---\nstatus: backlog\ntype: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]\n---\n# p5324\n' > "$d/$f"
   ( cd "$d" && git add -- "$f" && git commit -qm "docs: add p5324" ) >/dev/null 2>&1; spush "$d"
   before="$(head_of "$d")"
   ( cd "$d" && git mv -- "$f" "$SPRINT/p5324_née.md" && git commit -qm "chore: close p5324" ) >/dev/null 2>&1
@@ -986,7 +998,7 @@ else
   fi
 
   # C15 (Gemini #4) — the UAT file moves as an exact PAIR or not at all.
-  d="$(mk c15)"; spec "$d" p5329 'type: comment\npipeline_ran: [create-spec]'
+  d="$(mk c15)"; spec "$d" p5329 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'
   echo uat > "$d/features/uat/p5329.md"; commit "$d" "docs: add p5329" push
   before="$(head_of "$d")"; ( cd "$d" && git rm -q features/uat/p5329.md ) >/dev/null 2>&1; hand_close "$d" p5329
   ci_run "$d" push "$before" "$(head_of "$d")"; rc=$?
@@ -995,7 +1007,7 @@ else
   else
     fail "C15: an unpaired UAT deletion passed (exit $rc)"; show "$SCRATCH/ci.log"
   fi
-  d="$(mk c15b)"; spec "$d" p5330 'type: comment\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5330" push
+  d="$(mk c15b)"; spec "$d" p5330 'type: task\nwithdrawn: 2026-10-01\npipeline_ran: [create-spec]'; commit "$d" "docs: add p5330" push
   before="$(head_of "$d")"; mkdir -p "$d/$SPRINT/uat"; echo uat > "$d/$SPRINT/uat/p5330.md"
   ( cd "$d" && git add "$SPRINT/uat/p5330.md" ) >/dev/null 2>&1; hand_close "$d" p5330
   ci_run "$d" push "$before" "$(head_of "$d")"; rc=$?

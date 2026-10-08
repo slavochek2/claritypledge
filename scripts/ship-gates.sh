@@ -314,6 +314,11 @@ if [[ -z "$spec_file_override" && -z "$feature_branch" && -n "$spec_content" && 
       else
         echo "[GATE ADMIN] NOT ELIGIBLE: ${ADMIN_REASON} — the normal gates apply"
       fi
+    elif [[ "$ADMIN_TYPE_COMMENT_ELIGIBLE" != 1 ]] \
+         && printf '%s\n' "$spec_content" | admin_frontmatter | $GREP -qiE '^type:[[:space:]]*["'"'"']?comment'; then
+      # Founder decision 2026-10-08: the comment label alone is not enough. Say so,
+      # or a comment spec fails 2.5 with no hint of the administrative route.
+      echo "[GATE ADMIN] NOT ELIGIBLE: type: comment alone does not qualify (founder decision 2026-10-08) — if ${pn} was withdrawn, record withdrawn: YYYY-MM-DD or the retracted tag on origin/main first; the normal gates apply"
     fi
   elif printf '%s\n' "$spec_content" | sed -n '1,40p' | $GREP -qE '^(type:[[:space:]]*comment|withdrawn:|tags:.*retracted)'; then
     echo "[GATE ADMIN] NOT ELIGIBLE: scripts/lib/admin-close.sh is missing, so administrative closure is unavailable — the normal gates apply"

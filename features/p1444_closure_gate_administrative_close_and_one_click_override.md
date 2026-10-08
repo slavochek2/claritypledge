@@ -53,20 +53,21 @@ call (the override primitive's assurance level, below).
 Technical design by Codex (2026-10-08), as the founder directed.
 
 **R1 — administrative closure (no founder).**
-- Eligible when the spec's frontmatter says `type: comment`, or carries a dated, non-empty
-  `withdrawn:` field, or the legacy `retracted` tag. **The classification must already be on
-  `main` before the close**: a relabel inside the closing range (real spec → comment/withdrawn)
-  refuses.
+- Eligible when the spec's frontmatter carries a dated, non-empty `withdrawn:` field or the
+  `retracted` tag. `type: comment` alone does NOT qualify (founder decision 2026-10-08, below).
+  **The classification must already be on `main` before the close**: a relabel inside the
+  closing range (real spec → withdrawn/retracted) refuses.
 - No `feature/pN-*` or `fix/pN-*` ref (local or remote) is ahead of main.
 - Main's history holds no implementation evidence for pN: no non-revert commit whose subject
   names pN and touches a path outside `features/`, is a merge, or is a `ready for QA` stamp,
   and (locally) no code-review entry naming pN. Applied locally and in CI (CI: git history
   only). This is what separates a real withdrawal from implemented work relabelled in an
   earlier push (review round 1, H1).
-- Whether `type: comment` alone qualifies is ONE switch, `ADMIN_TYPE_COMMENT_ELIGIBLE` in
-  `scripts/lib/admin-close.sh` (default 1, as written above).
-  [FOUNDER DECISION: keep it, or narrow the route to withdrawn/retracted only? At review, 13 of
-  14 open `type: comment` specs would be agent-closable while it is 1.]
+- **Decided (founder, 2026-10-08): eligibility is withdrawn/retracted only.** At review, 13 of
+  14 open `type: comment` specs would otherwise have been agent-closable. The choice is ONE
+  switch, `ADMIN_TYPE_COMMENT_ELIGIBLE=0` in `scripts/lib/admin-close.sh`; setting it to 1
+  re-admits `type: comment`. A comment-only spec gets a `[GATE ADMIN] NOT ELIGIBLE` line
+  naming the fix (record `withdrawn:` or the `retracted` tag on origin/main first).
 - Locally the route also refuses until `origin/main` carries `scripts/lib/admin-close.sh`
   ("ship P1444 first"), because CI judges a close with origin/main's copy.
 - The closing commit changes only the spec's own path (move into `features/done/`) and its UAT
@@ -77,6 +78,9 @@ Technical design by Codex (2026-10-08), as the founder directed.
 - `.github/workflows/closure-gate.yml` re-derives eligibility from the committed blobs of the
   closing commit and its parent. It never trusts a trailer, and uses one event range for both
   closure discovery and commit lookup.
+- **Out of scope (decided 2026-10-08):** making no-branch closes move the UAT file with the
+  spec. No no-branch close has ever done it (pre-existing since P920, every spec, not only
+  administrative ones); a hand-staged UAT move is refused by the exact-paths commit check.
 
 **R2 — one-click override for a real red gate.**
 - `--override --reason "<text>"` asks for approval through a dedicated macOS keychain approval
@@ -93,10 +97,16 @@ Technical design by Codex (2026-10-08), as the founder directed.
   system dialog cannot be answered by UI scripting on this machine (Codex: not verified), and
   the code says so.
 
-[FOUNDER DECISION: is a keychain dialog an acceptable override until something stronger exists?
-Codex recommends a server-side approval tied to a founder-only identity the agents cannot use. On a
-single machine where `gh` is logged in as the founder, that identity does not exist yet. A probe
-that tries to answer the dialog by script would settle the question, and it needs you present.]
+**Decided (founder, 2026-10-08): the keychain dialog is accepted as the one-click override
+approval**, with the honest label above kept in the code: friction plus a human-presence check,
+not shown unforgeable against UI scripting. A server-side approval tied to a founder-only
+identity remains the stronger option (Codex) and stays out of scope.
+
+**Decided (delegated by the founder, 2026-10-08): CI keeps accepting a COMPLETE override trailer
+set** (`Gate-Override`, `Gate-Override-Reason`, `Gate-Override-Approval`, in a real trailer block)
+**as a WARNING, not a pass-through error.** Residual, documented in `closure-gate.yml` and
+`gate-override.sh`: whoever writes the commit can write the trailers, so CI records a loud,
+permanent claim; it cannot prove the approval happened.
 
 **Then:** close P1274 through the administrative path.
 
@@ -104,9 +114,11 @@ that tries to answer the dialog by script would settle the question, and it need
 
 | Risk | Label | Note |
 |---|---|---|
-| A real spec relabelled `type: comment` / `withdrawn:` to skip gates | MITIGATE | Classification must predate the close on main (relabel in range refuses); no implementation evidence for pN in main's history; branch-ahead check. **Residual:** an earlier-push relabel of a spec with NO implementation evidence still closes administratively |
+| A real spec relabelled `withdrawn:` / `retracted` to skip gates | MITIGATE | Classification must predate the close on main (relabel in range refuses); no implementation evidence for pN in main's history; branch-ahead check. **Residual:** an earlier-push relabel of a spec with NO implementation evidence still closes administratively |
 | Work done on a deleted or never-pushed branch | ACCEPT | Unobservable from the repo; the guarantee is scoped to observable evidence and says so |
 | Keychain dialog answerable by UI scripting | DEFER | Unverified; labelled honestly; the probe needs the founder present |
+| Forged override trailers accepted by CI | ACCEPT | Founder-delegated 2026-10-08: CI requires the complete trailer set in a real trailer block and reports it as a WARNING; whoever writes the commit can forge it. Fix is a server-side approval (Non-Goal) |
+| No-branch close leaves the UAT file behind | ACCEPT | Pre-existing since P920 for every no-branch close; out of scope (2026-10-08) |
 | "Always Allow" silently disables the approval | MITIGATE | Access list verified before and after the read |
 | CI runs `origin/main`'s gates, so a close relying on R1 fails CI until P1444 is on `origin/main` | ACCEPT | Ordering rule from P1309: push P1444 before the P1274 close |
 
@@ -117,9 +129,9 @@ that tries to answer the dialog by script would settle the question, and it need
 
 ## Done-When
 
-- [ ] A `type: comment` spec with no branch closes through `git-ops.sh ship pN` with both SKIP lines and no founder input (canary)
+- [ ] A withdrawn or retracted spec with no branch closes through `git-ops.sh ship pN` with both SKIP lines and no founder input; a `type: comment`-only spec refuses (canary)
 - [ ] The same spec with a `feature/pN-*` branch carrying a code commit ahead of main refuses (canary)
-- [ ] A spec relabelled to `type: comment` within the closing range refuses (canary)
+- [ ] A spec relabelled to withdrawn/retracted within the closing range refuses (canary)
 - [ ] A closing commit touching any path besides the spec and its UAT file refuses (canary)
 - [ ] A real spec on a red gate refuses without approval, and refuses when approval is declined (canary, keychain read injected only in the test harness that calls the extracted decision function)
 - [ ] A defeated or indeterminate access list on the approval item refuses (canary)
